@@ -21,7 +21,7 @@ function renderObjects(
 ) {
   return renderHook(() =>
     useBucketObjectsController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -163,7 +163,7 @@ describe("useBucketObjectsController", () => {
         objects: [{ key: "new.txt", size: 2 }],
       });
     const initial = {
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "old-bucket",
     };
     const { result, rerender } = renderHook(
@@ -181,7 +181,7 @@ describe("useBucketObjectsController", () => {
     act(() => {
       pendingOldLoad = result.current.refresh();
     });
-    rerender({ accountId: "acc-2", bucketName: "new-bucket" });
+    rerender({ contextId: "acc-2", bucketName: "new-bucket" });
     await act(async () => result.current.refresh());
     expect(result.current.rows[0]).toMatchObject({ key: "new.txt" });
 

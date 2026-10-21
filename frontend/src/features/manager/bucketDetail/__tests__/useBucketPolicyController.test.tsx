@@ -28,7 +28,7 @@ function renderPolicy(
 ) {
   return renderHook(() =>
     useBucketPolicyController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -64,7 +64,7 @@ describe("useBucketPolicyController", () => {
   it("keeps Manager visual edits local until Save and persists the complete policy", async () => {
     apiMocks.getBucketPolicy.mockResolvedValue({ policy: simplePolicy });
     apiMocks.putBucketPolicy.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+      (_contextId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
     );
     const { result } = renderPolicy();
 
@@ -104,7 +104,7 @@ describe("useBucketPolicyController", () => {
       resources: ["arn:aws:s3:::reports/*"],
     }));
     apiMocks.putBucketPolicy.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+      (_contextId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
     );
     await act(async () => result.current.saveDraft());
     expect(apiMocks.putBucketPolicy).toHaveBeenCalledTimes(1);
@@ -154,7 +154,7 @@ describe("useBucketPolicyController", () => {
     };
     apiMocks.getBucketPolicy.mockResolvedValue({ policy: advancedPolicy });
     apiMocks.putBucketPolicy.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+      (_contextId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
     );
     const { result } = renderPolicy();
 
@@ -189,7 +189,7 @@ describe("useBucketPolicyController", () => {
     };
     apiMocks.getBucketPolicy.mockResolvedValue({ policy });
     apiMocks.putBucketPolicy.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, nextPolicy: unknown) => Promise.resolve({ policy: nextPolicy }),
+      (_contextId: unknown, _bucketName: unknown, nextPolicy: unknown) => Promise.resolve({ policy: nextPolicy }),
     );
     const { result } = renderPolicy();
 
@@ -264,7 +264,7 @@ describe("useBucketPolicyController", () => {
     expect(result.current.editorError).toBeTruthy();
 
     apiMocks.putBucketPolicy.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
+      (_contextId: unknown, _bucketName: unknown, policy: unknown) => Promise.resolve({ policy }),
     );
     await act(async () => result.current.saveDraft());
     expect(apiMocks.putBucketPolicy).toHaveBeenCalledTimes(2);

@@ -28,7 +28,7 @@ function renderVersioning(
 ) {
   return renderHook(() =>
     useBucketVersioningController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "records",
       cephAdmin: false,
       enabled: true,

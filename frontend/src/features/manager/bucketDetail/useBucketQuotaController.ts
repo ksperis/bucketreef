@@ -18,7 +18,7 @@ type BucketQuotaDraft = {
 };
 
 type UseBucketQuotaControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   editable: boolean;
@@ -74,7 +74,7 @@ function draftsMatch(left: BucketQuotaDraft, right: BucketQuotaDraft): boolean {
 }
 
 export function useBucketQuotaController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   editable,
@@ -97,7 +97,7 @@ export function useBucketQuotaController({
     setDraft(next);
     setSnapshot(next);
   }, [
-    accountId,
+    contextId,
     bucketName,
     cephAdmin,
     enabled,
@@ -109,7 +109,7 @@ export function useBucketQuotaController({
   useEffect(() => {
     setError(null);
     setStatus(null);
-  }, [accountId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
 
   const update = (patch: Partial<BucketQuotaDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -149,7 +149,7 @@ export function useBucketQuotaController({
         if (!endpointId) return;
         await updateCephAdminBucketQuota(endpointId, bucketName, payload);
       } else {
-        await updateBucketQuota(accountId, bucketName, payload);
+        await updateBucketQuota(contextId, bucketName, payload);
       }
       setDraft(normalized);
       setSnapshot(normalized);

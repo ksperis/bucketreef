@@ -36,7 +36,7 @@ const listTopicsMock = vi.mocked(listTopics);
 function managerWrapper({ children }: { children: ReactNode }) {
   return (
     <BucketFeatureSuggestionsProvider
-      accountId="acc-1"
+      contextId="acc-1"
       bucketName="Source + Bucket"
       cephAdmin={false}
       enabled
@@ -179,7 +179,7 @@ describe("BucketFeatureSuggestionsProvider", () => {
     function wrapper({ children }: { children: ReactNode }) {
       return (
         <BucketFeatureSuggestionsProvider
-          accountId={null}
+          contextId={null}
           bucketName="ceph-source"
           cephAdmin
           enabled
@@ -230,7 +230,7 @@ describe("BucketFeatureSuggestionsProvider", () => {
     }
     const view = render(
       <BucketFeatureSuggestionsProvider
-        accountId="acc-old"
+        contextId="acc-old"
         bucketName="old-bucket"
         cephAdmin={false}
         enabled
@@ -244,7 +244,7 @@ describe("BucketFeatureSuggestionsProvider", () => {
     const pending = current!.prefixes.loadSuggestions!("old/");
     view.rerender(
       <BucketFeatureSuggestionsProvider
-        accountId="acc-new"
+        contextId="acc-new"
         bucketName="new-bucket"
         cephAdmin={false}
         enabled

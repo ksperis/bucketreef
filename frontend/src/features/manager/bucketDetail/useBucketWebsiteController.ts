@@ -30,7 +30,7 @@ type WebsiteDraft = {
 };
 
 type UseBucketWebsiteControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -76,7 +76,7 @@ function draftSignature(draft: WebsiteDraft): string {
 }
 
 export function useBucketWebsiteController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -111,7 +111,7 @@ export function useBucketWebsiteController({
         ? endpointId
           ? await getCephAdminBucketWebsite(endpointId, bucketName)
           : null
-        : await getBucketWebsite(accountId, bucketName);
+        : await getBucketWebsite(contextId, bucketName);
       apply(config);
     } catch (loadError) {
       apply();
@@ -124,7 +124,7 @@ export function useBucketWebsiteController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
 
   const update = <Key extends keyof WebsiteDraft>(
     key: Key,
@@ -187,7 +187,7 @@ export function useBucketWebsiteController({
         ? endpointId
           ? await putCephAdminBucketWebsite(endpointId, bucketName, payload)
           : payload
-        : await putBucketWebsite(accountId, bucketName, payload);
+        : await putBucketWebsite(contextId, bucketName, payload);
       apply(saved);
       setStatus("Website configuration updated.");
     } catch (saveError) {
@@ -212,7 +212,7 @@ export function useBucketWebsiteController({
         if (!endpointId) return;
         await deleteCephAdminBucketWebsite(endpointId, bucketName);
       } else {
-        await deleteBucketWebsite(accountId, bucketName);
+        await deleteBucketWebsite(contextId, bucketName);
       }
       apply();
       setStatus("Website configuration cleared.");

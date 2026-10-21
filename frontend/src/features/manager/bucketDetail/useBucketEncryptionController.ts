@@ -30,7 +30,7 @@ import {
 } from "./encryptionEditorModel";
 
 type UseBucketEncryptionControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -54,7 +54,7 @@ function rulesText(rules: EncryptionRuleRecord[]): string {
 }
 
 export function useBucketEncryptionController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -95,7 +95,7 @@ export function useBucketEncryptionController({
         }
         data = await getCephAdminBucketEncryption(endpointId, bucketName);
       } else {
-        data = await getBucketEncryption(accountId, bucketName);
+        data = await getBucketEncryption(contextId, bucketName);
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
@@ -109,7 +109,7 @@ export function useBucketEncryptionController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
 
   const openEditor = useCallback(() => {
     if (!enabled) return;
@@ -204,7 +204,7 @@ export function useBucketEncryptionController({
           if (!endpointId) return;
           await deleteCephAdminBucketEncryption(endpointId, bucketName);
         } else {
-          await deleteBucketEncryption(accountId, bucketName);
+          await deleteBucketEncryption(contextId, bucketName);
         }
         applyBaseline([]);
         setDraftRules([]);
@@ -216,7 +216,7 @@ export function useBucketEncryptionController({
           if (!endpointId) return;
           saved = await putCephAdminBucketEncryption(endpointId, bucketName, nextRules);
         } else {
-          saved = await putBucketEncryption(accountId, bucketName, nextRules);
+          saved = await putBucketEncryption(contextId, bucketName, nextRules);
         }
         const savedRules = normalizeRules(saved.rules ?? nextRules);
         applyBaseline(savedRules);
@@ -233,7 +233,7 @@ export function useBucketEncryptionController({
       setSaving(false);
     }
   }, [
-    accountId,
+    contextId,
     applyBaseline,
     bucketName,
     cephAdmin,

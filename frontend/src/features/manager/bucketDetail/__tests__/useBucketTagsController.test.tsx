@@ -31,7 +31,7 @@ function renderTags(
 ) {
   return renderHook(() =>
     useBucketTagsController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,

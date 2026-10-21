@@ -15,7 +15,7 @@ import {
 import { extractApiError } from "../../../utils/apiError";
 
 type UseBucketVersioningControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -27,7 +27,7 @@ function statusIsEnabled(status?: string | null): boolean {
 }
 
 export function useBucketVersioningController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -61,7 +61,7 @@ export function useBucketVersioningController({
         ? endpointId
           ? await getCephAdminBucketVersioning(endpointId, bucketName)
           : { status: null }
-        : await getBucketVersioning(accountId, bucketName);
+        : await getBucketVersioning(contextId, bucketName);
       applyStatus(data.status ?? null);
     } catch (loadFailure) {
       applyStatus(null);
@@ -71,7 +71,7 @@ export function useBucketVersioningController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, applyStatus, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyStatus, bucketName, cephAdmin, enabled, endpointId]);
 
   const updateDraft = (value: boolean) => {
     setDraftEnabled(value);
@@ -106,7 +106,7 @@ export function useBucketVersioningController({
           draftEnabled,
         );
       } else {
-        await setBucketVersioning(accountId, bucketName, draftEnabled);
+        await setBucketVersioning(contextId, bucketName, draftEnabled);
       }
       applyStatus(draftEnabled ? "Enabled" : "Suspended");
     } catch (saveFailure) {

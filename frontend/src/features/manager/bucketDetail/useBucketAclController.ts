@@ -17,7 +17,7 @@ import { extractApiError } from "../../../utils/apiError";
 import { stableBucketJsonSignature } from "./bucketFeatureState";
 
 type UseBucketAclControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -72,7 +72,7 @@ function signature(draft: AclDraft): string {
 }
 
 export function useBucketAclController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -108,7 +108,7 @@ export function useBucketAclController({
         ? endpointId
           ? await getCephAdminBucketAcl(endpointId, bucketName)
           : null
-        : await getBucketAcl(accountId, bucketName);
+        : await getBucketAcl(contextId, bucketName);
       applyLoaded(data);
     } catch (loadError) {
       applyLoaded();
@@ -116,7 +116,7 @@ export function useBucketAclController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, applyLoaded, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyLoaded, bucketName, cephAdmin, enabled, endpointId]);
 
   const updatePreset = (preset: string) => {
     setDraft((current) => ({ ...current, preset }));
@@ -152,7 +152,7 @@ export function useBucketAclController({
         ? endpointId
           ? await updateCephAdminBucketAcl(endpointId, bucketName, aclValue)
           : null
-        : await updateBucketAcl(accountId, bucketName, aclValue);
+        : await updateBucketAcl(contextId, bucketName, aclValue);
       setAcl(updated);
 
       const savedDraft = {

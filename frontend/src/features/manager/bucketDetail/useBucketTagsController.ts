@@ -23,7 +23,7 @@ import { stableBucketJsonSignature } from "./bucketFeatureState";
 type BucketTagDraft = BucketTag & { uiId: string };
 
 type UseBucketTagsControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -45,7 +45,7 @@ function sortedTags(tags: BucketTag[]): BucketTag[] {
 }
 
 export function useBucketTagsController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -79,7 +79,7 @@ export function useBucketTagsController({
         ? endpointId
           ? await getCephAdminBucketTags(endpointId, bucketName)
           : { tags: [] }
-        : await getBucketTags(accountId, bucketName);
+        : await getBucketTags(contextId, bucketName);
       apply(response.tags ?? []);
     } catch (loadError) {
       apply([]);
@@ -87,7 +87,7 @@ export function useBucketTagsController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
 
   const clearFeedback = () => {
     setError(null);
@@ -128,7 +128,7 @@ export function useBucketTagsController({
           if (!endpointId) return;
           await deleteCephAdminBucketTags(endpointId, bucketName);
         } else {
-          await deleteBucketTags(accountId, bucketName);
+          await deleteBucketTags(contextId, bucketName);
         }
         apply([]);
         setStatus("Bucket tags cleared.");
@@ -137,7 +137,7 @@ export function useBucketTagsController({
           if (!endpointId) return;
           await putCephAdminBucketTags(endpointId, bucketName, filtered);
         } else {
-          await putBucketTags(accountId, bucketName, filtered);
+          await putBucketTags(contextId, bucketName, filtered);
         }
         apply(filtered);
         setStatus("Bucket tags updated.");
@@ -158,7 +158,7 @@ export function useBucketTagsController({
         if (!endpointId) return;
         await deleteCephAdminBucketTags(endpointId, bucketName);
       } else {
-        await deleteBucketTags(accountId, bucketName);
+        await deleteBucketTags(contextId, bucketName);
       }
       apply([]);
       setStatus("Bucket tags cleared.");

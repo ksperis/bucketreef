@@ -418,7 +418,7 @@ export default function ManagerMetricsPage() {
           ) : null}
           {showTrafficAnalytics && (
             <TrafficAnalytics
-              accountId={contextIdForApi}
+              contextId={contextIdForApi}
               enabled={showTrafficAnalytics}
               visible={activeTab === "traffic"}
             />

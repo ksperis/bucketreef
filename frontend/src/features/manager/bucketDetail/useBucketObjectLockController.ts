@@ -26,7 +26,7 @@ type ObjectLockDraft = {
 };
 
 type UseBucketObjectLockControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -64,7 +64,7 @@ function signature(draft: ObjectLockDraft): string {
 }
 
 export function useBucketObjectLockController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -112,7 +112,7 @@ export function useBucketObjectLockController({
         ? endpointId
           ? await getCephAdminBucketObjectLock(endpointId, bucketName)
           : null
-        : await getBucketObjectLock(accountId, bucketName);
+        : await getBucketObjectLock(contextId, bucketName);
       apply(data);
     } catch (loadFailure) {
       apply();
@@ -125,7 +125,7 @@ export function useBucketObjectLockController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
 
   const update = <Key extends keyof ObjectLockDraft>(
     key: Key,
@@ -186,7 +186,7 @@ export function useBucketObjectLockController({
           }
           await setCephAdminBucketVersioning(endpointId, bucketName, true);
         } else {
-          await setBucketVersioning(accountId, bucketName, true);
+          await setBucketVersioning(contextId, bucketName, true);
         }
         onVersioningEnabled();
       }
@@ -201,7 +201,7 @@ export function useBucketObjectLockController({
         ? endpointId
           ? await updateCephAdminBucketObjectLock(endpointId, bucketName, payload)
           : null
-        : await updateBucketObjectLock(accountId, bucketName, payload);
+        : await updateBucketObjectLock(contextId, bucketName, payload);
       if (!updated) {
         setError("Unable to update the Object Lock configuration.");
         return;

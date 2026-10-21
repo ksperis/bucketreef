@@ -34,7 +34,7 @@ function renderReplication(
 ) {
   return renderHook(() =>
     useBucketReplicationController({
-      accountId: "acc-1",
+      contextId: "acc-1",
       bucketName: "reports",
       cephAdmin: false,
       enabled: true,
@@ -95,7 +95,7 @@ describe("useBucketReplicationController", () => {
       configuration: graphicalConfiguration,
     });
     apiMocks.putBucketReplication.mockImplementation(
-      (_accountId: unknown, _bucketName: unknown, configuration: unknown) =>
+      (_contextId: unknown, _bucketName: unknown, configuration: unknown) =>
         Promise.resolve({ configuration }),
     );
     const { result } = renderReplication();
@@ -250,7 +250,7 @@ describe("useBucketReplicationController", () => {
     apiMocks.putBucketReplication
       .mockRejectedValueOnce(new Error("temporary failure"))
       .mockImplementationOnce(
-        (_accountId: unknown, _bucketName: unknown, configuration: unknown) =>
+        (_contextId: unknown, _bucketName: unknown, configuration: unknown) =>
           Promise.resolve({ configuration }),
       );
     const { result } = renderReplication();

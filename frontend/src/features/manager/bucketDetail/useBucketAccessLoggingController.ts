@@ -22,7 +22,7 @@ import {
 } from "./bucketFeatureState";
 
 type UseBucketAccessLoggingControllerOptions = {
-  accountId: S3ExecutionContextSelector;
+  contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
   enabled: boolean;
@@ -30,7 +30,7 @@ type UseBucketAccessLoggingControllerOptions = {
 };
 
 export function useBucketAccessLoggingController({
-  accountId,
+  contextId,
   bucketName,
   cephAdmin,
   enabled,
@@ -74,7 +74,7 @@ export function useBucketAccessLoggingController({
         ? endpointId
           ? await getCephAdminBucketLogging(endpointId, bucketName)
           : { enabled: false }
-        : await getBucketLogging(accountId, bucketName);
+        : await getBucketLogging(contextId, bucketName);
       apply(data);
     } catch (loadError) {
       apply(null);
@@ -84,7 +84,7 @@ export function useBucketAccessLoggingController({
     } finally {
       setLoading(false);
     }
-  }, [accountId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
 
   const save = async () => {
     if (!bucketName || !enabled) return;
@@ -105,7 +105,7 @@ export function useBucketAccessLoggingController({
         ? endpointId
           ? await putCephAdminBucketLogging(endpointId, bucketName, payload)
           : payload
-        : await putBucketLogging(accountId, bucketName, payload);
+        : await putBucketLogging(contextId, bucketName, payload);
       apply(saved);
       setStatus(
         loggingEnabled
@@ -129,7 +129,7 @@ export function useBucketAccessLoggingController({
         if (!endpointId) return;
         await deleteCephAdminBucketLogging(endpointId, bucketName);
       } else {
-        await deleteBucketLogging(accountId, bucketName);
+        await deleteBucketLogging(contextId, bucketName);
       }
       apply({ enabled: false });
       setStatus("Access logging disabled.");
