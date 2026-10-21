@@ -20,14 +20,10 @@ import { readStoredUser } from "../utils/workspaces";
 
 const EXECUTION_CONTEXT_URL_PARAM = "ctx";
 
-type ExecutionContextSelectionPolicy = "first-available" | "explicit";
-
 type UseExecutionContextCatalogOptions = {
   scope: "manager" | "browser";
   storageKey: Parameters<typeof readClientStorage>[0];
-  selectionPolicy: ExecutionContextSelectionPolicy;
   accessDeniedMessage: string;
-  revokedSelectionMessage: string;
 };
 
 type SessionInfo = {
@@ -49,9 +45,7 @@ function readSessionInfo(): SessionInfo {
 export function useExecutionContextCatalog({
   scope,
   storageKey,
-  selectionPolicy,
   accessDeniedMessage,
-  revokedSelectionMessage,
 }: UseExecutionContextCatalogOptions) {
   const sessionInfo = useMemo(readSessionInfo, []);
   const requiresSelection = !sessionInfo.isSession;
@@ -117,24 +111,15 @@ export function useExecutionContextCatalog({
     const availableIds = contexts.map((context) => context.id);
     const urlContext = searchParams.get(EXECUTION_CONTEXT_URL_PARAM);
     const storedContext = readClientStorage(storageKey);
-    const requestedContext = urlContext ?? selectedContextId ?? storedContext;
-    const nextId = selectionPolicy === "first-available"
-      ? resolveUrlScopedSelection({
-          availableIds,
-          urlValue: urlContext,
-          currentValue: selectedContextId,
-          fallbackValues: [storedContext],
-        })
-      : requestedContext && availableIds.includes(requestedContext)
-        ? requestedContext
-        : null;
+    const nextId = resolveUrlScopedSelection({
+      availableIds,
+      urlValue: urlContext,
+      currentValue: selectedContextId,
+      fallbackValues: [storedContext],
+    });
 
     if (!nextId) {
-      const requestedContextWasRevoked = Boolean(requestedContext);
       clearSelection();
-      if (selectionPolicy === "explicit" && requestedContextWasRevoked) {
-        setAccessError(revokedSelectionMessage);
-      }
       return;
     }
 
@@ -152,10 +137,8 @@ export function useExecutionContextCatalog({
     contextsLoaded,
     loadFailed,
     requiresSelection,
-    revokedSelectionMessage,
     searchParams,
     selectedContextId,
-    selectionPolicy,
     setSearchParams,
     storageKey,
   ]);
