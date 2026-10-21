@@ -561,6 +561,42 @@ def test_collaborator_addition_delegation_combinations(
         assert json.loads(delegated_audit.metadata_json)["execution"] == "delegated"
 
 
+def test_delegated_execution_failure_is_sanitized_and_audited(db_session, monkeypatch):
+    account = _seed_account(db_session)
+    account.portal_collaborator_addition_delegated = True
+    db_session.add(account)
+    db_session.commit()
+    requester = _seed_user(db_session, email="manager@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+
+    def fail_execution(_row):
+        raise RuntimeError("secret_key=top-secret endpoint=https://rgw.example.test/api")
+
+    monkeypatch.setattr(service, "_execute_request", fail_execution)
+
+    with pytest.raises(PortalRequestExecutionError) as error:
+        _create_user_request(service, account, requester)
+
+    expected_detail = "secret_key=<redacted> endpoint=<redacted-url>"
+    assert str(error.value) == expected_detail
+    failed = db_session.query(PortalAdminRequest).filter_by(account_id=account.id).one()
+    assert failed.status == "failed"
+    assert failed.error_message == expected_detail
+
+    audit = (
+        db_session.query(AuditLog)
+        .filter(AuditLog.action == "execute_delegated_portal_request")
+        .one()
+    )
+    assert audit.scope == "portal"
+    assert audit.status == "failure"
+    metadata = json.loads(audit.metadata_json)
+    assert metadata["execution"] == "delegated"
+    assert metadata["error"] == expected_detail
+    assert db_session.query(UserNotification).filter(UserNotification.user_id == admin.id).count() == 0
+
+
 @pytest.mark.parametrize(
     ("current_role", "requested_role"),
     [
@@ -730,6 +766,9 @@ def test_approve_user_access_marks_failed_for_inactive_existing_user(db_session)
     row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
     assert row.status == "failed"
     assert "inactive" in (row.error_message or "")
+    assert db_session.query(UserNotification).filter(UserNotification.user_id == requester.id).count() == 1
+    audit = db_session.query(AuditLog).filter(AuditLog.action == "approve_portal_request").one()
+    assert audit.status == "failure"
 
 
 def test_approve_quota_change_applies_new_account_quota_and_keeps_object_quota(db_session):
