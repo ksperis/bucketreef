@@ -16,7 +16,7 @@ type UseManagerStatsResult = {
 };
 
 export function useManagerStats(
-  accountId: S3ExecutionContextSelector,
+  contextId: S3ExecutionContextSelector,
   enabled: boolean = true,
   refreshKey?: string | null
 ): UseManagerStatsResult {
@@ -34,7 +34,7 @@ export function useManagerStats(
     setLoading(true);
     setStats(null);
     try {
-      const data = await fetchManagerStats(accountId);
+      const data = await fetchManagerStats(contextId);
       setStats(data);
       setError(null);
     } catch (err) {
@@ -47,7 +47,7 @@ export function useManagerStats(
     } finally {
       setLoading(false);
     }
-  }, [accountId, enabled]);
+  }, [contextId, enabled]);
 
   useEffect(() => {
     void load();
