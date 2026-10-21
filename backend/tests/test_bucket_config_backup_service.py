@@ -127,6 +127,29 @@ def test_bucket_config_backup_captures_feature_errors():
     assert bucket.configuration["tags"] == {"tags": [{"key": "env", "value": "prod"}]}
 
 
+def test_bucket_config_backup_sanitizes_feature_errors():
+    class FailingPolicyService(FakeBucketsService):
+        def get_policy(self, bucket_name, account):  # noqa: ANN001
+            raise RuntimeError(
+                "secret_key=TOPSECRET endpoint=https://private.example.test/admin"
+            )
+
+    backup = BucketConfigBackupService(FailingPolicyService()).build_backup(
+        execution_context=S3Account(name="account-a"),
+        bucket_names=["bucket-a"],
+        features=["policy"],
+        source=BucketConfigBackupSource(
+            surface="ceph-admin",
+            endpoint_id=7,
+            endpoint_name="Archive",
+        ),
+    )
+
+    assert backup.buckets[0].errors == {
+        "policy": "secret_key=<redacted> endpoint=<redacted-url>"
+    }
+
+
 def test_ceph_admin_backup_route_uses_endpoint_quota_loader(monkeypatch):
     class RouteBucketsService(FakeBucketsService):
         def get_bucket_versioning_status(self, bucket_name, account):  # noqa: ANN001
