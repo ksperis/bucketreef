@@ -7,7 +7,7 @@ import io
 import json
 import time
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from botocore.exceptions import ClientError
 import pytest
@@ -3931,6 +3931,68 @@ def test_apply_target_lock_fails_when_lock_cannot_be_applied(db_session):
         .first()
     )
     assert warning_event is None
+
+
+def test_apply_target_lock_sanitizes_apply_and_restore_failures(db_session):
+    user = _create_user(db_session)
+    source = _create_account(
+        db_session,
+        name="source-lock-sanitize",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001",
+    )
+    target = _create_account(
+        db_session,
+        name="target-lock-sanitize",
+        endpoint_url="https://target.example.test",
+        account_id="RGW002",
+    )
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            mode="pre_sync",
+            lock_target_writes=True,
+            buckets=[
+                BucketMigrationBucketMapping(
+                    source_bucket="bucket-a",
+                    target_bucket="bucket-a-dst",
+                )
+            ],
+        ),
+        user,
+    )
+    item = migration.items[0]
+    item.target_policy_backup_json = "{}"
+    db_session.commit()
+
+    service._apply_target_write_lock_policy = Mock(
+        side_effect=RuntimeError(
+            "secret_key=APPLYSECRET endpoint=https://apply.private.example.test/admin"
+        )
+    )
+    service._restore_target_write_lock_policy = Mock(
+        side_effect=RuntimeError(
+            "secret_key=RESTORESECRET endpoint=https://restore.private.example.test/admin"
+        )
+    )
+
+    with pytest.raises(RuntimeError) as error:
+        service._run_apply_target_lock_step(
+            migration,
+            item,
+            service._resolve_context(migration.target_context_id),
+        )
+
+    message = str(error.value)
+    assert "APPLYSECRET" not in message
+    assert "RESTORESECRET" not in message
+    assert "apply.private.example.test" not in message
+    assert "restore.private.example.test" not in message
+    assert message.count("secret_key=<redacted> endpoint=<redacted-url>") == 2
 
 
 def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkeypatch):

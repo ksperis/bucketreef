@@ -6,6 +6,7 @@ from typing import Any, Callable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
@@ -285,7 +286,7 @@ class BucketMigrationItemRunnerMixin:
             self._apply_target_write_lock_policy(target_ctx, item.target_bucket, item)
             item.target_lock_applied = True
         except Exception as exc:  # noqa: BLE001
-            lock_error = str(exc)
+            lock_error = sanitized_error_log_detail(exc)
             try:
                 if item.target_policy_backup_json:
                     self._restore_target_write_lock_policy(
@@ -304,7 +305,10 @@ class BucketMigrationItemRunnerMixin:
                     _json_loads(item.target_policy_backup_json),
                 )
             except Exception as restore_exc:
-                lock_error = f"{lock_error}; restore attempt failed: {restore_exc}"
+                lock_error = (
+                    f"{lock_error}; restore attempt failed: "
+                    f"{sanitized_error_log_detail(restore_exc)}"
+                )
             else:
                 item.target_lock_applied = False
                 item.target_policy_backup_json = None
