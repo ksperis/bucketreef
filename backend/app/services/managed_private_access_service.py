@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.sensitive_data import sanitize_error_detail
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import ManagedPrivateAccess, S3Account, S3Connection, S3User, User
 from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
@@ -243,7 +243,7 @@ class ManagedPrivateAccessService:
         exc: Exception,
         compensate: Callable[[str], None],
     ) -> None:
-        safe_error = str(sanitize_error_detail(str(exc)))
+        safe_error = sanitized_error_log_detail(exc)
         self.db.rollback()
         failed = self.db.get(ManagedPrivateAccess, provisioning_id)
         if failed is not None:
@@ -289,7 +289,7 @@ class ManagedPrivateAccessService:
         try:
             self._cleanup_remote(provisioning, user=user)
         except Exception as exc:
-            self._set_cleanup_pending(provisioning, sanitize_error_detail(str(exc)), user=user)
+            self._set_cleanup_pending(provisioning, sanitized_error_log_detail(exc), user=user)
             raise ManagedPrivateAccessCleanupPending(
                 provisioning.id,
                 "Remote cleanup failed; the managed access remains recorded for remediation",
@@ -348,7 +348,7 @@ class ManagedPrivateAccessService:
         try:
             self._cleanup_remote(provisioning, user=user)
         except Exception as exc:
-            self._set_cleanup_pending(provisioning, str(sanitize_error_detail(str(exc))), user=user)
+            self._set_cleanup_pending(provisioning, sanitized_error_log_detail(exc), user=user)
             raise ManagedPrivateAccessCleanupPending(
                 provisioning.id,
                 "Remote cleanup still requires remediation",
@@ -655,7 +655,7 @@ class ManagedPrivateAccessService:
                 on_success()
                 self._checkpoint(provisioning)
             except Exception as exc:
-                errors.append(sanitize_error_detail(str(exc)))
+                errors.append(sanitized_error_log_detail(exc))
 
         if provisioning.created_access_key and provisioning.access_key_id:
             attempt(
@@ -746,7 +746,7 @@ class ManagedPrivateAccessService:
         try:
             cleanup(provisioning)
         except Exception as cleanup_exc:
-            cleanup_error = str(sanitize_error_detail(str(cleanup_exc)))
+            cleanup_error = sanitized_error_log_detail(cleanup_exc)
             self._record(
                 user,
                 provisioning,
