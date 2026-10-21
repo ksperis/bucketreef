@@ -94,9 +94,9 @@ const editableValues = ({ attributeItems, ...delivery }: ReturnType<typeof confi
   attributeItems: attributeItems.map(({ key, value }) => ({ key, value })),
 });
 
-export default function TopicAttributesEditor({ accountId, currentAccountId, topic, onSaved, onClose, embedded = false }: {
-  accountId: S3ExecutionContextSelector;
-  currentAccountId: S3ExecutionContextSelector;
+export default function TopicAttributesEditor({ contextId, currentContextId, topic, onSaved, onClose, embedded = false }: {
+  contextId: S3ExecutionContextSelector;
+  currentContextId: S3ExecutionContextSelector;
   topic: Topic;
   onSaved: (configuration: Record<string, unknown>) => void;
   onClose: () => void;
@@ -104,7 +104,7 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
 }) {
   const { text } = useManagerI18n();
   const sslHintId = useId();
-  const load = useCallback(async () => configurationDraft((await getTopicConfiguration(accountId, topic.arn)).configuration ?? {}), [accountId, topic.arn]);
+  const load = useCallback(async () => configurationDraft((await getTopicConfiguration(contextId, topic.arn)).configuration ?? {}), [contextId, topic.arn]);
   const { draft, baseline, setDraft, accept, loading, loadError, retry } = useSettingsRemoteDraft(() => configurationDraft(topic.configuration), load, "Unable to load topic settings.");
   const dirty = !equalSettings(editableValues(baseline), editableValues(draft));
   const [saving, setSaving] = useState(false);
@@ -112,8 +112,8 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
   const [status, setStatus] = useState<string | null>(null);
   const fieldsDisabled = loading || saving || Boolean(loadError);
   useEffect(() => {
-    if (currentAccountId !== accountId && !dirty && !saving) onClose();
-  }, [accountId, currentAccountId, dirty, onClose, saving]);
+    if (currentContextId !== contextId && !dirty && !saving) onClose();
+  }, [contextId, currentContextId, dirty, onClose, saving]);
   const updateItem = (uiId: string, patch: Partial<AttributeDraft>) => {
     setError(null); setStatus(null);
     setDraft(value => ({ ...value, attributeItems: value.attributeItems.map(item => item.uiId === uiId ? { ...item, ...patch } : item) }));
@@ -171,7 +171,7 @@ export default function TopicAttributesEditor({ accountId, currentAccountId, top
 
     setSaving(true);
     try {
-      const updated = await updateTopicConfiguration(accountId, topic.arn, configuration);
+      const updated = await updateTopicConfiguration(contextId, topic.arn, configuration);
       const next = updated.configuration ?? {};
       accept(configurationDraft(next));
       onSaved(next);

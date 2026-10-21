@@ -7,9 +7,9 @@ import SettingsNavigationGuard from "../../components/settings/SettingsNavigatio
 import { extractApiError } from "../../utils/apiError";
 import { useManagerI18n } from "./managerI18n";
 
-export default function TopicDeleteDialog({ accountId, currentAccountId, topic, onDeleted, onClose }: {
-  accountId: S3ExecutionContextSelector;
-  currentAccountId: S3ExecutionContextSelector;
+export default function TopicDeleteDialog({ contextId, currentContextId, topic, onDeleted, onClose }: {
+  contextId: S3ExecutionContextSelector;
+  currentContextId: S3ExecutionContextSelector;
   topic: Topic;
   onDeleted: () => void;
   onClose: () => void;
@@ -19,14 +19,14 @@ export default function TopicDeleteDialog({ accountId, currentAccountId, topic, 
   const [error, setError] = useState<string | null>(null);
   const submitting = useRef(false);
   useEffect(() => {
-    if (currentAccountId !== accountId && !busy) onClose();
-  }, [accountId, currentAccountId, busy, onClose]);
+    if (currentContextId !== contextId && !busy) onClose();
+  }, [contextId, currentContextId, busy, onClose]);
   const confirm = async () => {
     if (submitting.current) return;
     submitting.current = true;
     setBusy(true);
     setError(null);
-    try { await deleteTopic(accountId, topic.arn); onDeleted(); }
+    try { await deleteTopic(contextId, topic.arn); onDeleted(); }
     catch (error) { setError(extractApiError(error, text("Unable to delete topic."))); }
     finally { submitting.current = false; setBusy(false); }
   };

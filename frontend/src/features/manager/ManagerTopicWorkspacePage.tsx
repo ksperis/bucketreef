@@ -106,8 +106,8 @@ export default function ManagerTopicWorkspacePage() {
       {activeTab === "configuration" && (
         <TopicAttributesEditor
           embedded
-          accountId={contextIdForApi}
-          currentAccountId={contextIdForApi}
+          contextId={contextIdForApi}
+          currentContextId={contextIdForApi}
           topic={topic}
           onClose={() => navigate("/manager/topics")}
           onSaved={(configuration) => setTopic((current) => current ? { ...current, configuration } : current)}
@@ -116,8 +116,8 @@ export default function ManagerTopicWorkspacePage() {
       {activeTab === "policy" && (
         <TopicPolicyEditor
           embedded
-          accountId={contextIdForApi}
-          currentAccountId={contextIdForApi}
+          contextId={contextIdForApi}
+          currentContextId={contextIdForApi}
           topic={topic}
           onClose={() => navigate("/manager/topics")}
         />
