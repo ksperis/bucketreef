@@ -1,14 +1,18 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
-import { useCallback, type ComponentProps } from "react";
+import { useCallback, useLayoutEffect, type ComponentProps } from "react";
 import type { BrowserFavorite } from "../../api/browserFavorites";
 import BrowserFavoritesControl from "./BrowserFavoritesControl";
-import type { BrowserSidebarBodyRenderer } from "./BrowserLayout";
+import {
+  useBrowserSidebarSlot,
+  type BrowserSidebarBodyRenderer,
+} from "./BrowserLayout";
 import BrowserWorkspaceSidebar from "./BrowserWorkspaceSidebar";
 
 type FavoritesControlProps = ComponentProps<typeof BrowserFavoritesControl>;
 type WorkspaceSidebarProps = ComponentProps<typeof BrowserWorkspaceSidebar>;
 
 type UseBrowserWorkspaceSidebarBodyOptions = {
+  enabled: boolean;
   favorites: Omit<FavoritesControlProps, "compact" | "onApply"> & {
     onApply: (favorite: BrowserFavorite) => Promise<boolean>;
   };
@@ -26,11 +30,13 @@ type UseBrowserWorkspaceSidebarBodyOptions = {
 };
 
 export function useBrowserWorkspaceSidebarBody({
+  enabled,
   favorites,
   sidebar,
   panelViewportRef,
   loadMoreSentinelRef,
-}: UseBrowserWorkspaceSidebarBodyOptions): BrowserSidebarBodyRenderer {
+}: UseBrowserWorkspaceSidebarBodyOptions) {
+  const { setSidebarBody } = useBrowserSidebarSlot();
   const {
     accountUser,
     bucketDetailsByName,
@@ -67,7 +73,7 @@ export function useBrowserWorkspaceSidebarBody({
     workspaceAccountAction,
   } = sidebar;
 
-  return useCallback<BrowserSidebarBodyRenderer>(
+  const renderSidebarBody = useCallback<BrowserSidebarBodyRenderer>(
     ({ compact, variant, closeMobile }) => (
       <BrowserWorkspaceSidebar
         favorites={
@@ -155,4 +161,15 @@ export function useBrowserWorkspaceSidebarBody({
       workspaceAccountAction,
     ],
   );
+
+  useLayoutEffect(() => {
+    if (!enabled) {
+      setSidebarBody(null);
+      return;
+    }
+    setSidebarBody(renderSidebarBody);
+    return () => {
+      setSidebarBody(null);
+    };
+  }, [enabled, renderSidebarBody, setSidebarBody]);
 }
