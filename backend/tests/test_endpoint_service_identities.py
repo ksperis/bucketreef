@@ -197,6 +197,82 @@ def test_admin_redirect_marks_unfinished_identities_with_actionable_error(
     assert supervision.last_error == f"Unable to configure supervision: {message}"
 
 
+def test_admin_redirect_sanitizes_persisted_error(identities, db_session, monkeypatch):
+    service, endpoint, rgw = identities
+    runtime = EndpointServiceIdentity(kind="runtime", mode="managed", status="missing")
+    supervision = EndpointServiceIdentity(kind="supervision", mode="managed", status="missing")
+    endpoint.service_identities.extend((runtime, supervision))
+    db_session.commit()
+
+    def redirect(*_args, **_kwargs):
+        raise RGWAdminError(
+            "secret_key=TOPSECRET endpoint=https://private.example.test/admin",
+            status_code=301,
+            error_code="RedirectNotAllowed",
+        )
+
+    monkeypatch.setattr(rgw, "get_user_by_access_key", redirect)
+
+    service.reconcile(endpoint)
+
+    assert runtime.last_error == (
+        "Unable to configure runtime: secret_key=<redacted> endpoint=<redacted-url>"
+    )
+    assert supervision.last_error == (
+        "Unable to configure supervision: secret_key=<redacted> endpoint=<redacted-url>"
+    )
+
+
+def test_identity_reconcile_sanitizes_persisted_misconfigured_error(
+    identities, monkeypatch
+):
+    service, endpoint, _rgw = identities
+
+    def fail_ensure(*_args, **_kwargs):
+        raise RGWAdminError(
+            "secret_key=TOPSECRET endpoint=https://private.example.test/admin",
+            status_code=301,
+            error_code="RedirectNotAllowed",
+        )
+
+    monkeypatch.setattr(service, "_ensure", fail_ensure)
+
+    service.reconcile(endpoint)
+
+    for kind in ("runtime", "supervision"):
+        identity = endpoint.service_identity(kind)
+        assert identity is not None
+        assert identity.last_error == (
+            f"Unable to configure {kind}: secret_key=<redacted> endpoint=<redacted-url>"
+        )
+
+
+def test_ceph_admin_validation_sanitizes_persisted_value_error(identities, monkeypatch):
+    service, endpoint, rgw = identities
+    endpoint.service_identities.append(service_identity("ceph_admin", "CEPH-AK", "CEPH-SK"))
+    rgw.users["ceph-admin"] = {
+        "user_id": "ceph-admin",
+        "admin": True,
+        "system": False,
+        "caps": "",
+        "keys": [{"access_key": "CEPH-AK", "secret_key": "CEPH-SK"}],
+    }
+
+    monkeypatch.setattr(
+        EndpointServiceIdentityService,
+        "validate_payload",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ValueError("secret_key=TOPSECRET endpoint=https://private.example.test/admin")
+        ),
+    )
+
+    service.validate_ceph_admin(endpoint)
+
+    identity = endpoint.service_identity("ceph_admin")
+    assert identity is not None
+    assert identity.last_error == "secret_key=<redacted> endpoint=<redacted-url>"
+
+
 def test_uid_collision_never_adopts_or_mutates_foreign_user(identities):
     service, endpoint, rgw = identities
     rgw.fail_create = True
