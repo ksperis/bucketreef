@@ -99,8 +99,8 @@ export default function ManagerEntityPoliciesPage({
   } as const;
   const params = useParams();
   const rawEntityName = params[routeParam];
-  const { selectedContextKind, contextIdForApi, requiresS3AccountSelection, accessMode, namingValidationProfile } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
+  const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode, namingValidationProfile } = useS3AccountContext();
+  const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
 
   const [attached, setAttached] = useState<IamPolicy[]>([]);
@@ -149,7 +149,7 @@ export default function ManagerEntityPoliciesPage({
       setLoading(false);
       return;
     }
-    if (needsS3AccountSelection) {
+    if (needsContextSelection) {
       setAttached([]);
       setAvailable([]);
       setLoading(false);
@@ -158,16 +158,16 @@ export default function ManagerEntityPoliciesPage({
     if (rawEntityName) {
       load(contextIdForApi, rawEntityName);
     }
-  }, [accessMode, contextIdForApi, isS3User, load, needsS3AccountSelection, rawEntityName]);
+  }, [accessMode, contextIdForApi, isS3User, load, needsContextSelection, rawEntityName]);
 
   const handleRefresh = () => {
-    if (needsS3AccountSelection || !rawEntityName) return;
+    if (needsContextSelection || !rawEntityName) return;
     load(contextIdForApi, rawEntityName);
   };
 
   const handleAttach = async (event: FormEvent) => {
     event.preventDefault();
-    if (needsS3AccountSelection || !rawEntityName || !selectedArn || busy !== null || loading) return;
+    if (needsContextSelection || !rawEntityName || !selectedArn || busy !== null || loading) return;
     const policy = available.find((candidate) => candidate.arn === selectedArn);
     if (!policy) return;
     setBusy("attach");
@@ -185,7 +185,7 @@ export default function ManagerEntityPoliciesPage({
   };
 
   const detachPolicy = async (policyArn: string) => {
-    if (needsS3AccountSelection || !rawEntityName) return;
+    if (needsContextSelection || !rawEntityName) return;
     setBusy(policyArn);
     setError(null);
     setActionMessage(null);
@@ -215,9 +215,9 @@ export default function ManagerEntityPoliciesPage({
   };
 
   const loadInlinePolicies = useCallback(async () => {
-    if (!rawEntityName || needsS3AccountSelection) return [];
+    if (!rawEntityName || needsContextSelection) return [];
     return listInlinePoliciesForEntity(contextIdForApi, rawEntityName);
-  }, [contextIdForApi, listInlinePoliciesForEntity, needsS3AccountSelection, rawEntityName]);
+  }, [contextIdForApi, listInlinePoliciesForEntity, needsContextSelection, rawEntityName]);
 
   const saveInlinePolicy = async (name: string, document: Record<string, unknown>) => {
     if (!rawEntityName) return;
@@ -254,7 +254,7 @@ export default function ManagerEntityPoliciesPage({
     return <div className="ui-body text-slate-600">{text("{entity} not specified.", { entity: singularLabel })}</div>;
   }
 
-  if (needsS3AccountSelection) {
+  if (needsContextSelection) {
     return <div className="ui-body text-slate-600">{text("Select an account before managing {entities}.", { entities: pluralLabel })}</div>;
   }
 
@@ -326,7 +326,7 @@ export default function ManagerEntityPoliciesPage({
           loadPolicies={loadInlinePolicies}
           savePolicy={saveInlinePolicy}
           deletePolicy={removeInlinePolicy}
-          disabled={needsS3AccountSelection}
+          disabled={needsContextSelection}
           disabledReason={text("Select an account before editing {entity} inline policies.", { entity: singularLabel })}
           key={`${config.singularLabel}-inline-${contextIdForApi ?? "none"}-${rawEntityName ?? ""}`}
         />

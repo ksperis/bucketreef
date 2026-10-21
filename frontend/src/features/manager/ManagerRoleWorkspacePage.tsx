@@ -15,8 +15,8 @@ export default function ManagerRoleWorkspacePage() {
   const { text } = useManagerI18n();
   const location = useLocation();
   const { roleName } = useParams<{ roleName: string }>();
-  const { selectedContextKind, contextIdForApi, requiresS3AccountSelection } = useS3AccountContext();
-  const needsSelection = requiresS3AccountSelection && !contextIdForApi;
+  const { selectedContextKind, contextIdForApi, requiresContextSelection } = useS3AccountContext();
+  const needsSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const name = (() => {
     if (!roleName) return "";

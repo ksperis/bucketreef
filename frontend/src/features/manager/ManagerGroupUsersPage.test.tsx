@@ -50,7 +50,7 @@ describe("ManagerGroupUsersPage", () => {
     useS3AccountContextMock.mockReturnValue({
       selectedContextKind: "account",
       contextIdForApi: "acc-1",
-      requiresS3AccountSelection: false,
+      requiresContextSelection: false,
       accessMode: "default",
     });
     listIamGroupUsersMock.mockResolvedValue([]);

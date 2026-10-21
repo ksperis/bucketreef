@@ -35,11 +35,11 @@ describe("TopicsPage", () => {
     deleteTopicMock.mockReset();
     createTopicMock.mockReset();
     useS3AccountContextMock.mockReturnValue({
-      accounts: [],
+      contexts: [],
       selectedContextId: null,
       contextIdForApi: null,
-      requiresS3AccountSelection: true,
-      sessionS3AccountName: null,
+      requiresContextSelection: true,
+      sessionAccountName: null,
       accessMode: "default",
       iamIdentity: null,
     });
@@ -62,11 +62,11 @@ describe("TopicsPage", () => {
     const user = userEvent.setup();
     const topicArn = "arn:aws:sns:us-east-1:lab:topic-events";
     useS3AccountContextMock.mockReturnValue({
-      accounts: [{ id: "7", display_name: "Lab account", storage_endpoint_capabilities: { sns: true } }],
+      contexts: [{ id: "7", display_name: "Lab account", storage_endpoint_capabilities: { sns: true } }],
       selectedContextId: "7",
       contextIdForApi: "7",
-      requiresS3AccountSelection: false,
-      sessionS3AccountName: null,
+      requiresContextSelection: false,
+      sessionAccountName: null,
       accessMode: "default",
       iamIdentity: null,
     });
@@ -88,7 +88,7 @@ describe("TopicsPage", () => {
 
   it("retains the create draft while pending and restores dismissal after a failure", async () => {
     const user = userEvent.setup();
-    useS3AccountContextMock.mockReturnValue({ contextIdForApi: "conn-7", accounts: [], requiresS3AccountSelection: false });
+    useS3AccountContextMock.mockReturnValue({ contextIdForApi: "conn-7", contexts: [], requiresContextSelection: false });
     let rejectCreate!: (error: Error) => void;
     createTopicMock.mockReturnValue(new Promise((_resolve, reject) => { rejectCreate = reject; }));
     render(<MemoryRouter><TopicsPage /></MemoryRouter>);
@@ -122,7 +122,7 @@ describe("TopicsPage", () => {
     const user = userEvent.setup();
     const topicArn = "arn:aws:sns:default:tenant:ceph-topic-main";
     useS3AccountContextMock.mockReturnValue({
-      accounts: [
+      contexts: [
         {
           id: "7",
           display_name: "Lab account",
@@ -131,8 +131,8 @@ describe("TopicsPage", () => {
       ],
       selectedContextId: "7",
       contextIdForApi: "7",
-      requiresS3AccountSelection: false,
-      sessionS3AccountName: null,
+      requiresContextSelection: false,
+      sessionAccountName: null,
       accessMode: "default",
       iamIdentity: null,
     });
@@ -186,7 +186,7 @@ describe("TopicsPage", () => {
 
   it("retains a failed deletion for retry and blocks duplicate submissions and pending dismissal", async () => {
     const topicArn = "arn:aws:sns:default:tenant:topic-events";
-    useS3AccountContextMock.mockReturnValue({ contextIdForApi: "conn-7", accounts: [], requiresS3AccountSelection: false });
+    useS3AccountContextMock.mockReturnValue({ contextIdForApi: "conn-7", contexts: [], requiresContextSelection: false });
     listTopicsMock.mockResolvedValue([{ name: "topic-events", arn: topicArn, configuration: {} }]);
     const user = userEvent.setup();
     let rejectDelete!: (error: Error) => void;
@@ -211,7 +211,7 @@ describe("TopicsPage", () => {
 
 
 it("marks invalid standard topic names immediately and blocks their creation", async () => {
-  useS3AccountContextMock.mockReturnValue({ accounts: [], selectedContextId: "7", contextIdForApi: "7", requiresS3AccountSelection: true });
+  useS3AccountContextMock.mockReturnValue({ contexts: [], selectedContextId: "7", contextIdForApi: "7", requiresContextSelection: true });
   listTopicsMock.mockResolvedValue([]);
   createTopicMock.mockResolvedValue({ name: "valid_topic-1", arn: "arn:aws:sns:us-east-1:lab:valid_topic-1" });
   render(<MemoryRouter><TopicsPage /></MemoryRouter>);

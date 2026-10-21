@@ -55,12 +55,12 @@ export default function ManagerUsersPage() {
     selectedContextKind,
     selectedContextName,
     contextIdForApi,
-    requiresS3AccountSelection,
+    requiresContextSelection,
     accessMode,
     managerPrivateAccessEnabled,
     namingValidationProfile,
   } = useS3AccountContext();
-  const needsS3AccountSelection = requiresS3AccountSelection && !contextIdForApi;
+  const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const {
     error,
@@ -138,7 +138,7 @@ export default function ManagerUsersPage() {
   );
 
   useEffect(() => {
-    if (needsS3AccountSelection) {
+    if (needsContextSelection) {
       setUsers([]);
       setGroups([]);
       setPolicies([]);
@@ -160,7 +160,7 @@ export default function ManagerUsersPage() {
     load,
     loadGroups,
     loadPolicies,
-    needsS3AccountSelection,
+    needsContextSelection,
     resetInlinePolicyDraftEditor,
     setLoading,
     setUsers,
@@ -228,7 +228,7 @@ export default function ManagerUsersPage() {
 
   const handleAdvancedCreate = async (e: FormEvent) => {
     e.preventDefault();
-    if (needsS3AccountSelection || busy !== null) return;
+    if (needsContextSelection || busy !== null) return;
     setAdvancedValidationAttempted(true);
     if (!advancedName.trim() || nameFormatError || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
@@ -270,7 +270,7 @@ export default function ManagerUsersPage() {
   };
 
   const deleteUser = async (name: string) => {
-    if (needsS3AccountSelection) return;
+    if (needsContextSelection) return;
     setBusy(name);
     setError(null);
     setActionMessage(null);
@@ -286,7 +286,7 @@ export default function ManagerUsersPage() {
   };
 
   const handleDelete = (name: string) => {
-    if (needsS3AccountSelection) return;
+    if (needsContextSelection) return;
     deleteConfirmation.requestConfirmation({
       title: text("Delete IAM user?"),
       description: text("Permanently remove this IAM user from the selected account."),
@@ -469,7 +469,7 @@ export default function ManagerUsersPage() {
         title={text("Users")}
         description={text("Create/delete via the account root credentials. Optionally generate an access key on creation.")}
         breadcrumbs={managerPageBreadcrumbs(text, "users")}
-        actions={!needsS3AccountSelection && !isS3User
+        actions={!needsContextSelection && !isS3User
           ? [
               {
                 label: text("Create user"),
@@ -507,7 +507,7 @@ export default function ManagerUsersPage() {
         />
       )}
 
-      {needsS3AccountSelection ? (
+      {needsContextSelection ? (
         <PageEmptyState
           title={text("Select an account before managing IAM users")}
           description={text("Users are created within an execution context. Choose an account to list identities, generate keys, and attach policies.")}
@@ -561,7 +561,7 @@ export default function ManagerUsersPage() {
           contentVariant="plain"
           dirty={advancedCurrentSignature !== advancedInitialSignature}
           error={error} onSubmit={handleAdvancedCreate}
-          busy={busy !== null} disabled={needsS3AccountSelection || namingValidationProfile === null}
+          busy={busy !== null} disabled={needsContextSelection || namingValidationProfile === null}
           submitLabel={text("Create user")} busyLabel={text("Creating...")}
         >
           <SettingsSection title={text("Identity")} presentation="compact">

@@ -23,7 +23,7 @@ export default function ManagerBucketIntegrityPage() {
     filter,
     filteredBuckets,
     loading,
-    requiresS3AccountSelection,
+    requiresContextSelection,
     selectedBuckets,
     selectedTargets,
     selectAllFiltered,
@@ -45,7 +45,7 @@ export default function ManagerBucketIntegrityPage() {
 
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
 
-      {!requiresS3AccountSelection ? (
+      {!requiresContextSelection ? (
         <PageEmptyState
           title={text("Bucket integrity is unavailable in session mode")}
           description={text("This tool needs a persistent execution context so the selected buckets can be checked with the same manager identity.")}

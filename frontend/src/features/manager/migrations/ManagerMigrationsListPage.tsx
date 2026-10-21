@@ -40,7 +40,7 @@ const SORT_PRIORITY: Record<BucketMigrationStatus, number> = {
 export default function ManagerMigrationsListPage() {
   const { text } = useManagerI18n();
   const navigate = useNavigate();
-  const { selectedContextId, requiresS3AccountSelection } = useS3AccountContext();
+  const { selectedContextId, requiresContextSelection } = useS3AccountContext();
   const sourceContextId = selectedContextId ?? "";
 
   const { contextLabelById, contextsLoading, contextsError } = useManagerContexts();
@@ -73,7 +73,7 @@ export default function ManagerMigrationsListPage() {
       {contextsError && <PageBanner tone="error">{text(contextsError)}</PageBanner>}
       {migrationsError && <PageBanner tone="error">{text(migrationsError)}</PageBanner>}
 
-      {!requiresS3AccountSelection ? (
+      {!requiresContextSelection ? (
         <PageEmptyState
           title={text("Bucket migration is unavailable in session mode")}
           description={text("This tool needs a persistent execution context so it can resolve source and target inventories before launching a migration.")}

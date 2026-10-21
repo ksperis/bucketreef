@@ -42,7 +42,7 @@ function parseError(err: unknown): string {
 export default function ManagerCephKeysPage() {
   const { text } = useManagerI18n();
   const {
-    hasS3AccountContext,
+    hasExecutionContext,
     contextIdForApi,
     selectedContextName,
     selectedContextKind,
@@ -66,9 +66,9 @@ export default function ManagerCephKeysPage() {
   const keyConfirmation = useConfirmActionDialog();
 
   const isS3UserContext = selectedContextKind === "s3_user";
-  const canManageCephKeys = Boolean(hasS3AccountContext && isS3UserContext && managerCephKeysEnabled);
+  const canManageCephKeys = Boolean(hasExecutionContext && isS3UserContext && managerCephKeysEnabled);
   const canProvisionManagedPrivateAccess = Boolean(
-    hasS3AccountContext && isS3UserContext && managerPrivateAccessEnabled
+    hasExecutionContext && isS3UserContext && managerPrivateAccessEnabled
   );
 
   const loadKeys = useCallback(async () => {
@@ -373,7 +373,7 @@ export default function ManagerCephKeysPage() {
         />
       )}
 
-      {!hasS3AccountContext ? (
+      {!hasExecutionContext ? (
         <PageEmptyState
           title={text("Select an account before managing Ceph access keys")}
           description={text("Ceph access keys are scoped to the active execution context. Choose a managed S3 user context before opening key inventory.")}

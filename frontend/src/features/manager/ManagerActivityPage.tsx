@@ -41,7 +41,7 @@ export default function ManagerActivityPage() {
   const {
     contextIdForApi,
     contextsLoaded,
-    hasS3AccountContext,
+    hasExecutionContext,
     managerFeatureStates,
   } = useS3AccountContext();
   const [entries, setEntries] = useState<ManagerActivityEntry[]>([]);
@@ -54,11 +54,11 @@ export default function ManagerActivityPage() {
   const [hasMore, setHasMore] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
-  const featureStateLoading = !contextsLoaded || (hasS3AccountContext && managerFeatureStates == null);
+  const featureStateLoading = !contextsLoaded || (hasExecutionContext && managerFeatureStates == null);
   const activityEnabled = managerFeatureStates?.activity_history?.enabled === true;
 
   useEffect(() => {
-    if (!hasS3AccountContext || !activityEnabled) {
+    if (!hasExecutionContext || !activityEnabled) {
       setEntries([]);
       setError(null);
       setLoadMoreError(null);
@@ -95,7 +95,7 @@ export default function ManagerActivityPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [contextIdForApi, activityEnabled, hasS3AccountContext, refreshNonce, search, status, text]);
+  }, [contextIdForApi, activityEnabled, hasExecutionContext, refreshNonce, search, status, text]);
 
   const loadOlder = useCallback(async () => {
     const cursor = entries.at(-1)?.id;
@@ -164,7 +164,7 @@ export default function ManagerActivityPage() {
     },
   ], [intlLocale, text]);
 
-  if (contextsLoaded && !hasS3AccountContext) return <Navigate to="/manager" replace />;
+  if (contextsLoaded && !hasExecutionContext) return <Navigate to="/manager" replace />;
   if (!featureStateLoading && !activityEnabled) return <Navigate to="/manager" replace />;
 
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: entries.length });

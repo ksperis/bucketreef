@@ -43,10 +43,10 @@ describe("ManagerTopicWorkspacePage", () => {
     vi.resetAllMocks();
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     useS3AccountContextMock.mockReturnValue({
-      accounts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: true } }],
+      contexts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: true } }],
       selectedContextId: "conn-7",
       contextIdForApi: "conn-7",
-      requiresS3AccountSelection: false,
+      requiresContextSelection: false,
       accessMode: "default",
     });
     api.listTopics.mockResolvedValue([{ name: "topic-events", arn: topicArn, configuration: {} }]);
@@ -93,10 +93,10 @@ describe("ManagerTopicWorkspacePage", () => {
 
   it("keeps SNS capability gating on the resource workspace", async () => {
     useS3AccountContextMock.mockReturnValue({
-      accounts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: false } }],
+      contexts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: false } }],
       selectedContextId: "conn-7",
       contextIdForApi: "conn-7",
-      requiresS3AccountSelection: false,
+      requiresContextSelection: false,
       accessMode: "default",
     });
     renderWorkspace("/manager/topics/topic-events");

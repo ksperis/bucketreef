@@ -32,7 +32,7 @@ describe("ManagerFeatureRulesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useS3AccountContextMock.mockReturnValue({
-      accounts: [
+      contexts: [
         {
           id: "account-1",
           display_name: "Account Alpha",
@@ -40,7 +40,7 @@ describe("ManagerFeatureRulesPage", () => {
         },
       ],
       selectedContextId: "account-1",
-      requiresS3AccountSelection: false,
+      requiresContextSelection: false,
       contextIdForApi: "account-1",
     });
     listFeatureRuleInventoryMock.mockResolvedValue([]);
@@ -197,8 +197,8 @@ describe("ManagerFeatureRulesPage", () => {
     expect(screen.getByRole("dialog")).toBeVisible();
     let finish!: (value: unknown) => void;
     listFeatureRuleInventoryMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
-    useS3AccountContextMock.mockReturnValue({ accounts: [], selectedContextId: "account-2",
-      requiresS3AccountSelection: false, contextIdForApi: "account-2" });
+    useS3AccountContextMock.mockReturnValue({ contexts: [], selectedContextId: "account-2",
+      requiresContextSelection: false, contextIdForApi: "account-2" });
     view.rerender(<MemoryRouter><ManagerFeatureRulesPage /></MemoryRouter>);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByText("old-bucket")).not.toBeInTheDocument();

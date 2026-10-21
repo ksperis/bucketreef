@@ -54,10 +54,10 @@ export default function ManagerMetricsPage() {
   const [costLoading, setCostLoading] = useState(false);
   const [costError, setCostError] = useState<string | null>(null);
   const {
-    accounts,
+    contexts,
     selectedContextId,
-    hasS3AccountContext,
-    requiresS3AccountSelection,
+    hasExecutionContext,
+    requiresContextSelection,
     contextIdForApi,
     accessMode,
     managerStatsEnabled,
@@ -66,16 +66,16 @@ export default function ManagerMetricsPage() {
   } = useS3AccountContext();
 
   const selected = useMemo(
-    () => accounts.find((a) => a.id === selectedContextId),
-    [accounts, selectedContextId]
+    () => contexts.find((a) => a.id === selectedContextId),
+    [contexts, selectedContextId]
   );
-  const hasContext = hasS3AccountContext;
+  const hasContext = hasExecutionContext;
   const endpointCaps = selected?.storage_endpoint_capabilities ?? null;
   const usageFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.metrics !== false : true);
   const metricsFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.usage !== false : true);
   const canLoadUsageStatsAggregate =
     hasContext &&
-    Boolean(requiresS3AccountSelection) &&
+    Boolean(requiresContextSelection) &&
     managerFeatureStates?.bucket_usage_stats?.enabled === true;
   const canShowCostEstimation =
     Boolean(generalSettings.cost_enabled) &&

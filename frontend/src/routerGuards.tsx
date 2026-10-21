@@ -43,11 +43,11 @@ function renderManagerToolFeature(
   enabled: boolean,
   feature: string,
   canAccess: boolean,
-  requiresS3AccountSelection = true,
+  requiresContextSelection = true,
 ) {
   if (loading) return <RouteFallback />;
   if (!enabled) return <FeatureDisabledPage feature={feature} />;
-  if (!requiresS3AccountSelection || !canAccess) return unauthorizedRoute();
+  if (!requiresContextSelection || !canAccess) return unauthorizedRoute();
   return <Outlet />;
 }
 
@@ -245,11 +245,11 @@ export function RequireBrowserSurface({ surface }: { surface: BrowserSurface }) 
 }
 
 export function RequireManagerIamFeature() {
-  const { accounts, selectedContextId, requiresS3AccountSelection, hasS3AccountContext } = useS3AccountContext();
-  if (!requiresS3AccountSelection || !hasS3AccountContext) {
+  const { contexts, selectedContextId, requiresContextSelection, hasExecutionContext } = useS3AccountContext();
+  if (!requiresContextSelection || !hasExecutionContext) {
     return <Outlet />;
   }
-  const selected = accounts.find((account) => account.id === selectedContextId) ?? null;
+  const selected = contexts.find((account) => account.id === selectedContextId) ?? null;
   const iamEnabled = selected?.storage_endpoint_capabilities?.iam !== false;
   if (!iamEnabled) {
     return <FeatureDisabledPage feature="IAM" />;
@@ -304,40 +304,40 @@ export function RequireManagerMigrationFeature() {
 
 export function RequireManagerBucketCompareFeature() {
   const { generalSettings, loading } = useGeneralSettings();
-  const { requiresS3AccountSelection } = useS3AccountContext();
+  const { requiresContextSelection } = useS3AccountContext();
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
     isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_compare),
     "Bucket Compare",
     canAccessManagerBucketCompare(generalSettings, user),
-    requiresS3AccountSelection,
+    requiresContextSelection,
   );
 }
 
 export function RequireManagerBucketIntegrityFeature() {
   const { generalSettings, loading } = useGeneralSettings();
-  const { requiresS3AccountSelection } = useS3AccountContext();
+  const { requiresContextSelection } = useS3AccountContext();
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
     isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_integrity_check),
     "Bucket Integrity",
     canAccessManagerBucketIntegrity(generalSettings, user),
-    requiresS3AccountSelection,
+    requiresContextSelection,
   );
 }
 
 export function RequireManagerBucketPurgeFeature() {
   const { generalSettings, loading } = useGeneralSettings();
-  const { requiresS3AccountSelection } = useS3AccountContext();
+  const { requiresContextSelection } = useS3AccountContext();
   const { user } = useSession();
   return renderManagerToolFeature(
     loading,
     isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge),
     "Bucket Purge",
     canAccessManagerBucketPurge(generalSettings, user),
-    requiresS3AccountSelection,
+    requiresContextSelection,
   );
 }
 
