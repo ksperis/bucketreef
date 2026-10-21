@@ -7,6 +7,7 @@ function createOptions() {
     bucketConfigurationEnabled: true,
     bucketManagementEnabled: true,
     clearActiveItem: vi.fn(),
+    closeBucketMenu: vi.fn(),
     openBucketConfigurationTarget: vi.fn(),
     openCreateBucketForm: vi.fn(),
     requestDetailsDrawerTransition: vi.fn((transition: () => void) => {
@@ -15,7 +16,6 @@ function createOptions() {
     }),
     selectBucket: vi.fn(() => true),
     setBucketFilter: vi.fn(),
-    setShowBucketMenu: vi.fn(),
   };
 }
 
@@ -30,7 +30,7 @@ describe("useBrowserBucketInteractions", () => {
 
     act(() => result.current.selectBucketFromMenu("archive"));
 
-    expect(options.setShowBucketMenu).toHaveBeenCalledWith(false);
+    expect(options.closeBucketMenu).toHaveBeenCalledOnce();
     expect(options.requestDetailsDrawerTransition).toHaveBeenCalledOnce();
     expect(options.selectBucket).toHaveBeenCalledWith("archive");
     expect(options.clearActiveItem).toHaveBeenCalledOnce();
@@ -53,7 +53,7 @@ describe("useBrowserBucketInteractions", () => {
     act(() => result.current.openCreateBucket());
     act(() => result.current.openBucketConfiguration("  archive  "));
 
-    expect(options.setShowBucketMenu).toHaveBeenCalledTimes(2);
+    expect(options.closeBucketMenu).toHaveBeenCalledTimes(2);
     expect(options.setBucketFilter).toHaveBeenCalledTimes(2);
     expect(options.setBucketFilter).toHaveBeenNthCalledWith(1, "");
     expect(options.setBucketFilter).toHaveBeenNthCalledWith(2, "");
@@ -76,7 +76,7 @@ describe("useBrowserBucketInteractions", () => {
     act(() => result.current.openCreateBucket());
     act(() => result.current.openBucketConfiguration("archive"));
 
-    expect(options.setShowBucketMenu).not.toHaveBeenCalled();
+    expect(options.closeBucketMenu).not.toHaveBeenCalled();
     expect(options.setBucketFilter).not.toHaveBeenCalled();
     expect(options.openCreateBucketForm).not.toHaveBeenCalled();
     expect(options.openBucketConfigurationTarget).not.toHaveBeenCalled();

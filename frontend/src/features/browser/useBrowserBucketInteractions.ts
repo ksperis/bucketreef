@@ -2,50 +2,50 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, type Dispatch, type SetStateAction } from "react";
+import { useCallback } from "react";
 
 type UseBrowserBucketInteractionsOptions = {
   bucketConfigurationEnabled: boolean;
   bucketManagementEnabled: boolean;
   clearActiveItem: () => void;
+  closeBucketMenu: () => void;
   openBucketConfigurationTarget: (bucketName: string) => void;
   openCreateBucketForm: () => void;
   requestDetailsDrawerTransition: (transition: () => void) => boolean;
   selectBucket: (bucketName: string) => boolean;
   setBucketFilter: (value: string) => void;
-  setShowBucketMenu: Dispatch<SetStateAction<boolean>>;
 };
 
 export function useBrowserBucketInteractions({
   bucketConfigurationEnabled,
   bucketManagementEnabled,
   clearActiveItem,
+  closeBucketMenu,
   openBucketConfigurationTarget,
   openCreateBucketForm,
   requestDetailsDrawerTransition,
   selectBucket,
   setBucketFilter,
-  setShowBucketMenu,
 }: UseBrowserBucketInteractionsOptions) {
   const selectBucketFromMenu = useCallback(
     (bucketName: string) => {
-      setShowBucketMenu(false);
+      closeBucketMenu();
       requestDetailsDrawerTransition(() => {
         if (selectBucket(bucketName)) clearActiveItem();
       });
     },
     [
       clearActiveItem,
+      closeBucketMenu,
       requestDetailsDrawerTransition,
       selectBucket,
-      setShowBucketMenu,
     ],
   );
 
   const resetBucketMenu = useCallback(() => {
-    setShowBucketMenu(false);
+    closeBucketMenu();
     setBucketFilter("");
-  }, [setBucketFilter, setShowBucketMenu]);
+  }, [closeBucketMenu, setBucketFilter]);
 
   const openBucketConfiguration = useCallback(
     (bucketName: string) => {

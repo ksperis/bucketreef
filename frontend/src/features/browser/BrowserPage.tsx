@@ -16,7 +16,6 @@ import {
   useLocation,
   useSearchParams,
 } from "react-router-dom";
-import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import { readStoredUser } from "../../utils/workspaces";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
@@ -34,6 +33,7 @@ import { useBrowserBulkRestore } from "./useBrowserBulkRestore";
 import { useBrowserBucketPanelViewport } from "./useBrowserBucketPanelViewport";
 import { useBrowserBucketCatalog } from "./useBrowserBucketCatalog";
 import { useBrowserBucketInteractions } from "./useBrowserBucketInteractions";
+import { useBrowserBucketMenu } from "./useBrowserBucketMenu";
 import { useBrowserClipboard } from "./useBrowserClipboard";
 import { useBrowserConfirmDialog } from "./useBrowserConfirmDialog";
 import { useBrowserContextMenu } from "./useBrowserContextMenu";
@@ -239,7 +239,13 @@ export default function BrowserPage({
     ? portalAccountId
     : null;
   const isCephAdminContext = executionContextKind === "ceph_admin";
-  const [showBucketMenu, setShowBucketMenu] = useState(false);
+  const {
+    close: closeBucketMenu,
+    filterInputRef: bucketMenuFilterRef,
+    open: showBucketMenu,
+    rootRef: bucketMenuRef,
+    toggle: toggleBucketMenu,
+  } = useBrowserBucketMenu();
   const {
     settings: browserSettings,
     usageError: usageSummaryError,
@@ -616,9 +622,7 @@ export default function BrowserPage({
     recordCompletedActivity: recordRegisteredActivity,
     setStatusMessage,
   });
-  const bucketMenuRef = useRef<HTMLDivElement | null>(null);
   const objectsListViewportRef = useRef<HTMLDivElement | null>(null);
-  const bucketMenuFilterRef = useRef<HTMLInputElement | null>(null);
   const contextIdForApiRef = useRef(contextIdForApi);
   const effectiveCaps =
     storageEndpointCapabilities === undefined
@@ -695,18 +699,6 @@ export default function BrowserPage({
       presignObject: presignObjectRequest,
       sseActive,
     });
-  useDismissibleLayer({
-    open: showBucketMenu,
-    insideRefs: [bucketMenuRef],
-    onDismiss: () => setShowBucketMenu(false),
-  });
-
-  useEffect(() => {
-    if (showBucketMenu) {
-      bucketMenuFilterRef.current?.focus();
-    }
-  }, [showBucketMenu]);
-
   useEffect(() => {
     if (isVersioningEnabled) return;
     hideDeletedObjects();
@@ -1119,12 +1111,12 @@ export default function BrowserPage({
     bucketConfigurationEnabled,
     bucketManagementEnabled,
     clearActiveItem,
+    closeBucketMenu,
     openBucketConfigurationTarget,
     openCreateBucketForm,
     requestDetailsDrawerTransition,
     selectBucket,
     setBucketFilter,
-    setShowBucketMenu,
   });
 
   const {
@@ -1762,7 +1754,7 @@ export default function BrowserPage({
               displayNameByBucket: bucketDisplayNameByName,
               canLoadMore: canLoadMoreBucketResults,
               loadingMore: bucketMenuLoadingMore,
-              onToggle: () => setShowBucketMenu((current) => !current),
+              onToggle: toggleBucketMenu,
               onCreateBucket: openCreateBucketDialog,
               onFilterChange: setBucketFilter,
               onRetry: () => void refreshBucketList(),
