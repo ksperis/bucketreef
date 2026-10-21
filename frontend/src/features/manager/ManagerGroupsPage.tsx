@@ -90,8 +90,8 @@ export default function ManagerGroupsPage() {
   );
 
   const loadPolicies = useCallback(
-    (accountId: S3ExecutionContextSelector) =>
-      loadRelated(accountId, listIamPolicies, setPolicies),
+    (contextId: S3ExecutionContextSelector) =>
+      loadRelated(contextId, listIamPolicies, setPolicies),
     [loadRelated],
   );
 

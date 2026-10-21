@@ -126,14 +126,14 @@ export default function ManagerUsersPage() {
   });
 
   const loadGroups = useCallback(
-    (accountId: S3ExecutionContextSelector) =>
-      loadRelated(accountId, listIamGroups, setGroups),
+    (contextId: S3ExecutionContextSelector) =>
+      loadRelated(contextId, listIamGroups, setGroups),
     [loadRelated],
   );
 
   const loadPolicies = useCallback(
-    (accountId: S3ExecutionContextSelector) =>
-      loadRelated(accountId, listIamPolicies, setPolicies),
+    (contextId: S3ExecutionContextSelector) =>
+      loadRelated(contextId, listIamPolicies, setPolicies),
     [loadRelated],
   );
 

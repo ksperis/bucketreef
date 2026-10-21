@@ -16,7 +16,7 @@ type UseIamOverviewResult = {
 };
 
 export function useIamOverview(
-  accountId: S3ExecutionContextSelector,
+  contextId: S3ExecutionContextSelector,
   enabled: boolean,
   hasContext: boolean = true,
   refreshKey?: string | null
@@ -35,7 +35,7 @@ export function useIamOverview(
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchIamOverview(accountId || undefined);
+      const data = await fetchIamOverview(contextId || undefined);
       setOverview(data);
       setError(data.warnings && data.warnings.length > 0 ? data.warnings.join("; ") : null);
     } catch (err) {
@@ -48,7 +48,7 @@ export function useIamOverview(
     } finally {
       setLoading(false);
     }
-  }, [accountId, enabled, hasContext]);
+  }, [contextId, enabled, hasContext]);
 
   useEffect(() => {
     void load();

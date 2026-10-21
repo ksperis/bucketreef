@@ -6,18 +6,18 @@ import { useCallback, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { extractApiError } from "../../utils/apiError";
 
-type ListManagerIamItems<Item> = (accountId: S3ExecutionContextSelector) => Promise<Item[]>;
+type ListManagerIamItems<Item> = (contextId: S3ExecutionContextSelector) => Promise<Item[]>;
 
 export function useManagerIamCollection<Item>(listItems: ListManagerIamItems<Item>) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (accountId: S3ExecutionContextSelector) => {
+  const load = useCallback(async (contextId: S3ExecutionContextSelector) => {
     setLoading(true);
     setError(null);
     try {
-      setItems(await listItems(accountId));
+      setItems(await listItems(contextId));
     } catch (loadError) {
       setError(extractApiError(loadError, "Unexpected error"));
     } finally {
@@ -26,12 +26,12 @@ export function useManagerIamCollection<Item>(listItems: ListManagerIamItems<Ite
   }, [listItems]);
 
   const loadRelated = useCallback(async <RelatedItem>(
-    accountId: S3ExecutionContextSelector,
+    contextId: S3ExecutionContextSelector,
     listRelatedItems: ListManagerIamItems<RelatedItem>,
     setRelatedItems: (items: RelatedItem[]) => void,
   ) => {
     try {
-      setRelatedItems(await listRelatedItems(accountId));
+      setRelatedItems(await listRelatedItems(contextId));
     } catch (loadError) {
       setError(extractApiError(loadError, "Unexpected error"));
     }

@@ -109,8 +109,8 @@ export default function ManagerRolesPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const loadPolicies = useCallback(
-    (accountId: S3ExecutionContextSelector) =>
-      loadRelated(accountId, listIamPolicies, setPolicies),
+    (contextId: S3ExecutionContextSelector) =>
+      loadRelated(contextId, listIamPolicies, setPolicies),
     [loadRelated],
   );
 
