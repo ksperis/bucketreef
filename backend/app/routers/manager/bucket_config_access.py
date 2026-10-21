@@ -66,8 +66,7 @@ def put_acl(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_acl",
-        action=bucket_config_actions.put_bucket_acl_config,
+        config_area="acl",
         payload=payload,
     )
 
@@ -98,8 +97,7 @@ def put_public_access_block(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_public_access_block",
-        action=bucket_config_actions.put_bucket_public_access_block_config,
+        config_area="public_access_block",
         payload=payload,
     )
 
@@ -116,8 +114,7 @@ def put_policy(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="put_bucket_policy",
-        action=bucket_config_actions.put_bucket_policy_config,
+        config_area="policy",
         payload=payload,
     )
 
@@ -133,6 +130,5 @@ def delete_policy(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_policy",
-        action=bucket_config_actions.delete_bucket_policy_config,
+        config_area="policy",
     )

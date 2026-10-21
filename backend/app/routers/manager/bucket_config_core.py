@@ -88,8 +88,7 @@ def update_versioning(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_versioning",
-        action=bucket_config_actions.update_bucket_versioning_config,
+        config_area="versioning",
         payload=payload,
     )
 
@@ -120,8 +119,7 @@ def put_object_lock(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_object_lock",
-        action=bucket_config_actions.put_bucket_object_lock_config,
+        config_area="object_lock",
         payload=payload,
     )
 
@@ -154,8 +152,7 @@ def put_bucket_encryption(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="update_bucket_encryption",
-        action=bucket_config_actions.put_bucket_encryption_config,
+        config_area="encryption",
         payload=payload,
     )
 
@@ -172,8 +169,7 @@ def delete_bucket_encryption(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
-        audit_action="delete_bucket_encryption",
-        action=bucket_config_actions.delete_bucket_encryption_config,
+        config_area="encryption",
     )
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0

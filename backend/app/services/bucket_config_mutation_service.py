@@ -7,6 +7,11 @@ from typing import Any, Callable, Literal, TypeVar
 from app.models.access_context import ManagerActor
 from app.services import bucket_config_actions
 from app.services.audit_service import AuditService
+from app.services.bucket_config_mutation_registry import (
+    BucketConfigArea,
+    get_bucket_config_delete_mutation,
+    get_bucket_config_mutation,
+)
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.s3_execution_context import S3ExecutionContext
 
@@ -55,20 +60,20 @@ class BucketConfigMutationService:
         actor: ManagerActor,
         context: S3ExecutionContext,
         bucket_name: str,
-        audit_action: str,
-        action: Callable[..., tuple[_T, dict[str, Any]]],
+        config_area: BucketConfigArea,
         **kwargs: Any,
     ) -> _T:
+        mutation = get_bucket_config_mutation(config_area)
         return bucket_config_actions.apply_bucket_config_update(
             service=self.configuration_service,
             context=context,
             bucket_name=bucket_name,
-            action=action,
+            action=mutation.update_action,
             audit_recorder=lambda metadata: self._record(
                 actor=actor,
                 context=context,
                 bucket_name=bucket_name,
-                audit_action=audit_action,
+                audit_action=mutation.manager_update_audit_action,
                 metadata=metadata,
             ),
             **kwargs,
@@ -80,20 +85,22 @@ class BucketConfigMutationService:
         actor: ManagerActor,
         context: S3ExecutionContext,
         bucket_name: str,
-        audit_action: str,
-        action: Callable[..., None],
+        config_area: BucketConfigArea,
         **kwargs: Any,
     ) -> None:
+        mutation = get_bucket_config_delete_mutation(config_area)
+        assert mutation.delete_action is not None
+        assert mutation.manager_delete_audit_action is not None
         bucket_config_actions.apply_bucket_config_delete(
             service=self.configuration_service,
             context=context,
             bucket_name=bucket_name,
-            action=action,
+            action=mutation.delete_action,
             audit_recorder=lambda _metadata: self._record(
                 actor=actor,
                 context=context,
                 bucket_name=bucket_name,
-                audit_action=audit_action,
+                audit_action=mutation.manager_delete_audit_action,
                 metadata=None,
             ),
             **kwargs,

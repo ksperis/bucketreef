@@ -54,7 +54,6 @@ def put_lifecycle(
         ctx,
         bucket_name,
         config_area="lifecycle",
-        action=bucket_config_actions.put_bucket_lifecycle_config,
         payload=payload,
     )
 
@@ -68,7 +67,6 @@ def delete_lifecycle(
         ctx,
         bucket_name,
         config_area="lifecycle",
-        action=bucket_config_actions.delete_bucket_lifecycle_config,
     )
 
 
@@ -96,7 +94,6 @@ def put_cors(
         ctx,
         bucket_name,
         config_area="cors",
-        action=bucket_config_actions.put_bucket_cors_config,
         payload=payload,
     )
 
@@ -110,7 +107,6 @@ def delete_cors(
         ctx,
         bucket_name,
         config_area="cors",
-        action=bucket_config_actions.delete_bucket_cors_config,
     )
 
 
@@ -138,7 +134,6 @@ def put_notifications(
         ctx,
         bucket_name,
         config_area="notifications",
-        action=bucket_config_actions.put_bucket_notifications_config,
         payload=payload,
     )
 
@@ -152,7 +147,6 @@ def delete_notifications(
         ctx,
         bucket_name,
         config_area="notifications",
-        action=bucket_config_actions.delete_bucket_notifications_config,
     )
 
 
@@ -182,7 +176,6 @@ def put_replication(
         ctx,
         bucket_name,
         config_area="replication",
-        action=bucket_config_actions.put_bucket_replication_config,
         payload=payload,
     )
 
@@ -197,7 +190,6 @@ def delete_replication(
         ctx,
         bucket_name,
         config_area="replication",
-        action=bucket_config_actions.delete_bucket_replication_config,
     )
 
 
@@ -225,7 +217,6 @@ def put_logging(
         ctx,
         bucket_name,
         config_area="logging",
-        action=bucket_config_actions.put_bucket_logging_config,
         payload=payload,
     )
 
@@ -239,7 +230,6 @@ def delete_logging(
         ctx,
         bucket_name,
         config_area="logging",
-        action=bucket_config_actions.delete_bucket_logging_config,
     )
 
 
@@ -267,7 +257,6 @@ def put_website(
         ctx,
         bucket_name,
         config_area="website",
-        action=bucket_config_actions.put_bucket_website_config,
         payload=payload,
     )
 
@@ -281,7 +270,6 @@ def delete_website(
         ctx,
         bucket_name,
         config_area="website",
-        action=bucket_config_actions.delete_bucket_website_config,
     )
 
 
@@ -309,7 +297,6 @@ def put_tags(
         ctx,
         bucket_name,
         config_area="tags",
-        action=bucket_config_actions.put_bucket_tags_config,
         payload=payload,
     )
 
@@ -323,6 +310,5 @@ def delete_tags(
         ctx,
         bucket_name,
         config_area="tags",
-        action=bucket_config_actions.delete_bucket_tags_config,
     )
 
