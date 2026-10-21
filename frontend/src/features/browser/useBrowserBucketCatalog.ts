@@ -523,10 +523,9 @@ export function useBrowserBucketCatalog({
         !bucketName ||
         bucketName === bucketNameRef.current
       ) {
-        return false;
+        return;
       }
       setSelection(bucketName, "");
-      return true;
     },
     [lockedBucketName, setSelection],
   );

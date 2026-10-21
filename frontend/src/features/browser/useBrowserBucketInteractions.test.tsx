@@ -13,7 +13,7 @@ function createOptions() {
       transition();
       return true;
     }),
-    selectBucket: vi.fn(() => true),
+    selectBucket: vi.fn(),
     setBucketFilter: vi.fn(),
   };
 }
@@ -23,24 +23,13 @@ describe("useBrowserBucketInteractions", () => {
     vi.clearAllMocks();
   });
 
-  it("owns bucket selection transitions and clears the active item after a change", () => {
+  it("owns bucket selection transitions", () => {
     const options = createOptions();
     const { result } = renderHook(() => useBrowserBucketInteractions(options));
 
     act(() => result.current.selectBucketFromMenu("archive"));
 
     expect(options.closeBucketMenu).toHaveBeenCalledOnce();
-    expect(options.requestDetailsDrawerTransition).toHaveBeenCalledOnce();
-    expect(options.selectBucket).toHaveBeenCalledWith("archive");
-  });
-
-  it("still routes unchanged bucket selections through the transition contract", () => {
-    const options = createOptions();
-    options.selectBucket.mockReturnValue(false);
-    const { result } = renderHook(() => useBrowserBucketInteractions(options));
-
-    act(() => result.current.selectBucketFromMenu("archive"));
-
     expect(options.requestDetailsDrawerTransition).toHaveBeenCalledOnce();
     expect(options.selectBucket).toHaveBeenCalledWith("archive");
   });
