@@ -9,7 +9,7 @@ from typing import Any, Callable, TYPE_CHECKING
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.core.sensitive_data import sanitize_error_detail
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import User
 from app.models.portal_versions import (
     PortalDeletedPrefixRestoreFailure,
@@ -147,7 +147,7 @@ class _PortalDeletedPrefixRestoreRunner:
                 self.state.failures.append(
                     PortalDeletedPrefixRestoreFailure(
                         key=key,
-                        detail=str(sanitize_error_detail(str(exc))),
+                        detail=sanitized_error_log_detail(exc),
                     )
                 )
 

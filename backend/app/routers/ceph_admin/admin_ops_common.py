@@ -8,7 +8,7 @@ from typing import Any, Optional
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 
-from app.core.sensitive_data import sanitize_error_detail
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.ceph_admin import CephAdminAdminOpsResult
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_audit import record_ceph_admin_action
@@ -93,7 +93,7 @@ def admin_ops_network_failure(
     exc: RGWAdminError,
     metadata: Optional[dict[str, Any]] = None,
 ) -> JSONResponse:
-    message = str(sanitize_error_detail(str(exc)))
+    message = sanitized_error_log_detail(exc)
     result = CephAdminAdminOpsResult(
         operation=operation,
         success=False,
