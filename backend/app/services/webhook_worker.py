@@ -16,7 +16,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
-from app.core.sensitive_data import sanitize_error_detail
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import WebhookDelivery, WebhookEndpoint
 from app.services.operation_lease_service import OperationLeaseService, generate_operation_owner
 from app.services.webhook_service import validate_webhook_target_url, webhook_runtime_config
@@ -141,7 +141,7 @@ class WebhookDeliveryWorker:
             try:
                 validate_webhook_target_url(endpoint.url, self._settings)
             except ValueError as exc:
-                self._fail_terminal(delivery, str(exc))
+                self._fail_terminal(delivery, exc)
                 db.commit()
                 return
 
@@ -170,11 +170,11 @@ class WebhookDeliveryWorker:
                     allow_redirects=False,
                 )
             except requests.RequestException as exc:
-                self._retry_or_fail(delivery, error=str(sanitize_error_detail(str(exc))))
+                self._retry_or_fail(delivery, error=exc)
                 db.commit()
                 return
             except Exception as exc:  # noqa: BLE001
-                self._retry_or_fail(delivery, error=str(sanitize_error_detail(str(exc))))
+                self._retry_or_fail(delivery, error=exc)
                 db.commit()
                 return
 
@@ -211,7 +211,7 @@ class WebhookDeliveryWorker:
         self,
         delivery: WebhookDelivery,
         *,
-        error: str,
+        error: object,
         retry_after_seconds: int | None = None,
     ) -> None:
         attempts = int(delivery.attempt_count or 0) + 1
@@ -232,7 +232,7 @@ class WebhookDeliveryWorker:
         delivery.last_error = self._safe_error(error)
         delivery.updated_at = now
 
-    def _fail_terminal(self, delivery: WebhookDelivery, error: str) -> None:
+    def _fail_terminal(self, delivery: WebhookDelivery, error: object) -> None:
         now = utcnow()
         delivery.status = "failed"
         delivery.last_error = self._safe_error(error)
@@ -277,8 +277,8 @@ class WebhookDeliveryWorker:
             return None
 
     @staticmethod
-    def _safe_error(value: str) -> str:
-        return str(sanitize_error_detail(value or "Webhook delivery failed"))[:2048]
+    def _safe_error(value: object) -> str:
+        return sanitized_error_log_detail(value or "Webhook delivery failed")[:2048]
 
 
 _worker_singleton: Optional[WebhookDeliveryWorker] = None
