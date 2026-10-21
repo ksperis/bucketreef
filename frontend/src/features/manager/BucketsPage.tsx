@@ -241,15 +241,15 @@ export default function BucketsPage() {
   });
   const [enrichingColumns, setEnrichingColumns] = useState(false);
 
-  const selectedS3Account = useMemo(
+  const selectedContext = useMemo(
     () => contexts.find((a) => a.id === selectedContextId),
     [contexts, selectedContextId]
   );
-  const endpointCaps = selectedS3Account?.storage_endpoint_capabilities ?? null;
+  const endpointCaps = selectedContext?.storage_endpoint_capabilities ?? null;
   const usageFeatureEnabled = endpointCaps ? endpointCaps.metrics !== false : true;
   const snsFeatureEnabled = endpointCaps ? endpointCaps.sns !== false : true;
   const staticWebsiteFeatureEnabled = endpointCaps?.static_website === true;
-  const quotaFeatureEnabled = selectedS3Account?.endpoint_provider === "ceph";
+  const quotaFeatureEnabled = selectedContext?.endpoint_provider === "ceph";
   const metricColumnOptions = useMemo(
     () => [
       { id: "used_bytes" as const, label: text("Used") },
@@ -285,8 +285,8 @@ export default function BucketsPage() {
       ) as Array<{ id: ManagerFeatureKey; label: string; key: ManagerFeatureKey }>),
     [snsFeatureEnabled, staticWebsiteFeatureEnabled, text]
   );
-  const accountLabel = selectedS3Account
-    ? formatAccountLabel(selectedS3Account)
+  const contextLabel = selectedContext
+    ? formatAccountLabel(selectedContext)
     : requiresContextSelection
       ? "Not selected"
       : sessionAccountName || "S3 session";
@@ -947,7 +947,7 @@ export default function BucketsPage() {
           confirmLabel={text("Delete bucket")}
           details={[
             { label: text("Bucket"), value: pendingDeleteBucketName, mono: true },
-            { label: text("Context"), value: accountLabel },
+            { label: text("Context"), value: contextLabel },
           ]}
           impacts={[
             text("Deletion is irreversible once the bucket is removed."),
@@ -963,7 +963,7 @@ export default function BucketsPage() {
         <BucketPurgeRunModal
           mode="manager-delete"
           contextId={contextIdForApi}
-          contextName={accountLabel}
+          contextName={contextLabel}
           targets={[{ bucketName: pendingDeleteWithPurgeBucketName }]}
           onFinished={(result) => void handleDeleteWithPurgeFinished(result)}
           onClose={() => setPendingDeleteWithPurgeBucketName(null)}
@@ -971,7 +971,7 @@ export default function BucketsPage() {
       )}
 
       {showCreateForm && (
-        <BucketCreateWorkflow contextLabel={accountLabel} needsContext={needsContextSelection}
+        <BucketCreateWorkflow contextLabel={contextLabel} needsContext={needsContextSelection}
           busy={creating} error={actionError} onCreate={performCreate} onClose={() => setShowCreateForm(false)} />
       )}
     </div>

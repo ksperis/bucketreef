@@ -72,11 +72,11 @@ export default function ManagerFeatureRulesPage() {
   const [selectedRule, setSelectedRule] = useState<SelectedRule | null>(null);
   const ruleJsonRef = useRef<HTMLTextAreaElement>(null);
 
-  const selectedS3Account = useMemo(
+  const selectedContext = useMemo(
     () => contexts.find((account) => account.id === selectedContextId),
     [contexts, selectedContextId]
   );
-  const snsFeatureEnabled = selectedS3Account?.storage_endpoint_capabilities?.sns !== false;
+  const snsFeatureEnabled = selectedContext?.storage_endpoint_capabilities?.sns !== false;
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
 
   useEffect(() => {

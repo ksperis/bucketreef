@@ -900,7 +900,7 @@ export default function ManagerDashboard() {
     };
   }, [contextIdForApi, canLoadUsageStatsDataTypes, refreshNonce]);
 
-  const accountLabel = selected
+  const contextLabel = selected
     ? formatAccountLabel(selected)
     : sessionAccountName ?? "S3 session";
   const noContextReason = !hasContext ? text("Select an account to display live values.") : null;
@@ -1031,7 +1031,7 @@ export default function ManagerDashboard() {
     <div className="ui-dashboard-compact" data-testid="manager-dashboard">
       <PageHeader
         title={text("Manager dashboard")}
-        description={text("Overview of {account} storage account and resources.", { account: accountLabel })}
+        description={text("Overview of {account} storage account and resources.", { account: contextLabel })}
         breadcrumbs={managerPageBreadcrumbs(text, "dashboard")}
         rightContent={
           <div className="flex items-center gap-3">
