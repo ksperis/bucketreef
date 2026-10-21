@@ -1397,6 +1397,42 @@ describe("BrowserPage interactions", () => {
     });
   });
 
+  it("clears controlled deleted-file visibility only after versioning resolves disabled", async () => {
+    const onVisibilityChange = vi.fn();
+    let resolveVersioning!: (value: { enabled: boolean; status: string }) => void;
+    getBrowserBucketVersioningMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveVersioning = resolve;
+      }),
+    );
+
+    renderPage({
+      initialEntry: "/portal/storage-spaces/research-data",
+      contextIdForApi: "101",
+      workspaceSurface: "portal",
+      functionalProfile: "portal",
+      lockedBucketName: "portal-bucket",
+      lockedBucketLabel: "Research Data",
+      deletedObjectsOptions: {
+        visible: true,
+        showToggle: true,
+        canRestore: true,
+        onVisibilityChange,
+      },
+    });
+
+    await findRowByLabel("a.txt");
+    expect(onVisibilityChange).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveVersioning({ enabled: false, status: "Disabled" });
+    });
+
+    await waitFor(() => {
+      expect(onVisibilityChange).toHaveBeenCalledWith(false);
+    });
+  });
+
   it("keeps historical folders reachable after dense version pages in the Portal mixed view", async () => {
     const restoreDeletedObject = vi.fn();
     const restoreDeletedPrefix = vi.fn();

@@ -470,6 +470,7 @@ export default function BrowserPage({
     deletedObjectsIsTruncated,
     deletedPrefixes,
     isVersioningEnabled,
+    versioningResolved,
     loadMore: handleLoadMoreObjectResults,
     loadObjects,
     objects,
@@ -696,9 +697,9 @@ export default function BrowserPage({
       sseActive,
     });
   useEffect(() => {
-    if (isVersioningEnabled) return;
+    if (!versioningResolved || isVersioningEnabled) return;
     hideDeletedObjects();
-  }, [bucketName, hideDeletedObjects, isVersioningEnabled]);
+  }, [hideDeletedObjects, isVersioningEnabled, versioningResolved]);
 
   const {
     loadTreeChildren,

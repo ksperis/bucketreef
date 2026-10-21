@@ -35,6 +35,39 @@ describe("useBrowserListingVisibility", () => {
     expect(onVisibilityChange).toHaveBeenCalledWith(false);
   });
 
+  it("can reset controlled deleted-object visibility through its owner", () => {
+    const onVisibilityChange = vi.fn();
+    const { result } = renderHook(() =>
+      useBrowserListingVisibility({
+        deletedObjectsOptions: {
+          visible: true,
+          onVisibilityChange,
+        },
+      }),
+    );
+
+    act(() => result.current.hideDeletedObjects());
+
+    expect(result.current.showDeletedObjects).toBe(true);
+    expect(onVisibilityChange).toHaveBeenCalledWith(false);
+  });
+
+  it("does not notify when controlled deleted-object visibility is already hidden", () => {
+    const onVisibilityChange = vi.fn();
+    const { result } = renderHook(() =>
+      useBrowserListingVisibility({
+        deletedObjectsOptions: {
+          visible: false,
+          onVisibilityChange,
+        },
+      }),
+    );
+
+    act(() => result.current.hideDeletedObjects());
+
+    expect(onVisibilityChange).not.toHaveBeenCalled();
+  });
+
   it("can reset local deleted-object visibility", () => {
     const { result } = renderHook(() => useBrowserListingVisibility({}));
 
