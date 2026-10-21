@@ -17,8 +17,12 @@ Before any non-trivial change:
 
 1. Propose a clear plan with impacts, affected files, and risks.
 2. Define the testing or validation strategy.
-3. Confirm the intended direction before implementation when the change is
-   architectural, security-sensitive, or broad in scope.
+3. Confirm the intended direction before implementation when a material
+   product or architectural decision remains unresolved, especially for
+   security-sensitive changes or feature removal. An explicit user-approved
+   objective already authorizes work within its stated scope; do not request
+   confirmation solely because that work is broad. Ask before removing a
+   feature unless the user has explicitly approved that removal.
 
 ## Core concepts
 
