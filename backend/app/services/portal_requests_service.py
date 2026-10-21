@@ -3,15 +3,14 @@
 
 from __future__ import annotations
 
-from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS
-
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, NoReturn, Optional
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     PortalAccountRole,
     PortalAdminRequest,
@@ -19,6 +18,9 @@ from app.db import (
     S3Account,
     User,
 )
+from app.models.access_context import AccountAccess
+from app.models.app_settings import PortalSettingsOverride
+from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS
 from app.models.portal_requests import (
     PortalAccountQuotaChangeRequestCreate,
     PortalAdminRequestCreate,
@@ -29,10 +31,7 @@ from app.models.portal_requests import (
     PortalUserAccessRequestCreate,
     PortalUserRemovalRequestCreate,
 )
-from app.models.access_context import AccountAccess
-from app.models.app_settings import PortalSettingsOverride
 from app.models.s3_account import S3AccountUpdate
-from app.core.sensitive_data import sanitize_error_detail
 from app.services.audit_service import AuditService
 from app.services.portal_collaborator_requests_service import PortalCollaboratorRequestsService
 from app.services.portal_request_notification_service import PortalRequestNotificationService
@@ -164,25 +163,14 @@ class PortalRequestsService:
         try:
             result = self._execute_request(row)
         except Exception as exc:
-            detail = sanitize_error_detail(str(exc))
-            self.db.rollback()
-            failed = self._finalize_failed_request(int(row.id), actor, detail)
-            AuditService(self.db).record_action(
-                user=actor,
+            self._raise_execution_failure(
+                int(row.id),
+                actor,
+                exc,
                 scope="portal",
                 action="execute_delegated_portal_request",
-                entity_type="portal_request",
-                entity_id=str(failed.id),
-                account=failed.account,
-                metadata={
-                    "request_type": failed.request_type,
-                    "execution": "delegated",
-                    "error": detail,
-                },
-                status="failure",
-                message=detail,
+                execution="delegated",
             )
-            raise PortalRequestExecutionError(detail) from exc
 
         approved = self._finalize_approved_request(int(row.id), actor, result)
         AuditService(self.db).record_action(
@@ -199,6 +187,46 @@ class PortalRequestsService:
             },
         )
         return self.to_out(approved)
+
+    def _raise_execution_failure(
+        self,
+        request_id: int,
+        actor: User,
+        exc: Exception,
+        *,
+        scope: str,
+        action: str,
+        execution: Optional[str] = None,
+        notify_requester: bool = False,
+    ) -> NoReturn:
+        detail = sanitized_error_log_detail(exc)
+        self.db.rollback()
+        failed = self._finalize_failed_request(request_id, actor, detail)
+        if notify_requester:
+            self.notifications.notify_requester(
+                failed,
+                title="Portal request failed",
+                message="Your Portal request could not be completed after approval.",
+                event_suffix="failed",
+            )
+            self.db.commit()
+
+        metadata: dict[str, Any] = {"request_type": failed.request_type}
+        if execution is not None:
+            metadata["execution"] = execution
+        metadata["error"] = detail
+        AuditService(self.db).record_action(
+            user=actor,
+            scope=scope,
+            action=action,
+            entity_type="portal_request",
+            entity_id=str(failed.id),
+            account=failed.account,
+            metadata=metadata,
+            status="failure",
+            message=detail,
+        )
+        raise PortalRequestExecutionError(detail) from exc
 
     def list_for_portal_user(
         self,
@@ -340,28 +368,14 @@ class PortalRequestsService:
         try:
             result = self._execute_request(row)
         except Exception as exc:
-            detail = sanitize_error_detail(str(exc))
-            self.db.rollback()
-            failed = self._finalize_failed_request(request_id, actor, detail)
-            self.notifications.notify_requester(
-                failed,
-                title="Portal request failed",
-                message="Your Portal request could not be completed after approval.",
-                event_suffix="failed",
-            )
-            self.db.commit()
-            AuditService(self.db).record_action(
-                user=actor,
+            self._raise_execution_failure(
+                request_id,
+                actor,
+                exc,
                 scope="admin",
                 action="approve_portal_request",
-                entity_type="portal_request",
-                entity_id=str(failed.id),
-                account=failed.account,
-                metadata={"request_type": failed.request_type, "error": detail},
-                status="failure",
-                message=detail,
+                notify_requester=True,
             )
-            raise PortalRequestExecutionError(detail) from exc
 
         approved = self._finalize_approved_request(
             request_id,
