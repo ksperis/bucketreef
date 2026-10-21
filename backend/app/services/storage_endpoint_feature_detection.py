@@ -249,7 +249,7 @@ class StorageEndpointFeatureDetector:
         if failure == "misconfigured":
             return StorageEndpointCredentialCheck(
                 status="misconfigured",
-                message=misconfigured_message or str(error),
+                message=misconfigured_message or sanitized_error_log_detail(error),
             )
         return StorageEndpointCredentialCheck(
             status=failure,
@@ -300,7 +300,7 @@ class StorageEndpointFeatureDetector:
                         message="Admin Ops access key is not recognized by RGW.",
                     )
             except RGWAdminError as exc:
-                result.admin_error = str(exc)
+                result.admin_error = sanitized_error_log_detail(exc)
                 result.credential_checks.admin = self._failed_check(
                     exc,
                     denied_message="Admin Ops credentials were denied by RGW.",
@@ -337,7 +337,7 @@ class StorageEndpointFeatureDetector:
             if not result.account:
                 result.account_error = "RGW account API is unavailable."
         except RGWAdminError as exc:
-            result.account_error = str(exc)
+            result.account_error = sanitized_error_log_detail(exc)
 
     def _detect_supervision_features(
         self,
@@ -371,7 +371,7 @@ class StorageEndpointFeatureDetector:
                 message="Supervision Ops access and bucket stats were validated by RGW.",
             )
         except RGWAdminError as exc:
-            result.metrics_error = str(exc)
+            result.metrics_error = sanitized_error_log_detail(exc)
             result.credential_checks.supervision = self._failed_check(
                 exc,
                 denied_message="Supervision Ops credentials were denied by RGW.",
@@ -399,7 +399,7 @@ class StorageEndpointFeatureDetector:
                     "enabled and that RGW has recorded traffic."
                 )
         except RGWAdminError as exc:
-            result.usage_error = str(exc)
+            result.usage_error = sanitized_error_log_detail(exc)
 
     @staticmethod
     def _usage_payload_has_values(payload: object) -> bool:
