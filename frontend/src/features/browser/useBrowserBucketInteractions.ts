@@ -11,7 +11,7 @@ type UseBrowserBucketInteractionsOptions = {
   openBucketConfigurationTarget: (bucketName: string) => void;
   openCreateBucketForm: () => void;
   requestDetailsDrawerTransition: (transition: () => void) => boolean;
-  selectBucket: (bucketName: string) => boolean;
+  selectBucket: (bucketName: string) => void;
   setBucketFilter: (value: string) => void;
 };
 
