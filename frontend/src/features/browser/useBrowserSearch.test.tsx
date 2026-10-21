@@ -78,7 +78,7 @@ describe("useBrowserSearch", () => {
       result.current.setSearchCaseSensitive(true);
       result.current.setTypeFilter("file");
       result.current.setStorageFilter("STANDARD_IA");
-      result.current.setShowSearchOptionsMenu(true);
+      result.current.toggleSearchOptionsMenu();
     });
 
     rerender({ isPortalProfile: true, scopeKey: "bucket-a:root" });
@@ -99,9 +99,39 @@ describe("useBrowserSearch", () => {
       { initialProps: { scopeKey: "bucket-a:root" } },
     );
 
-    act(() => result.current.setShowSearchOptionsMenu(true));
+    act(() => result.current.toggleSearchOptionsMenu());
     rerender({ scopeKey: "bucket-a:archive" });
 
     expect(result.current.showSearchOptionsMenu).toBe(false);
+  });
+
+  it("owns dismissing search options and restores focus on Escape", () => {
+    const { result } = renderHook(() =>
+      useBrowserSearch({
+        isPortalProfile: false,
+        scopeKey: "bucket-a:root",
+      }),
+    );
+    const root = document.createElement("div");
+    const button = document.createElement("button");
+    const menu = document.createElement("div");
+    const outside = document.createElement("button");
+    document.body.append(root, button, menu, outside);
+    result.current.searchControlRef.current = root;
+    result.current.searchOptionsButtonRef.current = button;
+    result.current.searchOptionsMenuRef.current = menu;
+
+    act(() => result.current.toggleSearchOptionsMenu());
+    outside.focus();
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+
+    expect(result.current.showSearchOptionsMenu).toBe(false);
+    expect(document.activeElement).toBe(button);
+    root.remove();
+    button.remove();
+    menu.remove();
+    outside.remove();
   });
 });

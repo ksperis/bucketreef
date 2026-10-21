@@ -2,7 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import { useBrowserI18n } from "./browserI18n";
 
 type BrowserSearchScope = "prefix" | "bucket";
@@ -28,6 +29,9 @@ export function useBrowserSearch({
   const [typeFilter, setTypeFilter] =
     useState<BrowserSearchTypeFilter>("all");
   const [storageFilter, setStorageFilter] = useState("all");
+  const searchControlRef = useRef<HTMLDivElement | null>(null);
+  const searchOptionsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const searchOptionsMenuRef = useRef<HTMLDivElement | null>(null);
 
   const hasSearchQuery = filter.trim().length > 0;
   const isSearchingInWholeBucket =
@@ -87,6 +91,18 @@ export function useBrowserSearch({
   const toggleSearchOptionsMenu = useCallback(() => {
     setShowSearchOptionsMenu((current) => !current);
   }, []);
+  const closeSearchOptionsMenu = useCallback(() => {
+    setShowSearchOptionsMenu(false);
+  }, []);
+
+  useDismissibleLayer({
+    open: showSearchOptionsMenu,
+    insideRefs: [searchControlRef, searchOptionsMenuRef],
+    onDismiss: (reason) => {
+      closeSearchOptionsMenu();
+      if (reason === "escape") searchOptionsButtonRef.current?.focus();
+    },
+  });
 
   useEffect(() => {
     setShowSearchOptionsMenu(false);
@@ -123,20 +139,23 @@ export function useBrowserSearch({
     activeSearchStatusChips,
     changeSearchScope,
     clearSearchFilters,
+    closeSearchOptionsMenu,
     filter,
     hasActiveSearchFilters,
     hasAdvancedSearchOptionsActive,
     hasSearchQuery,
     isSearchingInWholeBucket,
     searchCaseSensitive,
+    searchControlRef,
     searchExactMatch,
+    searchOptionsButtonRef,
+    searchOptionsMenuRef,
     searchRecursive,
     searchScope,
     setFilter,
     setSearchCaseSensitive,
     setSearchExactMatch,
     setSearchRecursive,
-    setShowSearchOptionsMenu,
     setStorageFilter,
     setTypeFilter,
     showSearchOptionsMenu,
