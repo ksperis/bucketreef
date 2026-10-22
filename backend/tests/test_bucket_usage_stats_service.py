@@ -73,13 +73,32 @@ def _dist(snapshot, key: str, distribution: str = "data_type_distribution"):
     return next(entry for entry in entries if entry.key == key)
 
 
-def test_classify_data_type_prefers_backup_names_over_archives():
-    assert classify_data_type("exports/monthly-backup.zip") == "backups"
-    assert classify_data_type("exports/archive.zip") == "archives"
-    assert classify_data_type("docs/report.pdf") == "documents"
-    assert classify_data_type("dataset/sample.parquet") == "scientific_data"
-    assert classify_data_type("src/app.ts") == "source_code"
-    assert classify_data_type("README") == "unknown"
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    [
+        ("", "unknown"),
+        ("folder/", "unknown"),
+        ("exports/monthly-backup.zip", "backups"),
+        ("exports/database.sql.gz", "backups"),
+        ("exports/archive.zip", "archives"),
+        ("exports/archive.tar.gz", "archives"),
+        ("docs/report.pdf", "documents"),
+        ("images/photo.webp", "images"),
+        ("src/app.ts", "source_code"),
+        ("src/Makefile", "source_code"),
+        ("media/clip.mp4", "videos"),
+        ("media/audio.flac", "audio"),
+        ("dataset/sample.parquet", "scientific_data"),
+        ("data/custom.xyz", "other"),
+        ("README", "unknown"),
+    ],
+)
+def test_classify_data_type_uses_ordered_rules(key, expected):
+    assert classify_data_type(key) == expected
+
+
+def test_classify_data_type_keeps_typescript_priority_over_transport_stream_video():
+    assert classify_data_type("src/stream.ts") == "source_code"
 
 
 def test_persisted_usage_stats_json_uses_strict_list_contracts():
