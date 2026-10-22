@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from contextlib import closing
 from datetime import date as date_cls
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
@@ -54,6 +54,41 @@ def _portal_requester_detail(value: Optional[str]) -> Optional[str]:
     if len(value) <= 8:
         return value
     return f"{value[:4]}...{value[-4:]}"
+
+
+def _first_rgw_identity_value(
+    candidates: list[dict[str, Any]],
+    extractor: Callable[[dict[str, Any]], Any],
+) -> Optional[str]:
+    for candidate in candidates:
+        value = dash_to_none(extractor(candidate))
+        if value:
+            return value
+    return None
+
+
+def _rgw_user_requester_identity(
+    uid: str,
+    account_id: Optional[str],
+    display_name: Optional[str],
+) -> PortalServerAccessRequesterIdentity:
+    return PortalServerAccessRequesterIdentity(
+        label=display_name or uid,
+        kind="rgw_user",
+        detail=f"RGW user {uid}" + (f" · account {account_id}" if account_id else ""),
+        iam_username=uid,
+        email=display_name if isinstance(display_name, str) and "@" in display_name else None,
+        resolved=True,
+    )
+
+
+def _rgw_account_requester_identity(account_id: str) -> PortalServerAccessRequesterIdentity:
+    return PortalServerAccessRequesterIdentity(
+        label=account_id,
+        kind="rgw_account",
+        detail="RGW account",
+        resolved=True,
+    )
 
 
 class PortalServerAccessLogQueriesMixin:
@@ -166,37 +201,24 @@ class PortalServerAccessLogQueriesMixin:
         user_payload = payload.get("user")
         if isinstance(user_payload, dict):
             candidates.append(user_payload)
-        uid = None
-        account_id = None
-        display_name = None
-        for candidate in candidates:
-            uid = dash_to_none(candidate.get("uid") or candidate.get("user_id") or (candidate.get("user") if isinstance(candidate.get("user"), str) else None))
-            if uid:
-                break
-        for candidate in candidates:
-            account_id = dash_to_none(candidate.get("account_id") or candidate.get("account"))
-            if account_id:
-                break
-        for candidate in candidates:
-            display_name = dash_to_none(candidate.get("display_name") or candidate.get("name") or candidate.get("email"))
-            if display_name:
-                break
+        uid = _first_rgw_identity_value(
+            candidates,
+            lambda candidate: candidate.get("uid")
+            or candidate.get("user_id")
+            or (candidate.get("user") if isinstance(candidate.get("user"), str) else None),
+        )
+        account_id = _first_rgw_identity_value(
+            candidates,
+            lambda candidate: candidate.get("account_id") or candidate.get("account"),
+        )
+        display_name = _first_rgw_identity_value(
+            candidates,
+            lambda candidate: candidate.get("display_name") or candidate.get("name") or candidate.get("email"),
+        )
         if uid:
-            return PortalServerAccessRequesterIdentity(
-                label=display_name or uid,
-                kind="rgw_user",
-                detail=f"RGW user {uid}" + (f" · account {account_id}" if account_id else ""),
-                iam_username=uid,
-                email=display_name if isinstance(display_name, str) and "@" in display_name else None,
-                resolved=True,
-            )
+            return _rgw_user_requester_identity(uid, account_id, display_name)
         if account_id:
-            return PortalServerAccessRequesterIdentity(
-                label=account_id,
-                kind="rgw_account",
-                detail="RGW account",
-                resolved=True,
-            )
+            return _rgw_account_requester_identity(account_id)
         return None
 
     def _resolve_portal_server_access_requester_identities(
