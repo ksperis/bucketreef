@@ -110,17 +110,6 @@ def get_current_actor(
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
 
-def get_current_api_user(
-    request: Request,
-    db: Session = Depends(get_db),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-) -> User:
-    """Resolve an API-token principal and reject browser-session authentication."""
-    if credentials is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API token required")
-    return _resolve_bearer(db, credentials.credentials, request)
-
-
 def get_current_user(actor: ManagerActor = Depends(get_current_actor)) -> User:
     if isinstance(actor, ManagerSessionPrincipal):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="S3 session not allowed for this endpoint")
