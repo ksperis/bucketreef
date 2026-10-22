@@ -22,7 +22,7 @@ describe("AdvancedFilterDrawerShell", () => {
 
     expect(screen.getByRole("dialog", { name: "Advanced filter" })).toHaveTextContent("Users listing");
     expect(screen.getByText("Filter fields")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Close" })).toHaveClass("ui-button-base", "ui-button-secondary");
+    expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("title", "Close");
     expect(document.body.style.overflow).toBe("hidden");
 
     await user.click(screen.getByRole("button", { name: "Close" }));

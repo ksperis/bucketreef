@@ -5,7 +5,7 @@
 import { CSSProperties, ReactNode, RefObject, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export type AnchoredMenuPlacement = "bottom-start" | "bottom-end" | "top-start" | "top-end";
+export type AnchoredMenuPlacement = "bottom-start" | "bottom-end" | "bottom-center" | "top-start" | "top-end";
 
 type UseAnchoredMenuPositionParams = {
   open: boolean;
@@ -33,6 +33,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function resolveX(rect: DOMRect, width: number, placement: AnchoredMenuPlacement): number {
+  if (placement === "bottom-center") return rect.left + (rect.width - width) / 2;
   if (placement.endsWith("end")) {
     return rect.right - width;
   }

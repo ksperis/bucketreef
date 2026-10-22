@@ -3,7 +3,6 @@
 [data-bucketreef-demo] .demo-toolbar strong { color: #f8fafc; }
 :root[data-bucketreef-demo] { --demo-toolbar-height: 48px; }
 [data-bucketreef-demo] #root > .shell-page, [data-bucketreef-demo] #root .shell-page.h-screen, [data-bucketreef-demo] #root .shell-page.h-\[100dvh\] { height: calc(100dvh - var(--demo-toolbar-height)); }
-[data-bucketreef-demo] #root .fixed.inset-x-0.bottom-0.top-14 { top: calc(var(--demo-toolbar-height) + 3.5rem); }
 .demo-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 16px; color: #f8fafc; background: #082f49; font: 12px/1.5 system-ui, sans-serif; border-bottom: 1px solid #0e7490; }
 .demo-toolbar a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .demo-toolbar .demo-brand { text-decoration: none; font-size: 14px; font-weight: 650; white-space: nowrap; }
