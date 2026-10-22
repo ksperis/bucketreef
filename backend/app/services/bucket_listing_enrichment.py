@@ -110,6 +110,20 @@ def _mark_details_unavailable(column_details: dict[str, Any], detail_keys: set[s
         column_details[key] = None
 
 
+def _normalized_optional_text(value: str | None) -> str | None:
+    return (value or "").strip() or None
+
+
+def _project_requested_details(
+    column_details: dict[str, Any],
+    detail_keys: set[str],
+    values: dict[str, Any],
+) -> None:
+    for key in detail_keys:
+        if key in values:
+            column_details[key] = values[key]
+
+
 def _enrich_website_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
@@ -128,29 +142,21 @@ def _enrich_website_configuration(
         _mark_details_unavailable(column_details, detail_keys)
         return
 
-    routing_rules = website.routing_rules or []
-    configured = bool(
-        (website.redirect_all_requests_to and (website.redirect_all_requests_to.host_name or "").strip())
-        or (website.index_document or "").strip()
-        or (isinstance(routing_rules, list) and len(routing_rules) > 0)
+    redirect_host = _normalized_optional_text(
+        website.redirect_all_requests_to.host_name if website.redirect_all_requests_to else None
     )
+    details = {
+        "website_index_document": _normalized_optional_text(website.index_document),
+        "website_error_document": _normalized_optional_text(website.error_document),
+        "website_redirect_host": redirect_host,
+        "website_routing_rule_count": len(website.routing_rules),
+    }
+    configured = bool(details["website_index_document"] or redirect_host or website.routing_rules)
     if wants_feature:
         feature_map["static_website"] = (
             _feature_status_active("Enabled") if configured else _feature_status_inactive("Disabled")
         )
-    if "website_index_document" in detail_keys:
-        column_details["website_index_document"] = (website.index_document or "").strip() or None
-    if "website_error_document" in detail_keys:
-        column_details["website_error_document"] = (website.error_document or "").strip() or None
-    if "website_redirect_host" in detail_keys:
-        redirect_host = (
-            (website.redirect_all_requests_to.host_name or "").strip()
-            if website.redirect_all_requests_to
-            else ""
-        )
-        column_details["website_redirect_host"] = redirect_host or None
-    if "website_routing_rule_count" in detail_keys:
-        column_details["website_routing_rule_count"] = len(routing_rules) if isinstance(routing_rules, list) else 0
+    _project_requested_details(column_details, detail_keys, details)
 
 
 def _enrich_policy_configuration(
@@ -177,10 +183,14 @@ def _enrich_policy_configuration(
             _feature_status_active("Configured") if configured else _feature_status_inactive("Not set")
         )
     statement_count, has_conditions = extract_policy_statement_summary(policy if isinstance(policy, dict) else None)
-    if "policy_statement_count" in detail_keys:
-        column_details["policy_statement_count"] = statement_count
-    if "policy_has_conditions" in detail_keys:
-        column_details["policy_has_conditions"] = has_conditions
+    _project_requested_details(
+        column_details,
+        detail_keys,
+        {
+            "policy_statement_count": statement_count,
+            "policy_has_conditions": has_conditions,
+        },
+    )
 
 
 def _enrich_logging_configuration(
@@ -201,15 +211,20 @@ def _enrich_logging_configuration(
         _mark_details_unavailable(column_details, detail_keys)
         return
 
-    enabled = bool(logging_config.enabled and (logging_config.target_bucket or "").strip())
+    target_bucket = _normalized_optional_text(logging_config.target_bucket)
+    enabled = bool(logging_config.enabled and target_bucket)
     if wants_feature:
         feature_map["access_logging"] = (
             _feature_status_active("Enabled") if enabled else _feature_status_inactive("Disabled")
         )
-    if "logging_target_bucket" in detail_keys:
-        column_details["logging_target_bucket"] = (logging_config.target_bucket or "").strip() or None
-    if "logging_target_prefix" in detail_keys:
-        column_details["logging_target_prefix"] = (logging_config.target_prefix or "").strip() or None
+    _project_requested_details(
+        column_details,
+        detail_keys,
+        {
+            "logging_target_bucket": target_bucket,
+            "logging_target_prefix": _normalized_optional_text(logging_config.target_prefix),
+        },
+    )
 
 
 def _enrich_notification_configuration(
