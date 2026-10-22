@@ -5,9 +5,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.bucket import BucketFeatureStatus, BucketTag
-from app.models.bucket_filter import BucketFilterRule
+from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
 from app.models.bucket_listing import BucketListingSummary
 from app.services.bucket_listing_rule_matching import (
+    extract_name_candidates,
     match_bucket_feature_rule,
     match_bucket_field_rule,
 )
@@ -92,3 +93,62 @@ def test_match_bucket_tag_rule_requires_tags():
         {"field": "tag", "op": "contains", "value": "environment=prod"}
     )
     assert not match_bucket_field_rule(BucketListingSummary(name="bucket-a"), rule)
+
+
+def _query(match: str, *rules: dict) -> BucketFilterQuery:
+    return BucketFilterQuery(
+        match=match,
+        rules=[BucketFilterRule.model_validate(rule) for rule in rules],
+    )
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        (None, None),
+        (_query("all", {"field": "owner", "op": "eq", "value": "owner-a"}), None),
+        (_query("all", {"field": "name", "op": "contains", "value": "bucket"}), None),
+        (
+            _query(
+                "all",
+                {"field": "name", "op": "eq", "value": "bucket-a"},
+                {"field": "name", "op": "contains", "value": "bucket"},
+            ),
+            ["bucket-a"],
+        ),
+        (
+            _query(
+                "all",
+                {"field": "name", "op": "in", "value": ["bucket-a", "bucket-b"]},
+                {"field": "name", "op": "in", "value": ["bucket-b", "bucket-c"]},
+            ),
+            ["bucket-b"],
+        ),
+        (
+            _query(
+                "any",
+                {"field": "name", "op": "eq", "value": "bucket-a"},
+                {"field": "name", "op": "in", "value": ["bucket-b", "bucket-c"]},
+            ),
+            ["bucket-a", "bucket-b", "bucket-c"],
+        ),
+        (
+            _query(
+                "any",
+                {"field": "name", "op": "eq", "value": "bucket-a"},
+                {"field": "owner", "op": "eq", "value": "owner-b"},
+            ),
+            None,
+        ),
+        (
+            _query(
+                "any",
+                {"field": "name", "op": "eq", "value": "bucket-a"},
+                {"field": "name", "op": "contains", "value": "bucket"},
+            ),
+            None,
+        ),
+    ],
+)
+def test_extract_name_candidates_only_applies_safe_exact_prefilters(query, expected):
+    assert extract_name_candidates(query) == expected
