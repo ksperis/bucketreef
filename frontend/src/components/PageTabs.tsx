@@ -17,6 +17,7 @@ type PageTabsProps = {
   activeTab: string;
   onChange: (id: string) => void;
   headerActions?: ReactNode;
+  stackHeaderActionsOnMobile?: boolean;
   variant?: "card" | "bar" | "line";
   ariaLabel?: string;
   idPrefix?: string;
@@ -58,6 +59,7 @@ export default function PageTabs({
   activeTab,
   onChange,
   headerActions,
+  stackHeaderActionsOnMobile = false,
   variant = "card",
   ariaLabel,
   idPrefix,
@@ -85,7 +87,11 @@ export default function PageTabs({
 
   const tabList = (
     <div
-      className={cx("flex min-w-0 flex-1 flex-wrap", variant === "line" ? "gap-x-2 gap-y-1" : "gap-2")}
+      className={cx(
+        "flex min-w-0 flex-1 flex-wrap",
+        Boolean(headerActions) && stackHeaderActionsOnMobile && "max-lg:basis-full",
+        variant === "line" ? "gap-x-2 gap-y-1" : "gap-2",
+      )}
       role={ariaLabel ? "tablist" : undefined}
       aria-label={ariaLabel}
     >
@@ -136,7 +142,11 @@ export default function PageTabs({
         )}
       >
         {tabList}
-        {headerActions ? <div className="flex min-w-0 flex-wrap items-center gap-2">{headerActions}</div> : null}
+        {headerActions ? (
+          <div className={cx("flex min-w-0 flex-wrap items-center gap-2", stackHeaderActionsOnMobile && "max-lg:w-full max-lg:justify-end")}>
+            {headerActions}
+          </div>
+        ) : null}
       </div>
     );
     if (!activeContent) return tabBar;

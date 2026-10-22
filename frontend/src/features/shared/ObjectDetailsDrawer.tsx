@@ -9,6 +9,8 @@ export type ObjectPreviewNavigation = { previous?: () => void; next?: () => void
 
 import UiActionMenu from "../../components/ui/UiActionMenu";
 import UiButton, { uiButtonClassName } from "../../components/ui/UiButton";
+import UiIconButton from "../../components/ui/UiIconButton";
+import { ChevronDownIcon } from "../browser/browserIcons";
 import DetailsDrawerShell from "./DetailsDrawerShell";
 
 type ObjectDetailsDrawerAction = {
@@ -61,6 +63,36 @@ export default function ObjectDetailsDrawer({
   tabsAriaLabel,
 }: ObjectDetailsDrawerProps) {
   const { t } = useI18n();
+  const navigationActions = navigation ? (
+    <div
+      className="flex shrink-0 items-center gap-1"
+      role="group"
+      aria-label={t({ en: "Loaded files", fr: "Fichiers chargés", de: "Geladene Dateien", zh: "已加载的文件" })}
+    >
+      <UiIconButton
+        variant="ghost"
+        className="max-lg:h-11 max-lg:w-11"
+        label={t({ en: "Previous object", fr: "Objet précédent", de: "Vorheriges Objekt", zh: "上一个对象" })}
+        icon={<ChevronDownIcon className="h-4 w-4 rotate-90" />}
+        disabled={!navigation.previous}
+        onClick={navigation.previous}
+      />
+      {navigation.position ? (
+        <span className="ui-caption whitespace-nowrap tabular-nums text-[var(--ui-text-muted)]">
+          {navigation.position}
+        </span>
+      ) : null}
+      <UiIconButton
+        variant="ghost"
+        className="max-lg:h-11 max-lg:w-11"
+        label={t({ en: "Next object", fr: "Objet suivant", de: "Nächstes Objekt", zh: "下一个对象" })}
+        icon={<ChevronDownIcon className="h-4 w-4 -rotate-90" />}
+        disabled={!navigation.next}
+        onClick={navigation.next}
+      />
+    </div>
+  ) : undefined;
+
   return (
     <DetailsDrawerShell
       title={name}
@@ -81,13 +113,8 @@ export default function ObjectDetailsDrawer({
         </div>
       }
       actions={
-        navigation || primaryAction || secondaryActions.length > 0 ? (
+        primaryAction || secondaryActions.length > 0 ? (
           <>
-            {navigation ? <div className="flex items-center gap-1" role="group" aria-label={t({ en: "Loaded files", fr: "Fichiers chargés", de: "Geladene Dateien", zh: "已加载的文件" })}>
-              <UiButton size="sm" variant="secondary" disabled={!navigation.previous} onClick={navigation.previous}>{t({ en: "Previous", fr: "Précédent", de: "Zurück", zh: "上一个" })}</UiButton>
-              {navigation.position ? <span className="ui-caption whitespace-nowrap">{navigation.position}</span> : null}
-              <UiButton size="sm" variant="secondary" disabled={!navigation.next} onClick={navigation.next}>{t({ en: "Next", fr: "Suivant", de: "Weiter", zh: "下一个" })}</UiButton>
-            </div> : null}
             {primaryAction ? (
               <UiButton
                 size="sm"
@@ -128,6 +155,7 @@ export default function ObjectDetailsDrawer({
       }
       activeTab={activeTab}
       tabs={tabs}
+      tabActions={navigationActions}
       tabsAriaLabel={tabsAriaLabel}
       notice={notice}
       onClose={onClose}
