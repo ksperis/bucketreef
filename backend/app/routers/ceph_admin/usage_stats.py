@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -13,9 +13,10 @@ from app.db import User
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregateResponse,
     BucketUsageStatsLatestResponse,
-    BucketUsageStatsBucketRequest,
+    BucketUsageStatsRgwTargetRequest,
     BucketUsageStatsScopeRequest,
 )
+from app.models.bucket_operation import RgwBucketReference
 from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
@@ -24,7 +25,9 @@ from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_bucket_listing_cache import get_cached_rgw_bucket_entries
 from app.routers.dependencies import get_current_ceph_admin
 from app.services.s3_execution_context import build_ceph_admin_s3_context
+from app.services.rgw_bucket_target import RgwBucketTarget
 from app.services.bucket_usage_stats_service import (
+    BucketUsageStatsAggregateTarget,
     BucketUsageStatsOptions,
     BucketUsageStatsResolvedTarget,
     BucketUsageStatsService,
@@ -35,12 +38,18 @@ router = APIRouter(tags=["ceph-admin-bucket-usage-stats"])
 logger = logging.getLogger(__name__)
 
 
-def _target_for_bucket(ctx: CephAdminContext, bucket_name: str) -> BucketUsageStatsResolvedTarget:
+def _target_for_bucket(
+    ctx: CephAdminContext,
+    reference: RgwBucketReference,
+) -> BucketUsageStatsResolvedTarget:
     context = build_ceph_admin_s3_context(ctx)
     context_id = f"ceph-admin-{ctx.endpoint.id}"
+    target = RgwBucketTarget.create(ctx.endpoint.id, reference.tenant, reference.name)
     return BucketUsageStatsResolvedTarget(
         context=context,
-        bucket_name=bucket_name,
+        bucket_name=target.name,
+        bucket_tenant=target.tenant,
+        request_bucket_name=target.s3_name,
         scope_kind="ceph_admin",
         scope_id=str(ctx.endpoint.id),
         scope_name=ctx.endpoint.name,
@@ -49,19 +58,27 @@ def _target_for_bucket(ctx: CephAdminContext, bucket_name: str) -> BucketUsageSt
     )
 
 
-def _list_ceph_bucket_names(ctx: CephAdminContext) -> list[str]:
+def _list_ceph_bucket_references(ctx: CephAdminContext) -> list[RgwBucketReference]:
     try:
         entries = get_cached_rgw_bucket_entries(ctx, with_stats=False)
     except Exception as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-    names: list[str] = []
+    references: list[RgwBucketReference] = []
+    seen: set[tuple[str, str]] = set()
     for entry in entries:
         if not isinstance(entry, dict):
             continue
         raw_name = entry.get("bucket") or entry.get("name")
         if isinstance(raw_name, str) and raw_name.strip():
-            names.append(raw_name.strip())
-    return list(dict.fromkeys(names))
+            reference = RgwBucketReference(
+                name=raw_name.strip(),
+                tenant=str(entry.get("tenant") or "").strip(),
+            )
+            key = (reference.tenant, reference.name)
+            if key not in seen:
+                seen.add(key)
+                references.append(reference)
+    return references
 
 
 @router.get("/ceph-admin/endpoints/{endpoint_id}/usage-stats/latest", response_model=BucketUsageStatsAggregateResponse)
@@ -69,13 +86,21 @@ def get_ceph_admin_usage_stats_aggregate(
     db: Session = Depends(get_db),
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketUsageStatsAggregateResponse:
-    bucket_names = _list_ceph_bucket_names(ctx)
-    aggregate = BucketUsageStatsService().get_aggregate(
+    references = _list_ceph_bucket_references(ctx)
+    aggregate = BucketUsageStatsService().get_aggregate_for_targets(
         db,
         scope_kind="ceph_admin",
         scope_id=str(ctx.endpoint.id),
         scope_name=ctx.endpoint.name,
-        bucket_names=bucket_names,
+        targets=[
+            BucketUsageStatsAggregateTarget(
+                scope_kind="ceph_admin",
+                scope_id=str(ctx.endpoint.id),
+                bucket_name=reference.name,
+                bucket_tenant=reference.tenant,
+            )
+            for reference in references
+        ],
     )
     return BucketUsageStatsAggregateResponse(aggregate=aggregate)
 
@@ -87,8 +112,8 @@ def stream_ceph_admin_usage_stats_aggregate(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     user: User = Depends(get_current_ceph_admin),
 ) -> StreamingResponse:
-    bucket_names = _list_ceph_bucket_names(ctx)
-    targets = [_target_for_bucket(ctx, bucket_name) for bucket_name in bucket_names]
+    references = _list_ceph_bucket_references(ctx)
+    targets = [_target_for_bucket(ctx, reference) for reference in references]
     service = BucketUsageStatsService(SessionLocal)
     return stream_bucket_usage_stats(
         request,
@@ -109,6 +134,7 @@ def stream_ceph_admin_usage_stats_aggregate(
 @router.get("/ceph-admin/endpoints/{endpoint_id}/buckets/{bucket_name}/usage-stats", response_model=BucketUsageStatsLatestResponse)
 def get_ceph_admin_bucket_usage_stats(
     bucket_name: str,
+    tenant: str = Query(default=""),
     db: Session = Depends(get_db),
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketUsageStatsLatestResponse:
@@ -117,6 +143,7 @@ def get_ceph_admin_bucket_usage_stats(
         scope_kind="ceph_admin",
         scope_id=str(ctx.endpoint.id),
         bucket_name=bucket_name,
+        bucket_tenant=(tenant or "").strip(),
     )
     return BucketUsageStatsLatestResponse(snapshot=snapshot)
 
@@ -125,10 +152,14 @@ def get_ceph_admin_bucket_usage_stats(
 def stream_ceph_admin_bucket_usage_stats_for_bucket(
     bucket_name: str,
     request: Request,
+    tenant: str = Query(default=""),
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     user: User = Depends(get_current_ceph_admin),
 ) -> StreamingResponse:
-    target = _target_for_bucket(ctx, bucket_name)
+    target = _target_for_bucket(
+        ctx,
+        RgwBucketReference(name=bucket_name, tenant=tenant),
+    )
     service = BucketUsageStatsService(SessionLocal)
     return stream_bucket_usage_stats(
         request,
@@ -148,14 +179,13 @@ def stream_ceph_admin_bucket_usage_stats_for_bucket(
 
 @router.post("/ceph-admin/endpoints/{endpoint_id}/bucket-usage-stats/stream")
 def stream_ceph_admin_bucket_usage_stats(
-    payload: BucketUsageStatsBucketRequest,
+    payload: BucketUsageStatsRgwTargetRequest,
     request: Request,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     user: User = Depends(get_current_ceph_admin),
 ) -> StreamingResponse:
-    bucket_names = payload.buckets
     options = BucketUsageStatsOptions(parallelism=payload.parallelism)
-    targets = [_target_for_bucket(ctx, bucket_name) for bucket_name in bucket_names]
+    targets = [_target_for_bucket(ctx, reference) for reference in payload.targets]
     service = BucketUsageStatsService(SessionLocal)
     return stream_bucket_usage_stats(
         request,

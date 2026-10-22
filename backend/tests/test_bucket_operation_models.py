@@ -7,12 +7,18 @@ from pydantic import ValidationError
 from app.main import app
 from app.models.bucket_integrity import (
     BucketIntegrityBucketRequest,
+    BucketIntegrityRgwTargetRequest,
     BucketIntegrityTargetRequest,
 )
 from app.models.bucket_operation import BucketOperationTarget
-from app.models.bucket_purge import BucketPurgeBucketRequest, BucketPurgeTargetRequest
+from app.models.bucket_purge import (
+    BucketPurgeBucketRequest,
+    BucketPurgeRgwTargetRequest,
+    BucketPurgeTargetRequest,
+)
 from app.models.bucket_usage_stats import (
     BucketUsageStatsBucketRequest,
+    BucketUsageStatsRgwTargetRequest,
     BucketUsageStatsTargetRequest,
 )
 
@@ -128,7 +134,6 @@ def test_bucket_operation_openapi_models_are_surface_specific():
     for request_name in (
         "BucketIntegrityBucketRequest",
         "BucketPurgeBucketRequest",
-        "BucketUsageStatsBucketRequest",
     ):
         properties = schemas[request_name]["properties"]
         assert "buckets" in properties
@@ -144,4 +149,16 @@ def test_bucket_operation_openapi_models_are_surface_specific():
         assert "buckets" not in properties
         assert properties["targets"]["items"] == {
             "$ref": "#/components/schemas/BucketOperationTarget"
+        }
+
+    for request_name in (
+        "BucketIntegrityRgwTargetRequest",
+        "BucketPurgeRgwTargetRequest",
+        "BucketUsageStatsRgwTargetRequest",
+    ):
+        properties = schemas[request_name]["properties"]
+        assert "targets" in properties
+        assert "buckets" not in properties
+        assert properties["targets"]["items"] == {
+            "$ref": "#/components/schemas/RgwBucketReference"
         }

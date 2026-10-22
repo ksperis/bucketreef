@@ -13,7 +13,13 @@ from .base import Base
 class BucketUsageStatsSnapshot(Base):
     __tablename__ = "bucket_usage_stats_snapshots"
     __table_args__ = (
-        UniqueConstraint("scope_kind", "scope_id", "bucket_name", name="uq_bucket_usage_stats_scope_bucket"),
+        UniqueConstraint(
+            "scope_kind",
+            "scope_id",
+            "bucket_tenant",
+            "bucket_name",
+            name="uq_bucket_usage_stats_scope_bucket",
+        ),
         Index("ix_bucket_usage_stats_scope", "scope_kind", "scope_id"),
         Index("ix_bucket_usage_stats_calculated_at", "calculated_at"),
     )
@@ -22,6 +28,7 @@ class BucketUsageStatsSnapshot(Base):
     scope_kind = Column(String, nullable=False)
     scope_id = Column(String, nullable=False)
     scope_name = Column(String, nullable=True)
+    bucket_tenant = Column(String, nullable=False, default="", server_default="")
     bucket_name = Column(String, nullable=False)
 
     scan_mode = Column(String, nullable=False, default="versions", server_default="versions")

@@ -37,7 +37,7 @@ class BucketComparisonService(LongRunningS3ClientMixin):
         bucket_name: str,
         execution_context: S3ExecutionTarget,
     ):
-        with self._open_client(execution_context) as client:
+        with self._open_client(execution_context, bucket_name=bucket_name) as client:
             continuation_token: Optional[str] = None
             while True:
                 kwargs: dict[str, Any] = {"Bucket": bucket_name, "MaxKeys": 1000}
@@ -138,11 +138,17 @@ class BucketComparisonService(LongRunningS3ClientMixin):
         with ExitStack() as clients:
             if action == "delete_target_only":
                 source_client = None
-                target_client = clients.enter_context(self._open_client(target_context))
+                target_client = clients.enter_context(
+                    self._open_client(target_context, bucket_name=target_bucket)
+                )
                 same_endpoint = False
             else:
-                source_client = clients.enter_context(self._open_client(source_context))
-                target_client = clients.enter_context(self._open_client(target_context))
+                source_client = clients.enter_context(
+                    self._open_client(source_context, bucket_name=source_bucket)
+                )
+                target_client = clients.enter_context(
+                    self._open_client(target_context, bucket_name=target_bucket)
+                )
                 same_endpoint = self._contexts_share_storage_endpoint(source_context, target_context)
 
             return bucket_compare_remediation.remediate_bucket_content(

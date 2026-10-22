@@ -33,12 +33,23 @@ BUCKET_USAGE_STATS_COLLECT_OPERATION = "bucket-usage-stats:collect"
 BUCKET_USAGE_STATS_LEASE_TTL_SECONDS = 24 * 60 * 60
 
 
-def bucket_usage_stats_bucket_operation_name(scope: str, bucket_name: str) -> str:
+def bucket_usage_stats_bucket_operation_name(
+    scope: str,
+    bucket_name: str,
+    *,
+    bucket_tenant: str = "",
+) -> str:
     normalized_scope = str(scope or "").strip()
     normalized_bucket = str(bucket_name or "").strip()
+    normalized_tenant = str(bucket_tenant or "").strip()
     if not normalized_scope or not normalized_bucket:
         raise ValueError("Bucket usage statistics lease scope and bucket are required")
-    return f"bucket-usage-stats:bucket:{normalized_scope}:{normalized_bucket}"
+    bucket_identity = (
+        f"{normalized_tenant}:{normalized_bucket}"
+        if normalized_tenant
+        else normalized_bucket
+    )
+    return f"bucket-usage-stats:bucket:{normalized_scope}:{bucket_identity}"
 
 
 def cost_daily_operation_name(day_iso: str) -> str:

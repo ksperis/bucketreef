@@ -10,6 +10,7 @@ from pydantic import Field, model_validator
 from app.models.base import ApiModel
 from app.models.bucket_operation import (
     BucketNameList,
+    RgwBucketReferenceList,
     BucketTargetList,
 )
 
@@ -44,6 +45,15 @@ class BucketPurgeBucketRequest(BucketPurgeRequestOptions):
 
 class BucketPurgeTargetRequest(BucketPurgeRequestOptions):
     targets: BucketTargetList
+
+    @model_validator(mode="after")
+    def validate_confirmation(self):
+        _validate_purge_confirmation(self.confirmation, len(self.targets))
+        return self
+
+
+class BucketPurgeRgwTargetRequest(BucketPurgeRequestOptions):
+    targets: RgwBucketReferenceList
 
     @model_validator(mode="after")
     def validate_confirmation(self):

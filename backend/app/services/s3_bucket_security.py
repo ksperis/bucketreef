@@ -40,8 +40,12 @@ def set_bucket_public_access_block(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     block_state = bool(configuration) if configuration is not None else block
     try:
         if configuration is None:
@@ -82,8 +86,12 @@ def get_bucket_public_access_block(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> Optional[dict]:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         resp = client.get_public_access_block(Bucket=bucket_name)
         config = resp.get("PublicAccessBlockConfiguration") or {}
@@ -114,8 +122,12 @@ def get_bucket_object_lock(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> Optional[dict]:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         resp = client.get_object_lock_configuration(Bucket=bucket_name)
         config = resp.get("ObjectLockConfiguration") or {}
@@ -149,8 +161,12 @@ def get_bucket_acl(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> dict:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         return client.get_bucket_acl(Bucket=bucket_name)
     except (BotoCoreError, ClientError) as exc:
@@ -167,8 +183,12 @@ def put_bucket_acl(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         client.put_bucket_acl(Bucket=bucket_name, ACL=acl)
     except (BotoCoreError, ClientError) as exc:
@@ -189,8 +209,12 @@ def put_bucket_object_lock(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     config: dict = {}
     if enabled is not None:
         config["ObjectLockEnabled"] = "Enabled" if enabled else "Disabled"
@@ -221,8 +245,12 @@ def get_bucket_encryption(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> list[dict]:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         resp = client.get_bucket_encryption(Bucket=bucket_name)
         config = resp.get("ServerSideEncryptionConfiguration") or {}
@@ -246,8 +274,12 @@ def put_bucket_encryption(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         client.put_bucket_encryption(
             Bucket=bucket_name,
@@ -267,8 +299,12 @@ def delete_bucket_encryption(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     deleted = delete_bucket_configuration(
         operation=lambda: client.delete_bucket_encryption(Bucket=bucket_name),
         missing_error_codes={"serversideencryptionconfigurationnotfounderror", "nosuchbucket"},

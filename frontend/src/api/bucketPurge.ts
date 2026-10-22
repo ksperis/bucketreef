@@ -3,7 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
-import type { BucketNamesPayload, BucketTargetsPayload } from "./bucketOperation";
+import type {
+  BucketNamesPayload,
+  BucketTargetsPayload,
+  RgwBucketTargetsPayload,
+} from "./bucketOperation";
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
@@ -18,6 +22,7 @@ type BucketPurgeOptionsPayload = {
 
 export type BucketPurgeBucketPayload = BucketPurgeOptionsPayload & BucketNamesPayload;
 type BucketPurgeTargetPayload = BucketPurgeOptionsPayload & BucketTargetsPayload;
+type BucketPurgeRgwTargetPayload = BucketPurgeOptionsPayload & RgwBucketTargetsPayload;
 
 type BucketDeleteWithPurgePayload = {
   parallelism?: number;
@@ -122,7 +127,7 @@ export function streamManagerBucketDeleteWithPurge(
 
 export function streamCephAdminBucketPurge(
   endpointId: number,
-  payload: BucketPurgeBucketPayload,
+  payload: BucketPurgeRgwTargetPayload,
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
   const baseUrl = resolveApiBaseUrl();

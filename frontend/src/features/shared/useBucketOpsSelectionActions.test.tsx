@@ -44,7 +44,7 @@ const artifact: BucketOpsSelectionExportArtifact = {
 
 function createOptions() {
   return {
-    bucketNames: ["alpha"],
+    bucketNames: ["tenant-a:alpha"],
     download: vi.fn(),
     extractError: (error: unknown) =>
       error instanceof Error ? error.message : String(error),

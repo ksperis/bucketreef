@@ -8,6 +8,35 @@ from typing import Annotated, TypeVar
 from pydantic import AfterValidator, Field, model_validator
 
 from app.models.base import ApiModel
+from app.utils.rgw_identifiers import (
+    normalize_rgw_bucket_reference_name,
+    validate_rgw_tenant,
+)
+
+
+class RgwBucketReference(ApiModel):
+    name: str
+    tenant: str = ""
+
+    @model_validator(mode="after")
+    def normalize_reference(self):
+        self.name = normalize_rgw_bucket_reference_name(self.name)
+        self.tenant = validate_rgw_tenant((self.tenant or "").strip())
+        return self
+
+
+def deduplicate_rgw_bucket_references(
+    targets: list[RgwBucketReference],
+) -> list[RgwBucketReference]:
+    deduplicated: list[RgwBucketReference] = []
+    seen: set[tuple[str, str]] = set()
+    for target in targets:
+        key = (target.tenant, target.name)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduplicated.append(target)
+    return deduplicated
 
 
 class BucketOperationTarget(ApiModel):
@@ -66,4 +95,9 @@ BucketTargetList = Annotated[
     list[BucketOperationTarget],
     Field(min_length=1, max_length=200),
     AfterValidator(deduplicate_bucket_targets),
+]
+RgwBucketReferenceList = Annotated[
+    list[RgwBucketReference],
+    Field(min_length=1, max_length=200),
+    AfterValidator(deduplicate_rgw_bucket_references),
 ]

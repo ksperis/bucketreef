@@ -461,6 +461,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });

@@ -147,6 +147,22 @@ payloads are unchanged, but direct callers using the wrong collection now fail
 request validation with HTTP `422`. No database migration is required for this
 API cutover.
 
+## 2026-10 Ceph Admin tenant-aware bucket identity
+
+Ceph Admin bucket operations now treat the physical bucket identity as the
+endpoint, RGW tenant, and unqualified bucket name. Targeted integrity, purge,
+usage-statistics, configuration backup, comparison, and bulk UI requests carry
+the tenant explicitly so two tenants may contain buckets with the same name
+without collapsing into one selection or persisted statistics row. The bundled
+frontend and backend must be deployed together because these internal request
+payloads changed without compatibility aliases.
+
+Migration `0180_bucket_usage_stats_tenant_identity` adds `bucket_tenant` to
+persisted bucket usage snapshots and includes it in their uniqueness key.
+Existing rows are assigned the default RGW tenant (`''`). Apply the Alembic
+migration with the matching application release before resuming bucket usage
+statistics collection.
+
 ## 2026-10 Manager and Browser execution-context selector
 
 Manager and Browser routes that select an S3 execution identity now use the

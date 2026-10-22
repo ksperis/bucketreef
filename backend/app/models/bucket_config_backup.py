@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from app.models.base import ApiModel
+from app.models.bucket_operation import RgwBucketReferenceList
 
 
 BucketConfigBackupFeature = Literal[
@@ -24,25 +25,11 @@ BucketConfigBackupFeature = Literal[
 
 
 class BucketConfigBackupRequest(ApiModel):
-    buckets: list[str] = Field(..., min_length=1)
+    buckets: RgwBucketReferenceList
     features: list[BucketConfigBackupFeature] = Field(..., min_length=1)
 
     @model_validator(mode="after")
     def normalize_values(self) -> "BucketConfigBackupRequest":
-        bucket_names: list[str] = []
-        seen_buckets: set[str] = set()
-        for raw_name in self.buckets:
-            normalized = (raw_name or "").strip()
-            if not normalized:
-                continue
-            key = normalized.lower()
-            if key in seen_buckets:
-                continue
-            seen_buckets.add(key)
-            bucket_names.append(normalized)
-        if not bucket_names:
-            raise ValueError("At least one bucket name is required.")
-
         features: list[BucketConfigBackupFeature] = []
         seen_features: set[str] = set()
         for feature in self.features:
@@ -53,7 +40,6 @@ class BucketConfigBackupRequest(ApiModel):
         if not features:
             raise ValueError("At least one backup feature is required.")
 
-        self.buckets = bucket_names
         self.features = features
         return self
 
@@ -66,6 +52,7 @@ class BucketConfigBackupSource(ApiModel):
 
 class BucketConfigBackupBucket(ApiModel):
     name: str
+    tenant: str = ""
     configuration: dict[str, Any] = Field(default_factory=dict)
     errors: dict[str, str] = Field(default_factory=dict)
 

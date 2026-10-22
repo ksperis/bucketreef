@@ -435,23 +435,28 @@ class _BucketEnricher:
         plan: _BucketEnrichmentPlan,
         service: BucketConfigurationService,
         execution_context: S3ExecutionTarget,
+        bucket_name_resolver: Callable[[BucketListingSummary], str],
     ) -> None:
         self.plan = plan
         self.service = service
         self.execution_context = execution_context
+        self.bucket_name_resolver = bucket_name_resolver
 
     def enrich(self, bucket: BucketListingSummary) -> BucketListingSummary:
-        tags = self._load_tags(bucket)
+        request_bucket = bucket.model_copy(
+            update={"name": self.bucket_name_resolver(bucket)},
+        )
+        tags = self._load_tags(request_bucket)
         feature_map: dict[str, BucketFeatureStatus] = {}
         column_details: dict[str, Any] = {}
         properties = load_bucket_properties_context(
             self.service,
-            bucket.name,
+            request_bucket.name,
             self.execution_context,
             uses_bundle=self.plan.use_properties_bundle,
         )
         self._enrich_property_features(properties, feature_map, column_details)
-        self._enrich_configuration_features(bucket, feature_map, column_details)
+        self._enrich_configuration_features(request_bucket, feature_map, column_details)
         return self._project_bucket(bucket, tags, feature_map, column_details)
 
     def _load_tags(
@@ -584,6 +589,7 @@ def enrich_buckets(
     progress_start: int = 75,
     progress_end: int = 88,
     cancel_check: Callable[[], None] | None = None,
+    bucket_name_resolver: Callable[[BucketListingSummary], str] | None = None,
 ) -> list[BucketListingSummary]:
     if not buckets or (not requested and not include_tags):
         return buckets
@@ -596,6 +602,7 @@ def enrich_buckets(
         plan=plan,
         service=service,
         execution_context=execution_context,
+        bucket_name_resolver=bucket_name_resolver or (lambda bucket: bucket.name),
     )
 
     max_workers = min(BUCKET_ENRICH_MAX_WORKERS, len(buckets))

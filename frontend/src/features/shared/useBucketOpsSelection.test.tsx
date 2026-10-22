@@ -46,7 +46,7 @@ describe("useBucketOpsSelection", () => {
     const options = createOptions();
     const { result } = renderHook(() => useBucketOpsSelection(options));
 
-    act(() => result.current.toggleSelection("alpha"));
+    act(() => result.current.toggleSelection(items[0]));
 
     expect(result.current.selectedBucketList).toEqual(["alpha"]);
     expect(result.current.selectedCount).toBe(1);

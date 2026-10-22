@@ -25,6 +25,7 @@ import { extractApiError } from "../../utils/apiError";
 import { formatCompactNumber, formatNumber } from "../../utils/format";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat } from "./bucketOperationRunUi";
 import {
+  buildCephAdminRgwBucketTargets,
   buildStorageOpsBucketTargets,
   type BucketOperationUiTarget,
 } from "./bucketOpsSelectionModel";
@@ -199,7 +200,7 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
           : props.mode === "ceph-admin"
             ? await streamCephAdminBucketPurge(
                 props.endpointId,
-                { ...basePayload, include_versions: true, buckets: props.targets.map((target) => target.bucketName) },
+                { ...basePayload, include_versions: true, targets: buildCephAdminRgwBucketTargets(props.targets) },
                 streamOptions,
               )
             : await streamStorageOpsBucketPurge(

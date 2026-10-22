@@ -13,6 +13,7 @@ import {
 } from "./bucketListingTransport";
 import { resolveApiBaseUrl, streamBucketsWithSse } from "./sseBucketsStream";
 import type { CephAdminListingStreamProgress } from "./cephAdminEntityListing";
+import type { RgwBucketReference } from "./bucketOperation";
 
 export type CephAdminBucket = {
   name: string;
@@ -86,12 +87,13 @@ export type CephAdminBucketConfigBackupFeature =
   | "tags";
 
 type CephAdminBucketConfigBackupRequest = {
-  buckets: string[];
+  buckets: RgwBucketReference[];
   features: CephAdminBucketConfigBackupFeature[];
 };
 
 type CephAdminBucketConfigBackupBucket = {
   name: string;
+  tenant: string;
   configuration: Record<string, unknown>;
   errors: Record<string, string>;
 };
@@ -171,8 +173,8 @@ export async function streamCephAdminBuckets(
 
 type CephAdminBucketCompareRequest = {
   target_endpoint_id: number;
-  source_bucket: string;
-  target_bucket: string;
+  source: RgwBucketReference;
+  target: RgwBucketReference;
   include_content?: boolean;
   include_config?: boolean;
   config_features?: CephAdminBucketCompareConfigFeature[];
@@ -247,6 +249,8 @@ export type CephAdminBucketCompareResult = {
   target_endpoint_id: number;
   source_bucket: string;
   target_bucket: string;
+  source_tenant: string;
+  target_tenant: string;
   has_differences: boolean;
   content_diff?: CephAdminBucketContentDiff | null;
   config_diff?: CephAdminBucketConfigDiff | null;

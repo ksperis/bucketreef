@@ -255,8 +255,8 @@ def test_ceph_admin_bucket_configuration_and_compare(
                 f"/ceph-admin/endpoints/{endpoint_id}/buckets/compare",
                 json={
                     "target_endpoint_id": endpoint_id,
-                    "source_bucket": main_bucket,
-                    "target_bucket": main_bucket,
+                    "source": {"name": main_bucket, "tenant": ""},
+                    "target": {"name": main_bucket, "tenant": ""},
                     "include_content": True,
                     "include_config": True,
                 },

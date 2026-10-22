@@ -143,7 +143,6 @@ class S3ExecutionContext:
         *,
         access_key: Optional[str],
         secret_key: Optional[str],
-        rgw_tenant: Optional[str] = None,
         manager_capabilities: Optional[AccountCapabilities] = None,
     ) -> S3ExecutionContext:
         return cls(
@@ -152,7 +151,6 @@ class S3ExecutionContext:
             name=f"ceph-admin:{endpoint.id}",
             access_key=access_key,
             secret_key=secret_key,
-            rgw_tenant=rgw_tenant,
             storage_endpoint_id=endpoint.id,
             storage_endpoint=endpoint,
             ceph_admin_endpoint_id=endpoint.id,
@@ -168,14 +166,11 @@ class S3ExecutionContext:
 
 def build_ceph_admin_s3_context(
     context: CephAdminS3ContextSource,
-    *,
-    rgw_tenant: Optional[str] = None,
 ) -> S3ExecutionContext:
     return S3ExecutionContext.from_ceph_admin_endpoint(
         context.endpoint,
         access_key=context.access_key,
         secret_key=context.secret_key,
-        rgw_tenant=rgw_tenant,
     )
 
 

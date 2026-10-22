@@ -16,7 +16,11 @@ import {
   type BulkCopyFeatureSelection,
 } from "./bucketBulkOperationsModel";
 import { copyBucketOpsConfigs } from "./bucketOpsConfigCopy";
-import { normalizeBucketName } from "./bucketOpsPresentation";
+import {
+  decodeCephAdminBucketRef,
+  encodeCephAdminBucketRef,
+  normalizeBucketName,
+} from "./bucketOpsPresentation";
 
 type CopyOperationInput = Parameters<typeof copyBucketOpsConfigs>[0];
 type BucketOpsConfigCopyApi = Pick<
@@ -121,13 +125,23 @@ export function useBucketOpsConfigCopy({
   }, [resetBulkCopy, sourceEndpointId, sourceEndpointName]);
 
   const fetchBucketQuota = useCallback(
-    async (bucketName: string) => {
+    async (bucketRef: string) => {
       if (sourceEndpointId === null) {
         return { maxSizeBytes: null, maxObjects: null };
       }
+      const cephAdminRef = isStorageOps
+        ? null
+        : decodeCephAdminBucketRef(bucketRef);
+      const queryBucketName = cephAdminRef?.bucketName ?? bucketRef;
+      const rules: Array<Record<string, unknown>> = [
+        { field: "name", op: "in", value: [queryBucketName] },
+      ];
+      if (cephAdminRef?.tenant) {
+        rules.push({ field: "tenant", op: "eq", value: cephAdminRef.tenant });
+      }
       const advancedFilter = JSON.stringify({
         match: "all",
-        rules: [{ field: "name", op: "in", value: [bucketName] }],
+        rules,
       });
       const response = await listBuckets(sourceEndpointId, {
         page: 1,
@@ -137,17 +151,24 @@ export function useBucketOpsConfigCopy({
       });
       const match =
         response.items.find(
-          (item) =>
-            normalizeBucketName(item.name) === normalizeBucketName(bucketName),
+          (item) => {
+            if (isStorageOps) {
+              return normalizeBucketName(item.name) === normalizeBucketName(bucketRef);
+            }
+            return (
+              normalizeBucketName(
+                encodeCephAdminBucketRef(item.name, item.tenant),
+              ) === normalizeBucketName(bucketRef)
+            );
+          },
         ) ??
-        response.items[0] ??
         null;
       return {
         maxSizeBytes: normalizeQuotaLimit(match?.quota_max_size_bytes),
         maxObjects: normalizeQuotaLimit(match?.quota_max_objects),
       };
     },
-    [listBuckets, sourceEndpointId, usageFeatureEnabled],
+    [isStorageOps, listBuckets, sourceEndpointId, usageFeatureEnabled],
   );
 
   const copyBulkConfigs = useCallback(async () => {

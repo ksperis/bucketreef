@@ -205,4 +205,48 @@ describe("useBucketOpsConfigCopy", () => {
       null,
     );
   });
+
+  it("resolves a Ceph Admin quota by plain name and exact tenant identity", async () => {
+    const options = createOptions();
+    options.bucketNames = ["tenant-a:shared"];
+    options.listBuckets.mockResolvedValue({
+      items: [
+        {
+          name: "shared",
+          tenant: "tenant-b",
+          quota_max_size_bytes: 2,
+          quota_max_objects: 20,
+        },
+        {
+          name: "shared",
+          tenant: "tenant-a",
+          quota_max_size_bytes: 1,
+          quota_max_objects: 10,
+        },
+      ],
+    });
+    let resolvedQuota: unknown;
+    options.copyOperation.mockImplementationOnce(async (input) => {
+      resolvedQuota = await input.fetchBucketQuota("tenant-a:shared");
+      return {
+        kind: "success",
+        clipboard,
+        summary: "Copied one bucket.",
+      };
+    });
+    const { result } = renderHook(() => useBucketOpsConfigCopy(options));
+
+    await act(async () => result.current.copyBulkConfigs());
+
+    const params = options.listBuckets.mock.calls[0]?.[1];
+    expect(JSON.parse(params?.advanced_filter ?? "{}"))
+      .toEqual({
+        match: "all",
+        rules: [
+          { field: "name", op: "in", value: ["shared"] },
+          { field: "tenant", op: "eq", value: "tenant-a" },
+        ],
+      });
+    expect(resolvedQuota).toEqual({ maxSizeBytes: 1, maxObjects: 10 });
+  });
 });

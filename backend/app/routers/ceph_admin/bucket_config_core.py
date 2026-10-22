@@ -19,8 +19,8 @@ from app.routers.ceph_admin.bucket_config_common import (
     _run_bucket_config_read,
     _run_bucket_config_delete,
     _run_bucket_config_update,
+    ceph_admin_bucket_target,
     ceph_admin_bucket_entity_id,
-    normalize_ceph_admin_bucket_tenant,
 )
 from app.services.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.ceph_admin.dependencies import (
@@ -89,15 +89,15 @@ def update_quota(
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
-    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
+    target = ceph_admin_bucket_target(ctx, bucket_name, tenant)
     service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx, rgw_tenant=normalized_tenant)
+    context = build_ceph_admin_s3_context(ctx)
     try:
         bucket_info = ctx.rgw_admin.get_bucket_info(
-            bucket_name,
+            target.name,
             stats=False,
             allow_not_found=True,
-            **({"tenant": normalized_tenant} if normalized_tenant else {}),
+            **({"tenant": target.tenant} if target.tenant else {}),
         )
     except RGWAdminError as exc:
         raise_bad_gateway_from_runtime(exc)
@@ -114,13 +114,19 @@ def update_quota(
     context.rgw_user_uid = owner_uid
 
     try:
-        service.set_bucket_quota(bucket_name, context, payload, rgw_admin=ctx.rgw_admin)
+        service.set_bucket_quota(
+            target.name,
+            context,
+            payload,
+            rgw_admin=ctx.rgw_admin,
+            rgw_tenant=target.tenant or None,
+        )
         invalidate_bucket_listing_cache(ctx.endpoint.id)
         record_ceph_admin_action(
             ctx,
             action="bucket_quota.update",
             entity_type="bucket",
-            entity_id=ceph_admin_bucket_entity_id(bucket_name, normalized_tenant),
+            entity_id=target.admin_ops_name,
             metadata=bucket_config_actions.bucket_config_audit_metadata(
                 config_area="quota",
                 operation="update",

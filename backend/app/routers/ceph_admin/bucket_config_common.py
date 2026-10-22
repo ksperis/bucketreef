@@ -17,6 +17,7 @@ from app.services.bucket_config_mutation_registry import (
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
+from app.services.rgw_bucket_target import RgwBucketTarget
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
 from app.utils.rgw_identifiers import validate_rgw_tenant
 
@@ -28,13 +29,24 @@ def normalize_ceph_admin_bucket_tenant(tenant: str | None) -> str | None:
     try:
         return validate_rgw_tenant(normalized)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid RGW tenant.",
+        ) from exc
 
 
-def ceph_admin_s3_bucket_name(bucket_name: str, tenant: str | None) -> str:
-    """Return the explicit RGW S3 name for a bucket outside the executor tenant."""
-    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
-    return f"{normalized_tenant}:{bucket_name}" if normalized_tenant else bucket_name
+def ceph_admin_bucket_target(
+    ctx: CephAdminContext,
+    bucket_name: str,
+    tenant: str | None,
+) -> RgwBucketTarget:
+    try:
+        return RgwBucketTarget.create(ctx.endpoint.id, tenant, bucket_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid RGW bucket reference.",
+        ) from exc
 
 
 def ceph_admin_bucket_entity_id(bucket_name: str, tenant: str | None) -> str:
@@ -67,12 +79,10 @@ def _record_bucket_config_mutation(
 
 def _ceph_admin_bucket_config_context(
     ctx: CephAdminContext,
-    tenant: str | None = None,
 ) -> tuple[BucketConfigurationService, S3ExecutionContext]:
-    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
     return (
         BucketConfigurationService(),
-        build_ceph_admin_s3_context(ctx, rgw_tenant=normalized_tenant),
+        build_ceph_admin_s3_context(ctx),
     )
 
 
@@ -83,11 +93,12 @@ def _run_bucket_config_read(
     tenant: str | None = None,
     action,
 ) -> Any:
-    service, context = _ceph_admin_bucket_config_context(ctx, tenant)
+    target = ceph_admin_bucket_target(ctx, bucket_name, tenant)
+    service, context = _ceph_admin_bucket_config_context(ctx)
     return action(
         service=service,
         context=context,
-        bucket_name=ceph_admin_s3_bucket_name(bucket_name, tenant),
+        bucket_name=target.s3_name,
     )
 
 
@@ -99,12 +110,13 @@ def _run_bucket_config_update(
     config_area: BucketConfigArea,
     **kwargs: Any,
 ) -> Any:
-    service, context = _ceph_admin_bucket_config_context(ctx, tenant)
+    target = ceph_admin_bucket_target(ctx, bucket_name, tenant)
+    service, context = _ceph_admin_bucket_config_context(ctx)
     mutation = get_bucket_config_mutation(config_area)
     return bucket_config_actions.apply_bucket_config_update(
         service=service,
         context=context,
-        bucket_name=ceph_admin_s3_bucket_name(bucket_name, tenant),
+        bucket_name=target.s3_name,
         action=mutation.update_action,
         audit_recorder=lambda metadata: _record_bucket_config_mutation(
             ctx,
@@ -125,13 +137,14 @@ def _run_bucket_config_delete(
     tenant: str | None = None,
     config_area: BucketConfigArea,
 ) -> Response:
-    service, context = _ceph_admin_bucket_config_context(ctx, tenant)
+    target = ceph_admin_bucket_target(ctx, bucket_name, tenant)
+    service, context = _ceph_admin_bucket_config_context(ctx)
     mutation = get_bucket_config_delete_mutation(config_area)
     assert mutation.delete_action is not None
     return bucket_config_actions.apply_bucket_config_delete(
         service=service,
         context=context,
-        bucket_name=ceph_admin_s3_bucket_name(bucket_name, tenant),
+        bucket_name=target.s3_name,
         action=mutation.delete_action,
         audit_recorder=lambda metadata: _record_bucket_config_mutation(
             ctx,

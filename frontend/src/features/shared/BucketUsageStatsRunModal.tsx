@@ -20,6 +20,7 @@ import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat, bucketOperationTableContainerClass } from "./bucketOperationRunUi";
 import {
+  buildCephAdminRgwBucketTargets,
   buildStorageOpsBucketTargets,
   type BucketOperationUiTarget,
 } from "./bucketOpsSelectionModel";
@@ -110,7 +111,7 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
         props.mode === "ceph-admin"
           ? await streamCephAdminBucketUsageStats(
               props.endpointId,
-              { ...payloadOptions, buckets: props.targets.map((target) => target.bucketName) },
+              { ...payloadOptions, targets: buildCephAdminRgwBucketTargets(props.targets) },
               streamOptions,
             )
           : await streamStorageOpsBucketUsageStats(

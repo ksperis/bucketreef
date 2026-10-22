@@ -16,6 +16,7 @@ describe("resolveBucketOpsSelectionTargets", () => {
     await expect(
       resolveBucketOpsSelectionTargets({
         bucketNames: ["alpha"],
+        isStorageOps: false,
         listBuckets,
         resolveTarget: () => null,
         scopeId: null,
@@ -29,6 +30,7 @@ describe("resolveBucketOpsSelectionTargets", () => {
       { length: 51 },
       (_, index) => `bucket-${index + 1}`,
     );
+    bucketNames[0] = "tenant-b:bucket-1";
     const listBuckets = vi.fn(
       async (_scopeId: number, params: ListCephAdminBucketsParams) => {
         const filter = JSON.parse(params.advanced_filter ?? "{}") as {
@@ -48,6 +50,7 @@ describe("resolveBucketOpsSelectionTargets", () => {
 
     const result = await resolveBucketOpsSelectionTargets({
       bucketNames,
+      isStorageOps: false,
       listBuckets,
       onProgress: progress,
       resolveTarget: (bucket) => ({
@@ -89,6 +92,7 @@ describe("resolveBucketOpsSelectionTargets", () => {
 
     const result = await resolveBucketOpsSelectionTargets({
       bucketNames: ["alpha", "beta"],
+      isStorageOps: false,
       listBuckets,
       resolveTarget: (bucket) =>
         bucket.name === "alpha"

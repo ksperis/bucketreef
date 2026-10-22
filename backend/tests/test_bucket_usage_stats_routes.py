@@ -13,6 +13,7 @@ from app.db import S3Account, StorageEndpoint, User, UserRole, UserS3Account
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as SnapshotRow
 from app.main import app
 from app.models.account_capabilities import AccountCapabilities
+from app.models.bucket_operation import RgwBucketReference
 from app.models.bucket_usage_stats import BucketUsageStatsDistributionEntry, BucketUsageStatsSnapshot
 from app.models.session import ManagerSessionPrincipal, SessionCapabilities
 from app.routers import dependencies
@@ -145,7 +146,14 @@ def test_ceph_admin_usage_stats_latest_aggregates_endpoint_scope(client: TestCli
     )
     ctx = type("Ctx", (), {"endpoint": type("Endpoint", (), {"id": 7, "name": "Ceph Lab"})()})()
 
-    monkeypatch.setattr(ceph_usage_stats_router, "_list_ceph_bucket_names", lambda ctx: ["bucket-a", "bucket-b"])
+    monkeypatch.setattr(
+        ceph_usage_stats_router,
+        "_list_ceph_bucket_references",
+        lambda ctx: [
+            RgwBucketReference(name="bucket-a"),
+            RgwBucketReference(name="bucket-b", tenant="tenant_a"),
+        ],
+    )
     app.dependency_overrides[dependencies.require_ceph_admin_enabled] = lambda: None
     app.dependency_overrides[ceph_usage_stats_router.get_ceph_admin_context] = lambda: ctx
 
@@ -193,7 +201,14 @@ def test_ceph_admin_usage_stats_stream_builds_endpoint_targets(client: TestClien
         run_check(lambda _event: None, lambda: False)
         return JSONResponse({"ok": True})
 
-    monkeypatch.setattr(ceph_usage_stats_router, "_list_ceph_bucket_names", lambda ctx: ["bucket-a", "bucket-b"])
+    monkeypatch.setattr(
+        ceph_usage_stats_router,
+        "_list_ceph_bucket_references",
+        lambda ctx: [
+            RgwBucketReference(name="bucket-a"),
+            RgwBucketReference(name="bucket-b", tenant="tenant_a"),
+        ],
+    )
     monkeypatch.setattr(ceph_usage_stats_router, "BucketUsageStatsService", FakeService)
     monkeypatch.setattr(ceph_usage_stats_router, "stream_bucket_usage_stats", fake_stream)
     app.dependency_overrides[dependencies.require_ceph_admin_enabled] = lambda: None
@@ -210,6 +225,8 @@ def test_ceph_admin_usage_stats_stream_builds_endpoint_targets(client: TestClien
     assert response.status_code == 200, response.text
     targets = captured["targets"]
     assert [target.bucket_name for target in targets] == ["bucket-a", "bucket-b"]
+    assert [target.bucket_tenant for target in targets] == ["", "tenant_a"]
+    assert [target.request_bucket_name for target in targets] == ["bucket-a", "tenant_a:bucket-b"]
     assert [target.scope_kind for target in targets] == ["ceph_admin", "ceph_admin"]
     assert [target.scope_id for target in targets] == ["7", "7"]
     assert captured["parallelism"] == 4
@@ -286,7 +303,8 @@ def test_manager_scan_persists_and_reads_resolved_scope(
                 "StorageClass": "STANDARD",
             }]}
 
-    def build_client(_service, execution_context):
+    def build_client(_service, execution_context, *, bucket_name=None):
+        assert bucket_name is None
         executed_contexts.append(execution_context)
         return FakeS3Client()
 

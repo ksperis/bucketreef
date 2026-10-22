@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import boto3
+from botocore.handlers import validate_bucket_name
 from botocore.exceptions import BotoCoreError, ClientError
 from typing import Any, Optional
 import logging
@@ -24,11 +25,12 @@ def get_s3_client(
     verify_tls: bool = True,
     user_agent_extra: Optional[str] = None,
     request_profile: StorageRequestProfile = "interactive",
+    allow_rgw_qualified_bucket_names: bool = False,
 ):
     if not endpoint:
         raise RuntimeError("S3 endpoint is not configured")
     s3_config = None
-    if force_path_style:
+    if force_path_style or allow_rgw_qualified_bucket_names:
         s3_config = {"addressing_style": "path"}
     client = boto3.client(
         "s3",
@@ -44,6 +46,11 @@ def get_s3_client(
             user_agent_extra=user_agent_extra,
         ),
     )
+    if allow_rgw_qualified_bucket_names:
+        client.meta.events.unregister(
+            "before-parameter-build.s3",
+            validate_bucket_name,
+        )
     return LoggedS3Client(client)
 
 
@@ -55,17 +62,19 @@ def get_s3_bucket_client(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ):
     """Build the standard S3 client used by bucket configuration operations."""
-    return get_s3_client(
-        access_key,
-        secret_key,
-        endpoint=endpoint,
-        session_token=session_token,
-        region=region,
-        force_path_style=force_path_style,
-        verify_tls=verify_tls,
-    )
+    kwargs = {
+        "endpoint": endpoint,
+        "session_token": session_token,
+        "region": region,
+        "force_path_style": force_path_style,
+        "verify_tls": verify_tls,
+    }
+    if allow_rgw_qualified_bucket_names:
+        kwargs["allow_rgw_qualified_bucket_names"] = True
+    return get_s3_client(access_key, secret_key, **kwargs)
 
 
 class LoggedS3Client:
@@ -112,8 +121,12 @@ def list_buckets(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> list[dict]:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         response = client.list_buckets()
     except (BotoCoreError, ClientError) as exc:
@@ -135,7 +148,9 @@ def create_bucket(
     location_constraint: Optional[str] = None,
     object_lock_enabled: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+    )
     try:
         effective_location = (location_constraint or "").strip() or (region or settings.seed_s3_region)
         create_kwargs: dict[str, Any] = {"Bucket": bucket_name}
@@ -159,8 +174,12 @@ def set_bucket_versioning(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     status = "Enabled" if enabled else "Suspended"
     try:
         client.put_bucket_versioning(Bucket=bucket_name, VersioningConfiguration={"Status": status})
@@ -178,8 +197,12 @@ def get_bucket_versioning(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> Optional[str]:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         resp = client.get_bucket_versioning(Bucket=bucket_name)
     except (BotoCoreError, ClientError) as exc:

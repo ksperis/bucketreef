@@ -93,6 +93,7 @@ import {
   useBucketOpsNavigation,
 } from "./useBucketOpsNavigation";
 import { useBucketOpsSelection } from "./useBucketOpsSelection";
+import { getBucketOpsSelectionKey } from "./bucketOpsSelectionModel";
 import { useBucketOpsSelectionActions } from "./useBucketOpsSelectionActions";
 import { useBucketOpsStorageScopeFilters } from "./useBucketOpsStorageScopeFilters";
 import {
@@ -416,6 +417,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
     getBucketPolicy,
     getBucketProperties,
     getBucketWebsite,
+    isStorageOps,
     listBuckets,
     missingScopeError,
     selectedScopeId: selectedEndpointId,
@@ -839,7 +841,10 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       selectedEndpoint?.name ?? (selectedEndpointId ? `endpoint-${selectedEndpointId}` : "endpoint")
     );
     const backup = await backupCephAdminBucketConfigs(selectedEndpointId, {
-      buckets: selectedBucketList,
+      buckets: selectedOperationTargets.map((target) => ({
+        name: target.bucketName,
+        tenant: target.tenant ?? "",
+      })),
       features,
     });
     triggerJsonDownload(
@@ -1064,8 +1069,8 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       <BucketOpsSelectionCell
         bucket={bucket}
         isStorageOps={isStorageOps}
-        onToggle={() => toggleSelection(bucket.name)}
-        selected={selectedBuckets.has(bucket.name)}
+        onToggle={() => toggleSelection(bucket)}
+        selected={selectedBuckets.has(getBucketOpsSelectionKey(bucket, isStorageOps))}
         useExplicitBucketName={useExplicitBucketName}
       />
     ),
@@ -1294,7 +1299,10 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
         <CephAdminBucketCompareModal
           sourceEndpointId={selectedEndpointId}
           sourceEndpointName={selectedEndpoint?.name}
-          sourceBuckets={selectedBucketList}
+          sourceBuckets={selectedOperationTargets.map((target) => ({
+            name: target.bucketName,
+            tenant: target.tenant ?? "",
+          }))}
           endpoints={endpoints}
           onClose={() => setShowCompareModal(false)}
         />

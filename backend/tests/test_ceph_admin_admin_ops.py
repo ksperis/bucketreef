@@ -224,10 +224,10 @@ def test_successful_bucket_delete_cleans_ui_tags(monkeypatch, db_session):
     response = bucket_admin_ops.delete_bucket(
         "bucket-a",
         CephAdminBucketDeleteRequest(
-            confirmation="PURGE AND DELETE BUCKET tenant-a/bucket-a",
+            confirmation="PURGE AND DELETE BUCKET tenant_a/bucket-a",
             purge_objects=True,
         ),
-        tenant="tenant-a",
+        tenant="tenant_a",
         ctx=ctx,
         db=db_session,
     )

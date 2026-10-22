@@ -14,6 +14,7 @@ type BucketOpsFilteredBucketPage = {
 };
 
 type BucketOpsFilteredBucketLoaderInput = {
+  bucketKey: (bucket: CephAdminBucket) => string;
   initialTotal?: number | null;
   listBuckets: (
     scopeId: number,
@@ -25,6 +26,7 @@ type BucketOpsFilteredBucketLoaderInput = {
 };
 
 export async function loadBucketOpsFilteredBuckets({
+  bucketKey,
   initialTotal = null,
   listBuckets,
   onProgress,
@@ -41,7 +43,7 @@ export async function loadBucketOpsFilteredBuckets({
       page: nextPage,
       page_size: 200,
     });
-    (response.items ?? []).forEach((bucket) => bucketsByName.set(bucket.name, bucket));
+    (response.items ?? []).forEach((bucket) => bucketsByName.set(bucketKey(bucket), bucket));
     if (typeof response.total === "number" && response.total >= 0) {
       expectedTotal = response.total;
     }

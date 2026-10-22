@@ -10,6 +10,7 @@ from pydantic import Field
 from app.models.base import ApiModel
 from app.models.bucket_operation import (
     BucketNameList,
+    RgwBucketReferenceList,
     BucketTargetList,
 )
 
@@ -30,6 +31,10 @@ class BucketUsageStatsBucketRequest(BucketUsageStatsRequestOptions):
 class BucketUsageStatsTargetRequest(BucketUsageStatsRequestOptions):
     targets: BucketTargetList
 
+
+class BucketUsageStatsRgwTargetRequest(BucketUsageStatsRequestOptions):
+    targets: RgwBucketReferenceList
+
 class BucketUsageStatsDistributionEntry(ApiModel):
     key: str
     label: str
@@ -44,6 +49,7 @@ class BucketUsageStatsSnapshot(ApiModel):
     scope_id: str
     scope_name: Optional[str] = None
     bucket_name: str
+    bucket_tenant: str = ""
     scan_mode: BucketUsageStatsScanMode
     version_listing_available: bool = True
     object_version_count: int = 0

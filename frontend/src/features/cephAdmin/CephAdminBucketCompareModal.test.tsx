@@ -93,7 +93,7 @@ describe("CephAdminBucketCompareModal", () => {
       <CephAdminBucketCompareModal
         sourceEndpointId={1}
         sourceEndpointName="Source endpoint"
-        sourceBuckets={["bucket-a"]}
+        sourceBuckets={[{ name: "bucket-a", tenant: "" }]}
         endpoints={endpoints}
         onClose={() => undefined}
       />
@@ -122,8 +122,8 @@ describe("CephAdminBucketCompareModal", () => {
       1,
       {
         target_endpoint_id: 2,
-        source_bucket: "bucket-a",
-        target_bucket: "bucket-a",
+        source: { name: "bucket-a", tenant: "" },
+        target: { name: "bucket-a", tenant: "" },
         include_content: true,
         include_config: false,
         config_features: undefined,

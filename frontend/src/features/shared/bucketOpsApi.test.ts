@@ -1,8 +1,4 @@
 import { describe, expect, it } from "vitest";
-import {
-  getCephAdminBucketProperties,
-  updateCephAdminBucketQuota,
-} from "../../api/cephAdminBucketDetails";
 import { listCephAdminBuckets } from "../../api/cephAdminBuckets";
 import {
   getStorageOpsBucketProperties,
@@ -12,11 +8,10 @@ import { resolveBucketOpsApi } from "./bucketOpsApi";
 
 describe("bucket operations API adapter", () => {
   it("resolves the canonical API implementation for each surface", () => {
-    expect(resolveBucketOpsApi("ceph-admin")).toMatchObject({
-      listBuckets: listCephAdminBuckets,
-      getBucketProperties: getCephAdminBucketProperties,
-      updateBucketQuota: updateCephAdminBucketQuota,
-    });
+    const cephAdmin = resolveBucketOpsApi("ceph-admin");
+    expect(cephAdmin.listBuckets).toBe(listCephAdminBuckets);
+    expect(cephAdmin.getBucketProperties).toEqual(expect.any(Function));
+    expect(cephAdmin.updateBucketQuota).toEqual(expect.any(Function));
     expect(resolveBucketOpsApi("storage-ops")).toMatchObject({
       listBuckets: listStorageOpsBuckets,
       getBucketProperties: getStorageOpsBucketProperties,

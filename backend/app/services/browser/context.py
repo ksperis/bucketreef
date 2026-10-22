@@ -24,6 +24,7 @@ from app.services.aws_client_config import StorageRequestProfile
 from app.services.s3_client import get_s3_client
 from app.services.s3_execution_client import require_s3_execution_credentials, s3_execution_cache_key
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 from app.utils.aws_errors import aws_error_code
 
@@ -143,10 +144,23 @@ class BrowserContextMixin:
     def _s3_client_kwargs(self, context: S3ExecutionTarget) -> dict:
         return resolve_s3_client_kwargs(context)
 
-    def _client(self, context: S3ExecutionTarget, *, request_profile: StorageRequestProfile = "interactive"):
+    def _client(
+        self,
+        context: S3ExecutionTarget,
+        *,
+        request_profile: StorageRequestProfile = "interactive",
+        bucket_name: str | None = None,
+    ):
         access_key, secret_key, session_token = self._resolve_s3_credentials(context)
         client_options = self._s3_client_kwargs(context)
         client_options["session_token"] = session_token
+        if (
+            bucket_name
+            and getattr(context, "context_kind", None) == "ceph_admin"
+            and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
+        ):
+            client_options["force_path_style"] = True
+            client_options["allow_rgw_qualified_bucket_names"] = True
         if request_profile != "interactive":
             client_options["request_profile"] = request_profile
         return get_s3_client(
@@ -154,6 +168,26 @@ class BrowserContextMixin:
             secret_key,
             **client_options,
         )
+
+    def _bucket_client(
+        self,
+        context: S3ExecutionTarget,
+        bucket_name: str,
+        *,
+        request_profile: StorageRequestProfile = "interactive",
+    ):
+        if (
+            getattr(context, "context_kind", None) == "ceph_admin"
+            and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
+        ):
+            return self._client(
+                context,
+                request_profile=request_profile,
+                bucket_name=bucket_name,
+            )
+        if request_profile == "interactive":
+            return self._client(context)
+        return self._client(context, request_profile=request_profile)
 
     def _sse_customer_params(self, sse_customer: Optional[SseCustomerContext]) -> dict[str, str]:
         if not sse_customer:

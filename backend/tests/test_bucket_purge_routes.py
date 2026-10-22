@@ -17,6 +17,7 @@ from app.models.app_settings import AppSettings
 from app.models.bucket_purge import (
     BucketPurgeBucketRequest,
     BucketPurgeProgress,
+    BucketPurgeRgwTargetRequest,
     BucketPurgeResult,
     BucketPurgeTargetRequest,
 )
@@ -334,7 +335,10 @@ def test_ceph_admin_purge_route_uses_dedicated_endpoint_credentials(monkeypatch)
     monkeypatch.setattr(ceph_purge, "stream_bucket_purge", fake_stream)
 
     response = ceph_purge.stream_ceph_admin_bucket_purge(
-        payload=BucketPurgeBucketRequest(buckets=["bucket-a"], confirmation="PURGE 1 BUCKETS"),
+        payload=BucketPurgeRgwTargetRequest(
+            targets=[{"name": "bucket-a", "tenant": "tenant_a"}],
+            confirmation="PURGE 1 BUCKETS",
+        ),
         request=_build_request(path="/api/ceph-admin/endpoints/7/buckets/purge/stream", query_string=b""),
         user=SimpleNamespace(id=1, email="admin@example.test", role=UserRole.UI_ADMIN.value),
         ctx=ctx,
@@ -343,6 +347,7 @@ def test_ceph_admin_purge_route_uses_dedicated_endpoint_credentials(monkeypatch)
     assert response == "stream"
     target = captured["targets"][0]
     assert target.bucket_name == "bucket-a"
+    assert target.request_bucket_name == "tenant_a:bucket-a"
     assert target.context_id == "ceph-admin-7"
     assert target.context.effective_rgw_credentials() == ("admin-ak", "admin-sk")
     assert captured["options"].include_versions is True

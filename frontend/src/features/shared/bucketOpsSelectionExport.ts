@@ -16,7 +16,11 @@ import {
 import { loadBucketOpsFilteredBuckets } from "./bucketOpsFilteredBucketLoader";
 import type { ColumnId } from "./bucketOpsListState";
 import { loadBucketOpsBucketsByNames } from "./bucketOpsNamedBucketLoader";
-import { sanitizeExportFilenamePart } from "./bucketOpsPresentation";
+import {
+  decodeCephAdminBucketRef,
+  encodeCephAdminBucketRef,
+  sanitizeExportFilenamePart,
+} from "./bucketOpsPresentation";
 import { formatDownloadTimestamp } from "../../utils/download";
 
 type BucketOpsExportPage = {
@@ -66,6 +70,7 @@ async function loadSelectionBuckets({
   filteredQuery,
   fullyResolvedFilteredSelection,
   include,
+  isStorageOps,
   listBuckets,
   onProgress,
   scopeId,
@@ -78,15 +83,21 @@ async function loadSelectionBuckets({
   | "filteredQuery"
   | "fullyResolvedFilteredSelection"
   | "include"
+  | "isStorageOps"
   | "listBuckets"
   | "onProgress"
   | "scopeId"
   | "total"
   | "visibleBuckets"
 >): Promise<Map<string, CephAdminBucket>> {
+  const bucketKey = isStorageOps
+    ? (bucket: CephAdminBucket) => bucket.name
+    : (bucket: CephAdminBucket) =>
+        encodeCephAdminBucketRef(bucket.name, bucket.tenant);
   if (fullyResolvedFilteredSelection) {
     if (scopeId === null || total <= 0) return new Map();
     return loadBucketOpsFilteredBuckets({
+      bucketKey,
       initialTotal: total,
       listBuckets,
       onProgress,
@@ -102,21 +113,26 @@ async function loadSelectionBuckets({
   const selectedNames = new Set(bucketNames);
   const bucketsByName = new Map<string, CephAdminBucket>();
   visibleBuckets.forEach((bucket) => {
-    if (selectedNames.has(bucket.name)) bucketsByName.set(bucket.name, bucket);
+    const key = bucketKey(bucket);
+    if (selectedNames.has(key)) bucketsByName.set(key, bucket);
   });
   if (scopeId === null || bucketNames.length === 0) return bucketsByName;
 
   const loadedBuckets = await loadBucketOpsBucketsByNames({
+    bucketKey,
     bucketNames,
     include: [...include],
     listBuckets,
     onProgress: ({ completed, total: progressTotal }) =>
       onProgress?.(completed, progressTotal),
+    queryBucketName: isStorageOps
+      ? undefined
+      : (bucketName) => decodeCephAdminBucketRef(bucketName).bucketName,
     scopeId,
     withStats: exportWithStats,
   });
-  loadedBuckets.forEach((bucket) => {
-    if (selectedNames.has(bucket.name)) bucketsByName.set(bucket.name, bucket);
+  loadedBuckets.forEach((bucket, key) => {
+    if (selectedNames.has(key)) bucketsByName.set(key, bucket);
   });
   return bucketsByName;
 }
