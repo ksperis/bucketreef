@@ -52,7 +52,7 @@ export function migrationLabel(migration: BucketMigrationView): string {
       blocked: "Needs attention",
       ready: "Ready to copy",
       stale: "Check again",
-    }[migration.preparation_status ?? "unverified"];
+    }[migration.preparation_status];
   return {
     queued: "Copy queued",
     running: "Copying and verifying",
