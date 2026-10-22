@@ -36,11 +36,8 @@ vi.mock("../../../api/managerMigrations", async () => {
     continueManagerMigration: vi.fn(),
     startManagerMigration: vi.fn(),
     stopManagerMigration: vi.fn(),
-    rollbackManagerMigration: vi.fn(),
     retryManagerMigrationItem: vi.fn(),
-    rollbackManagerMigrationItem: vi.fn(),
     retryFailedManagerMigrationItems: vi.fn(),
-    rollbackFailedManagerMigrationItems: vi.fn(),
     deleteManagerMigration: vi.fn(),
   };
 });

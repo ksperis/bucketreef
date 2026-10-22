@@ -184,34 +184,6 @@ def continue_after_presync(
     )
 
 
-@router.post("/{migration_id}/rollback", response_model=BucketMigrationActionResponse)
-def rollback_migration(
-    migration_id: int,
-    db: Session = Depends(get_db),
-    scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
-    audit: AuditService = Depends(get_audit_service),
-) -> BucketMigrationActionResponse:
-    current_user = scope.user
-    service = build_bucket_migration_service(db, scope)
-    try:
-        migration = service.rollback_failed_migration(migration_id)
-    except PermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except ValueError as exc:
-        raise_http_error_from_value_error(exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="manager",
-        action="rollback_bucket_migration",
-        entity_type="bucket_migration",
-        entity_id=str(migration.id),
-    )
-    return BucketMigrationActionResponse(
-        id=migration.id, status=migration.status, message="Rollback completed"
-    )
-
-
 @router.post(
     "/{migration_id}/items/retry-failed", response_model=BucketMigrationActionResponse
 )
@@ -247,40 +219,6 @@ def retry_failed_items(
 
 
 @router.post(
-    "/{migration_id}/items/rollback-failed",
-    response_model=BucketMigrationActionResponse,
-)
-def rollback_failed_items(
-    migration_id: int,
-    db: Session = Depends(get_db),
-    scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
-    audit: AuditService = Depends(get_audit_service),
-) -> BucketMigrationActionResponse:
-    current_user = scope.user
-    service = build_bucket_migration_service(db, scope)
-    try:
-        migration, rolled_back_count = service.rollback_failed_items(migration_id)
-    except PermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except ValueError as exc:
-        raise_http_error_from_value_error(exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="manager",
-        action="rollback_failed_bucket_migration_items",
-        entity_type="bucket_migration",
-        entity_id=str(migration.id),
-        metadata={"rolled_back_items": rolled_back_count},
-    )
-    return BucketMigrationActionResponse(
-        id=migration.id,
-        status=migration.status,
-        message=f"Rollback executed for {rolled_back_count} failed item(s)",
-    )
-
-
-@router.post(
     "/{migration_id}/items/{item_id}/retry",
     response_model=BucketMigrationActionResponse,
 )
@@ -312,40 +250,6 @@ def retry_item(
         id=migration.id,
         status=migration.status,
         message="Retry queued for bucket item",
-    )
-
-
-@router.post(
-    "/{migration_id}/items/{item_id}/rollback",
-    response_model=BucketMigrationActionResponse,
-)
-def rollback_item(
-    migration_id: int,
-    item_id: int,
-    db: Session = Depends(get_db),
-    scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
-    audit: AuditService = Depends(get_audit_service),
-) -> BucketMigrationActionResponse:
-    current_user = scope.user
-    service = build_bucket_migration_service(db, scope)
-    try:
-        migration = service.rollback_item(migration_id, item_id)
-    except PermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except ValueError as exc:
-        raise_http_error_from_value_error(exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="manager",
-        action="rollback_bucket_migration_item",
-        entity_type="bucket_migration_item",
-        entity_id=f"{migration.id}:{item_id}",
-    )
-    return BucketMigrationActionResponse(
-        id=migration.id,
-        status=migration.status,
-        message="Rollback executed for bucket item",
     )
 
 

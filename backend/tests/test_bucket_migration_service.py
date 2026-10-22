@@ -4204,14 +4204,3 @@ def test_worker_marks_migration_failed_on_fatal_exception(tmp_path, monkeypatch)
         if worker is not None:
             worker.stop(timeout=1.0)
         engine.dispose()
-
-
-@pytest.mark.parametrize("command", ["rollback_item", "rollback_failed_items", "rollback_failed_migration"])
-def test_legacy_rollback_requires_explicit_separate_recovery(db_session, command):
-    migration = BucketMigration(source_context_id="1", target_context_id="2", status="failed")
-    migration.items.append(BucketMigrationItem(source_bucket="source", target_bucket="target"))
-    db_session.add(migration)
-    db_session.commit()
-    arguments = [migration.id, migration.items[0].id] if command == "rollback_item" else [migration.id]
-    with pytest.raises(ValueError, match="separate restore-access or cleanup-target"):
-        getattr(BucketMigrationService(db_session), command)(*arguments)

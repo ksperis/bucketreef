@@ -95,16 +95,3 @@ class BucketMigrationRollbackMixin:
         self._commit()
         self.db.refresh(migration)
         return migration, len(failed_items)
-
-    def rollback_item(self, migration_id: int, item_id: int):
-        migration = self.get_migration(migration_id)
-        self._find_migration_item(migration, item_id)
-        raise ValueError("Use the separate restore-access or cleanup-target operation")
-
-    def rollback_failed_items(self, migration_id: int):
-        self.get_migration(migration_id)
-        raise ValueError("Use the separate restore-access or cleanup-target operation")
-
-    def rollback_failed_migration(self, migration_id: int):
-        self.get_migration(migration_id)
-        raise ValueError("Use the separate restore-access or cleanup-target operation")
