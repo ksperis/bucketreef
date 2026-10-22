@@ -11,6 +11,7 @@ from app.utils.time import utcnow
 
 PRECHECK_MAX_AGE = timedelta(minutes=15)
 ACTIVE_STATUSES = {"queued", "running", "pause_requested", "cancel_requested"}
+_ActionRule = tuple[bool, str]
 
 
 @dataclass(frozen=True)
@@ -79,12 +80,14 @@ def preparation_state(migration) -> str:
     return migration.preparation_status
 
 
-def available_actions(migration) -> dict[str, dict]:
-    facts = _WorkflowFacts.from_migration(migration)
-    idle = not facts.busy and not facts.recovery
+def _draft_action_rules(
+    migration: BucketMigration,
+    facts: _WorkflowFacts,
+    *,
+    idle: bool,
+) -> dict[str, _ActionRule]:
     editable_draft = facts.modern and facts.draft and idle
-    completed_workflow = facts.modern and facts.results and idle
-    rules = {
+    return {
         "edit": (
             editable_draft,
             "Finish checks and restore temporary changes before editing.",
@@ -97,6 +100,16 @@ def available_actions(migration) -> dict[str, dict]:
             editable_draft and preparation_is_current(migration),
             "Run and pass active checks for the current configuration (valid for 15 minutes).",
         ),
+    }
+
+
+def _transfer_action_rules(
+    migration: BucketMigration,
+    facts: _WorkflowFacts,
+    *,
+    idle: bool,
+) -> dict[str, _ActionRule]:
+    return {
         "pause": (
             facts.modern and migration.status in {"running", "queued"},
             "Copy is not running.",
@@ -118,6 +131,17 @@ def available_actions(migration) -> dict[str, dict]:
             and migration.maintenance_status not in {"queued", "running"},
             "There is no active transfer to stop.",
         ),
+    }
+
+
+def _result_action_rules(
+    migration: BucketMigration,
+    facts: _WorkflowFacts,
+    *,
+    idle: bool,
+) -> dict[str, _ActionRule]:
+    completed_workflow = facts.modern and facts.results and idle
+    return {
         "retry": (
             completed_workflow and facts.has_failed_items,
             "There are no failed buckets available to retry.",
@@ -140,6 +164,16 @@ def available_actions(migration) -> dict[str, dict]:
             and not facts.has_access_protection,
             "Restore remaining access protections before deleting this record.",
         ),
+    }
+
+
+def available_actions(migration) -> dict[str, dict]:
+    facts = _WorkflowFacts.from_migration(migration)
+    idle = not facts.busy and not facts.recovery
+    rules = {
+        **_draft_action_rules(migration, facts, idle=idle),
+        **_transfer_action_rules(migration, facts, idle=idle),
+        **_result_action_rules(migration, facts, idle=idle),
     }
     return {
         name: {"enabled": bool(enabled), "reason": None if enabled else reason}
