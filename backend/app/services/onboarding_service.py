@@ -35,7 +35,7 @@ from app.services.audit_service import AuditService
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.operation_lease_service import OperationLeaseService
 from app.services.storage_endpoints_service import get_storage_endpoints_service
-from app.utils.storage_endpoint_features import resolve_feature_flags
+from app.utils.storage_endpoint_features import EndpointFeatureFlags, resolve_feature_flags
 from app.utils.time import utcnow
 
 
@@ -189,54 +189,86 @@ class OnboardingService:
         if needs_ceph:
             result.changes.append("configure_endpoint_service_identities")
         if endpoint is None:
-            if not draft.endpoint_url:
-                result.blockers.append("endpoint_required")
-            else:
-                result.changes.append("create_ceph_endpoint")
-            if self.endpoints.env_endpoints_locked():
-                result.blockers.append("endpoints_locked")
-        elif needs_ceph and endpoint.provider != StorageProvider.CEPH.value:
+            self._preview_new_endpoint(draft, result)
+            return
+        if needs_ceph and endpoint.provider != StorageProvider.CEPH.value:
             result.blockers.append("ceph_endpoint_required")
+            return
+        if endpoint.provider == StorageProvider.CEPH.value:
+            self._preview_existing_ceph_endpoint(draft, endpoint, result)
 
-        if endpoint is not None and endpoint.provider == StorageProvider.CEPH.value:
-            editable = endpoint.is_editable and not self.endpoints.env_endpoints_locked()
-            flags = resolve_feature_flags(endpoint)
-            if draft.manager or draft.portal:
-                result.changes.append("validate_ceph_account_api")
-                if not (endpoint.admin_access_key and endpoint.admin_secret_key) and not editable:
-                    result.blockers.append("endpoint_credentials_locked")
-                if not (flags.admin_enabled and flags.account_enabled):
-                    if editable:
-                        result.changes.append("enable_endpoint_account_features")
-                    else:
-                        result.blockers.append("endpoint_features_locked")
-                if draft.portal and not flags.iam_enabled and not editable:
-                    result.blockers.append("endpoint_features_locked")
-            if draft.supervision:
-                result.changes.append("validate_supervision")
-                supervision = endpoint.service_identity("supervision")
-                if not (
-                    supervision
-                    and supervision.access_key
-                    and supervision.secret_key
-                ) and not editable:
-                    result.blockers.append("endpoint_credentials_locked")
-                if not flags.metrics_enabled:
-                    if editable:
-                        result.changes.append("enable_endpoint_supervision_features")
-                    else:
-                        result.blockers.append("endpoint_features_locked")
-            if draft.ceph_admin:
-                result.changes.append("configure_ceph_admin_credentials")
-
-        if endpoint is None and (draft.manager or draft.portal):
+    def _preview_new_endpoint(
+        self,
+        draft: OnboardingDraft,
+        result: OnboardingPreview,
+    ) -> None:
+        if not draft.endpoint_url:
+            result.blockers.append("endpoint_required")
+        else:
+            result.changes.append("create_ceph_endpoint")
+        if self.endpoints.env_endpoints_locked():
+            result.blockers.append("endpoints_locked")
+        if draft.manager or draft.portal:
             result.changes.append("validate_ceph_account_api")
-        if endpoint is None and draft.ceph_admin:
+        if draft.ceph_admin:
             result.changes.append("configure_ceph_admin_credentials")
-        if endpoint is None and draft.supervision:
+        if draft.supervision:
             result.changes.extend(
                 ["validate_supervision", "enable_endpoint_supervision_features"]
             )
+
+    def _preview_existing_ceph_endpoint(
+        self,
+        draft: OnboardingDraft,
+        endpoint: StorageEndpoint,
+        result: OnboardingPreview,
+    ) -> None:
+        editable = endpoint.is_editable and not self.endpoints.env_endpoints_locked()
+        flags = resolve_feature_flags(endpoint)
+        if draft.manager or draft.portal:
+            self._preview_account_endpoint(draft, endpoint, flags, editable, result)
+        if draft.supervision:
+            self._preview_supervision_endpoint(endpoint, flags, editable, result)
+        if draft.ceph_admin:
+            result.changes.append("configure_ceph_admin_credentials")
+
+    @staticmethod
+    def _preview_account_endpoint(
+        draft: OnboardingDraft,
+        endpoint: StorageEndpoint,
+        flags: EndpointFeatureFlags,
+        editable: bool,
+        result: OnboardingPreview,
+    ) -> None:
+        result.changes.append("validate_ceph_account_api")
+        if not (endpoint.admin_access_key and endpoint.admin_secret_key) and not editable:
+            result.blockers.append("endpoint_credentials_locked")
+        if not (flags.admin_enabled and flags.account_enabled):
+            if editable:
+                result.changes.append("enable_endpoint_account_features")
+            else:
+                result.blockers.append("endpoint_features_locked")
+        if draft.portal and not flags.iam_enabled and not editable:
+            result.blockers.append("endpoint_features_locked")
+
+    @staticmethod
+    def _preview_supervision_endpoint(
+        endpoint: StorageEndpoint,
+        flags: EndpointFeatureFlags,
+        editable: bool,
+        result: OnboardingPreview,
+    ) -> None:
+        result.changes.append("validate_supervision")
+        supervision = endpoint.service_identity("supervision")
+        if not (
+            supervision and supervision.access_key and supervision.secret_key
+        ) and not editable:
+            result.blockers.append("endpoint_credentials_locked")
+        if not flags.metrics_enabled:
+            if editable:
+                result.changes.append("enable_endpoint_supervision_features")
+            else:
+                result.blockers.append("endpoint_features_locked")
 
     def _preview_access_changes(
         self,

@@ -247,6 +247,37 @@ def test_preview_does_not_block_editable_ceph_choices_when_credentials_are_missi
     assert "configure_ceph_admin_credentials" in result.changes
 
 
+def test_preview_blocks_locked_ceph_account_when_credentials_and_features_are_missing(
+    guided, db_session
+):
+    user = actor(db_session)
+    ep = endpoint(
+        db_session,
+        features_config=(
+            "features:\n"
+            "  admin:\n    enabled: false\n"
+            "  account:\n    enabled: false\n"
+            "  iam:\n    enabled: false\n"
+        ),
+    )
+    ep.is_editable = False
+    db_session.commit()
+
+    result = guided.preview_draft(
+        user,
+        OnboardingDraft(endpoint_id=ep.id, manager=True),
+    )
+
+    assert result.changes[:2] == [
+        "configure_endpoint_service_identities",
+        "validate_ceph_account_api",
+    ]
+    assert result.blockers == [
+        "endpoint_credentials_locked",
+        "endpoint_features_locked",
+    ]
+
+
 def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypatch):
     user = actor(db_session)
     lock_feature(monkeypatch, "browser_enabled")
