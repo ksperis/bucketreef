@@ -33,6 +33,7 @@ from app.models.portal_sharing import (
 )
 from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 from app.services.user_avatar_service import UserAvatarService
+from app.utils.account_roles import PortalAccountRoleValue
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:
@@ -48,16 +49,17 @@ STORAGE_SPACE_COLLABORATOR_PREVIEW_LIMIT = 5
 
 
 class PortalCollaboratorsMixin:
-    def _storage_space_collaborator_previews(
+    def _storage_space_preview_users(
         self,
-        account: S3Account,
         metadata_rows: list[PortalStorageSpaceMetadata],
-    ) -> dict[str, tuple[list[PortalStorageSpaceCollaboratorPreview], int]]:
-        if not metadata_rows:
-            return {}
-        member_map = self._portal_account_member_map(account)
+        member_map: dict[int, tuple[User, PortalAccountRoleValue, set[str]]],
+    ) -> dict[int, User]:
         users_by_id = {user_id: member[0] for user_id, member in member_map.items()}
-        owner_user_ids = {metadata.owner_user_id for metadata in metadata_rows if metadata.owner_user_id is not None}
+        owner_user_ids = {
+            metadata.owner_user_id
+            for metadata in metadata_rows
+            if metadata.owner_user_id is not None
+        }
         missing_owner_ids = owner_user_ids - set(users_by_id)
         if missing_owner_ids:
             users_by_id.update(
@@ -68,47 +70,89 @@ class PortalCollaboratorsMixin:
                     ).all()
                 }
             )
+        return users_by_id
 
+    def _storage_space_preview_grants(
+        self,
+        metadata_rows: list[PortalStorageSpaceMetadata],
+        users_by_id: dict[int, User],
+    ) -> dict[int, list[tuple[User, PortalStorageSpaceGrantRole]]]:
         metadata_ids = [metadata.id for metadata in metadata_rows if metadata.id is not None]
+        if not metadata_ids:
+            return {}
         grants_by_metadata_id: dict[int, list[tuple[User, PortalStorageSpaceGrantRole]]] = {}
-        if metadata_ids:
-            grant_rows = self.db.execute(
-                select(
-                    PortalStorageSpaceGrant.storage_space_metadata_id,
-                    PortalStorageSpaceGrant.role,
-                    User,
-                )
-                .join(User, User.id == PortalStorageSpaceGrant.user_id)
-                .where(PortalStorageSpaceGrant.storage_space_metadata_id.in_(metadata_ids))
-            ).all()
-            for metadata_id, role, target in grant_rows:
-                if role not in {"Viewer", "Editor"}:
+        rows = self.db.execute(
+            select(
+                PortalStorageSpaceGrant.storage_space_metadata_id,
+                PortalStorageSpaceGrant.role,
+                User,
+            )
+            .join(User, User.id == PortalStorageSpaceGrant.user_id)
+            .where(PortalStorageSpaceGrant.storage_space_metadata_id.in_(metadata_ids))
+        ).all()
+        for metadata_id, role, target in rows:
+            if role not in {"Viewer", "Editor"}:
+                continue
+            users_by_id[target.id] = target
+            grants_by_metadata_id.setdefault(metadata_id, []).append((target, role))
+        return grants_by_metadata_id
+
+    def _storage_space_preview_roles(
+        self,
+        metadata: PortalStorageSpaceMetadata,
+        member_map: dict[int, tuple[User, PortalAccountRoleValue, set[str]]],
+        users_by_id: dict[int, User],
+        grants_by_metadata_id: dict[int, list[tuple[User, PortalStorageSpaceGrantRole]]],
+    ) -> dict[int, PortalStorageSpaceRole]:
+        roles_by_user_id: dict[int, PortalStorageSpaceRole] = {}
+        visibility = self._metadata_visibility(metadata)
+        if visibility == "private" and metadata.owner_user_id in users_by_id:
+            roles_by_user_id[metadata.owner_user_id] = "Owner"
+            return roles_by_user_id
+        if visibility != "shared":
+            return roles_by_user_id
+        if self._metadata_share_scope(metadata) == "account":
+            default_role = self._metadata_account_member_role(metadata) or "Editor"
+            for user_id, (_target, portal_role, _sources) in member_map.items():
+                if portal_role != PortalAccountRole.PORTAL_USER.value:
                     continue
-                users_by_id[target.id] = target
-                grants_by_metadata_id.setdefault(metadata_id, []).append((target, role))
+                roles_by_user_id[user_id] = self._best_storage_space_role(
+                    roles_by_user_id.get(user_id),
+                    default_role,
+                ) or default_role
+            return roles_by_user_id
+        if metadata.id is None:
+            return roles_by_user_id
+        for target, grant_role in grants_by_metadata_id.get(metadata.id, []):
+            roles_by_user_id[target.id] = self._best_storage_space_role(
+                roles_by_user_id.get(target.id),
+                grant_role,
+            ) or grant_role
+        return roles_by_user_id
+
+    def _storage_space_collaborator_previews(
+        self,
+        account: S3Account,
+        metadata_rows: list[PortalStorageSpaceMetadata],
+    ) -> dict[str, tuple[list[PortalStorageSpaceCollaboratorPreview], int]]:
+        if not metadata_rows:
+            return {}
+        member_map = self._portal_account_member_map(account)
+        users_by_id = self._storage_space_preview_users(metadata_rows, member_map)
+        grants_by_metadata_id = self._storage_space_preview_grants(
+            metadata_rows,
+            users_by_id,
+        )
 
         avatar_service = UserAvatarService(self.db)
         result: dict[str, tuple[list[PortalStorageSpaceCollaboratorPreview], int]] = {}
         for metadata in metadata_rows:
-            roles_by_user_id: dict[int, PortalStorageSpaceRole] = {}
-            if self._metadata_visibility(metadata) == "private" and metadata.owner_user_id in users_by_id:
-                roles_by_user_id[metadata.owner_user_id] = "Owner"
-            if self._metadata_visibility(metadata) == "shared":
-                if self._metadata_share_scope(metadata) == "account":
-                    default_role = self._metadata_account_member_role(metadata) or "Editor"
-                    for user_id, (_target, portal_role, _sources) in member_map.items():
-                        if portal_role != PortalAccountRole.PORTAL_USER.value:
-                            continue
-                        roles_by_user_id[user_id] = self._best_storage_space_role(
-                            roles_by_user_id.get(user_id),
-                            default_role,
-                        ) or default_role
-                elif metadata.id is not None:
-                    for target, grant_role in grants_by_metadata_id.get(metadata.id, []):
-                        roles_by_user_id[target.id] = self._best_storage_space_role(
-                            roles_by_user_id.get(target.id),
-                            grant_role,
-                        ) or grant_role
+            roles_by_user_id = self._storage_space_preview_roles(
+                metadata,
+                member_map,
+                users_by_id,
+                grants_by_metadata_id,
+            )
 
             previews = [
                 PortalStorageSpaceCollaboratorPreview(
