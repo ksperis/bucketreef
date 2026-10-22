@@ -89,7 +89,6 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         precheck_status=migration.precheck_status,
         precheck_report=load_migration_json(migration.precheck_report_json),
         precheck_checked_at=migration.precheck_checked_at,
-        workflow_version=migration.workflow_version,
         configuration_revision=migration.configuration_revision,
         checked_revision=migration.checked_revision,
         preparation_status=preparation_state(migration),

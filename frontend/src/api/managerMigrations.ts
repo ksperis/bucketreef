@@ -168,7 +168,6 @@ export type BucketMigrationView = {
   precheck_status: BucketMigrationPrecheckStatus;
   precheck_report: BucketMigrationPrecheckReport | null;
   precheck_checked_at: string | null;
-  workflow_version: number;
   configuration_revision: number;
   checked_revision: number | null;
   preparation_status: "unverified" | "checking" | "blocked" | "ready" | "stale";

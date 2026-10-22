@@ -111,7 +111,6 @@ function buildDetail(): BucketMigrationDetail {
       ],
     },
     precheck_checked_at: null,
-    workflow_version: 2,
     configuration_revision: 1,
     checked_revision: 1,
     preparation_status: "ready",
