@@ -100,8 +100,21 @@ class UsageHistoryService:
         if extra_filter_builder is not None:
             filters.extend(extra_filter_builder(model))
 
+        rows = self._trend_rows(columns, filters)
+        points = [self._trend_point(row) for row in rows]
+        summary = self._trend_summary(model, filters, rows, points)
+        return UsageHistoryTrendResponse(
+            window=window,
+            granularity=granularity,
+            available=True,
+            points=points,
+            summary=summary,
+        )
+
+    def _trend_rows(self, columns: _HistoryColumns, filters: list) -> list:
+        model = columns.model
         samples_expr = func.sum(columns.samples) if columns.samples is not None else func.count(model.id)
-        rows = self.db.execute(
+        return self.db.execute(
             select(
                 columns.period.label("period_start"),
                 func.sum(columns.used_bytes).label("used_bytes"),
@@ -119,25 +132,31 @@ class UsageHistoryService:
             .order_by(columns.period.asc())
         ).all()
 
-        points = [
-            UsageHistoryTrendPoint(
-                period_start=self._iso(row.period_start) or "",
-                used_bytes=int(row.used_bytes or 0),
-                used_objects=int(row.used_objects or 0),
-                bucket_count=int(row.bucket_count or 0),
-                max_usage_ratio_pct=self._float_or_none(row.max_usage_ratio_pct),
-                subjects_count=int(row.account_subjects or 0) + int(row.user_subjects or 0),
-                samples_count=int(row.samples_count or 0),
-                collected_at=self._iso(row.collected_at),
-            )
-            for row in rows
-        ]
+    def _trend_point(self, row) -> UsageHistoryTrendPoint:
+        return UsageHistoryTrendPoint(
+            period_start=self._iso(row.period_start) or "",
+            used_bytes=int(row.used_bytes or 0),
+            used_objects=int(row.used_objects or 0),
+            bucket_count=int(row.bucket_count or 0),
+            max_usage_ratio_pct=self._float_or_none(row.max_usage_ratio_pct),
+            subjects_count=int(row.account_subjects or 0) + int(row.user_subjects or 0),
+            samples_count=int(row.samples_count or 0),
+            collected_at=self._iso(row.collected_at),
+        )
+
+    def _trend_summary(
+        self,
+        model,
+        filters: list,
+        rows: list,
+        points: list[UsageHistoryTrendPoint],
+    ) -> UsageHistoryTrendSummary:
         latest = points[-1] if points else None
         max_ratio = max(
             (point.max_usage_ratio_pct for point in points if point.max_usage_ratio_pct is not None),
             default=None,
         )
-        summary = UsageHistoryTrendSummary(
+        return UsageHistoryTrendSummary(
             total_records=sum(int(row.records_count or 0) for row in rows),
             points_count=len(points),
             subjects_count=self._count_subjects(model, filters),
@@ -146,13 +165,6 @@ class UsageHistoryService:
             latest_bucket_count=latest.bucket_count if latest else 0,
             latest_collected_at=latest.collected_at if latest else None,
             max_usage_ratio_pct=max_ratio,
-        )
-        return UsageHistoryTrendResponse(
-            window=window,
-            granularity=granularity,
-            available=True,
-            points=points,
-            summary=summary,
         )
 
     def list_records(
