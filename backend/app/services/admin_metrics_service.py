@@ -380,6 +380,36 @@ class AdminMetricsService:
             return 0, 0
         return extract_usage_stats(usage)
 
+    @staticmethod
+    def _dashboard_metric_value(
+        *,
+        total: int,
+        has_total: bool,
+        measured: list[int | None],
+        bucket_count: int,
+        successful_listings: int,
+    ) -> int | None:
+        if has_total:
+            return total
+        if not successful_listings:
+            return None
+        if bucket_count == 0:
+            return 0
+        if all(value == 0 for value in measured):
+            return 0
+        return None
+
+    @staticmethod
+    def _dashboard_metric_complete(
+        *,
+        successful_listings: int,
+        failures: list[str],
+        measured: list[int | None],
+    ) -> bool:
+        return bool(successful_listings) and not failures and all(
+            value is not None for value in measured
+        )
+
     @classmethod
     def _dashboard_storage_payload(
         cls,
@@ -390,24 +420,37 @@ class AdminMetricsService:
         failures = collection.failures
         totals = _BucketUsageIndex.build(buckets).totals
         measured = [cls._dashboard_usage(bucket) for bucket in buckets]
+        measured_bytes = [used_bytes for used_bytes, _ in measured]
+        measured_objects = [object_count for _, object_count in measured]
         fields = {
             "bucket_count": totals.total_buckets if successful_listings else None,
-            "used_bytes": totals.used_bytes if totals.has_bytes else (0 if not buckets and successful_listings else None),
-            "object_count": totals.object_count if totals.has_objects else (0 if not buckets and successful_listings else None),
+            "used_bytes": cls._dashboard_metric_value(
+                total=totals.used_bytes,
+                has_total=totals.has_bytes,
+                measured=measured_bytes,
+                bucket_count=len(buckets),
+                successful_listings=successful_listings,
+            ),
+            "object_count": cls._dashboard_metric_value(
+                total=totals.object_count,
+                has_total=totals.has_objects,
+                measured=measured_objects,
+                bucket_count=len(buckets),
+                successful_listings=successful_listings,
+            ),
         }
-        if successful_listings:
-            if buckets and not totals.has_bytes and all(used_bytes == 0 for used_bytes, _ in measured):
-                fields["used_bytes"] = 0
-            if buckets and not totals.has_objects and all(object_count == 0 for _, object_count in measured):
-                fields["object_count"] = 0
         complete = {
             "bucket_count": bool(successful_listings) and not failures,
-            "used_bytes": bool(successful_listings)
-            and not failures
-            and all(used_bytes is not None for used_bytes, _ in measured),
-            "object_count": bool(successful_listings)
-            and not failures
-            and all(object_count is not None for _, object_count in measured),
+            "used_bytes": cls._dashboard_metric_complete(
+                successful_listings=successful_listings,
+                failures=failures,
+                measured=measured_bytes,
+            ),
+            "object_count": cls._dashboard_metric_complete(
+                successful_listings=successful_listings,
+                failures=failures,
+                measured=measured_objects,
+            ),
         }
         missing = [key for key, value in complete.items() if not value]
         reason = "; ".join(dict.fromkeys(failures))
