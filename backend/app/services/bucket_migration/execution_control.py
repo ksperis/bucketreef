@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from sqlalchemy import or_, select
-from typing import Optional
+from typing import Callable, Optional
 
 from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -13,7 +13,9 @@ from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.time import utcnow
 from ._shared import (
     _DB_ERROR_MESSAGE_MAX_CHARS,
+    _FINAL_MIGRATION_STATUSES,
     _RUNNABLE_MIGRATION_STATUSES,
+    _ResolvedContext,
     _WorkerLeaseLostError,
     _truncate_optional_db_text,
 )
@@ -23,6 +25,131 @@ settings = get_settings()
 
 
 class BucketMigrationExecutionControlMixin:
+    def _prepare_migration_run(
+        self,
+        migration: BucketMigration,
+        *,
+        worker_id: Optional[str],
+        lease_seconds: int,
+    ) -> Optional[BucketMigration]:
+        if worker_id:
+            if migration.worker_lease_owner != worker_id:
+                return None
+            if not self._renew_migration_lease(
+                migration.id,
+                worker_id=worker_id,
+                lease_seconds=lease_seconds,
+            ):
+                return None
+            migration = self.get_migration(migration.id)
+
+        if migration.status in {*_FINAL_MIGRATION_STATUSES, "awaiting_cutover"}:
+            if self._clear_owned_worker_lease(migration, worker_id=worker_id):
+                self._commit()
+            return None
+
+        if migration.status in _RUNNABLE_MIGRATION_STATUSES:
+            now = utcnow()
+            if migration.status not in {"pause_requested", "cancel_requested"}:
+                migration.status = "running"
+            if migration.started_at is None:
+                migration.started_at = now
+            migration.updated_at = now
+            migration.last_heartbeat_at = now
+            self._commit()
+        return migration
+
+    @staticmethod
+    def _clear_owned_worker_lease(
+        migration: BucketMigration,
+        *,
+        worker_id: Optional[str],
+    ) -> bool:
+        if not worker_id or migration.worker_lease_owner != worker_id:
+            return False
+        migration.worker_lease_owner = None
+        migration.worker_lease_until = None
+        return True
+
+    def _stop_for_control_state(
+        self,
+        migration: BucketMigration,
+        state: str,
+        *,
+        source_ctx: _ResolvedContext,
+        target_ctx: _ResolvedContext,
+    ) -> bool:
+        if state == "lost_lease":
+            return True
+        if state == "cancel":
+            self._mark_canceled(migration, source_ctx=source_ctx, target_ctx=target_ctx)
+            self._commit()
+            return True
+        if state == "pause":
+            self._mark_paused(migration)
+            self._commit()
+            return True
+        return False
+
+    def _execute_migration_item(
+        self,
+        migration: BucketMigration,
+        item: BucketMigrationItem,
+        source_ctx: _ResolvedContext,
+        target_ctx: _ResolvedContext,
+        *,
+        control_check: Callable[[], str],
+    ) -> Optional[BucketMigration]:
+        try:
+            self._execution_item = item
+            self._revalidate_transfer_preconditions(migration, items=[item])
+            item.status = "running"
+            if item.started_at is None:
+                item.started_at = utcnow()
+            item.updated_at = utcnow()
+            self._commit()
+            self._run_item(
+                migration,
+                item,
+                source_ctx,
+                target_ctx,
+                control_check=control_check,
+            )
+            return migration
+        except _WorkerLeaseLostError:
+            self.db.rollback()
+            return None
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "Bucket migration item failed: migration=%s item=%s",
+                migration.id,
+                item.id,
+            )
+            self.db.rollback()
+            migration = self.get_migration(migration.id)
+            failed_item = self.db.scalars(
+                select(BucketMigrationItem).where(BucketMigrationItem.id == item.id)
+            ).first()
+            if failed_item is None:
+                return migration
+            error_detail = sanitized_error_log_detail(exc)
+            failed_item.status = "failed"
+            failed_item.error_message = _truncate_optional_db_text(
+                error_detail,
+                max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
+            )
+            failed_item.finished_at = utcnow()
+            failed_item.updated_at = utcnow()
+            self._add_event(
+                migration,
+                item=failed_item,
+                level="error",
+                message="Item failed.",
+                metadata={"error": error_detail, "step": failed_item.step},
+            )
+            self._commit()
+            return migration
+
     def run_migration(
         self,
         migration_id: int,
@@ -42,30 +169,17 @@ class BucketMigrationExecutionControlMixin:
         if migration.status not in _RUNNABLE_MIGRATION_STATUSES:
             return
 
-        if worker_id:
-            if migration.worker_lease_owner != worker_id:
-                return
-            if not self._renew_migration_lease(migration.id, worker_id=worker_id, lease_seconds=effective_lease_seconds):
-                return
-            migration = self.get_migration(migration_id)
-
-        if migration.status in {"completed", "completed_with_errors", "failed", "canceled", "rolled_back", "awaiting_cutover"}:
-            if worker_id and migration.worker_lease_owner == worker_id:
-                migration.worker_lease_owner = None
-                migration.worker_lease_until = None
-                self._commit()
+        migration = self._prepare_migration_run(
+            migration,
+            worker_id=worker_id,
+            lease_seconds=effective_lease_seconds,
+        )
+        if migration is None:
             return
-
-        if migration.status in _RUNNABLE_MIGRATION_STATUSES:
-            migration.status = "running" if migration.status not in {"pause_requested", "cancel_requested"} else migration.status
-            if migration.started_at is None:
-                migration.started_at = utcnow()
-            migration.updated_at = utcnow()
-            migration.last_heartbeat_at = utcnow()
-            self._commit()
 
         source_ctx = self._resolve_context(migration.source_context_id)
         target_ctx = self._resolve_context(migration.target_context_id)
+
         def control_check():
             current = self.get_migration(migration.id)
             self._assert_migration_creator_access(current)
@@ -79,70 +193,36 @@ class BucketMigrationExecutionControlMixin:
             self.db.refresh(migration)
             self._assert_migration_creator_access(migration)
             state = control_check()
-            if state == "lost_lease":
-                return
-            if state == "cancel":
-                self._mark_canceled(migration, source_ctx=source_ctx, target_ctx=target_ctx)
-                self._commit()
-                return
-            if state == "pause":
-                self._mark_paused(migration)
-                self._commit()
+            if self._stop_for_control_state(
+                migration,
+                state,
+                source_ctx=source_ctx,
+                target_ctx=target_ctx,
+            ):
                 return
 
             if item.status in {"completed", "rolled_back", "skipped", "failed", "canceled"}:
                 continue
             if migration.mode == "pre_sync" and migration.status == "awaiting_cutover":
-                if worker_id and migration.worker_lease_owner == worker_id:
-                    migration.worker_lease_owner = None
-                    migration.worker_lease_until = None
+                if self._clear_owned_worker_lease(migration, worker_id=worker_id):
                     self._commit()
                 return
 
-            try:
-                self._execution_item = item
-                self._revalidate_transfer_preconditions(migration, items=[item])
-                item.status = "running"
-                if item.started_at is None:
-                    item.started_at = utcnow()
-                item.updated_at = utcnow()
-                self._commit()
-                self._run_item(migration, item, source_ctx, target_ctx, control_check=control_check)
-            except _WorkerLeaseLostError:
-                self.db.rollback()
+            migration = self._execute_migration_item(
+                migration,
+                item,
+                source_ctx,
+                target_ctx,
+                control_check=control_check,
+            )
+            if migration is None:
                 return
-            except Exception as exc:  # noqa: BLE001
-                logger.exception("Bucket migration item failed: migration=%s item=%s", migration.id, item.id)
-                self.db.rollback()
-                migration = self.get_migration(migration.id)
-                failed_item = self.db.scalars(
-                    select(BucketMigrationItem).where(BucketMigrationItem.id == item.id)
-                ).first()
-                if failed_item is None:
-                    continue
-                error_detail = sanitized_error_log_detail(exc)
-                failed_item.status = "failed"
-                failed_item.error_message = _truncate_optional_db_text(
-                    error_detail,
-                    max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
-                )
-                failed_item.finished_at = utcnow()
-                failed_item.updated_at = utcnow()
-                self._add_event(
-                    migration,
-                    item=failed_item,
-                    level="error",
-                    message="Item failed.",
-                    metadata={"error": error_detail, "step": failed_item.step},
-                )
-                self._commit()
 
         self.db.refresh(migration)
         self._assert_workflow_lease()
         self._finalize_or_wait_cutover(migration, source_ctx=source_ctx, target_ctx=target_ctx)
-        if worker_id and migration.worker_lease_owner == worker_id and migration.status not in _RUNNABLE_MIGRATION_STATUSES:
-            migration.worker_lease_owner = None
-            migration.worker_lease_until = None
+        if migration.status not in _RUNNABLE_MIGRATION_STATUSES:
+            self._clear_owned_worker_lease(migration, worker_id=worker_id)
         self._commit()
 
     def _active_endpoint_usage(self, *, now) -> dict[str, int]:
