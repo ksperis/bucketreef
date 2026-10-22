@@ -24,6 +24,15 @@ from app.utils.s3_connection_endpoint import (
 )
 from app.utils.s3_endpoint import validate_user_supplied_s3_endpoint
 
+
+S3ConnectionEndpointPayload = (
+    S3ConnectionCreate
+    | S3ConnectionUpdate
+    | S3ConnectionAdminCreate
+    | S3ConnectionAdminUpdate
+)
+
+
 class S3ConnectionEndpointPlanner:
     """Resolve one canonical managed or custom endpoint before persistence."""
 
@@ -33,41 +42,35 @@ class S3ConnectionEndpointPlanner:
     def plan(
         self,
         row: Optional[DBS3Connection],
-        payload: (
-            S3ConnectionCreate
-            | S3ConnectionUpdate
-            | S3ConnectionAdminCreate
-            | S3ConnectionAdminUpdate
-        ),
+        payload: S3ConnectionEndpointPayload,
         *,
         enforce_manual_endpoint_policy: bool,
     ) -> tuple[Optional[int], Optional[str]]:
         fields_set = payload.model_fields_set
-        if "storage_endpoint_id" in fields_set:
-            desired_endpoint_id = payload.storage_endpoint_id
-        elif row is not None:
-            desired_endpoint_id = row.storage_endpoint_id
-        else:
-            desired_endpoint_id = None
+        desired_endpoint_id = self._desired_endpoint_id(row, payload)
         custom_fields = S3_CONNECTION_CUSTOM_ENDPOINT_FIELDS & fields_set
         if desired_endpoint_id is not None:
-            if custom_fields:
-                raise ValueError(
-                    "Custom endpoint fields cannot be combined with a managed storage endpoint"
-                )
-            endpoint = self.db.scalar(
-                select(StorageEndpoint)
-                .where(StorageEndpoint.id == desired_endpoint_id)
-                .limit(1)
-            )
-            if endpoint is None:
-                raise StorageEndpointNotFoundError("Storage endpoint not found")
-            return desired_endpoint_id, None
+            return self._managed_endpoint_plan(desired_endpoint_id, custom_fields)
+        return self._custom_endpoint_plan(
+            row,
+            payload,
+            enforce_manual_endpoint_policy=enforce_manual_endpoint_policy,
+        )
 
-        if row is not None and row.storage_endpoint_id is None:
-            current = custom_endpoint_update_base(row.custom_endpoint_config)
-        else:
-            current = custom_endpoint_update_base(None)
+    def _custom_endpoint_plan(
+        self,
+        row: Optional[DBS3Connection],
+        payload: S3ConnectionEndpointPayload,
+        *,
+        enforce_manual_endpoint_policy: bool,
+    ) -> tuple[None, str]:
+        fields_set = payload.model_fields_set
+
+        current = custom_endpoint_update_base(
+            row.custom_endpoint_config
+            if row is not None and row.storage_endpoint_id is None
+            else None
+        )
         endpoint_url = (
             payload.endpoint_url
             if "endpoint_url" in fields_set
@@ -106,6 +109,33 @@ class S3ConnectionEndpointPlanner:
             verify_tls,
             provider,
         )
+
+    @staticmethod
+    def _desired_endpoint_id(
+        row: Optional[DBS3Connection],
+        payload: S3ConnectionEndpointPayload,
+    ) -> Optional[int]:
+        if "storage_endpoint_id" in payload.model_fields_set:
+            return payload.storage_endpoint_id
+        return row.storage_endpoint_id if row is not None else None
+
+    def _managed_endpoint_plan(
+        self,
+        endpoint_id: int,
+        custom_fields: set[str],
+    ) -> tuple[int, None]:
+        if custom_fields:
+            raise ValueError(
+                "Custom endpoint fields cannot be combined with a managed storage endpoint"
+            )
+        endpoint = self.db.scalar(
+            select(StorageEndpoint)
+            .where(StorageEndpoint.id == endpoint_id)
+            .limit(1)
+        )
+        if endpoint is None:
+            raise StorageEndpointNotFoundError("Storage endpoint not found")
+        return endpoint_id, None
 
     @staticmethod
     def _validate_manual_endpoint(
