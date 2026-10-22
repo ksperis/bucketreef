@@ -200,6 +200,32 @@ def test_integrity_service_lists_versions_skips_delete_markers_and_applies_since
     assert client.get_calls == [{"Bucket": "bucket-a", "Key": "new.txt", "VersionId": "v2"}]
 
 
+def test_integrity_service_skips_invalid_listing_entries():
+    paginator = FakePaginator(
+        [
+            {
+                "Contents": [
+                    {"Key": None},
+                    {"Key": ""},
+                    {"Key": 123},
+                    {"Key": "valid.txt", "LastModified": "not-a-datetime"},
+                ]
+            }
+        ]
+    )
+    client = FakeS3Client(
+        {"list_objects_v2": paginator},
+        {("valid.txt", None): b"ok"},
+    )
+    service = FakeIntegrityService(client)
+
+    result = service.run([_target()], BucketIntegrityOptions(check_mode="get"))
+
+    assert result.status == "passed"
+    assert result.listed_count == 1
+    assert client.get_calls == [{"Bucket": "bucket-a", "Key": "valid.txt"}]
+
+
 def test_integrity_service_limits_bytes_read_per_object():
     payload = b"x" * (2 * 1024 * 1024)
     client = FakeS3Client(
