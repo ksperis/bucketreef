@@ -134,6 +134,29 @@ def test_storage_treats_explicit_empty_rgw_usage_as_complete_zero(db_session, mo
     }
 
 
+def test_storage_does_not_treat_mixed_empty_and_unknown_usage_as_complete_zero(
+    db_session, monkeypatch
+):
+    row = endpoint(db_session, "mixed-usage")
+    client = RGW(
+        [
+            {"bucket": "empty", "owner": "account-mixed-usage", "usage": {}},
+            {"bucket": "unknown", "owner": "account-mixed-usage"},
+        ]
+    )
+    monkeypatch.setattr(dashboard, "get_supervision_rgw_client", lambda e: client)
+
+    result = dashboard.AdminDashboardMetricsService(db_session).storage()
+
+    assert result["storage_totals"] == {
+        "bucket_count": 2,
+        "used_bytes": None,
+        "object_count": None,
+    }
+    assert result["measurements"]["used_bytes"]["complete_count"] == 0
+    assert result["measurements"]["object_count"]["complete_count"] == 0
+
+
 def test_storage_fallback_deduplicates_principals_and_overlapping_buckets_and_reports_missing_users(db_session):
     row = endpoint(db_session, "fallback")
     db_session.add_all([
