@@ -5,19 +5,23 @@ import hashlib
 import ipaddress
 import json
 import re
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, urlsplit
 
 from app.models.browser_transfer_policy import BrowserTransferPolicy, BrowserTransferWorkspace
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.s3_endpoint import resolve_s3_client_options
 
 
-def s3_connect_sources(endpoint: str, *, force_path_style: bool) -> list[str]:
+def _split_s3_connect_endpoint(endpoint: str) -> SplitResult:
     if not endpoint or any(ord(char) <= 32 or ord(char) >= 127 for char in endpoint):
         raise ValueError("Invalid S3 endpoint for direct transfers")
     parsed = urlsplit(endpoint)
     if parsed.scheme not in {"https", "http"} or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ValueError("Invalid S3 endpoint for direct transfers")
+    return parsed
+
+
+def _validated_s3_connect_host(parsed: SplitResult) -> tuple[str, int | None, bool]:
     host = (parsed.hostname or "").lower()
     port = parsed.port
     try:
@@ -33,9 +37,15 @@ def s3_connect_sources(endpoint: str, *, force_path_style: bool) -> list[str]:
         raise ValueError("Invalid S3 endpoint hostname for direct transfers")
     if port is not None and not 1 <= port <= 65535:
         raise ValueError("Invalid S3 endpoint port for direct transfers")
+    return host, port, address is not None
+
+
+def s3_connect_sources(endpoint: str, *, force_path_style: bool) -> list[str]:
+    parsed = _split_s3_connect_endpoint(endpoint)
+    host, port, is_ip_address = _validated_s3_connect_host(parsed)
     suffix = f":{port}" if port is not None else ""
     sources = [f"{parsed.scheme}://{host}{suffix}"]
-    if not force_path_style and address is None:
+    if not force_path_style and not is_ip_address:
         sources.append(f"{parsed.scheme}://*.{host}{suffix}")
     return sources
 
