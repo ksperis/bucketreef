@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type {
+  BucketMigrationStatus,
+  BucketMigrationView,
+} from "../../../api/managerMigrations";
 import ManagerMigrationsListPage from "./ManagerMigrationsListPage";
 
 const mockUseManagerContexts = vi.fn();
@@ -22,7 +26,7 @@ vi.mock("../ExecutionContextProvider", () => ({
   }),
 }));
 
-function buildMigration(id: number, status: string) {
+function buildMigration(id: number, status: BucketMigrationStatus): BucketMigrationView {
   return {
     id,
     created_by_user_id: 1,
@@ -42,6 +46,15 @@ function buildMigration(id: number, status: string) {
     precheck_status: "passed",
     precheck_report: null,
     precheck_checked_at: null,
+    configuration_revision: 1,
+    checked_revision: 1,
+    preparation_status: status === "draft" ? "ready" : "unverified",
+    preparation_active_checks: false,
+    preparation_completed_items: 2,
+    maintenance_operation: null,
+    maintenance_status: "idle",
+    maintenance_error: null,
+    available_actions: {},
     parallelism_max: 4,
     total_items: 2,
     completed_items: 1,
@@ -54,7 +67,7 @@ function buildMigration(id: number, status: string) {
     last_heartbeat_at: null,
     created_at: "2026-03-05T10:00:00Z",
     updated_at: "2026-03-05T10:00:01Z",
-  } as const;
+  };
 }
 
 describe("ManagerMigrationsListPage", () => {
