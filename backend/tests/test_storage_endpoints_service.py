@@ -527,6 +527,36 @@ def test_features_config_rejects_noncanonical_shapes(raw, message):
         normalize_features_config(StorageProvider.CEPH, raw)
 
 
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        (
+            "features:\n  metrics:\n    enabled: 1\n",
+            "Feature 'metrics.enabled' must be a boolean",
+        ),
+        (
+            "features:\n  admin:\n    endpoint: 123\n",
+            "Feature 'admin.endpoint' must be a string",
+        ),
+        (
+            "features:\n  healthcheck:\n    mode: 1\n",
+            "Feature 'healthcheck.mode' must be a string",
+        ),
+        (
+            "features:\n  healthcheck:\n    mode: tcp\n",
+            "Feature 'healthcheck.mode' must be 'http' or 's3'",
+        ),
+        (
+            "features:\n  healthcheck:\n    healthcheck_url: 123\n",
+            "Feature 'healthcheck.healthcheck_url' must be a string",
+        ),
+    ],
+)
+def test_features_config_rejects_invalid_field_values(raw, message):
+    with pytest.raises(ValueError, match=message):
+        normalize_features_config(StorageProvider.CEPH, raw)
+
+
 def test_aws_features_reject_ceph_only_capabilities():
     with pytest.raises(ValueError, match="only available for Ceph"):
         normalize_features_config(
