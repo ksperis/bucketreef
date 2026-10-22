@@ -23,6 +23,14 @@ from app.services.rgw_bucket_metadata import owner_kind_from_owner
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 EXPENSIVE_FIELD_RULES = {"tag"} | OWNER_DETAIL_FIELDS
+_TAG_FILTER_OPS = frozenset({"eq", "neq", "contains", "starts_with", "ends_with", "in", "not_in"})
+_TAG_TEXT_MATCHERS = {
+    "eq": lambda value, candidate: value == candidate,
+    "contains": lambda value, candidate: candidate in value,
+    "starts_with": lambda value, candidate: value.startswith(candidate),
+    "ends_with": lambda value, candidate: value.endswith(candidate),
+}
+_NEGATED_TAG_OPS = frozenset({"neq", "not_in"})
 _EXACT_FEATURE_STATES = frozenset(
     {"partial", "suspended", "configured", "not_set", "unavailable"}
 )
@@ -66,26 +74,26 @@ def _match_tag_expression(tag_key: str, tag_value: str, expression: str, op: str
         return False
     key = tag_key.strip().lower()
     value = tag_value.strip().lower()
+    matcher = _TAG_TEXT_MATCHERS.get(op, _TAG_TEXT_MATCHERS["eq"])
     sep = "=" if "=" in expr else (":" if ":" in expr else None)
     if sep:
         expr_key, expr_value = expr.split(sep, 1)
         expr_key = expr_key.strip()
         expr_value = expr_value.strip()
-        if op == "contains":
-            return (expr_key in key) and (expr_value in value)
-        if op == "starts_with":
-            return key.startswith(expr_key) and value.startswith(expr_value)
-        if op == "ends_with":
-            return key.endswith(expr_key) and value.endswith(expr_value)
-        return key == expr_key and value == expr_value
+        return matcher(key, expr_key) and matcher(value, expr_value)
+    return matcher(key, expr) or matcher(value, expr)
 
-    if op == "contains":
-        return expr in key or expr in value
-    if op == "starts_with":
-        return key.startswith(expr) or value.startswith(expr)
-    if op == "ends_with":
-        return key.endswith(expr) or value.endswith(expr)
-    return key == expr or value == expr
+
+def _tag_rule_expressions(rule: BucketFilterRule) -> tuple[list[str], str]:
+    op = rule.op or "contains"
+    if op in {"in", "not_in"}:
+        values = rule.value if isinstance(rule.value, list) else []
+        match_op = "eq"
+    else:
+        values = [rule.value]
+        match_op = "eq" if op == "neq" else op
+    expressions = [str(item or "").strip() for item in values]
+    return [expression for expression in expressions if expression], match_op
 
 
 def _match_tag_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> bool:
@@ -93,30 +101,17 @@ def _match_tag_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> boo
     if not tags:
         return False
     op = rule.op or "contains"
-    allowed_ops = {"eq", "neq", "contains", "starts_with", "ends_with", "in", "not_in"}
-    if op not in allowed_ops:
+    if op not in _TAG_FILTER_OPS:
         return False
-    if op in {"in", "not_in"}:
-        if not isinstance(rule.value, list):
-            return False
-        expressions = [str(item or "").strip() for item in rule.value]
-        expressions = [expr for expr in expressions if expr]
-        if not expressions:
-            return False
-        matched = any(
-            _match_tag_expression(tag.key, tag.value, expr, "eq")
-            for tag in tags
-            for expr in expressions
-        )
-        return matched if op == "in" else not matched
-
-    expression = str(rule.value or "").strip()
-    if not expression:
+    expressions, match_op = _tag_rule_expressions(rule)
+    if not expressions:
         return False
-    matched = any(_match_tag_expression(tag.key, tag.value, expression, op) for tag in tags)
-    if op == "neq":
-        return not matched
-    return matched
+    matched = any(
+        _match_tag_expression(tag.key, tag.value, expression, match_op)
+        for tag in tags
+        for expression in expressions
+    )
+    return not matched if op in _NEGATED_TAG_OPS else matched
 
 
 def match_bucket_field_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> bool:
