@@ -12,6 +12,14 @@ Spaces** assigned to you.
 5. Use **Collaborators** when you need to understand who can access the space.
 6. Check **Storage health** when you need to understand capacity or alerts.
 
+Open Portal from the workspace selector, then choose the project you intend to
+work with.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/start-here.light.png" alt="Workspace selector with Portal available" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/start-here.dark.png" alt="Workspace selector with Portal available" loading="lazy">
+</div>
+
 You do not need to choose S3 accounts, endpoints, or execution identities for
 normal Portal work.
 
@@ -33,10 +41,3 @@ Portal Manager does not mean access to the separate Manager workspace.
 | Use an external S3 application | [External tools](../external-tools.md) |
 | Understand capacity and alerts | [Storage health](../storage-health.md) |
 | Ask for an administrative change | [Help requests](../help-requests.md) |
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/start-here.light.png" alt="Workspace selector with Portal available" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/start-here.dark.png" alt="Workspace selector with Portal available" loading="lazy">
-</div>

@@ -26,6 +26,14 @@ or other placement overhead.
 5. Use the Manager **Usage & Metrics** view when available to review the latest
    bucket snapshots aggregated for the current account scope.
 
+At account scope, **Usage composition** makes coverage, logical bytes,
+current/noncurrent bytes, and the main composition breakdowns visible together.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-usage-stats.light.png" alt="Manager Usage and Metrics usage-composition view with snapshot coverage and logical-byte breakdowns" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-usage-stats.dark.png" alt="Manager Usage and Metrics usage-composition view with snapshot coverage and logical-byte breakdowns" loading="lazy">
+</div>
+
 If version listing is unsupported, BucketReef can fall back to current-object
 listing. The resulting snapshot is partial and does not provide a
 current/noncurrent split.

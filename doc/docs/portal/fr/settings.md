@@ -15,6 +15,14 @@ cette responsabilité leur a été déléguée.
 5. Utilisez **Annuler** pour abandonner un brouillon ou **Restaurer les valeurs
    de la plateforme** lorsque le projet doit à nouveau suivre les valeurs globales.
 
+La vue des paramètres affiche ensemble la valeur effective et son origine, ce
+qui permet de vérifier si une surcharge au niveau du projet est réellement nécessaire.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-settings.light.png" alt="Page Paramètres de Portal montrant les paramètres du projet avec leur origine" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-settings.dark.png" alt="Page Paramètres de Portal montrant les paramètres du projet avec leur origine" loading="lazy">
+</div>
+
 Les changements restent dans le formulaire jusqu'à leur enregistrement. Quitter
 la page, changer de projet ou fermer une fenêtre modifiée demande confirmation
 afin d'éviter de perdre un brouillon par erreur.
@@ -54,10 +62,3 @@ contactez l'administrateur en indiquant le projet et le changement souhaité.
 - [Outils externes](external-tools.md)
 - [Demandes](help-requests.md)
 - [État du stockage](storage-health.md)
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-settings.light.png" alt="Page Paramètres de Portal avec les paramètres du projet et leur origine" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-settings.dark.png" alt="Page Paramètres de Portal avec les paramètres du projet et leur origine" loading="lazy">
-</div>

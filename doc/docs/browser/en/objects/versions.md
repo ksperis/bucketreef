@@ -25,6 +25,15 @@ Open the exact bucket and object key from the intended context. Version history 
 4. Download an available version, or restore or remove it using its row actions and the existing confirmation.
    - If the current object state is deleted, Browser opens the details drawer directly on `Versions`.
 
+The focused drawer keeps the exact object key, current and previous versions,
+delete markers, and per-version actions together without the surrounding Browser
+chrome.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-object-versions-browser.light.png" alt="Focused Browser object-versions drawer with prior versions and a delete marker" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-object-versions-browser.dark.png" alt="Focused Browser object-versions drawer with prior versions and a delete marker" loading="lazy">
+</div>
+
 ## Expected result
 
 You can inspect object history and act on previous versions without leaving Browser.
@@ -49,10 +58,3 @@ Enriched previews apply to the current object only. Historical content compariso
 - [Workspace: Browser](../index.md)
 - [Feature: Object operations in Browser](operations.md)
 - [Troubleshooting](../help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-object-versions-browser.light.png" alt="Browser object versions modal showing prior versions and delete markers for a daily report" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-object-versions-browser.dark.png" alt="Browser object versions modal showing prior versions and delete markers for a daily report" loading="lazy">
-</div>

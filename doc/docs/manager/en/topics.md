@@ -23,6 +23,14 @@ Confirm that the selected endpoint supports SNS. Topics and bucket notification 
    refresh or direct link returns to the same part of the topic workflow.
 5. Delete unused topics.
 
+The topic list exposes the topic ARN and the direct entry points for attributes,
+policy, and deletion before you open a resource workspace.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-topics.light.png" alt="Manager SNS Topics list with ARNs and topic actions" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-topics.dark.png" alt="Manager SNS Topics list with ARNs and topic actions" loading="lazy">
+</div>
+
 ## Expected result
 
 SNS topics are managed within the selected manager context.
@@ -45,10 +53,3 @@ Check endpoint capability `sns`, Manager access, and whether bucket notification
 ## Related pages
 
 - [Workspace: Manager](index.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-topics.light.png" alt="SNS Topics feature page with topic actions" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-topics.dark.png" alt="SNS Topics feature page with topic actions" loading="lazy">
-</div>

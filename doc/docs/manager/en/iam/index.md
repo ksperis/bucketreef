@@ -58,6 +58,14 @@ instead.
    secret in this flow.
 7. Verify resulting access with your standard IAM validation process.
 
+The Users view is the main IAM entry point and keeps the provider ARN, group and
+policy summary, and user-level actions visible together.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-iam.light.png" alt="Manager IAM users list with provider ARNs, groups, policies and user actions" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-iam.dark.png" alt="Manager IAM users list with provider ARNs, groups, policies and user actions" loading="lazy">
+</div>
+
 ## Expected result
 
 IAM resources are managed with native IAM semantics.
@@ -112,10 +120,3 @@ Check endpoint IAM capability, Manager access, and the selected execution contex
 - [Workspace: Manager](../index.md)
 - [Feature: Buckets](../buckets/index.md)
 - [Feature: Ceph access keys in Manager](access-keys.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-iam.light.png" alt="IAM users feature page with principal list" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-iam.dark.png" alt="IAM users feature page with principal list" loading="lazy">
-</div>

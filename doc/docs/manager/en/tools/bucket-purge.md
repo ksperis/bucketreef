@@ -25,6 +25,15 @@ objects, versions, or delete markers removed by this tool.
 6. Start the purge and keep the result open until completed and failed targets
    are known.
 
+The final confirmation keeps the selected target, destructive warning,
+parallelism, and exact confirmation phrase together so the scope can be checked
+one last time before **Start purge** becomes available.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-purge.light.png" alt="Focused Manager bucket-purge confirmation with selected target, warning, parallelism and confirmation phrase" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-purge.dark.png" alt="Focused Manager bucket-purge confirmation with selected target, warning, parallelism and confirmation phrase" loading="lazy">
+</div>
+
 When bucket statistics are available, BucketReef can use them as an initial
 progress estimate. The exact total can remain non-final while listing is still
 in progress.
@@ -47,10 +56,3 @@ after its content has been successfully purged.
 - [Buckets](../buckets/index.md)
 - [Safe operations](../reference/safe-operations.md)
 - [Troubleshooting](../help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-purge.light.png" alt="Manager bucket purge page with selected targets and confirmation phrase" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-purge.dark.png" alt="Manager bucket purge page with selected targets and confirmation phrase" loading="lazy">
-</div>

@@ -24,6 +24,14 @@ stockage et, lorsque l'information est disponible, quel peut être le coût du m
 | Autre | Stockage anonyme utilisé ailleurs dans le projet. Ce n'est pas un espace que vous pouvez ouvrir et aucun nom ou identifiant masqué n'est révélé. |
 | Alertes | Avertissements dédupliqués, par exemple quota proche de la limite, lien public ou endpoint dégradé. |
 
+La vue **Par espace** permet de comparer les espaces visibles tout en conservant
+le contexte global de capacité et de nombre de fichiers du projet.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-usage.light.png" alt="Vue État du stockage de Portal avec capacité du projet, nombre de fichiers, répartition par espace et onglet Coûts" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-usage.dark.png" alt="Vue État du stockage de Portal avec capacité du projet, nombre de fichiers, répartition par espace et onglet Coûts" loading="lazy">
+</div>
+
 Les détails du trafic ne sont affichés que pour les espaces auxquels vous avez accès.
 Le tableau de bord peut conserver des totaux globaux afin de montrer la pression
 sur le quota, sans exposer le nom des espaces privés des autres utilisateurs.
@@ -47,10 +55,3 @@ indiquez à votre administrateur le projet, l'onglet concerné et l'heure.
 - [Espaces de stockage](spaces/index.md)
 - [Paramètres](settings.md)
 - [Dépannage](help/troubleshooting.md)
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-usage.light.png" alt="Page État du stockage de Portal avec place restante, nombre de fichiers, répartition par espace et onglet des coûts" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-usage.dark.png" alt="Page État du stockage de Portal avec place restante, nombre de fichiers, répartition par espace et onglet des coûts" loading="lazy">
-</div>

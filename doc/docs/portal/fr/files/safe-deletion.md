@@ -13,8 +13,10 @@ Consultez cette page avant de supprimer des fichiers d'un espace de stockage Por
 ## Supprimer un fichier
 
 1. Ouvrez l'espace de stockage et repérez le fichier.
-2. Choisissez l'action de suppression et relisez la confirmation.
-3. Confirmez uniquement si le chemin affiché correspond bien au fichier visé.
+2. Vérifiez le nom du fichier et le chemin courant, puis choisissez l'action de
+   suppression.
+3. Dans la confirmation, vérifiez que le nombre d'objets correspond à votre
+   sélection avant de choisir **Supprimer**.
 4. Actualisez la liste si l'état final de l'opération n'est pas clair.
 
 Si le stockage conserve les versions, supprimer le fichier courant peut laisser
@@ -34,10 +36,3 @@ le projet, l'espace de stockage, le chemin, l'heure et le message d'erreur exact
 - [Fichiers](index.md)
 - [Versions précédentes](versions.md)
 - [Dépannage](../help/troubleshooting.md)
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-object-list.light.png" alt="Liste des fichiers Portal dans un espace de stockage" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-object-list.dark.png" alt="Liste des fichiers Portal dans un espace de stockage" loading="lazy">
-</div>

@@ -24,6 +24,15 @@ context types follow their own Manager/Browser eligibility rules.
 5. Follow long-running work from the embedded operation UI until its result is
    clear.
 
+The embedded view keeps the Manager shell and active context visible while the
+Browser handles objects. The identity banner also makes clear which storage
+principal RGW will attribute those operations to.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/manager-embedded-browser.light.png" alt="Manager Browser embedded in the active Manager context with its RGW identity warning and object list" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/manager-embedded-browser.dark.png" alt="Manager Browser embedded in the active Manager context with its RGW identity warning and object list" loading="lazy">
+</div>
+
 The visible actions depend on the Manager Browser profile, endpoint
 capabilities, and storage-side S3 permissions. An `AccessDenied` response remains
 a storage authorization result; Manager does not bypass it.
@@ -37,10 +46,3 @@ path favorites, are not part of the embedded Manager workflow.
 - [Object versions](versions.md)
 - [Feature availability](../help/feature-availability.md)
 - [Troubleshooting](../help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-objects-browser.light.png" alt="Object operations rendered inside a Manager context" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-objects-browser.dark.png" alt="Object operations rendered inside a Manager context" loading="lazy">
-</div>

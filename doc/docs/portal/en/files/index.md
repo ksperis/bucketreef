@@ -16,6 +16,14 @@ Use this page for file work inside an active Portal Storage Space.
 | Delete | Delete is available only with the required write/delete permission. |
 | Share a file | Use the Sharing view when project policy allows external sharing. |
 
+The file list keeps the current path, folders, files, and the actions available
+for your role together inside the selected Storage Space.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-object-list.light.png" alt="Portal file list inside a Storage Space with folder and file actions" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-object-list.dark.png" alt="Portal file list inside a Storage Space with folder and file actions" loading="lazy">
+</div>
+
 ## File details
 
 Portal keeps the default view user-oriented: name, path, size, type, update

@@ -17,6 +17,14 @@ Portal actif.
 | Supprimer | La suppression n'est disponible qu'avec les droits d'écriture/suppression requis. |
 | Partager un fichier | Utilisez la vue de partage si la politique du projet autorise le partage externe. |
 
+La liste regroupe le chemin courant, les dossiers, les fichiers et les actions
+disponibles pour votre rôle dans l'espace de stockage sélectionné.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-object-list.light.png" alt="Liste des fichiers Portal dans un espace de stockage avec les actions sur les dossiers et fichiers" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-object-list.dark.png" alt="Liste des fichiers Portal dans un espace de stockage avec les actions sur les dossiers et fichiers" loading="lazy">
+</div>
+
 ## Détails d'un fichier
 
 Portal conserve une vue orientée utilisateur : nom, chemin, taille, type, date de

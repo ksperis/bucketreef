@@ -12,6 +12,14 @@ assigned storage context.
 5. Use [Topics](../topics.md) or Manager tools only when those capabilities are
    enabled for your context.
 
+Use the workspace selector to enter Manager before choosing the execution
+context you intend to administer.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/start-here.light.png" alt="Workspace selector with Manager available" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/start-here.dark.png" alt="Workspace selector with Manager available" loading="lazy">
+</div>
+
 The selected context determines which storage identity executes the operation.
 Changing context can change both the visible resources and the permissions of
 an action.
@@ -37,10 +45,3 @@ additional explicit entitlement.
 | Work with objects inside Manager | [Embedded Browser](../browser/object-operations.md) |
 | Compare, verify, purge, or migrate buckets | [Common tasks](common-tasks.md) |
 | Diagnose a missing action | [Feature availability](../help/feature-availability.md) |
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/start-here.light.png" alt="Workspace selector with Manager available" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/start-here.dark.png" alt="Workspace selector with Manager available" loading="lazy">
-</div>

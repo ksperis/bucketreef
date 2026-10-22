@@ -33,6 +33,14 @@ Create external-tool access only when a direct S3 client is actually required.
    asks for it.
 9. Disable or delete access that is no longer needed.
 
+The **Connect a tool** dialog keeps the selected Storage Space, endpoint and
+client-specific setup options together before you download or copy anything.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-access-keys.light.png" alt="Portal Connect a tool dialog for a selected Storage Space" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-access-keys.dark.png" alt="Portal Connect a tool dialog for a selected Storage Space" loading="lazy">
+</div>
+
 Downloaded configuration files do not contain the secret. Keep the secret out
 of tickets, shared documents, screenshots, shell history, and source code.
 
@@ -64,10 +72,3 @@ administrator with the project and Storage Space name.
 - [Collaboration](collaboration.md)
 - [Settings](settings.md)
 - [Troubleshooting](help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-access-keys.light.png" alt="Portal external-tool configuration for a Storage Space" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-access-keys.dark.png" alt="Portal external-tool configuration for a Storage Space" loading="lazy">
-</div>

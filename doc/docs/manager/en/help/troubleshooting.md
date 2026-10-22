@@ -14,6 +14,14 @@ operation, or Manager tool does not behave as expected.
 5. For a failed write, purge, or migration, inspect the current resource or job
    state before repeating the action.
 
+An unavailable Manager context is surfaced directly in the workspace so you can
+resolve the execution identity before trying an IAM or storage action.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/troubleshooting.light.png" alt="Manager troubleshooting state showing that an account context must be selected first" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/troubleshooting.dark.png" alt="Manager troubleshooting state showing that an account context must be selected first" loading="lazy">
+</div>
+
 ## Common symptoms
 
 | Symptom | First checks |
@@ -37,10 +45,3 @@ storage error. Do not include secret keys or session tokens.
 - [Feature availability](feature-availability.md)
 - [Common tasks](../getting-started/common-tasks.md)
 - [Safe operations](../reference/safe-operations.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/troubleshooting.light.png" alt="Troubleshooting example showing an unavailable account context" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/troubleshooting.dark.png" alt="Troubleshooting example showing an unavailable account context" loading="lazy">
-</div>

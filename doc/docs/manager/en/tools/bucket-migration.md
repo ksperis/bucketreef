@@ -65,6 +65,14 @@ protections; it retains bucket data. A restoration failure requires explicit
 recovery. **Retry failed buckets** preserves successful copies and recognizes
 only destinations recorded as created by this migration.
 
+The migration inventory keeps running and completed runs visible together so
+you can distinguish progress from a completed run that still contains errors.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-migration.light.png" alt="Manager bucket migration inventory with one running migration and one completed with errors" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-migration.dark.png" alt="Manager bucket migration inventory with one running migration and one completed with errors" loading="lazy">
+</div>
+
 ## Recovery and optional cleanup
 
 Use **More actions** to choose the operation you actually need:
@@ -116,10 +124,3 @@ against administrators changing policies or independent storage lifecycle action
 - [Workspace: Manager](../index.md)
 - [Safe destructive and bulk operations](../reference/safe-operations.md)
 - [Upgrade compatibility](/admin/en/operations/upgrade-compatibility/)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-migration.light.png" alt="Manager bucket migration page with migration runs and statuses" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-migration.dark.png" alt="Manager bucket migration page with migration runs and statuses" loading="lazy">
-</div>

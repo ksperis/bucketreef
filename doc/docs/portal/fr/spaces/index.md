@@ -21,6 +21,14 @@ restaurer ou les supprimer.
 | Archiver ou restaurer | Utilisez les actions de gestion de l'espace. |
 | Supprimer définitivement | Videz d'abord l'espace et son historique, puis utilisez **Supprimer l'espace**. |
 
+La liste des espaces est le point de départ pour comparer leur identité, leur
+mode d'accès et les actions disponibles avant d'en ouvrir un.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-storage-spaces.light.png" alt="Liste des espaces de stockage Portal avec les modes d'accès et les actions principales" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-storage-spaces.dark.png" alt="Liste des espaces de stockage Portal avec les modes d'accès et les actions principales" loading="lazy">
+</div>
+
 ## Choisir le bon mode d'accès
 
 | Mode | Signification |
@@ -104,10 +112,3 @@ propriétaire ou à un Portal Manager de vérifier votre accès et l'état d'arc
 - [Collaboration](../collaboration.md)
 - [État du stockage](../storage-health.md)
 - [Outils externes](../external-tools.md)
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-storage-spaces.light.png" alt="Espaces de stockage Portal avec leurs actions principales" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-storage-spaces.dark.png" alt="Espaces de stockage Portal avec leurs actions principales" loading="lazy">
-</div>
