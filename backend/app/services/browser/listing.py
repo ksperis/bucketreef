@@ -377,6 +377,76 @@ class BrowserListingMixin:
             next_continuation_token=next_token,
         )
 
+    @staticmethod
+    def _object_versions_request(
+        bucket_name: str,
+        *,
+        prefix: str,
+        delimiter: Optional[str],
+        filter_key: Optional[str],
+        key_marker: Optional[str],
+        version_id_marker: Optional[str],
+        max_keys: int,
+    ) -> dict[str, object]:
+        kwargs: dict[str, object] = {
+            "Bucket": bucket_name,
+            "Prefix": filter_key if filter_key is not None else prefix,
+            "MaxKeys": max_keys,
+        }
+        if delimiter and filter_key is None:
+            kwargs["Delimiter"] = delimiter
+        if key_marker:
+            kwargs["KeyMarker"] = key_marker
+        if version_id_marker:
+            kwargs["VersionIdMarker"] = version_id_marker
+        return kwargs
+
+    def _project_object_versions(
+        self,
+        entries: list[dict],
+        *,
+        filter_key: Optional[str],
+    ) -> list[BrowserObjectVersion]:
+        versions: list[BrowserObjectVersion] = []
+        for entry in entries:
+            entry_key = entry.get("Key")
+            if not entry_key or (filter_key is not None and entry_key != filter_key):
+                continue
+            versions.append(
+                BrowserObjectVersion(
+                    key=entry_key,
+                    version_id=entry.get("VersionId"),
+                    is_latest=bool(entry.get("IsLatest")),
+                    last_modified=entry.get("LastModified"),
+                    size=int(entry.get("Size") or 0),
+                    etag=self._clean_etag(entry.get("ETag")),
+                    storage_class=entry.get("StorageClass"),
+                )
+            )
+        return versions
+
+    @staticmethod
+    def _project_delete_markers(
+        entries: list[dict],
+        *,
+        filter_key: Optional[str],
+    ) -> list[BrowserObjectVersion]:
+        markers: list[BrowserObjectVersion] = []
+        for entry in entries:
+            entry_key = entry.get("Key")
+            if not entry_key or (filter_key is not None and entry_key != filter_key):
+                continue
+            markers.append(
+                BrowserObjectVersion(
+                    key=entry_key,
+                    version_id=entry.get("VersionId"),
+                    is_latest=bool(entry.get("IsLatest")),
+                    is_delete_marker=True,
+                    last_modified=entry.get("LastModified"),
+                )
+            )
+        return markers
+
     def list_object_versions(
         self,
         bucket_name: str,
@@ -390,56 +460,19 @@ class BrowserListingMixin:
     ) -> ListObjectVersionsResponse:
         client = self._client(context)
         filter_key = key
-        query_prefix = filter_key if filter_key is not None else prefix
-        kwargs = {
-            "Bucket": bucket_name,
-            "Prefix": query_prefix,
-            "MaxKeys": max_keys,
-        }
-        if delimiter and filter_key is None:
-            kwargs["Delimiter"] = delimiter
-        if key_marker:
-            kwargs["KeyMarker"] = key_marker
-        if version_id_marker:
-            kwargs["VersionIdMarker"] = version_id_marker
+        kwargs = self._object_versions_request(
+            bucket_name,
+            prefix=prefix,
+            delimiter=delimiter,
+            filter_key=filter_key,
+            key_marker=key_marker,
+            version_id_marker=version_id_marker,
+            max_keys=max_keys,
+        )
         try:
             resp = client.list_object_versions(**kwargs)
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to list object versions for '{bucket_name}': {exc}") from exc
-        versions: list[BrowserObjectVersion] = []
-        delete_markers: list[BrowserObjectVersion] = []
-        for ver in resp.get("Versions", []):
-            key = ver.get("Key")
-            if not key:
-                continue
-            if filter_key is not None and key != filter_key:
-                continue
-            versions.append(
-                BrowserObjectVersion(
-                    key=key,
-                    version_id=ver.get("VersionId"),
-                    is_latest=bool(ver.get("IsLatest")),
-                    last_modified=ver.get("LastModified"),
-                    size=int(ver.get("Size") or 0),
-                    etag=self._clean_etag(ver.get("ETag")),
-                    storage_class=ver.get("StorageClass"),
-                )
-            )
-        for marker in resp.get("DeleteMarkers", []):
-            key = marker.get("Key")
-            if not key:
-                continue
-            if filter_key is not None and key != filter_key:
-                continue
-            delete_markers.append(
-                BrowserObjectVersion(
-                    key=key,
-                    version_id=marker.get("VersionId"),
-                    is_latest=bool(marker.get("IsLatest")),
-                    is_delete_marker=True,
-                    last_modified=marker.get("LastModified"),
-                )
-            )
         response_prefix = filter_key if filter_key is not None else (prefix or None)
         return ListObjectVersionsResponse(
             prefix=response_prefix,
@@ -448,8 +481,8 @@ class BrowserListingMixin:
                 for entry in resp.get("CommonPrefixes", [])
                 if entry.get("Prefix")
             ],
-            versions=versions,
-            delete_markers=delete_markers,
+            versions=self._project_object_versions(resp.get("Versions", []), filter_key=filter_key),
+            delete_markers=self._project_delete_markers(resp.get("DeleteMarkers", []), filter_key=filter_key),
             is_truncated=bool(resp.get("IsTruncated")),
             key_marker=resp.get("KeyMarker"),
             version_id_marker=resp.get("VersionIdMarker"),
