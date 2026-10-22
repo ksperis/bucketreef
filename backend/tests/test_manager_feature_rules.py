@@ -136,6 +136,31 @@ def test_feature_rules_lists_bucket_policy_statements(feature_rule_client):
     assert "Condition" in body[0]["rules"][1]["chips"]
 
 
+def test_feature_rules_normalizes_single_lowercase_negative_policy_statement(feature_rule_client):
+    client, service = feature_rule_client
+    service.policies["alpha"] = {
+        "statement": {
+            "sid": "RestrictedWrite",
+            "effect": "Deny",
+            "notPrincipal": {"AWS": "arn:aws:iam::123456789012:root"},
+            "notAction": ["s3:GetObject", "s3:ListBucket"],
+            "notResource": "arn:aws:s3:::alpha/public/*",
+            "condition": {"Bool": {"aws:SecureTransport": "false"}},
+        }
+    }
+
+    response = client.get("/api/manager/feature-rules", params={"feature": "policy"})
+
+    assert response.status_code == 200
+    rule = response.json()[0]["rules"][0]
+    assert rule["id"] == "RestrictedWrite"
+    assert rule["title"] == "Deny RestrictedWrite"
+    assert "Principal: AWS: arn:aws:iam::123456789012:root" in rule["summary"]
+    assert "NotAction: s3:GetObject, s3:ListBucket" in rule["summary"]
+    assert "NotResource: arn:aws:s3:::alpha/public/*" in rule["summary"]
+    assert rule["chips"] == ["Deny", "Condition"]
+
+
 def test_feature_rules_lists_cors_rules(feature_rule_client):
     client, service = feature_rule_client
     service.cors["alpha"] = [
