@@ -829,6 +829,7 @@ export default function BrowserPage({
     isStorageSpaceContext,
     listItems,
     objectDetailsTarget,
+    objectsListViewportRef,
     onLoadedFilesChange,
     onOpenFolder: handleSelectPrefix,
     onOpenObjectDetails,
@@ -1900,6 +1901,8 @@ export default function BrowserPage({
                 workspaceObjectNounPlural={workspaceObjectNounPlural}
                 items={listItems}
                 selectedIds={selectedSet}
+                viewedItemId={objectDetailsTarget?.item.id}
+                viewedItemPosition={previewNavigation?.position}
                 loading={objectsLoading}
                 loadingMore={objectsLoadingMore}
                 canLoadMore={canLoadMoreObjectResults}

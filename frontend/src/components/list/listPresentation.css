@@ -195,3 +195,17 @@
 @media (max-width: 767px), (pointer: coarse) {
   .ui-list-association-trigger[tabindex] { min-height: 44px; align-items: center; }
 }
+
+/* Consultation is independent of checkbox selection and keyboard focus. */
+.ui-browser-row[data-viewed="true"]:not(:has(input:checked)),
+.ui-browser-mobile-list [data-viewed="true"]:not(:has(input:checked)) {
+  background: var(--ui-selected-bg);
+}
+.ui-browser-row[data-viewed="true"] > td:first-child,
+.ui-browser-mobile-list [data-viewed="true"] {
+  box-shadow: inset 3px 0 0 rgb(var(--ui-primary-500-rgb));
+}
+.dark .ui-browser-row[data-viewed="true"] > td:first-child,
+.dark .ui-browser-mobile-list [data-viewed="true"] {
+  box-shadow: inset 3px 0 0 rgb(var(--ui-primary-400-rgb));
+}

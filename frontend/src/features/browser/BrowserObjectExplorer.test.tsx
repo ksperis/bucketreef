@@ -118,6 +118,21 @@ function buildProps(overrides: Partial<ExplorerProps> = {}): ExplorerProps {
 }
 
 describe("BrowserObjectExplorer", () => {
+  it.each([false, true])("marks consultation independently of checked items (mobile: %s)", (mobile) => {
+    const other = { ...fileItem, id: "other", key: "other.txt", name: "other.txt" };
+    const props = buildProps({ mobile, items: [fileItem, other], viewedItemId: other.id });
+    const { rerender } = render(<BrowserObjectExplorer {...props} />);
+    const current = screen.getByRole("button", { name: "Open file other.txt" });
+    expect(current).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("checkbox", { name: "Select object-1.txt" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select other.txt" })).not.toBeChecked();
+    expect(current.closest("[data-browser-item]")).toHaveAttribute("data-viewed", "true");
+    expect(screen.getByRole("status")).toHaveTextContent("Viewing other.txt");
+    rerender(<BrowserObjectExplorer {...props} items={[fileItem]} />);
+    expect(document.querySelector("[aria-current='true']")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+
   it("composes desktop search, table rows, and item interactions", () => {
     const props = buildProps();
     render(<BrowserObjectExplorer {...props} />);

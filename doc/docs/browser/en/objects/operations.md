@@ -188,7 +188,7 @@ ZIP failures and exclusions remain visible in the operation details. ZIP generat
 
 CSV files display an inert table, including quoted and multiline cells. JSON files display a collapsible tree. **Raw text** is always available; invalid, truncated or excessively complex structures automatically fall back to source text. **Find in displayed text** searches only the loaded text and highlights its first 200 matches. Markup and spreadsheet formulas are displayed as text, never executed.
 
-**Previous** and **Next** navigate among the current listing's loaded, non-deleted files without changing the selection or loading additional pages. Pending changes in an editable details drawer still require the existing discard confirmation. Preview limits remain 50 MiB per object and 64 KiB of text in UTF-8 bytes. There is no Office renderer or active HTML preview.
+**Previous** and **Next** navigate among the current listing's loaded, non-deleted files without changing the selection or loading additional pages. The file being viewed has a persistent highlight and a vertical marker in the list, independent of checked items and keyboard focus. Navigation keeps that row visible and retains focus on an available navigation control. Closing details returns focus to the last viewed file, or to the list if that file is no longer present. Pending changes in an editable details drawer still require the existing discard confirmation. Preview limits remain 50 MiB per object and 64 KiB of text in UTF-8 bytes. There is no Office renderer or active HTML preview.
 
 ### Transfer progress
 

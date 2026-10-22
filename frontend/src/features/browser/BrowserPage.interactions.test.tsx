@@ -4947,6 +4947,78 @@ describe("BrowserPage interactions", () => {
     expect(within(dialog).getByLabelText("Bypass governance retention")).toBeDisabled();
   });
 
+  it("tracks the viewed object without changing bulk selection and retains navigation focus", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const first = await screen.findByRole("button", { name: "Open file a.txt" });
+    await user.click(screen.getByRole("checkbox", { name: "Select a.txt" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select b.txt" }));
+    await user.click(first);
+    expect(first).toHaveAttribute("aria-current", "true");
+
+    await user.click(screen.getByRole("button", { name: "Next object" }));
+    await screen.findByRole("complementary", { name: "b.txt" });
+    const second = screen.getByRole("button", { name: "Open file b.txt" });
+    expect(second).toHaveAttribute("aria-current", "true");
+    expect(first).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("button", { name: "Next object" })).toHaveFocus();
+    expect(screen.getByText(/Viewing b\.txt/)).toHaveTextContent("2 / 3");
+
+    await user.keyboard("{Enter}");
+    await screen.findByRole("complementary", { name: "c.txt" });
+    expect(screen.getByRole("button", { name: "Next object" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Previous object" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    await screen.findByRole("complementary", { name: "b.txt" });
+    expect(screen.getByRole("button", { name: "Previous object" })).toHaveFocus();
+
+    expect(screen.getByRole("checkbox", { name: "Select a.txt" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select b.txt" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select c.txt" })).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Close details" }));
+    expect(second).toHaveFocus();
+    expect(document.querySelector("[aria-current='true']")).not.toBeInTheDocument();
+  });
+
+  it("returns focus to the list if the viewed file disappears after refresh", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: "Open file b.txt" }));
+    listBrowserObjectsMock.mockResolvedValue({ prefix: "", objects: [], prefixes: [], is_truncated: false, next_continuation_token: null });
+    await user.click(within(getContextToolbar()).getByRole("button", { name: "Refresh", exact: true }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Open file b.txt" })).not.toBeInTheDocument());
+    expect(document.querySelector("[aria-current='true']")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Loaded files" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close details" }));
+    expect(screen.getByLabelText("Objects list")).toHaveFocus();
+  });
+
+  it("scrolls only the object list by the minimum distance needed for the viewed row", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const first = await screen.findByRole("button", { name: "Open file a.txt" });
+    const second = screen.getByRole("button", { name: "Open file b.txt" });
+    const third = screen.getByRole("button", { name: "Open file c.txt" });
+    const viewport = screen.getByLabelText("Objects list");
+    const bounds = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 800, width: 800, height: bottom - top, x: 0, y: top, toJSON: () => ({}) });
+    vi.spyOn(viewport, "getBoundingClientRect").mockReturnValue(bounds(100, 500));
+    vi.spyOn(viewport.querySelector("thead")!, "getBoundingClientRect").mockReturnValue(bounds(100, 140));
+    vi.spyOn(first.closest("tr")!, "getBoundingClientRect").mockReturnValue(bounds(150, 186));
+    const secondBounds = vi.spyOn(second.closest("tr")!, "getBoundingClientRect").mockReturnValue(bounds(520, 556));
+    vi.spyOn(third.closest("tr")!, "getBoundingClientRect").mockReturnValue(bounds(200, 236));
+    viewport.scrollTop = 100;
+    await user.click(first);
+    expect(viewport.scrollTop).toBe(100);
+    await user.click(screen.getByRole("button", { name: "Next object" }));
+    expect(viewport.scrollTop).toBe(156);
+    await user.keyboard("{Enter}");
+    expect(viewport.scrollTop).toBe(156);
+    secondBounds.mockReturnValue(bounds(110, 146));
+    await user.click(screen.getByRole("button", { name: "Previous object" }));
+    expect(viewport.scrollTop).toBe(126);
+    expect(screen.getByRole("button", { name: "Previous object" })).toHaveFocus();
+  });
+
   it("clears row selection with Escape", async () => {
     const user = userEvent.setup();
     renderPage();

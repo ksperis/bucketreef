@@ -18,6 +18,7 @@ type UiDrawerProps = {
   children: ReactNode;
   modal?: boolean;
   onClose: () => void;
+  returnFocus?: () => HTMLElement | null;
   onEscape?: () => void;
   placement?: "left" | "right";
   rootClassName?: string;
@@ -35,6 +36,7 @@ export default function UiDrawer({
   children,
   modal = true,
   onClose,
+  returnFocus,
   onEscape,
   placement = "right",
   rootClassName = "inset-0",
@@ -45,13 +47,16 @@ export default function UiDrawer({
 }: UiDrawerProps) {
   const drawerRef = useRef<HTMLElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const returnFocusRef = useRef(returnFocus);
+  useEffect(() => {
+    returnFocusRef.current = returnFocus;
+  }, [returnFocus]);
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     return () => {
-      if (previousFocusRef.current?.isConnected) {
-        previousFocusRef.current.focus();
-      }
+      const target = returnFocusRef.current?.() ?? previousFocusRef.current;
+      if (target?.isConnected) target.focus({ preventScroll: true });
     };
   }, []);
 

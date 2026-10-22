@@ -24,6 +24,7 @@ const comfortableMetadataLabelClasses =
 type BrowserObjectTableRowProps = {
   item: BrowserItem;
   selected: boolean;
+  viewed?: boolean;
   compactMode: boolean;
   nameColumnWidthPx: number;
   visibleColumns: readonly ColumnDefinition[];
@@ -63,6 +64,7 @@ function resolveObjectTypeLabel(
 export default function BrowserObjectTableRow({
   item,
   selected,
+  viewed = false,
   compactMode,
   nameColumnWidthPx,
   visibleColumns,
@@ -86,6 +88,8 @@ export default function BrowserObjectTableRow({
   return (
     <tr
       data-browser-item
+      data-browser-item-id={item.id}
+      data-viewed={viewed || undefined}
       data-lazy-item-id={
         item.type === "file" && !item.isDeleted ? item.id : undefined
       }
@@ -118,6 +122,8 @@ export default function BrowserObjectTableRow({
       >
         <button
           type="button"
+          data-browser-open-item
+          aria-current={viewed ? "true" : undefined}
           onClick={onNameClick}
           onDoubleClick={(event) => event.preventDefault()}
           aria-label={resolveBrowserItemOpenLabel(item, text)}

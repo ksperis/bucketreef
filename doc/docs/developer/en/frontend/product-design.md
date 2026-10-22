@@ -114,6 +114,13 @@ For object details, place previous/next object navigation and the loaded-list
 position beside the tabs, separate from Download/More in the title row. Use
 compact icon buttons with accessible labels and preserve keyboard access and
 disabled states at the list boundaries.
+Mark the currently viewed object independently from checkbox selection and keyboard
+focus, with a persistent row tint and vertical marker beside the name. Expose
+that state with `aria-current` on the opening control and a polite announcement
+of the file name and loaded-list position. Keep the row visible by scrolling
+only the object list when necessary. Object changes retain focus on the
+requested navigation control, falling back to an enabled neighbor at a boundary;
+closing returns focus to the last viewed row, or the list if it disappeared.
 
 ## Compact configuration inventories
 

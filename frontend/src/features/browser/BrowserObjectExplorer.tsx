@@ -57,6 +57,8 @@ type BrowserObjectExplorerProps = {
   workspaceObjectNounPlural: string;
   items: readonly BrowserItem[];
   selectedIds: ReadonlySet<string>;
+  viewedItemId?: string;
+  viewedItemPosition?: string;
   loading: boolean;
   loadingMore: boolean;
   canLoadMore: boolean;
@@ -114,6 +116,8 @@ export default function BrowserObjectExplorer({
   workspaceObjectNounPlural,
   items,
   selectedIds,
+  viewedItemId,
+  viewedItemPosition,
   loading,
   loadingMore,
   canLoadMore,
@@ -144,6 +148,7 @@ export default function BrowserObjectExplorer({
   onLoadMore,
 }: BrowserObjectExplorerProps) {
   const { text, intlLocale } = useBrowserI18n();
+  const viewedItem = items.find((item) => item.id === viewedItemId);
   const objectTableColSpan = 3 + table.scaffold.columns.length;
   return (
     <div
@@ -158,6 +163,10 @@ export default function BrowserObjectExplorer({
       onDrop={onDrop}
       onContextMenu={onPathContextMenu}
     >
+      <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {viewedItem ? text("Viewing {name}", { name: viewedItem.name }) : ""}
+        {viewedItem && viewedItemPosition ? ` · ${viewedItemPosition}` : ""}
+      </span>
       {dragging && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/75 text-center ui-body font-semibold text-slate-700 backdrop-blur-sm dark:bg-slate-950/70 dark:text-slate-100">
           <div className="rounded-xl border border-primary/20 bg-white/90 px-5 py-4 shadow-sm dark:border-primary-500/30 dark:bg-slate-900/85">
@@ -221,6 +230,7 @@ export default function BrowserObjectExplorer({
           <BrowserObjectMobileList
             items={items}
             selectedIds={selectedIds}
+            viewedItemId={viewedItemId}
             loading={loading}
             hasBucket={Boolean(bucketName)}
             showParentFolder={showParentFolder}
@@ -297,6 +307,7 @@ export default function BrowserObjectExplorer({
                   key={item.id}
                   item={item}
                   selected={selectedIds.has(item.id)}
+                  viewed={item.id === viewedItemId}
                   compactMode={table.row.compactMode}
                   nameColumnWidthPx={table.scaffold.nameColumnWidthPx}
                   visibleColumns={table.scaffold.columns}

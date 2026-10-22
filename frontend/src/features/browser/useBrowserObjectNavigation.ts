@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import type { BrowserFunctionalProfile } from "./browserActions";
 import { resolveItemPrimaryAction } from "./browserActions";
 import {
@@ -23,6 +23,7 @@ type UseBrowserObjectNavigationOptions = {
   isStorageSpaceContext: boolean;
   listItems: BrowserItem[];
   objectDetailsTarget: ObjectDetailsTarget;
+  objectsListViewportRef: RefObject<HTMLDivElement>;
   onLoadedFilesChange?: (keys: string[]) => void;
   onOpenFolder: (prefix: string) => void;
   onOpenObjectDetails?: (target: BrowserObjectDetailsRouteTarget) => void;
@@ -42,6 +43,7 @@ export function useBrowserObjectNavigation({
   isStorageSpaceContext,
   listItems,
   objectDetailsTarget,
+  objectsListViewportRef,
   onLoadedFilesChange,
   onOpenFolder,
   onOpenObjectDetails,
@@ -51,6 +53,38 @@ export function useBrowserObjectNavigation({
   versioningEnabled,
 }: UseBrowserObjectNavigationOptions) {
   const { text } = useBrowserI18n();
+  const navigationFocus = useRef<"previous" | "next">();
+  const viewedItemId = objectDetailsTarget?.item.id;
+
+  const findViewedItem = useCallback(
+    (id: string) => Array.from(
+      objectsListViewportRef.current?.querySelectorAll<HTMLElement>(
+        "[data-browser-item-id]",
+      ) ?? [],
+    ).find((row) => row.dataset.browserItemId === id),
+    [objectsListViewportRef],
+  );
+
+  useEffect(() => {
+    if (!viewedItemId) {
+      navigationFocus.current = undefined;
+      return;
+    }
+    const viewport = objectsListViewportRef.current;
+    const row = findViewedItem(viewedItemId);
+    if (!viewport || !row) return;
+    const bounds = viewport.getBoundingClientRect();
+    const headerBottom = viewport.querySelector("thead")
+      ?.getBoundingClientRect().bottom ?? bounds.top;
+    const top = Math.max(bounds.top, headerBottom);
+    const rect = row.getBoundingClientRect();
+    // Scroll only the list, without moving keyboard focus or the page.
+    if (rect.top < top) viewport.scrollTop += rect.top - top;
+    else if (rect.bottom > bounds.bottom) {
+      viewport.scrollTop += rect.bottom - bounds.bottom;
+    }
+  }, [findViewedItem, listItems, objectsListViewportRef, viewedItemId]);
+
   const previewFiles = useMemo(
     () => listItems.filter((item) => item.type === "file" && !item.isDeleted),
     [listItems],
@@ -93,6 +127,7 @@ export function useBrowserObjectNavigation({
       if (!resolution.initialTab) return;
       const initialTab = resolution.initialTab;
       requestDetailsDrawerTransition(() => {
+        navigationFocus.current = undefined;
         openObjectDetailsTarget(item, initialTab, intent);
       });
     },
@@ -138,6 +173,7 @@ export function useBrowserObjectNavigation({
       if (item.type === "folder") {
         if (functionalProfile !== "advanced") return;
         requestDetailsDrawerTransition(() => {
+          navigationFocus.current = undefined;
           openObjectDetailsTarget(item, "details");
         });
         return;
@@ -172,35 +208,41 @@ export function useBrowserObjectNavigation({
     const previewIndex = previewFiles.findIndex(
       (item) => item.key === objectDetailsTarget?.item.key,
     );
-    if (previewIndex < 0) return undefined;
+    if (!viewedItemId) return undefined;
+    const returnFocus = () =>
+      findViewedItem(viewedItemId)?.querySelector<HTMLElement>(
+        "[data-browser-open-item]",
+      ) ?? objectsListViewportRef.current;
+    if (previewIndex < 0) return { returnFocus };
     return {
       previous:
         previewIndex > 0
           ? () =>
-              requestDetailsDrawerTransition(() =>
-                openObjectDetailsTarget(
-                  previewFiles[previewIndex - 1],
-                  "preview",
-                ),
-              )
+              requestDetailsDrawerTransition(() => {
+                navigationFocus.current = "previous";
+                openObjectDetailsTarget(previewFiles[previewIndex - 1], "preview");
+              })
           : undefined,
       next:
         previewIndex + 1 < previewFiles.length
           ? () =>
-              requestDetailsDrawerTransition(() =>
-                openObjectDetailsTarget(
-                  previewFiles[previewIndex + 1],
-                  "preview",
-                ),
-              )
+              requestDetailsDrawerTransition(() => {
+                navigationFocus.current = "next";
+                openObjectDetailsTarget(previewFiles[previewIndex + 1], "preview");
+              })
           : undefined,
       position: `${previewIndex + 1} / ${previewFiles.length}`,
+      focus: navigationFocus.current,
+      returnFocus,
     };
   }, [
+    findViewedItem,
+    objectsListViewportRef,
     objectDetailsTarget?.item.key,
     openObjectDetailsTarget,
     previewFiles,
     requestDetailsDrawerTransition,
+    viewedItemId,
   ]);
 
   return {
