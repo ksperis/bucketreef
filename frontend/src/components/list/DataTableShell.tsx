@@ -98,6 +98,10 @@ type DataTablePagination = {
   disabled?: boolean;
 };
 
+type DataTableRowAttributes = Omit<HTMLAttributes<HTMLTableRowElement>, "children" | "className"> & {
+  [key: `data-${string}`]: string | number | boolean | undefined;
+};
+
 type DataTableShellProps<Row, SortField extends string = string> = {
   columns: Array<DataTableColumn<Row, SortField>>;
   rows: Row[];
@@ -114,7 +118,7 @@ type DataTableShellProps<Row, SortField extends string = string> = {
   containerClassName?: string;
   tbodyClassName?: string;
   rowClassName?: string | ((row: Row) => string | undefined);
-  rowAttributes?: (row: Row) => Omit<HTMLAttributes<HTMLTableRowElement>, "children" | "className">;
+  rowAttributes?: (row: Row) => DataTableRowAttributes;
   expandedRow?: (row: Row) => ReactNode;
   expandedRowClassName?: string | ((row: Row) => string | undefined);
   overflowXHidden?: boolean;

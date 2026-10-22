@@ -9,10 +9,6 @@ import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import { useBucketOpsNavigation } from "./useBucketOpsNavigation";
 
 const routerMocks = vi.hoisted(() => ({
-  location: {
-    pathname: "/storage-ops/buckets",
-    search: "",
-  },
   navigate: vi.fn(),
 }));
 
@@ -22,7 +18,6 @@ vi.mock("react-router-dom", async () => {
   );
   return {
     ...actual,
-    useLocation: () => routerMocks.location,
     useNavigate: () => routerMocks.navigate,
   };
 });
@@ -45,8 +40,6 @@ const storageBucketNext: CephAdminBucket = {
 
 describe("useBucketOpsNavigation", () => {
   beforeEach(() => {
-    routerMocks.location.pathname = "/storage-ops/buckets";
-    routerMocks.location.search = "";
     routerMocks.navigate.mockReset();
   });
 
@@ -67,8 +60,7 @@ describe("useBucketOpsNavigation", () => {
     });
   });
 
-  it("opens Storage Ops configuration in-place and preserves list query state", () => {
-    routerMocks.location.search = "?owner=alice";
+  it("opens Storage Ops configuration in local drawer state", () => {
     const { result } = renderHook(() =>
       useBucketOpsNavigation({
         items: [storageBucket],
@@ -79,17 +71,15 @@ describe("useBucketOpsNavigation", () => {
 
     act(() => result.current.openBucketConfiguration(storageBucket));
 
-    expect(routerMocks.navigate).toHaveBeenCalledWith(
-      {
-        pathname: "/storage-ops/buckets",
-        search: "?owner=alice&configure=bucket-a&configure_ctx=account-1",
-      },
-      { replace: false },
-    );
+    expect(result.current.configurationTarget).toEqual({
+      bucketName: "bucket-a",
+      contextId: "account-1",
+    });
+    expect(result.current.configurationNavigation?.position).toBe("1 / 1");
+    expect(routerMocks.navigate).not.toHaveBeenCalled();
   });
 
-  it("opens Ceph Admin configuration with an endpoint-qualified deep link", () => {
-    routerMocks.location.pathname = "/ceph-admin/buckets";
+  it("opens Ceph Admin configuration without routing", () => {
     const cephBucket: CephAdminBucket = { name: "bucket-a" };
     const { result } = renderHook(() =>
       useBucketOpsNavigation({
@@ -101,17 +91,14 @@ describe("useBucketOpsNavigation", () => {
 
     act(() => result.current.openBucketConfiguration(cephBucket));
 
-    expect(routerMocks.navigate).toHaveBeenCalledWith(
-      {
-        pathname: "/ceph-admin/buckets",
-        search: "?configure=bucket-a&ep=7",
-      },
-      { replace: false },
-    );
+    expect(result.current.configurationTarget).toEqual({
+      bucketName: "bucket-a",
+      contextId: null,
+    });
+    expect(routerMocks.navigate).not.toHaveBeenCalled();
   });
 
-  it("resolves a deep link by bucket and context and navigates within loaded order", () => {
-    routerMocks.location.search = "?configure=bucket-a&configure_ctx=account-2";
+  it("navigates within loaded bucket order using local state", () => {
     const items = [storageBucket, storageBucketOtherContext, storageBucketNext];
     const { result } = renderHook(() =>
       useBucketOpsNavigation({
@@ -121,6 +108,7 @@ describe("useBucketOpsNavigation", () => {
       }),
     );
 
+    act(() => result.current.openBucketConfiguration(storageBucketOtherContext));
     expect(result.current.configurationTarget).toEqual({
       bucketName: "bucket-a",
       contextId: "account-2",
@@ -128,18 +116,15 @@ describe("useBucketOpsNavigation", () => {
     expect(result.current.configurationNavigation?.position).toBe("2 / 3");
 
     act(() => result.current.configurationNavigation?.next?.());
-    expect(routerMocks.navigate).toHaveBeenCalledWith(
-      {
-        pathname: "/storage-ops/buckets",
-        search: "?configure=bucket-b&configure_ctx=account-2",
-      },
-      { replace: true },
-    );
+    expect(result.current.configurationTarget).toEqual({
+      bucketName: "bucket-b",
+      contextId: "account-2",
+    });
+    expect(result.current.configurationNavigation?.position).toBe("3 / 3");
+    expect(routerMocks.navigate).not.toHaveBeenCalled();
   });
 
-  it("closes the drawer without losing unrelated list query state", () => {
-    routerMocks.location.search =
-      "?owner=alice&configure=bucket-a&configure_ctx=account-1";
+  it("closes the drawer without routing", () => {
     const { result } = renderHook(() =>
       useBucketOpsNavigation({
         items: [storageBucket],
@@ -148,14 +133,10 @@ describe("useBucketOpsNavigation", () => {
       }),
     );
 
+    act(() => result.current.openBucketConfiguration(storageBucket));
     act(() => result.current.closeBucketConfiguration());
 
-    expect(routerMocks.navigate).toHaveBeenCalledWith(
-      {
-        pathname: "/storage-ops/buckets",
-        search: "?owner=alice",
-      },
-      { replace: true },
-    );
+    expect(result.current.configurationTarget).toBeNull();
+    expect(routerMocks.navigate).not.toHaveBeenCalled();
   });
 });

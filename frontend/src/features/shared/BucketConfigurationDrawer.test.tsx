@@ -67,7 +67,9 @@ describe("BucketConfigurationDrawer", () => {
 
     const drawer = screen.getByRole("complementary", { name: "archive" });
     expect(drawer).toHaveClass("lg:w-[min(64rem,calc(100vw-24rem))]");
-    expect(screen.getByRole("group", { name: "Loaded buckets" })).toHaveTextContent("1 / 2");
+    const navigation = screen.getByRole("group", { name: "Loaded buckets" });
+    expect(navigation).toHaveTextContent("1 / 2");
+    expect(navigation.closest("header")).toContainElement(navigation);
     expect(detailProps.latest).toEqual(
       expect.objectContaining({
         bucketNameOverride: "archive",

@@ -22,6 +22,7 @@ export function useSettingsFormController({
   const [closing, setClosing] = useState(false);
   const [pending, setPending] = useState(false);
   const submitting = useRef(false);
+  const pendingTransition = useRef<(() => void) | null>(null);
   const locked = busy || pending;
   const unsaved = dirty && !completed && !closing;
   const guardLabels = {
@@ -31,15 +32,30 @@ export function useSettingsFormController({
     cancelLabel: labels.keepEditing,
     closeLabel: labels.close,
   };
-  const close = () => {
+  const completeGuardedTransition = () => {
+    const transition = pendingTransition.current;
+    pendingTransition.current = null;
+    if (transition) {
+      transition();
+      return;
+    }
     // A close handler may remove a URL query parameter. Do not guard it twice.
     flushSync(() => setClosing(true));
     onClose();
   };
   const guard = useSettingsCloseGuard({
-    hasUnsavedChanges: unsaved, disabled: locked, onClose: close, ...guardLabels,
+    hasUnsavedChanges: unsaved, disabled: locked, onClose: completeGuardedTransition, ...guardLabels,
   });
-  const requestClose = () => { if (!submitting.current) guard.requestClose(); };
+  const requestClose = () => {
+    if (submitting.current) return;
+    pendingTransition.current = null;
+    guard.requestClose();
+  };
+  const requestTransition = (action: () => void) => {
+    if (locked || disabled || completed || submitting.current) return;
+    pendingTransition.current = action;
+    guard.requestClose();
+  };
   const runAction = async (action: () => void | Promise<void>) => {
     if (locked || disabled || completed || submitting.current) return;
     submitting.current = true;
@@ -61,7 +77,7 @@ export function useSettingsFormController({
   };
 
   return {
-    t, labels, locked, requestClose, submit, runAction,
+    t, labels, locked, requestClose, requestTransition, submit, runAction,
     confirmationDialog: guard.confirmationDialog,
     navigationGuard: (<SettingsNavigationGuard dirty={!completed && (unsaved || locked)} discardDisabled={!completed && locked}
       onDiscard={() => onClose("navigation")} {...guardLabels}

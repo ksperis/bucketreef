@@ -2,8 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import {
@@ -15,10 +15,7 @@ import {
   getStorageOpsContextId,
 } from "./bucketOpsPresentation";
 import type { BucketOpsMode } from "./bucketOpsSurface";
-import type { DetailsDrawerNavigationState } from "./DetailsDrawerNavigation";
-
-const CONFIGURE_PARAM = "configure";
-const CONFIGURE_CONTEXT_PARAM = "configure_ctx";
+import useDetailsDrawerListNavigation from "./useDetailsDrawerListNavigation";
 
 type UseBucketOpsNavigationOptions = {
   items: readonly CephAdminBucket[];
@@ -56,54 +53,7 @@ export function useBucketOpsNavigation({
   mode,
   selectedEndpointId,
 }: UseBucketOpsNavigationOptions) {
-  const location = useLocation();
   const navigate = useNavigate();
-  const [requestedNavigationFocus, setRequestedNavigationFocus] = useState<
-    "previous" | "next" | undefined
-  >(undefined);
-
-  const configurationTarget = useMemo<BucketConfigurationTarget | null>(() => {
-    const params = new URLSearchParams(location.search);
-    const bucketName = params.get(CONFIGURE_PARAM)?.trim() ?? "";
-    if (!bucketName) return null;
-    if (mode === "ceph-admin") {
-      return { bucketName, contextId: null };
-    }
-    const contextId = params.get(CONFIGURE_CONTEXT_PARAM)?.trim() ?? "";
-    if (!contextId) return null;
-    return { bucketName, contextId };
-  }, [location.search, mode]);
-
-  const configuredBucketIndex = useMemo(() => {
-    if (!configurationTarget) return -1;
-    return items.findIndex((bucket) => {
-      if (mode === "ceph-admin") {
-        return bucket.name === configurationTarget.bucketName;
-      }
-      return (
-        getStorageOpsBucketName(bucket) === configurationTarget.bucketName &&
-        getStorageOpsContextId(bucket) === configurationTarget.contextId
-      );
-    });
-  }, [configurationTarget, items, mode]);
-
-  const viewedRowKey = useMemo(() => {
-    if (configuredBucketIndex < 0) return null;
-    return getBucketOpsConfigurationRowKey(mode, items[configuredBucketIndex]);
-  }, [configuredBucketIndex, items, mode]);
-
-  useEffect(() => {
-    if (!viewedRowKey) return;
-    const frame = window.requestAnimationFrame(() => {
-      const rowButton = findRowButton(viewedRowKey);
-      if (!rowButton) return;
-      const bounds = rowButton.getBoundingClientRect();
-      if (bounds.top < 0 || bounds.bottom > window.innerHeight) {
-        rowButton.scrollIntoView({ block: "nearest", behavior: "auto" });
-      }
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [viewedRowKey]);
 
   const navigateToBucketAction = useCallback(
     (action: BucketOpsNavigationAction, bucket: CephAdminBucket) => {
@@ -118,92 +68,46 @@ export function useBucketOpsNavigation({
     [mode, navigate, selectedEndpointId],
   );
 
-  const updateConfigurationTarget = useCallback(
-    (
-      bucket: CephAdminBucket,
-      options?: { replace?: boolean; focus?: "previous" | "next" },
-    ) => {
-      const params = new URLSearchParams(location.search);
+  const configurationTargetFromRow = useCallback(
+    (bucket: CephAdminBucket): BucketConfigurationTarget | null => {
       if (mode === "storage-ops") {
         const contextId = getStorageOpsContextId(bucket);
         const bucketName = getStorageOpsBucketName(bucket);
-        if (!contextId || !bucketName) return;
-        params.set(CONFIGURE_PARAM, bucketName);
-        params.set(CONFIGURE_CONTEXT_PARAM, contextId);
-      } else {
-        params.set(CONFIGURE_PARAM, bucket.name);
-        params.delete(CONFIGURE_CONTEXT_PARAM);
-        if (selectedEndpointId) {
-          params.set("ep", String(selectedEndpointId));
-        }
+        if (!contextId || !bucketName) return null;
+        return { bucketName, contextId };
       }
-      setRequestedNavigationFocus(options?.focus);
-      navigate(
-        {
-          pathname: location.pathname,
-          search: params.size ? `?${params.toString()}` : "",
-        },
-        { replace: options?.replace ?? false },
+      return { bucketName: bucket.name, contextId: null };
+    },
+    [mode],
+  );
+  const configurationRowMatchesTarget = useCallback(
+    (bucket: CephAdminBucket, target: BucketConfigurationTarget) => {
+      if (mode === "ceph-admin") return bucket.name === target.bucketName;
+      return (
+        getStorageOpsBucketName(bucket) === target.bucketName &&
+        getStorageOpsContextId(bucket) === target.contextId
       );
     },
-    [location.pathname, location.search, mode, navigate, selectedEndpointId],
+    [mode],
   );
-
-  const openBucketConfiguration = useCallback(
-    (bucket: CephAdminBucket) => {
-      updateConfigurationTarget(bucket);
-    },
-    [updateConfigurationTarget],
+  const configurationRowKey = useCallback(
+    (bucket: CephAdminBucket) => getBucketOpsConfigurationRowKey(mode, bucket),
+    [mode],
   );
-
-  const closeBucketConfiguration = useCallback(() => {
-    const params = new URLSearchParams(location.search);
-    params.delete(CONFIGURE_PARAM);
-    params.delete(CONFIGURE_CONTEXT_PARAM);
-    setRequestedNavigationFocus(undefined);
-    navigate(
-      {
-        pathname: location.pathname,
-        search: params.size ? `?${params.toString()}` : "",
-      },
-      { replace: true },
-    );
-  }, [location.pathname, location.search, navigate]);
-
-  const configurationNavigation = useMemo<
-    DetailsDrawerNavigationState | undefined
-  >(() => {
-    if (!configurationTarget || configuredBucketIndex < 0) return undefined;
-    const previousBucket = items[configuredBucketIndex - 1];
-    const nextBucket = items[configuredBucketIndex + 1];
-    return {
-      previous: previousBucket
-        ? () =>
-            updateConfigurationTarget(previousBucket, {
-              replace: true,
-              focus: "previous",
-            })
-        : undefined,
-      next: nextBucket
-        ? () =>
-            updateConfigurationTarget(nextBucket, {
-              replace: true,
-              focus: "next",
-            })
-        : undefined,
-      position: `${configuredBucketIndex + 1} / ${items.length}`,
-      focus: requestedNavigationFocus,
-      returnFocus: () =>
-        viewedRowKey ? findRowButton(viewedRowKey) : null,
-    };
-  }, [
-    configurationTarget,
-    configuredBucketIndex,
-    items,
-    requestedNavigationFocus,
-    updateConfigurationTarget,
+  const {
+    close: closeBucketConfiguration,
+    navigation: configurationNavigation,
+    open: openBucketConfiguration,
+    target: configurationTarget,
     viewedRowKey,
-  ]);
+  } = useDetailsDrawerListNavigation({
+    items,
+    resetKey: `${mode}:${selectedEndpointId ?? "none"}`,
+    targetFromRow: configurationTargetFromRow,
+    rowMatchesTarget: configurationRowMatchesTarget,
+    rowKey: configurationRowKey,
+    findRowAction: findRowButton,
+  });
 
   return {
     closeBucketConfiguration,

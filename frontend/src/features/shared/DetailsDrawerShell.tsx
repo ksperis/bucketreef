@@ -22,7 +22,6 @@ type DetailsDrawerShellProps = {
   onEscape?: () => void;
   onTabChange?: (tabId: string) => void;
   subtitle?: ReactNode;
-  tabActions?: ReactNode;
   tabs?: readonly PageTab[];
   tabsAriaLabel?: string;
   title: string;
@@ -39,7 +38,6 @@ export default function DetailsDrawerShell({
   onEscape,
   onTabChange,
   subtitle,
-  tabActions,
   tabs = [],
   tabsAriaLabel,
   title,
@@ -91,16 +89,9 @@ export default function DetailsDrawerShell({
                 activeTab={activeTab}
                 onChange={onTabChange}
                 variant="line"
-                headerActions={tabActions}
-                stackHeaderActionsOnMobile={Boolean(tabActions)}
                 ariaLabel={tabsAriaLabel ?? t({ en: "Details views", fr: "Vues des détails", de: "Detailansichten", zh: "详情视图" })}
                 idPrefix={idPrefix}
               />
-            </div>
-          ) : null}
-          {!hasTabs && tabActions ? (
-            <div className="mt-3 flex justify-end border-t border-[color:var(--ui-border-soft)] pt-3">
-              {tabActions}
             </div>
           ) : null}
           {notice ? <div className="mt-3">{notice}</div> : null}

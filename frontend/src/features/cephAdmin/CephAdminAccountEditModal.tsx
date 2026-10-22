@@ -14,9 +14,7 @@ import {
   getCephAdminAccountMetrics,
   type CephAdminEntityMetrics,
 } from "../../api/cephAdminMetrics";
-import WorkflowPage from "../../components/WorkflowPage";
 import PageBanner from "../../components/PageBanner";
-import PageTabs from "../../components/PageTabs";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
@@ -29,14 +27,19 @@ import { formatBytes, formatNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
 import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { buildCephAdminQuotaPatch } from "./quotaPatch";
-import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { parseOptionalNonNegativeInteger, parseQuotaBytes, quotaBytesToForm, type CephAdminQuotaUnit } from "./quotaForm";
 import { useCephAdminI18n } from "./cephAdminI18n";
+import DetailsDrawerNavigation, {
+  guardDetailsDrawerNavigation,
+  type DetailsDrawerNavigationState,
+} from "../shared/DetailsDrawerNavigation";
+import DetailsDrawerShell from "../shared/DetailsDrawerShell";
 
 type Props = {
   endpointId: number;
   accountId: string;
   canViewMetrics?: boolean;
+  navigation?: DetailsDrawerNavigationState;
   onClose: () => void;
   onSaved?: (detail: CephAdminRgwAccountDetail) => void;
 };
@@ -47,6 +50,7 @@ export default function CephAdminAccountEditModal({
   endpointId,
   accountId,
   canViewMetrics = true,
+  navigation,
   onClose,
   onSaved,
 }: Props) {
@@ -496,31 +500,46 @@ export default function CephAdminAccountEditModal({
   );
 
   const tabs = [
-    { id: "overview", label: surfaceText("Overview"), content: overviewTab },
-    { id: "config", label: surfaceText("Configuration"), content: configTab },
-    ...(canViewMetrics ? [{ id: "metrics", label: surfaceText("Metrics"), content: metricsTab }] : []),
+    { id: "overview", label: surfaceText("Overview") },
+    { id: "config", label: surfaceText("Configuration") },
+    ...(canViewMetrics ? [{ id: "metrics", label: surfaceText("Metrics") }] : []),
   ];
+  const activeContent =
+    activeTab === "config" ? configTab : activeTab === "metrics" ? metricsTab : overviewTab;
+  const guardedNavigation = guardDetailsDrawerNavigation(
+    navigation,
+    formController.requestTransition,
+  );
+  const navigationActions = guardedNavigation ? (
+    <DetailsDrawerNavigation
+      navigation={guardedNavigation}
+      labels={{
+        group: surfaceText("Loaded accounts"),
+        previous: surfaceText("Previous account"),
+        next: surfaceText("Next account"),
+      }}
+    />
+  ) : undefined;
 
   return <>
-    <WorkflowPage
-      title={`${surfaceText("Configure account")} · ${accountId}`}
-      description={surfaceText("Review configuration, quotas and metrics without nested dialog scrolling.")}
-      breadcrumbs={cephAdminPageBreadcrumbs("accounts", { label: accountId })}
-      backLabel={surfaceText("Back to accounts")}
-      onBack={formController.requestClose}
-      backDisabled={formController.locked}
-      contentClassName="min-w-0"
-      contentVariant="plain"
+    <DetailsDrawerShell
+      title={accountId}
+      subtitle={
+        <p className="ui-caption text-[var(--ui-text-muted)]">
+          {surfaceText("RGW account settings")}
+        </p>
+      }
+      actions={navigationActions}
+      activeTab={activeTab}
+      tabs={tabs}
+      tabsAriaLabel={surfaceText("Account configuration sections")}
+      onTabChange={(tab) => setActiveTab(tab as TabId)}
+      returnFocus={navigation?.returnFocus}
+      onClose={formController.requestClose}
+      width="wide"
     >
-      <PageTabs
-        tabs={tabs}
-        activeTab={activeTab}
-        onChange={(tab) => setActiveTab(tab as TabId)}
-        variant="line"
-        ariaLabel={surfaceText("Account configuration sections")}
-        idPrefix="ceph-admin-account-editor"
-      />
-    </WorkflowPage>
+      {activeContent}
+    </DetailsDrawerShell>
     {formController.confirmationDialog}
     {formController.navigationGuard}
   </>;

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import CephAdminAccountsPage from "./CephAdminAccountsPage";
@@ -17,7 +17,22 @@ vi.mock("./CephAdminAccountCreateModal", () => ({
 }));
 
 vi.mock("./CephAdminAccountEditModal", () => ({
-  default: ({ accountId }: { accountId: string }) => <div>Editing account {accountId}</div>,
+  default: ({
+    accountId,
+    navigation,
+    onClose,
+  }: {
+    accountId: string;
+    navigation?: { next?: () => void; position?: string };
+    onClose: () => void;
+  }) => (
+    <div>
+      <span>Editing account {accountId}</span>
+      <span data-testid="account-navigation-position">{navigation?.position ?? "no-navigation"}</span>
+      <button type="button" onClick={navigation?.next}>Drawer next</button>
+      <button type="button" onClick={onClose}>Drawer close</button>
+    </div>
+  ),
 }));
 
 vi.mock("../../api/cephAdminAccounts", () => ({
@@ -39,6 +54,11 @@ function getTableOverflowContainer() {
   const container = screen.getByRole("table").parentElement;
   expect(container).not.toBeNull();
   return container as HTMLElement;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="location-probe">{location.pathname}{location.search}</span>;
 }
 
 describe("CephAdminAccountsPage", () => {
@@ -111,9 +131,57 @@ describe("CephAdminAccountsPage", () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByText("RGW12345678901234567"));
+    const accountCell = await screen.findByText("RGW12345678901234567");
+    fireEvent.click(accountCell);
 
     expect(screen.getByText("Editing account RGW12345678901234567")).toBeInTheDocument();
+    expect(document.querySelector(".workflow-page-host--active")).not.toBeInTheDocument();
+    expect(accountCell.closest("tr")).toHaveAttribute("data-viewed", "true");
+    expect(screen.getByRole("button", { name: "Configure" })).toHaveAttribute("aria-current", "true");
+  });
+
+  it("navigates across loaded accounts without creating configuration deep-links", async () => {
+    useCephAdminEndpointMock.mockReturnValue({
+      loading: false,
+      selectedEndpointId: 7,
+      selectedEndpoint: { id: 7, name: "Ceph A", capabilities: {} },
+      selectedEndpointAccess: { can_metrics: true, can_accounts: true },
+      selectedEndpointAccessLoading: false,
+      selectedEndpointAccessError: null,
+    });
+    listCephAdminAccountsMock.mockResolvedValue({
+      items: [
+        { account_id: "RGW11111111111111111", account_name: "One" },
+        { account_id: "RGW22222222222222222", account_name: "Two" },
+      ],
+      total: 2,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/ceph-admin/accounts?ep=7&keep=yes"]}>
+        <CephAdminAccountsPage />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    const firstAccount = await screen.findByText("RGW11111111111111111");
+    fireEvent.click(firstAccount);
+    expect(screen.getByText("Editing account RGW11111111111111111")).toBeInTheDocument();
+    expect(screen.getByTestId("account-navigation-position")).toHaveTextContent("1 / 2");
+    expect(firstAccount.closest("tr")).toHaveAttribute("data-viewed", "true");
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/ceph-admin/accounts?ep=7&keep=yes");
+
+    fireEvent.click(screen.getByRole("button", { name: "Drawer next" }));
+    expect(await screen.findByText("Editing account RGW22222222222222222")).toBeInTheDocument();
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/ceph-admin/accounts?ep=7&keep=yes");
+    expect(screen.getByTestId("location-probe")).not.toHaveTextContent("configure=");
+
+    fireEvent.click(screen.getByRole("button", { name: "Drawer close" }));
+    await waitFor(() => {
+      expect(screen.queryByText("Editing account RGW22222222222222222")).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("location-probe")).toHaveTextContent("/ceph-admin/accounts?ep=7&keep=yes");
+    expect(screen.getByTestId("location-probe")).not.toHaveTextContent("configure=");
   });
 
   it("shows an empty state without a page-level context strip when no endpoint is selected", async () => {

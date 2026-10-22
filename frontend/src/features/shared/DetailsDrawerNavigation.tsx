@@ -15,6 +15,20 @@ export type DetailsDrawerNavigationState = {
   returnFocus?: () => HTMLElement | null;
 };
 
+export function guardDetailsDrawerNavigation(
+  navigation: DetailsDrawerNavigationState | undefined,
+  requestTransition: (action: () => void) => void,
+): DetailsDrawerNavigationState | undefined {
+  if (!navigation) return undefined;
+  const previous = navigation.previous;
+  const next = navigation.next;
+  return {
+    ...navigation,
+    previous: previous ? () => requestTransition(previous) : undefined,
+    next: next ? () => requestTransition(next) : undefined,
+  };
+}
+
 type DetailsDrawerNavigationProps = {
   navigation?: DetailsDrawerNavigationState;
   labels: {

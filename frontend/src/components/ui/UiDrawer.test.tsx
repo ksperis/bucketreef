@@ -34,6 +34,7 @@ describe("UiDrawer", () => {
 
     const drawer = screen.getByRole("dialog", { name: "Drawer title" });
     expect(drawer).toHaveAttribute("aria-modal", "true");
+    expect(drawer.parentElement).toHaveClass("!m-0");
     expect(screen.getByRole("button", { name: "First action" })).toHaveFocus();
     expect(document.body.style.overflow).toBe("hidden");
 
