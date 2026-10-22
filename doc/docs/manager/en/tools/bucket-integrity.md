@@ -25,6 +25,14 @@ Prefer **HEAD only** for the first diagnostic pass. Use **GET body** only when y
 5. Filter the result list by bucket, context, status, error state, object key, or error message.
 6. Expand a bucket result to review affected object details, including stage, key, version, and error message.
 
+Start from the bucket list to filter and select the exact scope before running a
+check, especially when the active Manager context contains several buckets.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-integrity-check.light.png" alt="Manager bucket integrity page with filterable bucket selection before a check" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-integrity-check.dark.png" alt="Manager bucket integrity page with filterable bucket selection before a check" loading="lazy">
+</div>
+
 ## Expected result
 
 The report shows whether each bucket passed, completed with object errors, or failed during listing. The tool does not write to the database and does not persist historical runs.
@@ -63,10 +71,3 @@ and whether the selected context has bucket-management capability.
 
 - [Workspace: Manager](../index.md)
 - [Feature: Bucket compare](bucket-compare.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-integrity-check.light.png" alt="Bucket integrity page listing buckets that can be selected for an integrity check" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-integrity-check.dark.png" alt="Bucket integrity page listing buckets that can be selected for an integrity check" loading="lazy">
-</div>

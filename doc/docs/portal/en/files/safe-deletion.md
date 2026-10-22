@@ -14,8 +14,9 @@ Use this page before removing files from a Portal Storage Space.
 ## Delete a file
 
 1. Open the Storage Space and locate the file.
-2. Choose the delete action and review the confirmation.
-3. Confirm only when the displayed path is the file you intend to remove.
+2. Verify the file name and current path, then choose the delete action.
+3. In the confirmation, verify that the object count matches your selection
+   before choosing **Delete**.
 4. Refresh the file list after the operation if its final state is unclear.
 
 If the underlying storage keeps versions, deleting the current file may leave a
@@ -34,10 +35,3 @@ Storage Space, file path, time, and exact error message.
 - [Files](index.md)
 - [Previous versions](versions.md)
 - [Troubleshooting](../help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-object-list.light.png" alt="Portal file list inside a Storage Space" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-object-list.dark.png" alt="Portal file list inside a Storage Space" loading="lazy">
-</div>

@@ -15,6 +15,14 @@ has been delegated to them.
 5. Use **Cancel** to discard a draft or **Restore platform values** when you
    intentionally want the project to follow its platform defaults again.
 
+The settings view shows the effective value and its origin together, which is
+useful before deciding whether a project-level override is needed.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-settings.light.png" alt="Portal Settings page showing project settings together with their origin" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-settings.dark.png" alt="Portal Settings page showing project settings together with their origin" loading="lazy">
+</div>
+
 Changes stay in the form until they are saved. Leaving the page, switching
 projects, or closing a changed dialog asks for confirmation so an unfinished
 draft is not lost accidentally.
@@ -53,10 +61,3 @@ administrator with the project and requested change.
 - [External tools](external-tools.md)
 - [Help requests](help-requests.md)
 - [Storage health](storage-health.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-settings.light.png" alt="Portal Settings page with project settings and their origin" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-settings.dark.png" alt="Portal Settings page with project settings and their origin" loading="lazy">
-</div>

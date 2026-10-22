@@ -20,6 +20,14 @@ create, share, archive, restore, or delete them.
 | Archive or restore | Use the space management actions. |
 | Delete permanently | Empty the space and its history first, then use **Delete space**. |
 
+The Spaces list is the main place to compare space identity, access mode and
+the actions available before opening a space.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-storage-spaces.light.png" alt="Portal Storage Spaces list with access modes and common space actions" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-storage-spaces.dark.png" alt="Portal Storage Spaces list with access modes and common space actions" loading="lazy">
+</div>
+
 ## Choose the right access mode
 
 | Mode | Meaning |
@@ -102,10 +110,3 @@ is archived.
 - [Collaboration](../collaboration.md)
 - [Storage health](../storage-health.md)
 - [External tools](../external-tools.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-storage-spaces.light.png" alt="Portal Storage Spaces with common space actions" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-storage-spaces.dark.png" alt="Portal Storage Spaces with common space actions" loading="lazy">
-</div>

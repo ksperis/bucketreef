@@ -1343,6 +1343,24 @@ export const scenarios: DocScreenshotScenario[] = [
     mockRules: withBaseRules(),
   },
   {
+    id: "manager-embedded-browser",
+    docPage: "manager/en/browser/object-operations.md",
+    route: "/manager/browser?ctx=acc-helios&bucket=helios-retail-logs",
+    outputBasename: "manager-embedded-browser",
+    waitFor: "h1:has-text('Browser')",
+    user: adminUser,
+    storage: {
+      ...baseStorage(),
+      selectedWorkspace: "manager",
+      selectedManagerExecutionContextId: "acc-helios",
+    },
+    actions: [
+      { type: "wait", selector: "text=RGW logs will attribute operations to" },
+      { type: "wait", selector: "text=report-2026-03-08.json" },
+    ],
+    mockRules: withBaseRules(),
+  },
+  {
     id: "feature-objects-browser",
     docPage: "user/feature-objects-browser.md",
     route: "/browser",

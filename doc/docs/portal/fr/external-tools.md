@@ -33,6 +33,14 @@ client S3 direct est réellement nécessaire.
 8. Importez la configuration téléchargée et saisissez le secret lorsque le client le demande.
 9. Désactivez ou supprimez les accès qui ne sont plus nécessaires.
 
+La fenêtre **Connecter un outil** regroupe l'espace sélectionné, l'endpoint et
+les options propres au client avant de télécharger ou copier une configuration.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-access-keys.light.png" alt="Fenêtre Portal Connecter un outil pour un espace de stockage sélectionné" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-access-keys.dark.png" alt="Fenêtre Portal Connecter un outil pour un espace de stockage sélectionné" loading="lazy">
+</div>
+
 Les fichiers de configuration téléchargés ne contiennent pas le secret. Ne
 placez pas ce secret dans des tickets, documents partagés, captures d'écran,
 historiques de shell ou dépôts de code source.
@@ -61,10 +69,3 @@ ou contactez votre administrateur en indiquant le projet et l'espace concernés.
 - [Collaboration](collaboration.md)
 - [Paramètres](settings.md)
 - [Dépannage](help/troubleshooting.md)
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-access-keys.light.png" alt="Configuration Portal d'un outil externe pour un espace de stockage" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-access-keys.dark.png" alt="Configuration Portal d'un outil externe pour un espace de stockage" loading="lazy">
-</div>

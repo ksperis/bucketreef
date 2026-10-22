@@ -26,6 +26,15 @@ Choose the comparison source and target deliberately. Compare results are only u
    Browser links open in a new tab so the comparison result stays available.
 7. Apply remediation actions only after validation.
 
+After a run, the comparison page keeps the target mapping, completion state,
+filters, and per-bucket difference summary visible before you expand details or
+remediate anything.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-compare.light.png" alt="Completed Manager bucket comparison showing target mapping and a bucket with detected differences" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-compare.dark.png" alt="Completed Manager bucket comparison showing target mapping and a bucket with detected differences" loading="lazy">
+</div>
+
 ## Expected result
 
 You get an actionable diff view to support controlled bucket alignment. Manager
@@ -56,10 +65,3 @@ whether the selected context can manage buckets.
 - [Workspace: Manager](../index.md)
 - [Feature: Bucket migration](bucket-migration.md)
 - [Safe destructive and bulk operations](../reference/safe-operations.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-bucket-compare.light.png" alt="Bucket compare result showing detected differences and remediation actions" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-bucket-compare.dark.png" alt="Bucket compare result showing detected differences and remediation actions" loading="lazy">
-</div>

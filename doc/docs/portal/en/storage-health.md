@@ -24,6 +24,14 @@ cost.
 | Other | Anonymous storage used elsewhere in the project. It is not a Storage Space you can open and does not reveal hidden names or identifiers. |
 | Alerts | Deduplicated warnings such as quota near limit, public links, or a degraded endpoint. |
 
+The **By space** view is useful when you need to compare visible spaces while
+keeping the project-level room and file-count context in view.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-usage.light.png" alt="Portal Storage Health view with project capacity, file counts, space breakdown and Costs tab" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-usage.dark.png" alt="Portal Storage Health view with project capacity, file counts, space breakdown and Costs tab" loading="lazy">
+</div>
+
 Traffic details are shown only for Storage Spaces you can access.
 The dashboard may keep global totals so you can understand quota pressure, but
 it must not expose the names of other users' private spaces.
@@ -44,10 +52,3 @@ If data remains missing, report the project, tab, and time to your administrator
 - [Portal: Storage Spaces](spaces/index.md)
 - [Portal: Settings](settings.md)
 - [Troubleshooting](help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/portal-usage.light.png" alt="Portal Storage Health page with room left, file counts, space breakdown, and Costs tab available" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/portal-usage.dark.png" alt="Portal Storage Health page with room left, file counts, space breakdown, and Costs tab available" loading="lazy">
-</div>

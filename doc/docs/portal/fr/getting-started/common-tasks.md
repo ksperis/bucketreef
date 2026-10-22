@@ -15,10 +15,3 @@
 
 Si une action est absente ou en lecture seule, commencez par
 [Disponibilité des fonctions](../help/feature-availability.md).
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/use-cases-storage-user.light.png" alt="Parcours de stockage Portal pour un utilisateur final" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/use-cases-storage-user.dark.png" alt="Parcours de stockage Portal pour un utilisateur final" loading="lazy">
-</div>

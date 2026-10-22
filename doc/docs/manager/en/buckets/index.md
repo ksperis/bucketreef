@@ -56,6 +56,14 @@ Confirm the Manager execution context first. Bucket names can repeat across acco
    calculated snapshot, including logical bytes by current and noncurrent object
    versions when version listing is supported.
 
+The bucket inventory keeps usage, object count, and the main bucket actions in
+one place before you open a bucket workspace.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-buckets.light.png" alt="Manager bucket inventory with usage, object counts and configuration actions" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-buckets.dark.png" alt="Manager bucket inventory with usage, object counts and configuration actions" loading="lazy">
+</div>
+
 ## Expected result
 
 Bucket configuration is applied as native backend settings and visible in detail pages.
@@ -94,10 +102,3 @@ Check [Feature availability](../help/feature-availability.md), endpoint capabili
 - [Feature: Bucket usage stats](usage.md)
 - [Feature: Bucket purge](../tools/bucket-purge.md)
 - [Feature: Object operations in Browser](../browser/object-operations.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/feature-buckets.light.png" alt="Buckets feature page with creation and table controls" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/feature-buckets.dark.png" alt="Buckets feature page with creation and table controls" loading="lazy">
-</div>

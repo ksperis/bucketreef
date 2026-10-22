@@ -13,6 +13,14 @@ versions through a storage context you are allowed to use.
    download, copy, move, delete, or work with versions.
 6. Watch **Operations** while transfers or bulk work are running.
 
+Open Browser from the workspace selector before choosing the storage context
+and bucket for the operation.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/start-here.light.png" alt="Workspace selector with Browser available" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/start-here.dark.png" alt="Workspace selector with Browser available" loading="lazy">
+</div>
+
 Each action uses the credentials of the selected Browser context. Browser does
 not grant extra S3 permissions.
 
@@ -33,10 +41,3 @@ documented in their host guides.
 - [Object versions](../objects/versions.md)
 - [Safe operations](../reference/safe-operations.md)
 - [Troubleshooting](../help/troubleshooting.md)
-
-## Visual example
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/start-here.light.png" alt="Workspace selector with Browser available" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/start-here.dark.png" alt="Workspace selector with Browser available" loading="lazy">
-</div>

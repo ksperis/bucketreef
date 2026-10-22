@@ -12,6 +12,14 @@ et les **espaces de stockage** qui vous sont attribués.
 5. Ouvrez **Collaborateurs** pour savoir qui peut accéder à l'espace.
 6. Consultez **État du stockage** pour vérifier la capacité ou les alertes.
 
+Ouvrez Portal depuis le sélecteur de workspace, puis choisissez le projet sur
+lequel vous souhaitez travailler.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/start-here.light.png" alt="Sélecteur de workspace avec Portal disponible" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/start-here.dark.png" alt="Sélecteur de workspace avec Portal disponible" loading="lazy">
+</div>
+
 Pour un usage normal de Portal, vous n'avez pas à choisir de compte S3,
 d'endpoint ni d'identité d'exécution.
 
@@ -33,10 +41,3 @@ Portal Manager ne signifie pas que vous avez accès au workspace Manager.
 | Utiliser une application S3 externe | [Outils externes](../external-tools.md) |
 | Comprendre la capacité et les alertes | [État du stockage](../storage-health.md) |
 | Demander une modification administrative | [Demandes](../help-requests.md) |
-
-## Exemple visuel
-
-<div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/start-here.light.png" alt="Sélecteur de workspace avec Portal disponible" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/start-here.dark.png" alt="Sélecteur de workspace avec Portal disponible" loading="lazy">
-</div>
