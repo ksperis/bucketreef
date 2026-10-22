@@ -450,7 +450,7 @@ _PROPERTY_SCALAR_SPECS: dict[str, tuple[str, _PropertyValueGetter]] = {
 }
 
 
-def _match_property_scalar_value(kind: str, value: object, op: str, expected: object) -> bool:
+def _match_scalar_value(kind: str, value: object, op: str, expected: object) -> bool:
     if kind == "text":
         return _match_text_value(cast(str | None, value), op, expected)
     if kind == "number":
@@ -474,7 +474,7 @@ def _match_properties_param_rule(
     if spec is None:
         return False
     kind, getter = spec
-    result = _match_property_scalar_value(kind, getter(source_data), op, rule.value)
+    result = _match_scalar_value(kind, getter(source_data), op, rule.value)
     return _apply_scalar_quantifier(rule, result)
 
 
@@ -498,6 +498,27 @@ def _match_logging_param_rule(
     return _apply_scalar_quantifier(rule, result)
 
 
+def _website_text(value: str | None) -> str | None:
+    normalized = (value or "").strip()
+    return normalized or None
+
+
+def _website_redirect_host(configuration: BucketWebsiteConfiguration) -> str | None:
+    redirect = configuration.redirect_all_requests_to
+    return _website_text(redirect.host_name if redirect else None)
+
+
+_WebsiteValueGetter = Callable[[BucketWebsiteConfiguration], object]
+_WEBSITE_SCALAR_SPECS: dict[str, tuple[str, _WebsiteValueGetter]] = {
+    "website_index_present": ("bool", lambda website: bool(_website_text(website.index_document))),
+    "website_index_document": ("text", lambda website: _website_text(website.index_document)),
+    "website_error_document": ("text", lambda website: _website_text(website.error_document)),
+    "website_redirect_host_present": ("bool", lambda website: bool(_website_redirect_host(website))),
+    "website_redirect_host": ("text", _website_redirect_host),
+    "website_routing_rule_count": ("number", lambda website: len(website.routing_rules)),
+}
+
+
 def _match_website_param_rule(
     rule: BucketFilterRule,
     source_data: object,
@@ -505,28 +526,11 @@ def _match_website_param_rule(
 ) -> bool:
     if not isinstance(source_data, BucketWebsiteConfiguration):
         return False
-    index_document = (source_data.index_document or "").strip()
-    error_document = (source_data.error_document or "").strip()
-    redirect_host = (
-        (source_data.redirect_all_requests_to.host_name or "").strip()
-        if source_data.redirect_all_requests_to
-        else ""
-    )
-    routing_rules = source_data.routing_rules if isinstance(source_data.routing_rules, list) else []
-    if rule.param == "website_index_present":
-        result = _match_bool_value(bool(index_document), op, rule.value)
-    elif rule.param == "website_index_document":
-        result = _match_text_value(index_document or None, op, rule.value)
-    elif rule.param == "website_error_document":
-        result = _match_text_value(error_document or None, op, rule.value)
-    elif rule.param == "website_redirect_host_present":
-        result = _match_bool_value(bool(redirect_host), op, rule.value)
-    elif rule.param == "website_redirect_host":
-        result = _match_text_value(redirect_host or None, op, rule.value)
-    elif rule.param == "website_routing_rule_count":
-        result = _match_numeric_value(float(len(routing_rules)), op, rule.value)
-    else:
+    spec = _WEBSITE_SCALAR_SPECS.get(rule.param or "")
+    if spec is None:
         return False
+    kind, getter = spec
+    result = _match_scalar_value(kind, getter(source_data), op, rule.value)
     return _apply_scalar_quantifier(rule, result)
 
 
