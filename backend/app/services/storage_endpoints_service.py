@@ -238,66 +238,37 @@ class StorageEndpointsService:
         config: NormalizedEndpointState,
         existing_by_url: dict[str, StorageEndpoint],
     ) -> StorageEndpoint:
-        endpoint = existing_by_url.get(config.endpoint_url)
-        if endpoint is not None:
-            self._ensure_unique_name(config.name, exclude_id=endpoint.id)
-        else:
-            self._ensure_unique_name(config.name)
-            self._ensure_unique_endpoint(config.endpoint_url)
-            endpoint = StorageEndpoint(name=config.name, endpoint_url=config.endpoint_url)
-            existing_by_url[config.endpoint_url] = endpoint
+        endpoint = self._resolve_env_endpoint(config, existing_by_url)
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         from app.core.runtime_surfaces import endpoint_identity_management_enabled
+
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
         lease, handle = identities._lease(endpoint) if endpoint.id is not None else (None, None)
         try:
-            runtime = endpoint.service_identity("runtime")
-            required = required_service_identity_kinds(normalize_features_config(
-                config.provider, config.features_config, config.region,
-            ))
-            preserved_credentials = {}
-            for kind in ("runtime", "supervision"):
-                identity = endpoint.service_identity(kind)
-                if (kind not in required and config.service_identity_mode == "external"
-                        and identity is not None and identity.mode == "external"
-                        and not getattr(config, f"{kind}_access_key")
-                        and not getattr(config, f"{kind}_secret_key")):
-                    # Disabling a feature does not remove its existing identity.
-                    preserved_credentials[f"{kind}_access_key"] = identity.access_key
-                    preserved_credentials[f"{kind}_secret_key"] = identity.secret_key
-            if preserved_credentials:
-                config = replace(config, **preserved_credentials)
-            configured_services = any(
-                identity.kind in ("runtime", "supervision") and any((
-                    identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance,
-                )) for identity in endpoint.service_identities
+            required = required_service_identity_kinds(
+                normalize_features_config(
+                    config.provider,
+                    config.features_config,
+                    config.region,
+                )
             )
-            if runtime is not None and runtime.mode == "external" and config.service_identity_mode == "managed" and (required or configured_services):
-                if not endpoint_identity_management_enabled(settings):
-                    raise ValueError("ENV identity conversion requires an administration instance.")
-                _, permissions = identities.admin_permissions(config)
-                if not permissions.users_write:
-                    raise ValueError("Managed identity conversion requires Admin Ops users=write.")
-            if endpoint.id is not None and config.provider != StorageProvider.CEPH and endpoint_identity_management_enabled(settings):
-                for kind in ("runtime", "supervision", "ceph_admin"):
-                    if not identities.revoke(endpoint, kind):
-                        raise ValueError("Managed identity revocation is pending; retry before changing the ENV provider.")
-            elif endpoint.id is not None and config.service_identity_mode == "external":
-                for kind in ("runtime", "supervision"):
-                    identity = endpoint.service_identity(kind)
-                    if identity is not None and identity.mode == "managed":
-                        replacing_managed = any((identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance))
-                        if (kind in required or replacing_managed) and (not getattr(config, f"{kind}_access_key") or not getattr(config, f"{kind}_secret_key")):
-                            raise ValueError("ENV conversion to external mode requires replacement service credentials.")
-                        if not endpoint_identity_management_enabled(settings):
-                            raise ValueError("ENV identity conversion requires an administration instance.")
-                        if not identities.revoke(endpoint, kind):
-                            raise ValueError("Managed identity revocation is pending; retry ENV synchronization.")
-                        identity.mode = "external"
+            config = self._preserve_unused_env_external_credentials(
+                endpoint,
+                config,
+                required,
+            )
+            identity_management_enabled = endpoint_identity_management_enabled(settings)
+            self._prepare_env_identity_transition(
+                endpoint,
+                config,
+                required,
+                identities,
+                identity_management_enabled=identity_management_enabled,
+            )
             self._apply_env_endpoint(endpoint, config)
             self.db.add(endpoint)
             self.db.commit()
-            if endpoint_identity_management_enabled(settings) and endpoint.provider == "ceph":
+            if identity_management_enabled and endpoint.provider == "ceph":
                 identities.reconcile(
                     endpoint,
                     locked=handle is not None,
@@ -307,6 +278,131 @@ class StorageEndpointsService:
             if lease is not None:
                 lease.release(handle)
         return endpoint
+
+    def _resolve_env_endpoint(
+        self,
+        config: NormalizedEndpointState,
+        existing_by_url: dict[str, StorageEndpoint],
+    ) -> StorageEndpoint:
+        endpoint = existing_by_url.get(config.endpoint_url)
+        if endpoint is not None:
+            self._ensure_unique_name(config.name, exclude_id=endpoint.id)
+            return endpoint
+
+        self._ensure_unique_name(config.name)
+        self._ensure_unique_endpoint(config.endpoint_url)
+        endpoint = StorageEndpoint(name=config.name, endpoint_url=config.endpoint_url)
+        existing_by_url[config.endpoint_url] = endpoint
+        return endpoint
+
+    @staticmethod
+    def _preserve_unused_env_external_credentials(
+        endpoint: StorageEndpoint,
+        config: NormalizedEndpointState,
+        required: set[str],
+    ) -> NormalizedEndpointState:
+        if config.service_identity_mode != "external":
+            return config
+
+        preserved_credentials: dict[str, str | None] = {}
+        for kind in ("runtime", "supervision"):
+            identity = endpoint.service_identity(kind)
+            if (
+                kind not in required
+                and identity is not None
+                and identity.mode == "external"
+                and not getattr(config, f"{kind}_access_key")
+                and not getattr(config, f"{kind}_secret_key")
+            ):
+                # Disabling a feature does not remove its existing identity.
+                preserved_credentials[f"{kind}_access_key"] = identity.access_key
+                preserved_credentials[f"{kind}_secret_key"] = identity.secret_key
+        if not preserved_credentials:
+            return config
+        return replace(config, **preserved_credentials)
+
+    @staticmethod
+    def _has_configured_env_service_identity(endpoint: StorageEndpoint) -> bool:
+        return any(
+            identity.kind in ("runtime", "supervision")
+            and any(
+                (
+                    identity.rgw_uid,
+                    identity.access_key,
+                    identity.secret_key,
+                    identity.provenance,
+                )
+            )
+            for identity in endpoint.service_identities
+        )
+
+    def _prepare_env_identity_transition(
+        self,
+        endpoint: StorageEndpoint,
+        config: NormalizedEndpointState,
+        required: set[str],
+        identities,
+        *,
+        identity_management_enabled: bool,
+    ) -> None:
+        runtime = endpoint.service_identity("runtime")
+        configured_services = self._has_configured_env_service_identity(endpoint)
+        if (
+            runtime is not None
+            and runtime.mode == "external"
+            and config.service_identity_mode == "managed"
+            and (required or configured_services)
+        ):
+            if not identity_management_enabled:
+                raise ValueError(
+                    "ENV identity conversion requires an administration instance."
+                )
+            _, permissions = identities.admin_permissions(config)
+            if not permissions.users_write:
+                raise ValueError(
+                    "Managed identity conversion requires Admin Ops users=write."
+                )
+
+        if endpoint.id is None:
+            return
+        if config.provider != StorageProvider.CEPH and identity_management_enabled:
+            for kind in ("runtime", "supervision", "ceph_admin"):
+                if not identities.revoke(endpoint, kind):
+                    raise ValueError(
+                        "Managed identity revocation is pending; retry before changing the ENV provider."
+                    )
+            return
+        if config.service_identity_mode != "external":
+            return
+
+        for kind in ("runtime", "supervision"):
+            identity = endpoint.service_identity(kind)
+            if identity is None or identity.mode != "managed":
+                continue
+            replacing_managed = any(
+                (
+                    identity.rgw_uid,
+                    identity.access_key,
+                    identity.secret_key,
+                    identity.provenance,
+                )
+            )
+            if (kind in required or replacing_managed) and (
+                not getattr(config, f"{kind}_access_key")
+                or not getattr(config, f"{kind}_secret_key")
+            ):
+                raise ValueError(
+                    "ENV conversion to external mode requires replacement service credentials."
+                )
+            if not identity_management_enabled:
+                raise ValueError(
+                    "ENV identity conversion requires an administration instance."
+                )
+            if not identities.revoke(endpoint, kind):
+                raise ValueError(
+                    "Managed identity revocation is pending; retry ENV synchronization."
+                )
+            identity.mode = "external"
 
     def _clear_other_default_endpoints(self, default_url: str) -> None:
         endpoints = self.db.scalars(
