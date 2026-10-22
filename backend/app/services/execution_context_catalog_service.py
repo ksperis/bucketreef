@@ -24,6 +24,16 @@ from app.services.mappers.execution_context import (
 from app.services.tags_service import TagsService
 
 
+_DEFAULT_WORKSPACE_ORDER = (
+    "admin",
+    "manager",
+    "storage-ops",
+    "portal",
+    "browser",
+    "ceph-admin",
+)
+
+
 class ExecutionContextCatalogService:
     """Build execution-context catalogues and workspace availability."""
 
@@ -115,11 +125,7 @@ class ExecutionContextCatalogService:
         )
         return results
 
-    def workspace_access(self, user: User) -> WorkspaceAccess:
-        settings = app_settings_service.load_app_settings().general
-        runtime = get_runtime_settings()
-        effective = self.access_service.resolve_user(user)
-
+    def _workspace_context_counts(self, user: User, effective) -> dict[str, int]:
         manager_count = (
             sum(
                 1
@@ -153,6 +159,32 @@ class ExecutionContextCatalogService:
                 resolved=effective,
             )
         )
+        return {
+            "manager": manager_count,
+            "browser": browser_count,
+            "portal": portal_count,
+        }
+
+    @staticmethod
+    def _default_workspace(availability: dict[str, bool]) -> str | None:
+        return next(
+            (
+                workspace
+                for workspace in _DEFAULT_WORKSPACE_ORDER
+                if availability[workspace]
+            ),
+            None,
+        )
+
+    def _workspace_availability(
+        self,
+        user: User,
+        effective,
+        counts: dict[str, int],
+    ) -> dict[str, bool]:
+        settings = app_settings_service.load_app_settings().general
+        runtime = get_runtime_settings()
+        manager_count = counts["manager"]
 
         admin_available = bool(
             runtime_surface_enabled(runtime, "admin") and is_admin_ui_role(user.role)
@@ -177,53 +209,51 @@ class ExecutionContextCatalogService:
             runtime_surface_enabled(runtime, "browser")
             and settings.browser_enabled
             and settings.browser_root_enabled
-            and browser_count
+            and counts["browser"]
         )
         portal_available = bool(
             runtime_surface_enabled(runtime, "portal")
             and settings.portal_enabled
-            and portal_count
+            and counts["portal"]
         )
+        return {
+            "admin": admin_available,
+            "ceph-admin": ceph_admin_available,
+            "storage-ops": storage_ops_available,
+            "manager": manager_available,
+            "browser": browser_available,
+            "portal": portal_available,
+        }
 
-        if admin_available:
-            default_workspace = "admin"
-        elif manager_available:
-            default_workspace = "manager"
-        elif storage_ops_available:
-            default_workspace = "storage-ops"
-        elif portal_available:
-            default_workspace = "portal"
-        elif browser_available:
-            default_workspace = "browser"
-        elif ceph_admin_available:
-            default_workspace = "ceph-admin"
-        else:
-            default_workspace = None
+    def workspace_access(self, user: User) -> WorkspaceAccess:
+        effective = self.access_service.resolve_user(user)
+        counts = self._workspace_context_counts(user, effective)
+        availability = self._workspace_availability(user, effective, counts)
 
         return WorkspaceAccess(
             admin=WorkspaceAvailability(
-                available=admin_available,
-                context_count=1 if admin_available else 0,
+                available=availability["admin"],
+                context_count=1 if availability["admin"] else 0,
             ),
             ceph_admin=WorkspaceAvailability(
-                available=ceph_admin_available,
-                context_count=1 if ceph_admin_available else 0,
+                available=availability["ceph-admin"],
+                context_count=1 if availability["ceph-admin"] else 0,
             ),
             storage_ops=WorkspaceAvailability(
-                available=storage_ops_available,
-                context_count=manager_count if storage_ops_available else 0,
+                available=availability["storage-ops"],
+                context_count=counts["manager"] if availability["storage-ops"] else 0,
             ),
             manager=WorkspaceAvailability(
-                available=manager_available,
-                context_count=manager_count,
+                available=availability["manager"],
+                context_count=counts["manager"],
             ),
             browser=WorkspaceAvailability(
-                available=browser_available,
-                context_count=browser_count,
+                available=availability["browser"],
+                context_count=counts["browser"],
             ),
             portal=WorkspaceAvailability(
-                available=portal_available,
-                context_count=portal_count,
+                available=availability["portal"],
+                context_count=counts["portal"],
             ),
-            default_workspace=default_workspace,
+            default_workspace=self._default_workspace(availability),
         )
