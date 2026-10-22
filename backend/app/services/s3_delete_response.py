@@ -13,6 +13,48 @@ class ObjectDeletionFailure:
     message: str
 
 
+def _requested_versions_by_key(items: list[dict]) -> dict[str, set[str | None]]:
+    versions_by_key: dict[str, set[str | None]] = {}
+    for item in items:
+        versions_by_key.setdefault(item["Key"], set()).add(item.get("VersionId"))
+    return versions_by_key
+
+
+def _delete_error_identity(
+    error: Any,
+    versions_by_key: dict[str, set[str | None]],
+    *,
+    invalid_response: str,
+) -> tuple[str, str | None]:
+    key = error.get("Key") if isinstance(error, dict) else None
+    if not isinstance(key, str) or key not in versions_by_key:
+        raise RuntimeError(invalid_response)
+    versions = versions_by_key[key]
+    version_id = error.get("VersionId")
+    if version_id is None:
+        if len(versions) != 1:
+            raise RuntimeError(invalid_response)
+        return key, next(iter(versions))
+    if not isinstance(version_id, str) or version_id not in versions:
+        raise RuntimeError(invalid_response)
+    return key, version_id
+
+
+def _deletion_failure(
+    error: dict[str, Any],
+    *,
+    key: str,
+    version_id: str | None,
+) -> ObjectDeletionFailure:
+    code = str(error.get("Code") or "Error")
+    message = str(error.get("Message") or "")
+    return ObjectDeletionFailure(
+        key=key,
+        version_id=version_id,
+        message=sanitized_error_log_detail(f"{code}: {message}" if message else code),
+    )
+
+
 def parse_delete_objects_failures(
     response: Any, *, bucket_name: str, items: list[dict]
 ) -> list[ObjectDeletionFailure]:
@@ -26,32 +68,21 @@ def parse_delete_objects_failures(
     if not isinstance(response, dict) or not isinstance(response.get("Errors", []), list):
         raise RuntimeError(invalid_response)
 
-    versions_by_key: dict[str, set[str | None]] = {}
-    for item in items:
-        versions_by_key.setdefault(item["Key"], set()).add(item.get("VersionId"))
+    versions_by_key = _requested_versions_by_key(items)
 
     failures: dict[tuple[str, str | None], ObjectDeletionFailure] = {}
     for error in response.get("Errors", []):
-        key = error.get("Key") if isinstance(error, dict) else None
-        if not isinstance(key, str) or key not in versions_by_key:
-            raise RuntimeError(invalid_response)
-        versions = versions_by_key[key]
-        version_id = error.get("VersionId")
-        if version_id is None:
-            if len(versions) != 1:
-                raise RuntimeError(invalid_response)
-            version_id = next(iter(versions))
-        elif not isinstance(version_id, str) or version_id not in versions:
-            raise RuntimeError(invalid_response)
-
+        key, version_id = _delete_error_identity(
+            error,
+            versions_by_key,
+            invalid_response=invalid_response,
+        )
         identity = (key, version_id)
         if identity not in failures:
-            code = str(error.get("Code") or "Error")
-            message = str(error.get("Message") or "")
-            failures[identity] = ObjectDeletionFailure(
+            failures[identity] = _deletion_failure(
+                error,
                 key=key,
                 version_id=version_id,
-                message=sanitized_error_log_detail(f"{code}: {message}" if message else code),
             )
 
     return [
