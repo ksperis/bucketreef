@@ -21,10 +21,26 @@ from app.services.listing_progress import (
 from app.services.s3_execution_context import S3ExecutionTarget
 
 BUCKET_FEATURE_PARAM_MAX_WORKERS = 6
+_FEATURE_PARAM_SOURCE_ORDER = (
+    "props",
+    "lifecycle",
+    "logging",
+    "website",
+    "policy",
+    "notifications",
+    "encryption",
+)
 
 
 def bucket_identity_key(bucket: BucketListingSummary) -> str:
     return f"{bucket.tenant or ''}:{bucket.name}"
+
+
+def _load_feature_param_source(loader: Callable[[], object]) -> object:
+    try:
+        return loader()
+    except RuntimeError:
+        return FEATURE_PARAM_UNAVAILABLE
 
 
 def _load_feature_param_snapshot_for_bucket(
@@ -34,46 +50,22 @@ def _load_feature_param_snapshot_for_bucket(
     execution_context: S3ExecutionTarget,
 ) -> dict[str, object]:
     snapshot: dict[str, object] = {}
-    if "props" in required_sources:
-        try:
-            snapshot["props"] = service.get_bucket_properties(bucket.name, execution_context)
-        except RuntimeError:
-            snapshot["props"] = FEATURE_PARAM_UNAVAILABLE
-    if "lifecycle" in required_sources:
-        try:
-            snapshot["lifecycle"] = service.get_lifecycle(bucket.name, execution_context).rules or []
-        except RuntimeError:
-            snapshot["lifecycle"] = FEATURE_PARAM_UNAVAILABLE
-    if "logging" in required_sources:
-        try:
-            snapshot["logging"] = service.get_bucket_logging(bucket.name, execution_context)
-        except RuntimeError:
-            snapshot["logging"] = FEATURE_PARAM_UNAVAILABLE
-    if "website" in required_sources:
-        try:
-            snapshot["website"] = service.get_bucket_website(bucket.name, execution_context)
-        except RuntimeError:
-            snapshot["website"] = FEATURE_PARAM_UNAVAILABLE
-    if "policy" in required_sources:
-        try:
-            snapshot["policy"] = service.get_policy(bucket.name, execution_context)
-        except RuntimeError:
-            snapshot["policy"] = FEATURE_PARAM_UNAVAILABLE
-    if "notifications" in required_sources:
-        if not execution_context_sns_feature_enabled(execution_context):
-            snapshot["notifications"] = FEATURE_PARAM_UNAVAILABLE
-        else:
-            try:
-                snapshot["notifications"] = (
-                    service.get_bucket_notifications(bucket.name, execution_context).configuration or {}
-                )
-            except RuntimeError:
-                snapshot["notifications"] = FEATURE_PARAM_UNAVAILABLE
-    if "encryption" in required_sources:
-        try:
-            snapshot["encryption"] = service.get_bucket_encryption(bucket.name, execution_context)
-        except RuntimeError:
-            snapshot["encryption"] = FEATURE_PARAM_UNAVAILABLE
+    source_loaders: dict[str, Callable[[], object]] = {
+        "props": lambda: service.get_bucket_properties(bucket.name, execution_context),
+        "lifecycle": lambda: service.get_lifecycle(bucket.name, execution_context).rules or [],
+        "logging": lambda: service.get_bucket_logging(bucket.name, execution_context),
+        "website": lambda: service.get_bucket_website(bucket.name, execution_context),
+        "policy": lambda: service.get_policy(bucket.name, execution_context),
+        "notifications": lambda: service.get_bucket_notifications(bucket.name, execution_context).configuration or {},
+        "encryption": lambda: service.get_bucket_encryption(bucket.name, execution_context),
+    }
+    for source in _FEATURE_PARAM_SOURCE_ORDER:
+        if source not in required_sources:
+            continue
+        if source == "notifications" and not execution_context_sns_feature_enabled(execution_context):
+            snapshot[source] = FEATURE_PARAM_UNAVAILABLE
+            continue
+        snapshot[source] = _load_feature_param_source(source_loaders[source])
     return snapshot
 
 
