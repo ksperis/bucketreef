@@ -5,11 +5,9 @@
 import { type ReactNode, useId } from "react";
 
 import PageTabs, { PageTabPanel, type PageTab } from "../../components/PageTabs";
-import UiDrawer, { UiDrawerHeader, uiDrawerBodyClass } from "../../components/ui/UiDrawer";
-import UiIconButton from "../../components/ui/UiIconButton";
+import UiDrawer, { UiDrawerCloseButton, UiDrawerHeader, uiDrawerBodyClass } from "../../components/ui/UiDrawer";
 import { cx, uiTitleTextClass } from "../../components/ui/styles";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
-import { XIcon } from "../browser/browserIcons";
 import { useI18n } from "../../i18n";
 
 const DETAILS_DRAWER_MODAL_MEDIA_QUERY = "(max-width: 1023px)";
@@ -57,7 +55,7 @@ export default function DetailsDrawerShell({
       onClose={onClose}
       returnFocus={returnFocus}
       onEscape={onEscape}
-      rootClassName="inset-0 lg:left-auto lg:top-14"
+      workspace
       surfaceClassName="w-full lg:w-[min(48rem,calc(100vw-20rem))]"
     >
         <UiDrawerHeader className={hasTabs ? "border-b-0 pb-0" : undefined}>
@@ -74,11 +72,9 @@ export default function DetailsDrawerShell({
             </div>
             <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
               {actions}
-              <UiIconButton
-                variant="ghost"
-                onClick={onClose}
+              <UiDrawerCloseButton
+                onClose={onClose}
                 label={t({ en: "Close details", fr: "Fermer les détails", de: "Details schließen", zh: "关闭详情" })}
-                icon={<XIcon className="h-4 w-4" />}
               />
             </div>
           </div>

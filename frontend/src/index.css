@@ -210,6 +210,22 @@ body {
     color: var(--shell-text);
   }
 
+  .ui-workspace-drawer[data-modal="true"] {
+    z-index: 48;
+  }
+
+  @media (min-width: 1024px) {
+    .ui-workspace-drawer[data-modal] {
+      top: var(--workspace-content-top, 3.5rem);
+    }
+
+    .ui-workspace-drawer > section {
+      top: 8px;
+      border-top-width: 1px;
+      border-top-left-radius: 8px;
+    }
+  }
+
   .shell-sidebar,
   .shell-topbar {
     border-color: var(--shell-border);
@@ -290,9 +306,7 @@ body {
   }
 
   .shell-utility-tooltip {
-    @apply absolute left-1/2 top-full z-10 whitespace-nowrap rounded-md px-2.5 py-1.5 ui-caption;
-    transform: translateX(-50%);
-    margin-top: 8px;
+    @apply relative block whitespace-nowrap rounded-md px-2.5 py-1.5 ui-caption;
     background: var(--shell-text);
     color: var(--shell-topbar-bg);
   }

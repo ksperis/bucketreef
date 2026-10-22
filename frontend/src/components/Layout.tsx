@@ -18,6 +18,7 @@ import { useWorkspaceSwitcherModel } from "./EnvironmentSwitcher";
 import Topbar from "./Topbar";
 import type { TopbarControlDescriptor } from "./topbarControlsLayout";
 import UiDrawer from "./ui/UiDrawer";
+import { useWorkspaceDrawerAnchor } from "./useWorkspaceDrawerAnchor";
 import {
   CLIENT_STORAGE_KEYS,
   clearAuthStorage,
@@ -80,6 +81,7 @@ export default function Layout({
   children,
 }: LayoutProps) {
   const location = useLocation();
+  const workspaceContentRef = useWorkspaceDrawerAnchor();
   const { locale, text } = useShellI18n();
   const { generalSettings } = useGeneralSettings();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -180,7 +182,7 @@ export default function Layout({
             profilePath={resolveWorkspaceProfilePath(location.pathname)}
           />
         )}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div ref={workspaceContentRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {shouldShowSidebar && mobileSidebarOpen ? (
             <UiDrawer
               ariaLabelledBy="mobile-navigation-title"
