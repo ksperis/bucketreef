@@ -210,6 +210,81 @@ def test_usage_history_trends_aggregate_endpoint_subjects(client: TestClient, db
     ]
 
 
+def test_usage_history_trends_aggregate_hourly_records(client: TestClient, db_session, monkeypatch):
+    monkeypatch.setattr(usage_history_router, "load_app_settings", lambda: _settings(usage_history_enabled=True))
+    monkeypatch.setattr(
+        usage_history_service,
+        "utcnow",
+        lambda: datetime(2026, 6, 9, 12, 0, 0, tzinfo=UTC),
+    )
+    endpoint = _seed_endpoint(db_session)
+    s3_user = S3User(
+        name="S3 User",
+        rgw_user_uid="s3-user",
+        rgw_access_key="uak",
+        rgw_secret_key="usk",
+        storage_endpoint_id=endpoint.id,
+    )
+    other_s3_user = S3User(
+        name="Other S3 User",
+        rgw_user_uid="other-s3-user",
+        rgw_access_key="oak",
+        rgw_secret_key="osk",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add_all([s3_user, other_s3_user])
+    db_session.commit()
+    db_session.add_all(
+        [
+            QuotaUsageHourly(
+                hour_ts=datetime(2026, 6, 9, 10, 0, 0, tzinfo=UTC),
+                storage_endpoint_id=endpoint.id,
+                s3_user_id=other_s3_user.id,
+                used_bytes=512,
+                used_objects=2,
+                bucket_count=1,
+                usage_ratio_pct=20.0,
+                collected_at=datetime(2026, 6, 9, 10, 15, 0, tzinfo=UTC),
+            ),
+            QuotaUsageHourly(
+                hour_ts=datetime(2026, 6, 9, 10, 0, 0, tzinfo=UTC),
+                storage_endpoint_id=endpoint.id,
+                s3_user_id=s3_user.id,
+                used_bytes=256,
+                used_objects=1,
+                bucket_count=1,
+                usage_ratio_pct=10.0,
+                collected_at=datetime(2026, 6, 9, 10, 30, 0, tzinfo=UTC),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    response = client.get(
+        "/api/admin/usage-history/trends",
+        params={"window": "day", "subject_type": "s3_user"},
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["granularity"] == "hourly"
+    assert payload["summary"]["total_records"] == 2
+    assert payload["summary"]["subjects_count"] == 2
+    assert payload["summary"]["latest_used_bytes"] == 768
+    assert payload["points"] == [
+        {
+            "period_start": "2026-06-09T10:00:00+00:00",
+            "used_bytes": 768,
+            "used_objects": 3,
+            "bucket_count": 2,
+            "max_usage_ratio_pct": 20.0,
+            "subjects_count": 2,
+            "samples_count": 2,
+            "collected_at": "2026-06-09T10:30:00+00:00",
+        }
+    ]
+
+
 def test_usage_history_trends_require_enabled_feature(client: TestClient, monkeypatch):
     monkeypatch.setattr(usage_history_router, "load_app_settings", lambda: _settings(usage_history_enabled=False))
 
