@@ -26,12 +26,18 @@ http {
     default $browser_transfer_asset;
     "" /__browser_transfer_policy_missing__;
   }
+  map $uri $frontend_cache_control {
+    default "";
+    /index.html "no-cache, must-revalidate";
+    ~^/assets/ "public, max-age=31536000, immutable";
+  }
 
   server {
     listen 8080;
     server_name _;
 
     add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; connect-src ${CSP_CONNECT_SRC}" always;
+    add_header Cache-Control $frontend_cache_control always;
     include /etc/nginx/bucketreef-security-headers.conf;
 
     root /usr/share/nginx/html;
@@ -59,6 +65,14 @@ http {
       etag off;
       if_modified_since off;
       try_files $browser_transfer_file =404;
+    }
+
+    location = /index.html {
+      try_files $uri =404;
+    }
+
+    location /assets/ {
+      try_files $uri =404;
     }
 
     location ~ ^/api/browser/buckets/[^/]+/proxy-upload$ {

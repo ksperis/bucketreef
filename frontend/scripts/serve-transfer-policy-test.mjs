@@ -74,6 +74,8 @@ export function browserTransferWorkerUrl() {
   await build({ configFile: false, root, logLevel: "warn", build: { outDir: dist, lib: { entry, formats: ["es"], fileName: () => "transport.js" } } });
   await writeFile(join(dist, "entry.js"), "import * as transport from '/transport.js'; window.cspTransport = transport;");
   await writeFile(join(dist, "index.html"), '<!doctype html><title>BucketReef CSP integration</title><script type="module" src="/entry.js"></script>');
+  await mkdir(join(dist, "assets"), { recursive: true });
+  await writeFile(join(dist, "assets", "cache-probe-AbCd1234.js"), "export const cacheProbe = true;\n");
   await mkdir(join(temp, "logs"));
   let config = await readFile(join(root, "nginx.conf.template"), "utf8");
   config = config.replaceAll("${CSP_CONNECT_SRC}", "'self'")
