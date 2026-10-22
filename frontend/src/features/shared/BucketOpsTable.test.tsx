@@ -134,6 +134,28 @@ describe("BucketOpsTable", () => {
     );
   });
 
+  it("marks the viewed row independently from checkbox selection", () => {
+    render(
+      <BucketOpsTable
+        columns={columns}
+        detailLoadingColumnIds={new Set()}
+        items={[bucket]}
+        loadingDetails={false}
+        onSort={vi.fn()}
+        showAdvancedFilter={false}
+        sort={{ field: "name", direction: "asc" }}
+        status="ready"
+        usageFeatureEnabled
+        isViewed={(item) => item.name === "archive"}
+      />,
+    );
+
+    const row = screen.getByText("archive").closest("tr");
+    expect(row).toHaveAttribute("data-viewed", "true");
+    expect(row).toHaveClass("ui-current-item");
+    expect(screen.getByRole("checkbox", { name: "Select archive" })).not.toBeChecked();
+  });
+
   it.each([
     ["loading", "Loading buckets..."],
     ["error", "Unable to load buckets."],

@@ -49,7 +49,9 @@ describe("BucketOpsTableCells", () => {
         <BucketOpsNameCell
           bucket={{ ...bucket, bucket_name: "archive" }}
           onConfigure={onConfigure}
+          rowKey="account-1:archive"
           useExplicitBucketName
+          viewed
         />
       </>,
     );
@@ -67,6 +69,14 @@ describe("BucketOpsTableCells", () => {
     expect(onSelectAll).toHaveBeenCalledWith(true);
     expect(onToggle).toHaveBeenCalledOnce();
     expect(onConfigure).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "archive" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "archive" })).toHaveAttribute(
+      "data-bucket-row-key",
+      "account-1:archive",
+    );
   });
 
   it("renders compact S3 tags and delegates tooltip transitions", () => {

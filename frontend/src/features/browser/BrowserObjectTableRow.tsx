@@ -96,7 +96,7 @@ export default function BrowserObjectTableRow({
       }
       onClick={onClick}
       onContextMenu={onContextMenu}
-      className={`ui-browser-row ${rowHeightClasses} cursor-pointer transition-colors`}
+      className={`ui-browser-row ui-current-item ${rowHeightClasses} cursor-pointer transition-colors`}
     >
       <td className={`px-2 ${rowCellClasses} !align-middle`}>
         <ListSelectionCheckbox

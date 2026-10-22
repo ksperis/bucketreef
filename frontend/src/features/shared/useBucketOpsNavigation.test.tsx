@@ -4,11 +4,8 @@
  */
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
-import {
-  loadBucketListReturnContext,
-  saveBucketListReturnContext,
-} from "./bucketListReturnContext";
 import { useBucketOpsNavigation } from "./useBucketOpsNavigation";
 
 const routerMocks = vi.hoisted(() => ({
@@ -35,28 +32,32 @@ const storageBucket: CephAdminBucket = {
   bucket_name: "bucket-a",
   context_id: "account-1",
 };
-
-function createOptions() {
-  return {
-    items: [storageBucket],
-    loading: false,
-    mode: "storage-ops" as const,
-    persistCurrentListState: vi.fn(),
-    selectedEndpointId: 1,
-  };
-}
+const storageBucketOtherContext: CephAdminBucket = {
+  name: "account-2::bucket-a",
+  bucket_name: "bucket-a",
+  context_id: "account-2",
+};
+const storageBucketNext: CephAdminBucket = {
+  name: "account-2::bucket-b",
+  bucket_name: "bucket-b",
+  context_id: "account-2",
+};
 
 describe("useBucketOpsNavigation", () => {
   beforeEach(() => {
     routerMocks.location.pathname = "/storage-ops/buckets";
     routerMocks.location.search = "";
     routerMocks.navigate.mockReset();
-    window.sessionStorage.clear();
   });
 
-  it("navigates to compatible row actions", () => {
-    const options = createOptions();
-    const { result } = renderHook(() => useBucketOpsNavigation(options));
+  it("navigates compatible row actions to their separate workspace", () => {
+    const { result } = renderHook(() =>
+      useBucketOpsNavigation({
+        items: [storageBucket],
+        mode: "storage-ops",
+        selectedEndpointId: 1,
+      }),
+    );
 
     act(() => result.current.navigateToBucketAction("manager", storageBucket));
 
@@ -66,75 +67,95 @@ describe("useBucketOpsNavigation", () => {
     });
   });
 
-  it("persists the list context before opening bucket configuration", () => {
-    const options = createOptions();
-    Object.defineProperty(window, "scrollY", {
-      configurable: true,
-      value: 420,
-    });
+  it("opens Storage Ops configuration in-place and preserves list query state", () => {
     routerMocks.location.search = "?owner=alice";
-    const { result } = renderHook(() => useBucketOpsNavigation(options));
+    const { result } = renderHook(() =>
+      useBucketOpsNavigation({
+        items: [storageBucket],
+        mode: "storage-ops",
+        selectedEndpointId: 1,
+      }),
+    );
 
     act(() => result.current.openBucketConfiguration(storageBucket));
 
-    expect(options.persistCurrentListState).toHaveBeenCalledOnce();
-    expect(
-      loadBucketListReturnContext("storage-ops", "storage-ops"),
-    ).toMatchObject({
-      listUrl: "/storage-ops/buckets?owner=alice",
-      rowKey: "account-1::bucket-a",
-      scrollY: 420,
-    });
     expect(routerMocks.navigate).toHaveBeenCalledWith(
       {
-        pathname: "/storage-ops/buckets/bucket-a",
-        search: "?ctx=account-1",
+        pathname: "/storage-ops/buckets",
+        search: "?owner=alice&configure=bucket-a&configure_ctx=account-1",
       },
-      {
-        state: {
-          bucketListOrigin: {
-            surface: "storage-ops",
-            scopeKey: "storage-ops",
-            listUrl: "/storage-ops/buckets?owner=alice",
-          },
-        },
-      },
+      { replace: false },
     );
   });
 
-  it("restores the saved scroll position and row focus", () => {
-    const rowButton = document.createElement("button");
-    rowButton.dataset.bucketRowKey = storageBucket.name;
-    document.body.appendChild(rowButton);
-    saveBucketListReturnContext(
+  it("opens Ceph Admin configuration with an endpoint-qualified deep link", () => {
+    routerMocks.location.pathname = "/ceph-admin/buckets";
+    const cephBucket: CephAdminBucket = { name: "bucket-a" };
+    const { result } = renderHook(() =>
+      useBucketOpsNavigation({
+        items: [cephBucket],
+        mode: "ceph-admin",
+        selectedEndpointId: 7,
+      }),
+    );
+
+    act(() => result.current.openBucketConfiguration(cephBucket));
+
+    expect(routerMocks.navigate).toHaveBeenCalledWith(
       {
-        surface: "storage-ops",
-        scopeKey: "storage-ops",
-        listUrl: "/storage-ops/buckets",
+        pathname: "/ceph-admin/buckets",
+        search: "?configure=bucket-a&ep=7",
       },
-      storageBucket.name,
-      320,
+      { replace: false },
     );
-    const scrollTo = vi
-      .spyOn(window, "scrollTo")
-      .mockImplementation(() => undefined);
-    const requestAnimationFrame = vi
-      .spyOn(window, "requestAnimationFrame")
-      .mockImplementation((callback) => {
-        callback(0);
-        return 1;
-      });
+  });
 
-    const { unmount } = renderHook(() =>
-      useBucketOpsNavigation(createOptions()),
+  it("resolves a deep link by bucket and context and navigates within loaded order", () => {
+    routerMocks.location.search = "?configure=bucket-a&configure_ctx=account-2";
+    const items = [storageBucket, storageBucketOtherContext, storageBucketNext];
+    const { result } = renderHook(() =>
+      useBucketOpsNavigation({
+        items,
+        mode: "storage-ops",
+        selectedEndpointId: 1,
+      }),
     );
 
-    expect(scrollTo).toHaveBeenCalledWith({ top: 320, behavior: "auto" });
-    expect(rowButton).toHaveFocus();
+    expect(result.current.configurationTarget).toEqual({
+      bucketName: "bucket-a",
+      contextId: "account-2",
+    });
+    expect(result.current.configurationNavigation?.position).toBe("2 / 3");
 
-    unmount();
-    requestAnimationFrame.mockRestore();
-    scrollTo.mockRestore();
-    rowButton.remove();
+    act(() => result.current.configurationNavigation?.next?.());
+    expect(routerMocks.navigate).toHaveBeenCalledWith(
+      {
+        pathname: "/storage-ops/buckets",
+        search: "?configure=bucket-b&configure_ctx=account-2",
+      },
+      { replace: true },
+    );
+  });
+
+  it("closes the drawer without losing unrelated list query state", () => {
+    routerMocks.location.search =
+      "?owner=alice&configure=bucket-a&configure_ctx=account-1";
+    const { result } = renderHook(() =>
+      useBucketOpsNavigation({
+        items: [storageBucket],
+        mode: "storage-ops",
+        selectedEndpointId: 1,
+      }),
+    );
+
+    act(() => result.current.closeBucketConfiguration());
+
+    expect(routerMocks.navigate).toHaveBeenCalledWith(
+      {
+        pathname: "/storage-ops/buckets",
+        search: "?owner=alice",
+      },
+      { replace: true },
+    );
   });
 });

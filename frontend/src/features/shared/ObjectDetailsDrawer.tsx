@@ -2,22 +2,17 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useI18n } from "../../i18n";
-
-export type ObjectPreviewNavigation = {
-  previous?: () => void;
-  next?: () => void;
-  position?: string;
-  focus?: "previous" | "next";
-  returnFocus?: () => HTMLElement | null;
-};
 
 import UiActionMenu from "../../components/ui/UiActionMenu";
 import UiButton, { uiButtonClassName } from "../../components/ui/UiButton";
-import UiIconButton from "../../components/ui/UiIconButton";
-import { ChevronDownIcon } from "../browser/browserIcons";
 import DetailsDrawerShell from "./DetailsDrawerShell";
+import DetailsDrawerNavigation, {
+  type DetailsDrawerNavigationState,
+} from "./DetailsDrawerNavigation";
+
+export type ObjectPreviewNavigation = DetailsDrawerNavigationState;
 
 type ObjectDetailsDrawerAction = {
   id: string;
@@ -69,53 +64,15 @@ export default function ObjectDetailsDrawer({
   tabsAriaLabel,
 }: ObjectDetailsDrawerProps) {
   const { t } = useI18n();
-  const navigationRef = useRef<HTMLDivElement>(null);
-  const previousRef = useRef<HTMLButtonElement>(null);
-  const nextRef = useRef<HTMLButtonElement>(null);
-  const requestedFocus = navigation?.focus;
-  useEffect(() => {
-    if (!requestedFocus) return;
-    const preferred = requestedFocus === "next" ? nextRef.current : previousRef.current;
-    const alternative = requestedFocus === "next" ? previousRef.current : nextRef.current;
-    const target = preferred && !preferred.disabled ? preferred
-      : alternative && !alternative.disabled ? alternative : navigationRef.current;
-    target?.focus({ preventScroll: true });
-  }, [requestedFocus]);
-  const hasNavigation = navigation && (
-    navigation.position || navigation.previous || navigation.next
-  );
-  const navigationActions = hasNavigation ? (
-    <div
-      className="flex shrink-0 items-center gap-1"
-      ref={navigationRef}
-      tabIndex={-1}
-      role="group"
-      aria-label={t({ en: "Loaded files", fr: "Fichiers chargés", de: "Geladene Dateien", zh: "已加载的文件" })}
-    >
-      <UiIconButton
-        ref={previousRef}
-        variant="ghost"
-        className="max-lg:h-11 max-lg:w-11"
-        label={t({ en: "Previous object", fr: "Objet précédent", de: "Vorheriges Objekt", zh: "上一个对象" })}
-        icon={<ChevronDownIcon className="h-4 w-4 rotate-90" />}
-        disabled={!navigation.previous}
-        onClick={navigation.previous}
-      />
-      {navigation.position ? (
-        <span className="ui-caption whitespace-nowrap tabular-nums text-[var(--ui-text-muted)]">
-          {navigation.position}
-        </span>
-      ) : null}
-      <UiIconButton
-        ref={nextRef}
-        variant="ghost"
-        className="max-lg:h-11 max-lg:w-11"
-        label={t({ en: "Next object", fr: "Objet suivant", de: "Nächstes Objekt", zh: "下一个对象" })}
-        icon={<ChevronDownIcon className="h-4 w-4 -rotate-90" />}
-        disabled={!navigation.next}
-        onClick={navigation.next}
-      />
-    </div>
+  const navigationActions = navigation ? (
+    <DetailsDrawerNavigation
+      navigation={navigation}
+      labels={{
+        group: t({ en: "Loaded files", fr: "Fichiers chargés", de: "Geladene Dateien", zh: "已加载的文件" }),
+        previous: t({ en: "Previous object", fr: "Objet précédent", de: "Vorheriges Objekt", zh: "上一个对象" }),
+        next: t({ en: "Next object", fr: "Objet suivant", de: "Nächstes Objekt", zh: "下一个对象" }),
+      }}
+    />
   ) : undefined;
 
   return (

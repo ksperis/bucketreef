@@ -26,6 +26,7 @@ type DetailsDrawerShellProps = {
   tabs?: readonly PageTab[];
   tabsAriaLabel?: string;
   title: string;
+  width?: "default" | "wide";
 };
 
 export default function DetailsDrawerShell({
@@ -42,6 +43,7 @@ export default function DetailsDrawerShell({
   tabs = [],
   tabsAriaLabel,
   title,
+  width = "default",
 }: DetailsDrawerShellProps) {
   const { t } = useI18n();
   const idPrefix = useId();
@@ -56,7 +58,11 @@ export default function DetailsDrawerShell({
       returnFocus={returnFocus}
       onEscape={onEscape}
       workspace
-      surfaceClassName="w-full lg:w-[min(48rem,calc(100vw-20rem))]"
+      surfaceClassName={
+        width === "wide"
+          ? "w-full lg:w-[min(64rem,calc(100vw-24rem))]"
+          : "w-full lg:w-[min(48rem,calc(100vw-20rem))]"
+      }
     >
         <UiDrawerHeader className={hasTabs ? "border-b-0 pb-0" : undefined}>
           <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">

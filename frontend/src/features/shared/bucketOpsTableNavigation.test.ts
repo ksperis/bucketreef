@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
-import {
-  buildBucketOpsListOrigin,
-  buildBucketOpsNavigationTarget,
-} from "./bucketOpsTableNavigation";
+import { buildBucketOpsNavigationTarget } from "./bucketOpsTableNavigation";
 
 const cephBucket: CephAdminBucket = { name: "logs/archive" };
 const storageBucket: CephAdminBucket = {
@@ -13,18 +10,7 @@ const storageBucket: CephAdminBucket = {
 };
 
 describe("bucketOpsTableNavigation", () => {
-  it("builds Ceph Admin configuration and browser destinations", () => {
-    expect(
-      buildBucketOpsNavigationTarget({
-        action: "configure",
-        bucket: cephBucket,
-        mode: "ceph-admin",
-        selectedEndpointId: 7,
-      }),
-    ).toEqual({
-      pathname: "/ceph-admin/buckets/logs%2Farchive",
-      search: "?ep=7",
-    });
+  it("builds the Ceph Admin browser destination", () => {
     expect(
       buildBucketOpsNavigationTarget({
         action: "browser",
@@ -38,18 +24,7 @@ describe("bucketOpsTableNavigation", () => {
     });
   });
 
-  it("builds Storage Ops configuration and Manager destinations", () => {
-    expect(
-      buildBucketOpsNavigationTarget({
-        action: "configure",
-        bucket: storageBucket,
-        mode: "storage-ops",
-        selectedEndpointId: 1,
-      }),
-    ).toEqual({
-      pathname: "/storage-ops/buckets/logs%2Farchive",
-      search: "?ctx=account+1",
-    });
+  it("builds the Storage Ops Manager destination", () => {
     expect(
       buildBucketOpsNavigationTarget({
         action: "manager",
@@ -82,50 +57,10 @@ describe("bucketOpsTableNavigation", () => {
     ).toBeNull();
     expect(
       buildBucketOpsNavigationTarget({
-        action: "configure",
+        action: "manager",
         bucket: { name: "missing-context" },
         mode: "storage-ops",
         selectedEndpointId: 1,
-      }),
-    ).toBeNull();
-    expect(
-      buildBucketOpsNavigationTarget({
-        action: "configure",
-        bucket: cephBucket,
-        mode: "ceph-admin",
-        selectedEndpointId: null,
-      }),
-    ).toBeNull();
-  });
-
-  it("builds canonical list origins only for an active scope", () => {
-    expect(
-      buildBucketOpsListOrigin({
-        listUrl: "/storage-ops/buckets?owner=alice",
-        mode: "storage-ops",
-        selectedEndpointId: 1,
-      }),
-    ).toEqual({
-      surface: "storage-ops",
-      scopeKey: "storage-ops",
-      listUrl: "/storage-ops/buckets?owner=alice",
-    });
-    expect(
-      buildBucketOpsListOrigin({
-        listUrl: "/ceph-admin/buckets",
-        mode: "ceph-admin",
-        selectedEndpointId: 7,
-      }),
-    ).toEqual({
-      surface: "ceph-admin",
-      scopeKey: "7",
-      listUrl: "/ceph-admin/buckets",
-    });
-    expect(
-      buildBucketOpsListOrigin({
-        listUrl: "/ceph-admin/buckets",
-        mode: "ceph-admin",
-        selectedEndpointId: null,
       }),
     ).toBeNull();
   });

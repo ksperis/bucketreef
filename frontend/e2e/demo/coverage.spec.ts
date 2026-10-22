@@ -8,7 +8,7 @@ const routes = [
   "/manager/roles/ApplicationReadOnly", "/manager/roles/ApplicationReadOnly/trust", "/manager/roles/ApplicationReadOnly/policies",
   "/admin/users", "/admin/groups", "/admin/s3-accounts", "/admin/storage-endpoints", "/admin/s3-connections", "/admin/general-settings", "/admin/authentication-settings", "/admin/portal-requests", "/admin/access-audit", "/admin/audit", "/admin/metrics", "/admin/cost", "/admin/manager-settings", "/admin/browser-settings", "/admin/portal-settings", "/admin/webhook-settings", "/admin/api-tokens", "/admin/endpoint-status", "/admin/endpoint-status/11",
   "/portal/storage-spaces", "/portal/storage-spaces/space-1", "/portal/shares", "/portal/requests", "/portal/usage", "/portal/history", "/portal/access-keys",
-  "/ceph-admin/accounts", "/ceph-admin/users", "/ceph-admin/buckets", "/ceph-admin/metrics", "/ceph-admin/buckets/helios-documents",
+  "/ceph-admin/accounts", "/ceph-admin/users", "/ceph-admin/buckets", "/ceph-admin/metrics", "/ceph-admin/buckets?ep=11&configure=helios-documents",
 ];
 test("coverage: retained screens resolve every business request", async ({ page }) => {
   test.setTimeout(180_000);

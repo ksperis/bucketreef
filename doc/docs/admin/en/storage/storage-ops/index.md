@@ -43,13 +43,14 @@ The dashboard remains a single compact summary of authorized contexts, accounts,
    - bucket quota values remain available for inventory and export, but quota
      writes are intentionally unavailable from Storage Ops.
    - selected buckets can run usage-stat calculations, with the latest snapshot
-     available from each bucket detail page on the **Usage stats** tab.
-   - bucket configuration opens on
-     `/storage-ops/buckets/<bucket>?ctx=<execution-context>`. Use **Back to
-     buckets**, the **Buckets** breadcrumb, or the browser Back button to restore
-     the originating filters, sort, page, scroll position, and
-     focused bucket. Direct URLs require `ctx`; Storage Ops never chooses a
-     different execution context implicitly.
+     available from each bucket configuration drawer on the **Usage stats** tab.
+   - bucket configuration opens in a wide drawer while the workbench remains
+     mounted. Deep links use
+     `/storage-ops/buckets?configure=<bucket>&configure_ctx=<execution-context>`.
+     The current row is marked independently from checkbox selection, and
+     **Previous** / **Next** navigate across the loaded rows without changing
+     the selected buckets. Direct URLs require `configure_ctx`; Storage Ops
+     never chooses a different execution context implicitly.
 5. In **Advanced filter**, use the compact **Context** and **Endpoint**
    selectors to pick authorized scopes directly. Their quick filters match
    names, types, and standard tags, and **Select filtered** / **Deselect

@@ -115,7 +115,7 @@ export default function BrowserObjectMobileList({
               onItemNameClick(event, item);
             }}
             onContextMenu={(event) => onItemContextMenu(event, item)}
-            className="grid min-h-16 cursor-pointer grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-1 px-2 py-2 transition-colors"
+            className="ui-current-item grid min-h-16 cursor-pointer grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-1 px-2 py-2 transition-colors"
           >
             <ListSelectionCheckbox
               checked={!isDeleted && isSelected}

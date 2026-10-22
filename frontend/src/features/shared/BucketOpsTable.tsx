@@ -35,6 +35,7 @@ type BucketOpsTableProps = {
   sort: { field: SortField; direction: "asc" | "desc" };
   status: ListTableStatus;
   usageFeatureEnabled: boolean;
+  isViewed?: (bucket: CephAdminBucket) => boolean;
 };
 
 const expensiveColumnClass = "bg-amber-50/60 dark:bg-amber-900/20";
@@ -99,6 +100,7 @@ export default function BucketOpsTable({
   sort,
   status,
   usageFeatureEnabled,
+  isViewed,
 }: BucketOpsTableProps) {
   const { text: surfaceText } = useSharedI18n();
   return (
@@ -174,10 +176,13 @@ export default function BucketOpsTable({
           {status === "empty" && (
             <TableEmptyState colSpan={columns.length} message={surfaceText("No buckets.")} />
           )}
-          {items.map((bucket) => (
+          {items.map((bucket) => {
+            const viewed = isViewed?.(bucket) === true;
+            return (
             <tr
               key={`${bucket.tenant ?? ""}:${bucket.name}`}
-              className="group hover:bg-slate-50 dark:hover:bg-slate-800/40"
+              data-viewed={viewed || undefined}
+              className="ui-current-item group hover:bg-slate-50 dark:hover:bg-slate-800/40"
             >
               {columns.map((column) => (
                 <td
@@ -206,7 +211,8 @@ export default function BucketOpsTable({
                 </td>
               ))}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

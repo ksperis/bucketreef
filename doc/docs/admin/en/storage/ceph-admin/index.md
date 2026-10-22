@@ -33,7 +33,7 @@ See the [dashboard preview](/developer/en/documentation/screenshots-gallery/#cep
    selection tools, **S3 API** operations, **RGW Admin Ops**, and destructive
    S3 operations. Bulk configuration actions include lifecycle rules and bucket notification
    configurations, with preview before apply. Selected buckets can also run
-   usage-stat calculations, and each bucket detail page exposes the latest
+   usage-stat calculations, and each bucket configuration drawer exposes the latest
    snapshot from the **Usage stats** tab.
 5. Bucket listings are cached for up to 30 minutes to reduce RGW load. Use **Refresh** in the bucket workbench to flush the cache and reload the current listing.
 
@@ -45,10 +45,13 @@ shows the endpoint, target, impact, available options, required confirmation,
 and the result returned by RGW. The result stays open and includes the RGW HTTP
 status, the Ceph error code when present, and the JSON or text response body.
 
-Bucket configuration opens on `/ceph-admin/buckets/<bucket>?ep=<endpoint>`. Use
-**Back to buckets**, the **Buckets** breadcrumb, or the browser Back button to
-return to the originating list with its endpoint, filters, sort, page, selection,
-scroll position, and focused bucket preserved.
+Bucket configuration opens in a wide drawer while the bucket workbench stays
+mounted. The URL remains deep-linkable as
+`/ceph-admin/buckets?ep=<endpoint>&configure=<bucket>`. The currently viewed
+bucket is marked in the list independently from checkbox selection, and the
+drawer provides **Previous** / **Next** navigation across the loaded rows. Close
+the drawer to return to the unchanged list with its filters, sort, page,
+selection, and scroll position preserved.
 
 ### Accounts
 
