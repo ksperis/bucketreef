@@ -121,6 +121,9 @@ of the file name and loaded-list position. Keep the row visible by scrolling
 only the object list when necessary. Object changes retain focus on the
 requested navigation control, falling back to an enabled neighbor at a boundary;
 closing returns focus to the last viewed row, or the list if it disappeared.
+Keep checked-row backgrounds stable on hover. Focus outlines belong only to
+individual controls in keyboard navigation (`:focus-visible`); do not also
+outline their containing row with `focus-within`.
 
 ## Compact configuration inventories
 
