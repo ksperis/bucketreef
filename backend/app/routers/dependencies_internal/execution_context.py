@@ -210,6 +210,54 @@ def manager_membership_capabilities(
     )
 
 
+def _resolve_session_account_record(
+    db: Session,
+    actor: ManagerSessionPrincipal,
+    account_id: Optional[int],
+) -> Optional[S3Account]:
+    if not actor.account_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="S3Account context unavailable for session",
+        )
+    if account_id and account_id > 0:
+        account = resolve_account_by_id(db, account_id)
+        if account.rgw_account_id.lower() != actor.account_id.lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized for this account",
+            )
+        return account
+    return get_s3_accounts_service(db).find_account_by_rgw_id(actor.account_id)
+
+
+def _resolve_session_storage_endpoint(
+    db: Session,
+    account: Optional[S3Account],
+    requested_endpoint: Optional[str],
+    *,
+    metadata_only: bool,
+) -> tuple[Optional[str], Optional[StorageEndpoint]]:
+    if not requested_endpoint and (account is None or not resolve_s3_endpoint(account)):
+        endpoint = (
+            get_storage_endpoints_service(db).get_default_endpoint_record()
+            if metadata_only
+            else resolve_default_endpoint(db)
+        )
+        if endpoint is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Default storage endpoint is not configured",
+            )
+        return endpoint.endpoint_url, endpoint
+    if requested_endpoint:
+        resolved = get_storage_endpoints_service(db).find_endpoint_record_by_url(
+            requested_endpoint
+        )
+        return requested_endpoint, resolved
+    return None, None
+
+
 def _resolve_session_account(
     db: Session,
     actor: ManagerSessionPrincipal,
@@ -217,33 +265,19 @@ def _resolve_session_account(
     requested_endpoint: Optional[str] = None,
     metadata_only: bool = False,
 ) -> S3ExecutionContext:
-    if not actor.account_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="S3Account context unavailable for session")
-    account: Optional[S3Account] = None
-    if account_id and account_id > 0:
-        account = resolve_account_by_id(db, account_id)
-        if account.rgw_account_id.lower() != actor.account_id.lower():
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this account")
-    else:
-        account = get_s3_accounts_service(db).find_account_by_rgw_id(actor.account_id)
+    account = _resolve_session_account_record(db, actor, account_id)
     context_name = account.name if account is not None else actor.account_name or actor.account_id
     context_rgw_account_id = account.rgw_account_id if account is not None else actor.account_id
     context_rgw_user_uid = account.rgw_user_uid if account is not None else actor.user_uid
     context_email = account.email if account is not None else None
     context_endpoint = account.storage_endpoint if account is not None else None
     context_endpoint_id = account.storage_endpoint_id if account is not None else None
-    resolved_endpoint: Optional[StorageEndpoint] = None
-    if not requested_endpoint and (account is None or not resolve_s3_endpoint(account)):
-        endpoint = (
-            get_storage_endpoints_service(db).get_default_endpoint_record()
-            if metadata_only else resolve_default_endpoint(db)
-        )
-        if endpoint is None:
-            raise HTTPException(status_code=503, detail="Default storage endpoint is not configured")
-        requested_endpoint = endpoint.endpoint_url
-        resolved_endpoint = endpoint
-    elif requested_endpoint:
-        resolved_endpoint = get_storage_endpoints_service(db).find_endpoint_record_by_url(requested_endpoint)
+    requested_endpoint, resolved_endpoint = _resolve_session_storage_endpoint(
+        db,
+        account,
+        requested_endpoint,
+        metadata_only=metadata_only,
+    )
     if resolved_endpoint:
         context_endpoint_id = resolved_endpoint.id
         context_endpoint = resolved_endpoint
