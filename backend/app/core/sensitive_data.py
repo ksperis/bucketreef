@@ -12,6 +12,11 @@ _MAX_ERROR_DETAIL_LENGTH = 1200
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 _URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+_PUBLIC_PRODUCTION_CHECKS_URL_RE = re.compile(
+    r"https://docs\.bucketreef\.ksperis\.com/admin/en/operations/production-checks/"
+    r"(?:#[A-Za-z0-9_-]+)?",
+    re.IGNORECASE,
+)
 _HTTP_POOL_ENDPOINT_RE = re.compile(
     r"\b(?:HTTP|HTTPS)ConnectionPool\(host=['\"][^'\"]+['\"],\s*port=\d+\)",
     re.IGNORECASE,
@@ -107,6 +112,8 @@ def _redact_url(match: re.Match[str]) -> str:
         raw_url = raw_url[:-1]
     if not raw_url:
         return suffix
+    if _PUBLIC_PRODUCTION_CHECKS_URL_RE.fullmatch(raw_url):
+        return f"{raw_url}{suffix}"
     return f"{_REDACTED_URL}{suffix}"
 
 

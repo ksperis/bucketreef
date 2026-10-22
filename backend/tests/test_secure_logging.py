@@ -60,6 +60,28 @@ def test_formatter_redacts_exception_text_inside_traceback():
     assert "<redacted-url>" in rendered
 
 
+def test_formatter_preserves_public_production_checks_documentation_url():
+    documentation_url = (
+        "https://docs.bucketreef.ksperis.com/admin/en/operations/production-checks/#key-strength"
+    )
+    unsafe_documentation_url = (
+        "https://docs.bucketreef.ksperis.com/admin/en/operations/production-checks/?token=secret"
+    )
+
+    rendered = _format_record(
+        message=(
+            f"Secret key strength [key-strength]: Replace weak/default keys ({documentation_url}) "
+            f"while endpoint=https://rgw.example.test and debug={unsafe_documentation_url} remain private"
+        )
+    )
+
+    assert documentation_url in rendered
+    assert "rgw.example.test" not in rendered
+    assert "token=secret" not in rendered
+    assert "endpoint=<redacted-url>" in rendered
+    assert "debug=<redacted-url>" in rendered
+
+
 def test_persisted_error_is_redacted_and_bounded():
     rendered = sanitize_persisted_error(
         "secret_access_key=must-not-persist " + ("x" * 200),
