@@ -110,6 +110,9 @@ contextual drawer, which overlays the list on desktop and becomes a modal
 full-screen surface below 1024px. Keep the header limited to the resource name,
 path, actions, tabs, and actual warnings/status; do not repeat object metadata
 under the tabs.
+Detail drawers use `PageTabs variant="line"` with the same active underline and
+focus treatment as workspace pages. Let the tab bar own its bottom separator;
+do not add a second header border beneath it.
 For object details, place previous/next object navigation and the loaded-list
 position beside the tabs, separate from Download/More in the title row. Use
 compact icon buttons with accessible labels and preserve keyboard access and

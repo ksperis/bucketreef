@@ -60,7 +60,7 @@ export default function DetailsDrawerShell({
       rootClassName="inset-0 lg:left-auto lg:top-14"
       surfaceClassName="w-full lg:w-[min(48rem,calc(100vw-20rem))]"
     >
-        <UiDrawerHeader>
+        <UiDrawerHeader className={hasTabs ? "border-b-0 pb-0" : undefined}>
           <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h2
@@ -88,7 +88,7 @@ export default function DetailsDrawerShell({
                 tabs={tabs}
                 activeTab={activeTab}
                 onChange={onTabChange}
-                variant="bar"
+                variant="line"
                 headerActions={tabActions}
                 stackHeaderActionsOnMobile={Boolean(tabActions)}
                 ariaLabel={tabsAriaLabel ?? t({ en: "Details views", fr: "Vues des détails", de: "Detailansichten", zh: "详情视图" })}
