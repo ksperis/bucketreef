@@ -361,32 +361,26 @@ def _project_property_details(
 
     properties = context.properties
     object_lock = properties.object_lock
-    if "object_lock_mode" in detail_keys:
-        column_details["object_lock_mode"] = object_lock.mode if object_lock else None
-    if "object_lock_retention_days" in detail_keys:
-        column_details["object_lock_retention_days"] = object_lock.days if object_lock else None
-    if "object_lock_retention_years" in detail_keys:
-        column_details["object_lock_retention_years"] = object_lock.years if object_lock else None
-
     public_access_block = properties.public_access_block
-    if "bpa_block_public_acls" in detail_keys:
-        column_details["bpa_block_public_acls"] = public_access_block.block_public_acls if public_access_block else None
-    if "bpa_ignore_public_acls" in detail_keys:
-        column_details["bpa_ignore_public_acls"] = public_access_block.ignore_public_acls if public_access_block else None
-    if "bpa_block_public_policy" in detail_keys:
-        column_details["bpa_block_public_policy"] = (
-            public_access_block.block_public_policy if public_access_block else None
+    values = {
+        "object_lock_mode": object_lock.mode if object_lock else None,
+        "object_lock_retention_days": object_lock.days if object_lock else None,
+        "object_lock_retention_years": object_lock.years if object_lock else None,
+        "bpa_block_public_acls": public_access_block.block_public_acls if public_access_block else None,
+        "bpa_ignore_public_acls": public_access_block.ignore_public_acls if public_access_block else None,
+        "bpa_block_public_policy": public_access_block.block_public_policy if public_access_block else None,
+        "bpa_restrict_public_buckets": public_access_block.restrict_public_buckets if public_access_block else None,
+    }
+    cors_detail_keys = detail_keys & _COLUMN_DETAIL_CORS_KEYS
+    if cors_detail_keys:
+        cors_rules = properties.cors_rules or []
+        values.update(
+            {
+                "cors_allowed_methods": extract_cors_allowed_values(cors_rules, "cors_allowed_method"),
+                "cors_allowed_origins": extract_cors_allowed_values(cors_rules, "cors_allowed_origin"),
+            }
         )
-    if "bpa_restrict_public_buckets" in detail_keys:
-        column_details["bpa_restrict_public_buckets"] = (
-            public_access_block.restrict_public_buckets if public_access_block else None
-        )
-
-    cors_rules = properties.cors_rules if isinstance(properties.cors_rules, list) else []
-    if "cors_allowed_methods" in detail_keys:
-        column_details["cors_allowed_methods"] = extract_cors_allowed_values(cors_rules, "cors_allowed_method")
-    if "cors_allowed_origins" in detail_keys:
-        column_details["cors_allowed_origins"] = extract_cors_allowed_values(cors_rules, "cors_allowed_origin")
+    _project_requested_details(column_details, detail_keys, values)
 
 
 @dataclass(frozen=True)
