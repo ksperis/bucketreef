@@ -239,67 +239,68 @@ class RGWAdminAccountOperations:
             return None, None
         return extract_quota_limits(payload, keys=("quota", "account_quota"))
 
+    @staticmethod
+    def _normalize_account_list_entry(
+        entry: object,
+    ) -> tuple[str, Optional[str], Dict[str, Any]] | None:
+        account_name: Optional[str] = None
+        if isinstance(entry, dict):
+            raw_id = entry.get("account_id") or entry.get("id")
+            account_id = str(raw_id).strip() if raw_id else ""
+            raw_name = entry.get("account_name") or entry.get("name") or entry.get("display_name")
+            if isinstance(raw_name, str) and raw_name.strip():
+                account_name = raw_name.strip()
+            normalized: Dict[str, Any] = dict(entry)
+        else:
+            account_id = str(entry).strip()
+            normalized = {}
+        if not account_id:
+            return None
+        normalized.setdefault("account_id", account_id)
+        normalized.setdefault("id", account_id)
+        if account_name:
+            normalized.setdefault("account_name", account_name)
+        return account_id, account_name, normalized
+
+    def _account_list_detail(
+        self,
+        account_id: str,
+        account_name: Optional[str],
+    ) -> Dict[str, Any]:
+        detail = self.get_account(account_id, allow_not_found=True)
+        if not detail or detail.get("not_found"):
+            fallback: Dict[str, Any] = {
+                "account_id": account_id,
+                "id": account_id,
+            }
+            if account_name:
+                fallback["account_name"] = account_name
+            return fallback
+        detail.setdefault("account_id", detail.get("id") or account_id)
+        detail.setdefault(
+            "account_name",
+            detail.get("name") or detail.get("display_name") or account_name,
+        )
+        return detail
+
     def list_accounts(self, include_details: bool = True) -> list[Dict[str, Any]]:
         params: Dict[str, Any] = {"format": "json"}
         result = self._request("GET", "/admin/metadata/account", params=params)
         if not isinstance(result, list):
             return []
         accounts: list[Dict[str, Any]] = []
-        for account_id_entry in result:
-            if not account_id_entry:
+        for entry in result:
+            if not entry:
                 continue
-            account_id_value: Optional[str] = None
-            account_name_value: Optional[str] = None
-            if isinstance(account_id_entry, dict):
-                raw_id = account_id_entry.get("account_id") or account_id_entry.get("id")
-                if raw_id:
-                    account_id_value = str(raw_id).strip()
-                raw_name = (
-                    account_id_entry.get("account_name")
-                    or account_id_entry.get("name")
-                    or account_id_entry.get("display_name")
-                )
-                if isinstance(raw_name, str) and raw_name.strip():
-                    account_name_value = raw_name.strip()
-            else:
-                account_id_value = str(account_id_entry).strip()
-            if not account_id_value:
+            normalized = self._normalize_account_list_entry(entry)
+            if normalized is None:
                 continue
-            if not include_details:
-                if isinstance(account_id_entry, dict):
-                    normalized: Dict[str, Any] = dict(account_id_entry)
-                    normalized.setdefault("account_id", account_id_value)
-                    normalized.setdefault("id", account_id_value)
-                    if account_name_value:
-                        normalized.setdefault("account_name", account_name_value)
-                    accounts.append(normalized)
-                else:
-                    base: Dict[str, Any] = {
-                        "account_id": account_id_value,
-                        "id": account_id_value,
-                    }
-                    if account_name_value:
-                        base["account_name"] = account_name_value
-                    accounts.append(base)
-                continue
-            detail = self.get_account(account_id_value, allow_not_found=True)
-            if detail and not detail.get("not_found"):
-                detail.setdefault("account_id", detail.get("id") or account_id_value)
-                detail.setdefault(
-                    "account_name",
-                    detail.get("name")
-                    or detail.get("display_name")
-                    or account_name_value,
-                )
-                accounts.append(detail)
-            else:
-                fallback: Dict[str, Any] = {
-                    "account_id": account_id_value,
-                    "id": account_id_value,
-                }
-                if account_name_value:
-                    fallback["account_name"] = account_name_value
-                accounts.append(fallback)
+            account_id, account_name, fallback = normalized
+            accounts.append(
+                self._account_list_detail(account_id, account_name)
+                if include_details
+                else fallback
+            )
         return accounts
 
     def create_user_with_account_id(
