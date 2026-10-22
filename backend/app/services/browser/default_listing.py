@@ -68,37 +68,20 @@ class _FilteredObjectListing:
     ) -> set[str]:
         recursive_prefixes: set[str] = set()
         for entry in entries:
-            key = entry.get("Key")
-            if not key:
+            parsed = self._object_entry(entry)
+            if parsed is None:
                 continue
-            size = int(entry.get("Size") or 0)
-            if not self.options.include_folder_markers and is_current_folder_marker(
+            key, size, is_folder_marker, storage_class = parsed
+            self._collect_recursive_prefixes(
+                recursive_prefixes,
                 key=key,
-                prefix=self.options.prefix,
-                size=size,
+                is_folder_marker=is_folder_marker,
+            )
+            if self._skip_object(
+                key=key,
+                is_folder_marker=is_folder_marker,
+                storage_class=storage_class,
             ):
-                continue
-            is_folder_marker = key.endswith("/") and size == 0
-
-            if self.options.recursive and self.options.item_type != "file":
-                recursive_prefixes.update(
-                    recursive_prefixes_for_key(
-                        key,
-                        current_prefix=self.options.prefix,
-                        is_folder_marker=is_folder_marker,
-                    )
-                )
-
-            if self.options.item_type == "folder" or (
-                self.options.recursive and is_folder_marker and not self.options.include_folder_markers
-            ):
-                continue
-            if not self.matches_query(key):
-                continue
-            storage_class = entry.get("StorageClass")
-            if self.options.storage_class and storage_class != self.options.storage_class:
-                continue
-            if self.is_full:
                 continue
             self.objects.append(
                 BrowserObject(
@@ -110,6 +93,56 @@ class _FilteredObjectListing:
                 )
             )
         return recursive_prefixes
+
+    def _object_entry(
+        self,
+        entry: dict[str, Any],
+    ) -> tuple[str, int, bool, str | None] | None:
+        key = entry.get("Key")
+        if not key:
+            return None
+        size = int(entry.get("Size") or 0)
+        if not self.options.include_folder_markers and is_current_folder_marker(
+            key=key,
+            prefix=self.options.prefix,
+            size=size,
+        ):
+            return None
+        return key, size, key.endswith("/") and size == 0, entry.get("StorageClass")
+
+    def _collect_recursive_prefixes(
+        self,
+        recursive_prefixes: set[str],
+        *,
+        key: str,
+        is_folder_marker: bool,
+    ) -> None:
+        if not self.options.recursive or self.options.item_type == "file":
+            return
+        recursive_prefixes.update(
+            recursive_prefixes_for_key(
+                key,
+                current_prefix=self.options.prefix,
+                is_folder_marker=is_folder_marker,
+            )
+        )
+
+    def _skip_object(
+        self,
+        *,
+        key: str,
+        is_folder_marker: bool,
+        storage_class: str | None,
+    ) -> bool:
+        if self.options.item_type == "folder":
+            return True
+        if self.options.recursive and is_folder_marker and not self.options.include_folder_markers:
+            return True
+        if not self.matches_query(key):
+            return True
+        if self.options.storage_class and storage_class != self.options.storage_class:
+            return True
+        return self.is_full
 
     def _add_prefixes(self, candidates: list[str]) -> None:
         for prefix in candidates:
