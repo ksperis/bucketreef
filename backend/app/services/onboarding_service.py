@@ -483,5 +483,5 @@ class OnboardingService:
                 raise OnboardingError(preview.blockers[0])
             if payload.review_token != preview.review_token:
                 raise OnboardingError("review_changed", 409)
-            OnboardingSetupService(self).configure(actor, row, payload, preview)
+            OnboardingSetupService(self).configure(actor, row, payload)
             return self.output(actor, row)
