@@ -458,7 +458,7 @@ export default function ManagerMigrationDetailPage() {
           description={text("Read-only analysis comes first. Active permission tests need your confirmation. Passing checks never starts a copy.")}
         >
           <p role="status" aria-live="polite" className="ui-caption">
-            {migration.preparation_completed_items ?? 0} {text("of")}{" "}
+            {migration.preparation_completed_items} {text("of")}{" "}
             {migration.total_items} {text("buckets checked.")} {report?.errors ?? 0}{" "}
             {text("blocking checks,")} {report?.warnings ?? 0} {text("warnings.")}
           </p>
@@ -467,8 +467,7 @@ export default function ManagerMigrationDetailPage() {
               label={text("Buckets checked")}
               value={
                 migration.total_items
-                  ? (100 * (migration.preparation_completed_items ?? 0)) /
-                    migration.total_items
+                  ? (100 * migration.preparation_completed_items) / migration.total_items
                   : null
               }
             />

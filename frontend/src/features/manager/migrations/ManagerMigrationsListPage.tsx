@@ -119,7 +119,7 @@ export default function ManagerMigrationsListPage() {
                   <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                     <p className="ui-caption text-slate-500 dark:text-slate-400">
                       {migration.status === "draft"
-                        ? text("{checked}/{total} checked", { checked: migration.preparation_completed_items ?? 0, total: migration.total_items })
+                        ? text("{checked}/{total} checked", { checked: migration.preparation_completed_items, total: migration.total_items })
                         : text("{verified} verified · {failed} failed · {awaiting} awaiting cutover · {skipped} not copied", {
                             verified: migration.completed_items,
                             failed: migration.failed_items,
