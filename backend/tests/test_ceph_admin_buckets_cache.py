@@ -588,6 +588,68 @@ def test_ceph_admin_bucket_query_endpoint_accepts_large_exact_name_list(client):
         app.dependency_overrides.pop(ceph_admin_dependencies.get_ceph_admin_context, None)
 
 
+def test_ceph_admin_bucket_listing_name_contains_does_not_apply_exact_prefilter():
+    payload = [
+        {"name": "bucket-a", "owner": "owner-a"},
+        {"name": "archive", "owner": "owner-b"},
+    ]
+    ctx, rgw_admin = _build_ctx(endpoint_id=19, payload=payload)
+    advanced_filter = json.dumps(
+        {
+            "match": "all",
+            "rules": [{"field": "name", "op": "contains", "value": "bucket"}],
+        }
+    )
+
+    response = buckets_router.list_buckets(
+        page=1,
+        page_size=25,
+        filter=None,
+        advanced_filter=advanced_filter,
+        sort_by="name",
+        sort_dir="asc",
+        include=[],
+        with_stats=False,
+        ctx=ctx,
+    )
+
+    assert [item.name for item in response.items] == ["bucket-a"]
+    assert rgw_admin.get_all_buckets_calls == 1
+
+
+def test_ceph_admin_bucket_listing_any_mixed_rule_does_not_apply_exact_name_prefilter():
+    payload = [
+        {"name": "bucket-a", "owner": "owner-a"},
+        {"name": "bucket-b", "owner": "owner-b"},
+        {"name": "bucket-c", "owner": "owner-c"},
+    ]
+    ctx, rgw_admin = _build_ctx(endpoint_id=20, payload=payload)
+    advanced_filter = json.dumps(
+        {
+            "match": "any",
+            "rules": [
+                {"field": "name", "op": "eq", "value": "bucket-a"},
+                {"field": "owner", "op": "eq", "value": "owner-b"},
+            ],
+        }
+    )
+
+    response = buckets_router.list_buckets(
+        page=1,
+        page_size=25,
+        filter=None,
+        advanced_filter=advanced_filter,
+        sort_by="name",
+        sort_dir="asc",
+        include=[],
+        with_stats=False,
+        ctx=ctx,
+    )
+
+    assert [item.name for item in response.items] == ["bucket-a", "bucket-b"]
+    assert rgw_admin.get_all_buckets_calls == 1
+
+
 def test_ceph_admin_bucket_listing_cache_can_be_invalidated_per_endpoint():
     payload = [{"name": "bucket-a", "owner": "owner-a"}, {"name": "bucket-b", "owner": "owner-b"}]
     ctx, rgw_admin = _build_ctx(endpoint_id=42, payload=payload)

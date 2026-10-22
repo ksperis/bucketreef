@@ -36,35 +36,41 @@ _EXACT_FEATURE_STATES = frozenset(
 )
 
 
+def _exact_name_rule_values(rule: BucketFilterRule) -> set[str] | None:
+    if rule.op == "in" and isinstance(rule.value, list):
+        return {
+            value
+            for item in rule.value
+            if (value := str(item or "").strip())
+        }
+    if rule.op == "eq" and rule.value is not None:
+        value = str(rule.value).strip()
+        return {value} if value else set()
+    return None
+
+
 def extract_name_candidates(query: BucketFilterQuery | None) -> list[str] | None:
-    if not query:
+    if not query or not query.rules:
         return None
-    candidates: set[str] | None = None
-    saw_name_rule = False
+
+    exact_rules: list[set[str]] = []
     for rule in query.rules:
         if rule.field != "name":
+            if query.match == "any":
+                return None
             continue
-        saw_name_rule = True
-        names: set[str] = set()
-        if rule.op == "in" and isinstance(rule.value, list):
-            for item in rule.value:
-                value = str(item or "").strip()
-                if value:
-                    names.add(value)
-        elif rule.op == "eq" and rule.value is not None:
-            value = str(rule.value).strip()
-            if value:
-                names.add(value)
-        if candidates is None:
-            candidates = names
-        elif query.match == "all":
-            candidates = candidates & names
-        else:
-            candidates = candidates | names
-    if not saw_name_rule:
+        values = _exact_name_rule_values(rule)
+        if values is None:
+            if query.match == "any":
+                return None
+            continue
+        exact_rules.append(values)
+
+    if not exact_rules:
         return None
-    if not candidates:
-        return []
+    candidates = set(exact_rules[0])
+    for values in exact_rules[1:]:
+        candidates = candidates & values if query.match == "all" else candidates | values
     return sorted(candidates)
 
 
