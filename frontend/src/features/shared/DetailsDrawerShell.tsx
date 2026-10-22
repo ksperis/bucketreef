@@ -20,6 +20,7 @@ type DetailsDrawerShellProps = {
   children: ReactNode;
   notice?: ReactNode;
   onClose: () => void;
+  returnFocus?: () => HTMLElement | null;
   onEscape?: () => void;
   onTabChange?: (tabId: string) => void;
   subtitle?: ReactNode;
@@ -35,6 +36,7 @@ export default function DetailsDrawerShell({
   children,
   notice,
   onClose,
+  returnFocus,
   onEscape,
   onTabChange,
   subtitle,
@@ -53,6 +55,7 @@ export default function DetailsDrawerShell({
       ariaLabelledBy={`${idPrefix}-title`}
       modal={modal}
       onClose={onClose}
+      returnFocus={returnFocus}
       onEscape={onEscape}
       rootClassName="inset-0 lg:left-auto lg:top-14"
       surfaceClassName="w-full lg:w-[min(48rem,calc(100vw-20rem))]"

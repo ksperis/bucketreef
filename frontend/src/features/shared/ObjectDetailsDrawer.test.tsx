@@ -82,6 +82,17 @@ describe("ObjectDetailsDrawer", () => {
     expect(screen.getByRole("group", { name: "Loaded files" })).toHaveTextContent("2 / 2");
   });
 
+  it.each([false, true])("hands focus to an enabled navigation control after a keyed replacement (mobile: %s)", (mobile) => {
+    vi.mocked(window.matchMedia).mockImplementation((query: string) => ({ matches: mobile, media: query, onchange: null, addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
+    const common = { moreLabel: "More", onClose: vi.fn(), primaryAction: { label: "Download", onSelect: vi.fn() } };
+    const view = render(<ObjectDetailsDrawer key="first" {...common} name="first.txt" path="first.txt" navigation={{ next: vi.fn(), position: "1 / 2" }}>First</ObjectDetailsDrawer>);
+    screen.getByRole("button", { name: "Next object" }).focus();
+    view.rerender(<ObjectDetailsDrawer key="second" {...common} name="second.txt" path="second.txt" navigation={{ previous: vi.fn(), position: "2 / 2", focus: "next" }}>Second</ObjectDetailsDrawer>);
+    expect(screen.getByRole("button", { name: "Previous object" })).toHaveFocus();
+    view.rerender(<ObjectDetailsDrawer key="only" {...common} name="only.txt" path="only.txt" navigation={{ position: "1 / 1", focus: "next" }}>Only</ObjectDetailsDrawer>);
+    expect(screen.getByRole("group", { name: "Loaded files" })).toHaveFocus();
+  });
+
   it("closes object actions when the drawer switches to another path", () => {
     const commonProps = {
       copyPathLabel: "Copy path",
