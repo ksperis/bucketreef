@@ -368,9 +368,28 @@ class CostService:
         period = parse_cost_month(month)
         subject_type = self._normalize_subject_type(subject_type)
         summary = self._summary_for_period(period, endpoint_id, subject_type)
-        aggregate_type = None if subject_type == "all" else subject_type
+        by_endpoint = self._analytics_by_endpoint(period, endpoint_id, subject_type)
+        ranked_subjects = self._ranked_analytics_subjects(period, endpoint_id, subject_type)
 
-        by_endpoint: list[CostAnalyticsEndpoint] = []
+        return CostAnalyticsResponse(
+            month=period.month,
+            storage_endpoint_id=endpoint_id,
+            subject_type=subject_type,
+            summary=summary,
+            by_endpoint=by_endpoint,
+            top_subjects=ranked_subjects[:10],
+            concentration=self._analytics_concentration(ranked_subjects),
+            history=self._analytics_history(period, endpoint_id, subject_type),
+        )
+
+    def _analytics_by_endpoint(
+        self,
+        period: CostPeriod,
+        endpoint_id: Optional[int],
+        subject_type: str,
+    ) -> list[CostAnalyticsEndpoint]:
+        aggregate_type = None if subject_type == "all" else subject_type
+        entries: list[CostAnalyticsEndpoint] = []
         for endpoint in self._ceph_endpoints(endpoint_id):
             current_endpoint_id = int(endpoint.id)
             totals = self._aggregate_totals(
@@ -380,7 +399,7 @@ class CostService:
             )
             if totals.days_with_data == 0:
                 continue
-            by_endpoint.append(
+            entries.append(
                 CostAnalyticsEndpoint(
                     storage_endpoint_id=current_endpoint_id,
                     storage_endpoint_name=endpoint.name,
@@ -391,12 +410,19 @@ class CostService:
                     ),
                 )
             )
-        by_endpoint.sort(
+        entries.sort(
             key=lambda item: item.cost.total_cost if item.cost and item.cost.total_cost is not None else -1,
             reverse=True,
         )
+        return entries
 
-        ranked_subjects = [
+    def _ranked_analytics_subjects(
+        self,
+        period: CostPeriod,
+        endpoint_id: Optional[int],
+        subject_type: str,
+    ) -> list[CostSubjectSummary]:
+        entries = [
             item
             for item in self._all_subject_summaries(period, endpoint_id, subject_type)
             if item.cost
@@ -408,14 +434,31 @@ class CostService:
                 or item.usage.ops_total > 0
             )
         ]
-        ranked_subjects.sort(
+        entries.sort(
             key=lambda item: item.cost.total_cost if item.cost and item.cost.total_cost is not None else -1,
             reverse=True,
         )
+        return entries
+
+    @staticmethod
+    def _analytics_concentration(
+        ranked_subjects: list[CostSubjectSummary],
+    ) -> CostAnalyticsConcentration:
         subject_total_cost = sum(float(item.cost.total_cost or 0) for item in ranked_subjects if item.cost)
         top_five_cost = sum(float(item.cost.total_cost or 0) for item in ranked_subjects[:5] if item.cost)
-        top_five_ratio = top_five_cost / subject_total_cost if subject_total_cost > 0 else 0
+        return CostAnalyticsConcentration(
+            top_five_cost=top_five_cost,
+            other_cost=max(subject_total_cost - top_five_cost, 0),
+            subject_total_cost=subject_total_cost,
+            top_five_ratio=top_five_cost / subject_total_cost if subject_total_cost > 0 else 0,
+        )
 
+    def _analytics_history(
+        self,
+        period: CostPeriod,
+        endpoint_id: Optional[int],
+        subject_type: str,
+    ) -> list[CostAnalyticsHistoryPoint]:
         selected_month_index = period.start.year * 12 + period.start.month - 1
         history: list[CostAnalyticsHistoryPoint] = []
         for month_index in range(selected_month_index - 11, selected_month_index + 1):
@@ -429,22 +472,7 @@ class CostService:
                     cost=history_summary.cost,
                 )
             )
-
-        return CostAnalyticsResponse(
-            month=period.month,
-            storage_endpoint_id=endpoint_id,
-            subject_type=subject_type,
-            summary=summary,
-            by_endpoint=by_endpoint,
-            top_subjects=ranked_subjects[:10],
-            concentration=CostAnalyticsConcentration(
-                top_five_cost=top_five_cost,
-                other_cost=max(subject_total_cost - top_five_cost, 0),
-                subject_total_cost=subject_total_cost,
-                top_five_ratio=top_five_ratio,
-            ),
-            history=history,
-        )
+        return history
 
     def _ceph_endpoints(self, endpoint_id: Optional[int]) -> list[StorageEndpoint]:
         statement = select(StorageEndpoint).where(
