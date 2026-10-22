@@ -478,6 +478,22 @@ def _match_properties_param_rule(
     return _apply_scalar_quantifier(rule, result)
 
 
+def _trimmed_text(value: str | None) -> str | None:
+    normalized = (value or "").strip()
+    return normalized or None
+
+
+_LoggingValueGetter = Callable[[BucketLoggingConfiguration], object]
+_LOGGING_SCALAR_SPECS: dict[str, tuple[str, _LoggingValueGetter]] = {
+    "logging_enabled": (
+        "bool",
+        lambda logging: bool(logging.enabled and _trimmed_text(logging.target_bucket)),
+    ),
+    "logging_target_bucket": ("text", lambda logging: _trimmed_text(logging.target_bucket)),
+    "logging_target_prefix": ("text", lambda logging: _trimmed_text(logging.target_prefix)),
+}
+
+
 def _match_logging_param_rule(
     rule: BucketFilterRule,
     source_data: object,
@@ -485,34 +501,24 @@ def _match_logging_param_rule(
 ) -> bool:
     if not isinstance(source_data, BucketLoggingConfiguration):
         return False
-    target_bucket = (source_data.target_bucket or "").strip()
-    target_prefix = (source_data.target_prefix or "").strip()
-    if rule.param == "logging_enabled":
-        result = _match_bool_value(bool(source_data.enabled and target_bucket), op, rule.value)
-    elif rule.param == "logging_target_bucket":
-        result = _match_text_value(target_bucket or None, op, rule.value)
-    elif rule.param == "logging_target_prefix":
-        result = _match_text_value(target_prefix or None, op, rule.value)
-    else:
+    spec = _LOGGING_SCALAR_SPECS.get(rule.param or "")
+    if spec is None:
         return False
+    kind, getter = spec
+    result = _match_scalar_value(kind, getter(source_data), op, rule.value)
     return _apply_scalar_quantifier(rule, result)
-
-
-def _website_text(value: str | None) -> str | None:
-    normalized = (value or "").strip()
-    return normalized or None
 
 
 def _website_redirect_host(configuration: BucketWebsiteConfiguration) -> str | None:
     redirect = configuration.redirect_all_requests_to
-    return _website_text(redirect.host_name if redirect else None)
+    return _trimmed_text(redirect.host_name if redirect else None)
 
 
 _WebsiteValueGetter = Callable[[BucketWebsiteConfiguration], object]
 _WEBSITE_SCALAR_SPECS: dict[str, tuple[str, _WebsiteValueGetter]] = {
-    "website_index_present": ("bool", lambda website: bool(_website_text(website.index_document))),
-    "website_index_document": ("text", lambda website: _website_text(website.index_document)),
-    "website_error_document": ("text", lambda website: _website_text(website.error_document)),
+    "website_index_present": ("bool", lambda website: bool(_trimmed_text(website.index_document))),
+    "website_index_document": ("text", lambda website: _trimmed_text(website.index_document)),
+    "website_error_document": ("text", lambda website: _trimmed_text(website.error_document)),
     "website_redirect_host_present": ("bool", lambda website: bool(_website_redirect_host(website))),
     "website_redirect_host": ("text", _website_redirect_host),
     "website_routing_rule_count": ("number", lambda website: len(website.routing_rules)),
