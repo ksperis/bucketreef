@@ -212,13 +212,13 @@ export default function ManagerMigrationDetailPage() {
       ]?.enabled,
     );
   const report = migration.precheck_report;
-  const reports = new Map(report?.items?.map((item) => [item.item_id, item]));
+  const reports = new Map(report?.items.map((item) => [item.item_id, item]));
   const problems = (entries: api.BucketMigrationPrecheckEntry[] = []) =>
     entries.filter(
       (entry) =>
         entry.blocking || entry.severity === "warning",
     );
-  const otherBlockers = report?.items?.some((item) =>
+  const otherBlockers = report?.items.some((item) =>
     item.checks?.some(
       (check) => check.blocking && check.code !== "active_checks_required",
     ),
@@ -647,7 +647,7 @@ export default function ManagerMigrationDetailPage() {
           },
         ]}
       />
-      {report?.items?.length ? (
+      {report?.items.length ? (
         <WorkflowSection
           title={text("Reviewed plan")}
           description={text("Configuration revision {revision}. Checked {date}.", {

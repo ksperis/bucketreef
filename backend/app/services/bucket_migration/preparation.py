@@ -15,6 +15,7 @@ from app.services.managed_resource_naming import (
 )
 from app.utils.time import utcnow
 from ._shared import _json_dumps, _json_loads, _WorkerLeaseLostError
+from .precheck import new_precheck_report
 from .workflow import require_action
 
 
@@ -177,7 +178,9 @@ class BucketMigrationPreparationMixin:
             migration.precheck_status = "failed"
             migration.checked_revision = None
             migration.error_message = sanitized_error_log_detail(exc)
-            report = _json_loads(migration.precheck_report_json) or {"items": []}
+            report = _json_loads(migration.precheck_report_json) or new_precheck_report(
+                checked_at=checked_at
+            )
             report.update(
                 status="failed",
                 errors=max(1, int(report.get("errors", 0))),

@@ -58,15 +58,15 @@ type BucketMigrationPrecheckItemReport = {
 };
 
 export type BucketMigrationPrecheckReport = {
-  status?: string;
-  checked_at?: string;
+  status: BucketMigrationPrecheckStatus;
+  checked_at: string;
   checks?: BucketMigrationPrecheckEntry[];
-  items?: BucketMigrationPrecheckItemReport[];
-  errors?: number;
-  warnings?: number;
-  summary?: Record<string, unknown> | null;
-  capabilities?: Record<string, unknown> | null;
-  unsupported_features?: string[] | null;
+  items: BucketMigrationPrecheckItemReport[];
+  errors: number;
+  warnings: number;
+  summary: Record<string, unknown>;
+  capabilities: Record<string, unknown>;
+  unsupported_features: string[];
   delete_source_safe?: boolean;
   rollback_safe?: boolean;
   same_endpoint_copy_safe?: boolean;

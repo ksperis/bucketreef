@@ -1612,6 +1612,53 @@ def test_start_migration_requires_precheck_passed(db_session):
         assert "Run and pass active checks" in str(exc)
 
 
+def test_run_precheck_interruption_persists_canonical_report(db_session):
+    user = _create_user(db_session)
+    source = _create_account(
+        db_session,
+        name="source",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001",
+    )
+    target = _create_account(
+        db_session,
+        name="target",
+        endpoint_url="https://target.example.test",
+        account_id="RGW002",
+    )
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            mode="one_shot",
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        ),
+        user,
+    )
+
+    def _fail_planner(*_args, **_kwargs):
+        raise RuntimeError("inspection crashed")
+
+    service._precheck_planner.run = _fail_planner  # type: ignore[method-assign]
+
+    checked = service.run_precheck(migration.id, active_checks=True)
+
+    assert checked.precheck_status == "failed"
+    report = json.loads(checked.precheck_report_json or "{}")
+    assert report["status"] == "failed"
+    assert report["items"] == []
+    assert report["errors"] == 1
+    assert report["warnings"] == 0
+    assert report["summary"] == {}
+    assert report["capabilities"] == {}
+    assert report["unsupported_features"] == []
+    assert isinstance(report["checked_at"], str) and report["checked_at"]
+    assert report["checks"][0]["code"] == "preparation_interrupted"
+
+
 def test_run_precheck_passed_then_start_allowed(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
