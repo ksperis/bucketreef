@@ -26,6 +26,7 @@ describe("loadBucketOpsFilteredBuckets", () => {
     const onProgress = vi.fn();
 
     const result = await loadBucketOpsFilteredBuckets({
+      bucketKey: (item) => item.name,
       listBuckets,
       onProgress,
       params: {
@@ -69,6 +70,7 @@ describe("loadBucketOpsFilteredBuckets", () => {
     const onProgress = vi.fn();
 
     const result = await loadBucketOpsFilteredBuckets({
+      bucketKey: (item) => item.name,
       initialTotal: 4,
       listBuckets,
       onProgress,
@@ -89,6 +91,7 @@ describe("loadBucketOpsFilteredBuckets", () => {
     });
 
     const result = await loadBucketOpsFilteredBuckets({
+      bucketKey: (item) => item.name,
       listBuckets,
       params: { include: ["quota"] },
       scopeId: 4,
@@ -96,5 +99,26 @@ describe("loadBucketOpsFilteredBuckets", () => {
 
     expect(Array.from(result.keys())).toEqual(["alpha", "beta"]);
     expect(listBuckets).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps same-name Ceph buckets distinct when the caller uses physical identity", async () => {
+    const listBuckets = vi.fn().mockResolvedValue({
+      items: [
+        { name: "shared", tenant: "tenant-a" },
+        { name: "shared", tenant: "tenant-b" },
+      ],
+      has_next: false,
+      total: 2,
+    });
+
+    const result = await loadBucketOpsFilteredBuckets({
+      bucketKey: (item) => `${item.tenant ?? ""}:${item.name}`,
+      listBuckets,
+      params: {},
+      scopeId: 4,
+    });
+
+    expect(Array.from(result.keys())).toEqual(["tenant-a:shared", "tenant-b:shared"]);
+    expect(result.size).toBe(2);
   });
 });

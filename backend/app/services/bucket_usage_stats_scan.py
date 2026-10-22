@@ -213,6 +213,7 @@ CURRENT_VERSION_LABELS = {
 
 class BucketUsageStatsScanTarget(Protocol):
     bucket_name: str
+    bucket_tenant: str
     scope_kind: str
     scope_id: str
     scope_name: str | None
@@ -458,6 +459,7 @@ class BucketUsageScan:
             scope_id=target.scope_id,
             scope_name=target.scope_name,
             bucket_name=target.bucket_name,
+            bucket_tenant=target.bucket_tenant,
             scan_mode=scan_mode,
             version_listing_available=version_listing_available,
             object_version_count=self.object_version_count,

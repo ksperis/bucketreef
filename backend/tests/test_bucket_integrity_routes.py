@@ -22,6 +22,7 @@ from app.models.bucket_integrity import (
     BucketIntegrityBucketRequest,
     BucketIntegrityCheckProgress,
     BucketIntegrityCheckResult,
+    BucketIntegrityRgwTargetRequest,
     BucketIntegrityTargetRequest,
 )
 from app.routers.bucket_integrity_stream import stream_bucket_integrity_check
@@ -265,7 +266,9 @@ def test_ceph_admin_integrity_route_uses_dedicated_endpoint_credentials(monkeypa
     monkeypatch.setattr(ceph_integrity, "stream_bucket_integrity_check", fake_stream)
 
     response = ceph_integrity.stream_ceph_admin_bucket_integrity_check(
-        payload=BucketIntegrityBucketRequest(buckets=["bucket-a"]),
+        payload=BucketIntegrityRgwTargetRequest(
+            targets=[{"name": "bucket-a", "tenant": "tenant_a"}],
+        ),
         request=_build_request(path="/api/ceph-admin/endpoints/7/buckets/integrity-check/stream"),
         ctx=ctx,
     )
@@ -273,6 +276,7 @@ def test_ceph_admin_integrity_route_uses_dedicated_endpoint_credentials(monkeypa
     assert response == "stream"
     target = captured["targets"][0]
     assert target.bucket_name == "bucket-a"
+    assert target.request_bucket_name == "tenant_a:bucket-a"
     assert target.context_id == "ceph-admin-7"
     assert target.context.effective_rgw_credentials() == ("admin-ak", "admin-sk")
     assert captured["options"].check_mode == "head"

@@ -39,6 +39,7 @@ from app.services.ceph_admin_bucket_listing_request import (
 )
 from app.services.listing_progress import ListingProgressEmitter, invoke_cancel_check
 from app.services.rgw_admin import RGWAdminError
+from app.services.rgw_bucket_target import RgwBucketTarget
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
 from app.utils.http_errors import is_upstream_timeout
 
@@ -97,6 +98,13 @@ class CephAdminBucketSnapshotBuilder:
             stats_warning=loaded.stats_warning,
             owner_usage_by_key=owner_usage_by_key,
         )
+
+    def _s3_bucket_name(self, bucket: BucketListingSummary) -> str:
+        return RgwBucketTarget.create(
+            self.ctx.endpoint.id,
+            bucket.tenant,
+            bucket.name,
+        ).s3_name
 
     def _load_entries(self) -> _LoadedBucketEntries:
         name_candidates = (
@@ -368,6 +376,7 @@ class CephAdminBucketSnapshotBuilder:
             progress_message="Loading bucket details",
             progress_start=75,
             progress_end=progress_end,
+            bucket_name_resolver=self._s3_bucket_name,
         )
 
     def _enrich_owner_names(self, candidates: list[BucketListingSummary]) -> None:
@@ -411,6 +420,7 @@ class CephAdminBucketSnapshotBuilder:
             progress_message="Loading bucket feature parameters",
             progress_start=82,
             progress_end=88,
+            bucket_name_resolver=self._s3_bucket_name,
         )
         return [
             bucket

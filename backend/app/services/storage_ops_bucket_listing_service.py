@@ -510,19 +510,32 @@ class _StorageOpsBucketListingPipeline:
     ) -> list[StorageOpsBucketSummary]:
         if self.bucket_ui_tags_service is None or self.actor_user_id is None:
             return results
-        targets = [
-            PhysicalBucketTarget.create(bucket.endpoint_id or 0, bucket.tenant, bucket.bucket_name or bucket.name)
-            for bucket in results
-        ]
-        tags_by_target = self.bucket_ui_tags_service.get_tags_for_targets(
-            domain_kind=TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
-            actor_user_id=self.actor_user_id,
-            targets=targets,
+        targets: list[PhysicalBucketTarget | None] = []
+        for bucket in results:
+            endpoint_id = int(bucket.endpoint_id or 0)
+            targets.append(
+                PhysicalBucketTarget.create(
+                    endpoint_id,
+                    bucket.tenant,
+                    bucket.bucket_name or bucket.name,
+                )
+                if endpoint_id > 0
+                else None
+            )
+        physical_targets = [target for target in targets if target is not None]
+        tags_by_target = (
+            self.bucket_ui_tags_service.get_tags_for_targets(
+                domain_kind=TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
+                actor_user_id=self.actor_user_id,
+                targets=physical_targets,
+            )
+            if physical_targets
+            else {}
         )
         requested = set(self.ui_tag_ids)
         matched: list[StorageOpsBucketSummary] = []
         for bucket, target in zip(results, targets):
-            bucket.ui_tags = list(tags_by_target.get(target, []))
+            bucket.ui_tags = list(tags_by_target.get(target, [])) if target is not None else []
             if not requested:
                 matched.append(bucket)
                 continue

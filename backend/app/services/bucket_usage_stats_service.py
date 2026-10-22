@@ -59,9 +59,15 @@ class BucketUsageStatsResolvedTarget:
     bucket_name: str
     scope_kind: str
     scope_id: str
+    bucket_tenant: str = ""
+    request_bucket_name: str | None = None
     scope_name: str | None = None
     context_id: str | None = None
     context_name: str | None = None
+
+    @property
+    def s3_bucket_name(self) -> str:
+        return self.request_bucket_name or self.bucket_name
 
 
 @dataclass(frozen=True)
@@ -69,6 +75,7 @@ class BucketUsageStatsAggregateTarget:
     scope_kind: str
     scope_id: str
     bucket_name: str
+    bucket_tenant: str = ""
 
 
 @dataclass(frozen=True)
@@ -161,11 +168,16 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         db = self.session_factory()
         try:
             return OperationLeaseService(db).acquire(
-                bucket_usage_stats_bucket_operation_name(self._bucket_lease_scope(target), target.bucket_name),
+                bucket_usage_stats_bucket_operation_name(
+                    self._bucket_lease_scope(target),
+                    target.bucket_name,
+                    bucket_tenant=target.bucket_tenant,
+                ),
                 ttl_seconds=BUCKET_USAGE_STATS_LEASE_TTL_SECONDS,
                 lease_context={
                     "scope_kind": target.scope_kind,
                     "scope_id": target.scope_id,
+                    "bucket_tenant": target.bucket_tenant,
                     "bucket_name": target.bucket_name,
                 },
             )
@@ -240,7 +252,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         progress_callback: ProgressCallback | None = None,
         cancel_check: CancelCheck | None = None,
     ) -> BucketUsageStatsSnapshot:
-        with self._open_client(target.context) as client:
+        with self._open_client(target.context, bucket_name=target.s3_bucket_name) as client:
             calculated_at = utcnow()
             warnings: list[str] = []
             scan_mode: BucketUsageStatsScanMode = "versions"
@@ -305,7 +317,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         )
         entries = self._iter_version_entries(
             client,
-            target.bucket_name,
+            target.s3_bucket_name,
             cancel_check=cancel_check,
         )
         for entry in entries:
@@ -333,7 +345,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         )
         entries = self._iter_current_entries(
             client,
-            target.bucket_name,
+            target.s3_bucket_name,
             cancel_check=cancel_check,
         )
         for entry in entries:
@@ -342,11 +354,20 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             scan.add_entry(entry)
             scan.emit_progress(target, progress_callback)
 
-    def get_latest(self, db: Session, *, scope_kind: str, scope_id: str, bucket_name: str) -> BucketUsageStatsSnapshot | None:
+    def get_latest(
+        self,
+        db: Session,
+        *,
+        scope_kind: str,
+        scope_id: str,
+        bucket_name: str,
+        bucket_tenant: str = "",
+    ) -> BucketUsageStatsSnapshot | None:
         row = db.scalars(
             select(BucketUsageStatsSnapshotRow).where(
                 BucketUsageStatsSnapshotRow.scope_kind == scope_kind,
                 BucketUsageStatsSnapshotRow.scope_id == scope_id,
+                BucketUsageStatsSnapshotRow.bucket_tenant == bucket_tenant,
                 BucketUsageStatsSnapshotRow.bucket_name == bucket_name,
             )
         ).first()
@@ -399,20 +420,26 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         skipped_account_count: int | None = None,
     ) -> BucketUsageStatsAggregate:
         expected_targets: list[BucketUsageStatsAggregateTarget] = []
-        seen_targets: set[tuple[str, str, str]] = set()
+        seen_targets: set[tuple[str, str, str, str]] = set()
         for target in targets:
             normalized = BucketUsageStatsAggregateTarget(
                 scope_kind=(target.scope_kind or "").strip(),
                 scope_id=(target.scope_id or "").strip(),
                 bucket_name=(target.bucket_name or "").strip(),
+                bucket_tenant=(target.bucket_tenant or "").strip(),
             )
-            key = (normalized.scope_kind, normalized.scope_id, normalized.bucket_name)
-            if not all(key) or key in seen_targets:
+            key = (
+                normalized.scope_kind,
+                normalized.scope_id,
+                normalized.bucket_tenant,
+                normalized.bucket_name,
+            )
+            if not normalized.scope_kind or not normalized.scope_id or not normalized.bucket_name or key in seen_targets:
                 continue
             seen_targets.add(key)
             expected_targets.append(normalized)
 
-        rows_by_key: dict[tuple[str, str, str], BucketUsageStatsSnapshotRow] = {}
+        rows_by_key: dict[tuple[str, str, str, str], BucketUsageStatsSnapshotRow] = {}
         for target_scope_kind, target_scope_id in sorted({(target.scope_kind, target.scope_id) for target in expected_targets}):
             rows = db.scalars(
                 select(BucketUsageStatsSnapshotRow).where(
@@ -421,12 +448,14 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                 )
             ).all()
             for row in rows:
-                rows_by_key[(row.scope_kind, row.scope_id, row.bucket_name)] = row
+                rows_by_key[(row.scope_kind, row.scope_id, row.bucket_tenant, row.bucket_name)] = row
 
         snapshots: list[BucketUsageStatsSnapshot] = []
         covered_targets = 0
         for target in expected_targets:
-            row = rows_by_key.get((target.scope_kind, target.scope_id, target.bucket_name))
+            row = rows_by_key.get(
+                (target.scope_kind, target.scope_id, target.bucket_tenant, target.bucket_name)
+            )
             if row is None:
                 continue
             snapshots.append(self._snapshot_from_row(row))
@@ -450,6 +479,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             select(BucketUsageStatsSnapshotRow).where(
                 BucketUsageStatsSnapshotRow.scope_kind == snapshot.scope_kind,
                 BucketUsageStatsSnapshotRow.scope_id == snapshot.scope_id,
+                BucketUsageStatsSnapshotRow.bucket_tenant == snapshot.bucket_tenant,
                 BucketUsageStatsSnapshotRow.bucket_name == snapshot.bucket_name,
             )
         ).first()
@@ -457,6 +487,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             row = BucketUsageStatsSnapshotRow(
                 scope_kind=snapshot.scope_kind,
                 scope_id=snapshot.scope_id,
+                bucket_tenant=snapshot.bucket_tenant,
                 bucket_name=snapshot.bucket_name,
             )
             db.add(row)
@@ -659,6 +690,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             scope_id=row.scope_id,
             scope_name=row.scope_name,
             bucket_name=row.bucket_name,
+            bucket_tenant=row.bucket_tenant or "",
             scan_mode=row.scan_mode,
             version_listing_available=bool(row.version_listing_available),
             object_version_count=int(row.object_version_count or 0),

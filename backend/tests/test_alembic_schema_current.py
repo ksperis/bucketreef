@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0179_bucket_migration_execution_strategy"
+_EXPECTED_ALEMBIC_HEAD = "0180_bucket_usage_stats_tenant_identity"
 
 
 def _alembic_config() -> Config:

@@ -3,7 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
-import type { BucketNamesPayload, BucketTargetsPayload } from "./bucketOperation";
+import type {
+  BucketNamesPayload,
+  BucketTargetsPayload,
+  RgwBucketTargetsPayload,
+} from "./bucketOperation";
 import { withS3ContextParam } from "./accountParams";
 import client from "./client";
 import {
@@ -18,6 +22,7 @@ type BucketUsageStatsOptionsPayload = {
 
 type BucketUsageStatsBucketPayload = BucketUsageStatsOptionsPayload & BucketNamesPayload;
 type BucketUsageStatsTargetPayload = BucketUsageStatsOptionsPayload & BucketTargetsPayload;
+type BucketUsageStatsRgwTargetPayload = BucketUsageStatsOptionsPayload & RgwBucketTargetsPayload;
 
 type BucketUsageStatsScopePayload = {
   parallelism?: number;
@@ -37,6 +42,7 @@ export type BucketUsageStatsSnapshot = {
   scope_id: string;
   scope_name?: string | null;
   bucket_name: string;
+  bucket_tenant: string;
   scan_mode: "versions" | "current_only";
   version_listing_available: boolean;
   object_version_count: number;
@@ -176,10 +182,12 @@ export async function getManagerBucketUsageStats(
 
 export async function getCephAdminBucketUsageStats(
   endpointId: number,
-  bucketName: string
+  bucketName: string,
+  tenant?: string | null,
 ): Promise<BucketUsageStatsLatestResponse> {
   const { data } = await client.get<BucketUsageStatsLatestResponse>(
-    `/ceph-admin/endpoints/${endpointId}/buckets/${encodeURIComponent(bucketName)}/usage-stats`
+    `/ceph-admin/endpoints/${endpointId}/buckets/${encodeURIComponent(bucketName)}/usage-stats`,
+    { params: tenant?.trim() ? { tenant: tenant.trim() } : undefined },
   );
   return data;
 }
@@ -218,7 +226,7 @@ export function streamManagerBucketUsageStatsForBucket(
 
 export function streamCephAdminBucketUsageStats(
   endpointId: number,
-  payload: BucketUsageStatsBucketPayload,
+  payload: BucketUsageStatsRgwTargetPayload,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
@@ -265,13 +273,17 @@ export function streamAdminUsageStatsAggregate(
 export function streamCephAdminBucketUsageStatsForBucket(
   endpointId: number,
   bucketName: string,
+  tenant?: string | null,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
+  const query = new URLSearchParams();
+  if (tenant?.trim()) query.set("tenant", tenant.trim());
+  const queryText = query.toString();
   return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
-    url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream`,
+    url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream${queryText ? `?${queryText}` : ""}`,
     options,
-    requestInit: buildJsonPostRequestInit({ buckets: [bucketName], parallelism: 1 }),
+    requestInit: buildJsonPostRequestInit({}),
     streamFailedLabel: "Bucket usage stats stream failed",
     missingResultMessage: "Bucket usage stats stream ended without a result payload",
   });

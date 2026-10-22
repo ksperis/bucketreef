@@ -46,6 +46,18 @@ def validate_rgw_tenant(tenant: str) -> str:
     return tenant
 
 
+def normalize_rgw_bucket_reference_name(name: object) -> str:
+    """Normalize an existing RGW bucket name without applying create-time DNS rules."""
+    value = str(name or "").strip()
+    if not value:
+        raise ValueError("Bucket name is required.")
+    if ":" in value or "/" in value:
+        raise ValueError("Bucket name must be unqualified; provide the RGW tenant separately.")
+    if any(ord(character) < 32 or ord(character) == 127 for character in value):
+        raise ValueError("Bucket name must not contain control characters.")
+    return value
+
+
 def validate_rgw_user_uid(uid: str, tenant: str | None = None) -> str:
     value = uid.strip()
     if not value:

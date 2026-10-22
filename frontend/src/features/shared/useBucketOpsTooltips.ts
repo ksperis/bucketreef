@@ -26,6 +26,7 @@ import {
 import type { BucketOpsApi } from "./bucketOpsApi";
 import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import type { BucketFeatureTooltipState } from "./BucketFeatureSummaryTooltip";
+import { encodeCephAdminBucketRef } from "./bucketOpsPresentation";
 
 type OwnerTooltipState =
   | { status: "loading" }
@@ -45,6 +46,7 @@ type BucketOpsTooltipApi = Pick<
 
 type UseBucketOpsTooltipsInput = BucketOpsTooltipApi & {
   extractError: (error: unknown) => string;
+  isStorageOps: boolean;
   missingScopeError: string;
   selectedScopeId: number | null | undefined;
 };
@@ -57,6 +59,7 @@ export function useBucketOpsTooltips({
   getBucketPolicy,
   getBucketProperties,
   getBucketWebsite,
+  isStorageOps,
   listBuckets,
   missingScopeError,
   selectedScopeId,
@@ -76,6 +79,13 @@ export function useBucketOpsTooltips({
     (bucket: CephAdminBucket) =>
       `${selectedScopeId ?? "missing"}:${bucket.tenant ?? ""}:${bucket.name}`,
     [selectedScopeId],
+  );
+  const bucketRequestName = useCallback(
+    (bucket: CephAdminBucket) =>
+      isStorageOps
+        ? bucket.name
+        : encodeCephAdminBucketRef(bucket.name, bucket.tenant),
+    [isStorageOps],
   );
   const ownerTooltipCacheKey = useCallback(
     (bucket: CephAdminBucket) =>
@@ -199,7 +209,10 @@ export function useBucketOpsTooltips({
       if (inflight) return inflight;
 
       const generation = generationRef.current;
-      const promise = getBucketProperties(selectedScopeId, bucket.name)
+      const promise = getBucketProperties(
+        selectedScopeId,
+        bucketRequestName(bucket),
+      )
         .then((properties) => {
           if (generation === generationRef.current) {
             bucketPropertiesCacheRef.current[bucketKey] = properties;
@@ -214,7 +227,13 @@ export function useBucketOpsTooltips({
       bucketPropertiesInflightRef.current[bucketKey] = promise;
       return promise;
     },
-    [bucketTooltipCacheKey, getBucketProperties, missingScopeError, selectedScopeId],
+    [
+      bucketRequestName,
+      bucketTooltipCacheKey,
+      getBucketProperties,
+      missingScopeError,
+      selectedScopeId,
+    ],
   );
 
   const buildFeatureTooltipLines = useCallback(
@@ -250,28 +269,44 @@ export function useBucketOpsTooltips({
         );
       }
       if (featureKey === "static_website") {
-        const website = await getBucketWebsite(selectedScopeId, bucket.name);
+        const website = await getBucketWebsite(
+          selectedScopeId,
+          bucketRequestName(bucket),
+        );
         return buildWebsiteSummaryLines(website as Record<string, unknown>);
       }
       if (featureKey === "bucket_policy") {
-        const payload = await getBucketPolicy(selectedScopeId, bucket.name);
+        const payload = await getBucketPolicy(
+          selectedScopeId,
+          bucketRequestName(bucket),
+        );
         return buildBucketPolicySummaryLines(payload.policy);
       }
       if (featureKey === "access_logging") {
-        const logging = await getBucketLogging(selectedScopeId, bucket.name);
+        const logging = await getBucketLogging(
+          selectedScopeId,
+          bucketRequestName(bucket),
+        );
         return buildLoggingSummaryLines(logging as Record<string, unknown>);
       }
       if (featureKey === "notifications") {
-        const notifications = await getBucketNotifications(selectedScopeId, bucket.name);
+        const notifications = await getBucketNotifications(
+          selectedScopeId,
+          bucketRequestName(bucket),
+        );
         return buildNotificationSummaryLines(notifications.configuration);
       }
       if (featureKey === "server_side_encryption") {
-        const encryption = await getBucketEncryption(selectedScopeId, bucket.name);
+        const encryption = await getBucketEncryption(
+          selectedScopeId,
+          bucketRequestName(bucket),
+        );
         return buildEncryptionSummaryLines(encryption.rules);
       }
       return ["No additional details available."];
     },
     [
+      bucketRequestName,
       getBucketEncryption,
       getBucketLogging,
       getBucketNotifications,

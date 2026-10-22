@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -22,6 +23,13 @@ from app.utils.jsonable import model_to_jsonable
 QuotaSnapshotLoader = Callable[[str], dict[str, int | None]]
 
 
+@dataclass(frozen=True)
+class BucketConfigBackupResolvedTarget:
+    name: str
+    request_name: str
+    tenant: str = ""
+
+
 class BucketConfigBackupService:
     def __init__(
         self,
@@ -35,7 +43,7 @@ class BucketConfigBackupService:
         self,
         *,
         execution_context: S3ExecutionTarget,
-        bucket_names: list[str],
+        bucket_targets: list[BucketConfigBackupResolvedTarget],
         features: list[BucketConfigBackupFeature],
         source: BucketConfigBackupSource,
         quota_loader: QuotaSnapshotLoader | None = None,
@@ -48,11 +56,11 @@ class BucketConfigBackupService:
             buckets=[
                 self._build_bucket_backup(
                     execution_context=execution_context,
-                    bucket_name=bucket_name,
+                    target=target,
                     features=selected_features,
                     quota_loader=quota_loader,
                 )
-                for bucket_name in bucket_names
+                for target in bucket_targets
             ],
         )
 
@@ -60,7 +68,7 @@ class BucketConfigBackupService:
         self,
         *,
         execution_context: S3ExecutionTarget,
-        bucket_name: str,
+        target: BucketConfigBackupResolvedTarget,
         features: list[BucketConfigBackupFeature],
         quota_loader: QuotaSnapshotLoader | None,
     ) -> BucketConfigBackupBucket:
@@ -71,14 +79,19 @@ class BucketConfigBackupService:
             try:
                 configuration[feature] = self._load_feature(
                     execution_context,
-                    bucket_name,
+                    target.request_name,
                     feature,
                     quota_loader,
                 )
             except Exception as exc:  # noqa: BLE001 - backup files should carry per-feature failures.
                 errors[feature] = sanitized_error_log_detail(exc)
 
-        return BucketConfigBackupBucket(name=bucket_name, configuration=configuration, errors=errors)
+        return BucketConfigBackupBucket(
+            name=target.name,
+            tenant=target.tenant,
+            configuration=configuration,
+            errors=errors,
+        )
 
     def _load_feature(
         self,

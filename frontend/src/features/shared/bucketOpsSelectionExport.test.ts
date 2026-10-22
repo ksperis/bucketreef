@@ -76,6 +76,7 @@ describe("prepareBucketOpsSelectionExport", () => {
 
     const artifact = await prepareBucketOpsSelectionExport(
       buildInput({
+        bucketNames: ["tenant-a:alpha", "tenant-b:beta"],
         fullyResolvedFilteredSelection: true,
         listBuckets,
         onProgress,
@@ -118,6 +119,7 @@ describe("prepareBucketOpsSelectionExport", () => {
 
     const artifact = await prepareBucketOpsSelectionExport(
       buildInput({
+        bucketNames: ["fresh:alpha", "cached:beta"],
         exportWithStats: false,
         listBuckets,
         onProgress,
@@ -141,6 +143,33 @@ describe("prepareBucketOpsSelectionExport", () => {
     expect(onProgress).toHaveBeenCalledWith(2, 2);
     expect(artifact.content).toBe(
       '"Name","Tenant"\n"alpha","fresh"\n"beta","cached"',
+    );
+  });
+
+  it("keeps homonymous Ceph buckets from different tenants distinct", async () => {
+    const listBuckets = vi.fn(async () => ({
+      items: [
+        { name: "shared", tenant: "tenant-a" },
+        { name: "shared", tenant: "tenant-b" },
+      ] satisfies CephAdminBucket[],
+      has_next: false,
+    }));
+
+    const artifact = await prepareBucketOpsSelectionExport(
+      buildInput({
+        bucketNames: ["tenant-a:shared", "tenant-b:shared"],
+        listBuckets,
+        visibleBuckets: [],
+      }),
+    );
+
+    const params = listBuckets.mock.calls[0]?.[1];
+    const filter = JSON.parse(params?.advanced_filter ?? "{}") as {
+      rules?: Array<{ value?: string[] }>;
+    };
+    expect(filter.rules?.[0]?.value).toEqual(["shared"]);
+    expect(artifact.content).toBe(
+      '"Name","Tenant"\n"shared","tenant-a"\n"shared","tenant-b"',
     );
   });
 

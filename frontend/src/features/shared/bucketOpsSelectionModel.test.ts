@@ -8,6 +8,7 @@ import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import {
   buildBucketOpsSelectionProjection,
   buildStorageOpsBucketTargets,
+  getBucketOpsSelectionKey,
 } from "./bucketOpsSelectionModel";
 
 const tag = (id: number, label: string): BucketUiTagDefinition => ({
@@ -23,6 +24,9 @@ const bucket = (
   overrides: Partial<CephAdminBucket> = {},
 ): CephAdminBucket => ({ name, ...overrides });
 
+const cephKey = (name: string, tenant: string | null = null) =>
+  getBucketOpsSelectionKey(bucket(name, { tenant }), false);
+
 const project = (
   overrides: Partial<Parameters<typeof buildBucketOpsSelectionProjection>[0]> = {},
 ) =>
@@ -31,7 +35,7 @@ const project = (
     allFilteredBucketNamesKey: null,
     isStorageOps: false,
     items: [bucket("alpha"), bucket("bravo")],
-    selectedBuckets: new Set(["alpha", "charlie"]),
+    selectedBuckets: new Set([cephKey("alpha"), cephKey("charlie")]),
     selectionQueryKey: "current",
     total: 3,
     ...overrides,
@@ -54,9 +58,9 @@ describe("buildBucketOpsSelectionProjection", () => {
 
   it("recognizes a fully resolved filtered selection", () => {
     const result = project({
-      allFilteredBucketNames: ["alpha", "bravo"],
+      allFilteredBucketNames: [cephKey("alpha"), cephKey("bravo")],
       allFilteredBucketNamesKey: "current",
-      selectedBuckets: new Set(["alpha", "bravo"]),
+      selectedBuckets: new Set([cephKey("alpha"), cephKey("bravo")]),
       total: 2,
     });
 
@@ -69,9 +73,9 @@ describe("buildBucketOpsSelectionProjection", () => {
 
   it("does not treat extra hidden selections as the exact filtered selection", () => {
     const result = project({
-      allFilteredBucketNames: ["alpha", "bravo"],
+      allFilteredBucketNames: [cephKey("alpha"), cephKey("bravo")],
       allFilteredBucketNamesKey: "current",
-      selectedBuckets: new Set(["alpha", "bravo", "charlie"]),
+      selectedBuckets: new Set([cephKey("alpha"), cephKey("bravo"), cephKey("charlie")]),
       total: 2,
     });
 
@@ -81,9 +85,9 @@ describe("buildBucketOpsSelectionProjection", () => {
 
   it("ignores a resolved-name cache from another query", () => {
     const result = project({
-      allFilteredBucketNames: ["alpha", "bravo"],
+      allFilteredBucketNames: [cephKey("alpha"), cephKey("bravo")],
       allFilteredBucketNamesKey: "stale",
-      selectedBuckets: new Set(["alpha", "bravo"]),
+      selectedBuckets: new Set([cephKey("alpha"), cephKey("bravo")]),
       total: 2,
     });
 
@@ -100,15 +104,40 @@ describe("buildBucketOpsSelectionProjection", () => {
         bucket("alpha", { ui_tags: [zulu, alpha] }),
         bucket("bravo", { ui_tags: [alpha] }),
       ],
-      selectedBuckets: new Set(["bravo", "alpha"]),
+      selectedBuckets: new Set([cephKey("bravo"), cephKey("alpha")]),
       total: 2,
     });
 
     expect(result.selectedOperationTargets).toEqual([
-      { bucketName: "alpha" },
-      { bucketName: "bravo" },
+      { bucketName: "alpha", tenant: null },
+      { bucketName: "bravo", tenant: null },
     ]);
     expect(result.selectedUiTagSuggestions).toEqual([alpha, zulu]);
+  });
+
+  it("keeps same-name buckets from different tenants as separate Ceph targets", () => {
+    const result = project({
+      items: [
+        bucket("shared", { tenant: "tenant-a" }),
+        bucket("shared", { tenant: "tenant-b" }),
+      ],
+      selectedBuckets: new Set([
+        cephKey("shared", "tenant-a"),
+        cephKey("shared", "tenant-b"),
+      ]),
+      total: 2,
+    });
+
+    expect(result.selectedCount).toBe(2);
+    expect(result.selectedOnPageCount).toBe(2);
+    expect(result.selectedBucketList).toEqual([
+      "tenant-a:shared",
+      "tenant-b:shared",
+    ]);
+    expect(result.selectedOperationTargets).toEqual([
+      { bucketName: "shared", tenant: "tenant-a" },
+      { bucketName: "shared", tenant: "tenant-b" },
+    ]);
   });
 
   it("uses current Storage Ops metadata and decodes off-page bucket references", () => {

@@ -111,6 +111,7 @@ export function useBucketOpsSelectionActions({
   ) =>
     resolveBucketOpsSelectionTargets({
       bucketNames,
+      isStorageOps,
       listBuckets,
       onProgress,
       resolveTarget,

@@ -6,15 +6,50 @@ import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import { decodeStorageOpsBucketRef } from "../../api/storageOps";
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import {
+  encodeCephAdminBucketRef,
   getStorageOpsBucketName,
   getStorageOpsContextId,
 } from "./bucketOpsPresentation";
 
 export type BucketOperationUiTarget = {
   bucketName: string;
+  tenant?: string | null;
   contextId?: string | null;
   contextName?: string | null;
 };
+
+type CephAdminSelectionIdentity = [tenant: string, bucketName: string];
+
+export function getBucketOpsSelectionKey(
+  bucket: CephAdminBucket,
+  isStorageOps: boolean,
+): string {
+  if (isStorageOps) return bucket.name;
+  return JSON.stringify([
+    String(bucket.tenant ?? "").trim(),
+    bucket.name,
+  ] satisfies CephAdminSelectionIdentity);
+}
+
+function decodeCephAdminSelectionKey(value: string): {
+  bucketName: string;
+  tenant: string | null;
+} | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed) || parsed.length !== 2) return null;
+    const [tenant, bucketName] = parsed;
+    if (typeof tenant !== "string" || typeof bucketName !== "string" || !bucketName.trim()) {
+      return null;
+    }
+    return {
+      bucketName: bucketName.trim(),
+      tenant: tenant.trim() || null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export function buildStorageOpsBucketTargets(
   targets: readonly BucketOperationUiTarget[],
@@ -29,6 +64,15 @@ export function buildStorageOpsBucketTargets(
       bucket_name: target.bucketName,
     };
   });
+}
+
+export function buildCephAdminRgwBucketTargets(
+  targets: readonly BucketOperationUiTarget[],
+): Array<{ name: string; tenant: string }> {
+  return targets.map((target) => ({
+    name: target.bucketName,
+    tenant: target.tenant?.trim() ?? "",
+  }));
 }
 
 type BucketOpsSelectionProjectionInput = {
@@ -50,13 +94,26 @@ export function buildBucketOpsSelectionProjection({
   selectionQueryKey,
   total,
 }: BucketOpsSelectionProjectionInput) {
-  const selectedBucketList = Array.from(selectedBuckets).sort((left, right) =>
+  const selectedBucketKeys = Array.from(selectedBuckets).sort((left, right) =>
     left.localeCompare(right),
   );
-  const selectedBucketItemByName = new Map(items.map((bucket) => [bucket.name, bucket]));
+  const selectedBucketItemByKey = new Map(
+    items.map((bucket) => [getBucketOpsSelectionKey(bucket, isStorageOps), bucket]),
+  );
+  const selectedBucketList = selectedBucketKeys
+    .map((selectionKey) => {
+      if (isStorageOps) return selectionKey;
+      const decoded = decodeCephAdminSelectionKey(selectionKey);
+      return decoded
+        ? encodeCephAdminBucketRef(decoded.bucketName, decoded.tenant)
+        : "";
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
   const selectedCount = selectedBuckets.size;
   const selectedOnPageCount = items.reduce(
-    (count, bucket) => count + (selectedBuckets.has(bucket.name) ? 1 : 0),
+    (count, bucket) =>
+      count + (selectedBuckets.has(getBucketOpsSelectionKey(bucket, isStorageOps)) ? 1 : 0),
     0,
   );
   const hasResolvedFilteredNames =
@@ -84,9 +141,9 @@ export function buildBucketOpsSelectionProjection({
     : selectedOnPageCount > 0 && !allSelectedOnPage;
 
   const selectedOperationTargets: BucketOperationUiTarget[] = isStorageOps
-    ? selectedBucketList
+    ? selectedBucketKeys
         .map((selectedName) => {
-          const bucket = selectedBucketItemByName.get(selectedName);
+          const bucket = selectedBucketItemByKey.get(selectedName);
           if (bucket) {
             return {
               bucketName: getStorageOpsBucketName(bucket),
@@ -101,12 +158,25 @@ export function buildBucketOpsSelectionProjection({
           };
         })
         .filter((target) => target.bucketName.trim().length > 0)
-    : selectedBucketList.map((bucketName) => ({ bucketName }));
+    : selectedBucketKeys
+        .flatMap((selectionKey) => {
+          const bucket = selectedBucketItemByKey.get(selectionKey);
+          if (bucket) {
+            return [{
+              bucketName: bucket.name,
+              tenant: bucket.tenant ?? null,
+            }];
+          }
+          const decoded = decodeCephAdminSelectionKey(selectionKey);
+          return decoded
+            ? [{ bucketName: decoded.bucketName, tenant: decoded.tenant }]
+            : [];
+        });
 
   const selectedUiTagSuggestions: BucketUiTagDefinition[] = Array.from(
     new Map(
-      selectedBucketList
-        .flatMap((selectedName) => selectedBucketItemByName.get(selectedName)?.ui_tags ?? [])
+      selectedBucketKeys
+        .flatMap((selectedName) => selectedBucketItemByKey.get(selectedName)?.ui_tags ?? [])
         .map((tag) => [tag.id, tag]),
     ).values(),
   ).sort(

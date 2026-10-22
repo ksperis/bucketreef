@@ -8,10 +8,19 @@ export type BucketOperationTarget = {
   bucket_name: string;
 };
 
+export type RgwBucketReference = {
+  name: string;
+  tenant?: string | null;
+};
+
 export type BucketNamesPayload = {
   buckets: string[];
 };
 
 export type BucketTargetsPayload = {
   targets: BucketOperationTarget[];
+};
+
+export type RgwBucketTargetsPayload = {
+  targets: RgwBucketReference[];
 };

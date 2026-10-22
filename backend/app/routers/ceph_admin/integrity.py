@@ -7,13 +7,14 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from app.models.bucket_integrity import BucketIntegrityBucketRequest
+from app.models.bucket_integrity import BucketIntegrityRgwTargetRequest
 from app.routers.bucket_integrity_stream import stream_bucket_integrity_check
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.s3_execution_context import build_ceph_admin_s3_context
+from app.services.rgw_bucket_target import RgwBucketTarget
 from app.services.bucket_integrity_service import (
     BucketIntegrityCheckService,
     BucketIntegrityOptions,
@@ -29,11 +30,10 @@ logger = logging.getLogger(__name__)
 
 @router.post("/stream")
 def stream_ceph_admin_bucket_integrity_check(
-    payload: BucketIntegrityBucketRequest,
+    payload: BucketIntegrityRgwTargetRequest,
     request: Request,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> StreamingResponse:
-    bucket_names = payload.buckets
     context = build_ceph_admin_s3_context(ctx)
     options = BucketIntegrityOptions(
         parallelism=payload.parallelism,
@@ -42,15 +42,18 @@ def stream_ceph_admin_bucket_integrity_check(
         since=payload.since,
         max_mb_per_object=payload.max_mb_per_object,
     )
-    targets = [
-        BucketIntegrityResolvedTarget(
-            context=context,
-            bucket_name=bucket_name,
-            context_id=f"ceph-admin-{ctx.endpoint.id}",
-            context_name=ctx.endpoint.name,
+    targets = []
+    for reference in payload.targets:
+        target = RgwBucketTarget.create(ctx.endpoint.id, reference.tenant, reference.name)
+        targets.append(
+            BucketIntegrityResolvedTarget(
+                context=context,
+                bucket_name=target.name,
+                request_bucket_name=target.s3_name,
+                context_id=f"ceph-admin-{ctx.endpoint.id}",
+                context_name=ctx.endpoint.name,
+            )
         )
-        for bucket_name in bucket_names
-    ]
     service = BucketIntegrityCheckService()
     return stream_bucket_integrity_check(
         request,

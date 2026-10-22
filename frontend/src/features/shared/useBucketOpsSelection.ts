@@ -11,7 +11,10 @@ import type { ActionProgressState } from "./actionProgress";
 import type { TextMatchMode } from "./bucketOpsAdvancedFilterModel";
 import { loadBucketOpsFilteredBuckets } from "./bucketOpsFilteredBucketLoader";
 import type { SortField } from "./bucketOpsListState";
-import { buildBucketOpsSelectionProjection } from "./bucketOpsSelectionModel";
+import {
+  buildBucketOpsSelectionProjection,
+  getBucketOpsSelectionKey,
+} from "./bucketOpsSelectionModel";
 
 type BucketOpsSelectionListBuckets = (
   scopeId: number,
@@ -136,17 +139,18 @@ export function useBucketOpsSelection({
     setSelectAllProgress(null);
   }, []);
 
-  const toggleSelection = useCallback((name: string) => {
+  const toggleSelection = useCallback((bucket: CephAdminBucket) => {
+    const key = getBucketOpsSelectionKey(bucket, isStorageOps);
     setSelectedBuckets((current) => {
       const next = new Set(current);
-      if (next.has(name)) {
-        next.delete(name);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(name);
+        next.add(key);
       }
       return next;
     });
-  }, []);
+  }, [isStorageOps]);
 
   const loadAllFilteredBucketNames = useCallback(
     async (
@@ -164,6 +168,7 @@ export function useBucketOpsSelection({
       }
 
       const bucketsByName = await loadBucketOpsFilteredBuckets({
+        bucketKey: (bucket) => getBucketOpsSelectionKey(bucket, isStorageOps),
         initialTotal: total > 0 ? total : null,
         listBuckets,
         onProgress: (completed, progressTotal) => {
@@ -194,6 +199,7 @@ export function useBucketOpsSelection({
     [
       advancedFilterParam,
       filterValue,
+      isStorageOps,
       listBuckets,
       scopeId,
       selectionQueryKey,

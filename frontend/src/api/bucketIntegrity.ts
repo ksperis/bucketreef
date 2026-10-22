@@ -3,7 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
-import type { BucketNamesPayload, BucketTargetsPayload } from "./bucketOperation";
+import type {
+  BucketNamesPayload,
+  BucketTargetsPayload,
+  RgwBucketTargetsPayload,
+} from "./bucketOperation";
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
@@ -22,6 +26,7 @@ type BucketIntegrityOptionsPayload = {
 
 export type BucketIntegrityBucketPayload = BucketIntegrityOptionsPayload & BucketNamesPayload;
 type BucketIntegrityTargetPayload = BucketIntegrityOptionsPayload & BucketTargetsPayload;
+type BucketIntegrityRgwTargetPayload = BucketIntegrityOptionsPayload & RgwBucketTargetsPayload;
 
 export type BucketIntegrityFailure = {
   bucket_name: string;
@@ -95,7 +100,7 @@ export function streamManagerBucketIntegrityCheck(
 
 export function streamCephAdminBucketIntegrityCheck(
   endpointId: number,
-  payload: BucketIntegrityBucketPayload,
+  payload: BucketIntegrityRgwTargetPayload,
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();

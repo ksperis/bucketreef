@@ -16,6 +16,7 @@ from app.models.bucket_ui_tags import (
     BucketUiTagVisibility,
 )
 from app.services.tags_service import TagsService
+from app.services.rgw_bucket_target import PhysicalBucketTarget
 from app.utils.tagging import (
     DEFAULT_TAG_SCOPE,
     TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
@@ -28,21 +29,6 @@ from app.utils.tagging import (
 
 _BucketUiTagDomain = Literal["bucket_ui_ceph_admin", "bucket_ui_storage_ops"]
 _ASSIGNMENT_TARGET_BATCH_SIZE = 200
-
-
-@dataclass(frozen=True, order=True)
-class PhysicalBucketTarget:
-    endpoint_id: int
-    tenant: str
-    name: str
-
-    @classmethod
-    def create(cls, endpoint_id: int, tenant: object, name: object) -> "PhysicalBucketTarget":
-        return cls(
-            endpoint_id=int(endpoint_id),
-            tenant=str(tenant or "").strip(),
-            name=str(name or "").strip(),
-        )
 
 
 @dataclass(frozen=True)

@@ -115,7 +115,7 @@ class BrowserListingMixin:
             logger.debug("Browser object cache hit: context=%s bucket=%s", context_cache_key, bucket_name)
             return cached.model_copy(deep=True)
         result = DefaultObjectListingLoader(
-            client=self._client(context),
+            client=self._bucket_client(context, bucket_name),
             options=DefaultObjectScanOptions(
                 bucket_name=bucket_name,
                 prefix=normalized_prefix,
@@ -184,7 +184,7 @@ class BrowserListingMixin:
             return cached
 
         snapshot = SortedObjectSnapshotBuilder(
-            client=self._client(context),
+            client=self._bucket_client(context, bucket_name),
             options=SortedObjectScanOptions(
                 bucket_name=bucket_name,
                 prefix=normalized_prefix,

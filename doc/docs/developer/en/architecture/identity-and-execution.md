@@ -64,6 +64,15 @@ before changing it. Rotation journals preserve the tenant and reject a changed
 tenant on resume. Physical bucket identities and metric aggregation keys
 include the tenant instead of dropping UID prefixes.
 
+For RGW buckets, the canonical physical identity is `(endpoint_id, tenant,
+name)`. The stored bucket name is always unqualified. Ceph Admin converts that
+target only at protocol boundaries: Admin Ops receives the plain bucket name
+with an explicit tenant scope, while cross-tenant S3 requests use RGW's
+`tenant:bucket` request form. The Ceph Admin `S3ExecutionContext` remains the
+executor identity and does not inherit the target bucket tenant. Qualified RGW
+S3 names are accepted only for explicit Ceph Admin cross-tenant requests;
+Manager and generic S3 clients keep normal SDK bucket-name validation.
+
 Native S3/IAM execution continues to use the selected identity's credentials.
 Ceph applies its implicit tenant to bucket names and policy resources; Portal's
 DB grants remain scoped by Account ID and its personal IAM identities remain

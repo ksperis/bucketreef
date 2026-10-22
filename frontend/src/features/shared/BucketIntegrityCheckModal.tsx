@@ -31,6 +31,7 @@ import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat } from "./bucketOperationRunUi";
 import {
+  buildCephAdminRgwBucketTargets,
   buildStorageOpsBucketTargets,
   type BucketOperationUiTarget,
 } from "./bucketOpsSelectionModel";
@@ -210,7 +211,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
           : props.mode === "ceph-admin"
             ? await streamCephAdminBucketIntegrityCheck(
                 props.endpointId,
-                { ...payloadOptions, buckets: props.targets.map((target) => target.bucketName) },
+                { ...payloadOptions, targets: buildCephAdminRgwBucketTargets(props.targets) },
                 streamOptions,
               )
             : await streamStorageOpsBucketIntegrityCheck(

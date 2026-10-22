@@ -99,7 +99,7 @@ def test_ceph_admin_labels_are_globally_unique_and_case_insensitive(db_session):
     endpoint = _endpoint(db_session, "ui-tags-ceph")
     db_session.add_all([owner, other])
     db_session.commit()
-    target = PhysicalBucketTarget.create(endpoint.id, "tenant-a", "bucket-a")
+    target = PhysicalBucketTarget.create(endpoint.id, "tenant_a", "bucket-a")
     service = BucketUiTagsService(db_session)
 
     service.mutate(
@@ -158,7 +158,7 @@ def test_ceph_admin_definition_settings_preserve_id_and_assignments(db_session):
     endpoint = _endpoint(db_session, "ui-tags-settings")
     db_session.add_all([owner, other])
     db_session.commit()
-    target = PhysicalBucketTarget.create(endpoint.id, "tenant-a", "bucket-a")
+    target = PhysicalBucketTarget.create(endpoint.id, "tenant_a", "bucket-a")
     service = BucketUiTagsService(db_session)
     service.mutate(
         domain_kind=TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
@@ -276,7 +276,7 @@ def test_storage_ops_contract_rejects_shared_fields_and_more_than_200_targets():
         StorageOpsBucketUiTagPatchRequest.model_validate(
             {
                 "targets": [
-                    {"endpoint_id": 7, "tenant": "tenant-a", "name": "bucket"}
+        {"endpoint_id": 7, "tenant": "tenant_a", "name": "bucket"}
                 ]
             }
         )
@@ -749,8 +749,8 @@ def test_successful_bucket_deletion_cleanup_removes_both_namespaces_only_for_tar
     db_session.add(owner)
     db_session.commit()
     service = BucketUiTagsService(db_session)
-    deleted = PhysicalBucketTarget.create(endpoint.id, "tenant-a", "deleted")
-    survivor = PhysicalBucketTarget.create(endpoint.id, "tenant-a", "survivor")
+    deleted = PhysicalBucketTarget.create(endpoint.id, "tenant_a", "deleted")
+    survivor = PhysicalBucketTarget.create(endpoint.id, "tenant_a", "survivor")
 
     for domain in (TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS):
         service.mutate(
@@ -842,7 +842,7 @@ def test_target_tag_lookup_constrains_all_physical_identity_columns(db_session):
     db_session.add(owner)
     db_session.commit()
     service = BucketUiTagsService(db_session)
-    target = PhysicalBucketTarget.create(endpoint.id, "tenant-a", "bucket-a")
+    target = PhysicalBucketTarget.create(endpoint.id, "tenant_a", "bucket-a")
     service.mutate(
         domain_kind=TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
         actor_user_id=owner.id,
@@ -1045,7 +1045,7 @@ def test_ceph_admin_ui_tag_filter_runs_before_pagination_and_does_not_taint_shar
     db_session.commit()
     service = BucketUiTagsService(db_session)
     targets = [
-        PhysicalBucketTarget.create(endpoint.id, "tenant-a", name)
+        PhysicalBucketTarget.create(endpoint.id, "tenant_a", name)
         for name in ("a", "b", "c")
     ]
     service.mutate(
@@ -1078,7 +1078,7 @@ def test_ceph_admin_ui_tag_filter_runs_before_pagination_and_does_not_taint_shar
     class FakeRgwAdmin:
         def get_all_buckets(self, with_stats=True):  # noqa: ARG002
             return [
-                {"name": name, "tenant": "tenant-a", "owner": "owner-a"}
+        {"name": name, "tenant": "tenant_a", "owner": "owner-a"}
                 for name in ("a", "b", "c")
             ]
 

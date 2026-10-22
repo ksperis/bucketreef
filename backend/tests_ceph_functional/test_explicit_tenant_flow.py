@@ -513,6 +513,48 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     resource_tracker.track_ceph_admin_bucket(shared_bucket, tenant=user_tenant)
     resource_tracker.track_ceph_admin_bucket(shared_bucket, tenant=None)
 
+    ceph_bucket_base = (
+        f"/ceph-admin/endpoints/{storage_endpoint_id}/buckets/{shared_bucket}"
+    )
+    ceph_bucket_listing = super_admin_session.get(
+        f"/ceph-admin/endpoints/{storage_endpoint_id}/buckets",
+        params={
+            "filter": shared_bucket,
+            "page": 1,
+            "page_size": 100,
+            "sort_by": "name",
+            "sort_dir": "asc",
+        },
+    )
+    listed_identities = {
+        (str(item.get("tenant") or ""), str(item.get("name") or ""))
+        for item in ceph_bucket_listing.get("items", [])
+        if item.get("name") == shared_bucket
+    }
+    assert ("", shared_bucket) in listed_identities
+    assert (user_tenant, shared_bucket) in listed_identities
+
+    tenant_params = {"tenant": user_tenant}
+    default_properties = super_admin_session.get(f"{ceph_bucket_base}/properties")
+    tenant_properties = super_admin_session.get(
+        f"{ceph_bucket_base}/properties",
+        params=tenant_params,
+    )
+    assert "versioning_status" in default_properties
+    assert "versioning_status" in tenant_properties
+    for feature_path in (
+        "versioning",
+        "object-lock",
+        "encryption",
+        "tags",
+        "logging",
+        "website",
+    ):
+        super_admin_session.get(
+            f"{ceph_bucket_base}/{feature_path}",
+            params=tenant_params,
+        )
+
     original_settings = super_admin_session.get("/admin/settings")
     disabled_settings = copy.deepcopy(original_settings)
     disabled_settings["general"]["allow_managed_rgw_tenant_creation"] = False

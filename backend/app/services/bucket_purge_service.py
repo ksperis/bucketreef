@@ -52,8 +52,13 @@ class BucketPurgeCancelled(RuntimeError):
 class BucketPurgeResolvedTarget:
     context: S3ExecutionTarget
     bucket_name: str
+    request_bucket_name: str | None = None
     context_id: str | None = None
     context_name: str | None = None
+
+    @property
+    def s3_bucket_name(self) -> str:
+        return self.request_bucket_name or self.bucket_name
 
 
 @dataclass(frozen=True)
@@ -356,10 +361,10 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             )
 
         try:
-            with self._open_client(target.context) as client:
+            with self._open_client(target.context, bucket_name=target.s3_bucket_name) as client:
                 result = s3_deletion.purge_bucket_contents(
                     client,
-                    target.bucket_name,
+                    target.s3_bucket_name,
                     parallelism=options.parallelism,
                     include_versions=options.include_versions,
                     individual_deletes=options.individual_deletes,
@@ -429,10 +434,10 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             cancel_check=cancel_check,
         )
         try:
-            with self._open_client(target.context) as client:
+            with self._open_client(target.context, bucket_name=target.s3_bucket_name) as client:
                 purge_result = s3_deletion.purge_bucket_contents(
                     client,
-                    target.bucket_name,
+                    target.s3_bucket_name,
                     parallelism=state.options.parallelism,
                     include_versions=state.options.include_versions,
                     individual_deletes=state.options.individual_deletes,
@@ -588,7 +593,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         state: _BucketDeletePurgeState,
     ) -> BucketPurgeBucketResult | None:
         try:
-            client.delete_bucket(Bucket=state.target.bucket_name)
+            client.delete_bucket(Bucket=state.target.s3_bucket_name)
         except ClientError as exc:
             if aws_error_code(exc, lowercase=True) == "bucketnotempty":
                 return self._bucket_delete_failure_result(

@@ -12,6 +12,7 @@ from app.models.bucket_compare import (
     BucketContentDiff,
 )
 from app.models.ceph_admin import CephAdminBucketCompareRequest
+from app.models.bucket_operation import RgwBucketReference
 from app.routers.ceph_admin import bucket_tools as buckets_router
 from app.services.bucket_comparison_service import BucketComparisonService
 
@@ -63,16 +64,16 @@ def _build_target_endpoint(endpoint_id: int = 2):
 def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
     payload = CephAdminBucketCompareRequest(
         target_endpoint_id=2,
-        source_bucket="bucket-a",
-        target_bucket="bucket-b",
+        source=RgwBucketReference(name="bucket-a", tenant="tenant_a"),
+        target=RgwBucketReference(name="bucket-b", tenant="tenant_b"),
         include_config=True,
         ignore_modified_after=datetime(2026, 3, 2, 10, 0, tzinfo=timezone.utc),
     )
     monkeypatch.setattr(buckets_router, "_resolve_storage_endpoint", lambda _db, _endpoint_id: _build_target_endpoint(2))
 
     def fake_compare_content(self, source_bucket, source_account, target_bucket, target_account, **kwargs):
-        assert source_bucket == "bucket-a"
-        assert target_bucket == "bucket-b"
+        assert source_bucket == "tenant_a:bucket-a"
+        assert target_bucket == "tenant_b:bucket-b"
         assert kwargs["ignore_modified_after"] == payload.ignore_modified_after
         return BucketContentDiff(
             source_count=10,
@@ -99,6 +100,8 @@ def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
     assert response.target_endpoint_id == 2
     assert response.source_bucket == "bucket-a"
     assert response.target_bucket == "bucket-b"
+    assert response.source_tenant == "tenant_a"
+    assert response.target_tenant == "tenant_b"
     assert response.content_diff.different_count == 1
     assert response.config_diff is not None
     assert response.has_differences is True
@@ -107,8 +110,8 @@ def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
 def test_compare_bucket_pair_returns_no_diff(monkeypatch):
     payload = CephAdminBucketCompareRequest(
         target_endpoint_id=2,
-        source_bucket="bucket-a",
-        target_bucket="bucket-a",
+        source=RgwBucketReference(name="bucket-a"),
+        target=RgwBucketReference(name="bucket-a"),
         include_config=False,
     )
     monkeypatch.setattr(buckets_router, "_resolve_storage_endpoint", lambda _db, _endpoint_id: _build_target_endpoint(2))
@@ -137,8 +140,8 @@ def test_compare_bucket_pair_returns_no_diff(monkeypatch):
 def test_compare_bucket_pair_translates_service_runtime_errors(monkeypatch):
     payload = CephAdminBucketCompareRequest(
         target_endpoint_id=2,
-        source_bucket="bucket-a",
-        target_bucket="bucket-b",
+        source=RgwBucketReference(name="bucket-a"),
+        target=RgwBucketReference(name="bucket-b"),
     )
     monkeypatch.setattr(buckets_router, "_resolve_storage_endpoint", lambda _db, _endpoint_id: _build_target_endpoint(2))
 
@@ -157,8 +160,8 @@ def test_compare_bucket_pair_translates_service_runtime_errors(monkeypatch):
 def test_compare_bucket_pair_supports_config_only(monkeypatch):
     payload = CephAdminBucketCompareRequest(
         target_endpoint_id=2,
-        source_bucket="bucket-a",
-        target_bucket="bucket-b",
+        source=RgwBucketReference(name="bucket-a"),
+        target=RgwBucketReference(name="bucket-b"),
         include_content=False,
         include_config=True,
     )
@@ -184,8 +187,8 @@ def test_compare_bucket_pair_supports_config_only(monkeypatch):
 def test_compare_bucket_pair_forwards_selected_config_features(monkeypatch):
     payload = CephAdminBucketCompareRequest(
         target_endpoint_id=2,
-        source_bucket="bucket-a",
-        target_bucket="bucket-b",
+        source=RgwBucketReference(name="bucket-a"),
+        target=RgwBucketReference(name="bucket-b"),
         include_content=False,
         include_config=True,
         config_features=["tags", "versioning_status"],
@@ -217,8 +220,8 @@ def test_compare_request_rejects_empty_feature_list_when_config_scope_enabled():
     with pytest.raises(ValidationError):
         CephAdminBucketCompareRequest(
             target_endpoint_id=2,
-            source_bucket="bucket-a",
-            target_bucket="bucket-b",
+            source=RgwBucketReference(name="bucket-a"),
+            target=RgwBucketReference(name="bucket-b"),
             include_content=False,
             include_config=True,
             config_features=[],

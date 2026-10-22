@@ -23,8 +23,12 @@ def get_bucket_replication(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> dict:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         resp = client.get_bucket_replication(Bucket=bucket_name)
     except ClientError as exc:
@@ -48,8 +52,12 @@ def put_bucket_replication(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     try:
         client.put_bucket_replication(
             Bucket=bucket_name,
@@ -71,8 +79,12 @@ def delete_bucket_replication(
     region: Optional[str] = None,
     force_path_style: bool = False,
     verify_tls: bool = True,
+    allow_rgw_qualified_bucket_names: bool = False,
 ) -> None:
-    client = get_s3_bucket_client(access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls)
+    client = get_s3_bucket_client(
+        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
+        allow_rgw_qualified_bucket_names,
+    )
     deleted = delete_bucket_configuration(
         operation=lambda: client.delete_bucket_replication(Bucket=bucket_name),
         missing_error_codes={"replicationconfigurationnotfounderror", "nosuchreplicationconfiguration", "nosuchbucket"},

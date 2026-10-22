@@ -7,10 +7,11 @@ from pydantic import Field, ValidationError, ValidationInfo, field_validator, mo
 
 from app.models.base import ApiModel
 from app.models.bucket_compare import (
-    BucketCompareRequestBase,
+    BucketCompareConfigFeature,
     BucketConfigDiff,
     BucketContentDiff,
 )
+from app.models.bucket_operation import RgwBucketReference
 from app.models.bucket_listing import BucketListingSummary
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import TagDefinitionSummary
@@ -420,8 +421,26 @@ class CephAdminEntityMetrics(ApiModel):
 
 
 
-class CephAdminBucketCompareRequest(BucketCompareRequestBase):
+class CephAdminBucketCompareRequest(ApiModel):
     target_endpoint_id: int = Field(..., ge=1)
+    source: RgwBucketReference
+    target: RgwBucketReference
+    include_content: bool = True
+    include_config: bool = False
+    config_features: Optional[list[BucketCompareConfigFeature]] = None
+    ignore_modified_after: Optional[datetime] = None
+
+    @model_validator(mode="after")
+    def validate_comparison_scope(self):
+        if not self.include_content and not self.include_config:
+            raise ValueError("At least one comparison scope must be enabled.")
+        if self.config_features is not None:
+            self.config_features = list(dict.fromkeys(self.config_features))
+            if self.include_config and not self.config_features:
+                raise ValueError(
+                    "At least one config feature must be enabled when include_config is true."
+                )
+        return self
 
 
 class CephAdminBucketCompareResult(ApiModel):
@@ -429,6 +448,8 @@ class CephAdminBucketCompareResult(ApiModel):
     target_endpoint_id: int
     source_bucket: str
     target_bucket: str
+    source_tenant: str = ""
+    target_tenant: str = ""
     has_differences: bool = False
     content_diff: Optional[BucketContentDiff] = None
     config_diff: Optional[BucketConfigDiff] = None

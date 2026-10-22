@@ -494,7 +494,7 @@ describe("BucketOpsWorkbench selection actions", () => {
 
     await waitFor(() => expect(mocks.backupCephAdminBucketConfigs).toHaveBeenCalledTimes(1));
     expect(mocks.backupCephAdminBucketConfigs).toHaveBeenCalledWith(7, {
-      buckets: ["bucket-001"],
+      buckets: [{ name: "bucket-001", tenant: "" }],
       features: [
         "quota",
         "versioning",
@@ -609,7 +609,7 @@ describe("BucketOpsWorkbench selection actions", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply changes" }));
 
     expect(await within(dialog).findByText("Updated 1 bucket.")).toBeInTheDocument();
-    expect(mocks.noopAsync).toHaveBeenCalledWith(7, "bucket-001", true);
+    expect(mocks.noopAsync).toHaveBeenCalledWith(7, "bucket-001", true, null);
   });
 
   it("applies a prepared bulk operation through the shared execution service", async () => {
@@ -637,7 +637,7 @@ describe("BucketOpsWorkbench selection actions", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply changes" }));
 
     expect(await within(dialog).findByText("Updated 1 bucket.")).toBeInTheDocument();
-    expect(mocks.noopAsync).toHaveBeenCalledWith(7, "bucket-001", true);
+    expect(mocks.noopAsync).toHaveBeenCalledWith(7, "bucket-001", true, null);
   });
 
   it("does not expose Storage Ops bulk quota updates", async () => {

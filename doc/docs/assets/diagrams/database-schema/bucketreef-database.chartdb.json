@@ -19425,6 +19425,27 @@
           "check": null
         },
         {
+          "id": "field:bucket_usage_stats_snapshots.bucket_tenant",
+          "name": "bucket_tenant",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:bucket_usage_stats_snapshots.bucket_name",
           "name": "bucket_name",
           "type": {
@@ -19877,6 +19898,7 @@
           "fieldIds": [
             "field:bucket_usage_stats_snapshots.scope_kind",
             "field:bucket_usage_stats_snapshots.scope_id",
+            "field:bucket_usage_stats_snapshots.bucket_tenant",
             "field:bucket_usage_stats_snapshots.bucket_name"
           ],
           "createdAt": 0,
@@ -25028,7 +25050,7 @@
       "x": 0,
       "y": 6738,
       "width": 1320,
-      "height": 4186,
+      "height": 4216,
       "color": "#D97706",
       "order": 4
     },

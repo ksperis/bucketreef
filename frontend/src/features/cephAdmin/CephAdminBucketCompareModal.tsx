@@ -24,6 +24,7 @@ import {
   type CephAdminBucketCompareConfigFeature,
 } from "../../api/cephAdminBuckets";
 import type { CephAdminEndpoint } from "../../api/cephAdminEndpoints";
+import type { RgwBucketReference } from "../../api/bucketOperation";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
@@ -58,6 +59,8 @@ import { useCephAdminI18n } from "./cephAdminI18n";
 type CompareRunItem = {
   sourceBucket: string;
   targetBucket: string;
+  sourceRef: RgwBucketReference;
+  targetRef: RgwBucketReference;
   status: "pending" | "running" | "success" | "failed" | "cancelled";
   result?: CephAdminBucketCompareResult;
   error?: string;
@@ -71,12 +74,24 @@ type PendingExploreNavigation = {
 type CephAdminBucketCompareModalProps = {
   sourceEndpointId: number;
   sourceEndpointName?: string | null;
-  sourceBuckets: string[];
+  sourceBuckets: RgwBucketReference[];
   endpoints: CephAdminEndpoint[];
   onClose: () => void;
 };
 
 const ALL_CONFIG_FEATURE_KEYS = BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS.map((option) => option.key);
+
+function normalizeBucketReference(reference: RgwBucketReference): RgwBucketReference {
+  return {
+    name: reference.name.trim(),
+    tenant: reference.tenant?.trim() ?? "",
+  };
+}
+
+function bucketReferenceLabel(reference: RgwBucketReference): string {
+  const normalized = normalizeBucketReference(reference);
+  return normalized.tenant ? `${normalized.tenant}/${normalized.name}` : normalized.name;
+}
 
 export default function CephAdminBucketCompareModal({
   sourceEndpointId,
@@ -86,10 +101,28 @@ export default function CephAdminBucketCompareModal({
   onClose,
 }: CephAdminBucketCompareModalProps) {
   const { text: surfaceText } = useCephAdminI18n();
-  const sortedSourceBuckets = useMemo(() => [...sourceBuckets].sort((a, b) => a.localeCompare(b)), [sourceBuckets]);
+  const sortedSourceReferences = useMemo(
+    () => [...sourceBuckets]
+      .map(normalizeBucketReference)
+      .sort((left, right) => bucketReferenceLabel(left).localeCompare(bucketReferenceLabel(right))),
+    [sourceBuckets],
+  );
+  const sortedSourceBuckets = useMemo(
+    () => sortedSourceReferences.map(bucketReferenceLabel),
+    [sortedSourceReferences],
+  );
+  const sourceReferenceByLabel = useMemo(
+    () => new Map(sortedSourceReferences.map((reference) => [bucketReferenceLabel(reference), reference])),
+    [sortedSourceReferences],
+  );
   const targetEndpointOptions = useMemo(() => endpoints, [endpoints]);
   const [targetEndpointId, setTargetEndpointId] = useState<number | null>(null);
+  const [targetBucketReferences, setTargetBucketReferences] = useState<RgwBucketReference[]>([]);
   const [targetBucketNames, setTargetBucketNames] = useState<string[]>([]);
+  const targetReferenceByLabel = useMemo(
+    () => new Map(targetBucketReferences.map((reference) => [bucketReferenceLabel(reference), reference])),
+    [targetBucketReferences],
+  );
   const [targetBucketsLoading, setTargetBucketsLoading] = useState(false);
   const [targetBucketsError, setTargetBucketsError] = useState<string | null>(null);
   const [mappingMode, setMappingMode] = useState<"by_name" | "manual">("by_name");
@@ -157,6 +190,7 @@ export default function CephAdminBucketCompareModal({
 
   useEffect(() => {
     if (!targetEndpointId) {
+      setTargetBucketReferences([]);
       setTargetBucketNames([]);
       setTargetBucketsError(surfaceText("Select a target endpoint."));
       return;
@@ -166,7 +200,7 @@ export default function CephAdminBucketCompareModal({
       setTargetBucketsLoading(true);
       setTargetBucketsError(null);
       try {
-        const names: string[] = [];
+        const references: RgwBucketReference[] = [];
         const seen = new Set<string>();
         let page = 1;
         while (true) {
@@ -179,19 +213,25 @@ export default function CephAdminBucketCompareModal({
           });
           response.items.forEach((bucket) => {
             const name = (bucket.name ?? "").trim();
-            if (!name || seen.has(name)) return;
-            seen.add(name);
-            names.push(name);
+            if (!name) return;
+            const reference = normalizeBucketReference({ name, tenant: bucket.tenant ?? "" });
+            const key = JSON.stringify([reference.tenant ?? "", reference.name]);
+            if (seen.has(key)) return;
+            seen.add(key);
+            references.push(reference);
           });
           if (!response.has_next) break;
           page += 1;
         }
         if (cancelled) return;
-        names.sort((a, b) => a.localeCompare(b));
+        references.sort((left, right) => bucketReferenceLabel(left).localeCompare(bucketReferenceLabel(right)));
+        setTargetBucketReferences(references);
+        const names = references.map(bucketReferenceLabel);
         setTargetBucketNames(names);
         setTargetBucketsError(null);
       } catch (err) {
         if (cancelled) return;
+        setTargetBucketReferences([]);
         setTargetBucketNames([]);
         setTargetBucketsError(extractCompareError(err));
       } finally {
@@ -252,10 +292,11 @@ export default function CephAdminBucketCompareModal({
     (!includeConfig || hasConfigFeatureSelected) &&
     !ignoreModifiedAfterInvalid;
 
-  const buildCephAdminBrowserHref = useCallback((endpointId: number, bucket: string, key: string) => {
+  const buildCephAdminBrowserHref = useCallback((endpointId: number, bucket: RgwBucketReference, key: string) => {
     const params = new URLSearchParams();
     params.set("ep", String(endpointId));
-    params.set("bucket", bucket);
+    params.set("bucket", bucket.name);
+    if (bucket.tenant?.trim()) params.set("tenant", bucket.tenant.trim());
     const prefix = getObjectParentPrefix(key);
     if (prefix) params.set("prefix", prefix);
     return `/ceph-admin/browser?${params.toString()}`;
@@ -290,11 +331,20 @@ export default function CephAdminBucketCompareModal({
     setStopping(false);
     setProgress({ completed: 0, total: mappings.length, failed: 0, cancelled: 0 });
     setItems(
-      mappings.map((mapping) => ({
-        sourceBucket: mapping.sourceBucket,
-        targetBucket: mapping.targetBucket,
-        status: "pending",
-      }))
+      mappings.map((mapping) => {
+        const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
+        const targetRef = targetReferenceByLabel.get(mapping.targetBucket);
+        if (!sourceRef || !targetRef) {
+          throw new Error("Unable to resolve the selected tenant-aware bucket mapping.");
+        }
+        return {
+          sourceBucket: mapping.sourceBucket,
+          targetBucket: mapping.targetBucket,
+          sourceRef,
+          targetRef,
+          status: "pending" as const,
+        };
+      })
     );
 
     await runWithConcurrencySettled(
@@ -317,12 +367,17 @@ export default function CephAdminBucketCompareModal({
         const controller = new AbortController();
         requestControllersRef.current.add(controller);
         try {
+          const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
+          const targetRef = targetReferenceByLabel.get(mapping.targetBucket);
+          if (!sourceRef || !targetRef) {
+            throw new Error("Unable to resolve the selected tenant-aware bucket mapping.");
+          }
           return await compareCephAdminBucketPair(
             sourceEndpointId,
             {
               target_endpoint_id: targetEndpointId,
-              source_bucket: mapping.sourceBucket,
-              target_bucket: mapping.targetBucket,
+              source: sourceRef,
+              target: targetRef,
               include_content: includeContent,
               include_config: includeConfig,
               config_features: includeConfig ? selectedConfigFeatures : undefined,
@@ -424,8 +479,8 @@ export default function CephAdminBucketCompareModal({
         with_differences: resultSummary.withDiff,
       },
       items: items.map((item) => ({
-        source_bucket: item.sourceBucket,
-        target_bucket: item.targetBucket,
+        source: item.sourceRef,
+        target: item.targetRef,
         status: item.status,
         error: item.error ?? null,
         result: item.result ?? null,
@@ -711,7 +766,7 @@ export default function CephAdminBucketCompareModal({
                                       <BucketCompareObjectDetails rows={section.sourceDetails} options={{
                                         onExplore: openExploreConfirm,
                                         buildBrowserHref: (detail) =>
-                                          buildCephAdminBrowserHref(sourceEndpointId, item.sourceBucket, detail.key),
+                                          buildCephAdminBrowserHref(sourceEndpointId, item.sourceRef, detail.key),
                                       }} />
                                     </div>
                                     <div className="space-y-1">
@@ -722,7 +777,7 @@ export default function CephAdminBucketCompareModal({
                                         buildBrowserHref: (detail) =>
                                           buildCephAdminBrowserHref(
                                             item.result?.target_endpoint_id ?? targetEndpointId ?? sourceEndpointId,
-                                            item.targetBucket,
+                                            item.targetRef,
                                             detail.key
                                           ),
                                       }} />

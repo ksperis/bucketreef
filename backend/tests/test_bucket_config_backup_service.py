@@ -17,7 +17,10 @@ from app.models.bucket_config_backup import (
 )
 from app.routers.ceph_admin import bucket_tools as buckets_router
 from app.services import bucket_config_backup_service as bucket_config_backup_module
-from app.services.bucket_config_backup_service import BucketConfigBackupService
+from app.services.bucket_config_backup_service import (
+    BucketConfigBackupResolvedTarget,
+    BucketConfigBackupService,
+)
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -55,11 +58,18 @@ class FakeBucketsService:
 
 def test_bucket_config_backup_request_normalizes_duplicates():
     payload = BucketConfigBackupRequest(
-        buckets=[" bucket-a ", "bucket-a", "bucket-b"],
+        buckets=[
+            {"name": " bucket-a "},
+            {"name": "bucket-a"},
+            {"name": "bucket-b", "tenant": "tenant_a"},
+        ],
         features=["tags", "tags", "policy"],
     )
 
-    assert payload.buckets == ["bucket-a", "bucket-b"]
+    assert [(target.name, target.tenant) for target in payload.buckets] == [
+        ("bucket-a", ""),
+        ("bucket-b", "tenant_a"),
+    ]
     assert payload.features == ["tags", "policy"]
 
 
@@ -76,7 +86,7 @@ def test_bucket_config_backup_collects_selected_features_without_secrets():
 
     backup = service.build_backup(
         execution_context=account,
-        bucket_names=["bucket-a"],
+        bucket_targets=[BucketConfigBackupResolvedTarget(name="bucket-a", request_name="bucket-a")],
         features=[
             "quota",
             "versioning",
@@ -116,7 +126,7 @@ def test_bucket_config_backup_captures_feature_errors():
 
     backup = service.build_backup(
         execution_context=S3Account(name="account-a"),
-        bucket_names=["bucket-a"],
+        bucket_targets=[BucketConfigBackupResolvedTarget(name="bucket-a", request_name="bucket-a")],
         features=["policy", "tags"],
         source=BucketConfigBackupSource(surface="ceph-admin", endpoint_id=7, endpoint_name="Archive"),
     )
@@ -136,7 +146,7 @@ def test_bucket_config_backup_sanitizes_feature_errors():
 
     backup = BucketConfigBackupService(FailingPolicyService()).build_backup(
         execution_context=S3Account(name="account-a"),
-        bucket_names=["bucket-a"],
+        bucket_targets=[BucketConfigBackupResolvedTarget(name="bucket-a", request_name="bucket-a")],
         features=["policy"],
         source=BucketConfigBackupSource(
             surface="ceph-admin",
@@ -157,10 +167,11 @@ def test_ceph_admin_backup_route_uses_endpoint_quota_loader(monkeypatch):
             return "Suspended"
 
     class FakeRGWAdmin:
-        def get_bucket_info(self, bucket_name, stats=True, allow_not_found=True):  # noqa: ANN001
+        def get_bucket_info(self, bucket_name, stats=True, allow_not_found=True, **kwargs):  # noqa: ANN001
             assert bucket_name == "bucket-a"
             assert stats is False
             assert allow_not_found is True
+            assert kwargs == {}
             return {"bucket": "bucket-a", "bucket_quota": {"max_size": 2048, "max_objects": 3}}
 
     monkeypatch.setattr(bucket_config_backup_module, "BucketConfigurationService", lambda: RouteBucketsService())
@@ -172,7 +183,7 @@ def test_ceph_admin_backup_route_uses_endpoint_quota_loader(monkeypatch):
     )
 
     backup = buckets_router.backup_bucket_configs(
-        payload=BucketConfigBackupRequest(buckets=["bucket-a"], features=["quota", "versioning"]),
+        payload=BucketConfigBackupRequest(buckets=[{"name": "bucket-a"}], features=["quota", "versioning"]),
         ctx=ctx,
     )
 

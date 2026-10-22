@@ -157,6 +157,34 @@ export const getStorageOpsBucketName = (bucket: CephAdminBucket): string => {
   return decodeStorageOpsBucketRef(bucket.name)?.bucketName ?? bucket.name;
 };
 
+export type CephAdminBucketRef = {
+  bucketName: string;
+  tenant: string | null;
+};
+
+export const encodeCephAdminBucketRef = (
+  bucketName: string,
+  tenant?: string | null,
+): string => {
+  const normalizedName = bucketName.trim();
+  const normalizedTenant = String(tenant ?? "").trim();
+  return normalizedTenant ? `${normalizedTenant}:${normalizedName}` : normalizedName;
+};
+
+export const decodeCephAdminBucketRef = (value: string): CephAdminBucketRef => {
+  const normalized = value.trim();
+  const separatorIndex = normalized.indexOf(":");
+  if (separatorIndex <= 0) {
+    return { bucketName: normalized, tenant: null };
+  }
+  const tenant = normalized.slice(0, separatorIndex).trim();
+  const bucketName = normalized.slice(separatorIndex + 1).trim();
+  return {
+    bucketName,
+    tenant: tenant || null,
+  };
+};
+
 export const normalizeBucketName = (value: string) => value.trim().toLowerCase();
 
 export const areStringMapEqual = (

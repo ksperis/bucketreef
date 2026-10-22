@@ -7,6 +7,10 @@ import type {
   ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
 import { loadBucketOpsBucketsByNames } from "./bucketOpsNamedBucketLoader";
+import {
+  decodeCephAdminBucketRef,
+  encodeCephAdminBucketRef,
+} from "./bucketOpsPresentation";
 
 type SelectionTarget = {
   key: string;
@@ -21,6 +25,7 @@ type SelectionTargetPage = {
 
 type ResolveBucketOpsSelectionTargetsInput<Target extends SelectionTarget> = {
   bucketNames: readonly string[];
+  isStorageOps: boolean;
   listBuckets: (
     scopeId: number,
     params: ListCephAdminBucketsParams,
@@ -38,6 +43,7 @@ export async function resolveBucketOpsSelectionTargets<
   Target extends SelectionTarget,
 >({
   bucketNames,
+  isStorageOps,
   listBuckets,
   onProgress,
   resolveTarget,
@@ -51,20 +57,26 @@ export async function resolveBucketOpsSelectionTargets<
   }
 
   const bucketsByName = await loadBucketOpsBucketsByNames({
+    bucketKey: isStorageOps
+      ? (bucket) => bucket.name
+      : (bucket) => encodeCephAdminBucketRef(bucket.name, bucket.tenant),
     bucketNames,
     concurrency: 4,
     listBuckets,
     onProgress,
+    queryBucketName: isStorageOps
+      ? undefined
+      : (bucketName) => decodeCephAdminBucketRef(bucketName).bucketName,
     scopeId,
     withStats: false,
   });
   const targetByKey = new Map<string, Target>();
   const resolvedNames = new Set<string>();
-  bucketsByName.forEach((bucket) => {
+  bucketsByName.forEach((bucket, bucketKey) => {
     const target = resolveTarget(bucket);
     if (!target) return;
     targetByKey.set(target.key, target);
-    resolvedNames.add(target.name);
+    resolvedNames.add(bucketKey);
   });
 
   return {

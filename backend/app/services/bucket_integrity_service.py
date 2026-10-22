@@ -53,8 +53,13 @@ class _BucketProgressEmitter(Protocol):
 class BucketIntegrityResolvedTarget:
     context: S3ExecutionTarget
     bucket_name: str
+    request_bucket_name: str | None = None
     context_id: str | None = None
     context_name: str | None = None
+
+    @property
+    def s3_bucket_name(self) -> str:
+        return self.request_bucket_name or self.bucket_name
 
 
 @dataclass(frozen=True)
@@ -485,12 +490,12 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
         worker_count = max(1, min(int(options.parallelism), 64))
         pending: set[Future[_ObjectCheckResult]] = set()
         with (
-            self._open_client(target.context) as client,
+            self._open_client(target.context, bucket_name=target.s3_bucket_name) as client,
             ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-integrity") as executor,
         ):
             for obj in self._iter_objects(
                 client,
-                target.bucket_name,
+                target.s3_bucket_name,
                 all_versions=options.all_versions,
                 since=options.since,
                 cancel_check=cancel_check,
@@ -502,7 +507,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
                     executor.submit(
                         self._check_object,
                         client,
-                        target.bucket_name,
+                        target.s3_bucket_name,
                         obj,
                         check_mode=options.check_mode,
                         max_bytes=max_bytes,

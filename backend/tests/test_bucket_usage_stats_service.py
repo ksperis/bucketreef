@@ -48,14 +48,21 @@ class FakeUsageStatsService(BucketUsageStatsService):
         super().__init__()
         self.client = client
 
-    def _build_client(self, account):
+    def _build_client(self, account, *, bucket_name=None):
         return self.client
 
 
-def _target(bucket_name: str = "bucket-a") -> BucketUsageStatsResolvedTarget:
+def _target(
+    bucket_name: str = "bucket-a",
+    *,
+    bucket_tenant: str = "",
+    request_bucket_name: str | None = None,
+) -> BucketUsageStatsResolvedTarget:
     return BucketUsageStatsResolvedTarget(
         context=SimpleNamespace(),
         bucket_name=bucket_name,
+        bucket_tenant=bucket_tenant,
+        request_bucket_name=request_bucket_name,
         scope_kind="manager",
         scope_id="ctx-1",
         scope_name="Context 1",
@@ -291,6 +298,50 @@ def test_usage_stats_upsert_replaces_latest_snapshot_without_history(db_session)
     assert db_session.query(BucketUsageStatsSnapshotRow).count() == 1
     assert persisted.total_bytes == 42
     assert service.get_latest(db_session, scope_kind="manager", scope_id="ctx-1", bucket_name="bucket-a").total_bytes == 42
+
+
+def test_usage_stats_keeps_same_name_buckets_from_different_tenants_distinct(db_session):
+    service = BucketUsageStatsService()
+    client = FakeS3Client(
+        {
+            "list_object_versions": FakePaginator(
+                [{"Versions": [{"Key": "a.txt", "IsLatest": True, "Size": 1}]}]
+            )
+        }
+    )
+    tenant_a = FakeUsageStatsService(client).calculate_bucket(
+        _target(
+            "shared",
+            bucket_tenant="tenant_a",
+            request_bucket_name="tenant_a:shared",
+        )
+    )
+    tenant_b = tenant_a.model_copy(
+        update={
+            "bucket_tenant": "tenant_b",
+            "total_bytes": 2,
+            "current_bytes": 2,
+        }
+    )
+
+    service.upsert_snapshot(db_session, tenant_a)
+    service.upsert_snapshot(db_session, tenant_b)
+
+    assert db_session.query(BucketUsageStatsSnapshotRow).count() == 2
+    assert service.get_latest(
+        db_session,
+        scope_kind="manager",
+        scope_id="ctx-1",
+        bucket_name="shared",
+        bucket_tenant="tenant_a",
+    ).total_bytes == 1
+    assert service.get_latest(
+        db_session,
+        scope_kind="manager",
+        scope_id="ctx-1",
+        bucket_name="shared",
+        bucket_tenant="tenant_b",
+    ).total_bytes == 2
 
 
 def test_usage_stats_aggregate_recalculates_ratios_and_reports_coverage(db_session):

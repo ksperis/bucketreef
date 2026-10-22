@@ -22,19 +22,20 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.bucket_config_backup_service import (
+    BucketConfigBackupResolvedTarget,
     BucketConfigBackupService,
     quota_from_bucket_summary,
 )
 from app.services.bucket_comparison_service import get_bucket_comparison_service
 from app.services.rgw_bucket_metadata import build_bucket_summary
+from app.services.rgw_bucket_target import RgwBucketTarget
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
 from app.services.browser_service import BrowserService, get_browser_service
 from app.services.rgw_admin import RGWAdminError
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
 from app.utils.http_errors import raise_bad_gateway_from_runtime
 from app.routers.ceph_admin.bucket_config_common import (
-    ceph_admin_s3_bucket_name,
-    normalize_ceph_admin_bucket_tenant,
+    ceph_admin_bucket_target,
 )
 
 router = APIRouter()
@@ -58,10 +59,21 @@ def backup_bucket_configs(
 ) -> BucketConfigBackupResponse:
     service = BucketConfigBackupService()
     execution_context = build_ceph_admin_s3_context(ctx)
+    targets = [
+        RgwBucketTarget.create(ctx.endpoint.id, reference.tenant, reference.name)
+        for reference in payload.buckets
+    ]
+    targets_by_request_name = {target.s3_name: target for target in targets}
 
-    def quota_loader(bucket_name: str) -> dict[str, int | None]:
+    def quota_loader(request_name: str) -> dict[str, int | None]:
+        target = targets_by_request_name[request_name]
         try:
-            raw = ctx.rgw_admin.get_bucket_info(bucket_name, stats=False, allow_not_found=True)
+            raw = ctx.rgw_admin.get_bucket_info(
+                target.name,
+                stats=False,
+                allow_not_found=True,
+                **({"tenant": target.tenant} if target.tenant else {}),
+            )
         except RGWAdminError as exc:
             raise RuntimeError(f"Unable to fetch bucket quota: {exc}") from exc
         if not isinstance(raw, dict):
@@ -71,7 +83,14 @@ def backup_bucket_configs(
 
     return service.build_backup(
         execution_context=execution_context,
-        bucket_names=payload.buckets,
+        bucket_targets=[
+            BucketConfigBackupResolvedTarget(
+                name=target.name,
+                tenant=target.tenant,
+                request_name=target.s3_name,
+            )
+            for target in targets
+        ],
         features=payload.features,
         source=BucketConfigBackupSource(
             surface="ceph-admin",
@@ -107,6 +126,16 @@ def compare_bucket_pair(
         access_key=target_access_key,
         secret_key=target_secret_key,
     )
+    source_target = RgwBucketTarget.create(
+        ctx.endpoint.id,
+        payload.source.tenant,
+        payload.source.name,
+    )
+    target_target = RgwBucketTarget.create(
+        target_endpoint.id,
+        payload.target.tenant,
+        payload.target.name,
+    )
 
     service = get_bucket_comparison_service()
     content_diff = None
@@ -114,17 +143,17 @@ def compare_bucket_pair(
     try:
         if payload.include_content:
             content_diff = service.compare_bucket_content(
-                payload.source_bucket,
+                source_target.s3_name,
                 source_context,
-                payload.target_bucket,
+                target_target.s3_name,
                 target_context,
                 ignore_modified_after=payload.ignore_modified_after,
             )
         if payload.include_config:
             config_diff = service.compare_bucket_configuration(
-                payload.source_bucket,
+                source_target.s3_name,
                 source_context,
-                payload.target_bucket,
+                target_target.s3_name,
                 target_context,
                 include_sections=set(payload.config_features) if payload.config_features is not None else None,
             )
@@ -144,8 +173,10 @@ def compare_bucket_pair(
     return CephAdminBucketCompareResult(
         source_endpoint_id=endpoint_id,
         target_endpoint_id=payload.target_endpoint_id,
-        source_bucket=payload.source_bucket,
-        target_bucket=payload.target_bucket,
+        source_bucket=source_target.name,
+        target_bucket=target_target.name,
+        source_tenant=source_target.tenant,
+        target_tenant=target_target.tenant,
         has_differences=has_differences,
         content_diff=content_diff,
         config_diff=config_diff,
@@ -162,11 +193,11 @@ def list_bucket_objects(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     service: BrowserService = Depends(get_browser_service),
 ) -> ListBrowserObjectsResponse:
-    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
+    target = ceph_admin_bucket_target(ctx, bucket_name, tenant)
     try:
         return service.list_objects(
-            ceph_admin_s3_bucket_name(bucket_name, normalized_tenant),
-            build_ceph_admin_s3_context(ctx, rgw_tenant=normalized_tenant),
+            target.s3_name,
+            build_ceph_admin_s3_context(ctx),
             prefix=prefix,
             continuation_token=continuation_token,
             max_keys=max_keys,

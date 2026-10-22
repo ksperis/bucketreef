@@ -14,6 +14,7 @@ type BucketOpsNamedBucketPage = {
 };
 
 type BucketOpsNamedBucketLoaderInput = {
+  bucketKey?: (bucket: CephAdminBucket) => string;
   bucketNames: readonly string[];
   concurrency?: number;
   include?: string[];
@@ -22,16 +23,19 @@ type BucketOpsNamedBucketLoaderInput = {
     params: ListCephAdminBucketsParams,
   ) => Promise<BucketOpsNamedBucketPage>;
   onProgress?: (progress: { completed: number; total: number; failed: number }) => void;
+  queryBucketName?: (bucketName: string) => string;
   scopeId: number;
   withStats: boolean;
 };
 
 export async function loadBucketOpsBucketsByNames({
+  bucketKey = (bucket) => bucket.name,
   bucketNames,
   concurrency = 1,
   include,
   listBuckets,
   onProgress,
+  queryBucketName = (bucketName) => bucketName,
   scopeId,
   withStats,
 }: BucketOpsNamedBucketLoaderInput): Promise<Map<string, CephAdminBucket>> {
@@ -51,9 +55,10 @@ export async function loadBucketOpsBucketsByNames({
     concurrency,
     async (chunk) => {
       const buckets: CephAdminBucket[] = [];
+      const queryNames = Array.from(new Set(chunk.map(queryBucketName)));
       const advancedFilter = JSON.stringify({
         match: "any",
-        rules: [{ field: "name", op: "in", value: chunk }],
+        rules: [{ field: "name", op: "in", value: queryNames }],
       });
       let nextPage = 1;
       while (true) {
@@ -85,6 +90,6 @@ export async function loadBucketOpsBucketsByNames({
   chunkResults
     .filter((result): result is PromiseFulfilledResult<CephAdminBucket[]> => result.status === "fulfilled")
     .flatMap((result) => result.value)
-    .forEach((bucket) => bucketsByName.set(bucket.name, bucket));
+    .forEach((bucket) => bucketsByName.set(bucketKey(bucket), bucket));
   return bucketsByName;
 }
