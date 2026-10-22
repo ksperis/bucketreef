@@ -265,6 +265,22 @@ body {
   text-decoration: underline;
 }
 
+/* Material derives button foreground/border from the primary foreground token.
+ * Our header intentionally maps that token to the page background, which makes
+ * transparent buttons disappear until hover in dark mode. Keep content buttons
+ * on the explicit documentation link palette instead. */
+.md-typeset .md-button {
+  border-color: var(--docs-link);
+  color: var(--docs-link);
+}
+
+.md-typeset .md-button:is(:hover, :focus-visible) {
+  border-color: var(--docs-link);
+  background: var(--docs-link);
+  color: var(--docs-bg);
+  text-decoration: none;
+}
+
 .md-typeset blockquote {
   margin: 1rem 0;
   padding: 0.2rem 0.8rem;
