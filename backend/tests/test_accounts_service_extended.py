@@ -17,7 +17,7 @@ from app.services.managed_resource_naming import (
 )
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
-from app.services.rgw_account_topics_resolver import normalize_account_key
+from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver, normalize_account_key
 from app.services.s3_accounts_service import S3AccountsService
 
 
@@ -178,6 +178,30 @@ def test_account_topics_resolver_parses_caches_and_falls_back(db_session):
 
     admin.topics_by_account = {None: [{"TopicArn": "arn:aws:sns:region:RGW2:topic-y"}], "RGW2": None}
     assert resolver.resolve("RGW2", admin, 2) == (1, ["arn:aws:sns:region:RGW2:topic-y"])
+
+
+@pytest.mark.parametrize(
+    ("topic", "expected"),
+    [
+        ({"name": "topic-a", "account_id": "RGW1"}, ("topic-a", "RGW1")),
+        ({"Topic": "topic-b", "tenant": "tenant-a"}, ("topic-b", "tenant-a")),
+        ({"topic_name": "topic-c", "account": "RGW3"}, ("topic-c", "RGW3")),
+        ({"TopicArn": "arn:aws:sns:region:RGW4:topic-d"}, ("arn:aws:sns:region:RGW4:topic-d", "RGW4")),
+        ({"topic_arn": "arn:aws:sns:region:RGW5:topic-e"}, ("arn:aws:sns:region:RGW5:topic-e", "RGW5")),
+        ("RGW6:topic-f", ("RGW6:topic-f", "RGW6")),
+        ("plain-topic", ("plain-topic", None)),
+        (None, (None, None)),
+    ],
+)
+def test_account_topic_entry_metadata_normalizes_supported_shapes(topic, expected):
+    assert RgwAccountTopicsResolver._entry_metadata(topic) == expected
+
+
+def test_account_topics_resolver_ignores_null_topic_entries(db_session):
+    service, admin = _service(db_session)
+    admin.topics_by_account["RGW1"] = [None, {"name": "topic-a", "account_id": "RGW1"}]
+
+    assert service.account_topics.resolve("RGW1", admin, 1) == (1, ["topic-a"])
 
 
 def test_account_rgw_users_paths(db_session):
