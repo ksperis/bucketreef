@@ -9,6 +9,63 @@ from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import rgw_qualified_uid
 
 
+_ACCESS_KEY_COLLECTION_FIELDS = ("keys", "s3_credentials", "key")
+_ACCESS_KEY_METADATA_FIELDS = (
+    "status",
+    "key_status",
+    "state",
+    "create_time",
+    "create-time",
+    "create_date",
+    "create-date",
+    "created_at",
+    "create_timestamp",
+    "timestamp",
+)
+_EMPTY_ACCESS_KEY_METADATA = (None, "", [], {})
+
+
+def _top_level_access_key_entry(data: dict[str, Any]) -> dict[str, Any] | None:
+    access_value = data.get("access_key")
+    secret_value = data.get("secret_key")
+    if not access_value or not secret_value:
+        return None
+    entry = {
+        "access_key": access_value,
+        "secret_key": secret_value,
+    }
+    entry.update(
+        {
+            field_name: data[field_name]
+            for field_name in _ACCESS_KEY_METADATA_FIELDS
+            if data.get(field_name) is not None
+        }
+    )
+    return entry
+
+
+def _merge_access_key_entries(entries: list[dict]) -> list[dict]:
+    prioritized = sorted(entries, key=lambda entry: 0 if entry.get("secret_key") else 1)
+    result: list[dict] = []
+    seen_by_access: dict[str, dict] = {}
+    for entry in prioritized:
+        access_value = entry.get("access_key")
+        normalized = str(access_value) if access_value is not None else None
+        if not normalized:
+            result.append(entry)
+            continue
+        existing = seen_by_access.get(normalized)
+        if existing is None:
+            copied = dict(entry)
+            seen_by_access[normalized] = copied
+            result.append(copied)
+            continue
+        for field_name, field_value in entry.items():
+            if existing.get(field_name) in _EMPTY_ACCESS_KEY_METADATA and field_value not in _EMPTY_ACCESS_KEY_METADATA:
+                existing[field_name] = field_value
+    return result
+
+
 class RGWAdminUserOperations:
     @staticmethod
     def _validate_user_extra_params(extra_params: Optional[Dict[str, Any]]) -> None:
@@ -187,75 +244,24 @@ class RGWAdminUserOperations:
         if not data:
             return []
 
-        entries: list[dict] = []
         if isinstance(data, list):
-            entries.extend(item for item in data if isinstance(item, dict))
-        elif isinstance(data, dict):
-            for field_name in ("keys", "s3_credentials", "key"):
-                field_value = data.get(field_name)
-                if isinstance(field_value, list):
-                    entries.extend(
-                        item for item in field_value if isinstance(item, dict)
-                    )
-
-            user_field = data.get("user")
-            if isinstance(user_field, dict):
-                entries.extend(self.extract_keys(user_field))
-
-            access_value = data.get("access_key")
-            secret_value = data.get("secret_key")
-            if access_value and secret_value:
-                entry: Dict[str, Any] = {
-                    "access_key": access_value,
-                    "secret_key": secret_value,
-                }
-                for field_name in (
-                    "status",
-                    "key_status",
-                    "state",
-                    "create_time",
-                    "create-time",
-                    "create_date",
-                    "create-date",
-                    "created_at",
-                    "create_timestamp",
-                    "timestamp",
-                ):
-                    field_value = data.get(field_name)
-                    if field_value is not None:
-                        entry[field_name] = field_value
-                entries.insert(0, entry)
-        else:
+            return _merge_access_key_entries([item for item in data if isinstance(item, dict)])
+        if not isinstance(data, dict):
             return []
 
-        prioritized = sorted(
-            entries,
-            key=lambda entry: 0 if entry.get("secret_key") else 1,
-        )
-        result: list[dict] = []
-        seen_by_access: dict[str, dict] = {}
-        for entry in prioritized:
-            access_value = entry.get("access_key")
-            normalized = str(access_value) if access_value is not None else None
-            if not normalized:
-                result.append(entry)
-                continue
-            existing = seen_by_access.get(normalized)
-            if existing is None:
-                copied = dict(entry)
-                seen_by_access[normalized] = copied
-                result.append(copied)
-                continue
-            for field_name, field_value in entry.items():
-                if field_name not in existing or existing.get(field_name) in (
-                    None,
-                    "",
-                    [],
-                    {},
-                ):
-                    if field_value not in (None, "", [], {}):
-                        existing[field_name] = field_value
-        return result
+        entries = [
+            item
+            for field_name in _ACCESS_KEY_COLLECTION_FIELDS
+            for item in (data.get(field_name) if isinstance(data.get(field_name), list) else [])
+            if isinstance(item, dict)
+        ]
+        user_field = data.get("user")
+        if isinstance(user_field, dict):
+            entries.extend(self.extract_keys(user_field))
+        top_level_entry = _top_level_access_key_entry(data)
+        if top_level_entry is not None:
+            entries.insert(0, top_level_entry)
+        return _merge_access_key_entries(entries)
 
     def list_users(self) -> list[Dict[str, Any]]:
         result = self._request(

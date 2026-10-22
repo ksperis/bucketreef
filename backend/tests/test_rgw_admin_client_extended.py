@@ -745,6 +745,17 @@ def testextract_keys_with_list_and_empty_dict():
     assert client.extract_keys({}) == []
 
 
+@pytest.mark.parametrize("field_name", ["s3_credentials", "key"])
+def testextract_keys_supports_rgw_collection_aliases(field_name):
+    client = _client()
+
+    keys = client.extract_keys(
+        {field_name: [{"access_key": "AK-ALIAS", "secret_key": "SK-ALIAS"}]}
+    )
+
+    assert keys == [{"access_key": "AK-ALIAS", "secret_key": "SK-ALIAS"}]
+
+
 def test_create_update_delete_account_branches(monkeypatch):
     client = _client()
     calls: list[dict[str, object]] = []
