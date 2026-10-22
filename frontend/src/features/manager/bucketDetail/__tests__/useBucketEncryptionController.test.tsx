@@ -162,6 +162,7 @@ describe("useBucketEncryptionController", () => {
           ApplyServerSideEncryptionByDefault: { SSEAlgorithm: "aws:kms" },
         },
       ],
+      undefined,
     );
     expect(apiMocks.deleteCephAdminBucketEncryption).not.toHaveBeenCalled();
   });
@@ -184,7 +185,7 @@ describe("useBucketEncryptionController", () => {
     expect(apiMocks.deleteCephAdminBucketEncryption).not.toHaveBeenCalled();
     await act(async () => result.current.saveDraft());
 
-    expect(apiMocks.deleteCephAdminBucketEncryption).toHaveBeenCalledWith(7, "reports");
+    expect(apiMocks.deleteCephAdminBucketEncryption).toHaveBeenCalledWith(7, "reports", undefined);
     expect(apiMocks.putCephAdminBucketEncryption).not.toHaveBeenCalled();
     expect(result.current.configured).toBe(false);
     expect(result.current.editorOpen).toBe(false);

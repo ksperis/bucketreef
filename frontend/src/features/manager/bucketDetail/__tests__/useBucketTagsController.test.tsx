@@ -96,7 +96,12 @@ describe("useBucketTagsController", () => {
     expect(result.current.tags[0].value).toBe(" value ");
     expect(result.current.dirty).toBe(true);
     await act(async () => result.current.save());
-    expect(put).toHaveBeenLastCalledWith(cephAdmin ? 7 : "acc-1", "reports", [{ key: "tag+key", value: " value " }]);
+    const tags = [{ key: "tag+key", value: " value " }];
+    if (cephAdmin) {
+      expect(put).toHaveBeenLastCalledWith(7, "reports", tags, undefined);
+    } else {
+      expect(put).toHaveBeenLastCalledWith("acc-1", "reports", tags);
+    }
     expect(result.current.dirty).toBe(false);
   });
 
@@ -169,10 +174,11 @@ describe("useBucketTagsController", () => {
     await act(async () => result.current.load());
     await act(async () => result.current.clear());
 
-    expect(apiMocks.getCephAdminBucketTags).toHaveBeenCalledWith(7, "reports");
+    expect(apiMocks.getCephAdminBucketTags).toHaveBeenCalledWith(7, "reports", undefined);
     expect(apiMocks.deleteCephAdminBucketTags).toHaveBeenCalledWith(
       7,
       "reports",
+      undefined,
     );
     expect(result.current.tags).toEqual([]);
     expect(result.current.configured).toBe(false);

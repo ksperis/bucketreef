@@ -104,7 +104,11 @@ describe("useBucketAccessLoggingController", () => {
       target_prefix: null,
     });
     apiMocks.deleteCephAdminBucketLogging.mockResolvedValue(undefined);
-    const { result } = renderAccessLogging({ cephAdmin: true, endpointId: 7 });
+    const { result } = renderAccessLogging({
+      cephAdmin: true,
+      cephAdminTenant: "tenant_a",
+      endpointId: 7,
+    });
 
     await act(async () => result.current.load());
     await act(async () => result.current.clear());
@@ -112,6 +116,7 @@ describe("useBucketAccessLoggingController", () => {
     expect(apiMocks.deleteCephAdminBucketLogging).toHaveBeenCalledWith(
       7,
       "reports",
+      "tenant_a",
     );
     expect(result.current.configured).toBe(false);
     expect(result.current.status).toBe("Access logging disabled.");

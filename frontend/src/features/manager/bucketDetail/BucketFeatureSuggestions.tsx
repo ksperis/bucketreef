@@ -204,6 +204,7 @@ export function BucketFeatureSuggestionsProvider({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
   topicsEnabled,
@@ -212,6 +213,7 @@ export function BucketFeatureSuggestionsProvider({
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
   topicsEnabled: boolean;
@@ -234,7 +236,7 @@ export function BucketFeatureSuggestionsProvider({
     topicsRef.current = null;
     setObservedStorageClasses([]);
     setObservedSuffixes([]);
-  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const observeObjects = useCallback((listing: ObjectListingShape) => {
     const storageClasses = listing.objects
@@ -265,7 +267,12 @@ export function BucketFeatureSuggestionsProvider({
       const request = (async () => {
         try {
           const data = cephAdmin
-            ? await listCephAdminBucketObjects(endpointId as number, bucketName, prefix)
+            ? await listCephAdminBucketObjects(
+                endpointId as number,
+                bucketName,
+                prefix,
+                cephAdminTenant,
+              )
             : await listManagerObjects(contextId, bucketName, prefix);
           if (generationRef.current !== generation) return { objects: [], prefixes: [] };
           const listing: ObjectListingShape = {
@@ -285,7 +292,15 @@ export function BucketFeatureSuggestionsProvider({
       objectCacheRef.current.set(prefix, request);
       return request;
     },
-    [contextId, bucketName, cephAdmin, enabled, endpointId, observeObjects],
+    [
+      contextId,
+      bucketName,
+      cephAdmin,
+      cephAdminTenant,
+      enabled,
+      endpointId,
+      observeObjects,
+    ],
   );
 
   const loadPrefixSuggestions = useCallback(

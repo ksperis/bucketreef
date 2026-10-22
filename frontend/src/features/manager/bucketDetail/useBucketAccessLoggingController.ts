@@ -25,6 +25,7 @@ type UseBucketAccessLoggingControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -33,6 +34,7 @@ export function useBucketAccessLoggingController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketAccessLoggingControllerOptions) {
@@ -72,7 +74,7 @@ export function useBucketAccessLoggingController({
     try {
       const data = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketLogging(endpointId, bucketName)
+          ? await getCephAdminBucketLogging(endpointId, bucketName, cephAdminTenant)
           : { enabled: false }
         : await getBucketLogging(contextId, bucketName);
       apply(data);
@@ -84,7 +86,7 @@ export function useBucketAccessLoggingController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const save = async () => {
     if (!bucketName || !enabled) return;
@@ -103,7 +105,7 @@ export function useBucketAccessLoggingController({
       };
       const saved = cephAdmin
         ? endpointId
-          ? await putCephAdminBucketLogging(endpointId, bucketName, payload)
+          ? await putCephAdminBucketLogging(endpointId, bucketName, payload, cephAdminTenant)
           : payload
         : await putBucketLogging(contextId, bucketName, payload);
       apply(saved);
@@ -127,7 +129,7 @@ export function useBucketAccessLoggingController({
     try {
       if (cephAdmin) {
         if (!endpointId) return;
-        await deleteCephAdminBucketLogging(endpointId, bucketName);
+        await deleteCephAdminBucketLogging(endpointId, bucketName, cephAdminTenant);
       } else {
         await deleteBucketLogging(contextId, bucketName);
       }

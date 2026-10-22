@@ -100,6 +100,7 @@ const bucketDetailWrapActionsClass = "flex flex-wrap gap-2";
 type BucketDetailPageProps = {
   mode?: BucketDetailMode;
   bucketNameOverride?: string;
+  cephAdminTenantOverride?: string | null;
   contextIdOverride?: string | null;
   hideQuotaTab?: boolean;
   embedded?: boolean;
@@ -127,6 +128,7 @@ export function BucketDetailContent(props: BucketDetailPageProps) {
   const contextKey = JSON.stringify([
     props.mode ?? "manager",
     bucketName ?? null,
+    props.cephAdminTenantOverride ?? null,
     props.contextIdOverride ?? null,
     executionContext.contextIdForApi,
     executionContext.selectedContextId ?? null,
@@ -183,6 +185,7 @@ export default function BucketDetailPage({ onDirtyChange, onBusyChange, ...props
 function BucketDetailPageContent({
   mode = "manager",
   bucketNameOverride,
+  cephAdminTenantOverride = null,
   contextIdOverride = null,
   hideQuotaTab = false,
   embedded = false,
@@ -242,6 +245,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -259,6 +263,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -273,6 +278,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -287,6 +293,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -301,6 +308,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -315,6 +323,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -330,6 +339,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -343,6 +353,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
     onVersioningEnabled: markVersioningEnabled,
@@ -360,6 +371,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -390,6 +402,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext && staticWebsiteEnabled,
     endpointId,
   });
@@ -410,6 +423,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext && sseFeatureEnabled,
     endpointId,
   });
@@ -424,6 +438,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -462,6 +477,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
   });
@@ -482,6 +498,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext && isCephEndpoint && replicationFeatureEnabled,
     endpointId,
   });
@@ -515,6 +532,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     enabled: hasContext,
     endpointId,
     withStats: usageFeatureEnabled,
@@ -524,6 +542,7 @@ function BucketDetailPageContent({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
+    cephAdminTenant: cephAdminTenantOverride,
     editable: canEditQuota,
     enabled: quotaFeatureEnabled,
     endpointId,
@@ -1011,6 +1030,7 @@ function BucketDetailPageContent({
       contextId={contextId}
       bucketName={bucketName}
       cephAdmin={isCephAdmin}
+      cephAdminTenant={cephAdminTenantOverride}
       enabled={hasContext}
       endpointId={endpointId}
       topicsEnabled={snsFeatureEnabled}

@@ -16,8 +16,11 @@ from app.models.bucket import (
 )
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.routers.ceph_admin.bucket_config_common import (
+    _run_bucket_config_read,
     _run_bucket_config_delete,
     _run_bucket_config_update,
+    ceph_admin_bucket_entity_id,
+    normalize_ceph_admin_bucket_tenant,
 )
 from app.services.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.ceph_admin.dependencies import (
@@ -38,28 +41,28 @@ router = APIRouter()
 @router.get("/{bucket_name}/properties", response_model=BucketProperties)
 def bucket_properties(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketProperties:
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_properties_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_properties_config,
     )
 
 
 @router.get("/{bucket_name}/versioning", response_model=BucketVersioningStatus)
 def get_versioning(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketVersioningStatus:
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_versioning_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_versioning_config,
     )
 
 
@@ -67,11 +70,13 @@ def get_versioning(
 def update_versioning(
     bucket_name: str,
     payload: BucketVersioningUpdate,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="versioning",
         payload=payload,
     )
@@ -81,12 +86,19 @@ def update_versioning(
 def update_quota(
     bucket_name: str,
     payload: BucketQuotaUpdate,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
+    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
     service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
+    context = build_ceph_admin_s3_context(ctx, rgw_tenant=normalized_tenant)
     try:
-        bucket_info = ctx.rgw_admin.get_bucket_info(bucket_name, stats=False, allow_not_found=True)
+        bucket_info = ctx.rgw_admin.get_bucket_info(
+            bucket_name,
+            stats=False,
+            allow_not_found=True,
+            **({"tenant": normalized_tenant} if normalized_tenant else {}),
+        )
     except RGWAdminError as exc:
         raise_bad_gateway_from_runtime(exc)
     if not bucket_info or (isinstance(bucket_info, dict) and bucket_info.get("not_found")):
@@ -108,7 +120,7 @@ def update_quota(
             ctx,
             action="bucket_quota.update",
             entity_type="bucket",
-            entity_id=bucket_name,
+            entity_id=ceph_admin_bucket_entity_id(bucket_name, normalized_tenant),
             metadata=bucket_config_actions.bucket_config_audit_metadata(
                 config_area="quota",
                 operation="update",
@@ -129,14 +141,14 @@ def update_quota(
 @router.get("/{bucket_name}/object-lock", response_model=BucketObjectLock)
 def get_object_lock(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketObjectLock:
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_object_lock_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_object_lock_config,
     )
 
 
@@ -144,11 +156,13 @@ def get_object_lock(
 def put_object_lock(
     bucket_name: str,
     payload: BucketObjectLockUpdate,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketObjectLock:
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="object_lock",
         payload=payload,
     )
@@ -157,15 +171,15 @@ def put_object_lock(
 @router.get("/{bucket_name}/encryption", response_model=BucketEncryptionConfiguration)
 def get_bucket_encryption(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketEncryptionConfiguration:
     require_sse_feature(ctx.endpoint)
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_encryption_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_encryption_config,
     )
 
 
@@ -173,12 +187,14 @@ def get_bucket_encryption(
 def put_bucket_encryption(
     bucket_name: str,
     payload: BucketEncryptionConfiguration,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketEncryptionConfiguration:
     require_sse_feature(ctx.endpoint)
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="encryption",
         payload=payload,
     )
@@ -187,11 +203,13 @@ def put_bucket_encryption(
 @router.delete("/{bucket_name}/encryption", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_bucket_encryption(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     require_sse_feature(ctx.endpoint)
     return _run_bucket_config_delete(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="encryption",
     )

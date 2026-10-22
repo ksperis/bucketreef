@@ -45,11 +45,13 @@ describe("Ceph Admin bucket details api", () => {
       1,
       "/ceph-admin/endpoints/7/buckets/reports%2F2026/lifecycle",
       { rules },
+      { params: {} },
     );
     expect(clientMock.put).toHaveBeenNthCalledWith(
       2,
       "/ceph-admin/endpoints/7/buckets/reports%2F2026/quota",
       { max_objects: 100 },
+      { params: {} },
     );
   });
 
@@ -58,6 +60,21 @@ describe("Ceph Admin bucket details api", () => {
 
     expect(clientMock.delete).toHaveBeenCalledWith(
       "/ceph-admin/endpoints/7/buckets/reports%2F2026/policy",
+      { params: {} },
+    );
+  });
+
+  it("keeps tenant scope structured in the request query", async () => {
+    await listCephAdminBucketObjects(7, "reports", "", "tenant_a");
+    await deleteCephAdminBucketPolicy(7, "reports", "tenant_a");
+
+    expect(clientMock.get).toHaveBeenCalledWith(
+      "/ceph-admin/endpoints/7/buckets/reports/objects",
+      { params: { prefix: "", tenant: "tenant_a" } },
+    );
+    expect(clientMock.delete).toHaveBeenCalledWith(
+      "/ceph-admin/endpoints/7/buckets/reports/policy",
+      { params: { tenant: "tenant_a" } },
     );
   });
 });

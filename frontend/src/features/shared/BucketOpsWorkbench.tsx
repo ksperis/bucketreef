@@ -1271,6 +1271,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
         <BucketConfigurationDrawer
           bucketName={configurationTarget.bucketName}
           contextId={configurationTarget.contextId}
+          tenant={configurationTarget.tenant}
           mode={surface.mode}
           navigation={configurationNavigation}
           onClose={closeBucketConfiguration}

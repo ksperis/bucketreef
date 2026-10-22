@@ -23,6 +23,7 @@ type UseBucketPublicAccessControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -55,6 +56,7 @@ export function useBucketPublicAccessController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketPublicAccessControllerOptions) {
@@ -84,7 +86,7 @@ export function useBucketPublicAccessController({
     try {
       const data = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketPublicAccessBlock(endpointId, bucketName)
+          ? await getCephAdminBucketPublicAccessBlock(endpointId, bucketName, cephAdminTenant)
           : defaultPublicAccessBlock
         : await getBucketPublicAccessBlock(contextId, bucketName);
       apply(data);
@@ -99,7 +101,7 @@ export function useBucketPublicAccessController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const save = async () => {
     if (!bucketName || !enabled) return;
@@ -114,6 +116,7 @@ export function useBucketPublicAccessController({
               endpointId,
               bucketName,
               payload,
+              cephAdminTenant,
             )
           : payload
         : await updateBucketPublicAccessBlock(contextId, bucketName, payload);

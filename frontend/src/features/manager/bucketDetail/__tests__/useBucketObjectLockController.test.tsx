@@ -145,11 +145,13 @@ describe("useBucketObjectLockController", () => {
     expect(apiMocks.getCephAdminBucketObjectLock).toHaveBeenCalledWith(
       7,
       "records",
+      undefined,
     );
     expect(apiMocks.updateCephAdminBucketObjectLock).toHaveBeenCalledWith(
       7,
       "records",
       { ...enabledConfiguration, days: 45 },
+      undefined,
     );
     expect(apiMocks.setCephAdminBucketVersioning).not.toHaveBeenCalled();
   });

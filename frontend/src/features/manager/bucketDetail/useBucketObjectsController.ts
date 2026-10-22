@@ -16,6 +16,7 @@ type UseBucketObjectsControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -24,6 +25,7 @@ export function useBucketObjectsController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketObjectsControllerOptions) {
@@ -41,7 +43,7 @@ export function useBucketObjectsController({
     setPrefixes([]);
     setError(null);
     setLoading(false);
-  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const load = useCallback(
     async (prefix: string) => {
@@ -66,6 +68,7 @@ export function useBucketObjectsController({
             endpointId,
             bucketName,
             prefix,
+            cephAdminTenant,
           );
         } else {
           data = await listManagerObjects(contextId, bucketName, prefix);
@@ -89,7 +92,7 @@ export function useBucketObjectsController({
         }
       }
     },
-    [contextId, bucketName, cephAdmin, enabled, endpointId],
+    [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId],
   );
 
   const refresh = useCallback(

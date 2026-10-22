@@ -30,6 +30,7 @@ type UseBucketLifecycleControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -65,6 +66,7 @@ export function useBucketLifecycleController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketLifecycleControllerOptions) {
@@ -105,7 +107,7 @@ export function useBucketLifecycleController({
           applyBaseline([]);
           return;
         }
-        data = await getCephAdminBucketLifecycle(endpointId, bucketName);
+        data = await getCephAdminBucketLifecycle(endpointId, bucketName, cephAdminTenant);
       } else {
         data = await getBucketLifecycle(contextId, bucketName);
       }
@@ -116,7 +118,7 @@ export function useBucketLifecycleController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: LifecycleRuleRecord[],
@@ -226,17 +228,17 @@ export function useBucketLifecycleController({
     if (!bucketName || !enabled || (cephAdmin && !endpointId)) return null;
     if (nextRules.length === 0) {
       if (cephAdmin) {
-        await deleteCephAdminBucketLifecycle(endpointId as number, bucketName);
+        await deleteCephAdminBucketLifecycle(endpointId as number, bucketName, cephAdminTenant);
       } else {
         await deleteBucketLifecycle(contextId, bucketName);
       }
       return [];
     }
     const saved = cephAdmin
-      ? await putCephAdminBucketLifecycle(endpointId as number, bucketName, nextRules)
+      ? await putCephAdminBucketLifecycle(endpointId as number, bucketName, nextRules, cephAdminTenant)
       : await putBucketLifecycle(contextId, bucketName, nextRules);
     return normalizeRules(saved.rules ?? nextRules);
-  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const persistDirectRules = useCallback(async (
     nextRules: LifecycleRuleRecord[],

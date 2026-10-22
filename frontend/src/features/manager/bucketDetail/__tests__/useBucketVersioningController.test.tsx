@@ -91,7 +91,11 @@ describe("useBucketVersioningController", () => {
       status: "Suspended",
     });
     apiMocks.setCephAdminBucketVersioning.mockResolvedValue(undefined);
-    const { result } = renderVersioning({ cephAdmin: true, endpointId: 7 });
+    const { result } = renderVersioning({
+      cephAdmin: true,
+      cephAdminTenant: "tenant_a",
+      endpointId: 7,
+    });
 
     await act(async () => result.current.load());
     act(() => result.current.updateDraft(true));
@@ -101,6 +105,7 @@ describe("useBucketVersioningController", () => {
       7,
       "records",
       true,
+      "tenant_a",
     );
     expect(result.current.isEnabled).toBe(true);
   });

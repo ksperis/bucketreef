@@ -45,6 +45,7 @@ type UseBucketReplicationControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -85,6 +86,7 @@ export function useBucketReplicationController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketReplicationControllerOptions) {
@@ -118,7 +120,7 @@ export function useBucketReplicationController({
     try {
       const data = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketReplication(endpointId, bucketName)
+          ? await getCephAdminBucketReplication(endpointId, bucketName, cephAdminTenant)
           : { configuration: {} }
         : await getBucketReplication(contextId, bucketName);
       applyBaseline(data.configuration);
@@ -133,7 +135,7 @@ export function useBucketReplicationController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: Record<string, unknown>,
@@ -270,17 +272,17 @@ export function useBucketReplicationController({
     const nextRules = replicationConfigurationRules(nextConfiguration);
     if (nextRules.length === 0) {
       if (cephAdmin) {
-        await deleteCephAdminBucketReplication(endpointId as number, bucketName);
+        await deleteCephAdminBucketReplication(endpointId as number, bucketName, cephAdminTenant);
       } else {
         await deleteBucketReplication(contextId, bucketName);
       }
       return {};
     }
     const saved = cephAdmin
-      ? await putCephAdminBucketReplication(endpointId as number, bucketName, nextConfiguration)
+      ? await putCephAdminBucketReplication(endpointId as number, bucketName, nextConfiguration, cephAdminTenant)
       : await putBucketReplication(contextId, bucketName, nextConfiguration);
     return normalizeReplicationEditorConfiguration(saved.configuration ?? nextConfiguration);
-  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const persistDirectConfiguration = useCallback(async (
     nextConfiguration: Record<string, unknown>,

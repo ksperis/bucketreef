@@ -116,7 +116,11 @@ describe("useBucketObjectsController", () => {
       objects: [{ key: "logs/app.log", size: 12, last_modified: null }],
       prefixes: ["logs/"],
     });
-    const { result } = renderObjects({ cephAdmin: true, endpointId: 7 });
+    const { result } = renderObjects({
+      cephAdmin: true,
+      cephAdminTenant: "tenant_a",
+      endpointId: 7,
+    });
 
     await act(async () => result.current.refresh());
 
@@ -124,6 +128,7 @@ describe("useBucketObjectsController", () => {
       7,
       "reports",
       "",
+      "tenant_a",
     );
     expect(result.current.rows[1]).toMatchObject({
       key: "logs/app.log",

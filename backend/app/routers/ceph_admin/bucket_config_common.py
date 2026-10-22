@@ -5,7 +5,7 @@
 
 from typing import Any, Literal
 
-from fastapi import Response
+from fastapi import HTTPException, Response, status
 
 from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
@@ -18,12 +18,35 @@ from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
+from app.utils.rgw_identifiers import validate_rgw_tenant
+
+
+def normalize_ceph_admin_bucket_tenant(tenant: str | None) -> str | None:
+    normalized = (tenant or "").strip()
+    if not normalized:
+        return None
+    try:
+        return validate_rgw_tenant(normalized)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+def ceph_admin_s3_bucket_name(bucket_name: str, tenant: str | None) -> str:
+    """Return the explicit RGW S3 name for a bucket outside the executor tenant."""
+    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
+    return f"{normalized_tenant}:{bucket_name}" if normalized_tenant else bucket_name
+
+
+def ceph_admin_bucket_entity_id(bucket_name: str, tenant: str | None) -> str:
+    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
+    return f"{normalized_tenant}/{bucket_name}" if normalized_tenant else bucket_name
 
 
 def _record_bucket_config_mutation(
     ctx: CephAdminContext,
     bucket_name: str,
     *,
+    tenant: str | None = None,
     config_area: str,
     operation: Literal["update", "delete"],
     metadata: dict[str, Any] | None = None,
@@ -33,7 +56,7 @@ def _record_bucket_config_mutation(
         ctx,
         action=f"bucket_config.{config_area}.{operation}",
         entity_type="bucket",
-        entity_id=bucket_name,
+        entity_id=ceph_admin_bucket_entity_id(bucket_name, tenant),
         metadata=bucket_config_actions.bucket_config_audit_metadata(
             config_area=config_area,
             operation=operation,
@@ -42,27 +65,51 @@ def _record_bucket_config_mutation(
     )
 
 
-def _ceph_admin_bucket_config_context(ctx: CephAdminContext) -> tuple[BucketConfigurationService, S3ExecutionContext]:
-    return BucketConfigurationService(), build_ceph_admin_s3_context(ctx)
+def _ceph_admin_bucket_config_context(
+    ctx: CephAdminContext,
+    tenant: str | None = None,
+) -> tuple[BucketConfigurationService, S3ExecutionContext]:
+    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
+    return (
+        BucketConfigurationService(),
+        build_ceph_admin_s3_context(ctx, rgw_tenant=normalized_tenant),
+    )
+
+
+def _run_bucket_config_read(
+    ctx: CephAdminContext,
+    bucket_name: str,
+    *,
+    tenant: str | None = None,
+    action,
+) -> Any:
+    service, context = _ceph_admin_bucket_config_context(ctx, tenant)
+    return action(
+        service=service,
+        context=context,
+        bucket_name=ceph_admin_s3_bucket_name(bucket_name, tenant),
+    )
 
 
 def _run_bucket_config_update(
     ctx: CephAdminContext,
     bucket_name: str,
     *,
+    tenant: str | None = None,
     config_area: BucketConfigArea,
     **kwargs: Any,
 ) -> Any:
-    service, context = _ceph_admin_bucket_config_context(ctx)
+    service, context = _ceph_admin_bucket_config_context(ctx, tenant)
     mutation = get_bucket_config_mutation(config_area)
     return bucket_config_actions.apply_bucket_config_update(
         service=service,
         context=context,
-        bucket_name=bucket_name,
+        bucket_name=ceph_admin_s3_bucket_name(bucket_name, tenant),
         action=mutation.update_action,
         audit_recorder=lambda metadata: _record_bucket_config_mutation(
             ctx,
             bucket_name,
+            tenant=tenant,
             config_area=config_area,
             operation="update",
             metadata=metadata,
@@ -75,19 +122,21 @@ def _run_bucket_config_delete(
     ctx: CephAdminContext,
     bucket_name: str,
     *,
+    tenant: str | None = None,
     config_area: BucketConfigArea,
 ) -> Response:
-    service, context = _ceph_admin_bucket_config_context(ctx)
+    service, context = _ceph_admin_bucket_config_context(ctx, tenant)
     mutation = get_bucket_config_delete_mutation(config_area)
     assert mutation.delete_action is not None
     return bucket_config_actions.apply_bucket_config_delete(
         service=service,
         context=context,
-        bucket_name=bucket_name,
+        bucket_name=ceph_admin_s3_bucket_name(bucket_name, tenant),
         action=mutation.delete_action,
         audit_recorder=lambda metadata: _record_bucket_config_mutation(
             ctx,
             bucket_name,
+            tenant=tenant,
             config_area=config_area,
             operation="delete",
             metadata=metadata,

@@ -33,6 +33,7 @@ type UseBucketWebsiteControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -79,6 +80,7 @@ export function useBucketWebsiteController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketWebsiteControllerOptions) {
@@ -109,7 +111,7 @@ export function useBucketWebsiteController({
     try {
       const config = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketWebsite(endpointId, bucketName)
+          ? await getCephAdminBucketWebsite(endpointId, bucketName, cephAdminTenant)
           : null
         : await getBucketWebsite(contextId, bucketName);
       apply(config);
@@ -124,7 +126,7 @@ export function useBucketWebsiteController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const update = <Key extends keyof WebsiteDraft>(
     key: Key,
@@ -185,7 +187,7 @@ export function useBucketWebsiteController({
       };
       const saved = cephAdmin
         ? endpointId
-          ? await putCephAdminBucketWebsite(endpointId, bucketName, payload)
+          ? await putCephAdminBucketWebsite(endpointId, bucketName, payload, cephAdminTenant)
           : payload
         : await putBucketWebsite(contextId, bucketName, payload);
       apply(saved);
@@ -210,7 +212,7 @@ export function useBucketWebsiteController({
     try {
       if (cephAdmin) {
         if (!endpointId) return;
-        await deleteCephAdminBucketWebsite(endpointId, bucketName);
+        await deleteCephAdminBucketWebsite(endpointId, bucketName, cephAdminTenant);
       } else {
         await deleteBucketWebsite(contextId, bucketName);
       }

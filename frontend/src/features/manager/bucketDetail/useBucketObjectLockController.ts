@@ -29,6 +29,7 @@ type UseBucketObjectLockControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
   onVersioningEnabled: () => void;
@@ -67,6 +68,7 @@ export function useBucketObjectLockController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
   onVersioningEnabled,
@@ -110,7 +112,7 @@ export function useBucketObjectLockController({
     try {
       const data = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketObjectLock(endpointId, bucketName)
+          ? await getCephAdminBucketObjectLock(endpointId, bucketName, cephAdminTenant)
           : null
         : await getBucketObjectLock(contextId, bucketName);
       apply(data);
@@ -125,7 +127,7 @@ export function useBucketObjectLockController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const update = <Key extends keyof ObjectLockDraft>(
     key: Key,
@@ -184,7 +186,7 @@ export function useBucketObjectLockController({
             setError("Select a Ceph endpoint before saving Object Lock.");
             return;
           }
-          await setCephAdminBucketVersioning(endpointId, bucketName, true);
+          await setCephAdminBucketVersioning(endpointId, bucketName, true, cephAdminTenant);
         } else {
           await setBucketVersioning(contextId, bucketName, true);
         }
@@ -199,7 +201,7 @@ export function useBucketObjectLockController({
       };
       const updated = cephAdmin
         ? endpointId
-          ? await updateCephAdminBucketObjectLock(endpointId, bucketName, payload)
+          ? await updateCephAdminBucketObjectLock(endpointId, bucketName, payload, cephAdminTenant)
           : null
         : await updateBucketObjectLock(contextId, bucketName, payload);
       if (!updated) {

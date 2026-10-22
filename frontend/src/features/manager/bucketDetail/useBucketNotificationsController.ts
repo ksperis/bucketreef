@@ -39,6 +39,7 @@ type UseBucketNotificationsControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -77,6 +78,7 @@ export function useBucketNotificationsController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketNotificationsControllerOptions) {
@@ -109,7 +111,7 @@ export function useBucketNotificationsController({
     try {
       const data = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketNotifications(endpointId, bucketName)
+          ? await getCephAdminBucketNotifications(endpointId, bucketName, cephAdminTenant)
           : { configuration: {} }
         : await getBucketNotifications(contextId, bucketName);
       applyBaseline(data.configuration ?? {});
@@ -121,7 +123,7 @@ export function useBucketNotificationsController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: NotificationConfigurationRecord,
@@ -220,17 +222,17 @@ export function useBucketNotificationsController({
     if (!bucketName || !enabled || (cephAdmin && !endpointId)) return null;
     if (isEmptyConfiguration(nextConfiguration)) {
       if (cephAdmin) {
-        await deleteCephAdminBucketNotifications(endpointId as number, bucketName);
+        await deleteCephAdminBucketNotifications(endpointId as number, bucketName, cephAdminTenant);
       } else {
         await deleteBucketNotifications(contextId, bucketName);
       }
       return {};
     }
     const saved = cephAdmin
-      ? await putCephAdminBucketNotifications(endpointId as number, bucketName, nextConfiguration)
+      ? await putCephAdminBucketNotifications(endpointId as number, bucketName, nextConfiguration, cephAdminTenant)
       : await putBucketNotifications(contextId, bucketName, nextConfiguration);
     return cloneConfiguration(asConfiguration(saved.configuration ?? nextConfiguration));
-  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const removeTopicDirect = useCallback(async (index: number) => {
     if (saving) return;
