@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -51,6 +51,63 @@ _ENDPOINT_CAPABILITY_BY_FEATURE = {
     "encryption": "sse",
     "replication": "replication",
 }
+
+
+@dataclass
+class _VersionScanAccumulator:
+    current_count: int = 0
+    noncurrent_count: int = 0
+    delete_marker_count: int = 0
+    sample_version: dict[str, Any] | None = None
+    current_sample: list[str] = field(default_factory=list)
+    noncurrent_sample: list[str] = field(default_factory=list)
+    delete_marker_sample: list[str] = field(default_factory=list)
+
+    @staticmethod
+    def _append_sample(sample: list[str], key: str) -> None:
+        if len(sample) < 10:
+            sample.append(key)
+
+    def add_versions(self, entries: Any) -> None:
+        for entry in entries or []:
+            key = entry.get("Key")
+            version_id = entry.get("VersionId")
+            if not isinstance(key, str) or not key:
+                continue
+            is_latest = bool(entry.get("IsLatest"))
+            if self.sample_version is None and isinstance(version_id, str) and version_id:
+                self.sample_version = {
+                    "key": key,
+                    "version_id": version_id,
+                    "is_latest": is_latest,
+                }
+            if is_latest:
+                self.current_count += 1
+                self._append_sample(self.current_sample, key)
+            else:
+                self.noncurrent_count += 1
+                self._append_sample(self.noncurrent_sample, key)
+
+    def add_delete_markers(self, entries: Any) -> None:
+        for entry in entries or []:
+            key = entry.get("Key")
+            if not isinstance(key, str) or not key:
+                continue
+            self.delete_marker_count += 1
+            self._append_sample(self.delete_marker_sample, key)
+
+    def result(self) -> dict[str, Any]:
+        return {
+            "current_version_count": self.current_count,
+            "noncurrent_version_count": self.noncurrent_count,
+            "delete_marker_count": self.delete_marker_count,
+            "has_noncurrent_versions": self.noncurrent_count > 0,
+            "has_delete_markers": self.delete_marker_count > 0,
+            "sample_version": self.sample_version,
+            "current_version_sample": self.current_sample,
+            "noncurrent_version_sample": self.noncurrent_sample,
+            "delete_marker_sample": self.delete_marker_sample,
+        }
 
 
 def _normalized_sse_rule(rule: Any) -> tuple[str | None, str | None]:
@@ -312,85 +369,46 @@ class BucketMigrationInspector:
         raw = features_to_capabilities(features)
         return {str(key): bool(value) for key, value in raw.items()}
 
+    @staticmethod
+    def _list_object_versions_page(client, bucket_name: str, **kwargs) -> dict[str, Any]:
+        try:
+            return client.list_object_versions(Bucket=bucket_name, **kwargs)
+        except ClientError as exc:
+            code = aws_error_code(exc, lowercase=True)
+            if code in {"notimplemented", "notsupported", "unsupported"}:
+                raise RuntimeError(
+                    f"Version listing is not supported for bucket '{bucket_name}': {exc}"
+                ) from exc
+            raise RuntimeError(
+                f"Unable to inspect versions in bucket '{bucket_name}': {exc}"
+            ) from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"Unable to inspect versions in bucket '{bucket_name}': {exc}"
+            ) from exc
+
     def scan_bucket_versions(self, ctx: _ResolvedContext, bucket_name: str) -> dict[str, Any]:
         client = self._service._context_client(ctx)
         key_marker: str | None = None
         version_marker: str | None = None
-        current_count = 0
-        noncurrent_count = 0
-        delete_marker_count = 0
-        sample_version: dict[str, Any] | None = None
-        current_sample: list[str] = []
-        noncurrent_sample: list[str] = []
-        delete_marker_sample: list[str] = []
+        scan = _VersionScanAccumulator()
 
         while True:
-            kwargs: dict[str, Any] = {"Bucket": bucket_name}
+            kwargs: dict[str, Any] = {}
             if key_marker:
                 kwargs["KeyMarker"] = key_marker
             if version_marker:
                 kwargs["VersionIdMarker"] = version_marker
-            try:
-                page = client.list_object_versions(**kwargs)
-            except ClientError as exc:
-                code = aws_error_code(exc, lowercase=True)
-                if code in {"notimplemented", "notsupported", "unsupported"}:
-                    raise RuntimeError(
-                        f"Version listing is not supported for bucket '{bucket_name}': {exc}"
-                    ) from exc
-                raise RuntimeError(
-                    f"Unable to inspect versions in bucket '{bucket_name}': {exc}"
-                ) from exc
-            except BotoCoreError as exc:
-                raise RuntimeError(
-                    f"Unable to inspect versions in bucket '{bucket_name}': {exc}"
-                ) from exc
-
-            for entry in page.get("Versions", []) or []:
-                key = entry.get("Key")
-                version_id = entry.get("VersionId")
-                if not isinstance(key, str) or not key:
-                    continue
-                if sample_version is None and isinstance(version_id, str) and version_id:
-                    sample_version = {
-                        "key": key,
-                        "version_id": version_id,
-                        "is_latest": bool(entry.get("IsLatest")),
-                    }
-                is_latest = bool(entry.get("IsLatest"))
-                if is_latest:
-                    current_count += 1
-                    if len(current_sample) < 10:
-                        current_sample.append(key)
-                else:
-                    noncurrent_count += 1
-                    if len(noncurrent_sample) < 10:
-                        noncurrent_sample.append(key)
-
-            for entry in page.get("DeleteMarkers", []) or []:
-                key = entry.get("Key")
-                if not isinstance(key, str) or not key:
-                    continue
-                delete_marker_count += 1
-                if len(delete_marker_sample) < 10:
-                    delete_marker_sample.append(key)
+            page = self._list_object_versions_page(client, bucket_name, **kwargs)
+            scan.add_versions(page.get("Versions", []))
+            scan.add_delete_markers(page.get("DeleteMarkers", []))
 
             key_marker = page.get("NextKeyMarker")
             version_marker = page.get("NextVersionIdMarker")
             if not key_marker and not version_marker:
                 break
 
-        return {
-            "current_version_count": current_count,
-            "noncurrent_version_count": noncurrent_count,
-            "delete_marker_count": delete_marker_count,
-            "has_noncurrent_versions": noncurrent_count > 0,
-            "has_delete_markers": delete_marker_count > 0,
-            "sample_version": sample_version,
-            "current_version_sample": current_sample,
-            "noncurrent_version_sample": noncurrent_sample,
-            "delete_marker_sample": delete_marker_sample,
-        }
+        return scan.result()
 
     def inspect_bucket_state(
         self,
