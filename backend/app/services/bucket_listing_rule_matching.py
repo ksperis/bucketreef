@@ -23,6 +23,9 @@ from app.services.rgw_bucket_metadata import owner_kind_from_owner
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 EXPENSIVE_FIELD_RULES = {"tag"} | OWNER_DETAIL_FIELDS
+_EXACT_FEATURE_STATES = frozenset(
+    {"partial", "suspended", "configured", "not_set", "unavailable"}
+)
 
 
 def extract_name_candidates(query: BucketFilterQuery | None) -> list[str] | None:
@@ -182,6 +185,19 @@ def match_bucket_field_rule(bucket: BucketListingSummary, rule: BucketFilterRule
     )
 
 
+def _matches_disabled_feature(feature: str, state: str, tone: str) -> bool:
+    if feature == "versioning":
+        # Keep disabled distinct from suspended for versioning filters.
+        return state == "disabled" or (tone == "inactive" and state != "suspended")
+    return tone == "inactive" or state == "suspended"
+
+
+def _matches_disabled_or_suspended_feature(feature: str, state: str, tone: str) -> bool:
+    if feature == "versioning":
+        return state in {"disabled", "suspended"} or tone == "inactive"
+    return _matches_disabled_feature(feature, state, tone)
+
+
 def match_bucket_feature_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> bool:
     feature = rule.feature
     desired = (rule.state or "").strip().lower()
@@ -191,38 +207,15 @@ def match_bucket_feature_rule(bucket: BucketListingSummary, rule: BucketFilterRu
     if status is None:
         return desired in {"unknown", "unavailable"}
     state_norm = status.state.strip().lower().replace(" ", "_")
-    if desired in {"enabled", "active"}:
-        if status.tone == "active":
-            return True
-        if state_norm == "suspended":
-            return False
-        return False
-    if desired in {"disabled", "inactive"}:
-        if feature == "versioning":
-            # Keep disabled distinct from suspended for versioning filters.
-            return state_norm == "disabled" or (status.tone == "inactive" and state_norm != "suspended")
-        if status.tone == "inactive":
-            return True
-        if state_norm == "suspended":
-            return True
-        return False
+    if desired == "enabled":
+        return status.tone == "active"
+    if desired == "disabled":
+        return _matches_disabled_feature(feature, state_norm, status.tone)
     if desired == "disabled_or_suspended":
-        if feature == "versioning":
-            return state_norm in {"disabled", "suspended"} or status.tone == "inactive"
-        return status.tone == "inactive" or state_norm == "suspended"
+        return _matches_disabled_or_suspended_feature(feature, state_norm, status.tone)
     if desired == "unknown":
         return status.tone == "unknown"
-    if desired == "partial":
-        return state_norm == "partial"
-    if desired == "suspended":
-        return state_norm == "suspended"
-    if desired == "configured":
-        return state_norm == "configured"
-    if desired == "not_set":
-        return state_norm == "not_set"
-    if desired == "unavailable":
-        return state_norm == "unavailable"
-    return False
+    return desired in _EXACT_FEATURE_STATES and state_norm == desired
 
 
 def request_requires_bucket_stats(query: BucketFilterQuery | None, sort_by: str) -> bool:
