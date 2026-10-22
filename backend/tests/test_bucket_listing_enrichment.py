@@ -3,9 +3,16 @@
 
 import pytest
 
-from app.models.bucket import BucketWebsiteConfiguration, BucketWebsiteRedirectAllRequestsTo
+from app.models.bucket import (
+    BucketObjectLock,
+    BucketProperties,
+    BucketPublicAccessBlock,
+    BucketWebsiteConfiguration,
+    BucketWebsiteRedirectAllRequestsTo,
+)
 from app.models.bucket_listing import BucketListingSummary
-from app.services.bucket_listing_enrichment import _enrich_website_configuration
+from app.services.bucket_listing_enrichment import _enrich_website_configuration, _project_property_details
+from app.services.bucket_property_feature_enrichment import BucketPropertiesContext
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -107,4 +114,74 @@ def test_enrich_website_configuration_marks_only_requested_details_unavailable()
         "unrelated": "keep",
         "website_index_document": None,
         "website_routing_rule_count": None,
+    }
+
+
+def _properties_context(*, properties: BucketProperties | None, unavailable: bool = False) -> BucketPropertiesContext:
+    return BucketPropertiesContext(
+        bucket_name="bucket-a",
+        reader=object(),
+        execution_context=_context(),
+        uses_bundle=True,
+        properties=properties,
+        unavailable=unavailable,
+    )
+
+
+def test_project_property_details_projects_requested_values():
+    properties = BucketProperties(
+        object_lock=BucketObjectLock(mode="GOVERNANCE", days=30, years=1),
+        public_access_block=BucketPublicAccessBlock(
+            block_public_acls=True,
+            ignore_public_acls=False,
+            block_public_policy=True,
+            restrict_public_buckets=False,
+        ),
+        cors_rules=[
+            {"AllowedMethods": ["GET", "HEAD"], "AllowedOrigins": ["https://example.test"]},
+            {"AllowedMethods": ["PUT"], "AllowedOrigins": ["https://upload.test"]},
+        ],
+    )
+    detail_keys = {
+        "object_lock_mode",
+        "object_lock_retention_days",
+        "object_lock_retention_years",
+        "bpa_block_public_acls",
+        "bpa_ignore_public_acls",
+        "bpa_block_public_policy",
+        "bpa_restrict_public_buckets",
+        "cors_allowed_methods",
+        "cors_allowed_origins",
+    }
+    column_details = {"unrelated": "keep"}
+
+    _project_property_details(_properties_context(properties=properties), detail_keys, column_details)
+
+    assert column_details == {
+        "unrelated": "keep",
+        "object_lock_mode": "GOVERNANCE",
+        "object_lock_retention_days": 30,
+        "object_lock_retention_years": 1,
+        "bpa_block_public_acls": True,
+        "bpa_ignore_public_acls": False,
+        "bpa_block_public_policy": True,
+        "bpa_restrict_public_buckets": False,
+        "cors_allowed_methods": ["GET", "HEAD", "PUT"],
+        "cors_allowed_origins": ["https://example.test", "https://upload.test"],
+    }
+
+
+def test_project_property_details_marks_requested_values_unavailable():
+    column_details = {"unrelated": "keep"}
+
+    _project_property_details(
+        _properties_context(properties=None, unavailable=True),
+        {"object_lock_mode", "cors_allowed_methods"},
+        column_details,
+    )
+
+    assert column_details == {
+        "unrelated": "keep",
+        "object_lock_mode": None,
+        "cors_allowed_methods": None,
     }
