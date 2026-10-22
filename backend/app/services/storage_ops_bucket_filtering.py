@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from app.models.bucket_filter import BucketFilterQuery
 from app.models.storage_ops import StorageOpsBucketSummary
+from app.services.bucket_listing_owner_metadata import OWNER_DETAIL_FIELDS
+from app.services.bucket_listing_shared import listing_sort_key
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.bucket_feature_param_matching import (
     match_bucket_feature_param_rules,
@@ -15,9 +17,100 @@ from app.services.bucket_listing_rule_matching import (
     match_bucket_feature_rule,
     match_bucket_field_rule,
 )
+from app.utils.normalize import normalize_text
 
 
 BUCKET_REF_SEPARATOR = "::"
+
+
+def match_storage_ops_simple_search(
+    bucket: StorageOpsBucketSummary,
+    normalized_search: str,
+) -> bool:
+    candidates = [
+        bucket.bucket_name or bucket.name,
+        bucket.owner,
+        bucket.owner_name,
+        bucket.tenant,
+        bucket.context_id,
+        bucket.context_name,
+        bucket.context_kind,
+        bucket.endpoint_name,
+    ]
+    for candidate in candidates:
+        if candidate and normalized_search in normalize_text(str(candidate)):
+            return True
+    for tag in bucket.tags or []:
+        if (
+            normalized_search in normalize_text(tag.key)
+            or normalized_search in normalize_text(tag.value)
+        ):
+            return True
+    return False
+
+
+def build_storage_ops_cheap_field_prefilter(
+    parsed_filter: BucketFilterQuery | None,
+) -> tuple[BucketFilterQuery | None, bool]:
+    if not parsed_filter or not parsed_filter.rules:
+        return None, False
+
+    rules = parsed_filter.rules
+    cheap_field_rules = [
+        rule
+        for rule in rules
+        if rule.field and rule.field not in ({"tag"} | OWNER_DETAIL_FIELDS)
+    ]
+    has_feature_rules = any(rule.feature for rule in rules)
+    has_tag_rule = any(rule.field == "tag" for rule in rules)
+    has_owner_enriched_rule = any(rule.field in OWNER_DETAIL_FIELDS for rule in rules)
+    if not cheap_field_rules:
+        return None, False
+
+    if parsed_filter.match == "all":
+        cheap_filter = parsed_filter.model_copy(update={"rules": cheap_field_rules})
+        is_complete = (
+            not has_feature_rules
+            and not has_tag_rule
+            and not has_owner_enriched_rule
+            and len(cheap_field_rules) == len(rules)
+        )
+        return cheap_filter, is_complete
+
+    if has_feature_rules or has_tag_rule or has_owner_enriched_rule:
+        return None, False
+    cheap_filter = parsed_filter.model_copy(update={"rules": cheap_field_rules})
+    return cheap_filter, True
+
+
+def sort_storage_ops_buckets(
+    buckets: list[StorageOpsBucketSummary],
+    *,
+    sort_by: str,
+    sort_dir: str,
+) -> list[StorageOpsBucketSummary]:
+    if not buckets:
+        return []
+    field = (
+        sort_by
+        if sort_by in {"name", "tenant", "owner", "used_bytes", "object_count"}
+        else "name"
+    )
+    reverse = sort_dir == "desc"
+
+    def value(bucket: StorageOpsBucketSummary):
+        if field == "name":
+            return bucket.bucket_name or bucket.name
+        return getattr(bucket, field, None)
+
+    return sorted(
+        buckets,
+        key=lambda bucket: listing_sort_key(
+            value(bucket),
+            bucket.bucket_name or bucket.name,
+        ),
+        reverse=reverse,
+    )
 
 
 def encode_storage_ops_bucket_ref(context_id: str, bucket_name: str) -> str:

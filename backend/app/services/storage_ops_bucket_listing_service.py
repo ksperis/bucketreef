@@ -13,12 +13,13 @@ from app.models.execution_context import ExecutionContext
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse, StorageOpsBucketSummary, StorageOpsContextKind
 from app.services.bucket_listing_cache import get_cached_bucket_listing_for_context
 from app.services.bucket_listing_enrichment import enrich_buckets
-from app.services.bucket_listing_owner_metadata import OWNER_DETAIL_FIELDS
-from app.services.bucket_listing_shared import listing_sort_key
 from app.services.storage_ops_bucket_filtering import (
     apply_storage_ops_advanced_filter,
+    build_storage_ops_cheap_field_prefilter,
     encode_storage_ops_bucket_ref,
+    match_storage_ops_simple_search,
     match_storage_ops_field_rule,
+    sort_storage_ops_buckets,
 )
 from app.services.storage_ops_bucket_listing_request import (
     StorageOpsBucketListingRequest,
@@ -37,7 +38,6 @@ from app.services.listing_progress import (
 )
 from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.s3_execution_context import S3ExecutionContext
-from app.utils.normalize import normalize_text
 from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_STORAGE_OPS
 
 logger = logging.getLogger(__name__)
@@ -75,27 +75,6 @@ def build_storage_ops_bucket_identity(endpoint_id: int | None, tenant: str | Non
     if not name:
         return None
     return json.dumps([endpoint_id, str(tenant or "").strip(), name], ensure_ascii=False, separators=(",", ":"))
-
-
-def _match_simple_search(bucket: StorageOpsBucketSummary, normalized_search: str) -> bool:
-    candidates = [
-        bucket.bucket_name or bucket.name,
-        bucket.owner,
-        bucket.owner_name,
-        bucket.tenant,
-        bucket.context_id,
-        bucket.context_name,
-        bucket.context_kind,
-        bucket.endpoint_name,
-    ]
-    for candidate in candidates:
-        if candidate and normalized_search in normalize_text(str(candidate)):
-            return True
-    tags = bucket.tags or []
-    for tag in tags:
-        if normalized_search in normalize_text(tag.key) or normalized_search in normalize_text(tag.value):
-            return True
-    return False
 
 
 def build_storage_ops_context_refs(contexts: Iterable[ExecutionContext]) -> list[StorageOpsContextRef]:
@@ -173,55 +152,6 @@ def _filter_context_refs_by_advanced_filter(
                 filtered.append(ref)
         return filtered
     return refs
-
-
-def _build_cheap_field_prefilter(
-    parsed_filter: BucketFilterQuery | None,
-) -> tuple[BucketFilterQuery | None, bool]:
-    if not parsed_filter or not parsed_filter.rules:
-        return None, False
-
-    rules = parsed_filter.rules
-    cheap_field_rules = [rule for rule in rules if rule.field and rule.field not in ({"tag"} | OWNER_DETAIL_FIELDS)]
-    has_feature_rules = any(rule.feature for rule in rules)
-    has_tag_rule = any(rule.field == "tag" for rule in rules)
-    has_owner_enriched_rule = any(rule.field in OWNER_DETAIL_FIELDS for rule in rules)
-    if not cheap_field_rules:
-        return None, False
-
-    if parsed_filter.match == "all":
-        cheap_filter = parsed_filter.model_copy(update={"rules": cheap_field_rules})
-        is_complete = not has_feature_rules and not has_tag_rule and not has_owner_enriched_rule and len(cheap_field_rules) == len(rules)
-        return cheap_filter, is_complete
-
-    # For "any", cheap prefilter is only complete/safe when there are no expensive rules.
-    if has_feature_rules or has_tag_rule or has_owner_enriched_rule:
-        return None, False
-    cheap_filter = parsed_filter.model_copy(update={"rules": cheap_field_rules})
-    return cheap_filter, True
-
-
-def _sort_buckets(
-    buckets: list[StorageOpsBucketSummary],
-    *,
-    sort_by: str,
-    sort_dir: str,
-) -> list[StorageOpsBucketSummary]:
-    if not buckets:
-        return []
-    field = sort_by if sort_by in {"name", "tenant", "owner", "used_bytes", "object_count"} else "name"
-    reverse = sort_dir == "desc"
-
-    def _value(bucket: StorageOpsBucketSummary):
-        if field == "name":
-            return bucket.bucket_name or bucket.name
-        return getattr(bucket, field, None)
-
-    return sorted(
-        buckets,
-        key=lambda bucket: listing_sort_key(_value(bucket), bucket.bucket_name or bucket.name),
-        reverse=reverse,
-    )
 
 
 def resolve_storage_ops_contexts(
@@ -393,7 +323,9 @@ def _prefilter_storage_ops_context_buckets(
     service: BucketsService,
     parsed_filter: BucketFilterQuery | None,
 ) -> tuple[list[StorageOpsBucketSummary], BucketFilterQuery | None]:
-    cheap_prefilter, cheap_prefilter_complete = _build_cheap_field_prefilter(parsed_filter)
+    cheap_prefilter, cheap_prefilter_complete = build_storage_ops_cheap_field_prefilter(
+        parsed_filter
+    )
     if not cheap_prefilter or not buckets:
         return buckets, parsed_filter
 
@@ -479,7 +411,9 @@ def list_storage_ops_context_buckets(
     )
     if query.normalized_search:
         context_buckets = [
-            bucket for bucket in context_buckets if _match_simple_search(bucket, query.normalized_search)
+            bucket
+            for bucket in context_buckets
+            if match_storage_ops_simple_search(bucket, query.normalized_search)
         ]
 
     ref = context.ref
@@ -734,7 +668,7 @@ class _StorageOpsBucketListingPipeline:
             force=True,
         )
         invoke_cancel_check(self.cancel_check)
-        sorted_items = _sort_buckets(
+        sorted_items = sort_storage_ops_buckets(
             results,
             sort_by=self.sort_by,
             sort_dir=self.sort_dir,
