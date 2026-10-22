@@ -80,7 +80,6 @@ describe("BrowserObjectMobileList", () => {
     expect(
       screen.getByRole("button", { name: "Open file object-1.txt" }),
     ).toBeInTheDocument();
-    expect(row).toHaveClass("bg-primary-100/90");
 
     fireEvent.click(row);
     fireEvent.contextMenu(row);

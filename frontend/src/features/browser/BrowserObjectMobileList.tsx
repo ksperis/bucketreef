@@ -105,6 +105,7 @@ export default function BrowserObjectMobileList({
             data-browser-item
             data-browser-item-id={item.id}
             data-viewed={item.id === viewedItemId || undefined}
+            data-selected={(!isDeleted && isSelected) || undefined}
             data-lazy-item-id={
               item.type === "file" && !isDeleted ? item.id : undefined
             }
@@ -114,11 +115,7 @@ export default function BrowserObjectMobileList({
               onItemNameClick(event, item);
             }}
             onContextMenu={(event) => onItemContextMenu(event, item)}
-            className={`grid min-h-16 cursor-pointer grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-1 px-2 py-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-2px] focus-within:outline-primary ${
-              isSelected
-                ? "bg-primary-100/90 dark:bg-primary-500/30"
-                : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
-            }`}
+            className="grid min-h-16 cursor-pointer grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-1 px-2 py-2 transition-colors"
           >
             <ListSelectionCheckbox
               checked={!isDeleted && isSelected}

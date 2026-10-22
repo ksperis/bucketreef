@@ -167,7 +167,6 @@
 .ui-list-selection { display: inline-flex; align-items: center; justify-content: center; }
 .ui-list-selection-touch { min-width: 44px; min-height: 44px; }
 .ui-browser-table thead th { background: var(--ui-surface); }
-.ui-browser-table .ui-browser-row[aria-selected="true"] { background: var(--ui-selected-bg); }
 
 .ui-data-table .ui-table-secondary { color: var(--ui-text-muted); font-weight: var(--list-font-weight); }
 .ui-data-table td .font-semibold { font-weight: var(--list-primary-weight); }
@@ -196,9 +195,20 @@
   .ui-list-association-trigger[tabindex] { min-height: 44px; align-items: center; }
 }
 
-/* Consultation is independent of checkbox selection and keyboard focus. */
-.ui-browser-row[data-viewed="true"]:not(:has(input:checked)),
-.ui-browser-mobile-list [data-viewed="true"]:not(:has(input:checked)) {
+/* Keep selection, consultation and keyboard focus visually distinct. */
+.ui-browser-mobile-list [data-browser-item]:hover {
+  background: var(--ui-hover);
+}
+.ui-browser-table .ui-browser-row[data-selected="true"],
+.ui-browser-mobile-list [data-browser-item][data-selected="true"] {
+  background: rgb(var(--ui-primary-100-rgb) / 0.9);
+}
+:root.dark .ui-browser-table .ui-browser-row[data-selected="true"],
+:root.dark .ui-browser-mobile-list [data-browser-item][data-selected="true"] {
+  background: rgb(var(--ui-primary-500-rgb) / 0.3);
+}
+.ui-browser-table .ui-browser-row[data-viewed="true"]:not([data-selected="true"]),
+.ui-browser-mobile-list [data-browser-item][data-viewed="true"]:not([data-selected="true"]) {
   background: var(--ui-selected-bg);
 }
 .ui-browser-row[data-viewed="true"] > td:first-child,
@@ -208,4 +218,15 @@
 .dark .ui-browser-row[data-viewed="true"] > td:first-child,
 .dark .ui-browser-mobile-list [data-viewed="true"] {
   box-shadow: inset 3px 0 0 rgb(var(--ui-primary-400-rgb));
+}
+/* A single outline belongs to the focused control, never to its whole row. */
+:is(.ui-browser-table, .ui-browser-mobile-list) [data-browser-open-item]:focus-visible,
+:is(.ui-browser-table, .ui-browser-mobile-list) [data-browser-item] input:focus-visible {
+  outline: 2px solid rgb(var(--ui-primary-700-rgb));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:root.dark :is(.ui-browser-table, .ui-browser-mobile-list) [data-browser-open-item]:focus-visible,
+:root.dark :is(.ui-browser-table, .ui-browser-mobile-list) [data-browser-item] input:focus-visible {
+  outline-color: rgb(var(--ui-primary-200-rgb));
 }
