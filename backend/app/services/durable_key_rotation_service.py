@@ -130,6 +130,80 @@ class DurableKeyRotationService:
             return target.rgw_user_uid, target.rgw_tenant
         return None, None
 
+    @staticmethod
+    def _require_confirmed_replacement_key(
+        admin: RGWAdminClient,
+        payload: object,
+        access: str,
+        secret: str,
+    ) -> None:
+        raw_keys = admin.extract_keys(payload)
+        entries = RgwUserKeyParser.to_access_keys(
+            raw_keys,
+            ui_managed_access_key=None,
+        )
+        key = next((key for key in entries if key.access_key_id == access), None)
+        pair = next((item for item in raw_keys if item.get("access_key") == access), None)
+        if key is None or not key.is_active or pair is None or pair.get("secret_key") != secret:
+            raise ReplacementValidationError(
+                "RGW did not confirm an active replacement key for the expected principal."
+            )
+
+    def _validate_identity_replacement(
+        self,
+        endpoint: StorageEndpoint,
+        target: EndpointServiceIdentity,
+        payload: object,
+        access: str,
+        secret: str,
+        *,
+        validate_managed_keys: bool,
+        denied_message: str,
+    ) -> None:
+        try:
+            self.identities.validate_payload(target.kind, payload)
+            if validate_managed_keys:
+                self.identities._validate_managed_keys(target, payload)
+            self.identities._functional_check(
+                endpoint,
+                kind=target.kind,
+                rgw_uid=target.rgw_uid,
+                access_key=access,
+                secret_key=secret,
+            )
+        except ValueError as exc:
+            raise ReplacementValidationError(str(exc)) from exc
+        except RGWAdminError as exc:
+            if classify_rgw_credential_failure(exc) == "denied":
+                raise ReplacementValidationError(denied_message) from exc
+            raise
+
+    @staticmethod
+    def _validate_endpoint_admin_replacement(
+        endpoint: StorageEndpoint,
+        access: str,
+        secret: str,
+    ) -> None:
+        from app.services.storage_endpoint_admin_permissions import admin_ops_permissions_from_caps
+
+        client = get_rgw_admin_client(
+            access_key=access,
+            secret_key=secret,
+            endpoint=resolve_rgw_admin_api_endpoint(endpoint),
+            region=endpoint.region,
+            verify_tls=endpoint.verify_tls,
+        )
+        checked = client.get_user_by_access_key(access, allow_not_found=True)
+        permissions = admin_ops_permissions_from_caps(
+            checked.get("caps") if isinstance(checked, dict) else None
+        )
+        if not (
+            permissions.users_read
+            and permissions.accounts_read
+            and permissions.users_write
+        ):
+            raise ValueError("Replacement Admin Ops key lacks required rotation permissions.")
+
     def _validate(
         self,
         endpoint: StorageEndpoint,
@@ -142,57 +216,29 @@ class DurableKeyRotationService:
     ) -> None:
         if isinstance(target, (S3Account, S3User)):
             require_rgw_user_identity(payload, target.rgw_user_uid, target.rgw_tenant)
-        entries = RgwUserKeyParser.to_access_keys(admin.extract_keys(payload), ui_managed_access_key=None)
-        key = next((key for key in entries if key.access_key_id == access), None)
-        pair = next((item for item in admin.extract_keys(payload) if item.get("access_key") == access), None)
-        if key is None or not key.is_active or pair is None or pair.get("secret_key") != secret:
-            raise ReplacementValidationError("RGW did not confirm an active replacement key for the expected principal.")
+        self._require_confirmed_replacement_key(admin, payload, access, secret)
         if key_type in SERVICE_TYPES:
-            try:
-                self.identities.validate_payload(target.kind, payload)
-            except ValueError as exc:
-                raise ReplacementValidationError(str(exc)) from exc
-            self.identities._validate_managed_keys(target, payload)
-            try:
-                self.identities._functional_check(
-                    endpoint,
-                    kind=target.kind,
-                    rgw_uid=target.rgw_uid,
-                    access_key=access,
-                    secret_key=secret,
-                )
-            except ValueError as exc:
-                raise ReplacementValidationError(str(exc)) from exc
-            except RGWAdminError as exc:
-                if classify_rgw_credential_failure(exc) == "denied":
-                    raise ReplacementValidationError("Replacement service key was rejected by RGW.") from exc
-                raise
+            self._validate_identity_replacement(
+                endpoint,
+                target,
+                payload,
+                access,
+                secret,
+                validate_managed_keys=True,
+                denied_message="Replacement service key was rejected by RGW.",
+            )
         elif key_type == "ceph_admin":
-            try:
-                self.identities.validate_payload(
-                    "ceph_admin",
-                    payload,
-                )
-                self.identities._functional_check(
-                    endpoint,
-                    kind="ceph_admin",
-                    rgw_uid=target.rgw_uid,
-                    access_key=access,
-                    secret_key=secret,
-                )
-            except ValueError as exc:
-                raise ReplacementValidationError(str(exc)) from exc
-            except RGWAdminError as exc:
-                if classify_rgw_credential_failure(exc) == "denied":
-                    raise ReplacementValidationError("Replacement Ceph Admin key was rejected by RGW.") from exc
-                raise
+            self._validate_identity_replacement(
+                endpoint,
+                target,
+                payload,
+                access,
+                secret,
+                validate_managed_keys=False,
+                denied_message="Replacement Ceph Admin key was rejected by RGW.",
+            )
         elif key_type == "endpoint_admin":
-            from app.services.storage_endpoint_admin_permissions import admin_ops_permissions_from_caps
-            client = get_rgw_admin_client(access_key=access, secret_key=secret, endpoint=resolve_rgw_admin_api_endpoint(endpoint), region=endpoint.region, verify_tls=endpoint.verify_tls)
-            checked = client.get_user_by_access_key(access, allow_not_found=True)
-            permissions = admin_ops_permissions_from_caps(checked.get("caps") if isinstance(checked, dict) else None)
-            if not permissions.users_read or not permissions.accounts_read or not permissions.users_write:
-                raise ValueError("Replacement Admin Ops key lacks required rotation permissions.")
+            self._validate_endpoint_admin_replacement(endpoint, access, secret)
 
     def _prepare_intent(
         self,
