@@ -580,7 +580,7 @@ export const resolveBrowserActions = ({
 
   setState("downloadZip", {
     label: "Download as ZIP",
-    visible: !selectionInfo.canDownloadFolder,
+    visible: selectionInfo.items.length > 1,
     enabled: canUseContextActions && items.some(item => !item.isDeleted),
     disabledReason: "Select current files or folders to archive.",
   });

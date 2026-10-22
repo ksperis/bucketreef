@@ -4059,6 +4059,9 @@ describe("BrowserPage interactions", () => {
     expect(
       within(menu).getByRole("menuitem", { name: "Advanced" }),
     ).toBeInTheDocument();
+    expect(
+      within(menu).queryByRole("menuitem", { name: "Download as ZIP" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps a single folder selection downloadable with a stable toolbar label", async () => {
