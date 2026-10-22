@@ -118,7 +118,7 @@ describe("resolveBrowserActions", () => {
     });
   });
 
-  it("avoids offering a duplicate ZIP action for a single folder", () => {
+  it("offers ZIP downloads only for multi-item selections", () => {
     const selection = resolveBrowserActions({
       ...baseInput,
       scope: "selection",
@@ -134,6 +134,14 @@ describe("resolveBrowserActions", () => {
       scope: "selection",
       items: [fileItem],
     });
+    const multiSelection = resolveBrowserActions({
+      ...baseInput,
+      scope: "selection",
+      items: [
+        fileItem,
+        { ...fileItem, id: "file-2", key: "b.txt", name: "b.txt" },
+      ],
+    });
 
     expect(selection.download).toMatchObject({
       label: "Download folder",
@@ -142,7 +150,8 @@ describe("resolveBrowserActions", () => {
     });
     expect(selection.downloadZip.visible).toBe(false);
     expect(item.downloadZip.visible).toBe(false);
-    expect(fileSelection.downloadZip.visible).toBe(true);
+    expect(fileSelection.downloadZip.visible).toBe(false);
+    expect(multiSelection.downloadZip.visible).toBe(true);
   });
 
   it("uses Portal capability facts without reconstructing permissions from roles", () => {
