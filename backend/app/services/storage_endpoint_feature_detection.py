@@ -60,6 +60,14 @@ class _FeatureDetectionContext:
     ceph_admin_credentials: _FeatureDetectionCredentials
 
 
+@dataclass(frozen=True)
+class _FeatureDetectionTarget:
+    endpoint_url: str
+    admin_endpoint: str
+    region: Optional[str]
+    verify_tls: bool
+
+
 class StorageEndpointFeatureDetector:
     def __init__(
         self,
@@ -128,22 +136,26 @@ class StorageEndpointFeatureDetector:
             and verify_tls == bool(stored_endpoint.verify_tls)
         )
 
-    def _context(
-        self,
+    def _stored_endpoint(self, endpoint_id: int | None) -> StorageEndpoint | None:
+        if endpoint_id is None:
+            return None
+        endpoint = self.db.get(StorageEndpoint, endpoint_id)
+        if endpoint is None:
+            raise StorageEndpointNotFoundError("Endpoint not found.")
+        return endpoint
+
+    @staticmethod
+    def _target(
         payload: StorageEndpointFeatureDetectionRequest,
-    ) -> _FeatureDetectionContext:
+        stored_endpoint: StorageEndpoint | None,
+    ) -> _FeatureDetectionTarget:
         endpoint_url = normalize_s3_endpoint(payload.endpoint_url)
         if not endpoint_url:
             raise ValueError("Endpoint URL is required.")
-
-        stored_endpoint: Optional[StorageEndpoint] = None
-        if payload.endpoint_id is not None:
-            stored_endpoint = self.db.get(StorageEndpoint, payload.endpoint_id)
-            if not stored_endpoint:
-                raise StorageEndpointNotFoundError("Endpoint not found.")
-
         region = normalize_optional_string(payload.region) or (
-            normalize_optional_string(stored_endpoint.region) if stored_endpoint else None
+            normalize_optional_string(stored_endpoint.region)
+            if stored_endpoint is not None
+            else None
         )
         admin_endpoint = normalize_s3_endpoint(payload.admin_endpoint) or endpoint_url
         if payload.verify_tls is not None:
@@ -152,65 +164,94 @@ class StorageEndpointFeatureDetector:
             verify_tls = bool(stored_endpoint.verify_tls)
         else:
             verify_tls = True
+        return _FeatureDetectionTarget(
+            endpoint_url=endpoint_url,
+            admin_endpoint=admin_endpoint,
+            region=region,
+            verify_tls=verify_tls,
+        )
 
+    @staticmethod
+    def _stored_identity_credentials(
+        stored_endpoint: StorageEndpoint | None,
+        kind: str,
+        *,
+        allow_reuse: bool,
+    ) -> tuple[str | None, str | None]:
+        if stored_endpoint is None or not allow_reuse:
+            return None, None
+        if kind == "admin":
+            return stored_endpoint.admin_access_key, stored_endpoint.admin_secret_key
+        identity = stored_endpoint.service_identity(kind)
+        if identity is None:
+            return None, None
+        return identity.access_key, identity.secret_key
+
+    def _context_credentials(
+        self,
+        payload: StorageEndpointFeatureDetectionRequest,
+        stored_endpoint: StorageEndpoint | None,
+        kind: str,
+        *,
+        allow_reuse: bool,
+        reuse_matching_access_secret: bool = True,
+    ) -> _FeatureDetectionCredentials:
+        stored_access_key, stored_secret_key = self._stored_identity_credentials(
+            stored_endpoint,
+            kind,
+            allow_reuse=allow_reuse,
+        )
+        return self._credentials(
+            getattr(payload, f"{kind}_access_key"),
+            getattr(payload, f"{kind}_secret_key"),
+            stored_access_key=stored_access_key,
+            stored_secret_key=stored_secret_key,
+            reuse_matching_access_secret=reuse_matching_access_secret,
+        )
+
+    def _context(
+        self,
+        payload: StorageEndpointFeatureDetectionRequest,
+    ) -> _FeatureDetectionContext:
+        stored_endpoint = self._stored_endpoint(payload.endpoint_id)
+        target = self._target(payload, stored_endpoint)
         allow_stored_secret_reuse = self._stored_secret_reuse_allowed(
             stored_endpoint,
-            endpoint_url=endpoint_url,
-            admin_endpoint=admin_endpoint,
-            region=region,
-            verify_tls=verify_tls,
-        )
-        stored_ceph_admin = stored_endpoint.service_identity("ceph_admin") if stored_endpoint else None
-        stored_runtime = stored_endpoint.service_identity("runtime") if stored_endpoint else None
-        stored_supervision = stored_endpoint.service_identity("supervision") if stored_endpoint else None
-
-        admin_credentials = self._credentials(
-            payload.admin_access_key,
-            payload.admin_secret_key,
-            stored_access_key=(
-                stored_endpoint.admin_access_key
-                if stored_endpoint and allow_stored_secret_reuse
-                else None
-            ),
-            stored_secret_key=(
-                stored_endpoint.admin_secret_key
-                if stored_endpoint and allow_stored_secret_reuse
-                else None
-            ),
-        )
-        supervision_credentials = self._credentials(
-            payload.supervision_access_key,
-            payload.supervision_secret_key,
-            stored_access_key=(
-                stored_supervision.access_key
-                if stored_supervision and allow_stored_secret_reuse
-                else None
-            ),
-            stored_secret_key=(
-                stored_supervision.secret_key
-                if stored_supervision and allow_stored_secret_reuse
-                else None
-            ),
-        )
-        ceph_admin_credentials = self._credentials(
-            payload.ceph_admin_access_key, payload.ceph_admin_secret_key,
-            stored_access_key=stored_ceph_admin.access_key if stored_ceph_admin and allow_stored_secret_reuse else None,
-            stored_secret_key=stored_ceph_admin.secret_key if stored_ceph_admin and allow_stored_secret_reuse else None,
-            reuse_matching_access_secret=False,
+            endpoint_url=target.endpoint_url,
+            admin_endpoint=target.admin_endpoint,
+            region=target.region,
+            verify_tls=target.verify_tls,
         )
         return _FeatureDetectionContext(
-            endpoint_url=endpoint_url,
-            admin_endpoint=admin_endpoint,
-            region=region,
-            verify_tls=verify_tls,
-            admin_credentials=admin_credentials,
-            runtime_credentials=self._credentials(
-                payload.runtime_access_key, payload.runtime_secret_key,
-                stored_access_key=stored_runtime.access_key if stored_runtime and allow_stored_secret_reuse else None,
-                stored_secret_key=stored_runtime.secret_key if stored_runtime and allow_stored_secret_reuse else None,
+            endpoint_url=target.endpoint_url,
+            admin_endpoint=target.admin_endpoint,
+            region=target.region,
+            verify_tls=target.verify_tls,
+            admin_credentials=self._context_credentials(
+                payload,
+                stored_endpoint,
+                "admin",
+                allow_reuse=allow_stored_secret_reuse,
             ),
-            supervision_credentials=supervision_credentials,
-            ceph_admin_credentials=ceph_admin_credentials,
+            runtime_credentials=self._context_credentials(
+                payload,
+                stored_endpoint,
+                "runtime",
+                allow_reuse=allow_stored_secret_reuse,
+            ),
+            supervision_credentials=self._context_credentials(
+                payload,
+                stored_endpoint,
+                "supervision",
+                allow_reuse=allow_stored_secret_reuse,
+            ),
+            ceph_admin_credentials=self._context_credentials(
+                payload,
+                stored_endpoint,
+                "ceph_admin",
+                allow_reuse=allow_stored_secret_reuse,
+                reuse_matching_access_secret=False,
+            ),
         )
 
     @staticmethod
