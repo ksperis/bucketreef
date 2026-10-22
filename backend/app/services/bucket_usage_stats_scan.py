@@ -229,18 +229,26 @@ class ObjectVersionEntry:
     is_latest: bool
 
 
-def classify_data_type(key: str) -> str:
+def _object_name_parts(key: str) -> tuple[str, str, str, str] | None:
     normalized = (key or "").strip().lower()
     if not normalized or normalized.endswith("/"):
-        return "unknown"
+        return None
     name = PurePosixPath(normalized).name
     if not name:
-        return "unknown"
+        return None
     stem = name.rsplit(".", 1)[0] if "." in name else name
     extension = name.rsplit(".", 1)[1] if "." in name else ""
     compound_extension = (
         ".".join(name.split(".")[-2:]) if name.count(".") >= 2 else extension
     )
+    return name, stem, extension, compound_extension
+
+
+def classify_data_type(key: str) -> str:
+    parts = _object_name_parts(key)
+    if parts is None:
+        return "unknown"
+    name, stem, extension, compound_extension = parts
     if extension in _BACKUP_EXTENSIONS or compound_extension in _BACKUP_COMPOUND_EXTENSIONS:
         return "backups"
     if any(marker in stem for marker in _BACKUP_NAME_MARKERS):
