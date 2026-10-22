@@ -4,6 +4,7 @@ import { axe } from "jest-axe";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { BucketMigrationDetail } from "../../../api/managerMigrations";
 import ManagerMigrationDetailPage from "./ManagerMigrationDetailPage";
 
 const mockUseManagerContexts = vi.fn();
@@ -42,7 +43,7 @@ vi.mock("../useManagerContexts", () => ({
   useManagerContexts: () => mockUseManagerContexts(),
 }));
 
-function buildDetail() {
+function buildDetail(): BucketMigrationDetail {
   return {
     id: 11,
     created_by_user_id: 1,
@@ -110,6 +111,16 @@ function buildDetail() {
       ],
     },
     precheck_checked_at: null,
+    workflow_version: 2,
+    configuration_revision: 1,
+    checked_revision: 1,
+    preparation_status: "ready",
+    preparation_active_checks: false,
+    preparation_completed_items: 3,
+    maintenance_operation: null,
+    maintenance_status: "idle",
+    maintenance_error: null,
+    available_actions: {},
     parallelism_max: 8,
     total_items: 3,
     completed_items: 1,
@@ -133,6 +144,11 @@ function buildDetail() {
         read_only_applied: true,
         target_lock_applied: true,
         target_bucket_exists: false,
+        target_created_by_migration: false,
+        recovery_required: false,
+        source_deleted: false,
+        cleanup_status: "idle",
+        cleanup_error: null,
         objects_copied: 25,
         objects_deleted: 0,
         source_count: 100,
@@ -158,6 +174,11 @@ function buildDetail() {
         read_only_applied: false,
         target_lock_applied: true,
         target_bucket_exists: false,
+        target_created_by_migration: false,
+        recovery_required: false,
+        source_deleted: false,
+        cleanup_status: "idle",
+        cleanup_error: null,
         objects_copied: 3,
         objects_deleted: 0,
         source_count: null,
@@ -183,6 +204,11 @@ function buildDetail() {
         read_only_applied: true,
         target_lock_applied: true,
         target_bucket_exists: false,
+        target_created_by_migration: false,
+        recovery_required: false,
+        source_deleted: false,
+        cleanup_status: "idle",
+        cleanup_error: null,
         objects_copied: 20,
         objects_deleted: 0,
         source_count: 20,
@@ -208,6 +234,11 @@ function buildDetail() {
         read_only_applied: true,
         target_lock_applied: true,
         target_bucket_exists: false,
+        target_created_by_migration: false,
+        recovery_required: false,
+        source_deleted: false,
+        cleanup_status: "idle",
+        cleanup_error: null,
         objects_copied: 10,
         objects_deleted: 0,
         source_count: 10,
@@ -225,11 +256,11 @@ function buildDetail() {
       },
     ],
     recent_events: [],
-  } as const;
+  };
 }
 
-function show(overrides: Record<string, unknown> = {}) {
-  const detail = { ...buildDetail(), ...overrides };
+function show(overrides: Partial<BucketMigrationDetail> = {}) {
+  const detail: BucketMigrationDetail = { ...buildDetail(), ...overrides };
   mockUseManagerMigrationDetail.mockReturnValue({
     migrationDetail: detail,
     detailLoading: false,

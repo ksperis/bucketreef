@@ -204,12 +204,10 @@ export default function ManagerMigrationDetailPage() {
 
   const draft = migration.status === "draft";
   const checking = migration.preparation_status === "checking";
-  const maintenanceBusy = ["queued", "running"].includes(
-    migration.maintenance_status ?? "",
-  );
+  const maintenanceBusy = ["queued", "running"].includes(migration.maintenance_status);
   const allowed = (action: Action) =>
     Boolean(
-      migration.available_actions?.[
+      migration.available_actions[
         action === "active_checks" ? "precheck" : action
       ]?.enabled,
     );
@@ -404,7 +402,7 @@ export default function ManagerMigrationDetailPage() {
                   label: text(actionLabels[action]),
                   disabled: busy || !allowed(action),
                   disabledReason:
-                    migration.available_actions?.[
+                    migration.available_actions[
                       action === "active_checks" ? "precheck" : action
                     ]?.reason ?? text("Unavailable in this state."),
                   danger: action.startsWith("cleanup") || action === "delete",

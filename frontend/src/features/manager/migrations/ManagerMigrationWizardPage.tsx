@@ -112,9 +112,9 @@ export default function ManagerMigrationWizardPage() {
     getManagerMigration(editId)
       .then((detail) => {
         if (canceled) return;
-        if (!detail.available_actions?.edit?.enabled)
+        if (!detail.available_actions.edit?.enabled)
           throw new Error(
-            detail.available_actions?.edit?.reason ??
+            detail.available_actions.edit?.reason ??
               text("This migration cannot be edited."),
           );
         setSourceId(detail.source_context_id);
