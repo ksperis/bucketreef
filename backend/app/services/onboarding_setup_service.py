@@ -132,7 +132,7 @@ class OnboardingSetupService:
             raise OnboardingError("private_credentials_required")
         return access, secret
 
-    def configure(self, actor, row, payload, preview):
+    def configure(self, actor, row, payload):
         draft = self.progress.draft(row)
         self.endpoints.actor = actor
         endpoint = self._prepare_endpoint(actor, row, draft, payload)
@@ -342,19 +342,15 @@ class OnboardingSetupService:
         self.progress.audit(actor, "endpoint_created", row.id, endpoint_id=endpoint.id)
         return endpoint
 
-    def _update_endpoint(
-        self,
-        actor,
-        row,
+    @staticmethod
+    def _required_endpoint_feature_fields(
         draft,
-        payload,
         endpoint: StorageEndpoint,
         requirements: _EndpointRequirements,
-        credentials: _EndpointCredentials,
         detection,
         *,
         editable: bool,
-    ) -> StorageEndpoint:
+    ) -> list[str]:
         flags = resolve_feature_flags(endpoint)
         feature_fields: list[str] = []
         if requirements.account_api and not (
@@ -368,8 +364,17 @@ class OnboardingSetupService:
                 feature_fields.append("usage")
         if feature_fields and not editable:
             raise OnboardingError("endpoint_features_locked")
+        return feature_fields
 
-        update = {}
+    @staticmethod
+    def _endpoint_identity_updates(
+        draft,
+        payload,
+        endpoint: StorageEndpoint,
+        requirements: _EndpointRequirements,
+        credentials: _EndpointCredentials,
+    ) -> tuple[dict[str, object], list[str]]:
+        update: dict[str, object] = {}
         runtime_identity = endpoint.service_identity("runtime")
         current_identity_mode = (
             runtime_identity.mode if runtime_identity is not None else "managed"
@@ -398,14 +403,53 @@ class OnboardingSetupService:
             update[f"{kind}_access_key"] = pair[0]
             update[f"{kind}_secret_key"] = pair[1]
             credential_kinds.append(kind)
+        return update, credential_kinds
 
-        if feature_fields:
-            features = normalize_features_config(
-                endpoint.provider, endpoint.features_config, endpoint.region
-            )
-            for field in feature_fields:
-                features[field]["enabled"] = True
-            update["features_config"] = dump_features_config(features)
+    @staticmethod
+    def _append_endpoint_feature_updates(
+        endpoint: StorageEndpoint,
+        update: dict[str, object],
+        feature_fields: list[str],
+    ) -> None:
+        if not feature_fields:
+            return
+        features = normalize_features_config(
+            endpoint.provider,
+            endpoint.features_config,
+            endpoint.region,
+        )
+        for field in feature_fields:
+            features[field]["enabled"] = True
+        update["features_config"] = dump_features_config(features)
+
+    def _update_endpoint(
+        self,
+        actor,
+        row,
+        draft,
+        payload,
+        endpoint: StorageEndpoint,
+        requirements: _EndpointRequirements,
+        credentials: _EndpointCredentials,
+        detection,
+        *,
+        editable: bool,
+    ) -> StorageEndpoint:
+        feature_fields = self._required_endpoint_feature_fields(
+            draft,
+            endpoint,
+            requirements,
+            detection,
+            editable=editable,
+        )
+        update, credential_kinds = self._endpoint_identity_updates(
+            draft,
+            payload,
+            endpoint,
+            requirements,
+            credentials,
+        )
+        self._append_endpoint_feature_updates(endpoint, update, feature_fields)
 
         if update:
             self.endpoints.update_endpoint(
