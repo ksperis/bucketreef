@@ -80,27 +80,36 @@ def extract_account_bucket_list(payload: Any, account_id: str) -> list[dict]:
     return matched if ownership_metadata_seen else entries
 
 
+def _quota_config(
+    payload: dict[str, Any],
+    *,
+    keys: tuple[str, ...],
+) -> Optional[CephAdminRgwQuotaConfig]:
+    max_size_bytes, max_objects = extract_quota_limits(payload, keys=keys)
+    enabled = _extract_quota_enabled(payload, keys=keys)
+    if enabled is None and max_size_bytes is None and max_objects is None:
+        return None
+    return CephAdminRgwQuotaConfig(
+        enabled=enabled,
+        max_size_bytes=max_size_bytes,
+        max_objects=max_objects,
+    )
+
+
+def _account_limit(
+    payload: dict[str, Any],
+    limits_payload: dict[str, Any],
+    key: str,
+) -> Optional[int]:
+    direct = parse_rgw_int(payload.get(key))
+    if direct is not None:
+        return direct
+    return parse_rgw_int(limits_payload.get(key))
+
+
 def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> CephAdminRgwAccountDetail:
     account_id = normalize_optional_scalar(payload.get("id") or payload.get("account_id")) or account_id_fallback
     limits_payload = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
-    quota_size, quota_objects = extract_quota_limits(payload, keys=("quota", "account_quota"))
-    quota_enabled = _extract_quota_enabled(payload, keys=("quota", "account_quota"))
-    quota = None
-    if quota_enabled is not None or quota_size is not None or quota_objects is not None:
-        quota = CephAdminRgwQuotaConfig(
-            enabled=quota_enabled,
-            max_size_bytes=quota_size,
-            max_objects=quota_objects,
-        )
-    bucket_quota_size, bucket_quota_objects = extract_quota_limits(payload, keys=("bucket_quota",))
-    bucket_quota_enabled = _extract_quota_enabled(payload, keys=("bucket_quota",))
-    bucket_quota = None
-    if bucket_quota_enabled is not None or bucket_quota_size is not None or bucket_quota_objects is not None:
-        bucket_quota = CephAdminRgwQuotaConfig(
-            enabled=bucket_quota_enabled,
-            max_size_bytes=bucket_quota_size,
-            max_objects=bucket_quota_objects,
-        )
     return CephAdminRgwAccountDetail(
         account_id=account_id,
         tenant=extract_rgw_account_tenant(payload),
@@ -108,15 +117,15 @@ def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> C
             payload.get("name") or payload.get("account_name") or payload.get("display_name")
         ),
         email=normalize_optional_scalar(payload.get("email") or payload.get("mail")),
-        max_users=parse_rgw_int(payload.get("max_users") or limits_payload.get("max_users")),
-        max_buckets=parse_rgw_int(payload.get("max_buckets") or limits_payload.get("max_buckets")),
-        max_roles=parse_rgw_int(payload.get("max_roles") or limits_payload.get("max_roles")),
-        max_groups=parse_rgw_int(payload.get("max_groups") or limits_payload.get("max_groups")),
-        max_access_keys=parse_rgw_int(payload.get("max_access_keys") or limits_payload.get("max_access_keys")),
+        max_users=_account_limit(payload, limits_payload, "max_users"),
+        max_buckets=_account_limit(payload, limits_payload, "max_buckets"),
+        max_roles=_account_limit(payload, limits_payload, "max_roles"),
+        max_groups=_account_limit(payload, limits_payload, "max_groups"),
+        max_access_keys=_account_limit(payload, limits_payload, "max_access_keys"),
         bucket_count=extract_bucket_count(payload),
         user_count=extract_user_count(payload),
-        quota=quota,
-        bucket_quota=bucket_quota,
+        quota=_quota_config(payload, keys=("quota", "account_quota")),
+        bucket_quota=_quota_config(payload, keys=("bucket_quota",)),
     )
 
 
