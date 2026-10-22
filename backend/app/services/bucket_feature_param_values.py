@@ -129,28 +129,34 @@ def extract_notification_events(entry: dict) -> list[str]:
     return [value] if value else []
 
 
-def extract_notification_filter_values(entry: dict, filter_name: str) -> list[str]:
-    filters: list[dict] = []
-    raw_filter = entry.get("Filter")
-    if not isinstance(raw_filter, dict):
-        raw_filter = entry.get("filter")
-    key_filter = raw_filter.get("Key") if isinstance(raw_filter, dict) else None
-    if not isinstance(key_filter, dict) and isinstance(raw_filter, dict):
-        key_filter = raw_filter.get("key")
-    if isinstance(key_filter, dict):
-        raw_rules = key_filter.get("FilterRules")
-        if not isinstance(raw_rules, list):
-            raw_rules = key_filter.get("filterRules")
-        if isinstance(raw_rules, list):
-            filters.extend(item for item in raw_rules if isinstance(item, dict))
-    raw_rules = entry.get("FilterRules")
-    if not isinstance(raw_rules, list):
-        raw_rules = entry.get("filterRules")
-    if isinstance(raw_rules, list):
-        filters.extend(item for item in raw_rules if isinstance(item, dict))
+def _mapping_from_keys(entry: dict, keys: tuple[str, ...]) -> dict:
+    for key in keys:
+        value = entry.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
 
+
+def _record_list_from_keys(entry: dict, keys: tuple[str, ...]) -> list[dict]:
+    for key in keys:
+        value = entry.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def _notification_filter_rules(entry: dict) -> list[dict]:
+    raw_filter = _mapping_from_keys(entry, ("Filter", "filter"))
+    key_filter = _mapping_from_keys(raw_filter, ("Key", "key"))
+    return [
+        *_record_list_from_keys(key_filter, ("FilterRules", "filterRules")),
+        *_record_list_from_keys(entry, ("FilterRules", "filterRules")),
+    ]
+
+
+def extract_notification_filter_values(entry: dict, filter_name: str) -> list[str]:
     values: list[str] = []
-    for item in filters:
+    for item in _notification_filter_rules(entry):
         name = _string_or_none(item.get("Name") or item.get("name"))
         if name is None or name.lower() != filter_name:
             continue
