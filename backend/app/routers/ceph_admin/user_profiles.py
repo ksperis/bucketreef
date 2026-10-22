@@ -40,6 +40,7 @@ from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_tenant,
+    extract_rgw_quota_enabled,
     extract_rgw_user_payload,
     parse_rgw_bool,
     parse_rgw_int,
@@ -76,16 +77,6 @@ def _extract_user_setting(payload: dict[str, Any], user_payload: dict[str, Any],
         value = normalize_optional_scalar(payload.get(key))
         if value is not None:
             return value
-    return None
-
-
-def _extract_quota_enabled(payload: dict[str, Any], keys: tuple[str, ...] = ("user_quota", "quota")) -> Optional[bool]:
-    for key in keys:
-        value = payload.get(key)
-        if isinstance(value, dict):
-            parsed = parse_rgw_bool(value.get("enabled"))
-            if parsed is not None:
-                return parsed
     return None
 
 
@@ -147,7 +138,10 @@ def _build_user_detail(
     tenant, uid = _resolve_user_identity(payload, uid_fallback=uid_fallback, tenant_fallback=tenant_fallback)
     account_id = normalize_optional_scalar(payload.get("account_id") or user_payload.get("account_id"))
     quota_size, quota_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
-    quota_enabled = _extract_quota_enabled(payload)
+    quota_enabled = extract_rgw_quota_enabled(
+        payload,
+        keys=("user_quota", "quota"),
+    )
     quota = None
     if quota_enabled is not None or quota_size is not None or quota_objects is not None:
         quota = CephAdminRgwQuotaConfig(
