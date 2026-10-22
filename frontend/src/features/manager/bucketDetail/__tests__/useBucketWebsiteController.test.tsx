@@ -143,6 +143,7 @@ describe("useBucketWebsiteController", () => {
     expect(apiMocks.deleteCephAdminBucketWebsite).toHaveBeenCalledWith(
       7,
       "site-assets",
+      undefined,
     );
     expect(result.current.configured).toBe(false);
     expect(result.current.mode).toBe("hosting");

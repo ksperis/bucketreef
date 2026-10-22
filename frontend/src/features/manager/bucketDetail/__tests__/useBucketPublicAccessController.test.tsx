@@ -99,11 +99,13 @@ describe("useBucketPublicAccessController", () => {
     expect(apiMocks.getCephAdminBucketPublicAccessBlock).toHaveBeenCalledWith(
       7,
       "reports",
+      undefined,
     );
     expect(apiMocks.updateCephAdminBucketPublicAccessBlock).toHaveBeenCalledWith(
       7,
       "reports",
       allEnabled,
+      undefined,
     );
   });
 

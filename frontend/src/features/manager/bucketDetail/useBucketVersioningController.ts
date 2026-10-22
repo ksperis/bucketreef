@@ -18,6 +18,7 @@ type UseBucketVersioningControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -30,6 +31,7 @@ export function useBucketVersioningController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketVersioningControllerOptions) {
@@ -59,7 +61,7 @@ export function useBucketVersioningController({
     try {
       const data = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketVersioning(endpointId, bucketName)
+          ? await getCephAdminBucketVersioning(endpointId, bucketName, cephAdminTenant)
           : { status: null }
         : await getBucketVersioning(contextId, bucketName);
       applyStatus(data.status ?? null);
@@ -71,7 +73,7 @@ export function useBucketVersioningController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyStatus, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyStatus, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const updateDraft = (value: boolean) => {
     setDraftEnabled(value);
@@ -104,6 +106,7 @@ export function useBucketVersioningController({
           endpointId,
           bucketName,
           draftEnabled,
+          cephAdminTenant,
         );
       } else {
         await setBucketVersioning(contextId, bucketName, draftEnabled);

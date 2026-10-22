@@ -220,6 +220,7 @@ describe("useBucketNotificationsController", () => {
       7,
       "reports",
       updated,
+      undefined,
     );
     expect(apiMocks.getCephAdminBucketNotifications).toHaveBeenCalledTimes(1);
     expect(result.current.editorOpen).toBe(false);
@@ -241,7 +242,7 @@ describe("useBucketNotificationsController", () => {
 
     await act(async () => result.current.saveDraft());
 
-    expect(apiMocks.deleteCephAdminBucketNotifications).toHaveBeenCalledWith(7, "reports");
+    expect(apiMocks.deleteCephAdminBucketNotifications).toHaveBeenCalledWith(7, "reports", undefined);
     expect(apiMocks.getCephAdminBucketNotifications).toHaveBeenCalledTimes(1);
     expect(result.current.configured).toBe(false);
     expect(result.current.topicCount).toBe(0);

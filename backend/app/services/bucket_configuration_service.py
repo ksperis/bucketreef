@@ -77,7 +77,7 @@ class BucketConfigurationService:
         execution_context: S3ExecutionTarget,
     ) -> tuple[Optional[str], Optional[str], str]:
         account_id, tenant = resolve_account_scope(execution_context.rgw_account_id)
-        if getattr(execution_context, "context_kind", None) != "ceph_admin":
+        if getattr(execution_context, "context_kind", None) != "ceph_admin" or not tenant:
             tenant = resolve_target_tenant(execution_context) or None
         root_uid = resolve_target_admin_uid(execution_context)
         if root_uid:

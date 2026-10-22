@@ -13,6 +13,7 @@ type UseBucketMetadataControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
   withStats: boolean;
@@ -22,6 +23,7 @@ export function useBucketMetadataController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
   withStats,
@@ -36,7 +38,7 @@ export function useBucketMetadataController({
     setBucket(null);
     setError(null);
     setLoading(false);
-  }, [contextId, bucketName, cephAdmin, enabled, endpointId, withStats]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, withStats]);
 
   const refresh = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -60,8 +62,11 @@ export function useBucketMetadataController({
           with_stats: withStats,
         });
         const found =
-          response.items.find((candidate) => candidate.name === bucketName) ??
-          null;
+          response.items.find(
+            (candidate) =>
+              candidate.name === bucketName &&
+              (candidate.tenant || null) === (cephAdminTenant || null),
+          ) ?? null;
         nextBucket = found
           ? {
               ...found,
@@ -86,7 +91,7 @@ export function useBucketMetadataController({
         setLoading(false);
       }
     }
-  }, [contextId, bucketName, cephAdmin, enabled, endpointId, withStats]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, withStats]);
 
   return {
     bucket,

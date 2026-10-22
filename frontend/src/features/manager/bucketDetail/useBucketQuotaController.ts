@@ -21,6 +21,7 @@ type UseBucketQuotaControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   editable: boolean;
   enabled: boolean;
   endpointId?: number | null;
@@ -77,6 +78,7 @@ export function useBucketQuotaController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   editable,
   enabled,
   endpointId,
@@ -109,7 +111,7 @@ export function useBucketQuotaController({
   useEffect(() => {
     setError(null);
     setStatus(null);
-  }, [contextId, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const update = (patch: Partial<BucketQuotaDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -147,7 +149,7 @@ export function useBucketQuotaController({
     try {
       if (cephAdmin) {
         if (!endpointId) return;
-        await updateCephAdminBucketQuota(endpointId, bucketName, payload);
+        await updateCephAdminBucketQuota(endpointId, bucketName, payload, cephAdminTenant);
       } else {
         await updateBucketQuota(contextId, bucketName, payload);
       }

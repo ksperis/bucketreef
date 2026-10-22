@@ -196,7 +196,7 @@ describe("BucketFeatureSuggestionsProvider", () => {
     const buckets = await result.current.buckets.loadSuggestions!("ceph");
 
     expect(prefixes.map((entry) => entry.value)).toEqual(["logs/2026/"]);
-    expect(listCephAdminBucketObjectsMock).toHaveBeenCalledWith(7, "ceph-source", "logs/");
+    expect(listCephAdminBucketObjectsMock).toHaveBeenCalledWith(7, "ceph-source", "logs/", undefined);
     expect(buckets.map((entry) => entry.value)).toEqual(["ceph-target"]);
     expect(listCephAdminBucketsMock).toHaveBeenCalledWith(7, {
       filter: "ceph",

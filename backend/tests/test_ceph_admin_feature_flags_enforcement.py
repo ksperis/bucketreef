@@ -9,6 +9,7 @@ from app.models.bucket import BucketEncryptionConfiguration
 from app.routers.ceph_admin import accounts as accounts_router
 from app.routers.ceph_admin import account_profiles as account_profiles_router
 from app.routers.ceph_admin import bucket_config_access as bucket_config_access_router
+from app.routers.ceph_admin import bucket_config_common as bucket_config_common_router
 from app.routers.ceph_admin import bucket_config_core as bucket_config_core_router
 from app.routers.ceph_admin import bucket_config_rules as bucket_config_rules_router
 from app.routers.ceph_admin import bucket_tools as bucket_tools_router
@@ -238,7 +239,7 @@ def test_ceph_admin_bucket_encryption_requires_sse_feature(monkeypatch):
             return BucketEncryptionConfiguration(rules=[])
 
     monkeypatch.setattr(
-        bucket_config_core_router,
+        bucket_config_common_router,
         "BucketConfigurationService",
         lambda: _FakeBucketsService(),
     )
@@ -260,7 +261,7 @@ def test_ceph_admin_bucket_encryption_allows_when_sse_feature_enabled(monkeypatc
             )
 
     monkeypatch.setattr(
-        bucket_config_core_router,
+        bucket_config_common_router,
         "BucketConfigurationService",
         lambda: _FakeBucketsService(),
     )

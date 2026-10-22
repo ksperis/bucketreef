@@ -33,6 +33,7 @@ type UseBucketEncryptionControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -57,6 +58,7 @@ export function useBucketEncryptionController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketEncryptionControllerOptions) {
@@ -93,7 +95,7 @@ export function useBucketEncryptionController({
           applyBaseline([]);
           return;
         }
-        data = await getCephAdminBucketEncryption(endpointId, bucketName);
+        data = await getCephAdminBucketEncryption(endpointId, bucketName, cephAdminTenant);
       } else {
         data = await getBucketEncryption(contextId, bucketName);
       }
@@ -109,7 +111,7 @@ export function useBucketEncryptionController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditor = useCallback(() => {
     if (!enabled) return;
@@ -202,7 +204,7 @@ export function useBucketEncryptionController({
       if (nextRules.length === 0) {
         if (cephAdmin) {
           if (!endpointId) return;
-          await deleteCephAdminBucketEncryption(endpointId, bucketName);
+          await deleteCephAdminBucketEncryption(endpointId, bucketName, cephAdminTenant);
         } else {
           await deleteBucketEncryption(contextId, bucketName);
         }
@@ -214,7 +216,7 @@ export function useBucketEncryptionController({
         let saved;
         if (cephAdmin) {
           if (!endpointId) return;
-          saved = await putCephAdminBucketEncryption(endpointId, bucketName, nextRules);
+          saved = await putCephAdminBucketEncryption(endpointId, bucketName, nextRules, cephAdminTenant);
         } else {
           saved = await putBucketEncryption(contextId, bucketName, nextRules);
         }

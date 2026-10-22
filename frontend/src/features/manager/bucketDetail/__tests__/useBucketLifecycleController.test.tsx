@@ -220,7 +220,7 @@ describe("useBucketLifecycleController", () => {
     expect(apiMocks.deleteCephAdminBucketLifecycle).not.toHaveBeenCalled();
 
     await act(async () => result.current.saveDraft());
-    expect(apiMocks.deleteCephAdminBucketLifecycle).toHaveBeenCalledWith(7, "reports");
+    expect(apiMocks.deleteCephAdminBucketLifecycle).toHaveBeenCalledWith(7, "reports", undefined);
     expect(apiMocks.putCephAdminBucketLifecycle).not.toHaveBeenCalled();
     expect(result.current.rules).toEqual([]);
     expect(result.current.status).toBe("Lifecycle deleted");
@@ -297,6 +297,7 @@ describe("useBucketLifecycleController", () => {
       7,
       "reports",
       [{ ...existingRule, Expiration: { Days: 45 } }],
+      undefined,
     );
   });
 

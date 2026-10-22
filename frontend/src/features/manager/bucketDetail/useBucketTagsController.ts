@@ -26,6 +26,7 @@ type UseBucketTagsControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -48,6 +49,7 @@ export function useBucketTagsController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketTagsControllerOptions) {
@@ -77,7 +79,7 @@ export function useBucketTagsController({
     try {
       const response = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketTags(endpointId, bucketName)
+          ? await getCephAdminBucketTags(endpointId, bucketName, cephAdminTenant)
           : { tags: [] }
         : await getBucketTags(contextId, bucketName);
       apply(response.tags ?? []);
@@ -87,7 +89,7 @@ export function useBucketTagsController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, apply, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const clearFeedback = () => {
     setError(null);
@@ -126,7 +128,7 @@ export function useBucketTagsController({
       if (filtered.length === 0) {
         if (cephAdmin) {
           if (!endpointId) return;
-          await deleteCephAdminBucketTags(endpointId, bucketName);
+          await deleteCephAdminBucketTags(endpointId, bucketName, cephAdminTenant);
         } else {
           await deleteBucketTags(contextId, bucketName);
         }
@@ -135,7 +137,7 @@ export function useBucketTagsController({
       } else {
         if (cephAdmin) {
           if (!endpointId) return;
-          await putCephAdminBucketTags(endpointId, bucketName, filtered);
+          await putCephAdminBucketTags(endpointId, bucketName, filtered, cephAdminTenant);
         } else {
           await putBucketTags(contextId, bucketName, filtered);
         }
@@ -156,7 +158,7 @@ export function useBucketTagsController({
     try {
       if (cephAdmin) {
         if (!endpointId) return;
-        await deleteCephAdminBucketTags(endpointId, bucketName);
+        await deleteCephAdminBucketTags(endpointId, bucketName, cephAdminTenant);
       } else {
         await deleteBucketTags(contextId, bucketName);
       }

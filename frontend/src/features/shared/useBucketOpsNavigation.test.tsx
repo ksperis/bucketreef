@@ -74,13 +74,14 @@ describe("useBucketOpsNavigation", () => {
     expect(result.current.configurationTarget).toEqual({
       bucketName: "bucket-a",
       contextId: "account-1",
+      tenant: null,
     });
     expect(result.current.configurationNavigation?.position).toBe("1 / 1");
     expect(routerMocks.navigate).not.toHaveBeenCalled();
   });
 
   it("opens Ceph Admin configuration without routing", () => {
-    const cephBucket: CephAdminBucket = { name: "bucket-a" };
+    const cephBucket: CephAdminBucket = { name: "bucket-a", tenant: "tenant_a" };
     const { result } = renderHook(() =>
       useBucketOpsNavigation({
         items: [cephBucket],
@@ -94,6 +95,7 @@ describe("useBucketOpsNavigation", () => {
     expect(result.current.configurationTarget).toEqual({
       bucketName: "bucket-a",
       contextId: null,
+      tenant: "tenant_a",
     });
     expect(routerMocks.navigate).not.toHaveBeenCalled();
   });
@@ -112,6 +114,7 @@ describe("useBucketOpsNavigation", () => {
     expect(result.current.configurationTarget).toEqual({
       bucketName: "bucket-a",
       contextId: "account-2",
+      tenant: null,
     });
     expect(result.current.configurationNavigation?.position).toBe("2 / 3");
 
@@ -119,9 +122,33 @@ describe("useBucketOpsNavigation", () => {
     expect(result.current.configurationTarget).toEqual({
       bucketName: "bucket-b",
       contextId: "account-2",
+      tenant: null,
     });
     expect(result.current.configurationNavigation?.position).toBe("3 / 3");
     expect(routerMocks.navigate).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes same-name Ceph Admin buckets from different tenants", () => {
+    const tenantA: CephAdminBucket = { name: "bucket-a", tenant: "tenant_a" };
+    const tenantB: CephAdminBucket = { name: "bucket-a", tenant: "tenant_b" };
+    const { result } = renderHook(() =>
+      useBucketOpsNavigation({
+        items: [tenantA, tenantB],
+        mode: "ceph-admin",
+        selectedEndpointId: 7,
+      }),
+    );
+
+    act(() => result.current.openBucketConfiguration(tenantA));
+    expect(result.current.configurationNavigation?.position).toBe("1 / 2");
+
+    act(() => result.current.configurationNavigation?.next?.());
+    expect(result.current.configurationTarget).toEqual({
+      bucketName: "bucket-a",
+      contextId: null,
+      tenant: "tenant_b",
+    });
+    expect(result.current.configurationNavigation?.position).toBe("2 / 2");
   });
 
   it("closes the drawer without routing", () => {

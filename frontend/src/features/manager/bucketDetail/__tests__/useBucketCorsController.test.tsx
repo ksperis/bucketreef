@@ -95,9 +95,12 @@ describe("useBucketCorsController", () => {
 
     await act(async () => result.current.saveDraft());
 
-    expect(apiMocks.putCephAdminBucketCors).toHaveBeenCalledWith(7, "reports", [
-      { AllowedOrigins: ["https://admin.example"], AllowedMethods: ["GET"] },
-    ]);
+    expect(apiMocks.putCephAdminBucketCors).toHaveBeenCalledWith(
+      7,
+      "reports",
+      [{ AllowedOrigins: ["https://admin.example"], AllowedMethods: ["GET"] }],
+      undefined,
+    );
   });
 
   it.each([
@@ -121,7 +124,7 @@ describe("useBucketCorsController", () => {
     await act(async () => result.current.saveDraft());
 
     if (cephAdmin) {
-      expect(apiMocks.deleteCephAdminBucketCors).toHaveBeenCalledWith(7, "reports");
+      expect(apiMocks.deleteCephAdminBucketCors).toHaveBeenCalledWith(7, "reports", undefined);
     } else {
       expect(apiMocks.deleteBucketCors).toHaveBeenCalledWith("acc-1", "reports");
     }

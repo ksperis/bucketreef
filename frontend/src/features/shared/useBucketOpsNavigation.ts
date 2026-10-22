@@ -26,6 +26,7 @@ type UseBucketOpsNavigationOptions = {
 type BucketConfigurationTarget = {
   bucketName: string;
   contextId: string | null;
+  tenant: string | null;
 };
 
 export function getBucketOpsConfigurationRowKey(
@@ -37,7 +38,7 @@ export function getBucketOpsConfigurationRowKey(
       getStorageOpsBucketName(bucket),
     )}`;
   }
-  return encodeURIComponent(bucket.name);
+  return `${encodeURIComponent(bucket.tenant ?? "")}:${encodeURIComponent(bucket.name)}`;
 }
 
 function findRowButton(rowKey: string): HTMLElement | null {
@@ -74,15 +75,24 @@ export function useBucketOpsNavigation({
         const contextId = getStorageOpsContextId(bucket);
         const bucketName = getStorageOpsBucketName(bucket);
         if (!contextId || !bucketName) return null;
-        return { bucketName, contextId };
+        return { bucketName, contextId, tenant: null };
       }
-      return { bucketName: bucket.name, contextId: null };
+      return {
+        bucketName: bucket.name,
+        contextId: null,
+        tenant: bucket.tenant || null,
+      };
     },
     [mode],
   );
   const configurationRowMatchesTarget = useCallback(
     (bucket: CephAdminBucket, target: BucketConfigurationTarget) => {
-      if (mode === "ceph-admin") return bucket.name === target.bucketName;
+      if (mode === "ceph-admin") {
+        return (
+          bucket.name === target.bucketName &&
+          (bucket.tenant || null) === target.tenant
+        );
+      }
       return (
         getStorageOpsBucketName(bucket) === target.bucketName &&
         getStorageOpsContextId(bucket) === target.contextId

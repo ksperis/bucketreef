@@ -224,7 +224,7 @@ describe("useBucketPolicyController", () => {
     expect(apiMocks.deleteCephAdminBucketPolicy).not.toHaveBeenCalled();
 
     await act(async () => result.current.saveDraft());
-    expect(apiMocks.deleteCephAdminBucketPolicy).toHaveBeenCalledWith(7, "reports");
+    expect(apiMocks.deleteCephAdminBucketPolicy).toHaveBeenCalledWith(7, "reports", undefined);
     expect(apiMocks.putCephAdminBucketPolicy).not.toHaveBeenCalled();
     expect(result.current.configured).toBe(false);
     expect(result.current.statementCount).toBe(0);
@@ -244,7 +244,7 @@ describe("useBucketPolicyController", () => {
     const expected = result.current.draftPolicy;
     await act(async () => result.current.saveDraft());
 
-    expect(apiMocks.putCephAdminBucketPolicy).toHaveBeenCalledWith(7, "reports", expected);
+    expect(apiMocks.putCephAdminBucketPolicy).toHaveBeenCalledWith(7, "reports", expected, undefined);
   });
 
   it("keeps the editor and draft after a failed save and supports retry", async () => {

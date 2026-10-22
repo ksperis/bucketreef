@@ -136,11 +136,12 @@ describe("useBucketAclController", () => {
 
     await act(async () => result.current.load());
     await act(async () => result.current.save());
-    expect(apiMocks.getCephAdminBucketAcl).toHaveBeenCalledWith(7, "reports");
+    expect(apiMocks.getCephAdminBucketAcl).toHaveBeenCalledWith(7, "reports", undefined);
     expect(apiMocks.updateCephAdminBucketAcl).toHaveBeenCalledWith(
       7,
       "reports",
       "public-read",
+      undefined,
     );
 
     const disabled = renderAcl({ enabled: false });

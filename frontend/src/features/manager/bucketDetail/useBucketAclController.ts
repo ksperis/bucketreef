@@ -20,6 +20,7 @@ type UseBucketAclControllerOptions = {
   contextId: S3ExecutionContextSelector;
   bucketName?: string;
   cephAdmin: boolean;
+  cephAdminTenant?: string | null;
   enabled: boolean;
   endpointId?: number | null;
 };
@@ -75,6 +76,7 @@ export function useBucketAclController({
   contextId,
   bucketName,
   cephAdmin,
+  cephAdminTenant,
   enabled,
   endpointId,
 }: UseBucketAclControllerOptions) {
@@ -106,7 +108,7 @@ export function useBucketAclController({
     try {
       const data = cephAdmin
         ? endpointId
-          ? await getCephAdminBucketAcl(endpointId, bucketName)
+          ? await getCephAdminBucketAcl(endpointId, bucketName, cephAdminTenant)
           : null
         : await getBucketAcl(contextId, bucketName);
       applyLoaded(data);
@@ -116,7 +118,7 @@ export function useBucketAclController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyLoaded, bucketName, cephAdmin, enabled, endpointId]);
+  }, [contextId, applyLoaded, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const updatePreset = (preset: string) => {
     setDraft((current) => ({ ...current, preset }));
@@ -150,7 +152,7 @@ export function useBucketAclController({
     try {
       const updated = cephAdmin
         ? endpointId
-          ? await updateCephAdminBucketAcl(endpointId, bucketName, aclValue)
+          ? await updateCephAdminBucketAcl(endpointId, bucketName, aclValue, cephAdminTenant)
           : null
         : await updateBucketAcl(contextId, bucketName, aclValue);
       setAcl(updated);

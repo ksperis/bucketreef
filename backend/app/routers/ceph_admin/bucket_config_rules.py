@@ -15,6 +15,7 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
 )
 from app.routers.ceph_admin.bucket_config_common import (
+    _run_bucket_config_read,
     _run_bucket_config_delete,
     _run_bucket_config_update,
 )
@@ -24,8 +25,6 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
-from app.services.bucket_configuration_service import BucketConfigurationService
-from app.services.s3_execution_context import build_ceph_admin_s3_context
 
 router = APIRouter()
 
@@ -33,14 +32,14 @@ router = APIRouter()
 @router.get("/{bucket_name}/lifecycle", response_model=BucketLifecycleConfig)
 def get_lifecycle(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketLifecycleConfig:
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_lifecycle_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_lifecycle_config,
     )
 
 
@@ -48,11 +47,13 @@ def get_lifecycle(
 def put_lifecycle(
     bucket_name: str,
     payload: BucketLifecycleConfig,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketLifecycleConfig:
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="lifecycle",
         payload=payload,
     )
@@ -61,11 +62,13 @@ def put_lifecycle(
 @router.delete("/{bucket_name}/lifecycle", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_lifecycle(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     return _run_bucket_config_delete(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="lifecycle",
     )
 
@@ -73,14 +76,14 @@ def delete_lifecycle(
 @router.get("/{bucket_name}/cors")
 def get_cors(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_cors_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_cors_config,
     )
 
 
@@ -88,11 +91,13 @@ def get_cors(
 def put_cors(
     bucket_name: str,
     payload: BucketCorsUpdate,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="cors",
         payload=payload,
     )
@@ -101,11 +106,13 @@ def put_cors(
 @router.delete("/{bucket_name}/cors", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_cors(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     return _run_bucket_config_delete(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="cors",
     )
 
@@ -113,14 +120,14 @@ def delete_cors(
 @router.get("/{bucket_name}/notifications", response_model=BucketNotificationConfiguration)
 def get_notifications(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketNotificationConfiguration:
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_notifications_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_notifications_config,
     )
 
 
@@ -128,11 +135,13 @@ def get_notifications(
 def put_notifications(
     bucket_name: str,
     payload: BucketNotificationConfiguration,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketNotificationConfiguration:
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="notifications",
         payload=payload,
     )
@@ -141,11 +150,13 @@ def put_notifications(
 @router.delete("/{bucket_name}/notifications", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_notifications(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     return _run_bucket_config_delete(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="notifications",
     )
 
@@ -153,15 +164,15 @@ def delete_notifications(
 @router.get("/{bucket_name}/replication", response_model=BucketReplicationConfiguration)
 def get_replication(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketReplicationConfiguration:
     require_replication_feature(ctx.endpoint)
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_replication_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_replication_config,
     )
 
 
@@ -169,12 +180,14 @@ def get_replication(
 def put_replication(
     bucket_name: str,
     payload: BucketReplicationConfiguration,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketReplicationConfiguration:
     require_replication_feature(ctx.endpoint)
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="replication",
         payload=payload,
     )
@@ -183,12 +196,14 @@ def put_replication(
 @router.delete("/{bucket_name}/replication", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_replication(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     require_replication_feature(ctx.endpoint)
     return _run_bucket_config_delete(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="replication",
     )
 
@@ -196,14 +211,14 @@ def delete_replication(
 @router.get("/{bucket_name}/logging", response_model=BucketLoggingConfiguration)
 def get_logging(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketLoggingConfiguration:
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_logging_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_logging_config,
     )
 
 
@@ -211,11 +226,13 @@ def get_logging(
 def put_logging(
     bucket_name: str,
     payload: BucketLoggingConfiguration,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketLoggingConfiguration:
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="logging",
         payload=payload,
     )
@@ -224,11 +241,13 @@ def put_logging(
 @router.delete("/{bucket_name}/logging", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_logging(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     return _run_bucket_config_delete(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="logging",
     )
 
@@ -236,14 +255,14 @@ def delete_logging(
 @router.get("/{bucket_name}/website", response_model=BucketWebsiteConfiguration)
 def get_website(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketWebsiteConfiguration:
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_website_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_website_config,
     )
 
 
@@ -251,11 +270,13 @@ def get_website(
 def put_website(
     bucket_name: str,
     payload: BucketWebsiteConfiguration,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketWebsiteConfiguration:
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="website",
         payload=payload,
     )
@@ -264,11 +285,13 @@ def put_website(
 @router.delete("/{bucket_name}/website", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_website(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     return _run_bucket_config_delete(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="website",
     )
 
@@ -276,14 +299,14 @@ def delete_website(
 @router.get("/{bucket_name}/tags")
 def get_tags(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
-    service = BucketConfigurationService()
-    context = build_ceph_admin_s3_context(ctx)
-    return bucket_config_actions.get_bucket_tags_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return _run_bucket_config_read(
+        ctx,
+        bucket_name,
+        tenant=tenant,
+        action=bucket_config_actions.get_bucket_tags_config,
     )
 
 
@@ -291,11 +314,13 @@ def get_tags(
 def put_tags(
     bucket_name: str,
     payload: BucketTagsUpdate,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ):
     return _run_bucket_config_update(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="tags",
         payload=payload,
     )
@@ -304,11 +329,13 @@ def put_tags(
 @router.delete("/{bucket_name}/tags", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 def delete_tags(
     bucket_name: str,
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     return _run_bucket_config_delete(
         ctx,
         bucket_name,
+        tenant=tenant,
         config_area="tags",
     )
 

@@ -18,6 +18,7 @@ type BucketConfigurationDrawerMode = "ceph-admin" | "manager" | "storage-ops";
 type BucketConfigurationDrawerProps = {
   bucketName: string;
   contextId?: string | null;
+  tenant?: string | null;
   mode: BucketConfigurationDrawerMode;
   navigation?: DetailsDrawerNavigationState;
   onClose: () => void;
@@ -27,6 +28,7 @@ type BucketConfigurationDrawerProps = {
 export default function BucketConfigurationDrawer({
   bucketName,
   contextId = null,
+  tenant = null,
   mode,
   navigation,
   onClose,
@@ -40,7 +42,7 @@ export default function BucketConfigurationDrawer({
   useEffect(() => {
     setDirty(false);
     setBusy(false);
-  }, [bucketName, contextId, mode]);
+  }, [bucketName, contextId, mode, tenant]);
 
   const handleDirtyChange = useCallback(
     (nextDirty: boolean) => {
@@ -128,6 +130,7 @@ export default function BucketConfigurationDrawer({
       <BucketDetailContent
         mode={mode === "ceph-admin" ? "ceph-admin" : "manager"}
         bucketNameOverride={bucketName}
+        cephAdminTenantOverride={mode === "ceph-admin" ? tenant : null}
         contextIdOverride={mode === "ceph-admin" ? null : contextId}
         hideQuotaTab={mode === "storage-ops"}
         embedded

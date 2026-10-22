@@ -93,6 +93,7 @@ describe("useBucketQuotaController", () => {
         max_size_gb: undefined,
         max_size_unit: undefined,
       },
+      undefined,
     );
     expect(result.current.configured).toBe(false);
     expect(result.current.dirty).toBe(false);

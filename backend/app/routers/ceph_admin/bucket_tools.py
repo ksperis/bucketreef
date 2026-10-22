@@ -32,6 +32,10 @@ from app.services.browser_service import BrowserService, get_browser_service
 from app.services.rgw_admin import RGWAdminError
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
 from app.utils.http_errors import raise_bad_gateway_from_runtime
+from app.routers.ceph_admin.bucket_config_common import (
+    ceph_admin_s3_bucket_name,
+    normalize_ceph_admin_bucket_tenant,
+)
 
 router = APIRouter()
 
@@ -154,13 +158,15 @@ def list_bucket_objects(
     prefix: str = "",
     continuation_token: str | None = None,
     max_keys: int = Query(default=1000, ge=1, le=1000),
+    tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     service: BrowserService = Depends(get_browser_service),
 ) -> ListBrowserObjectsResponse:
+    normalized_tenant = normalize_ceph_admin_bucket_tenant(tenant)
     try:
         return service.list_objects(
-            bucket_name,
-            build_ceph_admin_s3_context(ctx),
+            ceph_admin_s3_bucket_name(bucket_name, normalized_tenant),
+            build_ceph_admin_s3_context(ctx, rgw_tenant=normalized_tenant),
             prefix=prefix,
             continuation_token=continuation_token,
             max_keys=max_keys,

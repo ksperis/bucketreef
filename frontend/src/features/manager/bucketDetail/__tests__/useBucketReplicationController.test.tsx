@@ -167,6 +167,7 @@ describe("useBucketReplicationController", () => {
     expect(apiMocks.deleteCephAdminBucketReplication).toHaveBeenCalledWith(
       7,
       "reports",
+      undefined,
     );
     expect(result.current.configured).toBe(false);
     expect(result.current.ruleCount).toBe(0);
@@ -304,6 +305,7 @@ describe("useBucketReplicationController", () => {
         Role: graphicalConfiguration.Role,
         Rules: [expect.objectContaining({ Priority: 9 })],
       }),
+      undefined,
     );
   });
 
