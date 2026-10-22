@@ -44,6 +44,7 @@ test("worker response has a single CSP and cannot be loaded without authorizatio
   const result = await page.request.get(`${asset}?${query}`);
   expect(result.status()).toBe(200);
   expect(result.headersArray().filter(header => header.name.toLowerCase() === "content-security-policy")).toHaveLength(1);
+  expect(result.headers()["content-security-policy"]).toContain("worker-src 'none'");
   expect(result.headers()["content-security-policy"]).toContain(`connect-src ${policy.connect_sources[0]}`);
   expect(result.headers()["cache-control"]).toContain("no-store");
   expect(result.headers()["etag"]).toBeUndefined();

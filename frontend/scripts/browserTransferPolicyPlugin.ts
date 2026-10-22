@@ -1,6 +1,25 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import type { Plugin } from "vite";
 
+function developmentWorkerCsp(csp: string): string {
+  return csp.replace("worker-src 'none'", "worker-src 'self'");
+}
+
+function lockAuthenticatedWorkerHeaders(response: import("node:http").ServerResponse): void {
+  const setHeader = response.setHeader.bind(response);
+  response.setHeader = ((name: string, value: number | string | readonly string[]) => {
+    const normalized = name.toLowerCase();
+    if (normalized === "cache-control") {
+      return setHeader("Cache-Control", "no-store, private");
+    }
+    if (normalized === "etag") {
+      response.removeHeader("ETag");
+      return response;
+    }
+    return setHeader(name, value);
+  }) as typeof response.setHeader;
+}
+
 /** Apply the production worker authorization contract before Vite transforms it. */
 export function browserTransferPolicyPlugin(apiTarget: string, apiPrefix: string): Plugin {
   return {
@@ -30,7 +49,13 @@ export function browserTransferPolicyPlugin(apiTarget: string, apiPrefix: string
             response.end("Direct transfer worker is unavailable");
             return;
           }
-          response.setHeader("Content-Security-Policy", csp);
+          // Vite serves workers as unbundled ES modules in development. WebKit applies
+          // worker-src to their same-origin module imports, so allow only those dev
+          // imports while keeping the backend/production worker policy unchanged.
+          response.setHeader("Content-Security-Policy", developmentWorkerCsp(csp));
+          // Vite's transform middleware normally replaces these with no-cache + ETag.
+          // Authenticated worker responses must never be reusable across policy changes.
+          lockAuthenticatedWorkerHeaders(response);
           request.url = `/src/features/browser/browserDirectTransfer.worker.ts?${url.searchParams.toString()}`;
           next();
         } catch {
