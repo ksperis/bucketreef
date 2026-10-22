@@ -41,6 +41,7 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import BucketConfigBackupModal from "./BucketConfigBackupModal";
 import type { BucketConfigBackupFeatureOption } from "./BucketConfigBackupModal";
+import BucketConfigurationDrawer from "./BucketConfigurationDrawer";
 import BucketOpsBulkUpdatePage from "./BucketOpsBulkUpdatePage";
 import BucketOpsAdvancedFilterDrawer from "./BucketOpsAdvancedFilterDrawer";
 import BucketOpsBulkConfigurationFields from "./BucketOpsBulkConfigurationFields";
@@ -87,7 +88,10 @@ import { useBucketOpsCacheRefresh } from "./useBucketOpsCacheRefresh";
 import { useBucketOpsConfigCopy } from "./useBucketOpsConfigCopy";
 import { useBucketOpsFilterController } from "./useBucketOpsFilterController";
 import { useBucketOpsListState } from "./useBucketOpsListState";
-import { useBucketOpsNavigation } from "./useBucketOpsNavigation";
+import {
+  getBucketOpsConfigurationRowKey,
+  useBucketOpsNavigation,
+} from "./useBucketOpsNavigation";
 import { useBucketOpsSelection } from "./useBucketOpsSelection";
 import { useBucketOpsSelectionActions } from "./useBucketOpsSelectionActions";
 import { useBucketOpsStorageScopeFilters } from "./useBucketOpsStorageScopeFilters";
@@ -268,7 +272,6 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
     filterValue,
     page,
     pageSize,
-    persistCurrentListState,
     quickFilterMode,
     setAdvancedApplied,
     setAdvancedDraft,
@@ -575,14 +578,30 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
     setError,
   });
 
-  const { navigateToBucketAction, openBucketConfiguration } =
+  const {
+    closeBucketConfiguration,
+    configurationNavigation,
+    configurationTarget,
+    navigateToBucketAction,
+    openBucketConfiguration,
+    viewedRowKey,
+  } =
     useBucketOpsNavigation({
       items,
-      loading,
       mode: surface.mode,
-      persistCurrentListState,
       selectedEndpointId,
     });
+
+  const bucketConfigurationRowKey = useCallback(
+    (bucket: CephAdminBucket) =>
+      getBucketOpsConfigurationRowKey(surface.mode, bucket),
+    [surface.mode],
+  );
+  const isBucketViewed = useCallback(
+    (bucket: CephAdminBucket) =>
+      viewedRowKey !== null && bucketConfigurationRowKey(bucket) === viewedRowKey,
+    [bucketConfigurationRowKey, viewedRowKey],
+  );
 
   const usageUnavailableBadge = statsWarning ? "Bucket stats unavailable" : "Storage metrics unavailable";
   const usageUnavailableDescription = statsWarning
@@ -1034,7 +1053,9 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       <BucketOpsNameCell
         bucket={bucket}
         onConfigure={() => openBucketConfiguration(bucket)}
+        rowKey={bucketConfigurationRowKey(bucket)}
         useExplicitBucketName={useExplicitBucketName}
+        viewed={isBucketViewed(bucket)}
       />
     ),
     renderOwnerCell,
@@ -1231,6 +1252,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
           sort={sort}
           status={tableStatus}
           usageFeatureEnabled={usageFeatureEnabled}
+          isViewed={isBucketViewed}
         />
 
         <PaginationControls
@@ -1245,6 +1267,15 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
           disabled={loading || !selectedEndpointId}
         />
       </ListPageSection>
+      {configurationTarget && (
+        <BucketConfigurationDrawer
+          bucketName={configurationTarget.bucketName}
+          contextId={configurationTarget.contextId}
+          mode={surface.mode}
+          navigation={configurationNavigation}
+          onClose={closeBucketConfiguration}
+        />
+      )}
       {!isStorageOps && selectedEndpointId && adminOpsAction && (
         <CephAdminAdminOpsModal
           endpointId={selectedEndpointId}

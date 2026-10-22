@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useRef, useState } from "react";
+import { useRef } from "react";
 import type { BrowserWorkspaceSurface } from "../../api/browserWorkspace";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
@@ -11,7 +11,6 @@ import SettingsForm from "../../components/settings/SettingsForm";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { stableSignature } from "../../utils/stableSignature";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiInput from "../../components/ui/UiInput";
 import UiField from "../../components/ui/UiField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -20,10 +19,9 @@ import {
   S3_BUCKET_NAME_MAX_LENGTH,
   normalizeS3BucketNameInput,
 } from "../../utils/s3BucketName";
-import { BucketDetailContent } from "../manager/BucketDetailPage";
-import { ExecutionContextProvider } from "../manager/ExecutionContextProvider";
 import { resolveSseCustomerKeyInputType } from "./sseCustomerKeyActions";
 import DetailsDrawerShell from "../shared/DetailsDrawerShell";
+import BucketConfigurationDrawer from "../shared/BucketConfigurationDrawer";
 import BrowserBucketDetailsContent from "./BrowserBucketDetailsContent";
 import { useBrowserI18n } from "./browserI18n";
 
@@ -89,53 +87,36 @@ export function BrowserBucketConfigurationDrawer({
   onDirtyChange,
 }: BrowserBucketConfigurationDrawerProps) {
   const { text } = useBrowserI18n();
-  const [dirty, setDirty] = useState(false);
-  const handleDirtyChange = useCallback(
-    (nextDirty: boolean) => {
-      setDirty(nextDirty);
-      onDirtyChange?.(nextDirty);
-    },
-    [onDirtyChange],
-  );
-  const closeGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: dirty,
-    onClose,
-    description: text("You have unsaved bucket settings. Closing the drawer will discard them."),
-  });
   const browserReadOnly = workspaceSurface === "browser";
-  const content = (
-    <BucketDetailContent
-      mode={workspaceSurface === "ceph-admin" ? "ceph-admin" : "manager"}
-      bucketNameOverride={bucketName}
-      embedded
-      hideObjectsTab
-      onDirtyChange={handleDirtyChange}
-    />
-  );
+
+  if (!browserReadOnly) {
+    return (
+      <BucketConfigurationDrawer
+        bucketName={bucketName}
+        contextId={contextId ?? null}
+        mode={workspaceSurface === "ceph-admin" ? "ceph-admin" : "manager"}
+        onClose={onClose}
+        onDirtyChange={onDirtyChange}
+      />
+    );
+  }
 
   return (
     <DetailsDrawerShell
       title={bucketName}
       subtitle={
         <p className="ui-caption text-[var(--ui-text-muted)]">
-          {browserReadOnly ? text("Bucket details") : text("Bucket settings")}
+          {text("Bucket details")}
         </p>
       }
-      onClose={closeGuard.requestClose}
+      onClose={onClose}
     >
-      {browserReadOnly ? (
-        <BrowserBucketDetailsContent
-          contextId={contextId}
-          bucketName={bucketName}
-          includeStaticWebsite={includeStaticWebsite}
-          includeUsage={includeUsage}
-        />
-      ) : workspaceSurface === "manager" ? (
-        content
-      ) : (
-        <ExecutionContextProvider scope="browser">{content}</ExecutionContextProvider>
-      )}
-      {closeGuard.confirmationDialog}
+      <BrowserBucketDetailsContent
+        contextId={contextId}
+        bucketName={bucketName}
+        includeStaticWebsite={includeStaticWebsite}
+        includeUsage={includeUsage}
+      />
     </DetailsDrawerShell>
   );
 }

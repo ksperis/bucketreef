@@ -92,11 +92,15 @@ export function BucketOpsSelectionCell({
 export function BucketOpsNameCell({
   bucket,
   onConfigure,
+  rowKey,
   useExplicitBucketName,
+  viewed = false,
 }: {
   bucket: CephAdminBucket;
   onConfigure: () => void;
+  rowKey?: string;
   useExplicitBucketName: boolean;
+  viewed?: boolean;
 }) {
   const { text: surfaceText } = useSharedI18n();
   const displayName = getBucketDisplayName(bucket, useExplicitBucketName);
@@ -104,7 +108,8 @@ export function BucketOpsNameCell({
     <button
       type="button"
       onClick={onConfigure}
-      data-bucket-row-key={bucket.name}
+      data-bucket-row-key={rowKey ?? bucket.name}
+      aria-current={viewed ? "true" : undefined}
       className="block w-full truncate text-left hover:text-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary dark:hover:text-primary-200"
       title={surfaceText("Configure {bucket} with the S3 API", { bucket: displayName })}
     >

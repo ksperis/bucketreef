@@ -110,13 +110,11 @@ const CephAdminDashboard = lazy(() => import("./features/cephAdmin/CephAdminDash
 const CephAdminAccountsPage = lazy(() => import("./features/cephAdmin/CephAdminAccountsPage"));
 const CephAdminUsersPage = lazy(() => import("./features/cephAdmin/CephAdminUsersPage"));
 const CephAdminBucketsPage = lazy(() => import("./features/cephAdmin/CephAdminBucketsPage"));
-const CephAdminBucketDetailPage = lazy(() => import("./features/cephAdmin/CephAdminBucketDetailPage"));
 const CephAdminMetricsPage = lazy(() => import("./features/cephAdmin/CephAdminMetricsPage"));
 const CephAdminBrowserPage = lazy(() => import("./features/cephAdmin/CephAdminBrowserPage"));
 const StorageOpsLayout = lazy(() => import("./features/storageOps/StorageOpsLayout"));
 const StorageOpsDashboard = lazy(() => import("./features/storageOps/StorageOpsDashboard"));
 const StorageOpsBucketsPage = lazy(() => import("./features/storageOps/StorageOpsBucketsPage"));
-const StorageOpsBucketDetailPage = lazy(() => import("./features/storageOps/StorageOpsBucketDetailPage"));
 const AccountProfilePage = lazy(() => import("./features/shared/AccountProfilePage"));
 const AdminLayout = lazy(() => import("./features/admin/AdminLayout"));
 
@@ -245,7 +243,6 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route path="accounts" element={<CephAdminAccountsPage />} />
                   <Route path="users" element={<CephAdminUsersPage />} />
                   <Route path="buckets" element={<CephAdminBucketsPage />} />
-                  <Route path="buckets/:bucketName" element={<CephAdminBucketDetailPage />} />
                   {runtimeSurfaces.browser ? (
                     <Route element={<RequireBrowserSurface surface="ceph_admin" />}>
                       <Route path="browser" element={<CephAdminBrowserPage />} />
@@ -266,7 +263,6 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route index element={<StorageOpsDashboard />} />
                   <Route path="profile" element={<AccountProfilePage />} />
                   <Route path="buckets" element={<StorageOpsBucketsPage />} />
-                  <Route path="buckets/:bucketName" element={<StorageOpsBucketDetailPage />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>
               </Route>

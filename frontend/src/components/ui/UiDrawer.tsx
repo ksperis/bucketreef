@@ -88,8 +88,10 @@ export default function UiDrawer({
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const focusable = getFocusableElements(drawer);
-    (focusable[0] ?? drawer).focus();
+    if (!drawer.contains(document.activeElement)) {
+      const focusable = getFocusableElements(drawer);
+      (focusable[0] ?? drawer).focus();
+    }
 
     return () => {
       document.body.style.overflow = previousOverflow;

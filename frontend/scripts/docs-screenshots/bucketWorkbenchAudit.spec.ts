@@ -253,7 +253,7 @@ async function openBucketConfiguration(
   });
   await page.goto(surface === "manager"
     ? "/manager/buckets/helios-retail-logs"
-    : "/ceph-admin/buckets/helios-retail-logs?ep=11");
+    : "/ceph-admin/buckets?ep=11&configure=helios-retail-logs");
   await page.getByRole("tab", { name: "Properties", exact: true }).click();
   const lifecycle = page.getByTestId("bucket-feature-lifecycle");
   await expect(lifecycle).toBeVisible();
