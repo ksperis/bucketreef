@@ -17,7 +17,6 @@ from app.db import (
 )
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
 from app.models.portal_access_keys import PortalAccessKey
-from app.services import s3_client
 from app.services.managed_resource_naming import portal_iam_username
 from app.services.mappers.portal import portal_access_key_from_active_link, portal_access_key_from_iam_metadata
 from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError, RGWIAMService, get_iam_service
@@ -77,6 +76,78 @@ class PortalIamMixin:
             is_active=True,
         )
 
+    @staticmethod
+    def _set_portal_link_identity(
+        link: AccountIAMUser,
+        iam_user: IAMUser,
+        *,
+        fallback_username: str,
+    ) -> None:
+        link.iam_user_id = iam_user.user_id or iam_user.arn or fallback_username
+        link.iam_username = iam_user.name
+
+    def _persist_provisioned_portal_link(
+        self,
+        user: User,
+        account: S3Account,
+        link: AccountIAMUser,
+        created_key: Optional[ModelAccessKey],
+    ) -> AccountIAMUser:
+        try:
+            self.db.add(link)
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            concurrent_link = self._existing_portal_link(user, account)
+            if concurrent_link is None:
+                raise
+            link = concurrent_link
+            if created_key and not link.active_access_key:
+                self._persist_portal_key(link, created_key)
+            return link
+
+        self.db.refresh(link)
+        if created_key:
+            self._persist_portal_key(link, created_key)
+        return link
+
+    def _provision_portal_user(
+        self,
+        user: User,
+        account: S3Account,
+        iam_service: RGWIAMService,
+        link: Optional[AccountIAMUser],
+        *,
+        expected_username: str,
+    ) -> tuple[AccountIAMUser, IAMUser, Optional[ModelAccessKey]]:
+        iam_user, created_key = iam_service.create_user(
+            expected_username,
+            create_key=True,
+            allow_existing=False,
+        )
+        if link is None:
+            link = AccountIAMUser(
+                user_id=user.id,
+                account_id=account.id,
+                iam_user_id=iam_user.user_id or iam_user.arn or expected_username,
+                iam_username=iam_user.name,
+            )
+        else:
+            self._set_portal_link_identity(
+                link,
+                iam_user,
+                fallback_username=expected_username,
+            )
+            link.active_access_key = None
+            link.active_secret_key = None
+        link = self._persist_provisioned_portal_link(
+            user,
+            account,
+            link,
+            created_key,
+        )
+        return link, iam_user, created_key
+
     def _ensure_portal_user(
         self,
         user: User,
@@ -98,38 +169,13 @@ class PortalIamMixin:
             iam_user = iam_service.get_user(link.iam_username)
 
         if link is None or iam_user is None:
-            username = expected_username
-            iam_user, created_key = iam_service.create_user(
-                username,
-                create_key=True,
-                allow_existing=False,
+            link, iam_user, created_key = self._provision_portal_user(
+                user,
+                account,
+                iam_service,
+                link,
+                expected_username=expected_username,
             )
-            if link is None:
-                link = AccountIAMUser(
-                    user_id=user.id,
-                    account_id=account.id,
-                    iam_user_id=iam_user.user_id or iam_user.arn or username,
-                    iam_username=iam_user.name,
-                )
-            else:
-                link.iam_user_id = iam_user.user_id or iam_user.arn or username
-                link.iam_username = iam_user.name
-                link.active_access_key = None
-                link.active_secret_key = None
-            try:
-                self.db.add(link)
-                self.db.commit()
-            except IntegrityError:
-                self.db.rollback()
-                link = self._existing_portal_link(user, account)
-                if not link:
-                    raise
-                if created_key and not link.active_access_key:
-                    self._persist_portal_key(link, created_key)
-            else:
-                self.db.refresh(link)
-                if created_key:
-                    self._persist_portal_key(link, created_key)
             created = created_key is not None
 
         if not link.iam_user_id and iam_user:
