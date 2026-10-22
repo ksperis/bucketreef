@@ -18,6 +18,12 @@ from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.sensitive_data import sanitize_error_detail
 
 
+_CONFLICT_ERROR_CODES = frozenset({"preconditionfailed", "conditionalrequestconflict"})
+_FORBIDDEN_ERROR_CODES = frozenset(
+    {"accessdenied", "invalidaccesskeyid", "signaturedoesnotmatch"}
+)
+
+
 def _exception_chain(exc: Exception):
     current: BaseException | None = exc
     seen: set[int] = set()
@@ -27,6 +33,31 @@ def _exception_chain(exc: Exception):
         current = current.__cause__ or current.__context__
 
 
+def _client_error_status_code(exc: ClientError) -> int | None:
+    response = exc.response or {}
+    error = response.get("Error") or {}
+    code = str(error.get("Code") or "").lower()
+    upstream_status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    if upstream_status in {409, 412} or code in _CONFLICT_ERROR_CODES:
+        return status.HTTP_409_CONFLICT
+    if upstream_status in {401, 403} or code in _FORBIDDEN_ERROR_CODES:
+        return status.HTTP_403_FORBIDDEN
+    return None
+
+
+def _exception_status_code(exc: Exception) -> int | None:
+    upstream_status = getattr(exc, "status_code", None)
+    if upstream_status in {409, 412}:
+        return status.HTTP_409_CONFLICT
+    if upstream_status in {401, 403}:
+        return status.HTTP_403_FORBIDDEN
+    if upstream_status in {408, 504}:
+        return status.HTTP_504_GATEWAY_TIMEOUT
+    if upstream_status == 503:
+        return status.HTTP_503_SERVICE_UNAVAILABLE
+    return None
+
+
 def _structured_upstream_status_code(exc: Exception) -> int | None:
     for current in _exception_chain(exc):
         if isinstance(current, (ConnectTimeoutError, ReadTimeoutError, RequestsTimeout, TimeoutError)):
@@ -34,27 +65,12 @@ def _structured_upstream_status_code(exc: Exception) -> int | None:
         if isinstance(current, (EndpointConnectionError, ConnectionClosedError, RequestsConnectionError)):
             return status.HTTP_503_SERVICE_UNAVAILABLE
         if isinstance(current, ClientError):
-            response = current.response or {}
-            error = response.get("Error") or {}
-            code = str(error.get("Code") or "").lower()
-            upstream_status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-            if upstream_status in {409, 412} or code in {"preconditionfailed", "conditionalrequestconflict"}:
-                return status.HTTP_409_CONFLICT
-            if upstream_status in {401, 403} or code in {
-                "accessdenied",
-                "invalidaccesskeyid",
-                "signaturedoesnotmatch",
-            }:
-                return status.HTTP_403_FORBIDDEN
-        upstream_status = getattr(current, "status_code", None)
-        if upstream_status in {409, 412}:
-            return status.HTTP_409_CONFLICT
-        if upstream_status in {401, 403}:
-            return status.HTTP_403_FORBIDDEN
-        if upstream_status in {408, 504}:
-            return status.HTTP_504_GATEWAY_TIMEOUT
-        if upstream_status == 503:
-            return status.HTTP_503_SERVICE_UNAVAILABLE
+            client_status = _client_error_status_code(current)
+            if client_status is not None:
+                return client_status
+        exception_status = _exception_status_code(current)
+        if exception_status is not None:
+            return exception_status
     return None
 
 

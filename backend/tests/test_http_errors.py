@@ -25,6 +25,12 @@ from app.utils.http_errors import (
 )
 
 
+class _StatusError(RuntimeError):
+    def __init__(self, status_code: int):
+        super().__init__(f"upstream status {status_code}")
+        self.status_code = status_code
+
+
 def _request(path: str = "/api/browser/buckets/demo") -> Request:
     return Request(
         {
@@ -67,6 +73,18 @@ def test_raise_bad_gateway_from_runtime_preserves_safe_runtime_message():
             ),
             403,
         ),
+        (
+            ClientError(
+                {
+                    "Error": {"Code": "PreconditionFailed", "Message": "conflict"},
+                    "ResponseMetadata": {"HTTPStatusCode": 412},
+                },
+                "PutObject",
+            ),
+            409,
+        ),
+        (_StatusError(503), 503),
+        (_StatusError(504), 504),
     ],
 )
 def test_raise_bad_gateway_from_runtime_uses_structured_causes(cause, expected_status):
