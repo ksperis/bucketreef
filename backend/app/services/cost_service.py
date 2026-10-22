@@ -4,11 +4,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
-from collections import defaultdict
-from dataclasses import dataclass
-from datetime import date, datetime
-from decimal import Decimal
 from typing import Iterable, Optional, TypeAlias
 
 from sqlalchemy import func, select
@@ -30,170 +25,28 @@ from app.models.cost import (
     CostAnalyticsEndpoint,
     CostAnalyticsHistoryPoint,
     CostAnalyticsResponse,
-    CostBreakdown,
-    CostCoverage,
     CostDailySeriesPoint,
-    CostStorageTotals,
     CostSubjectDetail,
     CostSubjectHistoryPoint,
     CostSubjectSummary,
     CostSubjectsResponse,
     CostSummary,
-    CostUsageTotals,
+)
+from app.services.cost_calculations import (
+    CostPeriod,
+    CostTotals,
+    EffectiveCostModel,
+    build_storage_totals,
+    build_usage_totals,
+    bytes_to_gb,
+    compute_cost,
+    coverage_for_period,
+    merge_ops_breakdown,
+    parse_cost_month,
+    sum_costs,
 )
 
 CostSubject: TypeAlias = S3Account | S3User
-
-
-@dataclass
-class CostPeriod:
-    month: str
-    start: date
-    end: date
-    days_in_month: int
-
-
-@dataclass
-class CostTotals:
-    bytes_in: int
-    bytes_out: int
-    ops_total: int
-    ops_breakdown: Optional[dict[str, int]]
-    avg_storage_bytes: Optional[int]
-    avg_storage_gb_month: Optional[float]
-    total_objects: Optional[int]
-    days_with_data: int
-    storage_days_with_data: int = 0
-    usage_days_with_data: int = 0
-
-
-@dataclass(frozen=True)
-class EffectiveCostModel:
-    currency: str
-    storage_gb_month_price: Decimal
-    egress_gb_price: Decimal
-    ingress_gb_price: Decimal
-    requests_per_1000_price: Decimal
-    pricing_source: str
-
-
-def _parse_month(value: str) -> CostPeriod:
-    text = (value or "").strip()
-    try:
-        period_start = datetime.strptime(text, "%Y-%m").date()
-    except ValueError as exc:
-        raise ValueError("Invalid month format, expected YYYY-MM") from exc
-    year = period_start.year
-    month = period_start.month
-    if month == 12:
-        period_end = date(year + 1, 1, 1)
-    else:
-        period_end = date(year, month + 1, 1)
-    days_in_month = (period_end - period_start).days
-    return CostPeriod(month=text, start=period_start, end=period_end, days_in_month=days_in_month)
-
-
-def _coverage(
-    days_collected: int,
-    days_in_month: int,
-    *,
-    storage_days_collected: Optional[int] = None,
-    usage_days_collected: Optional[int] = None,
-) -> CostCoverage:
-    ratio = days_collected / days_in_month if days_in_month else 0
-    return CostCoverage(
-        days_collected=days_collected,
-        days_in_month=days_in_month,
-        coverage_ratio=ratio,
-        storage_days_collected=storage_days_collected,
-        usage_days_collected=usage_days_collected,
-    )
-
-
-def _bytes_to_gb(value: Optional[int]) -> Optional[float]:
-    if value is None:
-        return None
-    return float(value) / (1024 ** 3)
-
-
-def _parse_ops_breakdown(raw: str) -> dict[str, int]:
-    payload = json.loads(raw)
-    if not isinstance(payload, dict):
-        raise ValueError("Cost operation breakdown must be a JSON object")
-    if any(
-        not isinstance(key, str)
-        or not isinstance(value, int)
-        or isinstance(value, bool)
-        for key, value in payload.items()
-    ):
-        raise ValueError("Cost operation breakdown must map strings to integers")
-    return payload
-
-
-def _merge_ops_breakdown(rows: Iterable[CostUsageDaily]) -> dict[str, int]:
-    merged: dict[str, int] = defaultdict(int)
-    for row in rows:
-        if not row.ops_breakdown:
-            continue
-        for key, value in _parse_ops_breakdown(row.ops_breakdown).items():
-            merged[key] += value
-    return dict(merged)
-
-
-def _compute_cost(model: Optional[EffectiveCostModel], totals: CostTotals) -> Optional[CostBreakdown]:
-    if model is None:
-        return None
-    storage_gb_month = totals.avg_storage_gb_month
-    egress_gb = _bytes_to_gb(totals.bytes_out)
-    ingress_gb = _bytes_to_gb(totals.bytes_in)
-    requests_k = totals.ops_total / 1000
-
-    storage_cost = None
-    if storage_gb_month is not None:
-        storage_cost = float(model.storage_gb_month_price) * storage_gb_month
-    egress_cost = float(model.egress_gb_price) * egress_gb
-    ingress_cost = float(model.ingress_gb_price) * ingress_gb
-    requests_cost = float(model.requests_per_1000_price) * requests_k
-
-    components = [storage_cost, egress_cost, ingress_cost, requests_cost]
-    has_component = any(value is not None for value in components)
-    total_cost = sum(value for value in components if value is not None) if has_component else None
-
-    return CostBreakdown(
-        currency=model.currency,
-        storage_cost=storage_cost,
-        egress_cost=egress_cost,
-        ingress_cost=ingress_cost,
-        requests_cost=requests_cost,
-        total_cost=total_cost,
-        pricing_source=model.pricing_source,
-    )
-
-
-def _usage_totals(totals: CostTotals) -> CostUsageTotals:
-    return CostUsageTotals(
-        bytes_in=totals.bytes_in,
-        bytes_out=totals.bytes_out,
-        ops_total=totals.ops_total,
-        ops_breakdown=totals.ops_breakdown,
-    )
-
-
-def _storage_totals(totals: CostTotals) -> CostStorageTotals:
-    return CostStorageTotals(
-        avg_bytes=totals.avg_storage_bytes,
-        avg_gb_month=totals.avg_storage_gb_month,
-        total_objects=totals.total_objects,
-    )
-
-
-def _coverage_for_period(period: CostPeriod, totals: CostTotals) -> CostCoverage:
-    return _coverage(
-        totals.days_with_data,
-        period.days_in_month,
-        storage_days_collected=totals.storage_days_with_data,
-        usage_days_collected=totals.usage_days_with_data,
-    )
 
 
 def _resolve_cost_model(db: Session, endpoint_id: Optional[int]) -> Optional[EffectiveCostModel]:
@@ -218,25 +71,6 @@ def _resolve_cost_model(db: Session, endpoint_id: Optional[int]) -> Optional[Eff
     )
 
 
-def _sum_costs(costs: list[CostBreakdown]) -> Optional[CostBreakdown]:
-    if not costs:
-        return None
-    sources = {cost.pricing_source for cost in costs if cost.pricing_source}
-
-    def sum_component(name: str) -> Optional[float]:
-        values = [getattr(cost, name) for cost in costs if getattr(cost, name) is not None]
-        return sum(values) if values else None
-
-    return CostBreakdown(
-        currency=costs[0].currency,
-        storage_cost=sum_component("storage_cost"),
-        egress_cost=sum_component("egress_cost"),
-        ingress_cost=sum_component("ingress_cost"),
-        requests_cost=sum_component("requests_cost"),
-        total_cost=sum_component("total_cost"),
-        pricing_source=next(iter(sources)) if len(sources) == 1 else "mixed",
-    )
-
 
 class CostService:
     def __init__(self, db: Session) -> None:
@@ -250,7 +84,7 @@ class CostService:
         return normalized
 
     def summary(self, month: str, endpoint_id: Optional[int]) -> CostSummary:
-        period = _parse_month(month)
+        period = parse_cost_month(month)
         return self._summary_for_period(period, endpoint_id, "all")
 
     def _summary_for_period(
@@ -267,7 +101,7 @@ class CostService:
             subject_type=aggregate_type,
         )
         if endpoint_id is not None:
-            cost = _compute_cost(_resolve_cost_model(self.db, endpoint_id), totals)
+            cost = compute_cost(_resolve_cost_model(self.db, endpoint_id), totals)
         else:
             endpoint_ids = self._endpoint_ids_with_data(period, subject_type=aggregate_type)
             if endpoint_ids:
@@ -275,7 +109,7 @@ class CostService:
                     computed
                     for current_endpoint_id in endpoint_ids
                     if (
-                        computed := _compute_cost(
+                        computed := compute_cost(
                             _resolve_cost_model(self.db, current_endpoint_id),
                             self._aggregate_totals(
                                 period,
@@ -286,15 +120,15 @@ class CostService:
                     )
                     is not None
                 ]
-                cost = _sum_costs(costs)
+                cost = sum_costs(costs)
             else:
-                cost = _compute_cost(_resolve_cost_model(self.db, None), totals)
+                cost = compute_cost(_resolve_cost_model(self.db, None), totals)
         return CostSummary(
             month=period.month,
             storage_endpoint_id=endpoint_id,
-            usage=_usage_totals(totals),
-            storage=_storage_totals(totals),
-            coverage=_coverage_for_period(period, totals),
+            usage=build_usage_totals(totals),
+            storage=build_storage_totals(totals),
+            coverage=coverage_for_period(period, totals),
             cost=cost,
         )
 
@@ -309,7 +143,7 @@ class CostService:
         sort_dir: str,
         search: Optional[str] = None,
     ) -> CostSubjectsResponse:
-        period = _parse_month(month)
+        period = parse_cost_month(month)
         subject_type = self._normalize_subject_type(subject_type)
         items = self._all_subject_summaries(period, endpoint_id, subject_type)
 
@@ -357,7 +191,7 @@ class CostService:
         subject_type: str,
         subject_id: int,
     ) -> CostSubjectDetail:
-        period = _parse_month(month)
+        period = parse_cost_month(month)
         subject_type = self._normalize_subject_type(subject_type)
         if subject_type == "account":
             subject = self.db.scalar(
@@ -403,10 +237,10 @@ class CostService:
             name=subject.name,
             rgw_identifier=subject.rgw_user_uid,
             daily=sorted(daily_map.values(), key=lambda entry: entry.day),
-            usage=_usage_totals(totals),
-            storage=_storage_totals(totals),
-            coverage=_coverage_for_period(period, totals),
-            cost=_compute_cost(_resolve_cost_model(self.db, endpoint_id), totals),
+            usage=build_usage_totals(totals),
+            storage=build_storage_totals(totals),
+            coverage=coverage_for_period(period, totals),
+            cost=compute_cost(_resolve_cost_model(self.db, endpoint_id), totals),
         )
 
     def subject_history(
@@ -417,7 +251,7 @@ class CostService:
         subject_id: int,
         months: int = 12,
     ) -> list[CostSubjectHistoryPoint]:
-        period = _parse_month(month)
+        period = parse_cost_month(month)
         subject_type = self._normalize_subject_type(subject_type)
         if subject_type == "all":
             raise ValueError("Invalid subject type")
@@ -429,7 +263,7 @@ class CostService:
         history: list[CostSubjectHistoryPoint] = []
         for month_index in range(selected_month_index - months + 1, selected_month_index + 1):
             year, zero_based_month = divmod(month_index, 12)
-            history_period = _parse_month(f"{year:04d}-{zero_based_month + 1:02d}")
+            history_period = parse_cost_month(f"{year:04d}-{zero_based_month + 1:02d}")
             usage_rows = self._usage_rows_for_subject(
                 history_period,
                 endpoint_id,
@@ -446,8 +280,8 @@ class CostService:
             history.append(
                 CostSubjectHistoryPoint(
                     month=history_period.month,
-                    coverage=_coverage_for_period(history_period, totals),
-                    cost=_compute_cost(model, totals),
+                    coverage=coverage_for_period(history_period, totals),
+                    cost=compute_cost(model, totals),
                 )
             )
         return history
@@ -467,9 +301,9 @@ class CostService:
             bytes_in=sum(row.bytes_in for row in usage_rows),
             bytes_out=sum(row.bytes_out for row in usage_rows),
             ops_total=sum(row.ops_total for row in usage_rows),
-            ops_breakdown=_merge_ops_breakdown(usage_rows) if usage_rows else None,
+            ops_breakdown=merge_ops_breakdown(usage_rows) if usage_rows else None,
             avg_storage_bytes=avg_storage_bytes,
-            avg_storage_gb_month=_bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
+            avg_storage_gb_month=bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
             total_objects=(sum(row.total_objects for row in storage_rows) if storage_rows else None),
             days_with_data=max(days_with_storage, usage_days),
             storage_days_with_data=days_with_storage,
@@ -482,7 +316,7 @@ class CostService:
         endpoint_id: Optional[int],
         subject_type: str = "all",
     ) -> tuple[str, str]:
-        period = _parse_month(month)
+        period = parse_cost_month(month)
         subject_type = self._normalize_subject_type(subject_type)
         rows = self._all_subject_summaries(period, endpoint_id, subject_type)
 
@@ -514,8 +348,8 @@ class CostService:
                     item.name,
                     item.rgw_identifier or "",
                     f"{item.storage.avg_gb_month:.6f}" if item.storage.avg_gb_month is not None else "",
-                    f"{_bytes_to_gb(item.usage.bytes_out):.6f}" if item.usage.bytes_out is not None else "",
-                    f"{_bytes_to_gb(item.usage.bytes_in):.6f}" if item.usage.bytes_in is not None else "",
+                    f"{bytes_to_gb(item.usage.bytes_out):.6f}" if item.usage.bytes_out is not None else "",
+                    f"{bytes_to_gb(item.usage.bytes_in):.6f}" if item.usage.bytes_in is not None else "",
                     f"{item.usage.ops_total / 1000:.6f}" if item.usage.ops_total is not None else "",
                     f"{item.cost.total_cost:.6f}" if item.cost and item.cost.total_cost is not None else "",
                     item.cost.currency if item.cost and item.cost.currency else "",
@@ -531,7 +365,7 @@ class CostService:
         endpoint_id: Optional[int],
         subject_type: str,
     ) -> CostAnalyticsResponse:
-        period = _parse_month(month)
+        period = parse_cost_month(month)
         subject_type = self._normalize_subject_type(subject_type)
         summary = self._summary_for_period(period, endpoint_id, subject_type)
         aggregate_type = None if subject_type == "all" else subject_type
@@ -550,8 +384,8 @@ class CostService:
                 CostAnalyticsEndpoint(
                     storage_endpoint_id=current_endpoint_id,
                     storage_endpoint_name=endpoint.name,
-                    coverage=_coverage_for_period(period, totals),
-                    cost=_compute_cost(
+                    coverage=coverage_for_period(period, totals),
+                    cost=compute_cost(
                         _resolve_cost_model(self.db, current_endpoint_id),
                         totals,
                     ),
@@ -586,7 +420,7 @@ class CostService:
         history: list[CostAnalyticsHistoryPoint] = []
         for month_index in range(selected_month_index - 11, selected_month_index + 1):
             year, zero_based_month = divmod(month_index, 12)
-            history_period = _parse_month(f"{year:04d}-{zero_based_month + 1:02d}")
+            history_period = parse_cost_month(f"{year:04d}-{zero_based_month + 1:02d}")
             history_summary = self._summary_for_period(history_period, endpoint_id, subject_type)
             history.append(
                 CostAnalyticsHistoryPoint(
@@ -648,20 +482,28 @@ class CostService:
         subject_type: str,
         endpoint_name: Optional[str] = None,
     ) -> list[CostSubjectSummary]:
-        usage_totals = self._usage_totals_by_subject(period, endpoint_id, subject_type)
-        storage_totals = self._storage_totals_by_subject(period, endpoint_id, subject_type)
+        usage_by_subject = self._usage_totals_by_subject(
+            period,
+            endpoint_id,
+            subject_type,
+        )
+        storage_by_subject = self._storage_totals_by_subject(
+            period,
+            endpoint_id,
+            subject_type,
+        )
         items: list[CostSubjectSummary] = []
         for subject in self._load_subjects(endpoint_id, subject_type):
             subject_id = int(subject.id)
-            usage = usage_totals.get(subject_id, (0, 0, 0))
-            storage = storage_totals.get(subject_id, (None, None, 0))
+            usage = usage_by_subject.get(subject_id, (0, 0, 0))
+            storage = storage_by_subject.get(subject_id, (None, None, 0))
             totals = CostTotals(
                 bytes_in=usage[0],
                 bytes_out=usage[1],
                 ops_total=usage[2],
                 ops_breakdown=None,
                 avg_storage_bytes=storage[0],
-                avg_storage_gb_month=_bytes_to_gb(storage[0]) if storage[0] is not None else None,
+                avg_storage_gb_month=bytes_to_gb(storage[0]) if storage[0] is not None else None,
                 total_objects=storage[1],
                 days_with_data=storage[2] or 0,
             )
@@ -673,9 +515,9 @@ class CostService:
                     subject_id=subject_id,
                     name=subject.name,
                     rgw_identifier=subject.rgw_user_uid,
-                    storage=_storage_totals(totals),
-                    usage=_usage_totals(totals),
-                    cost=_compute_cost(
+                    storage=build_storage_totals(totals),
+                    usage=build_usage_totals(totals),
+                    cost=compute_cost(
                         _resolve_cost_model(self.db, endpoint_id),
                         totals,
                     ),
@@ -796,7 +638,7 @@ class CostService:
             ops_total=ops_total,
             ops_breakdown=None,
             avg_storage_bytes=avg_storage_bytes,
-            avg_storage_gb_month=_bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
+            avg_storage_gb_month=bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
             total_objects=int(total_objects) if total_objects is not None else None,
             days_with_data=max(days_with_storage, days_with_usage),
             storage_days_with_data=days_with_storage,
