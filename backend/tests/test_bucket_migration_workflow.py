@@ -323,6 +323,36 @@ def test_failed_restoration_blocks_checks_edits_and_start(prepared):
     assert item.preparation_effects_json
 
 
+def test_available_actions_combine_item_cleanup_and_access_state():
+    item = SimpleNamespace(
+        preparation_effects_json=None,
+        source_deleted=False,
+        status="failed",
+        read_only_applied=True,
+        target_lock_applied=False,
+        target_created_by_migration=True,
+    )
+    migration = SimpleNamespace(
+        items=[item],
+        status="completed_with_errors",
+        preparation_status="ready",
+        maintenance_status="idle",
+        workflow_version=2,
+        failed_items=1,
+        checked_revision=1,
+        configuration_revision=1,
+        precheck_checked_at=utcnow(),
+    )
+
+    actions = available_actions(migration)
+
+    assert actions["retry"]["enabled"] is True
+    assert actions["restore_access"]["enabled"] is True
+    assert actions["cleanup_target"]["enabled"] is True
+    assert actions["cleanup_source"]["enabled"] is False
+    assert actions["delete"]["enabled"] is False
+
+
 def test_stale_worker_cannot_publish_ready(prepared):
     service, migration, _ = prepared
     service.request_precheck(migration.id, active_checks=True)
