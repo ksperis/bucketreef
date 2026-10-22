@@ -3217,6 +3217,60 @@ def test_iter_bucket_version_timelines_keeps_key_buffer_across_pages(db_session)
     assert calls[1]["VersionIdMarker"] == "v2"
 
 
+def test_iter_bucket_version_timelines_normalizes_versions_and_delete_markers(db_session):
+    service = BucketMigrationService(db_session)
+    ctx = SimpleNamespace(context_id="src")
+    page = {
+        "Versions": [
+            {
+                "Key": "doc.txt",
+                "VersionId": "v2",
+                "LastModified": datetime(2026, 1, 2, tzinfo=timezone.utc),
+                "IsLatest": False,
+                "Size": 20,
+                "ETag": '"etag-v2"',
+                "StorageClass": "STANDARD",
+            },
+            {
+                "Key": "doc.txt",
+                "VersionId": "v1",
+                "LastModified": datetime(2026, 1, 1, tzinfo=timezone.utc),
+                "IsLatest": False,
+                "Size": 10,
+            },
+            {"Key": "", "VersionId": "invalid"},
+        ],
+        "DeleteMarkers": [
+            {
+                "Key": "doc.txt",
+                "VersionId": "dm",
+                "LastModified": datetime(2026, 1, 3, tzinfo=timezone.utc),
+                "IsLatest": True,
+            },
+            {"Key": "doc.txt", "VersionId": None},
+        ],
+    }
+
+    class FakeClient:
+        def list_object_versions(self, **_kwargs):  # noqa: ANN001
+            return page
+
+    service._context_client = lambda _ctx: FakeClient()  # type: ignore[method-assign]
+
+    timelines = list(service._iter_bucket_version_timelines(ctx, "bucket-a"))
+
+    assert len(timelines) == 1
+    key, timeline = timelines[0]
+    assert key == "doc.txt"
+    assert [entry.version_id for entry in timeline] == ["v1", "v2", "dm"]
+    assert timeline[1].etag == "etag-v2"
+    assert timeline[1].size == 20
+    assert timeline[1].storage_class == "STANDARD"
+    assert timeline[2].is_delete_marker is True
+    assert timeline[2].size == 0
+    assert timeline[2].etag is None
+
+
 def test_finalize_target_versioning_state_suspends_target_for_version_aware_copy_settings(db_session):
     service = BucketMigrationService(db_session)
     migration = SimpleNamespace(copy_bucket_settings=True)
