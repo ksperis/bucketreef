@@ -100,6 +100,52 @@ def determine_owner_name_lookup_scope(
     return "any"
 
 
+def _resolve_account_owner_name(
+    ctx: BucketListingAdminContext,
+    owner_id: str,
+) -> tuple[bool, str | None]:
+    try:
+        account_lookup_enabled = resolve_feature_flags(ctx.endpoint).account_enabled
+    except Exception:
+        account_lookup_enabled = None
+    if account_lookup_enabled is False:
+        return False, None
+
+    try:
+        payload = ctx.rgw_admin.get_account(
+            owner_id,
+            allow_not_found=True,
+            allow_not_implemented=True,
+        )
+    except RGWAdminError:
+        return False, None
+    if not isinstance(payload, dict) or payload.get("not_found"):
+        return False, None
+    # Strict account owner-name resolution: only RGW account "name" is accepted.
+    return True, normalize_optional_scalar(payload.get("name"))
+
+
+def _resolve_user_owner_name(
+    ctx: BucketListingAdminContext,
+    owner_id: str,
+    tenant: str | None,
+) -> str | None:
+    tenant_hint = tenant
+    uid = owner_id
+    split_tenant, split_uid = split_tenant_uid(owner_id)
+    if split_tenant:
+        tenant_hint = split_tenant
+        uid = split_uid
+    try:
+        payload = ctx.rgw_admin.get_user(uid, tenant=tenant_hint, allow_not_found=True)
+    except RGWAdminError:
+        return None
+    if not isinstance(payload, dict) or payload.get("not_found"):
+        return None
+    # Strict user owner-name resolution: only RGW "display_name" is accepted.
+    return normalize_optional_scalar(payload.get("display_name"))
+
+
 def _resolve_owner_name(
     ctx: BucketListingAdminContext,
     owner_id: str | None,
@@ -118,25 +164,9 @@ def _resolve_owner_name(
         cache[owner_key] = None
         return None
 
-    name: str | None = None
-    account_lookup_enabled: bool | None
-    try:
-        account_lookup_enabled = resolve_feature_flags(ctx.endpoint).account_enabled
-    except Exception:
-        account_lookup_enabled = None
-
-    if owner_scope in {"any", "account"} and account_lookup_enabled is not False:
-        try:
-            account_payload = ctx.rgw_admin.get_account(
-                owner_id,
-                allow_not_found=True,
-                allow_not_implemented=True,
-            )
-        except RGWAdminError:
-            account_payload = None
-        if isinstance(account_payload, dict) and not account_payload.get("not_found"):
-            # Strict account owner-name resolution: only RGW account "name" is accepted.
-            name = normalize_optional_scalar(account_payload.get("name"))
+    if owner_scope in {"any", "account"}:
+        resolved, name = _resolve_account_owner_name(ctx, owner_id)
+        if resolved:
             cache[owner_key] = name
             return name
 
@@ -144,19 +174,7 @@ def _resolve_owner_name(
         cache[owner_key] = None
         return None
 
-    tenant_hint = tenant
-    uid = owner_id
-    split_tenant, split_uid = split_tenant_uid(owner_id)
-    if split_tenant:
-        tenant_hint = split_tenant
-        uid = split_uid
-    try:
-        user_payload = ctx.rgw_admin.get_user(uid, tenant=tenant_hint, allow_not_found=True)
-    except RGWAdminError:
-        user_payload = None
-    if isinstance(user_payload, dict) and not user_payload.get("not_found"):
-        # Strict user owner-name resolution: only RGW "display_name" is accepted.
-        name = normalize_optional_scalar(user_payload.get("display_name"))
+    name = _resolve_user_owner_name(ctx, owner_id, tenant)
     cache[owner_key] = name
     return name
 
