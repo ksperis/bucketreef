@@ -6,6 +6,48 @@ from pydantic import ValidationError
 from app.models.bucket_filter import BucketFilterRule
 
 
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        ({}, "Rule must define exactly one of field or feature."),
+        (
+            {"field": "name", "feature": "versioning", "op": "eq", "value": "bucket-a", "state": "enabled"},
+            "Rule must define exactly one of field or feature.",
+        ),
+        ({"field": "name", "value": "bucket-a"}, "Field rule requires op."),
+        (
+            {"field": "name", "op": "has", "value": "bucket-a"},
+            "Field rule does not support has/has_not op.",
+        ),
+        ({"field": "name", "op": "eq"}, "Field rule requires value."),
+        (
+            {"field": "name", "op": "eq", "value": "bucket-a", "state": "enabled"},
+            "Field rule cannot define state or param.",
+        ),
+        (
+            {"field": "name", "op": "eq", "value": "bucket-a", "quantifier": "none"},
+            "Field rule quantifier must be omitted or 'any'.",
+        ),
+        ({"feature": "versioning"}, "Feature rule requires exactly one of state or param."),
+        (
+            {"feature": "versioning", "state": "enabled", "op": "eq"},
+            "Feature state rule cannot define op or value.",
+        ),
+        (
+            {"feature": "versioning", "state": "enabled", "quantifier": "none"},
+            "Feature state rule quantifier must be omitted or 'any'.",
+        ),
+        (
+            {"feature": "bucket_policy", "param": "policy_statement_count"},
+            "Feature param rule requires op.",
+        ),
+    ],
+)
+def test_bucket_filter_rule_rejects_invalid_shapes(payload, message):
+    with pytest.raises(ValidationError, match=message.replace(".", r"\.")):
+        BucketFilterRule.model_validate(payload)
+
+
 def test_feature_param_rule_defaults_to_any_quantifier():
     rule = BucketFilterRule.model_validate(
         {

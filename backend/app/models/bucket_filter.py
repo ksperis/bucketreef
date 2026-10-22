@@ -137,48 +137,52 @@ class BucketFilterRule(ApiModel):
     param: Optional[BucketFeatureParam] = None
     quantifier: Optional[BucketFeatureParamQuantifier] = None
 
+    def _validate_field_rule(self) -> None:
+        op = self.op
+        if op is None:
+            raise ValueError("Field rule requires op.")
+        if op in {"has", "has_not"}:
+            raise ValueError("Field rule does not support has/has_not op.")
+        if op not in ("is_null", "not_null") and self.value is None:
+            raise ValueError("Field rule requires value.")
+        if self.state is not None or self.param is not None:
+            raise ValueError("Field rule cannot define state or param.")
+        if self.quantifier not in (None, "any"):
+            raise ValueError("Field rule quantifier must be omitted or 'any'.")
+
+    def _validate_feature_rule(self) -> None:
+        has_state = self.state is not None
+        has_param = self.param is not None
+        if has_state == has_param:
+            raise ValueError("Feature rule requires exactly one of state or param.")
+        if has_state:
+            if self.op is not None or self.value is not None:
+                raise ValueError("Feature state rule cannot define op or value.")
+            if self.quantifier not in (None, "any"):
+                raise ValueError("Feature state rule quantifier must be omitted or 'any'.")
+            return
+
+        op = self.op
+        if op is None:
+            raise ValueError("Feature param rule requires op.")
+        assert self.param is not None
+        assert self.feature is not None
+        validate_bucket_feature_param(
+            feature=self.feature,
+            param=self.param,
+            operation=op,
+            value=self.value,
+        )
+        self.quantifier = self.quantifier or "any"
+
     @model_validator(mode="after")
     def validate_rule(self):
-        field = self.field
-        feature = self.feature
-        if bool(field) == bool(feature):
+        if bool(self.field) == bool(self.feature):
             raise ValueError("Rule must define exactly one of field or feature.")
-        if field:
-            op = self.op
-            if op is None:
-                raise ValueError("Field rule requires op.")
-            if op in {"has", "has_not"}:
-                raise ValueError("Field rule does not support has/has_not op.")
-            if op not in ("is_null", "not_null") and self.value is None:
-                raise ValueError("Field rule requires value.")
-            if self.state is not None or self.param is not None:
-                raise ValueError("Field rule cannot define state or param.")
-            if self.quantifier not in (None, "any"):
-                raise ValueError("Field rule quantifier must be omitted or 'any'.")
-        if feature:
-            has_state = self.state is not None
-            has_param = self.param is not None
-            if has_state == has_param:
-                raise ValueError("Feature rule requires exactly one of state or param.")
-            if has_state:
-                if self.op is not None or self.value is not None:
-                    raise ValueError("Feature state rule cannot define op or value.")
-                if self.quantifier not in (None, "any"):
-                    raise ValueError(
-                        "Feature state rule quantifier must be omitted or 'any'."
-                    )
-            else:
-                op = self.op
-                if op is None:
-                    raise ValueError("Feature param rule requires op.")
-                assert self.param is not None
-                validate_bucket_feature_param(
-                    feature=feature,
-                    param=self.param,
-                    operation=op,
-                    value=self.value,
-                )
-                self.quantifier = self.quantifier or "any"
+        if self.field:
+            self._validate_field_rule()
+        else:
+            self._validate_feature_rule()
         return self
 
 
