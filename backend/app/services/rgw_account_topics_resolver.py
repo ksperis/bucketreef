@@ -17,6 +17,30 @@ def normalize_account_key(account_id: Optional[str]) -> Optional[str]:
     return str(account_id).lower()
 
 
+def _first_topic_field(topic: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = topic.get(key)
+        if value:
+            return value
+    return None
+
+
+def _account_from_topic_arn(arn: Any) -> Optional[str]:
+    if not arn:
+        return None
+    parts = str(arn).split(":")
+    if len(parts) < 5:
+        return None
+    return parts[4] or None
+
+
+def _account_from_topic_name(name: Any) -> Optional[str]:
+    if not name or ":" not in str(name):
+        return None
+    prefix = str(name).split(":", 1)[0]
+    return prefix if prefix.upper().startswith("RGW") else None
+
+
 class RgwAccountTopicsResolver:
     """Resolve RGW notification topics for accounts within one request scope."""
 
@@ -28,32 +52,18 @@ class RgwAccountTopicsResolver:
 
     @staticmethod
     def _entry_metadata(topic: Any) -> tuple[Optional[str], Optional[str]]:
-        name: Optional[str] = None
-        account: Optional[str] = None
-        arn: Optional[str] = None
+        if topic is None:
+            return None, None
         if isinstance(topic, dict):
-            name = (
-                topic.get("topic")
-                or topic.get("name")
-                or topic.get("topic_name")
-                or topic.get("Topic")
-            )
-            arn = topic.get("arn") or topic.get("TopicArn") or topic.get("topic_arn")
-            account = (
-                topic.get("account")
-                or topic.get("account_id")
-                or topic.get("tenant")
-            )
+            name = _first_topic_field(topic, "topic", "name", "topic_name", "Topic")
+            arn = _first_topic_field(topic, "arn", "TopicArn", "topic_arn")
+            account = _first_topic_field(topic, "account", "account_id", "tenant")
         else:
             name = str(topic)
-        if arn and not account:
-            parts = str(arn).split(":")
-            if len(parts) >= 5:
-                account = parts[4] or account
-        if name and not account and ":" in name:
-            prefix = name.split(":", 1)[0]
-            if prefix.upper().startswith("RGW"):
-                account = prefix
+            arn = None
+            account = None
+        if not account:
+            account = _account_from_topic_arn(arn) or _account_from_topic_name(name)
         if not name and arn:
             name = arn
         return (str(name) if name else None, str(account) if account else None)
