@@ -83,6 +83,53 @@ class BucketMigrationObjectInspectionMixin:
             -entry.order_index,
         )
 
+    @staticmethod
+    def _version_entry_from_raw(
+        raw: dict[str, Any],
+        *,
+        is_delete_marker: bool,
+        order_index: int,
+    ) -> Optional[_BucketVersionEntry]:
+        key = raw.get("Key")
+        version_id = raw.get("VersionId")
+        if not isinstance(key, str) or not key or not isinstance(version_id, str) or not version_id:
+            return None
+        etag_raw = raw.get("ETag")
+        etag = etag_raw.strip().strip('"') if isinstance(etag_raw, str) else None
+        return _BucketVersionEntry(
+            key=key,
+            version_id=version_id,
+            is_delete_marker=is_delete_marker,
+            is_latest=bool(raw.get("IsLatest")),
+            last_modified=raw.get("LastModified"),
+            size=0 if is_delete_marker else int(raw.get("Size") or 0),
+            etag=None if is_delete_marker else etag or None,
+            storage_class=None if is_delete_marker else raw.get("StorageClass"),
+            order_index=order_index,
+        )
+
+    def _page_version_entries(
+        self,
+        page: dict[str, Any],
+        order_index: int,
+    ) -> tuple[list[_BucketVersionEntry], int]:
+        entries: list[_BucketVersionEntry] = []
+        for collection_name, is_delete_marker in (
+            ("Versions", False),
+            ("DeleteMarkers", True),
+        ):
+            for raw in page.get(collection_name, []) or []:
+                entry = self._version_entry_from_raw(
+                    raw,
+                    is_delete_marker=is_delete_marker,
+                    order_index=order_index,
+                )
+                if entry is None:
+                    continue
+                entries.append(entry)
+                order_index += 1
+        return entries, order_index
+
     def _iter_bucket_version_timelines(
         self,
         ctx: _ResolvedContext,
@@ -108,47 +155,7 @@ class BucketMigrationObjectInspectionMixin:
             except (ClientError, BotoCoreError) as exc:
                 raise RuntimeError(f"Unable to list object versions in bucket '{bucket_name}': {exc}") from exc
 
-            page_entries: list[_BucketVersionEntry] = []
-            for raw in page.get("Versions", []) or []:
-                key = raw.get("Key")
-                version_id = raw.get("VersionId")
-                if not isinstance(key, str) or not key or not isinstance(version_id, str) or not version_id:
-                    continue
-                etag_raw = raw.get("ETag")
-                etag = etag_raw.strip().strip('"') if isinstance(etag_raw, str) else None
-                page_entries.append(
-                    _BucketVersionEntry(
-                        key=key,
-                        version_id=version_id,
-                        is_delete_marker=False,
-                        is_latest=bool(raw.get("IsLatest")),
-                        last_modified=raw.get("LastModified"),
-                        size=int(raw.get("Size") or 0),
-                        etag=etag or None,
-                        storage_class=raw.get("StorageClass"),
-                        order_index=order_index,
-                    )
-                )
-                order_index += 1
-            for raw in page.get("DeleteMarkers", []) or []:
-                key = raw.get("Key")
-                version_id = raw.get("VersionId")
-                if not isinstance(key, str) or not key or not isinstance(version_id, str) or not version_id:
-                    continue
-                page_entries.append(
-                    _BucketVersionEntry(
-                        key=key,
-                        version_id=version_id,
-                        is_delete_marker=True,
-                        is_latest=bool(raw.get("IsLatest")),
-                        last_modified=raw.get("LastModified"),
-                        size=0,
-                        etag=None,
-                        storage_class=None,
-                        order_index=order_index,
-                    )
-                )
-                order_index += 1
+            page_entries, order_index = self._page_version_entries(page, order_index)
 
             for entry in sorted(page_entries, key=self._version_group_sort_key):
                 if buffered_key is None:
