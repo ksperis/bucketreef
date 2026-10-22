@@ -157,7 +157,7 @@ export const getStorageOpsBucketName = (bucket: CephAdminBucket): string => {
   return decodeStorageOpsBucketRef(bucket.name)?.bucketName ?? bucket.name;
 };
 
-export type CephAdminBucketRef = {
+type CephAdminBucketRef = {
   bucketName: string;
   tenant: string | null;
 };
