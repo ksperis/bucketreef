@@ -279,6 +279,50 @@ def request_requires_tenant_metadata(
     return _filter_requires_tenant_metadata(query) or sort_by == "tenant" or bool(simple_filter)
 
 
+def _needs_owner_metadata_backfill(
+    bucket: BucketListingSummary,
+    *,
+    include_tenant: bool,
+) -> bool:
+    if not bucket.owner:
+        return True
+    return bool(
+        include_tenant
+        and bucket.tenant is None
+        and not bucket.tenant_metadata_resolved
+        and owner_kind_from_owner(bucket.owner) != "account"
+    )
+
+
+def _load_bucket_owner_metadata(
+    ctx: BucketListingAdminContext,
+    bucket: BucketListingSummary,
+) -> tuple[BucketListingSummary, str | None, str | None, bool]:
+    try:
+        payload = ctx.rgw_admin.get_bucket_info(bucket.name, stats=False, allow_not_found=True)
+    except RGWAdminError:
+        return bucket, None, None, False
+    if not isinstance(payload, dict) or payload.get("not_found"):
+        return bucket, None, None, False
+    tenant, owner = extract_bucket_owner_scope(payload)
+    tenant_metadata_resolved = "tenant" in payload and payload.get("tenant") is not None
+    return bucket, tenant, owner, tenant_metadata_resolved
+
+
+def _apply_bucket_owner_metadata(
+    result: tuple[BucketListingSummary, str | None, str | None, bool],
+    *,
+    include_tenant: bool,
+) -> None:
+    bucket, tenant, owner, tenant_metadata_resolved = result
+    if not bucket.owner and owner:
+        bucket.owner = owner
+    if include_tenant and bucket.tenant is None and tenant:
+        bucket.tenant = tenant
+    if include_tenant and tenant_metadata_resolved:
+        bucket.tenant_metadata_resolved = True
+
+
 def backfill_bucket_owner_metadata(
     ctx: BucketListingAdminContext,
     buckets: list[BucketListingSummary],
@@ -297,13 +341,7 @@ def backfill_bucket_owner_metadata(
     pending = [
         bucket
         for bucket in buckets
-        if not bucket.owner
-        or (
-            include_tenant
-            and bucket.tenant is None
-            and not bucket.tenant_metadata_resolved
-            and owner_kind_from_owner(bucket.owner) != "account"
-        )
+        if _needs_owner_metadata_backfill(bucket, include_tenant=include_tenant)
     ]
     if not pending:
         return buckets
@@ -311,15 +349,7 @@ def backfill_bucket_owner_metadata(
     def load_one(
         bucket: BucketListingSummary,
     ) -> tuple[BucketListingSummary, str | None, str | None, bool]:
-        try:
-            payload = ctx.rgw_admin.get_bucket_info(bucket.name, stats=False, allow_not_found=True)
-        except RGWAdminError:
-            return bucket, None, None, False
-        if not isinstance(payload, dict) or payload.get("not_found"):
-            return bucket, None, None, False
-        tenant, owner = extract_bucket_owner_scope(payload)
-        tenant_metadata_resolved = "tenant" in payload and payload.get("tenant") is not None
-        return bucket, tenant, owner, tenant_metadata_resolved
+        return _load_bucket_owner_metadata(ctx, bucket)
 
     max_workers = min(BUCKET_OWNER_LOOKUP_MAX_WORKERS, len(pending))
     total = len(pending)
@@ -349,11 +379,6 @@ def backfill_bucket_owner_metadata(
                 emit_progress(index)
                 invoke_cancel_check(cancel_check)
 
-    for bucket, tenant, owner, tenant_metadata_resolved in resolved:
-        if not bucket.owner and owner:
-            bucket.owner = owner
-        if include_tenant and bucket.tenant is None and tenant:
-            bucket.tenant = tenant
-        if include_tenant and tenant_metadata_resolved:
-            bucket.tenant_metadata_resolved = True
+    for result in resolved:
+        _apply_bucket_owner_metadata(result, include_tenant=include_tenant)
     return buckets
