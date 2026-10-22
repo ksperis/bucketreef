@@ -11,7 +11,7 @@ from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_tenant,
-    parse_rgw_bool,
+    extract_rgw_quota_enabled,
     parse_rgw_int,
 )
 
@@ -86,7 +86,7 @@ def _quota_config(
     keys: tuple[str, ...],
 ) -> Optional[CephAdminRgwQuotaConfig]:
     max_size_bytes, max_objects = extract_quota_limits(payload, keys=keys)
-    enabled = _extract_quota_enabled(payload, keys=keys)
+    enabled = extract_rgw_quota_enabled(payload, keys=keys)
     if enabled is None and max_size_bytes is None and max_objects is None:
         return None
     return CephAdminRgwQuotaConfig(
@@ -127,16 +127,3 @@ def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> C
         quota=_quota_config(payload, keys=("quota", "account_quota")),
         bucket_quota=_quota_config(payload, keys=("bucket_quota",)),
     )
-
-
-def _extract_quota_enabled(
-    payload: dict[str, Any],
-    keys: tuple[str, ...] = ("quota", "account_quota"),
-) -> Optional[bool]:
-    for key in keys:
-        value = payload.get(key)
-        if isinstance(value, dict):
-            parsed = parse_rgw_bool(value.get("enabled"))
-            if parsed is not None:
-                return parsed
-    return None

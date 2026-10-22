@@ -41,6 +41,20 @@ def parse_rgw_bool(value: Any) -> bool | None:
     return None
 
 
+def extract_rgw_quota_enabled(
+    payload: dict[str, Any],
+    *,
+    keys: tuple[str, ...],
+) -> bool | None:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, dict):
+            parsed = parse_rgw_bool(value.get("enabled"))
+            if parsed is not None:
+                return parsed
+    return None
+
+
 def extract_rgw_account_ids(*records: object) -> set[str]:
     """Collect account identifiers from RGW response records.
 
