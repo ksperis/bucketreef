@@ -113,6 +113,35 @@ def _join_parts(parts: list[str | None], *, fallback: str) -> str:
     return " · ".join(cleaned) if cleaned else fallback
 
 
+def _tag_filter_summary(tag: dict[str, Any] | None) -> str | None:
+    if not tag:
+        return None
+    key = _string_value(tag.get("Key"))
+    if not key:
+        return None
+    value = _string_value(tag.get("Value"))
+    return f"Tag: {key}={value}" if value else f"Tag: {key}"
+
+
+def _and_filter_summary(and_filter: dict[str, Any] | None) -> str | None:
+    if not and_filter:
+        return None
+    prefix = _string_value(and_filter.get("Prefix"))
+    tags: list[str] = []
+    for entry in _list_value(and_filter.get("Tags")):
+        tag = _as_record(entry)
+        if not tag:
+            continue
+        key = _string_value(tag.get("Key"))
+        value = _string_value(tag.get("Value"))
+        if key:
+            tags.append(f"{key}={value}" if value else key)
+    return _join_parts(
+        [f"Prefix: {prefix}" if prefix else None, f"Tags: {', '.join(tags)}" if tags else None],
+        fallback="Combined filter",
+    )
+
+
 def _rule_filter_summary(rule: dict[str, Any]) -> str | None:
     top_level_prefix = _string_value(rule.get("Prefix"))
     if top_level_prefix:
@@ -126,35 +155,10 @@ def _rule_filter_summary(rule: dict[str, Any]) -> str | None:
     if prefix:
         return f"Prefix: {prefix}"
 
-    tag = _as_record(filter_value.get("Tag"))
-    if tag:
-        key = _string_value(tag.get("Key"))
-        value = _string_value(tag.get("Value"))
-        if key and value:
-            return f"Tag: {key}={value}"
-        if key:
-            return f"Tag: {key}"
-
-    and_filter = _as_record(filter_value.get("And"))
-    if and_filter:
-        and_prefix = _string_value(and_filter.get("Prefix"))
-        tags = []
-        for entry in _list_value(and_filter.get("Tags")):
-            tag_entry = _as_record(entry)
-            if not tag_entry:
-                continue
-            key = _string_value(tag_entry.get("Key"))
-            value = _string_value(tag_entry.get("Value"))
-            if key and value:
-                tags.append(f"{key}={value}")
-            elif key:
-                tags.append(key)
-        return _join_parts(
-            [f"Prefix: {and_prefix}" if and_prefix else None, f"Tags: {', '.join(tags)}" if tags else None],
-            fallback="Combined filter",
-        )
-
-    return None
+    tag_summary = _tag_filter_summary(_as_record(filter_value.get("Tag")))
+    if tag_summary:
+        return tag_summary
+    return _and_filter_summary(_as_record(filter_value.get("And")))
 
 
 def _lifecycle_action_summary(rule: dict[str, Any]) -> str:
