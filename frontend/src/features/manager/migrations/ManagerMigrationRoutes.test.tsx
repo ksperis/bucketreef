@@ -65,7 +65,6 @@ function buildDraftDetail(): BucketMigrationDetail {
     auto_grant_source_read_for_copy: false,
     mapping_prefix: "",
     status: "draft",
-    workflow_version: 2,
     configuration_revision: 1,
     checked_revision: null,
     preparation_status: "unverified",

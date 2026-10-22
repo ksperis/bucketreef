@@ -192,7 +192,6 @@ class BucketMigrationView(ApiModel):
     precheck_status: BucketMigrationPrecheckStatus = "pending"
     precheck_report: Optional[dict] = None
     precheck_checked_at: Optional[datetime] = None
-    workflow_version: int = 2
     configuration_revision: int = 1
     checked_revision: Optional[int] = None
     preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"] = "unverified"
