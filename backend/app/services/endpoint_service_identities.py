@@ -250,67 +250,97 @@ class EndpointServiceIdentityService:
             bucket_uid=rgw_uid,
         )
 
-    def _ensure(
+    def _managed_identity(
         self,
         endpoint: StorageEndpoint,
         kind: ManagedServiceIdentityKind,
+        permissions: StorageEndpointAdminOpsPermissions,
+    ) -> EndpointServiceIdentity:
+        identity = endpoint.service_identity(kind)
+        if identity is None:
+            identity = EndpointServiceIdentity(kind=kind, mode="managed", status="missing")
+            endpoint.service_identities.append(identity)
+        if identity.mode != "managed":
+            raise ValueError("Explicit conversion is required before provisioning a managed identity.")
+        if identity.rgw_uid and identity.access_key:
+            return identity
+        if not permissions.users_write:
+            raise ValueError("Managed service identities require Admin Ops users=write.")
+        installation = self._installation_id()
+        provenance = f"{installation}:{endpoint.identity_namespace}"
+        if identity.provenance not in (None, provenance):
+            raise ValueError("Service identity ownership does not match this installation.")
+        identity.provenance = provenance
+        identity.rgw_uid = (
+            f"bkr-{installation[:12]}-{endpoint.identity_namespace[:12]}-"
+            f"{kind.replace('_', '-')}"
+        )
+        identity.access_key = identity.access_key or secrets.token_hex(10).upper()
+        identity.secret_key = identity.secret_key or secrets.token_urlsafe(32)
+        identity.status = "provisioning"
+        self.db.commit()
+        return identity
+
+    def _ensure_managed_remote_user(
+        self,
+        endpoint: StorageEndpoint,
+        kind: ManagedServiceIdentityKind,
+        identity: EndpointServiceIdentity,
         admin: RGWAdminClient,
         permissions: StorageEndpointAdminOpsPermissions,
+    ) -> None:
+        provenance = f"{self._installation_id()}:{endpoint.identity_namespace}"
+        if identity.provenance != provenance:
+            raise ValueError("Cannot validate a managed identity without ownership proof.")
+        payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
+        if payload is not None and not self._owns(identity, payload):
+            raise ValueError("RGW service UID collision; the existing user will not be modified.")
+        if payload is not None:
+            self._validate_managed_keys(identity, payload)
+        created = payload is None
+        if created:
+            if not permissions.users_write:
+                raise ValueError("Managed service identity is absent; recreation requires users=write.")
+            identity.status = "provisioning"
+            self.db.commit()
+            payload = admin.create_user(
+                identity.rgw_uid,
+                display_name=f"BucketReef {kind} service",
+                generate_key=False,
+                access_key=identity.access_key,
+                secret_key=identity.secret_key,
+                extra_params={"max-buckets": 0},
+            )
+            if not self._owns(identity, payload):
+                raise ValueError("RGW did not confirm ownership of the new service identity.")
+            self._validate_managed_keys(identity, payload)
+            self._audit(endpoint, identity, "created")
+        # Only bootstrap an identity that has never passed validation. Do not
+        # rewrite permissions or interrupt a previously operational identity.
+        if (created or identity.last_reconciled_at is None) and permissions.users_write:
+            admin.set_user_caps(identity.rgw_uid, SERVICE_CAPS[kind])
+
+    @staticmethod
+    def _external_identity(
+        endpoint: StorageEndpoint,
+        kind: ManagedServiceIdentityKind,
+    ) -> EndpointServiceIdentity:
+        identity = endpoint.service_identity(kind)
+        if identity is None or not identity.access_key or not identity.secret_key:
+            raise ValueError(f"Externally managed endpoints require complete {kind} credentials.")
+        if identity.mode != "external":
+            raise ValueError("Revoke the managed identity before supplying an external replacement.")
+        return identity
+
+    def _validate_service_identity(
+        self,
+        endpoint: StorageEndpoint,
+        identity: EndpointServiceIdentity,
+        kind: ManagedServiceIdentityKind,
+        admin: RGWAdminClient,
         *,
         managed: bool,
     ) -> EndpointServiceIdentity:
-        if kind == "ceph_admin":
-            raise ValueError("Ceph Admin credentials must be supplied manually.")
-        identity = endpoint.service_identity(kind)
-        if managed:
-            if identity is None:
-                identity = EndpointServiceIdentity(kind=kind, mode="managed", status="missing")
-                endpoint.service_identities.append(identity)
-            if identity.mode != "managed":
-                raise ValueError("Explicit conversion is required before provisioning a managed identity.")
-            if not identity.rgw_uid or not identity.access_key:
-                if not permissions.users_write:
-                    raise ValueError("Managed service identities require Admin Ops users=write.")
-                installation = self._installation_id()
-                provenance = f"{installation}:{endpoint.identity_namespace}"
-                if identity.provenance not in (None, provenance):
-                    raise ValueError("Service identity ownership does not match this installation.")
-                identity.provenance = provenance
-                identity.rgw_uid = f"bkr-{installation[:12]}-{endpoint.identity_namespace[:12]}-{kind.replace('_', '-')}"
-                identity.access_key = identity.access_key or secrets.token_hex(10).upper()
-                identity.secret_key = identity.secret_key or secrets.token_urlsafe(32)
-                identity.status = "provisioning"
-                self.db.commit()
-            provenance = f"{self._installation_id()}:{endpoint.identity_namespace}"
-            if identity.provenance != provenance:
-                raise ValueError("Cannot validate a managed identity without ownership proof.")
-            payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
-            if payload is not None and not self._owns(identity, payload):
-                raise ValueError("RGW service UID collision; the existing user will not be modified.")
-            if payload is not None:
-                self._validate_managed_keys(identity, payload)
-            created = payload is None
-            if payload is None:
-                if not permissions.users_write:
-                    raise ValueError("Managed service identity is absent; recreation requires users=write.")
-                identity.status = "provisioning"
-                self.db.commit()
-                payload = admin.create_user(identity.rgw_uid, display_name=f"BucketReef {kind} service",
-                    generate_key=False, access_key=identity.access_key, secret_key=identity.secret_key,
-                    extra_params={"max-buckets": 0})
-                if not self._owns(identity, payload):
-                    raise ValueError("RGW did not confirm ownership of the new service identity.")
-                self._validate_managed_keys(identity, payload)
-                self._audit(endpoint, identity, "created")
-            # Only bootstrap an identity that has never passed validation. Do not
-            # rewrite permissions or interrupt a previously operational identity.
-            if (created or identity.last_reconciled_at is None) and permissions.users_write:
-                admin.set_user_caps(identity.rgw_uid, SERVICE_CAPS[kind])
-        else:
-            if identity is None or not identity.access_key or not identity.secret_key:
-                raise ValueError(f"Externally managed endpoints require complete {kind} credentials.")
-            if identity.mode != "external":
-                raise ValueError("Revoke the managed identity before supplying an external replacement.")
         payload = admin.get_user_by_access_key(identity.access_key, allow_not_found=True)
         self.validate_payload(kind, payload)
         if managed:
@@ -328,6 +358,36 @@ class EndpointServiceIdentityService:
         self.db.commit()
         self._audit(endpoint, identity, "validated")
         return identity
+
+    def _ensure(
+        self,
+        endpoint: StorageEndpoint,
+        kind: ManagedServiceIdentityKind,
+        admin: RGWAdminClient,
+        permissions: StorageEndpointAdminOpsPermissions,
+        *,
+        managed: bool,
+    ) -> EndpointServiceIdentity:
+        if kind == "ceph_admin":
+            raise ValueError("Ceph Admin credentials must be supplied manually.")
+        if managed:
+            identity = self._managed_identity(endpoint, kind, permissions)
+            self._ensure_managed_remote_user(
+                endpoint,
+                kind,
+                identity,
+                admin,
+                permissions,
+            )
+        else:
+            identity = self._external_identity(endpoint, kind)
+        return self._validate_service_identity(
+            endpoint,
+            identity,
+            kind,
+            admin,
+            managed=managed,
+        )
 
     def validate_ceph_admin(self, endpoint: StorageEndpoint) -> dict[str, str]:
         """Authenticate the supplied pair without using bootstrap credentials or RGW writes."""
