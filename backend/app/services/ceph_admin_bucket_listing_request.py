@@ -21,13 +21,7 @@ from app.services.bucket_listing_rule_matching import (
 )
 from app.services.bucket_listing_shared import parse_filter, parse_includes, serialize_filter
 from app.services.ceph_admin_bucket_listing_cache import CephAdminBucketListCacheKey
-
-
-def _normalized_simple_filter(value: str | None) -> str | None:
-    if not isinstance(value, str):
-        return None
-    normalized = value.strip()
-    return normalized or None
+from app.utils.normalize import normalize_optional_string
 
 
 def _parse_listing_filters(
@@ -35,11 +29,11 @@ def _parse_listing_filters(
     raw_advanced_filter: str | None,
 ) -> tuple[str | None, BucketFilterQuery | None]:
     if raw_advanced_filter:
-        simple_filter = _normalized_simple_filter(raw_filter)
+        simple_filter = normalize_optional_string(raw_filter)
         _, advanced_filter = parse_filter(raw_advanced_filter)
         return simple_filter, advanced_filter
     simple_filter, advanced_filter = parse_filter(raw_filter)
-    return _normalized_simple_filter(simple_filter), advanced_filter
+    return normalize_optional_string(simple_filter), advanced_filter
 
 
 def _metadata_requirements(
