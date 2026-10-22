@@ -57,37 +57,44 @@ def normalize_owner_kind_scalar(raw: object) -> str | None:
     return normalized or None
 
 
+def _owner_kind_rule_values(rule: object) -> set[Literal["account", "user"]]:
+    op = getattr(rule, "op", None)
+    raw_value = getattr(rule, "value", None)
+    if op in {"eq", "neq"}:
+        value = normalize_owner_kind(raw_value)
+        return {value} if value is not None else set()
+    if op in {"in", "not_in"} and isinstance(raw_value, list):
+        return {
+            value
+            for item in raw_value
+            if (value := normalize_owner_kind(item)) is not None
+        }
+    return set()
+
+
+def _apply_owner_kind_rule(
+    allowed: set[Literal["account", "user"]],
+    rule: object,
+) -> set[Literal["account", "user"]]:
+    values = _owner_kind_rule_values(rule)
+    if not values:
+        return allowed
+    if getattr(rule, "op", None) in {"eq", "in"}:
+        return allowed & values
+    return allowed - values
+
+
 def determine_owner_name_lookup_scope(
     query: BucketFilterQuery | None,
 ) -> Literal["any", "account", "user"]:
     if not query or query.match != "all":
         return "any"
-    allowed: set[Literal["account", "user"]] = {"account", "user"}
-    saw_owner_kind_rule = False
-    for rule in query.rules:
-        if rule.field != "owner_kind":
-            continue
-        saw_owner_kind_rule = True
-        if rule.op == "eq":
-            value = normalize_owner_kind(rule.value)
-            if value:
-                allowed &= {value}
-        elif rule.op == "neq":
-            value = normalize_owner_kind(rule.value)
-            if value:
-                allowed.discard(value)
-        elif rule.op == "in" and isinstance(rule.value, list):
-            values = {normalize_owner_kind(item) for item in rule.value}
-            values = {item for item in values if item is not None}
-            if values:
-                allowed &= values
-        elif rule.op == "not_in" and isinstance(rule.value, list):
-            values = {normalize_owner_kind(item) for item in rule.value}
-            values = {item for item in values if item is not None}
-            if values:
-                allowed -= values
-    if not saw_owner_kind_rule:
+    owner_kind_rules = [rule for rule in query.rules if rule.field == "owner_kind"]
+    if not owner_kind_rules:
         return "any"
+    allowed: set[Literal["account", "user"]] = {"account", "user"}
+    for rule in owner_kind_rules:
+        allowed = _apply_owner_kind_rule(allowed, rule)
     if len(allowed) == 1:
         return next(iter(allowed))
     return "any"
