@@ -45,6 +45,20 @@ def _manager_tool_access_enabled(value: ManagerToolAccess | None) -> bool:
     return any(bool(enabled) for enabled in value.model_dump().values())
 
 
+def _direct_access_fields_changed(entity, payload, fields=_DIRECT_ACCESS_FIELDS) -> bool:
+    return any(
+        (requested := getattr(payload, field)) is not None
+        and bool(requested) != bool(getattr(entity, field))
+        for field in fields
+    )
+
+
+def _requested_ids_changed(requested, persisted) -> bool:
+    if requested is None:
+        return False
+    return {int(value) for value in requested} != {int(value) for value in persisted}
+
+
 def passkey_required_for_role(db: Session, role: str) -> bool:
     general = load_app_settings_for_db(db).general
     if role in PRIVILEGED_UI_ROLES:
@@ -132,25 +146,19 @@ def admin_user_update_requires_step_up(user: User, payload: UserUpdate) -> bool:
         return True
     if payload.is_active is not None and bool(payload.is_active) != bool(user.is_active):
         return True
-    for field in _DIRECT_ACCESS_FIELDS:
-        requested = getattr(payload, field)
-        if requested is not None and bool(requested) != bool(getattr(user, field)):
-            return True
+    if _direct_access_fields_changed(user, payload):
+        return True
     if payload.manager_tool_access is not None and read_manager_tool_access(user) != payload.manager_tool_access:
         return True
     if _account_links_changed(user, payload) or _s3_user_links_changed(user, payload):
         return True
-    if payload.s3_connection_ids is not None:
-        persisted_connection_ids = {int(link.s3_connection_id) for link in user.s3_connection_links}
-        requested_connection_ids = {int(connection_id) for connection_id in payload.s3_connection_ids}
-        if persisted_connection_ids != requested_connection_ids:
-            return True
-    if payload.group_ids is not None:
-        persisted_group_ids = {int(link.group_id) for link in user.ui_group_links}
-        requested_group_ids = {int(group_id) for group_id in payload.group_ids}
-        if persisted_group_ids != requested_group_ids:
-            return True
-    return False
+    return _requested_ids_changed(
+        payload.s3_connection_ids,
+        (link.s3_connection_id for link in user.s3_connection_links),
+    ) or _requested_ids_changed(
+        payload.group_ids,
+        (link.group_id for link in user.ui_group_links),
+    )
 
 
 def admin_group_create_requires_step_up(payload: UiGroupCreate) -> bool:
@@ -202,23 +210,75 @@ def _group_s3_user_links_changed(group: UiGroup, payload: UiGroupUpdate) -> bool
 
 def admin_group_update_requires_step_up(group: UiGroup, payload: UiGroupUpdate) -> bool:
     """Return whether a group update changes effective access or security state."""
-    for field in _GROUP_DIRECT_ACCESS_FIELDS:
-        requested = getattr(payload, field)
-        if requested is not None and bool(requested) != bool(getattr(group, field)):
-            return True
+    if _direct_access_fields_changed(group, payload, _GROUP_DIRECT_ACCESS_FIELDS):
+        return True
     if payload.manager_tool_access is not None and read_manager_tool_access(group) != payload.manager_tool_access:
         return True
-    if payload.user_ids is not None:
-        persisted_user_ids = {int(link.user_id) for link in group.user_links}
-        if persisted_user_ids != {int(user_id) for user_id in payload.user_ids}:
-            return True
+    if _requested_ids_changed(
+        payload.user_ids,
+        (link.user_id for link in group.user_links),
+    ):
+        return True
     if _group_account_links_changed(group, payload) or _group_s3_user_links_changed(group, payload):
         return True
-    if payload.s3_connection_ids is not None:
-        persisted_connection_ids = {int(link.s3_connection_id) for link in group.s3_connection_links}
-        if persisted_connection_ids != {int(connection_id) for connection_id in payload.s3_connection_ids}:
-            return True
-    return False
+    return _requested_ids_changed(
+        payload.s3_connection_ids,
+        (link.s3_connection_id for link in group.s3_connection_links),
+    )
+
+
+def _s3_connection_assignments_changed(
+    db: Session,
+    connection: S3Connection,
+    payload: S3ConnectionAdminUpdate,
+) -> bool:
+    if _requested_ids_changed(
+        payload.user_ids,
+        (link.user_id for link in connection.user_links),
+    ):
+        return True
+    if payload.group_ids is None:
+        return False
+    persisted_group_ids = db.scalars(
+        select(UiGroupS3Connection.group_id).where(
+            UiGroupS3Connection.s3_connection_id == connection.id
+        )
+    ).all()
+    return _requested_ids_changed(payload.group_ids, persisted_group_ids)
+
+
+def _s3_connection_target_changed(
+    connection: S3Connection,
+    payload: S3ConnectionAdminUpdate,
+) -> bool:
+    details = resolve_connection_details(connection)
+    fields_set = payload.model_fields_set
+    if (
+        "storage_endpoint_id" in fields_set
+        and payload.storage_endpoint_id != connection.storage_endpoint_id
+    ):
+        return True
+
+    text_fields = (
+        ("endpoint_url", payload.endpoint_url, details.endpoint_url),
+        ("region", payload.region, details.region),
+        ("provider_hint", payload.provider_hint, details.provider),
+    )
+    if any(
+        field in fields_set
+        and normalize_optional_string(requested) != normalize_optional_string(current)
+        for field, requested, current in text_fields
+    ):
+        return True
+
+    boolean_fields = (
+        ("force_path_style", payload.force_path_style, details.force_path_style),
+        ("verify_tls", payload.verify_tls, details.verify_tls),
+    )
+    return any(
+        field in fields_set and bool(requested) != bool(current)
+        for field, requested, current in boolean_fields
+    )
 
 
 def admin_s3_connection_update_requires_step_up(
@@ -231,37 +291,11 @@ def admin_s3_connection_update_requires_step_up(
         return True
     if payload.is_active is True and not bool(connection.is_active):
         return True
-    if payload.user_ids is not None:
-        persisted_user_ids = {int(link.user_id) for link in connection.user_links}
-        if persisted_user_ids != {int(user_id) for user_id in payload.user_ids}:
-            return True
-    if payload.group_ids is not None:
-        persisted_group_ids = {
-            int(group_id)
-            for group_id in db.scalars(
-                select(UiGroupS3Connection.group_id).where(
-                    UiGroupS3Connection.s3_connection_id == connection.id
-                )
-            ).all()
-        }
-        if persisted_group_ids != {int(group_id) for group_id in payload.group_ids}:
-            return True
-
-    details = resolve_connection_details(connection)
-    fields_set = payload.model_fields_set
-    if "storage_endpoint_id" in fields_set and payload.storage_endpoint_id != connection.storage_endpoint_id:
-        return True
-    if "endpoint_url" in fields_set and normalize_optional_string(payload.endpoint_url) != normalize_optional_string(details.endpoint_url):
-        return True
-    if "region" in fields_set and normalize_optional_string(payload.region) != normalize_optional_string(details.region):
-        return True
-    if "force_path_style" in fields_set and bool(payload.force_path_style) != bool(details.force_path_style):
-        return True
-    if "verify_tls" in fields_set and bool(payload.verify_tls) != bool(details.verify_tls):
-        return True
-    if "provider_hint" in fields_set and normalize_optional_string(payload.provider_hint) != normalize_optional_string(details.provider):
-        return True
-    return False
+    return _s3_connection_assignments_changed(
+        db,
+        connection,
+        payload,
+    ) or _s3_connection_target_changed(connection, payload)
 
 
 def require_self_service_security_action(
