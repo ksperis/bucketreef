@@ -186,6 +186,111 @@ class PortalStorageSpaceCatalogMixin:
             icon=self._storage_space_icon_descriptor(metadata),
         )
 
+    def _storage_space_summary_from_metadata(
+        self,
+        user: User,
+        access: "AccountAccess",
+        metadata: PortalStorageSpaceMetadata,
+        role_by_bucket: dict[str, PortalStorageSpaceRole],
+        collaborator_previews: dict[
+            str,
+            tuple[list[PortalStorageSpaceCollaboratorPreview], int],
+        ],
+        *,
+        include_archived: bool,
+    ) -> PortalStorageSpaceSummary | None:
+        direct_role = role_by_bucket.get(metadata.bucket_name)
+        role_for_bucket = self._storage_space_effective_role(
+            user,
+            access,
+            metadata,
+            direct_role,
+            include_archived=include_archived,
+        )
+        if role_for_bucket is None:
+            return None
+        collaborators, collaborator_count = collaborator_previews.get(
+            metadata.bucket_name,
+            ([], 0),
+        )
+        return self._bucket_to_storage_space_summary(
+            Bucket(
+                name=metadata.bucket_name,
+                creation_date=metadata.created_at,
+                used_bytes=None,
+                object_count=None,
+                quota_max_size_bytes=None,
+                quota_max_objects=None,
+            ),
+            access,
+            role=role_for_bucket,
+            can_delete=direct_role in {"Owner", "Manager"},
+            metadata=metadata,
+            collaborators=collaborators,
+            collaborator_count=collaborator_count,
+        )
+
+    @staticmethod
+    def _storage_space_matches_search(
+        space: PortalStorageSpaceSummary,
+        term: str,
+    ) -> bool:
+        values = (
+            space.name,
+            space.id,
+            space.description,
+            space.owner_label,
+            space.visibility,
+            space.project_key,
+            space.dataset_label,
+            space.internal_bucket_name,
+        )
+        return any(term in (value or "").lower() for value in values)
+
+    def _filter_storage_space_summaries(
+        self,
+        spaces: list[PortalStorageSpaceSummary],
+        *,
+        search: str | None,
+        role: str | None,
+        status: str | None,
+    ) -> list[PortalStorageSpaceSummary]:
+        search_term = (search or "").strip().lower()
+        role_term = (role or "").strip().lower()
+        status_term = (status or "").strip().lower()
+        if search_term:
+            spaces = [
+                space
+                for space in spaces
+                if self._storage_space_matches_search(space, search_term)
+            ]
+        if role_term:
+            spaces = [space for space in spaces if space.role.lower() == role_term]
+        if status_term:
+            spaces = [space for space in spaces if space.status.lower() == status_term]
+        return spaces
+
+    @staticmethod
+    def _sort_storage_space_summaries(
+        spaces: list[PortalStorageSpaceSummary],
+        sort: str,
+    ) -> list[PortalStorageSpaceSummary]:
+        reverse = sort.startswith("-")
+        sort_key = sort[1:] if reverse else sort
+        sorters = {
+            "name": lambda item: (item.name or "").lower(),
+            "created_at": lambda item: item.created_at or datetime.min,
+            "used_bytes": lambda item: item.used_bytes if item.used_bytes is not None else -1,
+            "object_count": lambda item: item.object_count if item.object_count is not None else -1,
+            "role": lambda item: item.role,
+            "status": lambda item: item.status,
+        }
+        return sorted(
+            spaces,
+            key=sorters.get(sort_key, sorters["name"]),
+            reverse=reverse,
+        )
+
     def list_storage_spaces(
         self,
         user: User,
@@ -207,69 +312,28 @@ class PortalStorageSpaceCatalogMixin:
             access.account,
             list(metadata_by_bucket.values()),
         )
-        spaces: list[PortalStorageSpaceSummary] = []
-        for metadata in metadata_by_bucket.values():
-            role_for_bucket = self._storage_space_effective_role(
-                user,
-                access,
-                metadata,
-                role_by_bucket.get(metadata.bucket_name),
-                include_archived=include_archived,
-            )
-            if role_for_bucket is None:
-                continue
-            bucket = Bucket(
-                name=metadata.bucket_name,
-                creation_date=metadata.created_at,
-                used_bytes=None,
-                object_count=None,
-                quota_max_size_bytes=None,
-                quota_max_objects=None,
-            )
-            spaces.append(
-                self._bucket_to_storage_space_summary(
-                    bucket,
+        spaces = [
+            summary
+            for metadata in metadata_by_bucket.values()
+            if (
+                summary := self._storage_space_summary_from_metadata(
+                    user,
                     access,
-                    role=role_for_bucket,
-                    can_delete=role_by_bucket.get(metadata.bucket_name) in {"Owner", "Manager"},
-                    metadata=metadata,
-                    collaborators=collaborator_previews.get(metadata.bucket_name, ([], 0))[0],
-                    collaborator_count=collaborator_previews.get(metadata.bucket_name, ([], 0))[1],
+                    metadata,
+                    role_by_bucket,
+                    collaborator_previews,
+                    include_archived=include_archived,
                 )
             )
-        if search:
-            term = search.strip().lower()
-            if term:
-                spaces = [
-                    space
-                    for space in spaces
-                    if term in space.name.lower()
-                    or term in space.id.lower()
-                    or term in (space.description or "").lower()
-                    or term in (space.owner_label or "").lower()
-                    or term in (space.visibility or "").lower()
-                    or term in (space.project_key or "").lower()
-                    or term in (space.dataset_label or "").lower()
-                    or term in (space.internal_bucket_name or "").lower()
-                ]
-        if role:
-            role_term = role.strip().lower()
-            spaces = [space for space in spaces if space.role.lower() == role_term]
-        if status:
-            status_term = status.strip().lower()
-            spaces = [space for space in spaces if space.status.lower() == status_term]
-        reverse = sort.startswith("-")
-        sort_key = sort[1:] if reverse else sort
-        sorters = {
-            "name": lambda item: (item.name or "").lower(),
-            "created_at": lambda item: item.created_at or datetime.min,
-            "used_bytes": lambda item: item.used_bytes if item.used_bytes is not None else -1,
-            "object_count": lambda item: item.object_count if item.object_count is not None else -1,
-            "role": lambda item: item.role,
-            "status": lambda item: item.status,
-        }
-        spaces = sorted(spaces, key=sorters.get(sort_key, sorters["name"]), reverse=reverse)
-        return spaces
+            is not None
+        ]
+        filtered = self._filter_storage_space_summaries(
+            spaces,
+            search=search,
+            role=role,
+            status=status,
+        )
+        return self._sort_storage_space_summaries(filtered, sort)
 
     def get_storage_space(
         self,
