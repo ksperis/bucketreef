@@ -94,47 +94,55 @@ def window_start(reference: datetime, window: TrafficWindow) -> datetime:
     return (reference - WINDOW_DELTAS[window]).astimezone(timezone.utc)
 
 
-def flatten_usage_entries(payload: Any) -> list[dict]:
-    if payload is None:
+def _dict_entries(value: Any) -> list[dict]:
+    if not isinstance(value, list):
         return []
-    raw_entries: list[dict] = []
+    return [entry for entry in value if isinstance(entry, dict)]
+
+
+def _raw_usage_entries(payload: Any) -> list[dict]:
     if isinstance(payload, dict):
-        if isinstance(payload.get("entries"), list):
-            raw_entries.extend([entry for entry in payload.get("entries") if isinstance(entry, dict)])
-        if isinstance(payload.get("usage"), list):
-            for user_entry in payload.get("usage") or []:
-                if not isinstance(user_entry, dict):
-                    continue
-                nested_entries = user_entry.get("entries")
-                if isinstance(nested_entries, list):
-                    raw_entries.extend([entry for entry in nested_entries if isinstance(entry, dict)])
-    elif isinstance(payload, list):
-        for entry in payload:
-            if isinstance(entry, dict):
-                if isinstance(entry.get("entries"), list):
-                    raw_entries.extend([item for item in entry.get("entries") if isinstance(item, dict)])
-                else:
-                    raw_entries.append(entry)
-    flattened: list[dict] = []
-    for entry in raw_entries:
-        buckets = entry.get("buckets")
-        if isinstance(buckets, list) and buckets:
-            for bucket in buckets:
-                if not isinstance(bucket, dict):
-                    continue
-                flattened.append(
-                    {
-                        "user": entry.get("user") or entry.get("owner"),
-                        "bucket": bucket.get("bucket") or bucket.get("bucket_name"),
-                        "owner": bucket.get("owner") or entry.get("user"),
-                        "time": bucket.get("time") or entry.get("time"),
-                        "epoch": bucket.get("epoch") or entry.get("epoch"),
-                        "categories": bucket.get("categories") or entry.get("categories"),
-                    }
-                )
+        entries = _dict_entries(payload.get("entries"))
+        for user_entry in _dict_entries(payload.get("usage")):
+            entries.extend(_dict_entries(user_entry.get("entries")))
+        return entries
+    if not isinstance(payload, list):
+        return []
+
+    entries: list[dict] = []
+    for entry in _dict_entries(payload):
+        nested_entries = entry.get("entries")
+        if isinstance(nested_entries, list):
+            entries.extend(_dict_entries(nested_entries))
         else:
-            flattened.append(entry)
-    return flattened
+            entries.append(entry)
+    return entries
+
+
+def _flatten_bucket_usage_entry(entry: dict) -> list[dict]:
+    buckets = entry.get("buckets")
+    if not isinstance(buckets, list) or not buckets:
+        return [entry]
+    return [
+        {
+            "user": entry.get("user") or entry.get("owner"),
+            "bucket": bucket.get("bucket") or bucket.get("bucket_name"),
+            "owner": bucket.get("owner") or entry.get("user"),
+            "time": bucket.get("time") or entry.get("time"),
+            "epoch": bucket.get("epoch") or entry.get("epoch"),
+            "categories": bucket.get("categories") or entry.get("categories"),
+        }
+        for bucket in buckets
+        if isinstance(bucket, dict)
+    ]
+
+
+def flatten_usage_entries(payload: Any) -> list[dict]:
+    return [
+        flattened
+        for entry in _raw_usage_entries(payload)
+        for flattened in _flatten_bucket_usage_entry(entry)
+    ]
 
 
 def _normalize_categories(raw_categories: Any) -> list[dict]:

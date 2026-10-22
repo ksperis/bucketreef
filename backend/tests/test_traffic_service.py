@@ -7,7 +7,12 @@ import pytest
 from app.db import S3Account, StorageEndpoint
 from app.services import traffic_service as traffic_service_module
 from app.services.rgw_admin import RGWAdminError
-from app.services.traffic_service import TrafficService, TrafficWindow, aggregate_usage
+from app.services.traffic_service import (
+    TrafficService,
+    TrafficWindow,
+    aggregate_usage,
+    flatten_usage_entries,
+)
 from tests.service_identity_helpers import service_identity
 
 
@@ -37,6 +42,59 @@ def _make_account() -> S3Account:
         rgw_access_key="access",
         rgw_secret_key="secret",
     )
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"entries": [{"bucket": "direct"}, "ignored"]}, [{"bucket": "direct"}]),
+        (
+            {"usage": [{"entries": [{"bucket": "nested"}, None]}, "ignored"]},
+            [{"bucket": "nested"}],
+        ),
+        (
+            [{"entries": [{"bucket": "wrapped"}]}, {"bucket": "plain"}],
+            [{"bucket": "wrapped"}, {"bucket": "plain"}],
+        ),
+        ([{"entries": []}], []),
+        (None, []),
+    ],
+)
+def test_flatten_usage_entries_preserves_supported_rgw_payload_shapes(payload, expected):
+    assert flatten_usage_entries(payload) == expected
+
+
+def test_flatten_usage_entries_expands_bucket_rows_with_parent_fallbacks():
+    payload = {
+        "entries": [
+            {
+                "user": "parent-user",
+                "owner": "parent-owner",
+                "time": "parent-time",
+                "epoch": 42,
+                "categories": [{"category": "parent"}],
+                "buckets": [
+                    {
+                        "bucket_name": "child-bucket",
+                        "owner": "child-owner",
+                        "categories": [{"category": "child"}],
+                    },
+                    "ignored",
+                ],
+            }
+        ]
+    }
+
+    assert flatten_usage_entries(payload) == [
+        {
+            "user": "parent-user",
+            "bucket": "child-bucket",
+            "owner": "child-owner",
+            "time": "parent-time",
+            "epoch": 42,
+            "categories": [{"category": "child"}],
+        }
+    ]
 
 
 def test_aggregate_usage_preserves_rankings_and_success_ratios():
