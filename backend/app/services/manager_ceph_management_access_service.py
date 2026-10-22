@@ -4,7 +4,11 @@
 
 from __future__ import annotations
 
-from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
+from app.models.feature_policy import (
+    FeaturePolicy,
+    ManagerFeaturePolicies,
+    resolve_feature_policy,
+)
 
 from dataclasses import dataclass
 from typing import Literal
@@ -15,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.db import S3Account, S3User, StorageEndpoint, StorageProvider, User
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services import app_settings_service
-from app.services.effective_access_service import EffectiveAccessService
+from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES
 from app.services.rgw_admin import get_rgw_admin_client
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
@@ -67,6 +71,107 @@ class ManagerCephManagementAccessService:
             and (endpoint.admin_secret_key or "").strip()
         )
 
+    @staticmethod
+    def _label(operation: ManagerCephManagementOperation) -> str:
+        if operation == "bucket_quota":
+            return "Bucket quota management"
+        return "Ceph access key management"
+
+    def _resolve_account_quota_resource(
+        self,
+        execution_context: S3ExecutionTarget,
+        *,
+        effective: ResolvedUserAccess,
+        policies: ManagerFeaturePolicies,
+        label: str,
+    ) -> S3Account | ManagerCephManagementDecision:
+        account_id = execution_context.id
+        if not isinstance(account_id, int) or account_id <= 0:
+            return self._deny(f"{label} is not available for this context")
+        link = effective.account_link_for(account_id)
+        if link is None or not EffectiveAccessService.manager_account_allowed(link):
+            return self._deny("Not authorized for this Manager context")
+        resource = self.db.scalar(select(S3Account).where(S3Account.id == account_id))
+        if resource is None or not resolve_feature_policy(
+            policies.bucket_quota_management,
+            resource.allow_bucket_quota_management,
+        ).enabled:
+            return self._deny(
+                "Bucket quota management is not enabled for this resource"
+            )
+        return resource
+
+    def _resolve_s3_user_resource(
+        self,
+        operation: ManagerCephManagementOperation,
+        execution_context: S3ExecutionTarget,
+        *,
+        effective: ResolvedUserAccess,
+        policies: ManagerFeaturePolicies,
+        label: str,
+    ) -> S3User | ManagerCephManagementDecision:
+        if not isinstance(execution_context, S3ExecutionContext):
+            return self._deny(f"{label} is not available for this context")
+        s3_user_id = execution_context.s3_user_id
+        if not isinstance(s3_user_id, int) or s3_user_id <= 0:
+            return self._deny(f"{label} is not available for this context")
+        if not effective.has_s3_user(s3_user_id):
+            return self._deny("Not authorized for this Manager context")
+        resource = self.db.scalar(select(S3User).where(S3User.id == s3_user_id))
+        if resource is None:
+            return self._deny(f"{label} is not available for this context")
+
+        if operation == "bucket_quota":
+            enabled = resolve_feature_policy(
+                policies.bucket_quota_management,
+                resource.allow_bucket_quota_management,
+            ).enabled
+            if not enabled:
+                return self._deny(
+                    "Bucket quota management is not enabled for this resource"
+                )
+        else:
+            enabled = resolve_feature_policy(
+                policies.ceph_s3_user_keys,
+                resource.allow_access_key_management,
+            ).enabled
+            if not enabled:
+                return self._deny(
+                    "Ceph access key management is not enabled for this resource"
+                )
+        return resource
+
+    def _resolve_resource(
+        self,
+        operation: ManagerCephManagementOperation,
+        execution_context: S3ExecutionTarget,
+        *,
+        effective: ResolvedUserAccess,
+        policies: ManagerFeaturePolicies,
+        label: str,
+    ) -> S3Account | S3User | ManagerCephManagementDecision:
+        context_kind = (
+            execution_context.context_kind
+            if isinstance(execution_context, S3ExecutionContext)
+            else "account"
+        )
+        if context_kind == "account" and operation == "bucket_quota":
+            return self._resolve_account_quota_resource(
+                execution_context,
+                effective=effective,
+                policies=policies,
+                label=label,
+            )
+        if context_kind == "s3_user":
+            return self._resolve_s3_user_resource(
+                operation,
+                execution_context,
+                effective=effective,
+                policies=policies,
+                label=label,
+            )
+        return self._deny(f"{label} is not available for this context")
+
     def evaluate(
         self,
         operation: ManagerCephManagementOperation,
@@ -75,7 +180,7 @@ class ManagerCephManagementAccessService:
         actor: User | None,
         execution_context: S3ExecutionTarget | None,
     ) -> ManagerCephManagementDecision:
-        label = "Bucket quota management" if operation == "bucket_quota" else "Ceph access key management"
+        label = self._label(operation)
         if surface != "manager":
             return self._deny(f"{label} is only available in Manager")
         if actor is None or actor.role not in MANAGER_TOOL_ROLES:
@@ -90,44 +195,15 @@ class ManagerCephManagementAccessService:
             return self._deny(f"{label} is not available for this context")
 
         effective = EffectiveAccessService(self.db).resolve_user(actor)
-        context_kind = (
-            execution_context.context_kind
-            if isinstance(execution_context, S3ExecutionContext)
-            else "account"
+        resource = self._resolve_resource(
+            operation,
+            execution_context,
+            effective=effective,
+            policies=policies,
+            label=label,
         )
-        resource: S3Account | S3User | None = None
-
-        if context_kind == "account" and operation == "bucket_quota":
-            account_id = execution_context.id
-            if not isinstance(account_id, int) or account_id <= 0:
-                return self._deny(f"{label} is not available for this context")
-            link = effective.account_link_for(account_id)
-            if link is None or not EffectiveAccessService.manager_account_allowed(link):
-                return self._deny("Not authorized for this Manager context")
-            resource = self.db.scalar(
-                select(S3Account).where(S3Account.id == account_id)
-            )
-            if resource is None or not resolve_feature_policy(policies.bucket_quota_management, resource.allow_bucket_quota_management).enabled:
-                return self._deny("Bucket quota management is not enabled for this resource")
-        elif context_kind == "s3_user":
-            if not isinstance(execution_context, S3ExecutionContext):
-                return self._deny(f"{label} is not available for this context")
-            s3_user_id = execution_context.s3_user_id
-            if not isinstance(s3_user_id, int) or s3_user_id <= 0:
-                return self._deny(f"{label} is not available for this context")
-            if not effective.has_s3_user(s3_user_id):
-                return self._deny("Not authorized for this Manager context")
-            resource = self.db.scalar(
-                select(S3User).where(S3User.id == s3_user_id)
-            )
-            if resource is None:
-                return self._deny(f"{label} is not available for this context")
-            if operation == "bucket_quota" and not resolve_feature_policy(policies.bucket_quota_management, resource.allow_bucket_quota_management).enabled:
-                return self._deny("Bucket quota management is not enabled for this resource")
-            if operation == "rgw_access_keys" and not resolve_feature_policy(policies.ceph_s3_user_keys, resource.allow_access_key_management).enabled:
-                return self._deny("Ceph access key management is not enabled for this resource")
-        else:
-            return self._deny(f"{label} is not available for this context")
+        if isinstance(resource, ManagerCephManagementDecision):
+            return resource
 
         endpoint_id = resource.storage_endpoint_id
         endpoint = (
