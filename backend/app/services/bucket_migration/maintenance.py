@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import hashlib
+from typing import Callable
+
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.utils.time import utcnow
 from app.services.browser_service import BrowserService
@@ -61,6 +63,112 @@ class BucketMigrationMaintenanceMixin:
         self._commit()
         return migration
 
+    def _restore_migration_access(self, migration, source, target) -> list[str]:
+        errors: list[str] = []
+        self._recover_preparation_effects(migration)
+        errors.extend(
+            self._release_source_read_only_policies(
+                migration,
+                source,
+                verify_restored=True,
+            )
+        )
+        errors.extend(
+            self._release_target_write_locks(
+                migration,
+                target,
+                verify_restored=True,
+            )
+        )
+        for item in migration.items:
+            if not item.source_deleted:
+                item.cleanup_verification_json = None
+            elif not item.target_lock_applied:
+                # Deletion succeeded; only restoration had failed. A successful
+                # recovery resolves that separate outcome.
+                item.cleanup_status = "completed"
+                item.cleanup_error = None
+        if migration.status == "draft":
+            migration.preparation_status = "stale"
+            migration.checked_revision = None
+        return errors
+
+    @staticmethod
+    def _maintenance_item_selected(migration, item) -> bool:
+        if migration.maintenance_operation == "cleanup_source":
+            return item.status == "completed" and not item.source_deleted
+        return item.status == "failed" and item.target_created_by_migration
+
+    def _cleanup_failed_target(self, item, source, target, check: Callable[[], str]) -> None:
+        self._precheck_can_list_bucket(source, item.source_bucket)
+        if self._item_execution_strategy(item) == "version_aware":
+            self._precheck_version_aware_source_access(
+                source,
+                item.source_bucket,
+                _json_loads(item.source_snapshot_json),
+            )
+        if not item.target_lock_applied:
+            self._apply_target_write_lock_policy(target, item.target_bucket, item)
+        item.cleanup_status = "deleting"
+        item.cleanup_error = None
+        self._commit()
+        self._delete_maintenance_bucket(target, item.target_bucket, check)
+        if self._precheck_bucket_exists(target, item.target_bucket) is not False:
+            raise RuntimeError("Destination removal could not be verified")
+        self._remove_deleted_bucket_ui_tags(target, item.target_bucket)
+        item.target_created_by_migration = False
+        item.target_lock_applied = False
+        item.target_policy_backup_json = None
+        item.replication_state_json = None
+        item.pre_sync_done = False
+        item.step = "create_bucket"
+
+    def _run_cleanup_maintenance(self, migration, source, target, check: Callable[[], str]) -> list[str]:
+        errors: list[str] = []
+        for item in migration.items:
+            if not self._maintenance_item_selected(migration, item):
+                continue
+            try:
+                check()
+                if migration.maintenance_operation == "cleanup_source":
+                    self._cleanup_verified_source(migration, item, source, target, check)
+                else:
+                    self._cleanup_failed_target(item, source, target, check)
+                item.cleanup_status = "completed"
+                item.cleanup_error = None
+            except _WorkerLeaseLostError:
+                raise
+            except Exception as exc:
+                self.db.rollback()
+                item.cleanup_status = "failed"
+                item.cleanup_error = sanitized_error_log_detail(exc)
+                errors.append(f"{item.source_bucket}: {item.cleanup_error}")
+            self._assert_workflow_lease()
+            item.updated_at = utcnow()
+            self._commit()
+        return errors
+
+    def _finish_maintenance_run(self, migration, errors: list[str]) -> None:
+        # Recovery helpers retain their errors for the operator; they must not
+        # let an expired worker publish over a replacement worker's operation.
+        self._assert_workflow_lease()
+        migration.maintenance_status = "failed" if errors else "completed"
+        migration.maintenance_error = " | ".join(errors[:5]) if errors else None
+        migration.worker_lease_owner = None
+        migration.worker_lease_until = None
+        migration.updated_at = utcnow()
+        self._add_event(
+            migration,
+            level="warning" if errors else "info",
+            message=(
+                "Recovery operation needs attention."
+                if errors
+                else "Recovery operation completed."
+            ),
+            metadata={"operation": migration.maintenance_operation},
+        )
+        self._commit()
+
     def run_maintenance(
         self, migration_id: int, *, worker_id=None, lease_seconds=60
     ) -> None:
@@ -92,116 +200,23 @@ class BucketMigrationMaintenanceMixin:
             source = self._resolve_context(migration.source_context_id)
             target = self._resolve_context(migration.target_context_id)
             if migration.maintenance_operation == "restore_access":
-                self._recover_preparation_effects(migration)
-                errors.extend(
-                    self._release_source_read_only_policies(
-                        migration, source, verify_restored=True
-                    )
-                )
-                errors.extend(
-                    self._release_target_write_locks(
-                        migration, target, verify_restored=True
-                    )
-                )
-                for item in migration.items:
-                    if not item.source_deleted:
-                        item.cleanup_verification_json = None
-                    elif not item.target_lock_applied:
-                        # Deletion succeeded; only restoration had failed. A
-                        # successful recovery resolves that separate outcome.
-                        item.cleanup_status = "completed"
-                        item.cleanup_error = None
-                if migration.status == "draft":
-                    migration.preparation_status = "stale"
-                    migration.checked_revision = None
+                errors.extend(self._restore_migration_access(migration, source, target))
             else:
-                for item in migration.items:
-                    selected = (
-                        (item.status == "completed" and not item.source_deleted)
-                        if migration.maintenance_operation == "cleanup_source"
-                        else (
-                            item.status == "failed" and item.target_created_by_migration
-                        )
+                errors.extend(
+                    self._run_cleanup_maintenance(
+                        migration,
+                        source,
+                        target,
+                        check,
                     )
-                    if not selected:
-                        continue
-                    try:
-                        check()
-                        if migration.maintenance_operation == "cleanup_source":
-                            self._cleanup_verified_source(
-                                migration, item, source, target, check
-                            )
-                        else:
-                            self._precheck_can_list_bucket(source, item.source_bucket)
-                            if self._item_execution_strategy(item) == "version_aware":
-                                self._precheck_version_aware_source_access(
-                                    source,
-                                    item.source_bucket,
-                                    _json_loads(item.source_snapshot_json),
-                                )
-                            if not item.target_lock_applied:
-                                self._apply_target_write_lock_policy(
-                                    target, item.target_bucket, item
-                                )
-                            item.cleanup_status = "deleting"
-                            item.cleanup_error = None
-                            self._commit()
-                            self._delete_maintenance_bucket(
-                                target, item.target_bucket, check
-                            )
-                            if (
-                                self._precheck_bucket_exists(target, item.target_bucket)
-                                is not False
-                            ):
-                                raise RuntimeError(
-                                    "Destination removal could not be verified"
-                                )
-                            self._remove_deleted_bucket_ui_tags(
-                                target, item.target_bucket
-                            )
-                            item.target_created_by_migration = False
-                            item.target_lock_applied = False
-                            item.target_policy_backup_json = None
-                            item.replication_state_json = None
-                            item.pre_sync_done = False
-                            item.step = "create_bucket"
-                        item.cleanup_status = "completed"
-                        item.cleanup_error = None
-                    except _WorkerLeaseLostError:
-                        raise
-                    except Exception as exc:
-                        self.db.rollback()
-                        item.cleanup_status = "failed"
-                        item.cleanup_error = sanitized_error_log_detail(exc)
-                        errors.append(f"{item.source_bucket}: {item.cleanup_error}")
-                    self._assert_workflow_lease()
-                    item.updated_at = utcnow()
-                    self._commit()
+                )
         except _WorkerLeaseLostError:
             self.db.rollback()
             return
         except Exception as exc:
             self.db.rollback()
             errors.append(sanitized_error_log_detail(exc))
-        # Recovery helpers retain their errors for the operator; they must not
-        # let an expired worker publish over a replacement worker's operation.
-        self._assert_workflow_lease()
-        migration.maintenance_status = "failed" if errors else "completed"
-        migration.maintenance_error = " | ".join(errors[:5]) if errors else None
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        self._add_event(
-            migration,
-            level="warning" if errors else "info",
-            message=(
-                "Recovery operation needs attention."
-                if errors
-                else "Recovery operation completed."
-            ),
-            metadata={"operation": migration.maintenance_operation},
-        )
-        self._commit()
+        self._finish_maintenance_run(migration, errors)
 
     def _cleanup_fingerprint(
         self, context, bucket: str, *, strategy: str, check
