@@ -485,6 +485,89 @@ class BucketMigrationItemRunnerMixin:
                 break
         return total
 
+    def _same_endpoint_copy_probe_candidate(
+        self,
+        source_ctx: _ResolvedContext,
+        source_bucket: str,
+        *,
+        strategy: str,
+        source_profile: Optional[dict[str, Any]],
+    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        if strategy == "version_aware":
+            candidate = self._sample_version_probe_candidate(source_profile=source_profile)
+            if candidate is not None:
+                return candidate[0], candidate[1], None
+
+        source_client = self._context_client(source_ctx)
+        try:
+            page = source_client.list_objects_v2(Bucket=source_bucket, MaxKeys=1)
+        except (ClientError, BotoCoreError) as exc:
+            raise RuntimeError(
+                f"Unable to list source bucket '{source_bucket}' to validate x-amz-copy-source access: {exc}"
+            ) from exc
+
+        contents = page.get("Contents", []) if isinstance(page, dict) else []
+        sample_key = contents[0].get("Key") if contents and isinstance(contents[0], dict) else None
+        if isinstance(sample_key, str) and sample_key:
+            return sample_key, None, None
+
+        version_scan = source_profile.get("version_scan") if isinstance(source_profile, dict) else None
+        delete_markers_only = (
+            strategy == "version_aware"
+            and isinstance(version_scan, dict)
+            and int(version_scan.get("current_version_count") or 0) == 0
+            and int(version_scan.get("noncurrent_version_count") or 0) == 0
+            and int(version_scan.get("delete_marker_count") or 0) > 0
+        )
+        return None, None, "validated" if delete_markers_only else "source_empty"
+
+    def _validate_same_endpoint_copy_target_access(
+        self,
+        source_ctx: _ResolvedContext,
+        target_ctx: _ResolvedContext,
+        source_bucket: str,
+        *,
+        sample_key: str,
+        sample_version_id: Optional[str],
+        auto_grant: bool,
+    ) -> str:
+        target_client = self._context_client(target_ctx)
+        head_kwargs: dict[str, Any] = {"Bucket": source_bucket, "Key": sample_key}
+        if sample_version_id:
+            head_kwargs["VersionId"] = sample_version_id
+
+        try:
+            target_client.head_object(**head_kwargs)
+            return "validated"
+        except (ClientError, BotoCoreError) as exc:
+            if not self._is_access_denied_error(exc):
+                raise RuntimeError(
+                    f"Unable to validate target access to sample source object '{sample_key}' in bucket "
+                    f"'{source_bucket}' for x-amz-copy-source: {exc}"
+                ) from exc
+            if not auto_grant:
+                permission_hint = "s3:GetObjectVersion" if sample_version_id else "s3:GetObject"
+                raise RuntimeError(
+                    "Target context cannot read source objects required for x-amz-copy-source. "
+                    f"Grant {permission_hint} on source bucket '{source_bucket}'."
+                ) from exc
+
+            try:
+                with self._temporary_source_copy_grant(
+                    source_ctx,
+                    target_ctx,
+                    source_bucket=source_bucket,
+                    sample_key=sample_key,
+                    sample_version_id=sample_version_id,
+                ):
+                    target_client.head_object(**head_kwargs)
+            except Exception as grant_exc:  # noqa: BLE001
+                raise RuntimeError(
+                    "Unable to validate temporary same-endpoint source-read grant for x-amz-copy-source: "
+                    f"{grant_exc}"
+                ) from grant_exc
+            return "validated_with_temporary_grant"
+
     def _precheck_same_endpoint_copy_source_access(
         self,
         source_ctx: _ResolvedContext,
@@ -495,72 +578,23 @@ class BucketMigrationItemRunnerMixin:
         strategy: str = "current_only",
         source_profile: Optional[dict[str, Any]] = None,
     ) -> str:
-        source_client = self._context_client(source_ctx)
-        target_client = self._context_client(target_ctx)
-
-        sample_key: Optional[str] = None
-        sample_version_id: Optional[str] = None
-        if strategy == "version_aware":
-            candidate = self._sample_version_probe_candidate(source_profile=source_profile)
-            if candidate is not None:
-                sample_key, sample_version_id = candidate
-
-        if not sample_key:
-            try:
-                page = source_client.list_objects_v2(Bucket=source_bucket, MaxKeys=1)
-            except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(
-                    f"Unable to list source bucket '{source_bucket}' to validate x-amz-copy-source access: {exc}"
-                ) from exc
-
-            contents = page.get("Contents", []) if isinstance(page, dict) else []
-            sample_key = contents[0].get("Key") if contents and isinstance(contents[0], dict) else None
-            if not isinstance(sample_key, str) or not sample_key:
-                version_scan = source_profile.get("version_scan") if isinstance(source_profile, dict) else None
-                if (
-                    strategy == "version_aware"
-                    and isinstance(version_scan, dict)
-                    and int(version_scan.get("current_version_count") or 0) == 0
-                    and int(version_scan.get("noncurrent_version_count") or 0) == 0
-                    and int(version_scan.get("delete_marker_count") or 0) > 0
-                ):
-                    return "validated"
-                return "source_empty"
-
-        head_kwargs: dict[str, Any] = {"Bucket": source_bucket, "Key": sample_key}
-        if sample_version_id:
-            head_kwargs["VersionId"] = sample_version_id
-
-        try:
-            target_client.head_object(**head_kwargs)
-            return "validated"
-        except (ClientError, BotoCoreError) as exc:
-            if self._is_access_denied_error(exc):
-                if not auto_grant:
-                    permission_hint = "s3:GetObjectVersion" if sample_version_id else "s3:GetObject"
-                    raise RuntimeError(
-                        "Target context cannot read source objects required for x-amz-copy-source. "
-                        f"Grant {permission_hint} on source bucket '{source_bucket}'."
-                    ) from exc
-                try:
-                    with self._temporary_source_copy_grant(
-                        source_ctx,
-                        target_ctx,
-                        source_bucket=source_bucket,
-                        sample_key=sample_key,
-                        sample_version_id=sample_version_id,
-                    ):
-                        target_client.head_object(**head_kwargs)
-                except Exception as grant_exc:  # noqa: BLE001
-                    raise RuntimeError(
-                        "Unable to validate temporary same-endpoint source-read grant for x-amz-copy-source: "
-                        f"{grant_exc}"
-                    ) from grant_exc
-                return "validated_with_temporary_grant"
-            raise RuntimeError(
-                f"Unable to validate target access to sample source object '{sample_key}' in bucket "
-                f"'{source_bucket}' for x-amz-copy-source: {exc}"
-            ) from exc
+        sample_key, sample_version_id, empty_result = self._same_endpoint_copy_probe_candidate(
+            source_ctx,
+            source_bucket,
+            strategy=strategy,
+            source_profile=source_profile,
+        )
+        if empty_result is not None:
+            return empty_result
+        assert sample_key is not None  # guarded by empty_result
+        return self._validate_same_endpoint_copy_target_access(
+            source_ctx,
+            target_ctx,
+            source_bucket,
+            sample_key=sample_key,
+            sample_version_id=sample_version_id,
+            auto_grant=auto_grant,
+        )
 
     def _precheck_bucket_exists(self, target_ctx: _ResolvedContext, target_bucket: str) -> Optional[bool]:
         client = self._context_client(target_ctx)
