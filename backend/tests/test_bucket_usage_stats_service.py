@@ -78,6 +78,7 @@ def _dist(snapshot, key: str, distribution: str = "data_type_distribution"):
     [
         ("", "unknown"),
         ("folder/", "unknown"),
+        ("  Docs/REPORT.PDF  ", "documents"),
         ("exports/monthly-backup.zip", "backups"),
         ("exports/database.sql.gz", "backups"),
         ("exports/archive.zip", "archives"),
