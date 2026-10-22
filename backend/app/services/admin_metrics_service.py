@@ -98,6 +98,13 @@ class _AssignmentCounts:
         return max(self.total - self.assigned, 0)
 
 
+@dataclass(frozen=True)
+class _DashboardBucketCollection:
+    buckets: list[dict]
+    failures: list[str]
+    successful_listings: int
+
+
 @dataclass
 class _BucketUsageIndex:
     entries_by_owner: dict[str, list[_OwnerUsage]]
@@ -297,75 +304,110 @@ class AdminMetricsService:
         Supervision identity's buckets/usage capabilities.
         """
         accounts, users, allowed = self._load_scope_targets()
+        collection = self._collect_dashboard_buckets(accounts, users, allowed)
+        return self._dashboard_storage_payload(collection)
 
-        def fetch_buckets(uid: str | None = None) -> list[dict]:
-            kwargs = {"with_stats": True}
-            if uid is not None:
-                kwargs["uid"] = uid
-            payload = self.rgw_admin.get_all_buckets(**kwargs)
-            if not isinstance(payload, list) and not (
-                isinstance(payload, dict) and isinstance(payload.get("buckets"), list)
-            ):
-                raise RGWAdminError("Bucket measurements are unavailable: invalid listing response.")
-            buckets = extract_bucket_list(payload)
-            if any(not (bucket.get("bucket") or bucket.get("name")) for bucket in buckets):
-                raise RGWAdminError("Bucket listing contains an unnamed bucket.")
-            return buckets
+    def _collect_dashboard_buckets(
+        self,
+        accounts: Iterable[S3Account],
+        users: Iterable[S3User],
+        allowed: set[str],
+    ) -> _DashboardBucketCollection:
+        if not allowed:
+            return _DashboardBucketCollection(
+                buckets=[], failures=[], successful_listings=1
+            )
 
+        try:
+            buckets = self._filter_buckets(self._fetch_dashboard_buckets(), allowed)
+            return _DashboardBucketCollection(
+                buckets=buckets, failures=[], successful_listings=1
+            )
+        except RGWAdminError:
+            pass
+
+        # Account roots and registered users can overlap. List each principal
+        # once and count each returned bucket only once.
+        identifiers = {
+            rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account))
+            for account in accounts
+        } | {
+            rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user))
+            for user in users
+        }
         failures: list[str] = []
         successful_listings = 0
-        if not allowed:
-            buckets = []
-            successful_listings = 1
-        else:
+        unique_buckets: dict[tuple, dict] = {}
+        for uid in sorted(value for value in identifiers if value):
             try:
-                buckets = self._filter_buckets(fetch_buckets(), allowed)
-                successful_listings = 1
-            except RGWAdminError:
-                # Account roots and registered users can overlap. List each
-                # principal once and count each returned bucket only once.
-                identifiers = {
-                    rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account))
-                    for account in accounts
-                } | {rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)) for user in users}
-                unique_buckets: dict[tuple, dict] = {}
-                for uid in sorted(value for value in identifiers if value):
-                    try:
-                        principal_buckets = fetch_buckets(uid)
-                        successful_listings += 1
-                        for bucket in principal_buckets:
-                            name = bucket.get("bucket") or bucket.get("name")
-                            key = (bucket.get("tenant") or "", name)
-                            unique_buckets[key] = bucket
-                    except RGWAdminError as exc:
-                        failures.append(sanitized_error_log_detail(exc))
-                buckets = list(unique_buckets.values())
+                principal_buckets = self._fetch_dashboard_buckets(uid)
+                successful_listings += 1
+                for bucket in principal_buckets:
+                    name = bucket.get("bucket") or bucket.get("name")
+                    key = (bucket.get("tenant") or "", name)
+                    unique_buckets[key] = bucket
+            except RGWAdminError as exc:
+                failures.append(sanitized_error_log_detail(exc))
+        return _DashboardBucketCollection(
+            buckets=list(unique_buckets.values()),
+            failures=failures,
+            successful_listings=successful_listings,
+        )
 
-        def dashboard_usage(bucket: dict) -> tuple[int | None, int | None]:
-            usage = bucket.get("usage")
-            # RGW represents a successfully measured empty bucket as an empty
-            # usage map. Keep missing/incomplete payloads unknown, but count an
-            # explicit empty map as a real zero measurement.
-            if usage == {}:
-                return 0, 0
-            return extract_usage_stats(usage)
+    def _fetch_dashboard_buckets(self, uid: str | None = None) -> list[dict]:
+        kwargs = {"with_stats": True}
+        if uid is not None:
+            kwargs["uid"] = uid
+        payload = self.rgw_admin.get_all_buckets(**kwargs)
+        if not isinstance(payload, list) and not (
+            isinstance(payload, dict) and isinstance(payload.get("buckets"), list)
+        ):
+            raise RGWAdminError(
+                "Bucket measurements are unavailable: invalid listing response."
+            )
+        buckets = extract_bucket_list(payload)
+        if any(not (bucket.get("bucket") or bucket.get("name")) for bucket in buckets):
+            raise RGWAdminError("Bucket listing contains an unnamed bucket.")
+        return buckets
 
+    @staticmethod
+    def _dashboard_usage(bucket: dict) -> tuple[int | None, int | None]:
+        usage = bucket.get("usage")
+        # RGW represents a successfully measured empty bucket as an empty
+        # usage map. Keep missing/incomplete payloads unknown, but count an
+        # explicit empty map as a real zero measurement.
+        if usage == {}:
+            return 0, 0
+        return extract_usage_stats(usage)
+
+    @classmethod
+    def _dashboard_storage_payload(
+        cls,
+        collection: _DashboardBucketCollection,
+    ) -> dict:
+        buckets = collection.buckets
+        successful_listings = collection.successful_listings
+        failures = collection.failures
         totals = _BucketUsageIndex.build(buckets).totals
+        measured = [cls._dashboard_usage(bucket) for bucket in buckets]
         fields = {
             "bucket_count": totals.total_buckets if successful_listings else None,
             "used_bytes": totals.used_bytes if totals.has_bytes else (0 if not buckets and successful_listings else None),
             "object_count": totals.object_count if totals.has_objects else (0 if not buckets and successful_listings else None),
         }
         if successful_listings:
-            measured = [dashboard_usage(bucket) for bucket in buckets]
             if buckets and not totals.has_bytes and all(used_bytes == 0 for used_bytes, _ in measured):
                 fields["used_bytes"] = 0
             if buckets and not totals.has_objects and all(object_count == 0 for _, object_count in measured):
                 fields["object_count"] = 0
         complete = {
             "bucket_count": bool(successful_listings) and not failures,
-            "used_bytes": bool(successful_listings) and not failures and all(dashboard_usage(b)[0] is not None for b in buckets),
-            "object_count": bool(successful_listings) and not failures and all(dashboard_usage(b)[1] is not None for b in buckets),
+            "used_bytes": bool(successful_listings)
+            and not failures
+            and all(used_bytes is not None for used_bytes, _ in measured),
+            "object_count": bool(successful_listings)
+            and not failures
+            and all(object_count is not None for _, object_count in measured),
         }
         missing = [key for key, value in complete.items() if not value]
         reason = "; ".join(dict.fromkeys(failures))
