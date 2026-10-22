@@ -24,14 +24,12 @@ import {
   updateCephAdminUserKeyStatus,
 } from "../../api/cephAdminUserKeys";
 import AddS3ConnectionFromKeyModal from "../../components/AddS3ConnectionFromKeyModal";
-import WorkflowPage from "../../components/WorkflowPage";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
-import PageTabs from "../../components/PageTabs";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import { CephAdminUserProfileFields, CephAdminUserFlags, CephAdminUserCapsFields } from "./CephAdminUserFormFields";
@@ -47,9 +45,13 @@ import { canCreateManualPrivateConnections, readStoredUser } from "../../utils/w
 import { buildCephConnectionDefaults } from "../shared/s3ConnectionFromKey";
 import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { buildCephAdminQuotaPatch } from "./quotaPatch";
-import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { parseOptionalNonNegativeInteger, parseQuotaBytes, quotaBytesToForm, type CephAdminQuotaUnit } from "./quotaForm";
 import { useCephAdminI18n } from "./cephAdminI18n";
+import DetailsDrawerNavigation, {
+  guardDetailsDrawerNavigation,
+  type DetailsDrawerNavigationState,
+} from "../shared/DetailsDrawerNavigation";
+import DetailsDrawerShell from "../shared/DetailsDrawerShell";
 
 type Props = {
   endpointId: number;
@@ -58,6 +60,7 @@ type Props = {
   tenant?: string | null;
   expectedAccountId?: string | null;
   canViewMetrics?: boolean;
+  navigation?: DetailsDrawerNavigationState;
   onClose: () => void;
   onSaved?: (detail: CephAdminRgwUserDetail) => void;
 };
@@ -85,6 +88,7 @@ export default function CephAdminUserEditModal({
   tenant,
   expectedAccountId,
   canViewMetrics = true,
+  navigation,
   onClose,
   onSaved,
 }: Props) {
@@ -729,11 +733,33 @@ export default function CephAdminUserEditModal({
   );
 
   const tabs = [
-    { id: "overview", label: surfaceText("Overview"), content: overviewTab },
-    { id: "ceph", label: "Ceph Admin", content: cephTab },
-    { id: "s3", label: surfaceText("Key Management"), content: s3Tab },
-    ...(canViewMetrics ? [{ id: "metrics", label: surfaceText("Metrics"), content: metricsTab }] : []),
+    { id: "overview", label: surfaceText("Overview") },
+    { id: "ceph", label: "Ceph Admin" },
+    { id: "s3", label: surfaceText("Key Management") },
+    ...(canViewMetrics ? [{ id: "metrics", label: surfaceText("Metrics") }] : []),
   ];
+  const activeContent =
+    activeTab === "ceph"
+      ? cephTab
+      : activeTab === "s3"
+        ? s3Tab
+        : activeTab === "metrics"
+          ? metricsTab
+          : overviewTab;
+  const guardedNavigation = guardDetailsDrawerNavigation(
+    navigation,
+    formController.requestTransition,
+  );
+  const navigationActions = guardedNavigation ? (
+    <DetailsDrawerNavigation
+      navigation={guardedNavigation}
+      labels={{
+        group: surfaceText("Loaded users"),
+        previous: surfaceText("Previous user"),
+        next: surfaceText("Next user"),
+      }}
+    />
+  ) : undefined;
   const addConnectionDefaults = useMemo(() => {
     if (!createdKey) return null;
     return buildCephConnectionDefaults(uid, createdKey.access_key, {
@@ -743,50 +769,49 @@ export default function CephAdminUserEditModal({
   }, [createdKey, detail?.account_id, tenant, uid]);
 
   return <>
-    <WorkflowPage
-      title={`${surfaceText("Configure user")} · ${identityLabel}`}
-      description={surfaceText("Manage this RGW user’s configuration, access keys, capabilities and metrics.")}
-      breadcrumbs={cephAdminPageBreadcrumbs("users", { label: identityLabel })}
-      backLabel={surfaceText("Back to users")}
-      onBack={formController.requestClose}
-      backDisabled={formController.locked}
-      contentClassName="min-w-0"
-      contentVariant="plain"
+    <DetailsDrawerShell
+      title={identityLabel}
+      subtitle={
+        <p className="ui-caption text-[var(--ui-text-muted)]">
+          {surfaceText("RGW user settings")}
+        </p>
+      }
+      actions={navigationActions}
+      activeTab={activeTab}
+      tabs={tabs}
+      tabsAriaLabel={surfaceText("User configuration sections")}
+      onTabChange={(tab) => setActiveTab(tab as TabId)}
+      returnFocus={navigation?.returnFocus}
+      onClose={formController.requestClose}
+      width="wide"
     >
-      <PageTabs
-        tabs={tabs}
-        activeTab={activeTab}
-        onChange={(tab) => setActiveTab(tab as TabId)}
-        variant="line"
-        ariaLabel={surfaceText("User configuration sections")}
-        idPrefix="ceph-admin-user-editor"
+      {activeContent}
+    </DetailsDrawerShell>
+    {canAddAsS3Connection && showAddConnectionModal && createdKey && addConnectionDefaults && (
+      <AddS3ConnectionFromKeyModal
+        isOpen={showAddConnectionModal}
+        title={surfaceText("Add this key as S3 Connection")}
+        zIndexClass="z-[60]"
+        lockEndpoint
+        accessKeyId={createdKey.access_key}
+        secretAccessKey={createdKey.secret_key}
+        defaultName={addConnectionDefaults.name}
+        defaultEndpointId={endpointId}
+        defaultEndpointUrl={endpointUrl ?? null}
+        defaultProviderHint="ceph"
+        defaultAccessManager={false}
+        defaultAccessBrowser
+        defaultRgwUserUid={addConnectionDefaults.rgwIdentity.userUid}
+        defaultRgwTenant={addConnectionDefaults.rgwIdentity.tenant}
+        defaultRgwAccountId={addConnectionDefaults.rgwIdentity.accountId}
+        onClose={() => setShowAddConnectionModal(false)}
+        onCreated={() => {
+          setKeysStatus(surfaceText("S3 connection created."));
+          setKeysError(null);
+        }}
       />
-      {canAddAsS3Connection && showAddConnectionModal && createdKey && addConnectionDefaults && (
-        <AddS3ConnectionFromKeyModal
-          isOpen={showAddConnectionModal}
-          title={surfaceText("Add this key as S3 Connection")}
-          zIndexClass="z-[60]"
-          lockEndpoint
-          accessKeyId={createdKey.access_key}
-          secretAccessKey={createdKey.secret_key}
-          defaultName={addConnectionDefaults.name}
-          defaultEndpointId={endpointId}
-          defaultEndpointUrl={endpointUrl ?? null}
-          defaultProviderHint="ceph"
-          defaultAccessManager={false}
-          defaultAccessBrowser
-          defaultRgwUserUid={addConnectionDefaults.rgwIdentity.userUid}
-          defaultRgwTenant={addConnectionDefaults.rgwIdentity.tenant}
-          defaultRgwAccountId={addConnectionDefaults.rgwIdentity.accountId}
-          onClose={() => setShowAddConnectionModal(false)}
-          onCreated={() => {
-            setKeysStatus(surfaceText("S3 connection created."));
-            setKeysError(null);
-          }}
-        />
-      )}
-      {keyConfirmation.confirmationDialog}
-    </WorkflowPage>
+    )}
+    {keyConfirmation.confirmationDialog}
     {formController.confirmationDialog}
     {formController.navigationGuard}
   </>;

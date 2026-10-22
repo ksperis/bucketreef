@@ -68,6 +68,7 @@ import { readClientJsonFromKey, writeClientJsonToKey } from "../../utils/clientS
 import { formatBytes, formatNumber } from "../../utils/format";
 import { nextSortState } from "../../utils/sortValues";
 import { useCephAdminI18n } from "./cephAdminI18n";
+import { useCephAdminUserConfigurationNavigation } from "./useCephAdminEntityConfigurationNavigation";
 
 type ColumnId =
   | "tenant"
@@ -279,7 +280,6 @@ const persistVisibleColumns = (value: ColumnId[]) => {
 };
 
 const rowKey = (user: CephAdminRgwUser) => `${user.tenant ?? ""}:${user.uid}`;
-type EditingTarget = CephAdminRgwUser & { expectedAccountId?: string | null };
 const bucketOwnerFilterForUser = (user: CephAdminRgwUser) => {
   const uid = user.uid.trim();
   if (!uid) return null;
@@ -292,7 +292,6 @@ export default function CephAdminUsersPage() {
   const navigate = useNavigate();
   const { selectedEndpointId, selectedEndpoint, selectedEndpointAccess } = useCephAdminEndpoint();
   const canViewMetrics = Boolean(selectedEndpointAccess?.can_metrics) && (selectedEndpoint?.capabilities?.metrics !== false);
-  const [editingTarget, setEditingTarget] = useState<EditingTarget | null>(null);
   const [deletingTarget, setDeletingTarget] = useState<CephAdminRgwUser | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -328,7 +327,6 @@ export default function CephAdminUsersPage() {
   useEffect(() => {
     setSort(DEFAULT_SORT);
     setShowCreateModal(false);
-    setEditingTarget(null);
   }, [selectedEndpointId]);
 
   const includeParams = useMemo(() => {
@@ -368,6 +366,18 @@ export default function CephAdminUsersPage() {
       streamEntities: streamCephAdminUsers,
       entityKey: rowKey,
     });
+  const accountScopeLoaded = includeParams.includes("account") && !loadingDetails;
+  const {
+    closeConfiguration,
+    configurationNavigation,
+    configurationTarget,
+    openConfiguration,
+    viewedRowKey,
+  } = useCephAdminUserConfigurationNavigation({
+    items,
+    selectedEndpointId,
+    accountScopeLoaded,
+  });
 
   const toggleColumn = (id: ColumnId) => {
     setVisibleColumns((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
@@ -685,16 +695,6 @@ export default function CephAdminUsersPage() {
     }));
   };
 
-  const configureUser = (user: CephAdminRgwUser) => {
-    // The base listing omits account details. Its null account_id means "unknown"
-    // until the optional account enrichment has finished.
-    const accountLoaded = includeParams.includes("account") && !loadingDetails;
-    setEditingTarget({
-      ...user,
-      expectedAccountId: user.account_id ?? (accountLoaded ? null : undefined),
-    });
-  };
-
   type ColumnDef = DataTableColumn<CephAdminRgwUser, SortField>;
 
   const detailPlaceholder = loadingDetails ? surfaceText("Loading...") : "-";
@@ -813,7 +813,12 @@ export default function CephAdminUsersPage() {
         const isActiveIdentity = owner === activeRgwUserId;
         return (
           <ListActions>
-            <ListActionButton {...dataTableDefaultActionProps} onClick={() => configureUser(user)}>
+            <ListActionButton
+              {...dataTableDefaultActionProps}
+              data-ceph-admin-configure-row-key={rowKey(user)}
+              aria-current={viewedRowKey === rowKey(user) ? "true" : undefined}
+              onClick={() => openConfiguration(user)}
+            >
               {surfaceText("Configure")}</ListActionButton>
             <UiActionMenu
               ariaLabel={surfaceText("More actions for RGW user {uid}", { uid: owner ?? user.uid })}
@@ -851,7 +856,7 @@ export default function CephAdminUsersPage() {
   });
 
   return (
-    <div className={workflowPageHostClass(showCreateModal || Boolean(editingTarget))}>
+    <div className={workflowPageHostClass(showCreateModal)}>
       <PageHeader actionPresentation="listing"
         title={surfaceText("RGW Users")}
         description={surfaceText("Complete list of RGW users (admin ops).")}
@@ -1128,6 +1133,10 @@ export default function CephAdminUsersPage() {
             columns={userTableColumns}
             rows={items}
             rowKey={rowKey}
+            rowClassName="ui-current-item"
+            rowAttributes={(user) => ({
+              "data-viewed": viewedRowKey === rowKey(user) || undefined,
+            })}
             status={tableStatus}
             loadingMessage="Loading users..."
             errorMessage="Unable to load users."
@@ -1153,15 +1162,16 @@ export default function CephAdminUsersPage() {
         </ListPageSection>
       )}
 
-      {selectedEndpointId && editingTarget && (
+      {selectedEndpointId && configurationTarget && (
         <CephAdminUserEditModal
           endpointId={selectedEndpointId}
           endpointUrl={selectedEndpoint?.endpoint_url ?? null}
-          uid={editingTarget.uid}
-          tenant={editingTarget.tenant}
-          expectedAccountId={editingTarget.expectedAccountId}
+          uid={configurationTarget.uid}
+          tenant={configurationTarget.tenant}
+          expectedAccountId={configurationTarget.expectedAccountId}
           canViewMetrics={canViewMetrics}
-          onClose={() => setEditingTarget(null)}
+          navigation={configurationNavigation}
+          onClose={closeConfiguration}
           onSaved={applyUpdatedUser}
         />
       )}

@@ -65,8 +65,10 @@ describe("ObjectDetailsDrawer", () => {
     render(<ObjectDetailsDrawer name="one.txt" path="one.txt" copyPathLabel="Copy" moreLabel="More" onCopyPath={vi.fn()} onClose={vi.fn()} navigation={{ next, position: "1 / 2" }} activeTab="preview" tabs={[{ id: "preview", label: "Preview" }, { id: "details", label: "Details" }]} onTabChange={vi.fn()} primaryAction={{ label: "Download", onSelect: vi.fn() }}>Text</ObjectDetailsDrawer>);
     const navigation = screen.getByRole("group", { name: "Loaded files" });
     const tabList = screen.getByRole("tablist", { name: "Details views" });
-    expect(tabList.parentElement).toContainElement(navigation);
-    expect(tabList.parentElement).not.toContainElement(screen.getByRole("button", { name: "Download" }));
+    const header = navigation.closest("header");
+    expect(header).toContainElement(navigation);
+    expect(header).toContainElement(screen.getByRole("button", { name: "Download" }));
+    expect(tabList.parentElement).not.toContainElement(navigation);
     expect(within(navigation).getByRole("button", { name: "Previous object" })).toBeDisabled();
     fireEvent.click(within(navigation).getByRole("button", { name: "Next object" }));
     expect(next).toHaveBeenCalledOnce();

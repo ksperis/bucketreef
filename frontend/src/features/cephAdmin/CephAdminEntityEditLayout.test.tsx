@@ -81,7 +81,7 @@ describe("Ceph Admin entity editor layout", () => {
     });
   });
 
-  it("uses one unframed account page with bar tabs and no repeated entity title", async () => {
+  it("uses the wide shared drawer for RGW account configuration", async () => {
     const { container } = render(
       <MemoryRouter>
         <CephAdminAccountEditModal
@@ -94,8 +94,10 @@ describe("Ceph Admin entity editor layout", () => {
     );
 
     expect(await screen.findByText("Analytics")).toBeInTheDocument();
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.queryByRole("heading", { name: "Account RGW12345678901234567" })).not.toBeInTheDocument();
+    const drawer = screen.getByRole("complementary", { name: "RGW12345678901234567" });
+    expect(drawer).toHaveClass("lg:w-[min(64rem,calc(100vw-24rem))]");
+    expect(screen.getByRole("heading", { level: 2, name: "RGW12345678901234567" })).toBeInTheDocument();
+    expect(screen.getByText("RGW account settings")).toBeInTheDocument();
     expect(screen.getByRole("tablist", { name: "Account configuration sections" })).toBeInTheDocument();
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Analytics");
     expect(container.querySelector(".workflow-page > .rounded-lg.border")).not.toBeInTheDocument();
@@ -104,7 +106,7 @@ describe("Ceph Admin entity editor layout", () => {
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Account name");
   });
 
-  it("uses the same page hierarchy for RGW user configuration", async () => {
+  it("uses the same wide drawer hierarchy for RGW user configuration", async () => {
     const { container } = render(
       <MemoryRouter>
         <CephAdminUserEditModal
@@ -117,8 +119,10 @@ describe("Ceph Admin entity editor layout", () => {
     );
 
     expect(await screen.findByText("analytics-user@example.com")).toBeInTheDocument();
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.queryByRole("heading", { name: "User analytics-user" })).not.toBeInTheDocument();
+    const drawer = screen.getByRole("complementary", { name: "analytics-user" });
+    expect(drawer).toHaveClass("lg:w-[min(64rem,calc(100vw-24rem))]");
+    expect(screen.getByRole("heading", { level: 2, name: "analytics-user" })).toBeInTheDocument();
+    expect(screen.getByText("RGW user settings")).toBeInTheDocument();
     expect(screen.getByRole("tablist", { name: "User configuration sections" })).toBeInTheDocument();
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Analytics");
     expect(container.querySelector(".workflow-page > .rounded-lg.border")).not.toBeInTheDocument();
@@ -126,6 +130,28 @@ describe("Ceph Admin entity editor layout", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Ceph Admin" }));
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Display name");
     expect(screen.queryByRole("heading", { name: "Admin Ops configuration" })).not.toBeInTheDocument();
+  });
+
+  it("places loaded-entity navigation in the drawer header", async () => {
+    const next = vi.fn();
+    render(
+      <MemoryRouter>
+        <CephAdminAccountEditModal
+          endpointId={7}
+          accountId="RGW12345678901234567"
+          canViewMetrics={false}
+          navigation={{ next, position: "1 / 2" }}
+          onClose={() => undefined}
+        />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Analytics")).toBeInTheDocument();
+    const navigation = screen.getByRole("group", { name: "Loaded accounts" });
+    expect(navigation).toHaveTextContent("1 / 2");
+    expect(navigation.closest("header")).toContainElement(navigation);
+    fireEvent.click(screen.getByRole("button", { name: "Next account" }));
+    expect(next).toHaveBeenCalledOnce();
   });
 
   it("hides Add as S3 Connection in RGW user key management without manual permission", async () => {

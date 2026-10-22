@@ -96,8 +96,9 @@ export default function ObjectDetailsDrawer({
         </div>
       }
       actions={
-        primaryAction || secondaryActions.length > 0 ? (
+        navigationActions || primaryAction || secondaryActions.length > 0 ? (
           <>
+            {navigationActions}
             {primaryAction ? (
               <UiButton
                 size="sm"
@@ -138,7 +139,6 @@ export default function ObjectDetailsDrawer({
       }
       activeTab={activeTab}
       tabs={tabs}
-      tabActions={navigationActions}
       tabsAriaLabel={tabsAriaLabel}
       notice={notice}
       onClose={onClose}

@@ -125,7 +125,9 @@ navigation keeps its separate left-drawer presentation.
 Topbar utility hints use a portal above desktop contextual details, below modal
 filters and mobile drawers; Escape dismisses a visible hint before its drawer.
 For object details, place previous/next object navigation and the loaded-list
-position beside the tabs, separate from Download/More in the title row. Use
+position in the title row beside Download/More and the close action. Bucket
+configuration drawers use the same header placement so navigation does not
+create a dedicated row above the content. Use
 compact icon buttons with accessible labels and preserve keyboard access and
 disabled states at the list boundaries.
 Mark the currently viewed object independently from checkbox selection and keyboard

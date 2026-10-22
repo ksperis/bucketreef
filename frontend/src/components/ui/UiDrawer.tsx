@@ -103,7 +103,7 @@ export default function UiDrawer({
       role="presentation"
       data-modal={modal}
       className={cx(
-        "fixed z-[46]",
+        "fixed z-[46] !m-0",
         workspace && "ui-workspace-drawer",
         !showBackdrop && "pointer-events-none",
         rootClassName,

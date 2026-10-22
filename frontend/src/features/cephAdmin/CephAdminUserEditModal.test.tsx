@@ -120,7 +120,7 @@ describe("RGW user configuration form", () => {
     fireEvent.submit(form);
     for (const field of form.querySelectorAll("input, select, textarea")) expect(field).toBeDisabled();
     fireEvent.submit(form);
-    fireEvent.click(screen.getByRole("button", { name: "Back to users" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close details" }));
     expect(updateConfig).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
     await act(async () => rejectRequest(new Error("RGW refused the update")));
@@ -129,6 +129,29 @@ describe("RGW user configuration form", () => {
     fireEvent.submit(form);
     await waitFor(() => expect(updateConfig).toHaveBeenCalledTimes(2));
     expect(updateConfig.mock.calls[1]).toEqual(updateConfig.mock.calls[0]);
+  });
+
+  it("guards drawer navigation while the user configuration is dirty", async () => {
+    const next = vi.fn();
+    render(
+      <CephAdminUserEditModal
+        endpointId={7}
+        uid="alice"
+        tenant="tenant-a"
+        canViewMetrics={false}
+        navigation={{ next, position: "1 / 2" }}
+        onClose={vi.fn()}
+      />
+    );
+    await screen.findByText("alice@example.com");
+    fireEvent.click(screen.getByRole("tab", { name: "Ceph Admin" }));
+    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Alice Ops" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Next user" }));
+    expect(next).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
+    expect(next).toHaveBeenCalledOnce();
   });
 
   it("does not allow configuration without successfully loaded user details", async () => {

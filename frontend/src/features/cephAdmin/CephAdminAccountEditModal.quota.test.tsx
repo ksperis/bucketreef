@@ -126,7 +126,7 @@ describe("RGW account configuration", () => {
     fireEvent.submit(form);
     for (const field of form.querySelectorAll("input,select")) expect(field).toBeDisabled();
     fireEvent.submit(form);
-    fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close details" }));
     expect(updateConfig).toHaveBeenCalledOnce();
     expect(onClose).not.toHaveBeenCalled();
     await act(async () => rejectRequest(new Error("Account update refused")));

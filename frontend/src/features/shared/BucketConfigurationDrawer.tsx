@@ -8,6 +8,7 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 import { useI18n } from "../../i18n";
 import { BucketDetailContent } from "../manager/BucketDetailPage";
 import DetailsDrawerNavigation, {
+  guardDetailsDrawerNavigation,
   type DetailsDrawerNavigationState,
 } from "./DetailsDrawerNavigation";
 import DetailsDrawerShell from "./DetailsDrawerShell";
@@ -77,16 +78,7 @@ export default function BucketConfigurationDrawer({
   );
 
   const guardedNavigation = useMemo<DetailsDrawerNavigationState | undefined>(() => {
-    if (!navigation) return undefined;
-    return {
-      ...navigation,
-      previous: navigation.previous
-        ? () => requestTransition(navigation.previous!)
-        : undefined,
-      next: navigation.next
-        ? () => requestTransition(navigation.next!)
-        : undefined,
-    };
+    return guardDetailsDrawerNavigation(navigation, requestTransition);
   }, [navigation, requestTransition]);
 
   const navigationActions = guardedNavigation ? (
@@ -128,7 +120,7 @@ export default function BucketConfigurationDrawer({
           })}
         </p>
       }
-      tabActions={navigationActions}
+      actions={navigationActions}
       returnFocus={navigation?.returnFocus}
       onClose={() => requestTransition(onClose)}
       width="wide"

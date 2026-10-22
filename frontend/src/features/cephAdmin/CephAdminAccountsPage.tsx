@@ -67,6 +67,7 @@ import { readClientJsonFromKey, writeClientJsonToKey } from "../../utils/clientS
 import { formatBytes, formatNumber } from "../../utils/format";
 import { nextSortState } from "../../utils/sortValues";
 import { useCephAdminI18n } from "./cephAdminI18n";
+import { useCephAdminAccountConfigurationNavigation } from "./useCephAdminEntityConfigurationNavigation";
 
 type ColumnId =
   | "account_name"
@@ -299,7 +300,6 @@ export default function CephAdminAccountsPage() {
   const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>(DEFAULT_SORT);
   const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(loadVisibleColumns);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<CephAdminRgwAccount | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const {
@@ -331,7 +331,6 @@ export default function CephAdminAccountsPage() {
     setPageSize(25);
     setSort(DEFAULT_SORT);
     setShowCreateModal(false);
-    setEditingAccountId(null);
   }, [selectedEndpointId]);
 
   const includeParams = useMemo(() => {
@@ -369,6 +368,16 @@ export default function CephAdminAccountsPage() {
       streamEntities: streamCephAdminAccounts,
       entityKey: rowKey,
     });
+  const {
+    closeConfiguration,
+    configurationNavigation,
+    configurationTarget,
+    openConfiguration,
+    viewedRowKey,
+  } = useCephAdminAccountConfigurationNavigation({
+    items,
+    selectedEndpointId,
+  });
 
   const toggleColumn = (id: ColumnId) => {
     setVisibleColumns((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
@@ -698,7 +707,12 @@ export default function CephAdminAccountsPage() {
       cellClassName: "!py-1.5",
       render: (account) => (
         <ListActions>
-          <ListActionButton {...dataTableDefaultActionProps} onClick={() => setEditingAccountId(account.account_id)}>
+          <ListActionButton
+            {...dataTableDefaultActionProps}
+            data-ceph-admin-configure-row-key={rowKey(account)}
+            aria-current={viewedRowKey === rowKey(account) ? "true" : undefined}
+            onClick={() => openConfiguration(account)}
+          >
             {surfaceText("Configure")}</ListActionButton>
           <UiActionMenu
             ariaLabel={surfaceText("More actions for RGW account {id}", { id: account.account_id })}
@@ -731,7 +745,7 @@ export default function CephAdminAccountsPage() {
   });
 
   return (
-    <div className={workflowPageHostClass(showCreateModal || Boolean(editingAccountId))}>
+    <div className={workflowPageHostClass(showCreateModal)}>
       <PageHeader actionPresentation="listing"
         title={surfaceText("RGW Accounts")}
         description={surfaceText("Complete list of RGW accounts (admin ops).")}
@@ -944,6 +958,10 @@ export default function CephAdminAccountsPage() {
             columns={accountTableColumns}
             rows={items}
             rowKey={rowKey}
+            rowClassName="ui-current-item"
+            rowAttributes={(account) => ({
+              "data-viewed": viewedRowKey === rowKey(account) || undefined,
+            })}
             status={tableStatus}
             loadingMessage="Loading accounts..."
             errorMessage="Unable to load accounts."
@@ -967,12 +985,13 @@ export default function CephAdminAccountsPage() {
         </ListPageSection>
       )}
 
-      {selectedEndpointId && editingAccountId && (
+      {selectedEndpointId && configurationTarget && (
         <CephAdminAccountEditModal
           endpointId={selectedEndpointId}
-          accountId={editingAccountId}
+          accountId={configurationTarget.accountId}
           canViewMetrics={canViewMetrics}
-          onClose={() => setEditingAccountId(null)}
+          navigation={configurationNavigation}
+          onClose={closeConfiguration}
           onSaved={applyUpdatedAccount}
         />
       )}

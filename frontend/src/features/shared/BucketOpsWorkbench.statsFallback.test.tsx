@@ -134,6 +134,27 @@ vi.mock("./BucketSelectionActionsBar", () => ({
   default: () => null,
 }));
 
+vi.mock("./BucketConfigurationDrawer", () => ({
+  default: ({
+    bucketName,
+    contextId,
+    navigation,
+    onClose,
+  }: {
+    bucketName: string;
+    contextId?: string | null;
+    navigation?: { next?: () => void; position?: string };
+    onClose: () => void;
+  }) => (
+    <div data-testid="bucket-configuration-drawer">
+      <span>{contextId ? `${contextId}:` : ""}{bucketName}</span>
+      <span>{navigation?.position ?? "no-navigation"}</span>
+      <button type="button" onClick={navigation?.next}>Drawer next</button>
+      <button type="button" onClick={onClose}>Drawer close</button>
+    </div>
+  ),
+}));
+
 import BucketOpsWorkbench from "./BucketOpsWorkbench";
 
 function createDeferred<T>() {
@@ -192,13 +213,8 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "bucket-a" }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith(
-      {
-        pathname: "/ceph-admin/buckets",
-        search: "?configure=bucket-a&ep=7",
-      },
-      { replace: false }
-    );
+    expect(screen.getByTestId("bucket-configuration-drawer")).toHaveTextContent("bucket-a");
+    expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
   it("requests bucket stats by default and surfaces degraded stats warnings", async () => {
