@@ -3,7 +3,11 @@
 
 import json
 
-from app.services.ceph_admin_bucket_listing_request import CephAdminBucketListingRequest
+from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
+from app.services.ceph_admin_bucket_listing_request import (
+    CephAdminAdvancedFilterPlan,
+    CephAdminBucketListingRequest,
+)
 
 
 def _parse(**overrides) -> CephAdminBucketListingRequest:
@@ -79,3 +83,43 @@ def test_bucket_listing_request_normalizes_ui_tag_options():
 def test_bucket_listing_request_preserves_explicit_all_ui_tag_match():
     request = _parse(ui_tag_match="all")
     assert request.ui_tag_match == "all"
+
+
+def test_advanced_filter_plan_partitions_rules_and_lookup_requirements():
+    query = BucketFilterQuery(
+        rules=[
+            BucketFilterRule(field="name", op="contains", value="report"),
+            BucketFilterRule(field="tag", op="contains", value="env=prod"),
+            BucketFilterRule(field="owner_name", op="contains", value="team"),
+            BucketFilterRule(field="owner_suspended", op="eq", value=True),
+            BucketFilterRule(field="owner_quota_max_size_bytes", op="gte", value=1),
+            BucketFilterRule(field="owner_used_bytes", op="gte", value=1),
+            BucketFilterRule(feature="versioning", state="enabled"),
+            BucketFilterRule(
+                feature="static_website",
+                param="website_index_present",
+                op="eq",
+                value=True,
+            ),
+        ]
+    )
+
+    plan = CephAdminAdvancedFilterPlan.from_query(query)
+
+    assert [rule.field for rule in plan.cheap_field_rules] == ["name"]
+    assert {rule.field for rule in plan.expensive_field_rules} == {
+        "tag",
+        "owner_name",
+        "owner_suspended",
+        "owner_quota_max_size_bytes",
+        "owner_used_bytes",
+    }
+    assert len(plan.feature_state_rules) == 1
+    assert len(plan.feature_param_rules) == 1
+    assert plan.filter_features == {"versioning"}
+    assert plan.requires_tag_lookup is True
+    assert plan.requires_owner_name_lookup is True
+    assert plan.requires_owner_suspended_lookup is True
+    assert plan.requires_owner_quota_lookup is True
+    assert plan.requires_owner_usage_lookup is True
+    assert plan.has_expensive_rules is True

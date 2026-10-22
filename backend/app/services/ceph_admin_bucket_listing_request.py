@@ -67,6 +67,27 @@ def _normalized_ui_tag_ids(ui_tag_ids: list[int] | None) -> tuple[int, ...]:
     return tuple(dict.fromkeys(item for item in (ui_tag_ids or []) if item > 0))
 
 
+def _advanced_filter_rule_groups(
+    query: BucketFilterQuery,
+) -> tuple[list[BucketFilterRule], list[BucketFilterRule], list[BucketFilterRule]]:
+    field_rules = [rule for rule in query.rules if rule.field]
+    feature_state_rules = [
+        rule for rule in query.rules if rule.feature and rule.state is not None
+    ]
+    feature_param_rules = [
+        rule for rule in query.rules if rule.feature and rule.param is not None
+    ]
+    return field_rules, feature_state_rules, feature_param_rules
+
+
+def _partition_field_rules(
+    field_rules: list[BucketFilterRule],
+) -> tuple[list[BucketFilterRule], list[BucketFilterRule]]:
+    expensive = [rule for rule in field_rules if rule.field in EXPENSIVE_FIELD_RULES]
+    cheap = [rule for rule in field_rules if rule.field not in EXPENSIVE_FIELD_RULES]
+    return expensive, cheap
+
+
 @dataclass(frozen=True)
 class CephAdminBucketListingRequest:
     simple_filter: str | None
@@ -169,11 +190,9 @@ class CephAdminAdvancedFilterPlan:
 
     @classmethod
     def from_query(cls, query: BucketFilterQuery) -> CephAdminAdvancedFilterPlan:
-        field_rules = [rule for rule in query.rules if rule.field]
-        feature_state_rules = [rule for rule in query.rules if rule.feature and rule.state is not None]
-        feature_param_rules = [rule for rule in query.rules if rule.feature and rule.param is not None]
-        expensive_field_rules = [rule for rule in field_rules if rule.field in EXPENSIVE_FIELD_RULES]
-        cheap_field_rules = [rule for rule in field_rules if rule.field not in EXPENSIVE_FIELD_RULES]
+        field_rules, feature_state_rules, feature_param_rules = _advanced_filter_rule_groups(query)
+        expensive_field_rules, cheap_field_rules = _partition_field_rules(field_rules)
+        expensive_fields = {rule.field for rule in expensive_field_rules if rule.field}
         return cls(
             query=query,
             field_rules=field_rules,
@@ -182,18 +201,14 @@ class CephAdminAdvancedFilterPlan:
             expensive_field_rules=expensive_field_rules,
             cheap_field_rules=cheap_field_rules,
             filter_features={rule.feature for rule in feature_state_rules if rule.feature},
-            requires_tag_lookup=any(rule.field == "tag" for rule in expensive_field_rules),
-            requires_owner_name_lookup=any(rule.field == "owner_name" for rule in expensive_field_rules),
-            requires_owner_suspended_lookup=any(
-                rule.field in OWNER_STATUS_FIELDS for rule in expensive_field_rules
+            requires_tag_lookup="tag" in expensive_fields,
+            requires_owner_name_lookup="owner_name" in expensive_fields,
+            requires_owner_suspended_lookup=bool(expensive_fields & OWNER_STATUS_FIELDS),
+            requires_owner_quota_lookup=bool(
+                expensive_fields & (OWNER_QUOTA_FIELDS | OWNER_USAGE_PERCENT_FIELDS)
             ),
-            requires_owner_quota_lookup=any(
-                rule.field in (OWNER_QUOTA_FIELDS | OWNER_USAGE_PERCENT_FIELDS)
-                for rule in expensive_field_rules
-            ),
-            requires_owner_usage_lookup=any(
-                rule.field in (OWNER_USAGE_FIELDS | OWNER_USAGE_PERCENT_FIELDS)
-                for rule in expensive_field_rules
+            requires_owner_usage_lookup=bool(
+                expensive_fields & (OWNER_USAGE_FIELDS | OWNER_USAGE_PERCENT_FIELDS)
             ),
         )
 
