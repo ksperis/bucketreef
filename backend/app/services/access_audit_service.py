@@ -418,30 +418,37 @@ class AccessAuditService:
         return any(needle in str(value).lower() for value in values)
 
     @staticmethod
-    def _matches_filters(row: AccessAuditRow, filters: AccessAuditFilters) -> bool:
-        if filters.scope is not None and row.scope != filters.scope:
-            return False
-        if filters.user_id is not None and row.principal.id != filters.user_id:
-            return False
+    def _matches_scalar_filters(row: AccessAuditRow, filters: AccessAuditFilters) -> bool:
+        filters_and_values = (
+            (filters.scope, row.scope),
+            (filters.user_id, row.principal.id),
+            (filters.target_id, row.target.id),
+        )
+        return all(expected is None or actual == expected for expected, actual in filters_and_values)
+
+    @staticmethod
+    def _matches_provenance_filters(row: AccessAuditRow, filters: AccessAuditFilters) -> bool:
+        sources = tuple(source for right in row.rights for source in right.sources)
         if filters.group_id is not None and not any(
             source.kind == "group" and source.group_id == filters.group_id
-            for right in row.rights
-            for source in right.sources
+            for source in sources
         ):
-            return False
-        if filters.target_id is not None and row.target.id != filters.target_id:
             return False
         if filters.right is not None and not any(right.code == filters.right for right in row.rights):
             return False
         if filters.source is not None and not any(
-            source.kind == filters.source
-            for right in row.rights
-            for source in right.sources
+            source.kind == filters.source for source in sources
         ):
             return False
-        if filters.search and not AccessAuditService._matches_search(row, filters.search):
-            return False
         return True
+
+    @classmethod
+    def _matches_filters(cls, row: AccessAuditRow, filters: AccessAuditFilters) -> bool:
+        if not cls._matches_scalar_filters(row, filters):
+            return False
+        if not cls._matches_provenance_filters(row, filters):
+            return False
+        return not filters.search or cls._matches_search(row, filters.search)
 
     @staticmethod
     def _sort_rows(rows: list[AccessAuditRow], sort_by: str, sort_dir: str) -> list[AccessAuditRow]:

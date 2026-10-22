@@ -3,6 +3,8 @@
 
 import json
 
+import pytest
+
 from app.db import (
     ManagerAccountRole,
     S3Connection,
@@ -17,6 +19,13 @@ from app.db import (
     UserS3Connection,
     UserS3User,
     UserUiGroup,
+)
+from app.models.access_audit import (
+    AccessAuditGrantSource,
+    AccessAuditPrincipal,
+    AccessAuditRight,
+    AccessAuditRow,
+    AccessAuditTarget,
 )
 from app.services.access_audit_service import AccessAuditFilters, AccessAuditService
 from tests.s3_account_factory import make_s3_account
@@ -124,6 +133,55 @@ def _row(rows, scope):
 
 def _right(row, code):
     return next(right for right in row.rights if right.code == code)
+
+
+def _filter_row() -> AccessAuditRow:
+    return AccessAuditRow(
+        key="row-1",
+        principal=AccessAuditPrincipal(
+            id=7,
+            email="alice@example.test",
+            full_name="Alice Example",
+            role="ui_user",
+            is_active=True,
+        ),
+        scope="rgw_account",
+        target=AccessAuditTarget(id=11, name="Research", identifier="RGW-RESEARCH"),
+        rights=[
+            AccessAuditRight(
+                code="portal_manager",
+                label="Portal manager",
+                sources=[
+                    AccessAuditGrantSource(kind="direct"),
+                    AccessAuditGrantSource(kind="group", group_id=23, group_name="Storage Operators"),
+                ],
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("filters", "matched"),
+    [
+        (AccessAuditFilters(scope="rgw_account"), True),
+        (AccessAuditFilters(scope="rgw_user"), False),
+        (AccessAuditFilters(user_id=7), True),
+        (AccessAuditFilters(user_id=8), False),
+        (AccessAuditFilters(group_id=23), True),
+        (AccessAuditFilters(group_id=24), False),
+        (AccessAuditFilters(target_id=11), True),
+        (AccessAuditFilters(target_id=12), False),
+        (AccessAuditFilters(right="portal_manager"), True),
+        (AccessAuditFilters(right="storage_ops"), False),
+        (AccessAuditFilters(source="group"), True),
+        (AccessAuditFilters(source="platform"), False),
+        (AccessAuditFilters(search="storage operators"), True),
+        (AccessAuditFilters(search="rgw-research"), True),
+        (AccessAuditFilters(search="missing"), False),
+    ],
+)
+def test_access_audit_filter_matching_isolated_dimensions(filters, matched):
+    assert AccessAuditService._matches_filters(_filter_row(), filters) is matched
 
 
 def test_access_audit_aggregates_direct_and_group_rights_with_provenance(db_session):
