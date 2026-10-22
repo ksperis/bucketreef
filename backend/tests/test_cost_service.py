@@ -19,11 +19,8 @@ from app.routers.portal_cost import portal_cost_me
 from app.services import admin_cost_service
 from app.services.admin_cost_service import AdminCostService
 from app.services.cost_collection_service import CostCollector
-from app.services.cost_service import (
-    CostService,
-    _parse_month,
-    _parse_ops_breakdown,
-)
+from app.services.cost_calculations import parse_cost_month, parse_ops_breakdown
+from app.services.cost_service import CostService
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -223,8 +220,8 @@ def test_portal_cost_returns_estimate_after_project_opt_in(db_session, monkeypat
     }
 
 
-def test_parse_month():
-    period = _parse_month("2026-01")
+def test_parse_cost_month():
+    period = parse_cost_month("2026-01")
     assert period.start == date(2026, 1, 1)
     assert period.end == date(2026, 2, 1)
     assert period.days_in_month == 31
@@ -330,13 +327,13 @@ def test_cost_bucket_stats_reject_incomplete_measurement(db_session, monkeypatch
 
 
 def test_cost_ops_breakdown_requires_integer_values():
-    assert _parse_ops_breakdown('{"get":12,"put":3}') == {
+    assert parse_ops_breakdown('{"get":12,"put":3}') == {
         "get": 12,
         "put": 3,
     }
     for raw in ("{", "[]", '{"get":"12"}', '{"get":true}'):
         with pytest.raises(ValueError):
-            _parse_ops_breakdown(raw)
+            parse_ops_breakdown(raw)
 
 
 def test_cost_summary_and_cost(db_session):
