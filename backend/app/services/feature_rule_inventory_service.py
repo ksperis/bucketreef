@@ -231,48 +231,50 @@ def _statement_field(statement: dict[str, Any], field: str) -> Any:
     return statement.get(field) or statement.get(lower_camel) or statement.get(field.lower())
 
 
+def _statement_positive_or_negative_field(
+    statement: dict[str, Any],
+    positive_field: str,
+    negative_field: str,
+) -> tuple[str, Any]:
+    positive_value = _statement_field(statement, positive_field)
+    if positive_value is not None:
+        return positive_field, positive_value
+    return negative_field, _statement_field(statement, negative_field)
+
+
+def _normalize_policy_statement(
+    statement: dict[str, Any],
+    index: int,
+) -> FeatureRuleInventoryRule:
+    sid = _string_value(statement.get("Sid")) or _string_value(statement.get("sid")) or f"Statement {index + 1}"
+    effect = _string_value(statement.get("Effect")) or _string_value(statement.get("effect")) or "-"
+    _, principal = _statement_positive_or_negative_field(statement, "Principal", "NotPrincipal")
+    action_label, action_value = _statement_positive_or_negative_field(statement, "Action", "NotAction")
+    resource_label, resource_value = _statement_positive_or_negative_field(statement, "Resource", "NotResource")
+    has_condition = _is_record(statement.get("Condition") or statement.get("condition"))
+    chips = [effect] + (["Condition"] if has_condition else [])
+    return FeatureRuleInventoryRule(
+        id=sid,
+        type="policy",
+        title=f"{effect} {sid}",
+        summary=_join_parts(
+            [
+                f"Principal: {_display_value(principal)}" if principal is not None else None,
+                f"{action_label}: {_display_value(action_value)}" if action_value is not None else None,
+                f"{resource_label}: {_display_value(resource_value)}" if resource_value is not None else None,
+            ],
+            fallback="Bucket policy statement",
+        ),
+        chips=chips,
+        raw=_sanitize_raw_payload(statement),
+    )
+
+
 def _normalize_policy_rules(policy: dict[str, Any] | None) -> list[FeatureRuleInventoryRule]:
-    normalized: list[FeatureRuleInventoryRule] = []
-    for index, statement in enumerate(_policy_statements(policy)):
-        sid = _string_value(statement.get("Sid")) or _string_value(statement.get("sid")) or f"Statement {index + 1}"
-        effect = _string_value(statement.get("Effect")) or _string_value(statement.get("effect")) or "-"
-        principal = (
-            statement.get("Principal")
-            or statement.get("principal")
-            or statement.get("NotPrincipal")
-            or statement.get("notPrincipal")
-            or statement.get("notprincipal")
-        )
-        action = _statement_field(statement, "Action")
-        not_action = _statement_field(statement, "NotAction")
-        resource = _statement_field(statement, "Resource")
-        not_resource = _statement_field(statement, "NotResource")
-        action_label = "NotAction" if action is None and not_action is not None else "Action"
-        resource_label = "NotResource" if resource is None and not_resource is not None else "Resource"
-        action_value = action if action is not None else not_action
-        resource_value = resource if resource is not None else not_resource
-        has_condition = _is_record(statement.get("Condition") or statement.get("condition"))
-        chips = [effect]
-        if has_condition:
-            chips.append("Condition")
-        normalized.append(
-            FeatureRuleInventoryRule(
-                id=sid,
-                type="policy",
-                title=f"{effect} {sid}",
-                summary=_join_parts(
-                    [
-                        f"Principal: {_display_value(principal)}" if principal is not None else None,
-                        f"{action_label}: {_display_value(action_value)}" if action_value is not None else None,
-                        f"{resource_label}: {_display_value(resource_value)}" if resource_value is not None else None,
-                    ],
-                    fallback="Bucket policy statement",
-                ),
-                chips=chips,
-                raw=_sanitize_raw_payload(statement),
-            )
-        )
-    return normalized
+    return [
+        _normalize_policy_statement(statement, index)
+        for index, statement in enumerate(_policy_statements(policy))
+    ]
 
 
 def _normalize_cors_rules(rules: list[dict[str, Any]]) -> list[FeatureRuleInventoryRule]:
