@@ -7,7 +7,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from threading import Lock
 from time import monotonic
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal
 
 from app.db import StorageEndpoint, StorageProvider
 from app.services.s3_execution_context import S3ExecutionTarget
@@ -261,43 +261,53 @@ class BucketOwnerMetadataService:
         )
         self.rgw_admin = rgw_admin
 
-    def enrich_buckets(
-        self,
+    @staticmethod
+    def _owner_targets(
         buckets: list[BucketListingSummary],
-        *,
-        include_name: bool = False,
-        include_suspended: bool = False,
-        include_quota: bool = False,
-        include_usage: bool = False,
-        usage_by_key: dict[str, BucketOwnerUsage] | None = None,
-    ) -> list[BucketListingSummary]:
-        if not buckets:
-            return buckets
-        if include_usage:
-            apply_bucket_owner_usage_map(buckets, usage_by_key or compute_bucket_owner_usage(buckets))
-        if not include_name and not include_suspended and not include_quota:
-            return buckets
-
-        owner_targets: dict[str, BucketOwnerIdentity] = {}
+    ) -> dict[str, BucketOwnerIdentity]:
+        targets: dict[str, BucketOwnerIdentity] = {}
         for bucket in buckets:
             identity = _normalize_owner_identity(bucket.tenant, bucket.owner)
             if identity is not None:
-                owner_targets.setdefault(identity.key, identity)
-        if not owner_targets:
-            for bucket in buckets:
-                if include_name:
-                    bucket.owner_name = None
-                if include_suspended:
-                    bucket.owner_suspended = None
-                if include_quota:
-                    bucket.owner_quota_max_size_bytes = None
-                    bucket.owner_quota_max_objects = None
-            return buckets
+                targets.setdefault(identity.key, identity)
+        return targets
 
+    @staticmethod
+    def _apply_missing_owner_metadata(
+        buckets: list[BucketListingSummary],
+        *,
+        include_name: bool,
+        include_suspended: bool,
+        include_quota: bool,
+    ) -> None:
+        for bucket in buckets:
+            if include_name:
+                bucket.owner_name = None
+            if include_suspended:
+                bucket.owner_suspended = None
+            if include_quota:
+                bucket.owner_quota_max_size_bytes = None
+                bucket.owner_quota_max_objects = None
+
+    def _resolve_owner_metadata(
+        self,
+        owner_targets: dict[str, BucketOwnerIdentity],
+        *,
+        include_name: bool,
+        include_suspended: bool,
+        include_quota: bool,
+    ) -> dict[str, BucketOwnerMetadata]:
         metadata_by_key: dict[str, BucketOwnerMetadata] = {}
-        account_targets = [item for item in owner_targets.values() if item.owner_kind == "account"]
-        user_targets = [item for item in owner_targets.values() if item.owner_kind == "user"]
-
+        account_targets = [
+            item
+            for item in owner_targets.values()
+            if item.owner_kind == "account"
+        ]
+        user_targets = [
+            item
+            for item in owner_targets.values()
+            if item.owner_kind == "user"
+        ]
         if account_targets:
             metadata_by_key.update(
                 self._resolve_account_metadata(
@@ -316,7 +326,17 @@ class BucketOwnerMetadataService:
                     include_quota=include_quota,
                 )
             )
+        return metadata_by_key
 
+    @staticmethod
+    def _apply_owner_metadata(
+        buckets: list[BucketListingSummary],
+        metadata_by_key: dict[str, BucketOwnerMetadata],
+        *,
+        include_name: bool,
+        include_suspended: bool,
+        include_quota: bool,
+    ) -> None:
         for bucket in buckets:
             owner_key = owner_identity_key(bucket.tenant, bucket.owner)
             metadata = metadata_by_key.get(owner_key) if owner_key else None
@@ -325,8 +345,53 @@ class BucketOwnerMetadataService:
             if include_suspended:
                 bucket.owner_suspended = metadata.suspended if metadata else None
             if include_quota:
-                bucket.owner_quota_max_size_bytes = metadata.quota_max_size_bytes if metadata else None
-                bucket.owner_quota_max_objects = metadata.quota_max_objects if metadata else None
+                bucket.owner_quota_max_size_bytes = (
+                    metadata.quota_max_size_bytes if metadata else None
+                )
+                bucket.owner_quota_max_objects = (
+                    metadata.quota_max_objects if metadata else None
+                )
+
+    def enrich_buckets(
+        self,
+        buckets: list[BucketListingSummary],
+        *,
+        include_name: bool = False,
+        include_suspended: bool = False,
+        include_quota: bool = False,
+        include_usage: bool = False,
+        usage_by_key: dict[str, BucketOwnerUsage] | None = None,
+    ) -> list[BucketListingSummary]:
+        if not buckets:
+            return buckets
+        if include_usage:
+            apply_bucket_owner_usage_map(buckets, usage_by_key or compute_bucket_owner_usage(buckets))
+        if not include_name and not include_suspended and not include_quota:
+            return buckets
+
+        owner_targets = self._owner_targets(buckets)
+        if not owner_targets:
+            self._apply_missing_owner_metadata(
+                buckets,
+                include_name=include_name,
+                include_suspended=include_suspended,
+                include_quota=include_quota,
+            )
+            return buckets
+
+        metadata_by_key = self._resolve_owner_metadata(
+            owner_targets,
+            include_name=include_name,
+            include_suspended=include_suspended,
+            include_quota=include_quota,
+        )
+        self._apply_owner_metadata(
+            buckets,
+            metadata_by_key,
+            include_name=include_name,
+            include_suspended=include_suspended,
+            include_quota=include_quota,
+        )
         return buckets
 
     def _resolve_account_metadata(
