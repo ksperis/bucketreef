@@ -5,8 +5,16 @@ from datetime import datetime, timezone
 
 import pytest
 
+from app.models.portal_access_logs import (
+    PortalServerAccessLogEntry,
+    PortalServerAccessLogFilterQuery,
+    PortalServerAccessLogFilterRule,
+)
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
-from app.services.portal.server_access_log_records import parse_standard_access_log_line
+from app.services.portal.server_access_log_records import (
+    apply_server_access_log_filter,
+    parse_standard_access_log_line,
+)
 
 
 LOG_OBJECT_KEY = "portal-server-access/research-data/2026-07-08-10-30-00.log"
@@ -92,3 +100,80 @@ def test_parse_standard_access_log_line_rejects_unusable_records(line):
         )
         is None
     )
+
+
+def _filter_entry() -> PortalServerAccessLogEntry:
+    return PortalServerAccessLogEntry(
+        id="server-log-test",
+        timestamp=datetime(2026, 7, 8, 10, 30, tzinfo=timezone.utc),
+        storage_space_id="space-1",
+        storage_space_name="Research Data",
+        bucket_name="research-data",
+        operation="REST.PUT.OBJECT",
+        operation_category="upload",
+        object_key="reports/external.csv",
+        object_name="external.csv",
+        direction="Upload",
+        status_code=200,
+        requester="external",
+        request_uri="PUT /research-data/reports/external.csv HTTP/1.1",
+        log_object_key=LOG_OBJECT_KEY,
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "op", "value", "matched"),
+    [
+        ("path", "contains", "external", True),
+        ("path", "starts_with", "reports", True),
+        ("path", "ends_with", ".csv", True),
+        ("action", "eq", "upload", True),
+        ("action", "neq", "download", True),
+        ("space", "in", ["other", "research data"], True),
+        ("space", "not_in", ["other"], True),
+        ("result", "eq", "success", True),
+        ("path", "eq", "missing.txt", False),
+        ("path", "neq", "reports/external.csv", False),
+    ],
+)
+def test_apply_server_access_log_filter_supports_text_operators(
+    field,
+    op,
+    value,
+    matched,
+):
+    entry = _filter_entry()
+    query = PortalServerAccessLogFilterQuery(
+        rules=[PortalServerAccessLogFilterRule(field=field, op=op, value=value)]
+    )
+
+    assert apply_server_access_log_filter([entry], query) == ([entry] if matched else [])
+
+
+@pytest.mark.parametrize(
+    ("op", "matched"),
+    [("is_null", True), ("not_null", False)],
+)
+def test_apply_server_access_log_filter_supports_null_identity_checks(op, matched):
+    entry = _filter_entry()
+    entry.requester = None
+    query = PortalServerAccessLogFilterQuery(
+        rules=[PortalServerAccessLogFilterRule(field="identity", op=op)]
+    )
+
+    assert apply_server_access_log_filter([entry], query) == ([entry] if matched else [])
+
+
+def test_apply_server_access_log_filter_honors_any_and_all_rule_modes():
+    entry = _filter_entry()
+    rules = [
+        PortalServerAccessLogFilterRule(field="action", op="eq", value="download"),
+        PortalServerAccessLogFilterRule(field="space", op="contains", value="research"),
+    ]
+
+    assert apply_server_access_log_filter(
+        [entry], PortalServerAccessLogFilterQuery(match="any", rules=rules)
+    ) == [entry]
+    assert apply_server_access_log_filter(
+        [entry], PortalServerAccessLogFilterQuery(match="all", rules=rules)
+    ) == []

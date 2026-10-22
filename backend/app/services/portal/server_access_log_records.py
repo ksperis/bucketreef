@@ -9,7 +9,7 @@ import shlex
 from dataclasses import dataclass
 from datetime import date as date_cls
 from datetime import datetime, time as time_cls, timedelta, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import unquote
 
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
@@ -22,6 +22,15 @@ from app.models.portal_access_logs import (
 
 SERVER_ACCESS_LOG_RAW_MAX_DAYS = 31
 _HTTP_REQUEST_RE = re.compile(r"^(GET|POST|PUT|DELETE|HEAD|PATCH|OPTIONS) .+ HTTP/\d(?:\.\d)?$")
+_FILTER_VALUE_MATCHERS: dict[str, Callable[[str, str], bool]] = {
+    "contains": lambda value, candidate: candidate in value,
+    "starts_with": lambda value, candidate: value.startswith(candidate),
+    "ends_with": lambda value, candidate: value.endswith(candidate),
+    "eq": lambda value, candidate: value == candidate,
+    "in": lambda value, candidate: value == candidate,
+}
+_NEGATED_FILTER_OPS = frozenset({"neq", "not_in"})
+_FILTER_MATCH_OP = {"neq": "eq", "not_in": "in"}
 
 
 @dataclass(frozen=True)
@@ -290,21 +299,13 @@ def _matches_filter_rule(
     candidates = _filter_value_texts(rule.value)
     if not candidates:
         return False
-    if op == "contains":
-        return any(candidate in value for value in values for candidate in candidates)
-    if op == "starts_with":
-        return any(value.startswith(candidate) for value in values for candidate in candidates)
-    if op == "ends_with":
-        return any(value.endswith(candidate) for value in values for candidate in candidates)
-    if op == "eq":
-        return any(value == candidate for value in values for candidate in candidates)
-    if op == "neq":
-        return bool(values) and not any(value == candidate for value in values for candidate in candidates)
-    if op == "in":
-        return any(value in candidates for value in values)
-    if op == "not_in":
-        return bool(values) and not any(value in candidates for value in values)
-    return False
+    matcher = _FILTER_VALUE_MATCHERS.get(_FILTER_MATCH_OP.get(op, op))
+    if matcher is None:
+        return False
+    matched = any(matcher(value, candidate) for value in values for candidate in candidates)
+    if op in _NEGATED_FILTER_OPS:
+        return bool(values) and not matched
+    return matched
 
 
 def apply_server_access_log_filter(
