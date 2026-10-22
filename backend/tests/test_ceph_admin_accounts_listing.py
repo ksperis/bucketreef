@@ -614,6 +614,65 @@ def test_build_account_detail_ignores_legacy_kebab_case_limit_fields():
     assert detail.max_users is None
 
 
+def test_build_account_detail_normalizes_limits_and_quota_configs():
+    payload = {
+        "id": "RGW01",
+        "max_users": 0,
+        "limits": {
+            "max_users": 99,
+            "max_buckets": "20",
+            "max_roles": 10,
+            "max_groups": "8",
+            "max_access_keys": 4,
+        },
+        "account_quota": {
+            "enabled": True,
+            "max_size": 4096,
+            "max_objects": 30,
+        },
+        "bucket_quota": {
+            "enabled": True,
+            "max_size": 1024,
+            "max_objects": 5,
+        },
+    }
+
+    detail = build_account_detail(payload, account_id_fallback="fallback")
+
+    assert detail.max_users == 0
+    assert detail.max_buckets == 20
+    assert detail.max_roles == 10
+    assert detail.max_groups == 8
+    assert detail.max_access_keys == 4
+    assert detail.quota is not None
+    assert detail.quota.enabled is True
+    assert detail.quota.max_size_bytes == 4096
+    assert detail.quota.max_objects == 30
+    assert detail.bucket_quota is not None
+    assert detail.bucket_quota.enabled is True
+    assert detail.bucket_quota.max_size_bytes == 1024
+    assert detail.bucket_quota.max_objects == 5
+
+
+def test_build_account_detail_preserves_disabled_quota_without_limits():
+    detail = build_account_detail(
+        {
+            "id": "RGW01",
+            "bucket_quota": {
+                "enabled": False,
+                "max_size": 1024,
+                "max_objects": 5,
+            },
+        },
+        account_id_fallback="fallback",
+    )
+
+    assert detail.bucket_quota is not None
+    assert detail.bucket_quota.enabled is False
+    assert detail.bucket_quota.max_size_bytes is None
+    assert detail.bucket_quota.max_objects is None
+
+
 def test_ceph_admin_accounts_quota_usage_percent_filter_aggregates_bucket_usage(monkeypatch):
     accounts_payload = [{"id": "RGW01", "name": "Alpha", "quota": {"max_size": 100, "max_objects": 10}}]
     account_details = {
