@@ -9,9 +9,6 @@ import ManagerMigrationDetailPage from "./ManagerMigrationDetailPage";
 const mockUseManagerContexts = vi.fn();
 const mockUseManagerMigrationDetail = vi.fn();
 const mockDeleteManagerMigration = vi.fn();
-const mockRollbackFailedManagerMigrationItems = vi.fn();
-const mockRollbackManagerMigration = vi.fn();
-const mockRollbackManagerMigrationItem = vi.fn();
 const mockStopManagerMigration = vi.fn();
 const mockPrecheck = vi.fn();
 const mockStart = vi.fn();
@@ -31,12 +28,6 @@ vi.mock("../../../api/managerMigrations", async () => {
       mockMaintenance(...args),
     deleteManagerMigration: (...args: unknown[]) =>
       mockDeleteManagerMigration(...args),
-    rollbackFailedManagerMigrationItems: (...args: unknown[]) =>
-      mockRollbackFailedManagerMigrationItems(...args),
-    rollbackManagerMigration: (...args: unknown[]) =>
-      mockRollbackManagerMigration(...args),
-    rollbackManagerMigrationItem: (...args: unknown[]) =>
-      mockRollbackManagerMigrationItem(...args),
     stopManagerMigration: (...args: unknown[]) =>
       mockStopManagerMigration(...args),
   };
