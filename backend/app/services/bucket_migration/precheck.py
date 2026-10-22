@@ -47,6 +47,20 @@ _FEATURE_LABELS = {
 }
 
 
+def new_precheck_report(*, checked_at: Any) -> dict[str, Any]:
+    return {
+        "status": "passed",
+        "checked_at": checked_at.isoformat(),
+        "contexts": {},
+        "items": [],
+        "errors": 0,
+        "warnings": 0,
+        "summary": {},
+        "capabilities": {},
+        "unsupported_features": [],
+    }
+
+
 @dataclass(frozen=True)
 class _SourceInspection:
     access_ok: bool
@@ -482,19 +496,6 @@ class BucketMigrationPrecheckPlanner:
             unsupported_features=unsupported_features,
         )
 
-    def _new_report(self, *, checked_at: Any) -> dict[str, Any]:
-        return {
-            "status": "passed",
-            "checked_at": checked_at.isoformat(),
-            "contexts": {},
-            "items": [],
-            "errors": 0,
-            "warnings": 0,
-            "summary": {},
-            "capabilities": {},
-            "unsupported_features": [],
-        }
-
     def _resolve_contexts(
         self,
         migration: Any,
@@ -781,7 +782,7 @@ class BucketMigrationPrecheckPlanner:
     def run(
         self, migration: Any, *, checked_at: Any, on_progress=None
     ) -> dict[str, Any]:
-        report = self._new_report(checked_at=checked_at)
+        report = new_precheck_report(checked_at=checked_at)
         source_ctx, target_ctx, context_entries = self._resolve_contexts(
             migration,
             report,

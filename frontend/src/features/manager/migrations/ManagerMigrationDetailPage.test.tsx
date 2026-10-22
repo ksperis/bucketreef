@@ -4,7 +4,10 @@ import { axe } from "jest-axe";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BucketMigrationDetail } from "../../../api/managerMigrations";
+import type {
+  BucketMigrationDetail,
+  BucketMigrationPrecheckReport,
+} from "../../../api/managerMigrations";
 import ManagerMigrationDetailPage from "./ManagerMigrationDetailPage";
 
 const mockUseManagerContexts = vi.fn();
@@ -43,6 +46,22 @@ vi.mock("../useManagerContexts", () => ({
   useManagerContexts: () => mockUseManagerContexts(),
 }));
 
+function buildPrecheckReport(
+  overrides: Partial<BucketMigrationPrecheckReport> = {},
+): BucketMigrationPrecheckReport {
+  return {
+    status: "pending",
+    checked_at: "2026-03-05T10:00:00Z",
+    items: [],
+    errors: 0,
+    warnings: 0,
+    summary: {},
+    capabilities: {},
+    unsupported_features: [],
+    ...overrides,
+  };
+}
+
 function buildDetail(): BucketMigrationDetail {
   return {
     id: 11,
@@ -61,7 +80,7 @@ function buildDetail(): BucketMigrationDetail {
     pause_requested: false,
     cancel_requested: false,
     precheck_status: "passed",
-    precheck_report: {
+    precheck_report: buildPrecheckReport({
       status: "failed",
       errors: 1,
       warnings: 1,
@@ -109,7 +128,7 @@ function buildDetail(): BucketMigrationDetail {
           ],
         },
       ],
-    },
+    }),
     precheck_checked_at: null,
     configuration_revision: 1,
     checked_revision: 1,
@@ -311,7 +330,7 @@ describe("ManagerMigrationDetailPage", () => {
       status: "draft",
       preparation_status: "blocked",
       available_actions: { edit: enabled, precheck: enabled },
-      precheck_report: {
+      precheck_report: buildPrecheckReport({
         errors: 1,
         items: [
           {
@@ -327,7 +346,7 @@ describe("ManagerMigrationDetailPage", () => {
             ],
           },
         ],
-      },
+      }),
     });
     expect(screen.getByText("Cannot read source tags")).toBeInTheDocument();
     expect(
@@ -351,7 +370,7 @@ describe("ManagerMigrationDetailPage", () => {
       status: "draft",
       preparation_status: "unverified",
       available_actions: { precheck: enabled },
-      precheck_report: { errors: 0, items: [] },
+      precheck_report: buildPrecheckReport(),
     });
     expect((await axe(container)).violations).toEqual([]);
     await user.click(screen.getByRole("button", { name: "Run active checks" }));
@@ -365,7 +384,7 @@ describe("ManagerMigrationDetailPage", () => {
       preparation_status: "blocked",
       preparation_active_checks: false,
       available_actions: { precheck: enabled },
-      precheck_report: { errors: 1, items: [] },
+      precheck_report: buildPrecheckReport({ status: "failed", errors: 1 }),
     });
     await user.click(screen.getByRole("button", { name: "Run active checks" }));
     const dialog = screen.getByRole("dialog");
