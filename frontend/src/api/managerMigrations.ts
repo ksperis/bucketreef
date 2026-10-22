@@ -226,7 +226,7 @@ export async function listManagerMigrations(limit = 100, contextId?: string | nu
     params.context_id = contextId.trim();
   }
   const { data } = await client.get<BucketMigrationListResponse>("/manager/migrations", { params });
-  return data.items || [];
+  return data.items;
 }
 
 export async function getManagerMigration(migrationId: number, eventsLimit = 200): Promise<BucketMigrationDetail> {
