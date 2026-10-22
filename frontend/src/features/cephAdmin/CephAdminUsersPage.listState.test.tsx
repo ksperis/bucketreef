@@ -17,7 +17,11 @@ vi.mock("./CephAdminUserCreateModal", () => ({
 }));
 
 vi.mock("./CephAdminUserEditModal", () => ({
-  default: () => null,
+  default: ({ expectedAccountId }: { expectedAccountId?: string | null }) => (
+    <div data-testid="selected-account-scope">
+      {expectedAccountId === undefined ? "unknown" : expectedAccountId ?? "no-account"}
+    </div>
+  ),
 }));
 
 vi.mock("../../api/cephAdminUsers", () => ({
@@ -52,6 +56,7 @@ function getTableOverflowContainer() {
 describe("CephAdminUsersPage list states", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.removeItem("ceph-admin.user_list.columns.v2");
     streamCephAdminUsersMock.mockResolvedValue({ items: [], total: 0 });
     useCephAdminEndpointMock.mockReturnValue({
       selectedEndpointId: 1,
@@ -64,6 +69,49 @@ describe("CephAdminUsersPage list states", () => {
         can_metrics: true,
       },
     });
+  });
+
+  it("opens an account user when the Account column is hidden without mistaking missing enrichment for no account", async () => {
+    listCephAdminUsersMock.mockResolvedValue({
+      items: [{ uid: "alice", tenant: "tenant-a", account_id: null }],
+      total: 1,
+    });
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Configure" }));
+    expect(screen.getByTestId("selected-account-scope")).toHaveTextContent("unknown");
+    expect(listCephAdminUsersMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes a loaded account ID to the editor for stale-account protection", async () => {
+    window.localStorage.setItem("ceph-admin.user_list.columns.v2", JSON.stringify(["tenant", "account_name"]));
+    listCephAdminUsersMock
+      .mockResolvedValueOnce({ items: [{ uid: "alice", account_id: null }], total: 1 })
+      .mockResolvedValueOnce({ items: [{ uid: "alice", account_id: "RGW123", account_name: "Analytics" }], total: 1 });
+
+    renderPage();
+
+    await screen.findByText("Analytics");
+    fireEvent.click(screen.getByRole("button", { name: "Configure" }));
+    expect(screen.getByTestId("selected-account-scope")).toHaveTextContent("RGW123");
+  });
+
+  it("keeps the account scope unknown if the editor opens while account enrichment is still loading", async () => {
+    window.localStorage.setItem("ceph-admin.user_list.columns.v2", JSON.stringify(["tenant", "account_name"]));
+    const enrichment = deferred<{ items: { uid: string; account_id: string; account_name: string }[]; total: number }>();
+    listCephAdminUsersMock
+      .mockResolvedValueOnce({ items: [{ uid: "alice", account_id: null }], total: 1 })
+      .mockReturnValueOnce(enrichment.promise);
+
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Configure" }));
+    expect(screen.getByTestId("selected-account-scope")).toHaveTextContent("unknown");
+
+    enrichment.resolve({ items: [{ uid: "alice", account_id: "RGW123", account_name: "Analytics" }], total: 1 });
+    await screen.findByText("Analytics");
+    expect(screen.getByTestId("selected-account-scope")).toHaveTextContent("unknown");
   });
 
   it("opens delete User from the row menu and protects the active RGW identity", async () => {

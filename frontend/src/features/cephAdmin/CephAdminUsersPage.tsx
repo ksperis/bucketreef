@@ -279,6 +279,7 @@ const persistVisibleColumns = (value: ColumnId[]) => {
 };
 
 const rowKey = (user: CephAdminRgwUser) => `${user.tenant ?? ""}:${user.uid}`;
+type EditingTarget = CephAdminRgwUser & { expectedAccountId?: string | null };
 const bucketOwnerFilterForUser = (user: CephAdminRgwUser) => {
   const uid = user.uid.trim();
   if (!uid) return null;
@@ -291,7 +292,7 @@ export default function CephAdminUsersPage() {
   const navigate = useNavigate();
   const { selectedEndpointId, selectedEndpoint, selectedEndpointAccess } = useCephAdminEndpoint();
   const canViewMetrics = Boolean(selectedEndpointAccess?.can_metrics) && (selectedEndpoint?.capabilities?.metrics !== false);
-  const [editingTarget, setEditingTarget] = useState<CephAdminRgwUser | null>(null);
+  const [editingTarget, setEditingTarget] = useState<EditingTarget | null>(null);
   const [deletingTarget, setDeletingTarget] = useState<CephAdminRgwUser | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -684,6 +685,16 @@ export default function CephAdminUsersPage() {
     }));
   };
 
+  const configureUser = (user: CephAdminRgwUser) => {
+    // The base listing omits account details. Its null account_id means "unknown"
+    // until the optional account enrichment has finished.
+    const accountLoaded = includeParams.includes("account") && !loadingDetails;
+    setEditingTarget({
+      ...user,
+      expectedAccountId: user.account_id ?? (accountLoaded ? null : undefined),
+    });
+  };
+
   type ColumnDef = DataTableColumn<CephAdminRgwUser, SortField>;
 
   const detailPlaceholder = loadingDetails ? surfaceText("Loading...") : "-";
@@ -802,7 +813,7 @@ export default function CephAdminUsersPage() {
         const isActiveIdentity = owner === activeRgwUserId;
         return (
           <ListActions>
-            <ListActionButton {...dataTableDefaultActionProps} onClick={() => setEditingTarget(user)}>
+            <ListActionButton {...dataTableDefaultActionProps} onClick={() => configureUser(user)}>
               {surfaceText("Configure")}</ListActionButton>
             <UiActionMenu
               ariaLabel={surfaceText("More actions for RGW user {uid}", { uid: owner ?? user.uid })}
@@ -1148,7 +1159,7 @@ export default function CephAdminUsersPage() {
           endpointUrl={selectedEndpoint?.endpoint_url ?? null}
           uid={editingTarget.uid}
           tenant={editingTarget.tenant}
-          expectedAccountId={editingTarget.account_id ?? null}
+          expectedAccountId={editingTarget.expectedAccountId}
           canViewMetrics={canViewMetrics}
           onClose={() => setEditingTarget(null)}
           onSaved={applyUpdatedUser}
