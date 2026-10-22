@@ -541,12 +541,19 @@ def test_account_and_user_listing_normalization_paths(monkeypatch):
     monkeypatch.setattr(
         client,
         "_request",
-        lambda *args, **kwargs: [None, {"id": "RGW1", "name": "One"}, "RGW2", {"account_id": "   "}],
+        lambda *args, **kwargs: [
+            None,
+            {"id": "RGW1", "name": "One"},
+            "RGW2",
+            {"account_id": "RGW3", "display_name": " Three "},
+            {"account_id": "   "},
+        ],
     )
     compact = client.list_accounts(include_details=False)
     assert compact == [
         {"id": "RGW1", "name": "One", "account_id": "RGW1", "account_name": "One"},
         {"account_id": "RGW2", "id": "RGW2"},
+        {"account_id": "RGW3", "display_name": " Three ", "id": "RGW3", "account_name": "Three"},
     ]
 
     monkeypatch.setattr(client, "_request", lambda *args, **kwargs: [{"id": "RGW1"}, {"id": "RGW2", "name": "Two"}])
