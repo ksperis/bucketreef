@@ -72,6 +72,14 @@ import {
 import { useOnboardingStatus } from "./useOnboardingStatus";
 import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
 import { useAdminI18n } from "./adminI18n";
+import {
+  buildOnboardingEndpointValidationPayload,
+  buildOnboardingPrivateValidationPayload,
+  resolveOnboardingEndpointState,
+  serviceIdentity,
+  type OnboardingCredentialDraft,
+  type OnboardingIdentityMode,
+} from "./onboardingFormModel";
 
 type Step = "connect" | "prepare" | "credentials" | "review";
 
@@ -87,15 +95,6 @@ const initialDraft = (): OnboardingDraft => ({
   ceph_admin: false,
   supervision: true,
 });
-
-function validEndpointUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (url.protocol === "http:" || url.protocol === "https:") && Boolean(url.hostname);
-  } catch {
-    return false;
-  }
-}
 
 const EMPTY_CREDENTIAL_CHECK: StorageEndpointCredentialCheck = {
   status: "not_configured",
@@ -227,24 +226,6 @@ function CredentialSection({
   );
 }
 
-function hasStoredAdminCredentials(endpoint: StorageEndpoint | null): boolean {
-  return Boolean(endpoint?.admin_access_key && endpoint.has_admin_secret);
-}
-
-function serviceIdentity(
-  endpoint: StorageEndpoint | null,
-  kind: "runtime" | "supervision" | "ceph_admin",
-) {
-  return endpoint?.service_identities?.find((identity) => identity.kind === kind);
-}
-
-function hasStoredServiceCredentials(
-  endpoint: StorageEndpoint | null,
-  kind: "runtime" | "supervision" | "ceph_admin",
-): boolean {
-  return Boolean(serviceIdentity(endpoint, kind)?.credentials_configured);
-}
-
 function selectedOptionCount(draft: OnboardingDraft): number {
   return [
     draft.manager,
@@ -300,7 +281,7 @@ export default function OnboardingPage() {
   const [cephAdminSecretKey, setCephAdminSecretKey] = useState("");
   const [runtimeAccessKey, setRuntimeAccessKey] = useState("");
   const [runtimeSecretKey, setRuntimeSecretKey] = useState("");
-  const [identityMode, setIdentityMode] = useState<"managed" | "external">("managed");
+  const [identityMode, setIdentityMode] = useState<OnboardingIdentityMode>("managed");
   const [privateAccessKey, setPrivateAccessKey] = useState("");
   const [privateSecretKey, setPrivateSecretKey] = useState("");
   const [preview, setPreview] = useState<OnboardingPreview | null>(null);
@@ -343,95 +324,74 @@ export default function OnboardingPage() {
       setIdentityMode(serviceIdentity(selectedEndpoint, "runtime")?.mode ?? "external");
     }
   }, [selectedEndpoint]);
-  const isCeph = draft.endpoint_id ? selectedEndpoint?.provider === "ceph" : true;
-  const endpointConfigured = Boolean(
-    draft.endpoint_id || (draft.endpoint_url && validEndpointUrl(draft.endpoint_url)),
+  const endpointState = useMemo(
+    () =>
+      resolveOnboardingEndpointState({
+        draft,
+        selectedEndpoint,
+        identityMode,
+      }),
+    [draft, identityMode, selectedEndpoint],
   );
-  const storedAdminCredentials = hasStoredAdminCredentials(selectedEndpoint);
-  const storedSupervisionCredentials = hasStoredServiceCredentials(
-    selectedEndpoint,
-    "supervision",
-  );
-  const storedCephAdminCredentials = hasStoredServiceCredentials(selectedEndpoint, "ceph_admin");
-  const storedRuntimeCredentials = hasStoredServiceCredentials(
-    selectedEndpoint,
-    "runtime",
-  );
-  const needsRuntime = Boolean(isCeph && (draft.manager || draft.portal));
-  const needsSupervision = Boolean(isCeph && draft.supervision);
-  const needsServiceIdentities = needsRuntime || needsSupervision;
-  const needsAdmin = needsRuntime || (identityMode === "managed" && needsSupervision);
-  const managedServicesReady = (!needsRuntime || (serviceIdentity(selectedEndpoint, "runtime")?.mode === "managed" && serviceIdentity(selectedEndpoint, "runtime")?.status === "ready"))
-    && (!needsSupervision || (serviceIdentity(selectedEndpoint, "supervision")?.mode === "managed" && serviceIdentity(selectedEndpoint, "supervision")?.status === "ready"));
-  const adminCredentialsRequired = needsAdmin && !storedAdminCredentials;
-  const supervisionCredentialsRequired = identityMode === "external" && needsSupervision && !storedSupervisionCredentials;
-  const runtimeCredentialsRequired = identityMode === "external" && needsRuntime && !storedRuntimeCredentials;
+  const {
+    isCeph,
+    endpointConfigured,
+    storedAdminCredentials,
+    storedSupervisionCredentials,
+    storedCephAdminCredentials,
+    storedRuntimeCredentials,
+    needsRuntime,
+    needsSupervision,
+    needsServiceIdentities,
+    needsAdmin,
+    managedServicesReady,
+    adminCredentialsRequired,
+    supervisionCredentialsRequired,
+    runtimeCredentialsRequired,
+  } = endpointState;
   const selectionCount = selectedOptionCount(draft);
   const hasSelection = selectionCount > 0;
-  const validationEndpointUrl = (
-    selectedEndpoint?.endpoint_url ??
-    draft.endpoint_url
-  ).trim();
-  const validationRegion = (
-    selectedEndpoint?.region ??
-    draft.region
-  )?.trim() || null;
-  const validationForcePathStyle =
-    selectedEndpoint?.force_path_style ?? draft.force_path_style;
-  const validationVerifyTls = selectedEndpoint?.verify_tls ?? true;
-  const endpointValidationPayload = useMemo(
-    () =>
-      endpointConfigured && validationEndpointUrl
-        ? {
-            endpoint_id: draft.endpoint_id,
-            endpoint_url: validationEndpointUrl,
-            region: validationRegion,
-            verify_tls: validationVerifyTls,
-            check_http: true,
-            admin_access_key:
-              needsAdmin
-                ? adminAccessKey.trim() ||
-                  (storedAdminCredentials ? selectedEndpoint?.admin_access_key ?? null : null)
-                : null,
-            admin_secret_key:
-              needsAdmin ? adminSecretKey.trim() || null : null,
-            supervision_access_key: identityMode === "external" && needsSupervision
-              ? supervisionAccessKey.trim() || null
-              : null,
-            supervision_secret_key: identityMode === "external" && needsSupervision
-              ? supervisionSecretKey.trim() || null
-              : null,
-            ceph_admin_access_key: draft.ceph_admin ? cephAdminAccessKey.trim() || null : null,
-            ceph_admin_secret_key: draft.ceph_admin ? cephAdminSecretKey.trim() || null : null,
-            runtime_access_key: identityMode === "external" && needsRuntime
-              ? runtimeAccessKey.trim() || null
-              : null,
-            runtime_secret_key: identityMode === "external" && needsRuntime
-              ? runtimeSecretKey.trim() || null
-              : null,
-          }
-        : null,
-    [
-      cephAdminAccessKey,
-      cephAdminSecretKey,
-      draft.ceph_admin,
-      runtimeAccessKey,
-      runtimeSecretKey,
-      identityMode,
-      needsAdmin,
-      needsRuntime,
-      draft.endpoint_id,
-      needsSupervision,
+  const credentialDraft = useMemo<OnboardingCredentialDraft>(
+    () => ({
       adminAccessKey,
-      endpointConfigured,
       adminSecretKey,
-      selectedEndpoint?.admin_access_key,
-      storedAdminCredentials,
       supervisionAccessKey,
       supervisionSecretKey,
-      validationEndpointUrl,
-      validationRegion,
-      validationVerifyTls,
+      cephAdminAccessKey,
+      cephAdminSecretKey,
+      runtimeAccessKey,
+      runtimeSecretKey,
+      privateAccessKey,
+      privateSecretKey,
+    }),
+    [
+      adminAccessKey,
+      adminSecretKey,
+      cephAdminAccessKey,
+      cephAdminSecretKey,
+      privateAccessKey,
+      privateSecretKey,
+      runtimeAccessKey,
+      runtimeSecretKey,
+      supervisionAccessKey,
+      supervisionSecretKey,
+    ],
+  );
+  const endpointValidationPayload = useMemo(
+    () =>
+      buildOnboardingEndpointValidationPayload({
+        draft,
+        selectedEndpoint,
+        identityMode,
+        state: endpointState,
+        credentials: credentialDraft,
+      }),
+    [
+      credentialDraft,
+      draft,
+      endpointState,
+      identityMode,
+      selectedEndpoint,
     ],
   );
   const endpointValidation = useStorageEndpointLiveValidation({
@@ -451,38 +411,15 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (needsServiceIdentities && adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !managedServicesReady) setIdentityMode("external");
   }, [needsServiceIdentities, adminCredentialCheck.status, endpointValidation.result?.admin_ops_permissions.users_write, managedServicesReady]);
-  const privateValidationPayload = useMemo(() => {
-    const accessKey = privateAccessKey.trim();
-    const secretKey = privateSecretKey.trim();
-    if (!draft.private_connection || !accessKey || !secretKey || !endpointConfigured) {
-      return null;
-    }
-    if (draft.endpoint_id) {
-      return {
-        storage_endpoint_id: draft.endpoint_id,
-        access_key_id: accessKey,
-        secret_access_key: secretKey,
-      };
-    }
-    return {
-      endpoint_url: validationEndpointUrl,
-      region: validationRegion,
-      force_path_style: validationForcePathStyle,
-      verify_tls: validationVerifyTls,
-      access_key_id: accessKey,
-      secret_access_key: secretKey,
-    };
-  }, [
-    draft.endpoint_id,
-    draft.private_connection,
-    endpointConfigured,
-    privateAccessKey,
-    privateSecretKey,
-    validationEndpointUrl,
-    validationForcePathStyle,
-    validationRegion,
-    validationVerifyTls,
-  ]);
+  const privateValidationPayload = useMemo(
+    () =>
+      buildOnboardingPrivateValidationPayload({
+        draft,
+        state: endpointState,
+        credentials: credentialDraft,
+      }),
+    [credentialDraft, draft, endpointState],
+  );
   const privateValidation = useLiveS3CredentialsValidation({
     enabled: Boolean(privateValidationPayload),
     payload: privateValidationPayload,
@@ -1132,7 +1069,7 @@ export default function OnboardingPage() {
                 )}
 
                 {needsServiceIdentities && <WorkflowSection title={adminText("Service identities")} description={adminText("Runtime Read Ops supports Manager and Portal. Supervision Ops supports monitoring. Only selected workflows require these identities.")}>
-                  <UiSelect label={adminText("Identity management")} value={identityMode} onChange={event => setIdentityMode(event.target.value as "managed" | "external")}>
+                  <UiSelect label={adminText("Identity management")} value={identityMode} onChange={event => setIdentityMode(event.target.value as OnboardingIdentityMode)}>
                     <option value="managed" disabled={adminCredentialCheck.status === "valid" && !endpointValidation.result?.admin_ops_permissions.users_write && !managedServicesReady}>{adminText("Managed by BucketReef")}</option>
                     <option value="external">{adminText("Provided externally")}</option>
                   </UiSelect>
