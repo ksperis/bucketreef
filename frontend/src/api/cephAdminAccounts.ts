@@ -4,14 +4,13 @@
  */
 import type { CephAdminRgwQuotaConfig } from "./cephAdminRgwTypes";
 import {
-  buildCephAdminEntityListingQuery,
+  listCephAdminEntities,
+  streamCephAdminEntities,
   type CephAdminEntityListingParams,
   type CephAdminEntityListingRequestOptions,
   type CephAdminListingStreamOptions,
-  type CephAdminListingStreamProgress,
 } from "./cephAdminEntityListing";
 import client from "./client";
-import { resolveApiBaseUrl, streamBucketsWithSse } from "./sseBucketsStream";
 import type { PaginatedResponse } from "./types";
 
 export type CephAdminRgwAccount = {
@@ -94,17 +93,12 @@ export async function listCephAdminAccounts(
   params?: ListCephAdminAccountsParams,
   options?: CephAdminEntityListingRequestOptions,
 ): Promise<PaginatedCephAdminAccountsResponse> {
-  const { data } = await client.get<PaginatedCephAdminAccountsResponse>(
-    `/ceph-admin/endpoints/${endpointId}/accounts`,
-    {
-      params: {
-        ...params,
-        include: params?.include?.join(","),
-      },
-      signal: options?.signal,
-    },
+  return listCephAdminEntities<PaginatedCephAdminAccountsResponse>(
+    endpointId,
+    "accounts",
+    params,
+    options,
   );
-  return data;
 }
 
 export async function streamCephAdminAccounts(
@@ -112,20 +106,12 @@ export async function streamCephAdminAccounts(
   params?: ListCephAdminAccountsParams,
   options?: CephAdminListingStreamOptions,
 ): Promise<PaginatedCephAdminAccountsResponse> {
-  const baseUrl = resolveApiBaseUrl();
-  const query = buildCephAdminEntityListingQuery(params);
-  const queryText = query.toString();
-  const url = `${baseUrl}/ceph-admin/endpoints/${endpointId}/accounts/stream${queryText ? `?${queryText}` : ""}`;
-  return streamBucketsWithSse<
-    CephAdminListingStreamProgress,
-    PaginatedCephAdminAccountsResponse
-  >({
-    url,
+  return streamCephAdminEntities<PaginatedCephAdminAccountsResponse>(
+    endpointId,
+    "accounts",
+    params,
     options,
-    streamFailedLabel: "Advanced search stream failed",
-    missingResultMessage:
-      "Advanced search stream ended without a result payload",
-  });
+  );
 }
 
 export async function getCephAdminAccountDetail(
