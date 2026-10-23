@@ -20,6 +20,39 @@ from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter()
 
+_RUNTIME_SURFACE_BY_WORKSPACE = {
+    "browser": "browser",
+    "manager": "manager",
+    "portal": "portal",
+    "ceph-admin": "ceph_admin",
+}
+
+
+def _workspace_enabled(workspace: BrowserTransferWorkspace, general) -> bool:
+    return {
+        "browser": general.browser_root_enabled,
+        "manager": general.manager_enabled and general.browser_manager_enabled,
+        "ceph-admin": general.ceph_admin_enabled and general.browser_ceph_admin_enabled,
+        "portal": general.portal_enabled and general.browser_portal_enabled,
+    }[workspace]
+
+
+def _validate_workspace_request(
+    actor: ManagerActor,
+    workspace: BrowserTransferWorkspace,
+    context_id: Optional[str],
+) -> bool:
+    is_session = isinstance(actor, ManagerSessionPrincipal)
+    if is_session and (workspace not in {"browser", "manager"} or not actor.capabilities.access_browser):
+        raise HTTPException(status_code=403, detail="Browser workspace is unavailable for this session")
+    if workspace == "portal" and (not context_id or not context_id.isdecimal()):
+        raise HTTPException(status_code=403, detail="Portal requires an explicit account context")
+    if workspace == "ceph-admin" and (not context_id or not context_id.startswith("ceph-admin-")):
+        raise HTTPException(status_code=403, detail="Ceph Admin requires an endpoint context")
+    if workspace in {"manager", "portal"} and context_id and context_id.startswith("ceph-admin-"):
+        raise HTTPException(status_code=403, detail="Ceph Admin context requires its Browser workspace")
+    return is_session
+
 
 @router.get("/direct-transfer-policy", response_model=BrowserTransferPolicy)
 def get_direct_transfer_policy(
@@ -33,24 +66,12 @@ def get_direct_transfer_policy(
 ) -> BrowserTransferPolicy:
     current_auth_session(request, db)
     general = app_settings_service.load_app_settings_for_db_readonly(db).general
-    runtime_surface = {"ceph-admin": "ceph_admin", "portal": "portal", "manager": "manager", "browser": "browser"}[workspace]
-    enabled = {
-        "browser": general.browser_root_enabled,
-        "manager": general.manager_enabled and general.browser_manager_enabled,
-        "ceph-admin": general.ceph_admin_enabled and general.browser_ceph_admin_enabled,
-        "portal": general.portal_enabled and general.browser_portal_enabled,
-    }[workspace]
-    if not enabled or not runtime_surface_enabled(get_settings(), runtime_surface):
+    if not _workspace_enabled(workspace, general) or not runtime_surface_enabled(
+        get_settings(),
+        _RUNTIME_SURFACE_BY_WORKSPACE[workspace],
+    ):
         raise HTTPException(status_code=403, detail="Browser workspace is disabled")
-    is_session = isinstance(actor, ManagerSessionPrincipal)
-    if is_session and (workspace not in {"browser", "manager"} or not actor.capabilities.access_browser):
-        raise HTTPException(status_code=403, detail="Browser workspace is unavailable for this session")
-    if workspace == "portal" and (not context_id or not context_id.isdecimal()):
-        raise HTTPException(status_code=403, detail="Portal requires an explicit account context")
-    if workspace == "ceph-admin" and (not context_id or not context_id.startswith("ceph-admin-")):
-        raise HTTPException(status_code=403, detail="Ceph Admin requires an endpoint context")
-    if workspace in {"manager", "portal"} and context_id and context_id.startswith("ceph-admin-"):
-        raise HTTPException(status_code=403, detail="Ceph Admin context requires its Browser workspace")
+    is_session = _validate_workspace_request(actor, workspace, context_id)
     context = resolve_s3_execution_context(request, context_id, actor, db, workspace=workspace, metadata_only=True)
     try:
         policy = build_transfer_policy(context, workspace=workspace, context_id=None if is_session else context.context_id)
