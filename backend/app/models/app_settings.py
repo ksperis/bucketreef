@@ -187,12 +187,12 @@ class BrandingSettings(ApiModel):
 
 
 class LoginSettings(ApiModel):
-    allow_login_access_keys: bool = False
-    allow_login_endpoint_list: bool = False
-    allow_login_custom_endpoint: bool = False
-    default_endpoint_url: Optional[str] = None
-    endpoints: list[StorageEndpointPublic] = Field(default_factory=list)
-    login_logo_url: Optional[str] = None
+    allow_login_access_keys: bool
+    allow_login_endpoint_list: bool
+    allow_login_custom_endpoint: bool
+    default_endpoint_url: Optional[str]
+    endpoints: list[StorageEndpointPublic]
+    login_logo_url: Optional[str]
 
 
 class PortalSettings(ApiModel):
