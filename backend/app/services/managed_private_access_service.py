@@ -408,7 +408,7 @@ class ManagedPrivateAccessService:
         resolved: ResolvedUserAccess | None = None,
     ) -> bool:
         if not (
-            app_settings_service.load_app_settings()
+            app_settings_service.load_app_settings_for_db_readonly(self.db)
             .manager.feature_policies.managed_private_connection_provisioning != FeaturePolicy.DISABLED
         ):
             return False

@@ -109,7 +109,7 @@ def _enable_managed_private_connection_provisioning(monkeypatch, db_session):
     from tests.feature_policy_fixtures import enable_manager_features
     settings = enable_manager_features(db_session)
     settings.manager.feature_policies.managed_private_connection_provisioning = "targeted"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
 
 def _user(db_session, *, email="owner@example.test", managed=True):
@@ -397,7 +397,7 @@ def test_global_flag_is_required_before_remote_calls(
     grant_source,
 ):
     settings = AppSettings()
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     user = _user(
         db_session,
         email=f"private-global-disabled-{grant_source}@example.test",
@@ -772,7 +772,7 @@ def test_managed_iam_connection_delete_cleans_remote_resources_before_local_rows
     user.can_provision_managed_private_connections = False
     db_session.commit()
     settings = AppSettings()
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     deleted = service.delete_owned_connection(user=user, connection_id=result.connection.id)
 
