@@ -43,7 +43,7 @@ export async function updateIamGroup(
   groupName: string,
   payload: { name?: string; path?: string },
 ): Promise<IAMGroup> {
-  const { data } = await client.put<IAMGroup>(`/manager/iam/groups/${encodeURIComponent(groupName)}`, payload, {
+  const { data } = await client.patch<IAMGroup>(`/manager/iam/groups/${encodeURIComponent(groupName)}`, payload, {
     params: withS3ContextParam(undefined, contextId),
   });
   return data;

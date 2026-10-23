@@ -151,7 +151,7 @@ def delete_role(
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
-@router.put("/{role_name}", response_model=IAMRole)
+@router.patch("/{role_name}", response_model=IAMRole)
 def update_role(
     role_name: str,
     payload: IAMRoleUpdate,

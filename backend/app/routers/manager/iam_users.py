@@ -89,7 +89,7 @@ def get_user(
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.put("/{user_name}", response_model=IAMUser)
+@router.patch("/{user_name}", response_model=IAMUser)
 def update_user(
     user_name: str,
     payload: IAMUserUpdate,

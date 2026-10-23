@@ -60,7 +60,7 @@ export async function createIamRole(contextId: S3ExecutionContextSelector, paylo
 }
 
 export async function updateIamRole(contextId: S3ExecutionContextSelector, roleName: string, payload: UpdateRolePayload): Promise<IAMRole> {
-  const { data } = await client.put<IAMRole>(`/manager/iam/roles/${encodeURIComponent(roleName)}`, payload, {
+  const { data } = await client.patch<IAMRole>(`/manager/iam/roles/${encodeURIComponent(roleName)}`, payload, {
     params: withS3ContextParam(undefined, contextId),
   });
   return data;

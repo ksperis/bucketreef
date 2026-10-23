@@ -72,7 +72,7 @@ def get_group(
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.put("/{group_name}", response_model=IAMGroup)
+@router.patch("/{group_name}", response_model=IAMGroup)
 def update_group(
     group_name: str,
     payload: IAMGroupUpdate,
