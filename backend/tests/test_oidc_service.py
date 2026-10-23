@@ -504,7 +504,7 @@ def test_decode_id_token_key_lookup_invalid_token_and_nonce_mismatch(db_session,
         lambda uri: {"keys": [{"kid": "other-key", "kty": "RSA", "use": "sig"}]},
     )
     with pytest.raises(OIDCAuthenticationError, match="matching signing key"):
-        service._decode_id_token("google", provider, metadata, "token", expected_nonce="n", access_token="a")
+        service._decode_id_token(provider, metadata, "token", expected_nonce="n", access_token="a")
 
     monkeypatch.setattr(
         service,
@@ -513,11 +513,11 @@ def test_decode_id_token_key_lookup_invalid_token_and_nonce_mismatch(db_session,
     )
     monkeypatch.setattr("app.services.oidc_service.jwt.decode", lambda *args, **kwargs: (_ for _ in ()).throw(JWTError("invalid")))
     with pytest.raises(OIDCAuthenticationError, match="Invalid ID token"):
-        service._decode_id_token("google", provider, metadata, "token", expected_nonce="n", access_token="a")
+        service._decode_id_token(provider, metadata, "token", expected_nonce="n", access_token="a")
 
     monkeypatch.setattr("app.services.oidc_service.jwt.decode", lambda *args, **kwargs: {"sub": "s1", "nonce": "wrong"})
     with pytest.raises(OIDCStateError, match="Nonce mismatch"):
-        service._decode_id_token("google", provider, metadata, "token", expected_nonce="expected", access_token="a")
+        service._decode_id_token(provider, metadata, "token", expected_nonce="expected", access_token="a")
 
 
 def test_fetch_userinfo_email_and_code_challenge_helpers(db_session, monkeypatch):

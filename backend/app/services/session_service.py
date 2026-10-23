@@ -103,7 +103,7 @@ class SessionService:
             if str(user_info.get("account_root")).lower() in {"true", "1", "yes"}:
                 actor_type = "account_root"
         iam_full_access = self._probe_iam_manage(access_key, secret_key, endpoint=endpoint)
-        capabilities = self._derive_capabilities(actor_type, user_info, iam_full_access)
+        capabilities = self._derive_capabilities(actor_type, iam_full_access)
         capabilities.endpoint_url = normalize_s3_endpoint(endpoint)
         return actor_type, account_id, account_name, user_uid, capabilities
 
@@ -129,7 +129,11 @@ class SessionService:
             logger.debug("RGW admin lookup failed for submitted access key: %s", type(exc).__name__)
             return None
 
-    def _derive_capabilities(self, actor_type: str, user_info: Optional[dict], iam_full_access: bool) -> SessionCapabilities:
+    def _derive_capabilities(
+        self,
+        actor_type: str,
+        iam_full_access: bool,
+    ) -> SessionCapabilities:
         can_manage_iam = actor_type == "account_root" or iam_full_access
         can_view_traffic = actor_type == "account_root"
         can_manage_buckets = True

@@ -101,7 +101,6 @@ class BucketConfigurationService:
 
     def _resolve_bucket_quota_scope(
         self,
-        name: str,
         execution_context: S3ExecutionTarget,
         *,
         rgw_tenant: str | None = None,
@@ -308,7 +307,6 @@ class BucketConfigurationService:
     ) -> None:
         client = rgw_admin or self._rgw_bucket_quota_admin_for_context(execution_context)
         _account_id, tenant, root_uid = self._resolve_bucket_quota_scope(
-            name,
             execution_context,
             rgw_tenant=rgw_tenant,
         )
