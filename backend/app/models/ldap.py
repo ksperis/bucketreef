@@ -8,7 +8,6 @@ from pydantic import Field, field_validator, model_validator
 from app.models.base import ApiModel
 from app.utils.identity_provider_ids import normalize_identity_provider_id
 from app.utils.ldap_validation import (
-    LDAP_PROVIDER_DEFAULT_USER_FILTER,
     normalize_optional_ldap_string,
     normalize_required_ldap_string,
     validate_ldap_url,

@@ -29,10 +29,7 @@ from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.feature_policy_service import validate_manager_overrides
 from app.services.tags_service import TagsService
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
-from app.utils.s3_connection_capabilities import (
-    parse_s3_connection_capabilities,
-    s3_connection_can_manage_iam,
-)
+from app.utils.s3_connection_capabilities import parse_s3_connection_capabilities
 from app.utils.name_ordering import name_order_by
 from app.utils.time import utcnow
 

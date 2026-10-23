@@ -9,7 +9,6 @@ from time import perf_counter
 
 from app.core.config import get_settings
 from app.services.aws_client_config import StorageRequestProfile, build_aws_config
-from app.utils.aws_errors import aws_error_code
 
 settings = get_settings()
 logger = logging.getLogger(__name__)

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
+from app.models.ceph_admin import CephAdminRgwAccountSummary
 from app.routers.ceph_admin import accounts as accounts_router
 from app.services import ceph_admin_account_listing_enrichment as account_listing_enrichment
 from app.services.ceph_admin_account_payloads import build_account_detail
@@ -424,8 +425,8 @@ def test_ceph_admin_accounts_enrichment_checks_cancel_during_loop():
     }
     ctx, rgw_admin = _build_ctx(endpoint_id=2405, accounts_payload=accounts_payload, account_details=account_details)
     accounts = [
-        accounts_router.CephAdminRgwAccountSummary(account_id="RGW01"),
-        accounts_router.CephAdminRgwAccountSummary(account_id="RGW02"),
+        CephAdminRgwAccountSummary(account_id="RGW01"),
+        CephAdminRgwAccountSummary(account_id="RGW02"),
     ]
     calls = 0
 

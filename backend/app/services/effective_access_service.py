@@ -17,7 +17,6 @@ from app.db import (
     ManagerAccountRole,
     S3Account,
     S3Connection,
-    S3User,
     StorageProvider,
     UiGroup,
     UiGroupS3Account,

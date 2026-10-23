@@ -21,7 +21,6 @@ from app.db import (
 from app.models.user import UserAvatar, UserAvatarPreference
 from app.services.avatar_image_service import (
     ALLOWED_AVATAR_CONTENT_TYPES,
-    MAX_AVATAR_BYTES,
     validate_avatar_image,
 )
 from app.utils.time import utcnow

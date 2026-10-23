@@ -8,10 +8,7 @@ from typing import Callable
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.models.ceph_admin import (
-    CephAdminRgwAccountSummary,
-    PaginatedCephAdminAccountsResponse,
-)
+from app.models.ceph_admin import PaginatedCephAdminAccountsResponse
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )

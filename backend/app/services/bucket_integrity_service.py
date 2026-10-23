@@ -6,7 +6,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from time import monotonic
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Callable, Protocol
 
 from botocore.exceptions import BotoCoreError, ClientError
 

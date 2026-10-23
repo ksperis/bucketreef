@@ -27,7 +27,6 @@ from app.services.storage_ops_bucket_listing_request import (
 )
 from app.services.bucket_owner_enrichment import BucketOwnerMetadataService
 from app.services.buckets_service import BucketsService
-from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.listing_progress import (

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 
-from app.core.sensitive_data import sanitize_error_detail, sanitize_log_text
+from app.core.sensitive_data import sanitize_log_text
 from app.services.s3_execution_context import S3ExecutionTarget
 
 _READ_ONLY_POLICY_SID = "BucketReefMigrationReadOnlyDeny"
