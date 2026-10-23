@@ -33,6 +33,7 @@ function renderObjects(
 
 const emptyListing = {
   is_truncated: false,
+  next_continuation_token: null,
   objects: [],
   prefix: "",
   prefixes: [],

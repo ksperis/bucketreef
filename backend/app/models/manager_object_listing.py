@@ -18,5 +18,5 @@ class ListObjectsResponse(ApiModel):
     prefix: str
     objects: list[S3Object]
     prefixes: list[str]
-    is_truncated: bool = False
-    next_continuation_token: str | None = None
+    is_truncated: bool
+    next_continuation_token: str | None
