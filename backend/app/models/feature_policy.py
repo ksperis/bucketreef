@@ -55,7 +55,7 @@ class PortalFeaturePolicies(FeaturePolicies):
 class FeatureState(ApiModel):
     enabled: bool
     source: Literal["platform", "resource", "direct", "group"]
-    blocked_reason: str | None = None
+    blocked_reason: str | None
 
 
 def resolve_feature_policy(policy: FeaturePolicy, override: bool | None = None) -> FeatureState:

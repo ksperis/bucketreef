@@ -2,7 +2,7 @@
 import type { AppSettings, GeneralSettings, PortalConfiguration, PortalSettings, PortalSettingsOverride } from "./appSettings";
 
 export type FeaturePolicy = "disabled" | "targeted" | "default_on";
-export type FeatureState = { enabled: boolean; source: "platform" | "resource" | "direct" | "group"; blocked_reason?: string | null };
+export type FeatureState = { enabled: boolean; source: "platform" | "resource" | "direct" | "group"; blocked_reason: string | null };
 export type ManagerFeaturePolicies = {
   rgw_usage_metrics: FeaturePolicy;
   cost_estimation: FeaturePolicy;
