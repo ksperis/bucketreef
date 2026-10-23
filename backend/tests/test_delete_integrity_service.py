@@ -3,6 +3,8 @@
 
 from datetime import UTC, datetime
 
+from sqlalchemy import select
+
 from app.db import (
     ApiToken,
     AuthSession,
@@ -110,20 +112,32 @@ def test_delete_user_cleans_owned_connections_tokens_and_sessions(db_session):
 
     UsersService(db_session).delete_user(owner.id)
 
-    assert db_session.query(User).filter(User.id == owner.id).first() is None
-    assert db_session.query(S3Connection).filter(S3Connection.id == owned_connection_id).first() is None
-    assert db_session.query(UserS3Connection).filter(UserS3Connection.user_id == owner.id).first() is None
+    assert db_session.scalar(select(User).where(User.id == owner.id)) is None
+    assert db_session.scalar(
+        select(S3Connection).where(S3Connection.id == owned_connection_id)
+    ) is None
+    assert db_session.scalar(
+        select(UserS3Connection).where(UserS3Connection.user_id == owner.id)
+    ) is None
     assert (
-        db_session.query(UserS3Connection)
-        .filter(UserS3Connection.s3_connection_id == owned_connection_id)
-        .first()
+        db_session.scalar(
+            select(UserS3Connection).where(
+                UserS3Connection.s3_connection_id == owned_connection_id
+            )
+        )
         is None
     )
-    assert db_session.query(ApiToken).filter(ApiToken.id == "tok-own").first() is None
-    assert db_session.query(AuthSession).filter(AuthSession.id == "session-own").first() is None
-    assert db_session.query(RefreshToken).filter(RefreshToken.id == "ref-own").first() is None
-    token = db_session.query(ApiToken).filter(ApiToken.id == "tok-other").first()
-    refresh = db_session.query(RefreshToken).filter(RefreshToken.id == "ref-other").first()
+    assert db_session.scalar(select(ApiToken).where(ApiToken.id == "tok-own")) is None
+    assert db_session.scalar(
+        select(AuthSession).where(AuthSession.id == "session-own")
+    ) is None
+    assert db_session.scalar(
+        select(RefreshToken).where(RefreshToken.id == "ref-own")
+    ) is None
+    token = db_session.scalar(select(ApiToken).where(ApiToken.id == "tok-other"))
+    refresh = db_session.scalar(
+        select(RefreshToken).where(RefreshToken.id == "ref-other")
+    )
     assert token is not None
     assert refresh is not None
 
@@ -167,9 +181,13 @@ def test_delete_user_nulls_nullable_foreign_keys(db_session):
 
     UsersService(db_session).delete_user(user.id)
 
-    refreshed_audit = db_session.query(AuditLog).filter(AuditLog.id == audit.id).first()
-    refreshed_migration = db_session.query(BucketMigration).filter(BucketMigration.id == migration.id).first()
-    refreshed_definition = db_session.query(TagDefinition).filter(TagDefinition.id == tag_definition.id).first()
+    refreshed_audit = db_session.scalar(select(AuditLog).where(AuditLog.id == audit.id))
+    refreshed_migration = db_session.scalar(
+        select(BucketMigration).where(BucketMigration.id == migration.id)
+    )
+    refreshed_definition = db_session.scalar(
+        select(TagDefinition).where(TagDefinition.id == tag_definition.id)
+    )
 
     assert refreshed_audit is not None and refreshed_audit.user_id is None
     assert refreshed_migration is not None and refreshed_migration.created_by_user_id is None
