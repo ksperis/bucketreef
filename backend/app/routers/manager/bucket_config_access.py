@@ -15,7 +15,7 @@ from app.models.bucket import (
     BucketPublicAccessBlockUpdate,
 )
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
-from app.routers.manager.bucket_config_core import get_manager_bucket_config_mutation_service
+from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
 from app.services.bucket_configuration_service import (
