@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 from sqlalchemy.orm import sessionmaker
 
-from app.db import S3Account, StorageEndpoint
+from app.db import S3Account, S3User, StorageEndpoint
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as SnapshotRow
 from app.models.app_settings import AppSettings
 from app.models.bucket_usage_stats import BucketUsageStatsSnapshot
@@ -88,12 +88,24 @@ def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, m
         allow_bucket_usage_stats=False,
         allow_bucket_usage_stats_collection=True,
     )
+    opted_in_user = S3User(
+        id=4,
+        name="Opted in user",
+        rgw_user_uid="opted-in-user",
+        rgw_tenant="",
+        rgw_access_key="user-ak",
+        rgw_secret_key="user-sk",
+        storage_endpoint_id=7,
+        allow_bucket_usage_stats=True,
+        allow_bucket_usage_stats_collection=True,
+    )
     now = utcnow()
     db_session.add_all([
         endpoint,
         opted_in,
         targeted_without_opt_in,
         stats_disabled,
+        opted_in_user,
         _snapshot_row(account_id=1, bucket_name="fresh", calculated_at=now - timedelta(hours=1)),
         _snapshot_row(account_id=1, bucket_name="stale", calculated_at=now - timedelta(hours=25)),
     ])
@@ -103,8 +115,11 @@ def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, m
     monkeypatch.setattr(collection_module, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     class FakeBucketsService:
-        def list_buckets(self, account, **_kwargs):
-            assert account.id == 1
+        def list_buckets(self, context, **_kwargs):
+            if isinstance(context, S3ExecutionContext):
+                assert context.context_id == "s3u-4"
+                return [SimpleNamespace(name="user-missing")]
+            assert context.id == 1
             return [SimpleNamespace(name=name) for name in ("fresh", "stale", "missing")]
 
     captured: dict[str, object] = {}
@@ -127,10 +142,14 @@ def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, m
         usage_stats_service=FakeUsageStatsService(),
     ).collect()
 
-    assert [target.bucket_name for target in captured["targets"]] == ["missing", "stale"]
+    assert [(target.scope_id, target.bucket_name) for target in captured["targets"]] == [
+        ("1", "missing"),
+        ("s3u-4", "user-missing"),
+        ("1", "stale"),
+    ]
     assert captured["parallelism"] == 2
-    assert result.eligible_accounts == 1
-    assert result.due_buckets == 2
+    assert result.eligible_accounts == 2
+    assert result.due_buckets == 3
 
 
 def test_bucket_scan_is_skipped_when_bucket_lease_is_already_held(db_session, monkeypatch):

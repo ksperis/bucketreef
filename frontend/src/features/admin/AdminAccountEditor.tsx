@@ -80,6 +80,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
   const [attempted, setAttempted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [savedAccount, setSavedAccount] = useState(account);
   const formRef = useRef<HTMLFormElement>(null);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
@@ -128,9 +129,10 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
     }
     const snapshot = form.draft;
     try {
-      await updateS3Account(account.id, adminAccountPayload(snapshot, form.baseline, allowQuotaUpdates, canManageManagerFeatures));
+      const updatedAccount = await updateS3Account(account.id, adminAccountPayload(snapshot, form.baseline, allowQuotaUpdates, canManageManagerFeatures));
       if (!active.current) return;
-      form.accept(snapshot);
+      setSavedAccount(updatedAccount);
+      form.accept(adminAccountForm(updatedAccount));
       setSaved(true);
       await onSaved();
     } catch (cause) {
@@ -184,7 +186,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                           <UsageTile
                             label={adminText("Storage")}
                             used={usage.stats?.total_bytes ?? null}
-                            quota={account.quota_max_size_gb != null ? account.quota_max_size_gb * 1024 ** 3 : null}
+                            quota={savedAccount.quota_max_size_gb != null ? savedAccount.quota_max_size_gb * 1024 ** 3 : null}
                             formatter={formatBytes}
                             quotaFormatter={formatBytes}
                             emptyHint={adminText("No storage quota defined.")}
@@ -192,7 +194,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                           <UsageTile
                             label={adminText("Objects")}
                             used={usage.stats?.total_objects ?? null}
-                            quota={account.quota_max_objects ?? null}
+                            quota={savedAccount.quota_max_objects ?? null}
                             formatter={formatCompactNumber}
                             quotaFormatter={value => value != null ? value.toLocaleString(intlLocale) : "-"}
                             unitHint={adminText("objects")}
@@ -207,6 +209,13 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                         ]} />}
                       </>}
               </SettingsSection>
+              <AdminQuotaFields compact storageValue={form.draft.quota_max_size_gb} storageUnit={form.draft.quota_max_size_unit}
+                objectValue={form.draft.quota_max_objects} disabled={!allowQuotaUpdates} errors={attempted ? quotaErrors : {}}
+                onStorageValueChange={value => update("quota_max_size_gb", value)} onStorageUnitChange={value => update("quota_max_size_unit", value)}
+                onObjectValueChange={value => update("quota_max_objects", value)} />
+              {permissions.loading ? <p role="status">{adminText("Checking endpoint permissions...")}</p> : permissions.loadError ? <UiInlineMessage tone="error" role="alert">
+                {permissions.loadError} <SettingsButton variant="secondary" onClick={permissions.retry}>{adminText("Retry permissions")}</SettingsButton>
+              </UiInlineMessage> : !allowQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and accounts=write on the endpoint.")}</UiInlineMessage>}
               <SettingsSection title={adminText("Services and monitoring")} description={adminText("Account-specific overrides for shared project services.")} presentation="compact">
                 <FeatureOverrideField title={adminText("Bucket composition statistics")} value={form.draft.allow_bucket_usage_stats}
                   policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
@@ -219,13 +228,6 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                   description={adminText("Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled.")}
                   onChange={value => update("allow_bucket_usage_stats_collection", value)} />
               </SettingsSection>
-              {permissions.loading ? <p role="status">{adminText("Checking endpoint permissions...")}</p> : permissions.loadError ? <UiInlineMessage tone="error" role="alert">
-                {permissions.loadError} <SettingsButton variant="secondary" onClick={permissions.retry}>{adminText("Retry permissions")}</SettingsButton>
-              </UiInlineMessage> : !allowQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and accounts=write on the endpoint.")}</UiInlineMessage>}
-              <AdminQuotaFields compact storageValue={form.draft.quota_max_size_gb} storageUnit={form.draft.quota_max_size_unit}
-                objectValue={form.draft.quota_max_objects} disabled={!allowQuotaUpdates} errors={attempted ? quotaErrors : {}}
-                onStorageValueChange={value => update("quota_max_size_gb", value)} onStorageUnitChange={value => update("quota_max_size_unit", value)}
-                onObjectValueChange={value => update("quota_max_objects", value)} />
             </div></div>
             <div hidden={tab !== "users"} className={adminAssociationPanelClass}>
               <AdminAccountAssociations adapter={accountUserAssociations} links={form.draft.user_links} onChange={value => update("user_links", value)}

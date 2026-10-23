@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
-from app.db import User, UserRole
+from app.db import S3User, User, UserRole
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy
 from app.routers import dependencies as dependencies_router
@@ -68,3 +68,35 @@ def test_bucket_composition_stats_remain_enabled_when_rgw_metrics_are_disabled(m
         dependencies_router.require_bucket_usage_stats_enabled(_manager_user(), _context(), db_session).email
         == "usage-stats-tool@example.com"
     )
+
+
+@pytest.mark.parametrize("override,allowed", [(True, True), (False, False)])
+def test_bucket_composition_stats_use_s3_user_override(monkeypatch, db_session, override, allowed):
+    settings = AppSettings()
+    settings.general.project_feature_policies.bucket_usage_stats = FeaturePolicy.TARGETED
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
+    s3_user = S3User(
+        id=17,
+        name="Usage user",
+        rgw_user_uid="usage-user",
+        rgw_access_key="AK",
+        rgw_secret_key="SK",
+        storage_endpoint_id=3,
+        allow_bucket_usage_stats=override,
+    )
+    context = S3ExecutionContext(
+        context_id="s3u-17",
+        context_kind="s3_user",
+        name=s3_user.name,
+        access_key="AK",
+        secret_key="SK",
+        s3_user_id=s3_user.id,
+        source_s3_user=s3_user,
+    )
+
+    if allowed:
+        assert dependencies_router.require_bucket_usage_stats_enabled(_manager_user(), context, db_session).email
+    else:
+        with pytest.raises(HTTPException) as exc:
+            dependencies_router.require_bucket_usage_stats_enabled(_manager_user(), context, db_session)
+        assert exc.value.status_code == 403

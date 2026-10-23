@@ -21,7 +21,7 @@ from app.services.feature_policy_service import (
     bucket_usage_stats_state,
     manager_rgw_usage_metrics_state,
     manager_usage_metrics_resource,
-    project_account_resource,
+    project_usage_resource,
 )
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES
 from app.services.manager_ceph_management_access_service import ManagerCephManagementAccessService
@@ -219,7 +219,7 @@ def require_bucket_usage_stats_enabled(
     app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
     state = bucket_usage_stats_state(
         app_settings.general.project_feature_policies,
-        project_account_resource(db, context),
+        project_usage_resource(db, context),
     )
     if not state.enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bucket usage stats feature is disabled")

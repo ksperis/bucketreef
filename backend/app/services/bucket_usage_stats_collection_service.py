@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import S3Account
+from app.db import S3Account, S3User
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as BucketUsageStatsSnapshotRow
 from app.models.bucket_usage_stats import BucketUsageStatsCollectionResult
 from app.services.app_settings_service import load_app_settings_for_db_readonly
@@ -24,12 +24,14 @@ from app.services.feature_policy_service import (
     bucket_usage_stats_collection_state,
     bucket_usage_stats_state,
 )
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.time import utcnow
 
 
 logger = logging.getLogger(__name__)
 BUCKET_USAGE_STATS_COLLECTION_MAX_AGE = timedelta(hours=24)
 BUCKET_USAGE_STATS_COLLECTION_PARALLELISM = 2
+UsageCollectionResource = S3Account | S3User
 
 
 class BucketUsageStatsCollectionService:
@@ -45,28 +47,40 @@ class BucketUsageStatsCollectionService:
         self.buckets_service = buckets_service or BucketsService()
         self.usage_stats_service = usage_stats_service or BucketUsageStatsService(session_factory)
 
-    def _eligible_accounts(self) -> list[S3Account]:
+    def _eligible_resources(self) -> list[UsageCollectionResource]:
         settings = load_app_settings_for_db_readonly(self.db)
         accounts = self.db.scalars(select(S3Account).order_by(S3Account.id.asc())).all()
+        users = self.db.scalars(select(S3User).order_by(S3User.id.asc())).all()
         return [
-            account
-            for account in accounts
-            if bucket_usage_stats_state(settings.general.project_feature_policies, account).enabled
-            and bucket_usage_stats_collection_state(settings.general.project_collection_policies, account).enabled
+            resource
+            for resource in [*accounts, *users]
+            if bucket_usage_stats_state(settings.general.project_feature_policies, resource).enabled
+            and bucket_usage_stats_collection_state(settings.general.project_collection_policies, resource).enabled
         ]
 
-    def _account_due_targets(
+    @staticmethod
+    def _execution_target(resource: UsageCollectionResource) -> S3ExecutionTarget:
+        if isinstance(resource, S3User):
+            return S3ExecutionContext.from_s3_user(resource)
+        return resource
+
+    @staticmethod
+    def _scope_id(resource: UsageCollectionResource) -> str:
+        return f"s3u-{resource.id}" if isinstance(resource, S3User) else str(resource.id)
+
+    def _resource_due_targets(
         self,
-        account: S3Account,
+        resource: UsageCollectionResource,
         *,
         cutoff,
     ) -> list[tuple[float, BucketUsageStatsResolvedTarget]]:
-        buckets = self.buckets_service.list_buckets(account, include=set(), with_stats=False)
+        execution_target = self._execution_target(resource)
+        buckets = self.buckets_service.list_buckets(execution_target, include=set(), with_stats=False)
         bucket_names = list(dict.fromkeys(bucket.name for bucket in buckets if bucket.name))
         if not bucket_names:
             return []
 
-        scope_id = str(account.id)
+        scope_id = self._scope_id(resource)
         snapshots = {
             row.bucket_name: row
             for row in self.db.scalars(
@@ -87,13 +101,13 @@ class BucketUsageStatsCollectionService:
                 (
                     priority,
                     BucketUsageStatsResolvedTarget(
-                        context=account,
+                        context=execution_target,
                         bucket_name=bucket_name,
                         scope_kind="manager",
                         scope_id=scope_id,
-                        scope_name=account.name,
+                        scope_name=resource.name,
                         context_id=scope_id,
-                        context_name=account.name,
+                        context_name=resource.name,
                     ),
                 )
             )
@@ -102,17 +116,18 @@ class BucketUsageStatsCollectionService:
     def collect(self) -> BucketUsageStatsCollectionResult:
         cutoff = utcnow() - BUCKET_USAGE_STATS_COLLECTION_MAX_AGE
         due_targets: list[tuple[float, BucketUsageStatsResolvedTarget]] = []
-        skipped_accounts = 0
-        eligible_accounts = self._eligible_accounts()
+        skipped_resources = 0
+        eligible_resources = self._eligible_resources()
 
-        for account in eligible_accounts:
+        for resource in eligible_resources:
             try:
-                due_targets.extend(self._account_due_targets(account, cutoff=cutoff))
+                due_targets.extend(self._resource_due_targets(resource, cutoff=cutoff))
             except Exception as exc:  # noqa: BLE001
-                skipped_accounts += 1
+                skipped_resources += 1
                 logger.warning(
-                    "Unable to prepare bucket usage statistics collection for account=%s: %s",
-                    account.id,
+                    "Unable to prepare bucket usage statistics collection for %s=%s: %s",
+                    "s3_user" if isinstance(resource, S3User) else "account",
+                    resource.id,
                     sanitized_error_log_detail(exc),
                 )
 
@@ -120,8 +135,8 @@ class BucketUsageStatsCollectionService:
         if not targets:
             return BucketUsageStatsCollectionResult(
                 status="completed",
-                eligible_accounts=len(eligible_accounts),
-                skipped_accounts=skipped_accounts,
+                eligible_accounts=len(eligible_resources),
+                skipped_accounts=skipped_resources,
                 due_buckets=0,
                 completed_buckets=0,
                 failed_buckets=0,
@@ -134,8 +149,8 @@ class BucketUsageStatsCollectionService:
         )
         return BucketUsageStatsCollectionResult(
             status=result.status,
-            eligible_accounts=len(eligible_accounts),
-            skipped_accounts=skipped_accounts,
+            eligible_accounts=len(eligible_resources),
+            skipped_accounts=skipped_resources,
             due_buckets=len(targets),
             completed_buckets=result.completed_buckets,
             failed_buckets=result.failed_buckets,

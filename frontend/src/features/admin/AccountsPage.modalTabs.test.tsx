@@ -33,6 +33,40 @@ const makeTag = (id: number, label: string, color_key = "neutral", scope = "stan
   scope,
 });
 
+const makeAccountDetail = (overrides: Record<string, unknown> = {}) => ({
+  id: 1,
+  name: "acc-1",
+  tags: [makeTag(501, "gold", "amber")],
+  rgw_account_id: "RGW000000000000001",
+  rgw_tenant: "",
+  email: null,
+  used_bytes: null,
+  used_objects: null,
+  storage_endpoint_id: 10,
+  storage_endpoint_name: "ceph-main",
+  storage_endpoint_url: "https://ceph.example.test",
+  storage_endpoint_is_default: true,
+  storage_endpoint_capabilities: { account: true, admin: true, usage: true },
+  quota_max_size_gb: null,
+  quota_max_objects: null,
+  user_links: [],
+  group_links: [],
+  bucket_count: null,
+  rgw_user_count: null,
+  rgw_user_uids: null,
+  rgw_topic_count: null,
+  rgw_topics: null,
+  allow_bucket_quota_management: null,
+  allow_access_key_metadata: null,
+  allow_access_key_expiration: null,
+  allow_activity_history: null,
+  allow_rgw_usage_metrics: null,
+  allow_cost_estimation: null,
+  allow_bucket_usage_stats: null,
+  allow_bucket_usage_stats_collection: null,
+  ...overrides,
+});
+
 function featureOverrideGroup(name: string) {
   return screen.getByRole("radiogroup", { name });
 }
@@ -211,26 +245,8 @@ describe("AccountsPage modal tabs", () => {
     ]);
     listAdminTagDefinitionsMock.mockResolvedValue([makeTag(501, "gold", "amber"), makeTag(502, "prod")]);
 
-    getS3AccountMock.mockResolvedValue({
-      id: 1,
-      name: "acc-1",
-      tags: [makeTag(501, "gold", "amber")],
-      rgw_account_id: "RGW000000000000001",
-      storage_endpoint_id: 10,
-      storage_endpoint_name: "ceph-main",
-      storage_endpoint_url: "https://ceph.example.test",
-      storage_endpoint_capabilities: {
-        account: true,
-        admin: true,
-        usage: true,
-      },
-      quota_max_size_gb: null,
-      quota_max_objects: null,
-      user_links: [],
-      group_links: [],
-    });
-
-    updateS3AccountMock.mockResolvedValue(undefined);
+    getS3AccountMock.mockResolvedValue(makeAccountDetail());
+    updateS3AccountMock.mockResolvedValue(makeAccountDetail());
     createS3AccountMock.mockResolvedValue(undefined);
     deleteS3AccountMock.mockResolvedValue(undefined);
     importS3AccountsMock.mockResolvedValue([]);
@@ -334,12 +350,39 @@ describe("AccountsPage modal tabs", () => {
     expect(within(generalPanel).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuenow", "25");
     expect(within(generalPanel).getByText("Active buckets")).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "Quotas" })).toBeInTheDocument();
+    expect(within(generalPanel).getByRole("heading", { name: "Services and monitoring" })).toBeInTheDocument();
+    const sectionHeadings = within(generalPanel).getAllByRole("heading").map((heading) => heading.textContent);
+    expect(sectionHeadings.indexOf("Usage")).toBeLessThan(sectionHeadings.indexOf("Quotas"));
+    expect(sectionHeadings.indexOf("Quotas")).toBeLessThan(sectionHeadings.indexOf("Services and monitoring"));
     expect(within(generalPanel).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Object quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByRole("button", { name: "Done" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(screen.getAllByText("RGW ID").some((node) => node.tagName === "DT")).toBe(true);
+  });
+
+  it("refreshes account usage gauges from the saved quota response", async () => {
+    const account = await getS3AccountMock();
+    getS3AccountMock.mockResolvedValue({ ...account, quota_max_size_gb: 2, quota_max_objects: 200 });
+    updateS3AccountMock.mockResolvedValue({ ...account, quota_max_size_gb: 4, quota_max_objects: 200 });
+    adminAccountStatsMock.mockReturnValue({
+      stats: { total_bytes: 1024 ** 3, total_objects: 50, bucket_overview: null },
+      loading: false,
+      error: null,
+      reload: vi.fn(),
+    });
+    renderPage();
+
+    await screen.findByText("acc-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    expect(await screen.findByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuenow", "50");
+    fireEvent.change(screen.getByLabelText("Storage quota"), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuenow", "25");
+    });
   });
 
   it("renders direct UI users and UI groups in the combined listing column", async () => {
@@ -1242,7 +1285,7 @@ describe("AccountsPage modal tabs", () => {
   it("preserves the independent Portal draft while freezing account-save navigation", async () => {
     portalEnabled = true;
     let finishSave!: () => void;
-    updateS3AccountMock.mockReturnValueOnce(new Promise<void>(resolve => { finishSave = resolve; }));
+    updateS3AccountMock.mockReturnValueOnce(new Promise(resolve => { finishSave = () => resolve(makeAccountDetail()); }));
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
@@ -1268,7 +1311,7 @@ describe("AccountsPage modal tabs", () => {
   it("ignores an account save response after its editor is unmounted", async () => {
     portalEnabled = true;
     let finishSave!: () => void;
-    updateS3AccountMock.mockReturnValueOnce(new Promise<void>(resolve => { finishSave = resolve; }));
+    updateS3AccountMock.mockReturnValueOnce(new Promise(resolve => { finishSave = () => resolve(makeAccountDetail()); }));
     const first = renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
