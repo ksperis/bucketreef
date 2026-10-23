@@ -15,9 +15,26 @@ export function ceph(c: DemoRequest): Response | undefined {
   const accounts = c.state.accounts.filter(a => a.storage_endpoint_id === endpoint.id);
   const id = match[3] ? decodeURIComponent(match[3]) : undefined;
   if (match[2] === "accounts") {
-    const view = (a: typeof accounts[number]): CephAdminRgwAccountDetail => ({ account_id: a.rgw_account_id, account_name: a.name, email: a.email, max_users: 100, max_buckets: 100,
-      bucket_count: c.state.buckets.filter(b => b.accountId === a.id).length, user_count: c.state.iam[a.id]?.users.length ?? 0,
-      ...a.rgw, quota: { enabled: a.rgw?.quota?.enabled ?? true, max_size_bytes: (a.quota_max_size_gb ?? 0) * GiB, max_objects: a.quota_max_objects ?? -1 } });
+    const view = (a: typeof accounts[number]): CephAdminRgwAccountDetail => ({
+      account_id: a.rgw_account_id,
+      tenant: null,
+      account_name: a.name,
+      email: a.email,
+      max_users: 100,
+      max_buckets: 100,
+      max_roles: null,
+      max_groups: null,
+      max_access_keys: null,
+      bucket_count: c.state.buckets.filter(b => b.accountId === a.id).length,
+      user_count: c.state.iam[a.id]?.users.length ?? 0,
+      bucket_quota: null,
+      ...a.rgw,
+      quota: {
+        enabled: a.rgw?.quota?.enabled ?? true,
+        max_size_bytes: (a.quota_max_size_gb ?? 0) * GiB,
+        max_objects: a.quota_max_objects ?? -1,
+      },
+    });
     const updateAccount = (account: typeof accounts[number]) => {
       const body = c.body;
       for (const field of ["max_users", "max_buckets", "max_roles", "max_groups", "max_access_keys"]) if (field in body) account.rgw = { ...account.rgw, [field]: body[field] };
@@ -38,7 +55,13 @@ export function ceph(c: DemoRequest): Response | undefined {
       }
       if ("bucket_quota_enabled" in body) account.rgw = { ...account.rgw, bucket_quota: { enabled: Boolean(body.bucket_quota_enabled), max_size_bytes: Number(body.bucket_quota_max_size_bytes ?? -1), max_objects: Number(body.bucket_quota_max_objects ?? -1) } };
     };
-    if (c.method === "GET") return id && id !== "stream" ? json(view(required(accounts.find(a => a.rgw_account_id === id)))) : listing(accounts.map(a => ({ ...view(a), quota_max_size_bytes: (a.quota_max_size_gb ?? 0) * GiB, quota_max_objects: a.quota_max_objects })), c);
+    if (c.method === "GET") return id && id !== "stream" ? json(view(required(accounts.find(a => a.rgw_account_id === id)))) : listing(accounts.map(a => ({
+      ...view(a),
+      quota_max_size_bytes: (a.quota_max_size_gb ?? 0) * GiB,
+      quota_max_objects: a.quota_max_objects,
+      used_bytes: a.used_bytes,
+      object_count: a.used_objects,
+    })), c);
     if (c.method === "POST" && !id) {
       const response = governance({ ...c, path: "/admin/accounts", body: { ...c.body, name: c.body.account_name, storage_endpoint_id: endpoint.id } });
       if (!response) return undefined;
