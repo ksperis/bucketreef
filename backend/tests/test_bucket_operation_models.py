@@ -18,7 +18,10 @@ from app.models.bucket_purge import (
 )
 from app.models.bucket_usage_stats import (
     BucketUsageStatsBucketRequest,
+    BucketUsageStatsBucketResult,
+    BucketUsageStatsProgress,
     BucketUsageStatsRgwTargetRequest,
+    BucketUsageStatsResult,
     BucketUsageStatsTargetRequest,
 )
 
@@ -162,3 +165,12 @@ def test_bucket_operation_openapi_models_are_surface_specific():
         assert properties["targets"]["items"] == {
             "$ref": "#/components/schemas/RgwBucketReference"
         }
+
+
+@pytest.mark.parametrize(
+    "model",
+    [BucketUsageStatsBucketResult, BucketUsageStatsProgress, BucketUsageStatsResult],
+)
+def test_bucket_usage_stats_operation_models_require_complete_payloads(model):
+    schema = model.model_json_schema()
+    assert set(schema["required"]) == set(schema["properties"])

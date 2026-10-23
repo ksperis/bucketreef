@@ -426,10 +426,13 @@ class BucketUsageScan:
         self.last_progress_at = now_monotonic
         callback(
             BucketUsageStatsProgress(
+                request_id=None,
                 stage="list",
                 bucket_name=target.bucket_name,
                 context_id=target.context_id,
                 context_name=target.context_name,
+                total_buckets=0,
+                completed_buckets=0,
                 listed_versions=self.object_version_count,
                 listed_delete_markers=self.delete_marker_count,
                 total_bytes=self.total_bytes,

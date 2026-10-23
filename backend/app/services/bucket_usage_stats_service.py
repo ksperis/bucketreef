@@ -546,8 +546,16 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         if progress_callback:
             progress_callback(
                 BucketUsageStatsProgress(
+                    request_id=None,
                     stage="prepare",
+                    bucket_name=None,
+                    context_id=None,
+                    context_name=None,
                     total_buckets=len(targets),
+                    completed_buckets=0,
+                    listed_versions=0,
+                    listed_delete_markers=0,
+                    total_bytes=0,
                     message="Preparing bucket usage statistics calculation",
                 )
             )
@@ -595,6 +603,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                 context_id=target.context_id,
                 context_name=target.context_name,
                 status="skipped",
+                snapshot=None,
                 duration_seconds=monotonic() - started,
                 message="Skipped because bucket usage statistics are already being calculated.",
             )
@@ -625,6 +634,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                 context_id=target.context_id,
                 context_name=target.context_name,
                 status="failed",
+                snapshot=None,
                 duration_seconds=monotonic() - started,
                 message=format_s3_error(exc),
             )
@@ -670,6 +680,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                     if progress_callback:
                         progress_callback(
                             BucketUsageStatsProgress(
+                                request_id=None,
                                 stage="completed",
                                 bucket_name=result.bucket_name,
                                 context_id=result.context_id,
