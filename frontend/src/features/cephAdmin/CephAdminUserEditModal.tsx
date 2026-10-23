@@ -216,7 +216,7 @@ export default function CephAdminUserEditModal({
         setQuotaSize(quotaForm.value);
         setQuotaUnit(quotaForm.unit);
         setQuotaObjects(payload.quota?.max_objects != null ? String(payload.quota.max_objects) : "");
-        setCapsText((payload.caps ?? []).join("\n"));
+        setCapsText(payload.caps.join("\n"));
         setInitialSignature(
           stableSignature({
             displayName: payload.display_name ?? "",
@@ -233,7 +233,7 @@ export default function CephAdminUserEditModal({
             quotaUnit: quotaForm.unit,
             quotaObjects: payload.quota?.max_objects != null ? String(payload.quota.max_objects) : "",
             capsMode: "replace",
-            capsText: (payload.caps ?? []).join("\n"),
+            capsText: payload.caps.join("\n"),
           })
         );
       } catch (err) {
