@@ -35,7 +35,7 @@ export type PresignedUrl = {
   url: string;
   method: string;
   expires_in: number;
-  headers?: Record<string, string>;
+  headers: Record<string, string>;
 };
 
 export function buildBrowserFetchHeaders(

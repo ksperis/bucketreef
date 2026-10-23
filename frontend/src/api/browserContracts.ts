@@ -82,42 +82,42 @@ export type BrowserObjectsQuery = {
 
 export type BrowserObjectVersion = {
   key: string;
-  version_id?: string | null;
+  version_id: string | null;
   is_latest: boolean;
   is_delete_marker: boolean;
-  last_modified?: string | null;
-  size?: number | null;
-  etag?: string | null;
-  storage_class?: string | null;
+  last_modified: string | null;
+  size: number | null;
+  etag: string | null;
+  storage_class: string | null;
 };
 
 export type ListObjectVersionsResponse = {
-  prefix?: string | null;
-  common_prefixes?: string[];
+  prefix: string | null;
+  common_prefixes: string[];
   versions: BrowserObjectVersion[];
   delete_markers: BrowserObjectVersion[];
   is_truncated: boolean;
-  key_marker?: string | null;
-  version_id_marker?: string | null;
-  next_key_marker?: string | null;
-  next_version_id_marker?: string | null;
+  key_marker: string | null;
+  version_id_marker: string | null;
+  next_key_marker: string | null;
+  next_version_id_marker: string | null;
 };
 
 export type ObjectMetadata = {
   key: string;
   size: number;
-  etag?: string | null;
-  last_modified?: string | null;
-  content_type?: string | null;
-  cache_control?: string | null;
-  content_disposition?: string | null;
-  content_encoding?: string | null;
-  content_language?: string | null;
-  expires?: string | null;
-  storage_class?: string | null;
-  restore_status?: string | null;
+  etag: string | null;
+  last_modified: string | null;
+  content_type: string | null;
+  cache_control: string | null;
+  content_disposition: string | null;
+  content_encoding: string | null;
+  content_language: string | null;
+  expires: string | null;
+  storage_class: string | null;
+  restore_status: string | null;
   metadata: Record<string, string>;
-  version_id?: string | null;
+  version_id: string | null;
 };
 
 export type ObjectTag = { key: string; value: string };
@@ -222,7 +222,7 @@ export type CleanupObjectVersionsPayload = {
 };
 
 export type CleanupObjectVersionsResponse = {
-  prefix?: string | null;
+  prefix: string | null;
   deleted_versions: number;
   deleted_delete_markers: number;
   scanned_versions: number;

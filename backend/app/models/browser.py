@@ -112,42 +112,42 @@ class BrowserUsageSummary(ApiModel):
 
 class BrowserObjectVersion(ApiModel):
     key: str
-    version_id: Optional[str] = None
-    is_latest: bool = False
-    is_delete_marker: bool = False
-    last_modified: Optional[datetime] = None
-    size: Optional[int] = None
-    etag: Optional[str] = None
-    storage_class: Optional[str] = None
+    version_id: Optional[str]
+    is_latest: bool
+    is_delete_marker: bool
+    last_modified: Optional[datetime]
+    size: Optional[int]
+    etag: Optional[str]
+    storage_class: Optional[str]
 
 
 class ListObjectVersionsResponse(ApiModel):
-    prefix: Optional[str] = None
-    common_prefixes: list[str] = Field(default_factory=list)
-    versions: list[BrowserObjectVersion] = Field(default_factory=list)
-    delete_markers: list[BrowserObjectVersion] = Field(default_factory=list)
-    is_truncated: bool = False
-    key_marker: Optional[str] = None
-    version_id_marker: Optional[str] = None
-    next_key_marker: Optional[str] = None
-    next_version_id_marker: Optional[str] = None
+    prefix: Optional[str]
+    common_prefixes: list[str]
+    versions: list[BrowserObjectVersion]
+    delete_markers: list[BrowserObjectVersion]
+    is_truncated: bool
+    key_marker: Optional[str]
+    version_id_marker: Optional[str]
+    next_key_marker: Optional[str]
+    next_version_id_marker: Optional[str]
 
 
 class ObjectMetadata(ApiModel):
     key: str
     size: int
-    etag: Optional[str] = None
-    last_modified: Optional[datetime] = None
-    content_type: Optional[str] = None
-    cache_control: Optional[str] = None
-    content_disposition: Optional[str] = None
-    content_encoding: Optional[str] = None
-    content_language: Optional[str] = None
-    expires: Optional[datetime] = None
-    storage_class: Optional[str] = None
-    restore_status: Optional[str] = None
-    metadata: dict[str, str] = Field(default_factory=dict)
-    version_id: Optional[str] = None
+    etag: Optional[str]
+    last_modified: Optional[datetime]
+    content_type: Optional[str]
+    cache_control: Optional[str]
+    content_disposition: Optional[str]
+    content_encoding: Optional[str]
+    content_language: Optional[str]
+    expires: Optional[datetime]
+    storage_class: Optional[str]
+    restore_status: Optional[str]
+    metadata: dict[str, str]
+    version_id: Optional[str]
 
 
 class ObjectTag(ApiModel):
@@ -224,9 +224,9 @@ class PresignRequest(ApiModel):
 
 class PresignedUrl(ApiModel):
     url: str
-    method: str = "GET"
+    method: str
     expires_in: int
-    headers: dict[str, str] = Field(default_factory=dict)
+    headers: dict[str, str]
 
 
 class SseCustomerContext(ApiModel):
@@ -251,16 +251,16 @@ class MultipartUploadInitResponse(ApiModel):
 class MultipartUploadItem(ApiModel):
     key: str
     upload_id: str
-    initiated: Optional[datetime] = None
-    storage_class: Optional[str] = None
-    owner: Optional[str] = None
+    initiated: Optional[datetime]
+    storage_class: Optional[str]
+    owner: Optional[str]
 
 
 class ListMultipartUploadsResponse(ApiModel):
-    uploads: list[MultipartUploadItem] = Field(default_factory=list)
-    is_truncated: bool = False
-    next_key: Optional[str] = None
-    next_upload_id: Optional[str] = None
+    uploads: list[MultipartUploadItem]
+    is_truncated: bool
+    next_key: Optional[str]
+    next_upload_id: Optional[str]
 
 
 class PresignPartRequest(ApiModel):
@@ -272,9 +272,9 @@ class PresignPartRequest(ApiModel):
 
 class PresignPartResponse(ApiModel):
     url: str
-    method: str = "PUT"
+    method: str
     expires_in: int
-    headers: dict[str, str] = Field(default_factory=dict)
+    headers: dict[str, str]
 
 
 class CompletedPart(ApiModel):
@@ -320,11 +320,11 @@ class CleanupObjectVersionsPayload(ApiModel):
 
 
 class CleanupObjectVersionsResponse(ApiModel):
-    prefix: Optional[str] = None
-    deleted_versions: int = 0
-    deleted_delete_markers: int = 0
-    scanned_versions: int = 0
-    scanned_delete_markers: int = 0
+    prefix: Optional[str]
+    deleted_versions: int
+    deleted_delete_markers: int
+    scanned_versions: int
+    scanned_delete_markers: int
 
 
 class BucketCorsRule(ApiModel):
