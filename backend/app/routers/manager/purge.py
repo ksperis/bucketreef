@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from functools import partial
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -11,11 +10,7 @@ from fastapi.responses import StreamingResponse
 from app.db import User
 from app.models.access_context import ManagerActor
 from app.models.bucket_purge import BucketPurgeBucketRequest
-from app.routers.bucket_purge_stream import stream_bucket_purge
-from app.services.bucket_purge_audit import (
-    BucketPurgeAuditLifecycle,
-    record_bucket_purge_audit,
-)
+from app.routers.bucket_purge_stream import stream_audited_bucket_purge
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_account_admin,
@@ -57,20 +52,12 @@ def stream_manager_bucket_purge(
         "include_versions": options.include_versions,
         "context_id": context.context_id,
     }
-    audit = BucketPurgeAuditLifecycle(
-        record=partial(
-            record_bucket_purge_audit,
-            user_id=int(tool_user.id),
-            user_email=str(tool_user.email),
-            user_role=str(tool_user.role),
-            scope="manager",
-            execution_context=context,
-        ),
-        base_metadata=base_metadata,
-    )
-
-    return stream_bucket_purge(
+    return stream_audited_bucket_purge(
         request,
+        user=tool_user,
+        scope="manager",
+        base_metadata=base_metadata,
+        execution_context=context,
         run_purge=lambda progress_callback, cancel_check: service.run(
             targets,
             options,
@@ -79,8 +66,4 @@ def stream_manager_bucket_purge(
         ),
         logger=logger,
         failure_message="Manager bucket purge failed.",
-        on_start=audit.on_start,
-        on_result=audit.on_result,
-        on_cancel=audit.on_cancel,
-        on_error=audit.on_error,
     )

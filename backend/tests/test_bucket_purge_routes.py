@@ -23,7 +23,7 @@ from app.models.bucket_purge import (
     BucketPurgeResult,
     BucketPurgeTargetRequest,
 )
-from app.routers import dependencies as dependencies_router
+from app.routers import bucket_purge_stream, dependencies as dependencies_router
 from app.services.bucket_purge_audit import BucketPurgeAuditLifecycle
 from app.services import app_settings_service
 from app.routers.ceph_admin import purge as ceph_purge
@@ -185,7 +185,7 @@ def test_manager_purge_route_streams_progress_and_result(monkeypatch):
     )
     app.dependency_overrides[manager_purge.get_current_account_admin] = lambda: SimpleNamespace(id=1)
     monkeypatch.setattr(manager_purge, "BucketPurgeService", FakeService)
-    monkeypatch.setattr(manager_purge, "record_bucket_purge_audit", lambda **kwargs: audit_calls.append(kwargs))
+    monkeypatch.setattr(bucket_purge_stream, "record_bucket_purge_audit", lambda **kwargs: audit_calls.append(kwargs))
     try:
         with TestClient(app) as client:
             response = client.post(
@@ -358,7 +358,7 @@ def test_ceph_admin_purge_route_uses_dedicated_endpoint_credentials(monkeypatch)
         secret_key="admin-sk",
     )
     monkeypatch.setattr(ceph_purge, "BucketPurgeService", FakeService)
-    monkeypatch.setattr(ceph_purge, "stream_bucket_purge", fake_stream)
+    monkeypatch.setattr(ceph_purge, "stream_audited_bucket_purge", fake_stream)
 
     response = ceph_purge.stream_ceph_admin_bucket_purge(
         payload=BucketPurgeRgwTargetRequest(
@@ -398,7 +398,7 @@ def test_storage_ops_purge_route_resolves_authorized_manager_contexts(monkeypatc
         return SimpleNamespace(name=f"Account {context_ref}")
 
     monkeypatch.setattr(storage_ops_purge, "BucketPurgeService", FakeService)
-    monkeypatch.setattr(storage_ops_purge, "stream_bucket_purge", fake_stream)
+    monkeypatch.setattr(storage_ops_purge, "stream_audited_bucket_purge", fake_stream)
     monkeypatch.setattr(
         storage_ops_purge,
         "storage_ops_context_names",

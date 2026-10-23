@@ -202,6 +202,19 @@ def test_backend_audit_matrix_classifies_every_mutating_route():
     assert unclassified == []
 
 
+def test_backend_audit_matrix_tracks_audited_bucket_purge_wrapper(tmp_path):
+    routers = tmp_path / "app" / "routers"
+    routers.mkdir(parents=True)
+    (routers / "example.py").write_text(
+        '@router.post("/purge")\n'
+        'def purge():\n'
+        '    return stream_audited_bucket_purge(request, user=user, scope="manager", base_metadata={}, run_purge=run)\n'
+    )
+    row, = collect_rows(tmp_path)
+    assert row.signals["delegated_purge_stream"]
+    assert row.has_audit_signal
+
+
 def test_backend_audit_matrix_tracks_only_audited_onboarding_routes():
     backend_root = Path(__file__).resolve().parents[1]
     rows = {

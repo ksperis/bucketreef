@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import logging
-from functools import partial
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.db import User
 from app.models.bucket_purge import BucketPurgeRgwTargetRequest
-from app.routers.bucket_purge_stream import stream_bucket_purge
-from app.services.bucket_purge_audit import (
-    BucketPurgeAuditLifecycle,
-    record_bucket_purge_audit,
-)
+from app.routers.bucket_purge_stream import stream_audited_bucket_purge
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
@@ -68,20 +63,12 @@ def stream_ceph_admin_bucket_purge(
         "endpoint_id": ctx.endpoint.id,
         "endpoint_name": ctx.endpoint.name,
     }
-    audit = BucketPurgeAuditLifecycle(
-        record=partial(
-            record_bucket_purge_audit,
-            user_id=int(user.id),
-            user_email=str(user.email),
-            user_role=str(user.role),
-            scope="ceph_admin",
-            execution_context=context,
-        ),
-        base_metadata=base_metadata,
-    )
-
-    return stream_bucket_purge(
+    return stream_audited_bucket_purge(
         request,
+        user=user,
+        scope="ceph_admin",
+        base_metadata=base_metadata,
+        execution_context=context,
         run_purge=lambda progress_callback, cancel_check: service.run(
             targets,
             options,
@@ -90,8 +77,4 @@ def stream_ceph_admin_bucket_purge(
         ),
         logger=logger,
         failure_message="Ceph Admin bucket purge failed.",
-        on_start=audit.on_start,
-        on_result=audit.on_result,
-        on_cancel=audit.on_cancel,
-        on_error=audit.on_error,
     )

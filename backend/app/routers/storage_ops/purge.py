@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from functools import partial
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -12,11 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.bucket_purge import BucketPurgeTargetRequest
-from app.routers.bucket_purge_stream import stream_bucket_purge
-from app.services.bucket_purge_audit import (
-    BucketPurgeAuditLifecycle,
-    record_bucket_purge_audit,
-)
+from app.routers.bucket_purge_stream import stream_audited_bucket_purge
 from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin, require_bucket_purge_global_enabled
 from app.services.bucket_purge_service import BucketPurgeOptions, BucketPurgeResolvedTarget, BucketPurgeService
 from app.services.storage_ops_context_service import storage_ops_context_names
@@ -58,19 +53,11 @@ def stream_storage_ops_bucket_purge(
         "include_versions": options.include_versions,
         "context_sample": [target.context_id for target in requested_targets[:20]],
     }
-    audit = BucketPurgeAuditLifecycle(
-        record=partial(
-            record_bucket_purge_audit,
-            user_id=int(user.id),
-            user_email=str(user.email),
-            user_role=str(user.role),
-            scope="storage_ops",
-        ),
-        base_metadata=base_metadata,
-    )
-
-    return stream_bucket_purge(
+    return stream_audited_bucket_purge(
         request,
+        user=user,
+        scope="storage_ops",
+        base_metadata=base_metadata,
         run_purge=lambda progress_callback, cancel_check: service.run(
             targets,
             options,
@@ -79,8 +66,4 @@ def stream_storage_ops_bucket_purge(
         ),
         logger=logger,
         failure_message="Storage Ops bucket purge failed.",
-        on_start=audit.on_start,
-        on_result=audit.on_result,
-        on_cancel=audit.on_cancel,
-        on_error=audit.on_error,
     )
