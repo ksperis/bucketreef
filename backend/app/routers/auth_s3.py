@@ -16,7 +16,7 @@ from app.routers.auth_common import settings
 from app.routers.auth_cookies import set_auth_cookies
 from app.routers.auth_request_context import request_context
 from app.routers.dependencies import get_audit_service
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.audit_service import AuditService
 from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
 from app.services.auth_session_service import AuthSessionService
@@ -38,7 +38,7 @@ def login_with_s3_keys(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
-    general = load_app_settings().general
+    general = load_app_settings_for_db_readonly(db).general
     if not general.allow_login_access_keys:
         raise HTTPException(status_code=403, detail="Access-key login is disabled")
     service = get_storage_endpoints_service(db)

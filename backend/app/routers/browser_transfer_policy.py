@@ -32,7 +32,7 @@ def get_direct_transfer_policy(
     db: Session = Depends(get_db),
 ) -> BrowserTransferPolicy:
     current_auth_session(request, db)
-    general = app_settings_service.load_app_settings().general
+    general = app_settings_service.load_app_settings_for_db_readonly(db).general
     runtime_surface = {"ceph-admin": "ceph_admin", "portal": "portal", "manager": "manager", "browser": "browser"}[workspace]
     enabled = {
         "browser": general.browser_root_enabled,
