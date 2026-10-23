@@ -448,24 +448,19 @@ export default function S3ConnectionsPage() {
     if (allFilteredSelectableIdsKey === selectionQueryKey && allFilteredSelectableIds) {
       return allFilteredSelectableIds;
     }
-    const ids = new Set<number>();
-    let nextPage = 1;
-    while (true) {
-      const response = await listAdminS3Connections({
+    const allItems = await collectPaginatedItems((nextPage) =>
+      listAdminS3Connections({
         page: nextPage,
         page_size: 200,
         search: filter.trim() || undefined,
-      });
-      response.items.forEach((item) => {
-        if (!filter.trim() || quickFilterMode === "contains" || matchesExactTextCandidate(getConnectionSearchCandidates(item), filter)) {
-          ids.add(item.id);
-        }
-      });
-      if (!response.has_next) {
-        break;
+      }),
+    );
+    const ids = new Set<number>();
+    allItems.forEach((item) => {
+      if (!filter.trim() || quickFilterMode === "contains" || matchesExactTextCandidate(getConnectionSearchCandidates(item), filter)) {
+        ids.add(item.id);
       }
-      nextPage += 1;
-    }
+    });
     const resolved = Array.from(ids.values());
     setAllFilteredSelectableIds(resolved);
     setAllFilteredSelectableIdsKey(selectionQueryKey);
