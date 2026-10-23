@@ -22,6 +22,24 @@ BucketCompareConfigFeature = Literal[
 ]
 
 
+def normalize_bucket_compare_scope(
+    *,
+    include_content: bool,
+    include_config: bool,
+    config_features: Optional[list[BucketCompareConfigFeature]],
+) -> Optional[list[BucketCompareConfigFeature]]:
+    if not include_content and not include_config:
+        raise ValueError("At least one comparison scope must be enabled.")
+    if config_features is None:
+        return None
+    normalized_features = list(dict.fromkeys(config_features))
+    if include_config and not normalized_features:
+        raise ValueError(
+            "At least one config feature must be enabled when include_config is true."
+        )
+    return normalized_features
+
+
 class BucketCompareRequestBase(ApiModel):
     source_bucket: str
     target_bucket: str
@@ -38,14 +56,11 @@ class BucketCompareRequestBase(ApiModel):
             raise ValueError("source_bucket is required.")
         if not self.target_bucket:
             raise ValueError("target_bucket is required.")
-        if not self.include_content and not self.include_config:
-            raise ValueError("At least one comparison scope must be enabled.")
-        if self.config_features is not None:
-            self.config_features = list(dict.fromkeys(self.config_features))
-            if self.include_config and not self.config_features:
-                raise ValueError(
-                    "At least one config feature must be enabled when include_config is true."
-                )
+        self.config_features = normalize_bucket_compare_scope(
+            include_content=self.include_content,
+            include_config=self.include_config,
+            config_features=self.config_features,
+        )
         return self
 
 
