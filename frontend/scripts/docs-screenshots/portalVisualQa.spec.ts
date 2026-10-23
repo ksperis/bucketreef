@@ -328,12 +328,20 @@ for (const target of ["self", "external"] as const) {
       const rules = buildBaseRules();
       const initialState = rules.find((rule) => rule.id === "portal-access-keys")!.body as PortalAccessKeysState;
       const key: PortalAccessKey = {
-        access_key_id: "FIXTURE-TOOL-ACCESS", is_active: true, status: "Active", target_type: target,
+        access_key_id: "FIXTURE-TOOL-ACCESS",
+        status: "Active",
         created_at: "2026-09-10T10:00:00Z",
-        ...(target === "external" ? {
-          external_email: "partner@example.test", permission: "read_only",
-          storage_space_name: "genomics-2026", bucket_name: "rgw-portal-genomics-2026",
-        } as const : {}),
+        is_active: true,
+        is_portal: false,
+        deletable: true,
+        secret_access_key: null,
+        session_token: null,
+        expires_at: null,
+        target_type: target,
+        external_email: target === "external" ? "partner@example.test" : null,
+        storage_space_name: target === "external" ? "genomics-2026" : null,
+        bucket_name: target === "external" ? "rgw-portal-genomics-2026" : null,
+        permission: target === "external" ? "read_only" : null,
       };
       // Synthetic value only: this test never creates real credentials.
       const fakeSecret = "EXAMPLE-ONLY-NOT-A-REAL-SECRET";

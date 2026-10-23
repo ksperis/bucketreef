@@ -1,4 +1,5 @@
 import type { AccessKey } from "../api/managerIamUsers";
+import type { PortalAccessKey } from "../api/portalAccessKeys";
 import type { IAMTag } from "../api/managerIamRoles";
 import type { IamPolicy, InlinePolicy } from "../api/managerIamPolicies";
 import { DemoError, done, json, required, scopedAccount, textField, type DemoRequest } from "./http";
@@ -21,13 +22,38 @@ export function generatedKey(c: DemoRequest): AccessKey {
     expiration_last_error: null,
   };
 }
-export function keyActions(c: DemoRequest, iam: DemoIam, owner: string, keyId?: string, ceph = false): Response | undefined {
+
+function portalKeyView(key: AccessKey, secretAccessKey: string | null = key.secret_access_key ?? null): PortalAccessKey {
+  return {
+    access_key_id: key.access_key_id,
+    status: key.status ?? null,
+    created_at: key.created_at ?? null,
+    is_active: key.status === "Active",
+    is_portal: false,
+    deletable: true,
+    secret_access_key: secretAccessKey,
+    session_token: null,
+    expires_at: key.expires_at ?? null,
+    target_type: "self",
+    external_email: null,
+    storage_space_name: null,
+    bucket_name: null,
+    permission: null,
+  };
+}
+
+export function keyActions(c: DemoRequest, iam: DemoIam, owner: string, keyId?: string, ceph = false, portal = false): Response | undefined {
   const keys = iam.keys[owner] ?? (iam.keys[owner] = []);
-  const view = (key: AccessKey) => ceph ? { access_key: key.access_key_id, status: key.status, created_at: key.created_at, is_active: key.status === "Active", user: owner } : { ...key, is_active: key.status === "Active", is_ui_managed: false, deletable: true };
+  const view = (key: AccessKey) => ceph
+    ? { access_key: key.access_key_id, status: key.status, created_at: key.created_at, is_active: key.status === "Active", user: owner }
+    : portal
+      ? portalKeyView(key)
+      : { ...key, is_active: key.status === "Active", is_ui_managed: false, deletable: true };
   if (c.method === "GET" && !keyId) return json(keys.map(view));
   if (c.method === "POST" && !keyId) {
     if (keys.length >= 3) throw new DemoError(409, "This demo identity already has three keys");
     const key = generatedKey(c); keys.push(key);
+    if (portal) return json(portalKeyView(key, "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE"), 201);
     return json({ ...view(key), [ceph ? "secret_key" : "secret_access_key"]: "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE" }, 201);
   }
   const key = keyId ? required(keys.find(k => k.access_key_id === decodeURIComponent(keyId))) : undefined;
@@ -45,8 +71,8 @@ export function iam(c: DemoRequest): Response | undefined {
   if (portalKeys || cephKeys) {
     const owner = portalKeys ? `portal-${c.user.id}` : "account-root";
     if (portalKeys && c.body.target_type === "external") throw new DemoError(403, "External key sharing is disabled in this demo");
-    if (portalKeys && c.method === "GET" && !portalKeys[1]) return json({ iam_user: { iam_user_id: null, iam_username: owner, arn: `arn:aws:iam::${account.rgw_account_id}:user/${owner}`, created_at: null }, s3_endpoint: account.storage_endpoint_url, force_path_style: true, access_keys: (data.keys[owner] ?? []).map(k => ({ ...k, is_active: k.status === "Active", deletable: true })), can_manage_access_keys: true, can_create_external_access: false, max_access_keys: 3 });
-    return keyActions(c, data, owner, (portalKeys ?? cephKeys)![1]);
+    if (portalKeys && c.method === "GET" && !portalKeys[1]) return json({ iam_user: { iam_user_id: null, iam_username: owner, arn: `arn:aws:iam::${account.rgw_account_id}:user/${owner}`, created_at: null }, s3_endpoint: account.storage_endpoint_url, force_path_style: true, access_keys: (data.keys[owner] ?? []).map(k => portalKeyView(k)), can_manage_access_keys: true, can_create_external_access: false, max_access_keys: 3 });
+    return keyActions(c, data, owner, (portalKeys ?? cephKeys)![1], false, Boolean(portalKeys));
   }
   const segment = match![1] as "users" | "groups" | "roles" | "policies";
   const name = match![2] ? decodeURIComponent(match![2]) : undefined;

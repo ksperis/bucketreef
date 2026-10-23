@@ -13,19 +13,19 @@ from app.models.base import ApiModel
 
 class PortalAccessKey(ApiModel):
     access_key_id: str
-    status: Optional[str] = None
-    created_at: Optional[str] = None
-    is_active: bool = False
-    is_portal: bool = False
-    deletable: bool = True
-    secret_access_key: Optional[str] = None
-    expires_at: Optional[datetime] = None
-    session_token: Optional[str] = None
-    target_type: Literal["self", "external"] = "self"
-    external_email: Optional[str] = None
-    storage_space_name: Optional[str] = None
-    bucket_name: Optional[str] = None
-    permission: Optional[Literal["read_only", "read_write"]] = None
+    status: Optional[str]
+    created_at: Optional[str]
+    is_active: bool
+    is_portal: bool
+    deletable: bool
+    secret_access_key: Optional[str]
+    expires_at: Optional[datetime]
+    session_token: Optional[str]
+    target_type: Literal["self", "external"]
+    external_email: Optional[str]
+    storage_space_name: Optional[str]
+    bucket_name: Optional[str]
+    permission: Optional[Literal["read_only", "read_write"]]
 
 
 class PortalAccessKeyCreate(ApiModel):

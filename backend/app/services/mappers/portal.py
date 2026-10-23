@@ -31,9 +31,16 @@ def portal_access_key_from_iam_metadata(
         status=status_value,
         created_at=metadata.created_at,
         is_active=portal_access_key_is_active(status_value, default=active_default) if is_active is None else is_active,
-        secret_access_key=secret_access_key,
         is_portal=is_portal,
         deletable=deletable,
+        secret_access_key=secret_access_key,
+        expires_at=metadata.expires_at,
+        session_token=None,
+        target_type="self",
+        external_email=None,
+        storage_space_name=None,
+        bucket_name=None,
+        permission=None,
     )
 
 
@@ -45,10 +52,18 @@ def portal_access_key_from_active_link(
     return PortalAccessKey(
         access_key_id=link.active_access_key,
         status="Active",
+        created_at=None,
         is_active=True,
-        secret_access_key=link.active_secret_key if include_secret else None,
         is_portal=True,
         deletable=False,
+        secret_access_key=link.active_secret_key if include_secret else None,
+        expires_at=None,
+        session_token=None,
+        target_type="self",
+        external_email=None,
+        storage_space_name=None,
+        bucket_name=None,
+        permission=None,
     )
 
 
@@ -66,6 +81,8 @@ def portal_access_key_from_external_credential(
         is_portal=False,
         deletable=credential.revoked_at is None,
         secret_access_key=secret_access_key,
+        expires_at=None,
+        session_token=None,
         target_type="external",
         external_email=credential.external_email,
         storage_space_name=storage_space_name,
