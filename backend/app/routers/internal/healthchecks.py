@@ -9,7 +9,7 @@ from app.core.database import get_db
 from app.models.healthcheck import EndpointHealthRunResponse
 from app.models.operation import OperationSkippedResponse
 from app.routers.dependencies import require_internal_cron_token
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import (
     HEALTHCHECK_RUN_OPERATION,
@@ -26,7 +26,7 @@ def run_healthchecks(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
 ) -> EndpointHealthRunResponse | OperationSkippedResponse:
-    if not load_app_settings().general.endpoint_status_enabled:
+    if not load_app_settings_for_db_readonly(db).general.endpoint_status_enabled:
         return OperationSkippedResponse(
             status="skipped",
             reason="feature_disabled",

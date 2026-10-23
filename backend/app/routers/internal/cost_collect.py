@@ -10,7 +10,7 @@ from app.models.cost import CostCollectionResult
 from app.models.operation import OperationSkippedResponse
 from app.routers.cost_common import parse_cost_day
 from app.routers.dependencies import require_internal_cron_token
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.cost_collection_service import CostCollector
 from app.services.operation_lease_service import (
     OperationLeaseService,
@@ -33,7 +33,7 @@ def collect_daily(
 ) -> CostCollectionResult | OperationSkippedResponse:
     parsed = parse_cost_day(day)
     operation_name = cost_daily_operation_name(parsed.isoformat())
-    if not load_app_settings().general.cost_enabled:
+    if not load_app_settings_for_db_readonly(db).general.cost_enabled:
         return OperationSkippedResponse(
             status="skipped",
             reason="feature_disabled",

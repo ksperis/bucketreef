@@ -28,7 +28,7 @@ def test_internal_cost_collect_skips_when_lease_is_active(client, db_session, mo
     _set_token(monkeypatch)
     enabled_settings = AppSettings()
     enabled_settings.general.cost_enabled = True
-    monkeypatch.setattr(cost_collect, "load_app_settings", lambda: enabled_settings)
+    monkeypatch.setattr(cost_collect, "load_app_settings_for_db_readonly", lambda _db: enabled_settings)
     OperationLeaseService(db_session).acquire(
         cost_daily_operation_name("2026-07-03"),
         ttl_seconds=600,
