@@ -122,7 +122,7 @@ class GeneralSettings(ApiModel):
 
 class GeneralSettingsView(GeneralSettings):
     """Read-only settings projection for authenticated workspace consumers."""
-    manager_feature_policies: ManagerFeaturePolicies = Field(default_factory=ManagerFeaturePolicies)
+    manager_feature_policies: ManagerFeaturePolicies
 
     @classmethod
     def from_settings(cls, settings: "AppSettings") -> "GeneralSettingsView":
