@@ -6972,6 +6972,7 @@ def test_portal_object_restore_route_does_not_require_application_audit(db_sessi
             return PortalStorageObjectRestoreResponse(
                 key=key,
                 restored_from_version_id=version_id,
+                message="Restored",
             )
 
     response = portal_objects_router.portal_restore_storage_space_object(

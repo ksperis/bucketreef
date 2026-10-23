@@ -90,7 +90,7 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   if ((action === "versions" || action === "portal-versions") && method === "GET") {
     const list = bucket.objects.filter(o => action === "portal-versions" ? o.key === key : o.key.startsWith(url.searchParams.get("prefix") ?? key));
     const versions = list.flatMap(o => o.versions.map((v, i) => ({ ...objectView(v), is_latest: i === 0, is_delete_marker: Boolean(v.deleted) })));
-    if (portal) return json({ key, versioning_status: (bucket.config.versioning as { status: string }).status, can_restore: role !== "Viewer" && !space?.archived_at && location.pathname.startsWith("/portal"), versions, is_truncated: false });
+    if (portal) return json({ key, versioning_status: (bucket.config.versioning as { status: string }).status, can_restore: role !== "Viewer" && !space?.archived_at && location.pathname.startsWith("/portal"), versions, is_truncated: false, next_key_marker: null, next_version_id_marker: null });
     return json({ prefix: url.searchParams.get("prefix"), common_prefixes: [], versions: versions.filter(v => !v.is_delete_marker), delete_markers: versions.filter(v => v.is_delete_marker), is_truncated: false });
   }
   if (action === "objects/columns" && method === "POST") return json({ items: (body.keys as string[] ?? []).map(k => {

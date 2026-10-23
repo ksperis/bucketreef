@@ -934,6 +934,8 @@ describe("BrowserPage interactions", () => {
       can_restore: false,
       versions: [],
       is_truncated: false,
+      next_key_marker: null,
+      next_version_id_marker: null,
     });
     listPortalPublicLinksMock.mockResolvedValue([]);
     fetchPortalAccessSummaryMock.mockResolvedValue({
