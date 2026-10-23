@@ -62,7 +62,8 @@ def test_update_quota_builds_tenant_qualified_owner_uid(monkeypatch):
         ),
     )
 
-    assert response == {"message": "Bucket quota updated"}
+    assert response.status_code == 204
+    assert response.body == b""
     assert captured == {
         "name": "bucket-a",
         "uid": "RGW00000000000000001$tests3user",
@@ -95,7 +96,8 @@ def test_update_quota_uses_account_owner_identifier_as_uid(monkeypatch):
         ),
     )
 
-    assert response == {"message": "Bucket quota updated"}
+    assert response.status_code == 204
+    assert response.body == b""
     assert captured == {
         "name": "bucket-b",
         "uid": None,
@@ -136,7 +138,8 @@ def test_update_quota_preserves_explicit_bucket_tenant(monkeypatch):
         ctx=ctx,
     )
 
-    assert response == {"message": "Bucket quota updated"}
+    assert response.status_code == 204
+    assert response.body == b""
     assert ctx.rgw_admin.last_tenant == "tenant_a"
     assert captured == {
         "name": "bucket-a",

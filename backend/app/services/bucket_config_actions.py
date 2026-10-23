@@ -193,12 +193,9 @@ def update_bucket_versioning_config(
     context: S3ExecutionTarget,
     bucket_name: str,
     payload: BucketVersioningUpdate,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[None, dict[str, Any]]:
     _map_runtime_error(lambda: service.set_versioning(bucket_name, context, enabled=payload.enabled))
-    return {
-        "message": f"Versioning updated for {bucket_name}",
-        "enabled": payload.enabled,
-    }, {"enabled": payload.enabled}
+    return None, {"enabled": payload.enabled}
 
 
 def get_bucket_object_lock_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketObjectLock:
