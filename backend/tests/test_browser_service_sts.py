@@ -119,7 +119,9 @@ def test_browser_sts_status_and_credentials_share_cached_session(monkeypatch):
     monkeypatch.setattr(browser_sts, "get_session_token", fake_get_session_token)
     service = browser_service.BrowserService()
 
-    assert service.check_sts(account).available is True
+    status = service.check_sts(account)
+    assert status.available is True
+    assert status.error is None
     credentials = service.get_sts_credentials(account)
 
     assert calls == 1

@@ -45,7 +45,7 @@ function deferred<T>() {
 describe("useBrowserStsSession", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    apiMocks.getBrowserStsStatus.mockResolvedValue({ available: true });
+    apiMocks.getBrowserStsStatus.mockResolvedValue({ available: true, error: null });
     apiMocks.getBrowserStsCredentials.mockResolvedValue(credentials("key-1"));
   });
 

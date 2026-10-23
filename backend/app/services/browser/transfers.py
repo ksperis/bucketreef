@@ -26,7 +26,7 @@ class BrowserTransfersMixin:
             request_browser_sts_session(context)
         except RuntimeError as exc:
             return StsStatus(available=False, error=sanitized_error_log_detail(exc))
-        return StsStatus(available=True)
+        return StsStatus(available=True, error=None)
 
     def get_sts_credentials(
         self,

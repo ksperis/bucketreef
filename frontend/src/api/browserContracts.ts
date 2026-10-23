@@ -245,7 +245,7 @@ export type BucketCorsStatus = {
 
 export type StsStatus = {
   available: boolean;
-  error?: string | null;
+  error: string | null;
 };
 
 export type StsCredentials = {
