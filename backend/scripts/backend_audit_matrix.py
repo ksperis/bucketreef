@@ -38,6 +38,7 @@ SIGNAL_FIELDS = {
     "delegated_onboarding_audit": "OnboardingService(",
     "delegated_bucket_migration_maintenance_audit": "_queue_maintenance(",
     "delegated_access_key_expiration_audit": "AccessKeyExpirationService(db).run_due(",
+    "delegated_auth_attempt_audit": "AuthAttemptContext.from_request(",
 }
 DELEGATED_AUDIT_SIGNALS = frozenset(
     {
@@ -61,6 +62,7 @@ DELEGATED_AUDIT_SIGNALS = frozenset(
         "delegated_onboarding_audit",
         "delegated_bucket_migration_maintenance_audit",
         "delegated_access_key_expiration_audit",
+        "delegated_auth_attempt_audit",
     }
 )
 
@@ -213,6 +215,16 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
                 and isinstance(call.func.value, ast.Call)
                 and isinstance(call.func.value.func, ast.Name)
                 and call.func.value.func.id == "OnboardingService"
+                for call in ast.walk(node)
+            )
+            signals["delegated_auth_attempt_audit"] = signals[
+                "delegated_auth_attempt_audit"
+            ] and any(
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "audit"
+                and isinstance(call.func.value, ast.Name)
+                and call.func.value.id == "attempt"
                 for call in ast.walk(node)
             )
             for method, path in routes:
