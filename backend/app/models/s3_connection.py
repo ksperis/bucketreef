@@ -48,28 +48,28 @@ class _CanonicalEndpointPayload(ApiModel):
 class S3Connection(ApiModel):
     id: int
     name: str
-    provider_hint: Optional[str] = None
-    storage_endpoint_id: Optional[int] = None
+    provider_hint: Optional[str]
+    storage_endpoint_id: Optional[int]
     created_by_user_id: int
-    is_shared: bool = False
-    is_active: bool = True
-    access_manager: bool = False
-    access_browser: bool = True
-    server_managed: bool = False
-    managed_access_state: Optional[str] = None
-    rgw_user_uid: Optional[str] = None
-    rgw_tenant: Optional[str] = None
-    rgw_account_id: Optional[str] = None
+    is_shared: bool
+    is_active: bool
+    access_manager: bool
+    access_browser: bool
+    server_managed: bool
+    managed_access_state: Optional[str]
+    rgw_user_uid: Optional[str]
+    rgw_tenant: Optional[str]
+    rgw_account_id: Optional[str]
     endpoint_url: str
-    region: Optional[str] = None
+    region: Optional[str]
     access_key_id: str
-    force_path_style: bool = False
-    verify_tls: bool = True
-    capabilities: dict[str, Any] = Field(default_factory=dict)
-    tags: list[TagDefinitionSummary] = Field(default_factory=list)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    last_used_at: Optional[datetime] = None
+    force_path_style: bool
+    verify_tls: bool
+    capabilities: dict[str, Any]
+    tags: list[TagDefinitionSummary]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+    last_used_at: Optional[datetime]
 
 
 class S3ConnectionCreate(_CanonicalEndpointPayload):
@@ -136,7 +136,7 @@ class S3ConnectionCredentialsValidationRequest(_CanonicalEndpointPayload):
 class S3ConnectionCredentialsValidationResult(ApiModel):
     ok: bool
     severity: Literal["success", "warning", "error"]
-    code: Optional[str] = None
+    code: Optional[str]
     message: str
 
 
