@@ -517,7 +517,7 @@ export default function AdminDashboard() {
     listAuditLogs({ limit: 6 })
       .then((data) => {
         if (cancelled) return;
-        setAuditLogs(data.logs ?? []);
+        setAuditLogs(data.logs);
         setLastUpdated(new Date());
       })
       .catch((err) => {

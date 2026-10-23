@@ -116,7 +116,7 @@ export default function EndpointStatusDetailPage() {
     setSummaryError(null);
     try {
       const payload = await fetchHealthSummary();
-      setSummary(payload.endpoints ?? []);
+      setSummary(payload.endpoints);
     } catch (err) {
       setSummary([]);
       setSummaryError(extractApiError(err, text("summaryLoadError")));
@@ -136,7 +136,7 @@ export default function EndpointStatusDetailPage() {
         fetchHealthIncidents(selectedEndpointId, window),
       ]);
       setSeries(seriesData);
-      setIncidents(incidentsData.incidents ?? []);
+      setIncidents(incidentsData.incidents);
     } catch (err) {
       setSeries(null);
       setIncidents([]);
@@ -154,8 +154,8 @@ export default function EndpointStatusDetailPage() {
       setRawChecksError(null);
       try {
         const payload = await fetchHealthRawChecks(selectedEndpointId, window, page, RAW_CHECKS_PAGE_SIZE);
-        setRawChecks(payload.checks ?? []);
-        setRawChecksTotal(payload.total ?? 0);
+        setRawChecks(payload.checks);
+        setRawChecksTotal(payload.total);
       } catch (err) {
         setRawChecks([]);
         setRawChecksTotal(0);
