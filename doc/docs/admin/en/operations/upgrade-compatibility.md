@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical storage endpoint responses
+
+Admin storage-endpoint responses now require the complete normalized endpoint
+state, including nullable metadata, service-identity status, capabilities,
+permissions, tags, and feature configuration. The backend already materialized
+these fields; the bundled frontend no longer carries omission fallbacks.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-10 canonical Browser object protection payloads
 
 Browser ACL, legal-hold, and retention writes now use dedicated update payloads.

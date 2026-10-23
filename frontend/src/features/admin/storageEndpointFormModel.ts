@@ -377,10 +377,10 @@ export function resolveFeatureState(
 }
 
 export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
-  const runtimeIdentity = endpoint.service_identities?.find(
+  const runtimeIdentity = endpoint.service_identities.find(
     (identity) => identity.kind === "runtime",
   );
-  const supervisionIdentity = endpoint.service_identities?.find(
+  const supervisionIdentity = endpoint.service_identities.find(
     (identity) => identity.kind === "supervision",
   );
   const features = resolveFeatureState(endpoint, endpoint.provider);
@@ -408,7 +408,7 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     has_runtime_secret: Boolean(runtimeIdentity?.credentials_configured),
     ceph_admin_access_key: "",
     ceph_admin_secret_key: "",
-    has_ceph_admin_secret: Boolean(endpoint.service_identities?.find(identity => identity.kind === "ceph_admin")?.credentials_configured),
+    has_ceph_admin_secret: Boolean(endpoint.service_identities.find(identity => identity.kind === "ceph_admin")?.credentials_configured),
     ceph_admin_allowed: Boolean(endpoint.ceph_admin_allowed),
     admin_access_key: endpoint.admin_access_key ?? "",
     admin_secret_key: "",

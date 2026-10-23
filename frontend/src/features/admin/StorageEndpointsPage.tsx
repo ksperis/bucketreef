@@ -491,10 +491,10 @@ export default function StorageEndpointsPage() {
   const hasTagChanges = formBaseline !== null
     && stableSignature(normalizeUiTags(form.tags)) !== stableSignature(normalizeUiTags(formBaseline.tags));
   const hasFormChanges = hasConfigurationChanges || hasTagChanges;
-  const savedRuntimeIdentity = editingEndpoint?.service_identities?.find(identity => identity.kind === "runtime");
+  const savedRuntimeIdentity = editingEndpoint?.service_identities.find(identity => identity.kind === "runtime");
   const requiredServiceIdentities = serviceIdentityRequirements(form.features);
   const savedManagedProvisioningPending = Boolean(
-    editingEndpoint?.service_identities?.some(identity =>
+    editingEndpoint?.service_identities.some(identity =>
       (identity.kind === "runtime" || identity.kind === "supervision") &&
       requiredServiceIdentities[identity.kind] &&
       identity.mode === "managed" &&
@@ -602,7 +602,7 @@ export default function StorageEndpointsPage() {
         await updateStorageEndpointTags(targetId, { tags: normalizedTags });
         setFormBaseline(previous => previous ? { ...previous, tags: normalizedTags } : previous);
       }
-      if (savedEndpoint?.service_identities?.some(identity => identity.status === "error" || identity.status === "revocation_pending")) {
+      if (savedEndpoint?.service_identities.some(identity => identity.status === "error" || identity.status === "revocation_pending")) {
         setFormError(text("endpointSavedIdentityAttention"));
         await loadEndpoints();
         return;
@@ -610,7 +610,7 @@ export default function StorageEndpointsPage() {
       const savedIdentityRequirements = savedEndpoint ? serviceIdentityRequirements(savedEndpoint.features) : null;
       const awaitingManagedProvisioning = Boolean(
         savedEndpoint?.provider === "ceph" &&
-        savedEndpoint.service_identities?.some(identity =>
+        savedEndpoint.service_identities.some(identity =>
           (identity.kind === "runtime" || identity.kind === "supervision") &&
           savedIdentityRequirements?.[identity.kind] &&
           identity.mode === "managed" &&
@@ -723,7 +723,7 @@ export default function StorageEndpointsPage() {
         incompleteMessage: text("enterRuntimeCredentials"),
       });
   const managedSupervisionReady = Boolean(
-    editingEndpoint?.service_identities?.some(identity =>
+    editingEndpoint?.service_identities.some(identity =>
       identity.kind === "supervision" && identity.mode === "managed" && identity.status === "ready"
     )
   );

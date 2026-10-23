@@ -102,17 +102,17 @@ function isEndpointEligible(endpoint: StorageEndpoint, types: KeyRotationType[])
   return types.some(type => {
     if (TECHNICAL_TYPES.includes(type)) {
       const kind = type === "endpoint_runtime" ? "runtime" : type === "endpoint_supervision" ? "supervision" : "ceph_admin";
-      return endpoint.service_identities?.some(identity => identity.kind === kind && identity.mode === "managed" && (identity.status === "ready" || identity.rotation_pending)) ?? false;
+      return endpoint.service_identities.some(identity => identity.kind === kind && identity.mode === "managed" && (identity.status === "ready" || identity.rotation_pending));
     }
     if (type === "ceph_admin") {
-      const identity = endpoint.service_identities?.find(candidate => candidate.kind === "ceph_admin");
+      const identity = endpoint.service_identities.find(candidate => candidate.kind === "ceph_admin");
       return Boolean(
         endpoint.is_editable !== false &&
         identity?.mode === "external" &&
         (identity.status === "ready" || identity.rotation_pending)
       );
     }
-    return Boolean(endpoint.capabilities?.admin ?? endpoint.features?.admin?.enabled);
+    return endpoint.capabilities.admin;
   });
 }
 

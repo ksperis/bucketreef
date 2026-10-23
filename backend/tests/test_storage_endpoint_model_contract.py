@@ -72,3 +72,43 @@ def test_storage_endpoint_response_serialization_never_contains_service_credenti
     assert "supervision_secret_key" not in StorageEndpoint.model_fields
     assert "runtime_access_key" in StorageEndpointCreate.model_fields
     assert "supervision_access_key" in StorageEndpointCreate.model_fields
+
+
+def test_storage_endpoint_response_requires_complete_canonical_payload() -> None:
+    assert set(StorageEndpoint.model_json_schema()["required"]) == {
+        "name",
+        "endpoint_url",
+        "region",
+        "force_path_style",
+        "verify_tls",
+        "provider",
+        "ceph_admin_allowed",
+        "features_config",
+        "latitude",
+        "longitude",
+        "id",
+        "is_default",
+        "is_editable",
+        "created_at",
+        "updated_at",
+        "tags",
+        "admin_access_key",
+        "has_admin_secret",
+        "service_identities",
+        "ceph_admin_active",
+        "capabilities",
+        "admin_ops_permissions",
+        "features",
+    }
+    schemas = app.openapi()["components"]["schemas"]
+    assert set(schemas["EndpointServiceIdentityStatus"]["required"]) == {
+        "kind",
+        "mode",
+        "rgw_uid",
+        "status",
+        "credentials_configured",
+        "rotation_pending",
+        "rotation_phase",
+        "last_error",
+        "last_reconciled_at",
+    }
