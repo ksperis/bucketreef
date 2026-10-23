@@ -3,6 +3,7 @@
 import base64
 import json
 import pytest
+from sqlalchemy import func, select
 from app.main import app
 from app.db import AuditLog, UiGroup, User, UserRole
 from app.routers import dependencies
@@ -560,7 +561,14 @@ def test_admin_updates_account_preferences_without_changing_access_or_session_ve
     cleared = client.patch(f"/api/admin/users/{user.id}", json={"ui_language": None})
     assert cleared.status_code == 200, cleared.text
     assert cleared.json()["ui_language"] is None
-    audit = db_session.query(AuditLog).filter_by(action="update_ui_user", entity_id=str(user.id)).order_by(AuditLog.id.desc()).first()
+    audit = db_session.scalars(
+        select(AuditLog)
+        .where(
+            AuditLog.action == "update_ui_user",
+            AuditLog.entity_id == str(user.id),
+        )
+        .order_by(AuditLog.id.desc())
+    ).first()
     assert json.loads(audit.metadata_json) == {"ui_language": None}
 
 
@@ -601,7 +609,13 @@ def test_admin_avatar_upload_and_removal_reuse_validation_and_audit_the_target(c
     db_session.refresh(user)
     assert user.avatar_image == PROFILE_PNG
     assert user.auth_version == version
-    audit = db_session.query(AuditLog).filter_by(action="upload_avatar", scope="admin", entity_id=str(user.id)).one()
+    audit = db_session.scalars(
+        select(AuditLog).where(
+            AuditLog.action == "upload_avatar",
+            AuditLog.scope == "admin",
+            AuditLog.entity_id == str(user.id),
+        )
+    ).one()
     assert audit.user_email == "admin@example.com"
     assert json.loads(audit.metadata_json) == {"content_type": "image/png", "size_bytes": len(PROFILE_PNG)}
     removed = client.delete(f"/api/admin/users/{user.id}/avatar")
@@ -609,7 +623,15 @@ def test_admin_avatar_upload_and_removal_reuse_validation_and_audit_the_target(c
     assert removed.json()["avatar"]["source"] != "uploaded"
     db_session.refresh(user)
     assert user.avatar_image is None
-    assert db_session.query(AuditLog).filter_by(action="delete_avatar", scope="admin", entity_id=str(user.id)).count() == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(
+            AuditLog.action == "delete_avatar",
+            AuditLog.scope == "admin",
+            AuditLog.entity_id == str(user.id),
+        )
+    ) == 1
 
 
 @pytest.mark.parametrize("role", [UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value])

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import json
 
 import pytest
+from sqlalchemy import select
 
 from app.db import (
     ManagerAccountRole,
@@ -297,9 +298,15 @@ def test_delete_notifications_is_scoped_and_clear_read_keeps_unread(
 
     assert response.status_code == 200
     assert response.json() == {"deleted_count": 1, "unread_count": 1}
-    assert db_session.query(UserNotification).filter_by(id=unread.id).one_or_none() is not None
-    assert db_session.query(UserNotification).filter_by(id=hidden_read.id).one_or_none() is not None
-    assert db_session.query(UserNotification).filter_by(id=other_row.id).one_or_none() is not None
+    assert db_session.scalar(
+        select(UserNotification).where(UserNotification.id == unread.id)
+    ) is not None
+    assert db_session.scalar(
+        select(UserNotification).where(UserNotification.id == hidden_read.id)
+    ) is not None
+    assert db_session.scalar(
+        select(UserNotification).where(UserNotification.id == other_row.id)
+    ) is not None
 
     response = client.delete(f"/api/users/me/notifications/{unread.id}")
 
