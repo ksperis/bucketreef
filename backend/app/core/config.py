@@ -18,6 +18,7 @@ from app.utils.ldap_validation import (
     validate_ldap_url,
     validate_ldap_user_filter,
 )
+from app.utils.oidc_validation import normalize_trusted_email_domains
 
 
 DeploymentProfile = Literal["full", "admin", "user"]
@@ -75,8 +76,6 @@ class OIDCProviderSettings(BaseModel):
     @field_validator("trusted_email_domains")
     @classmethod
     def normalize_trusted_domains(cls, value: list[str]) -> list[str]:
-        from app.models.oidc import normalize_trusted_email_domains
-
         return normalize_trusted_email_domains(value)
 
     @field_validator("allowed_algorithms")
