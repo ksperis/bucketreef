@@ -6597,6 +6597,8 @@ def test_portal_alert_deduplication_keeps_highest_severity():
                 title="Endpoint degraded",
                 description="Storage is degraded.",
                 severity_label="Warning",
+                storage_space_id=None,
+                created_at=None,
             ),
             PortalAlert(
                 id="endpoint-degraded",
@@ -6604,6 +6606,8 @@ def test_portal_alert_deduplication_keeps_highest_severity():
                 title="Endpoint down",
                 description="Storage is unavailable.",
                 severity_label="Critical",
+                storage_space_id=None,
+                created_at=None,
             ),
         ]
     )

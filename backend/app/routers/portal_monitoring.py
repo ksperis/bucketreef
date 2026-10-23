@@ -55,6 +55,8 @@ def _portal_endpoint_alerts(access: AccountAccess, db: Session) -> list[PortalAl
             title="Storage service availability issue",
             description="One storage service is currently unavailable." if down_count > 0 else "One storage service is degraded.",
             severity_label="Critical" if down_count > 0 else "Warning",
+            storage_space_id=None,
+            created_at=None,
         )
     ]
 

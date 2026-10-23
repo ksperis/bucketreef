@@ -18,10 +18,10 @@ class PortalActivityItem(ApiModel):
     actor: str
     action: str
     target: str
-    storage_space_id: Optional[str] = None
-    storage_space_name: Optional[str] = None
-    ip_address: Optional[str] = None
-    status: str = "success"
+    storage_space_id: Optional[str]
+    storage_space_name: Optional[str]
+    ip_address: Optional[str]
+    status: str
 
 
 class PortalAlert(ApiModel):
@@ -30,5 +30,5 @@ class PortalAlert(ApiModel):
     title: str
     description: str
     severity_label: str
-    storage_space_id: Optional[str] = None
-    created_at: Optional[datetime] = None
+    storage_space_id: Optional[str]
+    created_at: Optional[datetime]

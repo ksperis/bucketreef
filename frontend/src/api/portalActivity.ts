@@ -13,9 +13,9 @@ export type PortalActivityItem = {
   actor: string;
   action: string;
   target: string;
-  storage_space_id?: string | null;
-  storage_space_name?: string | null;
-  ip_address?: string | null;
+  storage_space_id: string | null;
+  storage_space_name: string | null;
+  ip_address: string | null;
   status: string;
 };
 
@@ -74,8 +74,8 @@ export type PortalAlert = {
   title: string;
   description: string;
   severity_label: string;
-  storage_space_id?: string | null;
-  created_at?: string | null;
+  storage_space_id: string | null;
+  created_at: string | null;
 };
 
 export async function fetchPortalActivity(

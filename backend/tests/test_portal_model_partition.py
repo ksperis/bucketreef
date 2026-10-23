@@ -39,6 +39,29 @@ def test_portal_settings_models_require_complete_canonical_payloads() -> None:
     }
 
 
+def test_portal_monitoring_models_require_complete_canonical_payloads() -> None:
+    assert set(PortalActivityItem.model_json_schema()["required"]) == {
+        "id",
+        "created_at",
+        "actor",
+        "action",
+        "target",
+        "storage_space_id",
+        "storage_space_name",
+        "ip_address",
+        "status",
+    }
+    assert set(PortalAlert.model_json_schema()["required"]) == {
+        "id",
+        "tone",
+        "title",
+        "description",
+        "severity_label",
+        "storage_space_id",
+        "created_at",
+    }
+
+
 def test_monitoring_and_settings_routes_preserve_their_openapi_contracts() -> None:
     paths = app.openapi()["paths"]
 
