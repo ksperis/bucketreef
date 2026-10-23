@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 explicit tag update payloads
+
+Bucket and storage-endpoint tag updates now require the `tags` field instead of
+silently treating an omitted field as an empty list. The bundled frontend
+already sends the intended tag list for every update; bucket tags can also be
+cleared through the dedicated delete route.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-10 canonical storage endpoint responses
 
 Admin storage-endpoint responses now require the complete normalized endpoint
