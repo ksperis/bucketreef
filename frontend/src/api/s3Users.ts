@@ -14,24 +14,24 @@ export type S3User = {
   rgw_user_uid: string;
   rgw_tenant: string;
   tags: TagDefinitionSummary[];
-  email?: string | null;
-  created_at?: string | null;
-  user_links?: S3UserUserLink[];
-  group_links?: S3UserGroupLink[];
-  quota_max_size_gb?: number | null;
-  quota_max_objects?: number | null;
+  email: string | null;
+  created_at: string | null;
+  user_links: S3UserUserLink[];
+  group_links: S3UserGroupLink[];
+  quota_max_size_gb: number | null;
+  quota_max_objects: number | null;
   storage_endpoint_id: number;
   storage_endpoint_name: string;
   storage_endpoint_url: string;
-  bucket_count?: number | null;
-  allow_bucket_quota_management?: boolean | null;
-  allow_access_key_management?: boolean | null;
-  allow_access_key_metadata?: boolean | null;
-  allow_access_key_expiration?: boolean | null;
-  allow_activity_history?: boolean | null;
-  allow_rgw_usage_metrics?: boolean | null;
-  allow_cost_estimation?: boolean | null;
-  allow_managed_private_connection_provisioning?: boolean | null;
+  bucket_count: number | null;
+  allow_bucket_quota_management: boolean | null;
+  allow_access_key_management: boolean | null;
+  allow_access_key_metadata: boolean | null;
+  allow_access_key_expiration: boolean | null;
+  allow_activity_history: boolean | null;
+  allow_rgw_usage_metrics: boolean | null;
+  allow_cost_estimation: boolean | null;
+  allow_managed_private_connection_provisioning: boolean | null;
 };
 
 export type S3UserUserLink = {
@@ -39,14 +39,14 @@ export type S3UserUserLink = {
   user_email?: string | null;
   user_full_name?: string | null;
   user_avatar?: UserAvatarDescriptor | null;
-  allow_manager_browser_data_access?: boolean;
+  allow_manager_browser_data_access: boolean;
 };
 
 export type S3UserGroupLink = {
   group_id: number;
   group_name?: string | null;
   group_avatar?: UiGroupAvatarDescriptor | null;
-  allow_manager_browser_data_access?: boolean;
+  allow_manager_browser_data_access: boolean;
 };
 
 export type S3UserSummary = {
