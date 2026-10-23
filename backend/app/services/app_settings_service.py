@@ -131,11 +131,6 @@ def _apply_general_feature_overrides(settings: AppSettings) -> AppSettings:
     return effective
 
 
-def load_persisted_app_settings() -> AppSettings:
-    with _open_settings_session() as db:
-        return _load_persisted_settings_from_db(db)
-
-
 def load_app_settings_for_db(db) -> AppSettings:
     """Load effective settings through an existing request transaction."""
     return _apply_general_feature_overrides(_load_persisted_settings_from_db(db))
@@ -161,17 +156,16 @@ def load_app_settings() -> AppSettings:
         return load_app_settings_for_db(db)
 
 
-def save_app_settings(settings: AppSettings) -> AppSettings:
-    with _open_settings_session() as db:
-        persisted = _load_persisted_settings_from_db(db)
-        to_save = settings.model_copy(deep=True)
-        locks = get_general_feature_locks()
-        for field_name in _GENERAL_FEATURE_FIELDS:
-            lock = getattr(locks, field_name)
-            if lock.forced:
-                setattr(to_save.general, field_name, getattr(persisted.general, field_name))
-        _save_persisted_settings_to_db(db, to_save)
-        return _apply_general_feature_overrides(to_save)
+def save_app_settings_for_db(db, settings: AppSettings) -> AppSettings:
+    persisted = _load_persisted_settings_from_db(db)
+    to_save = settings.model_copy(deep=True)
+    locks = get_general_feature_locks()
+    for field_name in _GENERAL_FEATURE_FIELDS:
+        lock = getattr(locks, field_name)
+        if lock.forced:
+            setattr(to_save.general, field_name, getattr(persisted.general, field_name))
+    _save_persisted_settings_to_db(db, to_save)
+    return _apply_general_feature_overrides(to_save)
 
 
 def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:

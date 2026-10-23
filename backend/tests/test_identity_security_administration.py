@@ -779,7 +779,7 @@ def test_ceph_admin_global_toggle_requires_superadmin_and_recent_mfa(
     _set_admin_passkey_policy(db_session, True)
     current = load_app_settings_for_db(db_session)
     current.general.ceph_admin_enabled = initial
-    app_settings_service.save_app_settings(current)
+    app_settings_service.save_app_settings_for_db(db_session, current)
     actor = _user(db_session, email="ceph-settings-guard@example.com", role=role)
     credentials = authenticate_ui_client(auth_client, db_session, actor, mfa_verified=verified)
 

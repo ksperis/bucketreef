@@ -212,7 +212,7 @@ def test_settings_only_trigger_initial_check_on_effective_activation(
     saved = AppSettings()
     saved.general.endpoint_status_enabled = after
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
-    monkeypatch.setattr(admin_settings, "save_app_settings", lambda payload: saved)
+    monkeypatch.setattr(admin_settings, "save_app_settings_for_db", lambda _db, payload: saved)
     monkeypatch.setattr(admin_settings, "get_portal_service", lambda db: SimpleNamespace(
         reconcile_all_portal_server_access_logging=lambda settings: {},
     ))
@@ -233,7 +233,7 @@ def test_settings_skip_portal_logging_reconcile_when_toggle_is_unchanged(
     requested = current.model_copy(deep=True)
     requested.general.project_feature_policies.bucket_usage_stats = "disabled"
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
-    monkeypatch.setattr(admin_settings, "save_app_settings", lambda payload: requested)
+    monkeypatch.setattr(admin_settings, "save_app_settings_for_db", lambda _db, payload: requested)
     monkeypatch.setattr(admin_settings, "get_portal_service", _forbid_call)
 
     response = client.put("/api/admin/settings", json=requested.model_dump(mode="json"))
@@ -250,7 +250,7 @@ def test_settings_reconcile_portal_logging_when_toggle_changes(
     requested.portal.feature_policies.server_access_logging = "disabled"
     calls = []
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
-    monkeypatch.setattr(admin_settings, "save_app_settings", lambda payload: requested)
+    monkeypatch.setattr(admin_settings, "save_app_settings_for_db", lambda _db, payload: requested)
     monkeypatch.setattr(
         admin_settings,
         "get_portal_service",
@@ -300,7 +300,7 @@ def test_environment_lock_prevents_initial_check_on_requested_activation(
     requested = AppSettings()
     requested.general.endpoint_status_enabled = True
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: locked)
-    monkeypatch.setattr(admin_settings, "save_app_settings", lambda payload: locked)
+    monkeypatch.setattr(admin_settings, "save_app_settings_for_db", lambda _db, payload: locked)
     monkeypatch.setattr(admin_settings, "get_portal_service", lambda db: SimpleNamespace(
         reconcile_all_portal_server_access_logging=lambda settings: {},
     ))
