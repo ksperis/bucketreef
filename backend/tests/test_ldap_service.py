@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import func, select
 
 from app.core.config import LDAPProviderSettings, Settings
 from app.models.ldap import LDAPLoginRequest
@@ -284,7 +285,7 @@ def test_authenticate_creates_ldap_user_without_ui_access(db_session, monkeypatc
     assert created is True
     assert user.email == "jane@example.test"
     assert user.role == UserRole.UI_NONE.value
-    identity = db_session.query(ExternalIdentity).one()
+    identity = db_session.scalars(select(ExternalIdentity)).one()
     assert identity.user_id == user.id
     assert identity.provider_type == "ldap"
     assert identity.provider_id == "corp"
@@ -318,7 +319,7 @@ def test_authenticate_rejects_email_collision_by_default(db_session, monkeypatch
 
     with pytest.raises(ExternalIdentityLinkRequiredError):
         service.authenticate("corp", "jane", "secret-password")
-    request = db_session.query(ExternalIdentityLinkRequest).one()
+    request = db_session.scalars(select(ExternalIdentityLinkRequest)).one()
     assert request.provider_type == "ldap"
     assert request.provider_id == "corp"
     assert request.subject == "uuid-123"
@@ -350,5 +351,7 @@ def test_authenticate_never_links_existing_email_automatically(db_session, monke
 
     with pytest.raises(ExternalIdentityLinkRequiredError):
         service.authenticate("corp", "jane", "secret-password")
-    assert db_session.query(ExternalIdentity).count() == 0
-    assert db_session.query(ExternalIdentityLinkRequest).count() == 1
+    assert db_session.scalar(select(func.count()).select_from(ExternalIdentity)) == 0
+    assert db_session.scalar(
+        select(func.count()).select_from(ExternalIdentityLinkRequest)
+    ) == 1
