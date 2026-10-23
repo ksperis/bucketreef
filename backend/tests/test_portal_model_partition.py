@@ -5,6 +5,7 @@ from importlib.util import find_spec
 
 from app.main import app
 from app.models.portal_monitoring import PortalActivityItem, PortalAlert
+from app.models.portal_requests import PortalAdminRequestMessageOut, PortalAdminRequestOut
 from app.models.portal_settings import PortalAccountSettings, PortalProjectSettings
 
 
@@ -59,6 +60,35 @@ def test_portal_monitoring_models_require_complete_canonical_payloads() -> None:
         "severity_label",
         "storage_space_id",
         "created_at",
+    }
+
+
+def test_portal_request_models_require_complete_canonical_payloads() -> None:
+    assert set(PortalAdminRequestMessageOut.model_json_schema()["required"]) == {
+        "id",
+        "author_user_id",
+        "author_email",
+        "author_role",
+        "message",
+        "created_at",
+    }
+    assert set(PortalAdminRequestOut.model_json_schema()["required"]) == {
+        "id",
+        "account_id",
+        "account_name",
+        "request_type",
+        "status",
+        "payload",
+        "result",
+        "error_message",
+        "requester_user_id",
+        "requester_email",
+        "decided_by_user_id",
+        "decided_by_email",
+        "decided_at",
+        "created_at",
+        "updated_at",
+        "messages",
     }
 
 
