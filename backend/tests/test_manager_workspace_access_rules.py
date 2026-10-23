@@ -334,7 +334,9 @@ def test_portal_browser_context_rejects_unavailable_storage_space_bucket(db_sess
     ("method", "path"),
     [
         ("GET", "/api/browser/settings"),
+        ("GET", "/api/browser/direct-transfer-policy"),
         ("GET", "/api/browser/buckets/search"),
+        ("GET", "/api/browser/usage-summary"),
         ("GET", "/api/browser/buckets/research/objects"),
         ("GET", "/api/browser/buckets/research/cors"),
         ("GET", "/api/browser/buckets/research/download"),
