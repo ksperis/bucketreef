@@ -13,8 +13,8 @@ import {
   updateObjectRetention,
 } from "../../api/browserObjects";
 import type {
-  ObjectLegalHold,
-  ObjectRetention,
+  ObjectLegalHoldUpdate,
+  ObjectRetentionUpdate,
 } from "../../api/browserContracts";
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime, toIsoString } from "./browserUtils";
@@ -213,7 +213,7 @@ export function useBrowserObjectProtection({
             key: objectKey,
             status: legalHoldStatus,
             version_id: versionId ?? null,
-          } satisfies ObjectLegalHold,
+          } satisfies ObjectLegalHoldUpdate,
           undefined,
           requestOptions,
         );
@@ -263,7 +263,7 @@ export function useBrowserObjectProtection({
                 retain_until: retainUntil,
                 bypass_governance: retentionBypass,
                 version_id: versionId ?? null,
-              } satisfies ObjectRetention,
+              } satisfies ObjectRetentionUpdate,
               undefined,
               requestOptions,
             );

@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical Browser object protection payloads
+
+Browser ACL, legal-hold, and retention writes now use dedicated update payloads.
+Legal-hold status plus retention mode and retain-until are required on writes.
+Read responses always include their nullable state and version fields, and
+retention responses no longer expose the write-only governance-bypass option.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-10 canonical Browser object-tag payloads
 
 Browser object-tag updates now require an explicit `tags` collection. Object-tag

@@ -8,8 +8,16 @@ from app.models.browser import (
     ListMultipartUploadsResponse,
     ListObjectVersionsResponse,
     MultipartUploadItem,
+    ObjectAcl,
+    ObjectAclUpdate,
+    ObjectLegalHold,
+    ObjectLegalHoldUpdate,
     ObjectMetadata,
     ObjectColumnsResponse,
+    ObjectRetention,
+    ObjectRetentionUpdate,
+    ObjectTags,
+    ObjectTagsUpdate,
     PaginatedBrowserBucketsResponse,
     PresignedUrl,
     PresignPartResponse,
@@ -73,6 +81,27 @@ def test_browser_object_response_models_require_complete_canonical_payloads() ->
         "metadata",
         "version_id",
     }
+    assert set(ObjectTags.model_json_schema()["required"]) == {
+        "key",
+        "tags",
+        "version_id",
+    }
+    assert set(ObjectAcl.model_json_schema()["required"]) == {
+        "key",
+        "acl",
+        "version_id",
+    }
+    assert set(ObjectLegalHold.model_json_schema()["required"]) == {
+        "key",
+        "status",
+        "version_id",
+    }
+    assert set(ObjectRetention.model_json_schema()["required"]) == {
+        "key",
+        "mode",
+        "retain_until",
+        "version_id",
+    }
     assert set(MultipartUploadItem.model_json_schema()["required"]) == {
         "key",
         "upload_id",
@@ -109,3 +138,17 @@ def test_browser_object_response_models_require_complete_canonical_payloads() ->
 
 def test_browser_sts_status_requires_explicit_error_state() -> None:
     assert set(StsStatus.model_json_schema()["required"]) == {"available", "error"}
+
+
+def test_browser_object_update_models_require_canonical_write_fields() -> None:
+    assert set(ObjectTagsUpdate.model_json_schema()["required"]) == {"key", "tags"}
+    assert set(ObjectAclUpdate.model_json_schema()["required"]) == {"key", "acl"}
+    assert set(ObjectLegalHoldUpdate.model_json_schema()["required"]) == {
+        "key",
+        "status",
+    }
+    assert set(ObjectRetentionUpdate.model_json_schema()["required"]) == {
+        "key",
+        "mode",
+        "retain_until",
+    }
