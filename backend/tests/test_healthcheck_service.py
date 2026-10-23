@@ -64,7 +64,7 @@ def test_healthcheck_target_uses_canonical_persisted_endpoint_fields(db_session)
         is_default=True,
     )
     db_session.commit()
-    endpoint = db_session.query(StorageEndpoint).filter(StorageEndpoint.name == "Canonical target").one()
+    endpoint = db_session.scalars(select(StorageEndpoint).where(StorageEndpoint.name == "Canonical target")).one()
 
     target = HealthCheckService._to_check_target(endpoint)
 
@@ -190,7 +190,7 @@ def test_workspace_health_overview_uses_configured_interval_for_stale_counts(db_
         is_default=True,
     )
     db_session.flush()
-    endpoint = db_session.query(StorageEndpoint).filter(StorageEndpoint.name == "Stale endpoint").one()
+    endpoint = db_session.scalars(select(StorageEndpoint).where(StorageEndpoint.name == "Stale endpoint")).one()
     db_session.add(
         EndpointHealthLatest(
             storage_endpoint_id=endpoint.id,
@@ -220,8 +220,8 @@ def test_workspace_health_overview_projects_ongoing_and_recent_incidents(db_sess
         is_default=True,
     )
     db_session.flush()
-    endpoint = db_session.query(StorageEndpoint).filter(
-        StorageEndpoint.name == "Incident endpoint"
+    endpoint = db_session.scalars(
+        select(StorageEndpoint).where(StorageEndpoint.name == "Incident endpoint")
     ).one()
     now = utcnow()
     db_session.add_all(
