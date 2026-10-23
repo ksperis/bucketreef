@@ -546,14 +546,14 @@ def test_group_access_mutations_require_recent_webauthn_but_descriptive_changes_
     assert descriptive_create.status_code == 201
     group_id = descriptive_create.json()["id"]
 
-    descriptive_update = auth_client.put(
+    descriptive_update = auth_client.patch(
         f"/api/admin/groups/{group_id}",
         json={"description": "Still descriptive"},
         headers=headers,
     )
     assert descriptive_update.status_code == 200
 
-    blocked_update = auth_client.put(
+    blocked_update = auth_client.patch(
         f"/api/admin/groups/{group_id}",
         json={"can_access_storage_ops": True},
         headers=headers,
@@ -570,7 +570,7 @@ def test_group_access_mutations_require_recent_webauthn_but_descriptive_changes_
 
     clear_ui_client(auth_client)
     verified = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=True)
-    verified_update = auth_client.put(
+    verified_update = auth_client.patch(
         f"/api/admin/groups/{group_id}",
         json={"can_access_storage_ops": True},
         headers=trusted_origin_headers(csrf_token=verified.csrf_token),
