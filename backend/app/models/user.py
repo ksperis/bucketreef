@@ -52,20 +52,20 @@ class S3UserMembership(ApiModel):
 class EffectiveAccountGroupSource(ApiModel):
     group_id: int
     group_name: str
-    manager_role: Optional[ManagerAccountRoleValue] = None
-    portal_role: Optional[PortalAccountRoleValue] = None
-    determines_effective_manager_role: bool = False
-    determines_effective_portal_role: bool = False
-    allow_manager_browser_data_access: bool = False
+    manager_role: Optional[ManagerAccountRoleValue]
+    portal_role: Optional[PortalAccountRoleValue]
+    determines_effective_manager_role: bool
+    determines_effective_portal_role: bool
+    allow_manager_browser_data_access: bool
 
 
 class EffectiveAccountRoleProvenance(ApiModel):
-    direct_manager_role: Optional[ManagerAccountRoleValue] = None
-    direct_portal_role: Optional[PortalAccountRoleValue] = None
-    direct_determines_effective_manager_role: bool = False
-    direct_determines_effective_portal_role: bool = False
-    direct_allow_manager_browser_data_access: bool = False
-    groups: list[EffectiveAccountGroupSource] = Field(default_factory=list)
+    direct_manager_role: Optional[ManagerAccountRoleValue]
+    direct_portal_role: Optional[PortalAccountRoleValue]
+    direct_determines_effective_manager_role: bool
+    direct_determines_effective_portal_role: bool
+    direct_allow_manager_browser_data_access: bool
+    groups: list[EffectiveAccountGroupSource]
 
 
 class EffectiveAccountMembership(AccountMembership):
@@ -184,18 +184,18 @@ class UserSelfUpdate(UserProfilePreferencesUpdate):
 
 
 class EffectiveUserAccess(ApiModel):
-    can_access_ceph_admin: bool = False
-    can_access_storage_ops: bool = False
-    can_create_manual_private_connections: bool = False
-    can_provision_managed_private_connections: bool = False
-    group_can_provision_managed_private_connections: bool = False
-    has_owned_private_connections: bool = False
-    manager_tool_access: ManagerToolAccess = Field(default_factory=ManagerToolAccess)
-    group_manager_tool_access: ManagerToolAccess = Field(default_factory=ManagerToolAccess)
-    browser_advanced_features_enabled: bool = False
-    account_links: list[EffectiveAccountMembership] = Field(default_factory=list)
-    s3_user_details: list[LinkedS3User] = Field(default_factory=list)
-    s3_connection_details: list[LinkedS3Connection] = Field(default_factory=list)
+    can_access_ceph_admin: bool
+    can_access_storage_ops: bool
+    can_create_manual_private_connections: bool
+    can_provision_managed_private_connections: bool
+    group_can_provision_managed_private_connections: bool
+    has_owned_private_connections: bool
+    manager_tool_access: ManagerToolAccess
+    group_manager_tool_access: ManagerToolAccess
+    browser_advanced_features_enabled: bool
+    account_links: list[EffectiveAccountMembership]
+    s3_user_details: list[LinkedS3User]
+    s3_connection_details: list[LinkedS3Connection]
 
 
 class UserOut(ApiModel):
