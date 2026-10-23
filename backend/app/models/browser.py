@@ -343,7 +343,7 @@ class BucketCorsStatus(ApiModel):
 
 class StsStatus(ApiModel):
     available: bool
-    error: Optional[str] = None
+    error: Optional[str]
 
 
 class BrowserStsCredentials(ApiModel):

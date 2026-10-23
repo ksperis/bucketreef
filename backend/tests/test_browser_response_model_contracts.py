@@ -13,6 +13,7 @@ from app.models.browser import (
     PaginatedBrowserBucketsResponse,
     PresignedUrl,
     PresignPartResponse,
+    StsStatus,
 )
 
 
@@ -104,3 +105,7 @@ def test_browser_object_response_models_require_complete_canonical_payloads() ->
         "scanned_versions",
         "scanned_delete_markers",
     }
+
+
+def test_browser_sts_status_requires_explicit_error_state() -> None:
+    assert set(StsStatus.model_json_schema()["required"]) == {"available", "error"}
