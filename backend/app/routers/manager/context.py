@@ -6,7 +6,7 @@ from app.services.feature_policy_service import (
     manager_resource_states,
     manager_rgw_usage_metrics_state,
     manager_usage_metrics_resource,
-    project_account_resource,
+    project_usage_resource,
 )
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from dataclasses import dataclass
@@ -338,7 +338,7 @@ def get_manager_context(
         provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
         activity_resource=manager_activity_resource(db, context),
     )
-    project_resource = project_account_resource(db, context)
+    project_resource = project_usage_resource(db, context)
     feature_states["rgw_usage_metrics"] = manager_rgw_usage_metrics_state(
         app_settings.manager.feature_policies,
         manager_usage_metrics_resource(db, context),

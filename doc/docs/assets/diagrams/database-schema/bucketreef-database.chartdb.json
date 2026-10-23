@@ -7534,6 +7534,48 @@
           "check": null
         },
         {
+          "id": "field:s3_users.allow_bucket_usage_stats",
+          "name": "allow_bucket_usage_stats",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_users.allow_bucket_usage_stats_collection",
+          "name": "allow_bucket_usage_stats_collection",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:s3_users.allow_managed_private_connection_provisioning",
           "name": "allow_managed_private_connection_provisioning",
           "type": {

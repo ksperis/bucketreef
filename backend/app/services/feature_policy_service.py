@@ -57,6 +57,7 @@ RESOURCE_FEATURE_OVERRIDE_FIELDS = {
 
 ManagerActivityResource = S3Account | S3User | S3Connection
 ManagerUsageMetricsResource = S3Account | S3User
+ProjectUsageResource = S3Account | S3User
 
 
 def _override_values(
@@ -115,7 +116,7 @@ def validate_manager_overrides(
 def validate_project_overrides(
     payload: ApiModel,
     policies: ProjectFeaturePolicies,
-    current: S3Account | None = None,
+    current: ProjectUsageResource | None = None,
 ) -> None:
     _validate_overrides(
         payload,
@@ -129,7 +130,7 @@ def validate_project_overrides(
 def validate_project_collection_overrides(
     payload: ApiModel,
     policies: ProjectCollectionPolicies,
-    current: S3Account | None = None,
+    current: ProjectUsageResource | None = None,
 ) -> None:
     _validate_overrides(
         payload,
@@ -155,6 +156,17 @@ def project_account_resource(db: Session, context: S3ExecutionContext) -> S3Acco
     return None
 
 
+def project_usage_resource(
+    db: Session,
+    context: S3ExecutionContext,
+) -> ProjectUsageResource | None:
+    if context.context_kind == "s3_user" and context.s3_user_id is not None:
+        if context.source_s3_user is not None:
+            return context.source_s3_user
+        return db.get(S3User, context.s3_user_id)
+    return project_account_resource(db, context)
+
+
 def manager_usage_metrics_resource(
     db: Session,
     context: S3ExecutionContext,
@@ -176,7 +188,7 @@ def manager_rgw_usage_metrics_state(
 
 def bucket_usage_stats_state(
     policies: ProjectFeaturePolicies,
-    resource: S3Account | None,
+    resource: ProjectUsageResource | None,
 ) -> FeatureState:
     return resolve_feature_policy(
         policies.bucket_usage_stats,
@@ -186,7 +198,7 @@ def bucket_usage_stats_state(
 
 def bucket_usage_stats_collection_state(
     policies: ProjectCollectionPolicies,
-    resource: S3Account | None,
+    resource: ProjectUsageResource | None,
 ) -> FeatureState:
     return resolve_feature_policy(
         policies.bucket_usage_stats,

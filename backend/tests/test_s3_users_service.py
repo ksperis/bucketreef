@@ -677,20 +677,28 @@ def test_update_user_persists_privileged_target_grants(db_session, monkeypatch):
     record = db_session.query(S3User).filter_by(id=created.id).one()
     assert record.allow_bucket_quota_management is None
     assert record.allow_access_key_management is None
+    assert record.allow_bucket_usage_stats is None
+    assert record.allow_bucket_usage_stats_collection is None
 
     updated = service.update_user(
         created.id,
         S3UserUpdate(
             allow_bucket_quota_management=True,
             allow_access_key_management=True,
+            allow_bucket_usage_stats=True,
+            allow_bucket_usage_stats_collection=True,
         ),
     )
 
     assert updated.allow_bucket_quota_management is True
     assert updated.allow_access_key_management is True
+    assert updated.allow_bucket_usage_stats is True
+    assert updated.allow_bucket_usage_stats_collection is True
     db_session.refresh(record)
     assert record.allow_bucket_quota_management is True
     assert record.allow_access_key_management is True
+    assert record.allow_bucket_usage_stats is True
+    assert record.allow_bucket_usage_stats_collection is True
 
 
 def test_rotate_keys_replaces_old_credentials_and_deletes_previous(db_session, monkeypatch):

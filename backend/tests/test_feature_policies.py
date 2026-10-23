@@ -191,11 +191,15 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
         allow_activity_history=False,
         allow_rgw_usage_metrics=False,
         allow_cost_estimation=False,
+        allow_bucket_usage_stats=False,
+        allow_bucket_usage_stats_collection=False,
     )
     user_payload = S3UserUpdate(
         allow_activity_history=None,
         allow_rgw_usage_metrics=True,
         allow_cost_estimation=True,
+        allow_bucket_usage_stats=True,
+        allow_bucket_usage_stats_collection=True,
     )
     apply_resource_feature_overrides(user_payload, s3_user)
 
@@ -203,6 +207,39 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
     assert s3_user.allow_access_key_expiration is True
     assert s3_user.allow_rgw_usage_metrics is True
     assert s3_user.allow_cost_estimation is True
+    assert s3_user.allow_bucket_usage_stats is True
+    assert s3_user.allow_bucket_usage_stats_collection is True
+
+
+@pytest.mark.parametrize(
+    "policy,override,enabled,source",
+    [
+        (FeaturePolicy.DEFAULT_ON, None, True, "platform"),
+        (FeaturePolicy.DEFAULT_ON, False, False, "resource"),
+        (FeaturePolicy.TARGETED, None, False, "platform"),
+        (FeaturePolicy.TARGETED, True, True, "resource"),
+        (FeaturePolicy.DISABLED, True, False, "platform"),
+    ],
+)
+def test_project_usage_capabilities_support_s3_user_overrides(policy, override, enabled, source):
+    settings = AppSettings()
+    settings.general.project_feature_policies.bucket_usage_stats = policy
+    settings.general.project_collection_policies.bucket_usage_stats = policy
+    s3_user = S3User(
+        name="Composition policy user",
+        rgw_user_uid="composition-policy-user",
+        storage_endpoint_id=1,
+        allow_bucket_usage_stats=override,
+        allow_bucket_usage_stats_collection=override,
+    )
+
+    composition = bucket_usage_stats_state(settings.general.project_feature_policies, s3_user)
+    collection = bucket_usage_stats_collection_state(settings.general.project_collection_policies, s3_user)
+
+    assert composition.enabled is enabled
+    assert composition.source == source
+    assert collection.enabled is enabled
+    assert collection.source == source
 
 
 @pytest.mark.parametrize(

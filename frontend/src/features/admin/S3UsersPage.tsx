@@ -151,6 +151,8 @@ export default function S3UsersPage() {
     allow_activity_history: null as boolean | null,
     allow_rgw_usage_metrics: null as boolean | null,
     allow_cost_estimation: null as boolean | null,
+    allow_bucket_usage_stats: null as boolean | null,
+    allow_bucket_usage_stats_collection: null as boolean | null,
     allow_managed_private_connection_provisioning: null as boolean | null,
   });
   const [editInitialSignature, setEditInitialSignature] = useState("");
@@ -479,6 +481,8 @@ export default function S3UsersPage() {
       allow_activity_history: user.allow_activity_history,
       allow_rgw_usage_metrics: user.allow_rgw_usage_metrics,
       allow_cost_estimation: user.allow_cost_estimation,
+      allow_bucket_usage_stats: user.allow_bucket_usage_stats,
+      allow_bucket_usage_stats_collection: user.allow_bucket_usage_stats_collection,
       allow_managed_private_connection_provisioning: user.allow_managed_private_connection_provisioning,
     };
     setEditingUser(user);
@@ -527,6 +531,8 @@ export default function S3UsersPage() {
         payload.allow_managed_private_connection_provisioning =
           editForm.allow_managed_private_connection_provisioning;
       }
+      payload.allow_bucket_usage_stats = editForm.allow_bucket_usage_stats;
+      payload.allow_bucket_usage_stats_collection = editForm.allow_bucket_usage_stats_collection;
       if (allowUserQuotaUpdates) {
         payload.quota_max_size_gb = editForm.quota_max_size_gb !== "" ? Number(editForm.quota_max_size_gb) : null;
         payload.quota_max_size_unit = editForm.quota_max_size_gb !== "" ? editForm.quota_max_size_unit : null;
@@ -557,6 +563,8 @@ export default function S3UsersPage() {
         allow_activity_history: updatedUser.allow_activity_history,
         allow_rgw_usage_metrics: updatedUser.allow_rgw_usage_metrics,
         allow_cost_estimation: updatedUser.allow_cost_estimation,
+        allow_bucket_usage_stats: updatedUser.allow_bucket_usage_stats,
+        allow_bucket_usage_stats_collection: updatedUser.allow_bucket_usage_stats_collection,
         allow_managed_private_connection_provisioning: updatedUser.allow_managed_private_connection_provisioning,
       };
       setEditingUser(updatedUser);
@@ -970,11 +978,6 @@ export default function S3UsersPage() {
                             ]} />}
                           </>}
                     </SettingsSection>
-                    {editPermissionLoading ? <p role="status">{adminText("Checking endpoint permissions...")}</p>
-                      : editPermissionError ? <UiInlineMessage tone="error" role="alert">
-                        {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void fetchEndpointUsersWritePermission(editingEndpointId)}>{adminText("Retry permissions")}</SettingsButton>
-                      </UiInlineMessage>
-                        : !allowUserQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and users=write on the endpoint.")}</UiInlineMessage>}
                 <AdminQuotaFields
                   compact
                   storageValue={editForm.quota_max_size_gb}
@@ -991,6 +994,23 @@ export default function S3UsersPage() {
                       setEditForm((prev) => ({ ...prev, quota_max_objects: value }))
                   }
                 />
+                    {editPermissionLoading ? <p role="status">{adminText("Checking endpoint permissions...")}</p>
+                      : editPermissionError ? <UiInlineMessage tone="error" role="alert">
+                        {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void fetchEndpointUsersWritePermission(editingEndpointId)}>{adminText("Retry permissions")}</SettingsButton>
+                      </UiInlineMessage>
+                        : !allowUserQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and users=write on the endpoint.")}</UiInlineMessage>}
+                    <SettingsSection title={adminText("Services and monitoring")} description={adminText("RGW User-specific overrides for shared Manager services.")} presentation="compact">
+                      <FeatureOverrideField title={adminText("Bucket composition statistics")} value={editForm.allow_bucket_usage_stats}
+                        policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={editBusy}
+                        triState
+                        description={adminText("Controls bucket composition statistics for this RGW User in Manager.")}
+                        onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_usage_stats: value }))} />
+                      <FeatureOverrideField title={adminText("Automatic bucket composition collection")} value={editForm.allow_bucket_usage_stats_collection}
+                        policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={editBusy}
+                        triState
+                        description={adminText("Controls scheduled refreshes for this RGW User. Bucket composition statistics must also be enabled.")}
+                        onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_usage_stats_collection: value }))} />
+                    </SettingsSection>
                   </div>
                 )}
 

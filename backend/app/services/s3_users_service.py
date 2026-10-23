@@ -1,6 +1,11 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.feature_policy_service import apply_resource_feature_overrides, validate_manager_overrides
+from app.services.feature_policy_service import (
+    apply_resource_feature_overrides,
+    validate_manager_overrides,
+    validate_project_collection_overrides,
+    validate_project_overrides,
+)
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 import logging
 from typing import Any, Optional
@@ -565,7 +570,14 @@ class S3UsersService:
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
         s3_user = self._get_s3_user(user_id)
-        validate_manager_overrides(payload, load_app_settings_for_db_readonly(self.db).manager.feature_policies, s3_user)
+        app_settings = load_app_settings_for_db_readonly(self.db)
+        validate_manager_overrides(payload, app_settings.manager.feature_policies, s3_user)
+        validate_project_overrides(payload, app_settings.general.project_feature_policies, s3_user)
+        validate_project_collection_overrides(
+            payload,
+            app_settings.general.project_collection_policies,
+            s3_user,
+        )
         if payload.name is not None:
             s3_user.name = payload.name
         if payload.email is not None:

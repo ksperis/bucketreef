@@ -26,7 +26,7 @@ or other placement overhead.
 5. Use the Manager **Usage & Metrics** view when available to review the latest
    bucket snapshots aggregated for the current account scope.
 
-At account scope, **Usage composition** makes coverage, logical bytes,
+At Manager context scope, **Usage composition** makes coverage, logical bytes,
 current/noncurrent bytes, and the main composition breakdowns visible together.
 
 <div class="docs-themed-shot" data-docs-themed-shot>
@@ -42,8 +42,8 @@ Bucket composition statistics are separate from RGW traffic/usage metrics; the
 two features can have different availability.
 
 Automatic collection is configured separately from feature availability. When
-enabled for an RGW Account, the scheduler checks hourly for missing snapshots or
-snapshots at least 24 hours old and refreshes only those buckets. Manual
+enabled for an RGW Account or RGW User, the scheduler checks hourly for missing snapshots or
+snapshots at least 24 hours old and refreshes only those buckets in that Manager context. Manual
 recalculation remains available whenever bucket composition statistics are
 enabled, even when automatic collection is disabled.
 
