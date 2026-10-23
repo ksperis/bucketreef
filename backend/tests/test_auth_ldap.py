@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 import json
 
+from sqlalchemy import select
+
 from app.core.config import get_settings
 from app.db import AuditLog, AuthSession, User, UserRole
 from app.routers import auth_ldap as auth_router
@@ -56,10 +58,12 @@ def test_ldap_login_creates_cookie_session_and_returns_ui_none_user(client, db_s
     assert payload["user"]["email"] == "jane@example.test"
     assert payload["user"]["role"] == UserRole.UI_NONE.value
     assert get_settings().access_token_cookie_name in response.cookies
-    session = db_session.query(AuthSession).first()
+    session = db_session.scalars(select(AuthSession)).first()
     assert session is not None
     assert session.auth_type == "ldap"
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "login_ldap_primary_success").first()
+    audit = db_session.scalar(
+        select(AuditLog).where(AuditLog.action == "login_ldap_primary_success")
+    )
     assert audit is not None
     assert audit.ip_address == "testclient"
     assert audit.user_agent == "pytest-ldap"
@@ -83,7 +87,7 @@ def test_ldap_login_failure_is_audited(client, db_session, monkeypatch):
     )
 
     assert response.status_code == 401
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "login_failure").first()
+    audit = db_session.scalar(select(AuditLog).where(AuditLog.action == "login_failure"))
     assert audit is not None
     assert audit.user_email == "ldap:corp:jane"
     assert audit.message == "Invalid LDAP credentials"
@@ -104,7 +108,9 @@ def test_ldap_configuration_error_hides_detail_from_client_but_audits_it(client,
 
     assert response.status_code == 400
     assert response.json()["detail"] == "LDAP provider is unavailable"
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "login_ldap_configuration_error").first()
+    audit = db_session.scalar(
+        select(AuditLog).where(AuditLog.action == "login_ldap_configuration_error")
+    )
     assert audit is not None
     assert audit.message == "LDAP provider configuration error"
     metadata = json.loads(audit.metadata_json or "{}")
