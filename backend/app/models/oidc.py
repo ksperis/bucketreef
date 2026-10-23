@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import field_validator
 
 from app.models.base import ApiModel
 from app.utils.identity_provider_ids import normalize_identity_provider_id
@@ -78,14 +78,14 @@ class OIDCProviderAdminPayload(ApiModel):
     discovery_url: str
     client_id: str
     redirect_uri: str
-    scopes: list[str] = Field(default_factory=lambda: list(OIDC_PROVIDER_DEFAULT_SCOPES))
-    prompt: Optional[str] = None
-    enabled: bool = True
-    icon_url: Optional[str] = None
-    use_pkce: bool = True
-    use_nonce: bool = True
-    linking_policy: Literal["manual", "trusted_email"] = "manual"
-    trusted_email_domains: list[str] = Field(default_factory=list)
+    scopes: list[str]
+    prompt: Optional[str]
+    enabled: bool
+    icon_url: Optional[str]
+    use_pkce: bool
+    use_nonce: bool
+    linking_policy: Literal["manual", "trusted_email"]
+    trusted_email_domains: list[str]
     client_secret: Optional[str] = None
     clear_client_secret: bool = False
 

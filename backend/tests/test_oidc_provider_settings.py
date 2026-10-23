@@ -57,12 +57,43 @@ def test_admin_oidc_payload_requires_list_collection_fields(field: str, value: o
         "client_id": "client-id",
         "redirect_uri": "https://app.example.test/auth/callback",
         "scopes": ["openid", "email"],
+        "prompt": None,
+        "enabled": True,
+        "icon_url": None,
+        "use_pkce": True,
+        "use_nonce": True,
+        "linking_policy": "manual",
         "trusted_email_domains": ["example.com"],
     }
     payload[field] = value
 
     with pytest.raises(ValidationError):
         OIDCProviderAdminPayload.model_validate(payload)
+
+
+def test_admin_oidc_payload_requires_complete_configuration_but_not_secret_controls():
+    payload = {
+        "provider_id": "ui",
+        "display_name": "UI Provider",
+        "discovery_url": "https://issuer.example.test/.well-known/openid-configuration",
+        "client_id": "client-id",
+        "redirect_uri": "https://app.example.test/auth/callback",
+        "scopes": ["openid", "email"],
+        "prompt": None,
+        "enabled": True,
+        "icon_url": None,
+        "use_pkce": True,
+        "use_nonce": True,
+        "linking_policy": "manual",
+        "trusted_email_domains": [],
+    }
+
+    OIDCProviderAdminPayload.model_validate(payload)
+
+    incomplete = dict(payload)
+    incomplete.pop("enabled")
+    with pytest.raises(ValidationError):
+        OIDCProviderAdminPayload.model_validate(incomplete)
 
 
 def test_environment_oidc_provider_rejects_unknown_fields():
@@ -376,9 +407,13 @@ def test_admin_oidc_api_locks_environment_managed_provider(client, db_session, m
         "client_id": "client-id",
         "redirect_uri": "https://app.example.test/auth/callback",
         "scopes": ["openid"],
+        "prompt": None,
         "enabled": True,
+        "icon_url": None,
         "use_pkce": True,
         "use_nonce": True,
+        "linking_policy": "manual",
+        "trusted_email_domains": [],
     }
     assert client.post("/api/admin/settings/oidc/providers", json=mutation).status_code == 409
     assert client.put("/api/admin/settings/oidc/providers/google", json=mutation).status_code == 409
