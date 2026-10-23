@@ -24,12 +24,12 @@ export type AccountGroupLink = AccountAccessGrant & {
   group_avatar: UiGroupAvatarDescriptor | null;
 };
 
-export type AccountUserLinkInput = Pick<
+type AccountUserLinkInput = Pick<
   AccountUserLink,
   "user_id" | "manager_role" | "portal_role" | "allow_manager_browser_data_access"
 >;
 
-export type AccountGroupLinkInput = Pick<
+type AccountGroupLinkInput = Pick<
   AccountGroupLink,
   "group_id" | "manager_role" | "portal_role" | "allow_manager_browser_data_access"
 >;
