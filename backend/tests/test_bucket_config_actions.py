@@ -6,6 +6,8 @@ from pydantic import ValidationError
 from app.db import S3Account
 from app.models.bucket import (
     BucketCors,
+    BucketObjectLock,
+    BucketObjectLockUpdate,
     BucketPublicAccessBlock,
     BucketPublicAccessBlockUpdate,
     BucketVersioningUpdate,
@@ -25,6 +27,15 @@ def test_public_access_block_read_and_write_contracts_are_explicit() -> None:
 
     with pytest.raises(ValidationError):
         BucketPublicAccessBlockUpdate.model_validate({"block_public_acls": True})
+
+
+def test_object_lock_read_and_write_contracts_are_explicit() -> None:
+    expected_fields = {"enabled", "mode", "days", "years"}
+    assert set(BucketObjectLock.model_json_schema()["required"]) == expected_fields
+    assert set(BucketObjectLockUpdate.model_json_schema()["required"]) == expected_fields
+
+    with pytest.raises(ValidationError):
+        BucketObjectLockUpdate.model_validate({"enabled": True})
 
 
 def test_get_bucket_cors_config_uses_dedicated_cors_service():
