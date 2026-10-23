@@ -1,14 +1,44 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime
-from typing import Optional, Union
+from typing import Annotated, Optional, Union
 
-from pydantic import Field, field_validator
+from pydantic import AfterValidator, Field
 
 from app.models.access_key_metadata import AccessKeyMetadata
 from app.models.base import ApiModel
 from app.utils.resource_names import validate_iam_name
 from app.models.policy import InlinePolicy
+
+
+def validate_iam_path(value: str) -> str:
+    if len(value) > 512:
+        raise ValueError("IAM path must be at most 512 characters")
+    if value == "/":
+        return value
+    if not value.startswith("/") or not value.endswith("/") or len(value) < 3:
+        raise ValueError("IAM path must be '/' or start and end with '/'")
+    if any(ord(char) < 0x21 or ord(char) > 0x7E for char in value[1:-1]):
+        raise ValueError("IAM path contains unsupported characters")
+    return value
+
+
+def _validate_iam_user_name(value: str) -> str:
+    return validate_iam_name(value, "user")
+
+
+def _validate_iam_group_name(value: str) -> str:
+    return validate_iam_name(value, "group")
+
+
+def _validate_iam_role_name(value: str) -> str:
+    return validate_iam_name(value, "role")
+
+
+_IAMUserName = Annotated[str, AfterValidator(_validate_iam_user_name)]
+_IAMGroupName = Annotated[str, AfterValidator(_validate_iam_group_name)]
+_IAMRoleName = Annotated[str, AfterValidator(_validate_iam_role_name)]
+_IAMPath = Annotated[str, AfterValidator(validate_iam_path)]
 
 class IAMUser(ApiModel):
     name: str
@@ -39,32 +69,17 @@ class AccessKeyStatusChange(ApiModel):
 
 
 class IAMUserCreate(ApiModel):
-    name: str
+    name: _IAMUserName
 
     create_key: bool = False
     groups: Optional[list[str]] = None
     policies: Optional[list[str]] = None
     inline_policies: Optional[list[InlinePolicy]] = None
 
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: str) -> str:
-        return validate_iam_name(value, "user")
-
 
 class IAMUserUpdate(ApiModel):
-    name: Optional[str] = None
-    path: Optional[str] = None
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: Optional[str]) -> Optional[str]:
-        return validate_iam_name(value, "user") if value is not None else value
-
-    @field_validator("path")
-    @classmethod
-    def validate_path(cls, value: Optional[str]) -> Optional[str]:
-        return validate_iam_path(value)
+    name: Optional[_IAMUserName] = None
+    path: Optional[_IAMPath] = None
 
 
 class IAMUserWithKey(IAMUser):
@@ -81,29 +96,14 @@ class IAMGroup(ApiModel):
 
 
 class IAMGroupCreate(ApiModel):
-    name: str
+    name: _IAMGroupName
 
     inline_policies: Optional[list[InlinePolicy]] = None
 
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: str) -> str:
-        return validate_iam_name(value, "group")
-
 
 class IAMGroupUpdate(ApiModel):
-    name: Optional[str] = None
-    path: Optional[str] = None
-
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: Optional[str]) -> Optional[str]:
-        return validate_iam_name(value, "group") if value is not None else value
-
-    @field_validator("path")
-    @classmethod
-    def validate_path(cls, value: Optional[str]) -> Optional[str]:
-        return validate_iam_path(value)
+    name: Optional[_IAMGroupName] = None
+    path: Optional[_IAMPath] = None
 
 
 class IAMTag(ApiModel):
@@ -122,45 +122,16 @@ class IAMRole(ApiModel):
 
 
 class IAMRoleCreate(ApiModel):
-    name: str
+    name: _IAMRoleName
 
-    path: Optional[str] = None
+    path: Optional[_IAMPath] = None
     assume_role_policy_document: Optional[Union[dict, str]] = None
     max_session_duration: Optional[int] = Field(default=None, ge=3600, le=43200)
     tags: Optional[list[IAMTag]] = Field(default=None, max_length=50)
     inline_policies: Optional[list[InlinePolicy]] = None
 
-    @field_validator("name")
-    @classmethod
-    def validate_name(cls, value: str) -> str:
-        return validate_iam_name(value, "role")
-
-    @field_validator("path")
-    @classmethod
-    def validate_path(cls, value: Optional[str]) -> Optional[str]:
-        return validate_iam_path(value)
-
 
 class IAMRoleUpdate(ApiModel):
-    path: Optional[str] = None
+    path: Optional[_IAMPath] = None
     assume_role_policy_document: Optional[Union[dict, str]] = None
     max_session_duration: Optional[int] = Field(default=None, ge=3600, le=43200)
-
-    @field_validator("path")
-    @classmethod
-    def validate_path(cls, value: Optional[str]) -> Optional[str]:
-        return validate_iam_path(value)
-
-
-def validate_iam_path(value: Optional[str]) -> Optional[str]:
-    if value is None:
-        return value
-    if len(value) > 512:
-        raise ValueError("IAM path must be at most 512 characters")
-    if value == "/":
-        return value
-    if not value.startswith("/") or not value.endswith("/") or len(value) < 3:
-        raise ValueError("IAM path must be '/' or start and end with '/'")
-    if any(ord(char) < 0x21 or ord(char) > 0x7E for char in value[1:-1]):
-        raise ValueError("IAM path contains unsupported characters")
-    return value
