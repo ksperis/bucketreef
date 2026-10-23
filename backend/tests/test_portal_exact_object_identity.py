@@ -14,13 +14,13 @@ from app.main import app
 from app.models.access_context import AccountAccess
 from app.models.account_capabilities import AccountCapabilities
 from app.models.app_settings import AppSettings
-from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import get_portal_service_dependency
 from app.services import app_settings_service
 from app.services.portal import public_links
 from app.services.portal_service import PortalService
 from tests.s3_account_factory import make_s3_account
+from tests.portal_storage_space_factory import portal_storage_space_summary
 
 
 EXACT_KEYS = [
@@ -52,7 +52,7 @@ def storage(db_session, monkeypatch, client):
     service = PortalService(db_session)
     # Keep database-backed content/manager guards; isolate only discovery and S3.
     monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [
-        PortalStorageSpaceSummary(
+        portal_storage_space_summary(
             id="research", name="Research", role="Manager", internal_bucket_name="research",
         ),
     ])

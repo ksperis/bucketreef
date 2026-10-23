@@ -10,15 +10,15 @@ from app.models.portal_access_logs import (
     PortalServerAccessLogFilterQuery,
     PortalServerAccessLogFilterRule,
 )
-from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.services.portal.server_access_log_records import (
     apply_server_access_log_filter,
     parse_standard_access_log_line,
 )
+from tests.portal_storage_space_factory import portal_storage_space_summary
 
 
 LOG_OBJECT_KEY = "portal-server-access/research-data/2026-07-08-10-30-00.log"
-SPACE = PortalStorageSpaceSummary(id="space-1", name="Research Data", role="Manager")
+SPACE = portal_storage_space_summary(id="space-1", name="Research Data", role="Manager")
 SPACE_BY_BUCKET = {"research-data": SPACE}
 
 

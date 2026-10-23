@@ -37,6 +37,44 @@ export type DemoIam = {
 };
 export type DemoUser = Omit<User, "effective_access">;
 
+export function createDemoSpace(
+  input: Pick<DemoSpace, "id" | "name" | "accountId" | "bucketName" | "internal_bucket_name" | "role"> & Partial<DemoSpace>,
+): DemoSpace {
+  return {
+    id: input.id,
+    name: input.name,
+    accountId: input.accountId,
+    bucketName: input.bucketName,
+    internal_bucket_name: input.internal_bucket_name,
+    role: input.role,
+    can_browse: input.can_browse ?? true,
+    can_delete: input.can_delete ?? false,
+    can_take_ownership: input.can_take_ownership ?? false,
+    status: input.status ?? "Active",
+    description: input.description ?? null,
+    owner_label: input.owner_label ?? null,
+    owner_user_id: input.owner_user_id ?? null,
+    collaborators: input.collaborators ?? [],
+    collaborator_count: input.collaborator_count ?? 0,
+    visibility: input.visibility ?? "private",
+    share_scope: input.share_scope ?? "restricted",
+    account_member_role: input.account_member_role ?? null,
+    project_key: input.project_key ?? null,
+    dataset_label: input.dataset_label ?? null,
+    region: input.region ?? null,
+    created_at: input.created_at ?? null,
+    used_bytes: input.used_bytes ?? null,
+    object_count: input.object_count ?? null,
+    quota_max_size_bytes: input.quota_max_size_bytes ?? null,
+    quota_max_objects: input.quota_max_objects ?? null,
+    archived_at: input.archived_at ?? null,
+    origin: input.origin ?? "imported",
+    name_editable: input.name_editable ?? false,
+    icon: input.icon ?? { source: "preset", preset: "bucket", url: null, updated_at: null },
+    shares: input.shares ?? [],
+  };
+}
+
 export function createDemoUser(input: Pick<DemoUser, "id" | "email"> & Partial<DemoUser>): DemoUser {
   const role = input.role ?? "ui_user";
   const fullName = input.full_name ?? null;
@@ -300,7 +338,7 @@ export function createSeed(): DemoState {
     for (let i = 0; i < exportCount; i++) { const object = putObject(bucket, `exports/2026/${String(i + 1).padStart(4, "0")}.json`, new Blob([JSON.stringify({ record: i + 1, project: account.name, status: "processed", amount: 120 + i * 7, note: "Demo payload excerpt. Seeded dataset sizes represent a production inventory." })], { type: "application/json" }), false, at(i % 90)); object.versions[0].size = (4 + (i % 32) * 16) * MiB; }
     buckets.push(bucket);
   }
-  const spaces: DemoSpace[] = buckets.slice(0, 12).map((b, i) => ({
+  const spaces: DemoSpace[] = buckets.slice(0, 12).map((b, i) => createDemoSpace({
     id: `space-${i + 1}`, name: `${b.name.split("-").at(-1)!.replace(/^./, s => s.toUpperCase())} · ${accounts.find(a => a.id === b.accountId)!.name}`,
     accountId: b.accountId, bucketName: b.name, internal_bucket_name: b.name, description: "Shared working files and project deliverables.",
     role: "Editor", visibility: i % 4 === 0 ? "private" : "shared", share_scope: "account", account_member_role: "Editor",

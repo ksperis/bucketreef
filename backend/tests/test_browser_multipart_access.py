@@ -4,6 +4,7 @@ from app.main import app
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.services.browser.object_operations import require_multipart_write_access
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.portal_storage_space_factory import portal_storage_space_summary
 
 
 def _context(*, spaces=None):
@@ -18,7 +19,7 @@ def _context(*, spaces=None):
 
 
 def _space(space_id: str, bucket_name: str, role: str) -> PortalStorageSpaceSummary:
-    return PortalStorageSpaceSummary(
+    return portal_storage_space_summary(
         id=space_id,
         name=space_id,
         role=role,

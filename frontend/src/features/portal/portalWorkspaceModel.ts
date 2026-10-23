@@ -110,13 +110,6 @@ function prettyName(raw: string): string {
     .join(" ");
 }
 
-function roleFromStorageSpace(space: PortalStorageSpaceSummary): PortalWorkspaceRole {
-  if (space.role === "Manager" || space.role === "Owner" || space.role === "Editor" || space.role === "Viewer") {
-    return space.role;
-  }
-  return "Viewer";
-}
-
 function statusFromStorageSpace(space: PortalStorageSpaceSummary): PortalWorkspaceStatus {
   if (space.status === "Active" || space.status === "Attention") {
     return space.status;
@@ -125,11 +118,6 @@ function statusFromStorageSpace(space: PortalStorageSpaceSummary): PortalWorkspa
     return "Attention";
   }
   return "Active";
-}
-
-function visibilityFromStorageSpace(space: PortalStorageSpaceSummary): PortalStorageSpaceVisibility {
-  if (space.visibility === "shared") return "shared";
-  return "private";
 }
 
 function createdLabel(raw?: string | null, locale: UiLanguage = "en"): string {
@@ -174,10 +162,10 @@ export function buildPortalWorkspaceModel({
   const usageBySpace = new Map((usage?.storage_spaces ?? []).map((space) => [space.id, space]));
   const spaces = (storageSpaces ?? []).map((storageSpace) => {
     const usageSpace = usageBySpace.get(storageSpace.id);
-    const role = roleFromStorageSpace(storageSpace);
-    const canBrowse = storageSpace.can_browse ?? true;
+    const role = storageSpace.role;
+    const canBrowse = storageSpace.can_browse;
     const name = storageSpace.name || prettyName(storageSpace.id);
-    const visibility = visibilityFromStorageSpace(storageSpace);
+    const visibility = storageSpace.visibility;
     const shareScope: PortalStorageSpaceShareScope =
       visibility === "shared" && storageSpace.share_scope === "account" ? "account" : "restricted";
     const status: PortalWorkspaceStatus | "Archived" = storageSpace.archived_at
@@ -187,14 +175,14 @@ export function buildPortalWorkspaceModel({
     return {
       id: storageSpace.id,
       name: usageSpace?.name ?? name,
-      internalName: storageSpace.internal_bucket_name ?? null,
-      origin: storageSpace.origin ?? "imported",
-      nameEditable: Boolean(storageSpace.name_editable),
+      internalName: storageSpace.internal_bucket_name,
+      origin: storageSpace.origin,
+      nameEditable: storageSpace.name_editable,
       description: storageSpace.description ?? t({ en: `${name} storage space`, fr: `Espace de stockage ${name}`, de: `Speicherbereich ${name}`, zh: `${name} 存储空间` }),
-      ownerLabel: storageSpace.owner_label ?? null,
-      ownerUserId: storageSpace.owner_user_id ?? null,
-      collaborators: storageSpace.collaborators ?? [],
-      collaboratorCount: storageSpace.collaborator_count ?? storageSpace.collaborators?.length ?? 0,
+      ownerLabel: storageSpace.owner_label,
+      ownerUserId: storageSpace.owner_user_id,
+      collaborators: storageSpace.collaborators,
+      collaboratorCount: storageSpace.collaborator_count,
       visibility,
       shareScope,
       accountMemberRole: shareScope === "account" ? storageSpace.account_member_role ?? "Editor" : null,
@@ -202,20 +190,20 @@ export function buildPortalWorkspaceModel({
       datasetLabel: storageSpace.dataset_label ?? null,
       role,
       canBrowse,
-      canDelete: Boolean(storageSpace.can_delete),
-      canTakeOwnership: Boolean(storageSpace.can_take_ownership),
+      canDelete: storageSpace.can_delete,
+      canTakeOwnership: storageSpace.can_take_ownership,
       status,
       access,
-      region: storageSpace.region ?? null,
+      region: storageSpace.region,
       createdLabel: createdLabel(storageSpace.created_at, locale),
       usedBytes: usageSpace?.used_bytes ?? storageSpace.used_bytes ?? null,
       quotaBytes: usageSpace?.quota_max_size_bytes ?? storageSpace.quota_max_size_bytes ?? null,
       quotaObjects: usageSpace?.quota_max_objects ?? storageSpace.quota_max_objects ?? null,
       objectCount: usageSpace?.object_count ?? storageSpace.object_count ?? null,
-      createdAt: storageSpace.created_at ?? null,
-      archivedAt: storageSpace.archived_at ?? null,
+      createdAt: storageSpace.created_at,
+      archivedAt: storageSpace.archived_at,
       shareCount: null,
-      icon: storageSpace.icon ?? { source: "preset", preset: "bucket", url: null, updated_at: null },
+      icon: storageSpace.icon,
     };
   });
 

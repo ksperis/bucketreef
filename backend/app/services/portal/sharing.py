@@ -74,13 +74,14 @@ class PortalSharingMixin:
         self,
         actor: User,
         target: User,
-        storage_space: PortalStorageSpaceSummary,
+        storage_space_id: str,
+        storage_space_name: str,
         role: PortalStorageSpaceGrantRole,
     ) -> PortalStorageSpaceShare:
         return PortalStorageSpaceShare(
-            id=f"{storage_space.id}:{target.id}",
-            storage_space_id=storage_space.id,
-            storage_space_name=storage_space.name,
+            id=f"{storage_space_id}:{target.id}",
+            storage_space_id=storage_space_id,
+            storage_space_name=storage_space_name,
             user_id=target.id,
             email=target.email,
             role=role,
@@ -234,7 +235,13 @@ class PortalSharingMixin:
             .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
         ).all()
         explicit_shares = [
-            self._storage_space_share_card(user, target, storage_space, grant.role)
+            self._storage_space_share_card(
+                user,
+                target,
+                storage_space.id,
+                storage_space.name,
+                grant.role,
+            )
             for grant, target in explicit_share_rows
             if grant.role in {"Viewer", "Editor"}
         ]
@@ -334,7 +341,15 @@ class PortalSharingMixin:
         for grant, target in self.db.execute(query).all():
             if grant.role not in {"Viewer", "Editor"}:
                 continue
-            shares.append(self._storage_space_share_card(user, target, storage_space, grant.role))
+            shares.append(
+                self._storage_space_share_card(
+                    user,
+                    target,
+                    storage_space.id,
+                    storage_space.name,
+                    grant.role,
+                )
+            )
         return sorted(shares, key=lambda item: (item.direction, item.email.lower()))
 
     def list_storage_space_share_candidates(
@@ -426,12 +441,8 @@ class PortalSharingMixin:
             self._storage_space_share_card(
                 user,
                 target,
-                PortalStorageSpaceSummary(
-                    id=space_id,
-                    name=self._storage_space_label(bucket_name),
-                    role=role,
-                    internal_bucket_name=bucket_name,
-                ),
+                space_id,
+                self._storage_space_label(bucket_name),
                 role,
             ),
         )
