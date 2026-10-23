@@ -95,11 +95,11 @@ class OnboardingJourneyOut(ApiModel):
     id: str
     revision: int
     draft: OnboardingDraft
-    resources: dict = Field(default_factory=dict)
-    pending_step: str | None = None
-    configured: bool = False
+    resources: dict
+    pending_step: str | None
+    configured: bool
     preview: OnboardingPreview
-    links: dict[str, str] = Field(default_factory=dict)
+    links: dict[str, str]
     created_at: datetime
     updated_at: datetime
 
@@ -107,7 +107,7 @@ class OnboardingJourneyOut(ApiModel):
 class OnboardingStatus(ApiModel):
     dismissed: bool
     complete: bool
-    source: Literal["quickstart", "standard"] = "standard"
-    journeys: list[OnboardingJourneyOut] = Field(default_factory=list)
-    can_configure: bool = False
-    actor_id: int = 0
+    source: Literal["quickstart", "standard"]
+    journeys: list[OnboardingJourneyOut]
+    can_configure: bool
+    actor_id: int
