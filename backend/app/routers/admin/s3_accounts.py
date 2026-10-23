@@ -34,14 +34,6 @@ router = APIRouter(prefix="/admin/accounts", tags=["admin-accounts"])
 logger = logging.getLogger(__name__)
 
 
-def _account_name_key(account: S3Account) -> tuple[str, str, int]:
-    return (account.name.lower(), account.name, account.id)
-
-
-def _account_rgw_key(account: S3Account) -> tuple[str, int]:
-    return (account.rgw_account_id.lower(), account.id)
-
-
 def get_admin_accounts_service(
     db: Session = Depends(get_db),
 ) -> S3AccountsService:
@@ -66,45 +58,14 @@ def list_accounts(
     service: S3AccountsService = Depends(get_admin_accounts_service),
     _: User = Depends(get_current_super_admin),
 ) -> PaginatedS3AccountsResponse:
-    accounts = service.list_accounts(
-        include_usage_stats=False,
-        include_quota=include_quota,
-        include_rgw_details=include_rgw_details,
-    )
-    search_value = search.strip().lower() if isinstance(search, str) else ""
-    if search_value:
-        filtered = [
-            acc
-            for acc in accounts
-            if search_value in (acc.name or "").lower()
-            or search_value in acc.rgw_account_id.lower()
-            or any(search_value in (tag.label or "").lower() for tag in (acc.tags or []))
-            or any(
-                search_value in (link.user_email or "").lower()
-                or search_value in (link.user_full_name or "").lower()
-                for link in (acc.user_links or [])
-            )
-            or any(search_value in (link.group_name or "").lower() for link in (acc.group_links or []))
-        ]
-    else:
-        filtered = accounts
-    requested_sort = sort_by if sort_by in {"name", "rgw_account_id"} else "name"
-    descending = sort_dir.lower() == "desc"
-    if requested_sort == "name":
-        filtered.sort(key=_account_name_key, reverse=descending)
-    else:
-        filtered.sort(key=_account_rgw_key, reverse=descending)
-    total = len(filtered)
-    start = max(page - 1, 0) * page_size
-    end = start + page_size
-    items = filtered[start:end]
-    has_next = end < total
-    return PaginatedS3AccountsResponse(
-        items=items,
-        total=total,
+    return service.list_accounts_page(
         page=page,
         page_size=page_size,
-        has_next=has_next,
+        search=search,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        include_quota=include_quota,
+        include_rgw_details=include_rgw_details,
     )
 
 
