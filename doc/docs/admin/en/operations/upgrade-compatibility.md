@@ -1,5 +1,13 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical Browser object-tag payloads
+
+Browser object-tag updates now require an explicit `tags` collection. Object-tag
+responses always include `tags` and nullable `version_id`.
+
+Deploy the backend and bundled frontend together. Direct callers must send the
+canonical update object. No database migration is required.
+
 ## 2026-10 canonical SNS policy and configuration payloads
 
 Manager SNS topic policy responses and updates now require `policy`, and topic

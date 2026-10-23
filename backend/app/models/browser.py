@@ -169,7 +169,13 @@ ObjectTagList = Annotated[list[ObjectTag], AfterValidator(_validate_object_tag_k
 
 class ObjectTags(ApiModel):
     key: str
-    tags: ObjectTagList = Field(default_factory=list)
+    tags: ObjectTagList
+    version_id: Optional[str]
+
+
+class ObjectTagsUpdate(ApiModel):
+    key: str
+    tags: ObjectTagList
     version_id: Optional[str] = None
 
 

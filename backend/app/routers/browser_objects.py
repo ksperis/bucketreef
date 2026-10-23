@@ -22,6 +22,7 @@ from app.models.browser import (
     ObjectRestoreRequest,
     ObjectRetention,
     ObjectTags,
+    ObjectTagsUpdate,
     SseCustomerContext,
 )
 from app.services.storage_endpoint_feature_guards import require_sse_feature
@@ -125,7 +126,7 @@ def get_object_tags(
 @router.put("/buckets/{bucket_name}/object-tags", response_model=ObjectTags)
 def put_object_tags(
     bucket_name: str,
-    payload: ObjectTags,
+    payload: ObjectTagsUpdate,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),

@@ -16,7 +16,7 @@ import type {
   ObjectMetadata,
   ObjectMetadataUpdate,
   ObjectTag,
-  ObjectTags,
+  ObjectTagsUpdate,
 } from "../../api/browserContracts";
 import { extractApiError } from "../../utils/apiError";
 import { prepareS3Tags } from "../../utils/s3Tags";
@@ -443,7 +443,7 @@ export function useBrowserObjectProperties({
             key: item.key,
             version_id: metadata?.version_id ?? tagsVersionId ?? null,
             tags: prepareS3Tags(tagsDraft),
-          } satisfies ObjectTags,
+          } satisfies ObjectTagsUpdate,
           undefined,
           requestOptions,
         );

@@ -102,6 +102,18 @@ def test_browser_put_object_tags_rejects_empty_and_duplicate_tag_keys(client):
     assert duplicate.status_code == 422
 
 
+def test_browser_put_object_tags_requires_explicit_tags_collection(client):
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_audit_service] = lambda: _FakeAuditService()
+
+    response = client.put(
+        "/api/browser/buckets/my-bucket/object-tags?context_id=s3u-1",
+        json={"key": "folder/demo.txt"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_browser_put_object_tags_rejects_missing_key(client):
     class FakeService:
         def put_object_tags(self, bucket_name, account, key, tags, version_id=None):  # noqa: ANN001
