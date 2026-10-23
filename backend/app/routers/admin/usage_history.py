@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
+from app.models.quota_monitoring import QuotaMonitoringResult
 from app.models.usage_history import UsageHistoryResponse, UsageHistoryTrendResponse
 from app.routers.dependencies import get_current_super_admin
 from app.services.app_settings_service import load_app_settings
@@ -101,11 +102,11 @@ def usage_history_trends(
     return service.aggregate_trends(window=window, endpoint_id=endpoint_id, subject_type=subject_type)
 
 
-@router.post("/collect")
+@router.post("/collect", response_model=QuotaMonitoringResult)
 def collect_usage_history(
     current_user: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-) -> dict:
+) -> QuotaMonitoringResult:
     _ensure_usage_history_enabled()
     with OperationLeaseService(db).hold(
         USAGE_HISTORY_COLLECT_OPERATION,
@@ -123,4 +124,4 @@ def collect_usage_history(
         except ValueError as exc:
             raise_bad_request_from_value_error(exc)
 
-    return result
+    return QuotaMonitoringResult.model_validate(result)

@@ -74,9 +74,9 @@ function collectionMessage(result: Awaited<ReturnType<typeof collectUsageHistory
   if (result.status === "skipped" && result.reason) {
     return result.reason;
   }
-  const processed = result.subjects_processed ?? 0;
-  const hourly = result.history_hourly_upserts ?? 0;
-  const daily = result.history_daily_upserts ?? 0;
+  const processed = result.subjects_processed;
+  const hourly = result.history_hourly_upserts;
+  const daily = result.history_daily_upserts;
   const key = processed === 1
     ? daily === 1 ? "collectionSubjectSnapshot" : "collectionSubjectSnapshots"
     : daily === 1 ? "collectionSubjectsSnapshot" : "collectionSubjectsSnapshots";

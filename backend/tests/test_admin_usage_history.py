@@ -306,11 +306,36 @@ def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: T
             }
         )
         return {
+            "started_at": "2026-10-23T08:00:00+00:00",
+            "finished_at": "2026-10-23T08:00:01+00:00",
             "subjects_total": 1,
             "subjects_processed": 1,
             "history_hourly_upserts": 1,
             "history_daily_upserts": 1,
+            "alerts_triggered": 0,
+            "alerts_sent": 0,
+            "notifications_created": 0,
+            "email_errors": 0,
             "errors": [],
+            "warnings": [],
+            "quota_alerts_enabled": False,
+            "quota_alerts_configured": True,
+            "usage_history_enabled": True,
+            "usage_history_collection_enabled": True,
+            "threshold_percent": 85,
+            "retention": {
+                "quota_history": {
+                    "hourly_retention_days": 30,
+                    "daily_retention_days": 365,
+                    "deleted_hourly": 0,
+                    "deleted_daily": 0,
+                },
+                "cost_history": {
+                    "daily_retention_days": 365,
+                    "deleted_usage_daily": 0,
+                    "deleted_storage_daily": 0,
+                },
+            },
         }
 
     monkeypatch.setattr(QuotaMonitoringService, "run_monitor", fake_run_monitor)
