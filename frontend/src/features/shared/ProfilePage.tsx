@@ -670,7 +670,7 @@ export default function ProfilePage({
 
   const handleTogglePrivateConnectionStatus = async (connection: S3Connection) => {
     if (!canAccessConnectionsSection) return;
-    const nextIsActive = connection.is_active !== false ? false : true;
+    const nextIsActive = !connection.is_active;
     setConnectionsError(null);
     setConnectionsMessage(null);
     setTogglingConnectionBusyId(connection.id);
@@ -883,7 +883,7 @@ export default function ProfilePage({
       id: "status",
       label: surfaceText("Status"),
       render: (connection) => {
-        const isActive = connection.is_active !== false;
+        const isActive = connection.is_active;
         return (
           <ListBadge tone={isActive ? "success" : "neutral"}>
             {surfaceText(isActive ? "Active" : "Inactive")}
@@ -907,7 +907,7 @@ export default function ProfilePage({
       align: "right",
       mobileRole: "actions",
       render: (connection) => {
-        const isActive = connection.is_active !== false;
+        const isActive = connection.is_active;
         return (
           <ListActions>
             {connection.managed_access_state === "cleanup_pending" && (

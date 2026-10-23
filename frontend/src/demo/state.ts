@@ -352,6 +352,8 @@ export function createSeed(): DemoState {
       is_shared: true,
       access_manager: true,
       access_browser: false,
+      server_managed: false,
+      managed_access_state: null,
       access_key_id: "DEMO_NOT_A_REAL_KEY",
     })),
     notifications: Object.fromEntries(users.map(u => [u.id, [{ id: 1, type: "demo", severity: "info", title: "Welcome to your live demo", message: "Changes stay in this browser. Use the profile bar to follow a Portal request through approval.", created_at: at(0), read_at: null }, { id: 2, type: "endpoint", severity: "warning", title: "Paris latency recovered", message: "Historical incident · service returned to normal after 8 minutes.", created_at: at(2), read_at: at(0) }]])),

@@ -141,6 +141,7 @@ export function governance(c: DemoRequest): Response | undefined {
     }
     if (method === "POST" && !connectionMatch[1]) {
       const endpoint = state.endpoints.find(e => e.id === Number(body.storage_endpoint_id));
+      const isAdminConnection = path.startsWith("/admin/");
       const now = new Date().toISOString();
       const created: typeof state.connections[number] = {
         ...body,
@@ -172,7 +173,11 @@ export function governance(c: DemoRequest): Response | undefined {
         created_at: now,
         updated_at: null,
         access_key_id: "DEMO_NOT_A_REAL_KEY",
-        is_shared: path.startsWith("/admin/"),
+        is_shared: isAdminConnection,
+        access_manager: isAdminConnection ? true : body.access_manager === true,
+        access_browser: isAdminConnection ? false : body.access_browser !== false,
+        server_managed: false,
+        managed_access_state: null,
       };
       state.connections.push(created); return json(created, 201);
     }

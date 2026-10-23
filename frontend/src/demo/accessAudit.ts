@@ -179,7 +179,7 @@ function addS3UserRows(rows: Map<string, AccessAuditRow>, state: DemoState, user
 }
 
 function addConnectionRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: DemoUser, groups: UiGroup[]): void {
-  for (const connection of state.connections.filter(candidate => candidate.is_shared !== false)) {
+  for (const connection of state.connections.filter(candidate => candidate.is_shared)) {
     const sources = [
       ...(connection.user_details.some(member => member.id === user.id) ? [directSource()] : []),
       ...groups

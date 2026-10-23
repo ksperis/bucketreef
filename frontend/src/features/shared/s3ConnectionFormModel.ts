@@ -182,16 +182,16 @@ export function buildPrivateConnectionDraft(
   connection: S3Connection,
 ): PrivateConnectionDraft {
   return {
-    name: connection.name ?? "",
+    name: connection.name,
     tags: normalizeUiTags(connection.tags),
     provider_hint: connection.provider_hint ?? "",
-    endpoint_url: connection.endpoint_url ?? "",
+    endpoint_url: connection.endpoint_url,
     region: connection.region ?? "",
-    access_manager: connection.access_manager === true,
-    access_browser: connection.access_browser !== false,
-    force_path_style: Boolean(connection.force_path_style),
-    verify_tls: connection.verify_tls !== false,
-    storage_endpoint_id: connection.storage_endpoint_id ?? null,
+    access_manager: connection.access_manager,
+    access_browser: connection.access_browser,
+    force_path_style: connection.force_path_style,
+    verify_tls: connection.verify_tls,
+    storage_endpoint_id: connection.storage_endpoint_id,
   };
 }
 

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SELECTOR_TAGS_PREFERENCE_KEY } from "../../utils/selectorTagsPreference";
 import ProfilePage from "./ProfilePage";
+import type { S3Connection } from "../../api/connections";
 
 const listConnectionsMock = vi.fn();
 const createConnectionMock = vi.fn();
@@ -101,7 +102,9 @@ vi.mock("../../utils/workspaces", () => ({
 }));
 
 describe("ProfilePage live validation", () => {
-  const makeConnection = (overrides?: Partial<Record<string, unknown>>) => ({
+  const makeConnection = (
+    overrides: Partial<S3Connection> = {},
+  ): S3Connection => ({
     id: 42,
     name: "managed-connection",
     storage_endpoint_id: 2,
@@ -110,6 +113,11 @@ describe("ProfilePage live validation", () => {
     access_manager: false,
     access_browser: true,
     is_active: true,
+    server_managed: false,
+    managed_access_state: null,
+    rgw_user_uid: null,
+    rgw_tenant: null,
+    rgw_account_id: null,
     endpoint_url: "https://managed-a.example.test",
     region: "us-east-1",
     provider_hint: "ceph",
