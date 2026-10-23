@@ -116,7 +116,7 @@ def put_topic_policy(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> TopicPolicy:
     try:
-        updated = service.set_topic_policy(context, topic_arn, payload.policy or {})
+        updated = service.set_topic_policy(context, topic_arn, payload.policy)
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -124,7 +124,7 @@ def put_topic_policy(
             entity_type="sns_topic",
             entity_id=topic_arn,
             execution_context=context,
-            metadata={"policy_length": len(payload.policy or {})},
+            metadata={"policy_length": len(payload.policy)},
         )
         return TopicPolicy(policy=updated)
     except ValueError as exc:
@@ -159,7 +159,7 @@ def put_topic_configuration(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> TopicConfiguration:
     try:
-        updated = service.set_topic_configuration(context, topic_arn, payload.configuration or {})
+        updated = service.set_topic_configuration(context, topic_arn, payload.configuration)
         audit_service.record_action(
             user=current_user,
             scope="manager",
