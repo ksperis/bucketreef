@@ -25,7 +25,7 @@ def _enabled_settings() -> AppSettings:
     ],
 )
 def test_health_query_routes_map_missing_endpoint_to_not_found(client, monkeypatch, path):
-    monkeypatch.setattr(healthchecks_router, "load_app_settings", _enabled_settings)
+    monkeypatch.setattr(healthchecks_router, "load_app_settings_for_db_readonly", lambda _db: _enabled_settings())
 
     response = client.get(path)
 
@@ -48,7 +48,7 @@ def test_health_query_routes_keep_other_value_errors_as_bad_request(
     method_name,
     path,
 ):
-    monkeypatch.setattr(healthchecks_router, "load_app_settings", _enabled_settings)
+    monkeypatch.setattr(healthchecks_router, "load_app_settings_for_db_readonly", lambda _db: _enabled_settings())
 
     def raise_invalid_request(*args, **kwargs):
         raise ValueError("Invalid health query")

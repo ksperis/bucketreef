@@ -19,7 +19,7 @@ from app.models.healthcheck import (
     WorkspaceEndpointHealthOverviewResponse,
 )
 from app.routers.dependencies import get_current_super_admin
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.healthcheck_common import HealthWindow
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.healthcheck_service import HealthCheckService
@@ -36,8 +36,8 @@ from app.utils.http_errors import (
 router = APIRouter(prefix="/admin/health", tags=["admin-healthchecks"])
 
 
-def _ensure_endpoint_status_enabled() -> None:
-    app_settings = load_app_settings()
+def _ensure_endpoint_status_enabled(db: Session) -> None:
+    app_settings = load_app_settings_for_db_readonly(db)
     if not app_settings.general.endpoint_status_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -50,7 +50,7 @@ def health_summary(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthSummaryResponse:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     return EndpointHealthSummaryResponse(**service.build_summary())
 
@@ -62,7 +62,7 @@ def health_series(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthSeries:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     try:
         return EndpointHealthSeries(**service.build_series(endpoint_id, window))
@@ -77,7 +77,7 @@ def health_incidents(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthIncidentsResponse:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     try:
         return EndpointHealthIncidentsResponse(**service.build_incidents(endpoint_id, window))
@@ -94,7 +94,7 @@ def health_raw_checks(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthRawChecksResponse:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     try:
         return EndpointHealthRawChecksResponse(**service.build_raw_checks(endpoint_id, window, page=page, page_size=page_size))
@@ -108,7 +108,7 @@ def health_overview(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthOverviewResponse:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     return EndpointHealthOverviewResponse(**service.build_overview(window))
 
@@ -119,7 +119,7 @@ def health_latency_overview(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthLatencyOverviewResponse:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     return EndpointHealthLatencyOverviewResponse(**service.build_latency_overview(window))
 
@@ -131,7 +131,7 @@ def health_global_incidents(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthGlobalIncidentsResponse:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     return EndpointHealthGlobalIncidentsResponse(**service.build_global_incidents(window, limit=limit))
 
@@ -143,7 +143,7 @@ def workspace_health_overview(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> WorkspaceEndpointHealthOverviewResponse:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     try:
         return WorkspaceEndpointHealthOverviewResponse(
@@ -161,7 +161,7 @@ def run_healthchecks(
     current_user: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthRunResponse:
-    _ensure_endpoint_status_enabled()
+    _ensure_endpoint_status_enabled(db)
     with OperationLeaseService(db).hold(
         HEALTHCHECK_RUN_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
