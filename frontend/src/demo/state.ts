@@ -94,7 +94,6 @@ export function demoConnectionUser(user: DemoUser): S3ConnectionUserDetail {
     email: user.email,
     full_name: user.full_name,
     avatar: user.avatar,
-    allow_manager_browser_data_access: false,
   };
 }
 
