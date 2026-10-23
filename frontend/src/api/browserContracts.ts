@@ -149,6 +149,12 @@ export type BrowserObjectColumnsResponse = {
 export type ObjectTags = {
   key: string;
   tags: ObjectTag[];
+  version_id: string | null;
+};
+
+export type ObjectTagsUpdate = {
+  key: string;
+  tags: ObjectTag[];
   version_id?: string | null;
 };
 

@@ -27,6 +27,7 @@ import type {
   ObjectRestoreRequest,
   ObjectRetention,
   ObjectTags,
+  ObjectTagsUpdate,
 } from "./browserContracts";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 
@@ -171,7 +172,7 @@ export async function getObjectTags(
 export async function updateObjectTags(
   contextId: S3ExecutionContextSelector,
   bucketName: string,
-  payload: ObjectTags,
+  payload: ObjectTagsUpdate,
   signal?: AbortSignal,
   options?: BrowserRequestOptions,
 ): Promise<ObjectTags> {
