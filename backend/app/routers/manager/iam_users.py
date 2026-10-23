@@ -32,6 +32,7 @@ from app.services.manager_iam_support import (
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_sources import iam_source_reference
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
+from app.services.rgw_iam import RGWIAMService
 
 router = APIRouter(prefix="/manager/iam/users", tags=["manager-iam-users"])
 
@@ -49,6 +50,15 @@ def _annotate_managed_user(db: Session, context: S3ExecutionContext, item: IAMUs
 
 def _ensure_unmanaged_user(db: Session, context: S3ExecutionContext, user_name: str) -> None:
     ensure_unmanaged_iam_user(db, context, user_name)
+
+
+def _load_user_details(service: RGWIAMService, user: IAMUser) -> IAMUser:
+    user.groups = [group.name for group in service.list_groups_for_user(user.name)]
+    user.policies = [policy.arn for policy in service.list_user_policies(user.name) if policy.arn]
+    inline = service.list_user_inline_policies(user.name)
+    user.inline_policies = inline or None
+    user.has_keys = bool(service.list_access_keys(user.name))
+    return user
 
 
 @router.get("", response_model=list[IAMUser])
@@ -79,12 +89,7 @@ def get_user(
         user = service.get_user(user_name)
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        user.groups = [group.name for group in service.list_groups_for_user(user_name)]
-        user.policies = [policy.arn for policy in service.list_user_policies(user_name) if policy.arn]
-        inline = service.list_user_inline_policies(user_name)
-        user.inline_policies = inline or None
-        user.has_keys = bool(service.list_access_keys(user_name))
-        return _annotate_managed_user(db, context, user)
+        return _annotate_managed_user(db, context, _load_user_details(service, user))
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -118,11 +123,7 @@ def update_user(
         updated = service.get_user(effective_name)
         if updated is None:
             raise RuntimeError("Updated IAM user could not be reloaded")
-        updated.groups = [group.name for group in service.list_groups_for_user(effective_name)]
-        updated.policies = [policy.arn for policy in service.list_user_policies(effective_name) if policy.arn]
-        inline = service.list_user_inline_policies(effective_name)
-        updated.inline_policies = inline or None
-        updated.has_keys = bool(service.list_access_keys(effective_name))
+        _load_user_details(service, updated)
         if new_name is not None or new_path is not None:
             audit_service.record_action(
                 user=current_user,
