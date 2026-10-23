@@ -10,6 +10,21 @@ def test_portal_object_models_have_a_single_canonical_module() -> None:
     assert PortalStorageObjectDeleteResponse.__module__ == "app.models.portal_objects"
 
 
+def test_portal_object_detail_requires_complete_canonical_payload() -> None:
+    assert set(PortalStorageObjectDetail.model_json_schema()["required"]) == {
+        "key",
+        "name",
+        "size",
+        "last_modified",
+        "content_type",
+        "storage_class",
+        "encryption",
+        "preview_type",
+        "preview_text",
+        "preview_unavailable_reason",
+    }
+
+
 def test_portal_object_routes_preserve_their_openapi_contracts() -> None:
     paths = app.openapi()["paths"]
 

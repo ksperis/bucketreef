@@ -926,6 +926,7 @@ describe("BrowserPage interactions", () => {
       encryption: null,
       preview_type: "text",
       preview_text: "portal preview",
+      preview_unavailable_reason: null,
     });
     fetchPortalObjectVersionsMock.mockResolvedValue({
       key: "a.txt",

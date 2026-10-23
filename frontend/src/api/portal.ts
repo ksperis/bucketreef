@@ -97,14 +97,14 @@ type PortalStorageSpaceUpdate = Partial<PortalStorageSpaceCreate> & {
 export type PortalStorageObjectDetail = {
   key: string;
   name: string;
-  size?: number | null;
-  last_modified?: string | null;
-  content_type?: string | null;
-  storage_class?: string | null;
-  encryption?: string | null;
+  size: number | null;
+  last_modified: string | null;
+  content_type: string | null;
+  storage_class: string | null;
+  encryption: string | null;
   preview_type: "text" | "image" | "unavailable";
-  preview_text?: string | null;
-  preview_unavailable_reason?: string | null;
+  preview_text: string | null;
+  preview_unavailable_reason: string | null;
 };
 
 type PortalStorageObjectDownload = {
