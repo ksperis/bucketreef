@@ -385,30 +385,7 @@ class OidcService:
             header = jwt.get_unverified_header(id_token)
         except JWTError as exc:
             raise OIDCAuthenticationError("Invalid ID token header") from exc
-        jwks_uri = metadata.get("jwks_uri")
-        if not jwks_uri:
-            raise OIDCConfigurationError("Provider does not expose a JWKS endpoint")
-        jwks = self._get_jwks(jwks_uri)
-        kid = header.get("kid")
-        algorithm = header.get("alg")
-        if not isinstance(kid, str) or not kid:
-            raise OIDCAuthenticationError("ID token is missing a signing key id")
-        if algorithm not in provider.allowed_algorithms:
-            raise OIDCAuthenticationError("ID token uses a disallowed signing algorithm")
-        expected_key_type = "EC" if str(algorithm).startswith("ES") else "RSA"
-        key = None
-        for candidate in jwks.get("keys", []):
-            key_ops = candidate.get("key_ops")
-            if (
-                candidate.get("kid") == kid
-                and candidate.get("use", "sig") == "sig"
-                and candidate.get("kty") == expected_key_type
-                and (not key_ops or "verify" in key_ops)
-            ):
-                key = candidate
-                break
-        if not key:
-            raise OIDCAuthenticationError("Unable to find a matching signing key")
+        key = self._id_token_signing_key(provider, metadata, header)
         try:
             claims = jwt.decode(
                 id_token,
@@ -423,6 +400,34 @@ class OidcService:
         if not expected_nonce or claims.get("nonce") != expected_nonce:
             raise OIDCStateError("Nonce mismatch detected")
         return claims
+
+    def _id_token_signing_key(
+        self,
+        provider: OIDCProviderSettings,
+        metadata: dict[str, Any],
+        header: dict[str, Any],
+    ) -> dict[str, Any]:
+        jwks_uri = metadata.get("jwks_uri")
+        if not jwks_uri:
+            raise OIDCConfigurationError("Provider does not expose a JWKS endpoint")
+        jwks = self._get_jwks(jwks_uri)
+        kid = header.get("kid")
+        algorithm = header.get("alg")
+        if not isinstance(kid, str) or not kid:
+            raise OIDCAuthenticationError("ID token is missing a signing key id")
+        if algorithm not in provider.allowed_algorithms:
+            raise OIDCAuthenticationError("ID token uses a disallowed signing algorithm")
+        expected_key_type = "EC" if str(algorithm).startswith("ES") else "RSA"
+        for candidate in jwks.get("keys", []):
+            key_ops = candidate.get("key_ops")
+            if (
+                candidate.get("kid") == kid
+                and candidate.get("use", "sig") == "sig"
+                and candidate.get("kty") == expected_key_type
+                and (not key_ops or "verify" in key_ops)
+            ):
+                return candidate
+        raise OIDCAuthenticationError("Unable to find a matching signing key")
 
     def _fetch_userinfo_email(self, userinfo_endpoint: str, access_token: str) -> Optional[str]:
         try:
