@@ -199,25 +199,34 @@ class ManagedPrivateAccessSourceResolver:
             row = self.db.execute(
                 select(S3Account).where(S3Account.id == source.identifier)
             ).scalar_one_or_none()
-            endpoint_id = row.storage_endpoint_id if row is not None else None
-            if endpoint_id is None or row is None or row.storage_endpoint is None:
-                raise ManagedPrivateAccessError(
-                    "The source account has no usable storage endpoint"
-                )
-            return ManagedPrivateAccessDestination(endpoint_id, None)
+            return self._stored_source_destination(
+                row,
+                error_message="The source account has no usable storage endpoint",
+            )
         if source.kind == "s3_user":
             row = self.db.execute(
                 select(S3User).where(S3User.id == source.identifier)
             ).scalar_one_or_none()
-            endpoint_id = row.storage_endpoint_id if row is not None else None
-            if endpoint_id is None or row is None or row.storage_endpoint is None:
-                raise ManagedPrivateAccessError(
-                    "The source RGW User has no usable storage endpoint"
-                )
-            return ManagedPrivateAccessDestination(endpoint_id, None)
+            return self._stored_source_destination(
+                row,
+                error_message="The source RGW User has no usable storage endpoint",
+            )
+        return self._connection_destination(source.identifier)
 
+    @staticmethod
+    def _stored_source_destination(
+        row: S3Account | S3User | None,
+        *,
+        error_message: str,
+    ) -> ManagedPrivateAccessDestination:
+        endpoint_id = row.storage_endpoint_id if row is not None else None
+        if endpoint_id is None or row is None or row.storage_endpoint is None:
+            raise ManagedPrivateAccessError(error_message)
+        return ManagedPrivateAccessDestination(endpoint_id, None)
+
+    def _connection_destination(self, connection_id: int) -> ManagedPrivateAccessDestination:
         connection = self.db.execute(
-            select(S3Connection).where(S3Connection.id == source.identifier)
+            select(S3Connection).where(S3Connection.id == connection_id)
         ).scalar_one_or_none()
         if connection is None:
             raise ManagedPrivateAccessError("Source connection not found")
