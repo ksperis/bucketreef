@@ -212,7 +212,7 @@ export type AdminSummary = {
   total_admins: number;
   total_none_users: number;
   total_active_sessions: number;
-  active_sessions_by_type?: {
+  active_sessions_by_type: {
     ui: number;
     s3: number;
   };
@@ -225,7 +225,7 @@ export type AdminSummary = {
   total_ceph_endpoints: number;
   total_other_endpoints: number;
   total_connections: number;
-  total_shared_connections?: number;
+  total_shared_connections: number;
   total_private_connections: number;
 };
 
