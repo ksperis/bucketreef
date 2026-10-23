@@ -20,11 +20,31 @@ def test_engine(dashboard_test_engine):
     return dashboard_test_engine
 
 
-def endpoint(db, name, *, metrics=True, usage=True, provider="ceph", mode="managed", status="ready", secret="sk", default=False):
+def endpoint(
+    db,
+    name,
+    *,
+    metrics=True,
+    usage=True,
+    provider="ceph",
+    mode="managed",
+    status="ready",
+    secret="sk",
+    default=False,
+    admin_endpoint=None,
+):
+    admin_config = (
+        f"  admin:\n    enabled: true\n    endpoint: {admin_endpoint}\n"
+        if admin_endpoint
+        else ""
+    )
     row = StorageEndpoint(
         name=name, endpoint_url=f"https://{name}.test", provider=provider, is_default=default,
         service_identities=[service_identity("supervision", f"supervision-{name}", secret, mode=mode, status=status)],
-        features_config=f"features:\n  metrics:\n    enabled: {str(metrics).lower()}\n  usage:\n    enabled: {str(usage).lower()}\n",
+        features_config=(
+            f"features:\n{admin_config}  metrics:\n    enabled: {str(metrics).lower()}\n"
+            f"  usage:\n    enabled: {str(usage).lower()}\n"
+        ),
         admin_access_key="must-not-be-used", admin_secret_key="must-not-be-used",
     )
     db.add(row)
@@ -71,8 +91,8 @@ def test_scope_includes_managed_and_external_without_default_or_admin_dependency
     one.admin_access_key = one.admin_secret_key = None
     db_session.commit()
     assert dashboard.AdminDashboardMetricsService(db_session).scope() == {"endpoints": [
-        {"endpoint_id": one.id, "name": "one", "storage_enabled": True, "traffic_enabled": True},
-        {"endpoint_id": two.id, "name": "two", "storage_enabled": False, "traffic_enabled": True},
+        {"endpoint_id": one.id, "name": "one", "admin_endpoint_url": "https://one.test", "storage_enabled": True, "traffic_enabled": True},
+        {"endpoint_id": two.id, "name": "two", "admin_endpoint_url": "https://two.test", "storage_enabled": False, "traffic_enabled": True},
     ]}
 
 
@@ -95,7 +115,7 @@ def test_storage_aggregates_scoped_owners_and_does_not_merge_identical_buckets_a
 
 def test_storage_partial_failure_absence_zero_and_sanitization(db_session, monkeypatch):
     one = endpoint(db_session, "one")
-    two = endpoint(db_session, "two")
+    two = endpoint(db_session, "two", admin_endpoint="https://two-admin.test:7480")
     clients = {one.id: RGW([]), two.id: FailedRGW()}
     monkeypatch.setattr(dashboard, "get_supervision_rgw_client", lambda e: clients[e.id])
     service = dashboard.AdminDashboardMetricsService(db_session)
@@ -104,6 +124,7 @@ def test_storage_partial_failure_absence_zero_and_sanitization(db_session, monke
     assert result["coverage"]["contributing_count"] == 1
     assert result["coverage"]["complete_count"] == 1
     assert result["coverage"]["issues"][0]["name"] == "two"
+    assert result["coverage"]["issues"][0]["endpoint_url"] == "https://two-admin.test:7480"
     assert "private-secret" not in str(result)
     assert "private-key" not in str(result)
     assert "internal.test" not in str(result)

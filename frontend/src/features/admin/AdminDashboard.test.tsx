@@ -765,7 +765,12 @@ describe("AdminDashboard feature summary", () => {
     const storage = await mocks.fetchAdminDashboardStorage();
     mocks.fetchAdminDashboardStorage.mockResolvedValue({ ...storage, coverage: {
       eligible_count: 2, contributing_count: 1, complete_count: 1,
-      issues: [{ endpoint_id: 2, name: "Ceph Production", reason: "RGW unavailable" }],
+      issues: [{
+        endpoint_id: 2,
+        name: "Ceph Production",
+        endpoint_url: "https://rgw-admin.production.test:7480",
+        reason: "RGW admin request failed: <redacted-endpoint>: Read timed out. (read timeout=10.0)",
+      }],
     }, measurements: Object.fromEntries(["bucket_count", "object_count", "used_bytes"].map((key) => [key, { contributing_count: 1, complete_count: 1 }])) });
     mocks.fetchAdminDashboardScope.mockResolvedValue({ endpoints: [
       { endpoint_id: 1, name: "Ceph Archive", storage_enabled: true, traffic_enabled: true },
@@ -786,7 +791,8 @@ describe("AdminDashboard feature summary", () => {
     expect(details.getByRole("row", { name: /Storage 1\/2/ })).toBeInTheDocument();
     expect(details.getByRole("row", { name: /Traffic 2\/2/ })).toBeInTheDocument();
     expect(details.getByRole("row", { name: /Availability 1\/2/ })).toBeInTheDocument();
-    expect(details.getByText(/Storage: Partial data.*Ceph Production: RGW unavailable/)).toBeInTheDocument();
+    expect(details.getByText(/Storage: Partial data.*Ceph Production — https:\/\/rgw-admin\.production\.test:7480: RGW admin request failed: Read timed out/)).toBeInTheDocument();
+    expect(details.queryByText(/redacted-endpoint/)).not.toBeInTheDocument();
     expect(details.getByText(/Availability: 7-day measurements unavailable: Ceph Production/)).toBeInTheDocument();
   });
 
