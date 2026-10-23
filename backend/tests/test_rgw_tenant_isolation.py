@@ -167,7 +167,7 @@ def test_metrics_do_not_merge_same_uid_across_tenants(monkeypatch):
     buckets = [{"bucket": "same-name", "tenant": tenant, "owner": "analyst",
                 "usage": {"total_bytes": size, "total_objects": 1}}
                for tenant, size in (("customer01", 10), ("customer02", 30))]
-    snapshot = service._storage_snapshot_from_bucket_list({}, [], users, buckets)
+    snapshot = service._storage_snapshot_from_bucket_list([], users, buckets)
     assert [item["used_bytes"] for item in snapshot["s3_user_usage"]] == [30, 10]
     assert service._filter_buckets(buckets, {"customer01$analyst"}) == [buckets[0]]
     assert service._filter_usage_entries([
