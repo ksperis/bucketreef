@@ -8,7 +8,7 @@ from typing import Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
 from app.services.s3_deletion import purge_bucket_contents
 from app.services.s3_execution_context import S3ExecutionTarget
@@ -55,7 +55,7 @@ class BucketMigrationCleanupMixin:
     def _purge_target_bucket(self, target_ctx: _ResolvedContext, target_bucket: str) -> tuple[int, int]:
         client = self._context_client(target_ctx)
         try:
-            manager_settings = load_app_settings().manager
+            manager_settings = load_app_settings_for_db_readonly(self.db).manager
             result = purge_bucket_contents(
                 client,
                 target_bucket,

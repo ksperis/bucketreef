@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import S3Account, S3Connection, S3User
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.s3_client import get_s3_client
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_client_options
@@ -43,7 +43,7 @@ class BucketMigrationExecutionContextMixin:
         env_max_active = max(1, min(int(settings.bucket_migration_max_active_per_endpoint or 1), 64))
 
         try:
-            manager = load_app_settings().manager
+            manager = load_app_settings_for_db_readonly(self.db).manager
             parallelism_max = max(
                 1,
                 min(int(manager.bucket_migration_parallelism_max or env_parallelism_max), 128),

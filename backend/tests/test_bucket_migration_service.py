@@ -377,7 +377,7 @@ def test_create_migration_uses_admin_default_parallelism(db_session):
     )
 
     with patch(
-        "app.services.bucket_migration.execution_context.load_app_settings",
+        "app.services.bucket_migration.execution_context.load_app_settings_for_db_readonly",
         return_value=_app_settings_stub(parallelism_default=7, parallelism_max=12),
     ):
         migration = service.create_migration(payload, user)
@@ -519,7 +519,7 @@ def test_create_migration_clamps_requested_parallelism_to_admin_max(db_session):
     )
 
     with patch(
-        "app.services.bucket_migration.execution_context.load_app_settings",
+        "app.services.bucket_migration.execution_context.load_app_settings_for_db_readonly",
         return_value=_app_settings_stub(parallelism_default=7, parallelism_max=10),
     ):
         migration = service.create_migration(payload, user)
@@ -889,7 +889,7 @@ def test_claim_next_runnable_migration_respects_max_active_per_endpoint(db_sessi
     db_session.commit()
 
     with patch(
-        "app.services.bucket_migration.execution_context.load_app_settings",
+        "app.services.bucket_migration.execution_context.load_app_settings_for_db_readonly",
         return_value=_app_settings_stub(max_active_per_endpoint=1),
     ):
         first_claim = service.claim_next_runnable_migration_id(worker_id="worker-1", lease_seconds=120)
@@ -939,7 +939,7 @@ def test_claim_next_runnable_migration_rechecks_endpoint_limit_after_claim(db_se
         service_worker_1 = BucketMigrationService(db_worker_1)
         service_worker_2 = BucketMigrationService(db_worker_2)
         with patch(
-            "app.services.bucket_migration.execution_context.load_app_settings",
+            "app.services.bucket_migration.execution_context.load_app_settings_for_db_readonly",
             return_value=_app_settings_stub(max_active_per_endpoint=1),
         ):
             with patch.object(service_worker_1, "_active_endpoint_usage", return_value={}), patch.object(
