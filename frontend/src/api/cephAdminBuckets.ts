@@ -64,7 +64,7 @@ type ListCephAdminBucketsOptions = {
   signal?: AbortSignal;
 };
 
-export type CephAdminBucketListingCacheRefreshResponse = {
+type CephAdminBucketListingCacheRefreshResponse = {
   refreshed: boolean;
   endpoint_id: number;
 };

@@ -299,7 +299,7 @@ export async function fetchPortalWorkspaceHealthOverview(
   return data;
 }
 
-export type EndpointHealthRunResult = {
+type EndpointHealthRunResult = {
   endpoint_id: number;
   status: HealthCheckStatus;
   latency_ms: number | null;
@@ -308,7 +308,7 @@ export type EndpointHealthRunResult = {
   check_mode: string;
 };
 
-export type EndpointHealthRunResponse = {
+type EndpointHealthRunResponse = {
   checked_at: string;
   total: number;
   notifications_created: number;
