@@ -76,7 +76,7 @@ def portal_state(
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
-    eligible, reasons = service.check_eligibility(actor, access)
+    eligible, reasons = service.check_eligibility(access)
     if not eligible:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="; ".join(reasons) or "Portal not available")
     try:
