@@ -1,5 +1,14 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 UI group partial updates use PATCH
+
+The admin UI-group update endpoint now uses `PATCH /admin/groups/{group_id}`
+because its payload is intentionally partial. The former `PUT` route has been
+removed instead of retained as a compatibility alias.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 explicit identity-provider configuration payloads
 
 OIDC and LDAP provider create/update requests now require the complete

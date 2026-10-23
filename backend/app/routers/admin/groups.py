@@ -118,7 +118,7 @@ def create_group(
         raise_bad_request_from_value_error(exc)
 
 
-@router.put("/{group_id}", response_model=UiGroupOut)
+@router.patch("/{group_id}", response_model=UiGroupOut)
 def update_group(
     request: Request,
     group_id: int,

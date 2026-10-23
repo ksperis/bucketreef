@@ -211,13 +211,13 @@ def test_ui_group_crud_defaults_and_rejects_private_connections(client: TestClie
         }
     ]
 
-    removed_ids_contract = client.put(
+    removed_ids_contract = client.patch(
         f"/api/admin/groups/{payload['id']}",
         json={"s3_user_ids": [s3_user.id]},
     )
     assert removed_ids_contract.status_code == 422
 
-    reject_resp = client.put(
+    reject_resp = client.patch(
         f"/api/admin/groups/{payload['id']}",
         json={"s3_connection_ids": [private_connection.id]},
     )

@@ -99,7 +99,7 @@ export async function createGroup(payload: UiGroupPayload): Promise<UiGroup> {
 }
 
 export async function updateGroup(groupId: number, payload: UiGroupPayload): Promise<UiGroup> {
-  const { data } = await client.put<UiGroup>(`/admin/groups/${groupId}`, payload);
+  const { data } = await client.patch<UiGroup>(`/admin/groups/${groupId}`, payload);
   return data;
 }
 
