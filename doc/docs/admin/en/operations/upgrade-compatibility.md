@@ -33,6 +33,18 @@ management to use `API_PREFIX`. The removed `API_V1_PREFIX` variable is no
 longer read by the backend and has no compatibility alias. The bundled Helm
 values now use `API_PREFIX`.
 
+## 2026-10 canonical bucket migration diagnostic metadata
+
+Migration `0182_canonical_bucket_migration_diagnostics` makes nullable
+diagnostic metadata explicit in persisted bucket migration precheck reports.
+Existing checks gain `null` values for missing `impact`, `remediation`,
+`permission`, `context_id`, `bucket`, and `details` fields instead of relying on
+field omission.
+
+Deploy the migration, backend, and frontend together. New diagnostics always
+emit the complete canonical shape. Downgrade removes nullable fields whose value
+is `null` for compatibility with the previous application version.
+
 ## 2026-10 bucket migration execution strategy column
 
 Migration `0179_bucket_migration_execution_strategy` replaces the generic

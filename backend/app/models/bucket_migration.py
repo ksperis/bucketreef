@@ -120,12 +120,12 @@ class BucketMigrationDiagnostic(ApiModel):
     blocking: bool
     scope: str
     message: str
-    impact: Optional[str] = None
-    remediation: Optional[str] = None
-    permission: Optional[str] = None
-    context_id: Optional[str] = None
-    bucket: Optional[str] = None
-    details: Optional[dict] = None
+    impact: Optional[str]
+    remediation: Optional[str]
+    permission: Optional[str]
+    context_id: Optional[str]
+    bucket: Optional[str]
+    details: Optional[dict]
 
 
 class BucketMigrationItemView(ApiModel):

@@ -123,9 +123,11 @@ def _check_entry(
                 "Copy cannot start until this check is resolved." if blocking else None
             ),
             "permission": permission,
+            "context_id": None,
+            "bucket": None,
             "details": sanitize_error_detail(details) if details else None,
         }
-    ).model_dump(exclude_none=True)
+    ).model_dump(mode="json")
 
 
 def _count_entries(entries: list[dict[str, Any]]) -> dict[str, int]:

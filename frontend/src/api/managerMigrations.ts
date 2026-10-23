@@ -23,17 +23,17 @@ export type BucketMigrationStatus =
   | "rolled_back";
 export type BucketMigrationPrecheckStatus = "pending" | "passed" | "failed";
 export type BucketMigrationPrecheckEntry = {
-  code?: string;
-  severity?: string;
-  blocking?: boolean;
-  scope?: string;
+  code: string;
+  severity: "info" | "warning" | "error";
+  blocking: boolean;
+  scope: string;
   message: string;
-  details?: Record<string, unknown> | null;
-  remediation?: string | null;
-  impact?: string | null;
-  permission?: string | null;
-  context_id?: string | null;
-  bucket?: string | null;
+  details: Record<string, unknown> | null;
+  remediation: string | null;
+  impact: string | null;
+  permission: string | null;
+  context_id: string | null;
+  bucket: string | null;
 };
 
 type BucketMigrationPrecheckItemReport = {
