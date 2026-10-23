@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 from botocore.exceptions import ClientError
 
+from app.db import StorageEndpoint
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as BucketUsageStatsSnapshotRow
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
@@ -17,6 +18,7 @@ from app.services.bucket_usage_stats_service import (
     _load_warnings,
 )
 from app.services.bucket_usage_stats_scan import classify_data_type
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 class FakePaginator:
@@ -78,6 +80,24 @@ def _client_error(code: str, message: str, operation: str = "ListObjectVersions"
 def _dist(snapshot, key: str, distribution: str = "data_type_distribution"):
     entries = getattr(snapshot, distribution)
     return next(entry for entry in entries if entry.key == key)
+
+
+def test_bucket_lease_scope_uses_loaded_endpoint_when_context_id_is_absent():
+    target = BucketUsageStatsResolvedTarget(
+        context=S3ExecutionContext(
+            context_id="session",
+            context_kind="session",
+            name="Session",
+            access_key="ak",
+            secret_key="sk",
+            storage_endpoint=StorageEndpoint(id=7, name="endpoint-7"),
+        ),
+        bucket_name="bucket-a",
+        scope_kind="browser",
+        scope_id="session",
+    )
+
+    assert BucketUsageStatsService._bucket_lease_scope(target) == "endpoint:7"
 
 
 @pytest.mark.parametrize(
