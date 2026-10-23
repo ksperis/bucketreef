@@ -25,6 +25,7 @@ from app.db import (
     UserS3Account,
 )
 from app.models.s3_account import (
+    PaginatedS3AccountsResponse,
     S3Account as S3AccountSchema,
     S3AccountCreate,
     S3AccountImport,
@@ -74,6 +75,23 @@ from app.utils.name_ordering import name_order_by
 
 
 logger = logging.getLogger(__name__)
+
+
+def _account_matches_search(account: S3AccountSchema, search_value: str) -> bool:
+    return (
+        search_value in (account.name or "").lower()
+        or search_value in account.rgw_account_id.lower()
+        or any(search_value in (tag.label or "").lower() for tag in (account.tags or []))
+        or any(
+            search_value in (link.user_email or "").lower()
+            or search_value in (link.user_full_name or "").lower()
+            for link in (account.user_links or [])
+        )
+        or any(
+            search_value in (link.group_name or "").lower()
+            for link in (account.group_links or [])
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -399,6 +417,53 @@ class S3AccountsService:
                 )
             )
         return results
+
+    def list_accounts_page(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        search: Optional[str],
+        sort_by: str,
+        sort_dir: str,
+        include_quota: bool,
+        include_rgw_details: bool,
+    ) -> PaginatedS3AccountsResponse:
+        accounts = self.list_accounts(
+            include_usage_stats=False,
+            include_quota=include_quota,
+            include_rgw_details=include_rgw_details,
+        )
+        search_value = search.strip().lower() if isinstance(search, str) else ""
+        if search_value:
+            accounts = [
+                account
+                for account in accounts
+                if _account_matches_search(account, search_value)
+            ]
+
+        descending = sort_dir.lower() == "desc"
+        if sort_by == "rgw_account_id":
+            accounts.sort(
+                key=lambda account: (account.rgw_account_id.lower(), account.id),
+                reverse=descending,
+            )
+        else:
+            accounts.sort(
+                key=lambda account: (account.name.lower(), account.name, account.id),
+                reverse=descending,
+            )
+
+        total = len(accounts)
+        start = (page - 1) * page_size
+        end = start + page_size
+        return PaginatedS3AccountsResponse(
+            items=accounts[start:end],
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_next=end < total,
+        )
 
     def list_accounts_minimal(self) -> list[S3AccountSummary]:
         db_accounts = self.db.scalars(
