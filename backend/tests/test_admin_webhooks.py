@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 from app.db import AppSetting, AuditLog, User, UserRole, WebhookDelivery
@@ -43,7 +44,7 @@ def _user(db_session, *, email: str, role: str) -> User:
 
 def _set_admin_passkey_policy(db_session, required: bool) -> None:
     load_app_settings_for_db(db_session)
-    row = db_session.query(AppSetting).filter(AppSetting.key == "default").one()
+    row = db_session.scalars(sa.select(AppSetting).where(AppSetting.key == "default")).one()
     settings = AppSettings.model_validate_json(row.payload_json)
     settings.general.require_passkey_for_admins = required
     row.payload_json = settings.model_dump_json(indent=2)
@@ -114,13 +115,18 @@ def test_webhook_admin_api_lifecycle_keeps_secret_one_shot_and_audit_safe(webhoo
     deliveries = webhook_client.get(f"/api/admin/settings/webhooks/{endpoint_id}/deliveries")
     assert deliveries.status_code == 200
     assert any(row["delivery_id"] == delivery_id and row["is_test"] is True for row in deliveries.json())
-    assert db_session.query(WebhookDelivery).filter_by(delivery_id=delivery_id).count() == 1
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(WebhookDelivery).where(
+            WebhookDelivery.delivery_id == delivery_id
+        )
+    ) == 1
 
-    create_audit = (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "webhook_endpoint.create", AuditLog.entity_id == str(endpoint_id))
-        .one()
-    )
+    create_audit = db_session.scalars(
+        sa.select(AuditLog).where(
+            AuditLog.action == "webhook_endpoint.create",
+            AuditLog.entity_id == str(endpoint_id),
+        )
+    ).one()
     metadata = json.loads(create_audit.metadata_json)
     assert metadata["host"] == "hooks.example.test"
     assert target_url not in create_audit.metadata_json
