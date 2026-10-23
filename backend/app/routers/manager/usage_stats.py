@@ -88,7 +88,7 @@ def stream_manager_usage_stats_aggregate(
     request: Request,
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
     context: S3ExecutionContext = Depends(get_s3_execution_context),
-    actor: ManagerActor = Depends(get_current_account_admin),
+    _actor: ManagerActor = Depends(get_current_account_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> StreamingResponse:
     require_bucket_management_context(context)
@@ -102,9 +102,6 @@ def stream_manager_usage_stats_aggregate(
             BucketUsageStatsOptions(parallelism=payload.parallelism),
             progress_callback=progress_callback,
             cancel_check=cancel_check,
-            actor_user=actor if isinstance(actor, User) else None,
-            actor_email=actor.email,
-            actor_role=actor.role,
         ),
         logger=logger,
         failure_message="Manager usage stats calculation failed.",
@@ -136,7 +133,7 @@ def stream_manager_bucket_usage_stats_for_bucket(
     request: Request,
     _feature_user: User = Depends(require_bucket_usage_stats_enabled),
     context: S3ExecutionContext = Depends(get_s3_execution_context),
-    actor: ManagerActor = Depends(get_current_account_admin),
+    _actor: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
     require_bucket_management_context(context)
     target = _target_for_bucket(context, bucket_name)
@@ -148,9 +145,6 @@ def stream_manager_bucket_usage_stats_for_bucket(
             BucketUsageStatsOptions(parallelism=1),
             progress_callback=progress_callback,
             cancel_check=cancel_check,
-            actor_user=actor if isinstance(actor, User) else None,
-            actor_email=actor.email,
-            actor_role=actor.role,
         ),
         logger=logger,
         failure_message="Manager bucket usage stats calculation failed.",

@@ -14,7 +14,6 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db import User
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as BucketUsageStatsSnapshotRow
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregate,
@@ -518,9 +517,6 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         *,
         progress_callback: ProgressCallback | None = None,
         cancel_check: CancelCheck | None = None,
-        actor_user: User | None = None,
-        actor_email: str | None = None,
-        actor_role: str | None = None,
     ) -> BucketUsageStatsSnapshot:
         snapshot = self.calculate_bucket(target, progress_callback=progress_callback, cancel_check=cancel_check)
         if self.session_factory is None:
@@ -538,9 +534,6 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         *,
         progress_callback: ProgressCallback | None = None,
         cancel_check: CancelCheck | None = None,
-        actor_user: User | None = None,
-        actor_email: str | None = None,
-        actor_role: str | None = None,
     ) -> BucketUsageStatsResult:
         started_at = utcnow()
         if progress_callback:
@@ -566,9 +559,6 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             max_workers=max_workers,
             progress_callback=progress_callback,
             cancel_check=cancel_check,
-            actor_user=actor_user,
-            actor_email=actor_email,
-            actor_role=actor_role,
         )
         finished_at = utcnow()
         return BucketUsageStatsResult(
@@ -591,9 +581,6 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         *,
         progress_callback: ProgressCallback | None,
         cancel_check: CancelCheck | None,
-        actor_user: User | None,
-        actor_email: str | None,
-        actor_role: str | None,
     ) -> BucketUsageStatsBucketResult:
         started = monotonic()
         lease = self._acquire_bucket_lease(target)
@@ -612,9 +599,6 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                 target,
                 progress_callback=progress_callback,
                 cancel_check=cancel_check,
-                actor_user=actor_user,
-                actor_email=actor_email,
-                actor_role=actor_role,
             )
             status_value: BucketUsageStatsStatus = "completed_with_warnings" if snapshot.warnings else "completed"
             return BucketUsageStatsBucketResult(
@@ -649,9 +633,6 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         max_workers: int,
         progress_callback: ProgressCallback | None,
         cancel_check: CancelCheck | None,
-        actor_user: User | None,
-        actor_email: str | None,
-        actor_role: str | None,
     ) -> tuple[list[BucketUsageStatsBucketResult], _BucketUsageRunTotals]:
         bucket_results: list[BucketUsageStatsBucketResult] = []
         totals = _BucketUsageRunTotals()
@@ -662,9 +643,6 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                     target,
                     progress_callback=progress_callback,
                     cancel_check=cancel_check,
-                    actor_user=actor_user,
-                    actor_email=actor_email,
-                    actor_role=actor_role,
                 ): target
                 for target in targets
             }

@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 def stream_storage_ops_bucket_usage_stats(
     payload: BucketUsageStatsTargetRequest,
     request: Request,
-    user: User = Depends(get_current_storage_ops_admin),
+    _user: User = Depends(get_current_storage_ops_admin),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     requested_targets = payload.targets
@@ -63,9 +63,6 @@ def stream_storage_ops_bucket_usage_stats(
             options,
             progress_callback=progress_callback,
             cancel_check=cancel_check,
-            actor_user=user,
-            actor_email=user.email,
-            actor_role=user.role,
         ),
         logger=logger,
         failure_message="Storage Ops bucket usage stats calculation failed.",

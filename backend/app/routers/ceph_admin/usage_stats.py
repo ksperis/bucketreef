@@ -111,7 +111,7 @@ def stream_ceph_admin_usage_stats_aggregate(
     payload: BucketUsageStatsScopeRequest,
     request: Request,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
-    user: User = Depends(get_current_ceph_admin),
+    _user: User = Depends(get_current_ceph_admin),
 ) -> StreamingResponse:
     references = _list_ceph_bucket_references(ctx)
     targets = [_target_for_bucket(ctx, reference) for reference in references]
@@ -123,9 +123,6 @@ def stream_ceph_admin_usage_stats_aggregate(
             BucketUsageStatsOptions(parallelism=payload.parallelism),
             progress_callback=progress_callback,
             cancel_check=cancel_check,
-            actor_user=user,
-            actor_email=user.email,
-            actor_role=user.role,
         ),
         logger=logger,
         failure_message="Ceph Admin usage stats calculation failed.",
@@ -155,7 +152,7 @@ def stream_ceph_admin_bucket_usage_stats_for_bucket(
     request: Request,
     tenant: str = Query(default=""),
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
-    user: User = Depends(get_current_ceph_admin),
+    _user: User = Depends(get_current_ceph_admin),
 ) -> StreamingResponse:
     target = _target_for_bucket(
         ctx,
@@ -169,9 +166,6 @@ def stream_ceph_admin_bucket_usage_stats_for_bucket(
             BucketUsageStatsOptions(parallelism=1),
             progress_callback=progress_callback,
             cancel_check=cancel_check,
-            actor_user=user,
-            actor_email=user.email,
-            actor_role=user.role,
         ),
         logger=logger,
         failure_message="Ceph Admin bucket usage stats calculation failed.",
@@ -183,7 +177,7 @@ def stream_ceph_admin_bucket_usage_stats(
     payload: BucketUsageStatsRgwTargetRequest,
     request: Request,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
-    user: User = Depends(get_current_ceph_admin),
+    _user: User = Depends(get_current_ceph_admin),
 ) -> StreamingResponse:
     options = BucketUsageStatsOptions(parallelism=payload.parallelism)
     targets = [_target_for_bucket(ctx, reference) for reference in payload.targets]
@@ -195,9 +189,6 @@ def stream_ceph_admin_bucket_usage_stats(
             options,
             progress_callback=progress_callback,
             cancel_check=cancel_check,
-            actor_user=user,
-            actor_email=user.email,
-            actor_role=user.role,
         ),
         logger=logger,
         failure_message="Ceph Admin bucket usage stats calculation failed.",

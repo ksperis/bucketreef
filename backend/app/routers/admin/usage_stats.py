@@ -53,7 +53,7 @@ def stream_admin_managed_usage_stats_aggregate(
     request: Request,
     endpoint_id: int = Query(...),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_super_admin),
+    _user: User = Depends(get_current_super_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> StreamingResponse:
     scope_service = AdminUsageStatsScopeService(db, bucket_service)
@@ -67,9 +67,6 @@ def stream_admin_managed_usage_stats_aggregate(
             BucketUsageStatsOptions(parallelism=payload.parallelism),
             progress_callback=progress_callback,
             cancel_check=cancel_check,
-            actor_user=user,
-            actor_email=user.email,
-            actor_role=user.role,
         ),
         logger=logger,
         failure_message="Admin managed usage stats calculation failed.",
