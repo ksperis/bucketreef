@@ -52,7 +52,7 @@ async function dispatch(c: DemoRequest): Promise<Response> {
     const remaining = c.state.notifications[c.user.id] ?? [];
     return json({ updated_count: updated, deleted_count: before - remaining.length, unread_count: remaining.filter(n => !n.read_at).length });
   }
-  if (c.path === "/users/me" && c.method === "PUT") {
+  if (c.path === "/users/me" && c.method === "PATCH") {
     for (const field of ["full_name", "ui_language", "ui_preferences", "quota_alerts_enabled"]) if (field in c.body) Object.assign(c.user, { [field]: c.body[field] });
     return json(demoUserView(c.state, c.user));
   }

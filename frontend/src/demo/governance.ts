@@ -59,7 +59,7 @@ export function governance(c: DemoRequest): Response | undefined {
       });
       state.users.push(created); userGroups(c, created, body.group_ids); synchronizeLinks(c, "users"); return json(demoUserView(state, created), 201);
     }
-    if (method === "PUT" && user) { Object.assign(user, body, { manager_tool_access: { ...tools }, can_provision_managed_private_connections: false, can_access_storage_ops: false }); userGroups(c, user, body.group_ids); synchronizeLinks(c, "users"); return json(demoUserView(state, user)); }
+    if (method === "PATCH" && user) { Object.assign(user, body, { manager_tool_access: { ...tools }, can_provision_managed_private_connections: false, can_access_storage_ops: false }); userGroups(c, user, body.group_ids); synchronizeLinks(c, "users"); return json(demoUserView(state, user)); }
     if (method === "DELETE" && user) {
       if (Object.values(personaIds).includes(id)) throw new DemoError(409, "The five demo identities are reserved. Create another user to try deletion.");
       userGroups(c, user, []); state.users = state.users.filter(u => u.id !== id); synchronizeLinks(c, "users"); return done();
@@ -71,12 +71,13 @@ export function governance(c: DemoRequest): Response | undefined {
     if (method === "GET") return json(groupMatch[1] === "minimal"
       ? state.groups.map(({ id, name, avatar }) => ({ id, name, avatar }))
       : groupMatch[1] ? required(group) : page(state.groups, c.url));
-    if (method === "POST" && !groupMatch[1]) { group = createDemoGroup({ id: state.nextId++, name: textField(body, "name") }); state.groups.push(group); }
-    if ((method === "PUT" || method === "POST") && group) {
+    const creatingGroup = method === "POST" && !groupMatch[1];
+    if (creatingGroup) { group = createDemoGroup({ id: state.nextId++, name: textField(body, "name") }); state.groups.push(group); }
+    if ((creatingGroup || method === "PATCH") && group) {
       Object.assign(group, body as Partial<UiGroup>);
       group.manager_tool_access = { ...tools }; group.can_provision_managed_private_connections = false; group.can_access_storage_ops = false;
       if (Array.isArray(body.user_ids)) group.user_details = state.users.filter(u => (body.user_ids as number[]).includes(u.id)).map(demoGroupUser);
-      synchronizeLinks(c, "groups"); return json(group);
+      synchronizeLinks(c, "groups"); return json(group, creatingGroup ? 201 : 200);
     }
     if (method === "DELETE" && group) { state.groups = state.groups.filter(g => g !== group); synchronizeLinks(c, "groups"); return done(); }
   }
@@ -84,7 +85,8 @@ export function governance(c: DemoRequest): Response | undefined {
   if (accountMatch) {
     let account = state.accounts.find(a => a.id === Number(accountMatch[1]));
     if (method === "GET") return json(accountMatch[1] === "minimal" ? state.accounts.map(a => accountView(c, a)) : accountMatch[1] ? accountView(c, required(account)) : page(state.accounts.map(a => accountView(c, a)), c.url));
-    if (method === "POST" && !accountMatch[1]) {
+    const creatingAccount = method === "POST" && !accountMatch[1];
+    if (creatingAccount) {
       const endpoint = required(state.endpoints.find(e => e.id === Number(body.storage_endpoint_id)));
       const id = state.nextId++;
       const prefix = settings.general.rgw_account_id_prefix;
@@ -99,7 +101,7 @@ export function governance(c: DemoRequest): Response | undefined {
         allow_bucket_usage_stats: null, allow_bucket_usage_stats_collection: null };
       state.accounts.push(account); state.iam[id] = emptyIam();
     }
-    if ((method === "POST" || method === "PUT") && account) { Object.assign(account, body as Partial<S3Account>); synchronizeLinks(c, "accounts"); return json(accountView(c, account)); }
+    if ((creatingAccount || method === "PATCH") && account) { Object.assign(account, body as Partial<S3Account>); synchronizeLinks(c, "accounts"); return json(accountView(c, account), creatingAccount ? 201 : 200); }
     if (method === "DELETE" && account) {
       if (state.buckets.some(b => b.accountId === account.id)) throw new DemoError(409, "Delete this account's buckets first");
       state.accounts = state.accounts.filter(a => a !== account); synchronizeLinks(c, "accounts"); return done();
@@ -111,11 +113,14 @@ export function governance(c: DemoRequest): Response | undefined {
   if (endpointMatch) {
     let endpoint = state.endpoints.find(e => e.id === Number(endpointMatch[1]));
     if (method === "GET") return json(endpointMatch[1] ? required(endpoint) : state.endpoints);
-    if (method === "POST" && !endpointMatch[1]) { endpoint = { ...structuredClone(state.endpoints[0]), id: state.nextId++, name: textField(body, "name"), endpoint_url: textField(body, "endpoint_url"), is_default: false }; state.endpoints.push(endpoint); }
-    if ((method === "PUT" || method === "POST") && endpoint) {
+    const creatingEndpoint = method === "POST" && !endpointMatch[1];
+    if (creatingEndpoint) { endpoint = { ...structuredClone(state.endpoints[0]), id: state.nextId++, name: textField(body, "name"), endpoint_url: textField(body, "endpoint_url"), is_default: false }; state.endpoints.push(endpoint); }
+    const updatingEndpoint = method === "PATCH" && endpoint && !endpointMatch[2];
+    const updatingEndpointSubresource = method === "PUT" && endpoint && Boolean(endpointMatch[2]);
+    if ((creatingEndpoint || updatingEndpoint || updatingEndpointSubresource) && endpoint) {
       Object.assign(endpoint, body as Partial<StorageEndpoint>);
       if (endpointMatch[2] === "default") for (const e of state.endpoints) e.is_default = e === endpoint;
-      endpoint.updated_at = new Date().toISOString(); return json(endpoint);
+      endpoint.updated_at = new Date().toISOString(); return json(endpoint, creatingEndpoint ? 201 : 200);
     }
     if (method === "DELETE" && endpoint) {
       if (state.accounts.some(a => a.storage_endpoint_id === endpoint.id)) throw new DemoError(409, "This endpoint still has accounts");
@@ -181,7 +186,7 @@ export function governance(c: DemoRequest): Response | undefined {
       };
       state.connections.push(created); return json(created, 201);
     }
-    if (method === "PUT" && connection) {
+    if (method === "PATCH" && connection) {
       Object.assign(connection, body, { access_key_id: "DEMO_NOT_A_REAL_KEY" });
       if (Array.isArray(body.user_ids)) connection.user_details = state.users.filter(u => (body.user_ids as number[]).includes(u.id)).map(demoConnectionUser);
       if (Array.isArray(body.group_ids)) connection.group_details = state.groups
