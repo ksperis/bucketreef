@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
@@ -79,7 +79,7 @@ def test_expired_or_invalid_token_is_unavailable(db_session):
                 full_name=None,
                 password=PASSWORD,
             )
-    assert db_session.query(User).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(User)) == 0
 
 
 def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_session):
@@ -98,7 +98,9 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
 
     user = db_session.get(User, created.user_id)
     row = db_session.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "first_admin_bootstrap_completed").one()
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "first_admin_bootstrap_completed")
+    ).one()
     assert user is not None
     assert user.email == "admin@example.com"
     assert user.full_name == "Platform Admin"
@@ -188,7 +190,7 @@ def test_failed_user_insert_rolls_back_token_consumption(db_session, monkeypatch
         )
     monkeypatch.setattr(db_session, "flush", original_flush)
 
-    assert db_session.query(User).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(User)) == 0
     assert service.is_available() is True
 
 
@@ -220,7 +222,7 @@ def test_concurrent_consumption_creates_exactly_one_user(tmp_path):
 
     with session_factory() as db:
         assert sorted(results) == ["created", "unavailable"]
-        assert db.query(User).count() == 1
+        assert db.scalar(select(func.count()).select_from(User)) == 1
 
 
 def test_issue_refuses_non_empty_database(db_session):

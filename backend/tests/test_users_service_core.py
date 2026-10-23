@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import select
 
 from app.core.security import get_password_hash
 from app.db import (
@@ -59,7 +60,9 @@ def _seed_user(db_session, email: str, role: str = UserRole.UI_USER.value, passw
 
 
 def _seed_s3_user(db_session, name: str) -> S3User:
-    endpoint = db_session.query(StorageEndpoint).order_by(StorageEndpoint.id.asc()).first()
+    endpoint = db_session.scalars(
+        select(StorageEndpoint).order_by(StorageEndpoint.id.asc())
+    ).first()
     if endpoint is None:
         endpoint = StorageEndpoint(
             name="users-service-ceph",
@@ -263,14 +266,12 @@ def test_deactivating_user_revokes_existing_portal_iam_identity(
 
     def revoke_existing_portal_access(portal_service, target, target_account, portal_role):
         revoked.append((target.id, target_account.id, portal_role))
-        link = (
-            portal_service.db.query(AccountIAMUser)
-            .filter(
+        link = portal_service.db.scalars(
+            select(AccountIAMUser).where(
                 AccountIAMUser.user_id == target.id,
                 AccountIAMUser.account_id == target_account.id,
             )
-            .one()
-        )
+        ).one()
         portal_service.db.delete(link)
         portal_service.db.flush()
 
@@ -285,10 +286,11 @@ def test_deactivating_user_revokes_existing_portal_iam_identity(
     assert updated.is_active is False
     assert revoked == [(user.id, account.id, None)]
     assert (
-        db_session.query(AccountIAMUser)
-        .filter(
-            AccountIAMUser.user_id == user.id,
-            AccountIAMUser.account_id == account.id,
+        db_session.scalars(
+            select(AccountIAMUser).where(
+                AccountIAMUser.user_id == user.id,
+                AccountIAMUser.account_id == account.id,
+            )
         )
         .one_or_none()
         is None
@@ -325,10 +327,11 @@ def test_reactivating_user_does_not_reprovision_portal_iam_identity(
 
     assert updated.is_active is True
     assert (
-        db_session.query(AccountIAMUser)
-        .filter(
-            AccountIAMUser.user_id == user.id,
-            AccountIAMUser.account_id == account.id,
+        db_session.scalars(
+            select(AccountIAMUser).where(
+                AccountIAMUser.user_id == user.id,
+                AccountIAMUser.account_id == account.id,
+            )
         )
         .one_or_none()
         is None
@@ -355,10 +358,11 @@ def test_update_user_validates_s3_users_before_replacing_links(db_session):
         )
 
     assert (
-        db_session.query(UserS3User)
-        .filter(
-            UserS3User.user_id == user.id,
-            UserS3User.s3_user_id == s3_user.id,
+        db_session.scalars(
+            select(UserS3User).where(
+                UserS3User.user_id == user.id,
+                UserS3User.s3_user_id == s3_user.id,
+            )
         )
         .one_or_none()
         is not None
@@ -407,12 +411,11 @@ def test_update_user_replaces_direct_account_links_without_root_protection(db_se
         ),
     )
 
-    links = (
-        db_session.query(UserS3Account)
-        .filter(UserS3Account.user_id == user.id)
+    links = db_session.scalars(
+        select(UserS3Account)
+        .where(UserS3Account.user_id == user.id)
         .order_by(UserS3Account.account_id)
-        .all()
-    )
+    ).all()
     assert updated.role == UserRole.UI_USER.value
     assert {link.account_id for link in links} == {root_account.id, added_account.id}
     root_link = next(link for link in links if link.account_id == root_account.id)
@@ -676,7 +679,12 @@ def test_assign_user_to_account_paths_and_list_users_minimal(db_session):
         portal_role=None,
     )
     assert updated.role == UserRole.UI_USER.value
-    link = db_session.query(UserS3Account).filter(UserS3Account.user_id == user.id, UserS3Account.account_id == account.id).first()
+    link = db_session.scalar(
+        select(UserS3Account).where(
+            UserS3Account.user_id == user.id,
+            UserS3Account.account_id == account.id,
+        )
+    )
     assert link is not None
     assert link.manager_role == ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
     assert link.portal_role is None
