@@ -28,14 +28,22 @@ _ProgressModelT = TypeVar("_ProgressModelT", bound=BaseModel)
 _ResultModelT = TypeVar("_ResultModelT", bound=BaseModel)
 
 
-def format_sse_event(event: str, payload: dict[str, object]) -> str:
+def format_sse_event(
+    event: str,
+    payload: dict[str, object],
+    *,
+    event_id: int | str | None = None,
+) -> str:
     payload_json = json.dumps(
         payload,
         separators=(",", ":"),
         ensure_ascii=False,
         default=str,
     )
-    lines = [f"event: {event}"]
+    lines: list[str] = []
+    if event_id is not None:
+        lines.append(f"id: {event_id}")
+    lines.append(f"event: {event}")
     lines.extend(f"data: {line}" for line in payload_json.splitlines() or [payload_json])
     lines.append("")
     return "\n".join(lines) + "\n"

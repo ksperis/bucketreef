@@ -28,6 +28,12 @@ def test_format_sse_event_preserves_unicode_and_serializes_typed_values():
     )
 
 
+def test_format_sse_event_can_include_event_id():
+    assert format_sse_event("snapshot", {"status": "running"}, event_id=7) == (
+        'id: 7\nevent: snapshot\ndata: {"status":"running"}\n\n'
+    )
+
+
 def test_progress_callback_injects_request_id_and_emits_progress_event():
     messages: list[str] = []
     callback = build_sse_progress_callback(messages.append, request_id="request-1")
