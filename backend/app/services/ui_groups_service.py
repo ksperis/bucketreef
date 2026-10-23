@@ -45,6 +45,15 @@ from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 
 
+_BOOLEAN_GROUP_FIELDS = (
+    "can_access_ceph_admin",
+    "can_access_storage_ops",
+    "can_create_manual_private_connections",
+    "can_provision_managed_private_connections",
+    "browser_advanced_features_enabled",
+)
+
+
 @dataclass(frozen=True)
 class _UiGroupOutputPreload:
     users: list[User]
@@ -96,9 +105,7 @@ class UiGroupsService:
             sync_portal_role_promotions(self.db, before=before, after=after)
 
     def create_group(self, payload: UiGroupCreate) -> UiGroup:
-        name = self._normalize_name(payload.name)
-        if self.db.scalar(select(UiGroup).where(func.lower(UiGroup.name) == name.lower())):
-            raise ValueError("UI group already exists")
+        name = self._available_name(payload.name)
         affected_user_ids = {int(user_id) for user_id in payload.user_ids}
         affected_account_ids = {int(link.account_id) for link in payload.account_links}
         portal_roles_before = capture_effective_portal_roles(
@@ -111,12 +118,11 @@ class UiGroupsService:
         group = UiGroup(
             name=name,
             description=normalize_optional_string(payload.description),
-            can_access_ceph_admin=bool(payload.can_access_ceph_admin),
-            can_access_storage_ops=bool(payload.can_access_storage_ops),
-            can_create_manual_private_connections=bool(payload.can_create_manual_private_connections),
-            can_provision_managed_private_connections=bool(payload.can_provision_managed_private_connections),
+            **{
+                field: bool(getattr(payload, field))
+                for field in _BOOLEAN_GROUP_FIELDS
+            },
             **manager_tool_column_values(manager_tool_access),
-            browser_advanced_features_enabled=bool(payload.browser_advanced_features_enabled),
             created_at=now,
             updated_at=now,
         )
@@ -153,28 +159,18 @@ class UiGroupsService:
             account_ids=affected_account_ids,
         )
         if payload.name is not None:
-            name = self._normalize_name(payload.name)
-            existing = self.db.scalar(select(UiGroup).where(func.lower(UiGroup.name) == name.lower()))
-            if existing and existing.id != group.id:
-                raise ValueError("UI group already exists")
-            group.name = name
+            group.name = self._available_name(payload.name, exclude_id=group.id)
         if payload.description is not None:
             group.description = normalize_optional_string(payload.description)
         if payload.avatar_source is not None:
             UiGroupAvatarService(self.db).set_choice(group, payload.avatar_source, payload.avatar_icon)
-        if payload.can_access_ceph_admin is not None:
-            group.can_access_ceph_admin = bool(payload.can_access_ceph_admin)
-        if payload.can_access_storage_ops is not None:
-            group.can_access_storage_ops = bool(payload.can_access_storage_ops)
-        if payload.can_create_manual_private_connections is not None:
-            group.can_create_manual_private_connections = bool(payload.can_create_manual_private_connections)
-        if payload.can_provision_managed_private_connections is not None:
-            group.can_provision_managed_private_connections = bool(payload.can_provision_managed_private_connections)
+        for field in _BOOLEAN_GROUP_FIELDS:
+            value = getattr(payload, field)
+            if value is not None:
+                setattr(group, field, bool(value))
         if payload.manager_tool_access is not None:
             for column, value in manager_tool_column_values(payload.manager_tool_access).items():
                 setattr(group, column, value)
-        if payload.browser_advanced_features_enabled is not None:
-            group.browser_advanced_features_enabled = bool(payload.browser_advanced_features_enabled)
         if payload.user_ids is not None:
             self._set_user_links(group, payload.user_ids)
         if payload.account_links is not None:
@@ -556,6 +552,15 @@ class UiGroupsService:
         name = str(value or "").strip()
         if not name:
             raise ValueError("UI group name is required")
+        return name
+
+    def _available_name(self, value: str, *, exclude_id: Optional[int] = None) -> str:
+        name = self._normalize_name(value)
+        statement = select(UiGroup.id).where(func.lower(UiGroup.name) == name.lower())
+        if exclude_id is not None:
+            statement = statement.where(UiGroup.id != exclude_id)
+        if self.db.scalar(statement.limit(1)) is not None:
+            raise ValueError("UI group already exists")
         return name
 
     def _delete_removed_user_links(self, group_id: int, user_ids: set[int]) -> None:
