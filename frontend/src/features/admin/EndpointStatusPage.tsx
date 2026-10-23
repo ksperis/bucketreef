@@ -115,8 +115,8 @@ export default function EndpointStatusPage() {
     setLatencyError(null);
     try {
       const payload = await fetchHealthLatencyOverview("day");
-      setLatencyEndpoints(payload.endpoints ?? []);
-      setLatencyUpdatedAt(payload.generated_at ?? null);
+      setLatencyEndpoints(payload.endpoints);
+      setLatencyUpdatedAt(payload.generated_at);
     } catch (err) {
       setLatencyEndpoints([]);
       setLatencyError(extractApiError(err, text("latencyOverviewFailed")));
@@ -130,9 +130,9 @@ export default function EndpointStatusPage() {
     setTimelineError(null);
     try {
       const payload = await fetchHealthOverview(windowValue);
-      setTimelineEndpoints(payload.endpoints ?? []);
-      setTimelineStart(payload.start ?? null);
-      setTimelineEnd(payload.end ?? null);
+      setTimelineEndpoints(payload.endpoints);
+      setTimelineStart(payload.start);
+      setTimelineEnd(payload.end);
     } catch (err) {
       setTimelineEndpoints([]);
       setTimelineStart(null);
@@ -148,8 +148,8 @@ export default function EndpointStatusPage() {
     setIncidentsError(null);
     try {
       const payload = await fetchHealthGlobalIncidents(windowValue, 300);
-      setGlobalIncidents(payload.incidents ?? []);
-      setGlobalIncidentsTotal(payload.total ?? 0);
+      setGlobalIncidents(payload.incidents);
+      setGlobalIncidentsTotal(payload.total);
     } catch (err) {
       setGlobalIncidents([]);
       setGlobalIncidentsTotal(0);
