@@ -237,9 +237,9 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
             return []
 
     payload = manager_stats_router.account_stats(context=account, bucket_service=_FakeBucketsService(), _={})
-    assert payload["total_buckets"] == 0
-    assert payload["total_bytes"] == 0
-    assert payload["total_objects"] == 0
+    assert payload.total_buckets == 0
+    assert payload.total_bytes == 0
+    assert payload.total_objects == 0
 
 
 def test_manager_stats_overview_sanitizes_bucket_error_details():

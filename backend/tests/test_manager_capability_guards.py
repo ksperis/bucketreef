@@ -208,8 +208,9 @@ def test_stats_overview_is_storage_only(can_manage_iam):
     context.manager_capabilities.can_manage_iam = can_manage_iam
     result = stats.account_stats(context=context, bucket_service=SimpleNamespace(list_buckets=lambda _account: []))
 
+    payload = result.model_dump()
     for key in ["total_iam_users", "total_iam_groups", "total_iam_roles", "total_iam_policies"]:
-        assert key not in result
+        assert key not in payload
 
 
 @pytest.mark.parametrize("invalid", ["missing-capabilities", "denied-buckets"])

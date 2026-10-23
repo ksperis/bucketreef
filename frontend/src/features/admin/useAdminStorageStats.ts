@@ -4,10 +4,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
-import type { ManagerStats } from "../../api/stats";
+import type { StorageStats } from "../../api/stats";
 import { classifyApiError } from "../../utils/apiError";
 
-type AdminStorageStatsFetcher = (id: number) => Promise<ManagerStats>;
+type AdminStorageStatsFetcher = (id: number) => Promise<StorageStats>;
 
 type UseAdminStorageStatsOptions = {
   id: number | null;
@@ -18,7 +18,7 @@ type UseAdminStorageStatsOptions = {
 };
 
 export type UseAdminStorageStatsResult = {
-  stats: ManagerStats | null;
+  stats: StorageStats | null;
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -31,7 +31,7 @@ export function useAdminStorageStats({
   fetchStats,
   unavailableMessage,
 }: UseAdminStorageStatsOptions): UseAdminStorageStatsResult {
-  const [stats, setStats] = useState<ManagerStats | null>(null);
+  const [stats, setStats] = useState<StorageStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
