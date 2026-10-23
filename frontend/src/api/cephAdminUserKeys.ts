@@ -6,13 +6,13 @@ import client from "./client";
 
 export type CephAdminRgwAccessKey = {
   access_key: string;
-  status?: string | null;
-  is_active?: boolean | null;
-  created_at?: string | null;
-  user?: string | null;
-  subuser?: string | null;
-  is_private_access_managed?: boolean;
-  managed_connection_id?: number | null;
+  status: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+  user: string | null;
+  subuser: string | null;
+  is_private_access_managed: boolean;
+  managed_connection_id: number | null;
 };
 
 export type CephAdminRgwGeneratedAccessKey = {
