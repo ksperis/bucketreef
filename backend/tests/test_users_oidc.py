@@ -5,6 +5,7 @@ import uuid
 from datetime import timedelta
 
 import pytest
+from sqlalchemy import func, select
 
 from app.db import (
     AuditLog,
@@ -32,7 +33,7 @@ def test_get_or_create_oidc_user_creates_new_user(db_session):
 
     assert created is True
     assert user.email == "oidc@example.com"
-    identity = db_session.query(ExternalIdentity).one()
+    identity = db_session.scalars(select(ExternalIdentity)).one()
     assert identity.user_id == user.id
     assert identity.provider_type == "oidc"
     assert identity.provider_id == "google"
@@ -63,12 +64,12 @@ def test_get_or_create_oidc_user_requires_approval_for_existing_email(db_session
             picture_url=None,
         )
 
-    request = db_session.query(ExternalIdentityLinkRequest).one()
+    request = db_session.scalars(select(ExternalIdentityLinkRequest)).one()
     assert request.user_id == existing.id
     assert request.provider_type == "oidc"
     assert request.provider_id == "google"
     assert request.subject == "sub-456"
-    assert db_session.query(ExternalIdentity).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(ExternalIdentity)) == 0
 
 
 def test_identity_link_request_notifies_authorized_admins_once_per_episode(
@@ -115,22 +116,24 @@ def test_identity_link_request_notifies_authorized_admins_once_per_episode(
     request_link()
     request_link()
 
-    rows = db_session.query(UserNotification).order_by(UserNotification.user_id).all()
+    rows = db_session.scalars(
+        select(UserNotification).order_by(UserNotification.user_id)
+    ).all()
     assert {row.user_id for row in rows} == {admin.id, superadmin.id}
     assert {row.notification_type for row in rows} == {"identity_link_request"}
     assert {row.subject_type for row in rows} == {"identity_request"}
     assert {row.severity for row in rows} == {"warning"}
     assert all("identity-notification-subject" not in row.payload_json for row in rows)
 
-    link_request = db_session.query(ExternalIdentityLinkRequest).one()
+    link_request = db_session.scalars(select(ExternalIdentityLinkRequest)).one()
     link_request.expires_at = utcnow() - timedelta(seconds=1)
     db_session.add(link_request)
     db_session.commit()
 
     request_link()
 
-    assert db_session.query(UserNotification).count() == 4
-    assert len({row.event_key for row in db_session.query(UserNotification).all()}) == 2
+    assert db_session.scalar(select(func.count()).select_from(UserNotification)) == 4
+    assert len({row.event_key for row in db_session.scalars(select(UserNotification)).all()}) == 2
 
 
 def test_privileged_identity_link_request_notifies_superadmins_only(db_session):
@@ -164,7 +167,7 @@ def test_privileged_identity_link_request_notifies_superadmins_only(db_session):
             picture_url=None,
         )
 
-    rows = db_session.query(UserNotification).all()
+    rows = db_session.scalars(select(UserNotification)).all()
     assert [row.user_id for row in rows] == [superadmin.id]
 
 
@@ -263,11 +266,15 @@ def test_trusted_email_policy_links_an_eligible_local_account(db_session):
 
     assert created is False
     assert user.id == existing.id
-    identity = db_session.query(ExternalIdentity).one()
+    identity = db_session.scalars(select(ExternalIdentity)).one()
     assert identity.user_id == existing.id
     assert identity.link_source == "trusted_email"
-    assert db_session.query(ExternalIdentityLinkRequest).count() == 0
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "external_identity_trusted_email_linked").one()
+    assert db_session.scalar(
+        select(func.count()).select_from(ExternalIdentityLinkRequest)
+    ) == 0
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "external_identity_trusted_email_linked")
+    ).one()
     metadata = json.loads(audit.metadata_json or "{}")
     assert metadata == {"provider_id": "company", "provider_type": "oidc"}
     assert "secret-provider-subject" not in (audit.metadata_json or "")
@@ -312,10 +319,10 @@ def test_trusted_email_policy_falls_back_to_manual_review(
             trusted_email_domains=domains,
         )
 
-    request = db_session.query(ExternalIdentityLinkRequest).one()
+    request = db_session.scalars(select(ExternalIdentityLinkRequest)).one()
     assert request.user_id == existing.id
     assert request.status == "pending"
-    assert db_session.query(ExternalIdentity).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(ExternalIdentity)) == 0
 
 
 def test_trusted_email_policy_rejects_accounts_with_revoked_identity_history(db_session):
@@ -352,5 +359,7 @@ def test_trusted_email_policy_rejects_accounts_with_revoked_identity_history(db_
             trusted_email_domains=["example.com"],
         )
 
-    assert db_session.query(ExternalIdentity).count() == 1
-    assert db_session.query(ExternalIdentityLinkRequest).count() == 1
+    assert db_session.scalar(select(func.count()).select_from(ExternalIdentity)) == 1
+    assert db_session.scalar(
+        select(func.count()).select_from(ExternalIdentityLinkRequest)
+    ) == 1
