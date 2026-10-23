@@ -49,7 +49,7 @@ def resolve_ceph_admin_browser_context(
 ) -> S3ExecutionContext:
     if surface != "browser":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ceph Admin context is only allowed in browser workspace")
-    app_settings = app_settings_service.load_app_settings()
+    app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
     if not app_settings.general.ceph_admin_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ceph Admin feature is disabled")
     if not app_settings.general.browser_ceph_admin_enabled:
