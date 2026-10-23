@@ -9,6 +9,7 @@ from app.models.portal_access_logs import (
     PortalServerAccessLogEntry,
     PortalServerAccessLogFilterQuery,
     PortalServerAccessLogFilterRule,
+    PortalServerAccessRequesterIdentity,
 )
 from app.services.portal.server_access_log_records import (
     apply_server_access_log_filter,
@@ -20,6 +21,15 @@ from tests.portal_storage_space_factory import portal_storage_space_summary
 LOG_OBJECT_KEY = "portal-server-access/research-data/2026-07-08-10-30-00.log"
 SPACE = portal_storage_space_summary(id="space-1", name="Research Data", role="Manager")
 SPACE_BY_BUCKET = {"research-data": SPACE}
+
+
+@pytest.mark.parametrize(
+    "model",
+    [PortalServerAccessRequesterIdentity, PortalServerAccessLogEntry],
+)
+def test_portal_server_access_read_models_require_complete_payloads(model):
+    schema = model.model_json_schema()
+    assert set(schema["required"]) == set(schema["properties"])
 
 
 def test_parse_standard_access_log_line_extracts_record_fields():
@@ -105,6 +115,7 @@ def test_parse_standard_access_log_line_rejects_unusable_records(line):
 def _filter_entry() -> PortalServerAccessLogEntry:
     return PortalServerAccessLogEntry(
         id="server-log-test",
+        source="server_access_logging",
         timestamp=datetime(2026, 7, 8, 10, 30, tzinfo=timezone.utc),
         storage_space_id="space-1",
         storage_space_name="Research Data",
@@ -115,8 +126,16 @@ def _filter_entry() -> PortalServerAccessLogEntry:
         object_name="external.csv",
         direction="Upload",
         status_code=200,
+        error_code=None,
+        bytes_sent=None,
+        object_size=None,
         requester="external",
+        requester_identity=None,
+        client_ip=None,
+        auth_type=None,
+        request_id=None,
         request_uri="PUT /research-data/reports/external.csv HTTP/1.1",
+        user_agent=None,
         log_object_key=LOG_OBJECT_KEY,
     )
 
