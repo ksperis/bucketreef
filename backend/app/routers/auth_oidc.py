@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.auth import AuthenticationResponse
 from app.models.oidc import OIDCCallbackRequest, OIDCProviderInfo, OIDCStartRequest, OIDCStartResponse
-from app.routers.auth_common import _finish_user_primary_auth, settings
+from app.routers.auth_common import (
+    AuthAttemptContext,
+    _finish_user_primary_auth,
+    external_identity_link_response,
+    settings,
+)
 from app.routers.auth_request_context import request_context
 from app.routers.dependencies import (
     get_audit_service,
@@ -96,26 +101,22 @@ def complete_oidc_login(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuthenticationResponse:
     request_origin = require_trusted_origin(request)
-    ip_address, user_agent, request_id = request_context(request, settings=settings)
-    account_key = f"oidc-callback:{provider_id.lower()}"
-    limiter = AuthRateLimitService(oidc_service.db, settings=settings)
-    try:
-        limiter.check(account=account_key, ip_address=ip_address)
-    except LoginRateLimitedError as exc:
-        audit_service.record_action(
-            user=None,
-            user_email=f"oidc:{provider_id.lower()}",
-            scope="auth",
-            action="login_rate_limited",
-            entity_type="ui_session",
-            status="failure",
-            message="OIDC login rate limit exceeded",
-            metadata={"provider": provider_id.lower()},
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
-        )
-        raise HTTPException(status_code=429, detail="Too many authentication attempts", headers={"Retry-After": str(exc.retry_after)}) from exc
+    provider = provider_id.lower()
+    account_key = f"oidc-callback:{provider}"
+    user_email = f"oidc:{provider}"
+    attempt = AuthAttemptContext.from_request(
+        request=request,
+        db=oidc_service.db,
+        audit_service=audit_service,
+        account_key=account_key,
+    )
+    attempt.check_rate_limit(
+        user_email=user_email,
+        entity_type="ui_session",
+        audit_message="OIDC login rate limit exceeded",
+        public_detail="Too many authentication attempts",
+        metadata={"provider": provider},
+    )
     try:
         user, redirect_path, created = oidc_service.complete_login(
             provider_id,
@@ -124,41 +125,20 @@ def complete_oidc_login(
             request_origin=request_origin,
         )
     except ExternalIdentityLinkRequiredError as exc:
-        limiter.clear_account(account=account_key, ip_address=ip_address)
-        audit_service.record_action(
-            user=None,
-            user_email=f"oidc:{provider_id.lower()}",
-            scope="auth",
-            action="external_identity_link_requested",
-            entity_type="external_identity_link_request",
-            entity_id=exc.request_id,
-            metadata={"provider_type": "oidc", "provider": provider_id.lower()},
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
-        )
-        return AuthenticationResponse(
-            status="link_approval_required",
-            user=None,
-            session=None,
-            redirect_path=None,
+        return external_identity_link_response(
+            attempt=attempt,
+            user_email=user_email,
+            provider_type="oidc",
+            provider=provider,
             link_request_id=exc.request_id,
-            recovery_codes=None,
         )
     except OIDCProviderNotFoundError as exc:
-        limiter.record_failure(account=account_key, ip_address=ip_address)
-        audit_service.record_action(
-            user=None,
-            user_email=f"oidc:{provider_id.lower()}",
-            scope="auth",
+        attempt.record_failure(
+            user_email=user_email,
             action="login_oidc_failure",
             entity_type="ui_session",
-            status="failure",
             message="OIDC provider is unavailable",
-            metadata={"provider": provider_id.lower(), "error_class": type(exc).__name__},
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
+            metadata={"provider": provider, "error_class": type(exc).__name__},
         )
         raise HTTPException(status_code=404, detail="OIDC provider is unavailable") from exc
     except OIDCStateError as exc:
@@ -178,22 +158,15 @@ def complete_oidc_login(
         public_detail = None
         error_class = None
     if error_status is not None:
-        limiter.record_failure(account=account_key, ip_address=ip_address)
-        audit_service.record_action(
-            user=None,
-            user_email=f"oidc:{provider_id.lower()}",
-            scope="auth",
+        attempt.record_failure(
+            user_email=user_email,
             action="login_oidc_failure",
             entity_type="ui_session",
-            status="failure",
             message=public_detail,
-            metadata={"provider": provider_id.lower(), "error_class": error_class},
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
+            metadata={"provider": provider, "error_class": error_class},
         )
         raise HTTPException(status_code=error_status, detail=public_detail)
-    limiter.clear_account(account=account_key, ip_address=ip_address)
+    attempt.clear_rate_limit()
     result = _finish_user_primary_auth(
         request=request,
         response=response,
@@ -202,14 +175,10 @@ def complete_oidc_login(
         auth_type="oidc",
         redirect_path=redirect_path,
     )
-    audit_service.record_action(
+    attempt.audit(
         user=user,
-        scope="auth",
         action="login_oidc_primary_success",
         entity_type="ui_session",
-        metadata={"provider": provider_id.lower(), "created": created, "mfa_status": result.status},
-        ip_address=ip_address,
-        user_agent=user_agent,
-        request_id=request_id,
+        metadata={"provider": provider, "created": created, "mfa_status": result.status},
     )
     return result
