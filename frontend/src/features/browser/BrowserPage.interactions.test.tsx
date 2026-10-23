@@ -19,6 +19,7 @@ import BrowserEmbed from "./BrowserEmbed";
 import BrowserPage from "./BrowserPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { ApiError } from "../../api/client";
+import type { BucketWebsiteConfiguration } from "../../api/bucketContracts";
 import type { ExecutionContext } from "../../api/executionContexts";
 import {
   BROWSER_ROOT_CONTEXT_SELECTIONS_STORAGE_KEY,
@@ -913,7 +914,12 @@ describe("BrowserPage interactions", () => {
       enabled: false,
       target_bucket: null,
     });
-    getBucketWebsiteMock.mockResolvedValue({});
+    getBucketWebsiteMock.mockResolvedValue({
+      index_document: null,
+      error_document: null,
+      redirect_all_requests_to: null,
+      routing_rules: [],
+    } satisfies BucketWebsiteConfiguration);
     listPortalStorageSpacesMock.mockResolvedValue([]);
     fetchPortalObjectDetailMock.mockResolvedValue({
       key: "a.txt",
