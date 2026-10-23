@@ -21,7 +21,7 @@ class PortalStorageSpaceSettings(ApiModel):
     versioning_status: PortalStorageSpaceVersioningStatus
     lifecycle_enabled: bool
     version_history_retention_days: int = Field(ge=1)
-    can_update: bool = False
+    can_update: bool
 
 
 class PortalStorageSpaceSettingsUpdate(ApiModel):

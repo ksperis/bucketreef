@@ -3,7 +3,12 @@
 
 from app.main import app
 from app.models.portal_objects import PortalStorageObjectDeleteResponse, PortalStorageObjectDetail
-from app.models.portal_versions import PortalStorageObjectRestoreResponse, PortalStorageObjectVersion, PortalStorageObjectVersionsResponse
+from app.models.portal_versions import (
+    PortalStorageObjectRestoreResponse,
+    PortalStorageObjectVersion,
+    PortalStorageObjectVersionsResponse,
+    PortalStorageSpaceSettings,
+)
 
 
 def test_portal_object_models_have_a_single_canonical_module() -> None:
@@ -48,6 +53,16 @@ def test_portal_object_history_requires_complete_canonical_payloads() -> None:
         "key",
         "restored_from_version_id",
         "message",
+    }
+
+
+def test_portal_storage_space_settings_require_complete_canonical_payload() -> None:
+    assert set(PortalStorageSpaceSettings.model_json_schema()["required"]) == {
+        "versioning_enabled",
+        "versioning_status",
+        "lifecycle_enabled",
+        "version_history_retention_days",
+        "can_update",
     }
 
 
