@@ -17,16 +17,16 @@ class AuditLogEntry(ApiModel):
     user_role: str
     scope: str
     action: str
-    entity_type: Optional[str] = None
-    entity_id: Optional[str] = None
-    context_kind: Optional[str] = None
-    context_id: Optional[str] = None
-    context_name: Optional[str] = None
+    entity_type: Optional[str]
+    entity_id: Optional[str]
+    context_kind: Optional[str]
+    context_id: Optional[str]
+    context_name: Optional[str]
     status: AuditStatus
-    message: Optional[str] = None
-    metadata: Optional[dict[str, Any]] = None
+    message: Optional[str]
+    metadata: Optional[dict[str, Any]]
 
 
 class AuditLogListResponse(ApiModel):
     logs: list[AuditLogEntry]
-    next_cursor: Optional[int] = None
+    next_cursor: Optional[int]
