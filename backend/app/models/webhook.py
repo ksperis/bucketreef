@@ -25,8 +25,8 @@ def _normalize_event_types(values: list[str] | None) -> list[str]:
 class WebhookEndpointPayload(ApiModel):
     name: str
     url: str
-    enabled: bool = False
-    event_types: list[str] = Field(default_factory=lambda: ["*"])
+    enabled: bool
+    event_types: list[str]
 
     @field_validator("name", mode="before")
     @classmethod

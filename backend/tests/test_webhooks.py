@@ -17,6 +17,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 from sqlalchemy import text
 from sqlalchemy.orm import sessionmaker
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.db import User, UserRole, WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
@@ -37,6 +38,16 @@ from app.services.webhook_service import (
 )
 from app.services.webhook_worker import WebhookDeliveryWorker
 from app.utils.time import utcnow
+
+
+def test_webhook_endpoint_payload_requires_complete_state() -> None:
+    with pytest.raises(ValidationError):
+        WebhookEndpointPayload.model_validate(
+            {
+                "name": "ops",
+                "url": "https://hooks.example.test/ops",
+            }
+        )
 
 
 def _create_endpoint(

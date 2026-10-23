@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 explicit webhook endpoint payloads
+
+Webhook endpoint create and update requests now require both `enabled` and
+`event_types`. Requests no longer inject `false` and `["*"]` when those
+fields are omitted, preventing incomplete PUT payloads from silently resetting
+the endpoint state.
+
+The bundled frontend already sends both fields. No database migration is
+required.
+
 ## 2026-10 canonical static website payloads
 
 Bucket static-website reads and updates now use separate contracts and require
