@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from app.models.bucket import BucketTagsUpdate
 from app.models.s3_account import S3AccountCreate, S3AccountUpdate
 from app.models.s3_connection import S3ConnectionCreate, S3ConnectionUpdate
 from app.models.s3_connection_admin import (
@@ -64,6 +65,15 @@ def test_tag_definition_responses_require_complete_canonical_payloads() -> None:
         "scope",
     }
     assert set(TagDefinitionListResponse.model_json_schema()["required"]) == {"items"}
+
+
+@pytest.mark.parametrize(
+    "model_type",
+    [BucketTagsUpdate, StorageEndpointTagsUpdate],
+)
+def test_tag_update_models_require_explicit_tags(model_type) -> None:
+    with pytest.raises(ValidationError):
+        model_type.model_validate({})
 
 
 @pytest.mark.parametrize(("model_type", "base_payload"), REQUIRED_TAG_MODELS)

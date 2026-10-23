@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Optional, List, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import field_validator, model_validator
 
 from app.models.base import ApiModel
 from app.utils.normalize import normalize_optional_scalar
@@ -79,7 +79,7 @@ class BucketTags(ApiModel):
 
 
 class BucketTagsUpdate(ApiModel):
-    tags: List[BucketTag] = Field(default_factory=list)
+    tags: List[BucketTag]
 
 
 class BucketObjectLock(ApiModel):

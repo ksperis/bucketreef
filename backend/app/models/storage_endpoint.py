@@ -152,7 +152,7 @@ class StorageEndpointUpdate(ApiModel):
 
 
 class StorageEndpointTagsUpdate(ApiModel):
-    tags: RequiredTagDefinitionList = Field(default_factory=list)
+    tags: RequiredTagDefinitionList
 
 
 class StorageEndpoint(StorageEndpointMetadata):
