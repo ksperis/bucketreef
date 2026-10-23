@@ -503,12 +503,12 @@ describe("AccountsPage modal tabs", () => {
     expect(lastCall?.[1]).toEqual(
       expect.objectContaining({
         group_links: [
-          expect.objectContaining({
+          {
             group_id: 31,
-            group_name: "Research Group",
             manager_role: "account_administrator",
             portal_role: null,
-          }),
+            allow_manager_browser_data_access: false,
+          },
         ],
       })
     );
@@ -567,7 +567,6 @@ describe("AccountsPage modal tabs", () => {
         user_links: [
           {
             user_id: 7,
-            user_email: "ui7@example.com",
             manager_role: null,
             portal_role: "portal_manager",
             allow_manager_browser_data_access: false,
@@ -576,7 +575,6 @@ describe("AccountsPage modal tabs", () => {
         group_links: [
           {
             group_id: 31,
-            group_name: "Research Group",
             manager_role: "account_administrator",
             portal_role: "portal_user",
             allow_manager_browser_data_access: false,

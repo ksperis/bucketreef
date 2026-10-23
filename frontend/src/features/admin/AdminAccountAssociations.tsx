@@ -28,13 +28,26 @@ export const accountUserAssociations: Adapter<AccountUserLink> = {
   kind: "users", singular: "User",
   load: async () => (await listMinimalUsers()).map(user => ({ id: user.id, label: user.email })),
   id: link => link.user_id, label: link => link.user_email,
-  create: (principal, access) => ({ user_id: principal.id, user_email: principal.label, ...access, allow_manager_browser_data_access: false }),
+  create: (principal, access) => ({
+    user_id: principal.id,
+    user_email: principal.label,
+    user_full_name: null,
+    user_avatar: null,
+    ...access,
+    allow_manager_browser_data_access: false,
+  }),
 };
 export const accountGroupAssociations: Adapter<AccountGroupLink> = {
   kind: "groups", singular: "Group",
   load: async () => (await listMinimalGroups()).map(group => ({ id: group.id, label: group.name })),
   id: link => link.group_id, label: link => link.group_name,
-  create: (principal, access) => ({ group_id: principal.id, group_name: principal.label, ...access, allow_manager_browser_data_access: false }),
+  create: (principal, access) => ({
+    group_id: principal.id,
+    group_name: principal.label,
+    group_avatar: null,
+    ...access,
+    allow_manager_browser_data_access: false,
+  }),
 };
 
 /** The two association types share presentation, selection and load-error recovery. */

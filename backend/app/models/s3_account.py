@@ -23,16 +23,26 @@ from app.utils.rgw_identifiers import (
 
 
 class AccountUserLink(AccountAccessGrant):
+    allow_manager_browser_data_access: bool
     user_id: int
-    user_email: Optional[str] = None
-    user_full_name: Optional[str] = None
-    user_avatar: Optional[UserAvatar] = None
+    user_email: Optional[str]
+    user_full_name: Optional[str]
+    user_avatar: Optional[UserAvatar]
 
 
 class AccountGroupLink(AccountAccessGrant):
+    allow_manager_browser_data_access: bool
     group_id: int
-    group_name: Optional[str] = None
-    group_avatar: Optional[UiGroupAvatar] = None
+    group_name: Optional[str]
+    group_avatar: Optional[UiGroupAvatar]
+
+
+class AccountUserLinkInput(AccountAccessGrant):
+    user_id: int
+
+
+class AccountGroupLinkInput(AccountAccessGrant):
+    group_id: int
 
 
 class S3Account(ApiModel):
@@ -40,32 +50,32 @@ class S3Account(ApiModel):
     name: str
     rgw_account_id: str
     rgw_tenant: str
-    quota_max_size_gb: Optional[float] = None
-    quota_max_objects: Optional[int] = None
-    email: Optional[str] = None
-    used_bytes: Optional[int] = None
-    used_objects: Optional[int] = None
-    user_links: list[AccountUserLink] = Field(default_factory=list)
-    group_links: list[AccountGroupLink] = Field(default_factory=list)
-    bucket_count: Optional[int] = None
-    rgw_user_count: Optional[int] = None
-    rgw_user_uids: Optional[list[str]] = None
-    rgw_topic_count: Optional[int] = None
-    rgw_topics: Optional[list[str]] = None
+    quota_max_size_gb: Optional[float]
+    quota_max_objects: Optional[int]
+    email: Optional[str]
+    used_bytes: Optional[int]
+    used_objects: Optional[int]
+    user_links: list[AccountUserLink]
+    group_links: list[AccountGroupLink]
+    bucket_count: Optional[int]
+    rgw_user_count: Optional[int]
+    rgw_user_uids: Optional[list[str]]
+    rgw_topic_count: Optional[int]
+    rgw_topics: Optional[list[str]]
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str
     storage_endpoint_is_default: bool
     storage_endpoint_capabilities: dict[str, bool]
-    allow_bucket_quota_management: Optional[bool] = None
-    allow_access_key_metadata: Optional[bool] = None
-    allow_access_key_expiration: Optional[bool] = None
-    allow_activity_history: Optional[bool] = None
-    allow_rgw_usage_metrics: Optional[bool] = None
-    allow_cost_estimation: Optional[bool] = None
-    allow_bucket_usage_stats: Optional[bool] = None
-    allow_bucket_usage_stats_collection: Optional[bool] = None
-    tags: list[TagDefinitionSummary] = Field(default_factory=list)
+    allow_bucket_quota_management: Optional[bool]
+    allow_access_key_metadata: Optional[bool]
+    allow_access_key_expiration: Optional[bool]
+    allow_activity_history: Optional[bool]
+    allow_rgw_usage_metrics: Optional[bool]
+    allow_cost_estimation: Optional[bool]
+    allow_bucket_usage_stats: Optional[bool]
+    allow_bucket_usage_stats_collection: Optional[bool]
+    tags: list[TagDefinitionSummary]
 
 
 class S3AccountCreate(ApiModel):
@@ -118,8 +128,8 @@ class S3AccountUpdate(ApiModel):
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[str] = None
     quota_max_objects: Optional[int] = None
-    user_links: Optional[list[AccountUserLink]] = None
-    group_links: Optional[list[AccountGroupLink]] = None
+    user_links: Optional[list[AccountUserLinkInput]] = None
+    group_links: Optional[list[AccountGroupLinkInput]] = None
     name: Optional[str] = None
     email: Optional[str] = None
     storage_endpoint_id: Optional[int] = None
@@ -153,22 +163,22 @@ class S3AccountSummary(ApiModel):
     name: str
     rgw_account_id: str
     rgw_tenant: str
-    user_links: list[AccountUserLink] = Field(default_factory=list)
-    group_links: list[AccountGroupLink] = Field(default_factory=list)
+    user_links: list[AccountUserLink]
+    group_links: list[AccountGroupLink]
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str
     storage_endpoint_is_default: bool
     storage_endpoint_capabilities: dict[str, bool]
-    allow_bucket_quota_management: Optional[bool] = None
-    allow_access_key_metadata: Optional[bool] = None
-    allow_access_key_expiration: Optional[bool] = None
-    allow_activity_history: Optional[bool] = None
-    allow_rgw_usage_metrics: Optional[bool] = None
-    allow_cost_estimation: Optional[bool] = None
-    allow_bucket_usage_stats: Optional[bool] = None
-    allow_bucket_usage_stats_collection: Optional[bool] = None
-    tags: list[TagDefinitionSummary] = Field(default_factory=list)
+    allow_bucket_quota_management: Optional[bool]
+    allow_access_key_metadata: Optional[bool]
+    allow_access_key_expiration: Optional[bool]
+    allow_activity_history: Optional[bool]
+    allow_rgw_usage_metrics: Optional[bool]
+    allow_cost_estimation: Optional[bool]
+    allow_bucket_usage_stats: Optional[bool]
+    allow_bucket_usage_stats_collection: Optional[bool]
+    tags: list[TagDefinitionSummary]
 
 
 class PaginatedS3AccountsResponse(PaginatedResponse):

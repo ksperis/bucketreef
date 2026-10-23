@@ -13,16 +13,26 @@ import type { AccountAccessGrant } from "./accountAccess";
 
 export type AccountUserLink = AccountAccessGrant & {
   user_id: number;
-  user_email?: string | null;
-  user_full_name?: string | null;
-  user_avatar?: UserAvatarDescriptor | null;
+  user_email: string | null;
+  user_full_name: string | null;
+  user_avatar: UserAvatarDescriptor | null;
 };
 
 export type AccountGroupLink = AccountAccessGrant & {
   group_id: number;
-  group_name?: string | null;
-  group_avatar?: UiGroupAvatarDescriptor | null;
+  group_name: string | null;
+  group_avatar: UiGroupAvatarDescriptor | null;
 };
+
+export type AccountUserLinkInput = Pick<
+  AccountUserLink,
+  "user_id" | "manager_role" | "portal_role" | "allow_manager_browser_data_access"
+>;
+
+export type AccountGroupLinkInput = Pick<
+  AccountGroupLink,
+  "group_id" | "manager_role" | "portal_role" | "allow_manager_browser_data_access"
+>;
 
 export type S3Account = {
   id: number;
@@ -132,8 +142,8 @@ type UpdateS3AccountPayload = {
   quota_max_size_gb?: number | null;
   quota_max_size_unit?: string | null;
   quota_max_objects?: number | null;
-  user_links?: AccountUserLink[];
-  group_links?: AccountGroupLink[];
+  user_links?: AccountUserLinkInput[];
+  group_links?: AccountGroupLinkInput[];
   name?: string | null;
   email?: string | null;
   storage_endpoint_id?: number;

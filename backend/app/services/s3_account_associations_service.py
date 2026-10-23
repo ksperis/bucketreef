@@ -14,7 +14,13 @@ from app.db import (
     UserUiGroup,
     is_admin_ui_role,
 )
-from app.models.s3_account import AccountGroupLink, AccountUserLink, S3AccountUpdate
+from app.models.s3_account import (
+    AccountGroupLink,
+    AccountGroupLinkInput,
+    AccountUserLink,
+    AccountUserLinkInput,
+    S3AccountUpdate,
+)
 from app.services.association_validation import (
     ensure_association_ids_exist,
     load_association_users,
@@ -145,7 +151,7 @@ class S3AccountAssociationsService:
     def set_user_links(
         self,
         account: S3Account,
-        links: list[AccountUserLink],
+        links: list[AccountUserLinkInput],
     ) -> None:
         cleaned = {int(link.user_id): link for link in links}
 
@@ -190,7 +196,7 @@ class S3AccountAssociationsService:
     def set_group_links(
         self,
         account: S3Account,
-        links: list[AccountGroupLink],
+        links: list[AccountGroupLinkInput],
     ) -> None:
         cleaned = {int(link.group_id): link for link in links}
 

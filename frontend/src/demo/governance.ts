@@ -7,12 +7,12 @@ import { demoUserSummary, demoUserView } from "./userProjection";
 
 function synchronizeLinks(c: DemoRequest, source: "users" | "accounts" | "groups") {
   const { state } = c;
-  if (source === "users") for (const a of state.accounts) a.user_links = state.users.flatMap(u => (u.account_links ?? []).filter(l => l.account_id === a.id).map(l => ({ ...l, user_id: u.id, user_email: u.email, user_full_name: u.full_name })));
+  if (source === "users") for (const a of state.accounts) a.user_links = state.users.flatMap(u => (u.account_links ?? []).filter(l => l.account_id === a.id).map(l => ({ ...l, user_id: u.id, user_email: u.email, user_full_name: u.full_name, user_avatar: u.avatar })));
   if (source === "accounts") {
     for (const u of state.users) u.account_links = state.accounts.flatMap(a => a.user_links.filter(l => l.user_id === u.id).map(l => ({ ...l, account_id: a.id })));
     for (const g of state.groups) g.account_links = state.accounts.flatMap(a => a.group_links.filter(l => l.group_id === g.id).map(l => ({ ...l, account_id: a.id })));
   }
-  if (source === "groups") for (const a of state.accounts) a.group_links = state.groups.flatMap(g => g.account_links.filter(l => l.account_id === a.id).map(l => ({ ...l, group_id: g.id, group_name: g.name })));
+  if (source === "groups") for (const a of state.accounts) a.group_links = state.groups.flatMap(g => g.account_links.filter(l => l.account_id === a.id).map(l => ({ ...l, group_id: g.id, group_name: g.name, group_avatar: g.avatar })));
   for (const u of state.users) u.group_details = state.groups.filter(g => g.user_details.some(m => m.id === u.id)).map(g => ({ id: g.id, name: g.name }));
   for (const g of state.groups) g.account_details = state.accounts.filter(a => g.account_links.some(l => l.account_id === a.id)).map(a => ({ id: a.id, name: a.name, rgw_account_id: a.rgw_account_id }));
 }
