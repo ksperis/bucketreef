@@ -29,8 +29,9 @@ const mocks = vi.hoisted(() => ({
     error: null as string | null,
   },
   state: {
-    iam_user: { iam_username: "portal-101-7" },
+    iam_user: { iam_user_id: null, iam_username: "portal-101-7", arn: null, created_at: null },
     s3_endpoint: "https://s3.example.test",
+    force_path_style: false,
     can_manage_access_keys: true,
     can_create_external_access: true,
     max_access_keys: 2,
@@ -111,8 +112,9 @@ describe("PortalAccessKeysPage", () => {
     vi.clearAllMocks();
     mocks.account = { accountIdForApi: 101, hasAccountContext: true, loading: false, error: null };
     mocks.state = {
-      iam_user: { iam_username: "portal-101-7" },
+      iam_user: { iam_user_id: null, iam_username: "portal-101-7", arn: null, created_at: null },
       s3_endpoint: "https://s3.example.test",
+      force_path_style: false,
       can_manage_access_keys: true,
       can_create_external_access: true,
       max_access_keys: 2,
