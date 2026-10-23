@@ -163,7 +163,7 @@ def test_save_app_settings_keeps_persisted_value_for_locked_features(monkeypatch
     payload = AppSettings()
     payload.general.manager_enabled = True
     payload.general.cost_enabled = False
-    saved_effective = app_settings_service.save_app_settings(payload)
+    saved_effective = app_settings_service.save_app_settings_for_db(db_session, payload)
 
     raw = _raw_db_settings(db_session)
     # Locked fields keep persisted values in storage.
@@ -184,11 +184,11 @@ def test_app_settings_json_bootstrap_imports_once_to_db(monkeypatch, tmp_path, d
     _use_settings_db(monkeypatch, db_session)
     monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
 
-    imported = app_settings_service.load_persisted_app_settings()
+    imported = app_settings_service.load_app_settings_for_db(db_session)
     assert imported.general.browser_enabled is False
 
     settings_path.unlink()
-    loaded_again = app_settings_service.load_persisted_app_settings()
+    loaded_again = app_settings_service.load_app_settings_for_db(db_session)
     assert loaded_again.general.browser_enabled is False
     assert db_session.scalar(select(func.count()).select_from(AppSetting)) == 1
 
@@ -204,16 +204,14 @@ def test_app_settings_json_bootstrap_rejects_removed_portal_key_setting(tmp_path
         app_settings_service._load_persisted_settings_from_disk(settings_path)
 
 
-def test_app_settings_db_errors_are_not_hidden_by_disk_fallback(monkeypatch):
+def test_app_settings_global_load_propagates_db_errors(monkeypatch):
     def _broken_session():
         raise RuntimeError("settings db unavailable")
 
     monkeypatch.setattr(app_settings_service, "_open_settings_session", _broken_session)
 
     with pytest.raises(RuntimeError, match="settings db unavailable"):
-        app_settings_service.load_persisted_app_settings()
-    with pytest.raises(RuntimeError, match="settings db unavailable"):
-        app_settings_service.save_app_settings(AppSettings())
+        app_settings_service.load_app_settings()
 
 
 def test_app_settings_db_payload_is_parsed_strictly():
@@ -342,7 +340,7 @@ def test_fresh_settings_enable_access_key_extensions_and_preserve_disabled_choic
         assert _raw_db_settings(db_session)["manager"]["feature_policies"][feature] == "targeted"
         setattr(settings.manager.feature_policies, feature, "disabled")
 
-    app_settings_service.save_app_settings(settings)
+    app_settings_service.save_app_settings_for_db(db_session, settings)
     reloaded = app_settings_service.load_app_settings()
     for feature in features:
         assert getattr(reloaded.manager.feature_policies, feature) == "disabled"
@@ -483,7 +481,7 @@ def test_manager_ceph_s3_user_keys_flag_persists(monkeypatch, tmp_path, db_sessi
 
     payload = AppSettings()
     payload.manager.feature_policies.ceph_s3_user_keys = "targeted"
-    saved = app_settings_service.save_app_settings(payload)
+    saved = app_settings_service.save_app_settings_for_db(db_session, payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
@@ -504,7 +502,7 @@ def test_managed_private_connection_provisioning_flag_persists(monkeypatch, tmp_
 
     payload = AppSettings()
     payload.manager.feature_policies.managed_private_connection_provisioning = "targeted"
-    saved = app_settings_service.save_app_settings(payload)
+    saved = app_settings_service.save_app_settings_for_db(db_session, payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
@@ -525,7 +523,7 @@ def test_manager_rgw_usage_metrics_flag_persists(monkeypatch, tmp_path, db_sessi
 
     payload = AppSettings()
     payload.manager.feature_policies.rgw_usage_metrics = "disabled"
-    saved = app_settings_service.save_app_settings(payload)
+    saved = app_settings_service.save_app_settings_for_db(db_session, payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
@@ -547,7 +545,7 @@ def test_bucket_integrity_check_flag_persists(monkeypatch, tmp_path, db_session)
 
     payload = AppSettings()
     payload.manager.feature_policies.bucket_integrity_check = "targeted"
-    saved = app_settings_service.save_app_settings(payload)
+    saved = app_settings_service.save_app_settings_for_db(db_session, payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 
@@ -568,7 +566,7 @@ def test_bucket_purge_flag_persists(monkeypatch, tmp_path, db_session):
 
     payload = AppSettings()
     payload.manager.feature_policies.bucket_purge = "targeted"
-    saved = app_settings_service.save_app_settings(payload)
+    saved = app_settings_service.save_app_settings_for_db(db_session, payload)
     loaded = app_settings_service.load_app_settings()
     raw = _raw_db_settings(db_session)
 

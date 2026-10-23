@@ -28,7 +28,7 @@ from app.services.app_settings_service import (
     load_app_settings_for_db,
     load_app_settings_for_db_readonly,
     load_default_app_settings,
-    save_app_settings,
+    save_app_settings_for_db,
 )
 from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.healthcheck_background_service import run_initial_healthchecks
@@ -149,7 +149,7 @@ def update_settings(
             server_access_logging_summary = get_portal_service(db).reconcile_all_portal_server_access_logging(payload.portal)
         except RuntimeError as exc:
             raise_bad_gateway_from_runtime(exc)
-    saved = save_app_settings(payload)
+    saved = save_app_settings_for_db(db, payload)
     audit.record_action(
         user=current_user,
         scope="admin",
