@@ -8,27 +8,29 @@ import type { NamingValidationProfile } from "../utils/resourceNames";
 import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
 
 export type ManagerAccessMode = "admin" | "session" | "s3_user" | "connection";
+export type ManagerContextKind = "account" | "connection";
 
 export type ManagerContext = {
-  feature_states?: Record<string, FeatureState>;
-  naming_validation_profile?: NamingValidationProfile;
+  feature_states: Record<string, FeatureState>;
+  naming_validation_profile: NamingValidationProfile;
   access_mode: ManagerAccessMode;
-  iam_identity?: string | null;
+  context_kind: ManagerContextKind;
+  iam_identity: string | null;
   manager_stats_enabled: boolean;
-  manager_stats_message?: string | null;
+  manager_stats_message: string | null;
   manager_browser_enabled: boolean;
-  manager_browser_message?: string | null;
-  manager_bucket_quota_enabled?: boolean;
-  manager_ceph_keys_enabled?: boolean;
-  manager_access_key_metadata_enabled?: boolean;
-  manager_access_key_expiration_enabled?: boolean;
-  manager_private_access_enabled?: boolean;
-  quota_max_size_gb?: number | null;
-  quota_max_objects?: number | null;
-  max_buckets?: number | null;
-  max_users?: number | null;
-  max_roles?: number | null;
-  max_groups?: number | null;
+  manager_browser_message: string | null;
+  manager_bucket_quota_enabled: boolean;
+  manager_ceph_keys_enabled: boolean;
+  manager_access_key_metadata_enabled: boolean;
+  manager_access_key_expiration_enabled: boolean;
+  manager_private_access_enabled: boolean;
+  quota_max_size_gb: number | null;
+  quota_max_objects: number | null;
+  max_buckets: number | null;
+  max_users: number | null;
+  max_roles: number | null;
+  max_groups: number | null;
 };
 
 export async function fetchManagerContext(

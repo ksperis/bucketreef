@@ -9,6 +9,9 @@ from app.models.feature_policy import FeatureState
 from app.models.tagging import TagDefinitionSummary
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
+ManagerAccessMode = Literal["admin", "session", "s3_user", "connection"]
+ManagerContextKind = Literal["account", "connection"]
+
 
 class ExecutionContextCapabilities(ApiModel):
     can_manage_iam: bool
@@ -36,26 +39,26 @@ class ExecutionContext(ApiModel):
 
 
 class ManagerContext(ApiModel):
-    feature_states: dict[str, FeatureState] = Field(default_factory=dict)
-    naming_validation_profile: Literal["ceph", "standard"] = "standard"
-    access_mode: str
-    context_kind: str = "account"
-    iam_identity: Optional[str] = None
-    manager_stats_enabled: bool = False
-    manager_stats_message: Optional[str] = None
+    feature_states: dict[str, FeatureState]
+    naming_validation_profile: Literal["ceph", "standard"]
+    access_mode: ManagerAccessMode
+    context_kind: ManagerContextKind
+    iam_identity: Optional[str]
+    manager_stats_enabled: bool
+    manager_stats_message: Optional[str]
     manager_browser_enabled: bool
-    manager_browser_message: Optional[str] = None
-    manager_bucket_quota_enabled: bool = False
-    manager_ceph_keys_enabled: bool = False
-    manager_access_key_metadata_enabled: bool = False
-    manager_access_key_expiration_enabled: bool = False
-    manager_private_access_enabled: bool = False
-    quota_max_size_gb: Optional[float] = None
-    quota_max_objects: Optional[int] = None
-    max_buckets: Optional[int] = None
-    max_users: Optional[int] = None
-    max_roles: Optional[int] = None
-    max_groups: Optional[int] = None
+    manager_browser_message: Optional[str]
+    manager_bucket_quota_enabled: bool
+    manager_ceph_keys_enabled: bool
+    manager_access_key_metadata_enabled: bool
+    manager_access_key_expiration_enabled: bool
+    manager_private_access_enabled: bool
+    quota_max_size_gb: Optional[float]
+    quota_max_objects: Optional[int]
+    max_buckets: Optional[int]
+    max_users: Optional[int]
+    max_roles: Optional[int]
+    max_groups: Optional[int]
 
 
 class WorkspaceAvailability(ApiModel):
