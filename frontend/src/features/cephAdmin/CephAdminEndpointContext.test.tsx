@@ -16,8 +16,8 @@ vi.mock("../../api/cephAdminEndpoints", () => ({
 }));
 
 const ENDPOINTS = [
-  { id: 1, name: "Primary", endpoint_url: "https://one.test", is_default: true, tags: [] },
-  { id: 2, name: "Archive", endpoint_url: "https://two.test", is_default: false, tags: [] },
+  { id: 1, name: "Primary", endpoint_url: "https://one.test", admin_endpoint: null, region: null, is_default: true, capabilities: {}, tags: [] },
+  { id: 2, name: "Archive", endpoint_url: "https://two.test", admin_endpoint: null, region: null, is_default: false, capabilities: {}, tags: [] },
 ];
 
 function Probe() {
@@ -58,6 +58,12 @@ describe("CephAdminEndpointProvider", () => {
       can_admin: true,
       can_accounts: true,
       can_metrics: true,
+      admin_warning: null,
+      accounts_warning: null,
+      active_rgw_uid: null,
+      active_rgw_tenant: null,
+      availability_status: "unknown",
+      availability_checked_at: null,
     }));
   });
 

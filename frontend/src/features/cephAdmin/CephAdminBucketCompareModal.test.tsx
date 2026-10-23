@@ -26,7 +26,10 @@ const endpoints: CephAdminEndpoint[] = [
     id: 2,
     name: "Target endpoint",
     endpoint_url: "https://rgw.example.test",
+    admin_endpoint: null,
+    region: null,
     is_default: false,
+    capabilities: {},
     tags: [],
   },
 ];
