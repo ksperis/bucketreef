@@ -3,13 +3,39 @@ import { transferableAbortController } from "node:util";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, Link, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { UiGroup } from "../../api/groups";
 import { setSessionUserCache } from "../../utils/workspaces";
 import GroupsPage from "./GroupsPage";
 import UsersPage from "./UsersPage";
 
 const fixtures = vi.hoisted(() => ({
   user: { id: 2, email: "alice@example.com", full_name: "Alice", role: "ui_user" },
-  group: { id: 50, name: "ops-group", description: null, account_links: [] },
+  group: {
+    id: 50,
+    name: "ops-group",
+    description: null,
+    avatar: { source: "initials", initials: "OG", icon: null, url: null, updated_at: null },
+    can_access_ceph_admin: false,
+    can_access_storage_ops: false,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    manager_tool_access: {
+      bucket_compare: false,
+      bucket_integrity_check: false,
+      bucket_migration: false,
+      bucket_purge: false,
+      feature_rules: false,
+    },
+    browser_advanced_features_enabled: false,
+    user_details: [],
+    account_details: [],
+    account_links: [],
+    s3_user_links: [],
+    s3_user_details: [],
+    s3_connection_details: [],
+    created_at: null,
+    updated_at: null,
+  } satisfies UiGroup,
   updateUser: vi.fn(),
   updateGroup: vi.fn(),
   setPassword: vi.fn(),
