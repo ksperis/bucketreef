@@ -50,6 +50,8 @@ class BucketConfigBackupService:
     ) -> BucketConfigBackupResponse:
         selected_features = list(dict.fromkeys(features))
         return BucketConfigBackupResponse(
+            kind="ceph-admin.bucket-config-backup",
+            version=1,
             generated_at=datetime.now(timezone.utc),
             source=source,
             features=selected_features,
