@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 Manager IAM identity updates use PATCH
+
+Manager IAM user, group, and role updates now use `PATCH` on their existing
+identity resource URLs. Their update payloads are intentionally sparse and
+apply only supplied fields, so the former top-level `PUT` routes have been
+removed instead of retained as compatibility aliases. `PUT` remains in use for
+complete IAM sub-resources such as inline policies and role tags.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 Ceph Admin account and user config updates use PATCH
 
 Ceph Admin account and user configuration updates now use

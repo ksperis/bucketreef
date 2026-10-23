@@ -59,7 +59,7 @@ export async function updateIamUser(
   userName: string,
   payload: { name?: string; path?: string },
 ): Promise<IAMUser> {
-  const { data } = await client.put<IAMUser>(`/manager/iam/users/${encodeURIComponent(userName)}`, payload, {
+  const { data } = await client.patch<IAMUser>(`/manager/iam/users/${encodeURIComponent(userName)}`, payload, {
     params: withS3ContextParam(undefined, contextId),
   });
   return data;
