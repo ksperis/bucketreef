@@ -523,7 +523,6 @@ class S3UsersService:
         return access_key, secret_key
 
     def import_users(self, items: list[S3UserImport]) -> list[S3UserSchema]:
-        created: list[S3UserSchema] = []
         app_settings = load_app_settings_for_db_readonly(self.db)
         parsed_items: list[tuple[S3UserImport, str, str]] = []
         for payload in items:
@@ -534,55 +533,62 @@ class S3UsersService:
                 raise ValueError("Managed RGW tenant creation is disabled")
             parsed_items.append((payload, uid, tenant))
 
+        created: list[S3UserSchema] = []
         for payload, uid, tenant in parsed_items:
-            endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
-            admin = self._admin_for_endpoint(endpoint)
-            exists = self._existing_identity(uid, tenant, endpoint.id)
-            if exists:
-                continue
-            try:
-                user_info = admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
-            except RGWAdminError as exc:
-                raise ValueError(f"RGW lookup failed for {uid}: {exc}") from exc
-            if not user_info or user_info.get("not_found"):
-                raise ValueError(f"RGW user {uid} not found")
-            require_rgw_user_identity(user_info, uid, tenant)
-            try:
-                key_resp = admin.create_access_key(uid, tenant=tenant or None)
-            except RGWAdminError as exc:
-                raise ValueError(f"Unable to create access key for {uid}: {exc}") from exc
-            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                admin.extract_keys(key_resp)
-            )
-            if not access_key or not secret_key:
-                raise ValueError(f"RGW did not return access credentials for {uid}")
-            name = payload.name or user_info.get("display_name") or uid
-            email = payload.email or user_info.get("email")
-            s3_user = S3UserModel(
-                name=name,
-                rgw_user_uid=uid,
-                rgw_tenant=tenant,
-                email=email,
-                rgw_access_key=access_key,
-                rgw_secret_key=secret_key,
-                storage_endpoint_id=endpoint.id,
-            )
-            self.db.add(s3_user)
-            self.db.flush()
-            quota_max_size_gb, quota_max_objects = self.get_user_quota(s3_user, admin)
-            created.append(
-                s3_user_from_db(
-                    s3_user,
-                    user_links=[],
-                    group_links=[],
-                    quota_max_size_gb=quota_max_size_gb,
-                    quota_max_objects=quota_max_objects,
-                    storage_endpoint=endpoint,
-                    tags=[],
-                )
-            )
+            imported = self._import_user(payload, uid=uid, tenant=tenant)
+            if imported is not None:
+                created.append(imported)
         self.db.commit()
         return created
+
+    def _import_user(
+        self,
+        payload: S3UserImport,
+        *,
+        uid: str,
+        tenant: str,
+    ) -> S3UserSchema | None:
+        endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
+        admin = self._admin_for_endpoint(endpoint)
+        if self._existing_identity(uid, tenant, endpoint.id):
+            return None
+        try:
+            user_info = admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
+        except RGWAdminError as exc:
+            raise ValueError(f"RGW lookup failed for {uid}: {exc}") from exc
+        if not user_info or user_info.get("not_found"):
+            raise ValueError(f"RGW user {uid} not found")
+        require_rgw_user_identity(user_info, uid, tenant)
+        try:
+            key_resp = admin.create_access_key(uid, tenant=tenant or None)
+        except RGWAdminError as exc:
+            raise ValueError(f"Unable to create access key for {uid}: {exc}") from exc
+        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
+            admin.extract_keys(key_resp)
+        )
+        if not access_key or not secret_key:
+            raise ValueError(f"RGW did not return access credentials for {uid}")
+        s3_user = S3UserModel(
+            name=payload.name or user_info.get("display_name") or uid,
+            rgw_user_uid=uid,
+            rgw_tenant=tenant,
+            email=payload.email or user_info.get("email"),
+            rgw_access_key=access_key,
+            rgw_secret_key=secret_key,
+            storage_endpoint_id=endpoint.id,
+        )
+        self.db.add(s3_user)
+        self.db.flush()
+        quota_max_size_gb, quota_max_objects = self.get_user_quota(s3_user, admin)
+        return s3_user_from_db(
+            s3_user,
+            user_links=[],
+            group_links=[],
+            quota_max_size_gb=quota_max_size_gb,
+            quota_max_objects=quota_max_objects,
+            storage_endpoint=endpoint,
+            tags=[],
+        )
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
         s3_user = self._get_s3_user(user_id)
