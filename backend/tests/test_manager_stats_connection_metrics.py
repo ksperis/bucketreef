@@ -65,7 +65,7 @@ def test_manager_endpoint_health_without_endpoint_returns_complete_empty_payload
 ) -> None:
     app_settings = AppSettings()
     app_settings.general.endpoint_status_enabled = True
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: app_settings)
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: app_settings)
     monkeypatch.setattr(manager_stats_router.settings, "healthcheck_interval_seconds", 45)
 
     context = S3ExecutionContext(
@@ -445,7 +445,7 @@ def test_manager_stats_dependency_rejects_connection_without_resolved_identity(d
 
 
 def test_manager_usage_trends_falls_back_per_metric(db_session, monkeypatch):
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: _usage_history_settings(True))
     monkeypatch.setattr(
         manager_stats_router,
         "utcnow",
@@ -511,7 +511,7 @@ def test_manager_usage_trends_falls_back_per_metric(db_session, monkeypatch):
 
 
 def test_manager_usage_trends_returns_empty_when_history_disabled(db_session, monkeypatch):
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: _usage_history_settings(False))
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: _usage_history_settings(False))
     endpoint = _ceph_endpoint("ceph-usage-trends-disabled")
     account = S3Account(
         name="trend-disabled-account",
@@ -530,7 +530,7 @@ def test_manager_usage_trends_returns_empty_when_history_disabled(db_session, mo
 
 
 def test_manager_usage_trends_are_scoped_to_s3_user_subject(db_session, monkeypatch):
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: _usage_history_settings(True))
     monkeypatch.setattr(
         manager_stats_router,
         "utcnow",
@@ -593,7 +593,7 @@ def test_manager_usage_trends_are_scoped_to_s3_user_subject(db_session, monkeypa
 
 
 def test_manager_usage_trends_return_empty_for_connection_context(db_session, monkeypatch):
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: _usage_history_settings(True))
     account = S3ExecutionContext(
         context_id="conn-1",
         context_kind="connection",
@@ -611,7 +611,7 @@ def test_manager_usage_trends_return_empty_for_connection_context(db_session, mo
 
 
 def test_manager_usage_history_trends_are_scoped_to_account(db_session, monkeypatch):
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: _usage_history_settings(True))
     monkeypatch.setattr(
         usage_history_service,
         "utcnow",
@@ -686,7 +686,7 @@ def test_manager_usage_history_trends_are_scoped_to_account(db_session, monkeypa
 
 
 def test_manager_usage_history_trends_are_scoped_to_s3_user_subject(db_session, monkeypatch):
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: _usage_history_settings(True))
     monkeypatch.setattr(
         usage_history_service,
         "utcnow",
@@ -754,7 +754,7 @@ def test_manager_usage_history_trends_are_scoped_to_s3_user_subject(db_session, 
 
 
 def test_manager_usage_history_trends_return_unavailable_for_connection_context(db_session, monkeypatch):
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: _usage_history_settings(True))
     account = S3ExecutionContext(
         context_id="conn-1",
         context_kind="connection",
@@ -780,7 +780,7 @@ def test_manager_usage_trends_resolve_direct_session_history(
 ):
     settings = _usage_history_settings(True)
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
-    monkeypatch.setattr(manager_stats_router, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     now = datetime(2026, 6, 9, 12, tzinfo=UTC)
     monkeypatch.setattr(manager_stats_router, "utcnow", lambda: now)
     monkeypatch.setattr(usage_history_service, "utcnow", lambda: now)

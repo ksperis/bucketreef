@@ -28,7 +28,6 @@ from app.routers.dependencies import (
     is_manager_rgw_access_key_management_available,
 )
 from app.services.resource_name_validation import naming_validation_profile
-from app.services.app_settings_service import load_app_settings
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.s3_accounts_service import get_s3_accounts_service
@@ -115,7 +114,7 @@ def _manager_browser_state(
     access_service: Optional[EffectiveAccessService],
     resolved_access: Optional[ResolvedUserAccess],
 ) -> _ManagerBrowserState:
-    settings = load_app_settings()
+    settings = load_app_settings_for_db_readonly(db)
     if not settings.general.browser_enabled:
         return _ManagerBrowserState(False, "Browser is disabled.")
     if not settings.general.manager_enabled:
