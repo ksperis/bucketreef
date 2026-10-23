@@ -149,6 +149,7 @@ def endpoint_health_overview(
     if endpoint_id is None:
         return WorkspaceEndpointHealthOverviewResponse(
             generated_at=utcnow().isoformat(),
+            stale_after_seconds=max(1, int(settings.healthcheck_interval_seconds)) * 2,
             incident_highlight_minutes=max(1, int(settings.healthcheck_incident_recent_minutes or 720)),
             endpoint_count=0,
             up_count=0,
