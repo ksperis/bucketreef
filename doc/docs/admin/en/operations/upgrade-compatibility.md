@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 storage endpoint partial updates use PATCH
+
+The admin storage-endpoint configuration update now uses
+`PATCH /admin/storage-endpoints/{endpoint_id}` because
+`StorageEndpointUpdate` intentionally applies only supplied fields. The
+former `PUT` route has been removed instead of retained as a compatibility
+alias.
+
+The dedicated tags/default operations keep their existing `PUT` routes. The
+bundled frontend has been updated with the API cutover. No database migration
+is required.
+
 ## 2026-10 UI user partial updates use PATCH
 
 The admin UI-user update endpoint now uses `PATCH /admin/users/{user_id}`

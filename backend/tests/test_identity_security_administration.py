@@ -482,7 +482,7 @@ def test_storage_endpoint_mutations_require_recent_webauthn_and_detection_reject
     credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
     headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
 
-    blocked_update = auth_client.put(
+    blocked_update = auth_client.patch(
         f"/api/admin/storage-endpoints/{endpoint.id}",
         json={"name": "endpoint-guard-renamed"},
         headers=headers,
@@ -520,7 +520,7 @@ def test_storage_endpoint_mutations_require_recent_webauthn_and_detection_reject
         "app.routers.admin.storage_endpoints.run_initial_healthchecks",
         lambda **_kwargs: None,
     )
-    verified_update = auth_client.put(
+    verified_update = auth_client.patch(
         f"/api/admin/storage-endpoints/{endpoint.id}",
         json={"name": "endpoint-guard-renamed"},
         headers=trusted_origin_headers(csrf_token=verified.csrf_token),
