@@ -17,6 +17,7 @@ import {
 import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
+import { collectPaginatedItems } from "../../utils/pagination";
 import {
   CephAdminBucketCompareResult,
   compareCephAdminBucketPair,
@@ -201,27 +202,24 @@ export default function CephAdminBucketCompareModal({
       try {
         const references: RgwBucketReference[] = [];
         const seen = new Set<string>();
-        let page = 1;
-        while (true) {
-          const response = await listCephAdminBuckets(targetEndpointId, {
+        const targetBuckets = await collectPaginatedItems((page) =>
+          listCephAdminBuckets(targetEndpointId, {
             page,
             page_size: 200,
             sort_by: "name",
             sort_dir: "asc",
             with_stats: false,
-          });
-          response.items.forEach((bucket) => {
-            const name = (bucket.name ?? "").trim();
-            if (!name) return;
-            const reference = normalizeBucketReference({ name, tenant: bucket.tenant ?? "" });
-            const key = JSON.stringify([reference.tenant ?? "", reference.name]);
-            if (seen.has(key)) return;
-            seen.add(key);
-            references.push(reference);
-          });
-          if (!response.has_next) break;
-          page += 1;
-        }
+          }),
+        );
+        targetBuckets.forEach((bucket) => {
+          const name = (bucket.name ?? "").trim();
+          if (!name) return;
+          const reference = normalizeBucketReference({ name, tenant: bucket.tenant ?? "" });
+          const key = JSON.stringify([reference.tenant ?? "", reference.name]);
+          if (seen.has(key)) return;
+          seen.add(key);
+          references.push(reference);
+        });
         if (cancelled) return;
         references.sort((left, right) => bucketReferenceLabel(left).localeCompare(bucketReferenceLabel(right)));
         setTargetBucketReferences(references);
