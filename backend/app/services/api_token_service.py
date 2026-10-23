@@ -114,36 +114,69 @@ class ApiTokenService:
         token: Optional[str] = None,
         required_scope: Optional[str] = None,
     ) -> Optional[User]:
-        token_type = claims.get("typ")
-        if token_type != "api_access":
+        claim_identity = self._claim_identity(claims)
+        if claim_identity is None:
             return None
-        jti = claims.get("jti")
-        uid = claims.get("uid")
-        if not isinstance(jti, str) or not jti:
-            return None
-        try:
-            user_id = int(uid)
-        except (TypeError, ValueError):
-            return None
+        jti, user_id = claim_identity
         row = self.db.scalar(select(ApiToken).where(ApiToken.jti == jti))
         if not row:
             return None
         if not constant_time_equal(hash_refresh_token(token or ""), row.token_hash):
             return None
         now = utcnow()
+        if not self._token_row_matches_claims(
+            row,
+            claims,
+            user_id=user_id,
+            required_scope=required_scope,
+            now=now,
+        ):
+            return None
+        user = self._active_token_user(row, user_id)
+        if user is None:
+            return None
+        row.last_used_at = now
+        self.db.commit()
+        return user
+
+    @staticmethod
+    def _claim_identity(claims: dict) -> tuple[str, int] | None:
+        if claims.get("typ") != "api_access":
+            return None
+        jti = claims.get("jti")
+        if not isinstance(jti, str) or not jti:
+            return None
+        try:
+            user_id = int(claims.get("uid"))
+        except (TypeError, ValueError):
+            return None
+        return jti, user_id
+
+    @staticmethod
+    def _token_row_matches_claims(
+        row: ApiToken,
+        claims: dict,
+        *,
+        user_id: int,
+        required_scope: Optional[str],
+        now,
+    ) -> bool:
         if row.revoked_at is not None or row.expires_at <= now:
-            return None
+            return False
         if row.user_id != user_id:
-            return None
+            return False
         if claims.get("sid") != row.id or claims.get("auth_version") != row.auth_version:
-            return None
+            return False
         try:
             db_scopes = sorted(json.loads(row.scopes_json))
         except (TypeError, ValueError, json.JSONDecodeError):
-            return None
+            return False
         claim_scopes = sorted(claims.get("scopes") or [])
-        if db_scopes != claim_scopes or (required_scope and required_scope not in db_scopes):
-            return None
+        if db_scopes != claim_scopes:
+            return False
+        return required_scope is None or required_scope in db_scopes
+
+    def _active_token_user(self, row: ApiToken, user_id: int) -> User | None:
         user = self.db.get(User, user_id)
         if (
             not user
@@ -152,6 +185,4 @@ class ApiTokenService:
             or user.auth_version != row.auth_version
         ):
             return None
-        row.last_used_at = now
-        self.db.commit()
         return user
