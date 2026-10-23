@@ -3,7 +3,7 @@
 
 """Bucket access configuration endpoints for the Manager workspace."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.models.access_context import ManagerActor
 from app.models.bucket import (
@@ -119,14 +119,18 @@ def put_policy(
     )
 
 
-@router.delete("/{bucket_name}/policy", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/policy",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_policy(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-) -> None:
-    mutation.delete(
+) -> Response:
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,

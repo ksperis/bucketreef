@@ -135,13 +135,15 @@ def test_browser_bucket_config_delete_records_no_synthetic_metadata():
         cache_invalidator=invalidate_cache,
     )
 
-    service.delete(
+    response = service.delete(
         actor=actor,
         context=account,
         bucket_name="demo",
         config_area="lifecycle",
     )
 
+    assert response.status_code == 204
+    assert response.body == b""
     assert calls[:3] == ["action", "bucket-cache", "object-cache"]
     audit = calls[3]
     assert isinstance(audit, tuple)

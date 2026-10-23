@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Literal, TypeVar
 
+from fastapi import Response
+
 from app.models.access_context import ManagerActor
 from app.services import bucket_config_actions
 from app.services.audit_service import AuditService
@@ -87,11 +89,11 @@ class BucketConfigMutationService:
         bucket_name: str,
         config_area: BucketConfigArea,
         **kwargs: Any,
-    ) -> None:
+    ) -> Response:
         mutation = get_bucket_config_delete_mutation(config_area)
         assert mutation.delete_action is not None
         assert mutation.manager_delete_audit_action is not None
-        bucket_config_actions.apply_bucket_config_delete(
+        return bucket_config_actions.apply_bucket_config_delete(
             service=self.configuration_service,
             context=context,
             bucket_name=bucket_name,
