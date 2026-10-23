@@ -613,7 +613,7 @@ export default function CephAdminBucketCompareModal({
                 ? (() => {
                     const onlySourceDetails =
                       content.only_source_count > 0
-                        ? (content.only_source_details?.length ? content.only_source_details : compareObjectDetailsFromKeys(content.only_source_sample))
+                        ? (content.only_source_details.length ? content.only_source_details : compareObjectDetailsFromKeys(content.only_source_sample))
                         : [];
                     const onlyTargetDetails =
                       content.only_target_count > 0
