@@ -129,8 +129,8 @@ def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, m
 
     assert [target.bucket_name for target in captured["targets"]] == ["missing", "stale"]
     assert captured["parallelism"] == 2
-    assert result["eligible_accounts"] == 1
-    assert result["due_buckets"] == 2
+    assert result.eligible_accounts == 1
+    assert result.due_buckets == 2
 
 
 def test_bucket_scan_is_skipped_when_bucket_lease_is_already_held(db_session, monkeypatch):

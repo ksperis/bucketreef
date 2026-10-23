@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as BucketUsageStatsSnapshotRow
+from app.models.bucket_usage_stats import BucketUsageStatsCollectionResult
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsOptions,
@@ -98,7 +99,7 @@ class BucketUsageStatsCollectionService:
             )
         return due
 
-    def collect(self) -> dict[str, object]:
+    def collect(self) -> BucketUsageStatsCollectionResult:
         cutoff = utcnow() - BUCKET_USAGE_STATS_COLLECTION_MAX_AGE
         due_targets: list[tuple[float, BucketUsageStatsResolvedTarget]] = []
         skipped_accounts = 0
@@ -117,26 +118,26 @@ class BucketUsageStatsCollectionService:
 
         targets = [target for _, target in sorted(due_targets, key=lambda item: (item[0], item[1].scope_id, item[1].bucket_name))]
         if not targets:
-            return {
-                "status": "completed",
-                "eligible_accounts": len(eligible_accounts),
-                "skipped_accounts": skipped_accounts,
-                "due_buckets": 0,
-                "completed_buckets": 0,
-                "failed_buckets": 0,
-                "skipped_buckets": 0,
-            }
+            return BucketUsageStatsCollectionResult(
+                status="completed",
+                eligible_accounts=len(eligible_accounts),
+                skipped_accounts=skipped_accounts,
+                due_buckets=0,
+                completed_buckets=0,
+                failed_buckets=0,
+                skipped_buckets=0,
+            )
 
         result = self.usage_stats_service.run(
             targets,
             BucketUsageStatsOptions(parallelism=BUCKET_USAGE_STATS_COLLECTION_PARALLELISM),
         )
-        return {
-            "status": result.status,
-            "eligible_accounts": len(eligible_accounts),
-            "skipped_accounts": skipped_accounts,
-            "due_buckets": len(targets),
-            "completed_buckets": result.completed_buckets,
-            "failed_buckets": result.failed_buckets,
-            "skipped_buckets": result.skipped_buckets,
-        }
+        return BucketUsageStatsCollectionResult(
+            status=result.status,
+            eligible_accounts=len(eligible_accounts),
+            skipped_accounts=skipped_accounts,
+            due_buckets=len(targets),
+            completed_buckets=result.completed_buckets,
+            failed_buckets=result.failed_buckets,
+            skipped_buckets=result.skipped_buckets,
+        )

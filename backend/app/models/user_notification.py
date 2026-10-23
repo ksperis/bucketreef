@@ -66,3 +66,14 @@ class MarkUserNotificationsReadResponse(ApiModel):
 class DeleteUserNotificationsResponse(ApiModel):
     deleted_count: int = 0
     unread_count: int = 0
+
+
+class UserNotificationRetentionResult(ApiModel):
+    retention_days: int
+    deleted: int
+    cutoff: Optional[str] = None
+
+
+class UserNotificationPurgeResponse(ApiModel):
+    status: Literal["completed"]
+    user_notifications: UserNotificationRetentionResult

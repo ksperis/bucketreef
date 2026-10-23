@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.operation import OperationSkippedResponse
+from app.models.user_notification import UserNotificationPurgeResponse
 from app.routers.dependencies import require_internal_cron_token
 from app.services.data_retention_service import DataRetentionService
 from app.services.operation_lease_service import (
@@ -21,21 +23,28 @@ router = APIRouter(
 )
 
 
-@router.post("/purge")
+@router.post(
+    "/purge",
+    response_model=UserNotificationPurgeResponse | OperationSkippedResponse,
+    response_model_exclude_none=True,
+)
 def purge_user_notifications(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
-) -> dict:
+) -> UserNotificationPurgeResponse | OperationSkippedResponse:
     with OperationLeaseService(db).hold(
         USER_NOTIFICATIONS_PURGE_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
         lease_context={"source": "internal"},
     ) as lease:
         if lease is None:
-            return {
-                "status": "skipped",
-                "reason": "already_running",
-                "operation": USER_NOTIFICATIONS_PURGE_OPERATION,
-            }
+            return OperationSkippedResponse(
+                status="skipped",
+                reason="already_running",
+                operation=USER_NOTIFICATIONS_PURGE_OPERATION,
+            )
         result = DataRetentionService(db).purge_user_notifications()
-        return {"status": "completed", **result}
+        return UserNotificationPurgeResponse(
+            status="completed",
+            user_notifications=result["user_notifications"],
+        )

@@ -123,7 +123,7 @@ def test_due_rgw_user_key_is_disabled_even_after_resource_opt_out(db_session, mo
     result = AccessKeyExpirationService(db_session).run_due()
 
     db_session.refresh(row)
-    assert result["enforced"] == 1
+    assert result.enforced == 1
     assert row.expiration_state == "enforced"
     assert row.expiration_enforced_at is not None
     assert fake.calls == [
@@ -146,7 +146,7 @@ def test_already_inactive_key_is_idempotently_enforced(db_session, monkeypatch):
     result = AccessKeyExpirationService(db_session).run_due()
 
     db_session.refresh(row)
-    assert result["enforced"] == 1
+    assert result.enforced == 1
     assert row.expiration_state == "enforced"
     assert fake.calls == [("list", s3_user.id)]
 
@@ -162,7 +162,7 @@ def test_provider_failure_is_retried_without_marking_key_expired(db_session, mon
     result = AccessKeyExpirationService(db_session).run_due()
 
     db_session.refresh(row)
-    assert result["retried"] == 1
+    assert result.retried == 1
     assert row.expiration_state == "retrying"
     assert row.expiration_enforced_at is None
     assert "temporary provider outage" in (row.expiration_last_error or "")
@@ -182,7 +182,7 @@ def test_provider_failure_persists_only_sanitized_error_details(db_session, monk
     result = AccessKeyExpirationService(db_session).run_due()
 
     db_session.refresh(row)
-    assert result["retried"] == 1
+    assert result.retried == 1
     assert row.expiration_state == "retrying"
     assert row.expiration_last_error == "secret_key=<redacted> endpoint=<redacted-url>"
     assert "TOPSECRET" not in (row.expiration_last_error or "")
@@ -200,7 +200,7 @@ def test_interface_key_is_blocked_without_provider_mutation(db_session, monkeypa
     result = AccessKeyExpirationService(db_session).run_due()
 
     db_session.refresh(row)
-    assert result["blocked"] == 1
+    assert result.blocked == 1
     assert row.expiration_state == "blocked"
     assert "interface" in (row.expiration_last_error or "").lower()
     assert fake.calls == []
@@ -217,7 +217,7 @@ def test_missing_provider_key_removes_stale_local_record(db_session, monkeypatch
 
     result = AccessKeyExpirationService(db_session).run_due()
 
-    assert result["missing"] == 1
+    assert result.missing == 1
     assert db_session.get(ManagerAccessKeyMetadata, row_id) is None
 
 
@@ -251,7 +251,7 @@ def test_due_iam_key_is_disabled_and_confirmed(db_session, monkeypatch):
     result = AccessKeyExpirationService(db_session).run_due()
 
     db_session.refresh(row)
-    assert result["enforced"] == 1
+    assert result.enforced == 1
     assert row.expiration_state == "enforced"
     assert fake.calls == [
         ("list", "alice"),

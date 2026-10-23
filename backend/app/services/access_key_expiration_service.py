@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.sensitive_data import sanitize_persisted_error
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.db.enums import StorageProvider
+from app.models.access_key_metadata import AccessKeyExpirationRunResult
 from app.services.audit_service import AuditService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.rgw_iam import get_iam_service
@@ -27,7 +28,7 @@ class AccessKeyExpirationService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def run_due(self) -> dict[str, int | str]:
+    def run_due(self) -> AccessKeyExpirationRunResult:
         now = utcnow()
         rows = self.db.scalars(
             select(ManagerAccessKeyMetadata)
@@ -47,7 +48,7 @@ class AccessKeyExpirationService:
             counts["processed"] += 1
             outcome = self._process(row)
             counts[outcome] += 1
-        return {"status": "ok", **counts}
+        return AccessKeyExpirationRunResult(status="ok", **counts)
 
     def _process(self, row: ManagerAccessKeyMetadata) -> str:
         row.expiration_last_attempt_at = utcnow()
