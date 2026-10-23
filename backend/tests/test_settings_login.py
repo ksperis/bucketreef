@@ -34,8 +34,8 @@ def test_login_settings_endpoints_are_sorted_by_name_case_insensitive(client, db
     db_session.commit()
 
     monkeypatch.setattr(
-        "app.routers.settings.load_app_settings",
-        lambda: SimpleNamespace(
+        "app.routers.settings.load_app_settings_for_db_readonly",
+        lambda _db: SimpleNamespace(
             general=SimpleNamespace(
                 allow_login_access_keys=False,
                 allow_login_endpoint_list=True,

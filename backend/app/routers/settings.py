@@ -11,7 +11,7 @@ from app.models.app_settings import BrandingSettings, GeneralSettingsView, Login
 from app.models.runtime_surfaces import RuntimeSurfaces
 from app.models.storage_endpoint import StorageEndpointPublic
 from app.routers.dependencies import get_current_actor
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings, load_app_settings_for_db_readonly
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -37,7 +37,7 @@ def get_general_settings(_: ManagerActor = Depends(get_current_actor)) -> Genera
 
 @router.get("/login", response_model=LoginSettings)
 def get_login_settings(db: Session = Depends(get_db)) -> LoginSettings:
-    settings = load_app_settings()
+    settings = load_app_settings_for_db_readonly(db)
     general = settings.general
     allow_access_keys = bool(general.allow_login_access_keys)
     allow_list = bool(general.allow_login_endpoint_list)
