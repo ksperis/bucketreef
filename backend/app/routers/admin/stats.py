@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
+from app.models.traffic import TrafficStats
 from app.routers.dependencies import get_current_super_admin
 from app.services.admin_dashboard_metrics_service import AdminDashboardMetricsService
 from app.services.admin_stats_service import AdminStatsService
@@ -78,11 +79,11 @@ def storage_stats(
     return AdminStatsService(db).storage(endpoint_id)
 
 
-@router.get("/traffic")
+@router.get("/traffic", response_model=TrafficStats)
 def traffic_stats(
     window: TrafficWindow = Query(TrafficWindow.WEEK),
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
     endpoint_id: Optional[int] = Query(default=None),
-) -> dict:
-    return AdminStatsService(db).traffic(endpoint_id, window=window)
+) -> TrafficStats:
+    return TrafficStats.model_validate(AdminStatsService(db).traffic(endpoint_id, window=window))

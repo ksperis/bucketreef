@@ -291,7 +291,7 @@ class _UsageAccumulator:
         if self.bucket_filters is not None and normalized_bucket not in self.bucket_filters:
             return
         bucketed_timestamp = _bucket_timestamp(timestamp, self.window)
-        user = entry.get("user") or entry.get("owner") or "unknown"
+        user = str(entry.get("user") or entry.get("owner") or "unknown")
         for category in _normalize_categories(entry.get("categories")):
             self._add_category(bucketed_timestamp, bucket_value, user, category)
 

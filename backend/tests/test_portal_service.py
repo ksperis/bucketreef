@@ -1021,7 +1021,7 @@ def test_portal_traffic_aggregates_visible_buckets_for_portal_user(monkeypatch, 
         portal_service=service,
     )
 
-    assert result["totals"]["bytes_in"] == 2
+    assert result.totals.bytes_in == 2
     assert captured["account"] == account
     assert captured["bucket"] is None
     assert captured["bucket_filters"] == {"bucket-a", "bucket-b"}
@@ -1047,7 +1047,20 @@ def test_portal_traffic_filters_to_requested_visible_bucket(monkeypatch, db_sess
         def get_traffic(self, *, window, bucket=None, bucket_filters=None):
             captured["bucket"] = bucket
             captured["bucket_filters"] = bucket_filters
-            return {"window": window.value}
+            return {
+                "window": window.value,
+                "start": "2026-06-10T00:00:00+00:00",
+                "end": "2026-06-11T00:00:00+00:00",
+                "resolution": "daily",
+                "bucket_filter": bucket,
+                "data_points": 0,
+                "series": [],
+                "totals": {"bytes_in": 0, "bytes_out": 0, "ops": 0, "success_ops": 0, "success_rate": None},
+                "bucket_rankings": [],
+                "user_rankings": [],
+                "request_breakdown": [],
+                "category_breakdown": [],
+            }
 
     monkeypatch.setattr(portal_traffic_router, "TrafficService", FakeTrafficService)
 

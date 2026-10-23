@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.db import User
 from app.models.access_context import AccountAccess
+from app.models.traffic import TrafficStats
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import get_portal_service_dependency
 from app.services.portal_service import PortalService
@@ -20,13 +21,13 @@ from app.utils.storage_endpoint_features import resolve_feature_flags
 router = APIRouter()
 
 
-@router.get("/traffic")
+@router.get("/traffic", response_model=TrafficStats)
 def portal_traffic(
     window: TrafficWindow = Query(TrafficWindow.WEEK),
     bucket: Optional[str] = Query(None),
     access: AccountAccess = Depends(get_portal_account_access),
     portal_service: PortalService = Depends(get_portal_service_dependency),
-) -> dict:
+) -> TrafficStats:
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
@@ -49,7 +50,9 @@ def portal_traffic(
     except ValueError as exc:
         raise_bad_gateway_from_runtime(exc)
     try:
-        return traffic_service.get_traffic(window=window, bucket=bucket, bucket_filters=bucket_filters)
+        return TrafficStats.model_validate(
+            traffic_service.get_traffic(window=window, bucket=bucket, bucket_filters=bucket_filters)
+        )
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
     except RGWAdminError as exc:

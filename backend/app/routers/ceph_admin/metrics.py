@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.db import StorageEndpoint
 from app.models.ceph_admin import CephAdminClusterStorageMetrics
+from app.models.traffic import TrafficStats
 from app.routers.ceph_admin.dependencies import get_ceph_admin_workspace_endpoint
 from app.services.rgw_admin import RGWAdminError
 from app.services.traffic_service import (
@@ -125,12 +126,12 @@ def cluster_storage_metrics(
     )
 
 
-@router.get("/traffic")
+@router.get("/traffic", response_model=TrafficStats)
 def cluster_traffic_metrics(
     window: TrafficWindow = Query(TrafficWindow.WEEK),
     bucket: Optional[str] = Query(None),
     endpoint: StorageEndpoint = Depends(get_ceph_admin_workspace_endpoint),
-) -> dict[str, Any]:
+) -> TrafficStats:
     _require_usage_logs_enabled(endpoint)
     rgw_admin = _build_supervision_client(endpoint)
     reference = datetime.now(timezone.utc).replace(microsecond=0)
@@ -162,4 +163,4 @@ def cluster_traffic_metrics(
         }
     )
     aggregation["data_points"] = len(aggregation.get("series") or [])
-    return aggregation
+    return TrafficStats.model_validate(aggregation)
