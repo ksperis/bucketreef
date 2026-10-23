@@ -10,7 +10,7 @@ export type IamOverview = {
   iam_groups: number;
   iam_roles: number;
   iam_policies: number;
-  warnings?: string[];
+  warnings: string[];
 };
 
 export async function fetchIamOverview(contextId?: S3ExecutionContextSelector): Promise<IamOverview> {

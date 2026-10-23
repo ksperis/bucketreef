@@ -46,7 +46,7 @@ class IAMOverview(ApiModel):
     iam_groups: int
     iam_roles: int
     iam_policies: int
-    warnings: list[str] = Field(default_factory=list)
+    warnings: list[str]
 
 
 class IAMUser(ApiModel):

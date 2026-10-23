@@ -37,7 +37,7 @@ export function useIamOverview(
     try {
       const data = await fetchIamOverview(contextId || undefined);
       setOverview(data);
-      setError(data.warnings && data.warnings.length > 0 ? data.warnings.join("; ") : null);
+      setError(data.warnings.length > 0 ? data.warnings.join("; ") : null);
     } catch (err) {
       if (isApiError(err) && err.response?.status === 403) {
         setError("IAM inventory unavailable for this credential.");
