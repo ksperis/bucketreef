@@ -8,9 +8,9 @@ import type {
 } from "../../api/cephAdminBuckets";
 
 type BucketOpsFilteredBucketPage = {
-  items?: CephAdminBucket[];
+  items: CephAdminBucket[];
   has_next: boolean;
-  total?: number;
+  total: number;
 };
 
 type BucketOpsFilteredBucketLoaderInput = {
@@ -43,8 +43,8 @@ export async function loadBucketOpsFilteredBuckets({
       page: nextPage,
       page_size: 200,
     });
-    (response.items ?? []).forEach((bucket) => bucketsByName.set(bucketKey(bucket), bucket));
-    if (typeof response.total === "number" && response.total >= 0) {
+    response.items.forEach((bucket) => bucketsByName.set(bucketKey(bucket), bucket));
+    if (response.total >= 0) {
       expectedTotal = response.total;
     }
 

@@ -9,7 +9,7 @@ import type {
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 
 type BucketOpsNamedBucketPage = {
-  items?: CephAdminBucket[];
+  items: CephAdminBucket[];
   has_next: boolean;
 };
 
@@ -69,7 +69,7 @@ export async function loadBucketOpsBucketsByNames({
           include: include && include.length > 0 ? include : undefined,
           with_stats: withStats,
         });
-        buckets.push(...(response.items ?? []));
+        buckets.push(...response.items);
         if (!response.has_next) break;
         nextPage += 1;
       }

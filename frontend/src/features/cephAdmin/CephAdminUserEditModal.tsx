@@ -194,11 +194,11 @@ export default function CephAdminUserEditModal({
       try {
         const payload = await getCephAdminUserDetail(endpointId, uid, tenant, expectedAccountId);
         if (cancelled) return;
-        if (expectedAccountId !== undefined && (payload.account_id ?? null) !== expectedAccountId) {
+        if (expectedAccountId !== undefined && payload.account_id !== expectedAccountId) {
           throw new Error("RGW user account has changed; refresh the user list");
         }
         setDetail(payload);
-        setKeys(payload.keys ?? []);
+        setKeys(payload.keys);
         setDisplayName(payload.display_name ?? "");
         setEmail(payload.email ?? "");
         setSuspended(Boolean(payload.suspended));
@@ -348,7 +348,7 @@ export default function CephAdminUserEditModal({
           expectedAccountId ?? detail.account_id
         );
         setDetail(updated);
-        setKeys(updated.keys ?? []);
+        setKeys(updated.keys);
         setInitialSignature(currentSignature);
         setSaveStatus(surfaceText("User configuration updated."));
         onSaved?.(updated);

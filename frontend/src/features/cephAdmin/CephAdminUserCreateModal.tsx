@@ -137,7 +137,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
           include: ["profile"],
         });
         if (cancelled) return;
-        const options = (response.items ?? [])
+        const options = response.items
           .map((item) => ({ account_id: item.account_id, account_name: item.account_name, tenant: item.tenant ?? "" }))
           .filter((item) => item.account_id)
           .sort((a, b) => {
@@ -225,7 +225,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
       try {
         const response = await createCephAdminUser(endpointId, payload);
         onCreated?.(response.detail);
-        setGeneratedKey(response.generated_key ?? null);
+        setGeneratedKey(response.generated_key);
         setInitialSignature(currentSignature);
         setStatus(surfaceText("User {uid} created.", { uid: response.detail.uid }));
       } catch (err) {
