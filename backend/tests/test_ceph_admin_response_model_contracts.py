@@ -8,6 +8,7 @@ from app.models.ceph_admin import (
     CephAdminClusterOwnerUsagePoint,
     CephAdminClusterStorageMetrics,
     CephAdminClusterStorageTotals,
+    CephAdminEndpoint,
     CephAdminEndpointAccess,
     CephAdminEntityMetrics,
     PaginatedCephAdminBucketsResponse,
@@ -18,6 +19,16 @@ from app.models.ceph_admin import (
 
 
 def test_ceph_admin_core_responses_require_complete_canonical_payloads() -> None:
+    assert set(CephAdminEndpoint.model_json_schema()["required"]) == {
+        "id",
+        "name",
+        "endpoint_url",
+        "admin_endpoint",
+        "region",
+        "is_default",
+        "capabilities",
+        "tags",
+    }
     assert set(CephAdminEndpointAccess.model_json_schema()["required"]) == {
         "endpoint_id",
         "can_admin",
