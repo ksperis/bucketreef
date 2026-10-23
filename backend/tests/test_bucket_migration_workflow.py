@@ -10,9 +10,15 @@ import pytest
 from botocore.exceptions import ClientError
 from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket_migration import (
+    BucketMigrationActionAvailability,
     BucketMigrationBucketMapping,
     BucketMigrationCreateRequest,
+    BucketMigrationDetail,
+    BucketMigrationEventView,
+    BucketMigrationItemView,
+    BucketMigrationListResponse,
     BucketMigrationUpdateRequest,
+    BucketMigrationView,
 )
 from app.services.bucket_migration import maintenance as bucket_migration_maintenance
 from app.services.bucket_migration_service import BucketMigrationService
@@ -64,6 +70,22 @@ def prepared(db_session):
         return_value=_bucket_profile_stub("source-bucket")
     )
     return service, migration, payload
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        BucketMigrationActionAvailability,
+        BucketMigrationItemView,
+        BucketMigrationEventView,
+        BucketMigrationView,
+        BucketMigrationDetail,
+        BucketMigrationListResponse,
+    ],
+)
+def test_bucket_migration_read_models_require_complete_payloads(model):
+    schema = model.model_json_schema()
+    assert set(schema["required"]) == set(schema["properties"])
 
 
 def test_check_is_queued_persisted_and_never_starts(prepared, db_session):
