@@ -182,8 +182,8 @@ export default function S3AccountsPage() {
           const candidates = [
             account.name,
             account.rgw_account_id,
-            ...(account.user_links ?? []).flatMap((link) => [link.user_email, link.user_full_name]),
-            ...(account.group_links ?? []).map((link) => link.group_name),
+            ...account.user_links.flatMap((link) => [link.user_email, link.user_full_name]),
+            ...account.group_links.map((link) => link.group_name),
             ...extractUiTagLabels(account.tags),
           ];
           return matchesExactTextCandidate(candidates, quick);

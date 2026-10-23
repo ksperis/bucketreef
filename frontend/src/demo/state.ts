@@ -138,9 +138,13 @@ export function createSeed(): DemoState {
   const accounts: S3Account[] = names.map((name, i) => ({
     id: 101 + i, name, rgw_account_id: `RGW${58084876167649330n + BigInt(i)}`, rgw_tenant: "", email: `team-${i}@example.com`,
     tags: [], user_links: [], group_links: [], quota_max_size_gb: 500, quota_max_objects: 500000,
+    used_bytes: null, used_objects: null, bucket_count: null, rgw_user_count: null, rgw_user_uids: null, rgw_topic_count: null, rgw_topics: null,
     storage_endpoint_id: endpoints[i % 2].id, storage_endpoint_name: endpoints[i % 2].name,
     storage_endpoint_url: endpoints[i % 2].endpoint_url, storage_endpoint_is_default: i % 2 === 0,
     storage_endpoint_capabilities: endpoints[i % 2].capabilities!, allow_bucket_quota_management: true,
+    allow_access_key_metadata: null, allow_access_key_expiration: null, allow_activity_history: null,
+    allow_rgw_usage_metrics: null, allow_cost_estimation: null, allow_bucket_usage_stats: null,
+    allow_bucket_usage_stats_collection: null,
   }));
   const first = ["Alex", "Sam", "Jordan", "Morgan", "Taylor", "Casey", "Robin", "Avery", "Jamie", "Riley", "Cameron", "Drew"];
   const last = ["Martin", "Chen", "Patel", "Garcia", "Kim"];
