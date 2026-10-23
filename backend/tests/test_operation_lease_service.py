@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from app.db import BackendOperationLease
@@ -38,7 +39,7 @@ def test_operation_lease_same_owner_renews(db_session):
     assert first is not None
     assert renewed is not None
     assert renewed.lease_until > first.lease_until
-    assert db_session.query(BackendOperationLease).count() == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(BackendOperationLease)) == 1
 
 
 def test_operation_lease_expired_row_can_be_taken(db_session):
@@ -86,9 +87,8 @@ def test_operation_lease_hold_recovers_failed_transaction_before_release(db_sess
             db_session.flush()
 
     assert service.current_owner(operation_name) is None
-    assert (
-        db_session.query(BackendOperationLease)
-        .filter(BackendOperationLease.operation_name == operation_name)
-        .count()
-        == 1
-    )
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(BackendOperationLease).where(
+            BackendOperationLease.operation_name == operation_name
+        )
+    ) == 1

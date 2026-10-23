@@ -7,6 +7,7 @@ import io
 import json
 
 import pytest
+import sqlalchemy as sa
 from botocore.exceptions import ClientError
 from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket_migration import (
@@ -307,10 +308,8 @@ def test_policy_intent_precedes_mutation_and_survives_interruption(
     configuration.get_policy.return_value = policy
 
     def interrupted(*args):
-        durable = (
-            db_session.query(BucketMigrationItem.preparation_effects_json)
-            .filter_by(id=item.id)
-            .scalar()
+        durable = db_session.scalar(
+            sa.select(BucketMigrationItem.preparation_effects_json).where(BucketMigrationItem.id == item.id)
         )
         assert json.loads(durable)["source_policy"]["policy"] == policy
         raise KeyboardInterrupt("process interrupted")
@@ -429,9 +428,12 @@ def test_pause_tolerates_worker_transition_from_queued_to_running(prepared):
     original_transition = service._transition_command
 
     def transition_after_worker_claim(migration_arg, **values):
-        service.db.query(BucketMigration).filter(
-            BucketMigration.id == migration_arg.id
-        ).update({"status": "running"}, synchronize_session=False)
+        service.db.execute(
+            sa.update(BucketMigration)
+            .where(BucketMigration.id == migration_arg.id)
+            .values(status="running")
+            .execution_options(synchronize_session=False)
+        )
         return original_transition(migration_arg, **values)
 
     service._transition_command = transition_after_worker_claim
