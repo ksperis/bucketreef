@@ -15,6 +15,7 @@ vi.mock("../manager/BucketDetailPage", () => ({
     contextIdOverride?: string | null;
     mode?: string;
     hideQuotaTab?: boolean;
+    hideObjectsTab?: boolean;
     onDirtyChange?: (dirty: boolean) => void;
     onBusyChange?: (busy: boolean) => void;
   }) => {
@@ -76,6 +77,7 @@ describe("BucketConfigurationDrawer", () => {
         contextIdOverride: "account-1",
         mode: "manager",
         hideQuotaTab: true,
+        hideObjectsTab: false,
       }),
     );
 
@@ -92,6 +94,13 @@ describe("BucketConfigurationDrawer", () => {
         navigation={{ next, position: "1 / 2" }}
         onClose={vi.fn()}
       />,
+    );
+
+    expect(detailProps.latest).toEqual(
+      expect.objectContaining({
+        mode: "ceph-admin",
+        hideObjectsTab: false,
+      }),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Mark dirty" }));
@@ -116,5 +125,23 @@ describe("BucketConfigurationDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mark busy" }));
     fireEvent.click(screen.getByRole("button", { name: "Close details" }));
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("keeps the objects tab hidden in the Manager configuration drawer", () => {
+    render(
+      <BucketConfigurationDrawer
+        bucketName="archive"
+        contextId="account-1"
+        mode="manager"
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(detailProps.latest).toEqual(
+      expect.objectContaining({
+        mode: "manager",
+        hideObjectsTab: true,
+      }),
+    );
   });
 });
