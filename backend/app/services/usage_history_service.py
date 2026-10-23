@@ -76,6 +76,17 @@ class UsageHistoryService:
             granularity=self._trend_granularity(window),
             available=unavailable_reason is None,
             unavailable_reason=unavailable_reason,
+            points=[],
+            summary=UsageHistoryTrendSummary(
+                total_records=0,
+                points_count=0,
+                subjects_count=0,
+                latest_used_bytes=0,
+                latest_used_objects=0,
+                latest_bucket_count=0,
+                latest_collected_at=None,
+                max_usage_ratio_pct=None,
+            ),
         )
 
     def aggregate_trends(
@@ -107,6 +118,7 @@ class UsageHistoryService:
             window=window,
             granularity=granularity,
             available=True,
+            unavailable_reason=None,
             points=points,
             summary=summary,
         )

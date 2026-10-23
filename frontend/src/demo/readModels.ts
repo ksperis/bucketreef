@@ -4,7 +4,12 @@ import type { BrowserUsageSummary } from "../api/browserContracts";
 import type { ExecutionContext, WorkspaceAccess } from "../api/executionContexts";
 import type { ManagerContext } from "../api/managerContext";
 import type { ManagerTrafficStats, ManagerUsageTrendBaseline } from "../api/stats";
-import type { UsageHistoryTrendPoint } from "../api/usageHistory";
+import type {
+  UsageHistoryRecord,
+  UsageHistoryResponse,
+  UsageHistoryTrendPoint,
+  UsageHistoryTrendResponse,
+} from "../api/usageHistory";
 import { bucketView, GiB, settings, type DemoState } from "./state";
 import { accountView } from "./governance";
 import { accountGrant, json, page, required, scopedAccount, type DemoRequest } from "./http";
@@ -213,11 +218,13 @@ export function readModels(c: DemoRequest): Response | undefined {
     }
     if (path.endsWith("usage-history-trends") || path.endsWith("usage-history/trends")) {
       const subjects = new Set(snapshot.map(b => b.accountId)).size;
-      const points = state.history.map((p, i) => ({ period_start: p.timestamp.slice(0, 10), ...historicalUsage(snapshot, i), subjects_count: subjects, samples_count: 24, collected_at: p.timestamp }));
-      return json({ window: c.url.searchParams.get("window") ?? "month", granularity: "daily", available: true, points, summary: { total_records: points.length * subjects, points_count: points.length, subjects_count: subjects, latest_used_bytes: points.at(-1)!.used_bytes, latest_used_objects: points.at(-1)!.used_objects, latest_bucket_count: points.at(-1)!.bucket_count, latest_collected_at: state.initializedAt } });
+      const requestedWindow = c.url.searchParams.get("window");
+      const window = requestedWindow === "day" || requestedWindow === "week" ? requestedWindow : "month";
+      const points = state.history.map((p, i) => ({ period_start: p.timestamp.slice(0, 10), ...historicalUsage(snapshot, i), max_usage_ratio_pct: null, subjects_count: subjects, samples_count: 24, collected_at: p.timestamp }));
+      return json({ window, granularity: window === "day" ? "hourly" : "daily", available: true, unavailable_reason: null, points, summary: { total_records: points.length * subjects, points_count: points.length, subjects_count: subjects, latest_used_bytes: points.at(-1)!.used_bytes, latest_used_objects: points.at(-1)!.used_objects, latest_bucket_count: points.at(-1)!.bucket_count, latest_collected_at: state.initializedAt, max_usage_ratio_pct: null } } satisfies UsageHistoryTrendResponse);
     }
-    if (path === "/admin/usage-history") { const records = state.history.flatMap((p, i) => state.accounts.map(a => ({ id: i * 10000 + a.id, granularity: "daily", period_start: p.timestamp, storage_endpoint_id: a.storage_endpoint_id, endpoint_name: a.storage_endpoint_name, subject_type: "account", subject_id: a.id, subject_name: a.name, ...historicalUsage(state.snapshotInventory.filter(b => b.accountId === a.id), i), quota_size_bytes: 500 * GiB, samples_count: 24, collected_at: p.timestamp })));
-      return json({ ...page(records, c.url), summary: { total_records: records.length, subjects_count: 5, latest_collected_at: state.initializedAt } }); }
+    if (path === "/admin/usage-history") { const records: UsageHistoryRecord[] = state.history.flatMap((p, i) => state.accounts.map(a => ({ id: i * 10000 + a.id, granularity: "daily", period_start: p.timestamp, storage_endpoint_id: a.storage_endpoint_id, endpoint_name: a.storage_endpoint_name, subject_type: "account", subject_id: a.id, subject_name: a.name, subject_identifier: a.rgw_account_id, ...historicalUsage(state.snapshotInventory.filter(b => b.accountId === a.id), i), quota_size_bytes: 500 * GiB, quota_objects: a.quota_max_objects ?? null, usage_ratio_pct: null, samples_count: 24, collected_at: p.timestamp })));
+      return json({ ...page(records, c.url), summary: { total_records: records.length, subjects_count: 5, latest_collected_at: state.initializedAt, max_usage_ratio_pct: null } } satisfies UsageHistoryResponse); }
     if (path.endsWith("usage-summary")) return json({ available: true, source: "portal", label: account?.name ?? null, used_bytes: bytes, object_count: count, quota_max_size_bytes: (account?.quota_max_size_gb ?? 500) * GiB, quota_max_objects: account?.quota_max_objects ?? null } satisfies BrowserUsageSummary);
     if (path.endsWith("/usage")) return json({ available: true, source: "portal", label: account?.name, used_bytes: bytes, used_objects: count, object_count: count, quota_max_size_bytes: (account?.quota_max_size_gb ?? 500) * GiB, quota_max_objects: account?.quota_max_objects });
     if (path.includes("usage-stats")) {

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import Field
-
 from app.models.base import ApiModel
 
 
@@ -15,10 +13,10 @@ UsageHistoryTrendWindow = Literal["day", "week", "month"]
 
 
 class UsageHistorySummary(ApiModel):
-    total_records: int = 0
-    subjects_count: int = 0
-    latest_collected_at: Optional[str] = None
-    max_usage_ratio_pct: Optional[float] = None
+    total_records: int
+    subjects_count: int
+    latest_collected_at: Optional[str]
+    max_usage_ratio_pct: Optional[float]
 
 
 class UsageHistoryRecord(ApiModel):
@@ -30,52 +28,52 @@ class UsageHistoryRecord(ApiModel):
     subject_type: Literal["account", "s3_user"]
     subject_id: int
     subject_name: str
-    subject_identifier: Optional[str] = None
-    used_bytes: int = 0
-    used_objects: int = 0
-    bucket_count: Optional[int] = None
-    quota_size_bytes: Optional[int] = None
-    quota_objects: Optional[int] = None
-    usage_ratio_pct: Optional[float] = None
-    samples_count: Optional[int] = None
+    subject_identifier: Optional[str]
+    used_bytes: int
+    used_objects: int
+    bucket_count: Optional[int]
+    quota_size_bytes: Optional[int]
+    quota_objects: Optional[int]
+    usage_ratio_pct: Optional[float]
+    samples_count: Optional[int]
     collected_at: str
 
 
 class UsageHistoryResponse(ApiModel):
-    items: list[UsageHistoryRecord] = Field(default_factory=list)
-    total: int = 0
-    page: int = 1
-    page_size: int = 50
-    has_next: bool = False
-    summary: UsageHistorySummary = Field(default_factory=UsageHistorySummary)
+    items: list[UsageHistoryRecord]
+    total: int
+    page: int
+    page_size: int
+    has_next: bool
+    summary: UsageHistorySummary
 
 
 class UsageHistoryTrendPoint(ApiModel):
     period_start: str
-    used_bytes: int = 0
-    used_objects: int = 0
-    bucket_count: int = 0
-    max_usage_ratio_pct: Optional[float] = None
-    subjects_count: int = 0
-    samples_count: int = 0
-    collected_at: Optional[str] = None
+    used_bytes: int
+    used_objects: int
+    bucket_count: int
+    max_usage_ratio_pct: Optional[float]
+    subjects_count: int
+    samples_count: int
+    collected_at: Optional[str]
 
 
 class UsageHistoryTrendSummary(ApiModel):
-    total_records: int = 0
-    points_count: int = 0
-    subjects_count: int = 0
-    latest_used_bytes: int = 0
-    latest_used_objects: int = 0
-    latest_bucket_count: int = 0
-    latest_collected_at: Optional[str] = None
-    max_usage_ratio_pct: Optional[float] = None
+    total_records: int
+    points_count: int
+    subjects_count: int
+    latest_used_bytes: int
+    latest_used_objects: int
+    latest_bucket_count: int
+    latest_collected_at: Optional[str]
+    max_usage_ratio_pct: Optional[float]
 
 
 class UsageHistoryTrendResponse(ApiModel):
     window: UsageHistoryTrendWindow
     granularity: UsageHistoryGranularity
-    available: bool = True
-    unavailable_reason: Optional[str] = None
-    points: list[UsageHistoryTrendPoint] = Field(default_factory=list)
-    summary: UsageHistoryTrendSummary = Field(default_factory=UsageHistoryTrendSummary)
+    available: bool
+    unavailable_reason: Optional[str]
+    points: list[UsageHistoryTrendPoint]
+    summary: UsageHistoryTrendSummary
