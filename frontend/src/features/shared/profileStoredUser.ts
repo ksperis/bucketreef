@@ -3,12 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { readStoredUser, setSessionUserCache } from "../../utils/workspaces";
-import type { UserAvatarDescriptor } from "../../api/users";
+import type { UiPreferencesUpdate, UserAvatarDescriptor } from "../../api/users";
 
 type StoredUserProfilePatch = {
   fullName?: string | null;
   uiLanguage?: "en" | "fr" | "de" | "zh" | null;
-  uiPreferences?: Record<string, unknown> | null;
+  uiPreferences?: UiPreferencesUpdate | null;
   avatar?: UserAvatarDescriptor | null;
 };
 

@@ -36,6 +36,48 @@ export type DemoIam = {
   keys: Record<string, AccessKey[]>; attachments: Record<string, IamPolicy[]>; inline: Record<string, InlinePolicy[]>;
 };
 export type DemoUser = Omit<User, "effective_access">;
+
+export function createDemoUser(input: Pick<DemoUser, "id" | "email"> & Partial<DemoUser>): DemoUser {
+  const role = input.role ?? "ui_user";
+  const fullName = input.full_name ?? null;
+  const initials = fullName
+    ? fullName.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() ?? "").join("")
+    : input.email.slice(0, 1).toUpperCase();
+  return {
+    id: input.id,
+    email: input.email,
+    full_name: fullName,
+    picture_url: input.picture_url ?? null,
+    avatar: input.avatar ?? {
+      preference: "auto",
+      source: "initials",
+      url: null,
+      initials,
+      updated_at: null,
+    },
+    has_local_password: input.has_local_password ?? true,
+    is_active: input.is_active ?? true,
+    is_admin: input.is_admin ?? (role === "ui_admin" || role === "ui_superadmin"),
+    role,
+    can_access_ceph_admin: input.can_access_ceph_admin ?? false,
+    can_access_storage_ops: input.can_access_storage_ops ?? false,
+    can_create_manual_private_connections: input.can_create_manual_private_connections ?? false,
+    can_provision_managed_private_connections: input.can_provision_managed_private_connections ?? false,
+    manager_tool_access: input.manager_tool_access ?? { ...tools },
+    browser_advanced_features_enabled: input.browser_advanced_features_enabled ?? false,
+    ui_language: input.ui_language ?? "en",
+    quota_alerts_enabled: input.quota_alerts_enabled ?? true,
+    quota_alerts_global_watch: input.quota_alerts_global_watch ?? false,
+    ui_preferences: input.ui_preferences ?? { theme: null, selected_portal_account_id: null },
+    account_links: input.account_links ?? [],
+    group_details: input.group_details ?? [],
+    s3_user_links: input.s3_user_links ?? [],
+    s3_user_details: input.s3_user_details ?? [],
+    s3_connection_details: input.s3_connection_details ?? [],
+    last_login_at: input.last_login_at ?? null,
+  };
+}
+
 export type DemoState = {
   browserFavorites?: Record<number, BrowserFavorite[]>;
   initializedAt: string; nextId: number; users: DemoUser[]; groups: UiGroup[];
@@ -150,14 +192,14 @@ export function createSeed(): DemoState {
   const last = ["Martin", "Chen", "Patel", "Garcia", "Kim"];
   const users: DemoUser[] = Array.from({ length: 60 }, (_, i) => {
     const full_name = `${first[i % 12]} ${last[Math.floor(i / 12)]}`;
-    return { id: i + 1, email: `${full_name.toLowerCase().replace(" ", ".")}@example.com`, full_name,
+    return createDemoUser({ id: i + 1, email: `${full_name.toLowerCase().replace(" ", ".")}@example.com`, full_name,
       role: i === 0 ? "ui_superadmin" : i === 4 ? "ui_admin" : "ui_user", is_active: true, has_local_password: true,
       can_access_ceph_admin: i === 0 || i === 4, can_access_storage_ops: false, ui_language: "en",
       can_create_manual_private_connections: true, can_provision_managed_private_connections: false,
       browser_advanced_features_enabled: true, manager_tool_access: { ...tools }, last_login_at: at(i % 9),
       account_links: [{ account_id: 101 + (i < 5 ? 0 : i % 5), manager_role: i === 1 ? "account_administrator" : null,
         portal_role: i === 3 ? "portal_manager" : i === 1 ? null : "portal_user", allow_manager_browser_data_access: i === 1 }],
-      group_details: [], s3_user_details: [], s3_connection_details: [] };
+      group_details: [], s3_user_details: [], s3_connection_details: [] });
   });
   users[1].account_links = accounts.map(a => ({ account_id: a.id, manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: true }));
   users[2].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false }));

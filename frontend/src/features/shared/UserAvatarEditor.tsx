@@ -57,9 +57,9 @@ export default function UserAvatarEditor({ avatar, name, email, text, disabled, 
     finally { savingRef.current = false; setBusy(false); onBusyChange(false); }
   };
   const preview: UserAvatarDescriptor | null | undefined = previewUrl && draft.preference === "uploaded"
-    ? { preference: "uploaded", source: "uploaded", initials: avatar?.initials ?? "", url: previewUrl }
+    ? { preference: "uploaded", source: "uploaded", initials: avatar?.initials ?? "", url: previewUrl, updated_at: null }
     : draft.preference === "initials" || draft.remove
-      ? { preference: "initials", source: "initials", initials: avatar?.initials ?? "", url: null } : avatar;
+      ? { preference: "initials", source: "initials", initials: avatar?.initials ?? "", url: null, updated_at: null } : avatar;
   return <>
     <SettingsItem compact title={text("image")} icon={<UserAvatar avatar={avatar} name={name} email={email} size="md" decorative />}
       description={avatar?.source === "gravatar" ? "Gravatar" : text(avatar?.source ?? "initials")}

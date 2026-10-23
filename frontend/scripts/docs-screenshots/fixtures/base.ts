@@ -76,6 +76,7 @@ const ADMIN_UI_USERS: User[] = [
             direct_portal_role: null,
             direct_determines_effective_manager_role: true,
             direct_determines_effective_portal_role: false,
+            direct_allow_manager_browser_data_access: false,
             groups: [],
           },
         },

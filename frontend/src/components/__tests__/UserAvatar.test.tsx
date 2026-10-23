@@ -35,6 +35,7 @@ describe("UserAvatar", () => {
           source: "provider",
           url: "https://idp.example.test/alice.png",
           initials: "AE",
+          updated_at: null,
         }}
       />,
     );
@@ -60,6 +61,7 @@ describe("UserAvatar", () => {
           source: "uploaded",
           url: "/users/42/avatar?v=123",
           initials: "BU",
+          updated_at: "2026-10-23T06:00:00Z",
         }}
       />,
     );

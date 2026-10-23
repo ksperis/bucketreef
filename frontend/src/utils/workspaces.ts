@@ -11,7 +11,7 @@ import type { WorkspaceAccess } from "../api/executionContexts";
 import type {
   EffectiveUserAccess,
   ManagerToolAccess,
-  UiPreferences,
+  UiPreferencesUpdate,
   UiRole,
   UserAvatarDescriptor,
 } from "../api/users";
@@ -47,7 +47,7 @@ export type SessionUser = {
   has_local_password?: boolean | null;
   role?: UiRole | null;
   ui_language?: "en" | "fr" | "de" | "zh" | null;
-  ui_preferences?: UiPreferences | null;
+  ui_preferences?: UiPreferencesUpdate | null;
   effective_access?: EffectiveUserAccess | null;
   authType?: "password" | "s3_session" | "oidc" | "ldap" | null;
   actorType?: string | null;

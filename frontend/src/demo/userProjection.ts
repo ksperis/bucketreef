@@ -67,6 +67,7 @@ function effectiveAccountLinks(state: DemoState, user: DemoUser): EffectiveAccou
         group_name: source.group.name,
         manager_role: source.link.manager_role,
         portal_role: source.link.portal_role,
+        allow_manager_browser_data_access: source.link.allow_manager_browser_data_access,
         determines_effective_manager_role: Boolean(
           source.link.manager_role
           && source.link.manager_role === resolved.manager_role,
@@ -96,6 +97,7 @@ function effectiveAccountLinks(state: DemoState, user: DemoUser): EffectiveAccou
           direct?.portal_role
           && direct.portal_role === resolved.portal_role,
         ),
+        direct_allow_manager_browser_data_access: direct?.allow_manager_browser_data_access ?? false,
         groups,
       },
     }];
