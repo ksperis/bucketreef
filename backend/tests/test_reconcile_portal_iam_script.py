@@ -1,5 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import sqlalchemy as sa
+
 from app.db import ManagerAccountRole, PortalAccountRole, User, UserRole, UserS3Account
 from app.scripts import reconcile_portal_iam as script
 from tests.s3_account_factory import make_s3_account
@@ -73,7 +75,9 @@ def test_reconcile_portal_iam_dry_run_then_apply_keeps_db_roles(monkeypatch, db_
     ]
     roles = {
         row.user_id: (row.manager_role, row.portal_role)
-        for row in db_session.query(UserS3Account).filter(UserS3Account.account_id == account.id).all()
+        for row in db_session.scalars(
+            sa.select(UserS3Account).where(UserS3Account.account_id == account.id)
+        ).all()
     }
     assert roles == {
         administrator.id: (ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value, None),

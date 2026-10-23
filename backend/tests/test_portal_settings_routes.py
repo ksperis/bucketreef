@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 from app.db import ManagerAccountRole, PortalAccountRole, AuditLog, S3Account, User, UserRole, UserS3Account
@@ -136,7 +137,9 @@ def test_delegated_manager_updates_shared_override_and_audits(
     assert body["project_override"]["allow_portal_user_external_sharing"] is True
     assert body["effective"]["allow_portal_user_external_sharing"] is True
     assert body["project_override"]["bucket_defaults"]["noncurrent_version_expiration_days"] == 45
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "update_project_portal_settings").one()
+    audit = db_session.scalars(
+        sa.select(AuditLog).where(AuditLog.action == "update_project_portal_settings")
+    ).one()
     assert audit.scope == "portal"
     assert audit.context_kind == "portal_account"
     assert audit.context_id == str(account.id)
@@ -175,6 +178,8 @@ def test_storage_space_settings_routes_return_capability_and_audit_updates(
     assert fetched.status_code == 200, fetched.text
     assert fetched.json()["can_update"] is True
     assert updated.status_code == 200, updated.text
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "update_storage_space_settings").one()
+    audit = db_session.scalars(
+        sa.select(AuditLog).where(AuditLog.action == "update_storage_space_settings")
+    ).one()
     assert audit.entity_id == "research-data"
     assert "version_history_retention_days" in (audit.metadata_json or "")

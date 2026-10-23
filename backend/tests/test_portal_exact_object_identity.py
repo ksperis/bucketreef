@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+import sqlalchemy as sa
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
 
@@ -192,7 +193,10 @@ def test_public_links_persist_filter_and_download_distinct_literal_keys(storage,
         assert response.json()["object_key"] == key
         links[key] = response.json()["id"]
     assert [call.kwargs["Key"] for call in storage.sdk.head_object.call_args_list] == keys
-    assert [row.object_key for row in storage.db.query(PortalPublicLink).order_by(PortalPublicLink.id)] == keys
+    assert [
+        row.object_key
+        for row in storage.db.scalars(sa.select(PortalPublicLink).order_by(PortalPublicLink.id)).all()
+    ] == keys
 
     for key in keys:
         response = storage.http.get(url, params={"object_key": key})
@@ -218,7 +222,7 @@ def test_public_link_creation_never_falls_back_to_a_neighbor(storage, code):
     response = storage.http.post("/api/portal/storage-spaces/research/public-links", json={"object_key": "/report.txt"})
     assert response.status_code >= 400
     storage.sdk.head_object.assert_called_once_with(Bucket="research", Key="/report.txt")
-    assert storage.db.query(PortalPublicLink).count() == 0
+    assert storage.db.scalar(sa.select(sa.func.count()).select_from(PortalPublicLink)) == 0
 
 
 @pytest.mark.parametrize("action", ["delete", "restore", "public-link"])

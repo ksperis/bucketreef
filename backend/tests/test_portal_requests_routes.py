@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 from app.db import PortalAccountRole, S3Account, User, UserRole, UserS3Account
@@ -291,8 +292,13 @@ def test_admin_request_routes_approve_and_conflict(client: TestClient, db_sessio
     approved = approve_response.json()
     assert approved["status"] == "approved"
     assert approved["messages"][0]["message"] == "Approved"
-    target = db_session.query(User).filter(User.email == "jane@example.org").one()
-    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    target = db_session.scalars(sa.select(User).where(User.email == "jane@example.org")).one()
+    link = db_session.scalars(
+        sa.select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ).one()
     assert link.manager_role is None
     assert link.portal_role == PortalAccountRole.PORTAL_USER.value
 
@@ -332,7 +338,12 @@ def test_admin_request_routes_approve_user_removal(client: TestClient, db_sessio
     approved = approve_response.json()
     assert approved["status"] == "approved"
     assert approved["result"]["target_email"] == "jane@example.org"
-    assert db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).first() is None
+    assert db_session.scalar(
+        sa.select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ) is None
 
 
 def test_admin_request_routes_reject_and_message(client: TestClient, db_session):
