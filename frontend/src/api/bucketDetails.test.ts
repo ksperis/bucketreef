@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const clientMock = vi.hoisted(() => ({
   delete: vi.fn(),
   get: vi.fn(),
+  patch: vi.fn(),
   put: vi.fn(),
 }));
 
@@ -13,14 +14,17 @@ import {
   deleteBucketPolicy,
   getBucketStats,
   putBucketPolicy,
+  updateBucketQuota,
 } from "./bucketDetails";
 
 describe("bucket details api", () => {
   beforeEach(() => {
     clientMock.delete.mockReset();
     clientMock.get.mockReset();
+    clientMock.patch.mockReset();
     clientMock.put.mockReset();
     clientMock.get.mockResolvedValue({ data: {} });
+    clientMock.patch.mockResolvedValue({ data: undefined });
     clientMock.put.mockResolvedValue({ data: {} });
   });
 
@@ -78,6 +82,16 @@ describe("bucket details api", () => {
     );
     expect(clientMock.delete).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/policy",
+      { params: { context_id: "account-7" } },
+    );
+  });
+
+  it("patches sparse manager bucket quota updates", async () => {
+    await updateBucketQuota("account-7", "reports/2026", { max_objects: 100 });
+
+    expect(clientMock.patch).toHaveBeenCalledWith(
+      "/manager/buckets/reports%2F2026/quota",
+      { max_objects: 100 },
       { params: { context_id: "account-7" } },
     );
   });

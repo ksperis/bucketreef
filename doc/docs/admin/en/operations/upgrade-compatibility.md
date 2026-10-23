@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 bucket quota updates use PATCH
+
+Manager and Ceph Admin bucket quota updates now use `PATCH` on their existing
+quota resource URLs. Quota payloads intentionally allow individual limits to
+be updated independently, while an empty payload disables the quota, so the
+former `PUT` routes have been removed instead of retained as compatibility
+aliases. Other bucket configuration resources keep their replacement-style
+`PUT` semantics.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 access-key metadata updates use PATCH
 
 Manager access-key metadata updates now use `PATCH` for both RGW-user keys and
