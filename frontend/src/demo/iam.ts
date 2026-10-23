@@ -86,7 +86,7 @@ export function iam(c: DemoRequest): Response | undefined {
       const entity = { ...c.body, name, arn: `arn:aws:iam::${account.rgw_account_id}:${arnResource}/${name}` };
       collection.push(entity);
       if (Array.isArray(c.body.inline_policies)) data.inline[`${segment}/${name}`] = c.body.inline_policies as InlinePolicy[];
-      if (c.body.create_key) { const key = generatedKey(c); data.keys[name] = [key]; return json({ ...entity, access_key: { ...key, secret_access_key: "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE" } }); }
+      if (c.body.create_key) { const key = generatedKey(c); data.keys[name] = [key]; return json({ ...entity, access_key: { ...key, secret_access_key: "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE" } }, 201); }
       return json(entity, 201);
     }
   }
@@ -114,7 +114,7 @@ export function iam(c: DemoRequest): Response | undefined {
   if (resource === "users" && segment === "groups") {
     if (c.method === "GET") return json(data.users.filter(u => u.groups?.includes(entity.name)));
     const user = required(data.users.find(u => u.name === (resourceId ?? c.body.name)));
-    if (c.method === "POST") { user.groups = [...new Set([...(user.groups ?? []), entity.name])]; return json(user); }
+    if (c.method === "POST") { user.groups = [...new Set([...(user.groups ?? []), entity.name])]; return json(user, 201); }
     if (c.method === "DELETE") { user.groups = user.groups?.filter(g => g !== entity.name); return done(); }
   }
   if (resource === "tags" && segment === "roles") {
@@ -135,7 +135,7 @@ export function iam(c: DemoRequest): Response | undefined {
   if (resource === "policies") {
     const list = data.attachments[id] ?? (data.attachments[id] = []);
     if (c.method === "GET") return json(list);
-    if (c.method === "POST") { const policy = required(data.policies.find(p => p.arn === c.body.arn)); if (!list.some(p => p.arn === policy.arn)) list.push(policy); return json(policy); }
+    if (c.method === "POST") { const policy = required(data.policies.find(p => p.arn === c.body.arn)); if (!list.some(p => p.arn === policy.arn)) list.push(policy); return json(policy, 201); }
     if (c.method === "DELETE") { data.attachments[id] = list.filter(p => p.arn !== resourceId); return done(); }
   }
   if (resource === "inline-policies") {
