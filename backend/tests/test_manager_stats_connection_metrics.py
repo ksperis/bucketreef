@@ -779,7 +779,6 @@ def test_manager_usage_trends_resolve_direct_session_history(
     client, db_session, monkeypatch, registered_account, route,
 ):
     settings = _usage_history_settings(True)
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
     monkeypatch.setattr(manager_stats_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     now = datetime(2026, 6, 9, 12, tzinfo=UTC)
     monkeypatch.setattr(manager_stats_router, "utcnow", lambda: now)

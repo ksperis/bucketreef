@@ -2307,7 +2307,7 @@ def test_portal_browser_allowed_buckets_use_content_access(monkeypatch, db_sessi
     app_settings = AppSettings()
     app_settings.general.portal_enabled = True
     app_settings.general.browser_portal_enabled = True
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: app_settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: app_settings)
     monkeypatch.setattr(portal_access_deps, "_validate_portal_account_surface", lambda _account: None)
     monkeypatch.setattr(PortalService, "get_portal_credentials", lambda *_args, **_kwargs: ("AK", "SK"))
     monkeypatch.setattr(

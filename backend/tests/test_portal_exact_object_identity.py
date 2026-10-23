@@ -34,7 +34,7 @@ BASE = "/api/portal/storage-spaces/research/objects"
 def storage(db_session, monkeypatch, client):
     app_settings = AppSettings()
     app_settings.general.portal_enabled = True
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: app_settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: app_settings)
     account = make_s3_account(db_session, name="portal-exact-identity")
     user = User(email="exact-identity@example.test", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
