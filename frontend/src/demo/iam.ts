@@ -46,13 +46,17 @@ export function keyActions(
   c: DemoRequest,
   iam: DemoIam,
   owner: string,
-  keyId?: string,
-  ceph = false,
-  portal = false,
-  statusRoute = false,
+  options: {
+    keyId?: string;
+    responseShape?: "iam" | "ceph-admin" | "portal";
+    statusRoute?: boolean;
+  } = {},
 ): Response | undefined {
+  const { keyId, responseShape = "iam", statusRoute = false } = options;
+  const cephAdmin = responseShape === "ceph-admin";
+  const portal = responseShape === "portal";
   const keys = iam.keys[owner] ?? (iam.keys[owner] = []);
-  const view = (key: AccessKey) => ceph
+  const view = (key: AccessKey) => cephAdmin
     ? { access_key: key.access_key_id, status: key.status, created_at: key.created_at, is_active: key.status === "Active", user: owner }
     : portal
       ? portalKeyView(key)
@@ -62,7 +66,7 @@ export function keyActions(
     if (keys.length >= 3) throw new DemoError(409, "This demo identity already has three keys");
     const key = generatedKey(c); keys.push(key);
     if (portal) return json(portalKeyView(key, "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE"), 201);
-    return json({ ...view(key), [ceph ? "secret_key" : "secret_access_key"]: "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE" }, 201);
+    return json({ ...view(key), [cephAdmin ? "secret_key" : "secret_access_key"]: "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE" }, 201);
   }
   const key = keyId ? required(keys.find(k => k.access_key_id === decodeURIComponent(keyId))) : undefined;
   if (key && statusRoute && c.method === "PUT") { key.status = c.body.active ? "Active" : "Inactive"; return json(view(key)); }
@@ -81,7 +85,11 @@ export function iam(c: DemoRequest): Response | undefined {
     if (portalKeys && c.body.target_type === "external") throw new DemoError(403, "External key sharing is disabled in this demo");
     if (portalKeys && c.method === "GET" && !portalKeys[1]) return json({ iam_user: { iam_user_id: null, iam_username: owner, arn: `arn:aws:iam::${account.rgw_account_id}:user/${owner}`, created_at: null }, s3_endpoint: account.storage_endpoint_url, force_path_style: true, access_keys: (data.keys[owner] ?? []).map(k => portalKeyView(k)), can_manage_access_keys: true, can_create_external_access: false, max_access_keys: 3 });
     const keyRoute = (portalKeys ?? cephKeys)!;
-    return keyActions(c, data, owner, keyRoute[1], false, Boolean(portalKeys), keyRoute[2] === "status");
+    return keyActions(c, data, owner, {
+      keyId: keyRoute[1],
+      responseShape: portalKeys ? "portal" : "iam",
+      statusRoute: keyRoute[2] === "status",
+    });
   }
   const segment = match![1] as "users" | "groups" | "roles" | "policies";
   const name = match![2] ? decodeURIComponent(match![2]) : undefined;
@@ -120,7 +128,10 @@ export function iam(c: DemoRequest): Response | undefined {
     }
     if (c.method === "DELETE") { collection.splice(collection.findIndex(item => item.name === entity.name), 1); delete data.keys[entity.name]; delete data.inline[`${segment}/${name}`]; delete data.attachments[`${segment}/${name}`]; return done(); }
   }
-  if (resource === "keys" && segment === "users") return keyActions(c, data, entity.name, resourceId, false, false, match![5] === "status");
+  if (resource === "keys" && segment === "users") return keyActions(c, data, entity.name, {
+    keyId: resourceId,
+    statusRoute: match![5] === "status",
+  });
   if (resource === "users" && segment === "groups") {
     if (c.method === "GET") return json(data.users.filter(u => u.groups?.includes(entity.name)));
     const user = required(data.users.find(u => u.name === (resourceId ?? c.body.name)));
