@@ -78,6 +78,31 @@ def _invalidate_bucket_listing_for_context(context: S3ExecutionContext) -> None:
     invalidate_bucket_listing_cache_for_context(context)
 
 
+def _bucket_ui_target(
+    context: S3ExecutionContext,
+    bucket_name: str,
+) -> PhysicalBucketTarget | None:
+    endpoint_id = int(context.storage_endpoint_id or 0)
+    if endpoint_id <= 0:
+        return None
+    return PhysicalBucketTarget.create(
+        endpoint_id,
+        resolve_storage_ops_context_tenant(context),
+        bucket_name,
+    )
+
+
+def _remove_bucket_ui_tags(
+    db: Session,
+    target: PhysicalBucketTarget | None,
+) -> None:
+    if target is None:
+        return
+    tag_service = BucketUiTagsService(db)
+    with tag_service.transaction():
+        tag_service.remove_all_namespaces_for_bucket(target)
+
+
 @router.get("", response_model=list[Bucket])
 def list_buckets(
     include: list[str] = Query(default=[], description="Optional extra fields to include (e.g. tags, versioning, cors)"),
@@ -272,17 +297,9 @@ def delete_bucket(
         entity_id=bucket_name,
         execution_context=context,
     )
-    endpoint_id = int(context.storage_endpoint_id or 0)
-    if endpoint_id > 0:
-        tag_service = BucketUiTagsService(audit_service.db)
-        with tag_service.transaction():
-            tag_service.remove_all_namespaces_for_bucket(
-                PhysicalBucketTarget.create(
-                    endpoint_id,
-                    resolve_storage_ops_context_tenant(context),
-                    bucket_name,
-                )
-            )
+    deleted_bucket_target = _bucket_ui_target(context, bucket_name)
+    if deleted_bucket_target is not None:
+        _remove_bucket_ui_tags(audit_service.db, deleted_bucket_target)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -314,28 +331,14 @@ def stream_delete_bucket_with_purge(
         "include_versions": True,
         "confirmation": "matched",
     }
-    endpoint_id = int(context.storage_endpoint_id or 0)
-    deleted_bucket_target = (
-        PhysicalBucketTarget.create(
-            endpoint_id,
-            resolve_storage_ops_context_tenant(context),
-            bucket_name,
-        )
-        if endpoint_id > 0
-        else None
-    )
+    deleted_bucket_target = _bucket_ui_target(context, bucket_name)
 
     def after_result(result: BucketPurgeResult) -> None:
         if result.bucket_deleted:
             _invalidate_bucket_listing_for_context(context)
             if deleted_bucket_target is not None:
-                cleanup_db = SessionLocal()
-                try:
-                    tag_service = BucketUiTagsService(cleanup_db)
-                    with tag_service.transaction():
-                        tag_service.remove_all_namespaces_for_bucket(deleted_bucket_target)
-                finally:
-                    cleanup_db.close()
+                with SessionLocal() as cleanup_db:
+                    _remove_bucket_ui_tags(cleanup_db, deleted_bucket_target)
 
     def result_succeeded(result: BucketPurgeResult) -> bool:
         return result.status == "completed" and result.bucket_deleted
