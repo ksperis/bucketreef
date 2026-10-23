@@ -181,11 +181,11 @@ class StorageEndpointPublic(ApiModel):
     id: int
     name: str
     endpoint_url: str
-    is_default: bool = False
+    is_default: bool
 
 
 class StorageEndpointMeta(ApiModel):
-    managed_by_env: bool = False
+    managed_by_env: bool
 
 
 class StorageEndpointFeatureDetectionRequest(ApiModel):
