@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import sys
 
+import sqlalchemy as sa
+
 from app.db import EndpointHealthCheck, EndpointHealthLatest, HealthCheckStatus, StorageEndpoint
 from app.core.logging_security import SensitiveDataFormatter
 from app.core.sensitive_data import sanitize_persisted_error
@@ -128,8 +130,8 @@ def test_healthcheck_persistence_redacts_error_messages(db_session):
 
     HealthCheckPersistenceService(db_session).record_results([result])
 
-    history = db_session.query(EndpointHealthCheck).one()
-    latest = db_session.query(EndpointHealthLatest).one()
+    history = db_session.scalars(sa.select(EndpointHealthCheck)).one()
+    latest = db_session.scalars(sa.select(EndpointHealthLatest)).one()
     for persisted in (history.error_message, latest.error_message):
         assert persisted is not None
         assert "health-secret" not in persisted
