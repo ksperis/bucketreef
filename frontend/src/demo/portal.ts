@@ -187,7 +187,7 @@ export function portal(c: DemoRequest): Response | undefined {
     if (method === "POST" || method === "PUT") {
       if (body.role !== "Viewer" && body.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");
       const share: PortalStorageSpaceShare = { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: body.role, direction: "by_me", activity_label: "Just now" };
-      space.shares = [...space.shares.filter(s => s.user_id !== target.user_id), share]; return json(share);
+      space.shares = [...space.shares.filter(s => s.user_id !== target.user_id), share]; return json(share, method === "POST" ? 201 : 200);
     }
   }
   return undefined;

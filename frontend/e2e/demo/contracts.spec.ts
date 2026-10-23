@@ -34,11 +34,11 @@ test("governance: users, groups, associations, endpoints and manual declarations
 test("iam: policies, membership and fictitious keys share Ceph inventory", async ({ page }) => {
   await open(page, "/manager/users");
   const user = await api(page, "/manager/iam/users?context_id=101", "POST", { name: "demo-service", create_key: true });
-  expect(user.status).toBe(200); expect(user.data.access_key.secret_access_key).toContain("DEMO-ONLY");
+  expect(user.status).toBe(201); expect(user.data.access_key.secret_access_key).toContain("DEMO-ONLY");
   const document = { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["s3:GetObject"], Resource: ["arn:aws:s3:::helios-documents/*"] }] };
   const policy = (await api(page, "/manager/iam/policies?context_id=101", "POST", { name: "DemoReader", document })).data;
-  expect((await api(page, "/manager/iam/users/demo-service/policies?context_id=101", "POST", { arn: policy.arn })).status).toBe(200);
-  expect((await api(page, "/manager/iam/groups/applications/users?context_id=101", "POST", { name: "demo-service" })).status).toBe(200);
+  expect((await api(page, "/manager/iam/users/demo-service/policies?context_id=101", "POST", { arn: policy.arn })).status).toBe(201);
+  expect((await api(page, "/manager/iam/groups/applications/users?context_id=101", "POST", { name: "demo-service" })).status).toBe(201);
   expect((await api(page, "/manager/iam/users/demo-service/inline-policies/ReadOnly?context_id=101", "PUT", { document })).status).toBe(200);
   await open(page, "/ceph-admin/users");
   const rgw = (await api(page, "/ceph-admin/endpoints/11/users/101%3Ademo-service/detail")).data;
@@ -58,8 +58,10 @@ test("iam: policies, membership and fictitious keys share Ceph inventory", async
 
 test("portal: shared space, Viewer restrictions, settings, archive and removal", async ({ page }) => {
   await open(page, "/portal/storage-spaces?demoPersona=project-manager");
-  const created = await api(page, "/portal/storage-spaces?account_id=101", "POST", { name: "Team review", visibility: "shared", share_scope: "restricted", initial_shares: [{ user_id: 3, role: "Viewer" }] });
+  const created = await api(page, "/portal/storage-spaces?account_id=101", "POST", { name: "Team review", visibility: "shared", share_scope: "restricted" });
   expect(created.status).toBe(201); const space = created.data;
+  expect((await api(page, `/portal/storage-spaces/${space.id}/shares?account_id=101`, "POST", { user_id: 3, role: "Viewer" })).status).toBe(201);
+  expect((await api(page, `/portal/storage-spaces/${space.id}/shares/3?account_id=101`, "PUT", { role: "Viewer" })).status).toBe(200);
   await api(page, `/portal/storage-spaces/${space.id}/settings?account_id=101`, "PUT", { versioning_enabled: true, lifecycle_enabled: true, version_history_retention_days: 45 });
   expect((await api(page, `/portal/storage-spaces/${space.id}/settings?account_id=101`)).data.version_history_retention_days).toBe(45);
   await open(page, "/browser?demoPersona=member");
