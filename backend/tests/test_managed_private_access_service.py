@@ -7,6 +7,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+import sqlalchemy as sa
 
 from app.db import (
     AccountIAMUser,
@@ -218,13 +219,15 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     serialized = result.model_dump_json()
     assert "NEVER-IN-RESPONSE" not in serialized
     assert "secret_access_key" not in serialized
-    connection = db_session.query(S3Connection).filter(S3Connection.id == result.connection.id).one()
+    connection = db_session.scalars(
+        sa.select(S3Connection).where(S3Connection.id == result.connection.id)
+    ).one()
     assert connection.secret_access_key == "NEVER-IN-RESPONSE"
     assert connection.storage_endpoint_id == account.storage_endpoint_id
     assert connection.rgw_user_uid is None
     assert connection.rgw_tenant is None
     assert connection.rgw_account_id == account.rgw_account_id
-    audits = db_session.query(AuditLog).all()
+    audits = db_session.scalars(sa.select(AuditLog)).all()
     assert audits
     assert all("NEVER-IN-RESPONSE" not in (audit.metadata_json or "") for audit in audits)
     assert all("AK-MANAGED" not in (audit.metadata_json or "") for audit in audits)
@@ -282,7 +285,7 @@ def test_iam_provisioning_rejects_portal_technical_groups_without_remote_mutatio
     assert not fake.created_users
     assert not fake.groups
     assert not fake.created_keys
-    assert db_session.query(ManagedPrivateAccess).count() == 0
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(ManagedPrivateAccess)) == 0
 
 
 @pytest.mark.parametrize("shared", [False, True])
@@ -326,12 +329,16 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
 
     result = service.provision_iam(user=user, context=context, payload=_payload(f"private-{shared}"))
 
-    created = db_session.query(S3Connection).filter(S3Connection.id == result.connection.id).one()
+    created = db_session.scalars(
+        sa.select(S3Connection).where(S3Connection.id == result.connection.id)
+    ).one()
     assert created.is_shared is False
     assert created.access_key_id == "AK-MANAGED"
     assert created.access_key_id != source.access_key_id
     assert json.loads(created.custom_endpoint_config) == json.loads(source.custom_endpoint_config)
-    audits = db_session.query(AuditLog).filter(AuditLog.action.like("managed_private_access.%")).all()
+    audits = db_session.scalars(
+        sa.select(AuditLog).where(AuditLog.action.like("managed_private_access.%"))
+    ).all()
     assert audits
     assert all(audit.context_kind == "connection" for audit in audits)
     assert all(audit.context_id == f"conn-{source.id}" for audit in audits)
@@ -510,7 +517,9 @@ def test_iam_provisioning_never_reuses_portal_identity(db_session, monkeypatch):
 
     result = service.provision_iam(user=user, context=account, payload=_payload())
 
-    provisioning = db_session.query(ManagedPrivateAccess).filter_by(s3_connection_id=result.connection.id).one()
+    provisioning = db_session.scalars(
+        sa.select(ManagedPrivateAccess).where(ManagedPrivateAccess.s3_connection_id == result.connection.id)
+    ).one()
     assert provisioning.iam_username == f"bkr-private-u{user.id}-acc{account.id}"
     assert not provisioning.iam_username.startswith("portal-")
     assert provisioning.remote_principal_identifier != portal.iam_user_id
@@ -528,7 +537,7 @@ def test_existing_untracked_deterministic_iam_user_is_never_adopted(db_session, 
     with pytest.raises(ManagedPrivateAccessConflict, match="already exists"):
         service.provision_iam(user=user, context=account, payload=_payload())
 
-    provisioning = db_session.query(ManagedPrivateAccess).one()
+    provisioning = db_session.scalars(sa.select(ManagedPrivateAccess)).one()
     assert provisioning.state == "failed"
     assert fake.created_users == []
     assert fake.created_keys == []
@@ -566,7 +575,7 @@ def test_failed_local_creation_compensates_remote_resources(db_session, monkeypa
         service.provision_iam(user=user, context=account, payload=_payload())
     assert "LEAK-ME" not in str(raised.value)
 
-    provisioning = db_session.query(ManagedPrivateAccess).one()
+    provisioning = db_session.scalars(sa.select(ManagedPrivateAccess)).one()
     assert provisioning.state == "failed"
     assert provisioning.s3_connection_id is None
     assert provisioning.cleanup_error == (
@@ -574,12 +583,12 @@ def test_failed_local_creation_compensates_remote_resources(db_session, monkeypa
     )
     assert fake.deleted_keys == [(provisioning.iam_username, "AK-MANAGED")]
     assert fake.deleted_users == [provisioning.iam_username]
-    actions = [row.action for row in db_session.query(AuditLog).order_by(AuditLog.id).all()]
+    actions = [row.action for row in db_session.scalars(sa.select(AuditLog).order_by(AuditLog.id)).all()]
     assert "managed_private_access.provision.failure" in actions
     assert "managed_private_access.compensation.success" in actions
     assert all(
         "LEAK-ME" not in f"{row.message or ''}{row.metadata_json or ''}"
-        for row in db_session.query(AuditLog).all()
+        for row in db_session.scalars(sa.select(AuditLog)).all()
     )
 
 
@@ -597,8 +606,8 @@ def test_failed_capability_probe_rolls_back_flushed_local_connection(db_session,
     with pytest.raises(ManagedPrivateAccessError, match="Unable to create"):
         service.provision_iam(user=user, context=account, payload=_payload())
 
-    assert db_session.query(S3Connection).count() == 0
-    provisioning = db_session.query(ManagedPrivateAccess).one()
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Connection)) == 0
+    provisioning = db_session.scalars(sa.select(ManagedPrivateAccess)).one()
     assert provisioning.state == "failed"
     assert provisioning.s3_connection_id is None
     assert fake.deleted_keys == [(provisioning.iam_username, "AK-MANAGED")]
@@ -615,20 +624,22 @@ def test_failed_compensation_is_durable_cleanup_pending(db_session, monkeypatch)
     with pytest.raises(ManagedPrivateAccessError):
         service.provision_iam(user=user, context=account, payload=_payload())
 
-    provisioning = db_session.query(ManagedPrivateAccess).one()
+    provisioning = db_session.scalars(sa.select(ManagedPrivateAccess)).one()
     assert provisioning.state == "cleanup_pending"
     assert provisioning.access_key_id == "AK-MANAGED"
     assert "cleanup refused" in (provisioning.cleanup_error or "")
-    actions = [row.action for row in db_session.query(AuditLog).order_by(AuditLog.id).all()]
+    actions = [row.action for row in db_session.scalars(sa.select(AuditLog).order_by(AuditLog.id)).all()]
     assert "managed_private_access.compensation.failure" in actions
     assert "managed_private_access.cleanup_pending" in actions
 
     fake.cleanup_fails = False
     service.retry_provisioning_cleanup(user=user, provisioning_id=provisioning.id)
-    assert db_session.query(ManagedPrivateAccess).filter_by(id=provisioning.id).first() is None
+    assert db_session.scalar(
+        sa.select(ManagedPrivateAccess).where(ManagedPrivateAccess.id == provisioning.id)
+    ) is None
     assert fake.deleted_keys == [(provisioning.iam_username, "AK-MANAGED")]
-    retry_audit = db_session.query(AuditLog).filter_by(
-        action="managed_private_access.compensation.retry.success"
+    retry_audit = db_session.scalars(
+        sa.select(AuditLog).where(AuditLog.action == "managed_private_access.compensation.retry.success")
     ).one()
     assert "NEVER-IN-RESPONSE" not in (retry_audit.message or "")
 
@@ -682,7 +693,9 @@ def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkey
         ),
     )
 
-    created = db_session.query(S3Connection).filter(S3Connection.id == result.connection.id).one()
+    created = db_session.scalars(
+        sa.select(S3Connection).where(S3Connection.id == result.connection.id)
+    ).one()
     assert created.storage_endpoint_id == endpoint.id
     assert created.access_key_id == "PERSONAL-AK"
     assert created.access_key_id != s3_user.rgw_access_key
@@ -690,7 +703,9 @@ def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkey
     assert created.rgw_tenant == (tenant or "")
     assert created.rgw_account_id is None
     assert "PERSONAL-SK" not in result.model_dump_json()
-    audits = db_session.query(AuditLog).filter(AuditLog.action.like("managed_private_access.%")).all()
+    audits = db_session.scalars(
+        sa.select(AuditLog).where(AuditLog.action.like("managed_private_access.%"))
+    ).all()
     assert audits
     assert all(audit.context_kind == "s3_user" for audit in audits)
     assert all(audit.context_id == f"s3u-{s3_user.id}" for audit in audits)
@@ -779,8 +794,10 @@ def test_managed_iam_connection_delete_cleans_remote_resources_before_local_rows
     assert deleted is True
     assert fake.deleted_keys == [(f"bkr-private-u{user.id}-acc{account.id}", "AK-MANAGED")]
     assert fake.deleted_users == [f"bkr-private-u{user.id}-acc{account.id}"]
-    assert db_session.query(S3Connection).filter_by(id=result.connection.id).first() is None
-    assert db_session.query(ManagedPrivateAccess).filter_by(id=result.provisioning_id).first() is None
+    assert db_session.scalar(sa.select(S3Connection).where(S3Connection.id == result.connection.id)) is None
+    assert db_session.scalar(
+        sa.select(ManagedPrivateAccess).where(ManagedPrivateAccess.id == result.provisioning_id)
+    ) is None
 
 
 def test_server_managed_connection_generic_updates_protect_provenance_and_credentials(db_session):
