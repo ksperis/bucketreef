@@ -202,7 +202,10 @@ export function readModels(c: DemoRequest): Response | undefined {
     return json({ ...(dashboardKind ? { coverage, cache, measurements: Object.fromEntries(["bucket_count", "object_count", "used_bytes"].map(key => [key, { contributing_count: dashboardIds.length, complete_count: dashboardIds.length }])) } : {}), total_accounts: state.accounts.length, total_users: state.users.length, total_admins: 2, total_s3_users: 15, total_buckets: selected.length, total_bytes: bytes, total_objects: count, bucket_count: selected.length, bucket_usage: selected,
       bucket_overview: { bucket_count: selected.length, non_empty_buckets: selected.filter(b => b.object_count).length, empty_buckets: selected.filter(b => !b.object_count).length, avg_bucket_size_bytes: bytes / (selected.length || 1), avg_objects_per_bucket: count / (selected.length || 1), largest_bucket: [...selected].sort((a, b) => (b.used_bytes ?? 0) - (a.used_bytes ?? 0))[0], most_objects_bucket: [...selected].sort((a, b) => (b.object_count ?? 0) - (a.object_count ?? 0))[0] },
       storage_totals: { used_bytes: bytes, object_count: count, bucket_count: selected.length, accounts_with_usage: state.accounts.length, owners_with_usage: state.accounts.length },
-      account_usage: state.accounts.map(a => ({ account_id: String(a.id), account_name: a.name, ...accountView(c, a) })), owner_usage: state.accounts.map(a => ({ owner: a.rgw_account_id, used_bytes: accountView(c, a).used_bytes, bucket_count: accountView(c, a).bucket_count })), s3_user_usage: [], generated_at: state.initializedAt });
+      account_usage: state.accounts.map(a => ({ account_id: String(a.id), account_name: a.name, ...accountView(c, a) })), owner_usage: state.accounts.map(a => {
+        const view = accountView(c, a);
+        return { owner: a.rgw_account_id, used_bytes: view.used_bytes, object_count: view.used_objects, bucket_count: view.bucket_count };
+      }), s3_user_usage: [], generated_at: state.initializedAt });
   }
   return undefined;
 }

@@ -7,13 +7,13 @@ import type { ManagerTrafficStats, TrafficWindow } from "./stats";
 
 export type CephAdminBucketUsagePoint = {
   name: string;
-  used_bytes?: number | null;
-  object_count?: number | null;
+  used_bytes: number | null;
+  object_count: number | null;
 };
 
 export type CephAdminEntityMetrics = {
-  total_bytes?: number | null;
-  total_objects?: number | null;
+  total_bytes: number | null;
+  total_objects: number | null;
   bucket_count: number;
   bucket_usage: CephAdminBucketUsagePoint[];
   generated_at: string;
@@ -21,16 +21,16 @@ export type CephAdminEntityMetrics = {
 
 export type CephAdminClusterOwnerUsagePoint = {
   owner: string;
-  used_bytes?: number | null;
-  object_count?: number | null;
+  used_bytes: number | null;
+  object_count: number | null;
   bucket_count: number;
 };
 
 export type CephAdminClusterStorageTotals = {
-  used_bytes?: number | null;
-  object_count?: number | null;
-  bucket_count?: number | null;
-  owners_with_usage?: number | null;
+  used_bytes: number | null;
+  object_count: number | null;
+  bucket_count: number;
+  owners_with_usage: number;
 };
 
 export type CephAdminClusterStorageMetrics = {

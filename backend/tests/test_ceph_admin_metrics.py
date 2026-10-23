@@ -56,15 +56,15 @@ def test_ceph_admin_cluster_storage_aggregates_bucket_and_owner_usage(monkeypatc
 
     payload = metrics_router.cluster_storage_metrics(endpoint=_build_endpoint())
 
-    assert payload["total_buckets"] == 3
-    assert payload["storage_totals"]["bucket_count"] == 3
-    assert payload["storage_totals"]["owners_with_usage"] == 2
-    assert payload["storage_totals"]["used_bytes"] == 7168
-    assert payload["storage_totals"]["object_count"] == 24
-    assert payload["owner_usage"][0]["owner"] == "tenant-b$user-b"
-    assert payload["owner_usage"][0]["bucket_count"] == 1
-    assert payload["owner_usage"][0]["used_bytes"] == 4096
-    assert payload["bucket_usage"][0]["name"] == "gamma"
+    assert payload.total_buckets == 3
+    assert payload.storage_totals.bucket_count == 3
+    assert payload.storage_totals.owners_with_usage == 2
+    assert payload.storage_totals.used_bytes == 7168
+    assert payload.storage_totals.object_count == 24
+    assert payload.owner_usage[0].owner == "tenant-b$user-b"
+    assert payload.owner_usage[0].bucket_count == 1
+    assert payload.owner_usage[0].used_bytes == 4096
+    assert payload.bucket_usage[0].name == "gamma"
 
 
 def test_ceph_admin_cluster_storage_preserves_partial_metrics_and_normalization(monkeypatch: pytest.MonkeyPatch):
@@ -82,18 +82,18 @@ def test_ceph_admin_cluster_storage_preserves_partial_metrics_and_normalization(
 
     payload = metrics_router.cluster_storage_metrics(endpoint=_build_endpoint())
 
-    assert payload["storage_totals"] == {
+    assert payload.storage_totals.model_dump() == {
         "used_bytes": 10,
         "object_count": 2,
         "bucket_count": 3,
         "owners_with_usage": 2,
     }
-    assert payload["bucket_usage"] == [
+    assert [item.model_dump() for item in payload.bucket_usage] == [
         {"name": "measured", "used_bytes": 10, "object_count": None},
         {"name": "objects-only", "used_bytes": None, "object_count": 2},
         {"name": "unknown", "used_bytes": None, "object_count": None},
     ]
-    assert payload["owner_usage"] == [
+    assert [item.model_dump() for item in payload.owner_usage] == [
         {"owner": "owner-a", "used_bytes": 10, "object_count": 2, "bucket_count": 2},
         {"owner": "tenant-b", "used_bytes": None, "object_count": None, "bucket_count": 1},
     ]

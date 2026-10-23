@@ -8,6 +8,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.db import StorageEndpoint
+from app.models.ceph_admin import CephAdminClusterStorageMetrics
 from app.routers.ceph_admin.dependencies import get_ceph_admin_workspace_endpoint
 from app.services.rgw_admin import RGWAdminError
 from app.services.traffic_service import (
@@ -95,10 +96,10 @@ def _summarize_owner_usage(buckets: list[dict[str, Any]]) -> list[dict[str, Any]
     return owner_usage
 
 
-@router.get("/storage")
+@router.get("/storage", response_model=CephAdminClusterStorageMetrics)
 def cluster_storage_metrics(
     endpoint: StorageEndpoint = Depends(get_ceph_admin_workspace_endpoint),
-) -> dict[str, Any]:
+) -> CephAdminClusterStorageMetrics:
     _require_storage_metrics_enabled(endpoint)
     rgw_admin = _build_supervision_client(endpoint)
     try:
@@ -110,18 +111,18 @@ def cluster_storage_metrics(
     bucket_usage, total_bytes, total_objects, total_buckets = summarize_bucket_usage(buckets)
     owner_usage = _summarize_owner_usage(buckets)
 
-    return {
-        "total_buckets": total_buckets,
-        "bucket_usage": bucket_usage,
-        "owner_usage": owner_usage,
-        "storage_totals": {
+    return CephAdminClusterStorageMetrics(
+        total_buckets=total_buckets,
+        bucket_usage=bucket_usage,
+        owner_usage=owner_usage,
+        storage_totals={
             "used_bytes": total_bytes,
             "object_count": total_objects,
             "bucket_count": total_buckets,
             "owners_with_usage": len(owner_usage),
         },
-        "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-    }
+        generated_at=datetime.now(timezone.utc).replace(microsecond=0),
+    )
 
 
 @router.get("/traffic")

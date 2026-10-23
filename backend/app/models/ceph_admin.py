@@ -420,6 +420,28 @@ class CephAdminEntityMetrics(ApiModel):
     generated_at: datetime
 
 
+class CephAdminClusterOwnerUsagePoint(ApiModel):
+    owner: str
+    used_bytes: Optional[int] = None
+    object_count: Optional[int] = None
+    bucket_count: int = 0
+
+
+class CephAdminClusterStorageTotals(ApiModel):
+    used_bytes: Optional[int] = None
+    object_count: Optional[int] = None
+    bucket_count: int = 0
+    owners_with_usage: int = 0
+
+
+class CephAdminClusterStorageMetrics(ApiModel):
+    total_buckets: int = 0
+    bucket_usage: list[CephAdminBucketUsagePoint] = Field(default_factory=list)
+    owner_usage: list[CephAdminClusterOwnerUsagePoint] = Field(default_factory=list)
+    storage_totals: CephAdminClusterStorageTotals
+    generated_at: datetime
+
+
 
 class CephAdminBucketCompareRequest(ApiModel):
     target_endpoint_id: int = Field(..., ge=1)
