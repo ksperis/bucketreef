@@ -2,56 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import logging
-import time
-from typing import Optional
-
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.services.app_settings_service import load_app_settings_for_db_readonly
-from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
 from app.services.s3_deletion import purge_bucket_contents
-from app.services.s3_execution_context import S3ExecutionTarget
-from app.services.storage_ops_bucket_listing_service import resolve_storage_ops_context_tenant
 from ._shared import _ResolvedContext
 
-logger = logging.getLogger(__name__)
-
-
 class BucketMigrationCleanupMixin:
-    def _delete_source_bucket_with_retry(
-        self,
-        source_bucket: str,
-        source_execution_context: S3ExecutionTarget,
-    ) -> None:
-        last_exc: Optional[RuntimeError] = None
-        for attempt in range(1, 4):
-            try:
-                self._buckets.delete_bucket(source_bucket, source_execution_context, force=True)
-                endpoint_id = int(source_execution_context.storage_endpoint_id or 0)
-                if endpoint_id > 0:
-                    BucketUiTagsService(self.db).remove_all_namespaces_for_bucket(
-                        PhysicalBucketTarget.create(
-                            endpoint_id,
-                            resolve_storage_ops_context_tenant(source_execution_context),
-                            source_bucket,
-                        )
-                    )
-                return
-            except RuntimeError as exc:
-                last_exc = exc
-                if not self._is_access_denied_error(exc) or attempt == 3:
-                    raise
-                logger.warning(
-                    "Delete source bucket got AccessDenied (bucket=%s, attempt=%s/3), retrying.",
-                    source_bucket,
-                    attempt,
-                )
-                # Policy propagation may lag briefly on some S3 implementations.
-                time.sleep(0.8 * attempt)
-        if last_exc is not None:
-            raise last_exc
-
     def _purge_target_bucket(self, target_ctx: _ResolvedContext, target_bucket: str) -> tuple[int, int]:
         client = self._context_client(target_ctx)
         try:

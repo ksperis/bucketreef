@@ -632,18 +632,6 @@ class BucketMigrationItemRunnerMixin:
             return "pre_sync"
         return "apply_read_only"
 
-    def _is_bucket_already_exists_error(self, exc: Exception) -> bool:
-        text = str(exc).strip().lower()
-        return any(
-            marker in text
-            for marker in (
-                "bucketalreadyexists",
-                "bucketalreadyownedbyyou",
-                "bucket already exists",
-                "already owned by you",
-            )
-        )
-
     def _is_access_denied_error(self, exc: Exception) -> bool:
         text = str(exc).strip().lower()
         return "accessdenied" in text or "access denied" in text or "403" in text
