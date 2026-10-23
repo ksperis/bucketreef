@@ -7,7 +7,12 @@ from app.db import PortalAccountRole, S3Account, User, UserRole
 from app.main import app
 from app.models.access_context import AccountAccess
 from app.models.account_capabilities import AccountCapabilities
-from app.models.portal_usage import PortalStorageSpaceUsageStatsResponse, PortalUsage
+from app.models.portal_usage import (
+    PortalStorageSpaceUsageStatsResponse,
+    PortalStorageSpaceUsageStatsSnapshot,
+    PortalUsage,
+    PortalUsageStorageSpace,
+)
 from app.routers import dependencies
 from app.routers.portal_common import get_portal_service_dependency
 
@@ -15,6 +20,44 @@ from app.routers.portal_common import get_portal_service_dependency
 def test_portal_usage_models_have_a_single_canonical_module() -> None:
     assert PortalUsage.__module__ == "app.models.portal_usage"
     assert PortalStorageSpaceUsageStatsResponse.__module__ == "app.models.portal_usage"
+
+
+def test_portal_usage_models_require_complete_canonical_payloads() -> None:
+    assert set(PortalUsageStorageSpace.model_json_schema()["required"]) == {
+        "id",
+        "name",
+        "used_bytes",
+        "object_count",
+        "quota_max_size_bytes",
+        "quota_max_objects",
+    }
+    assert set(PortalUsage.model_json_schema()["required"]) == {
+        "used_bytes",
+        "used_objects",
+        "quota_max_size_bytes",
+        "quota_max_objects",
+        "max_buckets",
+        "storage_spaces",
+        "other_storage_space",
+    }
+    assert set(PortalStorageSpaceUsageStatsSnapshot.model_json_schema()["required"]) == {
+        "scan_mode",
+        "version_listing_available",
+        "object_version_count",
+        "current_version_count",
+        "noncurrent_version_count",
+        "delete_marker_count",
+        "total_bytes",
+        "current_bytes",
+        "noncurrent_bytes",
+        "data_type_distribution",
+        "storage_class_distribution",
+        "size_distribution",
+        "age_distribution",
+        "current_vs_noncurrent",
+        "calculated_at",
+    }
+    assert set(PortalStorageSpaceUsageStatsResponse.model_json_schema()["required"]) == {"snapshot"}
 
 
 def test_portal_usage_routes_preserve_their_openapi_contracts() -> None:

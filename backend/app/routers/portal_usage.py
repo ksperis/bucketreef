@@ -170,7 +170,7 @@ def portal_storage_space_usage_stats(
         bucket_name=storage_space.internal_bucket_name,
     )
     if snapshot is None:
-        return PortalStorageSpaceUsageStatsResponse()
+        return PortalStorageSpaceUsageStatsResponse(snapshot=None)
     return PortalStorageSpaceUsageStatsResponse(
         snapshot=PortalStorageSpaceUsageStatsSnapshot.model_validate(
             snapshot.model_dump(

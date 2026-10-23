@@ -308,11 +308,19 @@ describe("PortalDashboard storage workspace UX", () => {
       { ...baseSpace, id: "cold-vault", name: "Cold Vault", internalName: "cold-vault", usedBytes: 256, objectCount: 8 },
     ];
     mocks.hookResult.usage = {
+      used_bytes: null,
+      used_objects: null,
+      quota_max_size_bytes: null,
+      quota_max_objects: null,
+      max_buckets: null,
+      storage_spaces: [],
       other_storage_space: {
         id: "__other__",
         name: "Other",
         used_bytes: 900,
         object_count: 9,
+        quota_max_size_bytes: null,
+        quota_max_objects: null,
       },
     };
 
