@@ -20,6 +20,7 @@ from app.models.oidc import OIDCProviderAdminPayload
 from app.routers import dependencies
 from app.services.oidc_provider_settings_service import (
     _load_scopes,
+    _load_string_list,
     list_effective_oidc_providers,
     resolve_oidc_provider_map,
 )
@@ -159,6 +160,13 @@ def test_ui_provider_scopes_require_a_non_empty_string_list():
     for raw in ("{", "{}", "[]", '["openid",""]', '["openid",42]'):
         with pytest.raises(ValueError):
             _load_scopes(raw)
+
+
+def test_ui_provider_domains_require_canonical_persisted_json():
+    assert _load_string_list('["example.com"]') == ["example.com"]
+    for raw in ("", "{", "{}", '["example.com",42]'):
+        with pytest.raises((ValueError, TypeError)):
+            _load_string_list(raw)
 
 
 class _FakeUsersService:

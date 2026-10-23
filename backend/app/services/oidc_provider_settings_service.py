@@ -162,7 +162,7 @@ def _ui_provider_to_settings(provider: OidcProvider) -> OIDCProviderSettings:
         icon_url=provider.icon_url,
         use_pkce=bool(provider.use_pkce),
         use_nonce=bool(provider.use_nonce),
-        linking_policy=provider.linking_policy or "manual",
+        linking_policy=provider.linking_policy,
         trusted_email_domains=_load_string_list(provider.trusted_email_domains_json),
     )
 
@@ -233,7 +233,7 @@ def _dump_scopes(scopes: list[str]) -> str:
 
 
 def _load_string_list(raw: str) -> list[str]:
-    parsed = json.loads(raw or "[]")
+    parsed = json.loads(raw)
     if not isinstance(parsed, list) or any(not isinstance(item, str) for item in parsed):
         raise ValueError("OIDC provider domains must be a JSON list of strings")
     return [item for item in parsed if item]
