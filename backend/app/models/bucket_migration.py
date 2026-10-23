@@ -111,7 +111,7 @@ class BucketMigrationConfirmationRequest(ApiModel):
 
 class BucketMigrationActionAvailability(ApiModel):
     enabled: bool
-    reason: Optional[str] = None
+    reason: Optional[str]
 
 
 class BucketMigrationDiagnostic(ApiModel):
@@ -134,46 +134,46 @@ class BucketMigrationItemView(ApiModel):
     target_bucket: str
     status: BucketMigrationItemStatus
     step: str
-    pre_sync_done: bool = False
-    read_only_applied: bool = False
-    target_lock_applied: bool = False
-    target_bucket_exists: bool = False
-    target_created_by_migration: bool = False
-    recovery_required: bool = False
-    source_deleted: bool = False
-    cleanup_status: str = "idle"
-    cleanup_error: Optional[str] = None
+    pre_sync_done: bool
+    read_only_applied: bool
+    target_lock_applied: bool
+    target_bucket_exists: bool
+    target_created_by_migration: bool
+    recovery_required: bool
+    source_deleted: bool
+    cleanup_status: str
+    cleanup_error: Optional[str]
 
-    objects_copied: int = 0
-    objects_deleted: int = 0
+    objects_copied: int
+    objects_deleted: int
 
-    source_count: Optional[int] = None
-    target_count: Optional[int] = None
-    matched_count: Optional[int] = None
-    different_count: Optional[int] = None
-    only_source_count: Optional[int] = None
-    only_target_count: Optional[int] = None
-    diff_sample: Optional[dict] = None
+    source_count: Optional[int]
+    target_count: Optional[int]
+    matched_count: Optional[int]
+    different_count: Optional[int]
+    only_source_count: Optional[int]
+    only_target_count: Optional[int]
+    diff_sample: Optional[dict]
 
-    error_message: Optional[str] = None
-    started_at: Optional[datetime] = None
-    finished_at: Optional[datetime] = None
+    error_message: Optional[str]
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
 
 class BucketMigrationEventView(ApiModel):
     id: int
-    item_id: Optional[int] = None
+    item_id: Optional[int]
     level: str
     message: str
-    metadata: Optional[dict] = None
+    metadata: Optional[dict]
     created_at: datetime
 
 
 class BucketMigrationView(ApiModel):
     id: int
-    created_by_user_id: Optional[int] = None
+    created_by_user_id: Optional[int]
 
     source_context_id: str
     target_context_id: str
@@ -182,51 +182,51 @@ class BucketMigrationView(ApiModel):
     delete_source: bool
     strong_integrity_check: bool
     lock_target_writes: bool
-    use_same_endpoint_copy: bool = False
-    auto_grant_source_read_for_copy: bool = False
-    mapping_prefix: Optional[str] = None
+    use_same_endpoint_copy: bool
+    auto_grant_source_read_for_copy: bool
+    mapping_prefix: Optional[str]
 
     status: BucketMigrationStatus
-    pause_requested: bool = False
-    cancel_requested: bool = False
-    precheck_status: BucketMigrationPrecheckStatus = "pending"
-    precheck_report: Optional[dict] = None
-    precheck_checked_at: Optional[datetime] = None
-    configuration_revision: int = 1
-    checked_revision: Optional[int] = None
-    preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"] = "unverified"
-    preparation_active_checks: bool = False
-    preparation_completed_items: int = 0
-    maintenance_operation: Optional[str] = None
-    maintenance_status: str = "idle"
-    maintenance_error: Optional[str] = None
-    available_actions: dict[str, BucketMigrationActionAvailability] = Field(default_factory=dict)
+    pause_requested: bool
+    cancel_requested: bool
+    precheck_status: BucketMigrationPrecheckStatus
+    precheck_report: Optional[dict]
+    precheck_checked_at: Optional[datetime]
+    configuration_revision: int
+    checked_revision: Optional[int]
+    preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"]
+    preparation_active_checks: bool
+    preparation_completed_items: int
+    maintenance_operation: Optional[str]
+    maintenance_status: str
+    maintenance_error: Optional[str]
+    available_actions: dict[str, BucketMigrationActionAvailability]
 
     parallelism_max: int
 
-    total_items: int = 0
-    completed_items: int = 0
-    failed_items: int = 0
-    skipped_items: int = 0
-    awaiting_items: int = 0
+    total_items: int
+    completed_items: int
+    failed_items: int
+    skipped_items: int
+    awaiting_items: int
 
-    error_message: Optional[str] = None
+    error_message: Optional[str]
 
-    started_at: Optional[datetime] = None
-    finished_at: Optional[datetime] = None
-    last_heartbeat_at: Optional[datetime] = None
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
+    last_heartbeat_at: Optional[datetime]
 
     created_at: datetime
     updated_at: datetime
 
 
 class BucketMigrationDetail(BucketMigrationView):
-    items: list[BucketMigrationItemView] = Field(default_factory=list)
-    recent_events: list[BucketMigrationEventView] = Field(default_factory=list)
+    items: list[BucketMigrationItemView]
+    recent_events: list[BucketMigrationEventView]
 
 
 class BucketMigrationListResponse(ApiModel):
-    items: list[BucketMigrationView] = Field(default_factory=list)
+    items: list[BucketMigrationView]
 
 
 class BucketMigrationActionResponse(ApiModel):
