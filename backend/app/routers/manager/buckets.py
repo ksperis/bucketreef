@@ -246,15 +246,19 @@ def create_bucket(
     return Response(status_code=status.HTTP_201_CREATED)
 
 
-@router.delete("/{bucket_name}")
+@router.delete(
+    "/{bucket_name}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_bucket(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
-):
-    response, _audit_metadata = bucket_config_actions.delete_bucket_config(
+) -> Response:
+    bucket_config_actions.delete_bucket_config(
         service=service,
         context=context,
         bucket_name=bucket_name,
@@ -279,7 +283,7 @@ def delete_bucket(
                     bucket_name,
                 )
             )
-    return response
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{bucket_name}/delete/stream")

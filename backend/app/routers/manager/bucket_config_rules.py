@@ -3,7 +3,7 @@
 
 """Bucket rule configuration endpoints for the Manager workspace."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.models.access_context import ManagerActor
 from app.models.bucket import (
@@ -108,19 +108,24 @@ def put_cors(
     )
 
 
-@router.delete("/{bucket_name}/cors", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/cors",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_cors(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-):
+) -> Response:
     mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
         config_area="cors",
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{bucket_name}/notifications", response_model=BucketNotificationConfiguration)
@@ -341,16 +346,21 @@ def put_tags(
     )
 
 
-@router.delete("/{bucket_name}/tags", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/tags",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_tags(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-):
+) -> Response:
     mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
         config_area="tags",
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -207,12 +207,16 @@ def update_connection(
 
 
 
-@router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{connection_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_connection(
     connection_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_account_user),
-):
+) -> Response:
     service = S3ConnectionsService(db)
     audit = AuditService(db)
     try:
@@ -220,7 +224,7 @@ def delete_connection(
             user=user,
             connection_id=connection_id,
         ):
-            return None
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
         # Read minimal metadata for audit before deletion
         row = service.get_owned(user.id, connection_id)
         from app.utils.s3_connection_endpoint import resolve_connection_details
@@ -249,4 +253,4 @@ def delete_connection(
         ) from exc
     except (ManagedPrivateAccessConflict, S3ConnectionConflictError) as exc:
         raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
