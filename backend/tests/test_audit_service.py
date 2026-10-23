@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from sqlalchemy import func, select
 
 from app.db import AuditLog, S3Account, User, UserRole
 from app.models.audit import AuditLogEntry, AuditLogListResponse
@@ -52,7 +53,7 @@ def test_record_action_persists_account_as_canonical_context(db_session) -> None
         account=account,
     )
 
-    log = db_session.query(AuditLog).one()
+    log = db_session.scalars(select(AuditLog)).one()
     assert log.user_id == user.id
     assert log.context_kind == "account"
     assert log.context_id == str(account.id)
@@ -80,7 +81,7 @@ def test_record_action_persists_generic_execution_context(db_session) -> None:
         execution_context=synthetic_account,
     )
 
-    log = db_session.query(AuditLog).one()
+    log = db_session.scalars(select(AuditLog)).one()
     assert log.user_id == user.id
     assert log.context_kind == "connection"
     assert log.context_id == "conn-1"
@@ -103,7 +104,7 @@ def test_record_action_persists_account_execution_context(db_session) -> None:
         execution_context=S3ExecutionContext.from_account(account),
     )
 
-    log = db_session.query(AuditLog).one()
+    log = db_session.scalars(select(AuditLog)).one()
     assert log.context_kind == "account"
     assert log.context_id == str(account.id)
     assert log.context_name == account.name
@@ -129,7 +130,7 @@ def test_record_action_accepts_manager_session_actor(db_session) -> None:
         entity_id="session-created-user",
     )
 
-    log = db_session.query(AuditLog).one()
+    log = db_session.scalars(select(AuditLog)).one()
     assert log.user_id is None
     assert log.user_email == actor.email
     assert log.user_role == actor.role
@@ -144,7 +145,7 @@ def test_serialize_log_matches_the_public_audit_contract(db_session) -> None:
         action="review_ui_consistency",
     )
 
-    payload = service.serialize_log(db_session.query(AuditLog).one())
+    payload = service.serialize_log(db_session.scalars(select(AuditLog)).one())
 
     assert "user_id" not in payload
     assert AuditLogEntry(**payload).user_email == user.email
@@ -198,7 +199,7 @@ def test_record_action_sanitizes_sensitive_metadata_before_persisting(db_session
         },
     )
 
-    log = db_session.query(AuditLog).one()
+    log = db_session.scalars(select(AuditLog)).one()
     metadata = json.loads(log.metadata_json or "{}")
     assert metadata["endpoint_url"] == "https://s3.example.test/bucket"
     assert metadata["access_key_id"] == "AKIA1234567890ABCDEF"
@@ -227,7 +228,7 @@ def test_audit_metadata_truncation_remains_valid_json(db_session) -> None:
         metadata={"details": 'value with "quotes" and \\slashes ' * 1000},
     )
 
-    log = db_session.query(AuditLog).one()
+    log = db_session.scalars(select(AuditLog)).one()
     assert log.metadata_json is not None
     assert len(log.metadata_json) <= MAX_AUDIT_METADATA_LENGTH
     metadata = parse_audit_metadata(log.metadata_json)
@@ -266,7 +267,7 @@ def test_record_action_does_not_persist_excluded_actions(
         metadata={"secret_access_key": "must-not-be-processed"},
     )
 
-    assert db_session.query(AuditLog).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(AuditLog)) == 0
     assert should_persist_audit_action(action) is False
 
 
@@ -297,5 +298,5 @@ def test_record_action_keeps_control_security_and_workflow_actions(
         action=action,
     )
 
-    assert db_session.query(AuditLog).one().action == action
+    assert db_session.scalars(select(AuditLog)).one().action == action
     assert should_persist_audit_action(action) is True
