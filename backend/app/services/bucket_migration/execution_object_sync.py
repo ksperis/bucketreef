@@ -110,8 +110,6 @@ class BucketMigrationObjectSyncMixin:
                 target_ctx,
                 source_bucket=source_bucket,
                 target_bucket=target_bucket,
-                allow_delete=allow_delete,
-                parallelism_max=parallelism_max,
                 migration=migration,
                 item=item,
                 control_check=control_check,
@@ -137,13 +135,10 @@ class BucketMigrationObjectSyncMixin:
         *,
         source_bucket: str,
         target_bucket: str,
-        allow_delete: bool,
-        parallelism_max: int,
         migration: BucketMigration,
         item: BucketMigrationItem,
         control_check: Callable[[], str],
     ) -> tuple[int, int, _SyncDiff]:
-        del allow_delete, parallelism_max
         return _VersionAwareObjectSyncRunner(
             service=self,
             source_ctx=source_ctx,
