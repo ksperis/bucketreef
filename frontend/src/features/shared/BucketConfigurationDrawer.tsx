@@ -134,7 +134,7 @@ export default function BucketConfigurationDrawer({
         contextIdOverride={mode === "ceph-admin" ? null : contextId}
         hideQuotaTab={mode === "storage-ops"}
         embedded
-        hideObjectsTab
+        hideObjectsTab={mode === "manager"}
         onDirtyChange={handleDirtyChange}
         onBusyChange={setBusy}
       />
