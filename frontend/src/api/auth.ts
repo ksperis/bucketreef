@@ -139,7 +139,7 @@ export async function loginWithKeys(
 export type OidcProviderInfo = {
   id: string;
   display_name: string;
-  icon_url?: string | null;
+  icon_url: string | null;
 };
 
 type OidcStartResponse = {
