@@ -38,7 +38,7 @@ export type BucketUsageStatsDistributionEntry = {
 export type BucketUsageStatsSnapshot = {
   scope_kind: string;
   scope_id: string;
-  scope_name?: string | null;
+  scope_name: string | null;
   bucket_name: string;
   bucket_tenant: string;
   scan_mode: "versions" | "current_only";
@@ -60,16 +60,16 @@ export type BucketUsageStatsSnapshot = {
 };
 
 type BucketUsageStatsLatestResponse = {
-  snapshot?: BucketUsageStatsSnapshot | null;
+  snapshot: BucketUsageStatsSnapshot | null;
 };
 
 export type BucketUsageStatsAggregate = {
   scope_kind: string;
   scope_id: string;
-  scope_name?: string | null;
-  managed_account_count?: number | null;
-  accounts_with_listed_buckets?: number | null;
-  skipped_account_count?: number | null;
+  scope_name: string | null;
+  managed_account_count: number | null;
+  accounts_with_listed_buckets: number | null;
+  skipped_account_count: number | null;
   bucket_count: number;
   buckets_with_snapshot: number;
   missing_bucket_count: number;
@@ -87,8 +87,8 @@ export type BucketUsageStatsAggregate = {
   age_distribution: BucketUsageStatsDistributionEntry[];
   current_vs_noncurrent: BucketUsageStatsDistributionEntry[];
   warnings: string[];
-  oldest_snapshot_at?: string | null;
-  newest_snapshot_at?: string | null;
+  oldest_snapshot_at: string | null;
+  newest_snapshot_at: string | null;
 };
 
 export type BucketUsageStatsAggregateResponse = {

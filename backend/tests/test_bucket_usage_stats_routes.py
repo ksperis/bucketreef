@@ -14,7 +14,12 @@ from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as SnapshotRow
 from app.main import app
 from app.models.account_capabilities import AccountCapabilities
 from app.models.bucket_operation import RgwBucketReference
-from app.models.bucket_usage_stats import BucketUsageStatsDistributionEntry, BucketUsageStatsSnapshot
+from app.models.bucket_usage_stats import (
+    BucketUsageStatsAggregate,
+    BucketUsageStatsDistributionEntry,
+    BucketUsageStatsLatestResponse,
+    BucketUsageStatsSnapshot,
+)
 from app.models.session import ManagerSessionPrincipal, SessionCapabilities
 from app.routers import dependencies
 from app.routers.admin import usage_stats as admin_usage_stats_router
@@ -30,6 +35,7 @@ def _snapshot(bucket_name: str, *, scope_kind: str = "manager", scope_id: str = 
         scope_id=scope_id,
         scope_name="Scope",
         bucket_name=bucket_name,
+        bucket_tenant="",
         scan_mode="versions",
         version_listing_available=True,
         object_version_count=1,
@@ -54,6 +60,20 @@ def _snapshot(bucket_name: str, *, scope_kind: str = "manager", scope_id: str = 
         warnings=[],
         calculated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        BucketUsageStatsDistributionEntry,
+        BucketUsageStatsSnapshot,
+        BucketUsageStatsLatestResponse,
+        BucketUsageStatsAggregate,
+    ],
+)
+def test_bucket_usage_stats_read_models_require_complete_payloads(model):
+    schema = model.model_json_schema()
+    assert set(schema["required"]) == set(schema["properties"])
 
 
 def _tool_user() -> User:
