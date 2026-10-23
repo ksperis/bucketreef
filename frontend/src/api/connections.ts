@@ -97,7 +97,7 @@ export async function createConnection(payload: CreateConnectionPayload): Promis
 }
 
 export async function updateConnection(connectionId: number, payload: UpdateConnectionPayload): Promise<S3Connection> {
-  const { data } = await client.put<S3Connection>(`/connections/${connectionId}`, payload);
+  const { data } = await client.patch<S3Connection>(`/connections/${connectionId}`, payload);
   return data;
 }
 

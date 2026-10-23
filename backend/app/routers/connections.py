@@ -169,7 +169,7 @@ def create_connection(
         ) from exc
 
 
-@router.put("/{connection_id}", response_model=S3Connection)
+@router.patch("/{connection_id}", response_model=S3Connection)
 def update_connection(
     connection_id: int,
     payload: S3ConnectionUpdate,

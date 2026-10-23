@@ -136,7 +136,7 @@ def test_revocation_keeps_owned_connection_lifecycle_but_rejects_sensitive_forge
 
     with _client_for(db_session, user) as client:
         assert client.get("/api/connections").status_code == 200
-        safe_update = client.put(
+        safe_update = client.patch(
             f"/api/connections/{connection.id}",
             json={
                 "name": "renamed",
@@ -167,7 +167,7 @@ def test_revocation_keeps_owned_connection_lifecycle_but_rejects_sensitive_forge
                 },
             ),
             *[
-                client.put(f"/api/connections/{connection.id}", json=payload)
+                client.patch(f"/api/connections/{connection.id}", json=payload)
                 for payload in (
                     {"provider_hint": "other"},
                     {"storage_endpoint_id": endpoint.id},
@@ -186,7 +186,7 @@ def test_revocation_keeps_owned_connection_lifecycle_but_rejects_sensitive_forge
         ]
         assert all(response.status_code == 403 for response in forged_requests)
 
-        assert client.put(
+        assert client.patch(
             f"/api/connections/{connection.id}", json={"is_active": True}
         ).status_code == 200
         assert client.delete(f"/api/connections/{connection.id}").status_code == 204
