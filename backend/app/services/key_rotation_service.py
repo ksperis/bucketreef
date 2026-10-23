@@ -99,33 +99,17 @@ class KeyRotationService:
         key_type: KeyRotationType,
         deactivate_only: bool,
     ) -> tuple[list[KeyRotationResultItem], int, int]:
-        from app.services.durable_key_rotation_service import DurableKeyRotationService, SERVICE_TYPES, pending_rotation
+        from app.services.durable_key_rotation_service import DurableKeyRotationService, pending_rotation
         if endpoint.provider != "ceph":
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
                 status="failed", message="Key rotation is only supported for Ceph endpoints.")], 0, 0)
         if key_type in self._ENV_MANAGED_ENDPOINT_KEY_TYPES and not endpoint.is_editable:
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
                 status="skipped", message="Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS; rotate them externally and redeploy.")], 0, 0)
-        if key_type.value in SERVICE_TYPES:
-            identity = endpoint.service_identity(SERVICE_TYPES[key_type.value])
-            if identity is None or identity.mode != "managed":
-                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
-                    status="skipped", message="External service credentials must be rotated by their operator.")], 0, 0)
-            targets: list[RotationDispatchTarget] = [identity]
-            target_type = "endpoint"
-        elif key_type == KeyRotationType.CEPH_ADMIN:
-            identity = endpoint.service_identity("ceph_admin")
-            if identity is None or identity.mode != "external":
-                return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
-                    status="skipped", message="Ceph Admin credentials are not configured for this endpoint.")], 0, 0)
-            targets = [identity]
-            target_type = "endpoint"
-        elif key_type == KeyRotationType.ACCOUNT:
-            targets, target_type = self._list_accounts_for_endpoint(endpoint), "account"
-        elif key_type == KeyRotationType.S3_USER:
-            targets, target_type = self._list_s3_users_for_endpoint(endpoint), "s3_user"
-        else:
-            targets, target_type = [endpoint], "endpoint"
+        targets, target_type, skip_message = self._rotation_targets(endpoint, key_type)
+        if skip_message is not None:
+            return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type=target_type,
+                status="skipped", message=skip_message)], 0, 0)
         if not targets:
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type=target_type,
                 status="skipped", message="No persisted identities found for this endpoint.")], 0, 0)
@@ -150,6 +134,29 @@ class KeyRotationService:
                     status="failed", message=sanitized_error_log_detail(exc),
                     rotation_pending=pending is not None, rotation_phase=pending.phase if pending else None))
         return results, deleted, disabled
+
+    def _rotation_targets(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: KeyRotationType,
+    ) -> tuple[list[RotationDispatchTarget], str, Optional[str]]:
+        from app.services.durable_key_rotation_service import SERVICE_TYPES
+
+        if key_type.value in SERVICE_TYPES:
+            identity = endpoint.service_identity(SERVICE_TYPES[key_type.value])
+            if identity is None or identity.mode != "managed":
+                return [], "endpoint", "External service credentials must be rotated by their operator."
+            return [identity], "endpoint", None
+        if key_type == KeyRotationType.CEPH_ADMIN:
+            identity = endpoint.service_identity("ceph_admin")
+            if identity is None or identity.mode != "external":
+                return [], "endpoint", "Ceph Admin credentials are not configured for this endpoint."
+            return [identity], "endpoint", None
+        if key_type == KeyRotationType.ACCOUNT:
+            return list(self._list_accounts_for_endpoint(endpoint)), "account", None
+        if key_type == KeyRotationType.S3_USER:
+            return list(self._list_s3_users_for_endpoint(endpoint)), "s3_user", None
+        return [endpoint], "endpoint", None
 
     def _build_result(
         self,
