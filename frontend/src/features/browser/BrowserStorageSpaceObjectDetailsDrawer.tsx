@@ -72,7 +72,7 @@ function fallbackSpace(
     createdAt: bucket?.creation_date ?? null,
     archivedAt: null,
     shareCount: null,
-    icon: bucket?.icon ?? { source: "preset", preset: "bucket" },
+    icon: bucket?.icon ?? { source: "preset", preset: "bucket", url: null, updated_at: null },
   };
 }
 

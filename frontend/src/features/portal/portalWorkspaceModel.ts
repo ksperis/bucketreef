@@ -215,7 +215,7 @@ export function buildPortalWorkspaceModel({
       createdAt: storageSpace.created_at ?? null,
       archivedAt: storageSpace.archived_at ?? null,
       shareCount: null,
-      icon: storageSpace.icon ?? { source: "preset", preset: "bucket" },
+      icon: storageSpace.icon ?? { source: "preset", preset: "bucket", url: null, updated_at: null },
     };
   });
 

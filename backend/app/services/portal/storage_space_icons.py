@@ -28,7 +28,12 @@ class PortalStorageSpaceIconsMixin:
         metadata: PortalStorageSpaceMetadata | None,
     ) -> PortalStorageSpaceIcon:
         if metadata is None:
-            return PortalStorageSpaceIcon()
+            return PortalStorageSpaceIcon(
+                source="preset",
+                preset="bucket",
+                url=None,
+                updated_at=None,
+            )
         updated_at = metadata.icon_updated_at
         source = str(metadata.icon_source or "preset")
         if (
@@ -53,6 +58,7 @@ class PortalStorageSpaceIconsMixin:
         return PortalStorageSpaceIcon(
             source="preset",
             preset=preset,
+            url=None,
             updated_at=updated_at,
         )
 
