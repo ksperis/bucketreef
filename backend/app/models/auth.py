@@ -27,7 +27,7 @@ class AuthenticationResponse(ApiModel):
 
 
 class RefreshResponse(ApiModel):
-    status: Literal["authenticated"] = "authenticated"
+    status: Literal["authenticated"]
 
 
 class SessionInfo(ApiModel):

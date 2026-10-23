@@ -8,9 +8,9 @@ export type ApiTokenInfo = {
   id: string;
   name: string;
   created_at: string;
-  last_used_at?: string | null;
+  last_used_at: string | null;
   expires_at: string;
-  revoked_at?: string | null;
+  revoked_at: string | null;
   scopes: string[];
 };
 

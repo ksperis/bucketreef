@@ -96,7 +96,7 @@ def refresh_access_token(
         clear_auth_cookies(response)
         raise HTTPException(status_code=401, detail="Session expired or invalid") from exc
     set_auth_cookies(response, credentials)
-    return RefreshResponse()
+    return RefreshResponse(status="authenticated")
 
 
 @router.get("/session", response_model=CurrentSessionResponse)

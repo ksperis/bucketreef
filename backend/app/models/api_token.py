@@ -51,13 +51,13 @@ class ApiTokenInfo(ApiModel):
     id: str
     name: str
     created_at: datetime
-    last_used_at: Optional[datetime] = None
+    last_used_at: Optional[datetime]
     expires_at: datetime
-    revoked_at: Optional[datetime] = None
-    scopes: list[str] = Field(default_factory=list)
+    revoked_at: Optional[datetime]
+    scopes: list[str]
 
 
 class ApiTokenCreateResponse(ApiModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: str
     api_token: ApiTokenInfo
