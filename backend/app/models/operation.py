@@ -7,5 +7,5 @@ from app.models.base import ApiModel
 
 class OperationSkippedResponse(ApiModel):
     status: Literal["skipped"]
-    reason: Literal["already_running"]
+    reason: Literal["already_running", "feature_disabled"]
     operation: str
