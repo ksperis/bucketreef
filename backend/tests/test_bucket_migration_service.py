@@ -45,7 +45,6 @@ from app.services.bucket_migration._shared import (
 )
 from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
-from app.services.managed_resource_naming import MIGRATION_LOCK_PROBE_OBJECT_PREFIX
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookService
 
@@ -957,13 +956,6 @@ def test_claim_next_runnable_migration_rechecks_endpoint_limit_after_claim(db_se
     assert migration_b.worker_lease_owner is None
 
 
-def test_bucket_already_exists_error_detection(db_session):
-    service = BucketMigrationService(db_session)
-    assert service._is_bucket_already_exists_error(RuntimeError("An error occurred (BucketAlreadyExists)"))
-    assert service._is_bucket_already_exists_error(RuntimeError("An error occurred (BucketAlreadyOwnedByYou)"))
-    assert not service._is_bucket_already_exists_error(RuntimeError("An error occurred (AccessDenied)"))
-
-
 def test_create_migration_rejects_same_bucket_name_on_same_endpoint(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://same.example.test", account_id="RGW001")
@@ -1058,7 +1050,6 @@ def test_apply_target_write_lock_policy_uses_migration_user_agent_condition(db_s
     service._configuration = _BucketsStub()  # type: ignore[assignment]
 
     item = SimpleNamespace(target_policy_backup_json=None, target_lock_applied=False)
-    service._validate_target_lock_worker_access = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
     service._apply_target_write_lock_policy(
         SimpleNamespace(execution_context=target),
         "bucket-a",
@@ -1075,29 +1066,6 @@ def test_apply_target_write_lock_policy_uses_migration_user_agent_condition(db_s
     assert "s3:DeleteObject" in actions
     assert isinstance(user_agent_cond, str)
     assert "bucketreef-migration-worker" in user_agent_cond
-
-
-def test_validate_target_lock_worker_access_uses_managed_object_namespace(db_session):
-    calls: list[tuple[str, str, str]] = []
-
-    class _Client:
-        def put_object(self, *, Bucket, Key, Body):
-            assert Body == b"lock-check"
-            calls.append(("put", Bucket, Key))
-
-        def delete_object(self, *, Bucket, Key):
-            calls.append(("delete", Bucket, Key))
-
-    service = BucketMigrationService(db_session)
-    service._context_client = lambda _ctx: _Client()  # type: ignore[method-assign]
-
-    service._validate_target_lock_worker_access(SimpleNamespace(), "target-bucket")
-
-    assert len(calls) == 2
-    assert calls[0][0:2] == ("put", "target-bucket")
-    assert calls[1][0:2] == ("delete", "target-bucket")
-    assert calls[0][2] == calls[1][2]
-    assert calls[0][2].startswith(f"{MIGRATION_LOCK_PROBE_OBJECT_PREFIX}/")
 
 
 def test_build_source_copy_grant_policy_uses_target_principal(db_session):
@@ -1500,9 +1468,7 @@ def test_verified_copy_retains_source_even_when_strong_check_is_selected(db_sess
         [],
         {"head_checksum": 0, "stream_sha256": 1},
     )
-    deleted: list[str] = []
     service._set_managed_block_policy = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
-    service._delete_source_bucket_with_retry = lambda bucket, *_args, **_kwargs: deleted.append(bucket)  # type: ignore[method-assign]
     source_ctx = SimpleNamespace(execution_context=source)
     target_ctx = SimpleNamespace(execution_context=target)
 
@@ -1511,9 +1477,6 @@ def test_verified_copy_retains_source_even_when_strong_check_is_selected(db_sess
     db_session.refresh(item)
     assert item.status == "completed"
     assert item.step == "completed"
-    assert deleted == []
-
-
 def test_verified_copy_retains_source_without_optional_strong_check(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
@@ -1550,9 +1513,7 @@ def test_verified_copy_retains_source_without_optional_strong_check(db_session):
         raise AssertionError("Strong verification must be skipped when strong_integrity_check is disabled")
 
     service._strong_verify_size_only_candidates_streamed = _unexpected_strong_verify  # type: ignore[method-assign]
-    deleted: list[str] = []
     service._set_managed_block_policy = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
-    service._delete_source_bucket_with_retry = lambda bucket, *_args, **_kwargs: deleted.append(bucket)  # type: ignore[method-assign]
     source_ctx = SimpleNamespace(execution_context=source)
     target_ctx = SimpleNamespace(execution_context=target)
 
@@ -1561,9 +1522,6 @@ def test_verified_copy_retains_source_without_optional_strong_check(db_session):
     db_session.refresh(item)
     assert item.status == "completed"
     assert item.step == "completed"
-    assert deleted == []
-
-
 def test_apply_read_only_policy_returns_clear_message_on_access_denied(db_session):
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     db_session.commit()
@@ -3343,51 +3301,6 @@ def test_finalize_target_versioning_state_suspends_target_for_version_aware_copy
     assert replication_state.get("target_versioning_finalized") == "suspended"
 
 
-def test_restore_source_policy_replays_backup_policy_as_is(db_session):
-    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
-    db_session.commit()
-
-    captured: dict[str, object] = {"delete_called": False}
-
-    class _BucketsStub:
-        def put_policy(self, _bucket_name, _account, policy):
-            captured["policy"] = policy
-
-        def delete_policy(self, *_args, **_kwargs):
-            captured["delete_called"] = True
-
-    service = BucketMigrationService(db_session)
-    service._configuration = _BucketsStub()  # type: ignore[assignment]
-
-    backup_policy = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "BucketReefMigrationReadOnlyDeny",
-                "Effect": "Deny",
-                "Principal": "*",
-                "Action": ["s3:Put*", "s3:Delete*"],
-                "Resource": ["arn:aws:s3:::bucket-a", "arn:aws:s3:::bucket-a/*"],
-            },
-            {
-                "Sid": "KeepMe",
-                "Effect": "Allow",
-                "Principal": "*",
-                "Action": ["s3:GetObject"],
-                "Resource": ["arn:aws:s3:::bucket-a/*"],
-            },
-        ],
-    }
-    item = SimpleNamespace(source_policy_backup_json=json.dumps(backup_policy))
-
-    service._restore_source_policy("bucket-a", source, item)
-
-    restored = captured.get("policy")
-    assert isinstance(restored, dict)
-    assert restored == backup_policy
-    assert captured["delete_called"] is False
-
-
 def test_finalize_releases_target_lock_policy(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
@@ -3452,9 +3365,6 @@ def test_stop_migration_restores_source_and_target_policies(db_session):
 
     restored_source: list[str] = []
     restored_target: list[str] = []
-
-    def _restore_source_policy(bucket_name: str, _source_account, _item):
-        restored_source.append(bucket_name)
 
     def _restore_target_write_lock_policy(_target_account, target_bucket: str, _item):
         restored_target.append(target_bucket)

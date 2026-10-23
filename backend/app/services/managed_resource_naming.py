@@ -41,7 +41,6 @@ PORTAL_SERVER_ACCESS_LOGGING_MANAGER_DENY_SID = "BucketReefPortalManagerDeny"
 PORTAL_SERVER_ACCESS_LOGGING_RETENTION_RULE_ID = "BucketReefPortalExpireServerAccessLogs"
 
 MIGRATION_PROBE_OBJECT_KEY = f"__{MANAGED_STORAGE_PREFIX}__/migration/check"
-MIGRATION_LOCK_PROBE_OBJECT_PREFIX = f"__{MANAGED_STORAGE_PREFIX}__/migration/lock-check"
 
 
 def portal_iam_username(account_id: int, user_id: int) -> str:
@@ -94,10 +93,6 @@ def managed_private_iam_username(user_id: int, source_kind: str, source_id: int)
 
 def migration_probe_bucket_name(migration_id: int) -> str:
     return f"{MANAGED_STORAGE_PREFIX}-mig-precheck-{migration_id}-{uuid.uuid4().hex[:12]}"
-
-
-def migration_lock_probe_object_key() -> str:
-    return f"{MIGRATION_LOCK_PROBE_OBJECT_PREFIX}/{uuid.uuid4().hex}"
 
 
 def onboarding_sample_account_name(rgw_account_id: str) -> str:

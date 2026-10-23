@@ -10,7 +10,6 @@ from typing import Any, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import BucketMigrationItem
-from app.services.managed_resource_naming import migration_lock_probe_object_key
 from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_execution_context import S3ExecutionTarget
 
@@ -529,18 +528,6 @@ class BucketMigrationPolicyGrantsMixin:
                 ) from exc
             raise
 
-    def _validate_target_lock_worker_access(self, target_ctx: _ResolvedContext, target_bucket: str) -> None:
-        client = self._context_client(target_ctx)
-        test_key = migration_lock_probe_object_key()
-        try:
-            client.put_object(Bucket=target_bucket, Key=test_key, Body=b"lock-check")
-            client.delete_object(Bucket=target_bucket, Key=test_key)
-        except (ClientError, BotoCoreError, RuntimeError) as exc:
-            raise RuntimeError(
-                "Destination write-lock blocks migration worker write/delete operations. "
-                "Use a dedicated migration context or disable destination lock."
-            ) from exc
-
     def _apply_target_write_lock_policy(self, target_ctx: _ResolvedContext, target_bucket: str, item: BucketMigrationItem) -> None:
         self._assert_workflow_lease()
         if item.target_lock_applied:
@@ -581,20 +568,3 @@ class BucketMigrationPolicyGrantsMixin:
             )
             return
         self._configuration.delete_policy(target_bucket, target_execution_context)
-
-    def _restore_source_policy(
-        self,
-        source_bucket: str,
-        source_execution_context: S3ExecutionTarget,
-        item: BucketMigrationItem,
-    ) -> None:
-        self._assert_workflow_lease()
-        backup = _json_loads(item.source_policy_backup_json)
-        if isinstance(backup, dict):
-            self._configuration.put_policy(
-                source_bucket,
-                source_execution_context,
-                backup,
-            )
-            return
-        self._configuration.delete_policy(source_bucket, source_execution_context)
