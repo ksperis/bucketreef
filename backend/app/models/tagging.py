@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BeforeValidator, Field, field_validator
+from pydantic import BeforeValidator, field_validator
 
 from app.models.base import ApiModel
 from app.utils.tagging import (
@@ -20,8 +20,8 @@ from app.utils.tagging import (
 class TagDefinitionSummary(ApiModel):
     id: int
     label: str
-    color_key: str = DEFAULT_TAG_COLOR_KEY
-    scope: Literal["administrative", "standard"] = DEFAULT_TAG_SCOPE
+    color_key: str
+    scope: Literal["administrative", "standard"]
 
 
 class TagDefinitionInput(ApiModel):
@@ -66,4 +66,4 @@ OptionalTagDefinitionList = Annotated[
 
 
 class TagDefinitionListResponse(ApiModel):
-    items: list[TagDefinitionSummary] = Field(default_factory=list)
+    items: list[TagDefinitionSummary]
