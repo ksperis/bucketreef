@@ -123,12 +123,12 @@ def test_ceph_admin_cluster_traffic_aggregates_usage_entries(monkeypatch: pytest
 
     payload = metrics_router.cluster_traffic_metrics(window=TrafficWindow.DAY, endpoint=_build_endpoint())
 
-    assert payload["window"] == "day"
-    assert payload["totals"]["bytes_out"] == 140
-    assert payload["totals"]["bytes_in"] == 80
-    assert payload["totals"]["ops"] == 5
-    assert payload["totals"]["success_ops"] == 4
-    assert payload["data_points"] >= 1
+    assert payload.window == "day"
+    assert payload.totals.bytes_out == 140
+    assert payload.totals.bytes_in == 80
+    assert payload.totals.ops == 5
+    assert payload.totals.success_ops == 4
+    assert payload.data_points >= 1
 
 
 def test_ceph_admin_cluster_storage_requires_metrics_feature():

@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.db import QuotaUsageDaily
 from app.models.access_context import ManagerActor
 from app.models.healthcheck import WorkspaceEndpointHealthOverviewResponse
+from app.models.traffic import TrafficStats
 from app.models.usage_trends import UsageTrendsResponse
 from app.models.usage_history import UsageHistoryTrendResponse, UsageHistoryTrendWindow
 from app.routers.dependencies import (
@@ -113,19 +114,19 @@ def account_usage_history_trends(
     )
 
 
-@router.get("/traffic")
+@router.get("/traffic", response_model=TrafficStats)
 def account_traffic(
     window: TrafficWindow = Query(TrafficWindow.WEEK),
     bucket: Optional[str] = Query(None),
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_usage_logs_capable_manager),
-) -> dict:
+) -> TrafficStats:
     try:
         service = TrafficService(context)
     except ValueError as exc:
         raise_http_exception_from_exception(502, exc)
     try:
-        return service.get_traffic(window=window, bucket=bucket)
+        return TrafficStats.model_validate(service.get_traffic(window=window, bucket=bucket))
     except ValueError as exc:
         raise_http_exception_from_exception(400, exc)
     except RGWAdminError as exc:

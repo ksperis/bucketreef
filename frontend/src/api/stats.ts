@@ -73,7 +73,7 @@ export type TrafficTotals = {
   bytes_out: number;
   ops: number;
   success_ops: number;
-  success_rate?: number | null;
+  success_rate: number | null;
 };
 
 export type TrafficBucketRanking = {
@@ -83,7 +83,7 @@ export type TrafficBucketRanking = {
   bytes_out: number;
   ops: number;
   success_ops: number;
-  success_ratio?: number | null;
+  success_ratio: number | null;
 };
 
 export type TrafficUserRanking = {
@@ -93,7 +93,7 @@ export type TrafficUserRanking = {
   bytes_out: number;
   ops: number;
   success_ops: number;
-  success_ratio?: number | null;
+  success_ratio: number | null;
 };
 
 export type TrafficRequestBreakdown = {
@@ -115,7 +115,7 @@ export type ManagerTrafficStats = {
   start: string;
   end: string;
   resolution: string;
-  bucket_filter?: string | null;
+  bucket_filter: string | null;
   data_points: number;
   series: TrafficSeriesPoint[];
   totals: TrafficTotals;

@@ -336,8 +336,8 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
         _={},
     )
     assert captured["uid"] == "traffic"
-    assert payload["window"] == "week"
-    assert payload["totals"]["ops"] == 0
+    assert payload.window == "week"
+    assert payload.totals.ops == 0
 
 
 def test_manager_stats_traffic_sanitizes_rgw_error_details(monkeypatch):
