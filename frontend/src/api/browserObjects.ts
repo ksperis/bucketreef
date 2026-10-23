@@ -17,6 +17,7 @@ import type {
   CleanupObjectVersionsResponse,
   CopyObjectPayload,
   DeleteObjectEntry,
+  DeleteObjectsResponse,
   ListBrowserObjectsResponse,
   ListObjectVersionsResponse,
   ObjectAcl,
@@ -329,7 +330,7 @@ export async function deleteObjects(
   signal?: AbortSignal,
   options?: BrowserRequestOptions
 ): Promise<number> {
-  const { data } = await client.post<{ deleted: number }>(
+  const { data } = await client.post<DeleteObjectsResponse>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/delete`,
     { objects },
     { params: withS3ContextParam(undefined, contextId), headers: buildBrowserWorkspaceHeaders(options), signal }

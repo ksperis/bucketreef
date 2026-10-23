@@ -22,3 +22,24 @@ def test_path_favorite_schema_has_no_generic_payload_or_saved_view_state():
         "id", "user_id", "name", "surface", "workspace", "context", "bucket", "prefix",
         "revision", "created_at", "updated_at",
     }
+
+
+def test_browser_mutation_routes_use_canonical_empty_and_count_responses():
+    paths = app.openapi()["paths"]
+
+    delete_response = paths["/api/browser/buckets/{bucket_name}/delete"]["post"]["responses"]["200"]
+    assert delete_response["content"]["application/json"]["schema"]["$ref"].endswith(
+        "/DeleteObjectsResponse"
+    )
+
+    empty_operations = [
+        ("/api/browser/buckets/{bucket_name}/copy", "post"),
+        ("/api/browser/buckets/{bucket_name}/folders", "post"),
+        ("/api/browser/buckets/{bucket_name}/object-restore", "post"),
+        ("/api/browser/buckets/{bucket_name}/multipart/{upload_id}/complete", "post"),
+        ("/api/browser/buckets/{bucket_name}/multipart/{upload_id}", "delete"),
+    ]
+    for path, method in empty_operations:
+        responses = paths[path][method]["responses"]
+        assert "204" in responses
+        assert "content" not in responses["204"]

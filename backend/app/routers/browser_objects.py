@@ -13,6 +13,7 @@ from app.models.browser import (
     CopyObjectPayload,
     CreateFolderPayload,
     DeleteObjectsPayload,
+    DeleteObjectsResponse,
     ListObjectVersionsResponse,
     ObjectAcl,
     ObjectLegalHold,
@@ -236,31 +237,34 @@ def put_object_retention(
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.post("/buckets/{bucket_name}/delete", response_model=dict)
+@router.post("/buckets/{bucket_name}/delete", response_model=DeleteObjectsResponse)
 def delete_objects(
     bucket_name: str,
     payload: DeleteObjectsPayload,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
-) -> dict:
+) -> DeleteObjectsResponse:
     if not payload.objects:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing objects")
     try:
         deleted = service.delete_objects(bucket_name, context, payload)
-        return {"deleted": deleted}
+        return DeleteObjectsResponse(deleted=deleted)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.post("/buckets/{bucket_name}/copy", response_model=dict)
+@router.post(
+    "/buckets/{bucket_name}/copy",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 def copy_object(
     bucket_name: str,
     payload: CopyObjectPayload,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
-) -> dict:
+) -> None:
     if not payload.source_key or not payload.destination_key:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -268,38 +272,45 @@ def copy_object(
         )
     try:
         service.copy_object(bucket_name, context, payload)
-        return {"message": "ok"}
+        return None
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.post("/buckets/{bucket_name}/folders", response_model=dict)
+@router.post(
+    "/buckets/{bucket_name}/folders",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 def create_folder(
     bucket_name: str,
     payload: CreateFolderPayload,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
-) -> dict:
+) -> None:
     if not payload.prefix:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing prefix")
     try:
         service.create_folder(bucket_name, context, payload.prefix)
-        return {"message": "created", "prefix": payload.prefix}
+        return None
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.post("/buckets/{bucket_name}/object-restore", response_model=dict)
+@router.post(
+    "/buckets/{bucket_name}/object-restore",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 def restore_object(
     bucket_name: str,
     payload: ObjectRestoreRequest,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
-) -> dict:
+) -> None:
     try:
-        return service.restore_object(bucket_name, context, payload)
+        service.restore_object(bucket_name, context, payload)
+        return None
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

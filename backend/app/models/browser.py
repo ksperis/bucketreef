@@ -308,6 +308,10 @@ class DeleteObjectsPayload(ApiModel):
     objects: list[DeleteObjectEntry]
 
 
+class DeleteObjectsResponse(ApiModel):
+    deleted: int
+
+
 class CleanupObjectVersionsPayload(ApiModel):
     prefix: Optional[str] = None
     keep_last_n: Optional[int] = Field(default=None, ge=1)

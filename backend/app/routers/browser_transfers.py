@@ -213,7 +213,10 @@ def presign_part_for_upload(
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.post("/buckets/{bucket_name}/multipart/{upload_id}/complete", response_model=dict)
+@router.post(
+    "/buckets/{bucket_name}/multipart/{upload_id}/complete",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 def complete_multipart_upload(
     bucket_name: str,
     upload_id: str,
@@ -222,17 +225,20 @@ def complete_multipart_upload(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
-) -> dict:
+) -> None:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     try:
         service.complete_multipart_upload(bucket_name, context, key, upload_id, payload)
-        return {"message": "completed"}
+        return None
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.delete("/buckets/{bucket_name}/multipart/{upload_id}", response_model=dict)
+@router.delete(
+    "/buckets/{bucket_name}/multipart/{upload_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 def abort_multipart_upload(
     bucket_name: str,
     upload_id: str,
@@ -240,11 +246,11 @@ def abort_multipart_upload(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
-) -> dict:
+) -> None:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     try:
         service.abort_multipart_upload(bucket_name, context, key, upload_id)
-        return {"message": "aborted"}
+        return None
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)

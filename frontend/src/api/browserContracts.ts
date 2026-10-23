@@ -210,6 +210,10 @@ export type DeleteObjectEntry = {
   version_id?: string | null;
 };
 
+export type DeleteObjectsResponse = {
+  deleted: number;
+};
+
 export type CleanupObjectVersionsPayload = {
   prefix?: string;
   keep_last_n?: number;
