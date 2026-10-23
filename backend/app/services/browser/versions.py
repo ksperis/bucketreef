@@ -26,6 +26,70 @@ class BrowserVersionsMixin:
             raise RuntimeError(f"Unable to fetch versioning for bucket '{bucket_name}': {exc}") from exc
         return resp.get("Status")
 
+    def _delete_version_batch(
+        self,
+        client,
+        bucket_name: str,
+        context: S3ExecutionTarget,
+        batch: list[tuple[str, str]],
+    ) -> None:
+        with self._object_mutation(context, bucket_name):
+            delete_objects(
+                client,
+                bucket_name,
+                [{"Key": key, "VersionId": version_id} for key, version_id in batch],
+            )
+
+    def _cleanup_versions(
+        self,
+        client,
+        bucket_name: str,
+        context: S3ExecutionTarget,
+        cleanup_store: ObjectVersionCleanupStore,
+        *,
+        keep_last_n: int | None,
+        cutoff_ts: float | None,
+    ) -> int:
+        deleted = 0
+        batch: list[tuple[str, str]] = []
+        for row in cleanup_store.iter_cleanup_candidates(
+            keep_last_n=keep_last_n,
+            cutoff_ts=cutoff_ts,
+        ):
+            batch.append((str(row["key"]), str(row["version_id"])))
+            if len(batch) < 1000:
+                continue
+            self._delete_version_batch(client, bucket_name, context, batch)
+            cleanup_store.remove_versions(batch)
+            deleted += len(batch)
+            batch.clear()
+        if batch:
+            self._delete_version_batch(client, bucket_name, context, batch)
+            cleanup_store.remove_versions(batch)
+            deleted += len(batch)
+        return deleted
+
+    def _cleanup_orphan_markers(
+        self,
+        client,
+        bucket_name: str,
+        context: S3ExecutionTarget,
+        cleanup_store: ObjectVersionCleanupStore,
+    ) -> int:
+        deleted = 0
+        batch: list[tuple[str, str]] = []
+        for row in cleanup_store.iter_orphan_markers():
+            batch.append((str(row["key"]), str(row["version_id"])))
+            if len(batch) < 1000:
+                continue
+            self._delete_version_batch(client, bucket_name, context, batch)
+            deleted += len(batch)
+            batch.clear()
+        if batch:
+            self._delete_version_batch(client, bucket_name, context, batch)
+            deleted += len(batch)
+        return deleted
+
     def cleanup_object_versions(
         self,
         bucket_name: str,
@@ -57,57 +121,25 @@ class BrowserVersionsMixin:
                 )
 
                 deleted_versions = 0
-                versions_batch: list[tuple[str, str]] = []
-
-                def flush_versions_batch() -> None:
-                    nonlocal deleted_versions
-                    if not versions_batch:
-                        return
-                    batch = list(versions_batch)
-                    with self._object_mutation(context, bucket_name):
-                        delete_objects(
-                            client,
-                            bucket_name,
-                            [{"Key": key, "VersionId": version_id} for key, version_id in batch],
-                        )
-                    cleanup_store.remove_versions(batch)
-                    deleted_versions += len(batch)
-                    versions_batch.clear()
-
                 if payload.keep_last_n is not None or cutoff:
                     cutoff_ts = cutoff.timestamp() if cutoff else None
-                    for row in cleanup_store.iter_cleanup_candidates(
+                    deleted_versions = self._cleanup_versions(
+                        client,
+                        bucket_name,
+                        context,
+                        cleanup_store,
                         keep_last_n=payload.keep_last_n,
                         cutoff_ts=cutoff_ts,
-                    ):
-                        versions_batch.append((str(row["key"]), str(row["version_id"])))
-                        if len(versions_batch) >= 1000:
-                            flush_versions_batch()
-                    flush_versions_batch()
+                    )
 
                 deleted_delete_markers = 0
-                markers_batch: list[tuple[str, str]] = []
-
-                def flush_markers_batch() -> None:
-                    nonlocal deleted_delete_markers
-                    if not markers_batch:
-                        return
-                    batch = list(markers_batch)
-                    with self._object_mutation(context, bucket_name):
-                        delete_objects(
-                            client,
-                            bucket_name,
-                            [{"Key": key, "VersionId": version_id} for key, version_id in batch],
-                        )
-                    deleted_delete_markers += len(batch)
-                    markers_batch.clear()
-
                 if payload.delete_orphan_markers:
-                    for row in cleanup_store.iter_orphan_markers():
-                        markers_batch.append((str(row["key"]), str(row["version_id"])))
-                        if len(markers_batch) >= 1000:
-                            flush_markers_batch()
-                    flush_markers_batch()
+                    deleted_delete_markers = self._cleanup_orphan_markers(
+                        client,
+                        bucket_name,
+                        context,
+                        cleanup_store,
+                    )
 
             return CleanupObjectVersionsResponse(
                 prefix=prefix or None,
