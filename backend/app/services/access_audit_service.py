@@ -254,7 +254,7 @@ class AccessAuditService:
             key=f"{user_id}:platform",
             principal=principal,
             scope="platform",
-            target=AccessAuditTarget(name="Platform"),
+            target=AccessAuditTarget(id=None, name="Platform", identifier=None),
             rights=rights,
         )
 
@@ -347,6 +347,7 @@ class AccessAuditService:
                     target=AccessAuditTarget(
                         id=int(connection.id),
                         name=str(connection.name),
+                        identifier=None,
                     ),
                     rights=[
                         self._right(

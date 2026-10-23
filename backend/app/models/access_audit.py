@@ -6,8 +6,6 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import Field
-
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
 from app.models.user import UiRole
@@ -36,28 +34,28 @@ AccessAuditRightCode = Literal[
 
 class AccessAuditGrantSource(ApiModel):
     kind: AccessAuditSourceKind
-    group_id: Optional[int] = None
-    group_name: Optional[str] = None
+    group_id: Optional[int]
+    group_name: Optional[str]
 
 
 class AccessAuditRight(ApiModel):
     code: AccessAuditRightCode
     label: str
-    sources: list[AccessAuditGrantSource] = Field(default_factory=list)
+    sources: list[AccessAuditGrantSource]
 
 
 class AccessAuditPrincipal(ApiModel):
     id: int
     email: str
-    full_name: Optional[str] = None
+    full_name: Optional[str]
     role: UiRole
-    is_active: bool = True
+    is_active: bool
 
 
 class AccessAuditTarget(ApiModel):
-    id: Optional[int] = None
+    id: Optional[int]
     name: str
-    identifier: Optional[str] = None
+    identifier: Optional[str]
 
 
 class AccessAuditRow(ApiModel):
@@ -65,7 +63,7 @@ class AccessAuditRow(ApiModel):
     principal: AccessAuditPrincipal
     scope: AccessAuditScope
     target: AccessAuditTarget
-    rights: list[AccessAuditRight] = Field(default_factory=list)
+    rights: list[AccessAuditRight]
 
 
 class PaginatedAccessAuditResponse(PaginatedResponse):

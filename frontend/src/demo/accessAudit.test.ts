@@ -17,13 +17,13 @@ describe("demo access audit", () => {
     );
     expect(account).toBeDefined();
     expect(account?.rights.find(right => right.code === "account_administrator")?.sources).toEqual([
-      { kind: "direct" },
+      { kind: "direct", group_id: null, group_name: null },
       { kind: "group", group_id: designGroup?.id, group_name: designGroup?.name },
     ]);
 
     const connection = rows.find(row => row.scope === "s3_connection" && row.target.id === state.connections[0].id);
     expect(connection?.rights.find(right => right.code === "shared_connection_access")?.sources).toEqual([
-      { kind: "direct" },
+      { kind: "direct", group_id: null, group_name: null },
     ]);
   });
 
@@ -47,7 +47,7 @@ describe("demo access audit", () => {
       && row.target.id === rgwUserId
     );
     expect(audit?.rights.find(right => right.code === "rgw_user_access")?.sources).toEqual([
-      { kind: "direct" },
+      { kind: "direct", group_id: null, group_name: null },
       { kind: "group", group_id: state.groups[2].id, group_name: state.groups[2].name },
     ]);
   });

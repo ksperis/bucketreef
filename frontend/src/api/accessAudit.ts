@@ -27,8 +27,8 @@ export type AccessAuditRightCode =
 
 type AccessAuditGrantSource = {
   kind: AccessAuditSourceKind;
-  group_id?: number | null;
-  group_name?: string | null;
+  group_id: number | null;
+  group_name: string | null;
 };
 
 export type AccessAuditRight = {
@@ -42,15 +42,15 @@ export type AccessAuditRow = {
   principal: {
     id: number;
     email: string;
-    full_name?: string | null;
+    full_name: string | null;
     role: string;
     is_active: boolean;
   };
   scope: AccessAuditScope;
   target: {
-    id?: number | null;
+    id: number | null;
     name: string;
-    identifier?: string | null;
+    identifier: string | null;
   };
   rights: AccessAuditRight[];
 };

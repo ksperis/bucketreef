@@ -22,7 +22,7 @@ const managerToolRights = {
 } as const satisfies Record<string, AccessAuditRightCode>;
 
 function directSource(): AuditSource {
-  return { kind: "direct" };
+  return { kind: "direct", group_id: null, group_name: null };
 }
 
 function groupSource(group: UiGroup): AuditSource {
@@ -86,7 +86,7 @@ function addRight(
 function addPlatformRows(rows: Map<string, AccessAuditRow>, user: DemoUser, groups: UiGroup[]): void {
   const supportsManagerTools = user.role !== "ui_none";
   const supportsCephAdmin = user.role === "ui_admin" || user.role === "ui_superadmin";
-  const target = { name: "Platform" };
+  const target: AuditTarget = { id: null, name: "Platform", identifier: null };
 
   if (supportsCephAdmin) {
     addRight(rows, user, "platform", target, "ceph_admin", flagSources(
@@ -186,7 +186,14 @@ function addConnectionRows(rows: Map<string, AccessAuditRow>, state: DemoState, 
         .filter(group => connection.group_details.some(candidate => candidate.id === group.id))
         .map(groupSource),
     ];
-    addRight(rows, user, "s3_connection", { id: connection.id, name: connection.name }, "shared_connection_access", sources);
+    addRight(
+      rows,
+      user,
+      "s3_connection",
+      { id: connection.id, name: connection.name, identifier: null },
+      "shared_connection_access",
+      sources,
+    );
   }
 }
 

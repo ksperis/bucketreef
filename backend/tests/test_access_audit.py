@@ -31,6 +31,30 @@ from app.services.access_audit_service import AccessAuditFilters, AccessAuditSer
 from tests.s3_account_factory import make_s3_account
 
 
+def test_access_audit_models_require_complete_canonical_payloads() -> None:
+    assert set(AccessAuditGrantSource.model_json_schema()["required"]) == {
+        "kind",
+        "group_id",
+        "group_name",
+    }
+    assert set(AccessAuditRight.model_json_schema()["required"]) == {"code", "label", "sources"}
+    assert set(AccessAuditPrincipal.model_json_schema()["required"]) == {
+        "id",
+        "email",
+        "full_name",
+        "role",
+        "is_active",
+    }
+    assert set(AccessAuditTarget.model_json_schema()["required"]) == {"id", "name", "identifier"}
+    assert set(AccessAuditRow.model_json_schema()["required"]) == {
+        "key",
+        "principal",
+        "scope",
+        "target",
+        "rights",
+    }
+
+
 def _seed_access_graph(db_session):
     from app.models.app_settings import AppSettings
     from app.db import AppSetting
@@ -152,7 +176,7 @@ def _filter_row() -> AccessAuditRow:
                 code="portal_manager",
                 label="Portal manager",
                 sources=[
-                    AccessAuditGrantSource(kind="direct"),
+                    AccessAuditGrantSource(kind="direct", group_id=None, group_name=None),
                     AccessAuditGrantSource(kind="group", group_id=23, group_name="Storage Operators"),
                 ],
             )
