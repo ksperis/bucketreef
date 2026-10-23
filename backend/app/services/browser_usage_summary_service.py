@@ -41,7 +41,15 @@ class BrowserUsageSummaryService:
 
     @staticmethod
     def _unavailable(*, source: BrowserUsageSource, label: str) -> BrowserUsageSummary:
-        return BrowserUsageSummary(available=False, source=source, label=label)
+        return BrowserUsageSummary(
+            available=False,
+            source=source,
+            label=label,
+            used_bytes=None,
+            object_count=None,
+            quota_max_size_bytes=None,
+            quota_max_objects=None,
+        )
 
     def _available(
         self,

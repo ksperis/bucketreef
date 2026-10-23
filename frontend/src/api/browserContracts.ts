@@ -30,12 +30,12 @@ export type PaginatedBrowserBucketsResponse = {
 
 export type BrowserUsageSummary = {
   available: boolean;
-  source?: "account" | "s3_user" | "portal" | "connection" | null;
-  label?: string | null;
-  used_bytes?: number | null;
-  object_count?: number | null;
-  quota_max_size_bytes?: number | null;
-  quota_max_objects?: number | null;
+  source: "account" | "s3_user" | "portal" | "connection" | null;
+  label: string | null;
+  used_bytes: number | null;
+  object_count: number | null;
+  quota_max_size_bytes: number | null;
+  quota_max_objects: number | null;
 };
 
 export type BrowserObject = {
