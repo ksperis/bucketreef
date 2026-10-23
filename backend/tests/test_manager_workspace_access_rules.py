@@ -7,6 +7,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+import sqlalchemy as sa
 from fastapi import HTTPException
 
 from app.db import (
@@ -1012,7 +1013,9 @@ def test_manager_context_s3_user_disables_ceph_keys_without_target_grant(db_sess
         email="manager-ceph-keys-no-target-grant@example.com",
         ceph_keys_access=True,
     )
-    s3_user = db_session.query(S3User).filter(S3User.id == getattr(account, "s3_user_id")).first()
+    s3_user = db_session.scalar(
+        sa.select(S3User).where(S3User.id == getattr(account, "s3_user_id"))
+    )
     assert s3_user is not None
     s3_user.allow_access_key_management = False
     db_session.add(s3_user)

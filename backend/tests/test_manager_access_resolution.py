@@ -5,6 +5,7 @@ import json
 from unittest.mock import patch
 
 import pytest
+import sqlalchemy as sa
 from fastapi import HTTPException
 
 from app.db import (
@@ -233,7 +234,9 @@ def test_migration_worker_revalidates_and_records_revocation(db_session, princip
     db_session.refresh(migration)
     assert migration.status == "failed"
     assert migration.finished_at is not None
-    event = db_session.query(BucketMigrationEvent).filter_by(migration_id=migration.id).one()
+    event = db_session.scalars(
+        sa.select(BucketMigrationEvent).where(BucketMigrationEvent.migration_id == migration.id)
+    ).one()
     assert event.level == "error"
     assert json.loads(event.metadata_json) == {"revoked_context_ids": [f"conn-{connection.id}"]}
 

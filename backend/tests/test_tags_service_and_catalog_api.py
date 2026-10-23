@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import sqlalchemy as sa
+
 from app.db import ManagerAccountRole, S3Account, S3Connection, S3User, StorageEndpoint, StorageProvider, TagDefinition, User, UserRole, UserS3Account
 from app.main import app
 from app.routers import dependencies
@@ -125,7 +127,11 @@ def test_tags_service_isolates_private_tag_colors_per_owner(db_session):
     owner_b_catalog = service.list_definitions(domain_kind=TAG_DOMAIN_PRIVATE_CONNECTION_USER, owner_user_id=owner_b.id)
     assert [(item.label, item.color_key, item.scope) for item in owner_a_catalog] == [("prod", "amber", "standard")]
     assert [(item.label, item.color_key, item.scope) for item in owner_b_catalog] == [("prod", "blue", "standard")]
-    assert db_session.query(TagDefinition).filter(TagDefinition.domain_kind == TAG_DOMAIN_PRIVATE_CONNECTION_USER).count() == 2
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(TagDefinition).where(
+            TagDefinition.domain_kind == TAG_DOMAIN_PRIVATE_CONNECTION_USER
+        )
+    ) == 2
 
 
 def test_admin_tag_definitions_api_respects_domain_permissions(client: TestClient, db_session):
