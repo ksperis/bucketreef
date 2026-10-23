@@ -7,6 +7,7 @@ from threading import Barrier, Event
 from unittest.mock import Mock
 
 import pytest
+import sqlalchemy as sa
 
 from app.db import S3Account, S3User
 from app.services import admin_dashboard_metrics_cache as cache
@@ -163,7 +164,9 @@ def test_database_scope_changes_invalidate_without_secrets(db_session, monkeypat
     user = S3User(name="User", rgw_user_uid="tracked-user", rgw_access_key="a", rgw_secret_key="s", storage_endpoint_id=one.id)
     db_session.add(user)
     db_session.commit()
-    account = db_session.query(S3Account).filter_by(storage_endpoint_id=one.id).one()
+    account = db_session.scalars(
+        sa.select(S3Account).where(S3Account.storage_endpoint_id == one.id)
+    ).one()
     monkeypatch.setattr(dashboard, "get_supervision_rgw_client", lambda e: RGW())
     service = dashboard.AdminDashboardMetricsService(db_session)
     first_keys = {kind: service._cache_scope(kind)[1] for kind in ("storage", "traffic")}

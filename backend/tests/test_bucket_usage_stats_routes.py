@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import pytest
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
@@ -356,7 +357,7 @@ def test_manager_scan_persists_and_reads_resolved_scope(
         assert aggregate.json()["aggregate"]["total_bytes"] == 10
         assert aggregate.json()["aggregate"]["buckets_with_snapshot"] == 1
 
-    row, = db_session.query(SnapshotRow).all()
+    row, = db_session.scalars(sa.select(SnapshotRow)).all()
     assert (row.scope_kind, row.scope_id, row.bucket_name) == ("manager", expected_scope, "bucket-a")
     assert len(executed_contexts) == 2
     assert all(context.context_id == expected_scope for context in executed_contexts)

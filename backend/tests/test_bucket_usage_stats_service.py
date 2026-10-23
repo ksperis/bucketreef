@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
+import sqlalchemy as sa
 from botocore.exceptions import ClientError
 
 from app.db import StorageEndpoint
@@ -315,7 +316,7 @@ def test_usage_stats_upsert_replaces_latest_snapshot_without_history(db_session)
     service.upsert_snapshot(db_session, first)
     persisted = service.upsert_snapshot(db_session, second)
 
-    assert db_session.query(BucketUsageStatsSnapshotRow).count() == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketUsageStatsSnapshotRow)) == 1
     assert persisted.total_bytes == 42
     assert service.get_latest(db_session, scope_kind="manager", scope_id="ctx-1", bucket_name="bucket-a").total_bytes == 42
 
@@ -347,7 +348,7 @@ def test_usage_stats_keeps_same_name_buckets_from_different_tenants_distinct(db_
     service.upsert_snapshot(db_session, tenant_a)
     service.upsert_snapshot(db_session, tenant_b)
 
-    assert db_session.query(BucketUsageStatsSnapshotRow).count() == 2
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketUsageStatsSnapshotRow)) == 2
     assert service.get_latest(
         db_session,
         scope_kind="manager",

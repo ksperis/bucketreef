@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional
 
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 from app.db import StorageEndpoint
@@ -79,7 +80,7 @@ class FakeRGWAdmin:
 
 
 def _seed_ceph_endpoint(db_session) -> StorageEndpoint:
-    existing = db_session.query(StorageEndpoint).filter(StorageEndpoint.name == "ceph-test").first()
+    existing = db_session.scalar(sa.select(StorageEndpoint).where(StorageEndpoint.name == "ceph-test"))
     if existing:
         return existing
     endpoint = StorageEndpoint(

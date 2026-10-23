@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 from app.db import AuditLog, QuotaUsageDaily, QuotaUsageHourly, S3Account, S3User, StorageEndpoint, StorageProvider
@@ -348,7 +349,9 @@ def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: T
     assert calls == [{"include_quota_alerts": False, "include_usage_history": True}]
     payload = response.json()
     assert payload["subjects_processed"] == 1
-    assert db_session.query(AuditLog).filter(AuditLog.action == "collect_usage_history").count() == 0
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(AuditLog).where(AuditLog.action == "collect_usage_history")
+    ) == 0
 
 
 def test_list_usage_history_hourly_records_include_quota(client: TestClient, db_session, monkeypatch):
