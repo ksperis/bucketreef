@@ -17,31 +17,27 @@ import type { RgwBucketReference } from "./bucketOperation";
 
 export type CephAdminBucket = {
   name: string;
-  bucket_name?: string | null;
-  tenant?: string | null;
-  owner?: string | null;
-  owner_name?: string | null;
-  owner_suspended?: boolean | null;
-  context_id?: string | null;
-  context_name?: string | null;
-  context_kind?: "account" | "connection" | "s3_user" | null;
-  used_bytes?: number | null;
-  object_count?: number | null;
-  quota_max_size_bytes?: number | null;
-  quota_max_objects?: number | null;
-  owner_used_bytes?: number | null;
-  owner_object_count?: number | null;
-  owner_quota_max_size_bytes?: number | null;
-  owner_quota_max_objects?: number | null;
-  tags?: BucketTag[] | null;
-  features?: Record<string, BucketFeatureStatus> | null;
-  column_details?: Record<string, unknown> | null;
-  ui_tags?: BucketUiTagDefinition[];
+  tenant: string | null;
+  owner: string | null;
+  owner_name: string | null;
+  owner_suspended: boolean | null;
+  used_bytes: number | null;
+  object_count: number | null;
+  quota_max_size_bytes: number | null;
+  quota_max_objects: number | null;
+  owner_used_bytes: number | null;
+  owner_object_count: number | null;
+  owner_quota_max_size_bytes: number | null;
+  owner_quota_max_objects: number | null;
+  tags: BucketTag[] | null;
+  features: Record<string, BucketFeatureStatus> | null;
+  column_details: Record<string, unknown> | null;
+  ui_tags: BucketUiTagDefinition[];
 };
 
 export type PaginatedCephAdminBucketsResponse = PaginatedResponse<CephAdminBucket> & {
-  stats_available?: boolean;
-  stats_warning?: string | null;
+  stats_available: boolean;
+  stats_warning: string | null;
 };
 
 export type ListCephAdminBucketsParams = {

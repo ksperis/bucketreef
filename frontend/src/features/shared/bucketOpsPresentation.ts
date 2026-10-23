@@ -151,6 +151,20 @@ export const getStorageOpsContextId = (bucket: CephAdminBucket): string => {
   return decodeStorageOpsBucketRef(bucket.name)?.contextId ?? "";
 };
 
+export const getStorageOpsContextName = (bucket: CephAdminBucket): string => {
+  const raw = (bucket as { context_name?: string | null }).context_name;
+  return typeof raw === "string" ? raw.trim() : "";
+};
+
+export const getStorageOpsContextKind = (
+  bucket: CephAdminBucket,
+): "account" | "connection" | "s3_user" | null => {
+  const raw = (bucket as { context_kind?: unknown }).context_kind;
+  return raw === "account" || raw === "connection" || raw === "s3_user"
+    ? raw
+    : null;
+};
+
 export const getStorageOpsBucketName = (bucket: CephAdminBucket): string => {
   const raw = (bucket as { bucket_name?: string | null }).bucket_name;
   if (typeof raw === "string" && raw.trim()) return raw.trim();

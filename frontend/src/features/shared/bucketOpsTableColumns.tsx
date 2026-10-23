@@ -20,6 +20,8 @@ import {
   formatQuotaBytes,
   formatQuotaObjects,
   formatQuotaUsageValue,
+  getStorageOpsContextKind,
+  getStorageOpsContextName,
   isBucketQuotaConfigured,
 } from "./bucketOpsPresentation";
 import type { BucketOpsTableColumn } from "./BucketOpsTable";
@@ -65,7 +67,7 @@ export function buildBucketOpsDataColumns({
       field: null,
       headerClassName: "min-w-[10rem] max-w-[16rem]",
       cellClassName: "min-w-[10rem] max-w-[16rem]",
-      render: (bucket) => bucket.context_name ?? "-",
+      render: (bucket) => getStorageOpsContextName(bucket) || "-",
     },
     {
       id: "context_kind",
@@ -73,9 +75,10 @@ export function buildBucketOpsDataColumns({
       field: null,
       headerClassName: "w-28",
       render: (bucket) => {
-        if (bucket.context_kind === "account") return text("Account");
-        if (bucket.context_kind === "connection") return text("Connection");
-        if (bucket.context_kind === "s3_user") return text("S3 user");
+        const contextKind = getStorageOpsContextKind(bucket);
+        if (contextKind === "account") return text("Account");
+        if (contextKind === "connection") return text("Connection");
+        if (contextKind === "s3_user") return text("S3 user");
         return "-";
       },
     },

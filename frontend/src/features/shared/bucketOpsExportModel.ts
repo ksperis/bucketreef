@@ -19,6 +19,8 @@ import {
   formatQuotaObjects,
   formatQuotaUsageValue,
   getBucketDisplayName,
+  getStorageOpsContextKind,
+  getStorageOpsContextName,
   isBucketQuotaConfigured,
 } from "./bucketOpsPresentation";
 
@@ -55,7 +57,7 @@ const STATIC_BUCKET_EXPORT_COLUMNS: Partial<
 > = {
   context_name: {
     label: "Context",
-    getValue: (bucket) => bucket.context_name ?? "-",
+    getValue: (bucket) => getStorageOpsContextName(bucket) || "-",
   },
   endpoint_name: {
     label: "Endpoint",
@@ -63,7 +65,7 @@ const STATIC_BUCKET_EXPORT_COLUMNS: Partial<
   },
   context_kind: {
     label: "Kind",
-    getValue: (bucket) => contextKindLabel(bucket.context_kind),
+    getValue: (bucket) => contextKindLabel(getStorageOpsContextKind(bucket)),
   },
   tenant: { label: "Tenant", getValue: (bucket) => bucket.tenant ?? "-" },
   owner: { label: "Owner", getValue: (bucket) => bucket.owner ?? "-" },

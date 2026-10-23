@@ -74,8 +74,12 @@ export function page<T>(items: T[], url: URL) {
   const current = Math.max(1, Number(url.searchParams.get("page")) || 1);
   return { items: matches.slice((current - 1) * size, current * size), total: matches.length, page: current, page_size: size, has_next: current * size < matches.length };
 }
-export function listing(items: unknown[], c: DemoRequest): Response {
-  const data = page(items, c.url);
+export function listing(
+  items: unknown[],
+  c: DemoRequest,
+  extra: Record<string, unknown> = {},
+): Response {
+  const data = { ...page(items, c.url), ...extra };
   return c.path.endsWith("/stream") ? streamResult(data) : json(data);
 }
 function streamResult(value: unknown): Response {

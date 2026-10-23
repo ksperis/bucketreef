@@ -18,7 +18,11 @@ import {
   type FeatureKey,
 } from "./bucketOpsAdvancedFilterModel";
 import { buildBucketTagSummaryLines } from "./bucketFeatureSummaries";
-import { getBucketDisplayName, getTagColors } from "./bucketOpsPresentation";
+import {
+  getBucketDisplayName,
+  getStorageOpsContextName,
+  getTagColors,
+} from "./bucketOpsPresentation";
 import { useSharedI18n } from "./sharedI18n";
 
 type OwnerTooltipState =
@@ -72,15 +76,16 @@ export function BucketOpsSelectionCell({
 }) {
   const { text: surfaceText } = useSharedI18n();
   const displayName = getBucketDisplayName(bucket, useExplicitBucketName);
+  const contextName = isStorageOps ? getStorageOpsContextName(bucket) : "";
   return (
     <ListSelectionCheckbox
       aria-label={surfaceText(
-        isStorageOps && bucket.context_name
+        contextName
           ? "Select bucket {bucket} in {context}"
           : "Select bucket {bucket}",
         {
           bucket: displayName,
-          context: bucket.context_name ?? "",
+          context: contextName,
         },
       )}
       checked={selected}
