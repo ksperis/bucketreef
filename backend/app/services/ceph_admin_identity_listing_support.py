@@ -2,8 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Callable, Literal, Protocol, TypeVar
+from typing import Callable, Protocol, TypeVar
 
+from app.models.ceph_admin import CephAdminFilterMatch
 from app.services.listing_progress import ListingProgressEmitter, invoke_cancel_check
 
 
@@ -24,7 +25,7 @@ class _FilterQuery(Protocol[_R]):
     def rules(self) -> list[_R]: ...
 
     @property
-    def match(self) -> Literal["all", "any"]: ...
+    def match(self) -> CephAdminFilterMatch: ...
 
 
 def coerce_number(value: object) -> float | None:
@@ -52,7 +53,7 @@ def collect_filter_fields(parsed_filter: _FilterQuery[_FieldRule] | None) -> set
 def apply_advanced_filter(
     items: list[_T],
     parsed_filter: _FilterQuery[_R] | None,
-    matcher: Callable[[_T, list[_R], Literal["all", "any"]], bool],
+    matcher: Callable[[_T, list[_R], CephAdminFilterMatch], bool],
 ) -> list[_T]:
     if parsed_filter is None or not parsed_filter.rules:
         return items

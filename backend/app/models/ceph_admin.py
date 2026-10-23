@@ -469,7 +469,8 @@ UserFilterField = Literal[
     "quota_usage_size_percent",
     "quota_usage_object_percent",
 ]
-UserFilterOp = Literal[
+CephAdminFilterMatch = Literal["all", "any"]
+CephAdminFilterOp = Literal[
     "eq",
     "neq",
     "contains",
@@ -484,22 +485,41 @@ UserFilterOp = Literal[
     "is_null",
     "not_null",
 ]
+CephAdminFilterValue = Union[
+    str,
+    int,
+    float,
+    bool,
+    list[str],
+    list[int],
+    list[float],
+    list[bool],
+]
+
+
+def _validate_ceph_admin_filter_rule_value(
+    op: CephAdminFilterOp,
+    value: Optional[CephAdminFilterValue],
+    *,
+    subject: str,
+) -> None:
+    if op not in ("is_null", "not_null") and value is None:
+        raise ValueError(f"{subject} filter rule requires value.")
 
 
 class CephAdminUserFilterRule(ApiModel):
     field: UserFilterField
-    op: UserFilterOp
-    value: Optional[Union[str, int, float, bool, list[str], list[int], list[float], list[bool]]] = None
+    op: CephAdminFilterOp
+    value: Optional[CephAdminFilterValue] = None
 
     @model_validator(mode="after")
     def validate_rule(self):
-        if self.op not in ("is_null", "not_null") and self.value is None:
-            raise ValueError("User filter rule requires value.")
+        _validate_ceph_admin_filter_rule_value(self.op, self.value, subject="User")
         return self
 
 
 class CephAdminUserFilterQuery(ApiModel):
-    match: Literal["all", "any"] = "all"
+    match: CephAdminFilterMatch = "all"
     rules: list[CephAdminUserFilterRule] = Field(default_factory=list)
 
 
@@ -516,35 +536,19 @@ AccountFilterField = Literal[
     "bucket_count",
     "user_count",
 ]
-AccountFilterOp = Literal[
-    "eq",
-    "neq",
-    "contains",
-    "starts_with",
-    "ends_with",
-    "gt",
-    "gte",
-    "lt",
-    "lte",
-    "in",
-    "not_in",
-    "is_null",
-    "not_null",
-]
 
 
 class CephAdminAccountFilterRule(ApiModel):
     field: AccountFilterField
-    op: AccountFilterOp
-    value: Optional[Union[str, int, float, bool, list[str], list[int], list[float], list[bool]]] = None
+    op: CephAdminFilterOp
+    value: Optional[CephAdminFilterValue] = None
 
     @model_validator(mode="after")
     def validate_rule(self):
-        if self.op not in ("is_null", "not_null") and self.value is None:
-            raise ValueError("Account filter rule requires value.")
+        _validate_ceph_admin_filter_rule_value(self.op, self.value, subject="Account")
         return self
 
 
 class CephAdminAccountFilterQuery(ApiModel):
-    match: Literal["all", "any"] = "all"
+    match: CephAdminFilterMatch = "all"
     rules: list[CephAdminAccountFilterRule] = Field(default_factory=list)
