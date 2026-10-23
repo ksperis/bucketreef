@@ -94,6 +94,7 @@ class PortalStorageSpaceVersionCleanupMixin:
             if progress_callback:
                 progress_callback(
                     PortalStorageSpaceVersionCleanupProgress(
+                        request_id=None,
                         stage=stage,
                         storage_space_id=target.storage_space_id,
                         storage_space_name=target.storage_space_name,

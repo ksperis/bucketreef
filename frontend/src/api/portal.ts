@@ -158,7 +158,7 @@ export type PortalDeletedPrefixRestoreFailure = {
 };
 
 export type PortalDeletedPrefixRestoreProgress = {
-  request_id?: string | null;
+  request_id: string | null;
   stage: "prepare" | "list" | "restore" | "completed";
   storage_space_id: string;
   storage_space_name: string;
@@ -168,9 +168,9 @@ export type PortalDeletedPrefixRestoreProgress = {
   restore_candidates: number;
   restored_objects: number;
   failed_objects: number;
-  total_candidates_final?: boolean;
-  current_key?: string | null;
-  message?: string | null;
+  total_candidates_final: boolean;
+  current_key: string | null;
+  message: string | null;
 };
 
 export type PortalDeletedPrefixRestoreResult = {
@@ -195,7 +195,7 @@ type PortalDeletedPrefixRestoreStreamOptions = {
 };
 
 export type PortalStorageSpaceVersionCleanupProgress = {
-  request_id?: string | null;
+  request_id: string | null;
   stage: "prepare" | "list" | "delete" | "completed";
   storage_space_id: string;
   storage_space_name: string;
@@ -205,8 +205,8 @@ export type PortalStorageSpaceVersionCleanupProgress = {
   deleted_versions: number;
   deleted_delete_markers: number;
   bytes_freed: number;
-  total_candidates_final?: boolean;
-  message?: string | null;
+  total_candidates_final: boolean;
+  message: string | null;
 };
 
 export type PortalStorageSpaceVersionCleanupResult = {
