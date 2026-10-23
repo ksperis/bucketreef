@@ -197,7 +197,7 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
 }
 
 export async function updateUser(userId: number, payload: UpdateUserPayload): Promise<User> {
-  const { data } = await client.put<User>(`/admin/users/${userId}`, payload);
+  const { data } = await client.patch<User>(`/admin/users/${userId}`, payload);
   return data;
 }
 

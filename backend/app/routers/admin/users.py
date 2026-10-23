@@ -169,7 +169,7 @@ def create_user(
         raise_bad_request_from_value_error(exc)
 
 
-@router.put("/{user_id}", response_model=UserOut)
+@router.patch("/{user_id}", response_model=UserOut)
 def update_user(
     request: Request,
     user_id: int,
