@@ -88,14 +88,13 @@ def update_versioning(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    mutation.update(
+    return mutation.update(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
         config_area="versioning",
         payload=payload,
     )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{bucket_name}/object-lock", response_model=BucketObjectLock)
