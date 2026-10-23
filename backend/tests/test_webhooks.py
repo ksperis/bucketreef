@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import sessionmaker
 from pydantic import ValidationError
 
@@ -110,7 +110,9 @@ def test_webhook_event_publisher_matches_wildcard_and_exact_subscriptions(db_ses
         commit=True,
     )
 
-    deliveries = db_session.query(WebhookDelivery).filter(WebhookDelivery.delivery_id.in_(delivery_ids)).all()
+    deliveries = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id.in_(delivery_ids))
+    ).all()
     assert len(delivery_ids) == 2
     assert {delivery.endpoint_id for delivery in deliveries} == {wildcard.id, exact.id}
     assert len({delivery.event_id for delivery in deliveries}) == 1
@@ -125,10 +127,12 @@ def test_disabled_endpoint_is_skipped_for_production_events_but_accepts_test(db_
         data={},
         commit=True,
     )
-    assert db_session.query(WebhookDelivery).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(WebhookDelivery)) == 0
 
     queued = WebhookService(db_session).enqueue_test(created.id)
-    delivery = db_session.query(WebhookDelivery).filter_by(delivery_id=queued.delivery_id).one()
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id == queued.delivery_id)
+    ).one()
     assert delivery.is_test is True
     assert delivery.status == "pending"
 
@@ -168,7 +172,9 @@ def test_audit_service_queues_control_plane_event_but_excludes_object_data_plane
         entity_type="user",
         entity_id="7",
     )
-    delivery = db_session.query(WebhookDelivery).filter_by(endpoint_id=endpoint.id).one()
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.endpoint_id == endpoint.id)
+    ).one()
     assert delivery.event_type == "audit.admin.update_ui_user"
 
     AuditService(db_session).record_action(
@@ -180,7 +186,11 @@ def test_audit_service_queues_control_plane_event_but_excludes_object_data_plane
         entity_type="object",
         entity_id="secret-file.bin",
     )
-    assert db_session.query(WebhookDelivery).filter_by(endpoint_id=endpoint.id).count() == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(WebhookDelivery)
+        .where(WebhookDelivery.endpoint_id == endpoint.id)
+    ) == 1
 
 
 def test_literal_persisted_audit_actions_are_present_in_webhook_catalog():
@@ -261,7 +271,11 @@ def test_transactional_webhook_failure_rolls_back_only_webhook_savepoint(db_sess
     db_session.commit()
     assert business_user.id is not None
     assert db_session.get(User, business_user.id) is not None
-    assert db_session.query(WebhookDelivery).filter_by(delivery_id="savepoint-rollback-delivery").count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(WebhookDelivery)
+        .where(WebhookDelivery.delivery_id == "savepoint-rollback-delivery")
+    ) == 0
 
 
 def test_production_webhook_target_requires_https_and_explicit_allowlist(monkeypatch):
@@ -353,7 +367,9 @@ def test_worker_signs_exact_body_and_marks_success(db_session, monkeypatch):
         data={"value": "a b", "count": 2},
         commit=True,
     )
-    delivery = db_session.query(WebhookDelivery).filter_by(delivery_id=delivery_ids[0]).one()
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_ids[0])
+    ).one()
     session_factory = sessionmaker(bind=db_session.get_bind())
     worker = WebhookDeliveryWorker(session_factory)
 
@@ -396,7 +412,9 @@ def test_worker_centralizes_error_sanitization(db_session, monkeypatch, failure_
         data={},
         commit=True,
     )[0]
-    delivery = db_session.query(WebhookDelivery).filter_by(delivery_id=delivery_id).one()
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_id)
+    ).one()
     worker = WebhookDeliveryWorker(sessionmaker(bind=db_session.get_bind()))
     sensitive_error = RuntimeError(
         "secret_key=TOPSECRET endpoint=https://private.example.test/webhook"
@@ -430,7 +448,9 @@ def test_worker_retries_429_with_retry_after_then_fails_at_attempt_limit(db_sess
         data={},
         commit=True,
     )
-    delivery = db_session.query(WebhookDelivery).filter_by(delivery_id=delivery_ids[0]).one()
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_ids[0])
+    ).one()
     session_factory = sessionmaker(bind=db_session.get_bind())
     worker = WebhookDeliveryWorker(session_factory)
     worker._runtime = replace(
@@ -479,7 +499,9 @@ def test_worker_dispatches_delivery_persisted_before_worker_creation(db_session,
         assert worker._dispatch_due() is True
 
     db_session.expire_all()
-    delivery = db_session.query(WebhookDelivery).filter_by(delivery_id=delivery_ids[0]).one()
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_ids[0])
+    ).one()
     assert delivery.status == "delivered"
     assert delivery.attempt_count == 1
 
@@ -539,5 +561,13 @@ def test_worker_retention_purges_terminal_deliveries_only(db_session, monkeypatc
     worker._purge_if_due()
 
     db_session.expire_all()
-    assert db_session.query(WebhookDelivery).filter_by(delivery_id="terminal-old").count() == 0
-    assert db_session.query(WebhookDelivery).filter_by(delivery_id="pending-old").count() == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(WebhookDelivery)
+        .where(WebhookDelivery.delivery_id == "terminal-old")
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(WebhookDelivery)
+        .where(WebhookDelivery.delivery_id == "pending-old")
+    ) == 1
