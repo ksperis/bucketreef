@@ -118,6 +118,15 @@ def test_purge_requests_validate_confirmation_against_selected_targets():
         )
 
     with pytest.raises(ValidationError, match="PURGE 2 BUCKETS"):
+        BucketPurgeRgwTargetRequest(
+            targets=[
+                {"name": "bucket-1", "tenant": "tenant_a"},
+                {"name": "bucket-2", "tenant": "tenant_b"},
+            ],
+            confirmation="PURGE 1 BUCKETS",
+        )
+
+    with pytest.raises(ValidationError, match="PURGE 2 BUCKETS"):
         BucketPurgeTargetRequest(
             targets=[
                 {"context_id": "account-1", "bucket_name": "bucket-1"},
