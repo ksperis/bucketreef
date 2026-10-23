@@ -26,7 +26,7 @@ def update_favorite(favorite_id: str, payload: BrowserFavoriteInput, revision: i
     return BrowserFavoritesService(db).mutate(user, favorite_id, revision, payload)
 
 
-@router.delete("/{favorite_id}", status_code=204)
-def delete_favorite(favorite_id: str, revision: int = Query(ge=1), user: User = Depends(get_current_account_user), db: Session = Depends(get_db)):
+@router.delete("/{favorite_id}", status_code=204, response_class=Response)
+def delete_favorite(favorite_id: str, revision: int = Query(ge=1), user: User = Depends(get_current_account_user), db: Session = Depends(get_db)) -> Response:
     BrowserFavoritesService(db).mutate(user, favorite_id, revision)
     return Response(status_code=204)

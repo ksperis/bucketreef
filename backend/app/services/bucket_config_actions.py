@@ -151,7 +151,7 @@ def delete_bucket_config(
     context: S3ExecutionTarget,
     bucket_name: str,
     force: bool = False,
-) -> tuple[dict[str, str], dict[str, Any]]:
+) -> None:
     try:
         service.delete_bucket(bucket_name, context, force=force)
     except BucketNotEmptyError as exc:
@@ -164,7 +164,6 @@ def delete_bucket_config(
         ) from exc
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
-    return {"message": f"Bucket '{bucket_name}' deleted"}, {"force": force}
 
 
 def update_bucket_quota_config(

@@ -222,6 +222,31 @@ def test_manager_delete_bucket_returns_structured_not_empty_error(client: TestCl
     }
 
 
+def test_manager_delete_bucket_returns_no_content(client: TestClient):
+    class FakeBucketService:
+        def delete_bucket(self, name, account, force=False):  # noqa: ANN001
+            assert name == "demo-bucket"
+            assert account.id == 11
+            assert force is False
+
+    account = S3Account(
+        name="acc",
+        rgw_account_id="RGW00000000000000011",
+        rgw_access_key="AK",
+        rgw_secret_key="SK",
+    )
+    account.id = 11
+
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
+    app.dependency_overrides[manager_buckets_router.get_buckets_service] = lambda: FakeBucketService()
+    app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
+
+    response = client.delete("/api/manager/buckets/demo-bucket")
+
+    assert response.status_code == 204, response.text
+    assert response.content == b""
+
+
 def test_manager_get_bucket_versioning_returns_status(client: TestClient):
     captured: dict[str, object] = {}
 

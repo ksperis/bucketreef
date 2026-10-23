@@ -4,7 +4,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -198,13 +198,17 @@ def update_s3_connection(
     return AdminS3ConnectionsReadService(db).item(conn)
 
 
-@router.delete("/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{connection_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_s3_connection(
     connection_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_super_admin),
     audit: AuditService = Depends(get_audit_service),
-):
+) -> Response:
     service = S3ConnectionsService(db)
     conn = _get_admin_shared_connection(db, connection_id)
     details = resolve_connection_details(conn)
@@ -221,4 +225,4 @@ def delete_s3_connection(
         entity_id=str(connection_id),
         metadata=meta,
     )
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
