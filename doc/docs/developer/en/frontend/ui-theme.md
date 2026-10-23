@@ -8,6 +8,10 @@ The frontend theme is anchored by the shared shell and UI tokens in
 
 - The default brand color is Reef Blue `#0569f8`. Runtime branding derives the
   complete light and dark primary scales from the configured Admin color.
+- Admin branding presets stay in blue, cyan, indigo, and violet families so
+  primary actions remain visually distinct from semantic success, warning, and
+  danger states. Custom accent colors remain accepted, but the Admin UI warns
+  when a saturated custom color overlaps those semantic hue families.
 - Reef Coral `#fc572c` is a decorative brand accent reserved for
   authentication backgrounds. It is not a warning, error, or destructive
   action color; keep success, warning, and danger on their semantic tokens.

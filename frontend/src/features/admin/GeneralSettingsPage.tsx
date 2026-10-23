@@ -74,13 +74,35 @@ const paths = [
 const colors = [
   "#0569f8",
   "#2563eb",
-  "#0f766e",
-  "#16a34a",
-  "#d97706",
-  "#dc2626",
-  "#be123c",
+  "#0369a1",
+  "#0e7490",
+  "#4f46e5",
+  "#4338ca",
   "#7c3aed",
+  "#9333ea",
 ];
+
+function isSemanticAccentColor(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(normalized)) return false;
+
+  const red = Number.parseInt(normalized.slice(1, 3), 16) / 255;
+  const green = Number.parseInt(normalized.slice(3, 5), 16) / 255;
+  const blue = Number.parseInt(normalized.slice(5, 7), 16) / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  if (delta === 0 || (max > 0 && delta / max < 0.3)) return false;
+
+  let hue = 0;
+  if (max === red) hue = 60 * (((green - blue) / delta) % 6);
+  else if (max === green) hue = 60 * ((blue - red) / delta + 2);
+  else hue = 60 * ((red - green) / delta + 4);
+  if (hue < 0) hue += 360;
+
+  return hue <= 180 || hue >= 330;
+}
+
 function validLogo(value: string) {
   if (!value || value.startsWith("/") || value.startsWith("data:image/"))
     return true;
@@ -185,6 +207,8 @@ export default function GeneralSettingsPage() {
   const [testMessage, setTestMessage] = useState<string | null>(null);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
   const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const color = String(form.draft["branding.primary_color"] ?? "#0569f8");
+  const semanticAccentWarning = isSemanticAccentColor(color);
   useEffect(() => {
     let active = true;
     fetchGeneralFeatureLocks()
@@ -278,7 +302,6 @@ export default function GeneralSettingsPage() {
       setOnboardingBusy(false);
     }
   };
-  const color = String(form.draft["branding.primary_color"] ?? "#0569f8");
   return (
     <AdminSettingsFrame
       title={adminText("General settings")}
@@ -631,7 +654,13 @@ export default function GeneralSettingsPage() {
               />
             </div>
           }
-        />
+        >
+          {semanticAccentWarning && (
+            <UiInlineMessage tone="warning">
+              {adminText("This color is close to a semantic status color (success, warning, or danger) and may make actions or states harder to distinguish.")}
+            </UiInlineMessage>
+          )}
+        </SettingsItem>
         <SettingsItem
           compact
           title={adminText("Login logo")}
