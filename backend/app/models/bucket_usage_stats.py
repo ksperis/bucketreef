@@ -9,7 +9,6 @@ from pydantic import Field
 
 from app.models.base import ApiModel
 from app.models.bucket_operation import (
-    BucketNameList,
     RgwBucketReferenceList,
     BucketTargetList,
 )
@@ -22,10 +21,6 @@ BucketUsageStatsScanMode = Literal["versions", "current_only"]
 
 class BucketUsageStatsRequestOptions(ApiModel):
     parallelism: int = Field(default=8, ge=1, le=32)
-
-
-class BucketUsageStatsBucketRequest(BucketUsageStatsRequestOptions):
-    buckets: BucketNameList
 
 
 class BucketUsageStatsTargetRequest(BucketUsageStatsRequestOptions):

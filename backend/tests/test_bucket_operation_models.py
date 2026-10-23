@@ -17,7 +17,6 @@ from app.models.bucket_purge import (
     BucketPurgeTargetRequest,
 )
 from app.models.bucket_usage_stats import (
-    BucketUsageStatsBucketRequest,
     BucketUsageStatsBucketResult,
     BucketUsageStatsProgress,
     BucketUsageStatsRgwTargetRequest,
@@ -51,7 +50,6 @@ def test_bucket_operation_target_requires_both_fields(payload):
     [
         (BucketIntegrityBucketRequest, {}),
         (BucketPurgeBucketRequest, {"confirmation": "PURGE 1 BUCKETS"}),
-        (BucketUsageStatsBucketRequest, {}),
     ],
 )
 def test_bucket_requests_share_name_normalization(request_type, extra):
@@ -82,7 +80,6 @@ def test_target_requests_share_deduplication(request_type, extra):
         (BucketIntegrityTargetRequest, {"targets": [{"context_id": "account-1", "bucket_name": "bucket-1"}]}, "buckets", ["bucket-1"]),
         (BucketPurgeBucketRequest, {"buckets": ["bucket-1"], "confirmation": "PURGE 1 BUCKETS"}, "targets", [{"context_id": "account-1", "bucket_name": "bucket-1"}]),
         (BucketPurgeTargetRequest, {"targets": [{"context_id": "account-1", "bucket_name": "bucket-1"}], "confirmation": "PURGE 1 BUCKETS"}, "buckets", ["bucket-1"]),
-        (BucketUsageStatsBucketRequest, {"buckets": ["bucket-1"]}, "targets", [{"context_id": "account-1", "bucket_name": "bucket-1"}]),
         (BucketUsageStatsTargetRequest, {"targets": [{"context_id": "account-1", "bucket_name": "bucket-1"}]}, "buckets", ["bucket-1"]),
     ],
 )
@@ -105,7 +102,6 @@ def test_bucket_operation_requests_expose_only_their_surface_target_shape(
         BucketIntegrityTargetRequest,
         BucketPurgeBucketRequest,
         BucketPurgeTargetRequest,
-        BucketUsageStatsBucketRequest,
         BucketUsageStatsTargetRequest,
     ],
 )
