@@ -54,7 +54,7 @@ def test_project_settings_are_read_only_without_delegation(client: TestClient, d
     _install_access(account, manager, PortalAccountRole.PORTAL_MANAGER.value)
 
     fetched = client.get(f"/api/portal/settings?account_id={account.id}")
-    updated = client.put(
+    updated = client.patch(
         f"/api/portal/settings?account_id={account.id}",
         json={"allow_private_storage_space_create": False},
     )
@@ -74,7 +74,7 @@ def test_delegated_manager_cannot_lift_platform_prohibition(client, db_session, 
     monkeypatch.setattr("app.services.portal.settings.load_app_settings", lambda: settings)
     account, manager = _seed(db_session, delegated=True)
     _install_access(account, manager, PortalAccountRole.PORTAL_MANAGER.value)
-    response = client.put(f"/api/portal/settings?account_id={account.id}", json={"allow_portal_user_external_sharing": True})
+    response = client.patch(f"/api/portal/settings?account_id={account.id}", json={"allow_portal_user_external_sharing": True})
     assert response.status_code == 403, response.text
     assert "disabled by the platform" in response.json()["detail"]
     db_session.refresh(account)
@@ -98,7 +98,7 @@ def test_portal_user_cannot_update_delegated_project_settings(client: TestClient
     account, user = _seed(db_session, delegated=True)
     _install_access(account, user, PortalAccountRole.PORTAL_USER.value)
 
-    response = client.put(
+    response = client.patch(
         f"/api/portal/settings?account_id={account.id}",
         json={"allow_private_storage_space_create": False},
     )
@@ -120,7 +120,7 @@ def test_delegated_manager_updates_shared_override_and_audits(
         lambda *_args, **_kwargs: None,
     )
 
-    response = client.put(
+    response = client.patch(
         f"/api/portal/settings?account_id={account.id}",
         json={
             "allow_private_storage_space_create": False,

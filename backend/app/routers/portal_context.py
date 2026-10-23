@@ -102,7 +102,7 @@ def get_portal_project_settings(
     return service.get_portal_project_settings(access.account, can_update=can_update)
 
 
-@router.put("/settings", response_model=PortalProjectSettings, response_model_exclude_unset=True)
+@router.patch("/settings", response_model=PortalProjectSettings, response_model_exclude_unset=True)
 def update_portal_project_settings(
     payload: PortalSettingsOverride,
     access: AccountAccess = Depends(get_portal_account_access),
