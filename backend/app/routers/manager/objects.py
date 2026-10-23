@@ -25,7 +25,7 @@ def list_objects(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: ManagerObjectListingService = Depends(get_manager_object_listing_service),
     _: ManagerActor = Depends(get_current_account_admin),
-):
+) -> ListObjectsResponse:
     try:
         return service.list_objects(bucket_name, context, prefix=prefix, continuation_token=continuation_token)
     except RuntimeError as exc:

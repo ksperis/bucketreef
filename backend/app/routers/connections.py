@@ -73,7 +73,7 @@ def _ensure_manual_private_connection_creation_allowed(db: Session, user: User) 
 def list_connections(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_account_user),
-):
+) -> list[S3Connection]:
     service = S3ConnectionsService(db)
     return service.list_owned_private(user.id)
 
@@ -114,7 +114,7 @@ def validate_connection_credentials(
     payload: S3ConnectionCredentialsValidationRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_account_user),
-):
+) -> S3ConnectionCredentialsValidationResult:
     _ensure_manual_private_connection_creation_allowed(db, user)
     service = S3ConnectionValidationService(db)
     try:
@@ -128,7 +128,7 @@ def create_connection(
     payload: S3ConnectionCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_account_user),
-):
+) -> S3Connection:
     _ensure_manual_private_connection_creation_allowed(db, user)
     service = S3ConnectionsService(db)
     audit = AuditService(db)
@@ -175,7 +175,7 @@ def update_connection(
     payload: S3ConnectionUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_account_user),
-):
+) -> S3Connection:
     service = S3ConnectionsService(db)
     audit = AuditService(db)
     try:

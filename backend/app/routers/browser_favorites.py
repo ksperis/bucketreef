@@ -12,17 +12,17 @@ router = APIRouter(prefix="/me/browser-favorites")
 
 
 @router.get("", response_model=list[BrowserFavoriteOut])
-def list_favorites(surface: BrowserFavoriteSurface = "browser", user: User = Depends(get_current_account_user), db: Session = Depends(get_db)):
+def list_favorites(surface: BrowserFavoriteSurface = "browser", user: User = Depends(get_current_account_user), db: Session = Depends(get_db)) -> list[BrowserFavoriteOut]:
     return BrowserFavoritesService(db).list(user, surface)
 
 
 @router.post("", response_model=BrowserFavoriteOut, status_code=201)
-def create_favorite(payload: BrowserFavoriteInput, user: User = Depends(get_current_account_user), db: Session = Depends(get_db)):
+def create_favorite(payload: BrowserFavoriteInput, user: User = Depends(get_current_account_user), db: Session = Depends(get_db)) -> BrowserFavoriteOut:
     return BrowserFavoritesService(db).create(user, payload)
 
 
 @router.put("/{favorite_id}", response_model=BrowserFavoriteOut)
-def update_favorite(favorite_id: str, payload: BrowserFavoriteInput, revision: int = Query(ge=1), user: User = Depends(get_current_account_user), db: Session = Depends(get_db)):
+def update_favorite(favorite_id: str, payload: BrowserFavoriteInput, revision: int = Query(ge=1), user: User = Depends(get_current_account_user), db: Session = Depends(get_db)) -> BrowserFavoriteOut:
     return BrowserFavoritesService(db).mutate(user, favorite_id, revision, payload)
 
 
