@@ -7,6 +7,31 @@ from typing import Optional
 from app.models.base import ApiModel
 
 
+class AdminActiveSessionsByType(ApiModel):
+    ui: int
+    s3: int
+
+
+class AdminSummary(ApiModel):
+    total_accounts: int
+    total_users: int
+    total_admins: int
+    total_none_users: int
+    total_active_sessions: int
+    active_sessions_by_type: AdminActiveSessionsByType
+    total_s3_users: int
+    assigned_accounts: int
+    unassigned_accounts: int
+    assigned_s3_users: int
+    unassigned_s3_users: int
+    total_endpoints: int
+    total_ceph_endpoints: int
+    total_other_endpoints: int
+    total_connections: int
+    total_shared_connections: int
+    total_private_connections: int
+
+
 class AdminStorageAccountUsagePoint(ApiModel):
     account_id: str
     account_name: Optional[str]

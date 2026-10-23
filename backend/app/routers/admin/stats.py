@@ -12,7 +12,7 @@ from app.models.admin_dashboard_metrics import (
     AdminDashboardStorage,
     AdminDashboardTraffic,
 )
-from app.models.admin_stats import AdminStorageStats
+from app.models.admin_stats import AdminStorageStats, AdminSummary
 from app.models.storage_stats import StorageStats
 from app.models.traffic import TrafficStats
 from app.routers.dependencies import get_current_super_admin
@@ -47,16 +47,16 @@ def dashboard_traffic(
     return AdminDashboardTraffic.model_validate(AdminDashboardMetricsService(db).traffic())
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=AdminSummary)
 def summary_stats(
     actor: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-) -> dict:
+) -> AdminSummary:
     """
     Lightweight counts-only endpoint used by the admin dashboard.
     Avoids RGW calls to keep the page responsive.
     """
-    return AdminStatsService(db).summary(actor)
+    return AdminSummary.model_validate(AdminStatsService(db).summary(actor))
 
 
 @router.get("/account", response_model=StorageStats)
