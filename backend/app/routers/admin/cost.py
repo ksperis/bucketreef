@@ -62,7 +62,7 @@ def cost_collect_daily(
 def cost_subjects(
     month: str = Query(..., description="YYYY-MM"),
     endpoint_id: int | None = Query(None),
-    subject_type: str = Query("all", alias="type"),
+    subject_type: str = Query("all"),
     search: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
@@ -90,7 +90,7 @@ def cost_subjects(
 def cost_analytics(
     month: str = Query(..., description="YYYY-MM"),
     endpoint_id: int | None = Query(None),
-    subject_type: str = Query("all", alias="type"),
+    subject_type: str = Query("all"),
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> CostAnalyticsResponse:
@@ -119,7 +119,7 @@ def cost_subject_detail(
 def cost_export_csv(
     month: str = Query(..., description="YYYY-MM"),
     endpoint_id: int | None = Query(None),
-    subject_type: str = Query("all", alias="type"),
+    subject_type: str = Query("all"),
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> Response:
