@@ -1,8 +1,28 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from app.models.ui_group import UiGroupOut
-from app.models.user import UserOut, UserSummary
+from app.models.ui_group import UiGroupAvatar, UiGroupOut
+from app.models.user import UserAvatar, UserOut, UserSummary
+
+
+def test_user_avatar_requires_complete_canonical_payload() -> None:
+    assert set(UserAvatar.model_json_schema()["required"]) == {
+        "preference",
+        "source",
+        "url",
+        "initials",
+        "updated_at",
+    }
+
+
+def test_ui_group_avatar_requires_complete_canonical_payload() -> None:
+    assert set(UiGroupAvatar.model_json_schema()["required"]) == {
+        "source",
+        "initials",
+        "icon",
+        "url",
+        "updated_at",
+    }
 
 
 def test_user_summary_requires_complete_canonical_payload() -> None:

@@ -77,13 +77,20 @@ class UserAvatarService:
         provider_url = _remote_picture_url(user.picture_url)
 
         if preference == "initials":
-            return UserAvatar(preference="initials", source="initials", initials=initials)
+            return UserAvatar(
+                preference="initials",
+                source="initials",
+                url=None,
+                initials=initials,
+                updated_at=user.avatar_updated_at,
+            )
         if preference == "gravatar":
             return UserAvatar(
                 preference="gravatar",
                 source="gravatar",
                 url=_gravatar_url(user.email),
                 initials=initials,
+                updated_at=user.avatar_updated_at,
             )
         if preference == "uploaded" and uploaded_available:
             return self._uploaded_descriptor(user, preference="uploaded", initials=initials)

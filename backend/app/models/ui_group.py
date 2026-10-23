@@ -21,11 +21,11 @@ UiGroupAvatarIcon = Literal["users", "building", "shield", "briefcase", "academi
 
 
 class UiGroupAvatar(ApiModel):
-    source: UiGroupAvatarSource = "initials"
+    source: UiGroupAvatarSource
     initials: str
-    icon: Optional[UiGroupAvatarIcon] = None
-    url: Optional[str] = None
-    updated_at: Optional[datetime] = None
+    icon: Optional[UiGroupAvatarIcon]
+    url: Optional[str]
+    updated_at: Optional[datetime]
 
 
 class LinkedS3Account(ApiModel):

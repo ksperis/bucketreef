@@ -37,6 +37,7 @@ class UiGroupAvatarService:
             return UiGroupAvatar(
                 source="uploaded",
                 initials=initials,
+                icon=None,
                 url=f"/admin/groups/{group.id}/avatar?v={version}",
                 updated_at=group.avatar_updated_at,
             )
@@ -46,9 +47,16 @@ class UiGroupAvatarService:
                 source="preset",
                 initials=initials,
                 icon=icon,
+                url=None,
                 updated_at=group.avatar_updated_at,
             )
-        return UiGroupAvatar(source="initials", initials=initials, updated_at=group.avatar_updated_at)
+        return UiGroupAvatar(
+            source="initials",
+            initials=initials,
+            icon=None,
+            url=None,
+            updated_at=group.avatar_updated_at,
+        )
 
     def set_choice(
         self,

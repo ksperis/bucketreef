@@ -94,11 +94,11 @@ class UiPreferences(ApiModel):
 
 
 class UserAvatar(ApiModel):
-    preference: UserAvatarPreference = "auto"
-    source: UserAvatarSource = "initials"
-    url: Optional[str] = None
+    preference: UserAvatarPreference
+    source: UserAvatarSource
+    url: Optional[str]
     initials: str
-    updated_at: Optional[datetime] = None
+    updated_at: Optional[datetime]
 
 
 class UserSummary(ApiModel):
