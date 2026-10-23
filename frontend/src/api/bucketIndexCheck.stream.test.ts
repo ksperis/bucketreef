@@ -22,7 +22,7 @@ describe("Ceph Admin bucket index check stream", () => {
     const fetchMock = vi.fn(async () =>
       new Response(
         buildStream([
-          'event: progress\ndata: {"stage":"completed","bucket_name":"bucket-a","tenant":"tenant-a","total_buckets":1,"completed_buckets":1,"failed_buckets":0}\n\n',
+          'event: progress\ndata: {"request_id":"r1","stage":"completed","bucket_name":"bucket-a","tenant":"tenant-a","total_buckets":1,"completed_buckets":1,"failed_buckets":0,"message":null}\n\n',
           'event: result\ndata: {"status":"completed","total_buckets":1,"completed_buckets":1,"failed_buckets":0,"started_at":"2026-01-01T00:00:00Z","finished_at":"2026-01-01T00:00:01Z","buckets":[]}\n\n',
           'event: done\ndata: {"request_id":"r1","status":"completed"}\n\n',
         ]),

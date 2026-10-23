@@ -11,7 +11,10 @@ from pydantic import ValidationError
 
 from app.main import app
 from app.models.ceph_admin import (
+    CephAdminBucketIndexCheckBatchBucketResult,
+    CephAdminBucketIndexCheckBatchProgress,
     CephAdminBucketIndexCheckBatchRequest,
+    CephAdminBucketIndexCheckBatchResult,
     CephAdminBucketIndexCheckTarget,
 )
 from app.routers import dependencies
@@ -59,6 +62,19 @@ def test_batch_request_deduplicates_tenant_bucket_targets_and_caps_size():
 
     with pytest.raises(ValidationError):
         CephAdminBucketIndexCheckBatchRequest(targets=[{"name": f"bucket-{index}"} for index in range(201)])
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        CephAdminBucketIndexCheckBatchBucketResult,
+        CephAdminBucketIndexCheckBatchProgress,
+        CephAdminBucketIndexCheckBatchResult,
+    ],
+)
+def test_batch_response_models_require_complete_payloads(model):
+    schema = model.model_json_schema()
+    assert set(schema["required"]) == set(schema["properties"])
 
 
 def test_batch_service_is_read_only_and_keeps_partial_results():
