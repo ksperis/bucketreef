@@ -151,6 +151,26 @@ def _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.valu
     )
 
 
+def _portal_access_key(access_key_id: str, **overrides) -> PortalAccessKey:
+    payload = {
+        "status": None,
+        "created_at": None,
+        "is_active": False,
+        "is_portal": False,
+        "deletable": True,
+        "secret_access_key": None,
+        "expires_at": None,
+        "session_token": None,
+        "target_type": "self",
+        "external_email": None,
+        "storage_space_name": None,
+        "bucket_name": None,
+        "permission": None,
+    }
+    payload.update(overrides)
+    return PortalAccessKey(access_key_id=access_key_id, **payload)
+
+
 def test_portal_manager_bucket_stats_rejects_out_of_scope_bucket_before_admin(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-manager-stats-scope")
     manager = User(email="portal-manager-stats@example.com", hashed_password="x", role="ui_user")
@@ -1208,8 +1228,8 @@ def test_access_keys_state_hides_portal_key_and_exposes_policy(monkeypatch, db_s
 
         def list_access_keys(self, iam_username):  # noqa: ARG002
             return [
-                PortalAccessKey(access_key_id="AK-PORTAL", status="Active", created_at="2026-01-01T00:00:00Z"),
-                PortalAccessKey(access_key_id="AK-USER", status="Inactive", created_at="2026-01-02T00:00:00Z"),
+                _portal_access_key("AK-PORTAL", status="Active", created_at="2026-01-01T00:00:00Z"),
+                _portal_access_key("AK-USER", status="Inactive", created_at="2026-01-02T00:00:00Z"),
             ]
 
     monkeypatch.setattr(service, "_get_iam_service", lambda acc: _FakeIAMService())
@@ -7052,8 +7072,8 @@ def test_create_access_key_rejects_when_limit_reached(monkeypatch, db_session):
         service,
         "_list_access_keys",
         lambda link_obj, iam_obj, include_portal=False: [
-            PortalAccessKey(access_key_id="AK-1", is_portal=False),
-            PortalAccessKey(access_key_id="AK-2", is_portal=False),
+            _portal_access_key("AK-1"),
+            _portal_access_key("AK-2"),
         ],
     )
 
@@ -7109,7 +7129,7 @@ def test_create_access_key_allows_when_below_limit(monkeypatch, db_session):
     monkeypatch.setattr(
         service,
         "_list_access_keys",
-        lambda link_obj, iam_obj, include_portal=False: [PortalAccessKey(access_key_id="AK-1", is_portal=False)],
+        lambda link_obj, iam_obj, include_portal=False: [_portal_access_key("AK-1")],
     )
 
     created = service.create_access_key(user, access)
@@ -7566,14 +7586,14 @@ def test_portal_access_key_routes_record_audit(db_session):
         def create_access_key(self, user_obj, access_obj, payload=None):  # noqa: ARG002
             assert user_obj == user
             assert access_obj == access
-            return PortalAccessKey(access_key_id="AK-NEW", secret_access_key="SK-NEW", is_portal=False)
+            return _portal_access_key("AK-NEW", secret_access_key="SK-NEW")
 
         def update_access_key_status(self, user_obj, access_obj, access_key_id, active):
             assert user_obj == user
             assert access_obj == access
             assert access_key_id == "AK-NEW"
             assert active is False
-            return PortalAccessKey(access_key_id="AK-NEW", status="Inactive", is_active=False, is_portal=False)
+            return _portal_access_key("AK-NEW", status="Inactive")
 
         def delete_access_key(self, user_obj, access_obj, access_key_id):
             assert user_obj == user
@@ -7639,8 +7659,8 @@ def test_portal_access_key_route_audits_external_metadata_without_secret(db_sess
             assert user_obj == user
             assert access_obj == access
             assert payload_obj == payload
-            return PortalAccessKey(
-                access_key_id="AK-EXT",
+            return _portal_access_key(
+                "AK-EXT",
                 secret_access_key="SK-EXT",
                 target_type="external",
                 external_email="partner@example.org",
@@ -7654,8 +7674,8 @@ def test_portal_access_key_route_audits_external_metadata_without_secret(db_sess
             assert access_obj == access
             assert access_key_id == "AK-EXT"
             assert active is False
-            return PortalAccessKey(
-                access_key_id="AK-EXT",
+            return _portal_access_key(
+                "AK-EXT",
                 target_type="external",
                 external_email="partner@example.org",
                 storage_space_name="Research Data",
@@ -7668,8 +7688,8 @@ def test_portal_access_key_route_audits_external_metadata_without_secret(db_sess
             assert user_obj == user
             assert access_obj == access
             assert access_key_id == "AK-EXT"
-            return PortalAccessKey(
-                access_key_id="AK-EXT",
+            return _portal_access_key(
+                "AK-EXT",
                 target_type="external",
                 external_email="partner@example.org",
                 storage_space_name="Research Data",

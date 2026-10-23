@@ -14,7 +14,16 @@ import {
 
 const externalKey: PortalAccessKey = {
   access_key_id: "AK-EXT",
+  status: "Active",
+  created_at: null,
+  is_active: true,
+  is_portal: false,
+  deletable: true,
+  secret_access_key: null,
+  session_token: null,
+  expires_at: null,
   target_type: "external",
+  external_email: "partner@example.org",
   storage_space_name: "Research Data",
   bucket_name: "research-data-bucket",
   permission: "read_write",

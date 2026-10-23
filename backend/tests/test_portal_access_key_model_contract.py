@@ -10,6 +10,25 @@ def test_portal_access_key_models_have_a_single_canonical_module() -> None:
     assert PortalAccessKeysState.__module__ == "app.models.portal_access_keys"
 
 
+def test_portal_access_key_requires_the_complete_canonical_payload() -> None:
+    assert set(PortalAccessKey.model_json_schema()["required"]) == {
+        "access_key_id",
+        "status",
+        "created_at",
+        "is_active",
+        "is_portal",
+        "deletable",
+        "secret_access_key",
+        "expires_at",
+        "session_token",
+        "target_type",
+        "external_email",
+        "storage_space_name",
+        "bucket_name",
+        "permission",
+    }
+
+
 def test_portal_access_keys_state_requires_the_complete_canonical_payload() -> None:
     assert set(PortalIAMUser.model_json_schema()["required"]) == {
         "iam_user_id",
