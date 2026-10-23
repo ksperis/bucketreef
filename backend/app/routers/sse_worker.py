@@ -68,6 +68,8 @@ def stream_status_operation(
     on_result: Callable[[str, _ResultModelT], None] | None = None,
     on_cancel: Callable[[str], None] | None = None,
     on_error: Callable[[str, str], None] | None = None,
+    unexpected_error_detail: Callable[[Exception], str] | None = None,
+    expose_http_status: bool = True,
 ) -> StreamingResponse:
     request_id = uuid.uuid4().hex
 
@@ -77,6 +79,14 @@ def stream_status_operation(
         def cancel_check() -> None:
             if cancel_event.is_set():
                 raise cancelled_error()
+
+        def emit_unexpected_error(exc: Exception) -> None:
+            logger.exception("%s: %s", failure_message, exc)
+            detail = unexpected_error_detail(exc) if unexpected_error_detail else failure_message
+            if on_error:
+                on_error(request_id, detail)
+            push_message(format_sse_event("error", {"request_id": request_id, "detail": detail}))
+            push_message(format_sse_event("done", {"request_id": request_id, "status": "failed"}))
 
         try:
             if on_start:
@@ -102,6 +112,9 @@ def stream_status_operation(
                 )
             )
         except HTTPException as exc:
+            if not expose_http_status:
+                emit_unexpected_error(exc)
+                return
             detail = sanitize_error_detail(exc.detail)
             if on_error:
                 on_error(request_id, str(detail))
@@ -122,21 +135,7 @@ def stream_status_operation(
                 )
             )
         except Exception as exc:  # pragma: no cover
-            logger.exception("%s: %s", failure_message, exc)
-            if on_error:
-                on_error(request_id, failure_message)
-            push_message(
-                format_sse_event(
-                    "error",
-                    {"request_id": request_id, "detail": failure_message},
-                )
-            )
-            push_message(
-                format_sse_event(
-                    "done",
-                    {"request_id": request_id, "status": "failed"},
-                )
-            )
+            emit_unexpected_error(exc)
 
     return stream_cancellable_worker(
         request,
