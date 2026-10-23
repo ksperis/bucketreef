@@ -39,38 +39,38 @@ export type StorageEndpointAdminOpsPermissions = {
   buckets_write: boolean;
   accounts_read: boolean;
   accounts_write: boolean;
-  usage_read?: boolean;
-  usage_write?: boolean;
+  usage_read: boolean;
+  usage_write: boolean;
 };
 
 export type StorageEndpoint = {
   id: number;
   name: string;
   endpoint_url: string;
-  region?: string | null;
+  region: string | null;
   force_path_style: boolean;
-  latitude?: number | null;
-  longitude?: number | null;
+  latitude: number | null;
+  longitude: number | null;
   verify_tls: boolean;
   provider: StorageProvider;
-  admin_access_key?: string | null;
+  admin_access_key: string | null;
   has_admin_secret: boolean;
-  ceph_admin_active?: boolean;
-  service_identities?: {
+  ceph_admin_active: boolean;
+  service_identities: {
     kind: "runtime" | "supervision" | "ceph_admin";
     mode: "managed" | "external";
     status: "not_provisioned" | "missing" | "provisioning" | "ready" | "error" | "revocation_pending" | "disabled";
-    rgw_uid?: string | null;
-    credentials_configured?: boolean;
-    rotation_pending?: boolean;
-    rotation_phase?: "prepared" | "activated" | null;
-    last_error?: string | null;
-    last_reconciled_at?: string | null;
+    rgw_uid: string | null;
+    credentials_configured: boolean;
+    rotation_pending: boolean;
+    rotation_phase: "prepared" | "activated" | null;
+    last_error: string | null;
+    last_reconciled_at: string | null;
   }[];
-  ceph_admin_allowed?: boolean;
-  capabilities?: Record<string, boolean> | null;
-  admin_ops_permissions?: StorageEndpointAdminOpsPermissions | null;
-  features_config?: string | null;
+  ceph_admin_allowed: boolean;
+  capabilities: Record<string, boolean>;
+  admin_ops_permissions: StorageEndpointAdminOpsPermissions;
+  features_config: string | null;
   features: StorageEndpointFeatures;
   is_default: boolean;
   is_editable: boolean;

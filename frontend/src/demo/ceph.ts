@@ -15,7 +15,7 @@ export function ceph(c: DemoRequest): Response | undefined {
       admin_endpoint: endpoint.features.admin.endpoint ?? null,
       region: endpoint.region ?? null,
       is_default: endpoint.is_default,
-      capabilities: endpoint.capabilities ?? {},
+      capabilities: endpoint.capabilities,
       tags: endpoint.tags,
     }));
     return json(endpoints);

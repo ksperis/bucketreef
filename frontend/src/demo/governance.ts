@@ -93,7 +93,7 @@ export function governance(c: DemoRequest): Response | undefined {
         quota_max_size_gb: null, quota_max_objects: null, email: null, used_bytes: null, used_objects: null, bucket_count: null,
         rgw_user_count: null, rgw_user_uids: null, rgw_topic_count: null, rgw_topics: null,
         storage_endpoint_id: endpoint.id, storage_endpoint_name: endpoint.name, storage_endpoint_url: endpoint.endpoint_url,
-        storage_endpoint_is_default: endpoint.is_default, storage_endpoint_capabilities: endpoint.capabilities ?? {},
+        storage_endpoint_is_default: endpoint.is_default, storage_endpoint_capabilities: endpoint.capabilities,
         allow_bucket_quota_management: true, allow_access_key_metadata: null, allow_access_key_expiration: null,
         allow_activity_history: null, allow_rgw_usage_metrics: null, allow_cost_estimation: null,
         allow_bucket_usage_stats: null, allow_bucket_usage_stats_collection: null };

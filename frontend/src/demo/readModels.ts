@@ -144,8 +144,8 @@ export function readModels(c: DemoRequest): Response | undefined {
   if (path === "/manager/iam/overview") { const data = required(state.iam[scopedAccount(c).id]); return json({ iam_users: data.users.length, iam_groups: data.groups.length, iam_roles: data.roles.length, iam_policies: data.policies.length, warnings: [] }); }
   if (path === "/users/me/notifications") { const items = state.notifications[user.id] ?? []; return json({ items, unread_count: items.filter(n => !n.read_at).length }); }
   if (path === "/admin/stats/summary") return json({ total_accounts: state.accounts.length, total_users: state.users.filter(u => u.role === "ui_user").length, total_admins: state.users.filter(u => u.role !== "ui_user").length, total_none_users: 0, total_active_sessions: 18, active_sessions_by_type: { ui: 15, s3: 3 }, total_s3_users: Object.values(state.iam).reduce((n, v) => n + v.users.length, 0), assigned_accounts: state.accounts.filter(a => a.user_links.length).length, unassigned_accounts: state.accounts.filter(a => !a.user_links.length).length, assigned_s3_users: 15, unassigned_s3_users: 0, total_endpoints: state.endpoints.length, total_ceph_endpoints: state.endpoints.length, total_other_endpoints: 0, total_connections: state.connections.length, total_shared_connections: state.connections.length, total_private_connections: 0 });
-  const dashboardEndpoints = state.endpoints.filter(e => e.provider === "ceph" && e.service_identities?.some(identity => identity.kind === "supervision" && identity.status === "ready" && identity.credentials_configured) && (e.capabilities?.metrics || e.capabilities?.usage));
-  if (path === "/admin/stats/dashboard/scope") return json({ endpoints: dashboardEndpoints.map(e => ({ endpoint_id: e.id, name: e.name, storage_enabled: !!e.capabilities?.metrics, traffic_enabled: !!e.capabilities?.usage })) });
+  const dashboardEndpoints = state.endpoints.filter(e => e.provider === "ceph" && e.service_identities.some(identity => identity.kind === "supervision" && identity.status === "ready" && identity.credentials_configured) && (e.capabilities.metrics || e.capabilities.usage));
+  if (path === "/admin/stats/dashboard/scope") return json({ endpoints: dashboardEndpoints.map(e => ({ endpoint_id: e.id, name: e.name, storage_enabled: !!e.capabilities.metrics, traffic_enabled: !!e.capabilities.usage })) });
   if (path === "/browser/sts") return json({ available: false, error: "Demo uses local files" });
   if (/^\/browser\/buckets\/[^/]+\/cors$/.test(path)) return json({ enabled: false, rules: [] });
   if (/^\/(?:ceph-admin\/endpoints\/\d+|manager)\/bucket-ui-tags$/.test(path)) return json({ definitions: [] });
@@ -198,7 +198,7 @@ export function readModels(c: DemoRequest): Response | undefined {
     const scopeObject = path.match(/\/(buckets|storage-spaces)\/([^/]+)\/usage-stats$/);
     const scopeName = scopeObject?.[1] === "storage-spaces" ? state.spaces.find(s => s.id === decodeURIComponent(scopeObject[2]))?.bucketName : scopeObject ? decodeURIComponent(scopeObject[2]) : undefined;
     const dashboardKind = path.startsWith("/admin/stats/dashboard/") ? path.endsWith("/traffic") ? "usage" : "metrics" : undefined;
-    const dashboardIds = dashboardEndpoints.filter(e => !dashboardKind || e.capabilities?.[dashboardKind]).map(e => e.id);
+    const dashboardIds = dashboardEndpoints.filter(e => !dashboardKind || e.capabilities[dashboardKind]).map(e => e.id);
     const cache = { hit: true, expires_at: new Date(Date.parse(state.initializedAt) + 1800000).toISOString() };
     const coverage = { eligible_count: dashboardIds.length, contributing_count: dashboardIds.length, complete_count: dashboardIds.length, issues: [] };
     if (dashboardKind && dashboardIds.length === 0) return json(path.endsWith("/traffic")

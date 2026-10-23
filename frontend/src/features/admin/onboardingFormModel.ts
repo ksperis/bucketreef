@@ -27,7 +27,7 @@ export function serviceIdentity(
   endpoint: StorageEndpoint | null,
   kind: ServiceIdentityKind,
 ) {
-  return endpoint?.service_identities?.find((identity) => identity.kind === kind);
+  return endpoint?.service_identities.find((identity) => identity.kind === kind);
 }
 
 function hasStoredAdminCredentials(endpoint: StorageEndpoint | null): boolean {

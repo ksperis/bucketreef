@@ -124,7 +124,7 @@ export default function S3AccountsPage() {
     [storageEndpoints]
   );
   const accountCephEndpoints = useMemo(
-    () => cephEndpoints.filter((ep) => Boolean(ep.capabilities?.account)),
+    () => cephEndpoints.filter((ep) => Boolean(ep.capabilities.account)),
     [cephEndpoints]
   );
   const defaultAccountEndpointId = useMemo(() => {
@@ -285,7 +285,7 @@ export default function S3AccountsPage() {
         const endpoint = await getStorageEndpoint(endpointId, { include_admin_ops_permissions: true });
         setEndpointAccountsWrite((prev) => ({
           ...prev,
-          [endpointId]: Boolean(endpoint.admin_ops_permissions?.accounts_write),
+          [endpointId]: endpoint.admin_ops_permissions.accounts_write,
         }));
         setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: null }));
       } catch (err) {

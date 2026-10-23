@@ -327,8 +327,8 @@ export default function S3UsersPage() {
       setEndpointPermissionLoading((prev) => ({ ...prev, [endpointId]: true }));
       try {
         const endpoint = await getStorageEndpoint(endpointId, { include_admin_ops_permissions: true });
-        setEndpointUsersWrite((prev) => ({ ...prev, [endpointId]: Boolean(endpoint.admin_ops_permissions?.users_write) }));
-        setEndpointBucketsWrite((prev) => ({ ...prev, [endpointId]: Boolean(endpoint.admin_ops_permissions?.buckets_write) }));
+        setEndpointUsersWrite((prev) => ({ ...prev, [endpointId]: endpoint.admin_ops_permissions.users_write }));
+        setEndpointBucketsWrite((prev) => ({ ...prev, [endpointId]: endpoint.admin_ops_permissions.buckets_write }));
         setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: null }));
       } catch (err) {
         setEndpointUsersWrite((prev) => ({ ...prev, [endpointId]: false }));
@@ -374,7 +374,7 @@ export default function S3UsersPage() {
   );
   const cephEndpoints = useMemo(() => storageEndpoints.filter((ep) => ep.provider === "ceph"), [storageEndpoints]);
   const adminCephEndpoints = useMemo(
-    () => cephEndpoints.filter((ep) => Boolean(ep.capabilities?.admin)),
+    () => cephEndpoints.filter((ep) => Boolean(ep.capabilities.admin)),
     [cephEndpoints]
   );
   const editingEndpointId = editingUser?.storage_endpoint_id ?? null;
