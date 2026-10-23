@@ -238,7 +238,7 @@ class WebhookService:
         )
         if not ids:
             raise RuntimeError("Unable to queue webhook test delivery")
-        return WebhookTestResponse(delivery_id=ids[0])
+        return WebhookTestResponse(delivery_id=ids[0], status="queued")
 
     def list_deliveries(self, endpoint_id: int, *, limit: int = 100) -> list[WebhookDeliveryOut]:
         self._require_endpoint(endpoint_id)
