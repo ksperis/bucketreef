@@ -1,5 +1,14 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 explicit Ceph Admin user caps updates
+
+Ceph Admin RGW user-capability updates now require an explicit `values` array.
+An omitted array no longer means an empty replacement set; callers that intend
+to clear all caps must send `values: []` explicitly.
+
+The bundled frontend already sends the canonical payload. No database
+migration is required.
+
 ## 2026-10 explicit tag update payloads
 
 Bucket and storage-endpoint tag updates now require the `tags` field instead of

@@ -36,6 +36,11 @@ def clear_ceph_admin_caches():
     ceph_admin_bucket_listing_cache.reset_ceph_admin_bucket_listing_caches_for_tests()
 
 
+def test_rgw_user_caps_update_requires_explicit_values() -> None:
+    with pytest.raises(ValidationError):
+        CephAdminRgwUserCapsUpdate.model_validate({"mode": "replace"})
+
+
 class FakeAccountsAdmin:
     def __init__(self):
         self.create_account_calls: list[dict] = []
