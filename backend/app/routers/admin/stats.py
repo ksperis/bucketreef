@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
+from app.models.storage_stats import StorageStats
 from app.models.traffic import TrafficStats
 from app.routers.dependencies import get_current_super_admin
 from app.services.admin_dashboard_metrics_service import AdminDashboardMetricsService
@@ -52,22 +53,22 @@ def summary_stats(
     return AdminStatsService(db).summary(actor)
 
 
-@router.get("/account")
+@router.get("/account", response_model=StorageStats)
 def account_stats(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
     account_id: int = Query(...),
-) -> dict:
-    return AdminStatsService(db).account(account_id)
+) -> StorageStats:
+    return StorageStats.model_validate(AdminStatsService(db).account(account_id))
 
 
-@router.get("/s3-user")
+@router.get("/s3-user", response_model=StorageStats)
 def s3_user_stats(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
     user_id: int = Query(...),
-) -> dict:
-    return AdminStatsService(db).s3_user(user_id)
+) -> StorageStats:
+    return StorageStats.model_validate(AdminStatsService(db).s3_user(user_id))
 
 
 @router.get("/storage")

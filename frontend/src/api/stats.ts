@@ -52,12 +52,12 @@ export type AdminStats = {
   generated_at?: string;
 };
 
-export type ManagerStats = {
+export type StorageStats = {
   total_buckets: number;
-  total_bytes?: number;
-  total_objects?: number;
-  bucket_usage?: BucketUsagePoint[];
-  bucket_overview?: BucketOverview | null;
+  total_bytes: number;
+  total_objects: number;
+  bucket_usage: BucketUsagePoint[];
+  bucket_overview: BucketOverview;
 };
 
 export type TrafficSeriesPoint = {
@@ -255,8 +255,8 @@ export async function fetchAdminTraffic(window: TrafficWindow = "week", endpoint
   return data;
 }
 
-export async function fetchManagerStats(contextId?: S3ExecutionContextSelector): Promise<ManagerStats> {
-  const { data } = await client.get<ManagerStats>("/manager/stats/overview", {
+export async function fetchManagerStats(contextId?: S3ExecutionContextSelector): Promise<StorageStats> {
+  const { data } = await client.get<StorageStats>("/manager/stats/overview", {
     params: withS3ContextParam(undefined, contextId),
   });
   return data;
@@ -269,15 +269,15 @@ export async function fetchManagerUsageTrends(contextId?: S3ExecutionContextSele
   return data;
 }
 
-export async function fetchAdminAccountStats(accountId: number): Promise<ManagerStats> {
-  const { data } = await client.get<ManagerStats>("/admin/stats/account", {
+export async function fetchAdminAccountStats(accountId: number): Promise<StorageStats> {
+  const { data } = await client.get<StorageStats>("/admin/stats/account", {
     params: { account_id: accountId },
   });
   return data;
 }
 
-export async function fetchAdminS3UserStats(userId: number): Promise<ManagerStats> {
-  const { data } = await client.get<ManagerStats>("/admin/stats/s3-user", {
+export async function fetchAdminS3UserStats(userId: number): Promise<StorageStats> {
+  const { data } = await client.get<StorageStats>("/admin/stats/s3-user", {
     params: { user_id: userId },
   });
   return data;

@@ -2,10 +2,10 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../api/client";
-import type { ManagerStats } from "../../api/stats";
+import type { StorageStats } from "../../api/stats";
 import { useAdminStorageStats } from "./useAdminStorageStats";
 
-const statsFixture = {} as ManagerStats;
+const statsFixture = {} as StorageStats;
 
 describe("useAdminStorageStats", () => {
   it("loads stats for the selected resource", async () => {

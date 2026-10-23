@@ -5,11 +5,11 @@
 import { isApiError } from "../../api/client";
 import { useCallback, useEffect, useState } from "react";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
-import { fetchManagerStats, ManagerStats } from "../../api/stats";
+import { fetchManagerStats, StorageStats } from "../../api/stats";
 import { extractApiError } from "../../utils/apiError";
 
 type UseManagerStatsResult = {
-  stats: ManagerStats | null;
+  stats: StorageStats | null;
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -20,7 +20,7 @@ export function useManagerStats(
   enabled: boolean = true,
   refreshKey?: string | null
 ): UseManagerStatsResult {
-  const [stats, setStats] = useState<ManagerStats | null>(null);
+  const [stats, setStats] = useState<StorageStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
