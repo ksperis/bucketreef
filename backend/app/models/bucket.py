@@ -75,7 +75,7 @@ class BucketLifecycleConfig(ApiModel):
 
 
 class BucketTags(ApiModel):
-    tags: List[BucketTag] = Field(default_factory=list)
+    tags: List[BucketTag]
 
 
 class BucketTagsUpdate(ApiModel):

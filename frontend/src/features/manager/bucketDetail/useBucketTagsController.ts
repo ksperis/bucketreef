@@ -82,7 +82,7 @@ export function useBucketTagsController({
           ? await getCephAdminBucketTags(endpointId, bucketName, cephAdminTenant)
           : { tags: [] }
         : await getBucketTags(contextId, bucketName);
-      apply(response.tags ?? []);
+      apply(response.tags);
     } catch (loadError) {
       apply([]);
       setError(extractApiError(loadError, "Unable to load bucket tags."));
