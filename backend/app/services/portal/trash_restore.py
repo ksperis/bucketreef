@@ -167,6 +167,7 @@ class _PortalDeletedPrefixRestoreRunner:
             return
         self.progress_callback(
             PortalDeletedPrefixRestoreProgress(
+                request_id=None,
                 stage=stage,
                 storage_space_id=self.target.storage_space_id,
                 storage_space_name=self.target.storage_space_name,

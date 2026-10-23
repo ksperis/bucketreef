@@ -4,9 +4,13 @@
 from app.main import app
 from app.models.portal_objects import PortalStorageObjectDeleteResponse, PortalStorageObjectDetail
 from app.models.portal_versions import (
+    PortalDeletedPrefixRestoreProgress,
+    PortalDeletedPrefixRestoreResult,
     PortalStorageObjectRestoreResponse,
     PortalStorageObjectVersion,
     PortalStorageObjectVersionsResponse,
+    PortalStorageSpaceVersionCleanupProgress,
+    PortalStorageSpaceVersionCleanupResult,
     PortalStorageSpaceSettings,
 )
 
@@ -64,6 +68,17 @@ def test_portal_storage_space_settings_require_complete_canonical_payload() -> N
         "version_history_retention_days",
         "can_update",
     }
+
+
+def test_portal_long_running_operations_require_complete_canonical_payloads() -> None:
+    for model in (
+        PortalStorageSpaceVersionCleanupProgress,
+        PortalStorageSpaceVersionCleanupResult,
+        PortalDeletedPrefixRestoreProgress,
+        PortalDeletedPrefixRestoreResult,
+    ):
+        schema = model.model_json_schema()
+        assert set(schema["required"]) == set(schema["properties"])
 
 
 def test_portal_object_routes_preserve_their_openapi_contracts() -> None:

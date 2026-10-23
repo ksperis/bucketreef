@@ -39,29 +39,29 @@ def portal_storage_space_version_cleanup_confirmation_phrase(space_name: str) ->
 
 
 class PortalStorageSpaceVersionCleanupProgress(ApiModel):
-    request_id: Optional[str] = None
-    stage: PortalStorageSpaceVersionCleanupStage = "prepare"
+    request_id: Optional[str]
+    stage: PortalStorageSpaceVersionCleanupStage
     storage_space_id: str
     storage_space_name: str
-    scanned_versions: int = 0
-    scanned_delete_markers: int = 0
-    delete_candidates: int = 0
-    deleted_versions: int = 0
-    deleted_delete_markers: int = 0
-    bytes_freed: int = 0
-    total_candidates_final: bool = False
-    message: Optional[str] = None
+    scanned_versions: int
+    scanned_delete_markers: int
+    delete_candidates: int
+    deleted_versions: int
+    deleted_delete_markers: int
+    bytes_freed: int
+    total_candidates_final: bool
+    message: Optional[str]
 
 
 class PortalStorageSpaceVersionCleanupResult(ApiModel):
     status: PortalStorageSpaceVersionCleanupStatus
     storage_space_id: str
     storage_space_name: str
-    scanned_versions: int = 0
-    scanned_delete_markers: int = 0
-    deleted_versions: int = 0
-    deleted_delete_markers: int = 0
-    bytes_freed: int = 0
+    scanned_versions: int
+    scanned_delete_markers: int
+    deleted_versions: int
+    deleted_delete_markers: int
+    bytes_freed: int
     started_at: datetime
     finished_at: datetime
 
@@ -129,19 +129,19 @@ class PortalDeletedPrefixRestoreFailure(ApiModel):
 
 
 class PortalDeletedPrefixRestoreProgress(ApiModel):
-    request_id: Optional[str] = None
-    stage: PortalDeletedPrefixRestoreStage = "prepare"
+    request_id: Optional[str]
+    stage: PortalDeletedPrefixRestoreStage
     storage_space_id: str
     storage_space_name: str
     prefix: str
-    scanned_versions: int = 0
-    scanned_delete_markers: int = 0
-    restore_candidates: int = 0
-    restored_objects: int = 0
-    failed_objects: int = 0
-    total_candidates_final: bool = False
-    current_key: Optional[str] = None
-    message: Optional[str] = None
+    scanned_versions: int
+    scanned_delete_markers: int
+    restore_candidates: int
+    restored_objects: int
+    failed_objects: int
+    total_candidates_final: bool
+    current_key: Optional[str]
+    message: Optional[str]
 
 
 class PortalDeletedPrefixRestoreResult(ApiModel):
@@ -149,12 +149,12 @@ class PortalDeletedPrefixRestoreResult(ApiModel):
     storage_space_id: str
     storage_space_name: str
     prefix: str
-    scanned_versions: int = 0
-    scanned_delete_markers: int = 0
-    restore_candidates: int = 0
-    restored_objects: int = 0
-    failed_objects: int = 0
-    failures: list[PortalDeletedPrefixRestoreFailure] = Field(default_factory=list)
-    failures_truncated: bool = False
+    scanned_versions: int
+    scanned_delete_markers: int
+    restore_candidates: int
+    restored_objects: int
+    failed_objects: int
+    failures: list[PortalDeletedPrefixRestoreFailure]
+    failures_truncated: bool
     started_at: datetime
     finished_at: datetime
