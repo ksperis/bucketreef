@@ -142,35 +142,35 @@ CephAdminBucketIndexCheckBatchStatus = Literal["completed", "completed_with_erro
 
 class CephAdminBucketIndexCheckBatchBucketResult(ApiModel):
     name: str
-    tenant: Optional[str] = None
+    tenant: Optional[str]
     status: Literal["completed", "failed"]
-    duration_seconds: float = 0
-    operation: str = "check_bucket_index"
-    rgw_status_code: Optional[int] = None
-    rgw_error_code: Optional[str] = None
+    duration_seconds: float
+    operation: Literal["check_bucket_index"]
+    rgw_status_code: Optional[int]
+    rgw_error_code: Optional[str]
     message: str
-    result: Any = None
+    result: Any
 
 
 class CephAdminBucketIndexCheckBatchProgress(ApiModel):
-    request_id: Optional[str] = None
-    stage: Literal["prepare", "completed"] = "prepare"
-    bucket_name: Optional[str] = None
-    tenant: Optional[str] = None
-    total_buckets: int = 0
-    completed_buckets: int = 0
-    failed_buckets: int = 0
-    message: Optional[str] = None
+    request_id: Optional[str]
+    stage: Literal["prepare", "completed"]
+    bucket_name: Optional[str]
+    tenant: Optional[str]
+    total_buckets: int
+    completed_buckets: int
+    failed_buckets: int
+    message: Optional[str]
 
 
 class CephAdminBucketIndexCheckBatchResult(ApiModel):
     status: CephAdminBucketIndexCheckBatchStatus
-    total_buckets: int = 0
-    completed_buckets: int = 0
-    failed_buckets: int = 0
+    total_buckets: int
+    completed_buckets: int
+    failed_buckets: int
     started_at: datetime
     finished_at: datetime
-    buckets: list[CephAdminBucketIndexCheckBatchBucketResult] = Field(default_factory=list)
+    buckets: list[CephAdminBucketIndexCheckBatchBucketResult]
 
 
 class CephAdminRgwAccountSummary(ApiModel):

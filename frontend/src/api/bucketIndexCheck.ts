@@ -19,26 +19,26 @@ type BucketIndexCheckPayload = {
 };
 
 export type BucketIndexCheckProgress = {
-  request_id?: string | null;
+  request_id: string | null;
   stage: "prepare" | "completed";
-  bucket_name?: string | null;
-  tenant?: string | null;
+  bucket_name: string | null;
+  tenant: string | null;
   total_buckets: number;
   completed_buckets: number;
   failed_buckets: number;
-  message?: string | null;
+  message: string | null;
 };
 
 export type BucketIndexCheckBucketResult = {
   name: string;
-  tenant?: string | null;
+  tenant: string | null;
   status: "completed" | "failed";
   duration_seconds: number;
   operation: "check_bucket_index";
-  rgw_status_code?: number | null;
-  rgw_error_code?: string | null;
+  rgw_status_code: number | null;
+  rgw_error_code: string | null;
   message: string;
-  result?: unknown;
+  result: unknown;
 };
 
 export type BucketIndexCheckResult = {

@@ -66,6 +66,7 @@ class BucketIndexCheckService:
                 tenant=target.tenant,
                 status="completed" if success else "failed",
                 duration_seconds=monotonic() - started,
+                operation="check_bucket_index",
                 rgw_status_code=upstream.status_code,
                 rgw_error_code=upstream.error_code,
                 message=upstream.message
@@ -80,7 +81,11 @@ class BucketIndexCheckService:
                 tenant=target.tenant,
                 status="failed",
                 duration_seconds=monotonic() - started,
+                operation="check_bucket_index",
+                rgw_status_code=None,
+                rgw_error_code=None,
                 message=sanitized_error_log_detail(exc),
+                result=None,
             )
 
     def _collect_results(
@@ -114,6 +119,7 @@ class BucketIndexCheckService:
                     if progress_callback:
                         progress_callback(
                             CephAdminBucketIndexCheckBatchProgress(
+                                request_id=None,
                                 stage="completed",
                                 bucket_name=target.name,
                                 tenant=target.tenant,
@@ -146,8 +152,13 @@ class BucketIndexCheckService:
         if progress_callback:
             progress_callback(
                 CephAdminBucketIndexCheckBatchProgress(
+                    request_id=None,
                     stage="prepare",
+                    bucket_name=None,
+                    tenant=None,
                     total_buckets=len(targets),
+                    completed_buckets=0,
+                    failed_buckets=0,
                     message="Preparing read-only RGW bucket index checks",
                 )
             )
