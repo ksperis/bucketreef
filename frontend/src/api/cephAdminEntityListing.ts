@@ -5,7 +5,7 @@
 import client from "./client";
 import { resolveApiBaseUrl, streamBucketsWithSse } from "./sseBucketsStream";
 
-export type CephAdminEntityResource = "accounts" | "users";
+type CephAdminEntityResource = "accounts" | "users";
 
 export type CephAdminEntityListingParams = {
   page?: number;
@@ -35,7 +35,7 @@ export type CephAdminListingStreamOptions = {
   onProgress?: (event: CephAdminListingStreamProgress) => void;
 };
 
-export function buildCephAdminEntityListingQuery(
+function buildCephAdminEntityListingQuery(
   params?: CephAdminEntityListingParams,
 ): URLSearchParams {
   const query = new URLSearchParams();

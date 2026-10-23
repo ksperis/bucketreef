@@ -59,19 +59,19 @@ type UsageHistoryQuery = {
   sortDir?: UsageHistorySortDir;
 };
 
-export type UsageHistoryCollectionSubjectError = {
+type UsageHistoryCollectionSubjectError = {
   subject_type: "account" | "s3_user";
   subject_id: number;
   error: string;
 };
 
-export type UsageHistoryCollectionSubjectWarning = {
+type UsageHistoryCollectionSubjectWarning = {
   subject_type: "account" | "s3_user";
   subject_id: number;
   warning: string;
 };
 
-export type UsageHistoryCollectionResult = {
+type UsageHistoryCollectionResult = {
   started_at: string;
   finished_at: string;
   subjects_total: number;

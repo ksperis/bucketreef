@@ -77,7 +77,7 @@ export type StorageOpsSummary = {
   total_endpoints: number;
 };
 
-export type StorageOpsBucketListingCacheRefreshResponse = {
+type StorageOpsBucketListingCacheRefreshResponse = {
   refreshed: boolean;
   contexts: number;
   endpoints: number;
