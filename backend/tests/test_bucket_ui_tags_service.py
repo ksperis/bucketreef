@@ -6,6 +6,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+import sqlalchemy as sa
 from pydantic import ValidationError
 from sqlalchemy import event
 
@@ -172,7 +173,7 @@ def test_ceph_admin_definition_settings_preserve_id_and_assignments(db_session):
         domain_kind=TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
         actor_user_id=owner.id,
     ).definitions[0]
-    assignment = db_session.query(BucketUiTagAssignment).one()
+    assignment = db_session.scalars(sa.select(BucketUiTagAssignment)).one()
     assignment_state = (
         assignment.id,
         assignment.position,
@@ -199,7 +200,7 @@ def test_ceph_admin_definition_settings_preserve_id_and_assignments(db_session):
     )
     assert shared_result.definition.visibility == "shared"
     assert shared_result.involves_shared is True
-    assert db_session.query(BucketUiTagAssignment.id).scalar() == assignment.id
+    assert db_session.scalar(sa.select(BucketUiTagAssignment.id)) == assignment.id
     assert service.catalog(
         domain_kind=TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
         actor_user_id=other.id,
@@ -213,7 +214,7 @@ def test_ceph_admin_definition_settings_preserve_id_and_assignments(db_session):
     )
     assert private_result.definition.visibility == "private"
     db_session.expire_all()
-    unchanged_assignment = db_session.query(BucketUiTagAssignment).one()
+    unchanged_assignment = db_session.scalars(sa.select(BucketUiTagAssignment)).one()
     assert (
         unchanged_assignment.id,
         unchanged_assignment.position,
@@ -329,11 +330,9 @@ def test_bucket_ui_tag_routes_persist_ceph_visibility_and_reject_forged_storage_
         ("Private", "private"),
         ("Shared", "shared"),
     }
-    shared_logs = (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "bucket_ui_tags.update_shared")
-        .all()
-    )
+    shared_logs = db_session.scalars(
+        sa.select(AuditLog).where(AuditLog.action == "bucket_ui_tags.update_shared")
+    ).all()
     assert len(shared_logs) == 1
     assert json.loads(shared_logs[0].metadata_json or "{}") == {
         "endpoint_id": endpoint.id,
@@ -354,12 +353,11 @@ def test_bucket_ui_tag_routes_persist_ceph_visibility_and_reject_forged_storage_
         },
     )
     assert private_only.status_code == 200, private_only.text
-    assert (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "bucket_ui_tags.update_shared")
-        .count()
-        == 1
-    )
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(AuditLog).where(
+            AuditLog.action == "bucket_ui_tags.update_shared"
+        )
+    ) == 1
 
     remove_all = client.patch(
         f"/api/ceph-admin/endpoints/{endpoint.id}/bucket-ui-tags",
@@ -369,12 +367,11 @@ def test_bucket_ui_tag_routes_persist_ceph_visibility_and_reject_forged_storage_
         },
     )
     assert remove_all.status_code == 200, remove_all.text
-    assert (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "bucket_ui_tags.update_shared")
-        .count()
-        == 2
-    )
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(AuditLog).where(
+            AuditLog.action == "bucket_ui_tags.update_shared"
+        )
+    ) == 2
 
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = lambda: owner
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
@@ -460,7 +457,7 @@ def test_bucket_ui_tag_definition_routes_update_settings_and_enforce_visibility(
     assert created.status_code == 200, created.text
     definition = created.json()["definitions"][0]
     assert definition["visibility"] == "private"
-    assignment_id = db_session.query(BucketUiTagAssignment.id).scalar()
+    assignment_id = db_session.scalar(sa.select(BucketUiTagAssignment.id))
 
     private_color = client.patch(
         (
@@ -471,12 +468,11 @@ def test_bucket_ui_tag_definition_routes_update_settings_and_enforce_visibility(
     )
     assert private_color.status_code == 200, private_color.text
     assert private_color.json()["color_key"] == "rose"
-    assert (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "bucket_ui_tags.update_definition")
-        .count()
-        == 0
-    )
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(AuditLog).where(
+            AuditLog.action == "bucket_ui_tags.update_definition"
+        )
+    ) == 0
 
     definition_url = (
         f"/api/ceph-admin/endpoints/{endpoint.id}/bucket-ui-tags/"
@@ -499,12 +495,10 @@ def test_bucket_ui_tag_definition_routes_update_settings_and_enforce_visibility(
     )
     assert shared.status_code == 200, shared.text
     assert shared.json()["visibility"] == "shared"
-    assert db_session.query(BucketUiTagAssignment.id).scalar() == assignment_id
-    audit = (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "bucket_ui_tags.update_definition")
-        .one()
-    )
+    assert db_session.scalar(sa.select(BucketUiTagAssignment.id)) == assignment_id
+    audit = db_session.scalars(
+        sa.select(AuditLog).where(AuditLog.action == "bucket_ui_tags.update_definition")
+    ).one()
     assert json.loads(audit.metadata_json or "{}") == {
         "changed_fields": ["visibility"],
         "endpoint_id": endpoint.id,
@@ -524,7 +518,7 @@ def test_bucket_ui_tag_definition_routes_update_settings_and_enforce_visibility(
     assert claimed.status_code == 200, claimed.text
     assert claimed.json()["color_key"] == "amber"
     assert claimed.json()["visibility"] == "private"
-    assert db_session.query(BucketUiTagAssignment.id).scalar() == assignment_id
+    assert db_session.scalar(sa.select(BucketUiTagAssignment.id)) == assignment_id
 
     current_actor["user"] = owner
     hidden = client.patch(
@@ -799,13 +793,12 @@ def test_endpoint_deletion_cascades_bucket_assignments_and_cleans_definitions(db
 
     StorageEndpointsService(db_session).delete_endpoint(endpoint.id)
 
-    assert db_session.query(BucketUiTagAssignment).count() == 0
-    assert (
-        db_session.query(TagDefinition)
-        .filter(TagDefinition.domain_kind == TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN)
-        .count()
-        == 0
-    )
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketUiTagAssignment)) == 0
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(TagDefinition).where(
+            TagDefinition.domain_kind == TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN
+        )
+    ) == 0
 
 
 def test_non_bucket_definition_cleanup_never_probes_bucket_assignments(db_session):
