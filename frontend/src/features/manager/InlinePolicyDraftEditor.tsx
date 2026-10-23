@@ -14,7 +14,7 @@ import { useManagerI18n } from "./managerI18n";
 
 export type InlinePolicyDraftEditorMode = "idle" | "create" | "edit";
 
-type InlinePolicyDraftEditorProps = {
+export type InlinePolicyDraftEditorProps = {
   drafts: InlinePolicy[];
   selectedDraftName: string | null;
   draftName: string;

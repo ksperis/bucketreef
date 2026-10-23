@@ -6,7 +6,11 @@ import { useCallback, useState, type Dispatch, type SetStateAction } from "react
 import { inlinePolicyNameFormatError, type IAMEntity, type NamingValidationProfile } from "../../utils/resourceNames";
 import { useManagerI18n } from "./managerI18n";
 import type { InlinePolicy } from "../../api/managerIamPolicies";
-import type { InlinePolicyDraftEditorMode } from "./InlinePolicyDraftEditor";
+import type {
+  InlinePolicyDraftEditorMode,
+  InlinePolicyDraftEditorProps,
+} from "./InlinePolicyDraftEditor";
+import { DEFAULT_INLINE_POLICY_TEXT } from "./inlinePolicyTemplate";
 
 export function useInlinePolicyDraftEditor(
   setError: Dispatch<SetStateAction<string | null>>,
@@ -127,26 +131,38 @@ export function useInlinePolicyDraftEditor(
     setError(null);
   };
 
+  const editorProps: InlinePolicyDraftEditorProps = {
+    drafts: inlineDrafts,
+    selectedDraftName: selectedInlineDraftName,
+    draftName: inlineDraftName,
+    nameError: inlineDraftNameError,
+    draftText: inlinePolicyText,
+    entityLabel: entity,
+    mode: inlineDraftMode,
+    expanded: showInlinePolicyOptions,
+    onCreateDraft: handleCreateInlineDraft,
+    onSelectDraft: handleSelectInlineDraft,
+    onDraftNameChange: (value) => {
+      setInlineDraftName(value);
+      setError(null);
+    },
+    onDraftTextChange: (value) => {
+      setInlinePolicyText(value);
+      setError(null);
+    },
+    onSaveDraft: handleAddInlineDraft,
+    onRemoveDraft: handleRemoveInlineDraft,
+    onClearDrafts: handleClearInlineDrafts,
+    onInsertTemplate: () => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT),
+    onToggleExpanded: () => setShowInlinePolicyOptions((previous) => !previous),
+  };
+
   return {
-    inlineDraftNameError,
-    validateInlineDrafts,
-    inlineDraftMode,
+    editorProps,
     inlineDraftName,
     inlineDrafts,
     inlinePolicyText,
-    selectedInlineDraftName,
-    showInlinePolicyOptions,
-    setInlineDraftMode,
-    setInlineDraftName,
-    setInlineDrafts,
-    setInlinePolicyText,
-    setSelectedInlineDraftName,
-    setShowInlinePolicyOptions,
-    handleAddInlineDraft,
-    handleClearInlineDrafts,
-    handleCreateInlineDraft,
-    handleRemoveInlineDraft,
-    handleSelectInlineDraft,
     resetInlinePolicyDraftEditor,
+    validateInlineDrafts,
   };
 }
