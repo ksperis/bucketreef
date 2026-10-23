@@ -20,6 +20,7 @@ from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundE
 from app.db import User
 from app.models.access_context import ManagerActor
 from app.models.execution_context import ManagerAccessMode, ManagerContext
+from app.models.feature_policy import FeatureState
 from app.models.session import ManagerSessionPrincipal
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -262,6 +263,55 @@ def _manager_limits(
     )
 
 
+def _manager_feature_states(
+    context: S3ExecutionContext,
+    db: Session,
+    resolved_access: Optional[ResolvedUserAccess],
+    *,
+    manager_bucket_quota_enabled: bool,
+    manager_ceph_keys_enabled: bool,
+    manager_access_key_metadata_enabled: bool,
+    manager_access_key_expiration_enabled: bool,
+    manager_private_access_enabled: bool,
+) -> dict[str, FeatureState]:
+    project_resource = project_usage_resource(db, context)
+    resource = None
+    if context.context_kind == "account":
+        resource = context.source_account or project_resource
+    elif context.context_kind == "s3_user":
+        resource = project_resource
+
+    provisioning_sources = (
+        resolved_access.feature_sources.get("managed_private_connection_provision", ())
+        if resolved_access
+        else ()
+    )
+    app_settings = load_app_settings_for_db_readonly(db)
+    states = manager_resource_states(
+        app_settings.manager.feature_policies,
+        resource,
+        {
+            "bucket_quota_management": manager_bucket_quota_enabled,
+            "ceph_s3_user_keys": manager_ceph_keys_enabled,
+            "access_key_metadata": manager_access_key_metadata_enabled,
+            "access_key_expiration": manager_access_key_expiration_enabled,
+            "cost_estimation": app_settings.general.cost_enabled,
+            "managed_private_connection_provisioning": manager_private_access_enabled,
+        },
+        provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
+        activity_resource=manager_activity_resource(db, context),
+    )
+    states["rgw_usage_metrics"] = manager_rgw_usage_metrics_state(
+        app_settings.manager.feature_policies,
+        manager_usage_metrics_resource(db, context),
+    )
+    states["bucket_usage_stats"] = bucket_usage_stats_state(
+        app_settings.general.project_feature_policies,
+        project_resource,
+    )
+    return states
+
+
 @router.get("/context", response_model=ManagerContext)
 def get_manager_context(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
@@ -292,8 +342,9 @@ def get_manager_context(
         if isinstance(actor, User)
         else False
     )
-    manager_access_key_metadata_enabled = AccessKeyMetadataService(db).metadata_enabled_for_context(context)
-    manager_access_key_expiration_enabled = AccessKeyMetadataService(db).expiration_enabled_for_context(context)
+    access_key_metadata = AccessKeyMetadataService(db)
+    manager_access_key_metadata_enabled = access_key_metadata.metadata_enabled_for_context(context)
+    manager_access_key_expiration_enabled = access_key_metadata.expiration_enabled_for_context(context)
     manager_private_access_enabled = _manager_private_access_enabled(
         context,
         actor,
@@ -310,41 +361,15 @@ def get_manager_context(
         db,
         include_limits=include_limits,
     )
-
-    resource = None
-    if context.context_kind == "account" and isinstance(context.id, int):
-        resource = context.source_account
-        if resource is None:
-            try:
-                resource = get_s3_accounts_service(db).get_account_record(context.id)
-            except S3AccountNotFoundError:
-                resource = None
-    elif context.context_kind == "s3_user" and context.s3_user_id is not None:
-        resource = context.source_s3_user
-        if resource is None:
-            try:
-                resource = get_s3_users_service(db).get_user_record(context.s3_user_id)
-            except S3UserNotFoundError:
-                resource = None
-    provisioning_sources = resolved_access.feature_sources.get("managed_private_connection_provision", ()) if resolved_access else ()
-    app_settings = load_app_settings_for_db_readonly(db)
-    feature_states = manager_resource_states(
-        app_settings.manager.feature_policies, resource,
-        {"bucket_quota_management": manager_bucket_quota_enabled, "ceph_s3_user_keys": manager_ceph_keys_enabled,
-         "access_key_metadata": manager_access_key_metadata_enabled, "access_key_expiration": manager_access_key_expiration_enabled,
-         "cost_estimation": app_settings.general.cost_enabled,
-         "managed_private_connection_provisioning": manager_private_access_enabled},
-        provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
-        activity_resource=manager_activity_resource(db, context),
-    )
-    project_resource = project_usage_resource(db, context)
-    feature_states["rgw_usage_metrics"] = manager_rgw_usage_metrics_state(
-        app_settings.manager.feature_policies,
-        manager_usage_metrics_resource(db, context),
-    )
-    feature_states["bucket_usage_stats"] = bucket_usage_stats_state(
-        app_settings.general.project_feature_policies,
-        project_resource,
+    feature_states = _manager_feature_states(
+        context,
+        db,
+        resolved_access,
+        manager_bucket_quota_enabled=manager_bucket_quota_enabled,
+        manager_ceph_keys_enabled=manager_ceph_keys_enabled,
+        manager_access_key_metadata_enabled=manager_access_key_metadata_enabled,
+        manager_access_key_expiration_enabled=manager_access_key_expiration_enabled,
+        manager_private_access_enabled=manager_private_access_enabled,
     )
     return ManagerContext(
         feature_states=feature_states,
