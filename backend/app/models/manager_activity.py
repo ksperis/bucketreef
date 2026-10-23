@@ -13,10 +13,10 @@ class ManagerActivityEntry(ApiModel):
     id: int
     created_at: datetime
     action: str
-    entity_type: Optional[str] = None
-    entity_id: Optional[str] = None
-    context_kind: Optional[str] = None
-    context_id: Optional[str] = None
-    context_name: Optional[str] = None
+    entity_type: Optional[str]
+    entity_id: Optional[str]
+    context_kind: Optional[str]
+    context_id: Optional[str]
+    context_name: Optional[str]
     status: AuditStatus
     user_email: str

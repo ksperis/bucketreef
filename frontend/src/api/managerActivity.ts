@@ -10,11 +10,11 @@ export type ManagerActivityEntry = {
   id: number;
   created_at: string;
   action: string;
-  entity_type?: string | null;
-  entity_id?: string | null;
-  context_kind?: string | null;
-  context_id?: string | null;
-  context_name?: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  context_kind: string | null;
+  context_id: string | null;
+  context_name: string | null;
   status: AuditStatus;
   user_email: string;
 };
