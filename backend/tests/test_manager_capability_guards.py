@@ -34,7 +34,7 @@ SUPERVISION_GATES = GATES[2:]
 def enabled_settings(monkeypatch):
     monkeypatch.setattr(feature_gates.app_settings_service, "load_app_settings", AppSettings)
     monkeypatch.setattr(feature_gates.app_settings_service, "load_app_settings_for_db_readonly", lambda _db: AppSettings())
-    monkeypatch.setattr(feature_gates, "project_account_resource", lambda _db, _context: None)
+    monkeypatch.setattr(feature_gates, "manager_usage_metrics_resource", lambda _db, _context: None)
 
 
 def _context(kind="account"):

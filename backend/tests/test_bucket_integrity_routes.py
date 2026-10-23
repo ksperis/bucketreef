@@ -89,7 +89,7 @@ def _manager_tool_user(*, bucket_integrity_check: bool = True) -> User:
 def test_require_bucket_integrity_enabled_blocks_when_feature_disabled(db_session, monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_integrity_check = "disabled"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     with pytest.raises(HTTPException) as exc:
         dependencies_router.require_bucket_integrity_check_enabled(_manager_tool_user(), db=db_session)
@@ -101,7 +101,7 @@ def test_require_bucket_integrity_enabled_blocks_when_feature_disabled(db_sessio
 def test_require_bucket_integrity_enabled_blocks_without_user_tool_access(db_session, monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_integrity_check = "targeted"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     user = _manager_tool_user(bucket_integrity_check=False)
     db_session.add(user)
     db_session.flush()
@@ -172,7 +172,7 @@ def test_manager_integrity_route_streams_progress_and_result(monkeypatch):
 def test_manager_integrity_route_returns_403_when_flag_disabled(monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_integrity_check = "disabled"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[dependencies_router.require_manager_enabled] = lambda: None

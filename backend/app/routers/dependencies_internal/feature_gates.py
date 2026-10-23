@@ -164,14 +164,14 @@ def require_usage_logs_capable_manager(
     )
 
 
-def _manager_tool_global_state(tool: ManagerToolKey) -> tuple[bool, str]:
-    app_settings = app_settings_service.load_app_settings()
+def _manager_tool_global_state(tool: ManagerToolKey, db: Session) -> tuple[bool, str]:
+    app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
     disabled_detail = _MANAGER_TOOL_DISABLED_MESSAGES[tool]
     return getattr(app_settings.manager.feature_policies, tool) != FeaturePolicy.DISABLED, disabled_detail
 
 
 def ensure_manager_tool_allowed(user: User, tool: ManagerToolKey, db: Session) -> ResolvedUserAccess:
-    enabled, disabled_detail = _manager_tool_global_state(tool)
+    enabled, disabled_detail = _manager_tool_global_state(tool, db)
     if not enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=disabled_detail)
     if user.role not in MANAGER_TOOL_ROLES:
