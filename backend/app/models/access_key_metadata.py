@@ -33,3 +33,12 @@ class AccessKeyMetadata(AccessKeyMetadataInput):
     expiration_enforced_at: Optional[datetime] = None
     expiration_last_attempt_at: Optional[datetime] = None
     expiration_last_error: Optional[str] = None
+
+
+class AccessKeyExpirationRunResult(ApiModel):
+    status: Literal["ok"]
+    processed: int
+    enforced: int
+    retried: int
+    blocked: int
+    missing: int

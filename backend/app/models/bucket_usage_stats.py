@@ -144,3 +144,13 @@ class BucketUsageStatsResult(ApiModel):
     started_at: datetime
     finished_at: datetime
     buckets: list[BucketUsageStatsBucketResult] = Field(default_factory=list)
+
+
+class BucketUsageStatsCollectionResult(ApiModel):
+    status: BucketUsageStatsStatus
+    eligible_accounts: int
+    skipped_accounts: int
+    due_buckets: int
+    completed_buckets: int
+    failed_buckets: int
+    skipped_buckets: int
