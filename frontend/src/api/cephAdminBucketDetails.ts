@@ -20,6 +20,7 @@ import type {
   BucketTag,
   BucketVersioningStatus,
   BucketWebsiteConfiguration,
+  BucketWebsiteUpdate,
 } from "./bucketContracts";
 import client from "./client";
 
@@ -318,7 +319,7 @@ export async function getCephAdminBucketWebsite(
 export async function putCephAdminBucketWebsite(
   endpointId: number,
   bucketName: string,
-  payload: BucketWebsiteConfiguration,
+  payload: BucketWebsiteUpdate,
   tenant?: string | null,
 ): Promise<BucketWebsiteConfiguration> {
   return writeCephAdminBucketResource<BucketWebsiteConfiguration>(endpointId, bucketName, "website", payload, tenant);

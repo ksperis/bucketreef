@@ -42,6 +42,7 @@ from app.models.bucket import (
     BucketTag,
     BucketWebsiteConfiguration,
     BucketWebsiteRedirectAllRequestsTo,
+    BucketWebsiteUpdate,
     LifecycleRule,
 )
 from app.utils.rgw_identifiers import (
@@ -559,7 +560,12 @@ class BucketConfigurationService:
             **self._bucket_client_kwargs(execution_context, name),
         )
         if not config:
-            return BucketWebsiteConfiguration(routing_rules=[])
+            return BucketWebsiteConfiguration(
+                index_document=None,
+                error_document=None,
+                redirect_all_requests_to=None,
+                routing_rules=[],
+            )
         index_document = None
         error_document = None
         redirect = None
@@ -591,7 +597,7 @@ class BucketConfigurationService:
         self,
         name: str,
         execution_context: S3ExecutionTarget,
-        payload: BucketWebsiteConfiguration,
+        payload: BucketWebsiteUpdate,
     ) -> BucketWebsiteConfiguration:
         config: dict = {}
         if payload.redirect_all_requests_to:

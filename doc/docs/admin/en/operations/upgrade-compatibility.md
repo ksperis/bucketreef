@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical static website payloads
+
+Bucket static-website reads and updates now use separate contracts and require
+the complete four-field shape: `index_document`, `error_document`,
+`redirect_all_requests_to`, and `routing_rules`. Nullable values remain
+nullable, but callers must send them explicitly instead of relying on omission
+defaults.
+
+The bundled frontend already sends the complete update payload. No database
+migration is required.
+
 ## 2026-10 canonical Object Lock payloads
 
 Bucket Object Lock reads and updates now require the complete four-field shape:

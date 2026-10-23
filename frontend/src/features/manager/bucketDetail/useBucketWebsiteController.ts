@@ -9,7 +9,10 @@ import {
   getBucketWebsite,
   putBucketWebsite,
 } from "../../../api/bucketDetails";
-import type { BucketWebsiteConfiguration } from "../../../api/bucketContracts";
+import type {
+  BucketWebsiteConfiguration,
+  BucketWebsiteUpdate,
+} from "../../../api/bucketContracts";
 import {
   deleteCephAdminBucketWebsite,
   getCephAdminBucketWebsite,
@@ -172,7 +175,7 @@ export function useBucketWebsiteController({
 
     setSaving(true);
     try {
-      const payload: BucketWebsiteConfiguration = {
+      const payload: BucketWebsiteUpdate = {
         error_document:
           draft.mode === "hosting" ? errorDocument || null : null,
         index_document: draft.mode === "hosting" ? indexDocument : null,
