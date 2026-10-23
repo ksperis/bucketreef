@@ -1,7 +1,7 @@
 import type { UiGroup } from "../api/groups";
 import type { S3Account } from "../api/accounts";
 import type { StorageEndpoint } from "../api/storageEndpoints";
-import { bucketView, createDemoGroup, createDemoUser, demoGroupUser, emptyIam, personaIds, settings, tools, type DemoUser } from "./state";
+import { bucketView, createDemoGroup, createDemoUser, demoConnectionUser, demoGroupUser, emptyIam, personaIds, settings, tools, type DemoUser } from "./state";
 import { DemoError, done, json, page, required, safeFields, textField, type DemoRequest } from "./http";
 import { demoUserSummary, demoUserView } from "./userProjection";
 
@@ -127,17 +127,64 @@ export function governance(c: DemoRequest): Response | undefined {
   const connectionMatch = path.match(/^\/(?:admin\/s3-connections|connections)(?:\/(\d+|minimal))?$/);
   if (connectionMatch) {
     const connection = state.connections.find(v => v.id === Number(connectionMatch[1]));
-    if (method === "GET") return json(connectionMatch[1] === "minimal" || path === "/connections" ? state.connections : connectionMatch[1] ? required(connection) : page(state.connections, c.url));
+    if (method === "GET") {
+      if (connectionMatch[1] === "minimal") {
+        return json(state.connections.map(({ id, name, created_by_user_id, is_active, execution_status }) => ({
+          id,
+          name,
+          created_by_user_id,
+          is_active,
+          execution_status,
+        })));
+      }
+      return json(path === "/connections" ? state.connections : connectionMatch[1] ? required(connection) : page(state.connections, c.url));
+    }
     if (method === "POST" && !connectionMatch[1]) {
       const endpoint = state.endpoints.find(e => e.id === Number(body.storage_endpoint_id));
-      const created: typeof state.connections[number] = { ...body, id: state.nextId++, name: textField(body, "name"), endpoint_url: endpoint?.endpoint_url ?? textField(body, "endpoint_url"), storage_endpoint_id: endpoint?.id, created_by_user_id: c.user.id, created_by_email: c.user.email, execution_status: "ready", user_count: 0, access_key_id: "DEMO_NOT_A_REAL_KEY", user_details: [], group_details: [], tags: [], is_active: true, is_shared: path.startsWith("/admin/"), created_at: new Date().toISOString() };
+      const now = new Date().toISOString();
+      const created: typeof state.connections[number] = {
+        ...body,
+        id: state.nextId++,
+        name: textField(body, "name"),
+        endpoint_url: endpoint?.endpoint_url ?? textField(body, "endpoint_url"),
+        storage_endpoint_id: endpoint?.id ?? null,
+        is_active: true,
+        execution_status: "ready",
+        remediation_reason: null,
+        capabilities: {},
+        rgw_user_uid: typeof body.rgw_user_uid === "string" ? body.rgw_user_uid : null,
+        rgw_tenant: typeof body.rgw_tenant === "string" ? body.rgw_tenant : null,
+        rgw_account_id: typeof body.rgw_account_id === "string" ? body.rgw_account_id : null,
+        provider_hint: typeof body.provider_hint === "string" ? body.provider_hint : null,
+        region: typeof body.region === "string" ? body.region : endpoint?.region ?? null,
+        force_path_style: body.force_path_style === true,
+        verify_tls: body.verify_tls !== false,
+        allow_activity_history: null,
+        created_by_user_id: c.user.id,
+        created_by_email: c.user.email,
+        created_by_full_name: c.user.full_name,
+        created_by_avatar: c.user.avatar,
+        user_count: 0,
+        user_details: [],
+        group_details: [],
+        tags: [],
+        last_used_at: null,
+        created_at: now,
+        updated_at: null,
+        access_key_id: "DEMO_NOT_A_REAL_KEY",
+        is_shared: path.startsWith("/admin/"),
+      };
       state.connections.push(created); return json(created, 201);
     }
     if (method === "PUT" && connection) {
       Object.assign(connection, body, { access_key_id: "DEMO_NOT_A_REAL_KEY" });
-      if (Array.isArray(body.user_ids)) connection.user_details = state.users.filter(u => (body.user_ids as number[]).includes(u.id));
-      if (Array.isArray(body.group_ids)) connection.group_details = state.groups.filter(g => (body.group_ids as number[]).includes(g.id));
-      connection.user_count = connection.user_details?.length ?? 0; return json(connection);
+      if (Array.isArray(body.user_ids)) connection.user_details = state.users.filter(u => (body.user_ids as number[]).includes(u.id)).map(demoConnectionUser);
+      if (Array.isArray(body.group_ids)) connection.group_details = state.groups
+        .filter(g => (body.group_ids as number[]).includes(g.id))
+        .map(({ id, name, avatar }) => ({ id, name, avatar }));
+      connection.user_count = connection.user_details.length;
+      connection.updated_at = new Date().toISOString();
+      return json(connection);
     }
     if (method === "DELETE" && connection) { state.connections = state.connections.filter(v => v !== connection); return done(); }
   }

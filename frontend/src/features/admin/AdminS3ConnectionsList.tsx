@@ -131,14 +131,14 @@ export default function AdminS3ConnectionsList({
   }, [headerIndeterminate]);
 
   const renderConnectionAssociations = (connection: S3ConnectionAdminItem) => {
-    const userItems: AssociationPrincipalItem[] = (connection.user_details ?? []).map((user) => ({
+    const userItems: AssociationPrincipalItem[] = connection.user_details.map((user) => ({
       id: user.id,
       kind: "user",
       label: user.full_name || user.email || `User #${user.id}`,
       email: user.email,
       avatar: user.avatar,
     }));
-    const groupItems: AssociationPrincipalItem[] = (connection.group_details ?? []).map((group) => ({
+    const groupItems: AssociationPrincipalItem[] = connection.group_details.map((group) => ({
       id: group.id,
       kind: "group",
       label: group.name,
@@ -213,7 +213,7 @@ export default function AdminS3ConnectionsList({
       label: "Status",
       render: (connection) => {
         const remediationRequired = connection.execution_status === "remediation_required";
-        const isActive = connection.is_active !== false && !remediationRequired;
+        const isActive = connection.is_active && !remediationRequired;
         return (
           <ListBadge tone={remediationRequired ? "warning" : isActive ? "success" : "neutral"}>
             {remediationRequired ? "Remediation required" : isActive ? "Active" : "Inactive"}
@@ -255,7 +255,7 @@ export default function AdminS3ConnectionsList({
       cellClassName: "min-w-[344px]",
       render: (connection) => {
         const remediationRequired = connection.execution_status === "remediation_required";
-        const isActive = connection.is_active !== false;
+        const isActive = connection.is_active;
         return (
           <ListActions>
             <ListActionButton

@@ -181,9 +181,9 @@ function addS3UserRows(rows: Map<string, AccessAuditRow>, state: DemoState, user
 function addConnectionRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: DemoUser, groups: UiGroup[]): void {
   for (const connection of state.connections.filter(candidate => candidate.is_shared !== false)) {
     const sources = [
-      ...(connection.user_details?.some(member => member.id === user.id) ? [directSource()] : []),
+      ...(connection.user_details.some(member => member.id === user.id) ? [directSource()] : []),
       ...groups
-        .filter(group => connection.group_details?.some(candidate => candidate.id === group.id))
+        .filter(group => connection.group_details.some(candidate => candidate.id === group.id))
         .map(groupSource),
     ];
     addRight(rows, user, "s3_connection", { id: connection.id, name: connection.name }, "shared_connection_access", sources);

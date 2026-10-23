@@ -126,8 +126,8 @@ function effectiveConnectionDetails(state: DemoState, user: DemoUser) {
   return state.connections
     .filter(connection => connection.is_shared !== false)
     .filter(connection =>
-      connection.user_details?.some(member => member.id === user.id)
-      || connection.group_details?.some(group => groupIds.has(group.id)))
+      connection.user_details.some(member => member.id === user.id)
+      || connection.group_details.some(group => groupIds.has(group.id)))
     .map(connection => ({ id: connection.id, name: connection.name }))
     .sort((left, right) => left.id - right.id);
 }
