@@ -13,7 +13,6 @@ from app.routers.admin import production_readiness as production_readiness_route
 def _settings(**overrides) -> Settings:
     values = {
         "deployment_profile": "full",
-        "jwt_keys": ["legacy-jwt-key-that-is-at-least-32-bytes"],
         "ui_jwt_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "api_jwt_keys": ["api-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "credential_keys": ["credential-key-that-is-at-least-32-bytes"],

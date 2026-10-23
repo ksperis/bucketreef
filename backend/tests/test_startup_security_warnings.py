@@ -22,7 +22,6 @@ def _base_settings(**overrides) -> Settings:
         "allowed_hosts": ["app.example.test"],
         "trusted_proxy_cidrs": ["10.0.0.10/32"],
         "cors_origins": ["https://app.example.test"],
-        "jwt_keys": ["legacy-jwt-key-that-is-at-least-32-bytes"],
         "ui_jwt_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "api_jwt_keys": ["api-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "credential_keys": ["credential-key-that-is-at-least-32-bytes"],

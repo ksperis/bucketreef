@@ -1374,14 +1374,18 @@ both strict.
 
 ## 2026-08 canonical secret keyrings
 
-The backend now accepts only the keyring settings `JWT_KEYS` and
-`CREDENTIAL_KEYS`. Before upgrading, replace a singular `FERNET_KEY` with a
-one-item `JWT_KEYS` list and replace a singular `CREDENTIAL_KEY` with a one-item
-`CREDENTIAL_KEYS` list. Keep every historical key required to validate active
-JWTs or decrypt stored credentials, with the key used for new values first.
+The backend accepts only the keyring settings `UI_JWT_KEYS`, `API_JWT_KEYS`, and
+`CREDENTIAL_KEYS`. `JWT_KEYS`, `FERNET_KEY`, and `CREDENTIAL_KEY` are ignored.
+Before upgrading from a deployment that still uses a shared `JWT_KEYS` ring,
+copy its complete ordered key list to both `UI_JWT_KEYS` and `API_JWT_KEYS` so
+active JWTs remain valid through the cutover. The rings can then be rotated to
+distinct values after the old tokens have expired. Replace a singular
+`CREDENTIAL_KEY` with a one-item `CREDENTIAL_KEYS` list and keep every
+historical credential key required to decrypt stored values, with the key used
+for new values first.
 
-Empty keyrings are rejected at startup. The singular environment variables are
-ignored and no longer provide runtime compatibility.
+Empty keyrings are rejected at startup. Removed environment variables no longer
+provide runtime compatibility.
 
 ## 2026-08 strict credential encryption
 

@@ -188,16 +188,18 @@ class Settings(BaseSettings):
         "standard", description="Informational onboarding hint; never changes security or feature defaults"
     )
     api_prefix: str = "/api"
-    jwt_keys: list[str] = Field(
-        default_factory=lambda: ["change-me"],
-        description="JWT key ring (JSON list)",
-    )
     credential_keys: list[str] = Field(
         default_factory=lambda: ["change-me"],
         description="Credential key ring (JSON list)",
     )
-    ui_jwt_keys: list[str] = Field(default_factory=list, description="Dedicated UI JWT key ring")
-    api_jwt_keys: list[str] = Field(default_factory=list, description="Dedicated API JWT key ring")
+    ui_jwt_keys: list[str] = Field(
+        default_factory=lambda: ["change-me"],
+        description="UI JWT key ring (JSON list)",
+    )
+    api_jwt_keys: list[str] = Field(
+        default_factory=lambda: ["change-me"],
+        description="API JWT key ring (JSON list)",
+    )
     jwt_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
     jwt_issuer: str = "bucketreef"
     ui_jwt_audience: str = "bucketreef-ui"
@@ -617,8 +619,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_settings(self):
-        if not self.jwt_keys:
-            raise ValueError("jwt_keys must contain at least one key")
+        if not self.ui_jwt_keys:
+            raise ValueError("ui_jwt_keys must contain at least one key")
+        if not self.api_jwt_keys:
+            raise ValueError("api_jwt_keys must contain at least one key")
         if not self.credential_keys:
             raise ValueError("credential_keys must contain at least one key")
         if self.api_token_default_expire_days < 1:
@@ -637,12 +641,6 @@ class Settings(BaseSettings):
             except ValueError as exc:
                 raise ValueError(f"Invalid trusted proxy CIDR: {value}") from exc
         return self
-
-    def effective_ui_jwt_keys(self) -> list[str]:
-        return list(self.ui_jwt_keys or self.jwt_keys)
-
-    def effective_api_jwt_keys(self) -> list[str]:
-        return list(self.api_jwt_keys or self.jwt_keys)
 
     def effective_public_origins(self) -> list[str]:
         return _deduplicate_origins([self.public_origin, *self.public_origins])

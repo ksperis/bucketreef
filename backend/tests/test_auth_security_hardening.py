@@ -94,7 +94,7 @@ def test_ui_jwt_is_strictly_typed_and_rejects_wrong_type_audience_and_legacy_tok
     assert claims["sub"] == f"user:{user.id}"
     assert decode_typed_token(token, expected_type="api_access") is None
 
-    key = settings.effective_ui_jwt_keys()[0]
+    key = settings.ui_jwt_keys[0]
     kid = hashlib.sha256(key.encode()).hexdigest()[:16]
     wrong_audience = jwt.encode(
         {

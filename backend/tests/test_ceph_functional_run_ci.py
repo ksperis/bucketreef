@@ -180,12 +180,16 @@ def test_ceph_verifier_rejects_partial_ceph_admin_credentials():
 def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
     _seed_required_endpoint_env(monkeypatch)
     monkeypatch.setenv("CI", "true")
-    monkeypatch.delenv("JWT_KEYS", raising=False)
+    monkeypatch.setenv("JWT_KEYS", '["ambient-jwt-value"]')
+    monkeypatch.delenv("UI_JWT_KEYS", raising=False)
+    monkeypatch.delenv("API_JWT_KEYS", raising=False)
     monkeypatch.delenv("CREDENTIAL_KEYS", raising=False)
 
     env = run_ci._prepare_environment(tmp_path, "http://127.0.0.1:8765")
 
-    assert len(json.loads(env["JWT_KEYS"])) == 1
+    assert "JWT_KEYS" not in env
+    assert len(json.loads(env["UI_JWT_KEYS"])) == 1
+    assert len(json.loads(env["API_JWT_KEYS"])) == 1
     assert len(json.loads(env["CREDENTIAL_KEYS"])) == 1
     assert env["PUBLIC_ORIGIN"] == "http://127.0.0.1:8765"
     assert json.loads(env["CORS_ORIGINS"]) == ["http://127.0.0.1:8765"]

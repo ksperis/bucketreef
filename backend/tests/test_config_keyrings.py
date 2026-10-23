@@ -20,7 +20,6 @@ def _valid_production_settings(**overrides):
         "allowed_hosts": ["s3.example.test"],
         "trusted_proxy_cidrs": ["10.42.7.15/32"],
         "cors_origins": ["https://s3.example.test"],
-        "jwt_keys": ["legacy-jwt-key-that-is-at-least-32-bytes"],
         "ui_jwt_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "api_jwt_keys": ["api-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "credential_keys": ["credential-key-that-is-at-least-32-bytes"],
@@ -53,16 +52,20 @@ def _ldap_provider(**overrides):
     return {"corporate": values}
 
 
-def test_settings_ignore_removed_singular_key_variables(monkeypatch):
+def test_settings_ignore_removed_key_variables(monkeypatch):
     monkeypatch.setenv("FERNET_KEY", "legacy-jwt-key")
     monkeypatch.setenv("CREDENTIAL_KEY", "legacy-credential-key")
-    monkeypatch.delenv("JWT_KEYS", raising=False)
+    monkeypatch.setenv("JWT_KEYS", '["legacy-shared-jwt-key"]')
+    monkeypatch.delenv("UI_JWT_KEYS", raising=False)
+    monkeypatch.delenv("API_JWT_KEYS", raising=False)
     monkeypatch.delenv("CREDENTIAL_KEYS", raising=False)
 
     settings = Settings(_env_file=None)
 
-    assert settings.jwt_keys == ["change-me"]
+    assert settings.ui_jwt_keys == ["change-me"]
+    assert settings.api_jwt_keys == ["change-me"]
     assert settings.credential_keys == ["change-me"]
+    assert not hasattr(settings, "jwt_keys")
     assert not hasattr(settings, "fernet_key")
     assert not hasattr(settings, "credential_key")
 
@@ -87,12 +90,14 @@ def test_settings_ignore_removed_api_v1_prefix_variable(monkeypatch):
 
 
 def test_settings_load_json_keyrings(monkeypatch):
-    monkeypatch.setenv("JWT_KEYS", '["jwt-primary", "jwt-previous"]')
+    monkeypatch.setenv("UI_JWT_KEYS", '["ui-primary", "ui-previous"]')
+    monkeypatch.setenv("API_JWT_KEYS", '["api-primary", "api-previous"]')
     monkeypatch.setenv("CREDENTIAL_KEYS", '["credential-primary", "credential-previous"]')
 
     settings = Settings(_env_file=None)
 
-    assert settings.jwt_keys == ["jwt-primary", "jwt-previous"]
+    assert settings.ui_jwt_keys == ["ui-primary", "ui-previous"]
+    assert settings.api_jwt_keys == ["api-primary", "api-previous"]
     assert settings.credential_keys == ["credential-primary", "credential-previous"]
 
 
@@ -115,7 +120,7 @@ def test_settings_parse_outbound_host_allowlists(monkeypatch):
     ]
 
 
-@pytest.mark.parametrize("variable", ["JWT_KEYS", "CREDENTIAL_KEYS"])
+@pytest.mark.parametrize("variable", ["UI_JWT_KEYS", "API_JWT_KEYS", "CREDENTIAL_KEYS"])
 def test_settings_reject_empty_keyrings(monkeypatch, variable):
     monkeypatch.setenv(variable, "[]")
 
