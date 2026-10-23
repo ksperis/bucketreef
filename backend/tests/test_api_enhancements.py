@@ -187,10 +187,7 @@ def test_manager_create_bucket_passes_versioning_and_location(client: TestClient
     )
 
     assert response.status_code == 201, response.text
-    body = response.json()
-    assert body["name"] == "demo-bucket"
-    assert body["versioning"] is True
-    assert body["location_constraint"] == "eu-west-1"
+    assert response.content == b""
     assert captured == {
         "name": "demo-bucket",
         "account_id": 11,

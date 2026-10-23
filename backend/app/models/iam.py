@@ -40,6 +40,15 @@ _IAMGroupName = Annotated[str, AfterValidator(_validate_iam_group_name)]
 _IAMRoleName = Annotated[str, AfterValidator(_validate_iam_role_name)]
 _IAMPath = Annotated[str, AfterValidator(validate_iam_path)]
 
+
+class IAMOverview(ApiModel):
+    iam_users: int
+    iam_groups: int
+    iam_roles: int
+    iam_policies: int
+    warnings: list[str] = Field(default_factory=list)
+
+
 class IAMUser(ApiModel):
     name: str
     user_id: Optional[str] = None

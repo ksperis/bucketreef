@@ -149,8 +149,8 @@ def test_manager_bucket_quota_update_succeeds_with_privileged_access(client, db_
         app.dependency_overrides.pop(manager_buckets_router.get_bucket_configuration_service, None)
         app.dependency_overrides.pop(manager_buckets_router.get_audit_service, None)
 
-    assert response.status_code == 200, response.text
-    assert response.json() == {"message": "Bucket quota updated"}
+    assert response.status_code == 204, response.text
+    assert response.content == b""
     assert captured["bucket"] == "demo-bucket"
     assert captured["account"].id == account.id
     assert captured["payload"].max_size_gb == 2

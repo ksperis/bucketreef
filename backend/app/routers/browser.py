@@ -15,9 +15,9 @@ The endpoints reuse the `context_id` selector and context resolution
 logic implemented in :func:`app.routers.dependencies.get_s3_execution_context`.
 """
 
-from typing import Any, Optional
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -118,14 +118,14 @@ def get_usage_summary(
     return service.build(context)
 
 
-@router.post("/buckets", status_code=status.HTTP_201_CREATED)
+@router.post("/buckets", status_code=status.HTTP_201_CREATED, response_class=Response)
 def create_bucket(
     payload: CreateBucketPayload,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     actor: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
-) -> dict[str, Any]:
+) -> Response:
     bucket_name = payload.name.strip()
     if not bucket_name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bucket name is required")
@@ -140,11 +140,7 @@ def create_bucket(
             execution_context=context,
             metadata={"versioning": bool(payload.versioning)},
         )
-        return {
-            "message": f"Bucket '{bucket_name}' created",
-            "name": bucket_name,
-            "versioning": bool(payload.versioning),
-        }
+        return Response(status_code=status.HTTP_201_CREATED)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

@@ -4,7 +4,7 @@ import logging
 from functools import partial
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
@@ -112,7 +112,11 @@ def get_bucket_stats(
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.put("/{bucket_name}/quota", status_code=status.HTTP_200_OK)
+@router.put(
+    "/{bucket_name}/quota",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def update_quota(
     bucket_name: str,
     payload: BucketQuotaUpdate,
@@ -120,8 +124,8 @@ def update_quota(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     current_user: User = Depends(get_current_user),
     audit_service: AuditService = Depends(get_audit_service),
-) -> dict[str, str]:
-    response, audit_metadata = bucket_config_actions.update_bucket_quota_config(
+) -> Response:
+    audit_metadata = bucket_config_actions.update_bucket_quota_config(
         service=service,
         context=context,
         bucket_name=bucket_name,
@@ -137,7 +141,7 @@ def update_quota(
         execution_context=context,
         metadata=audit_metadata,
     )
-    return response
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/compare", response_model=ManagerBucketCompareResult)
@@ -216,15 +220,15 @@ def run_compare_bucket_action(
 
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED, response_class=Response)
 def create_bucket(
     payload: BucketCreate,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
-):
-    response, audit_metadata = bucket_config_actions.create_bucket_config(
+) -> Response:
+    audit_metadata = bucket_config_actions.create_bucket_config(
         service=service,
         context=context,
         payload=payload,
@@ -239,7 +243,7 @@ def create_bucket(
         execution_context=context,
         metadata=audit_metadata,
     )
-    return response
+    return Response(status_code=status.HTTP_201_CREATED)
 
 
 @router.delete("/{bucket_name}")
