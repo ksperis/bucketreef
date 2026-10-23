@@ -46,7 +46,7 @@ from app.routers.dependencies import (
     require_portal_browser_basic_route,
     require_browser_workspace_surface,
 )
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.audit_service import AuditService
 from app.services.browser_service import BrowserService, get_browser_service
 from app.services.browser_usage_summary_service import (
@@ -71,8 +71,11 @@ router.include_router(browser_transfer_policy.router)
 
 
 @router.get("/settings", response_model=BrowserSettings)
-def get_browser_settings(_: ManagerActor = Depends(get_current_account_admin)) -> BrowserSettings:
-    return load_app_settings().browser
+def get_browser_settings(
+    _: ManagerActor = Depends(get_current_account_admin),
+    db: Session = Depends(get_db),
+) -> BrowserSettings:
+    return load_app_settings_for_db_readonly(db).browser
 
 
 def get_browser_usage_service(db: Session = Depends(get_db)) -> BrowserUsageSummaryService:

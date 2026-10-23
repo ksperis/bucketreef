@@ -77,7 +77,7 @@ def _manager_tool_user(*, bucket_purge: bool = True) -> User:
 def test_require_bucket_purge_enabled_blocks_when_feature_disabled(db_session, monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_purge = "disabled"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     with pytest.raises(HTTPException) as exc:
         dependencies_router.require_bucket_purge_enabled(_manager_tool_user(), db=db_session)
@@ -89,7 +89,7 @@ def test_require_bucket_purge_enabled_blocks_when_feature_disabled(db_session, m
 def test_require_bucket_purge_enabled_blocks_without_user_tool_access(db_session, monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_purge = "targeted"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     with pytest.raises(HTTPException) as exc:
         dependencies_router.require_bucket_purge_enabled(_manager_tool_user(bucket_purge=False), db=db_session)

@@ -130,7 +130,7 @@ def _ctx(endpoint_id: int, rgw_admin: object) -> SimpleNamespace:
     )
 
 
-def test_create_rgw_account_supports_quota():
+def test_create_rgw_account_supports_quota(db_session):
     fake_rgw = FakeAccountsAdmin()
     ctx = _ctx(901, fake_rgw)
     payload = CephAdminRgwAccountCreate(
@@ -144,7 +144,7 @@ def test_create_rgw_account_supports_quota():
         quota_max_objects=400,
     )
 
-    response = account_profiles_router.create_rgw_account(payload=payload, ctx=ctx)
+    response = account_profiles_router.create_rgw_account(payload=payload, ctx=ctx, db=db_session)
 
     assert response.account.account_id == "RGW12345678901234567"
 
@@ -154,7 +154,7 @@ def test_create_rgw_account_supports_quota():
     assert fake_rgw.set_account_quota_calls[0]["enabled"] is True
 
 
-def test_create_rgw_account_supports_explicit_tenant_independently():
+def test_create_rgw_account_supports_explicit_tenant_independently(db_session):
     fake_rgw = FakeAccountsAdmin()
     response = account_profiles_router.create_rgw_account(
         payload=CephAdminRgwAccountCreate(
@@ -163,19 +163,20 @@ def test_create_rgw_account_supports_explicit_tenant_independently():
             tenant="team_a",
         ),
         ctx=_ctx(901, fake_rgw),
+        db=db_session,
     )
 
     assert fake_rgw.create_account_calls[0]["tenant"] == "team_a"
     assert response.account.tenant == "team_a"
 
 
-def test_create_rgw_account_generates_configured_id_when_omitted(monkeypatch):
+def test_create_rgw_account_generates_configured_id_when_omitted(db_session, monkeypatch):
     fake_rgw = FakeAccountsAdmin()
     ctx = _ctx(901, fake_rgw)
     monkeypatch.setattr(
         account_profiles_router,
-        "load_app_settings",
-        lambda: SimpleNamespace(
+        "load_app_settings_for_db_readonly",
+        lambda _db: SimpleNamespace(
             general=SimpleNamespace(rgw_account_id_prefix="80")
         ),
     )
@@ -184,6 +185,7 @@ def test_create_rgw_account_generates_configured_id_when_omitted(monkeypatch):
     response = account_profiles_router.create_rgw_account(
         payload=CephAdminRgwAccountCreate(account_name="Generated"),
         ctx=ctx,
+        db=db_session,
     )
 
     assert response.account.account_id == "RGW80000000000000042"
@@ -200,7 +202,7 @@ def test_account_model_rejects_extra_params_overriding_dedicated_fields(model, f
         model(**fields, extra_params={key: "foreign"})
 
 
-def test_create_rgw_account_conflict_never_updates_existing_quotas():
+def test_create_rgw_account_conflict_never_updates_existing_quotas(db_session):
     class ConflictingAdmin(FakeAccountsAdmin):
         def create_account(self, **kwargs):
             self.create_account_calls.append(kwargs)
@@ -212,6 +214,7 @@ def test_create_rgw_account_conflict_never_updates_existing_quotas():
             CephAdminRgwAccountCreate(account_id="RGW12345678901234567", account_name="Duplicate",
                                       quota_enabled=True, quota_max_objects=200),
             ctx=_ctx(901, admin),
+            db=db_session,
         )
     assert raised.value.status_code == 409
     assert admin.set_account_quota_calls == []
@@ -222,7 +225,7 @@ def test_create_rgw_account_conflict_never_updates_existing_quotas():
     {"id": "RGW12345678901234567", "account": {"id": "RGW99999999999999999"}},
     {},
 ])
-def test_create_rgw_account_requires_confirmed_identity_before_quotas(returned):
+def test_create_rgw_account_requires_confirmed_identity_before_quotas(db_session, returned):
     class WrongAdmin(FakeAccountsAdmin):
         def create_account(self, **kwargs):
             return returned
@@ -231,7 +234,7 @@ def test_create_rgw_account_requires_confirmed_identity_before_quotas(returned):
     with pytest.raises(HTTPException) as raised:
         account_profiles_router.create_rgw_account(
             CephAdminRgwAccountCreate(account_id="RGW12345678901234567", account_name="A",
-                                      quota_enabled=True), ctx=_ctx(901, admin),
+                                      quota_enabled=True), ctx=_ctx(901, admin), db=db_session,
         )
     assert raised.value.status_code == 502
     assert admin.set_account_quota_calls == []

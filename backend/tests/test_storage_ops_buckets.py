@@ -181,12 +181,12 @@ def test_get_current_storage_ops_admin_accepts_standard_user_with_storage_ops_ri
     assert dependencies.get_current_storage_ops_admin(user=user).id == user.id
 
 
-def test_require_storage_ops_enabled_blocks_when_feature_is_disabled(monkeypatch):
+def test_require_storage_ops_enabled_blocks_when_feature_is_disabled(db_session, monkeypatch):
     settings = app_settings_service.load_default_app_settings()
     settings.general.storage_ops_enabled = False
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     with pytest.raises(HTTPException) as exc:
-        dependencies.require_storage_ops_enabled()
+        dependencies.require_storage_ops_enabled(db=db_session)
     assert exc.value.status_code == 403
 
 
