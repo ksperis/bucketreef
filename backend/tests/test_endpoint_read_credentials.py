@@ -169,11 +169,27 @@ def test_readers_do_not_retry_with_admin_after_service_identity_denial(
         db_session.flush()
         entry = PortalServerAccessLogEntry(
             id="log-entry",
+            source="server_access_logging",
             timestamp=utcnow(),
+            storage_space_id=None,
+            storage_space_name=None,
             bucket_name="team-space",
             operation="REST.GET.OBJECT",
             operation_category="download",
+            object_key=None,
+            object_name=None,
+            direction="Download",
+            status_code=None,
+            error_code=None,
+            bytes_sent=None,
+            object_size=None,
             requester="unknown-requester",
+            requester_identity=None,
+            client_ip=None,
+            auth_type=None,
+            request_id=None,
+            request_uri=None,
+            user_agent=None,
             log_object_key="access-log",
         )
         PortalService(db_session)._resolve_portal_server_access_requester_identities(account, [entry])

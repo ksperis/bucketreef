@@ -76,7 +76,9 @@ def _rgw_user_requester_identity(
         label=display_name or uid,
         kind="rgw_user",
         detail=f"RGW user {uid}" + (f" · account {account_id}" if account_id else ""),
+        access_key_id=None,
         iam_username=uid,
+        user_id=None,
         email=display_name if isinstance(display_name, str) and "@" in display_name else None,
         resolved=True,
     )
@@ -87,6 +89,10 @@ def _rgw_account_requester_identity(account_id: str) -> PortalServerAccessReques
         label=account_id,
         kind="rgw_account",
         detail="RGW account",
+        access_key_id=None,
+        iam_username=None,
+        user_id=None,
+        email=None,
         resolved=True,
     )
 
@@ -171,6 +177,10 @@ class PortalServerAccessLogQueriesMixin:
             label="Unknown S3 identity",
             kind="unknown",
             detail=_portal_requester_detail(requester),
+            access_key_id=None,
+            iam_username=None,
+            user_id=None,
+            email=None,
             resolved=False,
         )
 
@@ -245,6 +255,7 @@ class PortalServerAccessLogQueriesMixin:
                 detail=f"External access · {credential.iam_username} · {space_name} · {permission_label}",
                 access_key_id=credential.access_key_id,
                 iam_username=credential.iam_username,
+                user_id=None,
                 email=credential.external_email,
                 resolved=True,
             )

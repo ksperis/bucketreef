@@ -29,12 +29,12 @@ PortalServerAccessLogFilterOp = Literal[
 class PortalServerAccessRequesterIdentity(ApiModel):
     label: str
     kind: Literal["portal_user", "external_access", "rgw_user", "rgw_account", "unknown"]
-    detail: Optional[str] = None
-    access_key_id: Optional[str] = None
-    iam_username: Optional[str] = None
-    user_id: Optional[int] = None
-    email: Optional[str] = None
-    resolved: bool = False
+    detail: Optional[str]
+    access_key_id: Optional[str]
+    iam_username: Optional[str]
+    user_id: Optional[int]
+    email: Optional[str]
+    resolved: bool
 
 
 class PortalServerAccessLogFilterRule(ApiModel):
@@ -56,27 +56,27 @@ class PortalServerAccessLogFilterQuery(ApiModel):
 
 class PortalServerAccessLogEntry(ApiModel):
     id: str
-    source: Literal["server_access_logging"] = "server_access_logging"
+    source: Literal["server_access_logging"]
     timestamp: datetime
-    storage_space_id: Optional[str] = None
-    storage_space_name: Optional[str] = None
+    storage_space_id: Optional[str]
+    storage_space_name: Optional[str]
     bucket_name: str
     operation: str
     operation_category: Literal["upload", "download", "delete", "metadata", "list", "other"]
-    object_key: Optional[str] = None
-    object_name: Optional[str] = None
-    direction: Optional[PortalServerAccessDirection] = None
-    status_code: Optional[int] = None
-    error_code: Optional[str] = None
-    bytes_sent: Optional[int] = None
-    object_size: Optional[int] = None
-    requester: Optional[str] = None
-    requester_identity: Optional[PortalServerAccessRequesterIdentity] = None
-    client_ip: Optional[str] = None
-    auth_type: Optional[str] = None
-    request_id: Optional[str] = None
-    request_uri: Optional[str] = None
-    user_agent: Optional[str] = None
+    object_key: Optional[str]
+    object_name: Optional[str]
+    direction: Optional[PortalServerAccessDirection]
+    status_code: Optional[int]
+    error_code: Optional[str]
+    bytes_sent: Optional[int]
+    object_size: Optional[int]
+    requester: Optional[str]
+    requester_identity: Optional[PortalServerAccessRequesterIdentity]
+    client_ip: Optional[str]
+    auth_type: Optional[str]
+    request_id: Optional[str]
+    request_uri: Optional[str]
+    user_agent: Optional[str]
     log_object_key: str
 
 

@@ -188,6 +188,7 @@ def parse_standard_access_log_line(
     digest = hashlib.sha1(f"{log_object_key}\n{line}".encode("utf-8")).hexdigest()[:16]
     return PortalServerAccessLogEntry(
         id=f"server-log-{digest}",
+        source="server_access_logging",
         timestamp=timestamp,
         storage_space_id=storage_space.id,
         storage_space_name=storage_space.name,
@@ -202,6 +203,7 @@ def parse_standard_access_log_line(
         bytes_sent=_safe_int(_token_at(tail, 2)),
         object_size=_safe_int(_token_at(tail, 3)),
         requester=dash_to_none(_token_at(tokens, 1)),
+        requester_identity=None,
         client_ip=dash_to_none(_token_at(tokens, 0)),
         auth_type=dash_to_none(_token_at(tail, 12)),
         request_id=request_id,
