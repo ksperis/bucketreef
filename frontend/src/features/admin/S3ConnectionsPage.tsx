@@ -67,8 +67,8 @@ function getConnectionSearchCandidates(connection: S3ConnectionAdminItem): Array
     connection.name,
     connection.endpoint_url,
     connection.created_by_email,
-    ...(connection.user_details ?? []).flatMap((user) => [user.email, user.full_name]),
-    ...(connection.group_details ?? []).map((group) => group.name),
+    ...connection.user_details.flatMap((user) => [user.email, user.full_name]),
+    ...connection.group_details.map((group) => group.name),
     ...extractUiTagLabels(connection.tags),
   ];
 }
@@ -511,12 +511,12 @@ export default function S3ConnectionsPage() {
       rgw_account_id: conn.rgw_account_id || "",
       endpoint_url: conn.endpoint_url,
       region: conn.region || "",
-      force_path_style: Boolean(conn.force_path_style),
-      verify_tls: conn.verify_tls !== false,
+      force_path_style: conn.force_path_style,
+      verify_tls: conn.verify_tls,
       allow_activity_history: conn.allow_activity_history ?? null,
     };
-    const nextLinkedUserIds = normalizeS3ConnectionLinkedIds(conn.user_details?.map((user) => user.id));
-    const nextLinkedGroupIds = normalizeS3ConnectionLinkedIds(conn.group_details?.map((group) => group.id));
+    const nextLinkedUserIds = normalizeS3ConnectionLinkedIds(conn.user_details.map((user) => user.id));
+    const nextLinkedGroupIds = normalizeS3ConnectionLinkedIds(conn.group_details.map((group) => group.id));
     setEditing(conn);
     setEditEndpointMode(nextEndpointMode);
     setEditEndpointPresetId(nextEndpointPresetId);
@@ -626,7 +626,7 @@ export default function S3ConnectionsPage() {
       }
       return;
     }
-    const nextIsActive = conn.is_active !== false ? false : true;
+    const nextIsActive = !conn.is_active;
     setStatusBusyId(conn.id);
     setError(null);
     setActionMessage(null);

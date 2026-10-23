@@ -10,36 +10,50 @@ import type {
 import { PaginatedResponse } from "./types";
 import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 import type { UiGroupAvatarDescriptor } from "./groups";
-import type { UserAvatarDescriptor, UserSummary } from "./users";
+import type { UserAvatarDescriptor } from "./users";
+
+export type S3ConnectionUserDetail = {
+  id: number;
+  email: string;
+  full_name: string | null;
+  avatar: UserAvatarDescriptor | null;
+  allow_manager_browser_data_access: boolean;
+};
+
+export type S3ConnectionGroupDetail = {
+  id: number;
+  name: string;
+  avatar: UiGroupAvatarDescriptor | null;
+};
 
 export type S3ConnectionAdminItem = {
   id: number;
   name: string;
   tags: TagDefinitionSummary[];
-  storage_endpoint_id?: number | null;
+  storage_endpoint_id: number | null;
   endpoint_url: string;
-  is_active?: boolean | null;
+  is_active: boolean;
   execution_status: "ready" | "remediation_required";
-  remediation_reason?: string | null;
-  capabilities?: Record<string, unknown> | null;
-  rgw_user_uid?: string | null;
-  rgw_tenant?: string | null;
-  rgw_account_id?: string | null;
-  provider_hint?: string | null;
-  region?: string | null;
-  force_path_style?: boolean | null;
-  verify_tls?: boolean | null;
-  allow_activity_history?: boolean | null;
+  remediation_reason: string | null;
+  capabilities: Record<string, unknown>;
+  rgw_user_uid: string | null;
+  rgw_tenant: string | null;
+  rgw_account_id: string | null;
+  provider_hint: string | null;
+  region: string | null;
+  force_path_style: boolean;
+  verify_tls: boolean;
+  allow_activity_history: boolean | null;
   created_by_user_id: number;
-  created_by_email?: string | null;
-  created_by_full_name?: string | null;
-  created_by_avatar?: UserAvatarDescriptor | null;
+  created_by_email: string | null;
+  created_by_full_name: string | null;
+  created_by_avatar: UserAvatarDescriptor | null;
   user_count: number;
-  user_details?: UserSummary[];
-  group_details?: { id: number; name: string; avatar?: UiGroupAvatarDescriptor | null }[];
-  last_used_at?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
+  user_details: S3ConnectionUserDetail[];
+  group_details: S3ConnectionGroupDetail[];
+  last_used_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 type PaginatedS3ConnectionsResponse = PaginatedResponse<S3ConnectionAdminItem>;
@@ -48,7 +62,7 @@ export type S3ConnectionSummary = {
   id: number;
   name: string;
   created_by_user_id: number;
-  is_active?: boolean | null;
+  is_active: boolean;
   execution_status: "ready" | "remediation_required";
 };
 

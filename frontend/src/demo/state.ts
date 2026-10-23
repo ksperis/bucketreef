@@ -16,7 +16,7 @@ import type { IAMGroup } from "../api/managerIamGroups";
 import type { IAMRole } from "../api/managerIamRoles";
 import type { IamPolicy, InlinePolicy } from "../api/managerIamPolicies";
 import type { S3Connection } from "../api/connections";
-import type { S3ConnectionAdminItem } from "../api/s3ConnectionsAdmin";
+import type { S3ConnectionAdminItem, S3ConnectionUserDetail } from "../api/s3ConnectionsAdmin";
 import type { UserNotification } from "../api/userNotifications";
 import type { CephAdminRgwAccountDetail } from "../api/cephAdminAccounts";
 
@@ -86,6 +86,16 @@ export function demoGroupUser(user: DemoUser): UiGroupUserDetail {
     full_name: user.full_name,
     avatar: user.avatar,
     iam_username: null,
+  };
+}
+
+export function demoConnectionUser(user: DemoUser): S3ConnectionUserDetail {
+  return {
+    id: user.id,
+    email: user.email,
+    full_name: user.full_name,
+    avatar: user.avatar,
+    allow_manager_browser_data_access: false,
   };
 }
 
@@ -311,7 +321,39 @@ export function createSeed(): DemoState {
   }
   for (const u of users) u.group_details = groups.filter(g => g.user_details?.some(m => m.id === u.id)).map(g => ({ id: g.id, name: g.name }));
   return { initializedAt: now.toISOString(), nextId: 1000, endpoints, accounts, users, groups, buckets, spaces, requests, iam,
-    connections: endpoints.map((e, i) => ({ id: 301 + i, name: `${e.name} · service connection`, storage_endpoint_id: e.id, endpoint_url: e.endpoint_url, region: e.region, provider_hint: "ceph", created_by_user_id: 2, created_by_email: users[1].email, is_shared: true, is_active: true, access_manager: true, access_browser: false, access_key_id: "DEMO_NOT_A_REAL_KEY", execution_status: "ready", user_count: 1, user_details: [users[1]], group_details: [], tags: [], created_at: at(60) })),
+    connections: endpoints.map((e, i) => ({
+      id: 301 + i,
+      name: `${e.name} · service connection`,
+      storage_endpoint_id: e.id,
+      endpoint_url: e.endpoint_url,
+      is_active: true,
+      execution_status: "ready",
+      remediation_reason: null,
+      capabilities: {},
+      rgw_user_uid: null,
+      rgw_tenant: null,
+      rgw_account_id: null,
+      provider_hint: "ceph",
+      region: e.region ?? null,
+      force_path_style: false,
+      verify_tls: true,
+      allow_activity_history: null,
+      created_by_user_id: 2,
+      created_by_email: users[1].email,
+      created_by_full_name: users[1].full_name,
+      created_by_avatar: users[1].avatar,
+      user_count: 1,
+      user_details: [demoConnectionUser(users[1])],
+      group_details: [],
+      tags: [],
+      last_used_at: null,
+      created_at: at(60),
+      updated_at: null,
+      is_shared: true,
+      access_manager: true,
+      access_browser: false,
+      access_key_id: "DEMO_NOT_A_REAL_KEY",
+    })),
     notifications: Object.fromEntries(users.map(u => [u.id, [{ id: 1, type: "demo", severity: "info", title: "Welcome to your live demo", message: "Changes stay in this browser. Use the profile bar to follow a Portal request through approval.", created_at: at(0), read_at: null }, { id: 2, type: "endpoint", severity: "warning", title: "Paris latency recovered", message: "Historical incident · service returned to normal after 8 minutes.", created_at: at(2), read_at: at(0) }]])),
     snapshotInventory: buckets.map(b => ({ accountId: b.accountId, endpointId: b.endpointId, bucketName: b.name, bytes: bucketView(b).used_bytes ?? 0, objects: bucketView(b).object_count ?? 0 })),
     history: Array.from({ length: 90 }, (_, i) => ({ timestamp: at(89 - i), bytes_in: (2 + i / 18 + Math.sin(i) * .4) * GiB, bytes_out: (3 + i / 12) * GiB, ops: 24000 + i * 850, success_ops: 23980 + i * 849 })),

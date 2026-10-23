@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import S3ConnectionsPage from "./S3ConnectionsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
+import type { S3ConnectionAdminItem } from "../../api/s3ConnectionsAdmin";
 
 const listAdminS3ConnectionsMock = vi.fn();
 const createAdminS3ConnectionMock = vi.fn();
@@ -59,17 +60,43 @@ vi.mock("../../api/tags", () => ({
   listPrivateConnectionTagDefinitions: vi.fn(),
 }));
 
-const makeConnection = (id: number, overrides?: Partial<Record<string, unknown>>) => ({
+const makeConnection = (
+  id: number,
+  overrides: Partial<S3ConnectionAdminItem> = {},
+): S3ConnectionAdminItem => ({
   id,
   name: `connection-${id}`,
   tags: [makeTag(701, "shared", "sky")],
+  storage_endpoint_id: null,
   endpoint_url: `https://endpoint-${id}.example.test`,
   is_active: true,
   execution_status: "ready",
+  remediation_reason: null,
+  capabilities: {},
+  rgw_user_uid: null,
+  rgw_tenant: null,
+  rgw_account_id: null,
+  provider_hint: null,
+  region: null,
+  force_path_style: false,
+  verify_tls: true,
+  allow_activity_history: null,
   created_by_user_id: 99,
   created_by_email: "owner@example.com",
+  created_by_full_name: null,
+  created_by_avatar: null,
   user_count: 1,
-  user_details: [{ id: 11, email: "u11@example.com", role: "ui_user" }],
+  user_details: [{
+    id: 11,
+    email: "u11@example.com",
+    full_name: null,
+    avatar: null,
+    allow_manager_browser_data_access: false,
+  }],
+  group_details: [],
+  last_used_at: null,
+  created_at: null,
+  updated_at: null,
   ...overrides,
 });
 
@@ -164,8 +191,14 @@ describe("S3ConnectionsPage modal tabs", () => {
     listAdminS3ConnectionsMock.mockResolvedValueOnce({
       items: [
         makeConnection(1, {
-          user_details: [{ id: 11, email: "u11@example.com", role: "ui_user" }],
-          group_details: [{ id: 31, name: "Storage Operators" }],
+          user_details: [{
+            id: 11,
+            email: "u11@example.com",
+            full_name: null,
+            avatar: null,
+            allow_manager_browser_data_access: false,
+          }],
+          group_details: [{ id: 31, name: "Storage Operators", avatar: null }],
         }),
       ],
       total: 1,
