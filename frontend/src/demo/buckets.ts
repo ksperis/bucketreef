@@ -1,4 +1,5 @@
 import type { BucketTag } from "../api/bucketContracts";
+import type { CephAdminBucket } from "../api/cephAdminBuckets";
 import { bucketView, GiB, newBucket } from "./state";
 import { spaceRole, DemoError, done, json, listing, scopedAccount, scopedBucket, textField, type DemoRequest } from "./http";
 import { objectListing } from "./objects";
@@ -15,8 +16,30 @@ export function buckets(c: DemoRequest): Response | undefined {
     const selected = state.buckets.filter(b => endpointId ? b.endpointId === endpointId : b.accountId === account!.id);
     if (method === "GET") {
       let views = selected.map(bucketView);
+      if (ceph) {
+        const cephViews: CephAdminBucket[] = views.map(view => ({
+          name: view.name,
+          tenant: null,
+          owner: view.owner ?? null,
+          owner_name: view.owner_name ?? null,
+          owner_suspended: null,
+          used_bytes: view.used_bytes ?? null,
+          object_count: view.object_count ?? null,
+          quota_max_size_bytes: view.quota_max_size_bytes ?? null,
+          quota_max_objects: view.quota_max_objects ?? null,
+          owner_used_bytes: null,
+          owner_object_count: null,
+          owner_quota_max_size_bytes: null,
+          owner_quota_max_objects: null,
+          tags: view.tags ?? null,
+          features: view.features ?? null,
+          column_details: null,
+          ui_tags: [],
+        }));
+        return listing(cephViews, c, { stats_available: true, stats_warning: null });
+      }
       if (match?.[1] === "browser" && ["member", "project-manager"].includes(c.persona)) views = views.filter(b => state.spaces.some(s => s.bucketName === b.name && spaceRole(c, s) && !s.archived_at)).map(b => { const space = state.spaces.find(s => s.bucketName === b.name)!; return { ...b, display_name: space.name, internal_bucket_name: b.name, workspace_label: "Storage Space", role: spaceRole(c, space), status: space.status }; });
-      return ceph || match?.[1] === "browser" ? listing(views, c) : json(views);
+      return match?.[1] === "browser" ? listing(views, c) : json(views);
     }
     if (method === "POST" && match?.[1] === "manager") {
       const name = textField(body, "name"); if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(name)) throw new DemoError(422, "Use a valid S3 bucket name (3–63 characters)");

@@ -9,6 +9,7 @@ import {
   encodeCephAdminBucketRef,
   getStorageOpsBucketName,
   getStorageOpsContextId,
+  getStorageOpsContextName,
 } from "./bucketOpsPresentation";
 
 export type BucketOperationUiTarget = {
@@ -148,7 +149,7 @@ export function buildBucketOpsSelectionProjection({
             return {
               bucketName: getStorageOpsBucketName(bucket),
               contextId: getStorageOpsContextId(bucket),
-              contextName: bucket.context_name ?? null,
+              contextName: getStorageOpsContextName(bucket) || null,
             };
           }
           const decoded = decodeStorageOpsBucketRef(selectedName);
