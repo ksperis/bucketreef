@@ -83,7 +83,6 @@ def test_account_iam_identity_uses_canonical_stored_root_uid(db_session, actor):
 )
 def test_incomplete_source_metadata_does_not_become_account_metrics(db_session, monkeypatch, actor, kind, message):
     settings = AppSettings()
-    monkeypatch.setattr(context_router, "load_app_settings", lambda: settings)
     monkeypatch.setattr(context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(context_router, "has_supervision_credentials", lambda _account: True)
     account = _context(kind, manager_capabilities=AccountCapabilities(can_manage_buckets=True))
@@ -112,7 +111,6 @@ def test_manager_context_preserves_direct_session_capabilities(
     settings.general.manager_enabled = True
     settings.general.browser_enabled = True
     settings.general.browser_manager_enabled = True
-    monkeypatch.setattr(context_router, "load_app_settings", lambda: settings)
     monkeypatch.setattr(context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(context_router, "has_supervision_credentials", lambda _account: True)
     actor = _session_actor(access_browser=browser_allowed, can_view_traffic=traffic_allowed)

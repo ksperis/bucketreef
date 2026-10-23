@@ -314,7 +314,7 @@ def test_direct_s3_session_uses_its_credentials_and_browser_capability(db_sessio
 def test_manager_context_and_surface_gate_use_same_explicit_permission(db_session, monkeypatch):
     settings = _enabled_settings()
     monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
-    monkeypatch.setattr(manager_context_router, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(manager_context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     user = _user("manager-browser-context@example.test")
     account = make_s3_account(
         db_session,

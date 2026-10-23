@@ -20,7 +20,7 @@ from app.routers.dependencies import (
     require_storage_metrics_capable_manager,
 )
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.rgw_admin import RGWAdminError
@@ -84,7 +84,7 @@ def account_usage_trends(
     _: ManagerActor = Depends(require_storage_metrics_capable_manager),
     db: Session = Depends(get_db),
 ) -> UsageTrendsResponse:
-    if not load_app_settings().general.usage_history_enabled:
+    if not load_app_settings_for_db_readonly(db).general.usage_history_enabled:
         return UsageTrendsResponse()
     return build_execution_context_usage_trends(db, context, reference_date=utcnow().date())
 
@@ -97,7 +97,7 @@ def account_usage_history_trends(
     db: Session = Depends(get_db),
 ) -> UsageHistoryTrendResponse:
     service = UsageHistoryService(db)
-    if not load_app_settings().general.usage_history_enabled:
+    if not load_app_settings_for_db_readonly(db).general.usage_history_enabled:
         return service.empty_trends(window=window, unavailable_reason="Usage history is disabled.")
     if context.context_kind == "connection":
         return service.empty_trends(
@@ -142,7 +142,7 @@ def endpoint_health_overview(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> WorkspaceEndpointHealthOverviewResponse:
-    app_settings = load_app_settings()
+    app_settings = load_app_settings_for_db_readonly(db)
     if not app_settings.general.endpoint_status_enabled:
         raise HTTPException(status_code=403, detail="Endpoint Status feature is disabled.")
     endpoint_id = context.storage_endpoint_id
