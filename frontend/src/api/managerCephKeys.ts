@@ -49,7 +49,7 @@ export async function updateManagerCephAccessKeyMetadata(
   accessKeyId: string,
   metadata: AccessKeyMetadataInput,
 ): Promise<AccessKeyMetadata> {
-  const { data } = await client.put<AccessKeyMetadata>(
+  const { data } = await client.patch<AccessKeyMetadata>(
     `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
     { params: withS3ContextParam(undefined, contextId) },

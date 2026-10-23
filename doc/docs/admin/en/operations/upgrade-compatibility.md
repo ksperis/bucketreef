@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 access-key metadata updates use PATCH
+
+Manager access-key metadata updates now use `PATCH` for both RGW-user keys and
+IAM-user keys. Metadata payloads intentionally preserve omitted fields and only
+apply values present in the request, so the former `PUT` routes have been
+removed instead of retained as compatibility aliases. Access-key status
+updates remain `PUT` because the status payload is a complete boolean state.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 Manager IAM identity updates use PATCH
 
 Manager IAM user, group, and role updates now use `PATCH` on their existing

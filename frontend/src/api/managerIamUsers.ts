@@ -112,7 +112,7 @@ export async function updateIamAccessKeyMetadata(
   accessKeyId: string,
   metadata: AccessKeyMetadataInput,
 ): Promise<AccessKeyMetadata> {
-  const { data } = await client.put<AccessKeyMetadata>(
+  const { data } = await client.patch<AccessKeyMetadata>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
     { params: withS3ContextParam(undefined, contextId) },
