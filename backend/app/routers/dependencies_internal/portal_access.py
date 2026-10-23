@@ -26,6 +26,31 @@ from .workspace_context import browser_workspace_header, resolve_user_account_li
 
 settings = get_settings()
 
+_PORTAL_BROWSER_TOP_LEVEL_ROUTES = frozenset(
+    {
+        ("GET", ("settings",)),
+        ("GET", ("direct-transfer-policy",)),
+        ("GET", ("buckets", "search")),
+        ("GET", ("usage-summary",)),
+    }
+)
+_PORTAL_BROWSER_BUCKET_OPERATIONS = frozenset(
+    {
+        ("GET", "objects"),
+        ("GET", "cors"),
+        ("GET", "download"),
+        ("GET", "versioning"),
+        ("GET", "versions"),
+        ("POST", "presign"),
+        ("POST", "delete"),
+        ("POST", "folders"),
+        ("POST", "proxy-upload"),
+        ("POST", "copy"),
+    }
+)
+_PORTAL_BROWSER_MULTIPART_UPLOAD_OPERATIONS = frozenset({"presign", "complete"})
+
+
 def _portal_membership_capabilities(
     link: Optional[UserS3Account | EffectiveAccountLink],
 ) -> tuple[Optional[str], AccountCapabilities]:
@@ -73,38 +98,27 @@ def _is_portal_browser_basic_route_allowed(request: Request) -> bool:
     if method in {"HEAD", "OPTIONS"}:
         return True
     segments = _portal_browser_relative_segments(request)
-    if method == "GET" and segments in (["settings"], ["direct-transfer-policy"]):
-        return True
-    if method == "GET" and segments == ["buckets", "search"]:
-        return True
-    if method == "GET" and segments == ["usage-summary"]:
+    if (method, tuple(segments)) in _PORTAL_BROWSER_TOP_LEVEL_ROUTES:
         return True
     if len(segments) < 3 or segments[0] != "buckets":
         return False
 
     operation = segments[2]
     if len(segments) == 3:
-        if method == "GET" and operation in {
-            "objects",
-            "cors",
-            "download",
-            "versioning",
-            "versions",
-        }:
-            return True
-        if method == "POST" and operation in {"presign", "delete", "folders", "proxy-upload", "copy"}:
-            return True
-        return False
+        return (method, operation) in _PORTAL_BROWSER_BUCKET_OPERATIONS
 
     if operation != "multipart":
         return False
-    if method == "POST" and len(segments) == 4 and segments[3] == "initiate":
-        return True
-    if method == "POST" and len(segments) == 5 and segments[4] in {"presign", "complete"}:
-        return True
-    if method == "DELETE" and len(segments) == 4:
-        return True
-    return False
+    multipart_segments = segments[3:]
+    if len(multipart_segments) == 1:
+        return (
+            method == "POST" and multipart_segments[0] == "initiate"
+        ) or method == "DELETE"
+    return (
+        method == "POST"
+        and len(multipart_segments) == 2
+        and multipart_segments[1] in _PORTAL_BROWSER_MULTIPART_UPLOAD_OPERATIONS
+    )
 
 
 def _portal_browser_target_bucket(request: Request) -> Optional[str]:
