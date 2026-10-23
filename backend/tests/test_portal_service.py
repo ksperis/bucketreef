@@ -117,6 +117,24 @@ def test_portal_state_rejects_removed_fields(removed_field):
         PortalState(**{removed_field: None})
 
 
+def test_portal_state_requires_the_complete_canonical_payload():
+    assert set(PortalState.model_json_schema()["required"]) == {
+        "portal_role",
+        "can_manage_buckets",
+        "can_create_private_storage_spaces",
+        "can_create_team_storage_spaces",
+        "can_create_external_sharing",
+        "can_manage_portal_users",
+        "portal_collaborator_role_management_delegated",
+        "portal_collaborator_addition_delegated",
+        "allow_named_bucket_create",
+        "server_access_logging_enabled",
+        "storage_space_version_cleanup_enabled",
+        "bucket_usage_stats_enabled",
+        "cost_estimation_enabled",
+    }
+
+
 def _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_USER.value, can_manage_buckets=False):
     return AccountAccess(
         account=account,
