@@ -159,7 +159,7 @@ export type AdminDashboardScope = {
   endpoints: {
     endpoint_id: number;
     name: string;
-    admin_endpoint_url?: string | null;
+    admin_endpoint_url: string | null;
     storage_enabled: boolean;
     traffic_enabled: boolean;
   }[];
@@ -169,7 +169,7 @@ export type AdminDashboardCoverage = {
   eligible_count: number;
   contributing_count: number;
   complete_count: number;
-  issues: { endpoint_id: number; name: string; endpoint_url?: string | null; reason: string }[];
+  issues: { endpoint_id: number; name: string; endpoint_url: string | null; reason: string }[];
 };
 
 export type AdminDashboardCache = { hit: boolean; expires_at: string };
@@ -177,7 +177,11 @@ export type AdminDashboardCache = { hit: boolean; expires_at: string };
 export type AdminDashboardStorage = {
   cache: AdminDashboardCache;
   generated_at: string;
-  storage_totals: Pick<StorageTotals, "bucket_count" | "object_count" | "used_bytes">;
+  storage_totals: {
+    bucket_count: number | null;
+    object_count: number | null;
+    used_bytes: number | null;
+  };
   coverage: AdminDashboardCoverage;
   measurements: Record<"bucket_count" | "object_count" | "used_bytes", { contributing_count: number; complete_count: number }>;
 };
