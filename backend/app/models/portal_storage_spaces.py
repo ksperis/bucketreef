@@ -27,7 +27,7 @@ PortalStorageSpaceIconPreset = Literal["bucket", "folder", "archive", "database"
 class PortalStorageSpaceCollaboratorPreview(ApiModel):
     user_id: int
     email: str
-    display_name: Optional[str] = None
+    display_name: Optional[str]
     role: PortalStorageSpaceRole
     avatar: UserAvatar
 
@@ -48,38 +48,31 @@ class PortalStorageSpaceSummary(ApiModel):
     id: str
     name: str
     role: PortalStorageSpaceRole
-    can_browse: bool = True
-    can_take_ownership: bool = False
-    can_delete: bool = False
-    status: str = "Active"
-    description: Optional[str] = None
-    owner_label: Optional[str] = None
-    owner_user_id: Optional[int] = None
-    collaborators: list[PortalStorageSpaceCollaboratorPreview] = Field(default_factory=list)
-    collaborator_count: int = 0
-    visibility: PortalStorageSpaceVisibility = "private"
-    share_scope: PortalStorageSpaceShareScope = "restricted"
-    account_member_role: Optional[PortalStorageSpaceAccountMemberRole] = None
-    project_key: Optional[str] = None
-    dataset_label: Optional[str] = None
-    region: Optional[str] = None
-    created_at: Optional[datetime] = None
-    used_bytes: Optional[int] = None
-    object_count: Optional[int] = None
-    quota_max_size_bytes: Optional[int] = None
-    quota_max_objects: Optional[int] = None
-    internal_bucket_name: Optional[str] = None
-    archived_at: Optional[datetime] = None
-    origin: PortalStorageSpaceOrigin = "imported"
-    name_editable: bool = False
-    icon: PortalStorageSpaceIcon = Field(
-        default_factory=lambda: PortalStorageSpaceIcon(
-            source="preset",
-            preset="bucket",
-            url=None,
-            updated_at=None,
-        )
-    )
+    can_browse: bool
+    can_take_ownership: bool
+    can_delete: bool
+    status: str
+    description: Optional[str]
+    owner_label: Optional[str]
+    owner_user_id: Optional[int]
+    collaborators: list[PortalStorageSpaceCollaboratorPreview]
+    collaborator_count: int
+    visibility: PortalStorageSpaceVisibility
+    share_scope: PortalStorageSpaceShareScope
+    account_member_role: Optional[PortalStorageSpaceAccountMemberRole]
+    project_key: Optional[str]
+    dataset_label: Optional[str]
+    region: Optional[str]
+    created_at: Optional[datetime]
+    used_bytes: Optional[int]
+    object_count: Optional[int]
+    quota_max_size_bytes: Optional[int]
+    quota_max_objects: Optional[int]
+    internal_bucket_name: Optional[str]
+    archived_at: Optional[datetime]
+    origin: PortalStorageSpaceOrigin
+    name_editable: bool
+    icon: PortalStorageSpaceIcon
 
 
 class PortalStorageSpaceInitialShare(ApiModel):

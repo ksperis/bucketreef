@@ -1,7 +1,7 @@
 import { resolvePortalSettings } from "../api/featurePolicies";
 import type { PortalAdminRequest } from "../api/portalRequests";
 import type { PortalStorageSpaceShare } from "../api/portalSharing";
-import { bucketView, createDemoUser, newBucket, settings, type DemoSpace } from "./state";
+import { bucketView, createDemoSpace, createDemoUser, newBucket, settings, type DemoSpace } from "./state";
 import { accountGrant, spaceRole, DemoError, done, json, required, scopedAccount, textField, type DemoRequest } from "./http";
 
 type PortalAccessIntent = "add" | "role_change";
@@ -37,7 +37,16 @@ function spaceView(c: DemoRequest, s: DemoSpace) {
   const { accountId: _account, bucketName: _bucket, shares: _shares, ...view } = s;
   return { ...view, ...Object.fromEntries(Object.entries(bucketView(bucket)).filter(([key]) => ["used_bytes", "object_count", "quota_max_size_bytes", "quota_max_objects"].includes(key))),
     role, can_browse: true, can_delete: role === "Owner" || role === "Manager", can_take_ownership: false,
-    collaborator_count: s.shares.length, collaborators: s.shares.map(share => ({ user_id: share.user_id, email: share.email, role: share.role })) };
+    collaborator_count: s.shares.length, collaborators: s.shares.map(share => {
+      const user = c.state.users.find(candidate => candidate.id === share.user_id);
+      return {
+        user_id: share.user_id,
+        email: share.email,
+        display_name: user?.full_name ?? null,
+        role: share.role,
+        avatar: user?.avatar ?? { preference: "auto", source: "initials", url: null, initials: share.email.slice(0, 1).toUpperCase(), updated_at: null },
+      };
+    }) };
 }
 
 export function portal(c: DemoRequest): Response | undefined {
@@ -135,7 +144,7 @@ export function portal(c: DemoRequest): Response | undefined {
       const bucketName = body.naming_mode === "named_bucket" ? name : `portal-space-${id}`;
       if (state.buckets.some(b => b.name === bucketName)) throw new DemoError(409, "This bucket already exists");
       const bucket = newBucket(bucketName, account); state.buckets.push(bucket);
-      const space: DemoSpace = { id: `space-${id}`, name, accountId: account.id, bucketName, internal_bucket_name: bucketName, description: String(body.description ?? ""), role: manager ? "Manager" : "Owner", visibility: body.visibility === "shared" ? "shared" : "private", owner_user_id: body.visibility === "shared" ? null : c.user.id, share_scope: body.share_scope === "restricted" ? "restricted" : "account", account_member_role: body.account_member_role === "Viewer" ? "Viewer" : "Editor", shares: [], status: "active", origin: "portal_generic", created_at: bucket.creation_date, name_editable: true };
+      const space: DemoSpace = createDemoSpace({ id: `space-${id}`, name, accountId: account.id, bucketName, internal_bucket_name: bucketName, description: String(body.description ?? ""), role: manager ? "Manager" : "Owner", visibility: body.visibility === "shared" ? "shared" : "private", owner_user_id: body.visibility === "shared" ? null : c.user.id, share_scope: body.share_scope === "restricted" ? "restricted" : "account", account_member_role: body.account_member_role === "Viewer" ? "Viewer" : "Editor", shares: [], status: "active", origin: "portal_generic", created_at: bucket.creation_date ?? null, name_editable: true });
       if (Array.isArray(body.initial_shares)) space.shares = body.initial_shares.map((input: { user_id: number; role: string }) => {
         const target = required(candidates.find(u => u.user_id === input.user_id));
         if (input.role !== "Viewer" && input.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");
