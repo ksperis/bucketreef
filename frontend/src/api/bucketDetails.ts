@@ -145,11 +145,17 @@ function createManagerBucketDetailsApi() {
         "public-access-block",
         payload,
       ),
-    updateBucketQuota: (
+    updateBucketQuota: async (
       contextId: S3ExecutionContextSelector,
       bucketName: string,
       payload: BucketQuotaUpdate,
-    ) => writeWithoutResponse(contextId, bucketName, "quota", payload),
+    ) => {
+      await client.patch(
+        `${bucketPath(bucketName)}/quota`,
+        payload,
+        requestConfig(contextId),
+      );
+    },
     getBucketVersioning: (
       contextId: S3ExecutionContextSelector,
       bucketName: string,

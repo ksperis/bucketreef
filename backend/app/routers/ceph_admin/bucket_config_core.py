@@ -86,7 +86,7 @@ def update_versioning(
     )
 
 
-@router.put(
+@router.patch(
     "/{bucket_name}/quota",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,

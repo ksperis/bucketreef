@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const clientMock = vi.hoisted(() => ({
   delete: vi.fn(),
   get: vi.fn(),
+  patch: vi.fn(),
   put: vi.fn(),
 }));
 
@@ -20,8 +21,10 @@ describe("Ceph Admin bucket details api", () => {
   beforeEach(() => {
     clientMock.delete.mockReset();
     clientMock.get.mockReset();
+    clientMock.patch.mockReset();
     clientMock.put.mockReset();
     clientMock.get.mockResolvedValue({ data: { objects: [] } });
+    clientMock.patch.mockResolvedValue({ data: undefined });
     clientMock.put.mockResolvedValue({ data: { rules: [] } });
   });
 
@@ -48,8 +51,7 @@ describe("Ceph Admin bucket details api", () => {
       { rules },
       { params: {} },
     );
-    expect(clientMock.put).toHaveBeenNthCalledWith(
-      2,
+    expect(clientMock.patch).toHaveBeenCalledWith(
       "/ceph-admin/endpoints/7/buckets/reports%2F2026/quota",
       { max_objects: 100 },
       { params: {} },
