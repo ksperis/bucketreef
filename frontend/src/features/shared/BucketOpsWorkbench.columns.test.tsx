@@ -170,6 +170,7 @@ const baseResponse = {
   page_size: 25,
   has_next: false,
   stats_available: true,
+  stats_warning: null,
 };
 
 const baseBucket = {

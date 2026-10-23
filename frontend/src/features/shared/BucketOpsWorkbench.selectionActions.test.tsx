@@ -243,6 +243,7 @@ function createBucketListMock(allBuckets: Array<Record<string, unknown>>) {
       page_size: pageSize,
       has_next: start + pageSize < total,
       stats_available: true,
+      stats_warning: null,
     });
   };
 }
@@ -299,6 +300,7 @@ describe("BucketOpsWorkbench selection actions", () => {
       page_size: number;
       has_next: boolean;
       stats_available: boolean;
+      stats_warning: string | null;
     }>();
 
     mocks.listCephAdminBuckets.mockImplementation((endpointId: number, params?: Record<string, unknown>) => {
@@ -313,6 +315,7 @@ describe("BucketOpsWorkbench selection actions", () => {
           page_size: 25,
           has_next: true,
           stats_available: true,
+          stats_warning: null,
         });
       }
       if (pageSize === 200 && page === 1) {
@@ -323,6 +326,7 @@ describe("BucketOpsWorkbench selection actions", () => {
           page_size: 200,
           has_next: true,
           stats_available: true,
+          stats_warning: null,
         });
       }
       if (pageSize === 200 && page === 2) {
@@ -352,6 +356,7 @@ describe("BucketOpsWorkbench selection actions", () => {
       page_size: 200,
       has_next: false,
       stats_available: true,
+      stats_warning: null,
     });
 
     await waitFor(() => expect(screen.queryByText("Selecting filtered buckets · 200 / 250")).not.toBeInTheDocument());
@@ -365,6 +370,7 @@ describe("BucketOpsWorkbench selection actions", () => {
       page_size: number;
       has_next: boolean;
       stats_available: boolean;
+      stats_warning: string | null;
     }>();
     let requestSignal: AbortSignal | undefined;
     mocks.listCephAdminBuckets.mockImplementation(
@@ -648,6 +654,7 @@ describe("BucketOpsWorkbench selection actions", () => {
       page_size: 25,
       has_next: false,
       stats_available: true,
+      stats_warning: null,
     });
 
     render(

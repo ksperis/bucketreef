@@ -30,6 +30,18 @@ from app.main import app
 from tests.execution_context_factory import make_execution_context
 
 
+def test_storage_ops_bucket_list_response_requires_complete_canonical_payload():
+    assert set(PaginatedStorageOpsBucketsResponse.model_json_schema()["required"]) == {
+        "items",
+        "total",
+        "page",
+        "page_size",
+        "has_next",
+        "stats_available",
+        "stats_warning",
+    }
+
+
 def test_feature_enrichment_preserves_storage_ops_context_fields():
     bucket = StorageOpsBucketSummary(
         name="example-bucket",
@@ -383,6 +395,8 @@ def test_storage_ops_stream_emits_progress_and_result(client, monkeypatch):
             page=1,
             page_size=25,
             has_next=False,
+            stats_available=True,
+            stats_warning=None,
         )
 
     monkeypatch.setattr(storage_ops_router, "_compute_storage_ops_listing", fake_compute_listing)
