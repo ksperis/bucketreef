@@ -25,6 +25,7 @@ import {
   BucketFeatureEditorToolbar,
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
+import { createBucketFeatureManageColumn } from "./BucketFeatureManageColumn";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -430,33 +431,14 @@ export default function BucketPolicyFeature({
       cellClassName: "min-w-64 break-all",
       render: ({ statement }) => policyValueSummary(statement.Resource),
     },
-    {
-      id: "manage",
+    createBucketFeatureManageColumn<PolicySummaryRow>({
       label: text("Manage"),
-      mobileRole: "actions",
-      headerClassName: "w-px whitespace-nowrap text-right",
-      cellClassName: "w-px whitespace-nowrap",
-      render: ({ index }) => (
-        <div className="bucket-feature-row-actions">
-          <SettingsButton
-            type="button"
-            variant="secondary"
-            onClick={() => openEditorFor(index)}
-            disabled={saving || notImplemented}
-          >
-            {text("Edit")}
-          </SettingsButton>
-          <SettingsButton
-            type="button"
-            variant="danger"
-            onClick={() => void removeStatementDirect(index)}
-            disabled={saving || notImplemented}
-          >
-            {text("Remove")}
-          </SettingsButton>
-        </div>
-      ),
-    },
+      editLabel: text("Edit"),
+      removeLabel: text("Remove"),
+      disabled: saving || notImplemented,
+      onEdit: openEditorFor,
+      onRemove: removeStatementDirect,
+    }),
   ];
   const visibleDraftStatements = draftStatements
     .map((statement, index) => ({ statement, index }))

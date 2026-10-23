@@ -24,6 +24,7 @@ import {
   BucketFeatureEditorToolbar,
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
+import { createBucketFeatureManageColumn } from "./BucketFeatureManageColumn";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
@@ -286,33 +287,14 @@ export default function BucketReplicationFeature({
       cellClassName: "min-w-56 break-all font-mono ui-caption",
       render: ({ rule }) => replicationRuleSummary(rule).destination,
     },
-    {
-      id: "manage",
+    createBucketFeatureManageColumn<ReplicationSummaryRow>({
       label: text("Manage"),
-      mobileRole: "actions",
-      headerClassName: "w-px whitespace-nowrap text-right",
-      cellClassName: "w-px whitespace-nowrap",
-      render: ({ index }) => (
-        <div className="bucket-feature-row-actions">
-          <SettingsButton
-            type="button"
-            variant="secondary"
-            onClick={() => openEditorFor(index)}
-            disabled={saving || featureDisabled}
-          >
-            {text("Edit")}
-          </SettingsButton>
-          <SettingsButton
-            type="button"
-            variant="danger"
-            onClick={() => removeRuleDirect(index)}
-            disabled={saving || featureDisabled}
-          >
-            {text("Remove")}
-          </SettingsButton>
-        </div>
-      ),
-    },
+      editLabel: text("Edit"),
+      removeLabel: text("Remove"),
+      disabled: saving || featureDisabled,
+      onEdit: openEditorFor,
+      onRemove: removeRuleDirect,
+    }),
   ];
   const visibleRules = rules.filter((_, index) => editorTargetIndex === null || index === editorTargetIndex);
 
