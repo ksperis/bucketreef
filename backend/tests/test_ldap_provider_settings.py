@@ -15,6 +15,7 @@ from sqlalchemy import create_engine, text
 from app.core.config import LDAPProviderSettings, Settings
 from app.db import AuditLog, ExternalIdentity, LdapProvider, User, UserRole
 from app.main import app
+from app.models.ldap import LDAPProviderAdminPayload
 from app.routers import dependencies
 from app.services.ldap_provider_settings_service import (
     list_effective_ldap_providers,
@@ -95,12 +96,25 @@ def _payload(**overrides) -> dict:
         "start_tls": False,
         "tls_verify": True,
         "tls_ca_file": "",
+        "allow_legacy_tls": False,
         "timeout_seconds": 5,
         "enabled": True,
         "allow_insecure": False,
     }
     payload.update(overrides)
     return payload
+
+
+def test_admin_ldap_payload_requires_complete_configuration_but_not_secret_controls():
+    payload = _payload()
+    payload.pop("bind_password")
+
+    LDAPProviderAdminPayload.model_validate(payload)
+
+    incomplete = dict(payload)
+    incomplete.pop("tls_verify")
+    with pytest.raises(ValidationError):
+        LDAPProviderAdminPayload.model_validate(incomplete)
 
 
 def test_ldap_providers_migration_creates_and_drops_table(monkeypatch):

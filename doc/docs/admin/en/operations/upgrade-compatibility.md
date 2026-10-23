@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 explicit identity-provider configuration payloads
+
+OIDC and LDAP provider create/update requests now require the complete
+non-secret configuration. Nullable configuration fields must be sent
+explicitly as `null` when unset.
+
+Secret controls remain optional so an update can preserve an existing OIDC
+client secret or LDAP bind password. The bundled frontend already sends the
+complete provider configuration. No database migration is required.
+
 ## 2026-10 explicit webhook endpoint payloads
 
 Webhook endpoint create and update requests now require both `enabled` and
