@@ -1,7 +1,7 @@
 import type { UiGroup } from "../api/groups";
 import type { S3Account } from "../api/accounts";
 import type { StorageEndpoint } from "../api/storageEndpoints";
-import { bucketView, createDemoUser, emptyIam, personaIds, settings, tools, type DemoUser } from "./state";
+import { bucketView, createDemoGroup, createDemoUser, demoGroupUser, emptyIam, personaIds, settings, tools, type DemoUser } from "./state";
 import { DemoError, done, json, page, required, safeFields, textField, type DemoRequest } from "./http";
 import { demoUserSummary, demoUserView } from "./userProjection";
 
@@ -12,16 +12,16 @@ function synchronizeLinks(c: DemoRequest, source: "users" | "accounts" | "groups
     for (const u of state.users) u.account_links = state.accounts.flatMap(a => a.user_links.filter(l => l.user_id === u.id).map(l => ({ ...l, account_id: a.id })));
     for (const g of state.groups) g.account_links = state.accounts.flatMap(a => a.group_links.filter(l => l.group_id === g.id).map(l => ({ ...l, account_id: a.id })));
   }
-  if (source === "groups") for (const a of state.accounts) a.group_links = state.groups.flatMap(g => (g.account_links ?? []).filter(l => l.account_id === a.id).map(l => ({ ...l, group_id: g.id, group_name: g.name })));
-  for (const u of state.users) u.group_details = state.groups.filter(g => g.user_details?.some(m => m.id === u.id)).map(g => ({ id: g.id, name: g.name }));
-  for (const g of state.groups) g.account_details = state.accounts.filter(a => g.account_links?.some(l => l.account_id === a.id)).map(a => ({ id: a.id, name: a.name, rgw_account_id: a.rgw_account_id }));
+  if (source === "groups") for (const a of state.accounts) a.group_links = state.groups.flatMap(g => g.account_links.filter(l => l.account_id === a.id).map(l => ({ ...l, group_id: g.id, group_name: g.name })));
+  for (const u of state.users) u.group_details = state.groups.filter(g => g.user_details.some(m => m.id === u.id)).map(g => ({ id: g.id, name: g.name }));
+  for (const g of state.groups) g.account_details = state.accounts.filter(a => g.account_links.some(l => l.account_id === a.id)).map(a => ({ id: a.id, name: a.name, rgw_account_id: a.rgw_account_id }));
 }
 
 function userGroups(c: DemoRequest, user: DemoUser, ids: unknown) {
   if (!Array.isArray(ids)) return;
   for (const group of c.state.groups) {
-    group.user_details = (group.user_details ?? []).filter(u => u.id !== user.id);
-    if (ids.includes(group.id)) group.user_details.push({ id: user.id, email: user.email, full_name: user.full_name, role: user.role });
+    group.user_details = group.user_details.filter(u => u.id !== user.id);
+    if (ids.includes(group.id)) group.user_details.push(demoGroupUser(user));
   }
 }
 
@@ -68,12 +68,14 @@ export function governance(c: DemoRequest): Response | undefined {
   const groupMatch = path.match(/^\/admin\/groups(?:\/(\d+|minimal))?$/);
   if (groupMatch) {
     let group = state.groups.find(g => g.id === Number(groupMatch[1]));
-    if (method === "GET") return json(groupMatch[1] === "minimal" ? state.groups : groupMatch[1] ? required(group) : page(state.groups, c.url));
-    if (method === "POST" && !groupMatch[1]) { group = { id: state.nextId++, name: textField(body, "name"), user_details: [], account_links: [] }; state.groups.push(group); }
+    if (method === "GET") return json(groupMatch[1] === "minimal"
+      ? state.groups.map(({ id, name, avatar }) => ({ id, name, avatar }))
+      : groupMatch[1] ? required(group) : page(state.groups, c.url));
+    if (method === "POST" && !groupMatch[1]) { group = createDemoGroup({ id: state.nextId++, name: textField(body, "name") }); state.groups.push(group); }
     if ((method === "PUT" || method === "POST") && group) {
       Object.assign(group, body as Partial<UiGroup>);
       group.manager_tool_access = { ...tools }; group.can_provision_managed_private_connections = false; group.can_access_storage_ops = false;
-      if (Array.isArray(body.user_ids)) group.user_details = state.users.filter(u => (body.user_ids as number[]).includes(u.id));
+      if (Array.isArray(body.user_ids)) group.user_details = state.users.filter(u => (body.user_ids as number[]).includes(u.id)).map(demoGroupUser);
       synchronizeLinks(c, "groups"); return json(group);
     }
     if (method === "DELETE" && group) { state.groups = state.groups.filter(g => g !== group); synchronizeLinks(c, "groups"); return done(); }

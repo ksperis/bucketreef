@@ -26,7 +26,7 @@ describe("GroupAvatar", () => {
     render(
       <GroupAvatar
         name="Storage Operators"
-        avatar={{ source: "preset", initials: "SO", icon: "shield" }}
+        avatar={{ source: "preset", initials: "SO", icon: "shield", url: null, updated_at: null }}
       />,
     );
 
@@ -40,7 +40,7 @@ describe("GroupAvatar", () => {
     render(
       <GroupAvatar
         name="Data Team"
-        avatar={{ source: "uploaded", initials: "DT", url: "/admin/groups/7/avatar?v=2" }}
+        avatar={{ source: "uploaded", initials: "DT", icon: null, url: "/admin/groups/7/avatar?v=2", updated_at: null }}
       />,
     );
 

@@ -119,27 +119,27 @@ function groupFormFromGroup(group: UiGroup): UiGroupPayload {
   return {
     name: group.name,
     description: group.description ?? "",
-    avatar_source: group.avatar?.source ?? "initials",
-    avatar_icon: group.avatar?.icon ?? null,
-    can_access_ceph_admin: Boolean(group.can_access_ceph_admin),
-    can_access_storage_ops: Boolean(group.can_access_storage_ops),
-    can_create_manual_private_connections: Boolean(group.can_create_manual_private_connections),
-    can_provision_managed_private_connections: Boolean(group.can_provision_managed_private_connections),
-    browser_advanced_features_enabled: Boolean(group.browser_advanced_features_enabled),
-    manager_tool_access: normalizeManagerToolAccess(group.manager_tool_access),
-    user_ids: (group.user_details ?? []).map((user) => Number(user.id)),
+    avatar_source: group.avatar.source,
+    avatar_icon: group.avatar.icon,
+    can_access_ceph_admin: group.can_access_ceph_admin,
+    can_access_storage_ops: group.can_access_storage_ops,
+    can_create_manual_private_connections: group.can_create_manual_private_connections,
+    can_provision_managed_private_connections: group.can_provision_managed_private_connections,
+    browser_advanced_features_enabled: group.browser_advanced_features_enabled,
+    manager_tool_access: group.manager_tool_access,
+    user_ids: group.user_details.map((user) => Number(user.id)),
     account_links:
-      group.account_links?.map((link) => ({
+      group.account_links.map((link) => ({
         account_id: Number(link.account_id),
         manager_role: link.manager_role,
         portal_role: link.portal_role,
         allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-      })) ?? [],
-    s3_user_links: (group.s3_user_links ?? []).map((link) => ({
+      })),
+    s3_user_links: group.s3_user_links.map((link) => ({
       s3_user_id: Number(link.s3_user_id),
       allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     })),
-    s3_connection_ids: (group.s3_connection_details ?? []).map((connection) => Number(connection.id)),
+    s3_connection_ids: group.s3_connection_details.map((connection) => Number(connection.id)),
   };
 }
 
@@ -226,12 +226,12 @@ export default function GroupsPage() {
   }, [avatarFileUrl]);
 
   const avatarPreview = avatarFileUrl
-    ? { source: "uploaded" as const, initials: "", url: avatarFileUrl }
+    ? { source: "uploaded" as const, initials: "", icon: null, url: avatarFileUrl, updated_at: null }
     : form.avatar_source === "preset"
-      ? { source: "preset" as const, initials: "", icon: form.avatar_icon ?? "users" }
+      ? { source: "preset" as const, initials: "", icon: form.avatar_icon ?? "users", url: null, updated_at: null }
       : form.avatar_source === "uploaded" && editingGroup?.avatar
         ? editingGroup.avatar
-        : { source: "initials" as const, initials: "" };
+        : { source: "initials" as const, initials: "", icon: null, url: null, updated_at: null };
 
   const selectAvatarFile = (file: File | null) => {
     if (!file) return;
@@ -1117,7 +1117,7 @@ export default function GroupsPage() {
                             setRemoveAvatarImage(false);
                             setForm((current) => ({ ...current, avatar_source: "preset", avatar_icon: icon.value }));
                           }}>
-                          <GroupAvatar avatar={{ source: "preset", initials: "", icon: icon.value }}
+                          <GroupAvatar avatar={{ source: "preset", initials: "", icon: icon.value, url: null, updated_at: null }}
                             name={icon.label} size="sm" className="border-0" />
                         </SettingsButton>
                       ))}

@@ -17,7 +17,7 @@ const MANAGER_TOOLS = [
 ] as const satisfies ReadonlyArray<keyof ManagerToolAccess>;
 
 function groupsForUser(state: DemoState, userId: number) {
-  return state.groups.filter(group => group.user_details?.some(member => member.id === userId));
+  return state.groups.filter(group => group.user_details.some(member => member.id === userId));
 }
 
 function hasFeatureGrant(
@@ -45,7 +45,7 @@ function managerToolAccess(
   for (const tool of MANAGER_TOOLS) {
     const policy = settings.manager.feature_policies[tool];
     const directGrant = Boolean(user.manager_tool_access?.[tool]);
-    const groupGrant = groups.some(group => Boolean(group.manager_tool_access?.[tool]));
+    const groupGrant = groups.some(group => group.manager_tool_access[tool]);
     const enabled = roleSupportsTools
       && policy !== "disabled"
       && (policy === "default_on" || directGrant || groupGrant);
@@ -108,7 +108,7 @@ function effectiveS3UserDetails(state: DemoState, user: DemoUser) {
   const groups = groupsForUser(state, user.id);
   const ids = new Set([
     ...(user.s3_user_links ?? []).map(link => link.s3_user_id),
-    ...groups.flatMap(group => (group.s3_user_links ?? []).map(link => link.s3_user_id)),
+    ...groups.flatMap(group => group.s3_user_links.map(link => link.s3_user_id)),
   ]);
   const names = new Map<number, string>();
   for (const account of state.accounts) {
@@ -136,7 +136,7 @@ function demoEffectiveAccess(state: DemoState, user: DemoUser): EffectiveUserAcc
   const groups = groupsForUser(state, user.id);
   const roleSupportsTools = user.role !== "ui_none";
   const tools = managerToolAccess(user, groups);
-  const groupManagedProvisioning = groups.some(group => Boolean(group.can_provision_managed_private_connections));
+  const groupManagedProvisioning = groups.some(group => group.can_provision_managed_private_connections);
   const managedProvisioningPolicy = settings.manager.feature_policies.managed_private_connection_provisioning;
   const managedProvisioningEnabled = roleSupportsTools
     && managedProvisioningPolicy !== "disabled"
