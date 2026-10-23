@@ -8,6 +8,7 @@ from datetime import timedelta
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 
 from app.db import (
     AppSetting,
@@ -64,7 +65,9 @@ def _user(db_session, *, email: str, role: str) -> User:
 
 def _set_admin_passkey_policy(db_session, required: bool) -> None:
     load_app_settings_for_db(db_session)
-    row = db_session.query(AppSetting).filter(AppSetting.key == "default").one()
+    row = db_session.scalars(
+        select(AppSetting).where(AppSetting.key == "default")
+    ).one()
     settings = AppSettings.model_validate_json(row.payload_json)
     settings.general.require_passkey_for_admins = required
     row.payload_json = settings.model_dump_json(indent=2)
@@ -121,9 +124,9 @@ def test_common_mfa_reset_removes_all_factors_sessions_and_tokens(db_session):
     assert result.passkeys_removed == 1
     assert result.recovery_codes_removed == 1
     assert result.challenges_removed == 1
-    assert db_session.query(WebAuthnCredential).count() == 0
-    assert db_session.query(RecoveryCode).count() == 0
-    assert db_session.query(AuthChallenge).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(WebAuthnCredential)) == 0
+    assert db_session.scalar(select(func.count()).select_from(RecoveryCode)) == 0
+    assert db_session.scalar(select(func.count()).select_from(AuthChallenge)) == 0
     db_session.refresh(target)
     db_session.refresh(session)
     db_session.refresh(token)
@@ -297,8 +300,14 @@ def test_admin_link_request_queue_is_filtered_by_role_hierarchy(auth_client, db_
     assert "subject" not in inventory.text
     assert privileged_decision.status_code == 403
     assert standard_decision.status_code == 200
-    assert db_session.query(ExternalIdentity).filter(ExternalIdentity.user_id == standard.id).count() == 1
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "external_identity_link_decision").one()
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(ExternalIdentity)
+        .where(ExternalIdentity.user_id == standard.id)
+    ) == 1
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "external_identity_link_decision")
+    ).one()
     assert "standard-sensitive-subject" not in (audit.metadata_json or "")
 
 
@@ -336,7 +345,9 @@ def test_only_superadmin_can_manage_privileged_users_and_self_protection_applies
     assert deactivate.status_code == 400
     assert demote.status_code == 400
     assert delete.status_code == 400
-    assert db_session.query(User).filter(User.id == superadmin.id).one().is_active is True
+    assert db_session.scalars(
+        select(User).where(User.id == superadmin.id)
+    ).one().is_active is True
 
 
 def test_stale_admin_session_can_read_security_data_and_revoke_access(auth_client, db_session):
@@ -727,7 +738,7 @@ def test_stale_session_must_step_up_for_user_creation_and_deletion(auth_client, 
 
     assert created.status_code == 403
     assert deleted.status_code == 403
-    assert db_session.query(User).filter(User.id == target.id).first() is not None
+    assert db_session.scalar(select(User).where(User.id == target.id)) is not None
 
 
 def test_authentication_setting_change_is_guarded_before_side_effects(auth_client, db_session, monkeypatch):

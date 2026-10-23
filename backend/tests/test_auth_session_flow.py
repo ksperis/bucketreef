@@ -94,7 +94,9 @@ def test_login_s3_grants_iam_capability_when_iam_client_succeeds(monkeypatch, cl
     assert payload["session"]["capabilities"]["access_browser"] is True
     assert payload["session"]["account_id"] == "RGW00000000000000001"
     assert payload["session"]["account_name"] == "tenant-alpha"
-    assert db_session.query(S3Account).filter(S3Account.rgw_account_id == "RGW00000000000000001").first() is None
+    assert db_session.scalar(
+        select(S3Account).where(S3Account.rgw_account_id == "RGW00000000000000001")
+    ) is None
 
 
 def test_login_s3_disables_iam_capability_when_iam_client_denied(monkeypatch, client, db_session):
@@ -111,7 +113,9 @@ def test_login_s3_disables_iam_capability_when_iam_client_denied(monkeypatch, cl
     payload = response.json()
     assert payload["session"]["capabilities"]["can_manage_iam"] is False
     assert payload["session"]["capabilities"]["access_browser"] is True
-    assert db_session.query(S3Account).filter(S3Account.rgw_account_id == "RGW00000000000000001").first() is None
+    assert db_session.scalar(
+        select(S3Account).where(S3Account.rgw_account_id == "RGW00000000000000001")
+    ) is None
 
 
 @pytest.mark.parametrize(
@@ -153,12 +157,11 @@ def test_login_s3_records_custom_endpoint_audit_event(monkeypatch, client, db_se
     )
     assert response.status_code == 200, response.text
 
-    event = (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "login_s3_custom_endpoint")
+    event = db_session.scalars(
+        select(AuditLog)
+        .where(AuditLog.action == "login_s3_custom_endpoint")
         .order_by(AuditLog.id.desc())
-        .first()
-    )
+    ).first()
     assert event is not None
     assert event.ip_address == "testclient"
     assert event.user_agent == "pytest-agent"
@@ -166,7 +169,7 @@ def test_login_s3_records_custom_endpoint_audit_event(monkeypatch, client, db_se
 
 
 def _setup_account(db_session) -> S3Account:
-    manager = db_session.query(User).filter(User.id == 1000).first()
+    manager = db_session.scalar(select(User).where(User.id == 1000))
     if not manager:
         manager = User(
             id=1000,
@@ -179,10 +182,8 @@ def _setup_account(db_session) -> S3Account:
         db_session.add(manager)
         db_session.commit()
 
-    account = (
-        db_session.query(S3Account)
-        .filter(S3Account.rgw_account_id == "RGW00000000000000001")
-        .first()
+    account = db_session.scalar(
+        select(S3Account).where(S3Account.rgw_account_id == "RGW00000000000000001")
     )
     if not account:
         account = make_s3_account(
@@ -199,10 +200,11 @@ def _setup_account(db_session) -> S3Account:
         account.rgw_secret_key = account.rgw_secret_key or "SECRET"
         db_session.add(account)
         db_session.commit()
-    link = (
-        db_session.query(UserS3Account)
-        .filter(UserS3Account.user_id == manager.id, UserS3Account.account_id == account.id)
-        .first()
+    link = db_session.scalar(
+        select(UserS3Account).where(
+            UserS3Account.user_id == manager.id,
+            UserS3Account.account_id == account.id,
+        )
     )
     if not link:
         db_session.add(
