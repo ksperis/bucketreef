@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 import pytest
+from sqlalchemy import func, select
 
 from tests.feature_policy_fixtures import enable_manager_features
 from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
@@ -208,7 +209,11 @@ def test_import_same_uid_across_isolated_tenants(db_session, monkeypatch):
 
     assert len(imported) == 3
     assert {user.rgw_tenant for user in imported} == {"", "team_a", "team_b"}
-    assert db_session.query(S3User).filter_by(rgw_user_uid="analyst").count() == 3
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid == "analyst")
+    ) == 3
     assert fake.key_creations == [("", "analyst"), ("team_a", "analyst"), ("team_b", "analyst")]
     assert service.import_users(items) == []
 
@@ -229,7 +234,7 @@ def test_import_tenanted_user_rejects_when_managed_tenant_creation_disabled(db_s
         )
 
     assert fake.key_creations == []
-    assert db_session.query(S3User).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(S3User)) == 0
 
 
 def test_create_managed_user_rejects_explicit_tenant_when_disabled(db_session, monkeypatch):
@@ -512,7 +517,9 @@ def test_create_user_persists_credentials(db_session, monkeypatch):
     )
 
     assert created.rgw_user_uid == "standalone"
-    record = db_session.query(S3User).filter_by(rgw_user_uid="standalone").one()
+    record = db_session.scalars(
+        select(S3User).where(S3User.rgw_user_uid == "standalone")
+    ).one()
     assert record.rgw_access_key == "AK-standalone"
     assert record.rgw_secret_key == "SK-standalone"
     assert record.storage_endpoint_id == endpoint.id
@@ -549,7 +556,9 @@ def test_import_user_fetches_remote_and_creates_key(db_session, monkeypatch):
     imported = service.import_users([S3UserImport(uid="existing", storage_endpoint_id=endpoint.id)])
 
     assert len(imported) == 1
-    record = db_session.query(S3User).filter_by(rgw_user_uid="existing").one()
+    record = db_session.scalars(
+        select(S3User).where(S3User.rgw_user_uid == "existing")
+    ).one()
     assert record.rgw_access_key.startswith("ROT-existing-")
     assert record.rgw_access_key != "AK-existing"
 
@@ -572,7 +581,12 @@ def test_update_links_normalizes_non_ui_roles_to_ui_user(db_session, monkeypatch
     db_session.refresh(actor)
     assert actor.role == UserRole.UI_USER.value
     assert [link.user_id for link in updated.user_links] == [actor.id]
-    link = db_session.query(UserS3User).filter_by(user_id=actor.id, s3_user_id=created.id).one()
+    link = db_session.scalars(
+        select(UserS3User).where(
+            UserS3User.user_id == actor.id,
+            UserS3User.s3_user_id == created.id,
+        )
+    ).one()
     assert link is not None
 
 
@@ -613,9 +627,11 @@ def test_update_links_validates_users_before_removing_existing_links(
             ),
         )
 
-    link = db_session.query(UserS3User).filter_by(
-        user_id=actor.id,
-        s3_user_id=created.id,
+    link = db_session.scalars(
+        select(UserS3User).where(
+            UserS3User.user_id == actor.id,
+            UserS3User.s3_user_id == created.id,
+        )
     ).one()
     assert link.allow_manager_browser_data_access is True
 
@@ -662,7 +678,9 @@ def test_update_links_validates_groups_before_mutating_user_links(
             ),
         )
 
-    links = db_session.query(UserS3User).filter_by(s3_user_id=created.id).all()
+    links = db_session.scalars(
+        select(UserS3User).where(UserS3User.s3_user_id == created.id)
+    ).all()
     assert [link.user_id for link in links] == [current_actor.id]
     db_session.refresh(replacement_actor)
     assert replacement_actor.role == UserRole.UI_NONE.value
@@ -674,7 +692,8 @@ def test_update_user_persists_privileged_target_grants(db_session, monkeypatch):
     service = _build_service(db_session, monkeypatch, fake)
 
     created = service.create_user(S3UserCreate(name="Privileged", uid="privileged-target", storage_endpoint_id=endpoint.id))
-    record = db_session.query(S3User).filter_by(id=created.id).one()
+    record = db_session.get(S3User, created.id)
+    assert record is not None
     assert record.allow_bucket_quota_management is None
     assert record.allow_access_key_management is None
     assert record.allow_bucket_usage_stats is None
@@ -707,12 +726,15 @@ def test_rotate_keys_replaces_old_credentials_and_deletes_previous(db_session, m
     service = _build_service(db_session, monkeypatch, fake)
 
     created = service.create_user(S3UserCreate(name="Rotate", uid="rotate-me", storage_endpoint_id=endpoint.id))
-    previous_key = db_session.query(S3User).filter_by(id=created.id).one().rgw_access_key
+    record = db_session.get(S3User, created.id)
+    assert record is not None
+    previous_key = record.rgw_access_key
 
     monkeypatch.setattr("app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client", lambda _: fake)
     rotated = service.rotate_keys(created.id)
 
-    record = db_session.query(S3User).filter_by(id=created.id).one()
+    record = db_session.get(S3User, created.id)
+    assert record is not None
     assert rotated.rgw_user_uid == "rotate-me"
     assert record.rgw_access_key != previous_key
     assert any(key["access_key"] == record.rgw_access_key and key["secret_key"] == record.rgw_secret_key for key in fake.remote_users["rotate-me"]["keys"])
@@ -767,7 +789,8 @@ def test_list_keys_uses_active_flag_when_status_is_missing(db_session, monkeypat
     service = _build_service(db_session, monkeypatch, fake)
 
     created = service.create_user(S3UserCreate(name="ActiveFlag", uid="active-flag", storage_endpoint_id=endpoint.id))
-    record = db_session.query(S3User).filter_by(id=created.id).one()
+    record = db_session.get(S3User, created.id)
+    assert record is not None
     fake.remote_users["active-flag"]["keys"] = [
         {"access_key": record.rgw_access_key, "secret_key": record.rgw_secret_key, "active": True},
         {"access_key": "AK-DISABLED", "secret_key": "SK-DISABLED", "active": False},
@@ -802,7 +825,8 @@ def test_list_keys_preserves_created_at_when_rgw_splits_key_metadata(db_session,
     service = _build_service(db_session, monkeypatch, fake)
 
     created = service.create_user(S3UserCreate(name="Dates", uid="dates", storage_endpoint_id=endpoint.id))
-    record = db_session.query(S3User).filter_by(id=created.id).one()
+    record = db_session.get(S3User, created.id)
+    assert record is not None
 
     fake.remote_users["dates"]["keys"] = [
         {"access_key": record.rgw_access_key, "secret_key": record.rgw_secret_key},
@@ -851,7 +875,8 @@ def test_create_access_key_entry_selects_new_key_when_response_contains_existing
     service = _build_service(db_session, monkeypatch, fake)
 
     created = service.create_user(S3UserCreate(name="CreateSelect", uid="create-select", storage_endpoint_id=endpoint.id))
-    record = db_session.query(S3User).filter_by(id=created.id).one()
+    record = db_session.get(S3User, created.id)
+    assert record is not None
 
     def create_with_existing_and_new(uid: str, tenant: Optional[str] = None):
         assert uid == "create-select"
@@ -901,7 +926,8 @@ def test_delete_key_validations(db_session, monkeypatch):
     service = _build_service(db_session, monkeypatch, fake)
 
     created = service.create_user(S3UserCreate(name="DeleteKey", uid="delete-key", storage_endpoint_id=endpoint.id))
-    record = db_session.query(S3User).filter_by(id=created.id).one()
+    record = db_session.get(S3User, created.id)
+    assert record is not None
 
     with pytest.raises(ValueError):
         service.delete_key(created.id, record.rgw_access_key)
@@ -926,7 +952,7 @@ def test_delete_user_with_delete_rgw_checks_buckets_then_deletes(db_session, mon
     service.delete_user(created.id, delete_rgw=True)
 
     assert "remote-user" in fake.deleted_users
-    assert db_session.query(S3User).filter_by(id=created.id).first() is None
+    assert db_session.get(S3User, created.id) is None
 
 
 @pytest.mark.parametrize("delete_rgw", [False, True])
@@ -967,7 +993,7 @@ def test_delete_user_removes_local_entry_when_remote_user_is_confirmed_missing(
     service.delete_user(created.id, delete_rgw=delete_rgw)
 
     assert lookup_modes == [True, False]
-    assert db_session.query(S3User).filter_by(id=created.id).first() is None
+    assert db_session.get(S3User, created.id) is None
 
 
 def test_delete_user_keeps_local_entry_when_remote_absence_is_not_confirmed(db_session, monkeypatch):
@@ -990,7 +1016,9 @@ def test_delete_user_keeps_local_entry_when_remote_absence_is_not_confirmed(db_s
     with pytest.raises(ValueError, match="Unable to verify RGW user before deletion"):
         service.delete_user(created.id, delete_rgw=False)
 
-    assert db_session.query(S3User).filter_by(id=created.id).one().rgw_user_uid == "unknown-remote-delete"
+    record = db_session.get(S3User, created.id)
+    assert record is not None
+    assert record.rgw_user_uid == "unknown-remote-delete"
 
 
 def test_delete_user_confirms_missing_remote_in_stored_tenant(db_session, monkeypatch):
@@ -1022,7 +1050,7 @@ def test_delete_user_confirms_missing_remote_in_stored_tenant(db_session, monkey
     service.delete_user(row.id, delete_rgw=False)
 
     assert calls == [("team-a", True), ("team-a", False)]
-    assert db_session.query(S3User).filter_by(id=row.id).first() is None
+    assert db_session.get(S3User, row.id) is None
 
 
 def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
@@ -1030,7 +1058,8 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
     created = service.create_user(S3UserCreate(name="Derived", uid="derived-user", storage_endpoint_id=endpoint.id))
-    s3_user = db_session.query(S3User).filter_by(id=created.id).one()
+    s3_user = db_session.get(S3User, created.id)
+    assert s3_user is not None
     _seed_s3_user_derived_rows(db_session, endpoint=endpoint, s3_user=s3_user)
     favorite_owner = User(
         email="s3-user-delete-favorite@example.test",
@@ -1058,21 +1087,47 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [])
     service.delete_user(created.id, delete_rgw=True)
 
-    assert db_session.query(CostUsageDaily).filter(CostUsageDaily.s3_user_id == created.id).count() == 0
-    assert db_session.query(CostStorageDaily).filter(CostStorageDaily.s3_user_id == created.id).count() == 0
-    assert db_session.query(QuotaUsageHourly).filter(QuotaUsageHourly.s3_user_id == created.id).count() == 0
-    assert db_session.query(QuotaUsageDaily).filter(QuotaUsageDaily.s3_user_id == created.id).count() == 0
-    assert db_session.query(QuotaAlertState).filter(QuotaAlertState.s3_user_id == created.id).count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(CostUsageDaily)
+        .where(CostUsageDaily.s3_user_id == created.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(CostStorageDaily)
+        .where(CostStorageDaily.s3_user_id == created.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaUsageHourly)
+        .where(QuotaUsageHourly.s3_user_id == created.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaUsageDaily)
+        .where(QuotaUsageDaily.s3_user_id == created.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaAlertState)
+        .where(QuotaAlertState.s3_user_id == created.id)
+    ) == 0
     assert (
-        db_session.query(BucketUsageStatsSnapshot)
-        .filter(
-            BucketUsageStatsSnapshot.scope_kind == "manager",
-            BucketUsageStatsSnapshot.scope_id == f"s3u-{created.id}",
+        db_session.scalar(
+            select(func.count())
+            .select_from(BucketUsageStatsSnapshot)
+            .where(
+                BucketUsageStatsSnapshot.scope_kind == "manager",
+                BucketUsageStatsSnapshot.scope_id == f"s3u-{created.id}",
+            )
         )
-        .count()
         == 0
     )
-    assert db_session.query(BrowserFavorite).filter(BrowserFavorite.context == f"s3u-{created.id}").count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(BrowserFavorite)
+        .where(BrowserFavorite.context == f"s3u-{created.id}")
+    ) == 0
 
 
 def test_delete_user_rejects_active_bucket_migration_before_remote_delete(db_session, monkeypatch):
@@ -1095,7 +1150,7 @@ def test_delete_user_rejects_active_bucket_migration_before_remote_delete(db_ses
 
     assert fake.deleted_users == []
     assert fake.deleted_keys == []
-    assert db_session.query(S3User).filter(S3User.id == created.id).one()
+    assert db_session.get(S3User, created.id) is not None
 
 
 def test_list_users_and_minimal_are_sorted_case_insensitive_and_stable(db_session):
