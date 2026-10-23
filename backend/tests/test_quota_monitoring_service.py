@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from app.db import (
@@ -203,10 +204,10 @@ def test_usage_history_hourly_and_daily_upserts(db_session, monkeypatch):
     assert second["history_hourly_upserts"] == 1
     assert second["history_daily_upserts"] == 1
 
-    assert db_session.query(QuotaUsageHourly).count() == 1
-    assert db_session.query(QuotaUsageDaily).count() == 1
-    daily = db_session.query(QuotaUsageDaily).first()
-    hourly = db_session.query(QuotaUsageHourly).first()
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageHourly)) == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageDaily)) == 1
+    daily = db_session.scalar(sa.select(QuotaUsageDaily))
+    hourly = db_session.scalar(sa.select(QuotaUsageHourly))
     assert hourly is not None
     assert int(hourly.bucket_count) == 1
     assert daily is not None
@@ -240,8 +241,8 @@ def test_quota_monitor_mode_does_not_persist_usage_history(db_session, monkeypat
     assert result["usage_history_collection_enabled"] is False
     assert result["history_hourly_upserts"] == 0
     assert result["history_daily_upserts"] == 0
-    assert db_session.query(QuotaUsageHourly).count() == 0
-    assert db_session.query(QuotaUsageDaily).count() == 0
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageHourly)) == 0
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageDaily)) == 0
 
 
 def test_usage_history_prefers_supervision_client_and_keeps_quota_optional(db_session, monkeypatch):
@@ -277,7 +278,7 @@ def test_usage_history_prefers_supervision_client_and_keeps_quota_optional(db_se
             "warning": "Quota client unavailable for endpoint 'quota-endpoint'.",
         }
     ]
-    hourly = db_session.query(QuotaUsageHourly).first()
+    hourly = db_session.scalar(sa.select(QuotaUsageHourly))
     assert hourly is not None
     assert int(hourly.used_bytes) == 75
     assert int(hourly.used_objects) == 7
@@ -412,7 +413,7 @@ def test_usage_collection_failure_does_not_block_remaining_subjects(
             "error": "Usage collection failed: account usage unavailable",
         }
     ]
-    assert db_session.query(QuotaUsageHourly).one().s3_user_id == s3_user.id
+    assert db_session.scalars(sa.select(QuotaUsageHourly)).one().s3_user_id == s3_user.id
 
 
 def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch):
@@ -460,13 +461,13 @@ def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch
     assert first["alerts_triggered"] == 1
     assert first["alerts_sent"] == 1
     assert first["notifications_created"] == 1
-    assert db_session.query(UserNotification).count() == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(UserNotification)) == 1
 
     second = service.run_monitor()  # still threshold => no duplicate
     assert second["alerts_triggered"] == 0
     assert second["alerts_sent"] == 0
     assert second["notifications_created"] == 0
-    assert db_session.query(UserNotification).count() == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(UserNotification)) == 1
 
     fake_admin.usage_bytes = 100
     fake_admin.usage_objects = 100
@@ -474,7 +475,7 @@ def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch
     assert third["alerts_triggered"] == 1
     assert third["alerts_sent"] == 1
     assert third["notifications_created"] == 1
-    assert db_session.query(UserNotification).count() == 2
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(UserNotification)) == 2
 
     fake_admin.usage_bytes = 40
     fake_admin.usage_objects = 40
@@ -489,15 +490,17 @@ def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch
     assert fifth["alerts_triggered"] == 1
     assert fifth["alerts_sent"] == 1
     assert fifth["notifications_created"] == 1
-    assert db_session.query(UserNotification).count() == 3
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(UserNotification)) == 3
 
     assert len(fake_mailer.calls) == 3
     assert fake_mailer.calls[0]["recipients"] == ["account-admin@example.test"]
 
-    state = db_session.query(QuotaAlertState).first()
+    state = db_session.scalar(sa.select(QuotaAlertState))
     assert state is not None
     assert state.last_level == "threshold"
-    deliveries = db_session.query(WebhookDelivery).filter(WebhookDelivery.endpoint_id == webhook.id).all()
+    deliveries = db_session.scalars(
+        sa.select(WebhookDelivery).where(WebhookDelivery.endpoint_id == webhook.id)
+    ).all()
     assert len(deliveries) == 3
     assert {delivery.event_type for delivery in deliveries} == {QUOTA_THRESHOLD_EVENT_TYPE}
 
@@ -666,8 +669,8 @@ def test_recipient_resolution_for_account_s3_user_and_global_watch(db_session):
         account_portal_manager.id,
         account_disabled.id,
         group_portal_manager.id,
-        db_session.query(User).filter(User.email == "global-admin@example.test").one().id,
-        db_session.query(User).filter(User.email == "global-admin-no-mail@example.test").one().id,
+        db_session.scalars(sa.select(User).where(User.email == "global-admin@example.test")).one().id,
+        db_session.scalars(sa.select(User).where(User.email == "global-admin-no-mail@example.test")).one().id,
     }
 
     assert set(
@@ -678,8 +681,8 @@ def test_recipient_resolution_for_account_s3_user_and_global_watch(db_session):
     ) == {
         s3_user_member.id,
         group_s3_user_member.id,
-        db_session.query(User).filter(User.email == "global-admin@example.test").one().id,
-        db_session.query(User).filter(User.email == "global-admin-no-mail@example.test").one().id,
+        db_session.scalars(sa.select(User).where(User.email == "global-admin@example.test")).one().id,
+        db_session.scalars(sa.select(User).where(User.email == "global-admin-no-mail@example.test")).one().id,
     }
 
 
