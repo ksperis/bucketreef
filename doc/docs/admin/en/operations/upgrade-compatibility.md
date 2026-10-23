@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical bucket detail collections
+
+Bucket property responses now always include `lifecycle_rules`, ACL responses
+always include `grants`, and static website responses always include
+`routing_rules`. Empty state is represented by an empty array instead of an
+omitted field or a model default.
+
+Deploy the backend and bundled frontend together. Direct callers should expect
+these collections on successful reads. No database migration is required.
+
 ## 2026-10 canonical encryption, notification, and replication payloads
 
 Bucket encryption responses and updates now require a `rules` array. Bucket
