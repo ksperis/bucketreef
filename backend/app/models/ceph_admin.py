@@ -39,11 +39,11 @@ class CephAdminEndpoint(ApiModel):
     id: int
     name: str
     endpoint_url: str
-    admin_endpoint: Optional[str] = None
-    region: Optional[str] = None
-    is_default: bool = False
-    capabilities: dict[str, bool] = Field(default_factory=dict)
-    tags: list[TagDefinitionSummary] = Field(default_factory=list)
+    admin_endpoint: Optional[str]
+    region: Optional[str]
+    is_default: bool
+    capabilities: dict[str, bool]
+    tags: list[TagDefinitionSummary]
 
 
 class CephAdminEndpointAccess(ApiModel):
