@@ -146,18 +146,39 @@ class UiGroupsService:
         group = self.db.get(UiGroup, group_id)
         if not group:
             raise UiGroupNotFoundError("UI group not found")
-        existing_user_ids, existing_account_ids = self._existing_portal_scope(group.id)
+        affected_user_ids, affected_account_ids = self._updated_portal_scope(group.id, payload)
+        portal_roles_before = capture_effective_portal_roles(
+            self.db,
+            user_ids=affected_user_ids,
+            account_ids=affected_account_ids,
+        )
+        self._apply_group_update(group, payload)
+        group.updated_at = utcnow()
+        self.db.add(group)
+        self.db.flush()
+        self._commit_portal_role_changes(
+            before=portal_roles_before,
+            user_ids=affected_user_ids,
+            account_ids=affected_account_ids,
+        )
+        self.db.refresh(group)
+        return group
+
+    def _updated_portal_scope(
+        self,
+        group_id: int,
+        payload: UiGroupUpdate,
+    ) -> tuple[set[int], set[int]]:
+        existing_user_ids, existing_account_ids = self._existing_portal_scope(group_id)
         affected_user_ids = existing_user_ids | {
             int(user_id) for user_id in (payload.user_ids or [])
         }
         affected_account_ids = existing_account_ids | {
             int(link.account_id) for link in (payload.account_links or [])
         }
-        portal_roles_before = capture_effective_portal_roles(
-            self.db,
-            user_ids=affected_user_ids,
-            account_ids=affected_account_ids,
-        )
+        return affected_user_ids, affected_account_ids
+
+    def _apply_group_update(self, group: UiGroup, payload: UiGroupUpdate) -> None:
         if payload.name is not None:
             group.name = self._available_name(payload.name, exclude_id=group.id)
         if payload.description is not None:
@@ -179,16 +200,6 @@ class UiGroupsService:
             self._set_s3_user_links(group, payload.s3_user_links)
         if payload.s3_connection_ids is not None:
             self._set_s3_connection_links(group, payload.s3_connection_ids)
-        group.updated_at = utcnow()
-        self.db.add(group)
-        self.db.flush()
-        self._commit_portal_role_changes(
-            before=portal_roles_before,
-            user_ids=affected_user_ids,
-            account_ids=affected_account_ids,
-        )
-        self.db.refresh(group)
-        return group
 
     def delete_group(self, group_id: int) -> None:
         group = self.db.get(UiGroup, group_id)
