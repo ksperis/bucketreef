@@ -11,18 +11,18 @@ import type {
 
 export type ManagerCephAccessKey = AccessKeyMetadata & {
   access_key_id: string;
-  status?: string | null;
-  created_at?: string | null;
+  status: string | null;
+  created_at: string | null;
   is_ui_managed: boolean;
   is_active: boolean;
-  is_private_access_managed?: boolean;
-  managed_connection_id?: number | null;
+  is_private_access_managed: boolean;
+  managed_connection_id: number | null;
 };
 
 export type ManagerCephGeneratedAccessKey = AccessKeyMetadata & {
   access_key_id: string;
   secret_access_key: string;
-  created_at?: string | null;
+  created_at: string | null;
 };
 
 export async function listManagerCephAccessKeys(contextId?: S3ExecutionContextSelector): Promise<ManagerCephAccessKey[]> {
@@ -48,8 +48,8 @@ export async function updateManagerCephAccessKeyMetadata(
   contextId: S3ExecutionContextSelector,
   accessKeyId: string,
   metadata: AccessKeyMetadataInput,
-): Promise<AccessKeyMetadataInput> {
-  const { data } = await client.put<AccessKeyMetadataInput>(
+): Promise<AccessKeyMetadata> {
+  const { data } = await client.put<AccessKeyMetadata>(
     `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
     { params: withS3ContextParam(undefined, contextId) },

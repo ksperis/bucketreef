@@ -54,7 +54,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const keyConfirmation = useConfirmActionDialog();
 
-  const formatDate = (value?: string) => {
+  const formatDate = (value?: string | null) => {
     if (!value) return "-";
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(intlLocale);
@@ -280,7 +280,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
       mobileRole: "actions",
       render: (key) => {
         const active = isKeyActive(key);
-        const managed = Boolean(key.is_private_access_managed);
+        const managed = key.is_private_access_managed;
         const expirationPast = accessKeyExpirationIsPast(key.expires_at);
         const canEditDetails = Boolean(managerAccessKeyMetadataEnabled || (managerAccessKeyExpirationEnabled && !managed));
         return (

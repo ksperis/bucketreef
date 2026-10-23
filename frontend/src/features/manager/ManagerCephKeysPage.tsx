@@ -235,7 +235,7 @@ export default function ManagerCephKeysPage() {
       mobileRole: "primary",
       cellClassName: "font-mono",
       render: (key) => {
-        const managedPrivate = Boolean(key.is_private_access_managed);
+        const managedPrivate = key.is_private_access_managed;
         const locked = Boolean(key.is_ui_managed || managedPrivate);
         return (
           <div className="flex flex-wrap items-center gap-2">
@@ -287,7 +287,7 @@ export default function ManagerCephKeysPage() {
       mobileRole: "actions",
       render: (key) => {
         const active = key.is_active;
-        const managedPrivate = Boolean(key.is_private_access_managed);
+        const managedPrivate = key.is_private_access_managed;
         const locked = Boolean(key.is_ui_managed || managedPrivate);
         const expirationPast = accessKeyExpirationIsPast(key.expires_at);
         const canEditDetails = Boolean(managerAccessKeyMetadataEnabled || (managerAccessKeyExpirationEnabled && !locked));
