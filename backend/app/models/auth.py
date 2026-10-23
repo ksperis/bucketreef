@@ -84,6 +84,16 @@ class WebAuthnCredentialInfo(ApiModel):
     last_used_at: Optional[datetime] = None
 
 
+class WebAuthnCredentialCreatedResponse(ApiModel):
+    id: str
+    name: str
+    reauthentication_required: Literal[True] = True
+
+
+class RecoveryCodesResponse(ApiModel):
+    codes: list[str]
+
+
 class ExternalIdentityInfo(ApiModel):
     id: str
     provider_type: str
