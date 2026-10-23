@@ -216,17 +216,27 @@ class CostService:
         storage_rows = self._storage_rows_for_subject(period, endpoint_id, subject_type, subject_id)
         totals = self._subject_totals_from_rows(usage_rows, storage_rows)
 
-        daily_map: dict[str, CostDailySeriesPoint] = {}
+        daily_map: dict[str, dict[str, Optional[int]]] = {}
         for row in storage_rows:
             key = row.day.isoformat()
-            daily_map[key] = CostDailySeriesPoint(day=key, storage_bytes=row.total_bytes)
+            daily_map.setdefault(
+                key,
+                {"storage_bytes": None, "bytes_in": None, "bytes_out": None, "ops_total": None},
+            )["storage_bytes"] = row.total_bytes
         for row in usage_rows:
             key = row.day.isoformat()
-            entry = daily_map.get(key) or CostDailySeriesPoint(day=key)
-            entry.bytes_in = row.bytes_in
-            entry.bytes_out = row.bytes_out
-            entry.ops_total = row.ops_total
-            daily_map[key] = entry
+            entry = daily_map.setdefault(
+                key,
+                {"storage_bytes": None, "bytes_in": None, "bytes_out": None, "ops_total": None},
+            )
+            entry["bytes_in"] = row.bytes_in
+            entry["bytes_out"] = row.bytes_out
+            entry["ops_total"] = row.ops_total
+
+        daily = [
+            CostDailySeriesPoint(day=day, **values)
+            for day, values in sorted(daily_map.items())
+        ]
 
         return CostSubjectDetail(
             month=period.month,
@@ -236,7 +246,7 @@ class CostService:
             subject_id=subject_id,
             name=subject.name,
             rgw_identifier=subject.rgw_user_uid,
-            daily=sorted(daily_map.values(), key=lambda entry: entry.day),
+            daily=daily,
             usage=build_usage_totals(totals),
             storage=build_storage_totals(totals),
             coverage=coverage_for_period(period, totals),
