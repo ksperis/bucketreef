@@ -10,7 +10,10 @@ import type {
   BulkOperation,
   BulkPastePlan,
 } from "./bucketBulkOperationsModel";
-import type { PreparedBucketOpsBulkInput } from "./bucketOpsBulkInput";
+import {
+  prepareBucketOpsBulkExecution,
+  type PreparedBucketOpsBulkInputResult,
+} from "./bucketOpsBulkInput";
 import { applyBucketOpsConfigPaste } from "./bucketOpsConfigPaste";
 
 type BulkApplyInput = Parameters<typeof applyBucketOpsBulkUpdate>[0];
@@ -57,9 +60,7 @@ type UseBucketOpsBulkApplyOptions = BulkApplyApi & {
   operation: BulkOperation;
   pastePlan: BulkPastePlan;
   policyUpdateOnlyExisting: boolean;
-  prepared:
-    | { kind: "success"; value: PreparedBucketOpsBulkInput }
-    | { kind: "error"; error: string };
+  prepared: PreparedBucketOpsBulkInputResult;
   quotaDisabledReason: string | null;
   quotaSkipConfigured: boolean;
   refreshBuckets: () => void;
@@ -144,31 +145,18 @@ export function useBucketOpsBulkApply({
     ) {
       return;
     }
-    if (!operation) {
-      setBulkApplyError("Select an operation first.");
-      return;
-    }
-    if (operation === "copy_configs") {
-      setBulkApplyError("Use 'Copy selected configs' for this operation.");
-      return;
-    }
-    if (operation === "set_quota" && quotaDisabledReason) {
-      setBulkApplyError(
-        `Set bucket quota is unavailable: ${quotaDisabledReason}.`,
-      );
-      return;
-    }
-    if (operation === "paste_configs" && pastePlan.error) {
-      setBulkApplyError(pastePlan.error);
-      return;
-    }
-    if (operation !== "paste_configs" && prepared.kind === "error") {
-      setBulkApplyError(prepared.error);
+    const execution = prepareBucketOpsBulkExecution({
+      bucketNames,
+      operation,
+      pastePlan,
+      prepared,
+      quotaDisabledReason,
+    });
+    if (execution.kind === "error") {
+      setBulkApplyError(execution.error);
       return;
     }
 
-    const total =
-      operation === "paste_configs" ? pastePlan.mappings.length : bucketNames.length;
     const runToken = generationRef.current + 1;
     generationRef.current = runToken;
     activeRunRef.current = runToken;
@@ -178,7 +166,7 @@ export function useBucketOpsBulkApply({
     setBulkApplyProgress({
       label: "Applying changes",
       completed: 0,
-      total,
+      total: execution.total,
       failed: 0,
     });
 

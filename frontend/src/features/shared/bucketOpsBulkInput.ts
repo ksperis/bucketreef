@@ -27,6 +27,7 @@ import {
   parseQuotaInput,
   type BulkCopyFeatureSelection,
   type BulkOperation,
+  type BulkPastePlan,
   type ParsedQuotaInput,
   type PublicAccessBlockOptionKey,
   type QuotaSizeUnit,
@@ -163,7 +164,7 @@ export type PreparedBucketOpsBulkInput = {
   publicAccessBlockTargets: PublicAccessBlockOptionKey[] | null;
 };
 
-type PreparedBucketOpsBulkInputResult =
+export type PreparedBucketOpsBulkInputResult =
   | { kind: "error"; error: string }
   | { kind: "success"; value: PreparedBucketOpsBulkInput };
 
@@ -291,6 +292,50 @@ export function resolveBucketOpsBulkActionAvailability({
     hasSelectedCopyFeatures: Object.values(
       formState.bulkCopyFeatures,
     ).some(Boolean),
+  };
+}
+
+export function prepareBucketOpsBulkExecution({
+  bucketNames,
+  operation,
+  pastePlan,
+  prepared,
+  quotaDisabledReason,
+}: {
+  bucketNames: readonly string[];
+  operation: BulkOperation;
+  pastePlan: BulkPastePlan;
+  prepared: PreparedBucketOpsBulkInputResult;
+  quotaDisabledReason: string | null;
+}): { kind: "error"; error: string } | { kind: "ready"; total: number } {
+  if (!operation) {
+    return { kind: "error", error: "Select an operation first." };
+  }
+  if (operation === "copy_configs") {
+    return {
+      kind: "error",
+      error: "Use 'Copy selected configs' for this operation.",
+    };
+  }
+  if (operation === "set_quota" && quotaDisabledReason) {
+    return {
+      kind: "error",
+      error: `Set bucket quota is unavailable: ${quotaDisabledReason}.`,
+    };
+  }
+  if (operation === "paste_configs" && pastePlan.error) {
+    return { kind: "error", error: pastePlan.error };
+  }
+  if (operation !== "paste_configs" && prepared.kind === "error") {
+    return prepared;
+  }
+
+  return {
+    kind: "ready",
+    total:
+      operation === "paste_configs"
+        ? pastePlan.mappings.length
+        : bucketNames.length,
   };
 }
 
