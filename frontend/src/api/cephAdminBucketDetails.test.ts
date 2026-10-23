@@ -10,6 +10,7 @@ vi.mock("./client", () => ({ default: clientMock }));
 
 import {
   deleteCephAdminBucketPolicy,
+  getCephAdminBucketProperties,
   listCephAdminBucketObjects,
   putCephAdminBucketLifecycle,
   updateCephAdminBucketQuota,
@@ -52,6 +53,22 @@ describe("Ceph Admin bucket details api", () => {
       "/ceph-admin/endpoints/7/buckets/reports%2F2026/quota",
       { max_objects: 100 },
       { params: {} },
+    );
+  });
+
+  it("reads configuration resources through the bucket detail path", async () => {
+    clientMock.get.mockResolvedValueOnce({ data: { name: "reports/2026" } });
+
+    const result = await getCephAdminBucketProperties(
+      7,
+      "reports/2026",
+      "tenant_a",
+    );
+
+    expect(result).toEqual({ name: "reports/2026" });
+    expect(clientMock.get).toHaveBeenCalledWith(
+      "/ceph-admin/endpoints/7/buckets/reports%2F2026/properties",
+      { params: { tenant: "tenant_a" } },
     );
   });
 
