@@ -7,7 +7,7 @@ import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
 export type OnboardingStatus = {
   dismissed: boolean;
   complete: boolean;
-  source?: "quickstart" | "standard";
+  source: "quickstart" | "standard";
   journeys: OnboardingJourney[];
   can_configure: boolean;
   actor_id: number;
