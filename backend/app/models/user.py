@@ -104,10 +104,9 @@ class UserAvatar(ApiModel):
 class UserSummary(ApiModel):
     id: int
     email: EmailStr
-    full_name: Optional[str] = None
-    avatar: Optional[UserAvatar] = None
+    full_name: Optional[str]
+    avatar: Optional[UserAvatar]
     role: UiRole
-    iam_username: Optional[str] = None
 
 
 class UserAssociationDetail(ApiModel):

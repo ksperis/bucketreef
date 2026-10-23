@@ -85,7 +85,6 @@ export function demoGroupUser(user: DemoUser): UiGroupUserDetail {
     role: user.role,
     full_name: user.full_name,
     avatar: user.avatar,
-    iam_username: null,
   };
 }
 

@@ -91,7 +91,6 @@ function canonicalGroup(input: Pick<UiGroup, "id" | "name"> & Partial<UiGroup>):
             updated_at: user.avatar.updated_at ?? null,
           }
         : null,
-      iam_username: user.iam_username ?? null,
     })),
     account_details: input.account_details ?? [],
     account_links: (input.account_links ?? []).map((link) => ({
