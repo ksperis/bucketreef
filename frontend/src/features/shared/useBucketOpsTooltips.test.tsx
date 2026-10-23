@@ -27,7 +27,6 @@ function createApi() {
     getBucketPolicy: vi.fn(async () => ({ policy: null })),
     getBucketProperties: vi.fn(async (): Promise<BucketProperties> => ({
       lifecycle_rules: [],
-      object_lock_enabled: true,
       object_lock: { enabled: true, mode: "GOVERNANCE", days: 7 },
       versioning_status: "Enabled",
     })),

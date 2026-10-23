@@ -137,9 +137,7 @@ export async function applyBucketOpsConfigPaste({
             : {};
         const currentObjectLock = normalizeObjectLockSnapshot({
           ...rawCurrentObjectLock,
-          enabled: Boolean(
-            properties?.object_lock_enabled ?? rawCurrentObjectLock.enabled,
-          ),
+          enabled: Boolean(rawCurrentObjectLock.enabled),
         });
         if (!isObjectLockSnapshotEqual(currentObjectLock, source.objectLock)) {
           await updateBucketObjectLock(

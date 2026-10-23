@@ -29,7 +29,6 @@ function resolveDetails() {
   });
   api.getBucketProperties.mockResolvedValue({
     versioning_status: "Enabled",
-    object_lock_enabled: false,
     public_access_block: {
       block_public_acls: true,
       ignore_public_acls: true,

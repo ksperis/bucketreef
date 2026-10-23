@@ -109,7 +109,6 @@ function bucketResource(resource: string | undefined) {
     case "properties":
       return {
         versioning_status: "Enabled",
-        object_lock_enabled: false,
         object_lock: null,
         public_access_block: null,
         lifecycle_rules: lifecycleRules,

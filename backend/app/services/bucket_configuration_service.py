@@ -193,7 +193,6 @@ class BucketConfigurationService:
         )
         return BucketProperties(
             versioning_status=versioning_status,
-            object_lock_enabled=object_lock.enabled if object_lock else None,
             object_lock=object_lock,
             public_access_block=public_access_block,
             lifecycle_rules=lifecycle_rules,

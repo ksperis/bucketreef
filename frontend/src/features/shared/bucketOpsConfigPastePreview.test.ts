@@ -26,7 +26,6 @@ function createApi() {
     getBucketPolicy: vi.fn(async () => ({ policy: { Statement: [{ Sid: "Old" }] } })),
     getBucketProperties: vi.fn(async () => ({
       lifecycle_rules: [],
-      object_lock_enabled: false,
       object_lock: { enabled: false },
       versioning_status: "Suspended",
     })),
@@ -153,7 +152,6 @@ describe("previewBucketOpsConfigPaste", () => {
     api.getBucketPolicy.mockResolvedValue({ policy: { Statement: [{ Sid: "Copied" }] } });
     api.getBucketProperties.mockResolvedValue({
       lifecycle_rules: [],
-      object_lock_enabled: true,
       object_lock: { enabled: true, mode: "GOVERNANCE", days: 7 },
       versioning_status: "Enabled",
     });

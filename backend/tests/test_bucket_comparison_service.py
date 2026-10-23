@@ -400,7 +400,6 @@ def test_compare_bucket_configuration_detects_changes(monkeypatch):
     properties = {
         "source-bucket": BucketProperties(
             versioning_status="Enabled",
-            object_lock_enabled=True,
             object_lock=BucketObjectLock(enabled=True, mode="GOVERNANCE", days=1, years=None),
             public_access_block=BucketPublicAccessBlock(
                 block_public_acls=True,
@@ -413,7 +412,6 @@ def test_compare_bucket_configuration_detects_changes(monkeypatch):
         ),
         "target-bucket": BucketProperties(
             versioning_status="Suspended",
-            object_lock_enabled=False,
             object_lock=BucketObjectLock(enabled=False, mode=None, days=None, years=None),
             public_access_block=BucketPublicAccessBlock(
                 block_public_acls=False,
@@ -467,7 +465,6 @@ def test_compare_bucket_configuration_filters_selected_sections(monkeypatch):
         call_counts["properties"] += 1
         return BucketProperties(
             versioning_status="Enabled",
-            object_lock_enabled=True,
             object_lock=BucketObjectLock(enabled=True, mode="GOVERNANCE", days=1, years=None),
             public_access_block=BucketPublicAccessBlock(
                 block_public_acls=True,

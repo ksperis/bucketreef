@@ -256,7 +256,6 @@ def test_list_buckets_multiple_prop_features_use_bundle_properties(monkeypatch):
         calls["properties"] += 1
         return BucketProperties(
             versioning_status="Enabled",
-            object_lock_enabled=False,
             object_lock=None,
             public_access_block=None,
             lifecycle_rules=[],

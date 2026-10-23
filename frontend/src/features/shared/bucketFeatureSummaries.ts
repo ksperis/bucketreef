@@ -112,10 +112,9 @@ export function buildVersioningSummaryLines(status?: string | null): string[] {
 }
 
 export function buildObjectLockSummaryLines(
-  objectLockEnabled?: boolean | null,
   objectLock?: { enabled?: boolean | null; mode?: string | null; days?: number | null; years?: number | null } | null
 ): string[] {
-  const enabled = Boolean(objectLockEnabled ?? objectLock?.enabled);
+  const enabled = Boolean(objectLock?.enabled);
   const lines = [`Enabled: ${enabled ? "Yes" : "No"}`];
   if (objectLock?.mode) lines.push(`Mode: ${objectLock.mode}`);
   if (objectLock?.days != null) lines.push(`Default retention: ${objectLock.days} day(s)`);

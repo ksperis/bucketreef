@@ -354,7 +354,7 @@ export default function BucketsPage() {
 
     if (featureKey === "object_lock") {
       const properties = await getBucketPropertiesCached(bucket);
-      return buildObjectLockSummaryLines(properties.object_lock_enabled, properties.object_lock);
+      return buildObjectLockSummaryLines(properties.object_lock);
     }
 
     if (featureKey === "block_public_access") {

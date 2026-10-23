@@ -142,7 +142,6 @@ describe("BrowserPage multipart uploads modal", () => {
     });
     getBucketPropertiesMock.mockResolvedValue({
       versioning_status: "Disabled",
-      object_lock_enabled: false,
       public_access_block: null,
       lifecycle_rules: [],
       cors_rules: [],

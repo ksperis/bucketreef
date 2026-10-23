@@ -91,7 +91,7 @@ export async function copyBucketOpsConfigs({
         objectLock: features.object_lock
           ? normalizeObjectLockSnapshot({
               ...rawObjectLock,
-              enabled: Boolean(properties?.object_lock_enabled ?? rawObjectLock.enabled),
+              enabled: Boolean(rawObjectLock.enabled),
             })
           : null,
         publicAccessBlock: features.public_access_block
