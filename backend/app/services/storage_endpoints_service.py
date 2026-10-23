@@ -155,7 +155,27 @@ class StorageEndpointsService:
         endpoint: StorageEndpoint,
         config: NormalizedEndpointState,
     ) -> None:
-        old_target = (endpoint.endpoint_url, resolve_rgw_admin_api_endpoint(endpoint), endpoint.region) if endpoint.provider else None
+        old_target = cls._endpoint_target(endpoint) if endpoint.provider else None
+        cls._apply_endpoint_fields(endpoint, config)
+        if config.provider == StorageProvider.CEPH:
+            cls._apply_ceph_service_identities(endpoint, config)
+        endpoint.features_config = config.features_config
+        if old_target != cls._endpoint_target(endpoint):
+            cls._invalidate_external_service_identities(endpoint)
+
+    @staticmethod
+    def _endpoint_target(endpoint: StorageEndpoint) -> tuple[str, str, str | None]:
+        return (
+            endpoint.endpoint_url,
+            resolve_rgw_admin_api_endpoint(endpoint),
+            endpoint.region,
+        )
+
+    @staticmethod
+    def _apply_endpoint_fields(
+        endpoint: StorageEndpoint,
+        config: NormalizedEndpointState,
+    ) -> None:
         endpoint.name = config.name
         endpoint.endpoint_url = config.endpoint_url
         endpoint.region = config.region
@@ -168,48 +188,78 @@ class StorageEndpointsService:
         endpoint.admin_secret_key = config.admin_secret_key
         if config.ceph_admin_allowed is not None:
             endpoint.ceph_admin_allowed = config.ceph_admin_allowed
-        if config.provider == StorageProvider.CEPH:
-            runtime = endpoint.service_identity("runtime")
-            identity_mode = config.service_identity_mode or (
-                runtime.mode if runtime is not None else "managed"
-            )
-            if runtime is None:
-                runtime = EndpointServiceIdentity(
-                    kind="runtime",
-                    mode=identity_mode,
-                    status="not_provisioned" if identity_mode == "managed" else "missing",
-                )
-                endpoint.service_identities.append(runtime)
-            else:
-                cls._set_service_identity_mode(runtime, identity_mode)
-            if runtime.mode == "external":
-                cls._apply_external_credentials(runtime, config.runtime_access_key, config.runtime_secret_key)
 
-            supervision = endpoint.service_identity("supervision")
-            if supervision is not None:
-                cls._set_service_identity_mode(supervision, runtime.mode)
-            if supervision is None:
-                supervision = EndpointServiceIdentity(
-                    kind="supervision",
-                    mode=runtime.mode,
-                    status="not_provisioned" if runtime.mode == "managed" else "missing",
-                )
-                endpoint.service_identities.append(supervision)
-            if supervision is not None and supervision.mode == "external":
-                cls._apply_external_credentials(supervision, config.supervision_access_key, config.supervision_secret_key)
-            ceph_admin = endpoint.service_identity("ceph_admin")
-            if ceph_admin is None and (config.ceph_admin_access_key or config.ceph_admin_secret_key or endpoint.ceph_admin_allowed):
-                ceph_admin = EndpointServiceIdentity(kind="ceph_admin", mode="external", status="missing")
-                endpoint.service_identities.append(ceph_admin)
-            if ceph_admin is not None:
-                cls._apply_external_credentials(ceph_admin, config.ceph_admin_access_key, config.ceph_admin_secret_key)
-        endpoint.features_config = config.features_config
-        if old_target != (endpoint.endpoint_url, resolve_rgw_admin_api_endpoint(endpoint), endpoint.region):
-            for identity in endpoint.service_identities:
-                if identity.mode == "external":
-                    identity.status = "missing"
-                    identity.last_error = None
-                    identity.last_reconciled_at = None
+    @classmethod
+    def _apply_ceph_service_identities(
+        cls,
+        endpoint: StorageEndpoint,
+        config: NormalizedEndpointState,
+    ) -> None:
+        runtime = endpoint.service_identity("runtime")
+        identity_mode = config.service_identity_mode or (
+            runtime.mode if runtime is not None else "managed"
+        )
+        runtime = cls._ensure_service_identity(endpoint, "runtime", identity_mode)
+        if runtime.mode == "external":
+            cls._apply_external_credentials(
+                runtime,
+                config.runtime_access_key,
+                config.runtime_secret_key,
+            )
+
+        supervision = cls._ensure_service_identity(endpoint, "supervision", runtime.mode)
+        if supervision.mode == "external":
+            cls._apply_external_credentials(
+                supervision,
+                config.supervision_access_key,
+                config.supervision_secret_key,
+            )
+
+        ceph_admin = endpoint.service_identity("ceph_admin")
+        if ceph_admin is None and (
+            config.ceph_admin_access_key
+            or config.ceph_admin_secret_key
+            or endpoint.ceph_admin_allowed
+        ):
+            ceph_admin = EndpointServiceIdentity(
+                kind="ceph_admin",
+                mode="external",
+                status="missing",
+            )
+            endpoint.service_identities.append(ceph_admin)
+        if ceph_admin is not None:
+            cls._apply_external_credentials(
+                ceph_admin,
+                config.ceph_admin_access_key,
+                config.ceph_admin_secret_key,
+            )
+
+    @classmethod
+    def _ensure_service_identity(
+        cls,
+        endpoint: StorageEndpoint,
+        kind: str,
+        mode: str,
+    ) -> EndpointServiceIdentity:
+        identity = endpoint.service_identity(kind)
+        if identity is None:
+            identity = EndpointServiceIdentity(
+                kind=kind,
+                mode=mode,
+                status="not_provisioned" if mode == "managed" else "missing",
+            )
+            endpoint.service_identities.append(identity)
+            return identity
+        cls._set_service_identity_mode(identity, mode)
+        return identity
+
+    @staticmethod
+    def _invalidate_external_service_identities(endpoint: StorageEndpoint) -> None:
+        for identity in endpoint.service_identities:
+            if identity.mode == "external":
+                identity.status = "missing"
+                identity.last_error = None
+                identity.last_reconciled_at = None
 
     @staticmethod
     def _apply_external_credentials(
