@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 import pytest
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 from app.core.domain_errors import S3ConnectionConflictError
@@ -226,18 +227,19 @@ def test_admin_connections_api_updates_metadata_and_credentials_atomically(
     assert update_response.json()["name"] == "contract-admin-atomic-updated"
     assert "credentials" not in update_response.json()
     db_session.expire_all()
-    stored = db_session.query(S3Connection).filter(S3Connection.id == connection_id).one()
+    stored = db_session.scalars(
+        sa.select(S3Connection).where(S3Connection.id == connection_id)
+    ).one()
     assert stored.access_key_id == "AKIAADMINATOMICNEW"
     assert stored.secret_access_key == "SECRETADMINATOMICNEW"
-    audit_log = (
-        db_session.query(AuditLog)
-        .filter(
+    audit_log = db_session.scalars(
+        sa.select(AuditLog)
+        .where(
             AuditLog.action == "connection.update",
             AuditLog.entity_id == str(connection_id),
         )
         .order_by(AuditLog.id.desc())
-        .one()
-    )
+    ).one()
     audit_metadata = json.loads(audit_log.metadata_json or "{}")
     assert audit_metadata["credentials_updated"] is True
     assert audit_metadata["access_key_id"] == "AKIA***CNEW"
@@ -471,9 +473,11 @@ def test_admin_connection_update_replaces_user_links_atomically(contract_client)
     persisted_connection = db_session.get(S3Connection, shared_connection.id)
     persisted_user_ids = {
         link.user_id
-        for link in db_session.query(UserS3Connection)
-        .filter(UserS3Connection.s3_connection_id == shared_connection.id)
-        .all()
+        for link in db_session.scalars(
+            sa.select(UserS3Connection).where(
+                UserS3Connection.s3_connection_id == shared_connection.id
+            )
+        ).all()
     }
     assert persisted_connection is not None
     assert persisted_connection.name == "contract-shared-user-links-updated"
@@ -522,14 +526,12 @@ def test_admin_connection_update_applies_remediation_action(contract_client):
     assert persisted.access_manager is True
     assert persisted.remediation_required is False
     assert persisted.remediation_reason is None
-    audit_log = (
-        db_session.query(AuditLog)
-        .filter(
+    audit_log = db_session.scalars(
+        sa.select(AuditLog).where(
             AuditLog.action == "connection.remediate",
             AuditLog.entity_id == str(connection.id),
         )
-        .one()
-    )
+    ).one()
     assert json.loads(audit_log.metadata_json or "{}") == {
         "remediation_action": "activate_manager"
     }

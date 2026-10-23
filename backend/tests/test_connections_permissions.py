@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 
 import pytest
+import sqlalchemy as sa
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
@@ -18,7 +19,7 @@ from app.utils.s3_connection_endpoint import build_custom_endpoint_config
 
 def _user(db_session, role: str = UserRole.UI_USER.value, **permissions) -> User:
     row = User(
-        email=f"{role}-{db_session.query(User).count()}@example.com",
+        email=f"{role}-{db_session.scalar(sa.select(sa.func.count()).select_from(User))}@example.com",
         hashed_password="x",
         is_active=True,
         role=role,
@@ -61,14 +62,14 @@ def test_private_connection_permissions_aggregate_direct_and_groups_by_or(db_ses
     assert resolved.can_create_manual_private_connections is True
     assert resolved.can_provision_managed_private_connections is True
 
-    db_session.query(UserUiGroup).filter(UserUiGroup.group_id == managed_group.id).delete()
+    db_session.execute(sa.delete(UserUiGroup).where(UserUiGroup.group_id == managed_group.id))
     db_session.commit()
     resolved = EffectiveAccessService(db_session).resolve_user(user)
     assert resolved.can_create_manual_private_connections is True
     assert resolved.can_provision_managed_private_connections is False
 
     user.can_create_manual_private_connections = False
-    db_session.query(UserUiGroup).delete()
+    db_session.execute(sa.delete(UserUiGroup))
     db_session.commit()
     resolved = EffectiveAccessService(db_session).resolve_user(user)
     assert resolved.can_create_manual_private_connections is False
