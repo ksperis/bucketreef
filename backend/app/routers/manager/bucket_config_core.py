@@ -162,15 +162,19 @@ def put_bucket_encryption(
     )
 
 
-@router.delete("/{bucket_name}/encryption", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/encryption",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_bucket_encryption(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-) -> None:
+) -> Response:
     require_sse_feature(context.storage_endpoint)
-    mutation.delete(
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,

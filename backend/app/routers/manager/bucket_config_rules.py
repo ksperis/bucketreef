@@ -62,14 +62,18 @@ def put_lifecycle(
     )
 
 
-@router.delete("/{bucket_name}/lifecycle", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/lifecycle",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_lifecycle(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-) -> None:
-    mutation.delete(
+) -> Response:
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -119,13 +123,12 @@ def delete_cors(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    mutation.delete(
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
         config_area="cors",
     )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{bucket_name}/notifications", response_model=BucketNotificationConfiguration)
@@ -159,14 +162,18 @@ def put_notifications(
     )
 
 
-@router.delete("/{bucket_name}/notifications", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/notifications",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_notifications(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-) -> None:
-    mutation.delete(
+) -> Response:
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -207,15 +214,19 @@ def put_replication(
     )
 
 
-@router.delete("/{bucket_name}/replication", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/replication",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_replication(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-) -> None:
+) -> Response:
     require_replication_feature(context.storage_endpoint)
-    mutation.delete(
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -254,14 +265,18 @@ def put_logging(
     )
 
 
-@router.delete("/{bucket_name}/logging", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/logging",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_logging(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-) -> None:
-    mutation.delete(
+) -> Response:
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -300,14 +315,18 @@ def put_website(
     )
 
 
-@router.delete("/{bucket_name}/website", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{bucket_name}/website",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_website(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-) -> None:
-    mutation.delete(
+) -> Response:
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -357,10 +376,9 @@ def delete_tags(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    mutation.delete(
+    return mutation.delete(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
         config_area="tags",
     )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
