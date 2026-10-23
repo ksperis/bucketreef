@@ -16,7 +16,7 @@ from app.routers.portal_common import (
     get_portal_service_dependency,
     raise_portal_error,
 )
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.portal_service import PortalService
 
@@ -28,7 +28,7 @@ def portal_endpoint_health(
     access: AccountAccess = Depends(get_portal_account_access),
     db: Session = Depends(get_db),
 ) -> WorkspaceEndpointHealthOverviewResponse:
-    app_settings = load_app_settings()
+    app_settings = load_app_settings_for_db_readonly(db)
     if not app_settings.general.endpoint_status_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Endpoint Status feature is disabled.")
     service = HealthCheckQueryService(db)
@@ -38,7 +38,7 @@ def portal_endpoint_health(
 
 
 def _portal_endpoint_alerts(access: AccountAccess, db: Session) -> list[PortalAlert]:
-    app_settings = load_app_settings()
+    app_settings = load_app_settings_for_db_readonly(db)
     if not app_settings.general.endpoint_status_enabled:
         return []
     overview = HealthCheckQueryService(db).build_workspace_health_overview(

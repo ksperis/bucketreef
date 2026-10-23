@@ -22,7 +22,7 @@ from app.routers.portal_common import (
     get_portal_service_dependency,
     raise_portal_error,
 )
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
     BucketUsageStatsService,
@@ -41,8 +41,8 @@ from app.utils.time import utcnow
 router = APIRouter()
 
 
-def _ensure_portal_bucket_usage_stats_enabled(account) -> None:
-    settings = load_app_settings()
+def _ensure_portal_bucket_usage_stats_enabled(account, db: Session) -> None:
+    settings = load_app_settings_for_db_readonly(db)
     if not bucket_usage_stats_state(
         settings.general.project_feature_policies,
         account,
@@ -78,7 +78,7 @@ def portal_usage_trends(
     endpoint = access.account.storage_endpoint
     if endpoint and not resolve_feature_flags(endpoint).metrics_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
-    if not load_app_settings().general.usage_history_enabled:
+    if not load_app_settings_for_db_readonly(db).general.usage_history_enabled:
         return UsageTrendsResponse()
     return build_execution_context_usage_trends(db, access.account, reference_date=utcnow().date())
 
@@ -92,7 +92,7 @@ def portal_usage_stats_latest(
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
-    _ensure_portal_bucket_usage_stats_enabled(access.account)
+    _ensure_portal_bucket_usage_stats_enabled(access.account, db)
     try:
         spaces = portal_service.list_storage_spaces(actor, access)
     except RuntimeError as exc:
@@ -127,7 +127,7 @@ def portal_usage_history_trends(
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     service = UsageHistoryService(db)
-    if not load_app_settings().general.usage_history_enabled:
+    if not load_app_settings_for_db_readonly(db).general.usage_history_enabled:
         return service.empty_trends(window=window, unavailable_reason="Usage history is disabled.")
     if execution_context_usage_trend_filters(access.account, QuotaUsageDaily) is None:
         return service.empty_trends(window=window, unavailable_reason="Usage history trends are unavailable for this context.")
@@ -150,7 +150,7 @@ def portal_storage_space_usage_stats(
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
-    _ensure_portal_bucket_usage_stats_enabled(access.account)
+    _ensure_portal_bucket_usage_stats_enabled(access.account, db)
     try:
         spaces = portal_service.list_storage_spaces(actor, access, include_archived=True)
     except RuntimeError as exc:

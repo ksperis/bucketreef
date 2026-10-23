@@ -6090,7 +6090,11 @@ def test_portal_user_usage_omits_other_when_all_usage_is_visible(monkeypatch, db
 
 
 def test_portal_usage_trends_exposes_scoped_account_baselines(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _usage_history_settings(True),
+    )
     monkeypatch.setattr(
         portal_usage_router,
         "utcnow",
@@ -6162,7 +6166,11 @@ def test_portal_usage_trends_exposes_scoped_account_baselines(monkeypatch, db_se
 
 
 def test_portal_usage_trends_return_empty_when_history_disabled(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _usage_history_settings(False))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _usage_history_settings(False),
+    )
     endpoint = StorageEndpoint(
         name="portal-trends-disabled-endpoint",
         endpoint_url="https://portal-trends-disabled.example.test",
@@ -6190,7 +6198,11 @@ def test_portal_usage_trends_return_empty_when_history_disabled(monkeypatch, db_
 
 
 def test_portal_usage_trends_return_empty_without_baseline(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _usage_history_settings(True),
+    )
     endpoint = StorageEndpoint(
         name="portal-trends-empty-endpoint",
         endpoint_url="https://portal-trends-empty.example.test",
@@ -6218,7 +6230,11 @@ def test_portal_usage_trends_return_empty_without_baseline(monkeypatch, db_sessi
 
 
 def test_portal_usage_stats_latest_filters_to_visible_storage_spaces(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _bucket_usage_settings(True))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _bucket_usage_settings(True),
+    )
     account = make_s3_account(db_session, name="portal-usage-stats", rgw_account_id="portal-usage-stats")
     user = User(email="usage-stats@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -6270,7 +6286,11 @@ def test_portal_usage_stats_latest_filters_to_visible_storage_spaces(monkeypatch
 
 
 def test_portal_usage_stats_latest_respects_feature_flag(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _bucket_usage_settings(False))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _bucket_usage_settings(False),
+    )
     account = make_s3_account(db_session, name="portal-usage-stats-disabled", rgw_account_id="portal-usage-stats-disabled")
     user = User(email="usage-stats-disabled@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -6288,7 +6308,11 @@ def test_portal_usage_stats_latest_respects_feature_flag(monkeypatch, db_session
 
 
 def test_portal_storage_space_usage_stats_returns_sanitized_snapshot(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _bucket_usage_settings(True))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _bucket_usage_settings(True),
+    )
     account = make_s3_account(db_session, name="portal-space-stats", rgw_account_id="portal-space-stats")
     user = User(email="space-stats@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -6342,7 +6366,11 @@ def test_portal_storage_space_usage_stats_returns_sanitized_snapshot(monkeypatch
 
 
 def test_portal_storage_space_usage_stats_returns_empty_without_snapshot(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _bucket_usage_settings(True))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _bucket_usage_settings(True),
+    )
     account = make_s3_account(db_session, name="portal-space-stats-empty", rgw_account_id="portal-space-stats-empty")
     user = User(email="space-stats-empty@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -6387,7 +6415,11 @@ def test_portal_storage_space_usage_stats_rejects_inaccessible_space(
     archived,
     expected_status,
 ):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _bucket_usage_settings(True))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _bucket_usage_settings(True),
+    )
     account = make_s3_account(db_session, name="portal-space-stats-denied", rgw_account_id="portal-space-stats-denied")
     user = User(email="space-stats-denied@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -6421,7 +6453,11 @@ def test_portal_storage_space_usage_stats_rejects_inaccessible_space(
 
 
 def test_portal_storage_space_usage_stats_respects_feature_flag(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _bucket_usage_settings(False))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _bucket_usage_settings(False),
+    )
     account = make_s3_account(db_session, name="portal-space-stats-disabled", rgw_account_id="portal-space-stats-disabled")
     user = User(email="space-stats-disabled@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -6440,7 +6476,11 @@ def test_portal_storage_space_usage_stats_respects_feature_flag(monkeypatch, db_
 
 
 def test_portal_usage_history_trends_exposes_account_history(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _usage_history_settings(True))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _usage_history_settings(True),
+    )
     endpoint = StorageEndpoint(
         name="portal-history-endpoint",
         endpoint_url="https://portal-history.example.test",
@@ -6509,7 +6549,11 @@ def test_portal_usage_history_trends_exposes_account_history(monkeypatch, db_ses
 
 
 def test_portal_usage_history_trends_return_unavailable_when_disabled(monkeypatch, db_session):
-    monkeypatch.setattr(portal_usage_router, "load_app_settings", lambda: _usage_history_settings(False))
+    monkeypatch.setattr(
+        portal_usage_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _usage_history_settings(False),
+    )
     account = make_s3_account(db_session, name="portal-history-disabled", rgw_account_id="portal-history-disabled")
     user = User(email="usage-history-disabled@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -6645,7 +6689,11 @@ def test_portal_endpoint_alerts_report_degraded_endpoint(monkeypatch, db_session
             assert endpoint_id == endpoint.id
             return {"down_count": 0, "degraded_count": 1}
 
-    monkeypatch.setattr(portal_monitoring_router, "load_app_settings", lambda: FakeSettings())
+    monkeypatch.setattr(
+        portal_monitoring_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: FakeSettings(),
+    )
     monkeypatch.setattr(portal_monitoring_router, "HealthCheckQueryService", FakeHealthQueryService)
 
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
@@ -6691,7 +6739,11 @@ def test_portal_endpoint_health_uses_canonical_account_endpoint(monkeypatch, db_
                 "incidents": [],
             }
 
-    monkeypatch.setattr(portal_monitoring_router, "load_app_settings", lambda: FakeSettings())
+    monkeypatch.setattr(
+        portal_monitoring_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: FakeSettings(),
+    )
     monkeypatch.setattr(portal_monitoring_router, "HealthCheckQueryService", FakeHealthQueryService)
 
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
