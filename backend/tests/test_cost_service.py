@@ -15,6 +15,7 @@ from app.models.access_context import AccountAccess
 from app.models.account_capabilities import AccountCapabilities
 from app.models.app_settings import AppSettings
 from app.models.cost import CostEndpointCollectionError
+from app.main import app
 from app.routers.manager.cost import manager_cost_me
 from app.routers.portal_cost import portal_cost_me
 from app.services import admin_cost_service
@@ -734,6 +735,23 @@ def test_admin_cost_routes_preserve_feature_and_endpoint_status_codes(client, db
     )
     assert response.status_code == 400, response.text
     assert response.json()["detail"] == "This endpoint is not a Ceph endpoint"
+
+
+def test_admin_cost_openapi_uses_canonical_subject_type_query_parameter():
+    paths = app.openapi()["paths"]
+
+    for path in (
+        "/api/admin/cost/subjects",
+        "/api/admin/cost/analytics",
+        "/api/admin/cost/export.csv",
+    ):
+        parameter_names = {
+            parameter["name"]
+            for parameter in paths[path]["get"]["parameters"]
+            if parameter["in"] == "query"
+        }
+        assert "subject_type" in parameter_names
+        assert "type" not in parameter_names
 
 
 def test_cost_coverage_tracks_storage_and_usage_days_separately(db_session):

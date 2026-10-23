@@ -222,7 +222,7 @@ export async function getCostSubjects(
 ): Promise<CostSubjectsResponse> {
   const params: Record<string, string | number> = {
     month,
-    type: subjectType,
+    subject_type: subjectType,
     page,
     page_size: pageSize,
     sort_by: sortBy,
@@ -239,7 +239,7 @@ export async function getCostAnalytics(
   endpointId: number | null,
   subjectType: "all" | "account" | "s3_user",
 ): Promise<CostAnalyticsResponse> {
-  const params: Record<string, string | number> = { month, type: subjectType };
+  const params: Record<string, string | number> = { month, subject_type: subjectType };
   if (endpointId != null) params.endpoint_id = endpointId;
   const { data } = await client.get<CostAnalyticsResponse>("/admin/cost/analytics", { params });
   return data;
@@ -263,7 +263,7 @@ export async function downloadCostCsv(
   endpointId: number | null,
   subjectType: "all" | "account" | "s3_user" = "all",
 ): Promise<Blob> {
-  const params: Record<string, string | number> = { month, type: subjectType };
+  const params: Record<string, string | number> = { month, subject_type: subjectType };
   if (endpointId != null) params.endpoint_id = endpointId;
   const response = await client.get("/admin/cost/export.csv", {
     params,
