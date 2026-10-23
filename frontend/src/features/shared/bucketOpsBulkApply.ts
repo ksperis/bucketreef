@@ -192,7 +192,7 @@ export async function applyBucketOpsBulkUpdate({
 
       if (operation === "add_lifecycle" && parsedRules) {
         const lifecycle = await getBucketLifecycle(endpointId, bucketName);
-        const existingRules = lifecycle.rules ?? [];
+        const existingRules = lifecycle.rules;
         const { nextRules, changes } = mergeLifecycleRules(
           existingRules as Record<string, unknown>[],
           parsedRules,
@@ -205,7 +205,7 @@ export async function applyBucketOpsBulkUpdate({
 
       if (operation === "delete_lifecycle" && deleteIds && deleteTypes) {
         const lifecycle = await getBucketLifecycle(endpointId, bucketName);
-        const existingRules = lifecycle.rules ?? [];
+        const existingRules = lifecycle.rules;
         const nextRules = existingRules.filter((rule) => {
           const record = rule as Record<string, unknown>;
           const ruleId = getLifecycleRuleId(record);
@@ -257,7 +257,7 @@ export async function applyBucketOpsBulkUpdate({
 
       if (operation === "add_cors" && parsedCorsRules) {
         const cors = await getBucketCors(endpointId, bucketName);
-        const existingRules = cors.rules ?? [];
+        const existingRules = cors.rules;
         const { nextRules, changes } = mergeCorsRules(
           existingRules as Record<string, unknown>[],
           parsedCorsRules,
@@ -270,7 +270,7 @@ export async function applyBucketOpsBulkUpdate({
 
       if (operation === "delete_cors" && deleteCorsIds && deleteCorsTypes) {
         const cors = await getBucketCors(endpointId, bucketName);
-        const existingRules = cors.rules ?? [];
+        const existingRules = cors.rules;
         const nextRules = existingRules.filter((rule) => {
           const record = rule as Record<string, unknown>;
           const ruleId = getLifecycleRuleId(record);

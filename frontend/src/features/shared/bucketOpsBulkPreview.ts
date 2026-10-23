@@ -229,8 +229,8 @@ export async function previewBucketOpsBulkUpdate({
     kind: "lifecycle" | "cors",
   ): Promise<BulkPreviewItem> => {
     const existingRules = kind === "lifecycle"
-      ? ((await getBucketLifecycle(endpointId, bucketName)).rules ?? [])
-      : ((await getBucketCors(endpointId, bucketName)).rules ?? []);
+      ? (await getBucketLifecycle(endpointId, bucketName)).rules
+      : (await getBucketCors(endpointId, bucketName)).rules;
     const incomingRules = kind === "lifecycle" ? parsedRules : parsedCorsRules;
     const formatRule = kind === "lifecycle" ? formatLifecycleRule : formatCorsRule;
     const { nextRules, changes } = kind === "lifecycle"
@@ -280,8 +280,8 @@ export async function previewBucketOpsBulkUpdate({
     kind: "lifecycle" | "cors",
   ): Promise<BulkPreviewItem> => {
     const existingRules = kind === "lifecycle"
-      ? ((await getBucketLifecycle(endpointId, bucketName)).rules ?? [])
-      : ((await getBucketCors(endpointId, bucketName)).rules ?? []);
+      ? (await getBucketLifecycle(endpointId, bucketName)).rules
+      : (await getBucketCors(endpointId, bucketName)).rules;
     const ids = kind === "lifecycle" ? deleteIds : deleteCorsIds;
     const types = kind === "lifecycle" ? deleteTypes : deleteCorsTypes;
     const formatRule = kind === "lifecycle" ? formatLifecycleRule : formatCorsRule;

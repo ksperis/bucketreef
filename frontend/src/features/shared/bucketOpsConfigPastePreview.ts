@@ -230,12 +230,10 @@ async function buildBucketConfigPastePreview({
   }
 
   if (features.lifecycle && source.lifecycleRules) {
-    const currentLifecycle = (
-      (await getBucketLifecycle(
-        targetEndpointId,
-        mapping.destinationBucket,
-      )).rules ?? []
-    ) as Record<string, unknown>[];
+    const currentLifecycle = (await getBucketLifecycle(
+      targetEndpointId,
+      mapping.destinationBucket,
+    )).rules;
     const sectionChanged =
       stableStringify(currentLifecycle) !== stableStringify(source.lifecycleRules);
     changed ||= sectionChanged;
@@ -257,9 +255,10 @@ async function buildBucketConfigPastePreview({
   }
 
   if (features.cors && source.corsRules) {
-    const currentCors = (
-      (await getBucketCors(targetEndpointId, mapping.destinationBucket)).rules ?? []
-    ) as Record<string, unknown>[];
+    const currentCors = (await getBucketCors(
+      targetEndpointId,
+      mapping.destinationBucket,
+    )).rules;
     const sectionChanged =
       stableStringify(currentCors) !== stableStringify(source.corsRules);
     changed ||= sectionChanged;

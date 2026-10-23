@@ -71,7 +71,7 @@ class LifecycleRule(ApiModel):
 
 
 class BucketLifecycleConfig(ApiModel):
-    rules: List[dict] = Field(default_factory=list)
+    rules: List[dict]
 
 
 class BucketTags(ApiModel):
@@ -154,7 +154,7 @@ class BucketCorsUpdate(ApiModel):
 
 
 class BucketCors(ApiModel):
-    rules: list[dict] = Field(default_factory=list)
+    rules: list[dict]
 
 
 class BucketEncryptionConfiguration(ApiModel):
