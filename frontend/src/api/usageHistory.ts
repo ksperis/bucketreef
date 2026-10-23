@@ -102,8 +102,8 @@ type UsageHistoryCollectionResult = {
       deleted_storage_daily: number;
     };
   };
-  status?: "skipped";
-  reason?: string;
+  status: "skipped" | null;
+  reason: string | null;
 };
 
 export type UsageHistoryTrendPoint = {

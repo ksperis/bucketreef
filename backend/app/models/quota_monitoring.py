@@ -39,5 +39,5 @@ class QuotaMonitoringResult(ApiModel):
     usage_history_collection_enabled: bool
     threshold_percent: int
     retention: DataRetentionResult
-    status: Optional[Literal["skipped"]] = None
-    reason: Optional[str] = None
+    status: Optional[Literal["skipped"]]
+    reason: Optional[str]

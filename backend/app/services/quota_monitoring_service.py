@@ -151,6 +151,8 @@ class QuotaMonitoringService:
             "usage_history_enabled": bool(settings.general.usage_history_enabled),
             "usage_history_collection_enabled": usage_history_enabled,
             "threshold_percent": int(settings.quota_notifications.threshold_percent),
+            "status": None,
+            "reason": None,
         }
 
     def _prepare_run(
