@@ -23,17 +23,19 @@ export type S3UserMembership = {
 
 export type EffectiveAccountMembership = AccountMembership & {
   provenance: {
-    direct_manager_role?: ManagerAccountRole | null;
-    direct_portal_role?: PortalAccountRole | null;
+    direct_manager_role: ManagerAccountRole | null;
+    direct_portal_role: PortalAccountRole | null;
     direct_determines_effective_manager_role: boolean;
     direct_determines_effective_portal_role: boolean;
+    direct_allow_manager_browser_data_access: boolean;
     groups: Array<{
       group_id: number;
       group_name: string;
-      manager_role?: ManagerAccountRole | null;
-      portal_role?: PortalAccountRole | null;
+      manager_role: ManagerAccountRole | null;
+      portal_role: PortalAccountRole | null;
       determines_effective_manager_role: boolean;
       determines_effective_portal_role: boolean;
+      allow_manager_browser_data_access: boolean;
     }>;
   };
 };
@@ -47,9 +49,11 @@ export type ManagerToolAccess = {
 };
 
 export type UiPreferences = {
-  theme?: "light" | "dark" | null;
-  selected_portal_account_id?: string | null;
+  theme: "light" | "dark" | null;
+  selected_portal_account_id: string | null;
 };
+
+export type UiPreferencesUpdate = Partial<UiPreferences>;
 
 export type UserAvatarPreference = "auto" | "uploaded" | "gravatar" | "initials";
 export type UserAvatarSource = "uploaded" | "provider" | "gravatar" | "initials";
@@ -57,9 +61,9 @@ export type UserAvatarSource = "uploaded" | "provider" | "gravatar" | "initials"
 export type UserAvatarDescriptor = {
   preference: UserAvatarPreference;
   source: UserAvatarSource;
-  url?: string | null;
+  url: string | null;
   initials: string;
-  updated_at?: string | null;
+  updated_at: string | null;
 };
 
 export type EffectiveUserAccess = {
@@ -67,10 +71,10 @@ export type EffectiveUserAccess = {
   can_access_storage_ops: boolean;
   can_create_manual_private_connections: boolean;
   can_provision_managed_private_connections: boolean;
-  group_can_provision_managed_private_connections?: boolean;
+  group_can_provision_managed_private_connections: boolean;
   has_owned_private_connections: boolean;
   manager_tool_access: ManagerToolAccess;
-  group_manager_tool_access?: ManagerToolAccess;
+  group_manager_tool_access: ManagerToolAccess;
   browser_advanced_features_enabled: boolean;
   account_links: EffectiveAccountMembership[];
   s3_user_details: { id: number; name: string }[];
@@ -83,39 +87,40 @@ export type EffectiveUserAccess = {
 export type User = {
   id: number;
   email: string;
-  full_name?: string | null;
-  picture_url?: string | null;
-  avatar?: UserAvatarDescriptor | null;
-  has_local_password?: boolean;
+  full_name: string | null;
+  picture_url: string | null;
+  avatar: UserAvatarDescriptor;
+  has_local_password: boolean;
+  is_active: boolean;
+  is_admin: boolean;
   role: UiRole;
-  can_access_ceph_admin?: boolean;
-  can_access_storage_ops?: boolean;
-  can_create_manual_private_connections?: boolean;
-  can_provision_managed_private_connections?: boolean;
-  manager_tool_access?: ManagerToolAccess | null;
-  browser_advanced_features_enabled?: boolean;
-  ui_language?: "en" | "fr" | "de" | "zh" | null;
-  quota_alerts_enabled?: boolean;
-  quota_alerts_global_watch?: boolean;
-  ui_preferences?: UiPreferences | null;
-  account_links?: AccountMembership[];
-  group_details?: { id: number; name: string }[];
-  s3_user_links?: S3UserMembership[];
-  s3_user_details?: { id: number; name: string }[];
-  s3_connection_details?: {
+  can_access_ceph_admin: boolean;
+  can_access_storage_ops: boolean;
+  can_create_manual_private_connections: boolean;
+  can_provision_managed_private_connections: boolean;
+  manager_tool_access: ManagerToolAccess;
+  browser_advanced_features_enabled: boolean;
+  ui_language: "en" | "fr" | "de" | "zh" | null;
+  quota_alerts_enabled: boolean;
+  quota_alerts_global_watch: boolean;
+  ui_preferences: UiPreferences;
+  account_links: AccountMembership[];
+  group_details: { id: number; name: string }[];
+  s3_user_links: S3UserMembership[];
+  s3_user_details: { id: number; name: string }[];
+  s3_connection_details: {
     id: number;
     name: string;
   }[];
   effective_access: EffectiveUserAccess;
-  is_active?: boolean;
-  last_login_at?: string | null;
+  last_login_at: string | null;
 };
 
 export type UserSummary = {
   id: number;
   email: string;
-  full_name?: string | null;
-  avatar?: UserAvatarDescriptor | null;
+  full_name: string | null;
+  avatar: UserAvatarDescriptor | null;
   role: UiRole;
 };
 
@@ -161,7 +166,7 @@ type UpdateCurrentUserPayload = {
   ui_language?: "en" | "fr" | "de" | "zh" | null;
   quota_alerts_enabled?: boolean;
   quota_alerts_global_watch?: boolean;
-  ui_preferences?: UiPreferences | null;
+  ui_preferences?: UiPreferencesUpdate | null;
   current_password?: string;
   new_password?: string;
 };

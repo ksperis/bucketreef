@@ -1,7 +1,7 @@
 import { resolvePortalSettings } from "../api/featurePolicies";
 import type { PortalAdminRequest } from "../api/portalRequests";
 import type { PortalStorageSpaceShare } from "../api/portalSharing";
-import { bucketView, newBucket, settings, type DemoSpace } from "./state";
+import { bucketView, createDemoUser, newBucket, settings, type DemoSpace } from "./state";
 import { accountGrant, spaceRole, DemoError, done, json, required, scopedAccount, textField, type DemoRequest } from "./http";
 
 type PortalAccessIntent = "add" | "role_change";
@@ -79,7 +79,14 @@ export function portal(c: DemoRequest): Response | undefined {
               request.result = { target_user_id: user.id, portal_role: portalRole };
             } else {
               const email = textField(request.payload, "target_email"); let user = state.users.find(u => u.email === email);
-              if (!user) { user = { id: state.nextId++, email, full_name: String(request.payload.target_name ?? ""), role: "ui_user", is_active: true, ui_language: "en", account_links: [] }; state.users.push(user); }
+              if (!user) {
+                user = createDemoUser({
+                  id: state.nextId++,
+                  email,
+                  full_name: String(request.payload.target_name ?? ""),
+                });
+                state.users.push(user);
+              }
               user.account_links = [...(user.account_links ?? []).filter(l => l.account_id !== account.id), { account_id: account.id, manager_role: null, portal_role: portalRole, allow_manager_browser_data_access: false }];
               account.user_links = [...account.user_links.filter(l => l.user_id !== user!.id), { user_id: user.id, user_email: email, user_full_name: user.full_name, manager_role: null, portal_role: portalRole, allow_manager_browser_data_access: false }];
               request.result = { user_id: user.id, email, portal_role: portalRole };

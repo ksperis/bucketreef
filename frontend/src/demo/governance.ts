@@ -1,7 +1,7 @@
 import type { UiGroup } from "../api/groups";
 import type { S3Account } from "../api/accounts";
 import type { StorageEndpoint } from "../api/storageEndpoints";
-import { bucketView, emptyIam, personaIds, settings, tools, type DemoUser } from "./state";
+import { bucketView, createDemoUser, emptyIam, personaIds, settings, tools, type DemoUser } from "./state";
 import { DemoError, done, json, page, required, safeFields, textField, type DemoRequest } from "./http";
 import { demoUserSummary, demoUserView } from "./userProjection";
 
@@ -47,8 +47,16 @@ export function governance(c: DemoRequest): Response | undefined {
     if (method === "POST" && !userMatch[1]) {
       const email = textField(body, "email"); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new DemoError(422, "Enter a valid email address");
       if (state.users.some(u => u.email === email)) throw new DemoError(409, "This email already exists");
-      const created: DemoUser = { ...body, id: state.nextId++, email, role: (body.role as DemoUser["role"]) ?? "ui_user", ui_language: "en", account_links: [], group_details: [], is_active: true, manager_tool_access: { ...tools } };
-      created.account_links = (body.account_links as DemoUser["account_links"]) ?? [];
+      const created = createDemoUser({
+        ...(body as Partial<DemoUser>),
+        id: state.nextId++,
+        email,
+        role: (body.role as DemoUser["role"]) ?? "ui_user",
+        ui_language: "en",
+        account_links: (body.account_links as DemoUser["account_links"]) ?? [],
+        group_details: [],
+        manager_tool_access: { ...tools },
+      });
       state.users.push(created); userGroups(c, created, body.group_ids); synchronizeLinks(c, "users"); return json(demoUserView(state, created), 201);
     }
     if (method === "PUT" && user) { Object.assign(user, body, { manager_tool_access: { ...tools }, can_provision_managed_private_connections: false, can_access_storage_ops: false }); userGroups(c, user, body.group_ids); synchronizeLinks(c, "users"); return json(demoUserView(state, user)); }

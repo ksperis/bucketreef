@@ -58,8 +58,16 @@ describe("Topbar account menu", () => {
         can_access_storage_ops: false,
         can_create_manual_private_connections: true,
         can_provision_managed_private_connections: false,
+        group_can_provision_managed_private_connections: false,
         has_owned_private_connections: false,
         manager_tool_access: {
+          bucket_compare: false,
+          bucket_integrity_check: false,
+          bucket_migration: false,
+          bucket_purge: false,
+          feature_rules: false,
+        },
+        group_manager_tool_access: {
           bucket_compare: false,
           bucket_integrity_check: false,
           bucket_migration: false,
@@ -116,6 +124,7 @@ describe("Topbar account menu", () => {
         source: "initials",
         url: null,
         initials: "AU",
+        updated_at: null,
       },
     });
 
@@ -142,6 +151,7 @@ describe("Topbar account menu", () => {
           source: "initials",
           url: null,
           initials: "NU",
+          updated_at: null,
         },
     }));
 
