@@ -45,6 +45,9 @@ _METADATA_COPY_STRING_FIELDS = (
     ("storage_class", "StorageClass"),
 )
 
+_ALL_USERS_ACL_URI = "http://acs.amazonaws.com/groups/global/AllUsers"
+_AUTHENTICATED_USERS_ACL_URI = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
+
 
 def _object_version_reference(
     bucket_name: str,
@@ -192,6 +195,55 @@ def _restore_copied_tags(
         client.put_object_tagging(**kwargs)
     except (ClientError, BotoCoreError) as exc:
         raise RuntimeError(f"Unable to restore tags for '{key}': {exc}") from exc
+
+
+def _object_acl_grant_state(
+    response: dict[str, Any],
+) -> tuple[set[str], set[str], bool]:
+    owner = response.get("Owner") or {}
+    owner_id = str(owner.get("ID") or "")
+    all_users_permissions: set[str] = set()
+    authenticated_users_permissions: set[str] = set()
+    has_extra_grants = False
+
+    for grant in response.get("Grants") or []:
+        grantee = grant.get("Grantee") or {}
+        permission = str(grant.get("Permission") or "").upper()
+        grantee_type = str(grantee.get("Type") or "")
+        grantee_id = str(grantee.get("ID") or "")
+        uri = str(grantee.get("URI") or "")
+        if uri == _ALL_USERS_ACL_URI:
+            all_users_permissions.add(permission)
+            continue
+        if uri == _AUTHENTICATED_USERS_ACL_URI:
+            authenticated_users_permissions.add(permission)
+            continue
+        if (
+            grantee_type == "CanonicalUser"
+            and owner_id
+            and grantee_id == owner_id
+            and permission == "FULL_CONTROL"
+        ):
+            continue
+        if permission:
+            has_extra_grants = True
+
+    return all_users_permissions, authenticated_users_permissions, has_extra_grants
+
+
+def _infer_object_acl(response: dict[str, Any]) -> str:
+    all_users_permissions, authenticated_users_permissions, has_extra_grants = (
+        _object_acl_grant_state(response)
+    )
+    if all_users_permissions.issuperset({"READ", "WRITE"}):
+        return "public-read-write"
+    if "READ" in all_users_permissions:
+        return "public-read"
+    if "READ" in authenticated_users_permissions:
+        return "authenticated-read"
+    if has_extra_grants:
+        return "custom"
+    return "private"
 
 
 class BrowserObjectDetailsMixin:
@@ -430,48 +482,7 @@ class BrowserObjectDetailsMixin:
             resp = client.get_object_acl(**kwargs)
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to fetch ACL for '{key}': {exc}") from exc
-
-        all_users_uri = "http://acs.amazonaws.com/groups/global/AllUsers"
-        authenticated_users_uri = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
-        owner = resp.get("Owner") or {}
-        owner_id = str(owner.get("ID") or "")
-        all_users_permissions: set[str] = set()
-        authenticated_users_permissions: set[str] = set()
-        has_extra_grants = False
-
-        for grant in resp.get("Grants") or []:
-            grantee = grant.get("Grantee") or {}
-            permission = str(grant.get("Permission") or "").upper()
-            grantee_type = str(grantee.get("Type") or "")
-            grantee_id = str(grantee.get("ID") or "")
-            uri = str(grantee.get("URI") or "")
-            if uri == all_users_uri:
-                all_users_permissions.add(permission)
-                continue
-            if uri == authenticated_users_uri:
-                authenticated_users_permissions.add(permission)
-                continue
-            if (
-                grantee_type == "CanonicalUser"
-                and owner_id
-                and grantee_id == owner_id
-                and permission == "FULL_CONTROL"
-            ):
-                continue
-            if permission:
-                has_extra_grants = True
-
-        inferred_acl = "private"
-        if all_users_permissions.issuperset({"READ", "WRITE"}):
-            inferred_acl = "public-read-write"
-        elif "READ" in all_users_permissions:
-            inferred_acl = "public-read"
-        elif "READ" in authenticated_users_permissions:
-            inferred_acl = "authenticated-read"
-        elif has_extra_grants:
-            inferred_acl = "custom"
-
-        return ObjectAcl(key=key, acl=inferred_acl, version_id=version_id)
+        return ObjectAcl(key=key, acl=_infer_object_acl(resp), version_id=version_id)
 
     def put_object_acl(
         self,
