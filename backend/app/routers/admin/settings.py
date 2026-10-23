@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
-from app.models.app_settings import AppSettings, GeneralFeatureLocks, QuotaNotificationSettings
+from app.models.app_settings import (
+    AppSettings,
+    GeneralFeatureLocks,
+    QuotaNotificationSettings,
+    QuotaNotificationTestEmailResult,
+)
 from app.models.cost import CostSettings
 from app.models.ldap import LDAP_PROVIDER_CONFIG_FIELDS, LDAPProviderAdminItem, LDAPProviderAdminPayload
 from app.models.oidc import OIDC_PROVIDER_CONFIG_FIELDS, OIDCProviderAdminItem, OIDCProviderAdminPayload
@@ -378,15 +383,17 @@ def delete_ldap_provider_settings(
     return {"status": "deleted"}
 
 
-@router.post("/quota-notifications/test-email")
+@router.post("/quota-notifications/test-email", response_model=QuotaNotificationTestEmailResult)
 def send_quota_notifications_test_email(
     payload: QuotaNotificationSettings,
     current_user: User = Depends(get_current_ui_superadmin),
-) -> dict:
+) -> QuotaNotificationTestEmailResult:
     try:
-        return QuotaAlertEmailService().send_test_email(
-            notification_settings=payload,
-            recipient_email=current_user.email,
+        return QuotaNotificationTestEmailResult.model_validate(
+            QuotaAlertEmailService().send_test_email(
+                notification_settings=payload,
+                recipient_email=current_user.email,
+            )
         )
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)

@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import re
-from typing import Optional
+from typing import Literal, Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
@@ -258,6 +258,12 @@ class QuotaNotificationSettings(ApiModel):
             raise ValueError("SMTP settings must be strings")
         normalized = value.strip()
         return normalized or None
+
+
+class QuotaNotificationTestEmailResult(ApiModel):
+    status: Literal["sent"]
+    recipient: str
+    sent_at: str
 
 
 class BrowserSettings(ApiModel):
