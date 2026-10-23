@@ -30,16 +30,16 @@ export type PortalAccessKeyCreate = {
 };
 
 export type PortalIAMUser = {
-  iam_user_id?: string | null;
-  iam_username?: string | null;
-  arn?: string | null;
-  created_at?: string | null;
+  iam_user_id: string | null;
+  iam_username: string | null;
+  arn: string | null;
+  created_at: string | null;
 };
 
 export type PortalAccessKeysState = {
   iam_user: PortalIAMUser;
-  s3_endpoint?: string | null;
-  force_path_style?: boolean;
+  s3_endpoint: string | null;
+  force_path_style: boolean;
   access_keys: PortalAccessKey[];
   can_manage_access_keys: boolean;
   can_create_external_access: boolean;

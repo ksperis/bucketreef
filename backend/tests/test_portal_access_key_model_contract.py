@@ -2,12 +2,30 @@
 # Licensed under the Apache License, Version 2.0
 
 from app.main import app
-from app.models.portal_access_keys import PortalAccessKey, PortalAccessKeysState
+from app.models.portal_access_keys import PortalAccessKey, PortalAccessKeysState, PortalIAMUser
 
 
 def test_portal_access_key_models_have_a_single_canonical_module() -> None:
     assert PortalAccessKey.__module__ == "app.models.portal_access_keys"
     assert PortalAccessKeysState.__module__ == "app.models.portal_access_keys"
+
+
+def test_portal_access_keys_state_requires_the_complete_canonical_payload() -> None:
+    assert set(PortalIAMUser.model_json_schema()["required"]) == {
+        "iam_user_id",
+        "iam_username",
+        "arn",
+        "created_at",
+    }
+    assert set(PortalAccessKeysState.model_json_schema()["required"]) == {
+        "iam_user",
+        "s3_endpoint",
+        "force_path_style",
+        "access_keys",
+        "can_manage_access_keys",
+        "can_create_external_access",
+        "max_access_keys",
+    }
 
 
 def test_portal_access_key_routes_preserve_their_openapi_contracts() -> None:

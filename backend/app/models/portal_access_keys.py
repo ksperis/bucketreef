@@ -60,17 +60,17 @@ class PortalAccessKeyStatusChange(ApiModel):
 
 
 class PortalIAMUser(ApiModel):
-    iam_user_id: Optional[str] = None
-    iam_username: Optional[str] = None
-    arn: Optional[str] = None
-    created_at: Optional[datetime] = None
+    iam_user_id: Optional[str]
+    iam_username: Optional[str]
+    arn: Optional[str]
+    created_at: Optional[datetime]
 
 
 class PortalAccessKeysState(ApiModel):
     iam_user: PortalIAMUser
-    s3_endpoint: Optional[str] = None
-    force_path_style: bool = False
+    s3_endpoint: Optional[str]
+    force_path_style: bool
     access_keys: list[PortalAccessKey]
-    can_manage_access_keys: bool = False
-    can_create_external_access: bool = False
-    max_access_keys: int = Field(default=2, ge=1)
+    can_manage_access_keys: bool
+    can_create_external_access: bool
+    max_access_keys: int = Field(ge=1)

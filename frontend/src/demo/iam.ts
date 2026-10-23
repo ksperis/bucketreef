@@ -45,7 +45,7 @@ export function iam(c: DemoRequest): Response | undefined {
   if (portalKeys || cephKeys) {
     const owner = portalKeys ? `portal-${c.user.id}` : "account-root";
     if (portalKeys && c.body.target_type === "external") throw new DemoError(403, "External key sharing is disabled in this demo");
-    if (portalKeys && c.method === "GET" && !portalKeys[1]) return json({ iam_user: { iam_username: owner, arn: `arn:aws:iam::${account.rgw_account_id}:user/${owner}` }, s3_endpoint: account.storage_endpoint_url, force_path_style: true, access_keys: (data.keys[owner] ?? []).map(k => ({ ...k, is_active: k.status === "Active", deletable: true })), can_manage_access_keys: true, can_create_external_access: false, max_access_keys: 3 });
+    if (portalKeys && c.method === "GET" && !portalKeys[1]) return json({ iam_user: { iam_user_id: null, iam_username: owner, arn: `arn:aws:iam::${account.rgw_account_id}:user/${owner}`, created_at: null }, s3_endpoint: account.storage_endpoint_url, force_path_style: true, access_keys: (data.keys[owner] ?? []).map(k => ({ ...k, is_active: k.status === "Active", deletable: true })), can_manage_access_keys: true, can_create_external_access: false, max_access_keys: 3 });
     return keyActions(c, data, owner, (portalKeys ?? cephKeys)![1]);
   }
   const segment = match![1] as "users" | "groups" | "roles" | "policies";
