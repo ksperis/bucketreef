@@ -12,7 +12,13 @@ from app.core.domain_errors import (
     StorageEndpointNotFoundError,
 )
 from app.db import StorageEndpoint, StorageProvider, User
-from app.models.cost import AdminCostSubjectDetail, CostAnalyticsResponse, CostSubjectsResponse, CostSummary
+from app.models.cost import (
+    AdminCostSubjectDetail,
+    CostAnalyticsResponse,
+    CostCollectionResult,
+    CostSubjectsResponse,
+    CostSummary,
+)
 from app.services.app_settings_service import load_app_settings
 from app.services.cost_collection_service import CostCollector
 from app.services.cost_service import CostService
@@ -111,7 +117,7 @@ class AdminCostService:
             self._require_ceph_endpoint(endpoint_id)
         return self.cost.export_csv(month, endpoint_id, subject_type)
 
-    def collect_daily(self, day: date, actor: User) -> dict:
+    def collect_daily(self, day: date, actor: User) -> CostCollectionResult:
         self._require_enabled()
         operation_name = cost_daily_operation_name(day.isoformat())
         with OperationLeaseService(self.db).hold(

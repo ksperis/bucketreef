@@ -222,6 +222,19 @@ describe("CostPage", () => {
       storage_records: 1,
       usage_records: 0,
       errors: [{ stage: "usage", endpoint_id: 7, subject: "account", subject_id: 42 }],
+      retention: {
+        quota_history: {
+          hourly_retention_days: 30,
+          daily_retention_days: 365,
+          deleted_hourly: 0,
+          deleted_daily: 0,
+        },
+        cost_history: {
+          daily_retention_days: 365,
+          deleted_usage_daily: 0,
+          deleted_storage_daily: 0,
+        },
+      },
     });
     mocks.downloadCostCsv.mockResolvedValue(new Blob(["subject_type\n"], { type: "text/csv" }));
   });

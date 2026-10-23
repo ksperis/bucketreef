@@ -18,6 +18,43 @@ export type CostCoverage = {
   usage_days_collected?: number | null;
 };
 
+export type CostEndpointCollectionError = {
+  stage: "endpoint";
+  endpoint_id: number;
+};
+
+export type CostSubjectCollectionError = {
+  stage: "usage" | "storage";
+  endpoint_id: number;
+  subject: "account" | "s3_user";
+  subject_id: number;
+};
+
+export type CostCollectionError = CostEndpointCollectionError | CostSubjectCollectionError;
+
+export type DataRetentionResult = {
+  quota_history: {
+    hourly_retention_days: number;
+    daily_retention_days: number;
+    deleted_hourly: number;
+    deleted_daily: number;
+  };
+  cost_history: {
+    daily_retention_days: number;
+    deleted_usage_daily: number;
+    deleted_storage_daily: number;
+  };
+};
+
+export type CostCollectionResult = {
+  day: string;
+  endpoints: number;
+  usage_records: number;
+  storage_records: number;
+  errors: CostCollectionError[];
+  retention: DataRetentionResult;
+};
+
 export type CostBreakdown = {
   currency?: string | null;
   storage_cost?: number | null;
@@ -236,9 +273,9 @@ export async function downloadCostCsv(
   return response.data as Blob;
 }
 
-export async function collectCostDaily(day: string): Promise<Record<string, unknown>> {
+export async function collectCostDaily(day: string): Promise<CostCollectionResult> {
   const params: Record<string, string> = { day };
-  const { data } = await client.post<Record<string, unknown>>("/admin/cost/collect/daily", null, { params });
+  const { data } = await client.post<CostCollectionResult>("/admin/cost/collect/daily", null, { params });
   return data;
 }
 
