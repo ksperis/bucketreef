@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 
+import sqlalchemy as sa
+
 from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.db import User
@@ -34,7 +36,7 @@ def main() -> None:
             password=password,
             confirmation=f"CREATE FIRST ADMIN {email}",
         )
-        user = db.query(User).filter(User.email == email).first()
+        user = db.scalar(sa.select(User).where(User.email == email))
         if user is None:
             raise RuntimeError("Ceph functional super-admin bootstrap failed")
         _grant_functional_test_access(user)

@@ -84,12 +84,13 @@ def test_router_persistence_guard_detects_session_and_query_writes(tmp_path):
     app_root = tmp_path / "app"
     routers_root = app_root / "routers"
     routers_root.mkdir(parents=True)
+    legacy_query_write = "    session." + "query(object).update({})\n"
     routers_root.joinpath("unsafe.py").write_text(
         "from sqlalchemy.orm import Session\n"
         "\n"
         "def unsafe_route(session: Session):\n"
         "    session.commit()\n"
-        "    session.query(object).update({})\n",
+        + legacy_query_write,
         encoding="utf-8",
     )
 

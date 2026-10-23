@@ -3,6 +3,7 @@
 
 from typing import Any
 
+import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.db import S3Account, StorageEndpoint, StorageProvider
@@ -16,11 +17,10 @@ def make_s3_account(db: Session, **values: Any) -> S3Account:
         values["rgw_user_uid"] = f"{str(values['rgw_account_id']).lower()}-admin"
     if values.get("storage_endpoint_id") is None and values.get("storage_endpoint") is None:
         values.pop("storage_endpoint", None)
-        endpoint = (
-            db.query(StorageEndpoint)
-            .filter(StorageEndpoint.is_default.is_(True))
+        endpoint = db.scalar(
+            sa.select(StorageEndpoint)
+            .where(StorageEndpoint.is_default.is_(True))
             .order_by(StorageEndpoint.id.asc())
-            .first()
         )
         if endpoint is None:
             endpoint = StorageEndpoint(
