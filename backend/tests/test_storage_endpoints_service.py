@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 import pytest
 import requests
 from pydantic import ValidationError
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.domain_errors import StorageEndpointNotFoundError
@@ -236,7 +237,8 @@ def test_aws_endpoint_defaults_enable_supported_aws_features_and_clear_ceph_cred
     assert created.provider == StorageProvider.AWS
     assert created.region == AWS_DEFAULT_REGION
     assert created.admin_access_key is None
-    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == created.id).one()
+    persisted = db_session.get(StorageEndpoint, created.id)
+    assert persisted is not None
     supervision = persisted.service_identity("supervision")
     assert supervision is None or supervision.access_key is None
     assert created.capabilities == {
@@ -256,7 +258,7 @@ def test_aws_endpoint_defaults_enable_supported_aws_features_and_clear_ceph_cred
     assert created.features.iam.enabled is True
     assert created.features.iam.endpoint == AWS_IAM_ENDPOINT
 
-    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == created.id).first()
+    persisted = db_session.get(StorageEndpoint, created.id)
     assert persisted is not None
     assert persisted.admin_secret_key is None
     assert persisted.service_identity("supervision") is None
@@ -285,7 +287,7 @@ def test_aws_endpoint_defaults_follow_selected_region(db_session):
     assert created.features.iam.enabled is True
     assert created.features.iam.endpoint == AWS_IAM_ENDPOINT
 
-    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == created.id).first()
+    persisted = db_session.get(StorageEndpoint, created.id)
     assert persisted is not None
     assert resolve_sts_endpoint(persisted) == aws_sts_endpoint_for_region("eu-west-3")
     assert resolve_iam_endpoint(persisted) == aws_iam_endpoint_for_region("eu-west-3")
@@ -304,7 +306,7 @@ def test_create_update_and_serialize_endpoint_force_path_style(db_session):
     )
 
     assert created.force_path_style is True
-    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == created.id).first()
+    persisted = db_session.get(StorageEndpoint, created.id)
     assert persisted is not None
     assert persisted.force_path_style is True
 
@@ -333,7 +335,7 @@ def test_create_update_and_serialize_endpoint_coordinates(db_session):
 
     assert created.latitude == 48.8566
     assert created.longitude == 2.3522
-    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == created.id).first()
+    persisted = db_session.get(StorageEndpoint, created.id)
     assert persisted is not None
     assert persisted.latitude == 48.8566
     assert persisted.longitude == 2.3522
@@ -757,7 +759,7 @@ def test_environment_external_runtime_is_required_before_any_sync(db_session, mo
     try:
         with pytest.raises(ValueError, match="External service identities require Runtime"):
             service.sync_env_endpoints()
-        assert db_session.query(StorageEndpoint).count() == 0
+        assert db_session.scalar(select(func.count()).select_from(StorageEndpoint)) == 0
     finally:
         if handle is not None:
             leases.release(handle)
@@ -834,7 +836,7 @@ def test_sync_env_endpoints_retries_after_concurrent_unique_conflict(db_session,
 
     assert len(synced) == 1
     assert synced[0].name == "ceph-env"
-    assert db_session.query(StorageEndpoint).count() == 1
+    assert db_session.scalar(select(func.count()).select_from(StorageEndpoint)) == 1
 
 
 def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, monkeypatch):
@@ -884,7 +886,8 @@ def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, 
     assert [endpoint.name for endpoint in synced] == ["env-a", "env-b"]
     assert [endpoint.is_default for endpoint in synced] == [True, False]
     db_session.expire_all()
-    updated = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == existing_id).one()
+    updated = db_session.get(StorageEndpoint, existing_id)
+    assert updated is not None
     assert updated.name == "env-a"
     assert updated.force_path_style is True
     assert updated.verify_tls is False
@@ -956,7 +959,7 @@ def test_update_endpoint_clearing_admin_access_key_also_clears_secret(db_session
 
     assert updated.admin_access_key is None
 
-    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).first()
+    persisted = db_session.get(StorageEndpoint, endpoint.id)
     assert persisted is not None
     assert persisted.admin_access_key is None
     assert persisted.admin_secret_key is None
@@ -990,7 +993,8 @@ def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_sess
     assert updated.force_path_style is True
     assert updated.verify_tls is False
     assert updated.admin_access_key == "AKIA-ADMIN"
-    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).one()
+    persisted = db_session.get(StorageEndpoint, endpoint.id)
+    assert persisted is not None
     assert persisted.admin_secret_key == "SECRET-ADMIN"
     assert persisted.service_identity("supervision").access_key == "AKIA-SUPERVISION"
     assert persisted.service_identity("supervision").secret_key == "SECRET-SUPERVISION"
@@ -1008,7 +1012,7 @@ def test_update_endpoint_tags_normalizes_and_serializes_tags(db_session):
     assert [tag.label for tag in updated.tags] == ["prod", "rgw-a"]
     assert [tag.color_key for tag in updated.tags] == ["neutral", "neutral"]
     db_session.expire_all()
-    persisted = db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).first()
+    persisted = db_session.get(StorageEndpoint, endpoint.id)
     assert persisted is not None
     assert [
         tag.label for tag in service.tags.get_storage_endpoint_tags(persisted)
@@ -1655,50 +1659,86 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
     service = StorageEndpointsService(db_session)
     service.delete_endpoint(endpoint.id)
 
-    assert db_session.query(StorageEndpoint).filter(StorageEndpoint.id == endpoint.id).count() == 0
-    assert db_session.query(CostEndpointOverride).filter(CostEndpointOverride.storage_endpoint_id == endpoint.id).count() == 0
-    assert db_session.query(CostUsageDaily).filter(CostUsageDaily.storage_endpoint_id == endpoint.id).count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(StorageEndpoint)
+        .where(StorageEndpoint.id == endpoint.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(CostEndpointOverride)
+        .where(CostEndpointOverride.storage_endpoint_id == endpoint.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(CostUsageDaily)
+        .where(CostUsageDaily.storage_endpoint_id == endpoint.id)
+    ) == 0
     assert (
-        db_session.query(CostStorageDaily)
-        .filter(CostStorageDaily.storage_endpoint_id == endpoint.id)
-        .count()
+        db_session.scalar(
+            select(func.count())
+            .select_from(CostStorageDaily)
+            .where(CostStorageDaily.storage_endpoint_id == endpoint.id)
+        )
         == 0
     )
     assert db_session.get(CostEndpointOverride, cost_override_id) is None
-    assert db_session.query(QuotaUsageHourly).filter(QuotaUsageHourly.storage_endpoint_id == endpoint.id).count() == 0
-    assert db_session.query(QuotaUsageDaily).filter(QuotaUsageDaily.storage_endpoint_id == endpoint.id).count() == 0
-    assert db_session.query(QuotaAlertState).filter(QuotaAlertState.storage_endpoint_id == endpoint.id).count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaUsageHourly)
+        .where(QuotaUsageHourly.storage_endpoint_id == endpoint.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaUsageDaily)
+        .where(QuotaUsageDaily.storage_endpoint_id == endpoint.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaAlertState)
+        .where(QuotaAlertState.storage_endpoint_id == endpoint.id)
+    ) == 0
     assert (
-        db_session.query(BucketUsageStatsSnapshot)
-        .filter(
-            BucketUsageStatsSnapshot.scope_kind.in_(("admin_managed", "ceph_admin")),
-            BucketUsageStatsSnapshot.scope_id == str(endpoint.id),
+        db_session.scalar(
+            select(func.count())
+            .select_from(BucketUsageStatsSnapshot)
+            .where(
+                BucketUsageStatsSnapshot.scope_kind.in_(("admin_managed", "ceph_admin")),
+                BucketUsageStatsSnapshot.scope_id == str(endpoint.id),
+            )
         )
-        .count()
         == 0
     )
     assert (
-        db_session.query(EndpointHealthCheck)
-        .filter(EndpointHealthCheck.storage_endpoint_id == endpoint.id)
-        .count()
+        db_session.scalar(
+            select(func.count())
+            .select_from(EndpointHealthCheck)
+            .where(EndpointHealthCheck.storage_endpoint_id == endpoint.id)
+        )
         == 0
     )
     assert (
-        db_session.query(EndpointHealthLatest)
-        .filter(EndpointHealthLatest.storage_endpoint_id == endpoint.id)
-        .count()
+        db_session.scalar(
+            select(func.count())
+            .select_from(EndpointHealthLatest)
+            .where(EndpointHealthLatest.storage_endpoint_id == endpoint.id)
+        )
         == 0
     )
     assert (
-        db_session.query(EndpointHealthStatusSegment)
-        .filter(EndpointHealthStatusSegment.storage_endpoint_id == endpoint.id)
-        .count()
+        db_session.scalar(
+            select(func.count())
+            .select_from(EndpointHealthStatusSegment)
+            .where(EndpointHealthStatusSegment.storage_endpoint_id == endpoint.id)
+        )
         == 0
     )
     assert (
-        db_session.query(EndpointHealthRollup)
-        .filter(EndpointHealthRollup.storage_endpoint_id == endpoint.id)
-        .count()
+        db_session.scalar(
+            select(func.count())
+            .select_from(EndpointHealthRollup)
+            .where(EndpointHealthRollup.storage_endpoint_id == endpoint.id)
+        )
         == 0
     )
 
@@ -1858,7 +1898,7 @@ def test_env_validates_entire_inventory_before_writes(db_session, monkeypatch, i
     ]))
     with pytest.raises(ValueError):
         StorageEndpointsService(db_session).sync_env_endpoints()
-    assert db_session.query(StorageEndpoint).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(StorageEndpoint)) == 0
 
 
 @pytest.mark.parametrize("mode", ["api", "env"])
@@ -1874,7 +1914,7 @@ def test_external_supervision_is_required_for_monitoring_before_any_write(db_ses
             entries = [{"name": "first", "endpoint_url": "https://first.example.test", "provider": "other"}, entry]
             monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps(entries))
             service.sync_env_endpoints()
-    assert db_session.query(StorageEndpoint).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(StorageEndpoint)) == 0
 
 
 def test_admin_usage_caps_do_not_probe_or_enable_usage_without_supervision(db_session, monkeypatch):
