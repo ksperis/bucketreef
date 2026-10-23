@@ -345,6 +345,39 @@ class StorageEndpointsService:
         *,
         identity_management_enabled: bool,
     ) -> None:
+        self._validate_env_external_to_managed_transition(
+            endpoint,
+            config,
+            required,
+            identities,
+            identity_management_enabled=identity_management_enabled,
+        )
+        if endpoint.id is None:
+            return
+        if self._revoke_env_identities_for_provider_change(
+            endpoint,
+            config,
+            identities,
+            identity_management_enabled=identity_management_enabled,
+        ):
+            return
+        self._prepare_env_managed_to_external_transition(
+            endpoint,
+            config,
+            required,
+            identities,
+            identity_management_enabled=identity_management_enabled,
+        )
+
+    def _validate_env_external_to_managed_transition(
+        self,
+        endpoint: StorageEndpoint,
+        config: NormalizedEndpointState,
+        required: set[str],
+        identities,
+        *,
+        identity_management_enabled: bool,
+    ) -> None:
         runtime = endpoint.service_identity("runtime")
         configured_services = self._has_configured_env_service_identity(endpoint)
         if (
@@ -363,15 +396,32 @@ class StorageEndpointsService:
                     "Managed identity conversion requires Admin Ops users=write."
                 )
 
-        if endpoint.id is None:
-            return
+    @staticmethod
+    def _revoke_env_identities_for_provider_change(
+        endpoint: StorageEndpoint,
+        config: NormalizedEndpointState,
+        identities,
+        *,
+        identity_management_enabled: bool,
+    ) -> bool:
         if config.provider != StorageProvider.CEPH and identity_management_enabled:
             for kind in ("runtime", "supervision", "ceph_admin"):
                 if not identities.revoke(endpoint, kind):
                     raise ValueError(
                         "Managed identity revocation is pending; retry before changing the ENV provider."
                     )
-            return
+            return True
+        return False
+
+    @staticmethod
+    def _prepare_env_managed_to_external_transition(
+        endpoint: StorageEndpoint,
+        config: NormalizedEndpointState,
+        required: set[str],
+        identities,
+        *,
+        identity_management_enabled: bool,
+    ) -> None:
         if config.service_identity_mode != "external":
             return
 
