@@ -3,21 +3,13 @@
 from __future__ import annotations
 
 import logging
-import threading
-import uuid
 from collections.abc import Callable
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 from fastapi.responses import StreamingResponse
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.models.bucket_purge import BucketPurgeProgress, BucketPurgeResult
-from app.routers.sse_worker import (
-    SseMessageSender,
-    build_sse_progress_callback,
-    format_sse_event,
-    stream_cancellable_worker,
-)
+from app.routers.sse_worker import stream_status_operation
 from app.services.bucket_purge_service import BucketPurgeCancelled
 
 
@@ -32,53 +24,15 @@ def stream_bucket_purge(
     on_cancel: Callable[[str], None] | None = None,
     on_error: Callable[[str, str], None] | None = None,
 ) -> StreamingResponse:
-    request_id = uuid.uuid4().hex
-
-    def worker(push_message: SseMessageSender, cancel_event: threading.Event) -> None:
-        progress_callback = build_sse_progress_callback(push_message, request_id=request_id)
-
-        def cancel_check() -> None:
-            if cancel_event.is_set():
-                raise BucketPurgeCancelled()
-
-        try:
-            if on_start:
-                on_start(request_id)
-            result = run_purge(progress_callback, cancel_check)
-            if on_result:
-                on_result(request_id, result)
-            push_message(format_sse_event("result", result.model_dump(mode="json")))
-            push_message(format_sse_event("done", {"request_id": request_id, "status": result.status}))
-        except BucketPurgeCancelled:
-            if on_cancel:
-                on_cancel(request_id)
-            push_message(format_sse_event("done", {"request_id": request_id, "status": "canceled"}))
-        except HTTPException as exc:
-            detail = sanitize_error_detail(exc.detail)
-            if on_error:
-                on_error(request_id, str(detail))
-            push_message(
-                format_sse_event(
-                    "error",
-                    {
-                        "request_id": request_id,
-                        "detail": detail,
-                        "status_code": exc.status_code,
-                    },
-                )
-            )
-            push_message(format_sse_event("done", {"request_id": request_id, "status": "failed"}))
-        except Exception as exc:  # pragma: no cover
-            logger.exception("%s: %s", failure_message, exc)
-            if on_error:
-                on_error(request_id, failure_message)
-            push_message(format_sse_event("error", {"request_id": request_id, "detail": failure_message}))
-            push_message(format_sse_event("done", {"request_id": request_id, "status": "failed"}))
-
-    return stream_cancellable_worker(
+    return stream_status_operation(
         request,
-        worker=worker,
+        run_operation=run_purge,
+        cancelled_error=BucketPurgeCancelled,
         logger=logger,
         operation="bucket_purge",
-        request_id=request_id,
+        failure_message=failure_message,
+        on_start=on_start,
+        on_result=on_result,
+        on_cancel=on_cancel,
+        on_error=on_error,
     )
