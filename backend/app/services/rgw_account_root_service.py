@@ -84,50 +84,23 @@ class RgwAccountRootService:
                 raise ValueError("Root UID tenant does not match the RGW account tenant")
             return uid, selected_tenant
 
-        roots: set[tuple[str, str]] = set()
         candidates = account_info.get("user_list", account_info.get("users"))
+        account_scoped_candidates = candidates is not None
         if candidates is None:
             candidates = admin.list_user_ids()
+
+        roots: set[tuple[str, str]] = set()
         for candidate in candidates:
-            raw_uid = (
-                candidate.get("uid", candidate.get("user_id"))
-                if isinstance(candidate, dict)
-                else candidate
+            root = self._resolve_import_root_candidate(
+                admin,
+                candidate,
+                account_id=account_id,
+                tenant=tenant,
+                tenant_declared="tenant" in account_info,
+                account_scoped_candidates=account_scoped_candidates,
             )
-            if not isinstance(raw_uid, str) or not raw_uid.strip():
-                continue
-            uid, candidate_tenant = split_rgw_tenant_uid(raw_uid)
-            if "$" not in raw_uid:
-                candidate_tenant = (
-                    tenant
-                    if "user_list" in account_info or "users" in account_info
-                    else ""
-                )
-            if "tenant" in account_info and candidate_tenant != tenant:
-                continue
-            payload = admin.get_user(
-                uid,
-                tenant=candidate_tenant or None,
-                allow_not_found=True,
-            )
-            if not payload:
-                continue
-            user = (
-                payload.get("user")
-                if isinstance(payload.get("user"), dict)
-                else payload
-            )
-            if (
-                user.get("account_id") == account_id
-                and rgw_user_account_root(payload) is True
-            ):
-                self.load_existing_root_user(
-                    admin,
-                    uid,
-                    account_id,
-                    candidate_tenant,
-                )
-                roots.add((uid, candidate_tenant))
+            if root is not None:
+                roots.add(root)
         if len(roots) > 1:
             raise ValueError(
                 "Multiple RGW account roots found; specify the root UID to import"
@@ -135,6 +108,56 @@ class RgwAccountRootService:
         if roots:
             return next(iter(roots))
         return split_rgw_tenant_uid(self.root_uid(account_id), tenant)
+
+    def _resolve_import_root_candidate(
+        self,
+        admin: RGWAdminClient,
+        candidate: Any,
+        *,
+        account_id: str,
+        tenant: str,
+        tenant_declared: bool,
+        account_scoped_candidates: bool,
+    ) -> tuple[str, str] | None:
+        raw_uid = (
+            candidate.get("uid", candidate.get("user_id"))
+            if isinstance(candidate, dict)
+            else candidate
+        )
+        if not isinstance(raw_uid, str) or not raw_uid.strip():
+            return None
+
+        uid, candidate_tenant = split_rgw_tenant_uid(raw_uid)
+        if "$" not in raw_uid:
+            candidate_tenant = tenant if account_scoped_candidates else ""
+        if tenant_declared and candidate_tenant != tenant:
+            return None
+
+        payload = admin.get_user(
+            uid,
+            tenant=candidate_tenant or None,
+            allow_not_found=True,
+        )
+        if not payload:
+            return None
+        user = (
+            payload.get("user")
+            if isinstance(payload.get("user"), dict)
+            else payload
+        )
+        if (
+            user.get("account_id") != account_id
+            or rgw_user_account_root(payload) is not True
+        ):
+            return None
+
+        self.load_existing_root_user(
+            admin,
+            uid,
+            account_id,
+            candidate_tenant,
+        )
+        return uid, candidate_tenant
 
     def obtain_import_credentials(
         self,
