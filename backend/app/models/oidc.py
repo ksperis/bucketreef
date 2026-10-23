@@ -111,20 +111,13 @@ class OIDCProviderAdminPayload(ApiModel):
         normalized = value.strip()
         return normalized or None
 
-    @field_validator("scopes", mode="before")
+    @field_validator("scopes")
     @classmethod
-    def normalize_scopes(cls, value) -> list[str]:
-        if value is None:
-            return list(OIDC_PROVIDER_DEFAULT_SCOPES)
-        if isinstance(value, str):
-            normalized = [item.strip() for item in value.replace("\n", ",").split(",") if item.strip()]
-            return normalized or list(OIDC_PROVIDER_DEFAULT_SCOPES)
-        if isinstance(value, list):
-            normalized = [item.strip() for item in value if isinstance(item, str) and item.strip()]
-            return normalized or list(OIDC_PROVIDER_DEFAULT_SCOPES)
-        raise ValueError("scopes must be a list or comma-separated string")
+    def normalize_scopes(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip() for item in value if item.strip()]
+        return normalized or list(OIDC_PROVIDER_DEFAULT_SCOPES)
 
-    @field_validator("trusted_email_domains", mode="before")
+    @field_validator("trusted_email_domains")
     @classmethod
-    def normalize_domains(cls, value) -> list[str]:
+    def normalize_domains(cls, value: list[str]) -> list[str]:
         return normalize_trusted_email_domains(value)

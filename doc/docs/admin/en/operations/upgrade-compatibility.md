@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical OIDC provider collection payloads
+
+Admin OIDC provider create and update requests now require JSON arrays for
+`scopes` and `trusted_email_domains`. The application API no longer accepts
+comma-separated strings or explicit `null` for those fields. The bundled
+frontend already sends canonical arrays.
+
+Environment OIDC configuration keeps its existing string parsing because
+environment variables are text. No database migration is required.
+
 ## 2026-10 canonical bucket Object Lock properties
 
 Bucket property responses now expose Object Lock state only through the
