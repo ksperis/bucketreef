@@ -177,15 +177,35 @@ class AccessKeyMetadataService:
         payload: AccessKeyMetadataInput,
         **identity: object,
     ) -> ManagerAccessKeyMetadata | None:
-        fields = payload.model_fields_set
-        name = payload.name if "name" in fields else (row.name if row is not None else None)
-        notes = payload.notes if "notes" in fields else (row.notes if row is not None else None)
-        expires_at = payload.expires_at if "expires_at" in fields else (row.expires_at if row is not None else None)
-        if row is None and name is None and notes is None and expires_at is None:
-            return None
         if row is None:
+            if not self._payload_creates_metadata(payload):
+                return None
             row = ManagerAccessKeyMetadata(**identity)
             self.db.add(row)
+        self._apply_metadata_patch(row, payload)
+        if self._metadata_row_is_empty(row):
+            self.db.delete(row)
+            self.db.commit()
+            return None
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    @staticmethod
+    def _payload_creates_metadata(payload: AccessKeyMetadataInput) -> bool:
+        fields = payload.model_fields_set
+        return bool(
+            ("name" in fields and payload.name is not None)
+            or ("notes" in fields and payload.notes is not None)
+            or ("expires_at" in fields and payload.expires_at is not None)
+        )
+
+    @staticmethod
+    def _apply_metadata_patch(
+        row: ManagerAccessKeyMetadata,
+        payload: AccessKeyMetadataInput,
+    ) -> None:
+        fields = payload.model_fields_set
         if "name" in fields:
             row.name = payload.name
         if "notes" in fields:
@@ -196,13 +216,10 @@ class AccessKeyMetadataService:
             row.expiration_enforced_at = None
             row.expiration_last_attempt_at = None
             row.expiration_last_error = None
-        if row.name is None and row.notes is None and row.expires_at is None:
-            self.db.delete(row)
-            self.db.commit()
-            return None
-        self.db.commit()
-        self.db.refresh(row)
-        return row
+
+    @staticmethod
+    def _metadata_row_is_empty(row: ManagerAccessKeyMetadata) -> bool:
+        return row.name is None and row.notes is None and row.expires_at is None
 
     def delete_iam_metadata(self, account_id: int, principal_name: str, access_key_id: str) -> None:
         self.db.execute(
