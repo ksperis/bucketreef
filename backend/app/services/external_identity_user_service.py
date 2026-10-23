@@ -280,62 +280,126 @@ class ExternalIdentityUserService:
         if identity and identity.revoked_at is not None:
             raise ValueError("External identity has been revoked")
         if identity:
-            user = self.db.get(User, identity.user_id)
-            if not user:
-                raise ValueError("External identity target does not exist")
-            identity.last_login_at = utcnow()
-            if picture_url and user.picture_url != picture_url:
-                user.picture_url = picture_url
-            if full_name and not user.full_name:
-                user.full_name = full_name
-            self.db.add_all([identity, user])
-            self.db.commit()
-            self.db.refresh(user)
-            return user, False
+            return self._reuse_identity_mapping(
+                identity,
+                full_name=full_name,
+                picture_url=picture_url,
+            ), False
 
         if normalized_email:
-            candidates = self._find_email_candidates(normalized_email)
-            existing = candidates[0] if len(candidates) == 1 else None
-            if existing is not None and self._can_trust_email_link(
-                existing,
-                normalized_email,
+            existing = self._resolve_existing_email_user(
+                provider_type=provider_type,
+                provider_id=provider_key,
+                subject=normalized_subject,
+                email=normalized_email,
                 email_verified=email_verified,
+                full_name=full_name,
+                picture_url=picture_url,
                 linking_policy=linking_policy,
                 trusted_email_domains=trusted_email_domains,
-            ):
-                identity, _ = self.provision_identity(
-                    user=existing,
-                    provider_type=provider_type,
-                    provider_id=provider_key,
-                    subject=normalized_subject,
-                    email=normalized_email,
-                    email_verified=True,
-                    link_source="trusted_email",
-                )
-                AuditService(self.db).record_action(
-                    user=existing,
-                    scope="security",
-                    action="external_identity_trusted_email_linked",
-                    entity_type="external_identity",
-                    entity_id=identity.id,
-                    metadata={"provider_type": provider_type, "provider_id": provider_key},
-                )
-                return existing, False
+            )
             if existing is not None:
-                request = self._create_link_request(
-                    user=existing,
-                    provider_type=provider_type,
-                    provider_id=provider_key,
-                    subject=normalized_subject,
-                    email=normalized_email,
-                    full_name=full_name,
-                    picture_url=picture_url,
-                )
-                raise ExternalIdentityLinkRequiredError(request.id)
-            if len(candidates) > 1:
-                raise ValueError("External identity email matches multiple users")
+                return existing, False
 
-        generated_email = normalized_email or self._generated_email(provider_type, provider_key, normalized_subject)
+        return self._create_jit_identity_user(
+            provider_type=provider_type,
+            provider_id=provider_key,
+            subject=normalized_subject,
+            email=normalized_email,
+            email_verified=email_verified,
+            full_name=full_name,
+            picture_url=picture_url,
+        ), True
+
+    def _reuse_identity_mapping(
+        self,
+        identity: ExternalIdentity,
+        *,
+        full_name: Optional[str],
+        picture_url: Optional[str],
+    ) -> User:
+        user = self.db.get(User, identity.user_id)
+        if not user:
+            raise ValueError("External identity target does not exist")
+        identity.last_login_at = utcnow()
+        if picture_url and user.picture_url != picture_url:
+            user.picture_url = picture_url
+        if full_name and not user.full_name:
+            user.full_name = full_name
+        self.db.add_all([identity, user])
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def _resolve_existing_email_user(
+        self,
+        *,
+        provider_type: str,
+        provider_id: str,
+        subject: str,
+        email: str,
+        email_verified: bool,
+        full_name: Optional[str],
+        picture_url: Optional[str],
+        linking_policy: str,
+        trusted_email_domains: list[str],
+    ) -> User | None:
+        candidates = self._find_email_candidates(email)
+        if len(candidates) > 1:
+            raise ValueError("External identity email matches multiple users")
+        if not candidates:
+            return None
+
+        existing = candidates[0]
+        if self._can_trust_email_link(
+            existing,
+            email,
+            email_verified=email_verified,
+            linking_policy=linking_policy,
+            trusted_email_domains=trusted_email_domains,
+        ):
+            identity, _ = self.provision_identity(
+                user=existing,
+                provider_type=provider_type,
+                provider_id=provider_id,
+                subject=subject,
+                email=email,
+                email_verified=True,
+                link_source="trusted_email",
+            )
+            AuditService(self.db).record_action(
+                user=existing,
+                scope="security",
+                action="external_identity_trusted_email_linked",
+                entity_type="external_identity",
+                entity_id=identity.id,
+                metadata={"provider_type": provider_type, "provider_id": provider_id},
+            )
+            return existing
+
+        request = self._create_link_request(
+            user=existing,
+            provider_type=provider_type,
+            provider_id=provider_id,
+            subject=subject,
+            email=email,
+            full_name=full_name,
+            picture_url=picture_url,
+        )
+        raise ExternalIdentityLinkRequiredError(request.id)
+
+    def _create_jit_identity_user(
+        self,
+        *,
+        provider_type: str,
+        provider_id: str,
+        subject: str,
+        email: Optional[str],
+        email_verified: bool,
+        full_name: Optional[str],
+        picture_url: Optional[str],
+    ) -> User:
+        generated_email = email or self._generated_email(provider_type, provider_id, subject)
         user = User(
             email=generated_email,
             full_name=full_name,
@@ -351,9 +415,9 @@ class ExternalIdentityUserService:
             id=str(uuid.uuid4()),
             user_id=user.id,
             provider_type=provider_type,
-            provider_id=provider_key,
-            subject=normalized_subject,
-            email=normalized_email,
+            provider_id=provider_id,
+            subject=subject,
+            email=email,
             email_verified=email_verified,
             created_at=utcnow(),
             link_source="jit",
@@ -361,7 +425,7 @@ class ExternalIdentityUserService:
         self.db.add(identity)
         self.db.commit()
         self.db.refresh(user)
-        return user, True
+        return user
 
     def _create_link_request(
         self,
