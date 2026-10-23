@@ -24,6 +24,17 @@ class BucketPurgeRequestOptions(ApiModel):
     include_versions: bool = True
     confirmation: str = ""
 
+    @model_validator(mode="after")
+    def validate_confirmation(self):
+        selected = getattr(self, "buckets", None)
+        if selected is None:
+            selected = getattr(self, "targets", None)
+        if selected is None:
+            raise ValueError("Purge request must define buckets or targets.")
+        _validate_purge_confirmation(self.confirmation, len(selected))
+        return self
+
+
 def bucket_purge_confirmation_phrase(target_count: int) -> str:
     return f"PURGE {target_count} BUCKETS"
 
@@ -37,28 +48,13 @@ def _validate_purge_confirmation(confirmation: str, target_count: int) -> None:
 class BucketPurgeBucketRequest(BucketPurgeRequestOptions):
     buckets: BucketNameList
 
-    @model_validator(mode="after")
-    def validate_confirmation(self):
-        _validate_purge_confirmation(self.confirmation, len(self.buckets))
-        return self
-
 
 class BucketPurgeTargetRequest(BucketPurgeRequestOptions):
     targets: BucketTargetList
 
-    @model_validator(mode="after")
-    def validate_confirmation(self):
-        _validate_purge_confirmation(self.confirmation, len(self.targets))
-        return self
-
 
 class BucketPurgeRgwTargetRequest(BucketPurgeRequestOptions):
     targets: RgwBucketReferenceList
-
-    @model_validator(mode="after")
-    def validate_confirmation(self):
-        _validate_purge_confirmation(self.confirmation, len(self.targets))
-        return self
 
 
 class BucketDeleteWithPurgeRequest(ApiModel):
