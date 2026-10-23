@@ -4,7 +4,7 @@ import json
 from copy import deepcopy
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 
 from app.db import AuditLog, EndpointServiceIdentity, KeyRotationIntent, StorageEndpoint
 from app.services import endpoint_service_identities as module
@@ -362,10 +362,14 @@ def test_rotation_persists_validated_new_key_before_retirement_and_retries(ident
     with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
         service.rotate(endpoint, "runtime")
     db_session.expire_all()
-    assert identity.status == "ready" and identity.access_key != previous and service.db.query(KeyRotationIntent).one().old_access_key == previous
+    assert (
+        identity.status == "ready"
+        and identity.access_key != previous
+        and service.db.scalars(select(KeyRotationIntent)).one().old_access_key == previous
+    )
     rgw.fail_delete = False
     service.rotate(endpoint, "runtime")
-    assert service.db.query(KeyRotationIntent).count() == 0
+    assert service.db.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
     assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
     assert rgw.users[identity.rgw_uid]["keys"] == [{"access_key": identity.access_key, "secret_key": identity.secret_key}]
 
@@ -470,7 +474,7 @@ def test_read_only_runtime_detection_never_lists_without_scope_or_accepts_keys(i
     )
     assert result.credential_checks.runtime.status == "denied"
     assert not any(call[0] == "list" for call in rgw.calls)
-    assert db_session.query(EndpointServiceIdentity).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(EndpointServiceIdentity)) == 0
 
 
 def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(identities, db_session, monkeypatch):
@@ -515,7 +519,11 @@ def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(id
     assert rgw.users[identity.rgw_uid] == original
     assert not any(call[0] in ("create", "caps", "delete", "key_create", "key_delete") and call[1] == identity.rgw_uid for call in rgw.calls)
     serialized = StorageEndpointsService(db_session).get_endpoint(endpoint.id, include_admin_ops_permissions=False).model_dump_json()
-    audits = db_session.query(AuditLog).filter(AuditLog.action == "endpoint_service_identity.key_drift_detected").all()
+    audits = db_session.scalars(
+        select(AuditLog).where(
+            AuditLog.action == "endpoint_service_identity.key_drift_detected"
+        )
+    ).all()
     assert len(audits) == 1
     assert "UNEXPECTED" not in serialized + (audits[0].metadata_json or "")
     assert identity.secret_key not in serialized + (audits[0].metadata_json or "")
@@ -536,7 +544,11 @@ def test_managed_key_drift_recovers_only_after_operator_removes_unknown_key(iden
         get_endpoint_runtime_rgw_client(endpoint)
     service.reconcile(endpoint)
     assert identity.status == "error" and len(user["keys"]) == 2
-    assert db_session.query(AuditLog).filter(AuditLog.action == "endpoint_service_identity.key_drift_detected").count() == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(AuditLog.action == "endpoint_service_identity.key_drift_detected")
+    ) == 1
 
     user["keys"].pop()
     service.reconcile(endpoint)
@@ -578,10 +590,12 @@ def test_pending_rotation_keys_are_nominal_during_reconciliation(identities):
     with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
         service.rotate(endpoint, "runtime")
     service.reconcile(endpoint)
-    assert identity.status == "ready" and service.db.query(KeyRotationIntent).one().old_access_key
+    assert identity.status == "ready" and service.db.scalars(
+        select(KeyRotationIntent)
+    ).one().old_access_key
     rgw.fail_delete = False
     service.rotate(endpoint, "runtime")
-    assert service.db.query(KeyRotationIntent).count() == 0
+    assert service.db.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
     assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
 
 
@@ -593,7 +607,10 @@ def test_rotation_requires_confirmed_key_retirement(identities):
     rgw.delete_access_key = lambda *_args: None
     with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
         service.rotate(endpoint, "runtime")
-    assert identity.status == "ready" and service.db.query(KeyRotationIntent).one().old_access_key == old
+    assert (
+        identity.status == "ready"
+        and service.db.scalars(select(KeyRotationIntent)).one().old_access_key == old
+    )
     assert len(rgw.users[identity.rgw_uid]["keys"]) == 2
 
 
@@ -666,7 +683,11 @@ def test_key_added_concurrently_during_rotation_is_never_adopted_or_deleted(iden
     with pytest.raises(ValueError, match="key drift"):
         service.rotate(endpoint, "runtime")
     assert identity.status == "error" and identity.access_key == original
-    assert {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]} == {original, "FOREIGN", service.db.query(KeyRotationIntent).one().new_access_key}
+    assert {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]} == {
+        original,
+        "FOREIGN",
+        service.db.scalars(select(KeyRotationIntent)).one().new_access_key,
+    }
     assert not any(call[0] == "key_delete" for call in rgw.calls)
 
 
@@ -813,7 +834,7 @@ def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, d
     create, commit = rgw.create_access_key, db_session.commit
     def fail_creation(uid, **kwargs):
         # Intent and encrypted secret exist before any remote write.
-        pending = db_session.query(KeyRotationIntent).one()
+        pending = db_session.scalars(select(KeyRotationIntent)).one()
         assert pending.phase == "prepared" and pending.new_access_key == kwargs["access_key"]
         assert pending.new_secret_key == kwargs["secret_key"]
         assert pending.new_secret_key not in db_session.execute(text("SELECT new_secret_key FROM key_rotation_intents")).scalar_one()
@@ -830,7 +851,7 @@ def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, d
     rgw.fail_delete = failure == "retirement"
     with pytest.raises((ValueError, RGWAdminError)):
         service.rotate(endpoint, "runtime")
-    intent = db_session.query(KeyRotationIntent).one()
+    intent = db_session.scalars(select(KeyRotationIntent)).one()
     candidate = intent.new_access_key, intent.new_secret_key
     assert intent.phase == ("activated" if failure == "retirement" else "prepared")
     assert old in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
@@ -840,7 +861,7 @@ def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, d
     rgw.fail_delete = False
     service.rotate(endpoint, "runtime")
     assert (identity.access_key, identity.secret_key) == candidate
-    assert db_session.query(KeyRotationIntent).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
     assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
     assert old not in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
 
@@ -875,7 +896,7 @@ def test_pending_rotation_api_metadata_never_exposes_candidate_credentials(ident
     result = KeyRotationService(db_session).rotate_keys(KeyRotationRequest(
         endpoint_ids=[endpoint.id], key_types=["endpoint_runtime"],
     ))
-    intent = db_session.query(KeyRotationIntent).one()
+    intent = db_session.scalars(select(KeyRotationIntent)).one()
     assert result.summary.failed == 1
     assert result.results[0].rotation_pending
     assert result.results[0].rotation_phase == "activated"
@@ -897,7 +918,7 @@ def test_delete_keeps_lease_until_commit_and_stale_reconciliation_cannot_recreat
     release = OperationLeaseService.release
     def inspect_release(lease, handle):
         if handle.operation_name == f"endpoint-identities:{endpoint_id}":
-            assert db_session.query(StorageEndpoint).filter_by(id=endpoint_id).first() is None
+            assert db_session.get(StorageEndpoint, endpoint_id) is None
         return release(lease, handle)
     monkeypatch.setattr(OperationLeaseService, "release", inspect_release)
     StorageEndpointsService(db_session).delete_endpoint(endpoint_id)
