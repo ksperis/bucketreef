@@ -48,24 +48,24 @@ class CephAdminEndpoint(ApiModel):
 
 class CephAdminEndpointAccess(ApiModel):
     endpoint_id: int
-    can_admin: bool = False
-    can_accounts: bool = False
-    can_metrics: bool = False
-    admin_warning: Optional[str] = None
-    accounts_warning: Optional[str] = None
-    active_rgw_uid: Optional[str] = None
-    active_rgw_tenant: Optional[str] = None
-    availability_status: Literal["unknown", "available", "unavailable", "denied", "misconfigured"] = "unknown"
-    availability_checked_at: Optional[str] = None
+    can_admin: bool
+    can_accounts: bool
+    can_metrics: bool
+    admin_warning: Optional[str]
+    accounts_warning: Optional[str]
+    active_rgw_uid: Optional[str]
+    active_rgw_tenant: Optional[str]
+    availability_status: Literal["unknown", "available", "unavailable", "denied", "misconfigured"]
+    availability_checked_at: Optional[str]
 
 
 class CephAdminAdminOpsResult(ApiModel):
     operation: str
     success: bool
-    rgw_status_code: Optional[int] = None
-    rgw_error_code: Optional[str] = None
+    rgw_status_code: Optional[int]
+    rgw_error_code: Optional[str]
     message: str
-    result: Any = None
+    result: Any
 
 
 class CephAdminAdminOpsConfirmation(ApiModel):
@@ -250,38 +250,38 @@ class CephAdminRgwAccessKeyStatusChange(ApiModel):
 
 class CephAdminRgwAccountDetail(ApiModel):
     account_id: str
-    tenant: Optional[str] = None
-    account_name: Optional[str] = None
-    email: Optional[str] = None
-    max_users: Optional[int] = None
-    max_buckets: Optional[int] = None
-    max_roles: Optional[int] = None
-    max_groups: Optional[int] = None
-    max_access_keys: Optional[int] = None
-    bucket_count: Optional[int] = None
-    user_count: Optional[int] = None
-    quota: Optional[CephAdminRgwQuotaConfig] = None
-    bucket_quota: Optional[CephAdminRgwQuotaConfig] = None
+    tenant: Optional[str]
+    account_name: Optional[str]
+    email: Optional[str]
+    max_users: Optional[int]
+    max_buckets: Optional[int]
+    max_roles: Optional[int]
+    max_groups: Optional[int]
+    max_access_keys: Optional[int]
+    bucket_count: Optional[int]
+    user_count: Optional[int]
+    quota: Optional[CephAdminRgwQuotaConfig]
+    bucket_quota: Optional[CephAdminRgwQuotaConfig]
 
 
 class CephAdminRgwUserDetail(ApiModel):
     uid: str
-    tenant: Optional[str] = None
-    display_name: Optional[str] = None
-    email: Optional[str] = None
-    account_id: Optional[str] = None
-    account_name: Optional[str] = None
-    suspended: Optional[bool] = None
-    admin: Optional[bool] = None
-    system: Optional[bool] = None
-    account_root: Optional[bool] = None
-    max_buckets: Optional[int] = None
-    op_mask: Optional[str] = None
-    default_placement: Optional[str] = None
-    default_storage_class: Optional[str] = None
-    caps: list[str] = Field(default_factory=list)
-    quota: Optional[CephAdminRgwQuotaConfig] = None
-    keys: list[CephAdminRgwAccessKey] = Field(default_factory=list)
+    tenant: Optional[str]
+    display_name: Optional[str]
+    email: Optional[str]
+    account_id: Optional[str]
+    account_name: Optional[str]
+    suspended: Optional[bool]
+    admin: Optional[bool]
+    system: Optional[bool]
+    account_root: Optional[bool]
+    max_buckets: Optional[int]
+    op_mask: Optional[str]
+    default_placement: Optional[str]
+    default_storage_class: Optional[str]
+    caps: list[str]
+    quota: Optional[CephAdminRgwQuotaConfig]
+    keys: list[CephAdminRgwAccessKey]
 
 
 class CephAdminRgwUserCapsUpdate(ApiModel):
@@ -368,7 +368,7 @@ class CephAdminRgwUserCreate(ApiModel):
 
 class CephAdminRgwUserCreateResponse(ApiModel):
     detail: CephAdminRgwUserDetail
-    generated_key: Optional[CephAdminRgwGeneratedAccessKey] = None
+    generated_key: Optional[CephAdminRgwGeneratedAccessKey]
 
 
 class CephAdminRgwAccountConfigUpdate(ApiModel):
@@ -413,36 +413,36 @@ class CephAdminRgwUserConfigUpdate(ApiModel):
 
 class CephAdminBucketUsagePoint(ApiModel):
     name: str
-    used_bytes: Optional[int] = None
-    object_count: Optional[int] = None
+    used_bytes: Optional[int]
+    object_count: Optional[int]
 
 
 class CephAdminEntityMetrics(ApiModel):
-    total_bytes: Optional[int] = None
-    total_objects: Optional[int] = None
-    bucket_count: int = 0
-    bucket_usage: list[CephAdminBucketUsagePoint] = Field(default_factory=list)
+    total_bytes: Optional[int]
+    total_objects: Optional[int]
+    bucket_count: int
+    bucket_usage: list[CephAdminBucketUsagePoint]
     generated_at: datetime
 
 
 class CephAdminClusterOwnerUsagePoint(ApiModel):
     owner: str
-    used_bytes: Optional[int] = None
-    object_count: Optional[int] = None
-    bucket_count: int = 0
+    used_bytes: Optional[int]
+    object_count: Optional[int]
+    bucket_count: int
 
 
 class CephAdminClusterStorageTotals(ApiModel):
-    used_bytes: Optional[int] = None
-    object_count: Optional[int] = None
-    bucket_count: int = 0
-    owners_with_usage: int = 0
+    used_bytes: Optional[int]
+    object_count: Optional[int]
+    bucket_count: int
+    owners_with_usage: int
 
 
 class CephAdminClusterStorageMetrics(ApiModel):
-    total_buckets: int = 0
-    bucket_usage: list[CephAdminBucketUsagePoint] = Field(default_factory=list)
-    owner_usage: list[CephAdminClusterOwnerUsagePoint] = Field(default_factory=list)
+    total_buckets: int
+    bucket_usage: list[CephAdminBucketUsagePoint]
+    owner_usage: list[CephAdminClusterOwnerUsagePoint]
     storage_totals: CephAdminClusterStorageTotals
     generated_at: datetime
 
@@ -475,11 +475,11 @@ class CephAdminBucketCompareResult(ApiModel):
     target_endpoint_id: int
     source_bucket: str
     target_bucket: str
-    source_tenant: str = ""
-    target_tenant: str = ""
-    has_differences: bool = False
-    content_diff: Optional[BucketContentDiff] = None
-    config_diff: Optional[BucketConfigDiff] = None
+    source_tenant: str
+    target_tenant: str
+    has_differences: bool
+    content_diff: Optional[BucketContentDiff]
+    config_diff: Optional[BucketConfigDiff]
 
 
 UserFilterField = Literal[
