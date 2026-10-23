@@ -13,7 +13,7 @@ from app.db import User
 from app.models.quota_monitoring import QuotaMonitoringResult
 from app.models.usage_history import UsageHistoryResponse, UsageHistoryTrendResponse
 from app.routers.dependencies import get_current_super_admin
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.operation_lease_service import (
     OperationLeaseService,
     USAGE_HISTORY_COLLECT_OPERATION,
@@ -26,8 +26,8 @@ from app.utils.http_errors import raise_bad_request_from_value_error
 router = APIRouter(prefix="/admin/usage-history", tags=["admin-usage-history"])
 
 
-def _ensure_usage_history_enabled() -> None:
-    app_settings = load_app_settings()
+def _ensure_usage_history_enabled(db: Session) -> None:
+    app_settings = load_app_settings_for_db_readonly(db)
     if not app_settings.general.usage_history_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage history is disabled")
 
@@ -74,7 +74,7 @@ def list_usage_history(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> UsageHistoryResponse:
-    _ensure_usage_history_enabled()
+    _ensure_usage_history_enabled(db)
     service = UsageHistoryService(db)
     return service.list_records(
         granularity=granularity,
@@ -97,7 +97,7 @@ def usage_history_trends(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> UsageHistoryTrendResponse:
-    _ensure_usage_history_enabled()
+    _ensure_usage_history_enabled(db)
     service = UsageHistoryService(db)
     return service.aggregate_trends(window=window, endpoint_id=endpoint_id, subject_type=subject_type)
 
@@ -107,7 +107,7 @@ def collect_usage_history(
     current_user: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
 ) -> QuotaMonitoringResult:
-    _ensure_usage_history_enabled()
+    _ensure_usage_history_enabled(db)
     with OperationLeaseService(db).hold(
         USAGE_HISTORY_COLLECT_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
