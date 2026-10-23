@@ -23,7 +23,11 @@ from app.models.browser import (
 from app.services.aws_client_config import StorageRequestProfile
 from app.services.s3_client import get_s3_client
 from app.services.s3_execution_client import require_s3_execution_credentials, s3_execution_cache_key
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import (
+    S3ExecutionContext,
+    S3ExecutionTarget,
+    is_ceph_admin_execution_context,
+)
 from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 from app.utils.aws_errors import aws_error_code
@@ -156,7 +160,7 @@ class BrowserContextMixin:
         client_options["session_token"] = session_token
         if (
             bucket_name
-            and getattr(context, "context_kind", None) == "ceph_admin"
+            and is_ceph_admin_execution_context(context)
             and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
         ):
             client_options["force_path_style"] = True
@@ -177,7 +181,7 @@ class BrowserContextMixin:
         request_profile: StorageRequestProfile = "interactive",
     ):
         if (
-            getattr(context, "context_kind", None) == "ceph_admin"
+            is_ceph_admin_execution_context(context)
             and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
         ):
             return self._client(

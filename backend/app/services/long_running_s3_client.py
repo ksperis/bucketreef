@@ -10,7 +10,10 @@ from app.services.s3_execution_client import (
     s3_execution_bucket_request_kwargs,
     s3_execution_request_kwargs,
 )
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import (
+    S3ExecutionTarget,
+    is_ceph_admin_execution_context,
+)
 
 
 class LongRunningS3ClientMixin:
@@ -48,7 +51,7 @@ class LongRunningS3ClientMixin:
         """Own a fresh client until the operation and its workers have finished."""
         if (
             bucket_name is not None
-            and getattr(execution_context, "context_kind", None) == "ceph_admin"
+            and is_ceph_admin_execution_context(execution_context)
             and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
         ):
             return closing(self._build_client(execution_context, bucket_name=bucket_name))
