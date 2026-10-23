@@ -74,55 +74,55 @@ class BucketPurgeFailure(ApiModel):
     bucket_name: str
     stage: str
     message: str
-    key: Optional[str] = None
-    version_id: Optional[str] = None
-    count: int = 0
+    key: Optional[str]
+    version_id: Optional[str]
+    count: int
 
 
 class BucketPurgeBucketResult(ApiModel):
     bucket_name: str
-    context_id: Optional[str] = None
-    context_name: Optional[str] = None
+    context_id: Optional[str]
+    context_name: Optional[str]
     status: BucketPurgeStatus
-    listed_objects: int = 0
-    listed_versions: int = 0
-    deleted_objects: int = 0
-    deleted_versions: int = 0
-    failed_count: int = 0
-    bucket_deleted: bool = False
-    duration_seconds: float = 0
-    failures_sample: list[BucketPurgeFailure] = Field(default_factory=list)
+    listed_objects: int
+    listed_versions: int
+    deleted_objects: int
+    deleted_versions: int
+    failed_count: int
+    bucket_deleted: bool
+    duration_seconds: float
+    failures_sample: list[BucketPurgeFailure]
 
 
 class BucketPurgeProgress(ApiModel):
-    request_id: Optional[str] = None
-    stage: BucketPurgeStage = "prepare"
-    bucket_name: Optional[str] = None
-    context_id: Optional[str] = None
-    context_name: Optional[str] = None
-    total_buckets: int = 0
-    completed_buckets: int = 0
-    listed_objects: int = 0
-    listed_versions: int = 0
-    deleted_objects: int = 0
-    deleted_versions: int = 0
-    total_entries_estimate: Optional[int] = None
-    total_entries_final: bool = False
-    failed_count: int = 0
-    bucket_deleted: bool = False
-    message: Optional[str] = None
+    request_id: Optional[str]
+    stage: BucketPurgeStage
+    bucket_name: Optional[str]
+    context_id: Optional[str]
+    context_name: Optional[str]
+    total_buckets: int
+    completed_buckets: int
+    listed_objects: int
+    listed_versions: int
+    deleted_objects: int
+    deleted_versions: int
+    total_entries_estimate: Optional[int]
+    total_entries_final: bool
+    failed_count: int
+    bucket_deleted: bool
+    message: Optional[str]
 
 
 class BucketPurgeResult(ApiModel):
     status: BucketPurgeStatus
-    total_buckets: int = 0
-    completed_buckets: int = 0
-    listed_objects: int = 0
-    listed_versions: int = 0
-    deleted_objects: int = 0
-    deleted_versions: int = 0
-    failed_count: int = 0
-    bucket_deleted: bool = False
+    total_buckets: int
+    completed_buckets: int
+    listed_objects: int
+    listed_versions: int
+    deleted_objects: int
+    deleted_versions: int
+    failed_count: int
+    bucket_deleted: bool
     started_at: datetime
     finished_at: datetime
-    buckets: list[BucketPurgeBucketResult] = Field(default_factory=list)
+    buckets: list[BucketPurgeBucketResult]

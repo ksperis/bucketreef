@@ -48,7 +48,18 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
     audit_calls = []
     timestamp = datetime(2026, 9, 9, tzinfo=timezone.utc)
     result = BucketPurgeResult(
-        status="completed", started_at=timestamp, finished_at=timestamp,
+        status="completed",
+        total_buckets=1,
+        completed_buckets=1,
+        listed_objects=0,
+        listed_versions=0,
+        deleted_objects=0,
+        deleted_versions=0,
+        failed_count=0,
+        bucket_deleted=False,
+        started_at=timestamp,
+        finished_at=timestamp,
+        buckets=[],
     )
 
     class FakeService:

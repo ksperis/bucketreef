@@ -15,7 +15,9 @@ from app.db import StorageEndpoint, User, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.bucket_purge import (
+    BucketPurgeBucketResult,
     BucketPurgeBucketRequest,
+    BucketPurgeFailure,
     BucketPurgeProgress,
     BucketPurgeRgwTargetRequest,
     BucketPurgeResult,
@@ -54,6 +56,7 @@ def _result(status: str = "completed") -> BucketPurgeResult:
         deleted_objects=2,
         deleted_versions=1,
         failed_count=0 if status == "completed" else 1,
+        bucket_deleted=False,
         started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         finished_at=datetime(2026, 1, 1, 0, 0, 1, tzinfo=timezone.utc),
         buckets=[],
@@ -152,15 +155,22 @@ def test_manager_purge_route_streams_progress_and_result(monkeypatch):
             if progress_callback:
                 progress_callback(
                     BucketPurgeProgress(
+                        request_id=None,
                         stage="delete",
                         bucket_name="bucket-a",
+                        context_id=None,
+                        context_name=None,
                         total_buckets=1,
+                        completed_buckets=0,
                         listed_objects=2,
                         listed_versions=1,
                         deleted_objects=2,
                         deleted_versions=1,
                         total_entries_estimate=3,
                         total_entries_final=True,
+                        failed_count=0,
+                        bucket_deleted=False,
+                        message=None,
                     )
                 )
             return _result()
@@ -218,15 +228,22 @@ def test_manager_delete_with_purge_route_streams_progress_and_result(monkeypatch
             if progress_callback:
                 progress_callback(
                     BucketPurgeProgress(
+                        request_id=None,
                         stage="delete_bucket",
                         bucket_name="bucket-a",
+                        context_id=None,
+                        context_name=None,
                         total_buckets=1,
+                        completed_buckets=0,
                         listed_objects=2,
                         listed_versions=1,
                         deleted_objects=2,
                         deleted_versions=1,
                         total_entries_estimate=3,
                         total_entries_final=True,
+                        failed_count=0,
+                        bucket_deleted=False,
+                        message=None,
                     )
                 )
             return _result().model_copy(update={"status": "completed", "bucket_deleted": True})
@@ -273,6 +290,15 @@ def test_manager_delete_with_purge_route_streams_progress_and_result(monkeypatch
     ]
     assert audit_calls[1]["status"] == "success"
     assert audit_calls[1]["metadata"]["bucket_deleted"] is True
+
+
+@pytest.mark.parametrize(
+    "model",
+    [BucketPurgeFailure, BucketPurgeBucketResult, BucketPurgeProgress, BucketPurgeResult],
+)
+def test_bucket_purge_response_models_require_complete_payloads(model):
+    schema = model.model_json_schema()
+    assert set(schema["required"]) == set(schema["properties"])
 
 
 def test_bucket_purge_audit_lifecycle_records_cancel_error_and_failed_result():
