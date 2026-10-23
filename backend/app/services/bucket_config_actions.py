@@ -126,7 +126,7 @@ def create_bucket_config(
     service: BucketsService,
     context: S3ExecutionTarget,
     payload: BucketCreate,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> dict[str, Any]:
     versioning = payload.versioning if payload.versioning is not None else False
     location_constraint = payload.location_constraint
     _map_runtime_error(
@@ -137,16 +137,10 @@ def create_bucket_config(
             location_constraint=location_constraint,
         )
     )
-    response = {
-        "message": f"Bucket '{payload.name}' created",
-        "name": payload.name,
-        "versioning": versioning,
-        "location_constraint": location_constraint,
-    }
     audit_metadata: dict[str, Any] = {"versioning": versioning}
     if location_constraint:
         audit_metadata["location_constraint"] = location_constraint
-    return response, audit_metadata
+    return audit_metadata
 
 
 def delete_bucket_config(
@@ -177,9 +171,9 @@ def update_bucket_quota_config(
     context: S3ExecutionTarget,
     bucket_name: str,
     payload: BucketQuotaUpdate,
-) -> tuple[dict[str, str], dict[str, Any]]:
+) -> dict[str, Any]:
     _map_value_and_runtime_errors(lambda: service.set_bucket_quota(bucket_name, context, payload))
-    return {"message": "Bucket quota updated"}, payload.model_dump(exclude_none=True)
+    return payload.model_dump(exclude_none=True)
 
 
 def get_bucket_properties_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketProperties:
