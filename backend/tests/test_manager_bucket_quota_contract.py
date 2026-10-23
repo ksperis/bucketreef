@@ -19,7 +19,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 def _enable_manager_bucket_quota(monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_quota_management = "targeted"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
 
 def _quota_user(db_session) -> User:

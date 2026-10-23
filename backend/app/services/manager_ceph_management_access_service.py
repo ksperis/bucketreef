@@ -186,7 +186,7 @@ class ManagerCephManagementAccessService:
         if actor is None or actor.role not in MANAGER_TOOL_ROLES:
             return self._deny("Not authorized")
 
-        policies = app_settings_service.load_app_settings().manager.feature_policies
+        policies = app_settings_service.load_app_settings_for_db_readonly(self.db).manager.feature_policies
         if operation == "bucket_quota" and policies.bucket_quota_management == FeaturePolicy.DISABLED:
             return self._deny("Bucket quota management feature is disabled")
         if operation == "rgw_access_keys" and policies.ceph_s3_user_keys == FeaturePolicy.DISABLED:

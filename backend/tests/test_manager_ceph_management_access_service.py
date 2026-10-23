@@ -68,7 +68,7 @@ def test_bucket_quota_management_is_disabled_by_default():
 
 
 def test_quota_policy_revalidates_direct_manager_access_after_revocation(db_session, monkeypatch):
-    monkeypatch.setattr(app_settings_service, "load_app_settings", _settings_with_manager_bucket_quota)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: _settings_with_manager_bucket_quota())
     user = _user(db_session, "quota-direct@example.test")
     endpoint = _endpoint(name="quota-direct")
     account = S3Account(
@@ -117,7 +117,7 @@ def test_quota_policy_revalidates_direct_manager_access_after_revocation(db_sess
 
 
 def test_quota_policy_requires_endpoint_buckets_write_capability(db_session, monkeypatch):
-    monkeypatch.setattr(app_settings_service, "load_app_settings", _settings_with_manager_bucket_quota)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: _settings_with_manager_bucket_quota())
     monkeypatch.setattr(
         "app.services.manager_ceph_management_access_service._resolve_endpoint_admin_ops_permissions",
         lambda _endpoint: _admin_ops_permissions(buckets_write=False),
@@ -157,7 +157,7 @@ def test_quota_policy_requires_endpoint_buckets_write_capability(db_session, mon
 
 
 def test_key_policy_accepts_group_access_and_revalidates_revocation(db_session, monkeypatch):
-    monkeypatch.setattr(app_settings_service, "load_app_settings", _settings_with_manager_bucket_quota)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: _settings_with_manager_bucket_quota())
     user = _user(db_session, "keys-group@example.test")
     endpoint = _endpoint(name="keys-group")
     s3_user = S3User(
@@ -209,7 +209,7 @@ def test_key_policy_accepts_group_access_and_revalidates_revocation(db_session, 
 def test_policy_applies_global_kill_switches(db_session, monkeypatch, operation, setting_name):
     settings = AppSettings()
     setattr(settings.manager.feature_policies, setting_name, "disabled")
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     user = _user(db_session, f"{operation}@example.test")
     decision = ManagerCephManagementAccessService(db_session).evaluate(
         operation,
@@ -238,7 +238,7 @@ def test_policy_rejects_each_missing_ceph_admin_capability(
     endpoint_field,
     endpoint_value,
 ):
-    monkeypatch.setattr(app_settings_service, "load_app_settings", _settings_with_manager_bucket_quota)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: _settings_with_manager_bucket_quota())
     user = _user(db_session, f"no-admin-{operation}@example.test")
     endpoint = _endpoint(name=f"no-admin-{operation}", admin_enabled=False)
     endpoint.features_config = "features:\n  admin:\n    enabled: true\n"
@@ -285,7 +285,7 @@ def test_policy_rejects_non_eligible_manager_contexts(
     operation,
     context_kind,
 ):
-    monkeypatch.setattr(app_settings_service, "load_app_settings", _settings_with_manager_bucket_quota)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: _settings_with_manager_bucket_quota())
     user = _user(db_session, f"{operation}-{context_kind}@example.test")
     context = S3ExecutionContext(
         context_id=f"{context_kind}-1",
