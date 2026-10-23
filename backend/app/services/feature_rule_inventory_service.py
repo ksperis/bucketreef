@@ -428,6 +428,7 @@ def _bucket_result(
         feature=feature,
         status="configured" if rules else "empty",
         rules=rules,
+        error=None,
     )
 
 
