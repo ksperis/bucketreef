@@ -54,7 +54,11 @@ def test_admin_cost_collect_rejects_invalid_day(client, monkeypatch):
 
 
 def test_admin_healthchecks_return_conflict_when_lease_is_active(client, db_session, monkeypatch):
-    monkeypatch.setattr(healthchecks_router, "load_app_settings", _enabled_settings)
+    monkeypatch.setattr(
+        healthchecks_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _enabled_settings(),
+    )
     OperationLeaseService(db_session).acquire(
         HEALTHCHECK_RUN_OPERATION,
         ttl_seconds=600,
@@ -69,7 +73,11 @@ def test_admin_healthchecks_return_conflict_when_lease_is_active(client, db_sess
 
 
 def test_admin_usage_history_returns_conflict_when_lease_is_active(client, db_session, monkeypatch):
-    monkeypatch.setattr(usage_history_router, "load_app_settings", _enabled_settings)
+    monkeypatch.setattr(
+        usage_history_router,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _enabled_settings(),
+    )
     OperationLeaseService(db_session).acquire(
         USAGE_HISTORY_COLLECT_OPERATION,
         ttl_seconds=600,
