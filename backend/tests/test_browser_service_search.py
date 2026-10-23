@@ -63,7 +63,12 @@ def test_listportal_storage_spaces_includes_descriptions():
             name="Research Data",
             role="Editor",
             description="Shared research datasets",
-            icon=PortalStorageSpaceIcon(source="preset", preset="database"),
+            icon=PortalStorageSpaceIcon(
+                source="preset",
+                preset="database",
+                url=None,
+                updated_at=None,
+            ),
         )
     ]
 
@@ -73,7 +78,12 @@ def test_listportal_storage_spaces_includes_descriptions():
     assert result[0].display_name == "Research Data"
     assert result[0].workspace_label == "Storage Space"
     assert result[0].description == "Shared research datasets"
-    assert result[0].icon == PortalStorageSpaceIcon(source="preset", preset="database")
+    assert result[0].icon == PortalStorageSpaceIcon(
+        source="preset",
+        preset="database",
+        url=None,
+        updated_at=None,
+    )
 
 
 def test_list_object_versions_preserves_hierarchy_and_s3_cursors(monkeypatch):

@@ -8,7 +8,7 @@ export type StorageSpaceIconPreset = "bucket" | "folder" | "archive" | "database
 
 export type StorageSpaceIconDescriptor = {
   source: StorageSpaceIconSource;
-  preset?: StorageSpaceIconPreset | null;
-  url?: string | null;
-  updated_at?: string | null;
+  preset: StorageSpaceIconPreset | null;
+  url: string | null;
+  updated_at: string | null;
 };

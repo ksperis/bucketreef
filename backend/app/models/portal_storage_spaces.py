@@ -33,10 +33,10 @@ class PortalStorageSpaceCollaboratorPreview(ApiModel):
 
 
 class PortalStorageSpaceIcon(ApiModel):
-    source: PortalStorageSpaceIconSource = "preset"
-    preset: Optional[PortalStorageSpaceIconPreset] = "bucket"
-    url: Optional[str] = None
-    updated_at: Optional[datetime] = None
+    source: PortalStorageSpaceIconSource
+    preset: Optional[PortalStorageSpaceIconPreset]
+    url: Optional[str]
+    updated_at: Optional[datetime]
 
 
 class PortalStorageSpaceIconChoice(ApiModel):
@@ -72,7 +72,14 @@ class PortalStorageSpaceSummary(ApiModel):
     archived_at: Optional[datetime] = None
     origin: PortalStorageSpaceOrigin = "imported"
     name_editable: bool = False
-    icon: PortalStorageSpaceIcon = Field(default_factory=PortalStorageSpaceIcon)
+    icon: PortalStorageSpaceIcon = Field(
+        default_factory=lambda: PortalStorageSpaceIcon(
+            source="preset",
+            preset="bucket",
+            url=None,
+            updated_at=None,
+        )
+    )
 
 
 class PortalStorageSpaceInitialShare(ApiModel):

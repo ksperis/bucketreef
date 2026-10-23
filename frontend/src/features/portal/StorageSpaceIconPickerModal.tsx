@@ -170,7 +170,7 @@ export default function StorageSpaceIconPickerModal({
                     className="sr-only peer"
                   />
                   <StorageSpaceIcon
-                    icon={{ source: "preset", preset: candidate }}
+                    icon={{ source: "preset", preset: candidate, url: null, updated_at: null }}
                     name={presetLabels[candidate].en}
                     size="md"
                     decorative

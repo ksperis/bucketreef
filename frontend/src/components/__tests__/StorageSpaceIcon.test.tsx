@@ -29,7 +29,7 @@ describe("StorageSpaceIcon", () => {
     render(
       <StorageSpaceIcon
         name="Research data"
-        icon={{ source: "preset", preset: "archive" }}
+        icon={{ source: "preset", preset: "archive", url: null, updated_at: null }}
       />,
     );
 
@@ -46,7 +46,9 @@ describe("StorageSpaceIcon", () => {
         name="Research data"
         icon={{
           source: "uploaded",
+          preset: null,
           url: "/portal/storage-spaces/research-data/icon/image?account_id=4&v=2",
+          updated_at: null,
         }}
       />,
     );
