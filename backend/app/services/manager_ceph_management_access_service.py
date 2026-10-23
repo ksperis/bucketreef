@@ -37,7 +37,6 @@ def _resolve_endpoint_admin_ops_permissions(endpoint: StorageEndpoint) -> Storag
     return resolve_storage_endpoint_admin_ops_permissions(
         endpoint,
         provider=StorageProvider(endpoint.provider),
-        capabilities={"admin": resolve_feature_flags(endpoint).admin_enabled},
         client_factory=get_rgw_admin_client,
     )
 
