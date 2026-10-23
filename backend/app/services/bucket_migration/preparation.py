@@ -242,19 +242,11 @@ class BucketMigrationPreparationMixin:
                 context = self._resolve_context(effect["context_id"])
                 bucket = effect["bucket"]
                 if name == "probe_bucket":
-                    exists = self._precheck_bucket_exists(context, bucket)
-                    if exists is None:
-                        raise RuntimeError(
-                            "Unable to establish whether the temporary probe bucket still exists"
-                        )
-                    if exists:
-                        if effect.get("policy_tested"):
-                            self._configuration.delete_policy(bucket, context.execution_context)
-                        self._buckets.delete_bucket(bucket, context.execution_context, force=True)
-                    if self._precheck_bucket_exists(context, bucket) is not False:
-                        raise RuntimeError(
-                            "Temporary bucket removal could not be verified"
-                        )
+                    self._cleanup_destination_probe_bucket(
+                        context,
+                        bucket,
+                        policy_tested=bool(effect.get("policy_tested")),
+                    )
                 else:
                     self._restore_checked_policy(
                         context.execution_context, bucket, effect.get("policy")
@@ -272,6 +264,124 @@ class BucketMigrationPreparationMixin:
             raise RuntimeError(
                 f"Policy restoration could not be verified for bucket '{bucket}'"
             )
+
+    def _cleanup_destination_probe_bucket(
+        self,
+        target_ctx,
+        probe: str,
+        *,
+        policy_tested: bool,
+    ) -> None:
+        self._assert_workflow_lease()
+        exists = self._precheck_bucket_exists(target_ctx, probe)
+        if exists is None:
+            raise RuntimeError(
+                "Unable to establish whether the temporary probe bucket still exists"
+            )
+        if exists:
+            if policy_tested:
+                self._configuration.delete_policy(
+                    probe, target_ctx.execution_context
+                )
+            self._buckets.delete_bucket(
+                probe, target_ctx.execution_context, force=True
+            )
+        if self._precheck_bucket_exists(target_ctx, probe) is not False:
+            raise RuntimeError("Temporary bucket removal could not be verified")
+
+    def _probe_destination_object_access(self, client, probe: str) -> dict[str, str]:
+        key = MIGRATION_PROBE_OBJECT_KEY
+        response = client.put_object(
+            Bucket=probe, Key=key, Body=b"migration permission check"
+        )
+        identity = {"Bucket": probe, "Key": key}
+        if response.get("VersionId"):
+            identity["VersionId"] = response["VersionId"]
+        client.put_object_tagging(
+            **identity,
+            Tagging={"TagSet": [{"Key": "check", "Value": "permission"}]},
+        )
+        client.get_object_tagging(**identity)
+        body = client.get_object(**identity).get("Body")
+        if body is None:
+            raise RuntimeError("Destination content could not be read for verification")
+        try:
+            body.read(1)
+        finally:
+            body.close()
+        return identity
+
+    def _probe_destination_multipart_access(self, client, probe: str) -> None:
+        upload = client.create_multipart_upload(Bucket=probe, Key="multipart-check")
+        try:
+            part = client.upload_part(
+                Bucket=probe,
+                Key="multipart-check",
+                UploadId=upload["UploadId"],
+                PartNumber=1,
+                Body=b"check",
+            )
+            client.complete_multipart_upload(
+                Bucket=probe,
+                Key="multipart-check",
+                UploadId=upload["UploadId"],
+                MultipartUpload={
+                    "Parts": [{"PartNumber": 1, "ETag": part["ETag"]}]
+                },
+            )
+        except Exception:
+            client.abort_multipart_upload(
+                Bucket=probe,
+                Key="multipart-check",
+                UploadId=upload["UploadId"],
+            )
+            raise
+
+        abort_probe = client.create_multipart_upload(Bucket=probe, Key="abort-check")
+        client.abort_multipart_upload(
+            Bucket=probe,
+            Key="abort-check",
+            UploadId=abort_probe["UploadId"],
+        )
+
+    def _probe_same_endpoint_copy(
+        self,
+        migration,
+        item,
+        source_ctx,
+        target_ctx,
+        client,
+        probe: str,
+    ) -> None:
+        page = self._context_client(source_ctx).list_objects_v2(
+            Bucket=item.source_bucket, MaxKeys=1
+        )
+        contents = page.get("Contents") or []
+        candidate = self._sample_version_probe_candidate(
+            source_profile=_json_loads(item.source_snapshot_json)
+        )
+        copy_source = {"Bucket": item.source_bucket}
+        if candidate:
+            copy_source.update(Key=candidate[0], VersionId=candidate[1])
+        elif contents:
+            copy_source["Key"] = contents[0]["Key"]
+        else:
+            raise RuntimeError(
+                "No source object is available to validate storage-side copy. Use Copy via BucketReef."
+            )
+        grant = (
+            self._temporary_source_copy_grant(
+                source_ctx,
+                target_ctx,
+                source_bucket=item.source_bucket,
+                sample_key=copy_source["Key"],
+                sample_version_id=copy_source.get("VersionId"),
+            )
+            if migration.auto_grant_source_read_for_copy
+            else nullcontext()
+        )
+        with grant:
+            client.copy_object(Bucket=probe, Key="copy-check", CopySource=copy_source)
 
     def _precheck_destination(
         self, migration, item, source_ctx, target_ctx, *, strategy: str
@@ -315,111 +425,41 @@ class BucketMigrationPreparationMixin:
                     self._build_target_write_lock_policy(probe, policy),
                 )
             client = self._context_client(target_ctx)
-            key = MIGRATION_PROBE_OBJECT_KEY
-            response = client.put_object(
-                Bucket=probe, Key=key, Body=b"migration permission check"
-            )
-            identity = {"Bucket": probe, "Key": key}
-            if response.get("VersionId"):
-                identity["VersionId"] = response["VersionId"]
-            client.put_object_tagging(
-                **identity,
-                Tagging={"TagSet": [{"Key": "check", "Value": "permission"}]},
-            )
-            client.get_object_tagging(**identity)
-            body = client.get_object(**identity).get("Body")
-            if body is None:
-                raise RuntimeError(
-                    "Destination content could not be read for verification"
-                )
-            try:
-                body.read(1)
-            finally:
-                body.close()
-            # Streaming large objects needs multipart permissions as well as PutObject.
-            upload = client.create_multipart_upload(Bucket=probe, Key="multipart-check")
-            try:
-                part = client.upload_part(
-                    Bucket=probe,
-                    Key="multipart-check",
-                    UploadId=upload["UploadId"],
-                    PartNumber=1,
-                    Body=b"check",
-                )
-                client.complete_multipart_upload(
-                    Bucket=probe,
-                    Key="multipart-check",
-                    UploadId=upload["UploadId"],
-                    MultipartUpload={
-                        "Parts": [{"PartNumber": 1, "ETag": part["ETag"]}]
-                    },
-                )
-            except Exception:
-                client.abort_multipart_upload(
-                    Bucket=probe, Key="multipart-check", UploadId=upload["UploadId"]
-                )
-                raise
-            abort_probe = client.create_multipart_upload(
-                Bucket=probe, Key="abort-check"
-            )
-            client.abort_multipart_upload(
-                Bucket=probe, Key="abort-check", UploadId=abort_probe["UploadId"]
-            )
+            identity = self._probe_destination_object_access(client, probe)
+            self._probe_destination_multipart_access(client, probe)
             if migration.use_same_endpoint_copy:
-                page = self._context_client(source_ctx).list_objects_v2(
-                    Bucket=item.source_bucket, MaxKeys=1
+                self._probe_same_endpoint_copy(
+                    migration,
+                    item,
+                    source_ctx,
+                    target_ctx,
+                    client,
+                    probe,
                 )
-                contents = page.get("Contents") or []
-                candidate = self._sample_version_probe_candidate(
-                    source_profile=_json_loads(item.source_snapshot_json)
-                )
-                copy_source = {"Bucket": item.source_bucket}
-                if candidate:
-                    copy_source.update(Key=candidate[0], VersionId=candidate[1])
-                elif contents:
-                    copy_source["Key"] = contents[0]["Key"]
-                else:
-                    raise RuntimeError(
-                        "No source object is available to validate storage-side copy. Use Copy via BucketReef."
-                    )
-                grant = (
-                    self._temporary_source_copy_grant(
-                        source_ctx,
-                        target_ctx,
-                        source_bucket=item.source_bucket,
-                        sample_key=copy_source["Key"],
-                        sample_version_id=copy_source.get("VersionId"),
-                    )
-                    if migration.auto_grant_source_read_for_copy
-                    else nullcontext()
-                )
-                with grant:
-                    client.copy_object(
-                        Bucket=probe, Key="copy-check", CopySource=copy_source
-                    )
             client.delete_object(**identity)
             if strategy == "version_aware":
-                marker = client.delete_object(Bucket=probe, Key=key)
+                marker = client.delete_object(
+                    Bucket=probe, Key=MIGRATION_PROBE_OBJECT_KEY
+                )
                 if not marker.get("VersionId"):
                     raise RuntimeError(
                         "Destination did not create the expected versioned delete marker"
                     )
                 client.delete_object(
-                    Bucket=probe, Key=key, VersionId=marker["VersionId"]
+                    Bucket=probe,
+                    Key=MIGRATION_PROBE_OBJECT_KEY,
+                    VersionId=marker["VersionId"],
                 )
         except Exception as exc:
             error = exc
         try:
-            self._assert_workflow_lease()
-            exists = self._precheck_bucket_exists(target_ctx, probe)
-            if exists is None:
-                raise RuntimeError("Temporary bucket existence is unknown")
-            if exists:
-                if migration.lock_target_writes or migration.copy_bucket_settings:
-                    self._configuration.delete_policy(probe, target_ctx.execution_context)
-                self._buckets.delete_bucket(probe, target_ctx.execution_context, force=True)
-            if self._precheck_bucket_exists(target_ctx, probe) is not False:
-                raise RuntimeError("Temporary bucket removal could not be verified")
+            self._cleanup_destination_probe_bucket(
+                target_ctx,
+                probe,
+                policy_tested=bool(
+                    migration.lock_target_writes or migration.copy_bucket_settings
+                ),
+            )
             self._clear_preparation_effect(item, "probe_bucket")
         except Exception as cleanup_error:
             raise RuntimeError(
