@@ -97,7 +97,11 @@ def login_with_ldap(
         )
         return AuthenticationResponse(
             status="link_approval_required",
+            user=None,
+            session=None,
+            redirect_path=None,
             link_request_id=exc.request_id,
+            recovery_codes=None,
         )
     except LDAPProviderNotFoundError as exc:
         audit_service.record_action(

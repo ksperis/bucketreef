@@ -1,36 +1,23 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import client from "./client";
+import type { AuthSessionInfo } from "./auth";
 import { notifyAdminPendingRequestsRefresh } from "../utils/adminPendingRequestsRefresh";
 
-export type SecurityCredential = { id: string; name: string; created_at: string; last_used_at?: string | null };
-export type SecuritySession = {
-  id: string;
-  principal_type: string;
-  auth_type: string;
-  created_at: string;
-  last_activity_at: string;
-  idle_expires_at: string;
-  absolute_expires_at: string;
-  ip_address?: string | null;
-  user_agent?: string | null;
-  revoked_at?: string | null;
-  current: boolean;
-  user_id?: number | null;
-  s3_session_id?: string | null;
-};
+export type SecurityCredential = { id: string; name: string; created_at: string; last_used_at: string | null };
+export type SecuritySession = AuthSessionInfo;
 export type AdminSecuritySession = SecuritySession & {
-  user_email?: string | null;
-  user_full_name?: string | null;
-  user_role?: string | null;
+  user_email: string | null;
+  user_full_name: string | null;
+  user_role: string | null;
 };
 export type ExternalIdentity = {
   id: string;
   provider_type: string;
   provider_id: string;
-  email?: string | null;
+  email: string | null;
   email_verified: boolean;
   created_at: string;
-  last_login_at?: string | null;
+  last_login_at: string | null;
 };
 export type ExternalLinkRequest = {
   id: string;
@@ -43,12 +30,14 @@ export type ExternalLinkRequest = {
   status: string;
   created_at: string;
   expires_at: string;
+  decided_at: string | null;
+  decision_source: string | null;
 };
-export type AdminPasskey = SecurityCredential & { revoked_at?: string | null };
+export type AdminPasskey = SecurityCredential & { revoked_at: string | null };
 export type AdminExternalIdentity = ExternalIdentity & {
   subject: string;
   link_source: string;
-  revoked_at?: string | null;
+  revoked_at: string | null;
 };
 export type AdminUserSecurity = {
   user_id: number;

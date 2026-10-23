@@ -42,7 +42,10 @@ class PrimaryAuthenticationService:
                 response=AuthenticationResponse(
                     status="mfa_required" if has_passkey else "mfa_enrollment_required",
                     user=self.users_service.user_to_out(user),
+                    session=None,
                     redirect_path=redirect_path,
+                    link_request_id=None,
+                    recovery_codes=None,
                 ),
                 pre_auth_purpose=pre_auth_purpose,
             )
@@ -68,7 +71,10 @@ class PrimaryAuthenticationService:
             response=AuthenticationResponse(
                 status="authenticated",
                 user=self.users_service.user_to_out(user),
+                session=None,
                 redirect_path=redirect_path,
+                link_request_id=None,
+                recovery_codes=None,
             ),
             session_credentials=credentials,
         )

@@ -137,7 +137,14 @@ def complete_oidc_login(
             user_agent=user_agent,
             request_id=request_id,
         )
-        return AuthenticationResponse(status="link_approval_required", link_request_id=exc.request_id)
+        return AuthenticationResponse(
+            status="link_approval_required",
+            user=None,
+            session=None,
+            redirect_path=None,
+            link_request_id=exc.request_id,
+            recovery_codes=None,
+        )
     except OIDCProviderNotFoundError as exc:
         limiter.record_failure(account=account_key, ip_address=ip_address)
         audit_service.record_action(

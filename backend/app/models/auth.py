@@ -19,11 +19,11 @@ class AuthenticationResponse(ApiModel):
         "mfa_enrollment_required",
         "link_approval_required",
     ]
-    user: Optional[UserOut] = None
-    session: Optional[SessionDescriptor] = None
-    redirect_path: Optional[str] = None
-    link_request_id: Optional[str] = None
-    recovery_codes: Optional[list[str]] = None
+    user: Optional[UserOut]
+    session: Optional[SessionDescriptor]
+    redirect_path: Optional[str]
+    link_request_id: Optional[str]
+    recovery_codes: Optional[list[str]]
 
 
 class RefreshResponse(ApiModel):
@@ -38,20 +38,20 @@ class SessionInfo(ApiModel):
     last_activity_at: datetime
     idle_expires_at: datetime
     absolute_expires_at: datetime
-    mfa_verified_at: Optional[datetime] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    revoked_at: Optional[datetime] = None
-    revoke_reason: Optional[str] = None
-    current: bool = False
-    user_id: Optional[int] = None
-    s3_session_id: Optional[str] = None
+    mfa_verified_at: Optional[datetime]
+    ip_address: Optional[str]
+    user_agent: Optional[str]
+    revoked_at: Optional[datetime]
+    revoke_reason: Optional[str]
+    current: bool
+    user_id: Optional[int]
+    s3_session_id: Optional[str]
 
 
 class CurrentSessionResponse(ApiModel):
-    authenticated: Literal[True] = True
-    user: Optional[UserOut] = None
-    session: Optional[SessionDescriptor] = None
+    authenticated: Literal[True]
+    user: Optional[UserOut]
+    session: Optional[SessionDescriptor]
     auth_session: SessionInfo
 
 
@@ -81,13 +81,13 @@ class WebAuthnCredentialInfo(ApiModel):
     id: str
     name: str
     created_at: datetime
-    last_used_at: Optional[datetime] = None
+    last_used_at: Optional[datetime]
 
 
 class WebAuthnCredentialCreatedResponse(ApiModel):
     id: str
     name: str
-    reauthentication_required: Literal[True] = True
+    reauthentication_required: Literal[True]
 
 
 class RecoveryCodesResponse(ApiModel):
@@ -98,7 +98,7 @@ class ExternalIdentityInfo(ApiModel):
     id: str
     provider_type: str
     provider_id: str
-    email: Optional[str] = None
+    email: Optional[str]
     email_verified: bool
     created_at: datetime
-    last_login_at: Optional[datetime] = None
+    last_login_at: Optional[datetime]

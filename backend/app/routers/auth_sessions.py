@@ -115,9 +115,16 @@ def current_session(
             user_uid=actor.user_uid,
             capabilities=actor.capabilities,
         )
-        return CurrentSessionResponse(session=descriptor, auth_session=_session_info(row, current_id=row.id))
+        return CurrentSessionResponse(
+            authenticated=True,
+            user=None,
+            session=descriptor,
+            auth_session=_session_info(row, current_id=row.id),
+        )
     return CurrentSessionResponse(
+        authenticated=True,
         user=get_users_service(db).user_to_out(actor),
+        session=None,
         auth_session=_session_info(row, current_id=row.id),
     )
 
