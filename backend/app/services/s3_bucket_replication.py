@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Unpack
 
 from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
 
 from app.services.s3_bucket_config_delete import delete_bucket_configuration
-from app.services.s3_client import get_s3_bucket_client
+from app.services.s3_client import S3BucketClientKwargs, get_s3_bucket_client
 from app.utils.aws_errors import aws_error_code
 
 logger = logging.getLogger(__name__)
@@ -16,19 +16,9 @@ logger = logging.getLogger(__name__)
 
 def get_bucket_replication(
     bucket_name: str,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> dict:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         resp = client.get_bucket_replication(Bucket=bucket_name)
     except ClientError as exc:
@@ -45,19 +35,9 @@ def get_bucket_replication(
 def put_bucket_replication(
     bucket_name: str,
     configuration: dict,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> None:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         client.put_bucket_replication(
             Bucket=bucket_name,
@@ -72,19 +52,9 @@ def put_bucket_replication(
 
 def delete_bucket_replication(
     bucket_name: str,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> None:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     deleted = delete_bucket_configuration(
         operation=lambda: client.delete_bucket_replication(Bucket=bucket_name),
         missing_error_codes={"replicationconfigurationnotfounderror", "nosuchreplicationconfiguration", "nosuchbucket"},

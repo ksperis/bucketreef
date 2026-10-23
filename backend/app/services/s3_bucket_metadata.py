@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Unpack
 
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.services.s3_bucket_config_delete import delete_bucket_configuration
-from app.services.s3_client import get_s3_bucket_client
+from app.services.s3_client import S3BucketClientKwargs, get_s3_bucket_client
 from app.utils.aws_errors import aws_error_code
 
 logger = logging.getLogger(__name__)
@@ -17,19 +17,9 @@ logger = logging.getLogger(__name__)
 def put_bucket_tags(
     bucket_name: str,
     tags: list[dict],
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> None:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     tag_set = [
         {"Key": str(tag.get("key") or ""), "Value": str(tag.get("value") or "")}
         for tag in tags
@@ -48,19 +38,9 @@ def put_bucket_tags(
 
 def get_bucket_tags(
     bucket_name: str,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> list[dict]:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         resp = client.get_bucket_tagging(Bucket=bucket_name)
         tag_set = resp.get("TagSet", []) or []
@@ -86,19 +66,9 @@ def get_bucket_tags(
 
 def delete_bucket_tags(
     bucket_name: str,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> None:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         client.delete_bucket_tagging(Bucket=bucket_name)
     except (ClientError, BotoCoreError) as exc:
@@ -107,19 +77,9 @@ def delete_bucket_tags(
 
 def get_bucket_logging(
     bucket_name: str,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> Optional[dict]:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         resp = client.get_bucket_logging(Bucket=bucket_name)
     except (BotoCoreError, ClientError) as exc:
@@ -137,19 +97,9 @@ def get_bucket_logging(
 def put_bucket_logging(
     bucket_name: str,
     logging_config: Optional[dict] = None,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> None:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     status: dict = {}
     if logging_config:
         status["LoggingEnabled"] = logging_config
@@ -162,19 +112,9 @@ def put_bucket_logging(
 
 def get_bucket_notifications(
     bucket_name: str,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> dict:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         resp = client.get_bucket_notification_configuration(Bucket=bucket_name)
         resp.pop("ResponseMetadata", None)
@@ -186,19 +126,9 @@ def get_bucket_notifications(
 def put_bucket_notifications(
     bucket_name: str,
     config: dict,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> None:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         client.put_bucket_notification_configuration(
             Bucket=bucket_name,
@@ -211,19 +141,9 @@ def put_bucket_notifications(
 
 def get_bucket_lifecycle(
     bucket_name: str,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> list[dict]:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         resp = client.get_bucket_lifecycle_configuration(Bucket=bucket_name)
     except ClientError as exc:
@@ -239,19 +159,9 @@ def get_bucket_lifecycle(
 def put_bucket_lifecycle(
     bucket_name: str,
     rules: list[dict],
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> None:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     try:
         client.put_bucket_lifecycle_configuration(Bucket=bucket_name, LifecycleConfiguration={"Rules": rules})
     except (BotoCoreError, ClientError) as exc:
@@ -261,19 +171,9 @@ def put_bucket_lifecycle(
 
 def delete_bucket_lifecycle(
     bucket_name: str,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    session_token: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    force_path_style: bool = False,
-    verify_tls: bool = True,
-    allow_rgw_qualified_bucket_names: bool = False,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> None:
-    client = get_s3_bucket_client(
-        access_key, secret_key, session_token, endpoint, region, force_path_style, verify_tls,
-        allow_rgw_qualified_bucket_names,
-    )
+    client = get_s3_bucket_client(**client_kwargs)
     deleted = delete_bucket_configuration(
         operation=lambda: client.delete_bucket_lifecycle(Bucket=bucket_name),
         missing_error_codes={"nosuchlifecycleconfiguration", "nosuchbucket"},
