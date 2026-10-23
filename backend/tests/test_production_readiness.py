@@ -31,7 +31,6 @@ def _production_settings(**overrides) -> Settings:
         "allowed_hosts": ["admin.example.test", "app.example.test"],
         "trusted_proxy_cidrs": ["10.42.7.15/32"],
         "cors_origins": ["https://admin.example.test", "https://app.example.test"],
-        "jwt_keys": ["legacy-jwt-key-that-is-at-least-32-bytes"],
         "ui_jwt_keys": ["ui-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "api_jwt_keys": ["api-jwt-key-that-is-distinct-and-at-least-32-bytes"],
         "credential_keys": ["credential-key-that-is-at-least-32-bytes"],

@@ -285,6 +285,7 @@ def _build_app_settings_payload() -> str:
 
 def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str, str]:
     env = os.environ.copy()
+    env.pop("JWT_KEYS", None)
 
     # CI should not rely on a repo-local .env file or partially injected nested auth provider variables.
     if env.get("CI"):
@@ -344,7 +345,10 @@ def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str,
     env["DATABASE_URL"] = f"sqlite:///{database_path.resolve().as_posix()}"
     env["PUBLIC_ORIGIN"] = request_origin
     env["CORS_ORIGINS"] = json.dumps([request_origin])
-    env["JWT_KEYS"] = _env_str("JWT_KEYS", json.dumps([_generate_secret()]), source=env) or json.dumps(
+    env["UI_JWT_KEYS"] = _env_str("UI_JWT_KEYS", json.dumps([_generate_secret()]), source=env) or json.dumps(
+        [_generate_secret()]
+    )
+    env["API_JWT_KEYS"] = _env_str("API_JWT_KEYS", json.dumps([_generate_secret()]), source=env) or json.dumps(
         [_generate_secret()]
     )
     env["CREDENTIAL_KEYS"] = _env_str(

@@ -204,8 +204,8 @@ def _secret_findings(
 
 
 def _key_ring_state(settings: Settings) -> tuple[bool, bool]:
-    ui_keys = settings.effective_ui_jwt_keys()
-    api_keys = settings.effective_api_jwt_keys()
+    ui_keys = list(settings.ui_jwt_keys)
+    api_keys = list(settings.api_jwt_keys)
     credential_keys = list(settings.credential_keys)
     strong_keys = bool(ui_keys and api_keys and credential_keys) and not any(
         is_weak_secret_value(value)

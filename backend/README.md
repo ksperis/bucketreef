@@ -93,7 +93,8 @@ Environment variables (or `.env` file) supported via `pydantic`:
 
 - `APP_NAME` (default: `BucketReef`)
 - `API_PREFIX` (default: `/api`)
-- `JWT_KEYS` (JSON keyring; first key signs new JWTs)
+- `UI_JWT_KEYS` (JSON keyring; first key signs browser/session JWTs)
+- `API_JWT_KEYS` (JSON keyring; first key signs API-token JWTs)
 - `CREDENTIAL_KEYS` (JSON keyring; first key encrypts new secrets)
 - `ACCESS_TOKEN_EXPIRE_MINUTES` (default: `60`)
 - `REFRESH_TOKEN_EXPIRE_MINUTES` (default: `20160`)
@@ -126,10 +127,10 @@ Environment variables (or `.env` file) supported via `pydantic`:
 - `OIDC_PROVIDERS__<key>__*` to configure OpenID Connect providers (see below)
 - `LDAP_PROVIDERS__<key>__*` to configure LDAP providers (see below)
 
-JWT signing uses the first key in `JWT_KEYS` and validates against the full list.
+JWT signing uses the first key in the applicable UI or API keyring and validates against the full ring.
 
 Security notes:
-- Production environments should set strong non-default values for `JWT_KEYS` and `CREDENTIAL_KEYS` (>=32 chars, high entropy).
+- Production environments should set strong, mutually distinct values for `UI_JWT_KEYS`, `API_JWT_KEYS`, and `CREDENTIAL_KEYS` (>=32 chars, high entropy).
 - Production environments should set `REFRESH_TOKEN_COOKIE_SECURE=true` when using non-local origins, and `CORS_ORIGINS` should list explicit trusted origins rather than `*`.
 - The web bootstrap is unavailable until an operator explicitly issues a token.
   Tokens expire after 15 minutes, are single-use, and can be rotated while the

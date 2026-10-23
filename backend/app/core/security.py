@@ -227,13 +227,13 @@ class JwtKeyRing:
 @lru_cache(maxsize=1)
 def _get_ui_jwt_key_ring() -> JwtKeyRing:
     settings = get_settings()
-    return JwtKeyRing(settings.effective_ui_jwt_keys())
+    return JwtKeyRing(settings.ui_jwt_keys)
 
 
 @lru_cache(maxsize=1)
 def _get_api_jwt_key_ring() -> JwtKeyRing:
     settings = get_settings()
-    return JwtKeyRing(settings.effective_api_jwt_keys())
+    return JwtKeyRing(settings.api_jwt_keys)
 
 
 def _get_credential_keys() -> list[str]:
