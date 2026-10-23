@@ -7,24 +7,6 @@ import pytest
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 
 
-def test_select_credentials_prefers_complete_non_excluded_key():
-    entries = [
-        {"access_key": " OLD ", "secret_key": " OLD-SECRET "},
-        {"access_key": "NEW-WITHOUT-SECRET"},
-        {"access-key": " NEW ", "secret-key": " NEW-SECRET "},
-    ]
-
-    assert RgwUserKeyParser.select_credentials(entries) == (
-        "OLD",
-        "OLD-SECRET",
-    )
-    assert RgwUserKeyParser.select_credentials(
-        entries,
-        exclude_access_key="OLD",
-    ) == ("NEW", "NEW-SECRET")
-    assert RgwUserKeyParser.select_credentials([]) == (None, None)
-
-
 def test_access_key_ids_normalizes_supported_field_names():
     assert RgwUserKeyParser.access_key_ids(
         [

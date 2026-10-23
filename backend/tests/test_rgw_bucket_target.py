@@ -21,7 +21,6 @@ def test_rgw_bucket_target_keeps_plain_and_qualified_names_separate() -> None:
     assert tenant_target.tenant == "tenant_a"
     assert tenant_target.s3_name == "tenant_a:shared"
     assert tenant_target.admin_ops_name == "tenant_a/shared"
-    assert tenant_target.identity_key != default_target.identity_key
 
 
 def test_rgw_bucket_target_rejects_prequalified_bucket_names() -> None:

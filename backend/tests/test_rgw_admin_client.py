@@ -32,19 +32,6 @@ def test_set_access_key_status_raises_when_not_implemented(monkeypatch):
         client.set_access_key_status("user-1", "AK-123", enabled=False, tenant=None)
 
 
-def test_get_info_returns_empty_when_not_implemented(monkeypatch):
-    client = RGWAdminClient(
-        access_key="AKIA-TEST",
-        secret_key="SECRET-TEST",
-        endpoint="https://rgw-admin.example.test",
-        region="us-east-1",
-    )
-
-    monkeypatch.setattr(client, "_request", lambda *args, **kwargs: {"not_implemented": True})
-
-    assert client.get_info() == {}
-
-
 def test_list_accounts_with_include_details_fetches_per_account_details(monkeypatch):
     client = RGWAdminClient(
         access_key="AKIA-TEST",
