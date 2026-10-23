@@ -67,8 +67,8 @@ class ListBrowserObjectsResponse(ApiModel):
     prefix: str
     objects: list[BrowserObject]
     prefixes: list[str]
-    is_truncated: bool = False
-    next_continuation_token: Optional[str] = None
+    is_truncated: bool
+    next_continuation_token: Optional[str]
 
 
 class ObjectColumnsRequest(ApiModel):
@@ -89,15 +89,15 @@ class ObjectColumnValues(ApiModel):
 
 
 class ObjectColumnsResponse(ApiModel):
-    items: list[ObjectColumnValues] = Field(default_factory=list)
+    items: list[ObjectColumnValues]
 
 
 class PaginatedBrowserBucketsResponse(ApiModel):
-    items: list[BrowserBucket] = Field(default_factory=list)
-    total: int = 0
-    page: int = 1
-    page_size: int = 50
-    has_next: bool = False
+    items: list[BrowserBucket]
+    total: int
+    page: int
+    page_size: int
+    has_next: bool
 
 
 class BrowserUsageSummary(ApiModel):

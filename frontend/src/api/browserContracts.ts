@@ -53,7 +53,7 @@ export type ListBrowserObjectsResponse = {
   objects: BrowserObject[];
   prefixes: string[];
   is_truncated: boolean;
-  next_continuation_token?: string | null;
+  next_continuation_token: string | null;
 };
 
 export type BrowserSettings = {
