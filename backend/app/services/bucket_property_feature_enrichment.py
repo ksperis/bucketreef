@@ -105,7 +105,8 @@ def enrich_object_lock(
         if context.unavailable:
             feature_map["object_lock"] = unavailable_feature_status()
             return
-        enabled = bool((context.properties.object_lock_enabled if context.properties else None) is True)
+        object_lock = context.properties.object_lock if context.properties else None
+        enabled = bool(object_lock and object_lock.enabled is True)
     else:
         try:
             object_lock = context.reader.get_bucket_object_lock(

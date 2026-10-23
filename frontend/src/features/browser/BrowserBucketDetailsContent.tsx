@@ -86,9 +86,7 @@ function buildFeatureRows(
             : null,
       ),
     );
-    const objectLockEnabled = Boolean(
-      properties.object_lock?.enabled ?? properties.object_lock_enabled,
-    );
+    const objectLockEnabled = Boolean(properties.object_lock?.enabled);
     rows.push(
       featureRow(
         "object-lock",

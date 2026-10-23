@@ -2641,7 +2641,6 @@ export function buildBaseRules(): MockRule[] {
       path: /^\/(manager\/buckets|browser\/buckets\/config)\/[^/]+\/properties$/,
       body: {
         versioning_status: "Disabled",
-        object_lock_enabled: false,
         object_lock: null,
         public_access_block: {
           block_public_acls: false,

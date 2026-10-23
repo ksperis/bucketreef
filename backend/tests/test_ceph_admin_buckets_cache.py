@@ -2394,7 +2394,6 @@ def test_ceph_admin_bucket_listing_feature_param_filters_cover_non_lifecycle_fea
     def fake_get_bucket_properties(self, name: str, account):
         if name == "bucket-a":
             return BucketProperties(
-                object_lock_enabled=True,
                 object_lock=BucketObjectLock(enabled=True, mode="GOVERNANCE", days=30, years=1),
                 public_access_block=BucketPublicAccessBlock(
                     block_public_acls=True,
@@ -2406,7 +2405,6 @@ def test_ceph_admin_bucket_listing_feature_param_filters_cover_non_lifecycle_fea
                 cors_rules=[{"AllowedMethods": ["GET", "HEAD"], "AllowedOrigins": ["https://example.test"]}],
             )
         return BucketProperties(
-            object_lock_enabled=False,
             object_lock=BucketObjectLock(enabled=False, mode="COMPLIANCE", days=5, years=3),
             public_access_block=BucketPublicAccessBlock(
                 block_public_acls=False,
@@ -2653,7 +2651,6 @@ def test_ceph_admin_bucket_listing_includes_audit_feature_column_details(monkeyp
 
     def fake_get_bucket_properties(self, name: str, account):  # noqa: ARG001
         return BucketProperties(
-            object_lock_enabled=True,
             object_lock=BucketObjectLock(enabled=True, mode="GOVERNANCE", days=30, years=1),
             public_access_block=BucketPublicAccessBlock(
                 block_public_acls=True,

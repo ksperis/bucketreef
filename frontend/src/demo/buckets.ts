@@ -39,7 +39,6 @@ export function buckets(c: DemoRequest): Response | undefined {
   if (resource === "objects" && ceph && method === "GET") return json(objectListing(bucket, c.url));
   if (resource === "properties" && method === "GET") return json({
     versioning_status: (bucket.config.versioning as { status: string }).status,
-    object_lock_enabled: (bucket.config["object-lock"] as { enabled: boolean }).enabled,
     object_lock: bucket.config["object-lock"], public_access_block: bucket.config["public-access-block"],
     lifecycle_rules: ((bucket.config.lifecycle as { rules: Record<string, unknown>[] }).rules).map(rule => ({ id: rule.ID, status: rule.Status, prefix: "" })),
     cors_rules: (bucket.config.cors as { rules: unknown[] }).rules,

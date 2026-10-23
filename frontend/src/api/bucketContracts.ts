@@ -102,7 +102,6 @@ export type BucketAcl = {
 
 export type BucketProperties = {
   versioning_status?: string | null;
-  object_lock_enabled?: boolean | null;
   object_lock?: BucketObjectLockConfiguration | null;
   public_access_block?: BucketPublicAccessBlock | null;
   lifecycle_rules: BucketLifecycleRule[];

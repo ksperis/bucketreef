@@ -112,7 +112,6 @@ class BucketObjectLockUpdate(ApiModel):
 
 class BucketProperties(ApiModel):
     versioning_status: Optional[str] = None
-    object_lock_enabled: Optional[bool] = None
     object_lock: Optional[BucketObjectLock] = None
     public_access_block: Optional[BucketPublicAccessBlock] = None
     lifecycle_rules: List[LifecycleRule] = Field(default_factory=list)

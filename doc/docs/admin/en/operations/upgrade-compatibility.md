@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical bucket Object Lock properties
+
+Bucket property responses now expose Object Lock state only through the
+`object_lock` object. The redundant top-level `object_lock_enabled` field has
+been removed because it duplicated `object_lock.enabled` from the same storage
+read and could drift from the detailed configuration.
+
+Deploy the backend and bundled frontend together. Internal callers of bucket
+property routes must read `object_lock.enabled`. No database migration is
+required.
+
 ## 2026-10 API prefix configuration rename
 
 The backend runtime setting formerly named `API_V1_PREFIX` has been renamed to

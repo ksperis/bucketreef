@@ -215,7 +215,6 @@ describe("BucketDetailPage replication state", () => {
     });
     getCephAdminBucketPropertiesMock.mockResolvedValue({
       versioning_status: "Disabled",
-      object_lock_enabled: false,
       object_lock: { enabled: false, mode: null, days: null, years: null },
       public_access_block: {
         block_public_acls: false,
