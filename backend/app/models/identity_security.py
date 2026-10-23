@@ -84,3 +84,8 @@ class ExternalIdentityLinkRequestInfo(ApiModel):
     expires_at: datetime
     decided_at: Optional[datetime] = None
     decision_source: Optional[str] = None
+
+
+class ExternalIdentityLinkDecisionResponse(ApiModel):
+    id: str
+    status: Literal["approved", "rejected"]

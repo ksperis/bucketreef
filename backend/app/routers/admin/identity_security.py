@@ -15,6 +15,7 @@ from app.models.identity_security import (
     AdminSessionInfo,
     AdminSetPasswordRequest,
     AdminUserSecurity,
+    ExternalIdentityLinkDecisionResponse,
     ExternalIdentityLinkRequestInfo,
 )
 from app.models.user import UserUpdate, validate_password_policy
@@ -264,7 +265,10 @@ def list_identity_link_requests(
     )
 
 
-@router.post("/identity/link-requests/{request_id}")
+@router.post(
+    "/identity/link-requests/{request_id}",
+    response_model=ExternalIdentityLinkDecisionResponse,
+)
 def decide_identity_link_request(
     request: Request,
     request_id: str,
@@ -272,7 +276,7 @@ def decide_identity_link_request(
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_super_admin),
     audit: AuditService = Depends(get_audit_service),
-) -> dict[str, str]:
+) -> ExternalIdentityLinkDecisionResponse:
     require_admin_interactive_session(request, db, actor)
     AdminIdentitySecurityService(db).managed_link_request(actor, request_id)
     if payload.approve:
@@ -298,7 +302,10 @@ def decide_identity_link_request(
             "provider_id": decided.provider_id,
         },
     )
-    return {"id": decided.id, "status": decided.status}
+    return ExternalIdentityLinkDecisionResponse(
+        id=decided.id,
+        status=decided.status,
+    )
 
 
 @router.get("/identity/sessions", response_model=list[AdminSessionInfo])
