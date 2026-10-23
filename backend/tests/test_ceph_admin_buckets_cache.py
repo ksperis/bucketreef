@@ -2881,6 +2881,8 @@ def test_ceph_admin_bucket_stream_emits_progress_result_and_done(monkeypatch: py
             page=page,
             page_size=page_size,
             has_next=False,
+            stats_available=True,
+            stats_warning=None,
         )
 
     monkeypatch.setattr(buckets_router, "_compute_bucket_listing", fake_compute)

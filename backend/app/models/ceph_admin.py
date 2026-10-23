@@ -205,8 +205,8 @@ class CephAdminRgwUserSummary(ApiModel):
 
 class PaginatedCephAdminBucketsResponse(PaginatedResponse):
     items: list[BucketListingSummary]
-    stats_available: bool = True
-    stats_warning: Optional[str] = None
+    stats_available: bool
+    stats_warning: Optional[str]
 
 
 class CephAdminBucketListingCacheRefreshResponse(ApiModel):
