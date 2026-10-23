@@ -158,7 +158,6 @@ class OidcService:
             login_state,
         )
         identity = self._identity_from_token_payload(
-            provider_key,
             provider,
             metadata,
             token_payload,
@@ -266,14 +265,12 @@ class OidcService:
 
     def _identity_from_token_payload(
         self,
-        provider_key: str,
         provider: OIDCProviderSettings,
         metadata: dict[str, Any],
         token_payload: dict[str, Any],
         expected_nonce: Optional[str],
     ) -> dict[str, Any]:
         claims = self._decode_id_token(
-            provider_key,
             provider,
             metadata,
             token_payload["id_token"],
@@ -378,7 +375,6 @@ class OidcService:
 
     def _decode_id_token(
         self,
-        provider_key: str,
         provider: OIDCProviderSettings,
         metadata: dict[str, Any],
         id_token: str,

@@ -151,7 +151,7 @@ class OnboardingSetupService:
                 )
 
         if draft.private_connection:
-            self._private_connection(actor, row, draft, endpoint, payload)
+            self._private_connection(actor, row, endpoint, payload)
 
         if draft.ceph_admin and not actor.can_access_ceph_admin:
             get_users_service(self.db).update_user(
@@ -742,7 +742,7 @@ class OnboardingSetupService:
             index += 1
         return candidate
 
-    def _private_connection(self, actor, row, draft, endpoint, payload):
+    def _private_connection(self, actor, row, endpoint, payload):
         resources = json.loads(row.resources_json)
         if resources.get("connection_id"):
             if self.db.get(S3Connection, resources["connection_id"]) is None:
