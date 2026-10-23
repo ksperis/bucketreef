@@ -45,7 +45,6 @@ def enabled(monkeypatch):
     settings = AppSettings()
     for field in ("browser_enabled", "browser_root_enabled", "browser_manager_enabled", "browser_portal_enabled", "browser_ceph_admin_enabled", "manager_enabled", "portal_enabled", "ceph_admin_enabled"):
         setattr(settings.general, field, True)
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(route, "current_auth_session", lambda *_: SimpleNamespace(id="test-session"))
     return settings

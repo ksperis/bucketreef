@@ -296,7 +296,7 @@ def test_browser_ceph_admin_requires_active_external_identity(identities, db_ses
     settings = AppSettings()
     settings.general.ceph_admin_enabled = blocked != "global"
     settings.general.browser_ceph_admin_enabled = True
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: settings)
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda _db: settings)
     if blocked == "allowed":
         endpoint.ceph_admin_allowed = False
     if blocked == "validation":
