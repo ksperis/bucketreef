@@ -1,5 +1,14 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical SNS policy and configuration payloads
+
+Manager SNS topic policy responses and updates now require `policy`, and topic
+configuration responses and updates require `configuration`. Empty state is an
+explicit empty object instead of an omitted field or model default.
+
+Deploy the backend and bundled frontend together. Direct callers must send the
+canonical objects for update requests. No database migration is required.
+
 ## 2026-10 canonical bucket scalar configuration responses
 
 Bucket versioning responses now always include nullable `status` plus boolean

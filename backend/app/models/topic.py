@@ -22,8 +22,8 @@ class TopicCreate(ApiModel):
 
 
 class TopicPolicy(ApiModel):
-    policy: dict = Field(default_factory=dict)
+    policy: dict
 
 
 class TopicConfiguration(ApiModel):
-    configuration: dict = Field(default_factory=dict)
+    configuration: dict

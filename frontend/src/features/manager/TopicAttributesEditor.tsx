@@ -104,7 +104,7 @@ export default function TopicAttributesEditor({ contextId, currentContextId, top
 }) {
   const { text } = useManagerI18n();
   const sslHintId = useId();
-  const load = useCallback(async () => configurationDraft((await getTopicConfiguration(contextId, topic.arn)).configuration ?? {}), [contextId, topic.arn]);
+  const load = useCallback(async () => configurationDraft((await getTopicConfiguration(contextId, topic.arn)).configuration), [contextId, topic.arn]);
   const { draft, baseline, setDraft, accept, loading, loadError, retry } = useSettingsRemoteDraft(() => configurationDraft(topic.configuration), load, "Unable to load topic settings.");
   const dirty = !equalSettings(editableValues(baseline), editableValues(draft));
   const [saving, setSaving] = useState(false);
@@ -172,7 +172,7 @@ export default function TopicAttributesEditor({ contextId, currentContextId, top
     setSaving(true);
     try {
       const updated = await updateTopicConfiguration(contextId, topic.arn, configuration);
-      const next = updated.configuration ?? {};
+      const next = updated.configuration;
       accept(configurationDraft(next));
       onSaved(next);
       setStatus("Attributes updated.");
