@@ -175,6 +175,34 @@ describe("useBrowserFavorites", () => {
     expect(onApply).not.toHaveBeenCalled();
   });
 
+  it("does not expose an unavailable saved context identifier", async () => {
+    const unavailableFavorite: BrowserFavorite = {
+      ...saved,
+      id: "unavailable-context",
+      context: "conn-65",
+    };
+    mocks.list.mockResolvedValue([unavailableFavorite]);
+    const onApply = vi.fn();
+    const { result } = renderHook(() =>
+      useBrowserFavorites(options({ onApply })),
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    let applied = true;
+    await act(async () => {
+      applied = await result.current.apply(unavailableFavorite);
+    });
+
+    expect(applied).toBe(false);
+    expect(result.current.unavailable["unavailable-context"]).toBe(
+      "The context associated with this favorite is no longer available.",
+    );
+    expect(result.current.unavailable["unavailable-context"]).not.toContain("conn-65");
+    expect(mocks.buckets).not.toHaveBeenCalled();
+    expect(mocks.objects).not.toHaveBeenCalled();
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
   it("refreshes favorites when the window regains focus", async () => {
     renderHook(() => useBrowserFavorites(options()));
     await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(1));
