@@ -366,7 +366,7 @@ def test_compare_request_rejects_empty_feature_list_when_config_scope_enabled():
 def test_require_bucket_compare_enabled_blocks_when_feature_disabled(db_session, monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_compare = "disabled"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     with pytest.raises(HTTPException) as exc:
         dependencies_router.require_bucket_compare_enabled(_tool_user(), db=db_session)
@@ -378,7 +378,7 @@ def test_require_bucket_compare_enabled_blocks_when_feature_disabled(db_session,
 def test_require_bucket_compare_enabled_blocks_without_user_tool_access(db_session, monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_compare = "targeted"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     user = _tool_user(bucket_compare=False)
     db_session.add(user)
     db_session.flush()
@@ -715,7 +715,7 @@ def test_compare_bucket_action_request_validates_action_and_parallelism():
 def test_compare_bucket_action_feature_off_returns_403(db_session, monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_compare = "disabled"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     payload = ManagerBucketCompareActionRequest(
         target_context_id="2",
