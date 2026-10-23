@@ -18,6 +18,25 @@ def _client_error(code: str, operation: str) -> ClientError:
     return ClientError({"Error": {"Code": code, "Message": "failed"}}, operation)
 
 
+def _object_metadata(key: str = "docs/report.txt") -> ObjectMetadata:
+    return ObjectMetadata(
+        key=key,
+        size=0,
+        etag=None,
+        last_modified=None,
+        content_type=None,
+        cache_control=None,
+        content_disposition=None,
+        content_encoding=None,
+        content_language=None,
+        expires=None,
+        storage_class=None,
+        restore_status=None,
+        metadata={},
+        version_id=None,
+    )
+
+
 def test_update_object_metadata_preserves_source_state_and_tags(monkeypatch):
     calls: list[tuple[str, dict[str, object]]] = []
     original_tags = [
@@ -51,7 +70,7 @@ def test_update_object_metadata_preserves_source_state_and_tags(monkeypatch):
             calls.append(("put_tags", kwargs))
 
     service = BrowserService()
-    expected = ObjectMetadata(key="docs/report.txt", size=0)
+    expected = _object_metadata()
     invalidations: list[tuple[S3Account, str]] = []
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
     monkeypatch.setattr(
@@ -275,7 +294,7 @@ def test_update_object_metadata_copies_empty_tag_set_without_restoration(monkeyp
     monkeypatch.setattr(
         service,
         "head_object",
-        lambda *_args, **_kwargs: ObjectMetadata(key="docs/report.txt", size=0),
+        lambda *_args, **_kwargs: _object_metadata(),
     )
 
     service.update_object_metadata(

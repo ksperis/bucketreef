@@ -61,7 +61,7 @@ export const presignObjectWithSts = async (
       VersionId: payload.version_id ?? undefined,
     });
     const url = await getSignedUrl(client, command, { expiresIn });
-    return { url, method, expires_in: expiresIn, headers: Object.keys(headers).length ? headers : undefined };
+    return { url, method, expires_in: expiresIn, headers };
   }
   if (payload.operation === "delete_object") {
     method = "DELETE";
@@ -71,7 +71,7 @@ export const presignObjectWithSts = async (
       VersionId: payload.version_id ?? undefined,
     });
     const url = await getSignedUrl(client, command, { expiresIn });
-    return { url, method, expires_in: expiresIn, headers: Object.keys(headers).length ? headers : undefined };
+    return { url, method, expires_in: expiresIn, headers };
   }
   if (payload.operation === "put_object") {
     method = "PUT";
@@ -84,7 +84,7 @@ export const presignObjectWithSts = async (
       headers["Content-Type"] = payload.content_type;
     }
     const url = await getSignedUrl(client, command, { expiresIn });
-    return { url, method, expires_in: expiresIn, headers: Object.keys(headers).length ? headers : undefined };
+    return { url, method, expires_in: expiresIn, headers };
   }
   throw new Error(`STS presign does not support ${payload.operation}`);
 };
@@ -104,5 +104,5 @@ export const presignPartWithSts = async (
     UploadId: uploadId,
   });
   const url = await getSignedUrl(client, command, { expiresIn });
-  return { url, method: "PUT", expires_in: expiresIn };
+  return { url, method: "PUT", expires_in: expiresIn, headers: {} };
 };

@@ -28,16 +28,16 @@ type MultipartUploadInitResponse = {
 export type MultipartUploadItem = {
   key: string;
   upload_id: string;
-  initiated?: string | null;
-  storage_class?: string | null;
-  owner?: string | null;
+  initiated: string | null;
+  storage_class: string | null;
+  owner: string | null;
 };
 
 type ListMultipartUploadsResponse = {
   uploads: MultipartUploadItem[];
   is_truncated: boolean;
-  next_key?: string | null;
-  next_upload_id?: string | null;
+  next_key: string | null;
+  next_upload_id: string | null;
 };
 
 export type PresignPartRequest = {
@@ -50,7 +50,7 @@ export type PresignPartResponse = {
   url: string;
   method: string;
   expires_in: number;
-  headers?: Record<string, string>;
+  headers: Record<string, string>;
 };
 
 type CompleteMultipartUploadRequest = {

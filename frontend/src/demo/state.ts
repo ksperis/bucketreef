@@ -199,8 +199,10 @@ export function putObject(bucket: DemoBucket, key: string, body: Blob, imported:
   let object = bucket.objects.find(item => item.key === key);
   if (!object) { object = { key, tags: [], versions: [] }; bucket.objects.push(object); }
   const version: DemoObjectVersion = { key, body, size: body.size, content_type: body.type || "application/octet-stream",
-    imported, metadata: { source: imported ? "local-upload" : "demo-scenario" }, last_modified: date,
-    etag: `"demo-${body.size}-${date.replace(/\D/g, "")}"`, storage_class: "STANDARD", version_id: crypto.randomUUID() };
+    cache_control: null, content_disposition: null, content_encoding: null, content_language: null,
+    expires: null, restore_status: null, imported, metadata: { source: imported ? "local-upload" : "demo-scenario" },
+    last_modified: date, etag: `"demo-${body.size}-${date.replace(/\D/g, "")}"`, storage_class: "STANDARD",
+    version_id: crypto.randomUUID() };
   if (!(bucket.config.versioning as { enabled: boolean }).enabled) object.versions = [];
   object.versions.unshift(version);
   return object;

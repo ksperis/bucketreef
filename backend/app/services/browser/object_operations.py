@@ -407,7 +407,7 @@ class BrowserObjectOperationsMixin:
             )
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to presign part {payload.part_number} for '{payload.key}': {exc}") from exc
-        return PresignPartResponse(url=url, expires_in=expires, headers=headers)
+        return PresignPartResponse(url=url, method="PUT", expires_in=expires, headers=headers)
 
     def complete_multipart_upload(
         self,

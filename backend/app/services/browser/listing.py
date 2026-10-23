@@ -417,6 +417,7 @@ class BrowserListingMixin:
                     key=entry_key,
                     version_id=entry.get("VersionId"),
                     is_latest=bool(entry.get("IsLatest")),
+                    is_delete_marker=False,
                     last_modified=entry.get("LastModified"),
                     size=int(entry.get("Size") or 0),
                     etag=self._clean_etag(entry.get("ETag")),
@@ -443,6 +444,9 @@ class BrowserListingMixin:
                     is_latest=bool(entry.get("IsLatest")),
                     is_delete_marker=True,
                     last_modified=entry.get("LastModified"),
+                    size=None,
+                    etag=None,
+                    storage_class=None,
                 )
             )
         return markers
