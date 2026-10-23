@@ -256,11 +256,7 @@ class PortalIamMixin:
         if not iam_username:
             raise RuntimeError("IAM username missing for this portal user")
         if portal_role not in {PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value}:
-            for group in (self._manager_group_name, self._user_group_name):
-                try:
-                    iam_service.remove_user_from_group(group, iam_username)
-                except Exception as exc:  # pragma: no cover - defensive
-                    logger.warning("Unable to remove %s from %s: %s", iam_username, group, exc)
+            self._remove_portal_group_memberships(iam_service, iam_username)
             return
 
         # The manager group grants account-wide S3 data access. Protect the
@@ -272,20 +268,48 @@ class PortalIamMixin:
         self._ensure_portal_groups(iam_service, account)
         target_group = self._manager_group_name if portal_role == PortalAccountRole.PORTAL_MANAGER.value else self._user_group_name
         other_group = self._user_group_name if target_group == self._manager_group_name else self._manager_group_name
-
-        other_members = iam_service.list_group_users(other_group)
         remove_other_first = target_group == self._user_group_name
-        if remove_other_first and any(m.name == iam_username for m in other_members):
+        self._transition_portal_group_membership(
+            iam_service,
+            iam_username,
+            target_group=target_group,
+            other_group=other_group,
+            remove_other_first=remove_other_first,
+        )
+        if account is not None and portal_role == PortalAccountRole.PORTAL_USER.value:
+            self._sync_portal_server_access_log_bucket_policy_if_present(account)
+
+    def _remove_portal_group_memberships(
+        self,
+        iam_service: RGWIAMService,
+        iam_username: str,
+    ) -> None:
+        for group in (self._manager_group_name, self._user_group_name):
+            try:
+                iam_service.remove_user_from_group(group, iam_username)
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("Unable to remove %s from %s: %s", iam_username, group, exc)
+
+    @staticmethod
+    def _transition_portal_group_membership(
+        iam_service: RGWIAMService,
+        iam_username: str,
+        *,
+        target_group: str,
+        other_group: str,
+        remove_other_first: bool,
+    ) -> None:
+        other_members = iam_service.list_group_users(other_group)
+        is_other_member = any(member.name == iam_username for member in other_members)
+        if remove_other_first and is_other_member:
             iam_service.remove_user_from_group(other_group, iam_username)
 
         members = iam_service.list_group_users(target_group)
-        if not any(m.name == iam_username for m in members):
+        if not any(member.name == iam_username for member in members):
             iam_service.add_user_to_group(target_group, iam_username)
 
-        if not remove_other_first and any(m.name == iam_username for m in other_members):
+        if not remove_other_first and is_other_member:
             iam_service.remove_user_from_group(other_group, iam_username)
-        if account is not None and portal_role == PortalAccountRole.PORTAL_USER.value:
-            self._sync_portal_server_access_log_bucket_policy_if_present(account)
 
     def _existing_portal_link(self, user: User, account: S3Account) -> Optional[AccountIAMUser]:
         return self.db.scalar(
