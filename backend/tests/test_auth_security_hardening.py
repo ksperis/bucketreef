@@ -632,11 +632,11 @@ def test_profile_name_edit_is_disabled_by_default_and_can_be_enabled(auth_client
     credentials = authenticate_ui_client(auth_client, db_session, user)
     headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
 
-    denied = auth_client.put("/api/users/me", json={"full_name": "New name"}, headers=headers)
+    denied = auth_client.patch("/api/users/me", json={"full_name": "New name"}, headers=headers)
     assert denied.status_code == 403
 
     _set_general_setting(db_session, "allow_user_profile_name_edit", True)
-    allowed = auth_client.put("/api/users/me", json={"full_name": "New name"}, headers=headers)
+    allowed = auth_client.patch("/api/users/me", json={"full_name": "New name"}, headers=headers)
     assert allowed.status_code == 200
     assert allowed.json()["full_name"] == "New name"
 

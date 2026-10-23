@@ -107,7 +107,7 @@ def delete_my_notification(
     )
 
 
-@router.put("/me", response_model=UserOut)
+@router.patch("/me", response_model=UserOut)
 def update_users_me(
     payload: UserSelfUpdate,
     current_user: User = Depends(get_current_account_user),
