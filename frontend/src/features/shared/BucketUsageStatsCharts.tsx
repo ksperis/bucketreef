@@ -21,6 +21,7 @@ import { MetricsChartPanel, MetricsEmptyState } from "../../components/MetricsCa
 import type { ChartTooltipProps } from "../../components/chartTooltip";
 import { cx } from "../../components/ui/styles";
 import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
+import "./bucketUsageStatsCharts.css";
 import {
   useBucketUsageStatsI18n,
   type BucketUsageStatsDistributionKind,
@@ -168,39 +169,41 @@ export function UsageStatsDataTypeDonut({
   const outerRadius = height < 180 ? 58 : 100;
   const innerRadius = height < 180 ? 36 : 64;
   return (
-    <div className={cx("grid gap-4", legendWidth > 0 && "lg:grid-cols-[minmax(0,1fr)_220px]")}>
-      <ResponsiveContainer width="100%" height={height}>
-        <PieChart>
-          <Pie
-            data={entries}
-            dataKey="bytes"
-            nameKey="label"
-            innerRadius={innerRadius}
-            outerRadius={outerRadius}
-            paddingAngle={entries.length > 1 ? 2 : 0}
-          >
+    <div className={cx("usage-stats-donut-container", legendWidth <= 0 && "usage-stats-donut-container-no-legend")}>
+      <div className="usage-stats-donut-layout">
+        <ResponsiveContainer width="100%" height={height}>
+          <PieChart>
+            <Pie
+              data={entries}
+              dataKey="bytes"
+              nameKey="label"
+              innerRadius={innerRadius}
+              outerRadius={outerRadius}
+              paddingAngle={entries.length > 1 ? 2 : 0}
+            >
+              {entries.map((entry, index) => (
+                <Cell key={entry.key} fill={usageStatsChartColor(index)} />
+              ))}
+            </Pie>
+            <Tooltip content={<UsageStatsDistributionTooltip distributionKind={distributionKind} text={translateText} />} />
+          </PieChart>
+        </ResponsiveContainer>
+        {legendWidth > 0 && (
+          <div className="max-h-64 space-y-2 overflow-auto pr-1">
             {entries.map((entry, index) => (
-              <Cell key={entry.key} fill={usageStatsChartColor(index)} />
-            ))}
-          </Pie>
-          <Tooltip content={<UsageStatsDistributionTooltip distributionKind={distributionKind} text={translateText} />} />
-        </PieChart>
-      </ResponsiveContainer>
-      {legendWidth > 0 && (
-        <div className="max-h-64 space-y-2 overflow-auto pr-1">
-          {entries.map((entry, index) => (
-            <div key={entry.key} className="flex items-start gap-2">
-              <span className="mt-1 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: usageStatsChartColor(index) }} />
-              <div className="min-w-0">
-                <p className="truncate ui-caption font-semibold text-slate-700 dark:text-slate-200">{distributionLabel(entry, distributionKind)}</p>
-                <p className="ui-caption text-slate-500 dark:text-slate-400">
-                  {formatBytes(entry.bytes)} · {formatPercentage(entry.ratio_bytes * 100)}
-                </p>
+              <div key={entry.key} className="flex items-start gap-2">
+                <span className="mt-1 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: usageStatsChartColor(index) }} />
+                <div className="min-w-0">
+                  <p className="truncate ui-caption font-semibold text-slate-700 dark:text-slate-200">{distributionLabel(entry, distributionKind)}</p>
+                  <p className="ui-caption text-slate-500 dark:text-slate-400">
+                    {formatBytes(entry.bytes)} · {formatPercentage(entry.ratio_bytes * 100)}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -135,26 +135,28 @@ export function BucketUsageStatsCompositionVisuals({
         </PageBanner>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <UsageStatsChartShell title={labels?.dataTypesTitle ?? text("dataTypesTitle")} subtitle={labels?.dataTypesSubtitle ?? text("dataTypesSubtitle")}>
-          <UsageStatsDataTypeDonut entries={dataTypes} distributionKind="dataType" text={translateText} />
-        </UsageStatsChartShell>
-        <UsageStatsChartShell title={labels?.currentVsNoncurrentTitle ?? text("currentVsNoncurrentTitle")} subtitle={labels?.currentVsNoncurrentSubtitle ?? text("currentVsNoncurrentSubtitle")}>
-          {currentVsNoncurrent.length > 0 ? (
-            <UsageStatsDataTypeDonut entries={currentVsNoncurrent} distributionKind="currentVersion" text={translateText} />
-          ) : (
-            <UsageStatsEmptyChart message={currentVsNoncurrentEmptyMessage ?? text("fallbackScanUnavailable")} />
-          )}
-        </UsageStatsChartShell>
-        <UsageStatsChartShell title={labels?.storageClassesTitle ?? text("storageClassesTitle")} subtitle={labels?.storageClassesSubtitle ?? text("storageClassesSubtitle")}>
-          <UsageStatsDistributionBars entries={storageClasses} distributionKind="storageClass" text={translateText} />
-        </UsageStatsChartShell>
-        <UsageStatsChartShell title={labels?.objectSizesTitle ?? text("objectSizesTitle")} subtitle={labels?.objectSizesSubtitle ?? text("objectSizesSubtitle")}>
-          <UsageStatsDistributionBars entries={sizeDistribution} distributionKind="size" bytesAxis={false} text={translateText} />
-        </UsageStatsChartShell>
-        <UsageStatsChartShell title={labels?.objectAgeTitle ?? text("objectAgeTitle")} subtitle={labels?.objectAgeSubtitle ?? text("objectAgeSubtitle")}>
-          <UsageStatsDistributionBars entries={ageDistribution} distributionKind="age" bytesAxis={false} text={translateText} />
-        </UsageStatsChartShell>
+      <div className="usage-stats-composition-container">
+        <div className="usage-stats-chart-grid">
+          <UsageStatsChartShell title={labels?.dataTypesTitle ?? text("dataTypesTitle")} subtitle={labels?.dataTypesSubtitle ?? text("dataTypesSubtitle")}>
+            <UsageStatsDataTypeDonut entries={dataTypes} distributionKind="dataType" text={translateText} />
+          </UsageStatsChartShell>
+          <UsageStatsChartShell title={labels?.currentVsNoncurrentTitle ?? text("currentVsNoncurrentTitle")} subtitle={labels?.currentVsNoncurrentSubtitle ?? text("currentVsNoncurrentSubtitle")}>
+            {currentVsNoncurrent.length > 0 ? (
+              <UsageStatsDataTypeDonut entries={currentVsNoncurrent} distributionKind="currentVersion" text={translateText} />
+            ) : (
+              <UsageStatsEmptyChart message={currentVsNoncurrentEmptyMessage ?? text("fallbackScanUnavailable")} />
+            )}
+          </UsageStatsChartShell>
+          <UsageStatsChartShell title={labels?.storageClassesTitle ?? text("storageClassesTitle")} subtitle={labels?.storageClassesSubtitle ?? text("storageClassesSubtitle")}>
+            <UsageStatsDistributionBars entries={storageClasses} distributionKind="storageClass" text={translateText} />
+          </UsageStatsChartShell>
+          <UsageStatsChartShell title={labels?.objectSizesTitle ?? text("objectSizesTitle")} subtitle={labels?.objectSizesSubtitle ?? text("objectSizesSubtitle")}>
+            <UsageStatsDistributionBars entries={sizeDistribution} distributionKind="size" bytesAxis={false} text={translateText} />
+          </UsageStatsChartShell>
+          <UsageStatsChartShell title={labels?.objectAgeTitle ?? text("objectAgeTitle")} subtitle={labels?.objectAgeSubtitle ?? text("objectAgeSubtitle")}>
+            <UsageStatsDistributionBars entries={ageDistribution} distributionKind="age" bytesAxis={false} text={translateText} />
+          </UsageStatsChartShell>
+        </div>
       </div>
     </div>
   );
