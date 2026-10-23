@@ -457,11 +457,11 @@ expecting `secret_key` on existing-key reads. No database migration is required.
 ## 2026-10 surface-specific bucket operation requests
 
 Bucket integrity checks, purge operations, and targeted usage-statistics scans
-now expose separate request schemas for their execution surface. Manager and
-Ceph Admin routes accept `buckets`; Storage Ops routes accept `targets` with an
-explicit execution context. A request can no longer include, omit, or switch to
-the other surface's target collection and rely on router-side compatibility
-validation.
+now expose separate request schemas for their execution surface. Manager routes
+accept `buckets`; Storage Ops routes accept `targets` with an explicit execution
+context; Ceph Admin routes accept RGW `targets` carrying the tenant and bucket
+name. A request can no longer include, omit, or switch to another surface's
+target shape and rely on router-side compatibility validation.
 
 Deploy the backend and bundled frontend together. The canonical frontend JSON
 payloads are unchanged, but direct callers using the wrong collection now fail
