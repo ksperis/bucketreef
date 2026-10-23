@@ -5,6 +5,43 @@ from app.services.quota_monitoring_service import QuotaMonitoringService
 from app.services.data_retention_service import DataRetentionService
 
 
+def _monitor_result(**overrides):
+    result = {
+        "started_at": "2026-10-23T08:00:00+00:00",
+        "finished_at": "2026-10-23T08:00:01+00:00",
+        "subjects_total": 0,
+        "subjects_processed": 0,
+        "history_hourly_upserts": 0,
+        "history_daily_upserts": 0,
+        "alerts_triggered": 0,
+        "alerts_sent": 0,
+        "notifications_created": 0,
+        "email_errors": 0,
+        "errors": [],
+        "warnings": [],
+        "quota_alerts_enabled": False,
+        "quota_alerts_configured": True,
+        "usage_history_enabled": True,
+        "usage_history_collection_enabled": False,
+        "threshold_percent": 85,
+        "retention": {
+            "quota_history": {
+                "hourly_retention_days": 30,
+                "daily_retention_days": 365,
+                "deleted_hourly": 0,
+                "deleted_daily": 0,
+            },
+            "cost_history": {
+                "daily_retention_days": 365,
+                "deleted_usage_daily": 0,
+                "deleted_storage_daily": 0,
+            },
+        },
+    }
+    result.update(overrides)
+    return result
+
+
 def test_internal_usage_history_collect_uses_daily_history_mode(client, monkeypatch):
     monkeypatch.setattr(dependencies.settings, "internal_cron_token", "expected-token")
     calls: list[dict[str, bool]] = []
@@ -21,14 +58,13 @@ def test_internal_usage_history_collect_uses_daily_history_mode(client, monkeypa
                 "include_usage_history": include_usage_history,
             }
         )
-        return {
-            "subjects_total": 2,
-            "subjects_processed": 2,
-            "history_hourly_upserts": 2,
-            "history_daily_upserts": 2,
-            "quota_alerts_enabled": False,
-            "usage_history_collection_enabled": True,
-        }
+        return _monitor_result(
+            subjects_total=2,
+            subjects_processed=2,
+            history_hourly_upserts=2,
+            history_daily_upserts=2,
+            usage_history_collection_enabled=True,
+        )
 
     monkeypatch.setattr(QuotaMonitoringService, "run_monitor", fake_run_monitor)
 
@@ -58,14 +94,11 @@ def test_internal_quota_monitor_does_not_persist_usage_history(client, monkeypat
                 "include_usage_history": include_usage_history,
             }
         )
-        return {
-            "subjects_total": 1,
-            "subjects_processed": 1,
-            "history_hourly_upserts": 0,
-            "history_daily_upserts": 0,
-            "quota_alerts_enabled": True,
-            "usage_history_collection_enabled": False,
-        }
+        return _monitor_result(
+            subjects_total=1,
+            subjects_processed=1,
+            quota_alerts_enabled=True,
+        )
 
     monkeypatch.setattr(QuotaMonitoringService, "run_monitor", fake_run_monitor)
 
