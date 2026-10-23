@@ -63,7 +63,11 @@ import {
 } from "./filtering/advancedFilterModel";
 import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
-import { readClientJsonFromKey, writeClientJsonToKey } from "../../utils/clientStorage";
+import {
+  loadCephAdminVisibleColumns,
+  persistCephAdminVisibleColumns,
+  resolveCephAdminQuickFilterState,
+} from "./listing/cephAdminListingViewState";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { nextSortState } from "../../utils/sortValues";
 import { useCephAdminI18n } from "./cephAdminI18n";
@@ -170,6 +174,7 @@ const ACCOUNT_COLUMN_GROUPS: Array<{ id: string; label: string; options: Array<{
     ],
   },
 ];
+const ACCOUNT_COLUMN_IDS = ACCOUNT_COLUMN_GROUPS.flatMap((group) => group.options.map((option) => option.id));
 
 // Sort choices remain stable when optional table columns are hidden.
 const SORT_COLUMNS: Array<{ field: SortField; label: string }> = [
@@ -267,27 +272,6 @@ const buildAdvancedFilterPayload = (
   return JSON.stringify({ match: "all", rules });
 };
 
-const loadVisibleColumns = (): ColumnId[] => {
-  const parsed = readClientJsonFromKey<unknown>(COLUMNS_STORAGE_KEY);
-  if (!Array.isArray(parsed)) return defaultVisibleColumns;
-  const allowed = new Set<ColumnId>([
-    "account_name",
-    "email",
-    "max_users",
-    "max_buckets",
-    "quota_max_size_bytes",
-    "quota_max_objects",
-    "bucket_count",
-    "user_count",
-  ]);
-  const cleaned = parsed.filter((v) => typeof v === "string" && allowed.has(v as ColumnId)) as ColumnId[];
-  return cleaned.length > 0 ? cleaned : defaultVisibleColumns;
-};
-
-const persistVisibleColumns = (value: ColumnId[]) => {
-  writeClientJsonToKey(COLUMNS_STORAGE_KEY, value);
-};
-
 const rowKey = (account: CephAdminRgwAccount) => account.account_id;
 
 export default function CephAdminAccountsPage() {
@@ -298,7 +282,9 @@ export default function CephAdminAccountsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>(DEFAULT_SORT);
-  const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(loadVisibleColumns);
+  const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(() =>
+    loadCephAdminVisibleColumns(COLUMNS_STORAGE_KEY, ACCOUNT_COLUMN_IDS, defaultVisibleColumns),
+  );
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<CephAdminRgwAccount | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -324,7 +310,7 @@ export default function CephAdminAccountsPage() {
   });
 
   useEffect(() => {
-    persistVisibleColumns(visibleColumns);
+    persistCephAdminVisibleColumns(COLUMNS_STORAGE_KEY, visibleColumns);
   }, [visibleColumns]);
 
   useEffect(() => {
@@ -341,13 +327,16 @@ export default function CephAdminAccountsPage() {
     return Array.from(include.values());
   }, [visibleColumns]);
 
-  const quickFilterDraftParsed = useMemo(() => parseExactListInput(filter), [filter]);
-  const quickFilterAppliedParsed = useMemo(() => parseExactListInput(searchValue), [searchValue]);
-  const quickFilterDraftForcesExact = quickFilterDraftParsed.listProvided && quickFilterDraftParsed.values.length > 0;
-  const quickFilterAppliedForcesExact = quickFilterAppliedParsed.listProvided && quickFilterAppliedParsed.values.length > 0;
-  const quickFilterModeForDisplay: TextMatchMode = quickFilterDraftForcesExact ? "exact" : quickFilterMode;
-  const effectiveQuickFilterMode: TextMatchMode = quickFilterAppliedForcesExact ? "exact" : quickFilterMode;
-  const effectiveSearchValue = effectiveQuickFilterMode === "contains" ? searchValue : "";
+  const {
+    active: quickFilterActive,
+    appliedParsed: quickFilterAppliedParsed,
+    draftForcesExact: quickFilterDraftForcesExact,
+    effectiveMode: effectiveQuickFilterMode,
+    effectiveSearchValue,
+    fieldState: quickFilterFieldState,
+    modeForDisplay: quickFilterModeForDisplay,
+    pending: quickFilterPending,
+  } = resolveCephAdminQuickFilterState(filter, searchValue, quickFilterMode);
   const advancedFilterParam = useMemo(
     () => buildAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
     [advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics]
@@ -391,11 +380,6 @@ export default function CephAdminAccountsPage() {
     setSort((current) => nextSortState(current, field));
     setPage(1);
   };
-
-  const quickDraftValue = filter.trim();
-  const quickAppliedValue = searchValue.trim();
-  const quickFilterPending = quickDraftValue !== quickAppliedValue;
-  const quickFilterFieldState = advancedFilterFieldHighlight(quickAppliedValue.length > 0, quickFilterPending);
 
   const accountNameAppliedValue = (advancedApplied?.accountName ?? "").trim();
   const emailAppliedValue = (advancedApplied?.email ?? "").trim();
@@ -487,7 +471,6 @@ export default function CephAdminAccountsPage() {
   });
 
   const advancedFilterActive = hasAdvancedFilters(advancedApplied, canViewMetrics);
-  const quickFilterActive = quickAppliedValue.length > 0;
   const activeFilterSummaryItems = useMemo(() => {
     const items: ActiveFilterSummaryItem[] = [];
     if (quickFilterActive) {
