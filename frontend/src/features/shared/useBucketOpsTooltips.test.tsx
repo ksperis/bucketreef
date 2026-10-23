@@ -38,6 +38,7 @@ function createApi() {
       page_size: 5,
       has_next: false,
       stats_available: true,
+      stats_warning: null,
     })),
   };
 }
@@ -58,6 +59,7 @@ describe("useBucketOpsTooltips", () => {
       page_size: 5,
       has_next: false,
       stats_available: true,
+      stats_warning: null,
     });
     const { result } = renderHook(() =>
       useBucketOpsTooltips({

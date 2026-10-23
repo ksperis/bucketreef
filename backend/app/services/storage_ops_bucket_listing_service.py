@@ -502,6 +502,8 @@ class _StorageOpsBucketListingPipeline:
             page=self.page,
             page_size=self.page_size,
             has_next=has_next,
+            stats_available=True,
+            stats_warning=None,
         )
 
     def _apply_ui_tags(

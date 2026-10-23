@@ -203,6 +203,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
       page_size: 25,
       has_next: false,
       stats_available: true,
+      stats_warning: null,
     });
 
     render(
@@ -276,6 +277,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
               page_size: 25,
               has_next: false,
               stats_available: true,
+              stats_warning: null,
             },
       ),
     );
@@ -304,6 +306,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
       page_size: 25,
       has_next: false,
       stats_available: true,
+      stats_warning: null,
     });
 
     render(
@@ -348,6 +351,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
       page_size: number;
       has_next: boolean;
       stats_available: boolean;
+      stats_warning: string | null;
     }>();
     mocks.listCephAdminBuckets.mockReturnValueOnce(pending.promise);
 
@@ -382,6 +386,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
       page_size: 25,
       has_next: false,
       stats_available: true,
+      stats_warning: null,
     });
 
     expect(await screen.findByText("No buckets.")).toBeInTheDocument();
@@ -395,6 +400,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
       page_size: number;
       has_next: boolean;
       stats_available: boolean;
+      stats_warning: string | null;
     }>();
 
     mocks.listCephAdminBuckets
@@ -405,6 +411,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
         page_size: 25,
         has_next: false,
         stats_available: true,
+        stats_warning: null,
       })
       .mockImplementationOnce(() => deferred.promise);
 
@@ -438,6 +445,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
       page_size: 25,
       has_next: false,
       stats_available: true,
+      stats_warning: null,
     });
 
     expect(await screen.findByText("bucket-b")).toBeInTheDocument();

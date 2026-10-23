@@ -223,13 +223,13 @@ export function useBucketOpsListing({
       if (requestAbort.signal.aborted) return;
       if (requestId !== requestSeqRef.current) return;
 
-      const baseItems = baseResponse.items ?? [];
+      const baseItems = baseResponse.items;
       setItems(baseItems);
-      setTotal(baseResponse.total ?? 0);
+      setTotal(baseResponse.total);
       if (baseRequiresStats) {
-        setStatsAvailable(baseResponse.stats_available !== false);
-        setStatsWarning(baseResponse.stats_warning ?? null);
-      } else if (baseResponse.stats_available === false) {
+        setStatsAvailable(baseResponse.stats_available);
+        setStatsWarning(baseResponse.stats_warning);
+      } else if (!baseResponse.stats_available) {
         setStatsAvailable(false);
       }
       setLoading(false);
@@ -238,7 +238,7 @@ export function useBucketOpsListing({
       const needsDetails = includeParams.length > 0 || (requiresStats && !baseRequiresStats);
       if (!needsDetails || baseItems.length === 0) return;
 
-      const detailWithStats = requiresStats && baseResponse.stats_available !== false;
+      const detailWithStats = requiresStats && baseResponse.stats_available;
 
       setLoadingDetails(true);
       try {
@@ -267,11 +267,11 @@ export function useBucketOpsListing({
         if (requestAbort.signal.aborted) return;
         if (requestId !== requestSeqRef.current) return;
 
-        const detailsByKey = new Map((detailResponse.items ?? []).map((bucket) => [bucketRowKey(bucket), bucket]));
+        const detailsByKey = new Map(detailResponse.items.map((bucket) => [bucketRowKey(bucket), bucket]));
         if (detailWithStats) {
-          setStatsAvailable(detailResponse.stats_available !== false);
-          setStatsWarning(detailResponse.stats_warning ?? null);
-        } else if (detailResponse.stats_available === false) {
+          setStatsAvailable(detailResponse.stats_available);
+          setStatsWarning(detailResponse.stats_warning);
+        } else if (!detailResponse.stats_available) {
           setStatsAvailable(false);
         }
         setItems(baseItems.map((bucket) => detailsByKey.get(bucketRowKey(bucket)) ?? bucket));

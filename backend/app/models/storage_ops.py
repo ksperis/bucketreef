@@ -22,6 +22,8 @@ class StorageOpsBucketSummary(BucketListingSummary):
 
 class PaginatedStorageOpsBucketsResponse(PaginatedResponse):
     items: list[StorageOpsBucketSummary]
+    stats_available: bool
+    stats_warning: Optional[str]
 
 
 class StorageOpsBucketListingCacheRefreshResponse(ApiModel):
