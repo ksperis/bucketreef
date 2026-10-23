@@ -25,12 +25,31 @@ export async function listIamEntities<T>(segment: IamEntitySegment, contextId?: 
   return data;
 }
 
-export async function createIamEntity<T>(
+export async function getIamEntity<T>(
+  segment: IamEntitySegment,
+  contextId: S3ExecutionContextSelector,
+  entityName: string,
+): Promise<T> {
+  const { data } = await client.get<T>(entityPath(segment, entityName), withContext(contextId));
+  return data;
+}
+
+export async function createIamEntity<T, Payload extends object = object>(
   segment: IamEntitySegment,
   contextId: S3ExecutionContextSelector | undefined,
-  payload: Record<string, unknown>
+  payload: Payload,
 ): Promise<T> {
   const { data } = await client.post<T>(segmentBasePath(segment), payload, withContext(contextId));
+  return data;
+}
+
+export async function updateIamEntity<T, Payload extends object>(
+  segment: IamEntitySegment,
+  contextId: S3ExecutionContextSelector,
+  entityName: string,
+  payload: Payload,
+): Promise<T> {
+  const { data } = await client.patch<T>(entityPath(segment, entityName), payload, withContext(contextId));
   return data;
 }
 

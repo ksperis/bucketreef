@@ -11,10 +11,12 @@ import {
   deleteEntityInlinePolicy,
   deleteIamEntity,
   detachEntityPolicy,
+  getIamEntity,
   listEntityInlinePolicies,
   listEntityPolicies,
   listIamEntities,
   putEntityInlinePolicy,
+  updateIamEntity,
 } from "./managerIamEntityClient";
 
 export type IAMRole = {
@@ -49,21 +51,15 @@ export async function listIamRoles(contextId?: S3ExecutionContextSelector): Prom
 }
 
 export async function getIamRole(contextId: S3ExecutionContextSelector, roleName: string): Promise<IAMRole> {
-  const { data } = await client.get<IAMRole>(`/manager/iam/roles/${encodeURIComponent(roleName)}`, {
-    params: withS3ContextParam(undefined, contextId),
-  });
-  return data;
+  return getIamEntity<IAMRole>("roles", contextId, roleName);
 }
 
 export async function createIamRole(contextId: S3ExecutionContextSelector, payload: CreateRolePayload): Promise<IAMRole> {
-  return createIamEntity<IAMRole>("roles", contextId, payload as Record<string, unknown>);
+  return createIamEntity<IAMRole, CreateRolePayload>("roles", contextId, payload);
 }
 
 export async function updateIamRole(contextId: S3ExecutionContextSelector, roleName: string, payload: UpdateRolePayload): Promise<IAMRole> {
-  const { data } = await client.patch<IAMRole>(`/manager/iam/roles/${encodeURIComponent(roleName)}`, payload, {
-    params: withS3ContextParam(undefined, contextId),
-  });
-  return data;
+  return updateIamEntity<IAMRole, UpdateRolePayload>("roles", contextId, roleName, payload);
 }
 
 export async function putRoleTags(contextId: S3ExecutionContextSelector, roleName: string, tags: IAMTag[]): Promise<IAMTag[]> {
