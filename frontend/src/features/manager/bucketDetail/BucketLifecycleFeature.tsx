@@ -30,6 +30,7 @@ import {
   BucketFeatureEditorToolbar,
   BucketFeatureJsonPane,
 } from "./BucketFeatureEditorLayout";
+import { createBucketFeatureManageColumn } from "./BucketFeatureManageColumn";
 import BucketFeatureSummarySection from "./BucketFeatureSummarySection";
 import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -365,33 +366,14 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
         );
       },
     },
-    {
-      id: "manage",
+    createBucketFeatureManageColumn<LifecycleTableRow>({
       label: text("Manage"),
-      mobileRole: "actions",
-      headerClassName: "w-px whitespace-nowrap text-right",
-      cellClassName: "w-px whitespace-nowrap",
-      render: ({ index }) => (
-        <div className="bucket-feature-row-actions">
-          <SettingsButton
-            type="button"
-            variant="secondary"
-            onClick={() => openEditorFor(index)}
-            disabled={saving || notImplemented}
-          >
-            {text("Edit")}
-          </SettingsButton>
-          <SettingsButton
-            type="button"
-            variant="danger"
-            onClick={() => removeRuleDirect(index)}
-            disabled={saving || notImplemented}
-          >
-            {text("Remove")}
-          </SettingsButton>
-        </div>
-      ),
-    },
+      editLabel: text("Edit"),
+      removeLabel: text("Remove"),
+      disabled: saving || notImplemented,
+      onEdit: openEditorFor,
+      onRemove: removeRuleDirect,
+    }),
   ];
 
   const visibleDraftRules = draftRules
