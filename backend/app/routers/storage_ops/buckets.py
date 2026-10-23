@@ -12,7 +12,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.bucket_listing import BucketListingRequest
-from app.models.storage_ops import PaginatedStorageOpsBucketsResponse
+from app.models.storage_ops import (
+    PaginatedStorageOpsBucketsResponse,
+    StorageOpsBucketListingCacheRefreshResponse,
+)
 from app.routers.listing_common import require_advanced_filter_stream_payload, stream_listing_response
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -90,12 +93,12 @@ def _compute_storage_ops_listing(
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
-@router.post("/cache/refresh")
+@router.post("/cache/refresh", response_model=StorageOpsBucketListingCacheRefreshResponse)
 def refresh_storage_ops_bucket_listing_cache(
     request: Request,
     user: User = Depends(get_current_storage_ops_admin),
     db: Session = Depends(get_db),
-) -> dict[str, object]:
+) -> StorageOpsBucketListingCacheRefreshResponse:
     refs = build_storage_ops_context_refs(list_storage_ops_contexts(user, db))
     resolved_contexts = resolve_storage_ops_contexts(
         refs=refs,
@@ -117,7 +120,11 @@ def refresh_storage_ops_bucket_listing_cache(
             endpoint_ids.add(endpoint_id)
     for endpoint_id in endpoint_ids:
         invalidate_bucket_owner_metadata_cache(endpoint_id)
-    return {"refreshed": True, "contexts": len(resolved_contexts), "endpoints": len(endpoint_ids)}
+    return StorageOpsBucketListingCacheRefreshResponse(
+        refreshed=True,
+        contexts=len(resolved_contexts),
+        endpoints=len(endpoint_ids),
+    )
 
 
 @router.get("", response_model=PaginatedStorageOpsBucketsResponse)

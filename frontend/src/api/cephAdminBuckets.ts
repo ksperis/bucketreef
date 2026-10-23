@@ -64,11 +64,9 @@ type ListCephAdminBucketsOptions = {
   signal?: AbortSignal;
 };
 
-export type BucketListingCacheRefreshResponse = {
+export type CephAdminBucketListingCacheRefreshResponse = {
   refreshed: boolean;
-  endpoint_id?: number;
-  contexts?: number;
-  endpoints?: number;
+  endpoint_id: number;
 };
 
 export type CephAdminBucketConfigBackupFeature =
@@ -130,8 +128,8 @@ export async function listCephAdminBuckets(
 
 export async function refreshCephAdminBucketListingCache(
   endpointId: number
-): Promise<BucketListingCacheRefreshResponse> {
-  const { data } = await client.post<BucketListingCacheRefreshResponse>(
+): Promise<CephAdminBucketListingCacheRefreshResponse> {
+  const { data } = await client.post<CephAdminBucketListingCacheRefreshResponse>(
     `/ceph-admin/endpoints/${endpointId}/buckets/cache/refresh`
   );
   return data;

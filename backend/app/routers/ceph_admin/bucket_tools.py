@@ -12,7 +12,11 @@ from app.models.bucket_config_backup import (
     BucketConfigBackupResponse,
     BucketConfigBackupSource,
 )
-from app.models.ceph_admin import CephAdminBucketCompareRequest, CephAdminBucketCompareResult
+from app.models.ceph_admin import (
+    CephAdminBucketCompareRequest,
+    CephAdminBucketCompareResult,
+    CephAdminBucketListingCacheRefreshResponse,
+)
 from app.models.browser import ListBrowserObjectsResponse
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.ceph_admin_service_identity import validate_ceph_admin_service_configuration
@@ -41,15 +45,18 @@ from app.routers.ceph_admin.bucket_config_common import (
 router = APIRouter()
 
 
-@router.post("/cache/refresh")
+@router.post("/cache/refresh", response_model=CephAdminBucketListingCacheRefreshResponse)
 def refresh_bucket_listing_cache(
     endpoint_id: int,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
-) -> dict[str, object]:
+) -> CephAdminBucketListingCacheRefreshResponse:
     resolved_endpoint_id = ctx.endpoint.id
     invalidate_bucket_listing_cache(resolved_endpoint_id)
     invalidate_bucket_owner_metadata_cache(resolved_endpoint_id)
-    return {"refreshed": True, "endpoint_id": resolved_endpoint_id}
+    return CephAdminBucketListingCacheRefreshResponse(
+        refreshed=True,
+        endpoint_id=resolved_endpoint_id,
+    )
 
 
 @router.post("/config-backup", response_model=BucketConfigBackupResponse)
