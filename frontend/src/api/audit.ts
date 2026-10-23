@@ -13,19 +13,19 @@ export type AuditLogEntry = {
   user_role: string;
   scope: string;
   action: string;
-  entity_type?: string | null;
-  entity_id?: string | null;
-  context_kind?: string | null;
-  context_id?: string | null;
-  context_name?: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  context_kind: string | null;
+  context_id: string | null;
+  context_name: string | null;
   status: AuditStatus;
-  message?: string | null;
-  metadata?: Record<string, unknown> | null;
+  message: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
 type AuditLogResponse = {
   logs: AuditLogEntry[];
-  next_cursor?: number | null;
+  next_cursor: number | null;
 };
 
 type AuditLogQuery = {
