@@ -6,6 +6,7 @@ from datetime import timedelta
 import json
 
 import pytest
+import sqlalchemy as sa
 
 from app.db import (
     EndpointHealthCheck,
@@ -176,7 +177,7 @@ def test_endpoint_health_notifications_follow_transitions_and_admin_scope(
     ) == 2
     db_session.commit()
 
-    rows = db_session.query(UserNotification).order_by(UserNotification.id).all()
+    rows = db_session.scalars(sa.select(UserNotification).order_by(UserNotification.id)).all()
     assert len(rows) == 8
     assert {row.user_id for row in rows} == {admin.id, superadmin.id}
     assert {row.subject_type for row in rows} == {"endpoint"}
@@ -191,12 +192,11 @@ def test_endpoint_health_notifications_follow_transitions_and_admin_scope(
     assert degraded_payload["error_message"] == "access_key=<redacted> timed out"
     assert "AKIA1234567890123456" not in rows[0].message
 
-    deliveries = (
-        db_session.query(WebhookDelivery)
-        .filter(WebhookDelivery.endpoint_id == webhook.id)
+    deliveries = db_session.scalars(
+        sa.select(WebhookDelivery)
+        .where(WebhookDelivery.endpoint_id == webhook.id)
         .order_by(WebhookDelivery.id)
-        .all()
-    )
+    ).all()
     assert len(deliveries) == 4
     assert {delivery.event_type for delivery in deliveries} == {ENDPOINT_HEALTH_EVENT_TYPE}
     webhook_payload = json.loads(deliveries[0].payload_json)
