@@ -37,6 +37,7 @@ import type {
   BucketPolicy,
   BucketProperties,
   BucketPublicAccessBlock,
+  BucketPublicAccessBlockUpdate,
   BucketWebsiteConfiguration,
 } from "./bucketContracts";
 import type {
@@ -185,7 +186,7 @@ export async function getStorageOpsBucketPublicAccessBlock(
 export async function updateStorageOpsBucketPublicAccessBlock(
   _scopeId: number,
   bucketRef: string,
-  payload: BucketPublicAccessBlock
+  payload: BucketPublicAccessBlockUpdate
 ): Promise<BucketPublicAccessBlock> {
   const { contextId, bucketName } = resolveBucketTarget(bucketRef);
   return updateBucketPublicAccessBlock(contextId, bucketName, payload);

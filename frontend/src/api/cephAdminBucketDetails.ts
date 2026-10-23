@@ -14,6 +14,7 @@ import type {
   BucketPolicy,
   BucketProperties,
   BucketPublicAccessBlock,
+  BucketPublicAccessBlockUpdate,
   BucketQuotaUpdate,
   BucketReplicationConfiguration,
   BucketTag,
@@ -384,7 +385,7 @@ export async function getCephAdminBucketPublicAccessBlock(
 export async function updateCephAdminBucketPublicAccessBlock(
   endpointId: number,
   bucketName: string,
-  payload: BucketPublicAccessBlock,
+  payload: BucketPublicAccessBlockUpdate,
   tenant?: string | null,
 ): Promise<BucketPublicAccessBlock> {
   return writeCephAdminBucketResource<BucketPublicAccessBlock>(endpointId, bucketName, "public-access-block", payload, tenant);

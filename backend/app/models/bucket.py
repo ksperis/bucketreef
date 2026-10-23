@@ -31,10 +31,17 @@ class Bucket(ApiModel):
 
 
 class BucketPublicAccessBlock(ApiModel):
-    block_public_acls: Optional[bool] = None
-    ignore_public_acls: Optional[bool] = None
-    block_public_policy: Optional[bool] = None
-    restrict_public_buckets: Optional[bool] = None
+    block_public_acls: Optional[bool]
+    ignore_public_acls: Optional[bool]
+    block_public_policy: Optional[bool]
+    restrict_public_buckets: Optional[bool]
+
+
+class BucketPublicAccessBlockUpdate(ApiModel):
+    block_public_acls: bool
+    ignore_public_acls: bool
+    block_public_policy: bool
+    restrict_public_buckets: bool
 
 
 class BucketCreate(ApiModel):

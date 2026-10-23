@@ -37,6 +37,7 @@ from app.models.bucket import (
     BucketReplicationConfiguration,
     BucketProperties,
     BucketPublicAccessBlock,
+    BucketPublicAccessBlockUpdate,
     BucketQuotaUpdate,
     BucketTag,
     BucketWebsiteConfiguration,
@@ -270,15 +271,13 @@ class BucketConfigurationService:
         self,
         name: str,
         execution_context: S3ExecutionTarget,
-        payload: BucketPublicAccessBlock,
+        payload: BucketPublicAccessBlockUpdate,
     ) -> BucketPublicAccessBlock:
         config = {
-            "BlockPublicAcls": bool(payload.block_public_acls) if payload.block_public_acls is not None else False,
-            "IgnorePublicAcls": bool(payload.ignore_public_acls) if payload.ignore_public_acls is not None else False,
-            "BlockPublicPolicy": bool(payload.block_public_policy) if payload.block_public_policy is not None else False,
-            "RestrictPublicBuckets": bool(payload.restrict_public_buckets)
-            if payload.restrict_public_buckets is not None
-            else False,
+            "BlockPublicAcls": payload.block_public_acls,
+            "IgnorePublicAcls": payload.ignore_public_acls,
+            "BlockPublicPolicy": payload.block_public_policy,
+            "RestrictPublicBuckets": payload.restrict_public_buckets,
         }
         if not any(config.values()):
             config = {}

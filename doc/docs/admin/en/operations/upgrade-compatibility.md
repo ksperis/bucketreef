@@ -1,5 +1,14 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical public access block updates
+
+Bucket public-access-block reads now return all four nullable state fields,
+while update requests require all four boolean values explicitly. Omitted or
+`null` write fields are no longer interpreted as `false`.
+
+The bundled frontend already normalizes and sends the complete write payload.
+No database migration is required.
+
 ## 2026-10 explicit Ceph Admin user caps updates
 
 Ceph Admin RGW user-capability updates now require an explicit `values` array.

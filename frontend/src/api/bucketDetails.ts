@@ -16,6 +16,7 @@ import type {
   BucketPolicy,
   BucketProperties,
   BucketPublicAccessBlock,
+  BucketPublicAccessBlockUpdate,
   BucketQuotaUpdate,
   BucketReplicationConfiguration,
   BucketTag,
@@ -135,7 +136,7 @@ function createManagerBucketDetailsApi() {
     updateBucketPublicAccessBlock: (
       contextId: S3ExecutionContextSelector,
       bucketName: string,
-      payload: BucketPublicAccessBlock,
+      payload: BucketPublicAccessBlockUpdate,
     ) =>
       write<BucketPublicAccessBlock>(
         contextId,

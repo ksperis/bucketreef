@@ -55,7 +55,15 @@ class _SettingsStub:
         self._write("delete_bucket_encryption")
 
     def get_public_access_block(self, *_args):
-        return self._read("get_public_access_block", {"block_public_acls": True})
+        return self._read(
+            "get_public_access_block",
+            SimpleNamespace(
+                block_public_acls=True,
+                ignore_public_acls=False,
+                block_public_policy=False,
+                restrict_public_buckets=False,
+            ),
+        )
 
     def set_public_access_block(self, *_args):
         self._write("set_public_access_block")

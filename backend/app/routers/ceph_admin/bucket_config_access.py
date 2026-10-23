@@ -11,6 +11,7 @@ from app.models.bucket import (
     BucketPolicyIn,
     BucketPolicyOut,
     BucketPublicAccessBlock,
+    BucketPublicAccessBlockUpdate,
 )
 from app.routers.ceph_admin.bucket_config_common import (
     _run_bucket_config_read,
@@ -117,7 +118,7 @@ def get_public_access_block(
 @router.put("/{bucket_name}/public-access-block", response_model=BucketPublicAccessBlock)
 def put_public_access_block(
     bucket_name: str,
-    payload: BucketPublicAccessBlock,
+    payload: BucketPublicAccessBlockUpdate,
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketPublicAccessBlock:
