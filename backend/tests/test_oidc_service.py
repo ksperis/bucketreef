@@ -520,6 +520,44 @@ def test_decode_id_token_key_lookup_invalid_token_and_nonce_mismatch(db_session,
         service._decode_id_token(provider, metadata, "token", expected_nonce="expected", access_token="a")
 
 
+@pytest.mark.parametrize(
+    "header,error",
+    [
+        ({"alg": "RS256"}, "missing a signing key id"),
+        ({"kid": "kid-1", "alg": "HS256"}, "disallowed signing algorithm"),
+    ],
+)
+def test_decode_id_token_rejects_invalid_signing_header(db_session, monkeypatch, header, error):
+    service, _ = _service(db_session)
+    metadata = {"issuer": "https://issuer.example.test", "jwks_uri": "https://issuer.example.test/jwks"}
+    monkeypatch.setattr("app.services.oidc_service.jwt.get_unverified_header", lambda _token: header)
+    monkeypatch.setattr(service, "_get_jwks", lambda _uri: {"keys": []})
+
+    with pytest.raises(OIDCAuthenticationError, match=error):
+        service._decode_id_token(_provider(), metadata, "token", expected_nonce="n", access_token="a")
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        {"kid": "kid-1", "kty": "EC", "use": "sig"},
+        {"kid": "kid-1", "kty": "RSA", "use": "enc"},
+        {"kid": "kid-1", "kty": "RSA", "use": "sig", "key_ops": ["sign"]},
+    ],
+)
+def test_decode_id_token_requires_verification_signing_key(db_session, monkeypatch, key):
+    service, _ = _service(db_session)
+    metadata = {"issuer": "https://issuer.example.test", "jwks_uri": "https://issuer.example.test/jwks"}
+    monkeypatch.setattr(
+        "app.services.oidc_service.jwt.get_unverified_header",
+        lambda _token: {"kid": "kid-1", "alg": "RS256"},
+    )
+    monkeypatch.setattr(service, "_get_jwks", lambda _uri: {"keys": [key]})
+
+    with pytest.raises(OIDCAuthenticationError, match="matching signing key"):
+        service._decode_id_token(_provider(), metadata, "token", expected_nonce="n", access_token="a")
+
+
 def test_fetch_userinfo_email_and_code_challenge_helpers(db_session, monkeypatch):
     service, _ = _service(db_session)
 
