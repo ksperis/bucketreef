@@ -135,7 +135,16 @@ def test_manager_bucket_quota_update_succeeds_with_privileged_access(client, db_
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
     monkeypatch.setattr(
         "app.services.manager_ceph_management_access_service._resolve_endpoint_admin_ops_permissions",
-        lambda _endpoint: StorageEndpointAdminOpsPermissions(buckets_read=True, buckets_write=True),
+        lambda _endpoint: StorageEndpointAdminOpsPermissions(
+            users_read=False,
+            users_write=False,
+            buckets_read=True,
+            buckets_write=True,
+            accounts_read=False,
+            accounts_write=False,
+            usage_read=False,
+            usage_write=False,
+        ),
     )
     try:
         response = client.put(

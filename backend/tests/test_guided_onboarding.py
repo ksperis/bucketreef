@@ -102,8 +102,11 @@ def detection(
         users_read=True,
         users_write=True,
         buckets_read=True,
+        buckets_write=False,
         accounts_read=True,
         accounts_write=True,
+        usage_read=False,
+        usage_write=False,
     )
     return StorageEndpointFeatureDetectionResult(
         admin=admin,
@@ -456,6 +459,8 @@ def test_onboarding_rejects_admin_ops_without_required_provisioning_caps(
                 accounts_write=False,
                 buckets_read=True,
                 buckets_write=True,
+                usage_read=False,
+                usage_write=False,
             )
         ),
     )
@@ -673,7 +678,19 @@ def test_ceph_admin_requires_valid_dedicated_identity_and_grants_access(
     monkeypatch.setattr(
         guided.endpoints,
         "detect_features",
-        lambda *_args, **_kwargs: detection(ceph_admin="denied", admin_ops_permissions=StorageEndpointAdminOpsPermissions(users_read=True, accounts_read=True)),
+        lambda *_args, **_kwargs: detection(
+            ceph_admin="denied",
+            admin_ops_permissions=StorageEndpointAdminOpsPermissions(
+                users_read=True,
+                users_write=False,
+                buckets_read=False,
+                buckets_write=False,
+                accounts_read=True,
+                accounts_write=False,
+                usage_read=False,
+                usage_write=False,
+            ),
+        ),
     )
     with pytest.raises(OnboardingError, match="ceph_identity_denied"):
         apply(guided, denied_user, denied, ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
@@ -694,8 +711,22 @@ def test_ceph_admin_onboarding_reuses_keys_with_read_only_admin_ops(guided, db_s
     rgw = get_endpoint_bootstrap_rgw_client(ep)
     rgw.users["operator"]["caps"] = "users=read;accounts=read"
     before = deepcopy(rgw.users)
-    monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection(
-        admin_ops_permissions=StorageEndpointAdminOpsPermissions(users_read=True, accounts_read=True)))
+    monkeypatch.setattr(
+        guided.endpoints,
+        "detect_features",
+        lambda *_args, **_kwargs: detection(
+            admin_ops_permissions=StorageEndpointAdminOpsPermissions(
+                users_read=True,
+                users_write=False,
+                buckets_read=False,
+                buckets_write=False,
+                accounts_read=True,
+                accounts_write=False,
+                usage_read=False,
+                usage_write=False,
+            )
+        ),
+    )
 
     result = apply(guided, user, save(guided, user, endpoint_id=ep.id, ceph_admin=True), service_identity_mode="external")
     assert result.configured and user.can_access_ceph_admin

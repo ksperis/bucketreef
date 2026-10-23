@@ -52,6 +52,8 @@ def _admin_ops_permissions(*, buckets_write: bool = True) -> StorageEndpointAdmi
         buckets_write=buckets_write,
         accounts_read=True,
         accounts_write=True,
+        usage_read=False,
+        usage_write=False,
     )
 
 

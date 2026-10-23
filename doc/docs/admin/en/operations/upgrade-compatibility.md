@@ -14,8 +14,10 @@ required.
 
 Admin storage-endpoint responses now require the complete normalized endpoint
 state, including nullable metadata, service-identity status, capabilities,
-permissions, tags, and feature configuration. The backend already materialized
-these fields; the bundled frontend no longer carries omission fallbacks.
+permissions, tags, and feature configuration. The nested Admin Ops permission
+object likewise requires all eight read/write flags. The backend already
+materialized these fields; the bundled frontend no longer carries omission
+fallbacks.
 
 Deploy the backend and bundled frontend together. No database migration is
 required.

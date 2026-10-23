@@ -26,7 +26,7 @@ AdminOpsPermissionName = Literal[
 
 
 def _empty_permissions() -> StorageEndpointAdminOpsPermissions:
-    return StorageEndpointAdminOpsPermissions()
+    return StorageEndpointAdminOpsPermissions.empty()
 
 
 def _parse_caps_payload(raw_caps: object) -> dict[str, set[str]]:

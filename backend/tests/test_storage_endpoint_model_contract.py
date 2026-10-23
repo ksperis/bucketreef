@@ -101,6 +101,16 @@ def test_storage_endpoint_response_requires_complete_canonical_payload() -> None
         "features",
     }
     schemas = app.openapi()["components"]["schemas"]
+    assert set(schemas["StorageEndpointAdminOpsPermissions"]["required"]) == {
+        "users_read",
+        "users_write",
+        "buckets_read",
+        "buckets_write",
+        "accounts_read",
+        "accounts_write",
+        "usage_read",
+        "usage_write",
+    }
     assert set(schemas["EndpointServiceIdentityStatus"]["required"]) == {
         "kind",
         "mode",

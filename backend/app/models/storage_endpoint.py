@@ -38,14 +38,27 @@ class StorageEndpointFeatures(ApiModel):
 
 
 class StorageEndpointAdminOpsPermissions(ApiModel):
-    users_read: bool = False
-    users_write: bool = False
-    buckets_read: bool = False
-    buckets_write: bool = False
-    accounts_read: bool = False
-    accounts_write: bool = False
-    usage_read: bool = False
-    usage_write: bool = False
+    users_read: bool
+    users_write: bool
+    buckets_read: bool
+    buckets_write: bool
+    accounts_read: bool
+    accounts_write: bool
+    usage_read: bool
+    usage_write: bool
+
+    @classmethod
+    def empty(cls) -> "StorageEndpointAdminOpsPermissions":
+        return cls(
+            users_read=False,
+            users_write=False,
+            buckets_read=False,
+            buckets_write=False,
+            accounts_read=False,
+            accounts_write=False,
+            usage_read=False,
+            usage_write=False,
+        )
 
 
 class EndpointServiceIdentityStatus(ApiModel):
@@ -267,7 +280,7 @@ class StorageEndpointFeatureDetectionResult(ApiModel):
         default_factory=StorageEndpointHttpCheck
     )
     admin_ops_permissions: StorageEndpointAdminOpsPermissions = Field(
-        default_factory=StorageEndpointAdminOpsPermissions
+        default_factory=StorageEndpointAdminOpsPermissions.empty
     )
     credential_checks: StorageEndpointCredentialChecks = Field(
         default_factory=StorageEndpointCredentialChecks
