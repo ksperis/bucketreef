@@ -133,7 +133,7 @@ def import_s3_users(
         raise_http_error_from_value_error(exc)
 
 
-@router.put("/{user_id}", response_model=S3User)
+@router.patch("/{user_id}", response_model=S3User)
 def update_s3_user(
     user_id: int,
     payload: S3UserUpdate,

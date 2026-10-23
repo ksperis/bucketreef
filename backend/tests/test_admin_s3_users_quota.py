@@ -170,7 +170,7 @@ def test_admin_update_s3_user_quota(monkeypatch, client: TestClient, db_session)
     assert create.status_code == 201, create.text
     created = create.json()
 
-    resp = client.put(
+    resp = client.patch(
         f"/api/admin/s3-users/{created['id']}",
         json={"quota_max_size_gb": 50, "quota_max_size_unit": "GiB", "quota_max_objects": 500},
     )

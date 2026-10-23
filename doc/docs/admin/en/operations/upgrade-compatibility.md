@@ -1,5 +1,14 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 RGW User partial updates use PATCH
+
+Admin RGW User updates now use `PATCH /admin/s3-users/{user_id}`. The update
+payload is intentionally sparse and applies only supplied fields, so the former
+`PUT` route has been removed instead of retained as a compatibility alias.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 RGW Account partial updates use PATCH
 
 Admin RGW Account updates now use `PATCH /admin/accounts/{account_id}`. Account
