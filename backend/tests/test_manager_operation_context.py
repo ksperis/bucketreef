@@ -14,7 +14,7 @@ from app.models.bucket_purge import (
     bucket_delete_with_purge_confirmation_phrase,
     bucket_purge_confirmation_phrase,
 )
-from app.routers import dependencies
+from app.routers import bucket_purge_stream, dependencies
 from app.routers.manager import buckets, integrity, purge, usage_stats
 from tests.execution_context_factory import make_s3_execution_context
 
@@ -105,8 +105,16 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
     else:
         module = purge if operation == "purge" else buckets
         monkeypatch.setattr(module, "BucketPurgeService", FakeService)
-        monkeypatch.setattr(module, "stream_bucket_purge", fake_stream)
-        monkeypatch.setattr(module, "record_bucket_purge_audit", lambda **kwargs: audit_calls.append(kwargs))
+        if operation == "purge":
+            monkeypatch.setattr(bucket_purge_stream, "stream_bucket_purge", fake_stream)
+            monkeypatch.setattr(
+                bucket_purge_stream,
+                "record_bucket_purge_audit",
+                lambda **kwargs: audit_calls.append(kwargs),
+            )
+        else:
+            monkeypatch.setattr(module, "stream_bucket_purge", fake_stream)
+            monkeypatch.setattr(module, "record_bucket_purge_audit", lambda **kwargs: audit_calls.append(kwargs))
         app.dependency_overrides[module.require_bucket_purge_enabled] = lambda: actor
         if operation == "purge":
             path = "/api/manager/bucket-purge/stream"
