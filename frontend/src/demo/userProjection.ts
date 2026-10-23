@@ -124,7 +124,7 @@ function effectiveS3UserDetails(state: DemoState, user: DemoUser) {
 function effectiveConnectionDetails(state: DemoState, user: DemoUser) {
   const groupIds = new Set(groupsForUser(state, user.id).map(group => group.id));
   return state.connections
-    .filter(connection => connection.is_shared !== false)
+    .filter(connection => connection.is_shared)
     .filter(connection =>
       connection.user_details.some(member => member.id === user.id)
       || connection.group_details.some(group => groupIds.has(group.id)))
@@ -152,7 +152,7 @@ function demoEffectiveAccess(state: DemoState, user: DemoUser): EffectiveUserAcc
     can_provision_managed_private_connections: managedProvisioningEnabled,
     group_can_provision_managed_private_connections: managedProvisioningEnabled && groupManagedProvisioning,
     has_owned_private_connections: state.connections.some(connection =>
-      connection.is_shared === false && connection.created_by_user_id === user.id),
+      !connection.is_shared && connection.created_by_user_id === user.id),
     manager_tool_access: tools.effective,
     group_manager_tool_access: tools.inherited,
     browser_advanced_features_enabled: hasFeatureGrant(user, groups, "browser_advanced_features_enabled"),
