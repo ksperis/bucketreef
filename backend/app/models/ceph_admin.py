@@ -286,7 +286,7 @@ class CephAdminRgwUserDetail(ApiModel):
 
 class CephAdminRgwUserCapsUpdate(ApiModel):
     mode: Literal["replace", "add", "remove"] = "replace"
-    values: list[str] = Field(default_factory=list)
+    values: list[str]
 
 
 class CephAdminRgwAccountCreate(ApiModel):
