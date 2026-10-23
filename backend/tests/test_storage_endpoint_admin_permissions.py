@@ -66,7 +66,6 @@ def test_resolves_supported_rgw_caps_payloads(raw_caps, expected):
     permissions = resolve_storage_endpoint_admin_ops_permissions(
         _endpoint(),
         provider=StorageProvider.CEPH,
-        capabilities={"admin": True},
         client_factory=client_factory,
     )
 
@@ -90,21 +89,19 @@ def test_resolves_supported_rgw_caps_payloads(raw_caps, expected):
 
 
 @pytest.mark.parametrize(
-    ("endpoint", "provider", "capabilities"),
+    ("endpoint", "provider"),
     [
-        (_endpoint(), StorageProvider.AWS, {"admin": True}),
+        (_endpoint(), StorageProvider.AWS),
 
         (
             _endpoint(admin_access_key=None),
             StorageProvider.CEPH,
-            {"admin": True},
         ),
     ],
 )
 def test_skips_resolution_without_ceph_admin_execution(
     endpoint: StorageEndpoint,
     provider: StorageProvider,
-    capabilities: dict[str, bool],
 ):
     def unexpected_client_factory(**_kwargs):
         raise AssertionError("RGW client must not be created")
@@ -112,7 +109,6 @@ def test_skips_resolution_without_ceph_admin_execution(
     permissions = resolve_storage_endpoint_admin_ops_permissions(
         endpoint,
         provider=provider,
-        capabilities=capabilities,
         client_factory=unexpected_client_factory,
     )
 
@@ -140,7 +136,6 @@ def test_returns_empty_permissions_when_rgw_lookup_fails():
     permissions = resolve_storage_endpoint_admin_ops_permissions(
         _endpoint(),
         provider=StorageProvider.CEPH,
-        capabilities={"admin": True},
         client_factory=failing_client_factory,
     )
 
