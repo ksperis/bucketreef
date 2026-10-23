@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from types import SimpleNamespace
 
+import pytest
+
 from app.db import S3Account
 from app.models.bucket import (
     Bucket,
@@ -12,7 +14,9 @@ from app.models.bucket import (
     BucketTag,
 )
 from app.models.bucket_config_backup import (
+    BucketConfigBackupBucket,
     BucketConfigBackupRequest,
+    BucketConfigBackupResponse,
     BucketConfigBackupSource,
 )
 from app.routers.ceph_admin import bucket_tools as buckets_router
@@ -71,6 +75,15 @@ def test_bucket_config_backup_request_normalizes_duplicates():
         ("bucket-b", "tenant_a"),
     ]
     assert payload.features == ["tags", "policy"]
+
+
+@pytest.mark.parametrize(
+    "model",
+    [BucketConfigBackupSource, BucketConfigBackupBucket, BucketConfigBackupResponse],
+)
+def test_bucket_config_backup_response_models_require_complete_payloads(model):
+    schema = model.model_json_schema()
+    assert set(schema["required"]) == set(schema["properties"])
 
 
 def test_bucket_config_backup_collects_selected_features_without_secrets():

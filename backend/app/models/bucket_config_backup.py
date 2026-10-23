@@ -46,21 +46,21 @@ class BucketConfigBackupRequest(ApiModel):
 
 class BucketConfigBackupSource(ApiModel):
     surface: str
-    endpoint_id: int | None = None
-    endpoint_name: str | None = None
+    endpoint_id: int | None
+    endpoint_name: str | None
 
 
 class BucketConfigBackupBucket(ApiModel):
     name: str
-    tenant: str = ""
-    configuration: dict[str, Any] = Field(default_factory=dict)
-    errors: dict[str, str] = Field(default_factory=dict)
+    tenant: str
+    configuration: dict[str, Any]
+    errors: dict[str, str]
 
 
 class BucketConfigBackupResponse(ApiModel):
-    kind: str = "ceph-admin.bucket-config-backup"
-    version: int = 1
+    kind: str
+    version: int
     generated_at: datetime
     source: BucketConfigBackupSource
     features: list[BucketConfigBackupFeature]
-    buckets: list[BucketConfigBackupBucket] = Field(default_factory=list)
+    buckets: list[BucketConfigBackupBucket]
