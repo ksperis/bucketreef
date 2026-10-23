@@ -46,7 +46,7 @@ class _Service:
         )
 
     def get_bucket_encryption(self, *_args):
-        return self._value("encryption", BucketEncryptionConfiguration())
+        return self._value("encryption", BucketEncryptionConfiguration(rules=[]))
 
 
 def _context() -> S3ExecutionContext:

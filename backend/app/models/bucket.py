@@ -158,11 +158,11 @@ class BucketCors(ApiModel):
 
 
 class BucketEncryptionConfiguration(ApiModel):
-    rules: list[dict] = Field(default_factory=list)
+    rules: list[dict]
 
 
 class BucketNotificationConfiguration(ApiModel):
-    configuration: dict = Field(default_factory=dict)
+    configuration: dict
 
 
 FeatureRuleInventoryFeature = Literal["lifecycle", "policy", "cors", "notifications", "tags"]
@@ -187,7 +187,7 @@ class FeatureRuleInventoryBucket(ApiModel):
 
 
 class BucketReplicationConfiguration(ApiModel):
-    configuration: dict = Field(default_factory=dict)
+    configuration: dict
 
 
 class BucketLoggingConfiguration(ApiModel):

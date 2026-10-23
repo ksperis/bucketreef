@@ -226,7 +226,7 @@ def put_bucket_encryption_config(
     payload: BucketEncryptionConfiguration,
 ) -> tuple[BucketEncryptionConfiguration, dict[str, Any]]:
     result = _map_runtime_error(lambda: service.set_bucket_encryption(bucket_name, context, payload.rules))
-    return result, {"rules_count": len(payload.rules or [])}
+    return result, {"rules_count": len(payload.rules)}
 
 
 def delete_bucket_encryption_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
@@ -337,7 +337,7 @@ def put_bucket_notifications_config(
     bucket_name: str,
     payload: BucketNotificationConfiguration,
 ) -> tuple[BucketNotificationConfiguration, dict[str, Any]]:
-    configuration = payload.configuration or {}
+    configuration = payload.configuration
     result = _map_runtime_error(lambda: service.set_bucket_notifications(bucket_name, context, configuration))
     return result, {"keys": list(configuration.keys())}
 
@@ -360,7 +360,7 @@ def put_bucket_replication_config(
     payload: BucketReplicationConfiguration,
 ) -> tuple[BucketReplicationConfiguration, dict[str, Any]]:
     result = _map_value_and_runtime_errors(lambda: service.set_bucket_replication(bucket_name, context, payload))
-    configuration = payload.configuration or {}
+    configuration = payload.configuration
     rules = configuration.get("Rules")
     rules_count = len(rules) if isinstance(rules, list) else 0
     return result, {"rules_count": rules_count}

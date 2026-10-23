@@ -321,7 +321,7 @@ export async function previewBucketOpsBulkUpdate({
     deleting: boolean,
   ): Promise<BulkPreviewItem> => {
     const notifications = await getBucketNotifications(endpointId, bucketName);
-    const currentConfiguration = notifications.configuration ?? {};
+    const currentConfiguration = notifications.configuration;
     const result = deleting
       ? deleteNotificationConfigurations(
           currentConfiguration,
