@@ -381,6 +381,7 @@ describe("manager shell pages", () => {
         <ManagerDashboard />
       </MemoryRouter>
     );
+    await act(async () => Promise.resolve());
 
     expect(screen.getByRole("heading", { name: "Manager dashboard" })).toBeInTheDocument();
     expect(screen.getByText("Storage overview")).toBeInTheDocument();
