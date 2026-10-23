@@ -131,6 +131,9 @@ def webauthn_registration_verify(
     return AuthenticationResponse(
         status="authenticated",
         user=get_users_service(db).user_to_out(user),
+        session=None,
+        redirect_path=None,
+        link_request_id=None,
         recovery_codes=codes,
     )
 
@@ -182,7 +185,14 @@ def webauthn_authentication_verify(
         entity_type="ui_session",
         entity_id=credentials.session.id,
     )
-    return AuthenticationResponse(status="authenticated", user=get_users_service(db).user_to_out(user))
+    return AuthenticationResponse(
+        status="authenticated",
+        user=get_users_service(db).user_to_out(user),
+        session=None,
+        redirect_path=None,
+        link_request_id=None,
+        recovery_codes=None,
+    )
 
 
 @router.post("/recovery/verify", response_model=AuthenticationResponse)
@@ -212,4 +222,11 @@ def verify_recovery_code(
         entity_type="ui_session",
         entity_id=credentials.session.id,
     )
-    return AuthenticationResponse(status="authenticated", user=get_users_service(db).user_to_out(user))
+    return AuthenticationResponse(
+        status="authenticated",
+        user=get_users_service(db).user_to_out(user),
+        session=None,
+        redirect_path=None,
+        link_request_id=None,
+        recovery_codes=None,
+    )

@@ -16,14 +16,14 @@ class AdminPasskeyInfo(ApiModel):
     id: str
     name: str
     created_at: datetime
-    last_used_at: Optional[datetime] = None
-    revoked_at: Optional[datetime] = None
+    last_used_at: Optional[datetime]
+    revoked_at: Optional[datetime]
 
 
 class AdminSessionInfo(SessionInfo):
-    user_email: Optional[str] = None
-    user_full_name: Optional[str] = None
-    user_role: Optional[UiRole] = None
+    user_email: Optional[str]
+    user_full_name: Optional[str]
+    user_role: Optional[UiRole]
 
 
 class AdminExternalIdentityInfo(ApiModel):
@@ -31,12 +31,12 @@ class AdminExternalIdentityInfo(ApiModel):
     provider_type: Literal["oidc", "ldap"]
     provider_id: str
     subject: str
-    email: Optional[str] = None
+    email: Optional[str]
     email_verified: bool
     link_source: str
     created_at: datetime
-    last_login_at: Optional[datetime] = None
-    revoked_at: Optional[datetime] = None
+    last_login_at: Optional[datetime]
+    revoked_at: Optional[datetime]
 
 
 class AdminUserSecurity(ApiModel):
@@ -45,9 +45,9 @@ class AdminUserSecurity(ApiModel):
     role: UiRole
     has_local_password: bool
     passkey_required: bool
-    passkeys: list[AdminPasskeyInfo] = Field(default_factory=list)
-    external_identities: list[AdminExternalIdentityInfo] = Field(default_factory=list)
-    sessions: list[SessionInfo] = Field(default_factory=list)
+    passkeys: list[AdminPasskeyInfo]
+    external_identities: list[AdminExternalIdentityInfo]
+    sessions: list[SessionInfo]
 
 
 class AdminSetPasswordRequest(ApiModel):
@@ -82,8 +82,8 @@ class ExternalIdentityLinkRequestInfo(ApiModel):
     status: str
     created_at: datetime
     expires_at: datetime
-    decided_at: Optional[datetime] = None
-    decision_source: Optional[str] = None
+    decided_at: Optional[datetime]
+    decision_source: Optional[str]
 
 
 class ExternalIdentityLinkDecisionResponse(ApiModel):

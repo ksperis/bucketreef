@@ -64,8 +64,11 @@ export function readModels(c: DemoRequest): Response | undefined {
   const admin = persona === "admin"; const ceph = persona === "ceph-admin";
   const endUser = persona === "member" || persona === "project-manager";
   if (path === "/auth/session") return json({ authenticated: true, user: currentUser, session: null,
-    auth_session: { id: `demo-${user.id}`, auth_type: "password", mfa_verified_at: null,
-      idle_expires_at: "2099-01-01T00:00:00Z", absolute_expires_at: "2099-01-01T00:00:00Z" } } satisfies CurrentSessionResponse);
+    auth_session: { id: `demo-${user.id}`, principal_type: "user", auth_type: "password",
+      created_at: "2026-01-01T00:00:00Z", last_activity_at: "2026-01-01T00:00:00Z",
+      idle_expires_at: "2099-01-01T00:00:00Z", absolute_expires_at: "2099-01-01T00:00:00Z",
+      mfa_verified_at: null, ip_address: null, user_agent: null, revoked_at: null, revoke_reason: null,
+      current: true, user_id: user.id, s3_session_id: null } } satisfies CurrentSessionResponse);
   if (path === "/users/me") return json(currentUser);
   if (path === "/settings/general") return json(projectGeneralSettings(settings));
   if (path === "/settings/branding") return json(settings.branding);

@@ -141,4 +141,11 @@ def login_with_s3_keys(
         user_agent=user_agent,
         request_id=request_id,
     )
-    return AuthenticationResponse(status="authenticated", session=descriptor)
+    return AuthenticationResponse(
+        status="authenticated",
+        user=None,
+        session=descriptor,
+        redirect_path=None,
+        link_request_id=None,
+        recovery_codes=None,
+    )

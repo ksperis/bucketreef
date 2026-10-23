@@ -56,6 +56,7 @@ class AdminIdentitySecurityService:
             user_agent=row.user_agent,
             revoked_at=row.revoked_at,
             revoke_reason=row.revoke_reason,
+            current=False,
             user_id=row.user_id,
             s3_session_id=row.s3_session_id,
         )
