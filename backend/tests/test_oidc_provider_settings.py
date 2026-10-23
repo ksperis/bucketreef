@@ -16,6 +16,7 @@ from sqlalchemy import create_engine, text
 from app.core.config import OIDCProviderSettings, Settings
 from app.db import AuditLog, OidcLoginState, OidcProvider, User, UserRole
 from app.main import app
+from app.models.oidc import OIDCProviderAdminPayload
 from app.routers import dependencies
 from app.services.oidc_provider_settings_service import (
     _load_scopes,
@@ -36,6 +37,31 @@ def _provider_settings(*, enabled: bool = True, display_name: str = "Google") ->
         scopes=["openid", "email", "profile"],
         enabled=enabled,
     )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("scopes", "openid,email"),
+        ("scopes", None),
+        ("trusted_email_domains", "example.com"),
+        ("trusted_email_domains", None),
+    ],
+)
+def test_admin_oidc_payload_requires_list_collection_fields(field: str, value: object):
+    payload = {
+        "provider_id": "ui",
+        "display_name": "UI Provider",
+        "discovery_url": "https://issuer.example.test/.well-known/openid-configuration",
+        "client_id": "client-id",
+        "redirect_uri": "https://app.example.test/auth/callback",
+        "scopes": ["openid", "email"],
+        "trusted_email_domains": ["example.com"],
+    }
+    payload[field] = value
+
+    with pytest.raises(ValidationError):
+        OIDCProviderAdminPayload.model_validate(payload)
 
 
 def test_environment_oidc_provider_rejects_unknown_fields():
