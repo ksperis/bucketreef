@@ -58,6 +58,7 @@ import {
 } from "../shared/s3ConnectionFormModel";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useAdminI18n } from "./adminI18n";
+import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
 
 type EditTab = "general" | "users" | "groups";
@@ -126,12 +127,24 @@ export default function S3ConnectionsPage() {
   const [editTab, setEditTab] = useState<EditTab>("general");
   const [editLinkedUserIds, setEditLinkedUserIds] = useState<number[]>([]);
   const [editLinkedGroupIds, setEditLinkedGroupIds] = useState<number[]>([]);
-  const [editUserSearch, setEditUserSearch] = useState("");
-  const [editGroupSearch, setEditGroupSearch] = useState("");
-  const [showEditUserPanel, setShowEditUserPanel] = useState(false);
-  const [showEditGroupPanel, setShowEditGroupPanel] = useState(false);
-  const [editUserSelections, setEditUserSelections] = useState<number[]>([]);
-  const [editGroupSelections, setEditGroupSelections] = useState<number[]>([]);
+  const {
+    search: editUserSearch,
+    setSearch: setEditUserSearch,
+    open: showEditUserPanel,
+    setOpen: setShowEditUserPanel,
+    selections: editUserSelections,
+    reset: resetEditUserPicker,
+    toggleSelection: toggleEditUserSelection,
+  } = useAdminAssociationPickerState();
+  const {
+    search: editGroupSearch,
+    setSearch: setEditGroupSearch,
+    open: showEditGroupPanel,
+    setOpen: setShowEditGroupPanel,
+    selections: editGroupSelections,
+    reset: resetEditGroupPicker,
+    toggleSelection: toggleEditGroupSelection,
+  } = useAdminAssociationPickerState();
   const maxLinkOptions = 10;
 
   const [deleteTarget, setDeleteTarget] = useState<S3ConnectionAdminItem | null>(null);
@@ -164,13 +177,9 @@ export default function S3ConnectionsPage() {
     setEditTab("general");
     setEditLinkedUserIds([]);
     setEditLinkedGroupIds([]);
-    setEditUserSearch("");
-    setEditGroupSearch("");
-    setShowEditUserPanel(false);
-    setShowEditGroupPanel(false);
-    setEditUserSelections([]);
-    setEditGroupSelections([]);
-  }, []);
+    resetEditUserPicker();
+    resetEditGroupPicker();
+  }, [resetEditGroupPicker, resetEditUserPicker]);
   const closeEditModal = useCallback(() => {
     setEditing(null);
     setEditError(null);
@@ -440,14 +449,6 @@ export default function S3ConnectionsPage() {
     setPageSize(size);
     setPage(1);
   };
-  const toggleEditUserSelection = (userId: number) => {
-    setEditUserSelections((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
-  };
-  const toggleEditGroupSelection = (groupId: number) => {
-    setEditGroupSelections((prev) =>
-      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
-    );
-  };
   const loadAllSelectableFilteredIds = useCallback(async () => {
     if (allFilteredSelectableIdsKey === selectionQueryKey && allFilteredSelectableIds) {
       return allFilteredSelectableIds;
@@ -524,12 +525,8 @@ export default function S3ConnectionsPage() {
     setEditTab(initialTab);
     setEditLinkedUserIds(nextLinkedUserIds);
     setEditLinkedGroupIds(nextLinkedGroupIds);
-    setEditUserSearch("");
-    setEditGroupSearch("");
-    setShowEditUserPanel(false);
-    setShowEditGroupPanel(false);
-    setEditUserSelections([]);
-    setEditGroupSelections([]);
+    resetEditUserPicker();
+    resetEditGroupPicker();
     const nextCredentialDraft = { access_key_id: "", secret_access_key: "" };
     setEditCredentials(nextCredentialDraft);
     setEditInitialSignature(
@@ -1003,19 +1000,13 @@ export default function S3ConnectionsPage() {
                     maxVisibleOptions={maxLinkOptions}
                     selectedCount={editUserSelections.length}
                     loadingLabel="Loading UI users..."
-                    onCancel={() => {
-                      setShowEditUserPanel(false);
-                      setEditUserSelections([]);
-                      setEditUserSearch("");
-                    }}
+                    onCancel={resetEditUserPicker}
                     onAdd={() => {
                       if (editUserSelections.length === 0) return;
                       setEditLinkedUserIds((prev) =>
                         normalizeS3ConnectionLinkedIds([...prev, ...editUserSelections]),
                       );
-                      setEditUserSelections([]);
-                      setEditUserSearch("");
-                      setShowEditUserPanel(false);
+                      resetEditUserPicker();
                     }}
                     addDisabled={editUserSelections.length === 0}
                   >
@@ -1084,19 +1075,13 @@ export default function S3ConnectionsPage() {
                     maxVisibleOptions={maxLinkOptions}
                     selectedCount={editGroupSelections.length}
                     loadingLabel="Loading UI groups..."
-                    onCancel={() => {
-                      setShowEditGroupPanel(false);
-                      setEditGroupSelections([]);
-                      setEditGroupSearch("");
-                    }}
+                    onCancel={resetEditGroupPicker}
                     onAdd={() => {
                       if (editGroupSelections.length === 0) return;
                       setEditLinkedGroupIds((prev) =>
                         normalizeS3ConnectionLinkedIds([...prev, ...editGroupSelections]),
                       );
-                      setEditGroupSelections([]);
-                      setEditGroupSearch("");
-                      setShowEditGroupPanel(false);
+                      resetEditGroupPicker();
                     }}
                     addDisabled={editGroupSelections.length === 0}
                   >
