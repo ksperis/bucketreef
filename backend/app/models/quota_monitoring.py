@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 from app.models.base import ApiModel
+from app.models.retention import DataRetentionResult
 
 
 class QuotaMonitoringSubjectError(ApiModel):
@@ -17,24 +18,6 @@ class QuotaMonitoringSubjectWarning(ApiModel):
     subject_type: Literal["account", "s3_user"]
     subject_id: int
     warning: str
-
-
-class QuotaHistoryRetentionResult(ApiModel):
-    hourly_retention_days: int
-    daily_retention_days: int
-    deleted_hourly: int
-    deleted_daily: int
-
-
-class CostHistoryRetentionResult(ApiModel):
-    daily_retention_days: int
-    deleted_usage_daily: int
-    deleted_storage_daily: int
-
-
-class QuotaMonitoringRetentionResult(ApiModel):
-    quota_history: QuotaHistoryRetentionResult
-    cost_history: CostHistoryRetentionResult
 
 
 class QuotaMonitoringResult(ApiModel):
@@ -55,6 +38,6 @@ class QuotaMonitoringResult(ApiModel):
     usage_history_enabled: bool
     usage_history_collection_enabled: bool
     threshold_percent: int
-    retention: QuotaMonitoringRetentionResult
+    retention: DataRetentionResult
     status: Optional[Literal["skipped"]] = None
     reason: Optional[str] = None

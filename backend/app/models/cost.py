@@ -3,11 +3,36 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
+from app.models.retention import DataRetentionResult
+
+
+class CostEndpointCollectionError(ApiModel):
+    stage: Literal["endpoint"]
+    endpoint_id: int
+
+
+class CostSubjectCollectionError(ApiModel):
+    stage: Literal["usage", "storage"]
+    endpoint_id: int
+    subject: Literal["account", "s3_user"]
+    subject_id: int
+
+
+CostCollectionError = CostEndpointCollectionError | CostSubjectCollectionError
+
+
+class CostCollectionResult(ApiModel):
+    day: str
+    endpoints: int
+    usage_records: int
+    storage_records: int
+    errors: list[CostCollectionError]
+    retention: DataRetentionResult
 
 
 class CostCoverage(ApiModel):

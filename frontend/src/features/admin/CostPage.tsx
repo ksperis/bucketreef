@@ -54,6 +54,8 @@ import {
   getCostSubjects,
   getCostSummary,
   type CostAnalyticsResponse,
+  type CostCollectionError,
+  type CostCollectionResult,
   type CostCoverage,
   type CostSubjectSummary,
   type CostSummary,
@@ -150,32 +152,22 @@ function isLowCoverage(coverage?: CostCoverage | null): boolean {
   return Boolean(coverage && coverage.days_collected > 0 && coverage.coverage_ratio < 0.8);
 }
 
-function extractCollectionErrors(result: Record<string, unknown> | null): Array<Record<string, unknown>> {
-  const errors = result?.errors;
-  return Array.isArray(errors)
-    ? errors.filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object"))
-    : [];
-}
-
-function formatCollectionIssue(entry: Record<string, unknown>): string {
-  const stage = typeof entry.stage === "string" ? entry.stage : "collection";
+function formatCollectionIssue(entry: CostCollectionError): string {
+  const stage = entry.stage;
   const stageLabel =
     stage === "usage" ? "Usage" : stage === "storage" ? "Storage" : stage === "endpoint" ? "Endpoint client" : "Collection";
-  const endpoint = entry.endpoint_id != null ? `endpoint #${String(entry.endpoint_id)}` : null;
-  const subject =
-    typeof entry.subject === "string"
-      ? `${entry.subject}${entry.subject_id != null ? ` #${String(entry.subject_id)}` : ""}`
-      : null;
+  const endpoint = `endpoint #${entry.endpoint_id}`;
+  const subject = entry.stage === "endpoint" ? null : `${entry.subject} #${entry.subject_id}`;
   const target = [subject, endpoint].filter(Boolean).join(" · ");
   return target ? `${stageLabel}: ${target}` : stageLabel;
 }
 
-function formatCollectionResult(result: Record<string, unknown> | null, day: string): string | null {
+function formatCollectionResult(result: CostCollectionResult | null, day: string): string | null {
   if (!result) return null;
-  const endpoints = Number(result.endpoints ?? 0);
-  const storageRecords = Number(result.storage_records ?? 0);
-  const usageRecords = Number(result.usage_records ?? 0);
-  const errors = extractCollectionErrors(result).length;
+  const endpoints = result.endpoints;
+  const storageRecords = result.storage_records;
+  const usageRecords = result.usage_records;
+  const errors = result.errors.length;
   const prefix = errors > 0 ? "Collection finished with issues" : "Collection completed";
   return `${prefix} for ${day}: ${endpoints} endpoint${endpoints === 1 ? "" : "s"}, ${storageRecords} storage record${storageRecords === 1 ? "" : "s"}, ${usageRecords} usage record${usageRecords === 1 ? "" : "s"}, ${errors} error${errors === 1 ? "" : "s"}.`;
 }
@@ -227,7 +219,7 @@ export default function CostPage() {
   const [collectLoading, setCollectLoading] = useState(false);
   const [collectMessage, setCollectMessage] = useState<string | null>(null);
   const [collectError, setCollectError] = useState<string | null>(null);
-  const [collectResult, setCollectResult] = useState<Record<string, unknown> | null>(null);
+  const [collectResult, setCollectResult] = useState<CostCollectionResult | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -374,7 +366,7 @@ export default function CostPage() {
   const hasCostData = Boolean(summary && (summary.coverage.days_collected > 0 || subjectsTotal > 0));
   const canExport = Boolean(hasCostData && !summaryLoading && !subjectsLoading && !costDisabled);
   const canCollect = Boolean(collectDay && !collectLoading && !costDisabled);
-  const collectionErrors = extractCollectionErrors(collectResult);
+  const collectionErrors = collectResult?.errors ?? [];
   const noCostModel = Boolean(summary && summary.coverage.days_collected > 0 && !summary.cost);
   const lowCoverage = isLowCoverage(summary?.coverage);
   const partialSources = hasPartialCostSources(summary?.coverage);

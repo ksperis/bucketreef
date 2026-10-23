@@ -6,7 +6,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Callable, Literal, Optional
+from typing import Callable, Literal, Optional
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -21,6 +21,13 @@ from app.db import (
     StorageEndpoint,
     StorageProvider,
 )
+from app.models.cost import (
+    CostCollectionError,
+    CostCollectionResult,
+    CostEndpointCollectionError,
+    CostSubjectCollectionError,
+)
+from app.models.retention import DataRetentionResult
 from app.services.data_retention_service import DataRetentionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
@@ -48,17 +55,21 @@ class _CostSubject:
 
 def _collection_error(
     *,
-    stage: str,
+    stage: Literal["endpoint", "usage", "storage"],
     endpoint_id: int,
-    subject: str | None = None,
+    subject: Literal["account", "s3_user"] | None = None,
     subject_id: int | None = None,
-) -> dict[str, Any]:
-    error: dict[str, Any] = {"stage": stage, "endpoint_id": endpoint_id}
-    if subject is not None:
-        error["subject"] = subject
-    if subject_id is not None:
-        error["subject_id"] = subject_id
-    return error
+) -> CostCollectionError:
+    if stage == "endpoint":
+        return CostEndpointCollectionError(stage=stage, endpoint_id=endpoint_id)
+    if subject is None or subject_id is None:
+        raise ValueError(f"{stage} collection errors require a subject")
+    return CostSubjectCollectionError(
+        stage=stage,
+        endpoint_id=endpoint_id,
+        subject=subject,
+        subject_id=subject_id,
+    )
 
 
 class CostCollector:
@@ -67,7 +78,7 @@ class CostCollector:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def collect_daily(self, day: date) -> dict[str, Any]:
+    def collect_daily(self, day: date) -> CostCollectionResult:
         from app.services.app_settings_service import load_app_settings
 
         app_settings = load_app_settings()
@@ -78,13 +89,10 @@ class CostCollector:
                 StorageEndpoint.provider == StorageProvider.CEPH.value
             )
         )
-        summary: dict[str, Any] = {
-            "day": day.isoformat(),
-            "endpoints": 0,
-            "usage_records": 0,
-            "storage_records": 0,
-            "errors": [],
-        }
+        endpoints_count = 0
+        usage_records = 0
+        storage_records = 0
+        errors: list[CostCollectionError] = []
         for endpoint in endpoints:
             flags = resolve_feature_flags(endpoint)
             if not flags.admin_enabled:
@@ -97,30 +105,38 @@ class CostCollector:
                     endpoint.id,
                     exc,
                 )
-                summary["errors"].append(
+                errors.append(
                     _collection_error(stage="endpoint", endpoint_id=endpoint.id)
                 )
                 continue
 
-            summary["endpoints"] += 1
+            endpoints_count += 1
             if flags.usage_enabled:
-                usage_records, usage_errors = self._collect_usage_for_endpoint(
+                created_usage_records, usage_errors = self._collect_usage_for_endpoint(
                     rgw_admin,
                     endpoint,
                     day,
                 )
-                summary["usage_records"] += usage_records
-                summary["errors"].extend(usage_errors)
+                usage_records += created_usage_records
+                errors.extend(usage_errors)
 
-            storage_records, storage_errors = self._collect_storage_for_endpoint(
+            created_storage_records, storage_errors = self._collect_storage_for_endpoint(
                 rgw_admin,
                 endpoint,
                 day,
             )
-            summary["storage_records"] += storage_records
-            summary["errors"].extend(storage_errors)
-        summary["retention"] = DataRetentionService(self.db).purge_all()
-        return summary
+            storage_records += created_storage_records
+            errors.extend(storage_errors)
+        return CostCollectionResult(
+            day=day.isoformat(),
+            endpoints=endpoints_count,
+            usage_records=usage_records,
+            storage_records=storage_records,
+            errors=errors,
+            retention=DataRetentionResult.model_validate(
+                DataRetentionService(self.db).purge_all()
+            ),
+        )
 
     def _load_subjects(self, endpoint: StorageEndpoint) -> list[_CostSubject]:
         accounts = self.db.scalars(
@@ -159,7 +175,7 @@ class CostCollector:
         endpoint: StorageEndpoint,
         subject: _CostSubject,
         exc: Exception,
-    ) -> dict[str, Any]:
+    ) -> CostCollectionError:
         subject_label = "account" if subject.kind == "account" else "s3 user"
         if isinstance(exc, RGWAdminError):
             logger.warning(
@@ -189,9 +205,9 @@ class CostCollector:
         stage: Literal["usage", "storage"],
         endpoint: StorageEndpoint,
         operation: Callable[[_CostSubject], None],
-    ) -> tuple[int, list[dict[str, Any]]]:
+    ) -> tuple[int, list[CostCollectionError]]:
         created = 0
-        errors: list[dict[str, Any]] = []
+        errors: list[CostCollectionError] = []
         for subject in self._load_subjects(endpoint):
             try:
                 operation(subject)
@@ -295,7 +311,7 @@ class CostCollector:
         rgw_admin: RGWAdminClient,
         endpoint: StorageEndpoint,
         day: date,
-    ) -> tuple[int, list[dict[str, Any]]]:
+    ) -> tuple[int, list[CostCollectionError]]:
         start = datetime.combine(day, datetime.min.time()).replace(
             tzinfo=timezone.utc
         )
@@ -318,7 +334,7 @@ class CostCollector:
         rgw_admin: RGWAdminClient,
         endpoint: StorageEndpoint,
         day: date,
-    ) -> tuple[int, list[dict[str, Any]]]:
+    ) -> tuple[int, list[CostCollectionError]]:
         return self._collect_subjects(
             stage="storage",
             endpoint=endpoint,
