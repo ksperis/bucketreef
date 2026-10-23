@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import OIDCProviderSettings, Settings, get_settings
 from app.db import OidcAuthorizationCode, OidcLoginState
+from app.models.oidc import OIDCProviderInfo
 from app.services.oidc_provider_settings_service import resolve_oidc_provider_map
 from app.services.users_service import UsersService, get_users_service
 from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
@@ -63,16 +64,16 @@ class OidcService:
         self._metadata_cache: dict[str, tuple[dict[str, Any], float]] = {}
         self._jwks_cache: dict[str, tuple[dict[str, Any], float]] = {}
 
-    def list_providers(self) -> list[dict[str, Any]]:
-        providers = []
+    def list_providers(self) -> list[OIDCProviderInfo]:
+        providers: list[OIDCProviderInfo] = []
         for key, provider in self._provider_map().items():
             if provider.enabled:
                 providers.append(
-                    {
-                        "id": key,
-                        "display_name": provider.display_name,
-                        "icon_url": provider.icon_url,
-                    }
+                    OIDCProviderInfo(
+                        id=key,
+                        display_name=provider.display_name,
+                        icon_url=provider.icon_url,
+                    )
                 )
         return providers
 

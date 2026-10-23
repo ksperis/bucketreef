@@ -94,7 +94,9 @@ def test_list_providers_only_returns_enabled(db_session):
     service, _ = _service(db_session, settings=settings)
 
     providers = service.list_providers()
-    assert providers == [{"id": "google", "display_name": "Google", "icon_url": None}]
+    assert [provider.model_dump() for provider in providers] == [
+        {"id": "google", "display_name": "Google", "icon_url": None}
+    ]
 
 
 def test_start_login_generates_authorization_url_and_persists_state(db_session, monkeypatch):

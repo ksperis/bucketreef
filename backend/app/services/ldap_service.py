@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.config import LDAPProviderSettings, Settings, get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import User
+from app.models.ldap import LDAPProviderInfo
 from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
 from app.services.ldap_provider_settings_service import resolve_ldap_provider_map
 from app.services.users_service import UsersService, get_users_service
@@ -69,11 +70,11 @@ class LDAPAuthService:
         self.users_service = users_service
         self.settings = settings or get_settings()
 
-    def list_providers(self) -> list[dict[str, str]]:
-        providers = []
+    def list_providers(self) -> list[LDAPProviderInfo]:
+        providers: list[LDAPProviderInfo] = []
         for key, provider in self._provider_map().items():
             if provider.enabled:
-                providers.append({"id": key, "display_name": provider.display_name})
+                providers.append(LDAPProviderInfo(id=key, display_name=provider.display_name))
         return providers
 
     def authenticate(self, provider_id: str, username: str, password: str) -> tuple[User, bool]:

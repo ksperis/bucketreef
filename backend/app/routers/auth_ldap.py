@@ -44,7 +44,7 @@ def get_ldap_auth_service_dependency(
 @router.get("/ldap/providers", response_model=list[LDAPProviderInfo])
 def list_ldap_providers(
     ldap_service: LDAPAuthService = Depends(get_ldap_auth_service_dependency),
-) -> list[dict[str, str]]:
+) -> list[LDAPProviderInfo]:
     return ldap_service.list_providers()
 
 

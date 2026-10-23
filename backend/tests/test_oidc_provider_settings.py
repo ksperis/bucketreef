@@ -242,7 +242,7 @@ def test_oidc_resolver_merges_env_and_ui_with_env_precedence(db_session):
     assert runtime["ui"].display_name == "UI Provider"
 
     service = OidcService(db_session, users_service=_FakeUsersService(), settings=settings)
-    assert service.list_providers() == [
+    assert [provider.model_dump() for provider in service.list_providers()] == [
         {"id": "google", "display_name": "Env Google", "icon_url": None},
         {"id": "ui", "display_name": "UI Provider", "icon_url": None},
     ]
