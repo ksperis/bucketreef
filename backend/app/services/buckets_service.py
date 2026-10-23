@@ -1,6 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Any, List, Optional
+from typing import List, Optional
 import logging
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -17,6 +17,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.models.bucket import Bucket
 from app.utils.rgw_payloads import extract_bucket_list
+from app.utils.quota_stats import extract_quota_limits
 from app.utils.usage_stats import extract_usage_stats
 
 logger = logging.getLogger(__name__)
@@ -58,27 +59,6 @@ class BucketsService:
             execution_context,
             error_message="S3ExecutionTarget is missing admin credentials",
         )
-
-    def _extract_quota_from_admin_stats(self, stats: Any) -> tuple[Optional[int], Optional[int]]:
-        quota_size: Optional[int] = None
-        quota_objects: Optional[int] = None
-        quota = stats.get("bucket_quota") if isinstance(stats, dict) else None
-        if isinstance(quota, dict):
-            try:
-                # RGW may expose both max_size (bytes) and max_size_kb (KiB).
-                # Prefer max_size when available to avoid double-scaling.
-                if quota.get("max_size") is not None:
-                    quota_size = int(quota.get("max_size"))
-                elif quota.get("max_size_kb") is not None:
-                    quota_size = int(quota.get("max_size_kb")) * 1024
-            except (TypeError, ValueError):
-                quota_size = None
-            try:
-                if quota.get("max_objects") is not None:
-                    quota_objects = int(quota.get("max_objects"))
-            except (TypeError, ValueError):
-                quota_objects = None
-        return quota_size, quota_objects
 
     def list_buckets(
         self,
@@ -131,7 +111,7 @@ class BucketsService:
             stats = admin_by_name.get(bucket_name)
             usage = stats.get("usage") if isinstance(stats, dict) else None
             usage_bytes, objects = extract_usage_stats(usage)
-            quota_size, quota_objects = self._extract_quota_from_admin_stats(stats)
+            quota_size, quota_objects = extract_quota_limits(stats, keys=("bucket_quota",))
 
             enriched.append(
                 Bucket(
@@ -192,7 +172,7 @@ class BucketsService:
                     )
                     usage = stats.get("usage") if isinstance(stats, dict) else None
                     usage_bytes, object_count = extract_usage_stats(usage)
-                    quota_size, quota_objects = self._extract_quota_from_admin_stats(stats)
+                    quota_size, quota_objects = extract_quota_limits(stats, keys=("bucket_quota",))
                 except (RuntimeError, RGWAdminError, ValueError) as exc:
                     logger.warning(
                         "Unable to fetch bucket stats for %s on %s: %s",

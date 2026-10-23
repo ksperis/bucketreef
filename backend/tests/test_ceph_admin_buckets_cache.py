@@ -146,6 +146,24 @@ def test_rgw_bucket_metadata_splits_admin_qualified_bucket_name():
     assert rgw_bucket_metadata.extract_bucket_name(entry) == "bucket-a"
 
 
+def test_rgw_bucket_metadata_ignores_disabled_bucket_quota():
+    summary = rgw_bucket_metadata.build_bucket_summary(
+        {
+            "name": "bucket-a",
+            "owner": "owner-a",
+            "bucket_quota": {
+                "enabled": False,
+                "max_size": 4096,
+                "max_objects": 10,
+            },
+        }
+    )
+
+    assert summary is not None
+    assert summary.quota_max_size_bytes is None
+    assert summary.quota_max_objects is None
+
+
 @pytest.fixture(autouse=True)
 def clear_buckets_listing_cache():
     bucket_listing_cache.reset_ceph_admin_bucket_listing_caches_for_tests()
