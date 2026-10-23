@@ -16,6 +16,7 @@ from app.db import (
     UserS3User,
 )
 from app.services.admin_metrics_service import AdminMetricsService
+from app.services.admin_stats_service import AdminStatsService
 from app.services.rgw_admin import RGWAdminError
 
 
@@ -224,15 +225,10 @@ def test_summary_payload_preserves_global_counts_and_endpoint_assignment_scope(d
     )
     db_session.commit()
 
-    global_summary = AdminMetricsService.build_summary_payload(db_session)
-    ceph_one_summary = AdminMetricsService.build_summary_payload(
-        db_session,
-        endpoint_id=ceph_one.id,
-    )
-    ceph_two_summary = AdminMetricsService.build_summary_payload(
-        db_session,
-        endpoint_id=ceph_two.id,
-    )
+    service = AdminStatsService(db_session)
+    global_summary = service.platform_summary()
+    ceph_one_summary = service.platform_summary(endpoint_id=ceph_one.id)
+    ceph_two_summary = service.platform_summary(endpoint_id=ceph_two.id)
 
     assert global_summary == {
         "total_accounts": 2,

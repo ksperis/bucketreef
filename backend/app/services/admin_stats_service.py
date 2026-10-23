@@ -6,11 +6,21 @@ import logging
 from dataclasses import dataclass
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import S3Account, S3User, StorageEndpoint, StorageProvider, User
+from app.db import (
+    S3Account,
+    S3Connection,
+    S3User,
+    StorageEndpoint,
+    StorageProvider,
+    User,
+    UserRole,
+    UserS3Account,
+    UserS3User,
+)
 from app.services.admin_metrics_service import AdminMetricsService
 from app.services.auth_session_service import AuthSessionService
 from app.services.bucket_usage_stats_service import (
@@ -29,6 +39,16 @@ from app.utils.usage_stats import build_bucket_overview, summarize_bucket_usage
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class _AssignmentCounts:
+    total: int
+    assigned: int
+
+    @property
+    def unassigned(self) -> int:
+        return max(self.total - self.assigned, 0)
+
+
 class AdminStatsService:
     """Resolve Admin statistics scope and collect endpoint/principal metrics."""
 
@@ -36,7 +56,7 @@ class AdminStatsService:
         self.db = db
 
     def summary(self, actor: User) -> dict:
-        payload = AdminMetricsService.build_summary_payload(self.db)
+        payload = self.platform_summary()
         session_counts = AuthSessionService(self.db).counts_by_principal_type_for_admin(actor)
         payload["total_active_sessions"] = sum(session_counts.values())
         payload["active_sessions_by_type"] = {
@@ -44,6 +64,124 @@ class AdminStatsService:
             "s3": session_counts.get("s3", 0),
         }
         return payload
+
+    @staticmethod
+    def _endpoint_scoped_count(db: Session, statement, endpoint_column, endpoint_id: int | None) -> int:
+        if endpoint_id is not None:
+            statement = statement.where(endpoint_column == endpoint_id)
+        return int(db.scalar(statement) or 0)
+
+    @classmethod
+    def _account_assignment_counts(
+        cls,
+        db: Session,
+        endpoint_id: int | None,
+    ) -> _AssignmentCounts:
+        total = cls._endpoint_scoped_count(
+            db,
+            select(func.count(S3Account.id)),
+            S3Account.storage_endpoint_id,
+            endpoint_id,
+        )
+        assigned = cls._endpoint_scoped_count(
+            db,
+            select(func.count(func.distinct(S3Account.id))).join(
+                UserS3Account,
+                UserS3Account.account_id == S3Account.id,
+            ),
+            S3Account.storage_endpoint_id,
+            endpoint_id,
+        )
+        return _AssignmentCounts(total=total, assigned=assigned)
+
+    @classmethod
+    def _s3_user_assignment_counts(
+        cls,
+        db: Session,
+        endpoint_id: int | None,
+    ) -> _AssignmentCounts:
+        total = cls._endpoint_scoped_count(
+            db,
+            select(func.count(S3User.id)),
+            S3User.storage_endpoint_id,
+            endpoint_id,
+        )
+        assigned = cls._endpoint_scoped_count(
+            db,
+            select(func.count(func.distinct(S3User.id))).join(
+                UserS3User,
+                UserS3User.s3_user_id == S3User.id,
+            ),
+            S3User.storage_endpoint_id,
+            endpoint_id,
+        )
+        return _AssignmentCounts(total=total, assigned=assigned)
+
+    @staticmethod
+    def _ui_user_counts(db: Session) -> tuple[int, int, int]:
+        admin_count = db.scalar(
+            select(func.count(User.id)).where(
+                User.role.in_([UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value])
+            )
+        ) or 0
+        manager_count = db.scalar(
+            select(func.count(User.id)).where(User.role == UserRole.UI_USER.value)
+        ) or 0
+        none_count = db.scalar(
+            select(func.count(User.id)).where(User.role == UserRole.UI_NONE.value)
+        ) or 0
+        return int(admin_count), int(manager_count), int(none_count)
+
+    @staticmethod
+    def _endpoint_counts(db: Session) -> tuple[int, int]:
+        ceph_count = db.scalar(
+            select(func.count(StorageEndpoint.id)).where(
+                StorageEndpoint.provider == StorageProvider.CEPH.value
+            )
+        ) or 0
+        other_count = db.scalar(
+            select(func.count(StorageEndpoint.id)).where(
+                StorageEndpoint.provider != StorageProvider.CEPH.value
+            )
+        ) or 0
+        return int(ceph_count), int(other_count)
+
+    @staticmethod
+    def _connection_counts(db: Session) -> tuple[int, int, int]:
+        total = db.scalar(select(func.count(S3Connection.id))) or 0
+        shared = db.scalar(
+            select(func.count(S3Connection.id)).where(S3Connection.is_shared.is_(True))
+        ) or 0
+        private = db.scalar(
+            select(func.count(S3Connection.id)).where(S3Connection.is_shared.is_(False))
+        ) or 0
+        return int(total), int(shared), int(private)
+
+    def platform_summary(self, endpoint_id: int | None = None) -> dict:
+        accounts = self._account_assignment_counts(self.db, endpoint_id)
+        s3_users = self._s3_user_assignment_counts(self.db, endpoint_id)
+        total_admins, total_managers, total_none_users = self._ui_user_counts(self.db)
+        total_ceph_endpoints, total_other_endpoints = self._endpoint_counts(self.db)
+        total_connections, total_shared_connections, total_private_connections = self._connection_counts(
+            self.db
+        )
+        return {
+            "total_accounts": accounts.total,
+            "total_users": total_managers,
+            "total_admins": total_admins,
+            "total_none_users": total_none_users,
+            "total_s3_users": s3_users.total,
+            "assigned_accounts": accounts.assigned,
+            "unassigned_accounts": accounts.unassigned,
+            "assigned_s3_users": s3_users.assigned,
+            "unassigned_s3_users": s3_users.unassigned,
+            "total_endpoints": total_ceph_endpoints + total_other_endpoints,
+            "total_ceph_endpoints": total_ceph_endpoints,
+            "total_other_endpoints": total_other_endpoints,
+            "total_connections": total_connections,
+            "total_shared_connections": total_shared_connections,
+            "total_private_connections": total_private_connections,
+        }
 
     def resolve_endpoint(
         self,
