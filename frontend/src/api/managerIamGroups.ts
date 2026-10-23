@@ -12,10 +12,12 @@ import {
   deleteEntityInlinePolicy,
   deleteIamEntity,
   detachEntityPolicy,
+  getIamEntity,
   listEntityInlinePolicies,
   listEntityPolicies,
   listIamEntities,
   putEntityInlinePolicy,
+  updateIamEntity,
 } from "./managerIamEntityClient";
 
 export type IAMGroup = {
@@ -32,10 +34,7 @@ export async function listIamGroups(contextId?: S3ExecutionContextSelector): Pro
 }
 
 export async function getIamGroup(contextId: S3ExecutionContextSelector, groupName: string): Promise<IAMGroup> {
-  const { data } = await client.get<IAMGroup>(`/manager/iam/groups/${encodeURIComponent(groupName)}`, {
-    params: withS3ContextParam(undefined, contextId),
-  });
-  return data;
+  return getIamEntity<IAMGroup>("groups", contextId, groupName);
 }
 
 export async function updateIamGroup(
@@ -43,10 +42,7 @@ export async function updateIamGroup(
   groupName: string,
   payload: { name?: string; path?: string },
 ): Promise<IAMGroup> {
-  const { data } = await client.patch<IAMGroup>(`/manager/iam/groups/${encodeURIComponent(groupName)}`, payload, {
-    params: withS3ContextParam(undefined, contextId),
-  });
-  return data;
+  return updateIamEntity<IAMGroup, typeof payload>("groups", contextId, groupName, payload);
 }
 
 export async function createIamGroup(
