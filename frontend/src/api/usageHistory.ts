@@ -14,8 +14,8 @@ export type UsageHistoryTrendWindow = "day" | "week" | "month";
 export type UsageHistorySummary = {
   total_records: number;
   subjects_count: number;
-  latest_collected_at?: string | null;
-  max_usage_ratio_pct?: number | null;
+  latest_collected_at: string | null;
+  max_usage_ratio_pct: number | null;
 };
 
 export type UsageHistoryRecord = {
@@ -27,14 +27,14 @@ export type UsageHistoryRecord = {
   subject_type: "account" | "s3_user";
   subject_id: number;
   subject_name: string;
-  subject_identifier?: string | null;
+  subject_identifier: string | null;
   used_bytes: number;
   used_objects: number;
-  bucket_count?: number | null;
-  quota_size_bytes?: number | null;
-  quota_objects?: number | null;
-  usage_ratio_pct?: number | null;
-  samples_count?: number | null;
+  bucket_count: number | null;
+  quota_size_bytes: number | null;
+  quota_objects: number | null;
+  usage_ratio_pct: number | null;
+  samples_count: number | null;
   collected_at: string;
 };
 
@@ -111,10 +111,10 @@ export type UsageHistoryTrendPoint = {
   used_bytes: number;
   used_objects: number;
   bucket_count: number;
-  max_usage_ratio_pct?: number | null;
+  max_usage_ratio_pct: number | null;
   subjects_count: number;
   samples_count: number;
-  collected_at?: string | null;
+  collected_at: string | null;
 };
 
 export type UsageHistoryTrendSummary = {
@@ -124,15 +124,15 @@ export type UsageHistoryTrendSummary = {
   latest_used_bytes: number;
   latest_used_objects: number;
   latest_bucket_count: number;
-  latest_collected_at?: string | null;
-  max_usage_ratio_pct?: number | null;
+  latest_collected_at: string | null;
+  max_usage_ratio_pct: number | null;
 };
 
 export type UsageHistoryTrendResponse = {
   window: UsageHistoryTrendWindow;
   granularity: UsageHistoryGranularity;
   available: boolean;
-  unavailable_reason?: string | null;
+  unavailable_reason: string | null;
   points: UsageHistoryTrendPoint[];
   summary: UsageHistoryTrendSummary;
 };
