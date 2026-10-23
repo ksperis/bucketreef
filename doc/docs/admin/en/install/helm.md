@@ -40,6 +40,11 @@ Cron values blocks:
 - `bucketUsageStatsCronJob`
 - `notificationRetentionCronJob`
 
+The CronJobs connect directly to the backend Service, but their HTTP requests
+send the configured public `ingress.host` as the `Host` header. This preserves
+the production `ALLOWED_HOSTS` boundary while avoiding a second internal host
+allow-list solely for scheduler traffic.
+
 Backend env defaults include cost/quota and user-notification retention knobs.
 Provide `SMTP_PASSWORD` via your secret injection policy.
 LDAP providers can be injected through `backend.extraEnv` with
@@ -51,8 +56,19 @@ external-identity collisions use the manual approval queue.
 
 The referenced existing Secret is mandatory and must provide the keys mapped
 by `backend.secretKeys`: database URL, distinct UI/API JWT rings, credential
-ring, and internal Cron token. Ingress must be enabled with an existing TLS
-secret. Sensitive values in `backend.env` are rejected by chart rendering.
+ring, and internal Cron token. Ingress must be enabled. By default it must use
+an existing Kubernetes TLS Secret. When HTTPS is already terminated by a
+trusted reverse proxy or load balancer in front of the cluster, set
+`ingress.externalTlsTermination=true` and leave `ingress.tls` empty instead.
+Sensitive values in `backend.env` are rejected by chart rendering.
+
+With external TLS termination, the upstream proxy remains part of the trusted
+request chain. It must preserve the original HTTPS scheme, the public origin and
+WebAuthn settings must stay on `https://...`, secure cookies must remain enabled,
+and `backend.trustedProxyCidrs` must still describe the exact Kubernetes ingress
+or reverse-proxy peer addresses seen by the backend. Do not enable external TLS
+termination merely to bypass certificate configuration on an otherwise direct
+Ingress exposure.
 
 `backend.trustedProxyCidrs` is also mandatory. Set it to the narrow pod CIDR or
 individual addresses actually used by your ingress/reverse-proxy path; the
@@ -158,6 +174,13 @@ default administrator or administrator password.
 Running more than one backend replica is supported only with PostgreSQL as the
 shared database source of truth. SQLite remains useful for local development and
 single-backend deployments, but it is not a multi-backend contract.
+
+The chart's optional bundled PostgreSQL workload is a single database replica.
+It can provide the shared PostgreSQL source of truth required by multiple
+BucketReef backends, but it does not make the database highly available. For a
+database HA deployment, use an external or operator-managed PostgreSQL cluster
+with its own replication and failover contract, and put its read/write service
+URL in the BucketReef authentication Secret.
 
 For `backend.replicas > 1`:
 

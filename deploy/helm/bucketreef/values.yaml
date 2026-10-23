@@ -193,6 +193,11 @@ ingress:
   className: ""
   annotations: {}
   host: bucketreef.local
+  # Set true only when HTTPS is terminated by a trusted reverse proxy or load
+  # balancer before traffic reaches the Kubernetes Ingress. In that mode the
+  # upstream proxy must preserve the original HTTPS scheme and the backend
+  # trustedProxyCidrs boundary must still be configured narrowly.
+  externalTlsTermination: false
   tls:
     - secretName: bucketreef-tls
       hosts:

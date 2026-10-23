@@ -22,6 +22,10 @@ required. Both pools must point at the same PostgreSQL database and use the same
 UI JWT, API JWT, and credential key rings so identities, sessions, encrypted
 credentials, endpoint configuration, and application state remain coherent.
 SQLite is not a supported database for this split multi-instance topology.
+Database high availability is an independent requirement: the Helm chart's
+optional bundled PostgreSQL workload is single-replica. Use a PostgreSQL service
+that provides replication and primary failover when the database itself must
+survive an instance failure.
 
 Configure the exact public origins for both hosts and a common WebAuthn RP ID
 valid for those hosts. Restrict the Administration ingress at the network layer

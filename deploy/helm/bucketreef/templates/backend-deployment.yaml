@@ -18,8 +18,8 @@
 {{- if not .Values.ingress.enabled -}}
 {{- fail "ingress.enabled=true is required for the production security profile." -}}
 {{- end -}}
-{{- if not .Values.ingress.tls -}}
-{{- fail "ingress.tls must reference an existing TLS secret." -}}
+{{- if and (not .Values.ingress.tls) (not .Values.ingress.externalTlsTermination) -}}
+{{- fail "ingress.tls must reference an existing TLS secret unless ingress.externalTlsTermination=true." -}}
 {{- end -}}
 {{- if not .Values.backend.trustedProxyCidrs -}}
 {{- fail "backend.trustedProxyCidrs is required and must contain the exact ingress/reverse-proxy CIDR boundary." -}}

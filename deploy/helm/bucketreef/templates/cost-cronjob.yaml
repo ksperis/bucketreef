@@ -69,7 +69,7 @@ spec:
                       offset = 1
                   day = (datetime.datetime.utcnow() - datetime.timedelta(days=offset)).date().isoformat()
                   url = f"{base}/api/internal/cost/collect/daily?day={day}"
-                  resp = requests.post(url, headers={"X-Internal-Token": token}, timeout=30)
+                  resp = requests.post(url, headers={"X-Internal-Token": token, "Host": {{ .Values.ingress.host | quote }}}, timeout=30)
                   print(f"Cost collection returned HTTP {resp.status_code}")
                   resp.raise_for_status()
                   PY

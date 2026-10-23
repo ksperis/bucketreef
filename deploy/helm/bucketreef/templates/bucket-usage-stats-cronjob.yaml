@@ -61,7 +61,7 @@ spec:
                       print("Missing BUCKET_USAGE_STATS_API_BASE or INTERNAL_CRON_TOKEN", file=sys.stderr)
                       sys.exit(1)
                   url = f"{base}/api/internal/bucket-usage-stats/collect"
-                  resp = requests.post(url, headers={"X-Internal-Token": token}, timeout=86400)
+                  resp = requests.post(url, headers={"X-Internal-Token": token, "Host": {{ .Values.ingress.host | quote }}}, timeout=86400)
                   print(f"Bucket usage statistics collection returned HTTP {resp.status_code}")
                   resp.raise_for_status()
                   PY
