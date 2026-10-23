@@ -435,6 +435,11 @@ Admin can set:
 - primary accent color (`#RRGGBB`)
 - optional login logo URL
 
+The preset accent colors avoid the success, warning, and danger color families.
+Custom colors remain available; the UI warns when a selected color is close to
+those semantic status colors so administrators can avoid ambiguous actions and
+states.
+
 ## Documentation hosting
 
 Admin **General settings** exposes a **Documentation base URL**. It defaults to

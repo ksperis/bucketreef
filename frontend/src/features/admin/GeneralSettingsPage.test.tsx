@@ -112,6 +112,36 @@ describe("GeneralSettingsPage branding", () => {
     expect(screen.getByText(/BucketReef branding always remains visible/i)).toBeInTheDocument();
   });
 
+  it("offers presets that avoid semantic success, warning, and danger colors", async () => {
+    renderPage();
+    await screen.findByLabelText("Primary color picker");
+
+    const presetLabels = screen
+      .getAllByRole("button", { name: /Use preset color/i })
+      .map((button) => button.getAttribute("aria-label"));
+    expect(presetLabels).toEqual([
+      "Use preset color #0569f8",
+      "Use preset color #2563eb",
+      "Use preset color #0369a1",
+      "Use preset color #0e7490",
+      "Use preset color #4f46e5",
+      "Use preset color #4338ca",
+      "Use preset color #7c3aed",
+      "Use preset color #9333ea",
+    ]);
+  });
+
+  it("warns without blocking a custom accent color that overlaps semantic status colors", async () => {
+    renderPage();
+    const picker = await screen.findByLabelText("Primary color picker");
+
+    fireEvent.change(picker, { target: { value: "#dc2626" } });
+    expect(screen.getByText(/close to a semantic status color/i)).toBeInTheDocument();
+
+    fireEvent.change(picker, { target: { value: "#7c3aed" } });
+    expect(screen.queryByText(/close to a semantic status color/i)).not.toBeInTheDocument();
+  });
+
   it("saves branding color and applies it immediately", async () => {
     const user = userEvent.setup();
     renderPage();
