@@ -2,7 +2,15 @@
 # Licensed under the Apache License, Version 2.0
 
 from app.models.ui_group import UiGroupAvatar, UiGroupOut
-from app.models.user import UserAssociationDetail, UserAvatar, UserOut, UserSummary
+from app.models.user import (
+    EffectiveAccountGroupSource,
+    EffectiveAccountRoleProvenance,
+    EffectiveUserAccess,
+    UserAssociationDetail,
+    UserAvatar,
+    UserOut,
+    UserSummary,
+)
 
 
 def test_user_avatar_requires_complete_canonical_payload() -> None:
@@ -48,6 +56,46 @@ def test_user_summary_requires_complete_canonical_payload() -> None:
         "role",
     }
     assert "iam_username" not in schema["properties"]
+
+
+def test_effective_account_group_source_requires_complete_canonical_payload() -> None:
+    assert set(EffectiveAccountGroupSource.model_json_schema()["required"]) == {
+        "group_id",
+        "group_name",
+        "manager_role",
+        "portal_role",
+        "determines_effective_manager_role",
+        "determines_effective_portal_role",
+        "allow_manager_browser_data_access",
+    }
+
+
+def test_effective_account_role_provenance_requires_complete_canonical_payload() -> None:
+    assert set(EffectiveAccountRoleProvenance.model_json_schema()["required"]) == {
+        "direct_manager_role",
+        "direct_portal_role",
+        "direct_determines_effective_manager_role",
+        "direct_determines_effective_portal_role",
+        "direct_allow_manager_browser_data_access",
+        "groups",
+    }
+
+
+def test_effective_user_access_requires_complete_canonical_payload() -> None:
+    assert set(EffectiveUserAccess.model_json_schema()["required"]) == {
+        "can_access_ceph_admin",
+        "can_access_storage_ops",
+        "can_create_manual_private_connections",
+        "can_provision_managed_private_connections",
+        "group_can_provision_managed_private_connections",
+        "has_owned_private_connections",
+        "manager_tool_access",
+        "group_manager_tool_access",
+        "browser_advanced_features_enabled",
+        "account_links",
+        "s3_user_details",
+        "s3_connection_details",
+    }
 
 
 def test_user_output_requires_complete_canonical_payload() -> None:
