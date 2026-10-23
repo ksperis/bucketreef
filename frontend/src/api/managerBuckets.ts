@@ -26,7 +26,7 @@ export type FeatureRuleInventoryBucket = {
   feature: FeatureRuleFeature;
   status: FeatureRuleInventoryStatus;
   rules: FeatureRuleInventoryRule[];
-  error?: string | null;
+  error: string | null;
 };
 
 export async function listBuckets(

@@ -174,16 +174,16 @@ class FeatureRuleInventoryRule(ApiModel):
     type: str
     title: str
     summary: str
-    chips: list[str] = Field(default_factory=list)
-    raw: dict[str, Any] = Field(default_factory=dict)
+    chips: list[str]
+    raw: dict[str, Any]
 
 
 class FeatureRuleInventoryBucket(ApiModel):
     bucket_name: str
     feature: FeatureRuleInventoryFeature
     status: FeatureRuleInventoryStatus
-    rules: list[FeatureRuleInventoryRule] = Field(default_factory=list)
-    error: Optional[str] = None
+    rules: list[FeatureRuleInventoryRule]
+    error: Optional[str]
 
 
 class BucketReplicationConfiguration(ApiModel):
