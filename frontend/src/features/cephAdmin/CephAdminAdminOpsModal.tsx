@@ -92,7 +92,7 @@ function structuredResultFromError(error: unknown): CephAdminAdminOpsResult | nu
     rgw_status_code: candidate.rgw_status_code ?? null,
     rgw_error_code: candidate.rgw_error_code ?? null,
     message: typeof candidate.message === "string" ? candidate.message : "RGW Admin Ops operation failed.",
-    result: candidate.result,
+    result: candidate.result ?? null,
   };
 }
 

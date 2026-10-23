@@ -7,10 +7,10 @@ import client from "./client";
 export type CephAdminAdminOpsResult = {
   operation: string;
   success: boolean;
-  rgw_status_code?: number | null;
-  rgw_error_code?: string | null;
+  rgw_status_code: number | null;
+  rgw_error_code: string | null;
   message: string;
-  result?: unknown;
+  result: unknown;
 };
 
 const tenantParams = (tenant?: string | null) => (tenant ? { tenant } : undefined);
