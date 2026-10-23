@@ -169,7 +169,10 @@ def test_portal_cost_requires_project_opt_in(db_session, monkeypatch):
         capabilities=AccountCapabilities(),
         portal_role="portal_user",
     )
-    monkeypatch.setattr("app.routers.portal_cost.load_app_settings", _enabled_cost_settings)
+    monkeypatch.setattr(
+        "app.routers.portal_cost.load_app_settings_for_db_readonly",
+        lambda _db: _enabled_cost_settings(),
+    )
     monkeypatch.setattr(
         "app.routers.portal_cost.PortalService.get_effective_portal_settings",
         lambda _self, _account: SimpleNamespace(cost_estimation_enabled=False),
@@ -195,7 +198,10 @@ def test_portal_cost_returns_estimate_after_project_opt_in(db_session, monkeypat
         capabilities=AccountCapabilities(),
         portal_role="portal_user",
     )
-    monkeypatch.setattr("app.routers.portal_cost.load_app_settings", _enabled_cost_settings)
+    monkeypatch.setattr(
+        "app.routers.portal_cost.load_app_settings_for_db_readonly",
+        lambda _db: _enabled_cost_settings(),
+    )
     monkeypatch.setattr(
         "app.routers.portal_cost.PortalService.get_effective_portal_settings",
         lambda _self, _account: SimpleNamespace(cost_estimation_enabled=True),
