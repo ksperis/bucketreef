@@ -12,13 +12,13 @@ export type UserNotification = {
   severity: UserNotificationSeverity;
   title: string;
   message: string;
-  subject_type?: string | null;
-  storage_endpoint_id?: number | null;
-  s3_account_id?: number | null;
-  s3_user_id?: number | null;
-  payload?: Record<string, unknown>;
+  subject_type: string | null;
+  storage_endpoint_id: number | null;
+  s3_account_id: number | null;
+  s3_user_id: number | null;
+  payload: Record<string, unknown>;
   created_at: string;
-  read_at?: string | null;
+  read_at: string | null;
 };
 
 type UserNotificationsResponse = {
