@@ -96,7 +96,7 @@ export function ceph(c: DemoRequest): Response | undefined {
       updateAccount(c.state.accounts.at(-1)!);
       return json({ account: view(c.state.accounts.at(-1)!) }, 201);
     }
-    if (c.method === "PUT" && match[4] === "config") {
+    if (c.method === "PATCH" && match[4] === "config") {
       const account = required(accounts.find(a => a.rgw_account_id === id));
       updateAccount(account);
       return json(view(account));
@@ -157,7 +157,7 @@ export function ceph(c: DemoRequest): Response | undefined {
     const selected = required(users.find(item => `${item.account.id}:${item.user.name}` === id || item.user.name === id));
     if (match[4] === "keys") return keyActions(c, c.state.iam[selected.account.id], selected.user.name, match[5], true);
     if (c.method === "GET" && match[4] === "detail") return json(detail(selected));
-    if (c.method === "PUT" && match[4] === "config") {
+    if (c.method === "PATCH" && match[4] === "config") {
       updateUser(selected.user);
       return json(detail(selected));
     }
