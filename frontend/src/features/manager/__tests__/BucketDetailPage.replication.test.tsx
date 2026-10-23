@@ -208,7 +208,13 @@ describe("BucketDetailPage replication state", () => {
     });
     putBucketLifecycleMock.mockImplementation((_accountId, _bucketName, rules) => Promise.resolve({ rules }));
     getBucketReplicationMock.mockResolvedValue({ configuration: {} });
-    listManagerObjectsMock.mockResolvedValue({ prefix: "", objects: [], prefixes: [], is_truncated: false });
+    listManagerObjectsMock.mockResolvedValue({
+      prefix: "",
+      objects: [],
+      prefixes: [],
+      is_truncated: false,
+      next_continuation_token: null,
+    });
     listCephAdminBucketObjectsMock.mockResolvedValue({ prefix: "", objects: [], prefixes: [], is_truncated: false });
     listCephAdminBucketsMock.mockResolvedValue({
       items: [{ name: "demo-bucket" }],

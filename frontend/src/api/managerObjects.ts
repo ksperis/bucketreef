@@ -17,7 +17,7 @@ type ManagerObjectListingResponse = {
   objects: ManagerObject[];
   prefixes: string[];
   is_truncated: boolean;
-  next_continuation_token?: string | null;
+  next_continuation_token: string | null;
 };
 
 export async function listManagerObjects(
