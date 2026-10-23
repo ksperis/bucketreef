@@ -10,7 +10,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from pydantic import ValidationError
 import sqlalchemy as sa
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 
 from app.core.config import LDAPProviderSettings, Settings
 from app.db import AuditLog, ExternalIdentity, LdapProvider, User, UserRole
@@ -284,7 +284,7 @@ def test_ldap_service_authenticate_uses_ui_defined_provider(db_session, monkeypa
 
     assert created is True
     assert user.email == "jane@example.test"
-    identity = db_session.query(ExternalIdentity).one()
+    identity = db_session.scalars(select(ExternalIdentity)).one()
     assert identity.user_id == user.id
     assert identity.provider_type == "ldap"
     assert identity.provider_id == "ui"
@@ -310,7 +310,9 @@ def test_admin_ldap_api_never_returns_secret_and_preserves_replaces_it(client, d
         text("select bind_password from ldap_providers where provider_id = 'ui'")
     ).scalar_one()
     assert raw_secret != "first-secret"
-    assert db_session.query(LdapProvider).filter(LdapProvider.provider_id == "ui").one().bind_password == "first-secret"
+    assert db_session.scalars(
+        select(LdapProvider).where(LdapProvider.provider_id == "ui")
+    ).one().bind_password == "first-secret"
 
     listed = client.get("/api/admin/settings/ldap/providers")
     assert listed.status_code == 200, listed.text
@@ -320,14 +322,18 @@ def test_admin_ldap_api_never_returns_secret_and_preserves_replaces_it(client, d
     preserve_payload = _payload(display_name="Updated LDAP", bind_password="")
     response = client.put("/api/admin/settings/ldap/providers/ui", json=preserve_payload)
     assert response.status_code == 200, response.text
-    provider = db_session.query(LdapProvider).filter(LdapProvider.provider_id == "ui").one()
+    provider = db_session.scalars(
+        select(LdapProvider).where(LdapProvider.provider_id == "ui")
+    ).one()
     assert provider.display_name == "Updated LDAP"
     assert provider.bind_password == "first-secret"
 
     replace_payload = _payload(display_name="Updated LDAP", bind_password="second-secret")
     response = client.put("/api/admin/settings/ldap/providers/ui", json=replace_payload)
     assert response.status_code == 200, response.text
-    assert db_session.query(LdapProvider).filter(LdapProvider.provider_id == "ui").one().bind_password == "second-secret"
+    assert db_session.scalars(
+        select(LdapProvider).where(LdapProvider.provider_id == "ui")
+    ).one().bind_password == "second-secret"
 
     clear_payload = _payload(bind_password="", clear_bind_password=True)
     response = client.put("/api/admin/settings/ldap/providers/ui", json=clear_payload)
@@ -335,11 +341,17 @@ def test_admin_ldap_api_never_returns_secret_and_preserves_replaces_it(client, d
     assert "first-secret" not in response.text
     assert "second-secret" not in response.text
 
-    audit_payload = "\n".join(log.metadata_json or "" for log in db_session.query(AuditLog).all())
+    audit_payload = "\n".join(
+        log.metadata_json or "" for log in db_session.scalars(select(AuditLog)).all()
+    )
     assert "first-secret" not in audit_payload
     assert "second-secret" not in audit_payload
-    assert "ldap_provider.create" in {log.action for log in db_session.query(AuditLog).all()}
-    assert "ldap_provider.update" in {log.action for log in db_session.query(AuditLog).all()}
+    assert "ldap_provider.create" in {
+        log.action for log in db_session.scalars(select(AuditLog)).all()
+    }
+    assert "ldap_provider.update" in {
+        log.action for log in db_session.scalars(select(AuditLog)).all()
+    }
 
 
 def test_admin_ldap_api_supports_anonymous_search_and_clears_stored_credentials(
@@ -363,7 +375,9 @@ def test_admin_ldap_api_supports_anonymous_search_and_clears_stored_credentials(
     assert response.json()["bind_dn"] is None
     assert response.json()["has_bind_password"] is False
 
-    provider = db_session.query(LdapProvider).filter(LdapProvider.provider_id == "ui").one()
+    provider = db_session.scalars(
+        select(LdapProvider).where(LdapProvider.provider_id == "ui")
+    ).one()
     assert provider.bind_dn is None
     assert provider.bind_password is None
 
@@ -378,7 +392,9 @@ def test_admin_ldap_api_supports_anonymous_search_and_clears_stored_credentials(
     assert response.status_code == 200, response.text
     assert response.json()["has_bind_password"] is True
     assert response.json()["allow_legacy_tls"] is True
-    assert db_session.query(LdapProvider).filter(LdapProvider.provider_id == "ui").one().allow_legacy_tls is True
+    assert db_session.scalars(
+        select(LdapProvider).where(LdapProvider.provider_id == "ui")
+    ).one().allow_legacy_tls is True
 
     response = client.put(
         "/api/admin/settings/ldap/providers/ui",
@@ -388,7 +404,9 @@ def test_admin_ldap_api_supports_anonymous_search_and_clears_stored_credentials(
     assert response.json()["bind_dn"] is None
     assert response.json()["has_bind_password"] is False
     db_session.expire_all()
-    provider = db_session.query(LdapProvider).filter(LdapProvider.provider_id == "ui").one()
+    provider = db_session.scalars(
+        select(LdapProvider).where(LdapProvider.provider_id == "ui")
+    ).one()
     assert provider.bind_dn is None
     assert provider.bind_password is None
 
