@@ -1,12 +1,12 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import re
 from typing import Literal, Optional
 
 from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
 from app.utils.identity_provider_ids import normalize_identity_provider_id
+from app.utils.oidc_validation import normalize_trusted_email_domains
 
 
 OIDC_PROVIDER_DEFAULT_SCOPES = ["openid", "email", "profile"]
@@ -24,27 +24,6 @@ OIDC_PROVIDER_CONFIG_FIELDS = (
     "linking_policy",
     "trusted_email_domains",
 )
-
-
-def normalize_trusted_email_domains(value) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        items = value.replace("\n", ",").split(",")
-    elif isinstance(value, list):
-        items = value
-    else:
-        raise ValueError("trusted_email_domains must be a list or comma-separated string")
-    normalized: list[str] = []
-    for item in items:
-        domain = str(item or "").strip().lower().lstrip("@")
-        if not domain:
-            continue
-        if len(domain) > 253 or "." not in domain or not re.fullmatch(r"[a-z0-9.-]+", domain):
-            raise ValueError("trusted_email_domains must contain exact DNS domains")
-        if domain not in normalized:
-            normalized.append(domain)
-    return normalized
 
 
 class OIDCProviderInfo(ApiModel):
