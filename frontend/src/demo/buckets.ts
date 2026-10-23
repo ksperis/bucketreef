@@ -1,5 +1,5 @@
 import type { BucketTag } from "../api/bucketContracts";
-import type { CephAdminBucket } from "../api/cephAdminBuckets";
+import type { CephAdminBucket, CephAdminBucketCompareResult } from "../api/cephAdminBuckets";
 import { bucketView, GiB, newBucket } from "./state";
 import { spaceRole, DemoError, done, json, listing, scopedAccount, scopedBucket, textField, type DemoRequest } from "./http";
 import { objectListing } from "./objects";
@@ -48,11 +48,66 @@ export function buckets(c: DemoRequest): Response | undefined {
     }
     return undefined;
   }
-  if (name === "compare" && !resource && method === "POST") return json({
-    source_context_id: String(account!.id), target_context_id: body.target_context_id, source_bucket: body.source_bucket, target_bucket: body.target_bucket, has_differences: true,
-    content_diff: { source_count: 120, target_count: 119, matched_count: 118, different_count: 1, only_source_count: 1, only_target_count: 0, only_source_sample: ["quarterly-report.csv"], only_target_sample: [], different_sample: [{ key: "README.txt", compare_by: "size", source_size: 320, target_size: 280 }] },
-    config_diff: { changed: true, sections: [{ key: "versioning_status", label: "Versioning (predefined example)", source: "Enabled", target: "Suspended", changed: true }] },
-  });
+  if (name === "compare" && !resource && method === "POST") {
+    const contentDiff = {
+      source_count: 120,
+      target_count: 119,
+      matched_count: 118,
+      different_count: 1,
+      only_source_count: 1,
+      only_target_count: 0,
+      ignored_after_cutoff_count: 0,
+      display_limit: 100,
+      only_source_hidden_count: 0,
+      only_target_hidden_count: 0,
+      different_hidden_count: 0,
+      only_source_sample: ["quarterly-report.csv"],
+      only_target_sample: [],
+      only_source_details: [{ key: "quarterly-report.csv", size: null, etag: null, last_modified: null, storage_class: null }],
+      only_target_details: [],
+      different_sample: [{
+        key: "README.txt",
+        source_size: 320,
+        target_size: 280,
+        source_etag: null,
+        target_etag: null,
+        source_last_modified: null,
+        target_last_modified: null,
+        source_storage_class: null,
+        target_storage_class: null,
+        compare_by: "size" as const,
+      }],
+    };
+    const configDiff = {
+      changed: true,
+      sections: [{ key: "versioning_status", label: "Versioning (predefined example)", source: "Enabled", target: "Suspended", changed: true }],
+    };
+    if (ceph) {
+      const source = body.source as { name?: unknown; tenant?: unknown } | undefined;
+      const target = body.target as { name?: unknown; tenant?: unknown } | undefined;
+      const response: CephAdminBucketCompareResult = {
+        source_endpoint_id: endpointId!,
+        target_endpoint_id: Number(body.target_endpoint_id),
+        source_bucket: String(source?.name ?? ""),
+        target_bucket: String(target?.name ?? ""),
+        source_tenant: String(source?.tenant ?? ""),
+        target_tenant: String(target?.tenant ?? ""),
+        has_differences: true,
+        content_diff: body.include_content === false ? null : contentDiff,
+        config_diff: body.include_config ? configDiff : null,
+      };
+      return json(response);
+    }
+    return json({
+      source_context_id: String(account!.id),
+      target_context_id: body.target_context_id,
+      source_bucket: body.source_bucket,
+      target_bucket: body.target_bucket,
+      has_differences: true,
+      content_diff: contentDiff,
+      config_diff: configDiff,
+    });
+  }
   const bucket = scopedBucket(c, name, endpointId);
   if (!resource && method === "DELETE" && match?.[1] === "manager") {
     if (bucket.objects.some(o => o.versions.length)) throw new DemoError(409, "Bucket is not empty. History cleanup is disabled in the demo; create an empty bucket to try deletion.");
