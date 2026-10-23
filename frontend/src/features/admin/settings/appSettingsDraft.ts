@@ -15,25 +15,30 @@ export type DraftValue = string | boolean | string[] | null | undefined;
 export type AppSettingsValues = Partial<Record<SettingsPath, DraftValue>>;
 export type FieldErrors = Partial<Record<SettingsPath, string>>;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function read(settings: AppSettings, path: SettingsPath): unknown {
   return path
     .split(".")
     .reduce<unknown>(
       (value, key) =>
-        value && typeof value === "object"
-          ? (value as Record<string, unknown>)[key]
-          : undefined,
+        isRecord(value) ? value[key] : undefined,
       settings,
     );
 }
 
 function write(settings: AppSettings, path: SettingsPath, value: unknown) {
   const parts = path.split(".");
-  let target = settings as unknown as Record<string, unknown>;
+  let target: unknown = settings;
   for (const part of parts.slice(0, -1)) {
-    if (!target[part]) target[part] = {};
-    target = target[part] as Record<string, unknown>;
+    if (!isRecord(target) || !isRecord(target[part])) {
+      throw new TypeError(`Invalid settings path: ${path}`);
+    }
+    target = target[part];
   }
+  if (!isRecord(target)) throw new TypeError(`Invalid settings path: ${path}`);
   target[parts[parts.length - 1]] = value;
 }
 
