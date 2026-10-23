@@ -311,10 +311,10 @@ async function buildBucketConfigPastePreview({
 
   if (features.access_logging && source.accessLogging) {
     const currentAccessLogging = normalizeAccessLoggingSnapshot(
-      (await getBucketLogging(
+      await getBucketLogging(
         targetEndpointId,
         mapping.destinationBucket,
-      )) as unknown as Record<string, unknown>,
+      ),
     );
     const sectionChanged = !isAccessLoggingSnapshotEqual(
       currentAccessLogging,

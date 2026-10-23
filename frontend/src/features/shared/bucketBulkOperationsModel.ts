@@ -271,8 +271,14 @@ export const formatObjectLockSnapshot = (value: BulkObjectLockSnapshot) =>
     2,
   );
 
+type AccessLoggingSnapshotInput = {
+  enabled?: unknown;
+  target_bucket?: unknown;
+  target_prefix?: unknown;
+};
+
 export const normalizeAccessLoggingSnapshot = (
-  value?: Record<string, unknown> | null,
+  value?: AccessLoggingSnapshotInput | null,
 ): BulkAccessLoggingSnapshot => {
   const rawTargetBucket = value?.target_bucket;
   const rawTargetPrefix = value?.target_prefix;

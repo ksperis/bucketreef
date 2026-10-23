@@ -243,10 +243,10 @@ export async function applyBucketOpsConfigPaste({
 
       if (features.access_logging && source.accessLogging) {
         const currentAccessLogging = normalizeAccessLoggingSnapshot(
-          (await getBucketLogging(
+          await getBucketLogging(
             targetEndpointId,
             mapping.destinationBucket,
-          )) as unknown as Record<string, unknown>,
+          ),
         );
         if (!isAccessLoggingSnapshotEqual(currentAccessLogging, source.accessLogging)) {
           if (!source.accessLogging.enabled || !source.accessLogging.target_bucket) {

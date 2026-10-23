@@ -110,7 +110,7 @@ export async function copyBucketOpsConfigs({
           : null,
         accessLogging: features.access_logging
           ? normalizeAccessLoggingSnapshot(
-              (await getBucketLogging(sourceEndpointId, bucketName)) as unknown as Record<string, unknown>,
+              await getBucketLogging(sourceEndpointId, bucketName),
             )
           : null,
       };
