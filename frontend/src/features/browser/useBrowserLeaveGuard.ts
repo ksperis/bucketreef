@@ -38,7 +38,12 @@ export function useBrowserLeaveGuard({
   });
 
   unstable_usePrompt({
-    when: shouldConfirmLeave,
+    when: ({ currentLocation, nextLocation }) => {
+      const pathChanged = currentLocation.pathname !== nextLocation.pathname;
+      if (pathChanged) return shouldConfirmLeave;
+      const searchChanged = currentLocation.search !== nextLocation.search;
+      return searchChanged && (hasUnsavedChanges || archiveInventoryActive);
+    },
     message: leaveMessage,
   });
 
