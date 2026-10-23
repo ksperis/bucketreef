@@ -19,27 +19,27 @@ export type PortalStorageSpaceShare = {
   id: string;
   storage_space_id: string;
   storage_space_name: string;
-  user_id?: number | null;
+  user_id: number | null;
   email: string;
   role: PortalStorageSpaceGrantRole;
   direction: PortalStorageSpaceShareDirection;
-  activity_label?: string | null;
+  activity_label: string;
 };
 
 export type PortalStorageSpaceAccessPerson = {
-  user_id?: number | null;
+  user_id: number | null;
   email: string;
-  display_name?: string | null;
+  display_name: string | null;
   role: PortalStorageSpaceRole;
-  portal_role?: PortalAccountRole | null;
-  access_source?: "owner" | "direct" | "group" | "direct_and_group" | null;
-  avatar?: UserAvatarDescriptor | null;
+  portal_role: PortalAccountRole | null;
+  access_source: "owner" | "direct" | "group" | "direct_and_group" | null;
+  avatar: UserAvatarDescriptor | null;
 };
 
 export type PortalStorageSpaceAccessSummary = {
   mode: "private" | "all" | "restricted";
-  default_account_member_role?: PortalStorageSpaceAccountMemberRole | null;
-  owner?: PortalStorageSpaceAccessPerson | null;
+  default_account_member_role: PortalStorageSpaceAccountMemberRole | null;
+  owner: PortalStorageSpaceAccessPerson | null;
   effective_member_count: number;
   explicit_shares: PortalStorageSpaceShare[];
   public_link_count: number;
@@ -50,11 +50,11 @@ export type PortalStorageSpaceAccessSummary = {
 export type PortalStorageSpaceShareCandidate = {
   user_id: number;
   email: string;
-  display_name?: string | null;
+  display_name: string | null;
   portal_role: PortalAccountRole;
   access_source: "direct" | "group" | "direct_and_group";
-  already_shared?: boolean;
-  avatar?: UserAvatarDescriptor | null;
+  already_shared: boolean;
+  avatar: UserAvatarDescriptor | null;
 };
 
 export type PortalPublicLink = {
@@ -64,11 +64,11 @@ export type PortalPublicLink = {
   object_key: string;
   object_name: string;
   url: string;
-  label?: string | null;
-  created_by_email?: string | null;
+  label: string | null;
+  created_by_email: string | null;
   created_at: string;
-  expires_at?: string | null;
-  revoked_at?: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
   status: string;
 };
 

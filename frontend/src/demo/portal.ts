@@ -139,7 +139,7 @@ export function portal(c: DemoRequest): Response | undefined {
       if (Array.isArray(body.initial_shares)) space.shares = body.initial_shares.map((input: { user_id: number; role: string }) => {
         const target = required(candidates.find(u => u.user_id === input.user_id));
         if (input.role !== "Viewer" && input.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");
-        return { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: input.role, direction: "by_me" };
+        return { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: input.role, direction: "by_me", activity_label: "Just now" };
       });
       state.spaces.push(space); return json(spaceView(c, space), 201);
     }

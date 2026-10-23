@@ -25,53 +25,53 @@ class PortalStorageSpaceShare(ApiModel):
     id: str
     storage_space_id: str
     storage_space_name: str
-    user_id: Optional[int] = None
+    user_id: Optional[int]
     email: str
     role: PortalStorageSpaceGrantRole
     direction: PortalStorageSpaceShareDirection
-    activity_label: str = "Active"
+    activity_label: str
 
 
 class PortalStorageSpaceAccessPerson(ApiModel):
-    user_id: Optional[int] = None
+    user_id: Optional[int]
     email: str
-    display_name: Optional[str] = None
+    display_name: Optional[str]
     role: PortalStorageSpaceRole
-    portal_role: Optional[PortalAccountRole] = None
-    access_source: Optional[Literal["owner", "direct", "group", "direct_and_group"]] = None
-    avatar: Optional[UserAvatar] = None
+    portal_role: Optional[PortalAccountRole]
+    access_source: Optional[Literal["owner", "direct", "group", "direct_and_group"]]
+    avatar: Optional[UserAvatar]
 
 
 class PortalStorageSpaceAccessSummary(ApiModel):
     mode: Literal["private", "all", "restricted"]
-    default_account_member_role: Optional[PortalStorageSpaceAccountMemberRole] = None
-    owner: Optional[PortalStorageSpaceAccessPerson] = None
-    effective_member_count: int = 0
-    explicit_shares: list[PortalStorageSpaceShare] = Field(default_factory=list)
-    public_link_count: int = 0
-    can_manage_access: bool = False
-    can_create_public_links: bool = False
+    default_account_member_role: Optional[PortalStorageSpaceAccountMemberRole]
+    owner: Optional[PortalStorageSpaceAccessPerson]
+    effective_member_count: int
+    explicit_shares: list[PortalStorageSpaceShare]
+    public_link_count: int
+    can_manage_access: bool
+    can_create_public_links: bool
 
 
 class PortalStorageSpaceShareCandidate(ApiModel):
     user_id: int
     email: str
-    display_name: Optional[str] = None
+    display_name: Optional[str]
     portal_role: PortalAccountRole
     access_source: Literal["direct", "group", "direct_and_group"]
-    already_shared: bool = False
-    avatar: Optional[UserAvatar] = None
+    already_shared: bool
+    avatar: Optional[UserAvatar]
 
 
 class PortalCollaborator(ApiModel):
     user_id: int
     email: str
-    display_name: Optional[str] = None
+    display_name: Optional[str]
     portal_role: PortalAccountRole
     access_source: Literal["direct", "group", "direct_and_group"]
-    member_since: Optional[datetime] = None
-    avatar: Optional[UserAvatar] = None
-    can_review_access: bool = False
+    member_since: Optional[datetime]
+    avatar: Optional[UserAvatar]
+    can_review_access: bool
 
 
 PortalCollaboratorStorageSpaceAccessSource = Literal[
@@ -87,32 +87,32 @@ class PortalCollaboratorStorageSpaceAccess(ApiModel):
     storage_space_name: str
     role: PortalStorageSpaceRole
     source: PortalCollaboratorStorageSpaceAccessSource
-    can_revoke: bool = False
+    can_revoke: bool
 
 
 class PortalCollaboratorAccessReview(ApiModel):
     collaborator: PortalCollaborator
-    can_request_project_removal: bool = False
-    can_request_role_change: bool = False
-    space_accesses: list[PortalCollaboratorStorageSpaceAccess] = Field(default_factory=list)
+    can_request_project_removal: bool
+    can_request_role_change: bool
+    space_accesses: list[PortalCollaboratorStorageSpaceAccess]
 
 
 class PortalCollaboratorTrend(ApiModel):
     window: Literal["month", "week", "day"]
     label: str
     period_start: str
-    collaborator_count: int = 0
+    collaborator_count: int
 
 
 class PortalCollaboratorSummary(ApiModel):
-    collaborator_count: int = 0
-    external_access_key_count: int = 0
-    trend: Optional[PortalCollaboratorTrend] = None
+    collaborator_count: int
+    external_access_key_count: int
+    trend: Optional[PortalCollaboratorTrend]
 
 
 class PortalCollaboratorsResponse(ApiModel):
     summary: PortalCollaboratorSummary
-    collaborators: list[PortalCollaborator] = Field(default_factory=list)
+    collaborators: list[PortalCollaborator]
 
 
 class PortalStorageSpaceSharePayload(ApiModel):
@@ -132,11 +132,11 @@ class PortalPublicLink(ApiModel):
     object_key: str
     object_name: str
     url: str
-    label: Optional[str] = None
-    created_by_email: Optional[str] = None
+    label: Optional[str]
+    created_by_email: Optional[str]
     created_at: datetime
-    expires_at: Optional[datetime] = None
-    revoked_at: Optional[datetime] = None
+    expires_at: Optional[datetime]
+    revoked_at: Optional[datetime]
     status: str
 
 
