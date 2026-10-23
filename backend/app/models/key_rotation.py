@@ -59,26 +59,26 @@ class KeyRotationResultItem(ApiModel):
     endpoint_name: str
     key_type: KeyRotationType
     target_type: str
-    target_id: Optional[str] = None
-    target_label: Optional[str] = None
+    target_id: Optional[str]
+    target_label: Optional[str]
     status: Literal["rotated", "failed", "skipped"]
-    message: Optional[str] = None
-    rotation_pending: bool = False
-    rotation_phase: Optional[Literal["prepared", "activated"]] = None
-    old_access_key: Optional[str] = None
-    new_access_key: Optional[str] = None
+    message: Optional[str]
+    rotation_pending: bool
+    rotation_phase: Optional[Literal["prepared", "activated"]]
+    old_access_key: Optional[str]
+    new_access_key: Optional[str]
 
 
 class KeyRotationSummary(ApiModel):
-    total: int = 0
-    rotated: int = 0
-    failed: int = 0
-    skipped: int = 0
-    deleted_old_keys: int = 0
-    disabled_old_keys: int = 0
+    total: int
+    rotated: int
+    failed: int
+    skipped: int
+    deleted_old_keys: int
+    disabled_old_keys: int
 
 
 class KeyRotationResponse(ApiModel):
     mode: Literal["delete_old_keys", "deactivate_old_keys"]
     summary: KeyRotationSummary
-    results: list[KeyRotationResultItem] = Field(default_factory=list)
+    results: list[KeyRotationResultItem]
