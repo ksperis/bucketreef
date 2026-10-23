@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
+from app.models.account_capabilities import AccountCapabilities
 from app.models.feature_policy import FeaturePolicy
 from app.models.access_context import BucketMigrationAccessScope, ManagerActor
 from app.models.session import ManagerSessionPrincipal
@@ -58,6 +59,27 @@ def _require_supervision_access(
     required_feature: Literal["metrics", "usage"],
 ) -> ManagerActor:
     caps = require_manager_capabilities(context)
+    _require_usage_metrics_policy(context, db)
+    _require_supervision_actor_capabilities(actor, caps)
+    _resolve_connection_supervision_identity(
+        context,
+        required_feature=required_feature,
+        disabled_detail=disabled_detail,
+    )
+    _require_endpoint_supervision_feature(
+        context,
+        required_feature=required_feature,
+        disabled_detail=disabled_detail,
+    )
+    if not has_supervision_credentials(context):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Supervision credentials are not configured for this context",
+        )
+    return actor
+
+
+def _require_usage_metrics_policy(context: S3ExecutionContext, db: Session) -> None:
     settings = app_settings_service.load_app_settings_for_db_readonly(db)
     metrics_state = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
@@ -69,45 +91,71 @@ def _require_supervision_access(
             detail="RGW traffic and usage metrics are disabled",
         )
 
+
+def _require_supervision_actor_capabilities(
+    actor: ManagerActor,
+    caps: AccountCapabilities,
+) -> None:
     if isinstance(actor, ManagerSessionPrincipal) and not actor.capabilities.can_view_traffic:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this profile")
     if not caps.can_manage_buckets:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Metrics are not available for this context")
+
+
+def _resolve_connection_supervision_identity(
+    context: S3ExecutionContext,
+    *,
+    required_feature: Literal["metrics", "usage"],
+    disabled_detail: str,
+) -> None:
+    if context.context_kind != "connection":
+        return
+    source_connection = context.source_connection
+    if (
+        source_connection is None
+        or context.s3_connection_id is None
+        or source_connection.id != context.s3_connection_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Metrics are unavailable: connection context is incomplete.",
+        )
+    resolution = ConnectionIdentityService().resolve_metrics_identity(source_connection)
+    if not resolution.eligible:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=resolution.reason or disabled_detail,
+        )
+    if required_feature == "metrics" and not resolution.metrics_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Storage metrics are disabled for this endpoint",
+        )
+    if required_feature == "usage" and not resolution.usage_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usage logs are disabled for this endpoint",
+        )
+    context.rgw_tenant = resolution.rgw_tenant
+    if resolution.rgw_account_id:
+        context.rgw_account_id = resolution.rgw_account_id
+    if resolution.rgw_user_uid:
+        context.rgw_user_uid = resolution.rgw_user_uid
+
+
+def _require_endpoint_supervision_feature(
+    context: S3ExecutionContext,
+    *,
+    required_feature: Literal["metrics", "usage"],
+    disabled_detail: str,
+) -> None:
     endpoint = context.storage_endpoint
-
-    if context.context_kind == "connection":
-        source_connection = context.source_connection
-        if (
-            source_connection is None
-            or context.s3_connection_id is None
-            or source_connection.id != context.s3_connection_id
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Metrics are unavailable: connection context is incomplete.",
-            )
-        resolution = ConnectionIdentityService().resolve_metrics_identity(source_connection)
-        if not resolution.eligible:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=resolution.reason or disabled_detail)
-        if required_feature == "metrics" and not resolution.metrics_enabled:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
-        if required_feature == "usage" and not resolution.usage_enabled:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage logs are disabled for this endpoint")
-        context.rgw_tenant = resolution.rgw_tenant
-        if resolution.rgw_account_id:
-            context.rgw_account_id = resolution.rgw_account_id
-        if resolution.rgw_user_uid:
-            context.rgw_user_uid = resolution.rgw_user_uid
-
     if endpoint:
         flags = resolve_feature_flags(endpoint)
         if required_feature == "metrics" and not flags.metrics_enabled:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=disabled_detail)
         if required_feature == "usage" and not flags.usage_enabled:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=disabled_detail)
-    if not has_supervision_credentials(context):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Supervision credentials are not configured for this context")
-    return actor
 
 
 def require_iam_capable_manager(
