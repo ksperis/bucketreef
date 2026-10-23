@@ -11,7 +11,7 @@ from app.models.app_settings import BrandingSettings, GeneralSettingsView, Login
 from app.models.runtime_surfaces import RuntimeSurfaces
 from app.models.storage_endpoint import StorageEndpointPublic
 from app.routers.dependencies import get_current_actor
-from app.services.app_settings_service import load_app_settings, load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -31,8 +31,11 @@ def get_runtime_surfaces() -> RuntimeSurfaces:
 
 
 @router.get("/general", response_model=GeneralSettingsView)
-def get_general_settings(_: ManagerActor = Depends(get_current_actor)) -> GeneralSettingsView:
-    return GeneralSettingsView.from_settings(load_app_settings())
+def get_general_settings(
+    _: ManagerActor = Depends(get_current_actor),
+    db: Session = Depends(get_db),
+) -> GeneralSettingsView:
+    return GeneralSettingsView.from_settings(load_app_settings_for_db_readonly(db))
 
 
 @router.get("/login", response_model=LoginSettings)
@@ -72,5 +75,5 @@ def get_login_settings(db: Session = Depends(get_db)) -> LoginSettings:
 
 
 @router.get("/branding", response_model=BrandingSettings)
-def get_branding_settings() -> BrandingSettings:
-    return load_app_settings().branding
+def get_branding_settings(db: Session = Depends(get_db)) -> BrandingSettings:
+    return load_app_settings_for_db_readonly(db).branding

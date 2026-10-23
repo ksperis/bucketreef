@@ -313,7 +313,7 @@ def test_direct_s3_session_uses_its_credentials_and_browser_capability(db_sessio
 
 def test_manager_context_and_surface_gate_use_same_explicit_permission(db_session, monkeypatch):
     settings = _enabled_settings()
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(manager_context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     user = _user("manager-browser-context@example.test")
     account = make_s3_account(
@@ -350,23 +350,23 @@ def test_manager_context_and_surface_gate_use_same_explicit_permission(db_sessio
     )
     assert payload.manager_browser_enabled is True
     assert payload.manager_browser_message is None
-    require_browser_workspace_surface(_request("/api/browser/buckets/search"))
+    require_browser_workspace_surface(_request("/api/browser/buckets/search"), db=db_session)
 
     settings.general.browser_manager_enabled = False
     with pytest.raises(HTTPException) as exc:
-        require_browser_workspace_surface(_request("/api/browser/buckets/search"))
+        require_browser_workspace_surface(_request("/api/browser/buckets/search"), db=db_session)
     assert exc.value.status_code == 403
 
     settings.general.browser_manager_enabled = True
     settings.general.manager_enabled = False
     with pytest.raises(HTTPException) as exc:
-        require_browser_workspace_surface(_request("/api/browser/buckets/search"))
+        require_browser_workspace_surface(_request("/api/browser/buckets/search"), db=db_session)
     assert exc.value.status_code == 403
 
     settings.general.manager_enabled = True
     settings.general.browser_enabled = False
     with pytest.raises(HTTPException) as exc:
-        require_browser_enabled()
+        require_browser_enabled(db=db_session)
     assert exc.value.status_code == 403
 
 
@@ -376,7 +376,7 @@ def test_forged_browser_read_and_mutation_are_rejected_before_data_plane(
     monkeypatch,
 ):
     settings = _enabled_settings()
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     user = _user("manager-browser-forged-route@example.test")
     account = make_s3_account(
         db_session,
