@@ -142,19 +142,19 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
     fetchManagerContext(contextIdForApi)
       .then((data) => {
         if (!isMounted) return;
-        setNamingProfileState({ contextId: contextIdForApi, profile: data.naming_validation_profile ?? "standard" });
-        setIamIdentity(data.iam_identity ?? null);
+        setNamingProfileState({ contextId: contextIdForApi, profile: data.naming_validation_profile });
+        setIamIdentity(data.iam_identity);
         setAccessModeState(data.access_mode);
-        setManagerStatsEnabled(Boolean(data.manager_stats_enabled));
-        setManagerStatsMessage(data.manager_stats_message ?? null);
-        setManagerBrowserEnabled(data.manager_browser_enabled === true);
-        setManagerBrowserMessage(data.manager_browser_message ?? null);
-        setManagerBucketQuotaEnabled(Boolean(data.manager_bucket_quota_enabled));
-        setManagerCephKeysEnabled(Boolean(data.manager_ceph_keys_enabled));
-        setManagerAccessKeyMetadataEnabled(Boolean(data.manager_access_key_metadata_enabled));
-        setManagerAccessKeyExpirationEnabled(Boolean(data.manager_access_key_expiration_enabled));
-        setManagerPrivateAccessEnabled(Boolean(data.manager_private_access_enabled));
-        setManagerFeatureStates(data.feature_states ?? {});
+        setManagerStatsEnabled(data.manager_stats_enabled);
+        setManagerStatsMessage(data.manager_stats_message);
+        setManagerBrowserEnabled(data.manager_browser_enabled);
+        setManagerBrowserMessage(data.manager_browser_message);
+        setManagerBucketQuotaEnabled(data.manager_bucket_quota_enabled);
+        setManagerCephKeysEnabled(data.manager_ceph_keys_enabled);
+        setManagerAccessKeyMetadataEnabled(data.manager_access_key_metadata_enabled);
+        setManagerAccessKeyExpirationEnabled(data.manager_access_key_expiration_enabled);
+        setManagerPrivateAccessEnabled(data.manager_private_access_enabled);
+        setManagerFeatureStates(data.feature_states);
       })
       .catch(() => {
         if (!isMounted) return;

@@ -1,6 +1,7 @@
 import { projectGeneralSettings, resolvePortalSettings } from "../api/featurePolicies";
 import type { CurrentSessionResponse } from "../api/auth";
 import type { ExecutionContext, WorkspaceAccess } from "../api/executionContexts";
+import type { ManagerContext } from "../api/managerContext";
 import type { ManagerTrafficStats, ManagerUsageTrendBaseline } from "../api/stats";
 import type { UsageHistoryTrendPoint } from "../api/usageHistory";
 import { bucketView, GiB, settings, type DemoState } from "./state";
@@ -107,7 +108,29 @@ export function readModels(c: DemoRequest): Response | undefined {
   }
   if (path === "/manager/context") {
     const account = scopedAccount(c);
-    return json({ access_mode: "admin", iam_identity: "account-root", manager_stats_enabled: true, manager_browser_enabled: true, manager_bucket_quota_enabled: true, manager_ceph_keys_enabled: true, manager_private_access_enabled: false, quota_max_size_gb: account.quota_max_size_gb, quota_max_objects: account.quota_max_objects, max_buckets: 100, max_users: 100, max_roles: 100, max_groups: 100 });
+    const includeLimits = c.url.searchParams.get("include_limits") === "true";
+    return json({
+      feature_states: {},
+      naming_validation_profile: "ceph",
+      access_mode: "admin",
+      context_kind: "account",
+      iam_identity: "account-root",
+      manager_stats_enabled: true,
+      manager_stats_message: null,
+      manager_browser_enabled: true,
+      manager_browser_message: null,
+      manager_bucket_quota_enabled: true,
+      manager_ceph_keys_enabled: true,
+      manager_access_key_metadata_enabled: false,
+      manager_access_key_expiration_enabled: false,
+      manager_private_access_enabled: false,
+      quota_max_size_gb: includeLimits ? account.quota_max_size_gb : null,
+      quota_max_objects: includeLimits ? account.quota_max_objects : null,
+      max_buckets: includeLimits ? 100 : null,
+      max_users: includeLimits ? 100 : null,
+      max_roles: includeLimits ? 100 : null,
+      max_groups: includeLimits ? 100 : null,
+    } satisfies ManagerContext);
   }
   if (path === "/manager/iam/overview") { const data = required(state.iam[scopedAccount(c).id]); return json({ iam_users: data.users.length, iam_groups: data.groups.length, iam_roles: data.roles.length, iam_policies: data.policies.length, warnings: [] }); }
   if (path === "/users/me/notifications") { const items = state.notifications[user.id] ?? []; return json({ items, unread_count: items.filter(n => !n.read_at).length }); }
