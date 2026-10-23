@@ -208,7 +208,7 @@ def test_admin_s3_connections_update_replaces_direct_group_links(client, db_sess
     db_session.add(UiGroupS3Connection(group_id=old_group.id, s3_connection_id=connection.id))
     db_session.commit()
 
-    response = client.put(f"/api/admin/s3-connections/{connection.id}", json={"group_ids": [new_group.id]})
+    response = client.patch(f"/api/admin/s3-connections/{connection.id}", json={"group_ids": [new_group.id]})
     assert response.status_code == 200, response.text
     payload = response.json()
 
