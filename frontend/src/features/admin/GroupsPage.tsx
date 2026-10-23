@@ -8,9 +8,7 @@ import {
   useRecentWebAuthnStepUp,
 } from "../../auth/useRecentWebAuthnStepUp";
 import {
-  type Dispatch,
   type FormEvent,
-  type SetStateAction,
   useCallback,
   useEffect,
   useMemo,
@@ -81,6 +79,7 @@ import {
 } from "./adminPrincipalEditLink";
 import { useGroupsI18n, type GroupsMessageKey } from "./groupsMessage";
 import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
+import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 type AssociationTab = "accounts" | "s3_users" | "connections";
@@ -199,18 +198,46 @@ export default function GroupsPage() {
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [attempted, setAttempted] = useState(false);
-  const [memberSearch, setMemberSearch] = useState("");
-  const [accountSearch, setAccountSearch] = useState("");
-  const [s3UserSearch, setS3UserSearch] = useState("");
-  const [connectionSearch, setConnectionSearch] = useState("");
-  const [showMemberPicker, setShowMemberPicker] = useState(false);
-  const [showAccountPicker, setShowAccountPicker] = useState(false);
-  const [showS3UserPicker, setShowS3UserPicker] = useState(false);
-  const [showConnectionPicker, setShowConnectionPicker] = useState(false);
-  const [memberSelections, setMemberSelections] = useState<number[]>([]);
-  const [accountSelections, setAccountSelections] = useState<number[]>([]);
-  const [s3UserSelections, setS3UserSelections] = useState<number[]>([]);
-  const [connectionSelections, setConnectionSelections] = useState<number[]>([]);
+  const {
+    search: memberSearch,
+    setSearch: setMemberSearch,
+    open: showMemberPicker,
+    setOpen: setShowMemberPicker,
+    selections: memberSelections,
+    setSelections: setMemberSelections,
+    reset: resetMemberPicker,
+    toggleSelection: toggleMemberSelection,
+  } = useAdminAssociationPickerState();
+  const {
+    search: accountSearch,
+    setSearch: setAccountSearch,
+    open: showAccountPicker,
+    setOpen: setShowAccountPicker,
+    selections: accountSelections,
+    setSelections: setAccountSelections,
+    reset: resetAccountPicker,
+    toggleSelection: toggleAccountSelection,
+  } = useAdminAssociationPickerState();
+  const {
+    search: s3UserSearch,
+    setSearch: setS3UserSearch,
+    open: showS3UserPicker,
+    setOpen: setShowS3UserPicker,
+    selections: s3UserSelections,
+    setSelections: setS3UserSelections,
+    reset: resetS3UserPicker,
+    toggleSelection: toggleS3UserSelection,
+  } = useAdminAssociationPickerState();
+  const {
+    search: connectionSearch,
+    setSearch: setConnectionSearch,
+    open: showConnectionPicker,
+    setOpen: setShowConnectionPicker,
+    selections: connectionSelections,
+    setSelections: setConnectionSelections,
+    reset: resetConnectionPicker,
+    toggleSelection: toggleConnectionSelection,
+  } = useAdminAssociationPickerState();
   const [accountAccessChoice, setAccountAccessChoice] = useState<
     Record<number, AccountAccessGrant>
   >({});
@@ -331,18 +358,10 @@ export default function GroupsPage() {
     setAttempted(false);
     setModalTab("general");
     setAssociationTab("accounts");
-    setMemberSearch("");
-    setAccountSearch("");
-    setS3UserSearch("");
-    setConnectionSearch("");
-    setShowMemberPicker(false);
-    setShowAccountPicker(false);
-    setShowS3UserPicker(false);
-    setShowConnectionPicker(false);
-    setMemberSelections([]);
-    setAccountSelections([]);
-    setS3UserSelections([]);
-    setConnectionSelections([]);
+    resetMemberPicker();
+    resetAccountPicker();
+    resetS3UserPicker();
+    resetConnectionPicker();
     setAccountAccessChoice({});
     setAvatarFile(null);
     setRemoveAvatarImage(false);
@@ -534,15 +553,6 @@ export default function GroupsPage() {
   const visibleS3Users = availableS3Users.slice(0, MAX_VISIBLE_OPTIONS);
   const visibleConnections = availableConnections.slice(0, MAX_VISIBLE_OPTIONS);
 
-  const togglePendingSelection = (
-    setSelections: Dispatch<SetStateAction<number[]>>,
-    id: number,
-  ) => {
-    setSelections((current) =>
-      current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id]
-    );
-  };
-
   const renderMembersTab = () => (
     <AdminAssociationLinkedTable
       title={text("members")}
@@ -612,7 +622,7 @@ export default function GroupsPage() {
               >
                 <AdminAssociationOptionCheckbox
                   checked={memberSelections.includes(user.id)}
-                  onChange={() => togglePendingSelection(setMemberSelections, user.id)}
+                  onChange={() => toggleMemberSelection(user.id)}
                   inputPosition="end"
                   className="w-full justify-between"
                 >
@@ -779,9 +789,7 @@ export default function GroupsPage() {
                           defaultAccountAccessGrant(showPortalRole),
                       }))}
                       portalEnabled={showPortalRole}
-                      onToggle={(accountId) =>
-                        togglePendingSelection(setAccountSelections, accountId)
-                      }
+                      onToggle={toggleAccountSelection}
                       onAccessChange={(accountId, value) =>
                         setAccountAccessChoice((current) => ({
                           ...current,
@@ -888,7 +896,7 @@ export default function GroupsPage() {
                       >
                         <AdminAssociationOptionCheckbox
                           checked={s3UserSelections.includes(s3User.id)}
-                          onChange={() => togglePendingSelection(setS3UserSelections, s3User.id)}
+                          onChange={() => toggleS3UserSelection(s3User.id)}
                           inputPosition="end"
                           className="w-full justify-between"
                         >
@@ -975,7 +983,7 @@ export default function GroupsPage() {
                       >
                         <AdminAssociationOptionCheckbox
                           checked={connectionSelections.includes(connection.id)}
-                          onChange={() => togglePendingSelection(setConnectionSelections, connection.id)}
+                          onChange={() => toggleConnectionSelection(connection.id)}
                           inputPosition="end"
                           className="w-full justify-between"
                         >

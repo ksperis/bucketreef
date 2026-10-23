@@ -7,6 +7,7 @@ import type { AccountAccessGrant } from "../../api/accountAccess";
 import type { S3UserMembership } from "../../api/users";
 import type { AccountSelection } from "./UserAccountAssociationsPanel";
 import type { AssociationTab } from "./UserAssociationsTabs";
+import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 
 type AssociationEditorSeed = {
   selectedS3Accounts?: AccountSelection[];
@@ -16,9 +17,6 @@ type AssociationEditorSeed = {
   associationsTab?: AssociationTab;
 };
 
-const toggleId = (values: number[], id: number) =>
-  values.includes(id) ? values.filter((value) => value !== id) : [...values, id];
-
 export default function useAdminUserAssociationEditorState() {
   const [selectedS3Accounts, setSelectedS3Accounts] = useState<AccountSelection[]>([]);
   const [selectedS3Users, setSelectedS3Users] = useState<S3UserMembership[]>([]);
@@ -27,27 +25,19 @@ export default function useAdminUserAssociationEditorState() {
   const [accountAccessChoice, setAccountAccessChoice] = useState<
     Record<number, AccountAccessGrant>
   >({});
-  const [s3AccountSearch, setS3AccountSearch] = useState("");
-  const [s3Search, setS3Search] = useState("");
-  const [connectionSearch, setConnectionSearch] = useState("");
-  const [groupSearch, setGroupSearch] = useState("");
   const [associationsTab, setAssociationsTab] = useState<AssociationTab>("accounts");
-  const [showAccountPanel, setShowAccountPanel] = useState(false);
-  const [accountSelections, setAccountSelections] = useState<number[]>([]);
-  const [showS3UserPanel, setShowS3UserPanel] = useState(false);
-  const [s3UserSelections, setS3UserSelections] = useState<number[]>([]);
-  const [showConnectionPanel, setShowConnectionPanel] = useState(false);
-  const [connectionSelections, setConnectionSelections] = useState<number[]>([]);
-  const [showGroupPanel, setShowGroupPanel] = useState(false);
-  const [groupSelections, setGroupSelections] = useState<number[]>([]);
+  const accountPicker = useAdminAssociationPickerState();
+  const s3UserPicker = useAdminAssociationPickerState();
+  const connectionPicker = useAdminAssociationPickerState();
+  const groupPicker = useAdminAssociationPickerState();
 
   const clearPendingSelections = useCallback(() => {
-    setAccountSelections([]);
-    setS3UserSelections([]);
-    setConnectionSelections([]);
-    setGroupSelections([]);
+    accountPicker.setSelections([]);
+    s3UserPicker.setSelections([]);
+    connectionPicker.setSelections([]);
+    groupPicker.setSelections([]);
     setAccountAccessChoice({});
-  }, []);
+  }, [accountPicker, connectionPicker, groupPicker, s3UserPicker]);
 
   const reset = useCallback((seed: AssociationEditorSeed = {}) => {
     setSelectedS3Accounts(seed.selectedS3Accounts ?? []);
@@ -55,30 +45,12 @@ export default function useAdminUserAssociationEditorState() {
     setSelectedS3Connections(seed.selectedS3Connections ?? []);
     setSelectedGroups(seed.selectedGroups ?? []);
     setAccountAccessChoice({});
-    setS3AccountSearch("");
-    setS3Search("");
-    setConnectionSearch("");
-    setGroupSearch("");
     setAssociationsTab(seed.associationsTab ?? "accounts");
-    setShowAccountPanel(false);
-    setShowS3UserPanel(false);
-    setShowConnectionPanel(false);
-    setShowGroupPanel(false);
-    setAccountSelections([]);
-    setS3UserSelections([]);
-    setConnectionSelections([]);
-    setGroupSelections([]);
-  }, []);
-
-  const toggleAccountSelection = useCallback((accountId: number) => {
-    setAccountSelections((current) => toggleId(current, accountId));
-  }, []);
-  const toggleS3UserSelection = useCallback((userId: number) => {
-    setS3UserSelections((current) => toggleId(current, userId));
-  }, []);
-  const toggleConnectionSelection = useCallback((connectionId: number) => {
-    setConnectionSelections((current) => toggleId(current, connectionId));
-  }, []);
+    accountPicker.reset();
+    s3UserPicker.reset();
+    connectionPicker.reset();
+    groupPicker.reset();
+  }, [accountPicker, connectionPicker, groupPicker, s3UserPicker]);
 
   return {
     selectedS3Accounts,
@@ -91,36 +63,36 @@ export default function useAdminUserAssociationEditorState() {
     setSelectedGroups,
     accountAccessChoice,
     setAccountAccessChoice,
-    s3AccountSearch,
-    setS3AccountSearch,
-    s3Search,
-    setS3Search,
-    connectionSearch,
-    setConnectionSearch,
-    groupSearch,
-    setGroupSearch,
+    s3AccountSearch: accountPicker.search,
+    setS3AccountSearch: accountPicker.setSearch,
+    s3Search: s3UserPicker.search,
+    setS3Search: s3UserPicker.setSearch,
+    connectionSearch: connectionPicker.search,
+    setConnectionSearch: connectionPicker.setSearch,
+    groupSearch: groupPicker.search,
+    setGroupSearch: groupPicker.setSearch,
     associationsTab,
     setAssociationsTab,
-    showAccountPanel,
-    setShowAccountPanel,
-    accountSelections,
-    setAccountSelections,
-    showS3UserPanel,
-    setShowS3UserPanel,
-    s3UserSelections,
-    setS3UserSelections,
-    showConnectionPanel,
-    setShowConnectionPanel,
-    connectionSelections,
-    setConnectionSelections,
-    showGroupPanel,
-    setShowGroupPanel,
-    groupSelections,
-    setGroupSelections,
+    showAccountPanel: accountPicker.open,
+    setShowAccountPanel: accountPicker.setOpen,
+    accountSelections: accountPicker.selections,
+    setAccountSelections: accountPicker.setSelections,
+    showS3UserPanel: s3UserPicker.open,
+    setShowS3UserPanel: s3UserPicker.setOpen,
+    s3UserSelections: s3UserPicker.selections,
+    setS3UserSelections: s3UserPicker.setSelections,
+    showConnectionPanel: connectionPicker.open,
+    setShowConnectionPanel: connectionPicker.setOpen,
+    connectionSelections: connectionPicker.selections,
+    setConnectionSelections: connectionPicker.setSelections,
+    showGroupPanel: groupPicker.open,
+    setShowGroupPanel: groupPicker.setOpen,
+    groupSelections: groupPicker.selections,
+    setGroupSelections: groupPicker.setSelections,
     clearPendingSelections,
     reset,
-    toggleAccountSelection,
-    toggleS3UserSelection,
-    toggleConnectionSelection,
+    toggleAccountSelection: accountPicker.toggleSelection,
+    toggleS3UserSelection: s3UserPicker.toggleSelection,
+    toggleConnectionSelection: connectionPicker.toggleSelection,
   };
 }
