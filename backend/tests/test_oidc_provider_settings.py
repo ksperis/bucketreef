@@ -341,6 +341,12 @@ def test_admin_oidc_api_never_returns_secret_and_preserves_replaces_clears_it(cl
     assert "oidc_provider.create" in {log.action for log in db_session.query(AuditLog).all()}
     assert "oidc_provider.update" in {log.action for log in db_session.query(AuditLog).all()}
 
+    response = client.delete("/api/admin/settings/oidc/providers/ui")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"status": "deleted"}
+    assert db_session.query(OidcProvider).filter(OidcProvider.provider_id == "ui").one_or_none() is None
+    assert "oidc_provider.delete" in {log.action for log in db_session.query(AuditLog).all()}
+
 
 def test_admin_oidc_api_locks_environment_managed_provider(client, db_session, monkeypatch):
     monkeypatch.setattr(
