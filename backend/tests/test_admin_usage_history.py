@@ -323,6 +323,8 @@ def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: T
             "usage_history_enabled": True,
             "usage_history_collection_enabled": True,
             "threshold_percent": 85,
+            "status": None,
+            "reason": None,
             "retention": {
                 "quota_history": {
                     "hourly_retention_days": 30,
