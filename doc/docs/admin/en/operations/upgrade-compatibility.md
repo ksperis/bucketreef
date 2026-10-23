@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 RGW Account partial updates use PATCH
+
+Admin RGW Account updates now use `PATCH /admin/accounts/{account_id}`. Account
+Portal overrides now use `PATCH /admin/accounts/{account_id}/portal-settings`.
+Both payloads intentionally apply only supplied fields, so their former `PUT`
+routes have been removed instead of retained as compatibility aliases.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 shared S3 connection partial updates use PATCH
 
 The admin shared-S3-connection update now uses

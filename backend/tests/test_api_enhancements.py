@@ -34,12 +34,29 @@ def test_admin_create_account_delegates_to_service(client: TestClient):
                 rgw_tenant="",
                 quota_max_size_gb=payload.quota_max_size_gb,
                 quota_max_objects=payload.quota_max_objects,
+                used_bytes=None,
+                used_objects=None,
                 user_links=[],
+                group_links=[],
+                bucket_count=None,
+                rgw_user_count=None,
+                rgw_user_uids=None,
+                rgw_topic_count=None,
+                rgw_topics=None,
                 storage_endpoint_id=1,
                 storage_endpoint_name="Ceph",
                 storage_endpoint_url="https://s3.example.test",
                 storage_endpoint_is_default=True,
                 storage_endpoint_capabilities={"account": True},
+                allow_bucket_quota_management=None,
+                allow_access_key_metadata=None,
+                allow_access_key_expiration=None,
+                allow_activity_history=None,
+                allow_rgw_usage_metrics=None,
+                allow_cost_estimation=None,
+                allow_bucket_usage_stats=None,
+                allow_bucket_usage_stats_collection=None,
+                tags=[],
             )
 
     app.dependency_overrides[admin_accounts_router.get_admin_accounts_service] = lambda: FakeService()
@@ -122,7 +139,7 @@ def test_admin_account_mutations_require_a_canonical_endpoint(client: TestClient
         "/api/admin/accounts/import",
         json=[{"rgw_account_id": "RGW123", "storage_endpoint_id": 1}],
     )
-    update_response = client.put(
+    update_response = client.patch(
         "/api/admin/accounts/1",
         json={"storage_endpoint_id": None},
     )

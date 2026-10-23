@@ -51,7 +51,7 @@ def test_admin_get_account_portal_settings_returns_account_overrides(client, db_
     assert body["portal_collaborator_addition_delegated"] is False
 
 
-def test_admin_put_account_portal_settings_replaces_override_and_audits(client, db_session, monkeypatch):
+def test_admin_patch_account_portal_settings_replaces_override_and_audits(client, db_session, monkeypatch):
     monkeypatch.setattr(portal_settings_module, "load_app_settings", AppSettings)
     audit = _CapturingAuditService()
     app.dependency_overrides[admin_accounts_router.get_audit_service] = lambda: audit
@@ -63,7 +63,7 @@ def test_admin_put_account_portal_settings_replaces_override_and_audits(client, 
         },
     )
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/accounts/{account.id}/portal-settings",
         json={
             "browser_access_enabled": True,
@@ -119,10 +119,10 @@ def test_account_browser_override_can_disable_enabled_global_default(client, db_
     assert body["effective"]["browser_access_enabled"] is False
 
 
-def test_admin_put_account_portal_settings_rejects_non_positive_expiration_days(client, db_session):
+def test_admin_patch_account_portal_settings_rejects_non_positive_expiration_days(client, db_session):
     account = _seed_account(db_session)
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/accounts/{account.id}/portal-settings",
         json={"bucket_defaults": {"noncurrent_version_expiration_days": 0}},
     )
@@ -130,10 +130,10 @@ def test_admin_put_account_portal_settings_rejects_non_positive_expiration_days(
     assert response.status_code == 422, response.text
 
 
-def test_admin_put_account_portal_settings_rejects_unknown_fields(client, db_session):
+def test_admin_patch_account_portal_settings_rejects_unknown_fields(client, db_session):
     account = _seed_account(db_session)
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/accounts/{account.id}/portal-settings",
         json={"portal_manager": {"browser_access_enabled": True}},
     )
@@ -147,7 +147,7 @@ def test_admin_can_delegate_shared_portal_overrides(client, db_session):
         overrides={"allow_private_storage_space_create": False},
     )
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/accounts/{account.id}/portal-settings",
         json={
             "delegated_to_portal_managers": True,
@@ -165,7 +165,7 @@ def test_admin_can_delegate_shared_portal_overrides(client, db_session):
 def test_admin_can_update_collaborator_delegations_independently(client, db_session):
     account = _seed_account(db_session)
 
-    addition = client.put(
+    addition = client.patch(
         f"/api/admin/accounts/{account.id}/portal-settings",
         json={"portal_collaborator_addition_delegated": True},
     )
@@ -177,7 +177,7 @@ def test_admin_can_update_collaborator_delegations_independently(client, db_sess
     assert account.portal_collaborator_addition_delegated is True
     assert account.portal_collaborator_role_management_delegated is False
 
-    role_management = client.put(
+    role_management = client.patch(
         f"/api/admin/accounts/{account.id}/portal-settings",
         json={
             "portal_collaborator_addition_delegated": False,
