@@ -262,12 +262,12 @@ class QuotaNotificationSettings(ApiModel):
 
 class QuotaNotificationTestEmailResult(ApiModel):
     status: Literal["sent"]
+    recipient: str
+    sent_at: str
 
 
 class IdentityProviderDeleteResult(ApiModel):
     status: Literal["deleted"]
-    recipient: str
-    sent_at: str
 
 
 class BrowserSettings(ApiModel):

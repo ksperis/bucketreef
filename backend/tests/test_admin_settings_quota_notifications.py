@@ -69,6 +69,7 @@ def test_superadmin_can_send_quota_notification_test_email(client: TestClient, m
     payload = response.json()
     assert payload["status"] == "sent"
     assert payload["recipient"] == "superadmin@example.com"
+    assert payload["sent_at"] == "2026-01-01T00:00:00"
 
 
 def test_admin_cannot_send_quota_notification_test_email(client: TestClient):
