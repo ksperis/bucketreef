@@ -36,6 +36,155 @@ from app.utils.usage_stats import summarize_bucket_usage
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/accounts", tags=["ceph-admin-accounts"])
 
+ACCOUNT_UPDATE_FIELDS = (
+    "account_name",
+    "email",
+    "max_users",
+    "max_buckets",
+    "max_roles",
+    "max_groups",
+    "max_access_keys",
+)
+ACCOUNT_UPDATE_FIELD_SET = frozenset(ACCOUNT_UPDATE_FIELDS)
+ACCOUNT_UPDATE_CLEAR_VALUES: dict[str, Any] = {
+    "account_name": "",
+    "email": "",
+    "max_users": 0,
+    "max_buckets": 0,
+    "max_roles": 0,
+    "max_groups": 0,
+    "max_access_keys": 0,
+}
+ACCOUNT_QUOTA_FIELDS = frozenset({"quota_enabled", "quota_max_size_bytes", "quota_max_objects"})
+BUCKET_QUOTA_FIELDS = frozenset(
+    {"bucket_quota_enabled", "bucket_quota_max_size_bytes", "bucket_quota_max_objects"}
+)
+
+
+def _account_update_params(
+    update: CephAdminRgwAccountConfigUpdate,
+    field_set: set[str],
+) -> dict[str, Any]:
+    return {
+        field: nullable_update(
+            getattr(update, field),
+            field,
+            field_set,
+            ACCOUNT_UPDATE_CLEAR_VALUES[field],
+        )
+        for field in ACCOUNT_UPDATE_FIELDS
+    }
+
+
+def _apply_account_update(
+    account_id: str,
+    params: dict[str, Any],
+    ctx: CephAdminContext,
+) -> None:
+    try:
+        result = ctx.rgw_admin.update_account(account_id, **params)
+    except RGWAdminError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    if isinstance(result, dict) and result.get("conflict"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW account update conflicted")
+    raise_if_unsupported(result, "RGW account update is not supported on this cluster")
+    if isinstance(result, dict):
+        response_account = result.get("account")
+        returned_ids = extract_rgw_account_ids(result, response_account)
+        if returned_ids and returned_ids != {account_id}:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="RGW returned a different account identity",
+            )
+
+
+def _apply_account_quota_update(
+    account_id: str,
+    *,
+    quota_type: str,
+    max_size_bytes: Optional[int],
+    max_objects: Optional[int],
+    enabled: Optional[bool],
+    ctx: CephAdminContext,
+) -> None:
+    try:
+        result = ctx.rgw_admin.set_account_quota(
+            account_id,
+            max_size_bytes=max_size_bytes,
+            max_objects=max_objects,
+            quota_type=quota_type,
+            enabled=bool(enabled) if enabled is not None else True,
+        )
+    except RGWAdminError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    quota_label = "bucket quota" if quota_type == "bucket" else "account quota"
+    raise_if_unsupported(result, f"RGW {quota_label} update is not supported on this cluster")
+
+
+def _create_rgw_account_record(
+    payload: CephAdminRgwAccountCreate,
+    *,
+    account_id: str,
+    account_name: str,
+    ctx: CephAdminContext,
+) -> None:
+    try:
+        result = ctx.rgw_admin.create_account(
+            account_id=account_id,
+            account_name=account_name,
+            tenant=payload.tenant,
+            email=payload.email,
+            max_users=payload.max_users,
+            max_buckets=payload.max_buckets,
+            max_roles=payload.max_roles,
+            max_groups=payload.max_groups,
+            max_access_keys=payload.max_access_keys,
+            extra_params=payload.extra_params or None,
+        )
+    except RGWAdminError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    if isinstance(result, dict) and result.get("conflict"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW account already exists")
+    raise_if_unsupported(result, "RGW account creation is not supported on this cluster")
+
+    account_payload = result.get("account") if isinstance(result, dict) else None
+    returned_ids = extract_rgw_account_ids(result, account_payload) if isinstance(result, dict) else set()
+    if returned_ids != {account_id}:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="RGW did not confirm the requested account identity",
+        )
+
+
+def _apply_created_account_quotas(
+    payload: CephAdminRgwAccountCreate,
+    *,
+    account_id: str,
+    ctx: CephAdminContext,
+) -> tuple[bool, bool]:
+    account_quota_updated = any(getattr(payload, field) is not None for field in ACCOUNT_QUOTA_FIELDS)
+    if account_quota_updated:
+        _apply_account_quota_update(
+            account_id,
+            quota_type="account",
+            max_size_bytes=payload.quota_max_size_bytes,
+            max_objects=payload.quota_max_objects,
+            enabled=payload.quota_enabled,
+            ctx=ctx,
+        )
+
+    bucket_quota_updated = any(getattr(payload, field) is not None for field in BUCKET_QUOTA_FIELDS)
+    if bucket_quota_updated:
+        _apply_account_quota_update(
+            account_id,
+            quota_type="bucket",
+            max_size_bytes=payload.bucket_quota_max_size_bytes,
+            max_objects=payload.bucket_quota_max_objects,
+            enabled=payload.bucket_quota_enabled,
+            ctx=ctx,
+        )
+    return account_quota_updated, bucket_quota_updated
+
 
 @router.post("", response_model=CephAdminRgwAccountCreateResponse, status_code=status.HTTP_201_CREATED)
 def create_rgw_account(
@@ -50,74 +199,18 @@ def create_rgw_account(
             load_app_settings_for_db_readonly(db).general.rgw_account_id_prefix
         )
     account_name = payload.account_name.strip()
-    if not account_name:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="account_name is required")
-    try:
-        create_result = ctx.rgw_admin.create_account(
-            account_id=requested_account_id,
-            account_name=account_name,
-            tenant=payload.tenant,
-            email=payload.email,
-            max_users=payload.max_users,
-            max_buckets=payload.max_buckets,
-            max_roles=payload.max_roles,
-            max_groups=payload.max_groups,
-            max_access_keys=payload.max_access_keys,
-            extra_params=payload.extra_params or None,
-        )
-    except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-    if isinstance(create_result, dict) and create_result.get("conflict"):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW account already exists")
-    raise_if_unsupported(create_result, "RGW account creation is not supported on this cluster")
-
+    _create_rgw_account_record(
+        payload,
+        account_id=requested_account_id,
+        account_name=account_name,
+        ctx=ctx,
+    )
     account_id = requested_account_id
-    if isinstance(create_result, dict):
-        account_payload = create_result.get("account")
-        returned_ids = extract_rgw_account_ids(create_result, account_payload)
-    else:
-        returned_ids = set()
-    if returned_ids != {requested_account_id}:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="RGW did not confirm the requested account identity",
-        )
-
-    account_quota_updated = (
-        payload.quota_enabled is not None
-        or payload.quota_max_size_bytes is not None
-        or payload.quota_max_objects is not None
+    account_quota_updated, bucket_quota_updated = _apply_created_account_quotas(
+        payload,
+        account_id=account_id,
+        ctx=ctx,
     )
-    if account_quota_updated:
-        try:
-            quota_result = ctx.rgw_admin.set_account_quota(
-                account_id,
-                max_size_bytes=payload.quota_max_size_bytes,
-                max_objects=payload.quota_max_objects,
-                quota_type="account",
-                enabled=bool(payload.quota_enabled) if payload.quota_enabled is not None else True,
-            )
-        except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-        raise_if_unsupported(quota_result, "RGW account quota update is not supported on this cluster")
-
-    bucket_quota_updated = (
-        payload.bucket_quota_enabled is not None
-        or payload.bucket_quota_max_size_bytes is not None
-        or payload.bucket_quota_max_objects is not None
-    )
-    if bucket_quota_updated:
-        try:
-            quota_result = ctx.rgw_admin.set_account_quota(
-                account_id,
-                max_size_bytes=payload.bucket_quota_max_size_bytes,
-                max_objects=payload.bucket_quota_max_objects,
-                quota_type="bucket",
-                enabled=bool(payload.bucket_quota_enabled) if payload.bucket_quota_enabled is not None else True,
-            )
-        except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-        raise_if_unsupported(quota_result, "RGW bucket quota update is not supported on this cluster")
 
     invalidate_accounts_listing_cache(ctx.endpoint.id)
     account_detail = build_account_detail(
@@ -160,81 +253,45 @@ def update_rgw_account_config(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="account_id is required")
 
     field_set = set(update.model_fields_set)
-    account_fields = {
-        "account_name",
-        "email",
-        "max_users",
-        "max_buckets",
-        "max_roles",
-        "max_groups",
-        "max_access_keys",
-    }
-    if account_fields & field_set or update.extra_params:
-        try:
-            update_result = ctx.rgw_admin.update_account(
-                normalized_account_id,
-                account_name=nullable_update(update.account_name, "account_name", field_set, ""),
-                email=nullable_update(update.email, "email", field_set, ""),
-                max_users=nullable_update(update.max_users, "max_users", field_set, 0),
-                max_buckets=nullable_update(update.max_buckets, "max_buckets", field_set, 0),
-                max_roles=nullable_update(update.max_roles, "max_roles", field_set, 0),
-                max_groups=nullable_update(update.max_groups, "max_groups", field_set, 0),
-                max_access_keys=nullable_update(update.max_access_keys, "max_access_keys", field_set, 0),
-                extra_params=update.extra_params or None,
-            )
-        except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-        if isinstance(update_result, dict) and update_result.get("conflict"):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW account update conflicted")
-        raise_if_unsupported(update_result, "RGW account update is not supported on this cluster")
-        if isinstance(update_result, dict):
-            response_account = update_result.get("account")
-            returned_ids = extract_rgw_account_ids(update_result, response_account)
-            if returned_ids and returned_ids != {normalized_account_id}:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="RGW returned a different account identity",
-                )
+    if ACCOUNT_UPDATE_FIELD_SET & field_set or update.extra_params:
+        params = _account_update_params(update, field_set)
+        params["extra_params"] = update.extra_params or None
+        _apply_account_update(normalized_account_id, params, ctx)
 
-    if {"quota_enabled", "quota_max_size_bytes", "quota_max_objects"} & field_set:
-        try:
-            quota_result = ctx.rgw_admin.set_account_quota(
-                normalized_account_id,
-                max_size_bytes=nullable_update(
-                    update.quota_max_size_bytes,
-                    "quota_max_size_bytes",
-                    field_set,
-                    0,
-                ),
-                max_objects=nullable_update(update.quota_max_objects, "quota_max_objects", field_set, 0),
-                enabled=bool(update.quota_enabled) if update.quota_enabled is not None else True,
-            )
-        except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-        raise_if_unsupported(quota_result, "RGW account quota update is not supported on this cluster")
+    if ACCOUNT_QUOTA_FIELDS & field_set:
+        _apply_account_quota_update(
+            normalized_account_id,
+            quota_type="account",
+            max_size_bytes=nullable_update(
+                update.quota_max_size_bytes,
+                "quota_max_size_bytes",
+                field_set,
+                0,
+            ),
+            max_objects=nullable_update(update.quota_max_objects, "quota_max_objects", field_set, 0),
+            enabled=update.quota_enabled,
+            ctx=ctx,
+        )
 
-    if {"bucket_quota_enabled", "bucket_quota_max_size_bytes", "bucket_quota_max_objects"} & field_set:
-        try:
-            quota_result = ctx.rgw_admin.set_account_quota(
-                normalized_account_id,
-                max_size_bytes=nullable_update(
-                    update.bucket_quota_max_size_bytes,
-                    "bucket_quota_max_size_bytes",
-                    field_set,
-                    0,
-                ),
-                max_objects=nullable_update(
-                    update.bucket_quota_max_objects,
-                    "bucket_quota_max_objects",
-                    field_set,
-                    0,
-                ),
-                quota_type="bucket",
-                enabled=bool(update.bucket_quota_enabled) if update.bucket_quota_enabled is not None else True,
-            )
-        except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-        raise_if_unsupported(quota_result, "RGW bucket quota update is not supported on this cluster")
+    if BUCKET_QUOTA_FIELDS & field_set:
+        _apply_account_quota_update(
+            normalized_account_id,
+            quota_type="bucket",
+            max_size_bytes=nullable_update(
+                update.bucket_quota_max_size_bytes,
+                "bucket_quota_max_size_bytes",
+                field_set,
+                0,
+            ),
+            max_objects=nullable_update(
+                update.bucket_quota_max_objects,
+                "bucket_quota_max_objects",
+                field_set,
+                0,
+            ),
+            enabled=update.bucket_quota_enabled,
+            ctx=ctx,
+        )
 
     invalidate_accounts_listing_cache(ctx.endpoint.id)
     payload = load_account_payload(normalized_account_id, ctx.rgw_admin)
