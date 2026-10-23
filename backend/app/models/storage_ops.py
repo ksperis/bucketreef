@@ -24,6 +24,12 @@ class PaginatedStorageOpsBucketsResponse(PaginatedResponse):
     items: list[StorageOpsBucketSummary]
 
 
+class StorageOpsBucketListingCacheRefreshResponse(ApiModel):
+    refreshed: bool
+    contexts: int
+    endpoints: int
+
+
 class StorageOpsSummary(ApiModel):
     total_contexts: int
     total_accounts: int

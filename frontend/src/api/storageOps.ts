@@ -42,7 +42,6 @@ import type {
 import type {
   CephAdminBucket,
   CephAdminBucketsStreamProgress,
-  BucketListingCacheRefreshResponse,
   ListCephAdminBucketsParams,
   PaginatedCephAdminBucketsResponse,
 } from "./cephAdminBuckets";
@@ -76,6 +75,12 @@ export type StorageOpsSummary = {
   total_shared_connections: number;
   total_private_connections: number;
   total_endpoints: number;
+};
+
+export type StorageOpsBucketListingCacheRefreshResponse = {
+  refreshed: boolean;
+  contexts: number;
+  endpoints: number;
 };
 
 type PaginatedStorageOpsBucketsResponse = Omit<PaginatedCephAdminBucketsResponse, "items"> & {
@@ -142,8 +147,8 @@ export async function listStorageOpsBuckets(
 
 export async function refreshStorageOpsBucketListingCache(
   _scopeId: number
-): Promise<BucketListingCacheRefreshResponse> {
-  const { data } = await client.post<BucketListingCacheRefreshResponse>("/storage-ops/buckets/cache/refresh");
+): Promise<StorageOpsBucketListingCacheRefreshResponse> {
+  const { data } = await client.post<StorageOpsBucketListingCacheRefreshResponse>("/storage-ops/buckets/cache/refresh");
   return data;
 }
 

@@ -257,8 +257,8 @@ describe("BucketOpsWorkbench selection actions", () => {
     mocks.streamStorageOpsBuckets.mockReset();
     mocks.refreshCephAdminBucketListingCache.mockReset();
     mocks.refreshStorageOpsBucketListingCache.mockReset();
-    mocks.refreshCephAdminBucketListingCache.mockResolvedValue({ refreshed: true });
-    mocks.refreshStorageOpsBucketListingCache.mockResolvedValue({ refreshed: true });
+    mocks.refreshCephAdminBucketListingCache.mockResolvedValue({ refreshed: true, endpoint_id: 7 });
+    mocks.refreshStorageOpsBucketListingCache.mockResolvedValue({ refreshed: true, contexts: 1, endpoints: 1 });
     mocks.fetchCephAdminBucketUiTags.mockReset();
     mocks.fetchStorageOpsBucketUiTags.mockReset();
     mocks.patchCephAdminBucketUiTags.mockReset();

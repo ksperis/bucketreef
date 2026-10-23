@@ -200,7 +200,11 @@ const CEPH_ADMIN_BUCKET_OPS_API = {
   },
 } as const;
 
-export type BucketOpsApi = Omit<typeof CEPH_ADMIN_BUCKET_OPS_API, "updateBucketQuota"> & {
+export type BucketOpsApi = Omit<
+  typeof CEPH_ADMIN_BUCKET_OPS_API,
+  "refreshBucketListingCache" | "updateBucketQuota"
+> & {
+  refreshBucketListingCache: (scopeId: number) => Promise<unknown>;
   updateBucketQuota?: typeof updateCephAdminBucketQuota;
 };
 

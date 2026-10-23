@@ -209,6 +209,11 @@ class PaginatedCephAdminBucketsResponse(PaginatedResponse):
     stats_warning: Optional[str] = None
 
 
+class CephAdminBucketListingCacheRefreshResponse(ApiModel):
+    refreshed: bool
+    endpoint_id: int
+
+
 class PaginatedCephAdminAccountsResponse(PaginatedResponse):
     items: list[CephAdminRgwAccountSummary]
 
