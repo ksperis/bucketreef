@@ -324,8 +324,7 @@ class S3AccountsService:
             return None, None
         if not account_info:
             return 0, []
-        info = account_info.get("account") if isinstance(account_info.get("account"), dict) else account_info
-        user_list = info.get("user_list", info.get("users"))
+        info, user_list = self._embedded_account_user_list(account_info)
         if not isinstance(user_list, list):
             # Standard Ceph AccountInfo does not embed the account's users.
             # Do not scan the endpoint-wide user inventory here: account
@@ -334,17 +333,37 @@ class S3AccountsService:
             # Ops lookups. Import keeps its deliberate one-shot discovery path,
             # while deletion proves that no non-root users remain through IAM.
             return None, None
-        cleaned: list[str] = []
         root_uid = root_uid or self.account_roots.root_uid(account_identifier)
+        deduped = self._clean_account_user_uids(
+            user_list,
+            root_uid=root_uid,
+            account_tenant=str(info.get("tenant") or ""),
+        )
+        return len(deduped), deduped
+
+    @staticmethod
+    def _embedded_account_user_list(account_info: dict[str, Any]) -> tuple[dict[str, Any], Any]:
+        info = account_info.get("account")
+        if not isinstance(info, dict):
+            info = account_info
+        return info, info.get("user_list", info.get("users"))
+
+    @staticmethod
+    def _clean_account_user_uids(
+        user_list: list[Any],
+        *,
+        root_uid: str,
+        account_tenant: str,
+    ) -> list[str]:
+        cleaned: list[str] = []
         for entry in user_list:
             uid = str(entry.get("uid", entry.get("user_id", ""))) if isinstance(entry, dict) else str(entry or "")
             if not uid:
                 continue
-            if uid == root_uid or uid == f"{info.get('tenant') or ''}${root_uid}":
+            if uid == root_uid or uid == f"{account_tenant}${root_uid}":
                 continue
             cleaned.append(uid)
-        deduped = sorted(set(cleaned))
-        return len(deduped), deduped
+        return sorted(set(cleaned))
 
     def _generate_account_id(self) -> str:
         prefix = load_app_settings_for_db(self.db).general.rgw_account_id_prefix
