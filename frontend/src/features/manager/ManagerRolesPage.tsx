@@ -29,7 +29,6 @@ import { workflowPageHostClass } from "../../components/WorkflowPage";
 
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
-import { DEFAULT_INLINE_POLICY_TEXT } from "./inlinePolicyTemplate";
 import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
@@ -61,23 +60,12 @@ export default function ManagerRolesPage() {
     setLoading,
   } = useManagerIamCollection(listIamRoles);
   const {
-    inlineDraftNameError,
-    validateInlineDrafts,
-    inlineDraftMode,
+    editorProps: inlinePolicyEditorProps,
     inlineDraftName,
     inlineDrafts,
     inlinePolicyText,
-    selectedInlineDraftName,
-    showInlinePolicyOptions,
-    setInlineDraftName,
-    setInlinePolicyText,
-    setShowInlinePolicyOptions,
-    handleAddInlineDraft,
-    handleClearInlineDrafts,
-    handleCreateInlineDraft,
-    handleRemoveInlineDraft,
-    handleSelectInlineDraft,
     resetInlinePolicyDraftEditor,
+    validateInlineDrafts,
   } = useInlinePolicyDraftEditor(setError, "role", namingValidationProfile);
   const [advancedName, setAdvancedName] = useState("");
   const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
@@ -441,31 +429,7 @@ export default function ManagerRolesPage() {
             onExpandedChange={setShowPolicyOptions}
             onSelectionChange={setSelectedPolicies}
           />
-          <InlinePolicyDraftEditor
-            drafts={inlineDrafts}
-            selectedDraftName={selectedInlineDraftName}
-            draftName={inlineDraftName}
-            nameError={inlineDraftNameError}
-            draftText={inlinePolicyText}
-            entityLabel="role"
-            mode={inlineDraftMode}
-            expanded={showInlinePolicyOptions}
-            onCreateDraft={handleCreateInlineDraft}
-            onSelectDraft={handleSelectInlineDraft}
-            onDraftNameChange={(value) => {
-              setInlineDraftName(value);
-              setError(null);
-            }}
-            onDraftTextChange={(value) => {
-              setInlinePolicyText(value);
-              setError(null);
-            }}
-            onSaveDraft={handleAddInlineDraft}
-            onRemoveDraft={handleRemoveInlineDraft}
-            onClearDrafts={handleClearInlineDrafts}
-            onInsertTemplate={() => setInlinePolicyText(DEFAULT_INLINE_POLICY_TEXT)}
-            onToggleExpanded={() => setShowInlinePolicyOptions((prev) => !prev)}
-          />
+          <InlinePolicyDraftEditor {...inlinePolicyEditorProps} />
         </SettingsWorkflowForm>
       )}
       {deleteConfirmation.confirmationDialog}
