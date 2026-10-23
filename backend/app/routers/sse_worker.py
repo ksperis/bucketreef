@@ -7,11 +7,14 @@ from collections.abc import Callable
 import json
 import logging
 import threading
+import uuid
 from typing import TypeVar
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+from app.core.sensitive_data import sanitize_error_detail
 
 SSE_KEEPALIVE_INTERVAL_SECONDS = 10.0
 SSE_RESPONSE_HEADERS = {
@@ -22,6 +25,7 @@ SSE_RESPONSE_HEADERS = {
 SseMessageSender = Callable[[str], None]
 SseWorker = Callable[[SseMessageSender, threading.Event], None]
 _ProgressModelT = TypeVar("_ProgressModelT", bound=BaseModel)
+_ResultModelT = TypeVar("_ResultModelT", bound=BaseModel)
 
 
 def format_sse_event(event: str, payload: dict[str, object]) -> str:
@@ -47,6 +51,85 @@ def build_sse_progress_callback(
         push_message(format_sse_event("progress", payload))
 
     return progress_callback
+
+
+def stream_status_operation(
+    request: Request,
+    *,
+    run_operation: Callable[
+        [Callable[[_ProgressModelT], None], Callable[[], None]],
+        _ResultModelT,
+    ],
+    cancelled_error: type[Exception],
+    logger: logging.Logger,
+    operation: str,
+    failure_message: str,
+) -> StreamingResponse:
+    request_id = uuid.uuid4().hex
+
+    def worker(push_message: SseMessageSender, cancel_event: threading.Event) -> None:
+        progress_callback = build_sse_progress_callback(push_message, request_id=request_id)
+
+        def cancel_check() -> None:
+            if cancel_event.is_set():
+                raise cancelled_error()
+
+        try:
+            result = run_operation(progress_callback, cancel_check)
+            result_payload = result.model_dump(mode="json")
+            push_message(format_sse_event("result", result_payload))
+            push_message(
+                format_sse_event(
+                    "done",
+                    {"request_id": request_id, "status": result_payload["status"]},
+                )
+            )
+        except cancelled_error:
+            push_message(
+                format_sse_event(
+                    "done",
+                    {"request_id": request_id, "status": "canceled"},
+                )
+            )
+        except HTTPException as exc:
+            push_message(
+                format_sse_event(
+                    "error",
+                    {
+                        "request_id": request_id,
+                        "detail": sanitize_error_detail(exc.detail),
+                        "status_code": exc.status_code,
+                    },
+                )
+            )
+            push_message(
+                format_sse_event(
+                    "done",
+                    {"request_id": request_id, "status": "failed"},
+                )
+            )
+        except Exception as exc:  # pragma: no cover
+            logger.exception("%s: %s", failure_message, exc)
+            push_message(
+                format_sse_event(
+                    "error",
+                    {"request_id": request_id, "detail": failure_message},
+                )
+            )
+            push_message(
+                format_sse_event(
+                    "done",
+                    {"request_id": request_id, "status": "failed"},
+                )
+            )
+
+    return stream_cancellable_worker(
+        request,
+        worker=worker,
+        logger=logger,
+        operation=operation,
+        request_id=request_id,
+    )
 
 
 async def wait_for_cancellable_worker(
