@@ -19,7 +19,9 @@ from app.db import StorageEndpoint, User, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.bucket_integrity import (
+    BucketIntegrityBucketResult,
     BucketIntegrityBucketRequest,
+    BucketIntegrityFailure,
     BucketIntegrityCheckProgress,
     BucketIntegrityCheckResult,
     BucketIntegrityRgwTargetRequest,
@@ -61,6 +63,17 @@ def _result(status: str = "passed") -> BucketIntegrityCheckResult:
         finished_at=datetime(2026, 1, 1, 0, 0, 1, tzinfo=timezone.utc),
         buckets=[],
     )
+
+
+def test_bucket_integrity_response_models_require_complete_payloads():
+    for model in (
+        BucketIntegrityFailure,
+        BucketIntegrityBucketResult,
+        BucketIntegrityCheckProgress,
+        BucketIntegrityCheckResult,
+    ):
+        schema = model.model_json_schema()
+        assert set(schema["required"]) == set(schema["properties"])
 
 
 def _manager_tool_user(*, bucket_integrity_check: bool = True) -> User:
@@ -110,12 +123,18 @@ def test_manager_integrity_route_streams_progress_and_result(monkeypatch):
             if progress_callback:
                 progress_callback(
                     BucketIntegrityCheckProgress(
+                        request_id=None,
                         stage="verify",
                         bucket_name="bucket-a",
+                        context_id=None,
+                        context_name=None,
                         total_buckets=1,
+                        completed_buckets=0,
                         listed_count=1,
                         checked_count=1,
+                        failed_count=0,
                         bytes_read=3,
+                        message=None,
                     )
                 )
             return _result()
@@ -181,7 +200,22 @@ def test_integrity_stream_waits_for_worker_cleanup_after_disconnect():
     cleanup_finished = threading.Event()
 
     def run_check(progress_callback, cancel_check):
-        progress_callback(BucketIntegrityCheckProgress(stage="prepare", total_buckets=1))
+        progress_callback(
+            BucketIntegrityCheckProgress(
+                request_id=None,
+                stage="prepare",
+                bucket_name=None,
+                context_id=None,
+                context_name=None,
+                total_buckets=1,
+                completed_buckets=0,
+                listed_count=0,
+                checked_count=0,
+                failed_count=0,
+                bytes_read=0,
+                message=None,
+            )
+        )
         try:
             while True:
                 cancel_check()
