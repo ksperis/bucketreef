@@ -20,15 +20,15 @@ import type { PaginatedResponse } from "./types";
 
 export type CephAdminRgwUser = {
   uid: string;
-  tenant?: string | null;
-  account_id?: string | null;
-  account_name?: string | null;
-  full_name?: string | null;
-  email?: string | null;
-  suspended?: boolean | null;
-  max_buckets?: number | null;
-  quota_max_size_bytes?: number | null;
-  quota_max_objects?: number | null;
+  tenant: string | null;
+  account_id: string | null;
+  account_name: string | null;
+  full_name: string | null;
+  email: string | null;
+  suspended: boolean | null;
+  max_buckets: number | null;
+  quota_max_size_bytes: number | null;
+  quota_max_objects: number | null;
 };
 
 export type CephAdminRgwUserCapsUpdate = {
@@ -38,21 +38,21 @@ export type CephAdminRgwUserCapsUpdate = {
 
 export type CephAdminRgwUserDetail = {
   uid: string;
-  tenant?: string | null;
-  display_name?: string | null;
-  email?: string | null;
-  account_id?: string | null;
-  account_name?: string | null;
-  suspended?: boolean | null;
-  admin?: boolean | null;
-  system?: boolean | null;
-  account_root?: boolean | null;
-  max_buckets?: number | null;
-  op_mask?: string | null;
-  default_placement?: string | null;
-  default_storage_class?: string | null;
+  tenant: string | null;
+  display_name: string | null;
+  email: string | null;
+  account_id: string | null;
+  account_name: string | null;
+  suspended: boolean | null;
+  admin: boolean | null;
+  system: boolean | null;
+  account_root: boolean | null;
+  max_buckets: number | null;
+  op_mask: string | null;
+  default_placement: string | null;
+  default_storage_class: string | null;
   caps: string[];
-  quota?: CephAdminRgwQuotaConfig | null;
+  quota: CephAdminRgwQuotaConfig | null;
   keys: CephAdminRgwAccessKey[];
 };
 
@@ -92,7 +92,7 @@ export type CreateCephAdminUserPayload = {
 
 type CreateCephAdminUserResponse = {
   detail: CephAdminRgwUserDetail;
-  generated_key?: CephAdminRgwGeneratedAccessKey | null;
+  generated_key: CephAdminRgwGeneratedAccessKey | null;
 };
 
 type PaginatedCephAdminUsersResponse = PaginatedResponse<CephAdminRgwUser>;

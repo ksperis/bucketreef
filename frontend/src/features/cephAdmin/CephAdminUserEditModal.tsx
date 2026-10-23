@@ -68,7 +68,7 @@ type Props = {
 type TabId = "overview" | "ceph" | "s3" | "metrics";
 
 const keyActive = (key: CephAdminRgwAccessKey): boolean => {
-  if (key.is_active !== undefined && key.is_active !== null) return Boolean(key.is_active);
+  if (key.is_active !== null) return key.is_active;
   const status = (key.status || "").toLowerCase();
   if (["disabled", "inactive", "suspended"].includes(status)) return false;
   if (["active", "enabled"].includes(status)) return true;
@@ -613,7 +613,7 @@ export default function CephAdminUserEditModal({
             )}
             {keys.map((key) => {
               const active = keyActive(key);
-              const managedPrivate = Boolean(key.is_private_access_managed);
+              const managedPrivate = key.is_private_access_managed;
               const toggleBusy = keysBusy === `toggle:${key.access_key}`;
               const deleteBusy = keysBusy === `delete:${key.access_key}`;
               return (

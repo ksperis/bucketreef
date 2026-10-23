@@ -25,7 +25,17 @@ export function ceph(c: DemoRequest): Response | undefined {
       if ("email" in body) account.email = String(body.email ?? "");
       if ("quota_max_size_bytes" in body) account.quota_max_size_gb = Number(body.quota_max_size_bytes) / GiB;
       if ("quota_max_objects" in body) account.quota_max_objects = Number(body.quota_max_objects);
-      if ("quota_enabled" in body) account.rgw = { ...account.rgw, quota: { ...view(account).quota, enabled: Boolean(body.quota_enabled) } };
+      if ("quota_enabled" in body) {
+        const quota = view(account).quota;
+        account.rgw = {
+          ...account.rgw,
+          quota: {
+            enabled: Boolean(body.quota_enabled),
+            max_size_bytes: quota?.max_size_bytes ?? null,
+            max_objects: quota?.max_objects ?? null,
+          },
+        };
+      }
       if ("bucket_quota_enabled" in body) account.rgw = { ...account.rgw, bucket_quota: { enabled: Boolean(body.bucket_quota_enabled), max_size_bytes: Number(body.bucket_quota_max_size_bytes ?? -1), max_objects: Number(body.bucket_quota_max_objects ?? -1) } };
     };
     if (c.method === "GET") return id && id !== "stream" ? json(view(required(accounts.find(a => a.rgw_account_id === id)))) : listing(accounts.map(a => ({ ...view(a), quota_max_size_bytes: (a.quota_max_size_gb ?? 0) * GiB, quota_max_objects: a.quota_max_objects })), c);
@@ -43,7 +53,34 @@ export function ceph(c: DemoRequest): Response | undefined {
   }
   if (match[2] === "users") {
     const users = accounts.flatMap(account => c.state.iam[account.id].users.map(user => ({ user, account })));
-    const detail = ({ user, account }: typeof users[number]): CephAdminRgwUserDetail => ({ uid: `${account.id}:${user.name}`, display_name: user.name, account_id: account.rgw_account_id, account_name: account.name, email: `${user.name}@example.com`, suspended: false, max_buckets: 100, caps: [], keys: (c.state.iam[account.id].keys[user.name] ?? []).map(k => ({ access_key: k.access_key_id, status: k.status, is_active: k.status === "Active" })), ...user.rgw });
+    const detail = ({ user, account }: typeof users[number]): CephAdminRgwUserDetail => ({
+      uid: `${account.id}:${user.name}`,
+      tenant: user.rgw?.tenant ?? null,
+      display_name: user.rgw?.display_name ?? user.name,
+      email: user.rgw?.email ?? `${user.name}@example.com`,
+      account_id: user.rgw?.account_id ?? account.rgw_account_id,
+      account_name: user.rgw?.account_name ?? account.name,
+      suspended: user.rgw?.suspended ?? false,
+      admin: user.rgw?.admin ?? null,
+      system: user.rgw?.system ?? null,
+      account_root: user.rgw?.account_root ?? null,
+      max_buckets: user.rgw?.max_buckets ?? 100,
+      op_mask: user.rgw?.op_mask ?? null,
+      default_placement: user.rgw?.default_placement ?? null,
+      default_storage_class: user.rgw?.default_storage_class ?? null,
+      caps: user.rgw?.caps ?? [],
+      quota: user.rgw?.quota ?? null,
+      keys: (c.state.iam[account.id].keys[user.name] ?? []).map(k => ({
+        access_key: k.access_key_id,
+        status: k.status,
+        is_active: k.status === "Active",
+        created_at: k.created_at,
+        user: user.name,
+        subuser: null,
+        is_private_access_managed: k.is_private_access_managed,
+        managed_connection_id: k.managed_connection_id,
+      })),
+    });
     const updateUser = (user: typeof users[number]["user"]) => {
       const body = c.body;
       for (const field of ["display_name", "email", "suspended", "max_buckets", "op_mask", "system", "account_root"]) if (field in body) user.rgw = { ...user.rgw, [field]: body[field] };
