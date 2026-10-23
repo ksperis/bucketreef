@@ -20,19 +20,19 @@ export type PortalAccount = {
 };
 
 export type PortalState = {
-  portal_role?: PortalAccountRole | null;
-  can_manage_buckets?: boolean;
-  can_create_private_storage_spaces?: boolean;
-  can_create_team_storage_spaces?: boolean;
-  can_create_external_sharing?: boolean;
-  can_manage_portal_users?: boolean;
-  portal_collaborator_role_management_delegated?: boolean;
-  portal_collaborator_addition_delegated?: boolean;
-  allow_named_bucket_create?: boolean;
-  server_access_logging_enabled?: boolean;
-  storage_space_version_cleanup_enabled?: boolean;
-  bucket_usage_stats_enabled?: boolean;
-  cost_estimation_enabled?: boolean;
+  portal_role: PortalAccountRole | null;
+  can_manage_buckets: boolean;
+  can_create_private_storage_spaces: boolean;
+  can_create_team_storage_spaces: boolean;
+  can_create_external_sharing: boolean;
+  can_manage_portal_users: boolean;
+  portal_collaborator_role_management_delegated: boolean;
+  portal_collaborator_addition_delegated: boolean;
+  allow_named_bucket_create: boolean;
+  server_access_logging_enabled: boolean;
+  storage_space_version_cleanup_enabled: boolean;
+  bucket_usage_stats_enabled: boolean;
+  cost_estimation_enabled: boolean;
 };
 
 export type PortalAccountSettings = {

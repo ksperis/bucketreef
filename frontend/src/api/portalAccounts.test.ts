@@ -18,6 +18,7 @@ import {
   fetchPortalProjectSettings,
   fetchPortalState,
   listPortalAccounts,
+  type PortalState,
   updatePortalProjectSettings,
 } from "./portalAccounts";
 
@@ -41,7 +42,21 @@ describe("portal accounts api", () => {
   });
 
   it("loads Portal state in the selected account", async () => {
-    const state = { can_manage_buckets: true };
+    const state = {
+      portal_role: "portal_manager",
+      can_manage_buckets: true,
+      can_create_private_storage_spaces: true,
+      can_create_team_storage_spaces: true,
+      can_create_external_sharing: false,
+      can_manage_portal_users: true,
+      portal_collaborator_role_management_delegated: false,
+      portal_collaborator_addition_delegated: false,
+      allow_named_bucket_create: true,
+      server_access_logging_enabled: true,
+      storage_space_version_cleanup_enabled: true,
+      bucket_usage_stats_enabled: true,
+      cost_estimation_enabled: false,
+    } satisfies PortalState;
     mocks.get.mockResolvedValue({ data: state });
 
     await expect(fetchPortalState("101")).resolves.toBe(state);
