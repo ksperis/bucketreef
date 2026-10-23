@@ -160,8 +160,8 @@ export type ManagerBucketCompareResult = {
   source_bucket: string;
   target_bucket: string;
   has_differences: boolean;
-  content_diff?: ManagerBucketContentDiff | null;
-  config_diff?: ManagerBucketConfigDiff | null;
+  content_diff: ManagerBucketContentDiff | null;
+  config_diff: ManagerBucketConfigDiff | null;
 };
 
 export type ManagerBucketCompareAction = "sync_source_only" | "sync_different" | "delete_target_only";

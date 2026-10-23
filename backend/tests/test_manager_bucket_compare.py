@@ -11,7 +11,12 @@ from starlette.requests import Request
 from app.db import User, UserRole
 from app.models.app_settings import AppSettings
 from app.models.bucket_compare import BucketConfigDiff, BucketContentDiff
-from app.models.manager_bucket_compare import ManagerBucketCompareActionRequest, ManagerBucketCompareRequest
+from app.models.manager_bucket_compare import (
+    ManagerBucketCompareActionRequest,
+    ManagerBucketCompareActionResult,
+    ManagerBucketCompareRequest,
+    ManagerBucketCompareResult,
+)
 from app.routers import dependencies as dependencies_router
 from app.services import app_settings_service
 from app.routers.manager import buckets as buckets_router
@@ -58,6 +63,30 @@ class _RecordingAudit:
 
     def record_action(self, **kwargs):
         self.calls.append(kwargs)
+
+
+def test_manager_bucket_compare_responses_require_complete_canonical_payloads() -> None:
+    assert set(ManagerBucketCompareResult.model_json_schema()["required"]) == {
+        "source_context_id",
+        "target_context_id",
+        "source_bucket",
+        "target_bucket",
+        "has_differences",
+        "content_diff",
+        "config_diff",
+    }
+    assert set(ManagerBucketCompareActionResult.model_json_schema()["required"]) == {
+        "action",
+        "source_context_id",
+        "target_context_id",
+        "source_bucket",
+        "target_bucket",
+        "planned_count",
+        "succeeded_count",
+        "failed_count",
+        "failed_keys_sample",
+        "message",
+    }
 
 
 def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):

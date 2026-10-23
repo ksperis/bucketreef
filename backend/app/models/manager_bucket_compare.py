@@ -30,9 +30,9 @@ class ManagerBucketCompareResult(ApiModel):
     target_context_id: str
     source_bucket: str
     target_bucket: str
-    has_differences: bool = False
-    content_diff: Optional[BucketContentDiff] = None
-    config_diff: Optional[BucketConfigDiff] = None
+    has_differences: bool
+    content_diff: Optional[BucketContentDiff]
+    config_diff: Optional[BucketConfigDiff]
 
 
 class ManagerBucketCompareActionRequest(ApiModel):
@@ -70,8 +70,8 @@ class ManagerBucketCompareActionResult(ApiModel):
     target_context_id: str
     source_bucket: str
     target_bucket: str
-    planned_count: int = 0
-    succeeded_count: int = 0
-    failed_count: int = 0
-    failed_keys_sample: list[str] = Field(default_factory=list)
+    planned_count: int
+    succeeded_count: int
+    failed_count: int
+    failed_keys_sample: list[str]
     message: str
