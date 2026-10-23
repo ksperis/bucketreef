@@ -187,6 +187,8 @@ class PortalActivityMixin:
                         title="Quota is getting close",
                         description=f"{percent_used}% of workspace storage is used.",
                         severity_label="Critical" if ratio >= 0.95 else "Warning",
+                        storage_space_id=None,
+                        created_at=None,
                     )
         except RuntimeError:
             pass
@@ -209,6 +211,7 @@ class PortalActivityMixin:
                         description=f"{space.name} appears to be publicly reachable.",
                         severity_label="Critical",
                         storage_space_id=space.id,
+                        created_at=None,
                     )
                 )
         return alerts
