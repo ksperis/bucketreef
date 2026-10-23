@@ -13,11 +13,11 @@ export type WebhookDelivery = {
   status: WebhookDeliveryStatus;
   attempt_count: number;
   next_attempt_at: string;
-  last_http_status?: number | null;
-  last_error?: string | null;
+  last_http_status: number | null;
+  last_error: string | null;
   created_at: string;
   updated_at: string;
-  delivered_at?: string | null;
+  delivered_at: string | null;
 };
 
 export type WebhookEndpoint = {
@@ -27,7 +27,7 @@ export type WebhookEndpoint = {
   enabled: boolean;
   event_types: string[];
   has_signing_secret: boolean;
-  last_delivery?: WebhookDelivery | null;
+  last_delivery: WebhookDelivery | null;
   created_at: string;
   updated_at: string;
 };
@@ -90,7 +90,7 @@ export async function rotateWebhookSecret(endpointId: number): Promise<string> {
 }
 
 export async function sendWebhookTest(endpointId: number): Promise<string> {
-  const { data } = await client.post<{ delivery_id: string; status: string }>(
+  const { data } = await client.post<{ delivery_id: string; status: "queued" }>(
     `/admin/settings/webhooks/${endpointId}/test`,
   );
   return data.delivery_id;
