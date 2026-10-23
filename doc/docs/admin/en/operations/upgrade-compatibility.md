@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 UI user partial updates use PATCH
+
+The admin UI-user update endpoint now uses `PATCH /admin/users/{user_id}`
+because `UserUpdate` intentionally applies only supplied fields. The former
+`PUT` route has been removed instead of retained as a compatibility alias.
+
+Avatar replacement and administrator password replacement keep their existing
+`PUT` endpoints. The bundled frontend has been updated with the API cutover.
+No database migration is required.
+
 ## 2026-10 UI group partial updates use PATCH
 
 The admin UI-group update endpoint now uses `PATCH /admin/groups/{group_id}`

@@ -321,12 +321,12 @@ def test_only_superadmin_can_manage_privileged_users_and_self_protection_applies
     super_credentials = authenticate_ui_client(auth_client, db_session, superadmin, mfa_verified=False)
     headers = trusted_origin_headers(csrf_token=super_credentials.csrf_token)
 
-    deactivate = auth_client.put(
+    deactivate = auth_client.patch(
         f"/api/admin/users/{superadmin.id}",
         json={"is_active": False},
         headers=headers,
     )
-    demote = auth_client.put(
+    demote = auth_client.patch(
         f"/api/admin/users/{superadmin.id}",
         json={"role": UserRole.UI_USER.value},
         headers=headers,
@@ -430,17 +430,17 @@ def test_user_update_step_up_depends_on_persisted_security_change(auth_client, d
     credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
     headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
 
-    name_only = auth_client.put(
+    name_only = auth_client.patch(
         f"/api/admin/users/{target.id}",
         json={"full_name": "Updated Name"},
         headers=headers,
     )
-    identical_role = auth_client.put(
+    identical_role = auth_client.patch(
         f"/api/admin/users/{target.id}",
         json={"role": UserRole.UI_USER.value},
         headers=headers,
     )
-    role_change = auth_client.put(
+    role_change = auth_client.patch(
         f"/api/admin/users/{target.id}",
         json={"role": UserRole.UI_NONE.value},
         headers=headers,
@@ -453,7 +453,7 @@ def test_user_update_step_up_depends_on_persisted_security_change(auth_client, d
     assert role_change.json()["detail"] == "Recent WebAuthn verification required"
 
     _set_admin_passkey_policy(db_session, False)
-    role_change_without_policy = auth_client.put(
+    role_change_without_policy = auth_client.patch(
         f"/api/admin/users/{target.id}",
         json={"role": UserRole.UI_NONE.value},
         headers=headers,
@@ -683,11 +683,11 @@ def test_each_manager_tool_mutation_requires_recent_mfa(auth_client, db_session,
     unchanged_payload = {"manager_tool_access": {tool: current}}
     changed_payload = {"manager_tool_access": {tool: not current}}
 
-    unchanged = auth_client.put(f"/api/admin/users/{target.id}", json=unchanged_payload, headers=headers)
+    unchanged = auth_client.patch(f"/api/admin/users/{target.id}", json=unchanged_payload, headers=headers)
     assert unchanged.status_code == 200
     assert unchanged.json()["manager_tool_access"][tool] is current
 
-    denied = auth_client.put(f"/api/admin/users/{target.id}", json=changed_payload, headers=headers)
+    denied = auth_client.patch(f"/api/admin/users/{target.id}", json=changed_payload, headers=headers)
     assert denied.status_code == 403
     assert denied.json()["detail"] == "Recent WebAuthn verification required"
     db_session.refresh(target)
@@ -695,7 +695,7 @@ def test_each_manager_tool_mutation_requires_recent_mfa(auth_client, db_session,
 
     clear_ui_client(auth_client)
     verified = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=True)
-    updated = auth_client.put(
+    updated = auth_client.patch(
         f"/api/admin/users/{target.id}",
         json=changed_payload,
         headers=trusted_origin_headers(csrf_token=verified.csrf_token),

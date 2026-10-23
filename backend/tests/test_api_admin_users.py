@@ -61,7 +61,7 @@ def test_admin_user_api_rejects_legacy_ui_roles(
             "role": legacy_role,
         },
     )
-    update_response = client.put(
+    update_response = client.patch(
         f"/api/admin/users/{user.id}",
         json={"role": legacy_role},
     )
@@ -80,7 +80,7 @@ def test_update_user_replaces_account_links_atomically(client: TestClient, db_se
     db_session.add(second_account)
     db_session.commit()
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/users/{usr.id}",
         json={
             "account_links": [
@@ -129,7 +129,7 @@ def test_update_user_rejects_invalid_account_access_contracts(
 ):
     user, account = seed_user_account
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/users/{user.id}",
         json={"account_links": [{"account_id": account.id, **invalid_link}]},
     )
@@ -142,7 +142,7 @@ def test_update_user_rejects_removed_s3_user_ids_contract(
     seed_user_account,
 ):
     user, _ = seed_user_account
-    response = client.put(
+    response = client.patch(
         f"/api/admin/users/{user.id}",
         json={"s3_user_ids": [99999]},
     )
@@ -290,7 +290,7 @@ def test_admin_can_configure_manager_tool_access_on_update(client: TestClient, d
     )
     app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/users/{target.id}",
         json={
             "manager_tool_access": {
@@ -334,7 +334,7 @@ def test_user_payload_rejects_removed_bucket_quota_permission(client: TestClient
     )
     app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/users/{target.id}",
         json={
             "manager_tool_access": {
@@ -367,7 +367,7 @@ def test_admin_can_configure_browser_advanced_features_on_update(client: TestCli
     )
     app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/users/{target.id}",
         json={"browser_advanced_features_enabled": True},
     )
@@ -398,13 +398,13 @@ def test_admin_cannot_promote_or_grant_ceph_admin_on_update(client: TestClient, 
     )
     app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
 
-    promote_resp = client.put(
+    promote_resp = client.patch(
         f"/api/admin/users/{target.id}",
         json={"role": UserRole.UI_SUPERADMIN.value},
     )
     assert promote_resp.status_code == 403, promote_resp.text
 
-    grant_resp = client.put(
+    grant_resp = client.patch(
         f"/api/admin/users/{target.id}",
         json={"role": UserRole.UI_ADMIN.value, "can_access_ceph_admin": True},
     )
@@ -432,14 +432,14 @@ def test_superadmin_can_promote_and_grant_ceph_admin_on_update(client: TestClien
     )
     app.dependency_overrides[dependencies.get_current_super_admin] = lambda: super_admin_user
 
-    promote_resp = client.put(
+    promote_resp = client.patch(
         f"/api/admin/users/{target.id}",
         json={"role": UserRole.UI_SUPERADMIN.value},
     )
     assert promote_resp.status_code == 200, promote_resp.text
     assert promote_resp.json()["role"] == UserRole.UI_SUPERADMIN.value
 
-    grant_resp = client.put(
+    grant_resp = client.patch(
         f"/api/admin/users/{target.id}",
         json={"role": UserRole.UI_ADMIN.value, "can_access_ceph_admin": True},
     )
@@ -470,14 +470,14 @@ def test_admin_can_grant_and_revoke_storage_ops_on_update(client: TestClient, db
     )
     app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
 
-    grant_resp = client.put(
+    grant_resp = client.patch(
         f"/api/admin/users/{target.id}",
         json={"can_access_storage_ops": True},
     )
     assert grant_resp.status_code == 200, grant_resp.text
     assert grant_resp.json()["can_access_storage_ops"] is True
 
-    revoke_resp = client.put(
+    revoke_resp = client.patch(
         f"/api/admin/users/{target.id}",
         json={"can_access_storage_ops": False},
     )
@@ -509,7 +509,7 @@ def test_admin_update_user_rejects_short_password(client: TestClient, db_session
     db_session.add(target)
     db_session.commit()
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/users/{target.id}",
         json={"password": "short123"},
     )
@@ -541,7 +541,7 @@ PROFILE_PNG = base64.b64decode(
 def test_admin_updates_account_preferences_without_changing_access_or_session_version(client, db_session, seed_user_account):
     user, _ = seed_user_account
     version = user.auth_version
-    response = client.put(f"/api/admin/users/{user.id}", json={
+    response = client.patch(f"/api/admin/users/{user.id}", json={
         "ui_language": "de", "quota_alerts_enabled": False, "avatar_preference": "initials",
     })
     assert response.status_code == 200, response.text
@@ -552,12 +552,12 @@ def test_admin_updates_account_preferences_without_changing_access_or_session_ve
     assert user.auth_version == version
     assert user.role == UserRole.UI_USER.value
     # An unrelated edit preserves preferences; explicit null restores automatic language.
-    client.put(f"/api/admin/users/{user.id}", json={"full_name": "New name"})
+    client.patch(f"/api/admin/users/{user.id}", json={"full_name": "New name"})
     db_session.refresh(user)
     assert user.ui_language == "de"
     assert user.quota_alerts_enabled is False
     assert user.avatar_preference == "initials"
-    cleared = client.put(f"/api/admin/users/{user.id}", json={"ui_language": None})
+    cleared = client.patch(f"/api/admin/users/{user.id}", json={"ui_language": None})
     assert cleared.status_code == 200, cleared.text
     assert cleared.json()["ui_language"] is None
     audit = db_session.query(AuditLog).filter_by(action="update_ui_user", entity_id=str(user.id)).order_by(AuditLog.id.desc()).first()
@@ -573,7 +573,7 @@ def test_admin_updates_account_preferences_without_changing_access_or_session_ve
 ])
 def test_admin_rejects_invalid_or_out_of_scope_profile_preferences(client, seed_user_account, payload, status_code):
     user, _ = seed_user_account
-    response = client.put(f"/api/admin/users/{user.id}", json=payload)
+    response = client.patch(f"/api/admin/users/{user.id}", json=payload)
     assert response.status_code == status_code, response.text
 
 
@@ -581,10 +581,10 @@ def test_admin_global_quota_watch_follows_the_target_role(client, db_session, se
     user, _ = seed_user_account
     user.role = UserRole.UI_ADMIN.value
     db_session.commit()
-    response = client.put(f"/api/admin/users/{user.id}", json={"quota_alerts_global_watch": True})
+    response = client.patch(f"/api/admin/users/{user.id}", json={"quota_alerts_global_watch": True})
     assert response.status_code == 200, response.text
     assert response.json()["quota_alerts_global_watch"] is True
-    response = client.put(f"/api/admin/users/{user.id}", json={"role": "ui_user"})
+    response = client.patch(f"/api/admin/users/{user.id}", json={"role": "ui_user"})
     assert response.status_code == 200, response.text
     assert response.json()["quota_alerts_global_watch"] is False
 
@@ -619,7 +619,7 @@ def test_regular_admin_cannot_change_a_privileged_profile_or_avatar(client, db_s
     db_session.commit()
     actor = User(id=1001, email="other-admin@example.com", role=UserRole.UI_ADMIN.value, is_active=True)
     app.dependency_overrides[dependencies.get_current_super_admin] = lambda: actor
-    assert client.put(f"/api/admin/users/{user.id}", json={"ui_language": "fr"}).status_code == 403
+    assert client.patch(f"/api/admin/users/{user.id}", json={"ui_language": "fr"}).status_code == 403
     assert client.put(f"/api/admin/users/{user.id}/avatar", files={"file": ("image.png", PROFILE_PNG, "image/png")}).status_code == 403
     assert client.delete(f"/api/admin/users/{user.id}/avatar").status_code == 403
 
