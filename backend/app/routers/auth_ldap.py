@@ -10,14 +10,16 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.auth import AuthenticationResponse
 from app.models.ldap import LDAPLoginRequest, LDAPProviderInfo
-from app.routers.auth_common import _finish_user_primary_auth, settings
-from app.routers.auth_request_context import request_context
+from app.routers.auth_common import (
+    AuthAttemptContext,
+    _finish_user_primary_auth,
+    external_identity_link_response,
+)
 from app.routers.dependencies import (
     get_audit_service,
     get_users_service_dependency,
 )
 from app.services.audit_service import AuditService
-from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
 from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
 from app.services.ldap_service import (
     LDAPAuthenticationError,
@@ -60,96 +62,62 @@ def login_with_ldap(
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
     username = (payload.username or "").strip()
-    ip_address, user_agent, request_id = request_context(request, settings=settings)
-    account_key = f"ldap:{provider_id.lower()}:{username.lower()}"
-    limiter = AuthRateLimitService(users_service.db, settings=settings)
+    provider = provider_id.lower()
+    account_key = f"ldap:{provider}:{username.lower()}"
+    attempt = AuthAttemptContext.from_request(
+        request=request,
+        db=users_service.db,
+        audit_service=audit_service,
+        account_key=account_key,
+    )
+    attempt.check_rate_limit(
+        user_email=account_key,
+        entity_type="ui_session",
+        audit_message="LDAP login rate limit exceeded",
+        public_detail="Too many failed login attempts",
+    )
     try:
-        limiter.check(account=account_key, ip_address=ip_address)
-    except LoginRateLimitedError as exc:
-        audit_service.record_action(
-            user=None,
-            user_email=account_key,
-            scope="auth",
-            action="login_rate_limited",
-            entity_type="ui_session",
-            status="failure",
-            message="LDAP login rate limit exceeded",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
-        )
-        raise HTTPException(status_code=429, detail="Too many failed login attempts", headers={"Retry-After": str(exc.retry_after)}) from exc
-    try:
-        user, created = ldap_service.authenticate(provider_id.lower(), username, payload.password)
+        user, created = ldap_service.authenticate(provider, username, payload.password)
     except ExternalIdentityLinkRequiredError as exc:
-        limiter.clear_account(account=account_key, ip_address=ip_address)
-        audit_service.record_action(
-            user=None,
+        return external_identity_link_response(
+            attempt=attempt,
             user_email=account_key,
-            scope="auth",
-            action="external_identity_link_requested",
-            entity_type="external_identity_link_request",
-            entity_id=exc.request_id,
-            metadata={"provider_type": "ldap", "provider": provider_id.lower()},
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
-        )
-        return AuthenticationResponse(
-            status="link_approval_required",
-            user=None,
-            session=None,
-            redirect_path=None,
+            provider_type="ldap",
+            provider=provider,
             link_request_id=exc.request_id,
-            recovery_codes=None,
         )
     except LDAPProviderNotFoundError as exc:
-        audit_service.record_action(
+        attempt.audit(
             user=None,
             user_email=account_key,
-            scope="auth",
             action="login_ldap_provider_not_found",
             entity_type="ui_session",
-            status="failure",
+            status_value="failure",
             message="LDAP provider is unavailable",
-            metadata={"provider": provider_id.lower()},
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
+            metadata={"provider": provider},
         )
         raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     except LDAPConfigurationError as exc:
-        audit_service.record_action(
+        attempt.audit(
             user=None,
             user_email=account_key,
-            scope="auth",
             action="login_ldap_configuration_error",
             entity_type="ui_session",
-            status="failure",
+            status_value="failure",
             message="LDAP provider configuration error",
-            metadata={"provider": provider_id.lower()},
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
+            metadata={"provider": provider},
         )
         raise HTTPException(status_code=400, detail="LDAP provider is unavailable") from exc
     except (LDAPAuthenticationError, LDAPUserConflictError) as exc:
-        limiter.record_failure(account=account_key, ip_address=ip_address)
-        audit_service.record_action(
-            user=None,
+        attempt.record_failure(
             user_email=account_key,
-            scope="auth",
             action="login_failure",
             entity_type="ui_session",
-            status="failure",
             message="Invalid LDAP credentials",
-            metadata={"provider": provider_id.lower()},
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
+            metadata={"provider": provider},
         )
         raise HTTPException(status_code=401, detail="Invalid credentials") from exc
-    limiter.clear_account(account=account_key, ip_address=ip_address)
+    attempt.clear_rate_limit()
     result = _finish_user_primary_auth(
         request=request,
         response=response,
@@ -157,14 +125,10 @@ def login_with_ldap(
         users_service=users_service,
         auth_type="ldap",
     )
-    audit_service.record_action(
+    attempt.audit(
         user=user,
-        scope="auth",
         action="login_ldap_primary_success",
         entity_type="ui_session",
-        metadata={"provider": provider_id.lower(), "created": created, "mfa_status": result.status},
-        ip_address=ip_address,
-        user_agent=user_agent,
-        request_id=request_id,
+        metadata={"provider": provider, "created": created, "mfa_status": result.status},
     )
     return result

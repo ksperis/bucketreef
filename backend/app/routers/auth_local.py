@@ -24,14 +24,12 @@ from app.models.first_admin_bootstrap import (
     FirstAdminBootstrapCreate,
     FirstAdminBootstrapStatus,
 )
-from app.routers.auth_common import _finish_user_primary_auth, settings
-from app.routers.auth_request_context import request_context
+from app.routers.auth_common import AuthAttemptContext, _finish_user_primary_auth
 from app.routers.dependencies import (
     get_audit_service,
     get_users_service_dependency,
 )
 from app.services.audit_service import AuditService
-from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
 from app.services.first_admin_bootstrap_service import (
     FirstAdminBootstrapError,
     FirstAdminBootstrapService,
@@ -75,28 +73,21 @@ def create_first_admin_from_bootstrap(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
-    ip_address, user_agent, request_id = request_context(request, settings=settings)
-    limiter = AuthRateLimitService(users_service.db, settings=settings)
     rate_limit_account = "first-admin-bootstrap"
-    try:
-        limiter.check(account=rate_limit_account, ip_address=ip_address)
-    except LoginRateLimitedError as exc:
-        audit_service.record_action(
-            user=None,
-            scope="security",
-            action="first_admin_bootstrap_rate_limited",
-            entity_type="first_admin_bootstrap",
-            status="failure",
-            message="First administrator bootstrap rate limit exceeded",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many bootstrap attempts. Please try again later.",
-            headers={"Retry-After": str(exc.retry_after)},
-        ) from exc
+    attempt = AuthAttemptContext.from_request(
+        request=request,
+        db=users_service.db,
+        audit_service=audit_service,
+        account_key=rate_limit_account,
+    )
+    attempt.check_rate_limit(
+        user_email=None,
+        scope="security",
+        action="first_admin_bootstrap_rate_limited",
+        entity_type="first_admin_bootstrap",
+        audit_message="First administrator bootstrap rate limit exceeded",
+        public_detail="Too many bootstrap attempts. Please try again later.",
+    )
 
     try:
         created = FirstAdminBootstrapService(users_service.db).create_with_token(
@@ -104,26 +95,17 @@ def create_first_admin_from_bootstrap(
             email=str(payload.email),
             full_name=payload.full_name,
             password=payload.password,
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
+            ip_address=attempt.ip_address,
+            user_agent=attempt.user_agent,
+            request_id=attempt.request_id,
         )
     except FirstAdminBootstrapUnavailableError as exc:
-        limiter.record_failure(
-            account=rate_limit_account,
-            ip_address=ip_address,
-        )
-        audit_service.record_action(
-            user=None,
+        attempt.record_failure(
             user_email=str(payload.email).lower(),
             scope="security",
             action="first_admin_bootstrap_failure",
             entity_type="first_admin_bootstrap",
-            status="failure",
             message="First administrator bootstrap unavailable",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
         )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -134,7 +116,7 @@ def create_first_admin_from_bootstrap(
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
-    limiter.clear_account(account=rate_limit_account, ip_address=ip_address)
+    attempt.clear_rate_limit()
     user = users_service.get_by_id(created.user_id)
     if user is None:
         raise HTTPException(
@@ -161,45 +143,28 @@ def login(
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
     username = (form_data.username or "").strip()
-    ip_address, user_agent, request_id = request_context(request, settings=settings)
-    limiter = AuthRateLimitService(users_service.db, settings=settings)
-    try:
-        limiter.check(account=username, ip_address=ip_address)
-    except LoginRateLimitedError as exc:
-        audit_service.record_action(
-            user=None,
-            user_email=username.lower(),
-            scope="auth",
-            action="login_rate_limited",
-            entity_type="ui_session",
-            status="failure",
-            message="Login rate limit exceeded",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many failed login attempts. Please try again later.",
-            headers={"Retry-After": str(exc.retry_after)},
-        ) from exc
+    attempt = AuthAttemptContext.from_request(
+        request=request,
+        db=users_service.db,
+        audit_service=audit_service,
+        account_key=username,
+    )
+    attempt.check_rate_limit(
+        user_email=username.lower(),
+        entity_type="ui_session",
+        audit_message="Login rate limit exceeded",
+        public_detail="Too many failed login attempts. Please try again later.",
+    )
     user = users_service.authenticate(username, form_data.password)
     if not user:
-        limiter.record_failure(account=username, ip_address=ip_address)
-        audit_service.record_action(
-            user=None,
+        attempt.record_failure(
             user_email=username.lower(),
-            scope="auth",
             action="login_failure",
             entity_type="ui_session",
-            status="failure",
             message="Invalid credentials",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    limiter.clear_account(account=username, ip_address=ip_address)
+    attempt.clear_rate_limit()
     result = _finish_user_primary_auth(
         request=request,
         response=response,
@@ -207,14 +172,10 @@ def login(
         users_service=users_service,
         auth_type="password",
     )
-    audit_service.record_action(
+    attempt.audit(
         user=user,
-        scope="auth",
         action="login_primary_success",
         entity_type="ui_session",
         metadata={"role": user.role, "mfa_status": result.status},
-        ip_address=ip_address,
-        user_agent=user_agent,
-        request_id=request_id,
     )
     return result

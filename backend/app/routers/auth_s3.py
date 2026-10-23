@@ -12,13 +12,11 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.auth import AuthenticationResponse
 from app.models.session import S3KeyLogin, SessionDescriptor
-from app.routers.auth_common import settings
+from app.routers.auth_common import AuthAttemptContext, settings
 from app.routers.auth_cookies import set_auth_cookies
-from app.routers.auth_request_context import request_context
 from app.routers.dependencies import get_audit_service
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.audit_service import AuditService
-from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
 from app.services.auth_session_service import AuthSessionService
 from app.services.session_service import SessionIntrospectionError, SessionService
 from app.services.storage_endpoints_service import get_storage_endpoints_service
@@ -53,30 +51,20 @@ def login_with_s3_keys(
             endpoint_url = validate_custom_login_s3_endpoint(endpoint_url)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="Invalid S3 endpoint") from exc
-    ip_address, user_agent, request_id = request_context(request, settings=settings)
     account_key = f"s3:{hashlib.sha256(payload.access_key.encode()).hexdigest()}"
-    limiter = AuthRateLimitService(db, settings=settings)
-    try:
-        limiter.check(account=account_key, ip_address=ip_address)
-    except LoginRateLimitedError as exc:
-        audit_service.record_action(
-            user=None,
-            user_email="s3:unknown",
-            user_role="s3_session",
-            scope="auth",
-            action="login_rate_limited",
-            entity_type="s3_session",
-            status="failure",
-            message="S3 login rate limit exceeded",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many failed login attempts",
-            headers={"Retry-After": str(exc.retry_after)},
-        ) from exc
+    attempt = AuthAttemptContext.from_request(
+        request=request,
+        db=db,
+        audit_service=audit_service,
+        account_key=account_key,
+    )
+    attempt.check_rate_limit(
+        user_email="s3:unknown",
+        user_role="s3_session",
+        entity_type="s3_session",
+        audit_message="S3 login rate limit exceeded",
+        public_detail="Too many failed login attempts",
+    )
     session_service = SessionService(db)
     try:
         actor_type, account_id, account_name, user_uid, capabilities = session_service.introspect_credentials(
@@ -85,22 +73,15 @@ def login_with_s3_keys(
             endpoint_url,
         )
     except SessionIntrospectionError as exc:
-        limiter.record_failure(account=account_key, ip_address=ip_address)
-        audit_service.record_action(
-            user=None,
+        attempt.record_failure(
             user_email="s3:unknown",
             user_role="s3_session",
-            scope="auth",
             action="login_s3_failure",
             entity_type="s3_session",
-            status="failure",
             message="Invalid credentials",
-            ip_address=ip_address,
-            user_agent=user_agent,
-            request_id=request_id,
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials") from exc
-    limiter.clear_account(account=account_key, ip_address=ip_address)
+    attempt.clear_rate_limit()
     principal = session_service.create_session(
         access_key=payload.access_key,
         secret_key=payload.secret_key,
@@ -112,8 +93,8 @@ def login_with_s3_keys(
     )
     credentials = AuthSessionService(db).create_for_s3_session_id(
         principal.session_id,
-        ip_address=ip_address,
-        user_agent=user_agent,
+        ip_address=attempt.ip_address,
+        user_agent=attempt.user_agent,
     )
     set_auth_cookies(response, credentials)
     descriptor = SessionDescriptor(
@@ -124,11 +105,10 @@ def login_with_s3_keys(
         user_uid=principal.user_uid,
         capabilities=principal.capabilities,
     )
-    audit_service.record_action(
+    attempt.audit(
         user=None,
         user_email=principal.email,
         user_role=principal.role,
-        scope="auth",
         action="login_s3_custom_endpoint" if custom_endpoint else "login_s3",
         entity_type="s3_session",
         entity_id=principal.session_id,
@@ -137,9 +117,6 @@ def login_with_s3_keys(
             "account_id": principal.account_id,
             **({"endpoint_url": endpoint_url} if custom_endpoint else {}),
         },
-        ip_address=ip_address,
-        user_agent=user_agent,
-        request_id=request_id,
     )
     return AuthenticationResponse(
         status="authenticated",
