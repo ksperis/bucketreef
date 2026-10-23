@@ -10,6 +10,7 @@ import pytest
 from botocore.exceptions import ClientError
 from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket_migration import (
+    BucketMigrationDiagnostic,
     BucketMigrationActionAvailability,
     BucketMigrationBucketMapping,
     BucketMigrationCreateRequest,
@@ -32,6 +33,22 @@ from tests.test_bucket_migration_service import (
     _bucket_profile_stub,
     _current_only_execution_strategy,
 )
+
+
+def test_bucket_migration_diagnostic_requires_complete_nullable_metadata():
+    assert set(BucketMigrationDiagnostic.model_json_schema()["required"]) == {
+        "code",
+        "severity",
+        "blocking",
+        "scope",
+        "message",
+        "impact",
+        "remediation",
+        "permission",
+        "context_id",
+        "bucket",
+        "details",
+    }
 
 
 @pytest.fixture

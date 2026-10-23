@@ -1656,7 +1656,13 @@ def test_run_precheck_interruption_persists_canonical_report(db_session):
     assert report["capabilities"] == {}
     assert report["unsupported_features"] == []
     assert isinstance(report["checked_at"], str) and report["checked_at"]
-    assert report["checks"][0]["code"] == "preparation_interrupted"
+    diagnostic = report["checks"][0]
+    assert diagnostic["code"] == "preparation_interrupted"
+    assert diagnostic["impact"] is None
+    assert diagnostic["permission"] is None
+    assert diagnostic["context_id"] is None
+    assert diagnostic["bucket"] is None
+    assert diagnostic["details"] is None
 
 
 def test_run_precheck_passed_then_start_allowed(db_session):

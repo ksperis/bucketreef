@@ -193,7 +193,12 @@ class BucketMigrationPreparationMixin:
                     "blocking": True,
                     "scope": "migration",
                     "message": migration.error_message,
+                    "impact": None,
                     "remediation": "Restore access if required, then run checks again.",
+                    "permission": None,
+                    "context_id": None,
+                    "bucket": None,
+                    "details": None,
                 }
             ]
             migration.precheck_report_json = _json_dumps(report)
