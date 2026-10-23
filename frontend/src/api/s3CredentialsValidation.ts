@@ -15,6 +15,6 @@ export type S3CredentialsValidationPayload = {
 export type S3CredentialsValidationResult = {
   ok: boolean;
   severity: "success" | "warning" | "error";
-  code?: string | null;
+  code: string | null;
   message: string;
 };

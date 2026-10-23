@@ -24,45 +24,45 @@ from app.models.user import UserAssociationDetail, UserAvatar
 class S3ConnectionGroupDetail(ApiModel):
     id: int
     name: str
-    avatar: Optional[UiGroupAvatar] = None
+    avatar: Optional[UiGroupAvatar]
 
 
 class S3ConnectionAdminItem(ApiModel):
     id: int
     name: str
-    storage_endpoint_id: Optional[int] = None
+    storage_endpoint_id: Optional[int]
     endpoint_url: str
-    is_active: bool = True
-    execution_status: Literal["ready", "remediation_required"] = "ready"
-    remediation_reason: Optional[str] = None
-    rgw_user_uid: Optional[str] = None
-    rgw_tenant: Optional[str] = None
-    rgw_account_id: Optional[str] = None
-    provider_hint: Optional[str] = None
-    region: Optional[str] = None
-    force_path_style: bool = False
-    verify_tls: bool = True
-    allow_activity_history: Optional[bool] = None
-    capabilities: dict[str, Any] = Field(default_factory=dict)
+    is_active: bool
+    execution_status: Literal["ready", "remediation_required"]
+    remediation_reason: Optional[str]
+    rgw_user_uid: Optional[str]
+    rgw_tenant: Optional[str]
+    rgw_account_id: Optional[str]
+    provider_hint: Optional[str]
+    region: Optional[str]
+    force_path_style: bool
+    verify_tls: bool
+    allow_activity_history: Optional[bool]
+    capabilities: dict[str, Any]
     created_by_user_id: int
-    created_by_email: Optional[str] = None
-    created_by_full_name: Optional[str] = None
-    created_by_avatar: Optional[UserAvatar] = None
-    user_count: int = 0
-    user_details: list[UserAssociationDetail] = Field(default_factory=list)
-    group_details: list[S3ConnectionGroupDetail] = Field(default_factory=list)
-    tags: list[TagDefinitionSummary] = Field(default_factory=list)
-    last_used_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by_email: Optional[str]
+    created_by_full_name: Optional[str]
+    created_by_avatar: Optional[UserAvatar]
+    user_count: int
+    user_details: list[UserAssociationDetail]
+    group_details: list[S3ConnectionGroupDetail]
+    tags: list[TagDefinitionSummary]
+    last_used_at: Optional[datetime]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
 
 
 class S3ConnectionSummary(ApiModel):
     id: int
     name: str
     created_by_user_id: int
-    is_active: bool = True
-    execution_status: Literal["ready", "remediation_required"] = "ready"
+    is_active: bool
+    execution_status: Literal["ready", "remediation_required"]
 
 
 class S3ConnectionAdminCreate(ApiModel):
