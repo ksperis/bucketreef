@@ -18,18 +18,18 @@ class UserNotificationOut(ApiModel):
     severity: NotificationSeverity
     title: str
     message: str
-    subject_type: Optional[str] = None
-    storage_endpoint_id: Optional[int] = None
-    s3_account_id: Optional[int] = None
-    s3_user_id: Optional[int] = None
-    payload: dict[str, Any] = Field(default_factory=dict)
+    subject_type: Optional[str]
+    storage_endpoint_id: Optional[int]
+    s3_account_id: Optional[int]
+    s3_user_id: Optional[int]
+    payload: dict[str, Any]
     created_at: datetime
-    read_at: Optional[datetime] = None
+    read_at: Optional[datetime]
 
 
 class UserNotificationsResponse(ApiModel):
     items: list[UserNotificationOut]
-    unread_count: int = 0
+    unread_count: int
 
 
 class MarkUserNotificationsReadRequest(ApiModel):
@@ -59,13 +59,13 @@ class MarkUserNotificationsReadRequest(ApiModel):
 
 
 class MarkUserNotificationsReadResponse(ApiModel):
-    updated_count: int = 0
-    unread_count: int = 0
+    updated_count: int
+    unread_count: int
 
 
 class DeleteUserNotificationsResponse(ApiModel):
-    deleted_count: int = 0
-    unread_count: int = 0
+    deleted_count: int
+    unread_count: int
 
 
 class UserNotificationRetentionResult(ApiModel):

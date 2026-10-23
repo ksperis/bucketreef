@@ -177,7 +177,7 @@ export default function TopbarNotifications({ enabled }: TopbarNotificationsProp
   if (!enabled) return null;
 
   const renderNotificationItem = (item: UserNotification) => {
-    const payload = item.payload ?? {};
+    const payload = item.payload;
     const isOperationalCheck = item.type === "quota_alert" || item.type === "endpoint_health";
     const occurredAt = formatDateTime(
       (isOperationalCheck ? payload.checked_at as string | undefined : undefined) ?? item.created_at,
