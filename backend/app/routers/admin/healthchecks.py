@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.healthcheck import (
+    EndpointHealthRunResponse,
     EndpointHealthGlobalIncidentsResponse,
     EndpointHealthIncidentsResponse,
     EndpointHealthLatencyOverviewResponse,
@@ -155,11 +156,11 @@ def workspace_health_overview(
         raise_http_error_from_value_error(exc)
 
 
-@router.post("/run")
+@router.post("/run", response_model=EndpointHealthRunResponse)
 def run_healthchecks(
     current_user: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-) -> dict:
+) -> EndpointHealthRunResponse:
     _ensure_endpoint_status_enabled()
     with OperationLeaseService(db).hold(
         HEALTHCHECK_RUN_OPERATION,
@@ -176,4 +177,4 @@ def run_healthchecks(
             result = service.run_checks()
         except ValueError as exc:
             raise_bad_request_from_value_error(exc)
-    return result
+    return EndpointHealthRunResponse.model_validate(result)

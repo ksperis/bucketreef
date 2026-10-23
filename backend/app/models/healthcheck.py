@@ -28,6 +28,22 @@ class EndpointHealthSummaryResponse(ApiModel):
     endpoints: list[EndpointHealthSummary]
 
 
+class EndpointHealthRunResult(ApiModel):
+    endpoint_id: int
+    status: HealthCheckStatus
+    latency_ms: Optional[int]
+    http_status: Optional[int]
+    error_message: Optional[str]
+    check_mode: str
+
+
+class EndpointHealthRunResponse(ApiModel):
+    checked_at: str
+    total: int
+    notifications_created: int
+    results: list[EndpointHealthRunResult]
+
+
 class EndpointHealthPoint(ApiModel):
     timestamp: str
     status: HealthCheckStatus

@@ -299,7 +299,23 @@ export async function fetchPortalWorkspaceHealthOverview(
   return data;
 }
 
-export async function runHealthchecks(): Promise<Record<string, unknown>> {
-  const { data } = await client.post<Record<string, unknown>>("/admin/health/run");
+export type EndpointHealthRunResult = {
+  endpoint_id: number;
+  status: HealthCheckStatus;
+  latency_ms: number | null;
+  http_status: number | null;
+  error_message: string | null;
+  check_mode: string;
+};
+
+export type EndpointHealthRunResponse = {
+  checked_at: string;
+  total: number;
+  notifications_created: number;
+  results: EndpointHealthRunResult[];
+};
+
+export async function runHealthchecks(): Promise<EndpointHealthRunResponse> {
+  const { data } = await client.post<EndpointHealthRunResponse>("/admin/health/run");
   return data;
 }
