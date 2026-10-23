@@ -14,6 +14,7 @@ from app.models.browser import BrowserStsCredentials
 from app.routers import dependencies
 from app.routers import browser as browser_router
 from app.routers.dependencies_internal import auth_session
+from app.services.api_token_service import ApiTokenService
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
 
 
@@ -139,6 +140,67 @@ def test_api_token_auth_rejects_same_jti_with_different_token_hash(auth_client, 
         headers={"Authorization": f"Bearer {forged_same_jti}"},
     )
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("typ", "access"),
+        ("jti", ""),
+        ("uid", "invalid"),
+        ("sid", "different-token"),
+        ("auth_version", -1),
+        ("scopes", ["admin:write"]),
+    ],
+)
+def test_api_token_claim_mismatches_fail_closed(db_session, field, value):
+    admin = _create_user(
+        db_session,
+        email=f"api-claim-{field}@example.com",
+        password="supersecret",
+        role=UserRole.UI_ADMIN.value,
+    )
+    service = ApiTokenService(db_session)
+    token, _ = service.create_for_user(
+        admin,
+        name="claims",
+        scopes=["profile:read"],
+    )
+    claims = decode_typed_token(token, expected_type="api_access")
+    assert claims is not None
+    tampered = dict(claims)
+    tampered[field] = value
+
+    assert service.resolve_user_from_claims(
+        tampered,
+        token=token,
+        required_scope="profile:read",
+    ) is None
+
+
+def test_api_token_rejects_corrupt_persisted_scopes(db_session):
+    admin = _create_user(
+        db_session,
+        email="api-corrupt-scopes@example.com",
+        password="supersecret",
+        role=UserRole.UI_ADMIN.value,
+    )
+    service = ApiTokenService(db_session)
+    token, row = service.create_for_user(
+        admin,
+        name="claims",
+        scopes=["profile:read"],
+    )
+    claims = decode_typed_token(token, expected_type="api_access")
+    assert claims is not None
+    row.scopes_json = "{invalid-json"
+    db_session.commit()
+
+    assert service.resolve_user_from_claims(
+        claims,
+        token=token,
+        required_scope="profile:read",
+    ) is None
 
 
 def test_non_admin_cannot_create_api_token(auth_client, db_session):
