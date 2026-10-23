@@ -54,9 +54,9 @@ export type BucketReplicationConfiguration = {
 };
 
 export type BucketLoggingConfiguration = {
-  enabled?: boolean | null;
-  target_bucket?: string | null;
-  target_prefix?: string | null;
+  enabled: boolean;
+  target_bucket: string | null;
+  target_prefix: string | null;
 };
 
 export type BucketPublicAccessBlock = {
@@ -67,7 +67,7 @@ export type BucketPublicAccessBlock = {
 };
 
 export type BucketVersioningStatus = {
-  status?: string | null;
+  status: string | null;
   enabled: boolean;
 };
 

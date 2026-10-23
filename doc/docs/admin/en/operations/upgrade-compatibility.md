@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical bucket scalar configuration responses
+
+Bucket versioning responses now always include nullable `status` plus boolean
+`enabled`. Bucket policy responses always include nullable `policy`, and access
+logging responses always include `enabled`, `target_bucket`, and
+`target_prefix`; disabled logging uses explicit `null` targets.
+
+Deploy the backend and bundled frontend together. Direct callers should no
+longer rely on omitted fields for these successful reads. No database migration
+is required.
+
 ## 2026-10 canonical bucket detail collections
 
 Bucket property responses now always include `lifecycle_rules`, ACL responses

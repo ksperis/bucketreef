@@ -502,7 +502,11 @@ class BucketConfigurationService:
             **self._bucket_client_kwargs(execution_context, name),
         )
         if not config:
-            return BucketLoggingConfiguration(enabled=False)
+            return BucketLoggingConfiguration(
+                enabled=False,
+                target_bucket=None,
+                target_prefix=None,
+            )
         return BucketLoggingConfiguration(
             enabled=True,
             target_bucket=config.get("target_bucket"),
@@ -521,7 +525,11 @@ class BucketConfigurationService:
                 logging_config=None,
                 **self._bucket_client_kwargs(execution_context, name),
             )
-            return BucketLoggingConfiguration(enabled=False)
+            return BucketLoggingConfiguration(
+                enabled=False,
+                target_bucket=None,
+                target_prefix=None,
+            )
         target_bucket = (payload.target_bucket or "").strip()
         if not target_bucket:
             raise ValueError("Target bucket is required when enabling access logging.")
