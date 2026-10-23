@@ -14,11 +14,11 @@ export type EndpointHealthSummary = {
   endpoint_url: string;
   status: HealthCheckStatus;
   checked_at: string;
-  latency_ms?: number | null;
-  http_status?: number | null;
-  error_message?: string | null;
-  check_mode?: "http" | "s3";
-  check_target_url?: string | null;
+  latency_ms: number | null;
+  http_status: number | null;
+  error_message: string | null;
+  check_mode: "http" | "s3";
+  check_target_url: string | null;
 };
 
 export type EndpointHealthSummaryResponse = {
@@ -29,11 +29,11 @@ export type EndpointHealthSummaryResponse = {
 export type EndpointHealthPoint = {
   timestamp: string;
   status: HealthCheckStatus;
-  latency_ms?: number | null;
-  http_status?: number | null;
-  check_mode?: "http" | "s3";
-  check_type?: string;
-  scope?: string;
+  latency_ms: number | null;
+  http_status: number | null;
+  check_mode: "http" | "s3";
+  check_type: string;
+  scope: string;
 };
 
 export type EndpointHealthDailyPoint = {
@@ -41,8 +41,8 @@ export type EndpointHealthDailyPoint = {
   ok_count: number;
   degraded_count: number;
   down_count: number;
-  avg_latency_ms?: number | null;
-  p95_latency_ms?: number | null;
+  avg_latency_ms: number | null;
+  p95_latency_ms: number | null;
 };
 
 export type EndpointHealthSeries = {
@@ -51,41 +51,41 @@ export type EndpointHealthSeries = {
   start: string;
   end: string;
   data_points: number;
-  check_mode?: "http" | "s3";
-  check_target_url?: string | null;
-  check_type?: string;
-  scope?: string;
-  resolution_seconds?: number;
+  check_mode: "http" | "s3";
+  check_target_url: string | null;
+  check_type: string;
+  scope: string;
+  resolution_seconds: number;
   series: EndpointHealthPoint[];
   daily: EndpointHealthDailyPoint[];
 };
 
 export type EndpointHealthIncident = {
   start: string;
-  end?: string | null;
-  duration_minutes?: number | null;
+  end: string | null;
+  duration_minutes: number | null;
   status: HealthCheckStatus;
-  check_mode?: "http" | "s3";
-  check_type?: string;
-  scope?: string;
+  check_mode: "http" | "s3";
+  check_type: string;
+  scope: string;
 };
 
 export type EndpointHealthIncidentsResponse = {
   endpoint_id: number;
   window: string;
-  check_mode?: "http" | "s3";
-  check_type?: string;
-  scope?: string;
+  check_mode: "http" | "s3";
+  check_type: string;
+  scope: string;
   incidents: EndpointHealthIncident[];
 };
 
 export type EndpointHealthRawCheck = {
   checked_at: string;
   status: HealthCheckStatus;
-  latency_ms?: number | null;
-  http_status?: number | null;
-  error_message?: string | null;
-  check_mode?: "http" | "s3";
+  latency_ms: number | null;
+  http_status: number | null;
+  error_message: string | null;
+  check_mode: "http" | "s3";
 };
 
 export type EndpointHealthRawChecksResponse = {
@@ -101,10 +101,10 @@ export type EndpointHealthRawChecksResponse = {
 
 export type EndpointHealthTimelinePoint = {
   timestamp: string;
-  end_timestamp?: string | null;
+  end_timestamp: string | null;
   status: HealthCheckStatus;
-  latency_ms?: number | null;
-  reason?: string | null;
+  latency_ms: number | null;
+  reason: string | null;
 };
 
 export type EndpointHealthOverviewEndpoint = {
@@ -113,11 +113,11 @@ export type EndpointHealthOverviewEndpoint = {
   endpoint_url: string;
   status: HealthCheckStatus;
   checked_at: string;
-  latency_ms?: number | null;
-  check_mode?: "http" | "s3";
-  check_target_url?: string | null;
-  availability_pct?: number | null;
-  baseline_latency_ms?: number | null;
+  latency_ms: number | null;
+  check_mode: "http" | "s3";
+  check_target_url: string | null;
+  availability_pct: number | null;
+  baseline_latency_ms: number | null;
   timeline: EndpointHealthTimelinePoint[];
 };
 
@@ -135,15 +135,15 @@ export type EndpointHealthLatencyOverviewEndpoint = {
   endpoint_url: string;
   status: HealthCheckStatus;
   checked_at: string;
-  latency_ms?: number | null;
-  check_mode?: "http" | "s3";
-  check_target_url?: string | null;
-  min_latency_ms?: number | null;
-  avg_latency_ms?: number | null;
-  max_latency_ms?: number | null;
-  sample_count?: number;
-  check_type?: string;
-  scope?: string;
+  latency_ms: number | null;
+  check_mode: "http" | "s3";
+  check_target_url: string | null;
+  min_latency_ms: number | null;
+  avg_latency_ms: number | null;
+  max_latency_ms: number | null;
+  sample_count: number;
+  check_type: string;
+  scope: string;
 };
 
 type EndpointHealthLatencyOverviewResponse = {
@@ -157,14 +157,14 @@ type EndpointHealthLatencyOverviewResponse = {
 export type EndpointHealthGlobalIncident = {
   endpoint_id: number;
   endpoint_name: string;
-  endpoint_url?: string | null;
+  endpoint_url: string | null;
   status: HealthCheckStatus;
   start: string;
-  end?: string | null;
-  duration_minutes?: number | null;
-  check_mode?: "http" | "s3";
-  check_type?: string;
-  scope?: string;
+  end: string | null;
+  duration_minutes: number | null;
+  check_mode: "http" | "s3";
+  check_type: string;
+  scope: string;
 };
 
 type EndpointHealthGlobalIncidentsResponse = {
@@ -181,28 +181,28 @@ export type WorkspaceEndpointHealthEntry = {
   endpoint_url: string;
   status: HealthCheckStatus;
   checked_at: string;
-  latency_ms?: number | null;
-  check_mode?: "http" | "s3";
-  check_target_url?: string | null;
-  is_stale?: boolean;
+  latency_ms: number | null;
+  check_mode: "http" | "s3";
+  check_target_url: string | null;
+  is_stale: boolean;
 };
 
 export type WorkspaceEndpointIncidentEntry = {
   endpoint_id: number;
   endpoint_name: string;
-  endpoint_url?: string | null;
+  endpoint_url: string | null;
   status: HealthCheckStatus;
   start: string;
-  end?: string | null;
-  duration_minutes?: number | null;
-  check_mode?: "http" | "s3";
+  end: string | null;
+  duration_minutes: number | null;
+  check_mode: "http" | "s3";
   ongoing: boolean;
   recent: boolean;
 };
 
 export type WorkspaceEndpointHealthOverviewResponse = {
   generated_at: string;
-  stale_after_seconds?: number;
+  stale_after_seconds: number;
   incident_highlight_minutes: number;
   endpoint_count: number;
   up_count: number;

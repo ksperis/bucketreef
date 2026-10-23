@@ -26,6 +26,7 @@ const workspaceHealth: WorkspaceEndpointHealthOverviewResponse = {
       checked_at: new Date().toISOString(),
       latency_ms: null,
       check_mode: "http",
+      check_target_url: null,
       is_stale: false,
     },
   ],
