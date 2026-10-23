@@ -86,7 +86,7 @@ export async function updatePortalProjectSettings(
   accountId: S3AccountSelector,
   payload: PortalSettingsOverride,
 ): Promise<PortalProjectSettings> {
-  const { data } = await client.put<PortalProjectSettings>(
+  const { data } = await client.patch<PortalProjectSettings>(
     "/portal/settings",
     payload,
     { params: withS3AccountParam(undefined, accountId) },

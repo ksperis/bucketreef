@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 Portal project settings partial updates use PATCH
+
+Delegated Portal project settings now use `PATCH /portal/settings`. Project
+overrides are intentionally sparse and apply only supplied fields, so the
+former `PUT` route has been removed instead of retained as a compatibility
+alias.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 current-user profile partial updates use PATCH
 
 Authenticated profile updates now use `PATCH /users/me`. The profile payload is

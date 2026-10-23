@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
-  put: vi.fn(),
+  patch: vi.fn(),
   timeoutForRequestProfile: vi.fn(() => 1234),
 }));
 
 vi.mock("./client", () => ({
   default: {
     get: mocks.get,
-    put: mocks.put,
+    patch: mocks.patch,
   },
   timeoutForRequestProfile: mocks.timeoutForRequestProfile,
 }));
@@ -80,11 +80,11 @@ describe("portal accounts api", () => {
   it("updates project settings in the selected account", async () => {
     const payload = { allow_portal_user_access_key_create: false };
     const settings = { effective: payload, project_override: payload, can_update: true };
-    mocks.put.mockResolvedValue({ data: settings });
+    mocks.patch.mockResolvedValue({ data: settings });
 
     await expect(updatePortalProjectSettings("101", payload)).resolves.toBe(settings);
 
-    expect(mocks.put).toHaveBeenCalledWith("/portal/settings", payload, {
+    expect(mocks.patch).toHaveBeenCalledWith("/portal/settings", payload, {
       params: { account_id: "101" },
     });
   });
