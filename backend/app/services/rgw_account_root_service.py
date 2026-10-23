@@ -292,41 +292,80 @@ class RgwAccountRootService:
         already-created root so interrupted onboarding can continue safely.
         """
         root_uid = self.root_uid(rgw_account_id)
-        root_payload: dict[str, Any] | None = None
-        if resume:
+        root_payload = self._ensure_provisioned_root(
+            admin,
+            rgw_account_id=rgw_account_id,
+            account_name=account_name,
+            root_uid=root_uid,
+            tenant=tenant,
+            resume=resume,
+        )
+        access_key, secret_key = self._provisioned_root_credentials(
+            admin,
+            rgw_account_id=rgw_account_id,
+            root_uid=root_uid,
+            tenant=tenant,
+            root_payload=root_payload,
+        )
+        return root_uid, access_key, secret_key
+
+    def _ensure_provisioned_root(
+        self,
+        admin: RGWAdminClient,
+        *,
+        rgw_account_id: str,
+        account_name: str,
+        root_uid: str,
+        tenant: str,
+        resume: bool,
+    ) -> dict[str, Any]:
+        root_payload = (
+            self.load_existing_root_user(
+                admin,
+                root_uid,
+                rgw_account_id,
+                tenant,
+            )
+            if resume
+            else None
+        )
+        if root_payload:
+            return root_payload
+
+        try:
+            root_payload = admin.create_user_with_account_id(
+                uid=root_uid,
+                account_id=rgw_account_id,
+                display_name=self.root_display_name(account_name, rgw_account_id),
+                account_root=True,
+                tenant=tenant or None,
+            )
+        except RGWAdminError as exc:
+            raise ValueError(f"RGW root user creation failed: {exc}") from exc
+
+        if isinstance(root_payload, dict) and root_payload.get("conflict"):
             root_payload = self.load_existing_root_user(
                 admin,
                 root_uid,
                 rgw_account_id,
                 tenant,
             )
-
-        if not root_payload:
-            try:
-                root_payload = admin.create_user_with_account_id(
-                    uid=root_uid,
-                    account_id=rgw_account_id,
-                    display_name=self.root_display_name(account_name, rgw_account_id),
-                    account_root=True,
-                    tenant=tenant or None,
+            if not root_payload:
+                raise ValueError(
+                    "RGW root UID conflict; account ownership could not be verified"
                 )
-                if isinstance(root_payload, dict) and root_payload.get("conflict"):
-                    root_payload = self.load_existing_root_user(
-                        admin,
-                        root_uid,
-                        rgw_account_id,
-                        tenant,
-                    )
-                    if not root_payload:
-                        raise ValueError(
-                            "RGW root UID conflict; account ownership could not be verified"
-                        )
-            except RGWAdminError as exc:
-                raise ValueError(f"RGW root user creation failed: {exc}") from exc
+        return root_payload
 
-        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-            admin.extract_keys(root_payload or {})
-        )
+    def _provisioned_root_credentials(
+        self,
+        admin: RGWAdminClient,
+        *,
+        rgw_account_id: str,
+        root_uid: str,
+        tenant: str,
+        root_payload: dict[str, Any],
+    ) -> tuple[str, str]:
+        access_key, secret_key = self._extract_credentials(admin, root_payload)
         if not access_key or not secret_key:
             reconciled = self.load_existing_root_user(
                 admin,
@@ -334,9 +373,7 @@ class RgwAccountRootService:
                 rgw_account_id,
                 tenant,
             )
-            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                admin.extract_keys(reconciled or {})
-            )
+            access_key, secret_key = self._extract_credentials(admin, reconciled)
         if not access_key or not secret_key:
             try:
                 key_payload = admin.create_access_key(root_uid, tenant=tenant or None)
@@ -344,12 +381,10 @@ class RgwAccountRootService:
                 raise ValueError(
                     f"RGW root access key creation failed: {exc}"
                 ) from exc
-            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                admin.extract_keys(key_payload)
-            )
+            access_key, secret_key = self._extract_credentials(admin, key_payload)
         if not access_key or not secret_key:
             raise ValueError("Unable to obtain root access/secret keys for account")
-        return root_uid, access_key, secret_key
+        return access_key, secret_key
 
     def delete_root_user(
         self,
