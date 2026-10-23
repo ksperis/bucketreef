@@ -3495,6 +3495,71 @@ def test_update_storage_space_allows_rename_when_name_is_editable(monkeypatch, d
     assert metadata.display_name == "Renamed Space"
 
 
+def test_update_storage_space_updates_sharing_but_keeps_visibility_immutable(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-storage-update-sharing",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(
+        email="portal-storage-update-sharing@example.com",
+        hashed_password="x",
+        role="ui_user",
+    )
+    db_session.add_all([account, user])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="shared-data",
+        display_name="Shared Data",
+        visibility="shared",
+        share_scope="restricted",
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    access = _portal_access(
+        account,
+        user,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_require_storage_space_manager", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(service, "_resolve_storage_space_bucket_name", lambda *_args, **_kwargs: "shared-data")
+    monkeypatch.setattr(
+        service,
+        "get_storage_space",
+        lambda _user, _access, bucket_name: portal_storage_space_summary(
+            id=bucket_name,
+            name=metadata.display_name or bucket_name,
+            role="Manager",
+            visibility=metadata.visibility,
+            share_scope=metadata.share_scope,
+            account_member_role=metadata.account_member_role,
+            internal_bucket_name=bucket_name,
+        ),
+    )
+
+    updated = service.update_storage_space(
+        user,
+        access,
+        "shared-data",
+        share_scope="account",
+        account_member_role="Viewer",
+    )
+
+    assert updated.share_scope == "account"
+    assert updated.account_member_role == "Viewer"
+    assert metadata.share_scope == "account"
+    assert metadata.account_member_role == "Viewer"
+
+    with pytest.raises(RuntimeError, match="visibility cannot be changed"):
+        service.update_storage_space(user, access, "shared-data", visibility="private")
+
+
 def test_update_storage_space_restores_archived_space_without_deleting_links(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-storage-restore", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     owner = User(email="portal-storage-restore@example.com", hashed_password="x", role="ui_user")

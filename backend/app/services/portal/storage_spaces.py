@@ -243,39 +243,19 @@ class PortalStorageSpacesMixin:
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None:
             raise RuntimeError("Storage space metadata is missing.")
-        previous_participant_user_ids: set[int] = set()
-        if metadata is not None:
-            previous_participant_user_ids = self._storage_space_participant_user_ids(metadata)
-        if name is not None:
-            current_name = self._display_storage_space_name(bucket_name, metadata)
-            if not metadata.name_editable and name != current_name:
-                raise PortalForbiddenError("Storage Space name cannot be changed for this bucket.")
-            if metadata.name_editable:
-                metadata.display_name = name
-        if description is not None:
-            metadata.description = description
-        next_visibility = visibility if visibility is not None else self._metadata_visibility(metadata)
-        if next_visibility != self._metadata_visibility(metadata):
-            raise PortalForbiddenError("Storage Space visibility cannot be changed after creation.")
-        next_share_scope = share_scope if share_scope is not None else self._metadata_share_scope(metadata)
-        next_account_member_role = account_member_role
-        if account_member_role is None and share_scope is None:
-            next_account_member_role = self._metadata_account_member_role(metadata)
-        normalized_share_scope, normalized_account_member_role = self._normalize_storage_space_sharing(
-            next_visibility,
-            next_share_scope,
-            next_account_member_role,
+        previous_participant_user_ids = self._storage_space_participant_user_ids(metadata)
+        self._apply_storage_space_update(
+            metadata,
+            bucket_name=bucket_name,
+            name=name,
+            description=description,
+            visibility=visibility,
+            share_scope=share_scope,
+            account_member_role=account_member_role,
+            project_key=project_key,
+            dataset_label=dataset_label,
+            archived=archived,
         )
-        if visibility is not None or share_scope is not None or account_member_role is not None:
-            metadata.share_scope = normalized_share_scope
-            metadata.account_member_role = normalized_account_member_role
-        if project_key is not None:
-            metadata.project_key = project_key
-        if dataset_label is not None:
-            metadata.dataset_label = dataset_label
-        if archived is not None:
-            metadata.archived_at = utcnow() if archived else None
-        metadata.updated_at = utcnow()
         self.db.add(metadata)
         self.db.flush()
         self._sync_storage_space_access_projection(
@@ -288,6 +268,76 @@ class PortalStorageSpacesMixin:
         if storage_space is None:
             raise PortalNotFoundError("Storage space not found after update.")
         return storage_space
+
+    def _apply_storage_space_update(
+        self,
+        metadata: PortalStorageSpaceMetadata,
+        *,
+        bucket_name: str,
+        name: Optional[str],
+        description: Optional[str],
+        visibility: Optional[PortalStorageSpaceVisibility],
+        share_scope: Optional[PortalStorageSpaceShareScope],
+        account_member_role: Optional[PortalStorageSpaceRole],
+        project_key: Optional[str],
+        dataset_label: Optional[str],
+        archived: Optional[bool],
+    ) -> None:
+        if name is not None:
+            current_name = self._display_storage_space_name(bucket_name, metadata)
+            if not metadata.name_editable and name != current_name:
+                raise PortalForbiddenError("Storage Space name cannot be changed for this bucket.")
+            if metadata.name_editable:
+                metadata.display_name = name
+        if description is not None:
+            metadata.description = description
+        self._apply_storage_space_sharing_update(
+            metadata,
+            visibility=visibility,
+            share_scope=share_scope,
+            account_member_role=account_member_role,
+        )
+        if project_key is not None:
+            metadata.project_key = project_key
+        if dataset_label is not None:
+            metadata.dataset_label = dataset_label
+        if archived is not None:
+            metadata.archived_at = utcnow() if archived else None
+        metadata.updated_at = utcnow()
+
+    def _apply_storage_space_sharing_update(
+        self,
+        metadata: PortalStorageSpaceMetadata,
+        *,
+        visibility: Optional[PortalStorageSpaceVisibility],
+        share_scope: Optional[PortalStorageSpaceShareScope],
+        account_member_role: Optional[PortalStorageSpaceRole],
+    ) -> None:
+        current_visibility = self._metadata_visibility(metadata)
+        next_visibility = visibility if visibility is not None else current_visibility
+        if next_visibility != current_visibility:
+            raise PortalForbiddenError(
+                "Storage Space visibility cannot be changed after creation."
+            )
+        if visibility is None and share_scope is None and account_member_role is None:
+            return
+
+        next_share_scope = (
+            share_scope
+            if share_scope is not None
+            else self._metadata_share_scope(metadata)
+        )
+        next_account_member_role = account_member_role
+        if account_member_role is None and share_scope is None:
+            next_account_member_role = self._metadata_account_member_role(metadata)
+        (
+            metadata.share_scope,
+            metadata.account_member_role,
+        ) = self._normalize_storage_space_sharing(
+            next_visibility,
+            next_share_scope,
+            next_account_member_role,
+        )
 
     def take_private_storage_space_ownership(
         self,
