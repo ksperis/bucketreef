@@ -253,7 +253,7 @@ def test_cost_collection_returns_structured_errors_without_exception_detail(db_s
     class AppSettings:
         general = GeneralSettings()
 
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings", lambda: AppSettings())
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda _db: AppSettings())
     monkeypatch.setattr(
         "app.services.cost_collection_service.get_supervision_rgw_client",
         lambda _endpoint: (_ for _ in ()).throw(RuntimeError("secret upstream detail")),
@@ -633,7 +633,7 @@ def test_admin_cost_subject_detail_includes_scoped_twelve_month_history(db_sessi
         ]
     )
     db_session.commit()
-    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_cost_settings)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings_for_db_readonly", lambda _db: _enabled_cost_settings())
 
     detail = AdminCostService(db_session).subject_detail("2026-07", endpoint.id, "account", account.id)
 
@@ -679,7 +679,7 @@ def test_admin_cost_subject_detail_distinguishes_missing_from_invalid_input(
     expected_status,
 ):
     endpoint = _seed_endpoint(db_session)
-    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_cost_settings)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings_for_db_readonly", lambda _db: _enabled_cost_settings())
 
     response = client.get(
         f"/api/admin/cost/subject/{subject_type}/{subject_id}",
@@ -690,7 +690,7 @@ def test_admin_cost_subject_detail_distinguishes_missing_from_invalid_input(
 
 
 def test_admin_cost_service_rejects_missing_and_non_ceph_endpoints(db_session, monkeypatch):
-    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_cost_settings)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings_for_db_readonly", lambda _db: _enabled_cost_settings())
     service = AdminCostService(db_session)
 
     with pytest.raises(ValueError, match="Endpoint not found"):
@@ -712,13 +712,13 @@ def test_admin_cost_service_rejects_missing_and_non_ceph_endpoints(db_session, m
 def test_admin_cost_routes_preserve_feature_and_endpoint_status_codes(client, db_session, monkeypatch):
     disabled = AppSettings()
     disabled.general.cost_enabled = False
-    monkeypatch.setattr(admin_cost_service, "load_app_settings", lambda: disabled)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings_for_db_readonly", lambda _db: disabled)
 
     response = client.get("/api/admin/cost/summary", params={"month": "2026-01"})
     assert response.status_code == 403, response.text
     assert response.json()["detail"] == "Cost is disabled"
 
-    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_cost_settings)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings_for_db_readonly", lambda _db: _enabled_cost_settings())
     response = client.get(
         "/api/admin/cost/summary",
         params={"month": "2026-01", "endpoint_id": 999},

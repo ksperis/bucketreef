@@ -20,7 +20,7 @@ from app.db import (
     HealthCheckStatus,
     StorageEndpoint,
 )
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.healthcheck_common import (
     EndpointCheckTarget,
     HealthCheckProfile,
@@ -46,7 +46,7 @@ class HealthCheckService:
         self._persistence = HealthCheckPersistenceService(db)
 
     def run_checks(self, *, endpoint_id: int | None = None) -> dict:
-        app_settings = load_app_settings()
+        app_settings = load_app_settings_for_db_readonly(self.db)
         if not app_settings.general.endpoint_status_enabled:
             raise ValueError("Endpoint Status feature is disabled")
         statement = select(StorageEndpoint)
