@@ -26,11 +26,47 @@ from app.db import (
 )
 from app.routers import execution_contexts
 from app.models.app_settings import AppSettings, GeneralSettings
+from app.models.execution_context import ExecutionContext, WorkspaceAccess, WorkspaceAvailability
 from app.services import app_settings_service, execution_context_catalog_service
 from app.services.portal import settings as portal_settings_module
 from app.services.portal_service import PortalService
 from app.utils.time import utcnow
 from tests.s3_account_factory import make_s3_account
+
+
+def test_execution_context_api_models_require_complete_payloads() -> None:
+    execution_schema = ExecutionContext.model_json_schema()
+    assert set(execution_schema["required"]) == {
+        "kind",
+        "id",
+        "display_name",
+        "connection_scope",
+        "manager_role",
+        "portal_role",
+        "rgw_account_id",
+        "endpoint_id",
+        "endpoint_name",
+        "endpoint_is_default",
+        "endpoint_provider",
+        "endpoint_url",
+        "storage_endpoint_capabilities",
+        "tags",
+        "endpoint_tags",
+        "capabilities",
+    }
+    assert set(WorkspaceAvailability.model_json_schema()["required"]) == {
+        "available",
+        "context_count",
+    }
+    assert set(WorkspaceAccess.model_json_schema()["required"]) == {
+        "admin",
+        "ceph_admin",
+        "storage_ops",
+        "manager",
+        "browser",
+        "portal",
+        "default_workspace",
+    }
 
 
 def _create_user(db_session) -> User:
