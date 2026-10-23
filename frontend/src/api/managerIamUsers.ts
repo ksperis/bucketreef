@@ -20,11 +20,11 @@ import {
 
 export type AccessKey = AccessKeyMetadata & {
   access_key_id: string;
-  status?: string;
-  created_at?: string;
-  secret_access_key?: string;
-  is_private_access_managed?: boolean;
-  managed_connection_id?: number | null;
+  status: string | null;
+  created_at: string | null;
+  secret_access_key: string | null;
+  is_private_access_managed: boolean;
+  managed_connection_id: number | null;
 };
 
 export type IAMUser = {
@@ -111,8 +111,8 @@ export async function updateIamAccessKeyMetadata(
   userName: string,
   accessKeyId: string,
   metadata: AccessKeyMetadataInput,
-): Promise<AccessKeyMetadataInput> {
-  const { data } = await client.put<AccessKeyMetadataInput>(
+): Promise<AccessKeyMetadata> {
+  const { data } = await client.put<AccessKeyMetadata>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
     { params: withS3ContextParam(undefined, contextId) },

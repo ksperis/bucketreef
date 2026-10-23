@@ -7,6 +7,7 @@ import { PaginatedResponse } from "./types";
 import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 import type { UiGroupAvatarDescriptor } from "./groups";
 import type { UserAvatarDescriptor } from "./users";
+import type { AccessKeyMetadata } from "./accessKeyContracts";
 
 export type S3User = {
   id: number;
@@ -36,18 +37,28 @@ export type S3User = {
 
 export type S3UserUserLink = {
   user_id: number;
-  user_email?: string | null;
-  user_full_name?: string | null;
-  user_avatar?: UserAvatarDescriptor | null;
+  user_email: string | null;
+  user_full_name: string | null;
+  user_avatar: UserAvatarDescriptor | null;
   allow_manager_browser_data_access: boolean;
 };
 
+export type S3UserUserLinkInput = Pick<
+  S3UserUserLink,
+  "user_id" | "allow_manager_browser_data_access"
+>;
+
 export type S3UserGroupLink = {
   group_id: number;
-  group_name?: string | null;
-  group_avatar?: UiGroupAvatarDescriptor | null;
+  group_name: string | null;
+  group_avatar: UiGroupAvatarDescriptor | null;
   allow_manager_browser_data_access: boolean;
 };
+
+export type S3UserGroupLinkInput = Pick<
+  S3UserGroupLink,
+  "group_id" | "allow_manager_browser_data_access"
+>;
 
 export type S3UserSummary = {
   id: number;
@@ -58,14 +69,14 @@ export type S3UserSummary = {
   storage_endpoint_id: number;
   storage_endpoint_name: string;
   storage_endpoint_url: string;
-  allow_bucket_quota_management?: boolean | null;
-  allow_access_key_management?: boolean | null;
-  allow_access_key_metadata?: boolean | null;
-  allow_access_key_expiration?: boolean | null;
-  allow_activity_history?: boolean | null;
-  allow_rgw_usage_metrics?: boolean | null;
-  allow_cost_estimation?: boolean | null;
-  allow_managed_private_connection_provisioning?: boolean | null;
+  allow_bucket_quota_management: boolean | null;
+  allow_access_key_management: boolean | null;
+  allow_access_key_metadata: boolean | null;
+  allow_access_key_expiration: boolean | null;
+  allow_activity_history: boolean | null;
+  allow_rgw_usage_metrics: boolean | null;
+  allow_cost_estimation: boolean | null;
+  allow_managed_private_connection_provisioning: boolean | null;
 };
 
 type CreateS3UserPayload = {
@@ -99,8 +110,8 @@ type ImportS3UserPayload = {
 export type UpdateS3UserPayload = {
   name?: string | null;
   email?: string | null;
-  user_links?: S3UserUserLink[] | null;
-  group_links?: S3UserGroupLink[] | null;
+  user_links?: S3UserUserLinkInput[] | null;
+  group_links?: S3UserGroupLinkInput[] | null;
   quota_max_size_gb?: number | null;
   quota_max_size_unit?: string | null;
   quota_max_objects?: number | null;
@@ -115,18 +126,20 @@ export type UpdateS3UserPayload = {
   allow_managed_private_connection_provisioning?: boolean | null;
 };
 
-export type S3UserAccessKey = {
+export type S3UserAccessKey = AccessKeyMetadata & {
   access_key_id: string;
-  status?: string | null;
-  created_at?: string | null;
+  status: string | null;
+  created_at: string | null;
   is_ui_managed: boolean;
   is_active: boolean;
+  is_private_access_managed: boolean;
+  managed_connection_id: number | null;
 };
 
-export type CreatedS3UserAccessKey = {
+export type CreatedS3UserAccessKey = AccessKeyMetadata & {
   access_key_id: string;
   secret_access_key: string;
-  created_at?: string | null;
+  created_at: string | null;
 };
 
 type PaginatedS3UsersResponse = PaginatedResponse<S3User>;

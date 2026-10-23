@@ -4,6 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 import GroupsPage from "./GroupsPage";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 import type { UiGroup } from "../../api/groups";
+import type { S3UserSummary } from "../../api/s3Users";
+import type { S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
 
 const listGroupsMock = vi.fn();
 const createGroupMock = vi.fn();
@@ -15,6 +17,37 @@ const listMinimalUsersMock = vi.fn();
 const listMinimalS3AccountsMock = vi.fn();
 const listMinimalS3UsersMock = vi.fn();
 const listMinimalS3ConnectionsMock = vi.fn();
+
+function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
+  return {
+    id,
+    name,
+    rgw_user_uid: name,
+    rgw_tenant: "",
+    tags: [],
+    storage_endpoint_id: 1,
+    storage_endpoint_name: "default",
+    storage_endpoint_url: "https://s3.example.test",
+    allow_bucket_quota_management: null,
+    allow_access_key_management: null,
+    allow_access_key_metadata: null,
+    allow_access_key_expiration: null,
+    allow_activity_history: null,
+    allow_rgw_usage_metrics: null,
+    allow_cost_estimation: null,
+    allow_managed_private_connection_provisioning: null,
+  };
+}
+
+function canonicalS3ConnectionSummary(id: number, name: string): S3ConnectionSummary {
+  return {
+    id,
+    name,
+    created_by_user_id: 1,
+    is_active: true,
+    execution_status: "ready",
+  };
+}
 
 function canonicalGroup(input: Pick<UiGroup, "id" | "name"> & Partial<UiGroup>): UiGroup {
   const initials = input.name
@@ -161,10 +194,8 @@ describe("GroupsPage", () => {
     listMinimalS3AccountsMock.mockResolvedValue([
       { id: 1, name: "acc-1", rgw_account_id: "RGW-ACC-1", user_links: [], group_links: [] },
     ]);
-    listMinimalS3UsersMock.mockResolvedValue([{ id: 11, name: "s3-user-1" }]);
-    listMinimalS3ConnectionsMock.mockResolvedValue([
-      { id: 21, name: "shared-conn" },
-    ]);
+    listMinimalS3UsersMock.mockResolvedValue([canonicalS3UserSummary(11, "s3-user-1")]);
+    listMinimalS3ConnectionsMock.mockResolvedValue([canonicalS3ConnectionSummary(21, "shared-conn")]);
     createGroupMock.mockResolvedValue({ id: 50, name: "ops-group" });
     updateGroupMock.mockResolvedValue({ id: 50, name: "ops-group-updated" });
     deleteGroupMock.mockResolvedValue(undefined);

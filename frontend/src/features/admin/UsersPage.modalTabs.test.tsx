@@ -5,6 +5,8 @@ import UsersPage from "./UsersPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { ApiError } from "../../api/client";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
+import type { S3UserSummary } from "../../api/s3Users";
+import type { S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
 
 const listUsersMock = vi.fn();
 const createUserMock = vi.fn();
@@ -19,6 +21,37 @@ const listMinimalS3AccountsMock = vi.fn();
 const listMinimalS3UsersMock = vi.fn();
 const listMinimalS3ConnectionsMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
+
+function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
+  return {
+    id,
+    name,
+    rgw_user_uid: name,
+    rgw_tenant: "",
+    tags: [],
+    storage_endpoint_id: 1,
+    storage_endpoint_name: "default",
+    storage_endpoint_url: "https://s3.example.test",
+    allow_bucket_quota_management: null,
+    allow_access_key_management: null,
+    allow_access_key_metadata: null,
+    allow_access_key_expiration: null,
+    allow_activity_history: null,
+    allow_rgw_usage_metrics: null,
+    allow_cost_estimation: null,
+    allow_managed_private_connection_provisioning: null,
+  };
+}
+
+function canonicalS3ConnectionSummary(id: number, name: string): S3ConnectionSummary {
+  return {
+    id,
+    name,
+    created_by_user_id: 1,
+    is_active: true,
+    execution_status: "ready",
+  };
+}
 const generalSettingsState = {
   manager_feature_policies: {
     ...DEFAULT_MANAGER_FEATURE_POLICIES,
@@ -124,21 +157,9 @@ describe("UsersPage modal tabs", () => {
       },
     ]);
 
-    listMinimalS3UsersMock.mockResolvedValue([
-      {
-        id: 11,
-        name: "s3-user-1",
-      },
-    ]);
+    listMinimalS3UsersMock.mockResolvedValue([canonicalS3UserSummary(11, "s3-user-1")]);
 
-    listMinimalS3ConnectionsMock.mockResolvedValue([
-      {
-        id: 21,
-        name: "conn-1",
-        created_by_user_id: 1,
-        is_shared: true,
-      },
-    ]);
+    listMinimalS3ConnectionsMock.mockResolvedValue([canonicalS3ConnectionSummary(21, "conn-1")]);
 
     listMinimalGroupsMock.mockResolvedValue([
       {

@@ -5,7 +5,21 @@ import { DemoError, done, json, required, scopedAccount, textField, type DemoReq
 import type { DemoIam } from "./state";
 
 export function generatedKey(c: DemoRequest): AccessKey {
-  return { access_key_id: `DEMO${String(c.state.nextId++).padStart(16, "0")}`, status: "Active", created_at: new Date().toISOString() };
+  return {
+    access_key_id: `DEMO${String(c.state.nextId++).padStart(16, "0")}`,
+    status: "Active",
+    created_at: new Date().toISOString(),
+    secret_access_key: null,
+    is_private_access_managed: false,
+    managed_connection_id: null,
+    name: null,
+    notes: null,
+    expires_at: null,
+    expiration_state: null,
+    expiration_enforced_at: null,
+    expiration_last_attempt_at: null,
+    expiration_last_error: null,
+  };
 }
 export function keyActions(c: DemoRequest, iam: DemoIam, owner: string, keyId?: string, ceph = false): Response | undefined {
   const keys = iam.keys[owner] ?? (iam.keys[owner] = []);

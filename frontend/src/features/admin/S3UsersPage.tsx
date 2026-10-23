@@ -507,8 +507,14 @@ export default function S3UsersPage() {
         name: editForm.name || undefined,
         email: editForm.email || undefined,
         tags: normalizeUiTags(editForm.tags),
-        user_links: editForm.user_links,
-        group_links: editForm.group_links,
+        user_links: editForm.user_links.map(({ user_id, allow_manager_browser_data_access }) => ({
+          user_id,
+          allow_manager_browser_data_access,
+        })),
+        group_links: editForm.group_links.map(({ group_id, allow_manager_browser_data_access }) => ({
+          group_id,
+          allow_manager_browser_data_access,
+        })),
       };
       if (canManageManagerFeatures) {
         payload.allow_bucket_quota_management = editForm.allow_bucket_quota_management;
@@ -1075,10 +1081,16 @@ export default function S3UsersPage() {
                         ...prev,
                         user_links: [
                           ...prev.user_links,
-                          ...editPortalUserSelections.map((userId) => ({
-                            user_id: userId,
-                            allow_manager_browser_data_access: false,
-                          })),
+                          ...editPortalUserSelections.map((userId) => {
+                            const user = portalUsers.find((candidate) => candidate.id === userId);
+                            return {
+                              user_id: userId,
+                              user_email: user?.email ?? null,
+                              user_full_name: user?.full_name ?? null,
+                              user_avatar: user?.avatar ?? null,
+                              allow_manager_browser_data_access: false,
+                            };
+                          }),
                         ],
                       }));
                       setEditPortalUserSelections([]);
@@ -1190,10 +1202,15 @@ export default function S3UsersPage() {
                         ...prev,
                         group_links: [
                           ...prev.group_links,
-                          ...editGroupSelections.map((groupId) => ({
-                            group_id: groupId,
-                            allow_manager_browser_data_access: false,
-                          })),
+                          ...editGroupSelections.map((groupId) => {
+                            const group = uiGroups.find((candidate) => candidate.id === groupId);
+                            return {
+                              group_id: groupId,
+                              group_name: group?.name ?? null,
+                              group_avatar: group?.avatar ?? null,
+                              allow_manager_browser_data_access: false,
+                            };
+                          }),
                         ],
                       }));
                       setEditGroupSelections([]);
