@@ -179,7 +179,7 @@ export type AppSettings = {
 };
 
 type QuotaNotificationTestEmailResult = {
-  status: string;
+  status: "sent";
   recipient: string;
   sent_at: string;
 };
