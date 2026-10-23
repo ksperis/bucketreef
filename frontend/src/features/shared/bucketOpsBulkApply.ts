@@ -227,7 +227,7 @@ export async function applyBucketOpsBulkUpdate({
       if (operation === "add_notifications" && parsedNotificationConfiguration) {
         const notifications = await getBucketNotifications(endpointId, bucketName);
         const { configuration, changes } = mergeNotificationConfigurations(
-          notifications.configuration ?? {},
+          notifications.configuration,
           parsedNotificationConfiguration,
         );
         if (changes.length === 0) return { changed: false };
@@ -242,7 +242,7 @@ export async function applyBucketOpsBulkUpdate({
       ) {
         const notifications = await getBucketNotifications(endpointId, bucketName);
         const { configuration, changes } = deleteNotificationConfigurations(
-          notifications.configuration ?? {},
+          notifications.configuration,
           deleteNotificationIds,
           deleteNotificationTypes,
         );

@@ -114,7 +114,7 @@ export function useBucketNotificationsController({
           ? await getCephAdminBucketNotifications(endpointId, bucketName, cephAdminTenant)
           : { configuration: {} }
         : await getBucketNotifications(contextId, bucketName);
-      applyBaseline(data.configuration ?? {});
+      applyBaseline(data.configuration);
     } catch (loadFailure) {
       applyBaseline({});
       setLoadError(

@@ -480,7 +480,7 @@ class BucketConfigurationService:
     ) -> BucketNotificationConfiguration:
         s3_bucket_metadata.put_bucket_notifications(
             name,
-            config=configuration or {},
+            config=configuration,
             **self._bucket_client_kwargs(execution_context, name),
         )
         return self.get_bucket_notifications(name, execution_context)

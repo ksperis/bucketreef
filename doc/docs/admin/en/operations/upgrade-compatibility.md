@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical encryption, notification, and replication payloads
+
+Bucket encryption responses and updates now require a `rules` array. Bucket
+notification and replication responses and updates likewise require their
+`configuration` objects. The backend already materialized these fields for
+successful reads, and the bundled frontend already models them as required.
+
+Deploy the backend and bundled frontend together. Direct callers must send the
+canonical fields instead of relying on empty defaults. No database migration
+is required.
+
 ## 2026-10 canonical lifecycle and CORS rule collections
 
 Bucket lifecycle and CORS application responses now always require their
