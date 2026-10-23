@@ -131,7 +131,7 @@ class BucketMigrationMaintenanceMixin:
             try:
                 check()
                 if migration.maintenance_operation == "cleanup_source":
-                    self._cleanup_verified_source(migration, item, source, target, check)
+                    self._cleanup_verified_source(item, source, target, check)
                 else:
                     self._cleanup_failed_target(item, source, target, check)
                 item.cleanup_status = "completed"
@@ -301,7 +301,7 @@ class BucketMigrationMaintenanceMixin:
                 )
             )
 
-    def _cleanup_verified_source(self, migration, item, source, target, check) -> None:
+    def _cleanup_verified_source(self, item, source, target, check) -> None:
         if not item.target_created_by_migration:
             raise RuntimeError(
                 "Destination provenance is missing; source deletion is blocked"

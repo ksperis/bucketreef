@@ -135,7 +135,6 @@ def _transfer_action_rules(
 
 
 def _result_action_rules(
-    migration: BucketMigration,
     facts: _WorkflowFacts,
     *,
     idle: bool,
@@ -173,7 +172,7 @@ def available_actions(migration) -> dict[str, dict]:
     rules = {
         **_draft_action_rules(migration, facts, idle=idle),
         **_transfer_action_rules(migration, facts, idle=idle),
-        **_result_action_rules(migration, facts, idle=idle),
+        **_result_action_rules(facts, idle=idle),
     }
     return {
         name: {"enabled": bool(enabled), "reason": None if enabled else reason}
