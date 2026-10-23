@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 private S3 connection partial updates use PATCH
+
+User-owned S3 connection updates now use `PATCH /connections/{connection_id}`.
+The payload is intentionally sparse and applies only supplied fields, including
+credential and endpoint changes, so the former `PUT` route has been removed
+instead of retained as a compatibility alias.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 RGW User partial updates use PATCH
 
 Admin RGW User updates now use `PATCH /admin/s3-users/{user_id}`. The update
