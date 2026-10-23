@@ -6,6 +6,7 @@ from typing import Optional
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import func, select
 
 from app.core.domain_errors import S3AccountNotFoundError
 from app.services.rgw_account_root_service import RgwAccountRootService
@@ -274,13 +275,15 @@ def test_create_account_with_root(db_session, monkeypatch):
     acc = svc.create_account_with_manager(payload)
 
     # S3Account persisted
-    db_account = db_session.query(S3Account).filter(S3Account.name == "TestS3Account").first()
+    db_account = db_session.scalar(
+        select(S3Account).where(S3Account.name == "TestS3Account")
+    )
     assert db_account is not None
     assert db_account.rgw_access_key == "AKIA"
     assert db_account.rgw_account_id is not None
 
     # No interface user is created; only RGW root keys stored on account
-    root_user = db_session.query(User).filter(User.email.like("%-admin")).first()
+    root_user = db_session.scalar(select(User).where(User.email.like("%-admin")))
     assert root_user is None
 
 
@@ -323,7 +326,9 @@ def test_create_managed_account_provisions_root_in_same_tenant_when_enabled(db_s
     assert created.rgw_tenant == "team_a"
     assert fake_admin.created_account_tenants == ["team_a"]
     assert fake_admin.created_user_tenants == ["team_a"]
-    persisted = db_session.query(S3Account).filter_by(id=created.id).one()
+    persisted = db_session.scalars(
+        select(S3Account).where(S3Account.id == created.id)
+    ).one()
     assert persisted.rgw_tenant == "team_a"
 
 
@@ -356,7 +361,11 @@ def test_create_account_allows_same_name_in_different_tenants(db_session, monkey
     )
 
     assert (first.rgw_tenant, second.rgw_tenant) == ("team_a", "team_b")
-    assert db_session.query(S3Account).filter_by(name="Shared account").count() == 2
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3Account)
+        .where(S3Account.name == "Shared account")
+    ) == 2
 
 
 def test_create_account_rejects_same_name_in_same_endpoint_and_tenant(db_session, monkeypatch):
@@ -595,7 +604,7 @@ def test_ensure_provisioned_account_stops_when_remote_name_is_already_used(
         )
 
     assert not any(call[0] == "create_root" for call in fake_admin.calls)
-    assert db_session.query(S3Account).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(S3Account)) == 0
 
 
 def test_ensure_provisioned_account_resumes_orphaned_account_without_recreating_it(
@@ -614,7 +623,9 @@ def test_ensure_provisioned_account_resumes_orphaned_account_without_recreating_
     assert created.rgw_account_id == account_id
     assert not fake_admin.created_accounts
     assert ("create_root", account_id) in fake_admin.calls
-    db_account = db_session.query(S3Account).filter_by(rgw_account_id=account_id).one()
+    db_account = db_session.scalars(
+        select(S3Account).where(S3Account.rgw_account_id == account_id)
+    ).one()
     assert db_account.rgw_access_key == "NEWROOT"
     assert db_account.rgw_secret_key == "NEWSECRET"
 
@@ -635,7 +646,9 @@ def test_ensure_provisioned_account_reuses_existing_root_credentials(
     assert created.rgw_account_id == account_id
     assert not fake_admin.created_accounts
     assert not any(call[0] == "create_root" for call in fake_admin.calls)
-    db_account = db_session.query(S3Account).filter_by(rgw_account_id=account_id).one()
+    db_account = db_session.scalars(
+        select(S3Account).where(S3Account.rgw_account_id == account_id)
+    ).one()
     assert db_account.rgw_access_key == "RESUMED"
     assert db_account.rgw_secret_key == "RESUMED-SECRET"
 
@@ -806,7 +819,11 @@ def test_import_account_reuses_existing_root_user_keys(db_session, monkeypatch):
     created = svc.import_accounts(imports)
 
     assert len(created) == 1
-    db_account = db_session.query(S3Account).filter(S3Account.rgw_account_id == "RGW12345678901234567").first()
+    db_account = db_session.scalar(
+        select(S3Account).where(
+            S3Account.rgw_account_id == "RGW12345678901234567"
+        )
+    )
     assert db_account is not None
     assert db_account.rgw_access_key == "IMPORTED"
     assert db_account.rgw_secret_key == "SECRET"
@@ -834,7 +851,9 @@ def test_import_account_discovers_custom_tenant_root(db_session, monkeypatch):
     )
 
     assert created[0].rgw_tenant == "research"
-    row = db_session.query(S3Account).filter_by(rgw_account_id=account_id).one()
+    row = db_session.scalars(
+        select(S3Account).where(S3Account.rgw_account_id == account_id)
+    ).one()
     assert (row.rgw_user_uid, row.rgw_tenant, row.rgw_access_key) == ("custom-root", "research", "EXISTING")
     assert admin.calls == [("get_user", "research")] * 4
 
@@ -873,7 +892,11 @@ def test_import_account_allows_same_name_in_different_tenant(db_session, monkeyp
 
     assert created[0].name == "Tenanted account"
     assert created[0].rgw_tenant == "research"
-    assert db_session.query(S3Account).filter_by(name="Tenanted account").count() == 2
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3Account)
+        .where(S3Account.name == "Tenanted account")
+    ) == 2
 
 
 def test_import_tenanted_account_rejects_when_managed_tenant_creation_disabled(db_session, monkeypatch):
@@ -887,7 +910,7 @@ def test_import_tenanted_account_rejects_when_managed_tenant_creation_disabled(d
             [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
         )
 
-    assert db_session.query(S3Account).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(S3Account)) == 0
 
 
 def test_import_tenanted_account_rejects_mismatched_tenant_assertion(db_session, monkeypatch):
@@ -907,7 +930,7 @@ def test_import_tenanted_account_rejects_mismatched_tenant_assertion(db_session,
             [S3AccountImport(rgw_account_id=account_id, rgw_tenant="other", storage_endpoint_id=endpoint.id)]
         )
 
-    assert db_session.query(S3Account).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(S3Account)) == 0
 
 
 def test_import_account_rejects_other_tenant_root_response(db_session, monkeypatch):
@@ -931,7 +954,7 @@ def test_import_account_rejects_other_tenant_root_response(db_session, monkeypat
             rgw_account_id="RGW12345678901234567", root_uid="research$custom-root",
             storage_endpoint_id=endpoint.id,
         )])
-    assert db_session.query(S3Account).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(S3Account)) == 0
 
 
 class FakeRGWAdminImportCreatesRoot:
@@ -980,7 +1003,9 @@ def test_import_account_creates_root_user_when_missing(db_session, monkeypatch):
     created = svc.import_accounts(imports)
 
     assert len(created) == 1
-    db_account = db_session.query(S3Account).filter(S3Account.rgw_account_id == account_id).first()
+    db_account = db_session.scalar(
+        select(S3Account).where(S3Account.rgw_account_id == account_id)
+    )
     assert db_account is not None
     assert db_account.rgw_access_key == "NEWROOT"
     assert db_account.rgw_secret_key == "NEWSECRET"
@@ -1027,7 +1052,9 @@ def test_import_account_never_combines_credentials_from_different_keys(db_sessio
     )
 
     assert len(created) == 1
-    db_account = db_session.query(S3Account).filter(S3Account.rgw_account_id == account_id).one()
+    db_account = db_session.scalars(
+        select(S3Account).where(S3Account.rgw_account_id == account_id)
+    ).one()
     assert db_account.rgw_access_key == "MATCHED-ACCESS"
     assert db_account.rgw_secret_key == "MATCHED-SECRET"
     assert fake_admin.created_keys == [(f"{account_id}-admin", None)]
@@ -1065,7 +1092,9 @@ def test_import_accounts_validates_entire_batch_before_mutating_rgw(db_session, 
         )
 
     assert fake_admin.created_users == []
-    assert db_session.query(S3Account).filter(S3Account.rgw_account_id == first_account_id).first() is None
+    assert db_session.scalar(
+        select(S3Account).where(S3Account.rgw_account_id == first_account_id)
+    ) is None
 
 
 def test_import_accounts_rejects_name_collisions_before_mutating_rgw(db_session, monkeypatch):
@@ -1224,7 +1253,7 @@ def test_delete_account_skips_rgw_when_flag_false(db_session, monkeypatch):
 
     assert fake_admin.deleted == []
     assert fake_admin.deleted_users == []
-    assert db_session.query(S3Account).filter(S3Account.id == account.id).first() is None
+    assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
 
 
 def test_delete_account_purges_derived_database_rows(db_session, monkeypatch):
@@ -1265,20 +1294,50 @@ def test_delete_account_purges_derived_database_rows(db_session, monkeypatch):
     svc = _build_service(db_session, monkeypatch, fake_admin)
     svc.delete_account(account.id, delete_rgw=False)
 
-    assert db_session.query(CostUsageDaily).filter(CostUsageDaily.s3_account_id == account.id).count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(CostUsageDaily)
+        .where(CostUsageDaily.s3_account_id == account.id)
+    ) == 0
     assert (
-        db_session.query(CostStorageDaily).filter(CostStorageDaily.s3_account_id == account.id).count() == 0
-    )
-    assert db_session.query(QuotaUsageHourly).filter(QuotaUsageHourly.s3_account_id == account.id).count() == 0
-    assert db_session.query(QuotaUsageDaily).filter(QuotaUsageDaily.s3_account_id == account.id).count() == 0
-    assert db_session.query(QuotaAlertState).filter(QuotaAlertState.s3_account_id == account.id).count() == 0
-    assert (
-        db_session.query(BucketUsageStatsSnapshot)
-        .filter(BucketUsageStatsSnapshot.scope_kind == "manager", BucketUsageStatsSnapshot.scope_id == str(account.id))
-        .count()
+        db_session.scalar(
+            select(func.count())
+            .select_from(CostStorageDaily)
+            .where(CostStorageDaily.s3_account_id == account.id)
+        )
         == 0
     )
-    assert db_session.query(BrowserFavorite).filter(BrowserFavorite.context == str(account.id)).count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaUsageHourly)
+        .where(QuotaUsageHourly.s3_account_id == account.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaUsageDaily)
+        .where(QuotaUsageDaily.s3_account_id == account.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(QuotaAlertState)
+        .where(QuotaAlertState.s3_account_id == account.id)
+    ) == 0
+    assert (
+        db_session.scalar(
+            select(func.count())
+            .select_from(BucketUsageStatsSnapshot)
+            .where(
+                BucketUsageStatsSnapshot.scope_kind == "manager",
+                BucketUsageStatsSnapshot.scope_id == str(account.id),
+            )
+        )
+        == 0
+    )
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(BrowserFavorite)
+        .where(BrowserFavorite.context == str(account.id))
+    ) == 0
 
 
 def test_delete_account_rejects_active_bucket_migration_before_remote_delete(db_session, monkeypatch):
@@ -1307,7 +1366,7 @@ def test_delete_account_rejects_active_bucket_migration_before_remote_delete(db_
 
     assert fake_admin.deleted == []
     assert fake_admin.deleted_users == []
-    assert db_session.query(S3Account).filter(S3Account.id == account.id).one()
+    assert db_session.scalars(select(S3Account).where(S3Account.id == account.id)).one()
 
 
 def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):
@@ -1332,4 +1391,4 @@ def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):
 
     assert fake_admin.deleted == ["RGW00000000000000002"]
     assert fake_admin.deleted_users == [("rgw00000000000000002-admin", None)]
-    assert db_session.query(S3Account).filter(S3Account.id == account.id).first() is None
+    assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
