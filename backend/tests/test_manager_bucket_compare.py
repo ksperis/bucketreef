@@ -10,7 +10,13 @@ from starlette.requests import Request
 
 from app.db import User, UserRole
 from app.models.app_settings import AppSettings
-from app.models.bucket_compare import BucketConfigDiff, BucketContentDiff
+from app.models.bucket_compare import (
+    BucketConfigDiff,
+    BucketConfigDiffSection,
+    BucketContentDiff,
+    BucketObjectDetail,
+    BucketObjectDiffEntry,
+)
 from app.models.manager_bucket_compare import (
     ManagerBucketCompareActionRequest,
     ManagerBucketCompareActionResult,
@@ -66,6 +72,15 @@ class _RecordingAudit:
 
 
 def test_manager_bucket_compare_responses_require_complete_canonical_payloads() -> None:
+    for model in (
+        BucketObjectDetail,
+        BucketObjectDiffEntry,
+        BucketContentDiff,
+        BucketConfigDiffSection,
+        BucketConfigDiff,
+    ):
+        schema = model.model_json_schema()
+        assert set(schema["required"]) == set(schema["properties"])
     assert set(ManagerBucketCompareResult.model_json_schema()["required"]) == {
         "source_context_id",
         "target_context_id",
@@ -117,8 +132,15 @@ def test_compare_bucket_pair_returns_diff_and_config(monkeypatch):
             different_count=1,
             only_source_count=1,
             only_target_count=0,
+            ignored_after_cutoff_count=0,
+            display_limit=100,
+            only_source_hidden_count=0,
+            only_target_hidden_count=0,
+            different_hidden_count=0,
             only_source_sample=["logs/a.txt"],
             only_target_sample=[],
+            only_source_details=[],
+            only_target_details=[],
             different_sample=[],
         )
 
@@ -169,8 +191,15 @@ def test_compare_bucket_pair_returns_no_diff(monkeypatch):
             different_count=0,
             only_source_count=0,
             only_target_count=0,
+            ignored_after_cutoff_count=0,
+            display_limit=100,
+            only_source_hidden_count=0,
+            only_target_hidden_count=0,
+            different_hidden_count=0,
             only_source_sample=[],
             only_target_sample=[],
+            only_source_details=[],
+            only_target_details=[],
             different_sample=[],
         ),
     )

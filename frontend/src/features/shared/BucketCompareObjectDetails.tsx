@@ -14,10 +14,10 @@ import { useSharedI18n } from "./sharedI18n";
 
 export type CompareObjectDetailLike = {
   key: string;
-  size?: number | null;
-  etag?: string | null;
-  last_modified?: string | null;
-  storage_class?: string | null;
+  size: number | null;
+  etag: string | null;
+  last_modified: string | null;
+  storage_class: string | null;
 };
 
 type CompareObjectOptions = {

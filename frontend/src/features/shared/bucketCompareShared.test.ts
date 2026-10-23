@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
   bucketComparisonCancelledMessage,
   buildBucketCompareMappingModel,
-  compareObjectDetailsFromKeys,
   matchesBucketCompareRunFilters,
   parseOptionalIsoDateTime,
   mergeRawBucketCompareMappings,
@@ -391,10 +390,6 @@ describe("bucket comparison object detail projection", () => {
       target_storage_class: "GLACIER",
     };
 
-    expect(compareObjectDetailsFromKeys(["a", "b"])).toEqual([
-      { key: "a" },
-      { key: "b" },
-    ]);
     expect(sourceCompareObjectDetailFromDiff(diff)).toEqual({
       key: "folder/object.txt",
       size: 12,

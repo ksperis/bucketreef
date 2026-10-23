@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import model_validator
 
 from app.models.base import ApiModel
 
@@ -51,52 +51,52 @@ class BucketCompareRequestBase(ApiModel):
 
 class BucketObjectDetail(ApiModel):
     key: str
-    size: Optional[int] = None
-    etag: Optional[str] = None
-    last_modified: Optional[datetime] = None
-    storage_class: Optional[str] = None
+    size: Optional[int]
+    etag: Optional[str]
+    last_modified: Optional[datetime]
+    storage_class: Optional[str]
 
 
 class BucketObjectDiffEntry(ApiModel):
     key: str
-    source_size: Optional[int] = None
-    target_size: Optional[int] = None
-    source_etag: Optional[str] = None
-    target_etag: Optional[str] = None
-    source_last_modified: Optional[datetime] = None
-    target_last_modified: Optional[datetime] = None
-    source_storage_class: Optional[str] = None
-    target_storage_class: Optional[str] = None
+    source_size: Optional[int]
+    target_size: Optional[int]
+    source_etag: Optional[str]
+    target_etag: Optional[str]
+    source_last_modified: Optional[datetime]
+    target_last_modified: Optional[datetime]
+    source_storage_class: Optional[str]
+    target_storage_class: Optional[str]
     compare_by: Literal["md5", "size"]
 
 
 class BucketContentDiff(ApiModel):
-    source_count: int = 0
-    target_count: int = 0
-    matched_count: int = 0
-    different_count: int = 0
-    only_source_count: int = 0
-    only_target_count: int = 0
-    ignored_after_cutoff_count: int = 0
-    display_limit: int = 0
-    only_source_hidden_count: int = 0
-    only_target_hidden_count: int = 0
-    different_hidden_count: int = 0
-    only_source_sample: list[str] = Field(default_factory=list)
-    only_target_sample: list[str] = Field(default_factory=list)
-    only_source_details: list[BucketObjectDetail] = Field(default_factory=list)
-    only_target_details: list[BucketObjectDetail] = Field(default_factory=list)
-    different_sample: list[BucketObjectDiffEntry] = Field(default_factory=list)
+    source_count: int
+    target_count: int
+    matched_count: int
+    different_count: int
+    only_source_count: int
+    only_target_count: int
+    ignored_after_cutoff_count: int
+    display_limit: int
+    only_source_hidden_count: int
+    only_target_hidden_count: int
+    different_hidden_count: int
+    only_source_sample: list[str]
+    only_target_sample: list[str]
+    only_source_details: list[BucketObjectDetail]
+    only_target_details: list[BucketObjectDetail]
+    different_sample: list[BucketObjectDiffEntry]
 
 
 class BucketConfigDiffSection(ApiModel):
     key: str
     label: str
-    source: Any = None
-    target: Any = None
-    changed: bool = False
+    source: Any
+    target: Any
+    changed: bool
 
 
 class BucketConfigDiff(ApiModel):
-    changed: bool = False
-    sections: list[BucketConfigDiffSection] = Field(default_factory=list)
+    changed: bool
+    sections: list[BucketConfigDiffSection]
