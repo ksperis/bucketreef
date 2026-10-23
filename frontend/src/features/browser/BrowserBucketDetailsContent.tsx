@@ -174,7 +174,7 @@ function buildFeatureRows(
       const enabled = Boolean(
         (data.website.index_document ?? "").trim() ||
           (data.website.redirect_all_requests_to?.host_name ?? "").trim() ||
-          (data.website.routing_rules ?? []).length > 0,
+          data.website.routing_rules.length > 0,
       );
       rows.push(
         featureRow(

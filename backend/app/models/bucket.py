@@ -118,7 +118,7 @@ class BucketProperties(ApiModel):
     versioning_status: Optional[str] = None
     object_lock: Optional[BucketObjectLock] = None
     public_access_block: Optional[BucketPublicAccessBlock] = None
-    lifecycle_rules: List[LifecycleRule] = Field(default_factory=list)
+    lifecycle_rules: List[LifecycleRule]
     cors_rules: Optional[list[dict]] = None
 
 
@@ -136,7 +136,7 @@ class BucketAclGrant(ApiModel):
 
 class BucketAcl(ApiModel):
     owner: Optional[str] = None
-    grants: List[BucketAclGrant] = Field(default_factory=list)
+    grants: List[BucketAclGrant]
 
 
 class BucketAclUpdate(ApiModel):
@@ -205,4 +205,4 @@ class BucketWebsiteConfiguration(ApiModel):
     index_document: Optional[str] = None
     error_document: Optional[str] = None
     redirect_all_requests_to: Optional[BucketWebsiteRedirectAllRequestsTo] = None
-    routing_rules: List[dict] = Field(default_factory=list)
+    routing_rules: List[dict]

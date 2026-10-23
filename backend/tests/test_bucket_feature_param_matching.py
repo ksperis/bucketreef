@@ -11,6 +11,7 @@ from app.services.bucket_feature_param_matching import _match_properties_param_r
 @pytest.fixture
 def properties() -> BucketProperties:
     return BucketProperties(
+        lifecycle_rules=[],
         object_lock=BucketObjectLock(mode="GOVERNANCE", days=30, years=1),
         public_access_block=BucketPublicAccessBlock(
             block_public_acls=True,

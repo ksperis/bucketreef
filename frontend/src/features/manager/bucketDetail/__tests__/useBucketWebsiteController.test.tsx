@@ -129,6 +129,7 @@ describe("useBucketWebsiteController", () => {
         host_name: "www.example.com",
         protocol: "https",
       },
+      routing_rules: [],
     });
     apiMocks.deleteCephAdminBucketWebsite.mockResolvedValue(undefined);
     const { result } = renderWebsite({ cephAdmin: true, endpointId: 7 });

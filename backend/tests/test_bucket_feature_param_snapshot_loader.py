@@ -25,7 +25,7 @@ class _Service:
         return value
 
     def get_bucket_properties(self, *_args):
-        return self._value("props", BucketProperties())
+        return self._value("props", BucketProperties(lifecycle_rules=[]))
 
     def get_lifecycle(self, *_args):
         return self._value("lifecycle", BucketLifecycleConfig(rules=[{"ID": "rule-1"}]))

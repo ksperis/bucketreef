@@ -130,6 +130,7 @@ def _properties_context(*, properties: BucketProperties | None, unavailable: boo
 
 def test_project_property_details_projects_requested_values():
     properties = BucketProperties(
+        lifecycle_rules=[],
         object_lock=BucketObjectLock(mode="GOVERNANCE", days=30, years=1),
         public_access_block=BucketPublicAccessBlock(
             block_public_acls=True,

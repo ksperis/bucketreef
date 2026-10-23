@@ -50,7 +50,7 @@ const emptyDraft: WebsiteDraft = {
 function configurationToDraft(config?: BucketWebsiteConfiguration | null): WebsiteDraft {
   if (!config) return emptyDraft;
   const redirect = config.redirect_all_requests_to ?? null;
-  const routingRules = Array.isArray(config.routing_rules) ? config.routing_rules : [];
+  const routingRules = config.routing_rules;
   return {
     errorDocument: config.error_document ?? "",
     indexDocument: config.index_document ?? "",

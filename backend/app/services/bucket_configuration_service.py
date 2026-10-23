@@ -552,7 +552,7 @@ class BucketConfigurationService:
             **self._bucket_client_kwargs(execution_context, name),
         )
         if not config:
-            return BucketWebsiteConfiguration()
+            return BucketWebsiteConfiguration(routing_rules=[])
         index_document = None
         error_document = None
         redirect = None
