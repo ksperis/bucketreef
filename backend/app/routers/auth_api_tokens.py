@@ -31,7 +31,7 @@ def _to_api_token_info(row: ApiToken) -> ApiTokenInfo:
         last_used_at=row.last_used_at,
         expires_at=row.expires_at,
         revoked_at=row.revoked_at,
-        scopes=json.loads(row.scopes_json or "[]"),
+        scopes=json.loads(row.scopes_json),
     )
 
 
