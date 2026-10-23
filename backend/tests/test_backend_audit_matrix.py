@@ -130,6 +130,23 @@ def test_backend_audit_matrix_tracks_access_key_expiration_delegation():
     assert row.signals["delegated_access_key_expiration_audit"]
 
 
+def test_backend_audit_matrix_tracks_auth_attempt_delegation():
+    backend_root = Path(__file__).resolve().parents[1]
+    rows = {
+        (row.file.name, row.function): row
+        for row in collect_rows(backend_root)
+        if row.file.name in {"auth_local.py", "auth_ldap.py", "auth_oidc.py", "auth_s3.py"}
+    }
+
+    for key in (
+        ("auth_local.py", "login"),
+        ("auth_ldap.py", "login_with_ldap"),
+        ("auth_oidc.py", "complete_oidc_login"),
+        ("auth_s3.py", "login_with_s3_keys"),
+    ):
+        assert rows[key].signals["delegated_auth_attempt_audit"]
+
+
 def test_backend_audit_matrix_tracks_ceph_admin_bucket_ui_tag_delegation():
     backend_root = Path(__file__).resolve().parents[1]
     row = next(
