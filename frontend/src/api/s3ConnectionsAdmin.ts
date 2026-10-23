@@ -128,7 +128,7 @@ export async function createAdminS3Connection(payload: CreateAdminS3ConnectionPa
 }
 
 export async function updateAdminS3Connection(connectionId: number, payload: UpdateAdminS3ConnectionPayload): Promise<S3ConnectionAdminItem> {
-  const { data } = await client.put<S3ConnectionAdminItem>(`/admin/s3-connections/${connectionId}`, payload);
+  const { data } = await client.patch<S3ConnectionAdminItem>(`/admin/s3-connections/${connectionId}`, payload);
   return data;
 }
 

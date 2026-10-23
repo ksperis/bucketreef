@@ -622,12 +622,12 @@ def test_shared_connection_expansion_requires_recent_webauthn_but_revocation_doe
     credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
     headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
 
-    name_only = auth_client.put(
+    name_only = auth_client.patch(
         f"/api/admin/s3-connections/{connection.id}",
         json={"name": "guarded-shared-renamed"},
         headers=headers,
     )
-    deactivated = auth_client.put(
+    deactivated = auth_client.patch(
         f"/api/admin/s3-connections/{connection.id}",
         json={"is_active": False},
         headers=headers,
@@ -636,7 +636,7 @@ def test_shared_connection_expansion_requires_recent_webauthn_but_revocation_doe
         f"/api/admin/s3-connections/{removable.id}",
         headers=headers,
     )
-    blocked_reactivation = auth_client.put(
+    blocked_reactivation = auth_client.patch(
         f"/api/admin/s3-connections/{connection.id}",
         json={"is_active": True},
         headers=headers,
@@ -662,7 +662,7 @@ def test_shared_connection_expansion_requires_recent_webauthn_but_revocation_doe
 
     clear_ui_client(auth_client)
     verified = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=True)
-    reactivated = auth_client.put(
+    reactivated = auth_client.patch(
         f"/api/admin/s3-connections/{connection.id}",
         json={"is_active": True},
         headers=trusted_origin_headers(csrf_token=verified.csrf_token),

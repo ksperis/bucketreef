@@ -152,7 +152,7 @@ def create_s3_connection(
     )
 
 
-@router.put("/{connection_id}", response_model=S3ConnectionAdminItem)
+@router.patch("/{connection_id}", response_model=S3ConnectionAdminItem)
 def update_s3_connection(
     request: Request,
     connection_id: int,

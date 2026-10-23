@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 shared S3 connection partial updates use PATCH
+
+The admin shared-S3-connection update now uses
+`PATCH /admin/s3-connections/{connection_id}` because
+`S3ConnectionAdminUpdate` intentionally applies only supplied fields. The
+former `PUT` route has been removed instead of retained as a compatibility
+alias.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 storage endpoint partial updates use PATCH
 
 The admin storage-endpoint configuration update now uses

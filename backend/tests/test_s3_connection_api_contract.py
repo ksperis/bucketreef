@@ -181,7 +181,7 @@ def test_admin_connections_api_supports_is_active_update(monkeypatch, contract_c
     assert create_response.status_code == 201
     connection_id = create_response.json()["id"]
 
-    update_response = client.put(
+    update_response = client.patch(
         f"/api/admin/s3-connections/{connection_id}",
         json={"is_active": False},
     )
@@ -211,7 +211,7 @@ def test_admin_connections_api_updates_metadata_and_credentials_atomically(
     assert create_response.status_code == 201
     connection_id = create_response.json()["id"]
 
-    update_response = client.put(
+    update_response = client.patch(
         f"/api/admin/s3-connections/{connection_id}",
         json={
             "name": "contract-admin-atomic-updated",
@@ -243,7 +243,7 @@ def test_admin_connections_api_updates_metadata_and_credentials_atomically(
     assert audit_metadata["access_key_id"] == "AKIA***CNEW"
     assert "SECRETADMINATOMICNEW" not in (audit_log.metadata_json or "")
 
-    incomplete_credentials = client.put(
+    incomplete_credentials = client.patch(
         f"/api/admin/s3-connections/{connection_id}",
         json={"credentials": {"access_key_id": "AKIAADMININCOMPLETE"}},
     )
@@ -291,7 +291,7 @@ def test_admin_connections_api_requires_explicit_managed_endpoint_detachment(
     assert create_response.status_code == 201
     connection_id = create_response.json()["id"]
 
-    ignored_custom_update = client.put(
+    ignored_custom_update = client.patch(
         f"/api/admin/s3-connections/{connection_id}",
         json={"endpoint_url": "https://must-not-be-ignored.example.test"},
     )
@@ -300,7 +300,7 @@ def test_admin_connections_api_requires_explicit_managed_endpoint_detachment(
         "Custom endpoint fields cannot be combined with a managed storage endpoint"
     )
 
-    detach_response = client.put(
+    detach_response = client.patch(
         f"/api/admin/s3-connections/{connection_id}",
         json={
             "storage_endpoint_id": None,
@@ -353,7 +353,7 @@ def test_admin_connections_api_rejects_visibility_and_access_fields(contract_cli
     assert create_response.status_code == 201
     connection_id = create_response.json()["id"]
 
-    update_with_visibility = client.put(
+    update_with_visibility = client.patch(
         f"/api/admin/s3-connections/{connection_id}",
         json={field: value},
     )
@@ -386,7 +386,7 @@ def test_admin_connections_api_returns_404_for_non_shared_targets(contract_clien
     db_session.refresh(private_conn)
     db_session.refresh(another_private_conn)
 
-    private_update = client.put(
+    private_update = client.patch(
         f"/api/admin/s3-connections/{private_conn.id}",
         json={"is_active": False},
     )
@@ -434,7 +434,7 @@ def test_admin_connection_update_replaces_user_links_atomically(contract_client)
     connection_path = f"/api/admin/s3-connections/{shared_connection.id}"
     users_path = f"{connection_path}/users"
 
-    first_update = client.put(
+    first_update = client.patch(
         connection_path,
         json={
             "name": "contract-shared-user-links-updated",
@@ -448,7 +448,7 @@ def test_admin_connection_update_replaces_user_links_atomically(contract_client)
     ]
     assert first_update.json()["user_count"] == 2
 
-    replacement = client.put(
+    replacement = client.patch(
         connection_path,
         json={"user_ids": [targets[1].id]},
     )
@@ -457,7 +457,7 @@ def test_admin_connection_update_replaces_user_links_atomically(contract_client)
         targets[1].id
     ]
 
-    rejected = client.put(
+    rejected = client.patch(
         connection_path,
         json={
             "name": "must-not-be-committed",
@@ -508,7 +508,7 @@ def test_admin_connection_update_applies_remediation_action(contract_client):
     db_session.refresh(connection)
     connection_path = f"/api/admin/s3-connections/{connection.id}"
 
-    response = client.put(
+    response = client.patch(
         connection_path,
         json={"remediation_action": "activate_manager"},
     )
@@ -567,15 +567,15 @@ def test_admin_cannot_mutate_or_delete_a_connection_used_as_managed_access_sourc
     )
     db_session.commit()
 
-    endpoint_update = client.put(
+    endpoint_update = client.patch(
         f"/api/admin/s3-connections/{source.id}",
         json={"endpoint_url": "https://replacement.example.test"},
     )
-    status_update = client.put(
+    status_update = client.patch(
         f"/api/admin/s3-connections/{source.id}",
         json={"is_active": False},
     )
-    credential_update = client.put(
+    credential_update = client.patch(
         f"/api/admin/s3-connections/{source.id}",
         json={
             "credentials": {
@@ -620,7 +620,7 @@ def test_admin_connection_update_classifies_conflicts_by_type(
         "update_admin_shared",
         raise_plain_value_error,
     )
-    plain_error = client.put(
+    plain_error = client.patch(
         f"/api/admin/s3-connections/{connection.id}",
         json={"name": "plain-error"},
     )
@@ -633,7 +633,7 @@ def test_admin_connection_update_classifies_conflicts_by_type(
         "update_admin_shared",
         raise_typed_conflict,
     )
-    typed_error = client.put(
+    typed_error = client.patch(
         f"/api/admin/s3-connections/{connection.id}",
         json={"name": "typed-error"},
     )
