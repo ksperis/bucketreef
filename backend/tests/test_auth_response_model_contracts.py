@@ -18,6 +18,7 @@ from app.models.identity_security import (
     AdminUserSecurity,
     ExternalIdentityLinkRequestInfo,
 )
+from app.models.session import SessionDescriptor
 
 
 def test_api_token_responses_require_complete_canonical_payloads() -> None:
@@ -42,6 +43,14 @@ def test_refresh_response_requires_explicit_status() -> None:
 
 
 def test_authentication_responses_require_complete_canonical_payloads() -> None:
+    assert set(SessionDescriptor.model_json_schema()["required"]) == {
+        "session_id",
+        "actor_type",
+        "account_id",
+        "account_name",
+        "user_uid",
+        "capabilities",
+    }
     assert set(AuthenticationResponse.model_json_schema()["required"]) == {
         "status",
         "user",

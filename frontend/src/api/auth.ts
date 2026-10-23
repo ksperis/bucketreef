@@ -18,9 +18,9 @@ type SessionCapabilities = {
 export type AuthSessionDescriptor = {
     session_id: string;
     actor_type: string;
-    account_id?: string | null;
-    account_name?: string | null;
-    user_uid?: string | null;
+    account_id: string | null;
+    account_name: string | null;
+    user_uid: string | null;
     capabilities: SessionCapabilities;
 };
 

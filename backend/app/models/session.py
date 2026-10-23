@@ -39,9 +39,9 @@ class SessionCapabilities(ApiModel):
 class SessionDescriptor(ApiModel):
     session_id: str
     actor_type: str
-    account_id: Optional[str] = None
-    account_name: Optional[str] = None
-    user_uid: Optional[str] = None
+    account_id: Optional[str]
+    account_name: Optional[str]
+    user_uid: Optional[str]
     capabilities: SessionCapabilities
 
 
