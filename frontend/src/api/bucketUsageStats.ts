@@ -4,7 +4,6 @@
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
 import type {
-  BucketNamesPayload,
   BucketTargetsPayload,
   RgwBucketTargetsPayload,
 } from "./bucketOperation";
@@ -20,7 +19,6 @@ type BucketUsageStatsOptionsPayload = {
   parallelism?: number;
 };
 
-type BucketUsageStatsBucketPayload = BucketUsageStatsOptionsPayload & BucketNamesPayload;
 type BucketUsageStatsTargetPayload = BucketUsageStatsOptionsPayload & BucketTargetsPayload;
 type BucketUsageStatsRgwTargetPayload = BucketUsageStatsOptionsPayload & RgwBucketTargetsPayload;
 

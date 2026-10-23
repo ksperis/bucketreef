@@ -1,6 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { WorkspaceEndpointHealthOverviewResponse } from "../../api/healthchecks";
+import { LanguageProvider, useLanguage } from "../language";
 import WorkspaceEndpointHealthCards from "../WorkspaceEndpointHealthCards";
+
+function LanguageControls() {
+  const { setLanguage } = useLanguage();
+  return <button onClick={() => setLanguage("fr")}>fr</button>;
+}
 
 const workspaceHealth: WorkspaceEndpointHealthOverviewResponse = {
   generated_at: new Date().toISOString(),
@@ -136,5 +142,23 @@ describe("WorkspaceEndpointHealthCards", () => {
 
     expect(screen.getByText(/Stale/)).toBeInTheDocument();
     expect(screen.getAllByText("Unknown").length).toBeGreaterThan(0);
+  });
+
+  it("localizes shared endpoint health and incident copy in French", async () => {
+    render(
+      <LanguageProvider>
+        <LanguageControls />
+        <WorkspaceEndpointHealthCards data={workspaceHealth} loading={false} />
+      </LanguageProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "fr" }));
+
+    await waitFor(() => expect(screen.getByText("Santé de l’endpoint")).toBeInTheDocument());
+    expect(screen.getByText("État enregistré lors du dernier contrôle de l’endpoint.")).toBeInTheDocument();
+    expect(screen.getByText("Incidents en cours / récents")).toBeInTheDocument();
+    expect(screen.getByText("En cours")).toBeInTheDocument();
+    expect(screen.getByText("Résolu")).toBeInTheDocument();
+    expect(screen.getAllByText("Indisponible").length).toBeGreaterThan(0);
   });
 });

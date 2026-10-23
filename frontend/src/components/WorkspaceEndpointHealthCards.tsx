@@ -6,6 +6,7 @@ import type { WorkspaceEndpointHealthOverviewResponse } from "../api/healthcheck
 import { formatLocalDateTime } from "../utils/dateTime";
 import { WorkspaceDashboardActionLink, WorkspaceStatusCounter, WorkspaceStatusDot, WorkspaceStatusPill } from "./WorkspaceDashboardKit";
 import WorkspaceIncidentsCard from "./WorkspaceIncidentsCard";
+import { useWorkspaceDashboardI18n } from "./workspaceDashboardMessages";
 import {
   cx,
   uiCardClass,
@@ -37,11 +38,12 @@ export default function WorkspaceEndpointHealthCards({
   data,
   loading,
   error,
-  title = "Endpoint Health",
+  title,
   action,
   className = "grid gap-4 xl:grid-cols-[1.7fr_1fr]",
   showStatusCounters = true,
 }: WorkspaceEndpointHealthCardsProps) {
+  const { text } = useWorkspaceDashboardI18n();
   const incidents = data?.incidents ?? [];
   const effectiveCounts = {
     up: data?.up_count ?? 0,
@@ -56,15 +58,15 @@ export default function WorkspaceEndpointHealthCards({
       <section className={cx(uiCardClass, "ui-dashboard-panel")}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="ui-dashboard-title">{title}</h2>
+            <h2 className="ui-dashboard-title">{title ?? text("endpointHealth")}</h2>
             <p className={cx("ui-caption", uiMutedTextClass)}>
-              Stored status from the latest endpoint check.
+              {text("storedEndpointStatus")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {data?.generated_at && (
               <span className={cx("ui-dashboard-note", uiMutedTextClass)}>
-                Updated {formatLocalDateTime(data.generated_at)}
+                {text("updatedAt", { timestamp: formatLocalDateTime(data.generated_at) })}
               </span>
             )}
             {action && <WorkspaceDashboardActionLink to={action.to}>{action.label}</WorkspaceDashboardActionLink>}
@@ -82,10 +84,10 @@ export default function WorkspaceEndpointHealthCards({
             {showStatusCounters && (
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {[
-                  { key: "up" as const, label: "Up", value: effectiveCounts.up },
-                  { key: "degraded" as const, label: "Degraded", value: effectiveCounts.degraded },
-                  { key: "down" as const, label: "Down", value: effectiveCounts.down },
-                  { key: "unknown" as const, label: "Unknown", value: effectiveCounts.unknown },
+                  { key: "up" as const, label: text("up"), value: effectiveCounts.up },
+                  { key: "degraded" as const, label: text("degraded"), value: effectiveCounts.degraded },
+                  { key: "down" as const, label: text("down"), value: effectiveCounts.down },
+                  { key: "unknown" as const, label: text("unknown"), value: effectiveCounts.unknown },
                 ].map((item) => (
                   <WorkspaceStatusCounter key={item.key} label={item.label} value={item.value} status={item.key} />
                 ))}
@@ -93,7 +95,7 @@ export default function WorkspaceEndpointHealthCards({
             )}
             <div className="mt-3 space-y-2">
               {(data?.endpoints ?? []).length === 0 && (
-                <p className={cx("ui-caption", uiMutedTextClass)}>No endpoint linked to this workspace context.</p>
+                <p className={cx("ui-caption", uiMutedTextClass)}>{text("noEndpointLinked")}</p>
               )}
               {(data?.endpoints ?? []).slice(0, 6).map((endpoint) => {
                 const stale = endpoint.is_stale === true;
@@ -108,8 +110,8 @@ export default function WorkspaceEndpointHealthCards({
                       <span className="min-w-0 break-words">{endpoint.name}</span>
                     </p>
                     <p className={cx("ui-dashboard-note", uiMutedTextClass)}>
-                      {formatLatency(endpoint.latency_ms)} · {formatCheckMode(endpoint.check_mode)} · Last check {formatLocalDateTime(endpoint.checked_at)}
-                      {stale ? " · Stale" : ""}
+                      {formatLatency(endpoint.latency_ms)} · {formatCheckMode(endpoint.check_mode)} · {text("lastCheckAt", { timestamp: formatLocalDateTime(endpoint.checked_at) })}
+                      {stale ? text("staleSuffix") : ""}
                     </p>
                   </div>
                   <WorkspaceStatusPill status={effectiveStatus} className="ui-caption" />
@@ -117,7 +119,7 @@ export default function WorkspaceEndpointHealthCards({
               })}
               {(data?.endpoints ?? []).length > 6 && (
                 <p className={cx("ui-caption", uiMutedTextClass)}>
-                  +{(data?.endpoints ?? []).length - 6} more endpoint(s).
+                  {text("moreEndpoints", { count: (data?.endpoints ?? []).length - 6 })}
                 </p>
               )}
             </div>

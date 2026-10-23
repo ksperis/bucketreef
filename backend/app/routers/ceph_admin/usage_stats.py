@@ -23,6 +23,7 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_bucket_listing_cache import get_cached_rgw_bucket_entries
+from app.services.rgw_bucket_metadata import extract_bucket_identity
 from app.routers.dependencies import get_current_ceph_admin
 from app.services.s3_execution_context import build_ceph_admin_s3_context
 from app.services.rgw_bucket_target import RgwBucketTarget
@@ -68,11 +69,11 @@ def _list_ceph_bucket_references(ctx: CephAdminContext) -> list[RgwBucketReferen
     for entry in entries:
         if not isinstance(entry, dict):
             continue
-        raw_name = entry.get("bucket") or entry.get("name")
-        if isinstance(raw_name, str) and raw_name.strip():
+        bucket_name, tenant, _tenant_metadata_resolved = extract_bucket_identity(entry)
+        if bucket_name:
             reference = RgwBucketReference(
-                name=raw_name.strip(),
-                tenant=str(entry.get("tenant") or "").strip(),
+                name=bucket_name,
+                tenant=tenant or "",
             )
             key = (reference.tenant, reference.name)
             if key not in seen:

@@ -410,5 +410,13 @@
   "objects": "objets",
   "users": "utilisateurs",
   "{count} result": "{count} résultat",
-  "{count} results": "{count} résultats"
+  "{count} results": "{count} résultats",
+  "Loaded accounts": "Comptes chargés",
+  "Loaded users": "Utilisateurs chargés",
+  "Next account": "Compte suivant",
+  "Next user": "Utilisateur suivant",
+  "Previous account": "Compte précédent",
+  "Previous user": "Utilisateur précédent",
+  "RGW account settings": "Paramètres du compte RGW",
+  "RGW user settings": "Paramètres de l’utilisateur RGW"
 }

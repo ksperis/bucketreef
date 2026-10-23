@@ -130,6 +130,22 @@ def test_rgw_bucket_metadata_is_not_reexported_from_listing_enrichment():
     assert not hasattr(bucket_listing_enrichment, "_resolve_bucket_owner_identity")
 
 
+def test_rgw_bucket_metadata_splits_admin_qualified_bucket_name():
+    entry = {
+        "bucket": "tenant_a/bucket-a",
+        "tenant": "",
+        "owner": "tenant_a$user-a",
+    }
+
+    summary = rgw_bucket_metadata.build_bucket_summary(entry)
+
+    assert summary is not None
+    assert summary.name == "bucket-a"
+    assert summary.tenant == "tenant_a"
+    assert summary.tenant_metadata_resolved is True
+    assert rgw_bucket_metadata.extract_bucket_name(entry) == "bucket-a"
+
+
 @pytest.fixture(autouse=True)
 def clear_buckets_listing_cache():
     bucket_listing_cache.reset_ceph_admin_bucket_listing_caches_for_tests()

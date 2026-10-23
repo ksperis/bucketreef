@@ -141,6 +141,7 @@ const IDENTICAL_KEYS_BY_LOCALE: Record<string, Set<string>> = {
     "Team",
     "Test",
     "Token",
+    "Top 5",
     "Type",
     "UI: {ui} · S3: {s3}",
     "UID (optional)",

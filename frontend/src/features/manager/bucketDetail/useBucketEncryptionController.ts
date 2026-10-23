@@ -239,6 +239,7 @@ export function useBucketEncryptionController({
     applyBaseline,
     bucketName,
     cephAdmin,
+    cephAdminTenant,
     draftRules,
     editorMode,
     enabled,
