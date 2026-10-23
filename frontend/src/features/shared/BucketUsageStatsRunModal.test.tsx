@@ -23,6 +23,7 @@ function buildUsageStatsResult(): BucketUsageStatsResult {
     total_buckets: 4,
     completed_buckets: 4,
     failed_buckets: 0,
+    skipped_buckets: 0,
     listed_versions: 12,
     listed_delete_markers: 2,
     total_bytes: 2048,
@@ -51,6 +52,7 @@ describe("BucketUsageStatsRunModal", () => {
       listed_versions: 12,
       listed_delete_markers: 2,
       total_bytes: 2048,
+      message: null,
     };
     streamStorageOpsBucketUsageStatsMock.mockImplementationOnce(async (...args: unknown[]) => {
       const options = args[1] as { onProgress?: (event: BucketUsageStatsProgress) => void };

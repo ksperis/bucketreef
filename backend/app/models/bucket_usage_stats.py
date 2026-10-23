@@ -110,40 +110,40 @@ class BucketUsageStatsScopeRequest(ApiModel):
 
 class BucketUsageStatsBucketResult(ApiModel):
     bucket_name: str
-    context_id: Optional[str] = None
-    context_name: Optional[str] = None
+    context_id: Optional[str]
+    context_name: Optional[str]
     status: BucketUsageStatsBucketStatus
-    snapshot: Optional[BucketUsageStatsSnapshot] = None
-    duration_seconds: float = 0
-    message: Optional[str] = None
+    snapshot: Optional[BucketUsageStatsSnapshot]
+    duration_seconds: float
+    message: Optional[str]
 
 
 class BucketUsageStatsProgress(ApiModel):
-    request_id: Optional[str] = None
-    stage: Literal["prepare", "list", "persist", "completed"] = "prepare"
-    bucket_name: Optional[str] = None
-    context_id: Optional[str] = None
-    context_name: Optional[str] = None
-    total_buckets: int = 0
-    completed_buckets: int = 0
-    listed_versions: int = 0
-    listed_delete_markers: int = 0
-    total_bytes: int = 0
-    message: Optional[str] = None
+    request_id: Optional[str]
+    stage: Literal["prepare", "list", "persist", "completed"]
+    bucket_name: Optional[str]
+    context_id: Optional[str]
+    context_name: Optional[str]
+    total_buckets: int
+    completed_buckets: int
+    listed_versions: int
+    listed_delete_markers: int
+    total_bytes: int
+    message: Optional[str]
 
 
 class BucketUsageStatsResult(ApiModel):
     status: BucketUsageStatsStatus
-    total_buckets: int = 0
-    completed_buckets: int = 0
-    failed_buckets: int = 0
-    skipped_buckets: int = 0
-    listed_versions: int = 0
-    listed_delete_markers: int = 0
-    total_bytes: int = 0
+    total_buckets: int
+    completed_buckets: int
+    failed_buckets: int
+    skipped_buckets: int
+    listed_versions: int
+    listed_delete_markers: int
+    total_bytes: int
     started_at: datetime
     finished_at: datetime
-    buckets: list[BucketUsageStatsBucketResult] = Field(default_factory=list)
+    buckets: list[BucketUsageStatsBucketResult]
 
 
 class BucketUsageStatsCollectionResult(ApiModel):
