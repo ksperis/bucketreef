@@ -12,6 +12,7 @@ from app.models.admin_dashboard_metrics import (
     AdminDashboardStorage,
     AdminDashboardTraffic,
 )
+from app.models.admin_stats import AdminStorageStats
 from app.models.storage_stats import StorageStats
 from app.models.traffic import TrafficStats
 from app.routers.dependencies import get_current_super_admin
@@ -76,13 +77,13 @@ def s3_user_stats(
     return StorageStats.model_validate(AdminStatsService(db).s3_user(user_id))
 
 
-@router.get("/storage")
+@router.get("/storage", response_model=AdminStorageStats)
 def storage_stats(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
     endpoint_id: Optional[int] = Query(default=None),
-) -> dict:
-    return AdminStatsService(db).storage(endpoint_id)
+) -> AdminStorageStats:
+    return AdminStorageStats.model_validate(AdminStatsService(db).storage(endpoint_id))
 
 
 @router.get("/traffic", response_model=TrafficStats)

@@ -28,11 +28,6 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
     ]
     s3_users = [SimpleNamespace(rgw_tenant="", id=3, rgw_user_uid="user-3", name="User 3")]
 
-    monkeypatch.setattr(
-        AdminMetricsService,
-        "build_summary_payload",
-        staticmethod(lambda _db, endpoint_id=None: {"total_accounts": 2, "endpoint_id": endpoint_id}),
-    )
     monkeypatch.setattr(service, "_load_scope_targets", lambda: (accounts, s3_users, {"account-1"}))
 
     def fail_consolidated_listing() -> list[dict]:
@@ -52,8 +47,8 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
 
     snapshot = service._storage_snapshot()
 
-    assert snapshot["endpoint_id"] == 7
-    assert snapshot["total_buckets"] == 2
+    assert snapshot["total_accounts"] == 2
+    assert snapshot["total_s3_users"] == 1
     assert snapshot["storage_totals"] == {
         "used_bytes": 100,
         "object_count": 10,
@@ -68,6 +63,7 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
             "rgw_user_uid": "user-3",
             "used_bytes": 25,
             "object_count": 3,
+            "bucket_count": 1,
         }
     ]
 
@@ -97,13 +93,13 @@ def test_consolidated_storage_snapshot_indexes_owner_usage_and_keeps_unmapped_to
     ]
 
     snapshot = service._storage_snapshot_from_bucket_list(
-        {"total_accounts": 1},
         accounts,
         s3_users,
         buckets,
     )
 
-    assert snapshot["total_buckets"] == 3
+    assert snapshot["total_accounts"] == 1
+    assert snapshot["total_s3_users"] == 1
     assert snapshot["storage_totals"] == {
         "used_bytes": 130,
         "object_count": 14,

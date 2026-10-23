@@ -9,7 +9,7 @@ import {
   type BucketUsageStatsAggregate,
 } from "../../api/bucketUsageStats";
 import {
-  AdminStats,
+  AdminStorageStats,
   AdminTrafficStats,
   TrafficWindow,
   fetchAdminStorage,
@@ -43,7 +43,7 @@ export default function AdminMetricsPage() {
   const { text, translateText } = useAdminMetricsI18n();
   const { generalSettings } = useGeneralSettings();
   const [activeTab, setActiveTab] = useState<AdminMetricsTab>("storage");
-  const [storage, setStorage] = useState<AdminStats | null>(null);
+  const [storage, setStorage] = useState<AdminStorageStats | null>(null);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [storageLoading, setStorageLoading] = useState<boolean>(true);
 
