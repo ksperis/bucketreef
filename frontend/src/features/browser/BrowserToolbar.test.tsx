@@ -40,6 +40,22 @@ const technicalPathAction: BrowserActionState = {
   enabled: true,
 };
 
+const hideFoldersAction: BrowserActionState = {
+  id: "toggleShowFolders",
+  section: "layout",
+  label: "Hide folders",
+  visible: true,
+  enabled: true,
+};
+
+const showDeletedAction: BrowserActionState = {
+  id: "toggleShowDeleted",
+  section: "layout",
+  label: "Show deleted files",
+  visible: true,
+  enabled: true,
+};
+
 function buildProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
   return {
     compactMode: true,
@@ -398,6 +414,37 @@ describe("BrowserToolbar", () => {
 
     expect(onSetCompactMode).toHaveBeenCalledWith(false);
     expect(screen.queryByRole("menu", { name: "More" })).not.toBeInTheDocument();
+  });
+
+  it("groups listing visibility actions under Browser view", () => {
+    const props = buildProps({
+      moreMenu: {
+        ...buildProps().moreMenu,
+        pathActions: [hideFoldersAction, showDeletedAction],
+      },
+    });
+    render(<BrowserToolbar {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    let menu = screen.getByRole("menu", { name: "More" });
+    expect(within(menu).getByText("Browser view")).toBeInTheDocument();
+    expect(within(menu).queryByText("Technical tools")).not.toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Hide folders" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    menu = screen.getByRole("menu", { name: "More" });
+    fireEvent.click(
+      within(menu).getByRole("menuitem", { name: "Show deleted files" }),
+    );
+
+    expect(props.onRunPathAction).toHaveBeenNthCalledWith(
+      1,
+      "toggleShowFolders",
+    );
+    expect(props.onRunPathAction).toHaveBeenNthCalledWith(
+      2,
+      "toggleShowDeleted",
+    );
   });
 
   it("uses labeled actions and keeps comfortable mode adaptive", () => {

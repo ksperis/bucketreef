@@ -1396,6 +1396,33 @@ describe("BrowserPage interactions", () => {
     });
   });
 
+  it("exposes listing visibility actions in the standalone Browser More menu", async () => {
+    const user = userEvent.setup();
+    getBrowserBucketVersioningMock.mockResolvedValue({
+      enabled: true,
+      status: "Enabled",
+    });
+
+    renderPage();
+    await findRowByLabel("a.txt");
+
+    let moreMenu = await openContextMoreMenu(user);
+    expect(
+      within(moreMenu).getByRole("menuitem", { name: "Hide folders" }),
+    ).toBeInTheDocument();
+    expect(
+      within(moreMenu).getByRole("menuitem", { name: "Show deleted files" }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(moreMenu).getByRole("menuitem", { name: "Hide folders" }),
+    );
+    moreMenu = await openContextMoreMenu(user);
+    expect(
+      within(moreMenu).getByRole("menuitem", { name: "Show folders" }),
+    ).toBeInTheDocument();
+  });
+
   it("clears controlled deleted-file visibility only after versioning resolves disabled", async () => {
     const onVisibilityChange = vi.fn();
     let resolveVersioning!: (value: { enabled: boolean; status: string }) => void;

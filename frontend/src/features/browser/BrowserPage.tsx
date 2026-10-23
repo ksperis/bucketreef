@@ -1020,9 +1020,6 @@ export default function BrowserPage({
     uploadAvailable: uploadMode !== "unavailable",
     uploadDisabledReason:
       "Uploads are unavailable with the current Browser transfer settings.",
-    showDeletedToggle: Boolean(
-      isPortalProfile && deletedObjectsOptions?.showToggle,
-    ),
   });
   const restoreDeletedItem = (item: BrowserItem) => {
     if (!item.isDeleted || !deletedObjectsOptions?.onRestoreObject) return;

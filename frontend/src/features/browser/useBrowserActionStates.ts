@@ -37,7 +37,6 @@ type UseBrowserActionStatesOptions = {
   restoreObjectAvailable: boolean;
   uploadAvailable: boolean;
   uploadDisabledReason: string;
-  showDeletedToggle: boolean;
 };
 
 export function useBrowserActionStates({
@@ -62,7 +61,6 @@ export function useBrowserActionStates({
   restoreObjectAvailable,
   uploadAvailable,
   uploadDisabledReason,
-  showDeletedToggle,
 }: UseBrowserActionStatesOptions) {
   const pathActionStates = useMemo(
     () =>
@@ -173,11 +171,9 @@ export function useBrowserActionStates({
     () =>
       getVisibleBrowserActions(
         pathActionStates,
-        showDeletedToggle
-          ? [...TOOLBAR_MORE_PATH_ACTION_IDS, "toggleShowDeleted"]
-          : TOOLBAR_MORE_PATH_ACTION_IDS,
+        TOOLBAR_MORE_PATH_ACTION_IDS,
       ),
-    [pathActionStates, showDeletedToggle],
+    [pathActionStates],
   );
 
   const toolbarMoreSelectionFullActions = useMemo(

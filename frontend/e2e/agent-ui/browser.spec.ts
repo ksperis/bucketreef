@@ -14,6 +14,14 @@ test("keeps an authenticated Browser session with the Moto bucket", async ({
     E2E_BUCKET_NAME,
   );
   await expect(page.getByRole("button", { name: "Upload", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  const moreMenu = page.getByRole("menu", { name: "More" });
+  await expect(
+    moreMenu.getByRole("menuitem", { name: "Hide folders" }),
+  ).toBeVisible();
+  await expect(
+    moreMenu.getByRole("menuitem", { name: "Show deleted files" }),
+  ).toBeVisible();
   expect((await page.request.get("/api/auth/session")).ok()).toBe(true);
 
   await page.reload();
