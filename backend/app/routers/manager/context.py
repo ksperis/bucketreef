@@ -19,6 +19,7 @@ from app.core.database import get_db
 from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import User
 from app.models.access_context import ManagerActor
+from app.models.app_settings import AppSettings
 from app.models.execution_context import ManagerAccessMode, ManagerContext
 from app.models.feature_policy import FeatureState
 from app.models.session import ManagerSessionPrincipal
@@ -108,6 +109,44 @@ def _manager_access_mode(context: S3ExecutionContext) -> ManagerAccessMode:
     raise RuntimeError("Unsupported Manager execution context")
 
 
+def _manager_browser_feature_state(settings: AppSettings) -> _ManagerBrowserState | None:
+    if not settings.general.browser_enabled:
+        return _ManagerBrowserState(False, "Browser is disabled.")
+    if not settings.general.manager_enabled:
+        return _ManagerBrowserState(False, "Manager is disabled.")
+    if not settings.general.browser_manager_enabled:
+        return _ManagerBrowserState(False, "Manager Browser is disabled.")
+    return None
+
+
+def _manager_connection_browser_state(
+    context: S3ExecutionContext,
+    actor: User,
+    db: Session,
+    access_service: EffectiveAccessService,
+) -> _ManagerBrowserState:
+    connection = context.source_connection
+    if connection is None and context.s3_connection_id is not None:
+        try:
+            connection = S3ConnectionsService(db).get_record(context.s3_connection_id)
+        except S3ConnectionNotFoundError:
+            connection = None
+    enabled = bool(
+        connection
+        and access_service.manager_browser_connection_is_allowed(
+            actor,
+            connection,
+        )
+    )
+    message = None
+    if not enabled:
+        message = (
+            "Manager Browser requires an owned private connection with both Manager and "
+            "Browser access. Shared connections are not supported."
+        )
+    return _ManagerBrowserState(enabled, message)
+
+
 def _manager_browser_state(
     context: S3ExecutionContext,
     actor: ManagerActor,
@@ -116,12 +155,9 @@ def _manager_browser_state(
     resolved_access: Optional[ResolvedUserAccess],
 ) -> _ManagerBrowserState:
     settings = load_app_settings_for_db_readonly(db)
-    if not settings.general.browser_enabled:
-        return _ManagerBrowserState(False, "Browser is disabled.")
-    if not settings.general.manager_enabled:
-        return _ManagerBrowserState(False, "Manager is disabled.")
-    if not settings.general.browser_manager_enabled:
-        return _ManagerBrowserState(False, "Manager Browser is disabled.")
+    feature_state = _manager_browser_feature_state(settings)
+    if feature_state is not None:
+        return feature_state
     if isinstance(actor, ManagerSessionPrincipal):
         enabled = bool(actor.capabilities.access_browser)
         message = None if enabled else "Browser access is not allowed for this session."
@@ -130,26 +166,7 @@ def _manager_browser_state(
     if resolved_access is None or access_service is None:
         raise RuntimeError("UI user effective access was not resolved")
     if context.context_kind == "connection":
-        connection = context.source_connection
-        if connection is None and context.s3_connection_id is not None:
-            try:
-                connection = S3ConnectionsService(db).get_record(context.s3_connection_id)
-            except S3ConnectionNotFoundError:
-                connection = None
-        enabled = bool(
-            connection
-            and access_service.manager_browser_connection_is_allowed(
-                actor,
-                connection,
-            )
-        )
-        message = None
-        if not enabled:
-            message = (
-                "Manager Browser requires an owned private connection with both Manager and "
-                "Browser access. Shared connections are not supported."
-            )
-        return _ManagerBrowserState(enabled, message)
+        return _manager_connection_browser_state(context, actor, db, access_service)
 
     if context.context_kind == "s3_user":
         enabled = context.s3_user_id is not None and resolved_access.can_browse_s3_user(context.s3_user_id)
