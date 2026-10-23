@@ -114,7 +114,7 @@ def create_storage_endpoint(
         raise_http_error_from_value_error(exc)
 
 
-@router.put("/{endpoint_id}", response_model=StorageEndpoint)
+@router.patch("/{endpoint_id}", response_model=StorageEndpoint)
 def update_storage_endpoint(
     request: Request,
     endpoint_id: int,

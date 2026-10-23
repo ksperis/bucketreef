@@ -213,7 +213,7 @@ export async function updateStorageEndpoint(
   id: number,
   payload: StorageEndpointPayload
 ): Promise<StorageEndpoint> {
-  const { data } = await client.put<StorageEndpoint>(`/admin/storage-endpoints/${id}`, payload);
+  const { data } = await client.patch<StorageEndpoint>(`/admin/storage-endpoints/${id}`, payload);
   return data;
 }
 
