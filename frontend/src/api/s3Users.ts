@@ -192,7 +192,7 @@ export async function importS3Users(payload: ImportS3UserPayload[]): Promise<S3U
 }
 
 export async function updateS3User(userId: number, payload: UpdateS3UserPayload): Promise<S3User> {
-  const { data } = await client.put<S3User>(`/admin/s3-users/${userId}`, payload);
+  const { data } = await client.patch<S3User>(`/admin/s3-users/${userId}`, payload);
   return data;
 }
 

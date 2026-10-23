@@ -210,7 +210,7 @@ def test_admin_s3_users_update_replaces_direct_group_links(client, db_session):
     db_session.add(UiGroupS3User(group_id=old_group.id, s3_user_id=s3_user.id))
     db_session.commit()
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/s3-users/{s3_user.id}",
         json={
             "user_links": [
@@ -241,7 +241,7 @@ def test_admin_s3_users_update_replaces_direct_group_links(client, db_session):
     rows = db_session.query(UiGroupS3User).filter(UiGroupS3User.s3_user_id == s3_user.id).all()
     assert [row.group_id for row in rows] == [new_group.id]
 
-    removed_contract = client.put(
+    removed_contract = client.patch(
         f"/api/admin/s3-users/{s3_user.id}",
         json={"user_ids": [linked_user.id], "group_ids": [new_group.id]},
     )

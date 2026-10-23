@@ -83,7 +83,7 @@ def test_ui_admin_can_grant_s3_user_privileged_targets(client: TestClient, db_se
 
     app.dependency_overrides[dependencies.get_current_super_admin] = _ui_admin
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/s3-users/{s3_user.id}",
         json={
             "allow_bucket_quota_management": True,
@@ -112,7 +112,7 @@ def test_ui_admin_can_update_s3_user_without_changing_privileged_targets(client:
 
     app.dependency_overrides[dependencies.get_current_super_admin] = _ui_admin
 
-    response = client.put(
+    response = client.patch(
         f"/api/admin/s3-users/{s3_user.id}",
         json={
             "name": "regular-user-renamed",
