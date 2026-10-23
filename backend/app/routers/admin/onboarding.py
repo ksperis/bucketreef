@@ -1,5 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from collections.abc import Callable
+from typing import TypeVar
 from uuid import UUID
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -37,9 +39,10 @@ class _OnboardingRoute(APIRoute):
 
 
 router = APIRouter(prefix="/admin/onboarding", tags=["admin-onboarding"], route_class=_OnboardingRoute)
+T = TypeVar("T")
 
 
-def _run(action):
+def _run(action: Callable[[], T]) -> T:
     try:
         return action()
     except OnboardingError as exc:
@@ -55,31 +58,56 @@ def _run(action):
 
 
 @router.get("", response_model=OnboardingStatus)
-def get_onboarding_status(db: Session = Depends(get_db), current_user: User = Depends(get_current_super_admin)):
+def get_onboarding_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_super_admin),
+) -> OnboardingStatus:
     return _run(lambda: OnboardingService(db).status(current_user))
 
 
 @router.post("/dismiss", response_model=OnboardingStatus)
-def dismiss_onboarding(db: Session = Depends(get_db), current_user: User = Depends(get_current_super_admin)):
+def dismiss_onboarding(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_super_admin),
+) -> OnboardingStatus:
     return _run(lambda: OnboardingService(db).dismiss(current_user))
 
 
 @router.post("/preview", response_model=OnboardingPreview)
-def preview_onboarding(payload: OnboardingDraft, journey_id: UUID | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_super_admin)):
+def preview_onboarding(
+    payload: OnboardingDraft,
+    journey_id: UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_super_admin),
+) -> OnboardingPreview:
     return _run(lambda: OnboardingService(db).preview_draft(current_user, payload, journey_id))
 
 
 @router.post("/resume", response_model=OnboardingStatus)
-def resume_onboarding(db: Session = Depends(get_db), current_user: User = Depends(get_current_super_admin)):
+def resume_onboarding(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_super_admin),
+) -> OnboardingStatus:
     return _run(lambda: OnboardingService(db).dismiss(current_user, False))
 
 
 @router.put("/journeys/{journey_id}", response_model=OnboardingJourneyOut)
-def save_onboarding_journey(journey_id: UUID, payload: OnboardingSave, db: Session = Depends(get_db), current_user: User = Depends(get_current_ui_superadmin)):
+def save_onboarding_journey(
+    journey_id: UUID,
+    payload: OnboardingSave,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_ui_superadmin),
+) -> OnboardingJourneyOut:
     return _run(lambda: OnboardingService(db).save(current_user, journey_id, payload))
 
 
 @router.post("/journeys/{journey_id}/apply", response_model=OnboardingJourneyOut)
-def apply_onboarding_journey(journey_id: UUID, payload: OnboardingApply, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_ui_superadmin)):
+def apply_onboarding_journey(
+    journey_id: UUID,
+    payload: OnboardingApply,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_ui_superadmin),
+) -> OnboardingJourneyOut:
     require_admin_sensitive_action(request, db, current_user)
     return _run(lambda: OnboardingService(db).apply(current_user, journey_id, payload))
