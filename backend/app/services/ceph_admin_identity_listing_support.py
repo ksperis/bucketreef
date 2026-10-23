@@ -2,13 +2,29 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Any, Callable, TypeVar
+from typing import Callable, Literal, Protocol, TypeVar
 
 from app.services.listing_progress import ListingProgressEmitter, invoke_cancel_check
 
 
 _T = TypeVar("_T")
 _R = TypeVar("_R")
+
+
+class _FilterRule(Protocol):
+    @property
+    def field(self) -> str: ...
+
+
+_FieldRule = TypeVar("_FieldRule", bound=_FilterRule)
+
+
+class _FilterQuery(Protocol[_R]):
+    @property
+    def rules(self) -> list[_R]: ...
+
+    @property
+    def match(self) -> Literal["all", "any"]: ...
 
 
 def coerce_number(value: object) -> float | None:
@@ -27,34 +43,31 @@ def coerce_number(value: object) -> float | None:
     return None
 
 
-def collect_filter_fields(parsed_filter: Any | None) -> set[str]:
-    if not parsed_filter:
+def collect_filter_fields(parsed_filter: _FilterQuery[_FieldRule] | None) -> set[str]:
+    if parsed_filter is None or not parsed_filter.rules:
         return set()
-    rules = getattr(parsed_filter, "rules", None)
-    if not rules:
-        return set()
-    return {rule.field for rule in rules if getattr(rule, "field", None)}
+    return {rule.field for rule in parsed_filter.rules if rule.field}
 
 
 def apply_advanced_filter(
     items: list[_T],
-    parsed_filter: Any | None,
-    matcher: Callable[[_T, list[_R], str], bool],
+    parsed_filter: _FilterQuery[_R] | None,
+    matcher: Callable[[_T, list[_R], Literal["all", "any"]], bool],
 ) -> list[_T]:
-    if not parsed_filter:
+    if parsed_filter is None or not parsed_filter.rules:
         return items
-    rules = getattr(parsed_filter, "rules", None)
-    if not rules:
-        return items
-    match_mode = getattr(parsed_filter, "match", "all")
-    return [item for item in items if matcher(item, rules, match_mode)]
+    return [
+        item
+        for item in items
+        if matcher(item, parsed_filter.rules, parsed_filter.match)
+    ]
 
 
 def apply_simple_search(
     items: list[_T],
     *,
     search: str | None,
-    parsed_filter: Any | None,
+    parsed_filter: object | None,
     match_with_filter: Callable[[_T, str], bool],
     match_without_filter: Callable[[_T, str], bool],
 ) -> list[_T]:
