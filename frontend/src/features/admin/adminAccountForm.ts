@@ -18,8 +18,8 @@ export function adminAccountForm(account: S3Account) {
     allow_cost_estimation: account.allow_cost_estimation,
     allow_bucket_usage_stats: account.allow_bucket_usage_stats,
     allow_bucket_usage_stats_collection: account.allow_bucket_usage_stats_collection,
-    user_links: account.user_links.map<AccountUserLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
-    group_links: account.group_links.map<AccountGroupLink>(link => ({ ...link, allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access) })),
+    user_links: account.user_links.map<AccountUserLink>(link => ({ ...link })),
+    group_links: account.group_links.map<AccountGroupLink>(link => ({ ...link })),
   };
 }
 

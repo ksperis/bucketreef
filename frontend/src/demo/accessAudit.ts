@@ -140,7 +140,7 @@ function addAccountRows(rows: Map<string, AccessAuditRow>, state: DemoState, use
       ? sourcesFor(link => link.portal_role === resolved.portal_role)
       : [];
     const browserSources = sourcesFor(link =>
-      link.manager_role === "account_administrator" && Boolean(link.allow_manager_browser_data_access));
+      link.manager_role === "account_administrator" && link.allow_manager_browser_data_access);
     const target = { id: account.id, name: account.name, identifier: account.rgw_account_id };
     addRight(rows, user, "rgw_account", target, "account_administrator", managerSources);
     if (resolved.portal_role) addRight(rows, user, "rgw_account", target, resolved.portal_role, portalSources);

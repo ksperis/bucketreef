@@ -417,7 +417,7 @@ describe("UsersPage modal tabs", () => {
           id: 12,
           email: "assoc.summary@example.com",
           role: "ui_user",
-          account_links: [{ account_id: 1, manager_role: null, portal_role: "portal_manager" }],
+          account_links: [{ account_id: 1, manager_role: null, portal_role: "portal_manager", allow_manager_browser_data_access: false }],
           effective_access: {
             can_access_ceph_admin: false,
             can_access_storage_ops: false,
@@ -436,6 +436,7 @@ describe("UsersPage modal tabs", () => {
               account_id: 1,
               manager_role: null,
               portal_role: "portal_manager",
+              allow_manager_browser_data_access: false,
               provenance: {
                 direct_manager_role: null,
                 direct_portal_role: "portal_manager",

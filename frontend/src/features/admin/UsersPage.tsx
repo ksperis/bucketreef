@@ -637,7 +637,7 @@ export default function UsersPage() {
             account_id: Number(entry.id),
             manager_role: entry.manager_role,
             portal_role: entry.portal_role,
-            allow_manager_browser_data_access: Boolean(entry.allow_manager_browser_data_access),
+            allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
           })),
         };
         if (createSelectedS3Users.length > 0) {
@@ -706,12 +706,12 @@ export default function UsersPage() {
       id: Number(link.account_id),
       manager_role: link.manager_role,
       portal_role: link.portal_role,
-      allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     }));
     setEditSelectedS3Accounts(selectedAccounts);
     const nextSelectedS3Users = (user.s3_user_links ?? []).map((link) => ({
       s3_user_id: Number(link.s3_user_id),
-      allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     }));
     const nextSelectedS3Connections = (user.s3_connection_details ?? []).map((connection) => Number(connection.id));
     const nextSelectedGroups = (user.group_details ?? []).map((group) => Number(group.id));
@@ -838,7 +838,7 @@ export default function UsersPage() {
         account_id: Number(entry.id),
         manager_role: entry.manager_role,
         portal_role: entry.portal_role,
-        allow_manager_browser_data_access: Boolean(entry.allow_manager_browser_data_access),
+        allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
       }));
       payload.group_ids = editSelectedGroups;
       payload.s3_user_links = editSelectedS3Users;

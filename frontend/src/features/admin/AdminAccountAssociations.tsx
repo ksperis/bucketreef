@@ -84,7 +84,7 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
       showLabel={false} invalid={!hasAccountAccessRole(link)} describedBy={!hasAccountAccessRole(link) ? errorId(link) : undefined} /> }] : []),
     { id: "actions", label: "Actions", mobileRole: "actions", align: "right", render: link => <ListActions>
       {link.manager_role && <AdminAssociationAdvancedSettings targetLabel={label(link)} associationKind="account"
-        allowManagerBrowserDataAccess={Boolean(link.allow_manager_browser_data_access)} disabled={disabled} onDirtyChange={setAdvancedDirty}
+        allowManagerBrowserDataAccess={link.allow_manager_browser_data_access} disabled={disabled} onDirtyChange={setAdvancedDirty}
         onApply={allowed => changeAccess(link, { ...link, allow_manager_browser_data_access: allowed })} />}
       <ListActionButton variant="danger" onClick={() => onChange(links.filter(item => adapter.id(item) !== adapter.id(link)))}>{adminText("Remove")}</ListActionButton>
     </ListActions> },

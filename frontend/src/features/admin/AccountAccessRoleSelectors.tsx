@@ -29,11 +29,7 @@ function copyAccountAccessGrant(value: AccountAccessGrant): AccountAccessGrant {
   return {
     manager_role: value.manager_role,
     portal_role: value.portal_role,
-    ...(value.allow_manager_browser_data_access === undefined
-      ? {}
-      : {
-          allow_manager_browser_data_access: value.allow_manager_browser_data_access,
-        }),
+    allow_manager_browser_data_access: value.allow_manager_browser_data_access,
   };
 }
 
