@@ -16,31 +16,33 @@ import type { PaginatedResponse } from "./types";
 
 export type CephAdminRgwAccount = {
   account_id: string;
-  tenant?: string | null;
-  account_name?: string | null;
-  email?: string | null;
-  max_users?: number | null;
-  max_buckets?: number | null;
-  quota_max_size_bytes?: number | null;
-  quota_max_objects?: number | null;
-  bucket_count?: number | null;
-  user_count?: number | null;
+  tenant: string | null;
+  account_name: string | null;
+  email: string | null;
+  max_users: number | null;
+  max_buckets: number | null;
+  quota_max_size_bytes: number | null;
+  quota_max_objects: number | null;
+  used_bytes: number | null;
+  object_count: number | null;
+  bucket_count: number | null;
+  user_count: number | null;
 };
 
 export type CephAdminRgwAccountDetail = {
   account_id: string;
-  tenant?: string | null;
-  account_name?: string | null;
-  email?: string | null;
-  max_users?: number | null;
-  max_buckets?: number | null;
-  max_roles?: number | null;
-  max_groups?: number | null;
-  max_access_keys?: number | null;
-  bucket_count?: number | null;
-  user_count?: number | null;
-  quota?: CephAdminRgwQuotaConfig | null;
-  bucket_quota?: CephAdminRgwQuotaConfig | null;
+  tenant: string | null;
+  account_name: string | null;
+  email: string | null;
+  max_users: number | null;
+  max_buckets: number | null;
+  max_roles: number | null;
+  max_groups: number | null;
+  max_access_keys: number | null;
+  bucket_count: number | null;
+  user_count: number | null;
+  quota: CephAdminRgwQuotaConfig | null;
+  bucket_quota: CephAdminRgwQuotaConfig | null;
 };
 
 export type UpdateCephAdminAccountPayload = {
