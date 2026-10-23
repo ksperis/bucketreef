@@ -7,6 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import BucketDetailPage from "../BucketDetailPage";
 import { setSessionUserCache } from "../../../utils/workspaces";
 
+type ListManagerObjects = typeof import("../../../api/managerObjects").listManagerObjects;
+type ListCephAdminBucketObjects = typeof import("../../../api/cephAdminBucketDetails").listCephAdminBucketObjects;
+
 const useExecutionContextMock = vi.fn();
 const useCephAdminEndpointMock = vi.fn();
 const getBucketStatsMock = vi.fn();
@@ -24,8 +27,8 @@ const getBucketCorsMock = vi.fn();
 const getBucketTagsMock = vi.fn();
 const getBucketPublicAccessBlockMock = vi.fn();
 const putBucketLifecycleMock = vi.fn();
-const listManagerObjectsMock = vi.fn();
-const listCephAdminBucketObjectsMock = vi.fn();
+const listManagerObjectsMock = vi.fn<ListManagerObjects>();
+const listCephAdminBucketObjectsMock = vi.fn<ListCephAdminBucketObjects>();
 const listCephAdminBucketsMock = vi.fn();
 const getCephAdminBucketPropertiesMock = vi.fn();
 const getCephAdminBucketVersioningMock = vi.fn();
@@ -87,7 +90,7 @@ vi.mock("../../../api/cephAdminBucketDetails", async () => {
   );
   return {
     ...actual,
-    listCephAdminBucketObjects: (...args: unknown[]) => listCephAdminBucketObjectsMock(...args),
+    listCephAdminBucketObjects: (...args: Parameters<ListCephAdminBucketObjects>) => listCephAdminBucketObjectsMock(...args),
     getCephAdminBucketProperties: (...args: unknown[]) => getCephAdminBucketPropertiesMock(...args),
     getCephAdminBucketVersioning: (...args: unknown[]) => getCephAdminBucketVersioningMock(...args),
     getCephAdminBucketObjectLock: (...args: unknown[]) => getCephAdminBucketObjectLockMock(...args),
@@ -120,7 +123,7 @@ vi.mock("../../../api/managerObjects", async () => {
   const actual = await vi.importActual<typeof import("../../../api/managerObjects")>("../../../api/managerObjects");
   return {
     ...actual,
-    listManagerObjects: (...args: unknown[]) => listManagerObjectsMock(...args),
+    listManagerObjects: (...args: Parameters<ListManagerObjects>) => listManagerObjectsMock(...args),
   };
 });
 
@@ -215,7 +218,13 @@ describe("BucketDetailPage replication state", () => {
       is_truncated: false,
       next_continuation_token: null,
     });
-    listCephAdminBucketObjectsMock.mockResolvedValue({ prefix: "", objects: [], prefixes: [], is_truncated: false });
+    listCephAdminBucketObjectsMock.mockResolvedValue({
+      prefix: "",
+      objects: [],
+      prefixes: [],
+      is_truncated: false,
+      next_continuation_token: null,
+    });
     listCephAdminBucketsMock.mockResolvedValue({
       items: [{ name: "demo-bucket" }],
     });
@@ -720,6 +729,7 @@ describe("BucketDetailPage replication state", () => {
       ],
       prefixes: ["reports/"],
       is_truncated: false,
+      next_continuation_token: null,
     });
 
     render(
