@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 Ceph Admin account and user config updates use PATCH
+
+Ceph Admin account and user configuration updates now use
+`PATCH /ceph-admin/endpoints/{endpoint_id}/accounts/{account_id}/config` and
+`PATCH /ceph-admin/endpoints/{endpoint_id}/users/{user_id}/config`. Both
+contracts are intentionally sparse and apply only supplied fields, so the
+former `PUT` routes have been removed instead of retained as compatibility
+aliases.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 Portal project settings partial updates use PATCH
 
 Delegated Portal project settings now use `PATCH /portal/settings`. Project

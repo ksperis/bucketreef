@@ -140,7 +140,7 @@ export async function updateCephAdminAccountConfig(
   accountId: string,
   payload: UpdateCephAdminAccountPayload,
 ): Promise<CephAdminRgwAccountDetail> {
-  const { data } = await client.put<CephAdminRgwAccountDetail>(
+  const { data } = await client.patch<CephAdminRgwAccountDetail>(
     `/ceph-admin/endpoints/${endpointId}/accounts/${encodeURIComponent(accountId)}/config`,
     payload,
   );

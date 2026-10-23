@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const clientMock = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
-  put: vi.fn(),
+  patch: vi.fn(),
 }));
 
 vi.mock("./client", () => ({ default: clientMock }));
@@ -19,10 +19,10 @@ describe("Ceph Admin users api", () => {
   beforeEach(() => {
     clientMock.get.mockReset();
     clientMock.post.mockReset();
-    clientMock.put.mockReset();
+    clientMock.patch.mockReset();
     clientMock.get.mockResolvedValue({ data: {} });
     clientMock.post.mockResolvedValue({ data: {} });
-    clientMock.put.mockResolvedValue({ data: {} });
+    clientMock.patch.mockResolvedValue({ data: {} });
   });
 
   it("normalizes user listing includes and preserves cancellation", async () => {
@@ -58,7 +58,7 @@ describe("Ceph Admin users api", () => {
       "/ceph-admin/endpoints/7/users",
       { uid: "team/user" },
     );
-    expect(clientMock.put).toHaveBeenCalledWith(
+    expect(clientMock.patch).toHaveBeenCalledWith(
       "/ceph-admin/endpoints/7/users/team%2Fuser/config",
       payload,
       { params: { tenant: "tenant-a" } },

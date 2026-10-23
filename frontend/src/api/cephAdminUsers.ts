@@ -155,7 +155,7 @@ export async function updateCephAdminUserConfig(
   tenant?: string | null,
   expectedAccountId?: string | null,
 ): Promise<CephAdminRgwUserDetail> {
-  const { data } = await client.put<CephAdminRgwUserDetail>(
+  const { data } = await client.patch<CephAdminRgwUserDetail>(
     `/ceph-admin/endpoints/${endpointId}/users/${encodeURIComponent(uid)}/config`,
     payload,
     { params: { ...(tenant ? { tenant } : {}), ...(expectedAccountId ? { expected_account_id: expectedAccountId } : {}) } },

@@ -490,7 +490,7 @@ def get_rgw_user_detail(
     return _load_user_detail(user_id.strip(), tenant, ctx)
 
 
-@router.put("/{user_id}/config", response_model=CephAdminRgwUserDetail)
+@router.patch("/{user_id}/config", response_model=CephAdminRgwUserDetail)
 def update_rgw_user_config(
     user_id: str,
     update: CephAdminRgwUserConfigUpdate,
