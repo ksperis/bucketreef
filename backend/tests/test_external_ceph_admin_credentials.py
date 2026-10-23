@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 
 import pytest
+import sqlalchemy as sa
 from fastapi import HTTPException
 from sqlalchemy import text
 
@@ -47,7 +48,7 @@ def test_manual_validation_is_independent_of_admin_ops_and_global_flag(identitie
     assert "CEPH-SK" not in ciphertext
     response = StorageEndpointsService(db_session).get_endpoint(endpoint.id).model_dump_json()
     assert "CEPH-SK" not in response and "CEPH-AK" not in response
-    audits = db_session.query(AuditLog).all()
+    audits = db_session.scalars(sa.select(AuditLog)).all()
     assert all("CEPH-SK" not in str(row.metadata_json) for row in audits)
 
 
@@ -115,11 +116,13 @@ def test_ceph_admin_rotation_uses_admin_ops_and_updates_external_pair(identities
     assert identity.access_key != "CEPH-AK"
     assert identity.secret_key != "CEPH-SK"
     assert "CEPH-AK" not in {key["access_key"] for key in rgw.users["manual-admin"]["keys"]}
-    assert db_session.query(KeyRotationIntent).filter_by(
-        endpoint_id=endpoint.id,
-        key_type="ceph_admin",
-        target_id=identity.id,
-    ).first() is None
+    assert db_session.scalar(
+        sa.select(KeyRotationIntent).where(
+            KeyRotationIntent.endpoint_id == endpoint.id,
+            KeyRotationIntent.key_type == "ceph_admin",
+            KeyRotationIntent.target_id == identity.id,
+        )
+    ) is None
     with pytest.raises(ValueError, match="managed"):
         service.rotate(endpoint, "ceph_admin")
 
@@ -139,7 +142,7 @@ def test_startup_does_not_resume_ceph_admin_rotation(identities, db_session):
     rgw.calls.clear()
     StorageEndpointsService(db_session).reconcile_persisted_identities()
     assert not rgw.calls
-    assert db_session.query(KeyRotationIntent).one().phase == "prepared"
+    assert db_session.scalars(sa.select(KeyRotationIntent)).one().phase == "prepared"
 
 
 def test_env_can_validate_manual_ceph_admin_without_admin_ops(identities, db_session, monkeypatch):
@@ -205,7 +208,7 @@ def test_unused_partial_pairs_are_rejected_before_creation(db_session, kind):
                    service_identity_mode="external", **{f"{kind}_access_key": "PARTIAL"})
     with pytest.raises(ValueError, match="complete pair"):
         StorageEndpointsService(db_session).create_endpoint(StorageEndpointCreate(**payload))
-    assert db_session.query(StorageEndpoint).count() == 0
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(StorageEndpoint)) == 0
 
 
 @pytest.mark.parametrize("feature,kind", [("admin", "runtime"), ("account", "runtime"), ("metrics", "supervision"), ("usage", "supervision"), ("healthcheck", "supervision")])
@@ -218,7 +221,7 @@ def test_external_credentials_remain_required_by_enabled_features(db_session, fe
     )
     with pytest.raises(ValueError, match=kind.title()):
         StorageEndpointsService(db_session).create_endpoint(payload)
-    assert db_session.query(StorageEndpoint).count() == 0
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(StorageEndpoint)) == 0
 
 
 def test_ceph_admin_authorization_rejects_blank_pair(db_session):
