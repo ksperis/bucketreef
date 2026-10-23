@@ -355,7 +355,7 @@ def _configure_portal_browser_catalog(monkeypatch, *, enabled: bool) -> AppSetti
             browser_portal_enabled=True,
         )
     )
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(
         PortalService,
         "get_effective_portal_settings",
@@ -522,8 +522,8 @@ def test_browser_workspace_applies_effective_project_override(
         )
     )
     settings.portal.feature_policies.browser_access = "default_on" if global_enabled else "targeted"
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
-    monkeypatch.setattr(portal_settings_module, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(portal_settings_module, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     contexts = execution_contexts.list_execution_contexts(workspace="browser", user=user, db=db_session)
 
@@ -734,7 +734,7 @@ def test_workspace_access_counts_enabled_portal_project_and_keeps_portal_default
     )
     db_session.commit()
     settings = _configure_portal_browser_catalog(monkeypatch, enabled=True)
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     access = execution_contexts.get_workspace_access(user=user, db=db_session)
 
@@ -762,7 +762,7 @@ def test_workspace_access_excludes_portal_role_on_incompatible_account(db_sessio
     db_session.commit()
     settings = _configure_portal_browser_catalog(monkeypatch, enabled=True)
     settings.general.manager_enabled = False
-    monkeypatch.setattr(app_settings_service, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
     access = execution_contexts.get_workspace_access(user=user, db=db_session)
 

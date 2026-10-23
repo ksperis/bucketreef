@@ -71,7 +71,7 @@ def test_delegated_manager_cannot_lift_platform_prohibition(client, db_session, 
     from app.models.feature_policy import FeaturePolicy
     settings = AppSettings()
     settings.portal.feature_policies.user_external_sharing = FeaturePolicy.DISABLED
-    monkeypatch.setattr("app.services.portal.settings.load_app_settings", lambda: settings)
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: settings)
     account, manager = _seed(db_session, delegated=True)
     _install_access(account, manager, PortalAccountRole.PORTAL_MANAGER.value)
     response = client.patch(f"/api/portal/settings?account_id={account.id}", json={"allow_portal_user_external_sharing": True})

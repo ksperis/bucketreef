@@ -182,7 +182,7 @@ class ExecutionContextCatalogService:
         effective,
         counts: dict[str, int],
     ) -> dict[str, bool]:
-        settings = app_settings_service.load_app_settings().general
+        settings = app_settings_service.load_app_settings_for_db_readonly(self.db).general
         runtime = get_runtime_settings()
         manager_count = counts["manager"]
 
