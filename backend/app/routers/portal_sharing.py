@@ -8,7 +8,6 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
-from app.core.database import get_db
 from app.db import User
 from app.models.access_context import AccountAccess
 from app.models.portal_sharing import (

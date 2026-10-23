@@ -10,7 +10,7 @@ from app.models.bucket_migration import BucketMigrationDiagnostic
 
 from .diagnostics import MigrationPermissionCheckError
 from .precheck_inspection import BucketMigrationInspector
-from .precheck_rules import BucketMigrationPrecheckRules, PrecheckItemSafety
+from .precheck_rules import BucketMigrationPrecheckRules
 
 
 _SUPPORTED_BUCKET_SETTINGS = (

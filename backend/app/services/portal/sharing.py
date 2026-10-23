@@ -18,7 +18,6 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceGrantRole,
     PortalStorageSpaceInitialShare,
     PortalStorageSpaceShareScope,
-    PortalStorageSpaceSummary,
     PortalStorageSpaceVisibility,
 )
 from app.models.portal_sharing import (

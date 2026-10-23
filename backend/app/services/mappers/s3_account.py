@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from app.db import S3Account as DBS3Account
 from app.db import StorageEndpoint
 from app.models.s3_account import (

@@ -53,7 +53,7 @@ from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services import s3_client
 from app.utils.rgw_payloads import (
-    extract_bucket_list, extract_rgw_user_payload, extract_rgw_user_identity,
+    extract_bucket_list, extract_rgw_user_payload,
     require_rgw_user_identity, split_rgw_tenant_uid,
 )
 from app.utils.s3_endpoint import resolve_s3_client_options

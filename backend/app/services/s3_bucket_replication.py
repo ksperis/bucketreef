@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Unpack
+from typing import Unpack
 
 from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
 

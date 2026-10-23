@@ -32,7 +32,7 @@ from app.services.quota_alert_state_service import (
     QuotaAlertStateKey,
     QuotaAlertStateService,
 )
-from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.quota_subject import SubjectContext

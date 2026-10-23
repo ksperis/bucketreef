@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from datetime import datetime
 from typing import Annotated, Optional, Union
 
 from pydantic import AfterValidator, Field

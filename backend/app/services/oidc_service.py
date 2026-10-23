@@ -10,7 +10,7 @@ import logging
 import secrets
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode, urlparse
 
@@ -25,7 +25,6 @@ from app.db import OidcAuthorizationCode, OidcLoginState
 from app.models.oidc import OIDCProviderInfo
 from app.services.oidc_provider_settings_service import resolve_oidc_provider_map
 from app.services.users_service import UsersService, get_users_service
-from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
 
 LOGGER = logging.getLogger(__name__)
 REQUEST_TIMEOUT = 10

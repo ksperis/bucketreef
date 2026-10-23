@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import constant_time_equal, decode_typed_token
-from app.db import AuthSession, User, is_admin_ui_role
+from app.db import AuthSession, User
 from app.models.auth import (
     CurrentSessionResponse,
     ExternalIdentityInfo,

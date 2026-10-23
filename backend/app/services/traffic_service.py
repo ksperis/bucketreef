@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.s3_execution_context import S3ExecutionTarget

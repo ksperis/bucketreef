@@ -8,7 +8,6 @@ from typing import Literal
 from app.db import StorageEndpoint, StorageProvider
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.utils.storage_endpoint_features import resolve_admin_endpoint
 
 logger = logging.getLogger(__name__)
 

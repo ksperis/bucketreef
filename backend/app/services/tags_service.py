@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from app.db import BucketUiTagAssignment, S3Account, S3AccountTag, S3Connection, S3ConnectionTag, S3User, S3UserTag, StorageEndpoint, StorageEndpointTag, TagDefinition
 from app.models.tagging import TagDefinitionSummary
 from app.utils.tagging import (
-    DEFAULT_TAG_COLOR_KEY,
     TAG_DOMAIN_ADMIN_MANAGED,
     TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
     TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,

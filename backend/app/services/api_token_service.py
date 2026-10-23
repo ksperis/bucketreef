@@ -6,7 +6,7 @@ from app.utils.time import utcnow
 
 import uuid
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 from sqlalchemy import select

@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
