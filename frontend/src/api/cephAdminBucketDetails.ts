@@ -39,6 +39,60 @@ function cephAdminBucketRequestConfig(
   };
 }
 
+async function readCephAdminBucketResource<T>(
+  endpointId: number,
+  bucketName: string,
+  resource: string,
+  tenant?: string | null,
+): Promise<T> {
+  const { data } = await client.get<T>(
+    `${cephAdminBucketPath(endpointId, bucketName)}/${resource}`,
+    cephAdminBucketRequestConfig(tenant),
+  );
+  return data;
+}
+
+async function writeCephAdminBucketResource<T>(
+  endpointId: number,
+  bucketName: string,
+  resource: string,
+  payload: unknown,
+  tenant?: string | null,
+): Promise<T> {
+  const { data } = await client.put<T>(
+    `${cephAdminBucketPath(endpointId, bucketName)}/${resource}`,
+    payload,
+    cephAdminBucketRequestConfig(tenant),
+  );
+  return data;
+}
+
+async function writeCephAdminBucketResourceWithoutResponse(
+  endpointId: number,
+  bucketName: string,
+  resource: string,
+  payload: unknown,
+  tenant?: string | null,
+): Promise<void> {
+  await client.put(
+    `${cephAdminBucketPath(endpointId, bucketName)}/${resource}`,
+    payload,
+    cephAdminBucketRequestConfig(tenant),
+  );
+}
+
+async function deleteCephAdminBucketResource(
+  endpointId: number,
+  bucketName: string,
+  resource: string,
+  tenant?: string | null,
+): Promise<void> {
+  await client.delete(
+    `${cephAdminBucketPath(endpointId, bucketName)}/${resource}`,
+    cephAdminBucketRequestConfig(tenant),
+  );
+}
+
 export async function listCephAdminBucketObjects(
   endpointId: number,
   bucketName: string,
@@ -57,11 +111,7 @@ export async function getCephAdminBucketProperties(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketProperties> {
-  const { data } = await client.get<BucketProperties>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/properties`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketProperties>(endpointId, bucketName, "properties", tenant);
 }
 
 export async function getCephAdminBucketVersioning(
@@ -69,11 +119,7 @@ export async function getCephAdminBucketVersioning(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketVersioningStatus> {
-  const { data } = await client.get<BucketVersioningStatus>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/versioning`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketVersioningStatus>(endpointId, bucketName, "versioning", tenant);
 }
 
 export async function setCephAdminBucketVersioning(
@@ -82,11 +128,7 @@ export async function setCephAdminBucketVersioning(
   enabled: boolean,
   tenant?: string | null,
 ): Promise<void> {
-  await client.put(
-    `${cephAdminBucketPath(endpointId, bucketName)}/versioning`,
-    { enabled },
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return writeCephAdminBucketResourceWithoutResponse(endpointId, bucketName, "versioning", { enabled }, tenant);
 }
 
 export async function getCephAdminBucketLifecycle(
@@ -94,11 +136,7 @@ export async function getCephAdminBucketLifecycle(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketLifecycleConfig> {
-  const { data } = await client.get<BucketLifecycleConfig>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/lifecycle`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketLifecycleConfig>(endpointId, bucketName, "lifecycle", tenant);
 }
 
 export async function putCephAdminBucketLifecycle(
@@ -107,12 +145,7 @@ export async function putCephAdminBucketLifecycle(
   rules: Record<string, unknown>[],
   tenant?: string | null,
 ): Promise<BucketLifecycleConfig> {
-  const { data } = await client.put<BucketLifecycleConfig>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/lifecycle`,
-    { rules },
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketLifecycleConfig>(endpointId, bucketName, "lifecycle", { rules }, tenant);
 }
 
 export async function deleteCephAdminBucketLifecycle(
@@ -120,10 +153,7 @@ export async function deleteCephAdminBucketLifecycle(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/lifecycle`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "lifecycle", tenant);
 }
 
 export async function getCephAdminBucketCors(
@@ -131,11 +161,7 @@ export async function getCephAdminBucketCors(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketCors> {
-  const { data } = await client.get<BucketCors>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/cors`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketCors>(endpointId, bucketName, "cors", tenant);
 }
 
 export async function putCephAdminBucketCors(
@@ -144,12 +170,7 @@ export async function putCephAdminBucketCors(
   rules: Record<string, unknown>[],
   tenant?: string | null,
 ): Promise<BucketCors> {
-  const { data } = await client.put<BucketCors>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/cors`,
-    { rules },
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketCors>(endpointId, bucketName, "cors", { rules }, tenant);
 }
 
 export async function deleteCephAdminBucketCors(
@@ -157,10 +178,7 @@ export async function deleteCephAdminBucketCors(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/cors`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "cors", tenant);
 }
 
 export async function getCephAdminBucketEncryption(
@@ -168,11 +186,7 @@ export async function getCephAdminBucketEncryption(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketEncryptionConfiguration> {
-  const { data } = await client.get<BucketEncryptionConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/encryption`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketEncryptionConfiguration>(endpointId, bucketName, "encryption", tenant);
 }
 
 export async function putCephAdminBucketEncryption(
@@ -181,12 +195,7 @@ export async function putCephAdminBucketEncryption(
   rules: Record<string, unknown>[],
   tenant?: string | null,
 ): Promise<BucketEncryptionConfiguration> {
-  const { data } = await client.put<BucketEncryptionConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/encryption`,
-    { rules },
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketEncryptionConfiguration>(endpointId, bucketName, "encryption", { rules }, tenant);
 }
 
 export async function deleteCephAdminBucketEncryption(
@@ -194,10 +203,7 @@ export async function deleteCephAdminBucketEncryption(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/encryption`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "encryption", tenant);
 }
 
 export async function getCephAdminBucketPolicy(
@@ -205,11 +211,7 @@ export async function getCephAdminBucketPolicy(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketPolicy> {
-  const { data } = await client.get<BucketPolicy>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/policy`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketPolicy>(endpointId, bucketName, "policy", tenant);
 }
 
 export async function putCephAdminBucketPolicy(
@@ -218,12 +220,7 @@ export async function putCephAdminBucketPolicy(
   policy: Record<string, unknown>,
   tenant?: string | null,
 ): Promise<BucketPolicy> {
-  const { data } = await client.put<BucketPolicy>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/policy`,
-    { policy },
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketPolicy>(endpointId, bucketName, "policy", { policy }, tenant);
 }
 
 export async function deleteCephAdminBucketPolicy(
@@ -231,10 +228,7 @@ export async function deleteCephAdminBucketPolicy(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/policy`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "policy", tenant);
 }
 
 export async function getCephAdminBucketNotifications(
@@ -242,11 +236,7 @@ export async function getCephAdminBucketNotifications(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketNotificationConfiguration> {
-  const { data } = await client.get<BucketNotificationConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/notifications`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketNotificationConfiguration>(endpointId, bucketName, "notifications", tenant);
 }
 
 export async function putCephAdminBucketNotifications(
@@ -255,12 +245,7 @@ export async function putCephAdminBucketNotifications(
   configuration: Record<string, unknown>,
   tenant?: string | null,
 ): Promise<BucketNotificationConfiguration> {
-  const { data } = await client.put<BucketNotificationConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/notifications`,
-    { configuration },
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketNotificationConfiguration>(endpointId, bucketName, "notifications", { configuration }, tenant);
 }
 
 export async function deleteCephAdminBucketNotifications(
@@ -268,10 +253,7 @@ export async function deleteCephAdminBucketNotifications(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/notifications`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "notifications", tenant);
 }
 
 export async function getCephAdminBucketReplication(
@@ -279,11 +261,7 @@ export async function getCephAdminBucketReplication(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketReplicationConfiguration> {
-  const { data } = await client.get<BucketReplicationConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/replication`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketReplicationConfiguration>(endpointId, bucketName, "replication", tenant);
 }
 
 export async function putCephAdminBucketReplication(
@@ -292,12 +270,7 @@ export async function putCephAdminBucketReplication(
   configuration: Record<string, unknown>,
   tenant?: string | null,
 ): Promise<BucketReplicationConfiguration> {
-  const { data } = await client.put<BucketReplicationConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/replication`,
-    { configuration },
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketReplicationConfiguration>(endpointId, bucketName, "replication", { configuration }, tenant);
 }
 
 export async function deleteCephAdminBucketReplication(
@@ -305,10 +278,7 @@ export async function deleteCephAdminBucketReplication(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/replication`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "replication", tenant);
 }
 
 export async function getCephAdminBucketLogging(
@@ -316,11 +286,7 @@ export async function getCephAdminBucketLogging(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketLoggingConfiguration> {
-  const { data } = await client.get<BucketLoggingConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/logging`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketLoggingConfiguration>(endpointId, bucketName, "logging", tenant);
 }
 
 export async function putCephAdminBucketLogging(
@@ -329,12 +295,7 @@ export async function putCephAdminBucketLogging(
   payload: BucketLoggingConfiguration,
   tenant?: string | null,
 ): Promise<BucketLoggingConfiguration> {
-  const { data } = await client.put<BucketLoggingConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/logging`,
-    payload,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketLoggingConfiguration>(endpointId, bucketName, "logging", payload, tenant);
 }
 
 export async function deleteCephAdminBucketLogging(
@@ -342,10 +303,7 @@ export async function deleteCephAdminBucketLogging(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/logging`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "logging", tenant);
 }
 
 export async function getCephAdminBucketWebsite(
@@ -353,11 +311,7 @@ export async function getCephAdminBucketWebsite(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketWebsiteConfiguration> {
-  const { data } = await client.get<BucketWebsiteConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/website`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketWebsiteConfiguration>(endpointId, bucketName, "website", tenant);
 }
 
 export async function putCephAdminBucketWebsite(
@@ -366,12 +320,7 @@ export async function putCephAdminBucketWebsite(
   payload: BucketWebsiteConfiguration,
   tenant?: string | null,
 ): Promise<BucketWebsiteConfiguration> {
-  const { data } = await client.put<BucketWebsiteConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/website`,
-    payload,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketWebsiteConfiguration>(endpointId, bucketName, "website", payload, tenant);
 }
 
 export async function deleteCephAdminBucketWebsite(
@@ -379,10 +328,7 @@ export async function deleteCephAdminBucketWebsite(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/website`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "website", tenant);
 }
 
 export async function getCephAdminBucketTags(
@@ -390,11 +336,7 @@ export async function getCephAdminBucketTags(
   bucketName: string,
   tenant?: string | null,
 ): Promise<{ tags: BucketTag[] }> {
-  const { data } = await client.get<{ tags: BucketTag[] }>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/tags`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<{ tags: BucketTag[] }>(endpointId, bucketName, "tags", tenant);
 }
 
 export async function putCephAdminBucketTags(
@@ -403,11 +345,7 @@ export async function putCephAdminBucketTags(
   tags: BucketTag[],
   tenant?: string | null,
 ): Promise<void> {
-  await client.put(
-    `${cephAdminBucketPath(endpointId, bucketName)}/tags`,
-    { tags },
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return writeCephAdminBucketResourceWithoutResponse(endpointId, bucketName, "tags", { tags }, tenant);
 }
 
 export async function deleteCephAdminBucketTags(
@@ -415,10 +353,7 @@ export async function deleteCephAdminBucketTags(
   bucketName: string,
   tenant?: string | null,
 ): Promise<void> {
-  await client.delete(
-    `${cephAdminBucketPath(endpointId, bucketName)}/tags`,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return deleteCephAdminBucketResource(endpointId, bucketName, "tags", tenant);
 }
 
 export async function getCephAdminBucketAcl(
@@ -426,11 +361,7 @@ export async function getCephAdminBucketAcl(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketAcl> {
-  const { data } = await client.get<BucketAcl>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/acl`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketAcl>(endpointId, bucketName, "acl", tenant);
 }
 
 export async function updateCephAdminBucketAcl(
@@ -439,12 +370,7 @@ export async function updateCephAdminBucketAcl(
   acl: string,
   tenant?: string | null,
 ): Promise<BucketAcl> {
-  const { data } = await client.put<BucketAcl>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/acl`,
-    { acl },
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketAcl>(endpointId, bucketName, "acl", { acl }, tenant);
 }
 
 export async function getCephAdminBucketPublicAccessBlock(
@@ -452,11 +378,7 @@ export async function getCephAdminBucketPublicAccessBlock(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketPublicAccessBlock> {
-  const { data } = await client.get<BucketPublicAccessBlock>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/public-access-block`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketPublicAccessBlock>(endpointId, bucketName, "public-access-block", tenant);
 }
 
 export async function updateCephAdminBucketPublicAccessBlock(
@@ -465,12 +387,7 @@ export async function updateCephAdminBucketPublicAccessBlock(
   payload: BucketPublicAccessBlock,
   tenant?: string | null,
 ): Promise<BucketPublicAccessBlock> {
-  const { data } = await client.put<BucketPublicAccessBlock>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/public-access-block`,
-    payload,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketPublicAccessBlock>(endpointId, bucketName, "public-access-block", payload, tenant);
 }
 
 export async function getCephAdminBucketObjectLock(
@@ -478,11 +395,7 @@ export async function getCephAdminBucketObjectLock(
   bucketName: string,
   tenant?: string | null,
 ): Promise<BucketObjectLockConfiguration> {
-  const { data } = await client.get<BucketObjectLockConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/object-lock`,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return readCephAdminBucketResource<BucketObjectLockConfiguration>(endpointId, bucketName, "object-lock", tenant);
 }
 
 export async function updateCephAdminBucketObjectLock(
@@ -491,12 +404,7 @@ export async function updateCephAdminBucketObjectLock(
   payload: BucketObjectLockConfiguration,
   tenant?: string | null,
 ): Promise<BucketObjectLockConfiguration> {
-  const { data } = await client.put<BucketObjectLockConfiguration>(
-    `${cephAdminBucketPath(endpointId, bucketName)}/object-lock`,
-    payload,
-    cephAdminBucketRequestConfig(tenant),
-  );
-  return data;
+  return writeCephAdminBucketResource<BucketObjectLockConfiguration>(endpointId, bucketName, "object-lock", payload, tenant);
 }
 
 export async function updateCephAdminBucketQuota(
@@ -505,9 +413,5 @@ export async function updateCephAdminBucketQuota(
   payload: BucketQuotaUpdate,
   tenant?: string | null,
 ): Promise<void> {
-  await client.put(
-    `${cephAdminBucketPath(endpointId, bucketName)}/quota`,
-    payload,
-    cephAdminBucketRequestConfig(tenant),
-  );
+  return writeCephAdminBucketResourceWithoutResponse(endpointId, bucketName, "quota", payload, tenant);
 }
