@@ -30,7 +30,7 @@ function groupSource(group: UiGroup): AuditSource {
 }
 
 function groupsForUser(state: DemoState, userId: number): UiGroup[] {
-  return state.groups.filter(group => group.user_details?.some(member => member.id === userId));
+  return state.groups.filter(group => group.user_details.some(member => member.id === userId));
 }
 
 function flagSources(
@@ -118,7 +118,7 @@ function addPlatformRows(rows: Map<string, AccessAuditRow>, user: DemoUser, grou
       addRight(rows, user, "platform", target, code, flagSources(
         user.manager_tool_access?.[tool],
         groups,
-        group => group.manager_tool_access?.[tool],
+        group => group.manager_tool_access[tool],
       ));
     }
   }
@@ -161,7 +161,7 @@ function demoS3Users(state: DemoState) {
 function addS3UserRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: DemoUser, groups: UiGroup[]): void {
   for (const rgwUser of demoS3Users(state)) {
     const direct = user.s3_user_links?.find(link => link.s3_user_id === rgwUser.id);
-    const inherited = groups.flatMap(group => (group.s3_user_links ?? [])
+    const inherited = groups.flatMap(group => group.s3_user_links
       .filter(link => link.s3_user_id === rgwUser.id)
       .map(link => ({ group, link })));
     const accessSources = [
@@ -214,7 +214,7 @@ export function listDemoS3Users(state: DemoState) {
         user_full_name: user.full_name,
         allow_manager_browser_data_access: link.allow_manager_browser_data_access,
       }))),
-    group_links: state.groups.flatMap(group => (group.s3_user_links ?? [])
+    group_links: state.groups.flatMap(group => group.s3_user_links
       .filter(link => link.s3_user_id === rgwUser.id)
       .map(link => ({
         group_id: group.id,

@@ -27,7 +27,6 @@ import {
   type AssociationPrincipalItem,
   type CompactAssociationCategory,
 } from "./AssociationSummary";
-import { normalizeManagerToolAccess } from "./adminAccessConfig";
 import { buildAccessAuditHref } from "./accessAuditLink";
 import { useGroupsI18n } from "./groupsMessage";
 
@@ -107,10 +106,10 @@ export default function AdminGroupsList({
         label: text("rights"),
         cellClassName: "min-w-[12rem]",
         render: (group) => {
-          const access = normalizeManagerToolAccess(group.manager_tool_access);
+          const access = group.manager_tool_access;
           const toolCount =
             Object.values(access).filter(Boolean).length +
-            Number(Boolean(group.can_provision_managed_private_connections));
+            Number(group.can_provision_managed_private_connections);
           return (
             <div className="flex flex-wrap gap-2">
               {group.can_access_ceph_admin && (
@@ -144,7 +143,7 @@ export default function AdminGroupsList({
         label: text("members"),
         cellClassName: "min-w-[10rem]",
         render: (group) => {
-          const items: AssociationPrincipalItem[] = (group.user_details ?? []).map(
+          const items: AssociationPrincipalItem[] = group.user_details.map(
             (user) => {
               const id = Number(user.id);
               return {
@@ -166,12 +165,12 @@ export default function AdminGroupsList({
         cellClassName: "min-w-[18rem]",
         render: (group) => {
           const accountDetailsById = new Map(
-            (group.account_details ?? []).map((account) => [account.id, account]),
+            group.account_details.map((account) => [account.id, account]),
           );
           const s3UserDetailsById = new Map(
-            (group.s3_user_details ?? []).map((user) => [Number(user.id), user]),
+            group.s3_user_details.map((user) => [Number(user.id), user]),
           );
-          const accountItems: AssociationAccountItem[] = (group.account_links ?? []).map(
+          const accountItems: AssociationAccountItem[] = group.account_links.map(
             (link) => {
               const accountId = Number(link.account_id);
               return {
@@ -185,7 +184,7 @@ export default function AdminGroupsList({
               };
             },
           );
-          const s3UserItems = (group.s3_user_links ?? []).map((link) => {
+          const s3UserItems = group.s3_user_links.map((link) => {
             const s3UserId = Number(link.s3_user_id);
             return {
               id: s3UserId,
@@ -195,7 +194,7 @@ export default function AdminGroupsList({
                 text("s3UserNumber", { id: s3UserId }),
             };
           });
-          const connectionItems = (group.s3_connection_details ?? []).map((details) => {
+          const connectionItems = group.s3_connection_details.map((details) => {
             const connectionId = Number(details.id);
             return {
               id: connectionId,

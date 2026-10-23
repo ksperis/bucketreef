@@ -2,7 +2,7 @@ import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PORTAL_FEATURE_POLICIES, DEFA
 import type { BrowserFavorite } from "../api/browserFavorites";
 import type { User } from "../api/users";
 import type { S3Account } from "../api/accounts";
-import type { UiGroup } from "../api/groups";
+import type { UiGroup, UiGroupUserDetail } from "../api/groups";
 import type { StorageEndpoint } from "../api/storageEndpoints";
 import type { Bucket } from "../api/bucketContracts";
 import type { ObjectMetadata, ObjectTag } from "../api/browserContracts";
@@ -75,6 +75,58 @@ export function createDemoUser(input: Pick<DemoUser, "id" | "email"> & Partial<D
     s3_user_details: input.s3_user_details ?? [],
     s3_connection_details: input.s3_connection_details ?? [],
     last_login_at: input.last_login_at ?? null,
+  };
+}
+
+export function demoGroupUser(user: DemoUser): UiGroupUserDetail {
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    full_name: user.full_name,
+    avatar: user.avatar,
+    iam_username: null,
+  };
+}
+
+export function createDemoGroup(input: Pick<UiGroup, "id" | "name"> & Partial<UiGroup>): UiGroup {
+  const initials = input.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() ?? "")
+    .join("");
+  return {
+    id: input.id,
+    name: input.name,
+    description: input.description ?? null,
+    avatar: input.avatar ?? {
+      source: "initials",
+      initials,
+      icon: null,
+      url: null,
+      updated_at: null,
+    },
+    can_access_ceph_admin: input.can_access_ceph_admin ?? false,
+    can_access_storage_ops: input.can_access_storage_ops ?? false,
+    can_create_manual_private_connections: input.can_create_manual_private_connections ?? false,
+    can_provision_managed_private_connections: input.can_provision_managed_private_connections ?? false,
+    manager_tool_access: input.manager_tool_access ?? {
+      bucket_compare: false,
+      bucket_migration: false,
+      bucket_integrity_check: false,
+      bucket_purge: false,
+      feature_rules: false,
+    },
+    browser_advanced_features_enabled: input.browser_advanced_features_enabled ?? false,
+    user_details: input.user_details ?? [],
+    account_details: input.account_details ?? [],
+    account_links: input.account_links ?? [],
+    s3_user_links: input.s3_user_links ?? [],
+    s3_user_details: input.s3_user_details ?? [],
+    s3_connection_details: input.s3_connection_details ?? [],
+    created_at: input.created_at ?? null,
+    updated_at: input.updated_at ?? null,
   };
 }
 
@@ -205,9 +257,13 @@ export function createSeed(): DemoState {
   users[2].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false }));
   users[3].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_manager", allow_manager_browser_data_access: false }));
   for (const account of accounts) account.user_links = users.flatMap(user => user.account_links?.filter(link => link.account_id === account.id).map(link => ({ ...link, user_id: user.id, user_email: user.email, user_full_name: user.full_name })) ?? []);
-  const groups: UiGroup[] = ["Platform", "Engineering", "Design", "Research", "Operations", "Contractors"].map((name, i) => ({
-    id: 201 + i, name, description: `${name} team · demo organisation`, user_details: users.filter(u => u.id % 6 === i),
-    account_links: [], account_details: [], s3_user_details: [], s3_connection_details: [], created_at: at(90), updated_at: at(i),
+  const groups: UiGroup[] = ["Platform", "Engineering", "Design", "Research", "Operations", "Contractors"].map((name, i) => createDemoGroup({
+    id: 201 + i,
+    name,
+    description: `${name} team · demo organisation`,
+    user_details: users.filter(u => u.id % 6 === i).map(demoGroupUser),
+    created_at: at(90),
+    updated_at: at(i),
   }));
   const designGroupGrant = { account_id: accounts[0].id, manager_role: "account_administrator" as const, portal_role: null, allow_manager_browser_data_access: true };
   groups[2].account_links = [designGroupGrant];

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import type { AccountMembership, ManagerToolAccess, S3UserMembership } from "./users";
+import type { AccountMembership, ManagerToolAccess, S3UserMembership, UiRole } from "./users";
 import type { UserAvatarDescriptor } from "./users";
 import type { PaginatedResponse } from "./types";
 
@@ -13,48 +13,48 @@ export type UiGroupAvatarIcon = "users" | "building" | "shield" | "briefcase" | 
 export type UiGroupAvatarDescriptor = {
   source: UiGroupAvatarSource;
   initials: string;
-  icon?: UiGroupAvatarIcon | null;
-  url?: string | null;
-  updated_at?: string | null;
+  icon: UiGroupAvatarIcon | null;
+  url: string | null;
+  updated_at: string | null;
 };
 
 export type UiGroupSummary = {
   id: number;
   name: string;
-  description?: string | null;
-  avatar?: UiGroupAvatarDescriptor | null;
+  avatar: UiGroupAvatarDescriptor;
 };
 
 export type UiGroupUserDetail = {
   id: number;
   email: string;
-  role?: string | null;
-  full_name?: string | null;
-  avatar?: UserAvatarDescriptor | null;
+  role: UiRole;
+  full_name: string | null;
+  avatar: UserAvatarDescriptor | null;
+  iam_username: string | null;
 };
 
 export type UiGroup = {
   id: number;
   name: string;
-  description?: string | null;
-  avatar?: UiGroupAvatarDescriptor | null;
-  can_access_ceph_admin?: boolean;
-  can_access_storage_ops?: boolean;
-  can_create_manual_private_connections?: boolean;
-  can_provision_managed_private_connections?: boolean;
-  manager_tool_access?: ManagerToolAccess | null;
-  browser_advanced_features_enabled?: boolean;
-  user_details?: UiGroupUserDetail[];
-  account_details?: { id: number; name: string; rgw_account_id: string }[];
-  account_links?: AccountMembership[];
-  s3_user_links?: S3UserMembership[];
-  s3_user_details?: { id: number; name: string }[];
-  s3_connection_details?: {
+  description: string | null;
+  avatar: UiGroupAvatarDescriptor;
+  can_access_ceph_admin: boolean;
+  can_access_storage_ops: boolean;
+  can_create_manual_private_connections: boolean;
+  can_provision_managed_private_connections: boolean;
+  manager_tool_access: ManagerToolAccess;
+  browser_advanced_features_enabled: boolean;
+  user_details: UiGroupUserDetail[];
+  account_details: { id: number; name: string; rgw_account_id: string }[];
+  account_links: AccountMembership[];
+  s3_user_links: S3UserMembership[];
+  s3_user_details: { id: number; name: string }[];
+  s3_connection_details: {
     id: number;
     name: string;
   }[];
-  created_at?: string | null;
-  updated_at?: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 export type UiGroupPayload = {

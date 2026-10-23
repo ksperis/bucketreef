@@ -116,11 +116,6 @@ export default function UserGroupsSelector({
                   >
                     <span>{group.name}</span>
                   </AdminAssociationOptionCheckbox>
-                  {group.description ? (
-                    <span className="max-w-md truncate ui-caption text-slate-500 dark:text-slate-400">
-                      {group.description}
-                    </span>
-                  ) : null}
                 </div>
               );
             })}
