@@ -35,6 +35,7 @@ test("iam: policies, membership and fictitious keys share Ceph inventory", async
   await open(page, "/manager/users");
   const user = await api(page, "/manager/iam/users?context_id=101", "POST", { name: "demo-service", create_key: true });
   expect(user.status).toBe(201); expect(user.data.access_key.secret_access_key).toContain("DEMO-ONLY");
+  expect((await api(page, "/manager/iam/users/demo-service?context_id=101", "PATCH", { path: "/services/" })).status).toBe(200);
   const document = { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["s3:GetObject"], Resource: ["arn:aws:s3:::helios-documents/*"] }] };
   const policy = (await api(page, "/manager/iam/policies?context_id=101", "POST", { name: "DemoReader", document })).data;
   expect((await api(page, "/manager/iam/users/demo-service/policies?context_id=101", "POST", { arn: policy.arn })).status).toBe(201);
