@@ -138,7 +138,8 @@ def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monke
         assert service.list_calls == 1
 
         mutate = client.put("/api/manager/buckets/demo-1/versioning", json={"enabled": True})
-        assert mutate.status_code == 200, mutate.text
+        assert mutate.status_code == 204, mutate.text
+        assert mutate.content == b""
 
         storage_ops_after_mutation = client.get("/api/storage-ops/buckets")
         assert storage_ops_after_mutation.status_code == 200, storage_ops_after_mutation.text

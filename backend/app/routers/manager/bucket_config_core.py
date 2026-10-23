@@ -3,7 +3,7 @@
 
 """Core bucket configuration endpoints for the Manager workspace."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.models.access_context import ManagerActor
 from app.models.bucket import (
@@ -76,21 +76,26 @@ def get_versioning(
     )
 
 
-@router.put("/{bucket_name}/versioning", status_code=status.HTTP_200_OK)
+@router.put(
+    "/{bucket_name}/versioning",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def update_versioning(
     bucket_name: str,
     payload: BucketVersioningUpdate,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-):
-    return mutation.update(
+) -> Response:
+    mutation.update(
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
         config_area="versioning",
         payload=payload,
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{bucket_name}/object-lock", response_model=BucketObjectLock)

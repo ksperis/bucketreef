@@ -6,11 +6,13 @@
 from fastapi import APIRouter, Depends, Response, status
 
 from app.models.bucket import (
+    BucketCors,
     BucketCorsUpdate,
     BucketLifecycleConfig,
     BucketLoggingConfiguration,
     BucketNotificationConfiguration,
     BucketReplicationConfiguration,
+    BucketTags,
     BucketTagsUpdate,
     BucketWebsiteConfiguration,
 )
@@ -73,12 +75,12 @@ def delete_lifecycle(
     )
 
 
-@router.get("/{bucket_name}/cors")
+@router.get("/{bucket_name}/cors", response_model=BucketCors)
 def get_cors(
     bucket_name: str,
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
-):
+) -> BucketCors:
     return _run_bucket_config_read(
         ctx,
         bucket_name,
@@ -87,13 +89,13 @@ def get_cors(
     )
 
 
-@router.put("/{bucket_name}/cors")
+@router.put("/{bucket_name}/cors", response_model=BucketCors)
 def put_cors(
     bucket_name: str,
     payload: BucketCorsUpdate,
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
-):
+) -> BucketCors:
     return _run_bucket_config_update(
         ctx,
         bucket_name,
@@ -296,12 +298,12 @@ def delete_website(
     )
 
 
-@router.get("/{bucket_name}/tags")
+@router.get("/{bucket_name}/tags", response_model=BucketTags)
 def get_tags(
     bucket_name: str,
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
-):
+) -> BucketTags:
     return _run_bucket_config_read(
         ctx,
         bucket_name,
@@ -310,13 +312,13 @@ def get_tags(
     )
 
 
-@router.put("/{bucket_name}/tags")
+@router.put("/{bucket_name}/tags", response_model=BucketTags)
 def put_tags(
     bucket_name: str,
     payload: BucketTagsUpdate,
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
-):
+) -> BucketTags:
     return _run_bucket_config_update(
         ctx,
         bucket_name,
