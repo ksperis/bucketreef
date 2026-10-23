@@ -1,0 +1,33 @@
+.usage-stats-composition-container {
+  container: usage-stats-composition / inline-size;
+  min-width: 0;
+}
+
+.usage-stats-chart-grid {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+@container usage-stats-composition (min-width: 52rem) {
+  .usage-stats-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.usage-stats-donut-container {
+  container: usage-stats-donut / inline-size;
+  min-width: 0;
+}
+
+.usage-stats-donut-layout {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+@container usage-stats-donut (min-width: 34rem) {
+  .usage-stats-donut-container:not(.usage-stats-donut-container-no-legend) .usage-stats-donut-layout {
+    grid-template-columns: minmax(0, 1fr) 220px;
+  }
+}
