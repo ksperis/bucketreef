@@ -97,7 +97,7 @@ class StorageEndpointsService:
                 client_factory=get_rgw_admin_client,
             )
             if include_admin_ops_permissions
-            else StorageEndpointAdminOpsPermissions()
+            else StorageEndpointAdminOpsPermissions.empty()
         )
         return storage_endpoint_from_db(
             endpoint,
