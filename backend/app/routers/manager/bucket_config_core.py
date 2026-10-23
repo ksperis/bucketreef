@@ -15,37 +15,17 @@ from app.models.bucket import (
     BucketVersioningUpdate,
 )
 from app.services.storage_endpoint_feature_guards import require_sse_feature
-from app.routers.dependencies import get_s3_execution_context, get_audit_service, get_current_account_admin
+from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
+from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
-from app.services.audit_service import AuditService
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
 from app.services.bucket_configuration_service import (
     BucketConfigurationService,
     get_bucket_configuration_service,
 )
-from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_context
 from app.services.s3_execution_context import S3ExecutionContext
 
 router = APIRouter(tags=["manager-buckets"])
-
-
-def _invalidate_manager_bucket_config_cache(
-    context: S3ExecutionContext,
-    _bucket_name: str,
-) -> None:
-    invalidate_bucket_listing_cache_for_context(context)
-
-
-def get_manager_bucket_config_mutation_service(
-    configuration_service: BucketConfigurationService = Depends(get_bucket_configuration_service),
-    audit_service: AuditService = Depends(get_audit_service),
-) -> BucketConfigMutationService:
-    return BucketConfigMutationService(
-        configuration_service=configuration_service,
-        audit_service=audit_service,
-        audit_scope="manager",
-        cache_invalidator=_invalidate_manager_bucket_config_cache,
-    )
 
 
 @router.get("/{bucket_name}/properties", response_model=BucketProperties)
