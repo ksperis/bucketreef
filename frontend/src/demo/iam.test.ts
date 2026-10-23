@@ -80,4 +80,18 @@ describe("demo IAM mutations", () => {
     const removed = iam(request(state, `${path}/team`, "DELETE"));
     expect((await removed!.json()).filter((tag: { key: string }) => tag.key === "team")).toEqual([]);
   });
+
+  it("updates access-key status only through the canonical status subroute", async () => {
+    const state = createSeed();
+    const user = state.iam[state.accounts[0].id].users[0];
+    const key = { access_key_id: "DEMO-STATUS", status: "Active" };
+    state.iam[state.accounts[0].id].keys[user.name] = [key];
+    const keyPath = `/manager/iam/users/${encodeURIComponent(user.name)}/keys/${key.access_key_id}`;
+
+    expect(iam(request(state, keyPath, "PUT", { active: false }))).toBeUndefined();
+
+    const response = iam(request(state, `${keyPath}/status`, "PUT", { active: false }));
+    expect(response?.status).toBe(200);
+    expect(await response!.json()).toMatchObject({ access_key_id: key.access_key_id, status: "Inactive" });
+  });
 });

@@ -37,7 +37,7 @@ export function ceph(c: DemoRequest): Response | undefined {
     };
     return json(response);
   }
-  const match = c.path.match(/^\/ceph-admin\/endpoints\/(\d+)\/(accounts|users)(?:\/([^/]+)(?:\/(detail|config|keys)(?:\/([^/]+)(?:\/status)?)?)?)?$/);
+  const match = c.path.match(/^\/ceph-admin\/endpoints\/(\d+)\/(accounts|users)(?:\/([^/]+)(?:\/(detail|config|keys)(?:\/([^/]+)(?:\/(status))?)?)?)?$/);
   if (!match) return undefined;
   const endpoint = required(c.state.endpoints.find(e => e.id === Number(match[1])));
   const accounts = c.state.accounts.filter(a => a.storage_endpoint_id === endpoint.id);
@@ -155,7 +155,7 @@ export function ceph(c: DemoRequest): Response | undefined {
       return json({ detail: detail({ user, account }), generated_key: key ? { access_key: key.access_key_id, secret_key: "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE" } : null }, 201);
     }
     const selected = required(users.find(item => `${item.account.id}:${item.user.name}` === id || item.user.name === id));
-    if (match[4] === "keys") return keyActions(c, c.state.iam[selected.account.id], selected.user.name, match[5], true);
+    if (match[4] === "keys") return keyActions(c, c.state.iam[selected.account.id], selected.user.name, match[5], true, false, match[6] === "status");
     if (c.method === "GET" && match[4] === "detail") return json(detail(selected));
     if (c.method === "PATCH" && match[4] === "config") {
       updateUser(selected.user);
