@@ -90,13 +90,11 @@ class PortalSharingMixin:
 
     def _validate_initial_storage_space_shares(
         self,
-        user: User,
         access: "AccountAccess",
         *,
         visibility: PortalStorageSpaceVisibility,
         share_scope: PortalStorageSpaceShareScope,
         initial_shares: Optional[list[PortalStorageSpaceInitialShare]],
-        owner_user_id: Optional[int] = None,
     ) -> list[PortalStorageSpaceInitialShare]:
         shares = initial_shares or []
         if not shares:

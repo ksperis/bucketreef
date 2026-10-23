@@ -125,7 +125,6 @@ class PortalStorageSpaceCatalogMixin:
     def _storage_space_status(
         self,
         bucket: Bucket,
-        role: PortalStorageSpaceRole,
         metadata: PortalStorageSpaceMetadata | None = None,
     ) -> str:
         if metadata and metadata.archived_at:
@@ -162,7 +161,7 @@ class PortalStorageSpaceCatalogMixin:
                 and metadata.owner_user_id != access.actor.id
             ),
             can_delete=can_delete,
-            status=self._storage_space_status(bucket, role, metadata),
+            status=self._storage_space_status(bucket, metadata),
             description=self._default_storage_space_description(name, metadata),
             owner_label=self._storage_space_owner_label(access.account, metadata),
             owner_user_id=metadata.owner_user_id if metadata else None,

@@ -75,12 +75,10 @@ class PortalStorageSpacesMixin:
             account_member_role,
         )
         validated_initial_shares = self._validate_initial_storage_space_shares(
-            user,
             access,
             visibility=visibility,
             share_scope=share_scope,
             initial_shares=initial_shares,
-            owner_user_id=user.id if visibility == "private" else None,
         )
         existing = {space.internal_bucket_name or space.id for space in self.list_storage_spaces(user, access, include_archived=True)}
         if naming_mode == "named_bucket":
@@ -166,12 +164,10 @@ class PortalStorageSpacesMixin:
             account_member_role,
         )
         validated_initial_shares = self._validate_initial_storage_space_shares(
-            user,
             access,
             visibility=visibility,
             share_scope=share_scope,
             initial_shares=initial_shares,
-            owner_user_id=user.id if visibility == "private" else None,
         )
         access_key, secret_key = self._account_credentials(access.account)
         buckets = s3_client.list_buckets(
