@@ -448,30 +448,12 @@ class S3UsersService:
         admin = self._admin_for_endpoint(endpoint)
         if self._existing_identity(uid, tenant, endpoint.id):
             raise ValueError("An S3 user with this UID already exists in this tenant")
-        try:
-            response = admin.create_user(
-                uid=uid,
-                display_name=payload.name,
-                email=payload.email or "",
-                **({"tenant": tenant} if tenant else {}),
-            )
-        except RGWAdminError as exc:
-            raise ValueError(f"RGW user creation failed: {exc}") from exc
-        if isinstance(response, dict) and response.get("conflict"):
-            raise ValueError("An RGW user with this UID already exists in this tenant")
-        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-            admin.extract_keys(response)
+        access_key, secret_key = self._provision_remote_user_credentials(
+            admin,
+            payload,
+            uid=uid,
+            tenant=tenant,
         )
-        if not access_key or not secret_key:
-            try:
-                key_response = admin.create_access_key(uid, tenant=tenant or None)
-            except RGWAdminError as exc:
-                raise ValueError(f"Unable to obtain RGW access keys: {exc}") from exc
-            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                admin.extract_keys(key_response)
-            )
-        if not access_key or not secret_key:
-            raise ValueError("RGW did not return access credentials for the new user")
         s3_user = S3UserModel(
             name=payload.name,
             rgw_user_uid=uid,
@@ -505,6 +487,40 @@ class S3UsersService:
             storage_endpoint=endpoint,
             tags=self.tags.get_s3_user_tags(s3_user),
         )
+
+    @staticmethod
+    def _provision_remote_user_credentials(
+        admin: RGWAdminClient,
+        payload: S3UserCreate,
+        *,
+        uid: str,
+        tenant: str,
+    ) -> tuple[str, str]:
+        try:
+            response = admin.create_user(
+                uid=uid,
+                display_name=payload.name,
+                email=payload.email or "",
+                **({"tenant": tenant} if tenant else {}),
+            )
+        except RGWAdminError as exc:
+            raise ValueError(f"RGW user creation failed: {exc}") from exc
+        if isinstance(response, dict) and response.get("conflict"):
+            raise ValueError("An RGW user with this UID already exists in this tenant")
+        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
+            admin.extract_keys(response)
+        )
+        if not access_key or not secret_key:
+            try:
+                key_response = admin.create_access_key(uid, tenant=tenant or None)
+            except RGWAdminError as exc:
+                raise ValueError(f"Unable to obtain RGW access keys: {exc}") from exc
+            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
+                admin.extract_keys(key_response)
+            )
+        if not access_key or not secret_key:
+            raise ValueError("RGW did not return access credentials for the new user")
+        return access_key, secret_key
 
     def import_users(self, items: list[S3UserImport]) -> list[S3UserSchema]:
         created: list[S3UserSchema] = []
