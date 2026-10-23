@@ -52,7 +52,7 @@ def test_admin_get_account_portal_settings_returns_account_overrides(client, db_
 
 
 def test_admin_patch_account_portal_settings_replaces_override_and_audits(client, db_session, monkeypatch):
-    monkeypatch.setattr(portal_settings_module, "load_app_settings", AppSettings)
+    monkeypatch.setattr(portal_settings_module, "load_app_settings_for_db_readonly", lambda _db: AppSettings())
     audit = _CapturingAuditService()
     app.dependency_overrides[admin_accounts_router.get_audit_service] = lambda: audit
     account = _seed_account(
@@ -105,7 +105,7 @@ def test_admin_patch_account_portal_settings_replaces_override_and_audits(client
 def test_account_browser_override_can_disable_enabled_global_default(client, db_session, monkeypatch):
     settings = AppSettings()
     settings.portal.feature_policies.browser_access = "default_on"
-    monkeypatch.setattr(portal_settings_module, "load_app_settings", lambda: settings)
+    monkeypatch.setattr(portal_settings_module, "load_app_settings_for_db_readonly", lambda _db: settings)
     account = _seed_account(
         db_session,
         overrides={"browser_access_enabled": False},

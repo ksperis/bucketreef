@@ -65,7 +65,7 @@ def test_cost_estimation_targeted_overrides_resolve_for_manager_and_portal(db_se
     assert manager_state.enabled is True
     assert manager_state.source == "resource"
 
-    monkeypatch.setattr("app.services.portal.settings.load_app_settings", lambda: settings)
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: settings)
     portal_settings = PortalService(db_session).get_effective_portal_settings(account)
     assert portal_settings.cost_estimation_enabled is True
 
@@ -133,7 +133,7 @@ def test_platform_tool_grant_uses_existing_role_boundary_and_provenance(db_sessi
 def test_portal_lock_masks_preserved_override_and_rejects_new_activation(db_session, monkeypatch):
     settings = AppSettings()
     settings.portal.feature_policies.user_external_sharing = FeaturePolicy.DISABLED
-    monkeypatch.setattr("app.services.portal.settings.load_app_settings", lambda: settings)
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: settings)
     account = make_s3_account(db_session, name="Policies", portal_settings_override=json.dumps({"allow_portal_user_external_sharing": True}))
     db_session.add(account)
     db_session.commit()
@@ -271,7 +271,7 @@ def test_rgw_usage_metrics_policy_supports_s3_user_overrides(policy, override, e
 def test_admin_portal_prohibition_returns_forbidden_before_logging_reconciliation(client, db_session, monkeypatch):
     settings = AppSettings()
     settings.portal.feature_policies.user_external_sharing = FeaturePolicy.DISABLED
-    monkeypatch.setattr("app.services.portal.settings.load_app_settings", lambda: settings)
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: settings)
     account = make_s3_account(db_session, name="Locked project")
     db_session.add(account)
     db_session.commit()

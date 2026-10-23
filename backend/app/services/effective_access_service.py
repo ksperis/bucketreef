@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from app.models.feature_policy import FeaturePolicy, ManagerFeaturePolicies, resolve_feature_policy
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services import app_settings_service
 
 from dataclasses import dataclass, field
 from typing import Literal
@@ -502,7 +502,7 @@ class EffectiveAccessService:
         connection_grants = self._load_shared_connection_grants(user_ids, groups)
         owned_private_user_ids = self._load_owned_private_user_ids(user_ids)
 
-        policies = load_app_settings_for_db_readonly(self.db).manager.feature_policies
+        policies = app_settings_service.load_app_settings_for_db_readonly(self.db).manager.feature_policies
         resolved_by_user: dict[int, ResolvedUserAccess] = {}
         for user_id, user in user_by_id.items():
             user_groups = groups.groups_by_user[user_id]
@@ -738,10 +738,9 @@ class EffectiveAccessService:
         resolved: ResolvedUserAccess | None = None,
     ) -> list[tuple[S3Account, EffectiveAccountLink]]:
         """Return Portal identities explicitly exposed in standalone Browser."""
-        from app.services.app_settings_service import load_app_settings
         from app.services.portal_service import PortalService
 
-        settings = load_app_settings()
+        settings = app_settings_service.load_app_settings_for_db_readonly(self.db)
         if not (
             settings.general.browser_enabled
             and settings.general.browser_root_enabled
