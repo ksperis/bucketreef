@@ -126,6 +126,23 @@ describe("saved Browser locations", () => {
     ).toBeEnabled();
   });
 
+  it("hides an unresolved execution context identifier", () => {
+    const unavailableFavorite = {
+      ...saved,
+      context: "conn-65",
+    };
+    render(
+      <BrowserFavoritesControl
+        {...buildProps()}
+        favorites={[unavailableFavorite]}
+      />,
+    );
+
+    expect(screen.getByText("reports / études// · Context unavailable")).toBeVisible();
+    expect(screen.queryByText(/conn-65/)).not.toBeInTheDocument();
+    expect(screen.getByTitle("reports / études// · Context unavailable")).toBeVisible();
+  });
+
   it("explains why temporary S3 sessions cannot synchronize", () => {
     render(
       <BrowserFavoritesControl

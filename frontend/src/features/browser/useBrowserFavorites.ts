@@ -171,7 +171,7 @@ export function useBrowserFavorites({
       if (favorite.context !== current.context && !availableContexts.includes(favorite.context)) {
         setUnavailable((previous) => ({
           ...previous,
-          [favorite.id]: text("Select the saved context ({context}) to open this favorite.", { context: favorite.context }),
+          [favorite.id]: text("The context associated with this favorite is no longer available."),
         }));
         return false;
       }

@@ -116,7 +116,7 @@ export default function BrowserFavoritesControl({
                   contextLabels[favorite.context]
                     ? ` · ${contextLabels[favorite.context]}`
                     : favorite.context !== current.context
-                      ? ` · ${favorite.context}`
+                      ? ` · ${tr("Context unavailable")}`
                       : ""
                 }`;
                 const selected =
