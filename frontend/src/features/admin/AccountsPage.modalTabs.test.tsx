@@ -81,6 +81,7 @@ const makePortalAccountSettings = (overrides?: Record<string, unknown>) => ({
       cors_allowed_origins: ["https://portal.example.test"],
     },
   },
+  feature_states: {},
   admin_override: {},
   delegated_to_portal_managers: false,
   portal_collaborator_role_management_delegated: false,

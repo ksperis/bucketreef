@@ -6,23 +6,22 @@
 from app.models.app_settings import PortalEffectiveSettings, PortalSettingsOverride
 from app.models.base import ApiModel
 from app.models.feature_policy import FeatureState
-from pydantic import Field
 
 
 class PortalAccountSettings(ApiModel):
     effective: PortalEffectiveSettings
-    feature_states: dict[str, FeatureState] = Field(default_factory=dict)
+    feature_states: dict[str, FeatureState]
     admin_override: PortalSettingsOverride
-    delegated_to_portal_managers: bool = False
-    portal_collaborator_role_management_delegated: bool = False
-    portal_collaborator_addition_delegated: bool = False
+    delegated_to_portal_managers: bool
+    portal_collaborator_role_management_delegated: bool
+    portal_collaborator_addition_delegated: bool
 
 
 class PortalProjectSettings(ApiModel):
     effective: PortalEffectiveSettings
-    feature_states: dict[str, FeatureState] = Field(default_factory=dict)
+    feature_states: dict[str, FeatureState]
     project_override: PortalSettingsOverride
-    delegated_to_portal_managers: bool = False
-    portal_collaborator_role_management_delegated: bool = False
-    portal_collaborator_addition_delegated: bool = False
-    can_update: bool = False
+    delegated_to_portal_managers: bool
+    portal_collaborator_role_management_delegated: bool
+    portal_collaborator_addition_delegated: bool
+    can_update: bool
