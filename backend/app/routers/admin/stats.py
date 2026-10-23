@@ -7,6 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
+from app.models.admin_dashboard_metrics import (
+    AdminDashboardScope,
+    AdminDashboardStorage,
+    AdminDashboardTraffic,
+)
 from app.models.storage_stats import StorageStats
 from app.models.traffic import TrafficStats
 from app.routers.dependencies import get_current_super_admin
@@ -17,28 +22,28 @@ from app.services.traffic_service import TrafficWindow
 router = APIRouter(prefix="/admin/stats", tags=["admin-stats"])
 
 
-@router.get("/dashboard/scope")
+@router.get("/dashboard/scope", response_model=AdminDashboardScope)
 def dashboard_scope(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-) -> dict:
-    return AdminDashboardMetricsService(db).scope()
+) -> AdminDashboardScope:
+    return AdminDashboardScope.model_validate(AdminDashboardMetricsService(db).scope())
 
 
-@router.get("/dashboard/storage")
+@router.get("/dashboard/storage", response_model=AdminDashboardStorage)
 def dashboard_storage(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-) -> dict:
-    return AdminDashboardMetricsService(db).storage()
+) -> AdminDashboardStorage:
+    return AdminDashboardStorage.model_validate(AdminDashboardMetricsService(db).storage())
 
 
-@router.get("/dashboard/traffic")
+@router.get("/dashboard/traffic", response_model=AdminDashboardTraffic)
 def dashboard_traffic(
     _: User = Depends(get_current_super_admin),
     db: Session = Depends(get_db),
-) -> dict:
-    return AdminDashboardMetricsService(db).traffic()
+) -> AdminDashboardTraffic:
+    return AdminDashboardTraffic.model_validate(AdminDashboardMetricsService(db).traffic())
 
 
 @router.get("/summary")
