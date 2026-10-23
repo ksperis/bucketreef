@@ -19,20 +19,30 @@ from app.models.user import UserAvatar
 
 
 class _S3UserAssociationLink(ApiModel):
-    allow_manager_browser_data_access: bool = False
+    allow_manager_browser_data_access: bool
 
 
 class S3UserUserLink(_S3UserAssociationLink):
     user_id: int
-    user_email: Optional[str] = None
-    user_full_name: Optional[str] = None
-    user_avatar: Optional[UserAvatar] = None
+    user_email: Optional[str]
+    user_full_name: Optional[str]
+    user_avatar: Optional[UserAvatar]
 
 
 class S3UserGroupLink(_S3UserAssociationLink):
     group_id: int
-    group_name: Optional[str] = None
-    group_avatar: Optional[UiGroupAvatar] = None
+    group_name: Optional[str]
+    group_avatar: Optional[UiGroupAvatar]
+
+
+class S3UserUserLinkInput(ApiModel):
+    user_id: int
+    allow_manager_browser_data_access: bool = False
+
+
+class S3UserGroupLinkInput(ApiModel):
+    group_id: int
+    allow_manager_browser_data_access: bool = False
 
 
 class S3User(ApiModel):
@@ -40,25 +50,25 @@ class S3User(ApiModel):
     name: str
     rgw_user_uid: str
     rgw_tenant: str
-    email: Optional[str] = None
-    created_at: Optional[datetime] = None
-    user_links: list[S3UserUserLink] = Field(default_factory=list)
-    group_links: list[S3UserGroupLink] = Field(default_factory=list)
-    quota_max_size_gb: Optional[float] = None
-    quota_max_objects: Optional[int] = None
+    email: Optional[str]
+    created_at: Optional[datetime]
+    user_links: list[S3UserUserLink]
+    group_links: list[S3UserGroupLink]
+    quota_max_size_gb: Optional[float]
+    quota_max_objects: Optional[int]
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str
-    bucket_count: Optional[int] = None
-    allow_bucket_quota_management: Optional[bool] = None
-    allow_access_key_management: Optional[bool] = None
-    allow_access_key_metadata: Optional[bool] = None
-    allow_access_key_expiration: Optional[bool] = None
-    allow_activity_history: Optional[bool] = None
-    allow_rgw_usage_metrics: Optional[bool] = None
-    allow_cost_estimation: Optional[bool] = None
-    allow_managed_private_connection_provisioning: Optional[bool] = None
-    tags: list[TagDefinitionSummary] = Field(default_factory=list)
+    bucket_count: Optional[int]
+    allow_bucket_quota_management: Optional[bool]
+    allow_access_key_management: Optional[bool]
+    allow_access_key_metadata: Optional[bool]
+    allow_access_key_expiration: Optional[bool]
+    allow_activity_history: Optional[bool]
+    allow_rgw_usage_metrics: Optional[bool]
+    allow_cost_estimation: Optional[bool]
+    allow_managed_private_connection_provisioning: Optional[bool]
+    tags: list[TagDefinitionSummary]
 
 class S3UserCreate(ApiModel):
     name: str
@@ -95,8 +105,8 @@ class S3UserImport(ApiModel):
 class S3UserUpdate(ApiModel):
     name: Optional[str] = None
     email: Optional[str] = None
-    user_links: Optional[list[S3UserUserLink]] = None
-    group_links: Optional[list[S3UserGroupLink]] = None
+    user_links: Optional[list[S3UserUserLinkInput]] = None
+    group_links: Optional[list[S3UserGroupLinkInput]] = None
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[str] = None
     quota_max_objects: Optional[int] = None
@@ -138,15 +148,15 @@ class S3UserSummary(ApiModel):
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str
-    allow_bucket_quota_management: Optional[bool] = None
-    allow_access_key_management: Optional[bool] = None
-    allow_access_key_metadata: Optional[bool] = None
-    allow_access_key_expiration: Optional[bool] = None
-    allow_activity_history: Optional[bool] = None
-    allow_rgw_usage_metrics: Optional[bool] = None
-    allow_cost_estimation: Optional[bool] = None
-    allow_managed_private_connection_provisioning: Optional[bool] = None
-    tags: list[TagDefinitionSummary] = Field(default_factory=list)
+    allow_bucket_quota_management: Optional[bool]
+    allow_access_key_management: Optional[bool]
+    allow_access_key_metadata: Optional[bool]
+    allow_access_key_expiration: Optional[bool]
+    allow_activity_history: Optional[bool]
+    allow_rgw_usage_metrics: Optional[bool]
+    allow_cost_estimation: Optional[bool]
+    allow_managed_private_connection_provisioning: Optional[bool]
+    tags: list[TagDefinitionSummary]
 
 
 class PaginatedS3UsersResponse(PaginatedResponse):
