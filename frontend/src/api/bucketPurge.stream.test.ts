@@ -73,7 +73,10 @@ describe("bucket purge streams", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await streamCephAdminBucketPurge(7, { buckets: ["bucket-a"], confirmation: "PURGE 1 BUCKETS" });
+    await streamCephAdminBucketPurge(7, {
+      targets: [{ name: "bucket-a", tenant: "tenant-a" }],
+      confirmation: "PURGE 1 BUCKETS",
+    });
     await streamStorageOpsBucketPurge({
       targets: [{ context_id: "s3u-1", bucket_name: "bucket-a" }],
       confirmation: "PURGE 1 BUCKETS",
@@ -82,7 +85,13 @@ describe("bucket purge streams", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       "/api/ceph-admin/endpoints/7/buckets/purge/stream",
-      expect.objectContaining({ method: "POST" })
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          targets: [{ name: "bucket-a", tenant: "tenant-a" }],
+          confirmation: "PURGE 1 BUCKETS",
+        }),
+      })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,

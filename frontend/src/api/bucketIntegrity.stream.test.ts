@@ -70,13 +70,20 @@ describe("bucket integrity streams", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await streamCephAdminBucketIntegrityCheck(7, { buckets: ["bucket-a"] });
+    await streamCephAdminBucketIntegrityCheck(7, {
+      targets: [{ name: "bucket-a", tenant: "tenant-a" }],
+    });
     await streamStorageOpsBucketIntegrityCheck({ targets: [{ context_id: "s3u-1", bucket_name: "bucket-a" }] });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       "/api/ceph-admin/endpoints/7/buckets/integrity-check/stream",
-      expect.objectContaining({ method: "POST" })
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          targets: [{ name: "bucket-a", tenant: "tenant-a" }],
+        }),
+      })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,

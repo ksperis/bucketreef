@@ -34,13 +34,20 @@ describe("bucket usage stats streams", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await streamCephAdminBucketUsageStats(7, { buckets: ["bucket-a"] });
+    await streamCephAdminBucketUsageStats(7, {
+      targets: [{ name: "bucket-a", tenant: "tenant-a" }],
+    });
     await streamStorageOpsBucketUsageStats({ targets: [{ context_id: "s3u-1", bucket_name: "bucket-a" }] });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
       "/api/ceph-admin/endpoints/7/bucket-usage-stats/stream",
-      expect.objectContaining({ method: "POST" })
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          targets: [{ name: "bucket-a", tenant: "tenant-a" }],
+        }),
+      })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
