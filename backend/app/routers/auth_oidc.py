@@ -56,7 +56,7 @@ def start_oidc_login(
     provider_id: str,
     payload: Optional[OIDCStartRequest] = None,
     oidc_service: OidcService = Depends(get_oidc_service_dependency),
-) -> dict[str, str]:
+) -> OIDCStartResponse:
     request_origin = require_trusted_origin(request)
     ip_address, _, _ = request_context(request, settings=settings)
     account_key = f"oidc-start:{provider_id.lower()}"
@@ -76,7 +76,7 @@ def start_oidc_login(
             request_origin=request_origin,
         )
         limiter.record_failure(account=account_key, ip_address=ip_address)
-        return result
+        return OIDCStartResponse.model_validate(result)
     except OIDCProviderNotFoundError as exc:
         limiter.record_failure(account=account_key, ip_address=ip_address)
         raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
