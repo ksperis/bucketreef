@@ -10,7 +10,10 @@ import type {
   BulkPastePlan,
   BulkPreviewItem,
 } from "./bucketBulkOperationsModel";
-import type { PreparedBucketOpsBulkInput } from "./bucketOpsBulkInput";
+import {
+  prepareBucketOpsBulkExecution,
+  type PreparedBucketOpsBulkInputResult,
+} from "./bucketOpsBulkInput";
 import { previewBucketOpsBulkUpdate } from "./bucketOpsBulkPreview";
 import { previewBucketOpsConfigPaste } from "./bucketOpsConfigPastePreview";
 
@@ -40,7 +43,7 @@ type UseBucketOpsBulkPreviewOptions = BulkPreviewApi & {
   operation: BulkOperation;
   pastePlan: BulkPastePlan;
   policyUpdateOnlyExisting: boolean;
-  prepared: { kind: "success"; value: PreparedBucketOpsBulkInput } | { kind: "error"; error: string };
+  prepared: PreparedBucketOpsBulkInputResult;
   previewBulkOperation?: typeof previewBucketOpsBulkUpdate;
   previewPasteOperation?: typeof previewBucketOpsConfigPaste;
   quotaDisabledReason: string | null;
@@ -99,31 +102,18 @@ export function useBucketOpsBulkPreview({
 
   const runBulkPreview = useCallback(async () => {
     if (endpointId === null || bucketNames.length === 0) return;
-    if (!operation) {
-      setBulkPreviewError("Select an operation first.");
-      return;
-    }
-    if (operation === "copy_configs") {
-      setBulkPreviewError("Use 'Copy selected configs' for this operation.");
-      return;
-    }
-    if (operation === "set_quota" && quotaDisabledReason) {
-      setBulkPreviewError(
-        `Set bucket quota is unavailable: ${quotaDisabledReason}.`,
-      );
-      return;
-    }
-    if (operation === "paste_configs" && pastePlan.error) {
-      setBulkPreviewError(pastePlan.error);
-      return;
-    }
-    if (operation !== "paste_configs" && prepared.kind === "error") {
-      setBulkPreviewError(prepared.error);
+    const execution = prepareBucketOpsBulkExecution({
+      bucketNames,
+      operation,
+      pastePlan,
+      prepared,
+      quotaDisabledReason,
+    });
+    if (execution.kind === "error") {
+      setBulkPreviewError(execution.error);
       return;
     }
 
-    const total =
-      operation === "paste_configs" ? pastePlan.mappings.length : bucketNames.length;
     const runToken = previewRunRef.current + 1;
     previewRunRef.current = runToken;
     setBulkPreviewLoading(true);
@@ -133,7 +123,7 @@ export function useBucketOpsBulkPreview({
     setBulkPreviewProgress({
       label: "Previewing changes",
       completed: 0,
-      total,
+      total: execution.total,
       failed: 0,
     });
     onPreviewStart();
