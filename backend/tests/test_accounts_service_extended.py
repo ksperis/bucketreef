@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import select
 
 from tests.feature_policy_fixtures import enable_manager_features
 from app.db import ManagerAccountRole, PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
@@ -277,10 +278,11 @@ def test_update_account_user_links_missing_user(db_session, monkeypatch):
         )
 
     assert (
-        db_session.query(UserS3Account)
-        .filter(
-            UserS3Account.account_id == account.id,
-            UserS3Account.user_id == user_existing.id,
+        db_session.scalars(
+            select(UserS3Account).where(
+                UserS3Account.account_id == account.id,
+                UserS3Account.user_id == user_existing.id,
+            )
         )
         .one()
         .manager_role
@@ -348,9 +350,12 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
     assert add_user.role == UserRole.UI_USER.value
     # Removed user link should be gone
     assert (
-        db_session.query(UserS3Account)
-        .filter(UserS3Account.account_id == account.id, UserS3Account.user_id == remove_user.id)
-        .first()
+        db_session.scalar(
+            select(UserS3Account).where(
+                UserS3Account.account_id == account.id,
+                UserS3Account.user_id == remove_user.id,
+            )
+        )
         is None
     )
 
@@ -471,7 +476,7 @@ def test_delete_account_guardrails_and_success(db_session, monkeypatch):
     monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 0))
     service.delete_account(account.id, delete_rgw=True)
     assert admin.deleted_accounts == ["RGW-DEL-1"]
-    assert db_session.query(S3Account).filter(S3Account.id == account.id).first() is None
+    assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
 
 
 class _FakeAccountIAM:
@@ -611,7 +616,7 @@ def test_delete_account_uses_scoped_iam_when_account_user_list_is_missing(db_ses
     service.delete_account(account.id, delete_rgw=True)
 
     assert admin.deleted_accounts == [account.rgw_account_id]
-    assert db_session.query(S3Account).filter(S3Account.id == account.id).first() is None
+    assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
 
 
 @pytest.mark.parametrize(
@@ -662,7 +667,7 @@ def test_delete_account_preserves_root_when_iam_resources_remain(
 
     assert admin.deleted_users == []
     assert admin.deleted_accounts == []
-    assert db_session.query(S3Account).filter(S3Account.id == account.id).one()
+    assert db_session.scalars(select(S3Account).where(S3Account.id == account.id)).one()
 
 
 def test_delete_root_user_success_and_failure(db_session, monkeypatch):
