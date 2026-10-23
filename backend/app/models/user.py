@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import EmailStr, field_validator
 
 from app.models.account_access import AccountAccessGrant
 from app.models.base import ApiModel
@@ -114,27 +114,6 @@ class UserAssociationDetail(ApiModel):
     email: str
     full_name: Optional[str]
     avatar: Optional[UserAvatar]
-
-
-class User(ApiModel):
-    id: int
-    email: EmailStr
-    full_name: Optional[str] = None
-    picture_url: Optional[str] = None
-    avatar: Optional[UserAvatar] = None
-    is_active: bool = True
-    is_admin: bool = False
-    can_access_ceph_admin: bool = False
-    can_access_storage_ops: bool = False
-    can_create_manual_private_connections: bool = False
-    can_provision_managed_private_connections: bool = False
-    manager_tool_access: ManagerToolAccess = Field(default_factory=ManagerToolAccess)
-    browser_advanced_features_enabled: bool = False
-    ui_language: Optional[UiLanguage] = None
-    quota_alerts_enabled: bool = True
-    quota_alerts_global_watch: bool = False
-    ui_preferences: UiPreferences = Field(default_factory=UiPreferences)
-    last_login_at: Optional[datetime] = None
 
 
 class UserCreate(ApiModel):
