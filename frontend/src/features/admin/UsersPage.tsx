@@ -7,7 +7,6 @@ import {
   CreateUserPayload,
   UpdateUserPayload,
   User,
-  type S3UserMembership,
   type UiRole,
   createUser,
   deleteUser,
@@ -23,7 +22,6 @@ import {
 import {
   getAccountAccessRequiredMessage,
   hasAccountAccessRole,
-  type AccountAccessGrant,
 } from "../../api/accountAccess";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import WorkflowPage, {
@@ -55,7 +53,6 @@ import {
   readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
 import UserAssociationsTabs, { type AssociationTab } from "./UserAssociationsTabs";
-import type { AccountSelection } from "./UserAccountAssociationsPanel";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
@@ -64,6 +61,7 @@ import useAdminUserAssociationOptions from "./useAdminUserAssociationOptions";
 import { adminUserEditorSignature, emptyAdminUserEditorSignature } from "./adminUserEditorSignature";
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
+import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
 
 type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
 
@@ -162,53 +160,98 @@ export default function UsersPage() {
   const [createInitialSignature, setCreateInitialSignature] = useState(() =>
     emptyAdminUserEditorSignature(createFormTemplate())
   );
-  const [createSelectedS3Accounts, setCreateSelectedS3Accounts] = useState<AccountSelection[]>([]);
-  const [createSelectedS3Users, setCreateSelectedS3Users] = useState<S3UserMembership[]>([]);
-  const [createSelectedS3Connections, setCreateSelectedS3Connections] = useState<number[]>([]);
-  const [createSelectedGroups, setCreateSelectedGroups] = useState<number[]>([]);
-  const [createAccountAccessChoice, setCreateAccountAccessChoice] = useState<
-    Record<number, AccountAccessGrant>
-  >({});
-  const [createS3AccountSearch, setCreateS3AccountSearch] = useState("");
-  const [createS3Search, setCreateS3Search] = useState("");
-  const [createConnectionSearch, setCreateConnectionSearch] = useState("");
-  const [createGroupSearch, setCreateGroupSearch] = useState("");
   const [createModalTab, setCreateModalTab] = useState<UserModalTab>("general");
-  const [createAssociationsTab, setCreateAssociationsTab] = useState<"accounts" | "s3_users" | "connections">("accounts");
-  const [showCreateAccountPanel, setShowCreateAccountPanel] = useState(false);
-  const [createAccountSelections, setCreateAccountSelections] = useState<number[]>([]);
-  const [showCreateS3UserPanel, setShowCreateS3UserPanel] = useState(false);
-  const [createS3UserSelections, setCreateS3UserSelections] = useState<number[]>([]);
-  const [showCreateConnectionPanel, setShowCreateConnectionPanel] = useState(false);
-  const [createConnectionSelections, setCreateConnectionSelections] = useState<number[]>([]);
-  const [showCreateGroupPanel, setShowCreateGroupPanel] = useState(false);
-  const [createGroupSelections, setCreateGroupSelections] = useState<number[]>([]);
+  const {
+    selectedS3Accounts: createSelectedS3Accounts,
+    setSelectedS3Accounts: setCreateSelectedS3Accounts,
+    selectedS3Users: createSelectedS3Users,
+    setSelectedS3Users: setCreateSelectedS3Users,
+    selectedS3Connections: createSelectedS3Connections,
+    setSelectedS3Connections: setCreateSelectedS3Connections,
+    selectedGroups: createSelectedGroups,
+    setSelectedGroups: setCreateSelectedGroups,
+    accountAccessChoice: createAccountAccessChoice,
+    setAccountAccessChoice: setCreateAccountAccessChoice,
+    s3AccountSearch: createS3AccountSearch,
+    setS3AccountSearch: setCreateS3AccountSearch,
+    s3Search: createS3Search,
+    setS3Search: setCreateS3Search,
+    connectionSearch: createConnectionSearch,
+    setConnectionSearch: setCreateConnectionSearch,
+    groupSearch: createGroupSearch,
+    setGroupSearch: setCreateGroupSearch,
+    associationsTab: createAssociationsTab,
+    setAssociationsTab: setCreateAssociationsTab,
+    showAccountPanel: showCreateAccountPanel,
+    setShowAccountPanel: setShowCreateAccountPanel,
+    accountSelections: createAccountSelections,
+    setAccountSelections: setCreateAccountSelections,
+    showS3UserPanel: showCreateS3UserPanel,
+    setShowS3UserPanel: setShowCreateS3UserPanel,
+    s3UserSelections: createS3UserSelections,
+    setS3UserSelections: setCreateS3UserSelections,
+    showConnectionPanel: showCreateConnectionPanel,
+    setShowConnectionPanel: setShowCreateConnectionPanel,
+    connectionSelections: createConnectionSelections,
+    setConnectionSelections: setCreateConnectionSelections,
+    showGroupPanel: showCreateGroupPanel,
+    setShowGroupPanel: setShowCreateGroupPanel,
+    groupSelections: createGroupSelections,
+    setGroupSelections: setCreateGroupSelections,
+    reset: resetCreateAssociations,
+    toggleAccountSelection: toggleCreateAccountSelection,
+    toggleS3UserSelection: toggleCreateS3UserSelection,
+    toggleConnectionSelection: toggleCreateConnectionSelection,
+  } = useAdminUserAssociationEditorState();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<UpdateUserPayload>({});
   const [editInitialSignature, setEditInitialSignature] = useState(() =>
     emptyAdminUserEditorSignature({})
   );
-  const [editSelectedS3Accounts, setEditSelectedS3Accounts] = useState<AccountSelection[]>([]);
-  const [editSelectedS3Users, setEditSelectedS3Users] = useState<S3UserMembership[]>([]);
-  const [editSelectedS3Connections, setEditSelectedS3Connections] = useState<number[]>([]);
-  const [editSelectedGroups, setEditSelectedGroups] = useState<number[]>([]);
-  const [editAccountAccessChoice, setEditAccountAccessChoice] = useState<
-    Record<number, AccountAccessGrant>
-  >({});
-  const [editS3AccountSearch, setEditS3AccountSearch] = useState("");
-  const [editS3Search, setEditS3Search] = useState("");
-  const [editConnectionSearch, setEditConnectionSearch] = useState("");
-  const [editGroupSearch, setEditGroupSearch] = useState("");
   const [editModalTab, setEditModalTab] = useState<UserModalTab>("general");
-  const [editAssociationsTab, setEditAssociationsTab] = useState<"accounts" | "s3_users" | "connections">("accounts");
-  const [showEditAccountPanel, setShowEditAccountPanel] = useState(false);
-  const [editAccountSelections, setEditAccountSelections] = useState<number[]>([]);
-  const [showEditS3UserPanel, setShowEditS3UserPanel] = useState(false);
-  const [editS3UserSelections, setEditS3UserSelections] = useState<number[]>([]);
-  const [showEditConnectionPanel, setShowEditConnectionPanel] = useState(false);
-  const [editConnectionSelections, setEditConnectionSelections] = useState<number[]>([]);
-  const [showEditGroupPanel, setShowEditGroupPanel] = useState(false);
-  const [editGroupSelections, setEditGroupSelections] = useState<number[]>([]);
+  const {
+    selectedS3Accounts: editSelectedS3Accounts,
+    setSelectedS3Accounts: setEditSelectedS3Accounts,
+    selectedS3Users: editSelectedS3Users,
+    setSelectedS3Users: setEditSelectedS3Users,
+    selectedS3Connections: editSelectedS3Connections,
+    setSelectedS3Connections: setEditSelectedS3Connections,
+    selectedGroups: editSelectedGroups,
+    setSelectedGroups: setEditSelectedGroups,
+    accountAccessChoice: editAccountAccessChoice,
+    setAccountAccessChoice: setEditAccountAccessChoice,
+    s3AccountSearch: editS3AccountSearch,
+    setS3AccountSearch: setEditS3AccountSearch,
+    s3Search: editS3Search,
+    setS3Search: setEditS3Search,
+    connectionSearch: editConnectionSearch,
+    setConnectionSearch: setEditConnectionSearch,
+    groupSearch: editGroupSearch,
+    setGroupSearch: setEditGroupSearch,
+    associationsTab: editAssociationsTab,
+    setAssociationsTab: setEditAssociationsTab,
+    showAccountPanel: showEditAccountPanel,
+    setShowAccountPanel: setShowEditAccountPanel,
+    accountSelections: editAccountSelections,
+    setAccountSelections: setEditAccountSelections,
+    showS3UserPanel: showEditS3UserPanel,
+    setShowS3UserPanel: setShowEditS3UserPanel,
+    s3UserSelections: editS3UserSelections,
+    setS3UserSelections: setEditS3UserSelections,
+    showConnectionPanel: showEditConnectionPanel,
+    setShowConnectionPanel: setShowEditConnectionPanel,
+    connectionSelections: editConnectionSelections,
+    setConnectionSelections: setEditConnectionSelections,
+    showGroupPanel: showEditGroupPanel,
+    setShowGroupPanel: setShowEditGroupPanel,
+    groupSelections: editGroupSelections,
+    setGroupSelections: setEditGroupSelections,
+    clearPendingSelections: clearEditPendingAssociationSelections,
+    reset: resetEditAssociations,
+    toggleAccountSelection: toggleEditAccountSelection,
+    toggleS3UserSelection: toggleEditS3UserSelection,
+    toggleConnectionSelection: toggleEditConnectionSelection,
+  } = useAdminUserAssociationEditorState();
   const [busyId, setBusyId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [authenticationBusy, setAuthenticationBusy] = useState(false);
@@ -392,42 +435,6 @@ export default function UsersPage() {
     }
   }, [createModalTab, editModalTab, ensureGroups, showCreateModal, showEditModal]);
 
-  const toggleCreateAccountSelection = (accountId: number) => {
-    setCreateAccountSelections((prev) =>
-      prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId]
-    );
-  };
-
-  const toggleCreateS3UserSelection = (userId: number) => {
-    setCreateS3UserSelections((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
-  };
-
-  const toggleCreateConnectionSelection = (connectionId: number) => {
-    setCreateConnectionSelections((prev) =>
-      prev.includes(connectionId) ? prev.filter((id) => id !== connectionId) : [...prev, connectionId]
-    );
-  };
-
-  const toggleEditAccountSelection = (accountId: number) => {
-    setEditAccountSelections((prev) =>
-      prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId]
-    );
-  };
-
-  const toggleEditS3UserSelection = (userId: number) => {
-    setEditS3UserSelections((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
-  };
-
-  const toggleEditConnectionSelection = (connectionId: number) => {
-    setEditConnectionSelections((prev) =>
-      prev.includes(connectionId) ? prev.filter((id) => id !== connectionId) : [...prev, connectionId]
-    );
-  };
-
   const emptyCreateSignature = () => emptyAdminUserEditorSignature(createFormTemplate());
 
   const createCurrentSignature = useMemo(
@@ -461,25 +468,8 @@ export default function UsersPage() {
   const resetCreateModalState = () => {
     setCreateAttempted(false);
     setForm(createFormTemplate());
-    setCreateSelectedS3Accounts([]);
-    setCreateSelectedS3Users([]);
-    setCreateSelectedS3Connections([]);
-    setCreateSelectedGroups([]);
-    setCreateAccountAccessChoice({});
-    setCreateS3AccountSearch("");
-    setCreateS3Search("");
-    setCreateConnectionSearch("");
-    setCreateGroupSearch("");
+    resetCreateAssociations();
     setCreateModalTab("general");
-    setCreateAssociationsTab("accounts");
-    setShowCreateAccountPanel(false);
-    setShowCreateS3UserPanel(false);
-    setShowCreateConnectionPanel(false);
-    setShowCreateGroupPanel(false);
-    setCreateAccountSelections([]);
-    setCreateS3UserSelections([]);
-    setCreateConnectionSelections([]);
-    setCreateGroupSelections([]);
     setCreateRoleHelpOpen(false);
     setCreateInitialSignature(emptyCreateSignature());
   };
@@ -521,25 +511,8 @@ export default function UsersPage() {
   const closeEditModal = () => {
     setShowEditModal(false);
     setEditingUser(null);
-    setEditSelectedS3Accounts([]);
-    setEditS3AccountSearch("");
-    setEditSelectedS3Users([]);
-    setEditS3Search("");
-    setEditSelectedS3Connections([]);
-    setEditConnectionSearch("");
-    setEditSelectedGroups([]);
-    setEditGroupSearch("");
+    resetEditAssociations();
     setEditModalTab("general");
-    setEditAssociationsTab("accounts");
-    setShowEditAccountPanel(false);
-    setShowEditS3UserPanel(false);
-    setShowEditConnectionPanel(false);
-    setShowEditGroupPanel(false);
-    setEditAccountSelections([]);
-    setEditS3UserSelections([]);
-    setEditConnectionSelections([]);
-    setEditGroupSelections([]);
-    setEditAccountAccessChoice({});
     setEditForm({});
     setEditRoleHelpOpen(false);
     setEditInitialSignature(emptyAdminUserEditorSignature({}));
@@ -708,20 +681,12 @@ export default function UsersPage() {
       portal_role: link.portal_role,
       allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     }));
-    setEditSelectedS3Accounts(selectedAccounts);
     const nextSelectedS3Users = (user.s3_user_links ?? []).map((link) => ({
       s3_user_id: Number(link.s3_user_id),
       allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     }));
     const nextSelectedS3Connections = (user.s3_connection_details ?? []).map((connection) => Number(connection.id));
     const nextSelectedGroups = (user.group_details ?? []).map((group) => Number(group.id));
-    setEditSelectedS3Users(nextSelectedS3Users);
-    setEditSelectedS3Connections(nextSelectedS3Connections);
-    setEditSelectedGroups(nextSelectedGroups);
-    setEditS3AccountSearch("");
-    setEditS3Search("");
-    setEditConnectionSearch("");
-    setEditGroupSearch("");
     const hasAccounts = selectedAccounts.length > 0;
     const hasS3Users = nextSelectedS3Users.length > 0;
     const hasConnections = nextSelectedS3Connections.length > 0;
@@ -732,16 +697,13 @@ export default function UsersPage() {
         : hasConnections
           ? "connections"
           : "accounts";
-    setEditAssociationsTab(initialAssociationsTab);
-    setShowEditAccountPanel(false);
-    setShowEditS3UserPanel(false);
-    setShowEditConnectionPanel(false);
-    setShowEditGroupPanel(false);
-    setEditAccountSelections([]);
-    setEditS3UserSelections([]);
-    setEditConnectionSelections([]);
-    setEditGroupSelections([]);
-    setEditAccountAccessChoice({});
+    resetEditAssociations({
+      selectedS3Accounts: selectedAccounts,
+      selectedS3Users: nextSelectedS3Users,
+      selectedS3Connections: nextSelectedS3Connections,
+      selectedGroups: nextSelectedGroups,
+      associationsTab: initialAssociationsTab,
+    });
     setEditInitialSignature(
       adminUserEditorSignature({
         form: nextEditForm,
@@ -864,11 +826,7 @@ export default function UsersPage() {
       };
       setEditingUser(updatedUser);
       setEditForm(savedForm);
-      setEditAccountSelections([]);
-      setEditS3UserSelections([]);
-      setEditConnectionSelections([]);
-      setEditGroupSelections([]);
-      setEditAccountAccessChoice({});
+      clearEditPendingAssociationSelections();
       setEditInitialSignature(adminUserEditorSignature({
         form: savedForm,
         selectedAccounts: editSelectedS3Accounts,
