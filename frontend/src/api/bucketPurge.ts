@@ -31,8 +31,8 @@ type BucketDeleteWithPurgePayload = {
 
 export type BucketPurgeFailure = {
   bucket_name: string;
-  key?: string | null;
-  version_id?: string | null;
+  key: string | null;
+  version_id: string | null;
   stage: "list" | "delete" | "versions" | "delete_bucket";
   message: string;
   count: number;
@@ -40,8 +40,8 @@ export type BucketPurgeFailure = {
 
 export type BucketPurgeBucketResult = {
   bucket_name: string;
-  context_id?: string | null;
-  context_name?: string | null;
+  context_id: string | null;
+  context_name: string | null;
   status: "completed" | "completed_with_errors" | "failed" | "canceled";
   listed_objects: number;
   listed_versions: number;
@@ -54,22 +54,22 @@ export type BucketPurgeBucketResult = {
 };
 
 export type BucketPurgeProgress = {
-  request_id?: string | null;
+  request_id: string | null;
   stage: "prepare" | "list" | "delete" | "versions" | "delete_bucket" | "completed";
-  bucket_name?: string | null;
-  context_id?: string | null;
-  context_name?: string | null;
+  bucket_name: string | null;
+  context_id: string | null;
+  context_name: string | null;
   total_buckets: number;
   completed_buckets: number;
   listed_objects: number;
   listed_versions: number;
   deleted_objects: number;
   deleted_versions: number;
-  total_entries_estimate?: number | null;
-  total_entries_final?: boolean;
+  total_entries_estimate: number | null;
+  total_entries_final: boolean;
   failed_count: number;
   bucket_deleted: boolean;
-  message?: string | null;
+  message: string | null;
 };
 
 export type BucketPurgeResult = {

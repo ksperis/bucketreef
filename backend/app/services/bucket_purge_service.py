@@ -170,11 +170,21 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
         emit(
             BucketPurgeProgress(
+                request_id=None,
                 stage="prepare",
+                bucket_name=None,
+                context_id=None,
+                context_name=None,
                 total_buckets=len(targets),
                 completed_buckets=0,
+                listed_objects=0,
+                listed_versions=0,
+                deleted_objects=0,
+                deleted_versions=0,
                 total_entries_estimate=initial_total_entries_estimate,
                 total_entries_final=False,
+                failed_count=0,
+                bucket_deleted=False,
                 message="Preparing bucket purge...",
             )
         )
@@ -214,6 +224,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             total_entries_final = index == len(targets) - 1 and bucket_result.status != "failed"
             emit(
                 BucketPurgeProgress(
+                    request_id=None,
                     stage="completed",
                     bucket_name=target.bucket_name,
                     context_id=target.context_id,
@@ -227,6 +238,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                     total_entries_estimate=total_entries_estimate,
                     total_entries_final=total_entries_final,
                     failed_count=total_failed,
+                    bucket_deleted=False,
                     message=f"Completed purge for {target.bucket_name}.",
                 )
             )
@@ -271,14 +283,21 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
         emit(
             BucketPurgeProgress(
+                request_id=None,
                 stage="prepare",
                 bucket_name=target.bucket_name,
                 context_id=target.context_id,
                 context_name=target.context_name,
                 total_buckets=1,
                 completed_buckets=0,
+                listed_objects=0,
+                listed_versions=0,
+                deleted_objects=0,
+                deleted_versions=0,
                 total_entries_estimate=initial_total_entries_estimate,
                 total_entries_final=False,
+                failed_count=0,
+                bucket_deleted=False,
                 message="Preparing bucket deletion...",
             )
         )
@@ -335,6 +354,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             deleted_versions = base_deleted_versions + progress.deleted_versions
             progress_callback(
                 BucketPurgeProgress(
+                    request_id=None,
                     stage=stage,
                     bucket_name=target.bucket_name,
                     context_id=target.context_id,
@@ -405,6 +425,10 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                 context_id=target.context_id,
                 context_name=target.context_name,
                 status="failed",
+                listed_objects=0,
+                listed_versions=0,
+                deleted_objects=0,
+                deleted_versions=0,
                 failed_count=1,
                 bucket_deleted=False,
                 duration_seconds=round(monotonic() - started, 3),
@@ -413,6 +437,9 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                         bucket_name=target.bucket_name,
                         stage="list",
                         message=sanitized_error_log_detail(exc),
+                        key=None,
+                        version_id=None,
+                        count=1,
                     )
                 ],
             )
@@ -492,6 +519,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         stage = _normalize_progress_stage(progress.stage)
         state.progress_callback(
             BucketPurgeProgress(
+                request_id=None,
                 stage=stage,
                 bucket_name=state.target.bucket_name,
                 context_id=state.target.context_id,
@@ -562,6 +590,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
     ) -> None:
         state.progress_callback(
             BucketPurgeProgress(
+                request_id=None,
                 stage=stage,
                 bucket_name=state.target.bucket_name,
                 context_id=state.target.context_id,
@@ -634,6 +663,8 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                     bucket_name=state.target.bucket_name,
                     stage=stage,
                     message=message,
+                    key=None,
+                    version_id=None,
                     count=1,
                 )
             ],
