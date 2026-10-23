@@ -177,6 +177,10 @@ class PortalObjectsMixin:
                 key=key,
                 versioning_status="Disabled",
                 can_restore=False,
+                versions=[],
+                is_truncated=False,
+                next_key_marker=None,
+                next_version_id_marker=None,
             )
         response = self._list_storage_space_object_versions_page(
             client,
@@ -360,6 +364,7 @@ class PortalObjectsMixin:
         return PortalStorageObjectRestoreResponse(
             key=key,
             restored_from_version_id=source_version_id,
+            message="Restored",
         )
 
     def _restore_storage_space_object_version_with_client(

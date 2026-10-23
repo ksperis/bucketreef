@@ -69,20 +69,20 @@ class PortalStorageSpaceVersionCleanupResult(ApiModel):
 class PortalStorageObjectVersion(ApiModel):
     key: str
     version_id: str
-    is_latest: bool = False
-    is_delete_marker: bool = False
-    last_modified: Optional[datetime] = None
-    size: Optional[int] = None
+    is_latest: bool
+    is_delete_marker: bool
+    last_modified: Optional[datetime]
+    size: Optional[int]
 
 
 class PortalStorageObjectVersionsResponse(ApiModel):
     key: str
     versioning_status: PortalStorageSpaceVersioningStatus
-    can_restore: bool = False
-    versions: list[PortalStorageObjectVersion] = Field(default_factory=list)
-    is_truncated: bool = False
-    next_key_marker: Optional[str] = None
-    next_version_id_marker: Optional[str] = None
+    can_restore: bool
+    versions: list[PortalStorageObjectVersion]
+    is_truncated: bool
+    next_key_marker: Optional[str]
+    next_version_id_marker: Optional[str]
 
 
 class PortalTrashItem(ApiModel):
@@ -112,7 +112,7 @@ class PortalStorageObjectRestoreRequest(ApiModel):
 class PortalStorageObjectRestoreResponse(ApiModel):
     key: str
     restored_from_version_id: str
-    message: str = "Restored"
+    message: str
 
 
 PortalDeletedPrefixRestoreStatus = Literal["completed", "partial", "canceled"]

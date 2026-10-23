@@ -132,8 +132,8 @@ export type PortalStorageObjectVersion = {
   version_id: string;
   is_latest: boolean;
   is_delete_marker: boolean;
-  last_modified?: string | null;
-  size?: number | null;
+  last_modified: string | null;
+  size: number | null;
 };
 
 export type PortalStorageObjectVersionsResponse = {
@@ -142,8 +142,8 @@ export type PortalStorageObjectVersionsResponse = {
   can_restore: boolean;
   versions: PortalStorageObjectVersion[];
   is_truncated: boolean;
-  next_key_marker?: string | null;
-  next_version_id_marker?: string | null;
+  next_key_marker: string | null;
+  next_version_id_marker: string | null;
 };
 
 type PortalStorageObjectRestoreResponse = {

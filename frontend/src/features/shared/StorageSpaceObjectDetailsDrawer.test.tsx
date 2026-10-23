@@ -103,6 +103,8 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
       can_restore: false,
       versions: [],
       is_truncated: false,
+      next_key_marker: null,
+      next_version_id_marker: null,
     });
     mocks.listLinks.mockResolvedValue([]);
     mocks.createLink.mockResolvedValue({
