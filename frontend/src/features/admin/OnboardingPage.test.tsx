@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { axe } from "jest-axe";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -193,7 +193,11 @@ function renderPage() {
 async function continueWhenReady() {
   const button = screen.getByRole("button", { name: "Continue" });
   await waitFor(() => expect(button).toBeEnabled());
-  fireEvent.click(button);
+  await act(async () => {
+    fireEvent.click(button);
+    // Keep the debounced preview state update inside React's test boundary.
+    await new Promise((resolve) => window.setTimeout(resolve, 260));
+  });
 }
 
 beforeEach(() => {
