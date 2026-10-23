@@ -30,16 +30,16 @@ type BucketIntegrityRgwTargetPayload = BucketIntegrityOptionsPayload & RgwBucket
 
 export type BucketIntegrityFailure = {
   bucket_name: string;
-  key?: string | null;
-  version_id?: string | null;
+  key: string | null;
+  version_id: string | null;
   stage: "list" | "head" | "get";
   message: string;
 };
 
 export type BucketIntegrityBucketResult = {
   bucket_name: string;
-  context_id?: string | null;
-  context_name?: string | null;
+  context_id: string | null;
+  context_name: string | null;
   status: "passed" | "completed_with_errors" | "failed" | "canceled";
   listed_count: number;
   checked_count: number;
@@ -50,18 +50,18 @@ export type BucketIntegrityBucketResult = {
 };
 
 export type BucketIntegrityProgress = {
-  request_id?: string | null;
+  request_id: string | null;
   stage: "prepare" | "list" | "verify" | "completed";
-  bucket_name?: string | null;
-  context_id?: string | null;
-  context_name?: string | null;
+  bucket_name: string | null;
+  context_id: string | null;
+  context_name: string | null;
   total_buckets: number;
   completed_buckets: number;
   listed_count: number;
   checked_count: number;
   failed_count: number;
   bytes_read: number;
-  message?: string | null;
+  message: string | null;
 };
 
 export type BucketIntegrityResult = {

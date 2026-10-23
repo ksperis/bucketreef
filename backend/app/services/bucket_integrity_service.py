@@ -313,6 +313,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
         state.last_progress_at = now
         progress_callback(
             BucketIntegrityCheckProgress(
+                request_id=None,
                 stage=stage,
                 bucket_name=target.bucket_name,
                 context_id=target.context_id,
@@ -349,9 +350,17 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
 
         emit(
             BucketIntegrityCheckProgress(
+                request_id=None,
                 stage="prepare",
+                bucket_name=None,
+                context_id=None,
+                context_name=None,
                 total_buckets=len(targets),
                 completed_buckets=0,
+                listed_count=0,
+                checked_count=0,
+                failed_count=0,
+                bytes_read=0,
                 message="Preparing bucket integrity check...",
             )
         )
@@ -375,6 +384,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             total_bytes += bucket_result.bytes_read
             emit(
                 BucketIntegrityCheckProgress(
+                    request_id=None,
                     stage="completed",
                     bucket_name=target.bucket_name,
                     context_id=target.context_id,
@@ -457,6 +467,8 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
                 BucketIntegrityFailure(
                     bucket_name=target.bucket_name,
                     stage="list",
+                    key=None,
+                    version_id=None,
                     message=format_s3_error(exc, include_operation=True),
                 )
             )

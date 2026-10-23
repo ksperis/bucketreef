@@ -25,7 +25,7 @@ describe("bucket integrity streams", () => {
     document.cookie = "csrf_token=stream-csrf; path=/";
     const progressEvents: Array<{ checked: number; listed: number }> = [];
     const responseBody = buildStream([
-      'event: progress\ndata: {"stage":"verify","total_buckets":1,"completed_buckets":0,"listed_count":2,"checked_count":1,"failed_count":0,"bytes_read":12}\n\n',
+      'event: progress\ndata: {"request_id":"r1","stage":"verify","bucket_name":"bucket-a","context_id":"s3u-1","context_name":"Tenant A","total_buckets":1,"completed_buckets":0,"listed_count":2,"checked_count":1,"failed_count":0,"bytes_read":12,"message":null}\n\n',
       'event: result\ndata: {"status":"passed","total_buckets":1,"completed_buckets":1,"listed_count":2,"checked_count":2,"failed_count":0,"bytes_read":24,"started_at":"2026-01-01T00:00:00Z","finished_at":"2026-01-01T00:00:01Z","buckets":[]}\n\n',
       'event: done\ndata: {"request_id":"r1"}\n\n',
     ]);

@@ -44,46 +44,46 @@ class BucketIntegrityFailure(ApiModel):
     bucket_name: str
     stage: BucketIntegrityFailureStage
     message: str
-    key: Optional[str] = None
-    version_id: Optional[str] = None
+    key: Optional[str]
+    version_id: Optional[str]
 
 
 class BucketIntegrityBucketResult(ApiModel):
     bucket_name: str
-    context_id: Optional[str] = None
-    context_name: Optional[str] = None
+    context_id: Optional[str]
+    context_name: Optional[str]
     status: BucketIntegrityStatus
-    listed_count: int = 0
-    checked_count: int = 0
-    failed_count: int = 0
-    bytes_read: int = 0
-    duration_seconds: float = 0
-    failures_sample: list[BucketIntegrityFailure] = Field(default_factory=list)
+    listed_count: int
+    checked_count: int
+    failed_count: int
+    bytes_read: int
+    duration_seconds: float
+    failures_sample: list[BucketIntegrityFailure]
 
 
 class BucketIntegrityCheckProgress(ApiModel):
-    request_id: Optional[str] = None
-    stage: BucketIntegrityProgressStage = "prepare"
-    bucket_name: Optional[str] = None
-    context_id: Optional[str] = None
-    context_name: Optional[str] = None
-    total_buckets: int = 0
-    completed_buckets: int = 0
-    listed_count: int = 0
-    checked_count: int = 0
-    failed_count: int = 0
-    bytes_read: int = 0
-    message: Optional[str] = None
+    request_id: Optional[str]
+    stage: BucketIntegrityProgressStage
+    bucket_name: Optional[str]
+    context_id: Optional[str]
+    context_name: Optional[str]
+    total_buckets: int
+    completed_buckets: int
+    listed_count: int
+    checked_count: int
+    failed_count: int
+    bytes_read: int
+    message: Optional[str]
 
 
 class BucketIntegrityCheckResult(ApiModel):
     status: BucketIntegrityStatus
-    total_buckets: int = 0
-    completed_buckets: int = 0
-    listed_count: int = 0
-    checked_count: int = 0
-    failed_count: int = 0
-    bytes_read: int = 0
+    total_buckets: int
+    completed_buckets: int
+    listed_count: int
+    checked_count: int
+    failed_count: int
+    bytes_read: int
     started_at: datetime
     finished_at: datetime
-    buckets: list[BucketIntegrityBucketResult] = Field(default_factory=list)
+    buckets: list[BucketIntegrityBucketResult]
