@@ -60,10 +60,17 @@ export type BucketLoggingConfiguration = {
 };
 
 export type BucketPublicAccessBlock = {
-  block_public_acls?: boolean | null;
-  ignore_public_acls?: boolean | null;
-  block_public_policy?: boolean | null;
-  restrict_public_buckets?: boolean | null;
+  block_public_acls: boolean | null;
+  ignore_public_acls: boolean | null;
+  block_public_policy: boolean | null;
+  restrict_public_buckets: boolean | null;
+};
+
+export type BucketPublicAccessBlockUpdate = {
+  block_public_acls: boolean;
+  ignore_public_acls: boolean;
+  block_public_policy: boolean;
+  restrict_public_buckets: boolean;
 };
 
 export type BucketVersioningStatus = {

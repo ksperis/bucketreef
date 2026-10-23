@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Callable
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
+from app.models.bucket import BucketPublicAccessBlockUpdate
 from app.services.s3_execution_context import S3ExecutionTarget
 
 if TYPE_CHECKING:
@@ -170,7 +171,12 @@ class _BucketSettingsCopyRunner:
         self.service._configuration.set_public_access_block(
             self.target_bucket,
             self.target_execution_context,
-            public_access_block,
+            BucketPublicAccessBlockUpdate(
+                block_public_acls=bool(public_access_block.block_public_acls),
+                ignore_public_acls=bool(public_access_block.ignore_public_acls),
+                block_public_policy=bool(public_access_block.block_public_policy),
+                restrict_public_buckets=bool(public_access_block.restrict_public_buckets),
+            ),
         )
 
     def _copy_lifecycle(self) -> None:

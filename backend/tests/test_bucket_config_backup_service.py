@@ -42,7 +42,12 @@ class FakeBucketsService:
         return BucketObjectLock(enabled=True, mode="GOVERNANCE", days=30)
 
     def get_public_access_block(self, bucket_name, account):  # noqa: ANN001
-        return BucketPublicAccessBlock(block_public_policy=True, restrict_public_buckets=True)
+        return BucketPublicAccessBlock(
+            block_public_acls=None,
+            ignore_public_acls=None,
+            block_public_policy=True,
+            restrict_public_buckets=True,
+        )
 
     def get_lifecycle(self, bucket_name, account):  # noqa: ANN001
         return BucketLifecycleConfig(rules=[{"ID": "expire-old", "Status": "Enabled"}])

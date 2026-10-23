@@ -24,6 +24,7 @@ from app.models.bucket import (
     BucketPolicyOut,
     BucketProperties,
     BucketPublicAccessBlock,
+    BucketPublicAccessBlockUpdate,
     BucketQuotaUpdate,
     BucketVersioningStatus,
     BucketReplicationConfiguration,
@@ -279,10 +280,10 @@ def put_bucket_public_access_block_config(
     service: BucketConfigurationService,
     context: S3ExecutionTarget,
     bucket_name: str,
-    payload: BucketPublicAccessBlock,
+    payload: BucketPublicAccessBlockUpdate,
 ) -> tuple[BucketPublicAccessBlock, dict[str, Any]]:
     result = _map_runtime_error(lambda: service.set_public_access_block(bucket_name, context, payload))
-    return result, payload.model_dump(exclude_none=True)
+    return result, payload.model_dump()
 
 
 def get_bucket_lifecycle_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketLifecycleConfig:
