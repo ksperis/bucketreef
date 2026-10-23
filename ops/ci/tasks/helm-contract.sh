@@ -9,6 +9,11 @@ if helm template bucketreef deploy/helm/bucketreef --set backend.existingSecret=
 grep -q 'networkPolicy.ingressController.namespaceSelector.matchLabels is required' /tmp/bucketreef-network-invalid.err
 helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth > /tmp/bucketreef-rendered.yaml
 test -s /tmp/bucketreef-rendered.yaml
+helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set ingress.tls=null --set ingress.externalTlsTermination=true > /tmp/bucketreef-external-tls.yaml
+test -s /tmp/bucketreef-external-tls.yaml
+if grep -q '^  tls:' /tmp/bucketreef-external-tls.yaml; then echo "external TLS termination must not require an Ingress TLS block"; exit 1; fi
+if helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set ingress.tls=null > /tmp/bucketreef-missing-tls.yaml 2>/tmp/bucketreef-missing-tls.err; then echo "expected missing ingress TLS configuration to fail"; exit 1; fi
+grep -q 'unless ingress.externalTlsTermination=true' /tmp/bucketreef-missing-tls.err
 helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set ingress.enabled=true > /tmp/bucketreef-worker-ingress.yaml
 awk '
   /path: \/api\/browser\/direct-transfer-worker$/ { worker = 1; next }
@@ -28,6 +33,7 @@ grep -q 'readOnlyRootFilesystem: true' /tmp/bucketreef-rendered.yaml
 grep -q 'automountServiceAccountToken: false' /tmp/bucketreef-rendered.yaml
 
 helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-admin.yaml --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-admin.yaml
+grep -q 'headers={"X-Internal-Token": token, "Host": "bucketreef.local"}' /tmp/bucketreef-admin.yaml
 grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-admin.yaml | grep -q 'value: "admin"'
 grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
 grep -A1 'name: FEATURE_CEPH_ADMIN_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
