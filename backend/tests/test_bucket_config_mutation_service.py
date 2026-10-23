@@ -183,7 +183,7 @@ def test_bucket_config_mutation_uses_configured_manager_scope_and_cache() -> Non
         context=account,
         bucket_name="demo",
         config_area="lifecycle",
-        payload=BucketLifecycleConfig(),
+        payload=BucketLifecycleConfig(rules=[]),
     ) == "result"
     assert calls[:2] == ["action", "manager-cache"]
     audit = calls[2]

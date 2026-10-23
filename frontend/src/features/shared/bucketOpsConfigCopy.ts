@@ -100,10 +100,10 @@ export async function copyBucketOpsConfigs({
             )
           : null,
         lifecycleRules: features.lifecycle
-          ? ((await getBucketLifecycle(sourceEndpointId, bucketName)).rules ?? []) as Record<string, unknown>[]
+          ? (await getBucketLifecycle(sourceEndpointId, bucketName)).rules
           : null,
         corsRules: features.cors
-          ? ((await getBucketCors(sourceEndpointId, bucketName)).rules ?? []) as Record<string, unknown>[]
+          ? (await getBucketCors(sourceEndpointId, bucketName)).rules
           : null,
         policy: features.policy
           ? (((await getBucketPolicy(sourceEndpointId, bucketName)).policy ?? null) as Record<string, unknown> | null)

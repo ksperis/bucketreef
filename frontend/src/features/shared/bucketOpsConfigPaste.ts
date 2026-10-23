@@ -172,12 +172,10 @@ export async function applyBucketOpsConfigPaste({
       }
 
       if (features.lifecycle && source.lifecycleRules) {
-        const currentLifecycle = (
-          (await getBucketLifecycle(
-            targetEndpointId,
-            mapping.destinationBucket,
-          )).rules ?? []
-        ) as Record<string, unknown>[];
+        const currentLifecycle = (await getBucketLifecycle(
+          targetEndpointId,
+          mapping.destinationBucket,
+        )).rules;
         if (stableStringify(currentLifecycle) !== stableStringify(source.lifecycleRules)) {
           if (source.lifecycleRules.length === 0) {
             if (currentLifecycle.length > 0) {
@@ -199,9 +197,10 @@ export async function applyBucketOpsConfigPaste({
       }
 
       if (features.cors && source.corsRules) {
-        const currentCors = (
-          (await getBucketCors(targetEndpointId, mapping.destinationBucket)).rules ?? []
-        ) as Record<string, unknown>[];
+        const currentCors = (await getBucketCors(
+          targetEndpointId,
+          mapping.destinationBucket,
+        )).rules;
         if (stableStringify(currentCors) !== stableStringify(source.corsRules)) {
           if (source.corsRules.length === 0) {
             if (currentCors.length > 0) {

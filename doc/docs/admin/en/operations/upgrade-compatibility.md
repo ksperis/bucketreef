@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical lifecycle and CORS rule collections
+
+Bucket lifecycle and CORS application responses now always require their
+`rules` arrays. The backend already materialized these collections for every
+successful read and update, and the bundled frontend already treats them as
+required fields; omission fallbacks have been removed from shared bucket
+operations.
+
+Deploy the backend and bundled frontend together. Direct callers must include
+`rules` when updating lifecycle configuration and must expect `rules` on
+successful lifecycle and CORS responses. No database migration is required.
+
 ## 2026-10 canonical OIDC provider collection payloads
 
 Admin OIDC provider create and update requests now require JSON arrays for
