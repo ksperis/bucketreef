@@ -95,6 +95,7 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
       encryption: "AES256",
       preview_type: "text",
       preview_text: "id,value\n1,reef",
+      preview_unavailable_reason: null,
     });
     mocks.fetchVersions.mockResolvedValue({
       key: "reports/2026/report.csv",
@@ -203,6 +204,7 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
       encryption: "AES256",
       preview_type: "text",
       preview_text: "stale preview",
+      preview_unavailable_reason: null,
     };
     let resolveStaleDetail: (value: typeof staleDetail) => void = () => undefined;
     mocks.fetchDetail

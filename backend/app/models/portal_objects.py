@@ -20,11 +20,11 @@ class PortalStorageObjectDeleteResponse(ApiModel):
 class PortalStorageObjectDetail(ApiModel):
     key: str
     name: str
-    size: Optional[int] = None
-    last_modified: Optional[datetime] = None
-    content_type: Optional[str] = None
-    storage_class: Optional[str] = None
-    encryption: Optional[str] = None
-    preview_type: PortalStorageObjectPreviewType = "unavailable"
-    preview_text: Optional[str] = None
-    preview_unavailable_reason: Optional[str] = None
+    size: Optional[int]
+    last_modified: Optional[datetime]
+    content_type: Optional[str]
+    storage_class: Optional[str]
+    encryption: Optional[str]
+    preview_type: PortalStorageObjectPreviewType
+    preview_text: Optional[str]
+    preview_unavailable_reason: Optional[str]

@@ -142,9 +142,10 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   }
   if (action === "object-legal-hold" && method === "GET") return json({ key, status: "OFF" });
   if (action === "object-retention" && method === "GET") return json({ key, mode: null, retain_until: null });
-  if (action === "portal-detail" && method === "GET") return json({ ...objectView(version), name: key.split("/").at(-1), content_type: version.content_type,
+  if (action === "portal-detail" && method === "GET") return json({ key: version.key, name: key.split("/").at(-1), size: version.size,
+    last_modified: version.last_modified, content_type: version.content_type, storage_class: version.storage_class, encryption: null,
     preview_type: version.body.type.startsWith("text/") || version.body.type === "application/json" ? "text" : version.body.type.startsWith("image/") ? "image" : "unavailable",
-    preview_text: version.body.size < FILE_LIMIT ? await version.body.slice(0, 64 * 1024).text() : null });
+    preview_text: version.body.size < FILE_LIMIT ? await version.body.slice(0, 64 * 1024).text() : null, preview_unavailable_reason: null });
   if ((action === "download" || action === "portal-download") && method === "GET") return new Response(version.body, { headers: { "Content-Type": version.body.type, "Content-Length": String(version.body.size), "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(key.split("/").at(-1)!)}` } });
   if (action === "presign" && method === "POST") {
     if (body.operation === "delete_object") { removeObject(bucket, key); return json({ url: URL.createObjectURL(new Blob()), method: "GET", expires_in: 900 }); }
