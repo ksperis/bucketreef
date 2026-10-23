@@ -11,21 +11,6 @@ from app.utils.rgw_account_extra_params import validate_rgw_account_extra_params
 
 
 class RGWAdminAccountOperations:
-    def get_account_user(
-        self, account_id: str, uid: str, allow_not_found: bool = False, tenant: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
-        user = self.get_user(uid, tenant=tenant, allow_not_found=allow_not_found)
-        if not user:
-            return None
-        details = user.get("user") if isinstance(user.get("user"), dict) else user
-        account_values = {
-            str(value).strip() for value in (user.get("account_id"), details.get("account_id"))
-            if value is not None and str(value).strip()
-        }
-        if not account_id or account_values != {account_id}:
-            return None
-        return user
-
     def create_account(
         self,
         account_id: Optional[str] = None,

@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 
 from app.utils.rgw_identifiers import (
@@ -39,15 +38,6 @@ class RgwBucketTarget:
     @property
     def admin_ops_name(self) -> str:
         return f"{self.tenant}/{self.name}" if self.tenant else self.name
-
-    @property
-    def identity_key(self) -> str:
-        return json.dumps(
-            [self.endpoint_id, self.tenant, self.name],
-            ensure_ascii=True,
-            separators=(",", ":"),
-        )
-
 
 PhysicalBucketTarget = RgwBucketTarget
 

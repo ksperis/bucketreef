@@ -25,34 +25,6 @@ class RgwUserKeyParser:
         )
 
     @classmethod
-    def select_credentials(
-        cls,
-        entries: list[dict],
-        *,
-        exclude_access_key: Optional[str] = None,
-    ) -> tuple[Optional[str], Optional[str]]:
-        if not entries:
-            return None, None
-
-        chosen_entry: Optional[dict[str, Any]] = None
-        excluded = normalize_optional_scalar(exclude_access_key)
-        if excluded:
-            for require_secret in (True, False):
-                for entry in entries:
-                    access_key = cls._access_key(entry)
-                    if not access_key or access_key == excluded:
-                        continue
-                    if require_secret and not cls._secret_key(entry):
-                        continue
-                    chosen_entry = entry
-                    break
-                if chosen_entry:
-                    break
-        if chosen_entry is None:
-            chosen_entry = entries[0]
-        return cls._access_key(chosen_entry), cls._secret_key(chosen_entry)
-
-    @classmethod
     def select_complete_credentials(
         cls,
         entries: list[dict],

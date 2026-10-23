@@ -50,21 +50,6 @@ class RGWAdminClient(
             return result
         return []
 
-    def get_info(self, allow_not_found: bool = True) -> Dict[str, Any]:
-        result = self._request(
-            "GET",
-            "/api/info",
-            params={"format": "json"},
-            allow_not_found=allow_not_found,
-            allow_not_implemented=True,
-        )
-        if isinstance(result, dict) and (
-            result.get("not_found") or result.get("not_implemented")
-        ):
-            return {}
-        return result if isinstance(result, dict) else {}
-
-
 def get_rgw_admin_client(
     access_key: Optional[str] = None,
     secret_key: Optional[str] = None,
