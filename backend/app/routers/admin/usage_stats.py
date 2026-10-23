@@ -13,7 +13,7 @@ from app.db import User
 from app.models.bucket_usage_stats import BucketUsageStatsAggregateResponse, BucketUsageStatsScopeRequest
 from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
 from app.routers.dependencies import get_current_super_admin
-from app.services.admin_stats_service import AdminUsageStatsScopeService
+from app.services.admin_usage_stats_scope_service import AdminUsageStatsScopeService
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsOptions,
     BucketUsageStatsService,
