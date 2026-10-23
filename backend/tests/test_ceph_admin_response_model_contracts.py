@@ -10,6 +10,7 @@ from app.models.ceph_admin import (
     CephAdminClusterStorageTotals,
     CephAdminEndpointAccess,
     CephAdminEntityMetrics,
+    PaginatedCephAdminBucketsResponse,
     CephAdminRgwAccountDetail,
     CephAdminRgwUserCreateResponse,
     CephAdminRgwUserDetail,
@@ -74,6 +75,15 @@ def test_ceph_admin_core_responses_require_complete_canonical_payloads() -> None
     assert set(CephAdminRgwUserCreateResponse.model_json_schema()["required"]) == {
         "detail",
         "generated_key",
+    }
+    assert set(PaginatedCephAdminBucketsResponse.model_json_schema()["required"]) == {
+        "items",
+        "total",
+        "page",
+        "page_size",
+        "has_next",
+        "stats_available",
+        "stats_warning",
     }
 
 
