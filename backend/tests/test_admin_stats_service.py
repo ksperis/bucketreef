@@ -2,6 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import pytest
+from fastapi import HTTPException
+
 from app.db import (
     S3Account,
     S3Connection,
@@ -132,3 +135,24 @@ def test_platform_summary_reports_global_counts(db_session):
         "total_shared_connections": 1,
         "total_private_connections": 1,
     }
+
+
+def test_storage_reports_missing_supervision_credentials_as_bad_request(db_session):
+    endpoint = StorageEndpoint(
+        name="metrics-without-supervision",
+        endpoint_url="https://metrics-without-supervision.test",
+        provider=StorageProvider.CEPH.value,
+        features_config=(
+            "features:\n"
+            "  metrics:\n"
+            "    enabled: true\n"
+        ),
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        AdminStatsService(db_session).storage(endpoint.id)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Supervision credentials are not configured for this endpoint"

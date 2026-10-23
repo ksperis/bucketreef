@@ -25,8 +25,9 @@ from app.services.auth_session_service import AuthSessionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.traffic_service import TrafficWindow
+from app.utils.http_errors import raise_bad_request_from_value_error
 from app.utils.rgw_payloads import extract_bucket_list
-from app.utils.storage_endpoint_features import normalize_features_config
+from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import build_bucket_overview, summarize_bucket_usage
 
 @dataclass(frozen=True)
@@ -180,30 +181,25 @@ class AdminStatsService:
                 detail="This endpoint is not a Ceph endpoint.",
             )
 
-        features = normalize_features_config(endpoint.provider, endpoint.features_config)
-        if require_storage_metrics and not features["metrics"]["enabled"]:
+        features = resolve_feature_flags(endpoint)
+        if require_storage_metrics and not features.metrics_enabled:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Storage metrics are disabled for this endpoint",
             )
-        if require_usage_logs and not features["usage"]["enabled"]:
+        if require_usage_logs and not features.usage_enabled:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Usage logs are disabled for this endpoint",
             )
-
-        supervision = endpoint.service_identity("supervision")
-        if (
-            supervision is None
-            or supervision.status != "ready"
-            or not supervision.access_key
-            or not supervision.secret_key
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Supervision credentials are not configured for this endpoint.",
-            )
         return endpoint
+
+    @staticmethod
+    def _supervision_client(endpoint: StorageEndpoint) -> RGWAdminClient:
+        try:
+            return get_supervision_rgw_client(endpoint)
+        except ValueError as exc:
+            raise_bad_request_from_value_error(exc)
 
     @staticmethod
     def _principal_bucket_stats(rgw_admin: RGWAdminClient, uid: str, tenant: str | None = None) -> dict:
@@ -242,7 +238,7 @@ class AdminStatsService:
             require_storage_metrics=True,
         )
         return self._principal_bucket_stats(
-            get_supervision_rgw_client(endpoint),
+            self._supervision_client(endpoint),
             account.rgw_user_uid,
             account.rgw_tenant,
         )
@@ -259,7 +255,7 @@ class AdminStatsService:
             require_storage_metrics=True,
         )
         return self._principal_bucket_stats(
-            get_supervision_rgw_client(endpoint),
+            self._supervision_client(endpoint),
             s3_user.rgw_user_uid,
             s3_user.rgw_tenant,
         )
@@ -268,7 +264,7 @@ class AdminStatsService:
         endpoint = self.resolve_endpoint(endpoint_id, require_storage_metrics=True)
         return AdminMetricsService(
             db=self.db,
-            rgw_admin=get_supervision_rgw_client(endpoint),
+            rgw_admin=self._supervision_client(endpoint),
             endpoint_id=endpoint.id,
         ).storage()
 
@@ -276,6 +272,6 @@ class AdminStatsService:
         endpoint = self.resolve_endpoint(endpoint_id, require_usage_logs=True)
         return AdminMetricsService(
             db=self.db,
-            rgw_admin=get_supervision_rgw_client(endpoint),
+            rgw_admin=self._supervision_client(endpoint),
             endpoint_id=endpoint.id,
         ).traffic(window=window)
