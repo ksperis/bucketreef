@@ -240,6 +240,7 @@ def test_app_settings_db_payload_rejects_legacy_usage_flags(payload):
 
 
 def test_general_settings_view_exposes_only_canonical_feature_policies():
+    assert set(GeneralSettingsView.model_json_schema()["required"]) == {"manager_feature_policies"}
     payload = GeneralSettingsView.from_settings(AppSettings()).model_dump(mode="json")
 
     assert payload["project_feature_policies"]["bucket_usage_stats"] == "default_on"
