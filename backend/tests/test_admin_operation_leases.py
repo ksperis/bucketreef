@@ -30,7 +30,7 @@ def _enabled_settings() -> AppSettings:
 
 
 def test_admin_cost_collect_returns_conflict_when_lease_is_active(client, db_session, monkeypatch):
-    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_settings)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings_for_db_readonly", lambda _db: _enabled_settings())
     OperationLeaseService(db_session).acquire(
         cost_daily_operation_name("2026-07-03"),
         ttl_seconds=600,
@@ -45,7 +45,7 @@ def test_admin_cost_collect_returns_conflict_when_lease_is_active(client, db_ses
 
 
 def test_admin_cost_collect_rejects_invalid_day(client, monkeypatch):
-    monkeypatch.setattr(admin_cost_service, "load_app_settings", _enabled_settings)
+    monkeypatch.setattr(admin_cost_service, "load_app_settings_for_db_readonly", lambda _db: _enabled_settings())
 
     response = client.post("/api/admin/cost/collect/daily?day=2026-02-30")
 

@@ -19,7 +19,7 @@ from app.models.cost import (
     CostSubjectsResponse,
     CostSummary,
 )
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.cost_collection_service import CostCollector
 from app.services.cost_service import CostService
 from app.services.operation_lease_service import (
@@ -36,9 +36,8 @@ class AdminCostService:
         self.db = db
         self.cost = CostService(db)
 
-    @staticmethod
-    def _require_enabled() -> None:
-        if not load_app_settings().general.cost_enabled:
+    def _require_enabled(self) -> None:
+        if not load_app_settings_for_db_readonly(self.db).general.cost_enabled:
             raise CostDisabledError("Cost is disabled")
 
     def _require_ceph_endpoint(self, endpoint_id: int) -> StorageEndpoint:

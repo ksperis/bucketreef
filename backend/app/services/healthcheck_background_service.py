@@ -6,7 +6,7 @@ import logging
 
 from app.core.database import SessionLocal
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.app_settings_service import load_app_settings
+from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import (
     HEALTHCHECK_RUN_OPERATION,
@@ -22,7 +22,7 @@ def run_initial_healthchecks(*, endpoint_id: int | None = None) -> None:
     try:
         # Never retain a request session or an ORM endpoint in a background task.
         with SessionLocal() as db:
-            if not load_app_settings().general.endpoint_status_enabled:
+            if not load_app_settings_for_db_readonly(db).general.endpoint_status_enabled:
                 return
             with OperationLeaseService(db).hold(
                 HEALTHCHECK_RUN_OPERATION,
