@@ -30,7 +30,7 @@ from app.services.ceph_admin_identity_listing_support import (
     apply_simple_search,
     coerce_number,
     collect_filter_fields,
-    paginate,
+    paginate_listing_results,
 )
 from app.services.listing_progress import (
     ListingProgressEmitter,
@@ -227,7 +227,14 @@ class _AccountListingPipeline:
             cancel_check=self.cancel_check,
         )
         filtered_results = self._search(results)
-        page_items, total, has_next = self._paginate(filtered_results)
+        page_items, total, has_next = paginate_listing_results(
+            filtered_results,
+            page=self.page,
+            page_size=self.page_size,
+            clone=_clone_account_list,
+            progress=self.progress,
+            cancel_check=self.cancel_check,
+        )
         page_items = self._enrich_page(page_items)
         self.progress.emit(
             percent=100,
@@ -363,26 +370,6 @@ class _AccountListingPipeline:
                 needle in account.account_id.lower()
                 or needle in (account.account_name or "").lower()
             ),
-        )
-
-    def _paginate(
-        self,
-        filtered_results: list[CephAdminRgwAccountSummary],
-    ) -> tuple[list[CephAdminRgwAccountSummary], int, bool]:
-        self.progress.emit(
-            percent=85,
-            stage="paginate",
-            processed=len(filtered_results),
-            total=len(filtered_results),
-            message="Preparing result page",
-            force=True,
-        )
-        invoke_cancel_check(self.cancel_check)
-        return paginate(
-            filtered_results,
-            page=self.page,
-            page_size=self.page_size,
-            clone=_clone_account_list,
         )
 
     def _enrich_page(

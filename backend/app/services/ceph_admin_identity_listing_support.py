@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, TypeVar
 
+from app.services.listing_progress import ListingProgressEmitter, invoke_cancel_check
+
 
 _T = TypeVar("_T")
 _R = TypeVar("_R")
@@ -78,3 +80,29 @@ def paginate(
     end = start + page_size
     page_items = clone(items[start:end])
     return page_items, total, end < total
+
+
+def paginate_listing_results(
+    items: list[_T],
+    *,
+    page: int,
+    page_size: int,
+    clone: Callable[[list[_T]], list[_T]],
+    progress: ListingProgressEmitter,
+    cancel_check: Callable[[], None] | None,
+) -> tuple[list[_T], int, bool]:
+    progress.emit(
+        percent=85,
+        stage="paginate",
+        processed=len(items),
+        total=len(items),
+        message="Preparing result page",
+        force=True,
+    )
+    invoke_cancel_check(cancel_check)
+    return paginate(
+        items,
+        page=page,
+        page_size=page_size,
+        clone=clone,
+    )
