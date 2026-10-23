@@ -245,6 +245,7 @@ def _bucket_usage_snapshot(bucket_name: str, *, scope_id: str, bytes_value: int)
         scope_id=scope_id,
         scope_name="Portal source",
         bucket_name=bucket_name,
+        bucket_tenant="",
         scan_mode="versions",
         version_listing_available=True,
         object_version_count=1,
