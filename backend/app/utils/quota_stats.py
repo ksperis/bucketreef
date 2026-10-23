@@ -2,37 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Any, Dict, Optional, Tuple
 
-
-def _parse_bool(value: Any) -> Optional[bool]:
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"true", "1", "yes", "enabled", "enable"}:
-            return True
-        if normalized in {"false", "0", "no", "disabled", "disable"}:
-            return False
-    return None
-
-
-def _parse_int(value: Any) -> Optional[int]:
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return int(value)
-    if isinstance(value, (int, float)):
-        return int(value)
-    if isinstance(value, str):
-        normalized = value.strip()
-        if not normalized:
-            return None
-        try:
-            return int(float(normalized))
-        except ValueError:
-            return None
-    return None
+from app.utils.rgw_payloads import parse_rgw_bool, parse_rgw_int
 
 
 def parse_positive_limit(value: Any) -> Optional[int]:
@@ -76,13 +46,13 @@ def extract_quota_limits(
     if not isinstance(quota, dict):
         return None, None
 
-    enabled = _parse_bool(quota.get("enabled"))
+    enabled = parse_rgw_bool(quota.get("enabled"))
     if enabled is False:
         return None, None
 
-    max_size = _parse_int(quota.get("max_size") or quota.get("max_size_bytes"))
+    max_size = parse_rgw_int(quota.get("max_size") or quota.get("max_size_bytes"))
     if max_size is None or max_size <= 0:
-        max_size_kb = _parse_int(quota.get("max_size_kb"))
+        max_size_kb = parse_rgw_int(quota.get("max_size_kb"))
         if max_size_kb is not None and max_size_kb > 0:
             max_size = max_size_kb * 1024
         else:
@@ -90,7 +60,7 @@ def extract_quota_limits(
     if max_size is not None and max_size <= 0:
         max_size = None
 
-    max_objects = _parse_int(quota.get("max_objects"))
+    max_objects = parse_rgw_int(quota.get("max_objects"))
     if max_objects is not None and max_objects <= 0:
         max_objects = None
 

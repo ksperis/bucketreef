@@ -73,3 +73,24 @@ def test_extract_quota_limits_prefers_bytes_and_ignores_disabled_or_unlimited_va
         },
         keys=("bucket_quota",),
     ) == (None, None)
+
+
+def test_extract_quota_limits_uses_strict_rgw_integer_parsing():
+    assert extract_quota_limits(
+        {
+            "quota": {
+                "enabled": "enabled",
+                "max_size": "4096",
+                "max_objects": "10",
+            }
+        }
+    ) == (4096, 10)
+    assert extract_quota_limits(
+        {
+            "quota": {
+                "enabled": True,
+                "max_size": "4096.5",
+                "max_objects": "10.5",
+            }
+        }
+    ) == (None, None)
