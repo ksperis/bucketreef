@@ -4,7 +4,10 @@ from typing import Any, Optional
 import logging
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import (
+    S3ExecutionTarget,
+    is_ceph_admin_execution_context,
+)
 from app.services.s3_execution_client import (
     s3_execution_bucket_request_kwargs,
     s3_execution_request_kwargs,
@@ -84,7 +87,7 @@ class BucketConfigurationService:
         bucket_name: str,
     ) -> dict:
         if (
-            getattr(execution_context, "context_kind", None) == "ceph_admin"
+            is_ceph_admin_execution_context(execution_context)
             and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
         ):
             return s3_execution_bucket_request_kwargs(
@@ -102,9 +105,10 @@ class BucketConfigurationService:
         rgw_tenant: str | None = None,
     ) -> tuple[Optional[str], Optional[str], str]:
         account_id, tenant = resolve_account_scope(execution_context.rgw_account_id)
-        if getattr(execution_context, "context_kind", None) == "ceph_admin" and rgw_tenant is not None:
+        is_ceph_admin = is_ceph_admin_execution_context(execution_context)
+        if is_ceph_admin and rgw_tenant is not None:
             tenant = rgw_tenant or None
-        elif getattr(execution_context, "context_kind", None) != "ceph_admin" or not tenant:
+        elif not is_ceph_admin or not tenant:
             tenant = resolve_target_tenant(execution_context) or None
         root_uid = resolve_target_admin_uid(execution_context)
         if root_uid:

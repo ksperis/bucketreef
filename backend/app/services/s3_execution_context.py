@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional, Protocol
+from typing import Any, Literal, Optional, Protocol, TypeGuard
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint
 from app.models.account_capabilities import AccountCapabilities
@@ -175,3 +175,12 @@ def build_ceph_admin_s3_context(
 
 
 S3ExecutionTarget = S3Account | S3ExecutionContext
+
+
+def is_ceph_admin_execution_context(
+    execution_context: S3ExecutionTarget,
+) -> TypeGuard[S3ExecutionContext]:
+    return (
+        isinstance(execution_context, S3ExecutionContext)
+        and execution_context.context_kind == "ceph_admin"
+    )
