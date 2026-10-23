@@ -144,7 +144,7 @@ def get_account_portal_settings(
         raise_http_error_from_value_error(exc)
 
 
-@router.put("/{account_id}/portal-settings", response_model=PortalAccountSettings, response_model_exclude_unset=True)
+@router.patch("/{account_id}/portal-settings", response_model=PortalAccountSettings, response_model_exclude_unset=True)
 def update_account_portal_settings(
     account_id: int,
     payload: PortalSettingsAdminUpdate,
@@ -234,7 +234,7 @@ def import_accounts(
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
-@router.put("/{account_id}", response_model=S3Account)
+@router.patch("/{account_id}", response_model=S3Account)
 def update_account(
     account_id: int,
     payload: S3AccountUpdate,

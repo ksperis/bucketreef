@@ -159,7 +159,7 @@ type UpdateS3AccountPayload = {
 };
 
 export async function updateS3Account(accountId: number, payload: UpdateS3AccountPayload): Promise<S3Account> {
-  const { data } = await client.put<S3Account>(`/admin/accounts/${accountId}`, payload);
+  const { data } = await client.patch<S3Account>(`/admin/accounts/${accountId}`, payload);
   return data;
 }
 
@@ -193,6 +193,6 @@ export async function updateAccountPortalSettings(
   accountId: number,
   payload: PortalSettingsAdminUpdate
 ): Promise<PortalAccountSettings> {
-  const { data } = await client.put<PortalAccountSettings>(`/admin/accounts/${accountId}/portal-settings`, payload);
+  const { data } = await client.patch<PortalAccountSettings>(`/admin/accounts/${accountId}/portal-settings`, payload);
   return data;
 }

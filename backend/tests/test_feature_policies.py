@@ -152,13 +152,13 @@ def test_account_override_explicit_null_restores_inheritance(client, db_session)
     account = make_s3_account(db_session, name="Inherited", allow_access_key_metadata=False)
     db_session.add(account)
     db_session.commit()
-    response = client.put(f"/api/admin/accounts/{account.id}", json={"allow_access_key_metadata": None})
+    response = client.patch(f"/api/admin/accounts/{account.id}", json={"allow_access_key_metadata": None})
     assert response.status_code == 200, response.text
     assert response.json()["allow_access_key_metadata"] is None
 
     db_session.refresh(account)
     assert account.allow_access_key_metadata is None
-    response = client.put(f"/api/admin/accounts/{account.id}", json={"email": "changed@example.test"})
+    response = client.patch(f"/api/admin/accounts/{account.id}", json={"email": "changed@example.test"})
     assert response.status_code == 200, response.text
     assert response.json()["allow_access_key_metadata"] is None
 
@@ -275,7 +275,7 @@ def test_admin_portal_prohibition_returns_forbidden_before_logging_reconciliatio
     account = make_s3_account(db_session, name="Locked project")
     db_session.add(account)
     db_session.commit()
-    response = client.put(f"/api/admin/accounts/{account.id}/portal-settings", json={"allow_portal_user_external_sharing": True})
+    response = client.patch(f"/api/admin/accounts/{account.id}/portal-settings", json={"allow_portal_user_external_sharing": True})
     assert response.status_code == 403, response.text
     assert "disabled by the platform" in response.json()["detail"]
     db_session.refresh(account)
@@ -391,7 +391,7 @@ def test_activity_history_override_explicit_null_restores_inheritance(client, db
     db_session.add(account)
     db_session.commit()
 
-    response = client.put(f"/api/admin/accounts/{account.id}", json={"allow_activity_history": None})
+    response = client.patch(f"/api/admin/accounts/{account.id}", json={"allow_activity_history": None})
 
     assert response.status_code == 200, response.text
     assert response.json()["allow_activity_history"] is None
