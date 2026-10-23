@@ -16,11 +16,14 @@ from app.models.browser import (
     DeleteObjectsResponse,
     ListObjectVersionsResponse,
     ObjectAcl,
+    ObjectAclUpdate,
     ObjectLegalHold,
+    ObjectLegalHoldUpdate,
     ObjectMetadata,
     ObjectMetadataUpdate,
     ObjectRestoreRequest,
     ObjectRetention,
+    ObjectRetentionUpdate,
     ObjectTags,
     ObjectTagsUpdate,
     SseCustomerContext,
@@ -165,7 +168,7 @@ def get_object_acl(
 @router.put("/buckets/{bucket_name}/object-acl", response_model=ObjectAcl)
 def put_object_acl(
     bucket_name: str,
-    payload: ObjectAcl,
+    payload: ObjectAclUpdate,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -196,7 +199,7 @@ def get_object_legal_hold(
 @router.put("/buckets/{bucket_name}/object-legal-hold", response_model=ObjectLegalHold)
 def put_object_legal_hold(
     bucket_name: str,
-    payload: ObjectLegalHold,
+    payload: ObjectLegalHoldUpdate,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -227,7 +230,7 @@ def get_object_retention(
 @router.put("/buckets/{bucket_name}/object-retention", response_model=ObjectRetention)
 def put_object_retention(
     bucket_name: str,
-    payload: ObjectRetention,
+    payload: ObjectRetentionUpdate,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),

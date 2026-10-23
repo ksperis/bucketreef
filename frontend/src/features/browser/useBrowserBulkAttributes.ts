@@ -239,6 +239,14 @@ export function useBrowserBulkAttributes({
     const retentionIso = draft.retentionDate
       ? toIsoString(draft.retentionDate)
       : "";
+    const retentionUpdate =
+      draft.applyRetention && draft.retentionMode && retentionIso
+        ? {
+            mode: draft.retentionMode,
+            retain_until: retentionIso,
+            bypass_governance: draft.retentionBypass,
+          }
+        : null;
 
     setLoading(true);
     setError(null);
@@ -339,15 +347,13 @@ export function useBrowserBulkAttributes({
             requestOptions,
           );
         }
-        if (draft.applyRetention) {
+        if (retentionUpdate) {
           await updateObjectRetention(
             contextId,
             bucketName,
             {
               key,
-              mode: draft.retentionMode || null,
-              retain_until: retentionIso,
-              bypass_governance: draft.retentionBypass,
+              ...retentionUpdate,
             },
             controller?.signal,
             requestOptions,

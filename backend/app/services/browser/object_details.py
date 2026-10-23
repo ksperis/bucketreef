@@ -11,13 +11,16 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.models.browser import (
     BrowserObjectLazyColumn,
     ObjectAcl,
+    ObjectAclUpdate,
     ObjectColumnValues,
     ObjectColumnsResponse,
     ObjectLegalHold,
+    ObjectLegalHoldUpdate,
     ObjectMetadata,
     ObjectMetadataUpdate,
     ObjectRestoreRequest,
     ObjectRetention,
+    ObjectRetentionUpdate,
     ObjectTag,
     ObjectTags,
     SseCustomerContext,
@@ -474,7 +477,7 @@ class BrowserObjectDetailsMixin:
         self,
         bucket_name: str,
         context: S3ExecutionTarget,
-        payload: ObjectAcl,
+        payload: ObjectAclUpdate,
     ) -> ObjectAcl:
         client = self._client(context)
         kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": payload.key, "ACL": payload.acl}
@@ -484,7 +487,7 @@ class BrowserObjectDetailsMixin:
             client.put_object_acl(**kwargs)
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to update ACL for '{payload.key}': {exc}") from exc
-        return payload
+        return ObjectAcl(key=payload.key, acl=payload.acl, version_id=payload.version_id)
 
     def get_object_legal_hold(
         self,
@@ -512,11 +515,9 @@ class BrowserObjectDetailsMixin:
         self,
         bucket_name: str,
         context: S3ExecutionTarget,
-        payload: ObjectLegalHold,
+        payload: ObjectLegalHoldUpdate,
     ) -> ObjectLegalHold:
         client = self._client(context)
-        if payload.status not in {"ON", "OFF"}:
-            raise RuntimeError("Legal hold status must be ON or OFF.")
         status = payload.status.upper()
         kwargs: dict[str, object] = {
             "Bucket": bucket_name,
@@ -529,7 +530,7 @@ class BrowserObjectDetailsMixin:
             client.put_object_legal_hold(**kwargs)
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to update legal hold for '{payload.key}': {exc}") from exc
-        return payload
+        return ObjectLegalHold(key=payload.key, status=payload.status, version_id=payload.version_id)
 
     def get_object_retention(
         self,
@@ -562,11 +563,9 @@ class BrowserObjectDetailsMixin:
         self,
         bucket_name: str,
         context: S3ExecutionTarget,
-        payload: ObjectRetention,
+        payload: ObjectRetentionUpdate,
     ) -> ObjectRetention:
         client = self._client(context)
-        if not payload.mode or not payload.retain_until:
-            raise RuntimeError("Retention mode and retain-until date are required.")
         mode = payload.mode.upper()
         kwargs: dict[str, object] = {
             "Bucket": bucket_name,
@@ -581,7 +580,12 @@ class BrowserObjectDetailsMixin:
             client.put_object_retention(**kwargs)
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to update retention for '{payload.key}': {exc}") from exc
-        return payload
+        return ObjectRetention(
+            key=payload.key,
+            mode=payload.mode,
+            retain_until=payload.retain_until,
+            version_id=payload.version_id,
+        )
 
     def restore_object(
         self,

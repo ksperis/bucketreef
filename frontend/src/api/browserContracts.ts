@@ -174,19 +174,38 @@ export type ObjectMetadataUpdate = {
 export type ObjectAcl = {
   key: string;
   acl: string;
+  version_id: string | null;
+};
+
+export type ObjectAclUpdate = {
+  key: string;
+  acl: string;
   version_id?: string | null;
 };
 
 export type ObjectLegalHold = {
   key: string;
-  status?: "ON" | "OFF" | null;
+  status: "ON" | "OFF" | null;
+  version_id: string | null;
+};
+
+export type ObjectLegalHoldUpdate = {
+  key: string;
+  status: "ON" | "OFF";
   version_id?: string | null;
 };
 
 export type ObjectRetention = {
   key: string;
-  mode?: "GOVERNANCE" | "COMPLIANCE" | null;
-  retain_until?: string | null;
+  mode: "GOVERNANCE" | "COMPLIANCE" | null;
+  retain_until: string | null;
+  version_id: string | null;
+};
+
+export type ObjectRetentionUpdate = {
+  key: string;
+  mode: "GOVERNANCE" | "COMPLIANCE";
+  retain_until: string;
   bypass_governance?: boolean | null;
   version_id?: string | null;
 };
