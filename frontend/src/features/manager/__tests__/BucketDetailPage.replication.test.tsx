@@ -732,9 +732,7 @@ describe("BucketDetailPage replication state", () => {
     expect(screen.getByRole("button", { name: "(root)" })).toHaveClass("ui-list-action", "ui-list-action-active");
     expect(screen.getByRole("button", { name: "(root)" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "reports/" })).toHaveClass("ui-list-action");
-    expect(
-      screen.getAllByRole("button", { name: "Refresh", exact: true }).some((button) => button.classList.contains("ui-list-action")),
-    ).toBe(true);
+    expect(screen.getAllByRole("button", { name: "Refresh", exact: true })).toHaveLength(1);
     expect(
       screen.getByText("Read-only preview using the selected endpoint's Ceph Admin credentials.")
     ).toBeInTheDocument();
@@ -1668,6 +1666,7 @@ describe("BucketDetailPage replication state", () => {
     await user.click(metricsTab);
 
     expect(await screen.findByText("Current usage and quota")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Refresh", exact: true })).toHaveLength(1);
     const trafficTitle = screen.getByRole("heading", { name: "Traffic" });
     expect(trafficTitle).toHaveClass("ui-section");
     expect(screen.queryByText("Bucket: demo-bucket")).not.toBeInTheDocument();

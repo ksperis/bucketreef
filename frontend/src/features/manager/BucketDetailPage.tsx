@@ -95,7 +95,6 @@ const bucketDetailDividerClass =
 const bucketDetailSectionStackClass = "space-y-4";
 
 const bucketDetailTightStackClass = "space-y-1";
-const bucketDetailWrapActionsClass = "flex flex-wrap gap-2";
 
 type BucketDetailPageProps = {
   mode?: BucketDetailMode;
@@ -1181,7 +1180,7 @@ function BucketDetailPageContent({
                 }
                 right={
                   <div className="space-y-3 p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                       <div className={bucketDetailTightStackClass}>
                         <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">{text("Path")}</p>
                         <div className="ui-caption text-slate-500 dark:text-slate-300">
@@ -1194,14 +1193,6 @@ function BucketDetailPageContent({
                               ? text("Read-only preview. Use the main Browser page for object operations.")
                               : text("Read-only preview. Object operations are unavailable because Manager Browser is disabled.")}
                         </div>
-                      </div>
-                      <div className={bucketDetailWrapActionsClass}>
-                        <ListActionButton
-                          onClick={() => void refreshObjects()}
-                          loading={objectsLoading}
-                        >
-                          {text("Refresh")}
-                        </ListActionButton>
                       </div>
                     </div>
                     {objectsError && (
@@ -1399,7 +1390,6 @@ function BucketDetailPageContent({
                   error={usageStatsError}
                   recalculating={usageStatsRecalculating}
                   onCancel={cancelUsageStatsRecalculation}
-                  onRefresh={loadUsageStats}
                   onRecalculate={recalculateUsageStats}
                   text={text}
                 />
