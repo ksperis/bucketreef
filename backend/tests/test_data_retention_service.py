@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import timedelta
 from types import SimpleNamespace
 
+from sqlalchemy import func, select
+
 from app.utils.time import utcnow
 
 from app.db import (
@@ -155,10 +157,10 @@ def test_purge_all_removes_old_quota_and_cost_rows(db_session):
     assert first["cost_history"]["deleted_usage_daily"] == 1
     assert first["cost_history"]["deleted_storage_daily"] == 1
 
-    assert db_session.query(QuotaUsageHourly).count() == 1
-    assert db_session.query(QuotaUsageDaily).count() == 1
-    assert db_session.query(CostUsageDaily).count() == 1
-    assert db_session.query(CostStorageDaily).count() == 1
+    assert db_session.scalar(select(func.count()).select_from(QuotaUsageHourly)) == 1
+    assert db_session.scalar(select(func.count()).select_from(QuotaUsageDaily)) == 1
+    assert db_session.scalar(select(func.count()).select_from(CostUsageDaily)) == 1
+    assert db_session.scalar(select(func.count()).select_from(CostStorageDaily)) == 1
 
     second = service.purge_all()
     assert second["quota_history"]["deleted_hourly"] == 0
@@ -230,10 +232,10 @@ def test_purge_all_with_zero_retention_disables_purge(db_session):
     assert result["cost_history"]["deleted_usage_daily"] == 0
     assert result["cost_history"]["deleted_storage_daily"] == 0
 
-    assert db_session.query(QuotaUsageHourly).count() == 1
-    assert db_session.query(QuotaUsageDaily).count() == 1
-    assert db_session.query(CostUsageDaily).count() == 1
-    assert db_session.query(CostStorageDaily).count() == 1
+    assert db_session.scalar(select(func.count()).select_from(QuotaUsageHourly)) == 1
+    assert db_session.scalar(select(func.count()).select_from(QuotaUsageDaily)) == 1
+    assert db_session.scalar(select(func.count()).select_from(CostUsageDaily)) == 1
+    assert db_session.scalar(select(func.count()).select_from(CostStorageDaily)) == 1
 
 
 def test_purge_user_notifications_removes_read_and_unread_rows_after_cutoff(
@@ -292,7 +294,7 @@ def test_purge_user_notifications_removes_read_and_unread_rows_after_cutoff(
 
     assert result["user_notifications"]["retention_days"] == 90
     assert result["user_notifications"]["deleted"] == 2
-    assert [row.event_key for row in db_session.query(UserNotification).all()] == [
+    assert [row.event_key for row in db_session.scalars(select(UserNotification)).all()] == [
         "retention:recent"
     ]
 
@@ -333,4 +335,4 @@ def test_purge_user_notifications_zero_retention_preserves_rows(db_session):
         "deleted": 0,
         "cutoff": None,
     }
-    assert db_session.query(UserNotification).count() == 1
+    assert db_session.scalar(select(func.count()).select_from(UserNotification)) == 1
