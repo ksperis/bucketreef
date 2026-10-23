@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 
 from botocore.exceptions import ClientError
 import pytest
+import sqlalchemy as sa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -85,7 +86,7 @@ def _create_account(db_session, *, name: str, endpoint_url: str, account_id: str
     account.storage_endpoint = endpoint
     db_session.add(account)
     db_session.flush()
-    creator = db_session.query(User).filter(User.email == "admin@example.com").first()
+    creator = db_session.scalar(sa.select(User).where(User.email == "admin@example.com"))
     if creator is not None:
         db_session.add(
             UserS3Account(
@@ -110,7 +111,7 @@ def _create_s3_user(db_session, *, name: str, endpoint: StorageEndpoint, uid: st
     s3_user.storage_endpoint = endpoint
     db_session.add(s3_user)
     db_session.flush()
-    creator = db_session.query(User).filter(User.email == "admin@example.com").first()
+    creator = db_session.scalar(sa.select(User).where(User.email == "admin@example.com"))
     if creator is not None:
         db_session.add(UserS3User(user_id=creator.id, s3_user_id=s3_user.id))
     return s3_user
@@ -3524,7 +3525,7 @@ def test_add_event_sanitizes_exception_text_before_persistence(db_session):
     )
     db_session.flush()
 
-    event = db_session.query(BucketMigrationEvent).order_by(BucketMigrationEvent.id.desc()).first()
+    event = db_session.scalar(sa.select(BucketMigrationEvent).order_by(BucketMigrationEvent.id.desc()))
     assert event is not None
     persisted = f"{event.message} {event.metadata_json}"
     assert "migration-secret" not in persisted
@@ -3560,7 +3561,7 @@ def test_delete_migration_allows_final_statuses_and_draft(db_session):
 
         service.delete_migration(migration.id)
 
-        deleted = db_session.query(BucketMigration).filter(BucketMigration.id == migration.id).first()
+        deleted = db_session.scalar(sa.select(BucketMigration).where(BucketMigration.id == migration.id))
         assert deleted is None
 
 
@@ -3937,15 +3938,14 @@ def test_apply_target_lock_fails_when_lock_cannot_be_applied(db_session):
     assert item.step == "apply_target_lock"
     assert item.target_lock_applied is False
 
-    warning_event = (
-        db_session.query(BucketMigrationEvent)
-        .filter(
+    warning_event = db_session.scalar(
+        sa.select(BucketMigrationEvent)
+        .where(
             BucketMigrationEvent.migration_id == migration.id,
             BucketMigrationEvent.item_id == item.id,
             BucketMigrationEvent.level == "warning",
         )
         .order_by(BucketMigrationEvent.id.desc())
-        .first()
     )
     assert warning_event is None
 
@@ -4059,14 +4059,15 @@ def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkey
     assert migration.worker_lease_until is None
     assert migration.error_message and "Fatal migration worker error" in migration.error_message
     assert item.status == "failed"
-    event = (
-        db_session.query(BucketMigrationEvent)
-        .filter(BucketMigrationEvent.migration_id == migration.id, BucketMigrationEvent.level == "error")
+    event = db_session.scalar(
+        sa.select(BucketMigrationEvent)
+        .where(BucketMigrationEvent.migration_id == migration.id, BucketMigrationEvent.level == "error")
         .order_by(BucketMigrationEvent.id.desc())
-        .first()
     )
     assert event is not None
-    delivery = db_session.query(WebhookDelivery).filter(WebhookDelivery.endpoint_id == webhook.id).one()
+    delivery = db_session.scalars(
+        sa.select(WebhookDelivery).where(WebhookDelivery.endpoint_id == webhook.id)
+    ).one()
     assert delivery.event_type == MIGRATION_EVENT_TYPE
     assert json.loads(delivery.payload_json)["data"]["migration"]["id"] == migration.id
 
@@ -4150,7 +4151,7 @@ def test_worker_marks_migration_failed_on_fatal_exception(tmp_path, monkeypatch)
         last_status = None
         while time.time() < deadline:
             with test_session_factory() as db:
-                row = db.query(BucketMigration).filter(BucketMigration.id == migration_id).first()
+                row = db.scalar(sa.select(BucketMigration).where(BucketMigration.id == migration_id))
                 assert row is not None
                 last_status = row.status
                 if row.status == "failed":
@@ -4159,7 +4160,7 @@ def test_worker_marks_migration_failed_on_fatal_exception(tmp_path, monkeypatch)
         worker.stop(timeout=1.0)
 
         with test_session_factory() as db:
-            row = db.query(BucketMigration).filter(BucketMigration.id == migration_id).first()
+            row = db.scalar(sa.select(BucketMigration).where(BucketMigration.id == migration_id))
             assert row is not None
             assert row.status == "failed", f"unexpected status={last_status}"
             assert row.error_message and "Fatal migration worker error" in row.error_message
