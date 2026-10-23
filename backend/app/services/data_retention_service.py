@@ -107,6 +107,7 @@ class DataRetentionService:
                 "user_notifications": {
                     "retention_days": retention_days,
                     "deleted": 0,
+                    "cutoff": None,
                 }
             }
 

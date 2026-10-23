@@ -71,7 +71,7 @@ class DeleteUserNotificationsResponse(ApiModel):
 class UserNotificationRetentionResult(ApiModel):
     retention_days: int
     deleted: int
-    cutoff: Optional[str] = None
+    cutoff: Optional[str]
 
 
 class UserNotificationPurgeResponse(ApiModel):

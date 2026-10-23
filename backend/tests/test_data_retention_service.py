@@ -328,5 +328,9 @@ def test_purge_user_notifications_zero_retention_preserves_rows(db_session):
 
     result = service.purge_user_notifications()
 
-    assert result["user_notifications"] == {"retention_days": 0, "deleted": 0}
+    assert result["user_notifications"] == {
+        "retention_days": 0,
+        "deleted": 0,
+        "cutoff": None,
+    }
     assert db_session.query(UserNotification).count() == 1

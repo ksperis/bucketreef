@@ -123,6 +123,7 @@ def test_internal_notification_retention_runs_scoped_purge(client, monkeypatch):
             "user_notifications": {
                 "retention_days": 90,
                 "deleted": 4,
+                "cutoff": None,
             }
         },
     )
@@ -135,5 +136,5 @@ def test_internal_notification_retention_runs_scoped_purge(client, monkeypatch):
     assert response.status_code == 200, response.text
     assert response.json() == {
         "status": "completed",
-        "user_notifications": {"retention_days": 90, "deleted": 4},
+        "user_notifications": {"retention_days": 90, "deleted": 4, "cutoff": None},
     }
