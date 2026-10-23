@@ -25,10 +25,11 @@ errors. Configuration preview is read-only and produces no audit event.
 
 Application audit rows may carry the canonical Manager execution identity as
 `context_kind`, `context_id`, and `context_name`. Account-scoped events use
-`account` outside Portal and `portal_account` inside Portal. Audit rows no longer
-carry duplicate `account_id` or `account_name` compatibility fields. Manager
-producers must pass the explicit `S3ExecutionContext`; they must not encode RGW
-Users or S3 Connections as synthetic account references.
+`account` outside Portal and `portal_account` inside Portal. Audit rows carry
+only the canonical context fields, without duplicate `account_id` or
+`account_name` fields. Manager producers must pass the explicit
+`S3ExecutionContext`; they must not encode RGW Users or S3 Connections as
+synthetic account references.
 
 Admin Audit and `GET /api/admin/audit/logs` expose that execution context while
 preserving the pagination contract. Their rows represent only control-plane and
@@ -50,10 +51,7 @@ Portal Managers can read the configured provider log stream through:
 - `GET /api/portal/access-logs/raw`
 
 The paginated route includes all S3 operation categories and supports action,
-Storage Space, path, requester identity, and result filters. The removed
-non-paginated `/api/portal/access-logs` route, `/api/portal/transfers`, and
-`/api/portal/transfers/server-access-logs*` routes have no compatibility alias
-and return `404`.
+Storage Space, path, requester identity, and result filters.
 
 ## Identity and attribution
 
@@ -62,14 +60,3 @@ connection. Multiple keys for the same personal identity are allowed during a
 controlled rotation, but a key must never be shared between people. Portal
 already executes with a personal IAM identity. External tool access must also
 remain assigned to one named person so provider logs can be attributed.
-
-## Migration 0091
-
-`0091_purge_data_plane_audit_logs` immediately removes historical data-plane,
-operational telemetry, token-refresh, and OIDC-handshake-start rows from
-`audit_logs`. The deletion is irreversible and downgrade is explicitly
-unsupported. Back up the database before applying the migration if those rows
-may be needed for historical analysis or legal retention.
-
-Deploy the migration, backend, frontend, and documentation together because
-the Portal access-log route change is intentionally breaking.

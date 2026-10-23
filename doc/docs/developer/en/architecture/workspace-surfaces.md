@@ -187,18 +187,10 @@ feature for the current user's personal keys and Storage Space-scoped external
 credentials. It must never expose the active Portal runtime key.
 The Admin counterpart for storage-admin triage is `/admin/portal-requests`.
 
-## Portal Backend Cleanup Notes
+## Portal API contract
 
-Portal uses Storage Space, file, share, governance activity, access-log, usage, alert,
-cost-source, health, request, and delegated settings endpoints only. Legacy
-backend routes that exposed bucket-centric or advanced identity concepts have
-been removed from the Portal router and API client:
-
-- `/portal/buckets*`;
-- `/portal/bootstrap`;
-- `/portal/users*` bucket-grant and Portal user-management routes;
-- `/portal/account-settings`;
-- `/portal/iam-compliance*`.
+Portal uses Storage Space, file, share, governance activity, access-log, usage,
+alert, cost-source, health, request, and delegated settings endpoints.
 
 Use `/portal/storage-spaces*` and `/portal/storage-spaces/{spaceId}/shares*`
 for end-user collaboration workflows. The shared project override is governed
@@ -222,16 +214,14 @@ Personal Portal preferences belong to `/portal/profile` and use the simple
 `/users/me` `ui_preferences` contract. Stored preferences such as theme and
 default Portal account are UI defaults only; they never grant account access.
 
-### Breaking API Notes
+### Canonical surfaces
 
-Portal clients must not call the removed legacy endpoints listed above.
-Use these replacement surfaces instead:
+The Portal frontend uses these surfaces:
 
 - `GET /portal/accounts` returns the Portal project catalog only: project ID,
   name, RGW account ID, required effective Portal role, and endpoint display and
-  capability metadata. Admin account fields and the always-empty account quota
-  placeholders are no longer part of this response; use `/portal/usage` for
-  effective account quotas and consumption.
+  capability metadata. Use `/portal/usage` for effective account quotas and
+  consumption.
 
 - Storage Space list/detail/create/update: `/portal/storage-spaces*`.
 - Simple object list/detail/upload/download/delete/folders:
@@ -244,9 +234,7 @@ Use these replacement surfaces instead:
 - Usage, governance activity, alerts, traffic, health, and cost source:
   the remaining Portal read endpoints.
 - Manager-only provider S3 access logs:
-  `/portal/access-logs/page` and `/portal/access-logs/raw`. The removed
-  non-paginated `/portal/access-logs` route and
-  `/portal/transfers/server-access-logs*` aliases deliberately return `404`.
+  `/portal/access-logs/page` and `/portal/access-logs/raw`.
 - External S3 credentials:
   `/portal/access-keys`, excluding the active Portal runtime key. Personal keys
   follow the user's Portal grants; external credentials are dedicated IAM users

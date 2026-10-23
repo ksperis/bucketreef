@@ -260,11 +260,9 @@ missing IDs must never broaden a query to other subjects.
 
 `users.role` stores exactly one role: `ui_none`, `ui_user`, `ui_admin`, or
 `ui_superadmin`. The database constraint, backend request models, and
-frontend API types share this contract. Historical aliases are
-migrated by revision `0092`; they are not accepted or normalized at runtime.
+frontend API types share this contract.
 
-`ui_none` is the explicit no-workspace role. Unknown historical values migrate
-to `ui_none` so canonicalization cannot grant access accidentally.
+`ui_none` is the explicit no-workspace role.
 
 ## Account access axes
 
@@ -362,10 +360,6 @@ allowed.
   fallback. After one tab rotates the single-use refresh cookie, waiting tabs
   reuse the resulting server session and call `/api/auth/session`; no access
   token is stored in browser storage.
-
-These rules intentionally do not migrate former shared selector, selection, or
-Browser-position snapshots. Old values are ignored rather than kept through a
-compatibility layer.
 
 ## Server-managed private access
 

@@ -204,10 +204,7 @@ the current session, and the verify response contains the updated
   expose provider Server Access Logging to Portal Managers. The page covers all
   S3 categories; there is no `mode` parameter.
 - The page can filter by action, Storage Space, path, requester identity, and
-  result. The former non-paginated `/api/portal/access-logs` route was removed.
-- `/api/portal/transfers` and
-  `/api/portal/transfers/server-access-logs*` were removed without aliases and
-  return `404`.
+  result.
 
 Object operations are never inferred from the application audit API. Provider
 logs may be delayed and are complete only when delivery and retention are
