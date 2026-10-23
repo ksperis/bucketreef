@@ -15,9 +15,9 @@ const ADMIN_ACCOUNTS_MINIMAL = [
     name: "Helios Retail",
     tags: [{ id: 901, label: "prod", color_key: "emerald", scope: "standard" }],
     user_links: [
-      { user_id: 1, manager_role: "account_administrator", portal_role: "portal_manager", user_email: "admin.docs@example.com" },
-      { user_id: 2, manager_role: "account_administrator", portal_role: "portal_manager", user_email: "platform.admin@example.com" },
-      { user_id: 3, manager_role: null, portal_role: "portal_user", user_email: "storage.user@example.com" },
+      { user_id: 1, manager_role: "account_administrator", portal_role: "portal_manager", user_email: "admin.docs@example.com", allow_manager_browser_data_access: false },
+      { user_id: 2, manager_role: "account_administrator", portal_role: "portal_manager", user_email: "platform.admin@example.com", allow_manager_browser_data_access: false },
+      { user_id: 3, manager_role: null, portal_role: "portal_user", user_email: "storage.user@example.com", allow_manager_browser_data_access: false },
     ] satisfies AccountUserLink[],
     group_links: [],
     rgw_account_id: "RGW-HELIOS",
@@ -32,7 +32,7 @@ const ADMIN_ACCOUNTS_MINIMAL = [
     id: 102,
     name: "Northwind Ops",
     tags: [{ id: 902, label: "ops", color_key: "sky", scope: "standard" }],
-    user_links: [{ user_id: 2, manager_role: "account_administrator", portal_role: null, user_email: "platform.admin@example.com" }] satisfies AccountUserLink[],
+    user_links: [{ user_id: 2, manager_role: "account_administrator", portal_role: null, user_email: "platform.admin@example.com", allow_manager_browser_data_access: false }] satisfies AccountUserLink[],
     group_links: [],
     rgw_account_id: "RGW-NORTHWIND",
     storage_endpoint_id: 12,
@@ -59,7 +59,7 @@ const ADMIN_UI_USERS: User[] = [
     can_access_storage_ops: true,
     account_links: [
       ...adminUser.account_links,
-      { account_id: 102, manager_role: "account_administrator", portal_role: null },
+      { account_id: 102, manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false },
     ],
     effective_access: {
       ...adminUser.effective_access,
@@ -70,6 +70,7 @@ const ADMIN_UI_USERS: User[] = [
           account_id: 102,
           manager_role: "account_administrator",
           portal_role: null,
+          allow_manager_browser_data_access: false,
           provenance: {
             direct_manager_role: "account_administrator",
             direct_portal_role: null,

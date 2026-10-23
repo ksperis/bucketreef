@@ -160,8 +160,8 @@ export function createSeed(): DemoState {
       group_details: [], s3_user_details: [], s3_connection_details: [] };
   });
   users[1].account_links = accounts.map(a => ({ account_id: a.id, manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: true }));
-  users[2].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_user" }));
-  users[3].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_manager" }));
+  users[2].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false }));
+  users[3].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_manager", allow_manager_browser_data_access: false }));
   for (const account of accounts) account.user_links = users.flatMap(user => user.account_links?.filter(link => link.account_id === account.id).map(link => ({ ...link, user_id: user.id, user_email: user.email, user_full_name: user.full_name })) ?? []);
   const groups: UiGroup[] = ["Platform", "Engineering", "Design", "Research", "Operations", "Contractors"].map((name, i) => ({
     id: 201 + i, name, description: `${name} team · demo organisation`, user_details: users.filter(u => u.id % 6 === i),

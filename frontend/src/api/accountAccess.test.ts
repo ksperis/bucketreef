@@ -33,10 +33,12 @@ describe("account access roles", () => {
     expect(defaultAccountAccessGrant(true)).toEqual({
       manager_role: null,
       portal_role: null,
+      allow_manager_browser_data_access: false,
     });
     expect(defaultAccountAccessGrant(false)).toEqual({
       manager_role: "account_administrator",
       portal_role: null,
+      allow_manager_browser_data_access: false,
     });
   });
 });

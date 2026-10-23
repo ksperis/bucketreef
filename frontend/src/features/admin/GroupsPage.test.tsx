@@ -311,7 +311,7 @@ describe("GroupsPage", () => {
             feature_rules: false,
           },
           user_details: [],
-          account_links: [{ account_id: 99, manager_role: null, portal_role: "portal_user" }],
+          account_links: [{ account_id: 99, manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false }],
           account_details: [{ id: 99, name: "production-account", rgw_account_id: "RGW-PROD" }],
         },
       ],

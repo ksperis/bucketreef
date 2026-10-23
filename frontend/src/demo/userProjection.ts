@@ -79,7 +79,7 @@ function effectiveAccountLinks(state: DemoState, user: DemoUser): EffectiveAccou
       .sort((left, right) => left.group_name.localeCompare(right.group_name) || left.group_id - right.group_id);
     const managerBrowserAllowed = resolved.sources.some(source =>
       source.link.manager_role === "account_administrator"
-      && Boolean(source.link.allow_manager_browser_data_access));
+      && source.link.allow_manager_browser_data_access);
     return [{
       account_id: account.id,
       manager_role: resolved.manager_role,

@@ -133,11 +133,11 @@ function groupFormFromGroup(group: UiGroup): UiGroupPayload {
         account_id: Number(link.account_id),
         manager_role: link.manager_role,
         portal_role: link.portal_role,
-        allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+        allow_manager_browser_data_access: link.allow_manager_browser_data_access,
       })) ?? [],
     s3_user_links: (group.s3_user_links ?? []).map((link) => ({
       s3_user_id: Number(link.s3_user_id),
-      allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     })),
     s3_connection_ids: (group.s3_connection_details ?? []).map((connection) => Number(connection.id)),
   };
@@ -447,7 +447,7 @@ export default function GroupsPage() {
           account_id: Number(link.account_id),
           manager_role: link.manager_role,
           portal_role: link.portal_role,
-          allow_manager_browser_data_access: Boolean(link.allow_manager_browser_data_access),
+          allow_manager_browser_data_access: link.allow_manager_browser_data_access,
         })) ?? [],
       s3_user_links: form.s3_user_links ?? [],
       s3_connection_ids: form.s3_connection_ids ?? [],
@@ -694,7 +694,7 @@ export default function GroupsPage() {
                         <AdminAssociationAdvancedSettings
                           targetLabel={label}
                           associationKind="account"
-                          allowManagerBrowserDataAccess={Boolean(link.allow_manager_browser_data_access)}
+                          allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
                           onApply={(allowed) =>
                             updateAccountSelection(accountId, {
                               allow_manager_browser_data_access: allowed,
@@ -816,7 +816,7 @@ export default function GroupsPage() {
                     <AdminAssociationAdvancedSettings
                       targetLabel={s3UserLabelById.get(link.s3_user_id) ?? text("rgwUserNumber", { id: link.s3_user_id })}
                       associationKind="rgw_user"
-                      allowManagerBrowserDataAccess={Boolean(link.allow_manager_browser_data_access)}
+                      allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
                       onApply={(allowed) =>
                         setForm((current) => ({
                           ...current,

@@ -75,6 +75,7 @@ function accountLink(
     account_id: accountId,
     manager_role: managerRole,
     portal_role: portalRole,
+    allow_manager_browser_data_access: false,
     provenance: {
       direct_manager_role: managerRole,
       direct_portal_role: portalRole,

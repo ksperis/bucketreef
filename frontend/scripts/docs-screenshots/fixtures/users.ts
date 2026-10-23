@@ -50,7 +50,7 @@ function effectiveAccess({
 }
 
 const superAdminAccountLinks: AccountMembership[] = [
-  { account_id: 101, manager_role: "account_administrator", portal_role: "portal_manager" },
+  { account_id: 101, manager_role: "account_administrator", portal_role: "portal_manager", allow_manager_browser_data_access: false },
 ];
 const superAdminS3Users = [{ id: 901, name: "helios-admin" }];
 const sharedConnections = [{ id: 701, name: "BlueHarbor Shared Connection" }];
@@ -98,7 +98,7 @@ export const storageOpsAdminUser = {
 } satisfies AuthUser;
 
 const portalAccountLinks: AccountMembership[] = [
-  { account_id: 101, manager_role: null, portal_role: "portal_user" },
+  { account_id: 101, manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false },
 ];
 export const portalUser = {
   id: 3,

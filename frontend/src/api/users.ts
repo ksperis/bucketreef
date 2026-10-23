@@ -18,7 +18,7 @@ export type AccountMembership = AccountAccessGrant & {
 
 export type S3UserMembership = {
   s3_user_id: number;
-  allow_manager_browser_data_access?: boolean;
+  allow_manager_browser_data_access: boolean;
 };
 
 export type EffectiveAccountMembership = AccountMembership & {

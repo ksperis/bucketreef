@@ -4,7 +4,7 @@ export type PortalAccountRole = "portal_user" | "portal_manager";
 export type AccountAccessGrant = {
   manager_role: ManagerAccountRole | null;
   portal_role: PortalAccountRole | null;
-  allow_manager_browser_data_access?: boolean;
+  allow_manager_browser_data_access: boolean;
 };
 
 const ACCOUNT_ACCESS_REQUIRED_MESSAGE =
@@ -54,6 +54,6 @@ export function hasAccountAccessRole(grant: AccountAccessGrant): boolean {
 
 export function defaultAccountAccessGrant(portalEnabled: boolean): AccountAccessGrant {
   return portalEnabled
-    ? { manager_role: null, portal_role: null }
-    : { manager_role: "account_administrator", portal_role: null };
+    ? { manager_role: null, portal_role: null, allow_manager_browser_data_access: false }
+    : { manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false };
 }

@@ -1022,7 +1022,7 @@ export default function S3UsersPage() {
                               <AdminAssociationAdvancedSettings
                                 targetLabel={portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
                                 associationKind="rgw_user"
-                                allowManagerBrowserDataAccess={Boolean(link.allow_manager_browser_data_access)}
+                                allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
                                 onApply={(allowed) =>
                                   setEditForm((prev) => ({
                                     ...prev,
@@ -1137,7 +1137,7 @@ export default function S3UsersPage() {
                               <AdminAssociationAdvancedSettings
                                 targetLabel={groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
                                 associationKind="rgw_user"
-                                allowManagerBrowserDataAccess={Boolean(link.allow_manager_browser_data_access)}
+                                allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
                                 onApply={(allowed) =>
                                   setEditForm((prev) => ({
                                     ...prev,
