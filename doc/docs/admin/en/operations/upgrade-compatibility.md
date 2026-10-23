@@ -1460,7 +1460,7 @@ aliases:
   `/api/admin/stats/summary`, `/api/admin/stats/storage`, and
   `/api/admin/stats/traffic` resources.
 - `POST /api/admin/users/{user_id}/assign-account`: replace account links
-  atomically through `PUT /api/admin/users/{user_id}` with `account_links`.
+  atomically through `PATCH /api/admin/users/{user_id}` with `account_links`.
 - `GET /api/connections/{connection_id}/capabilities`: consume the
   `capabilities` field returned by the connection list and write resources.
 - `GET /api/portal/eligibility`: load `/api/portal/state`, which enforces the
