@@ -64,6 +64,10 @@ def stream_status_operation(
     logger: logging.Logger,
     operation: str,
     failure_message: str,
+    on_start: Callable[[str], None] | None = None,
+    on_result: Callable[[str, _ResultModelT], None] | None = None,
+    on_cancel: Callable[[str], None] | None = None,
+    on_error: Callable[[str, str], None] | None = None,
 ) -> StreamingResponse:
     request_id = uuid.uuid4().hex
 
@@ -75,7 +79,11 @@ def stream_status_operation(
                 raise cancelled_error()
 
         try:
+            if on_start:
+                on_start(request_id)
             result = run_operation(progress_callback, cancel_check)
+            if on_result:
+                on_result(request_id, result)
             result_payload = result.model_dump(mode="json")
             push_message(format_sse_event("result", result_payload))
             push_message(
@@ -85,6 +93,8 @@ def stream_status_operation(
                 )
             )
         except cancelled_error:
+            if on_cancel:
+                on_cancel(request_id)
             push_message(
                 format_sse_event(
                     "done",
@@ -92,12 +102,15 @@ def stream_status_operation(
                 )
             )
         except HTTPException as exc:
+            detail = sanitize_error_detail(exc.detail)
+            if on_error:
+                on_error(request_id, str(detail))
             push_message(
                 format_sse_event(
                     "error",
                     {
                         "request_id": request_id,
-                        "detail": sanitize_error_detail(exc.detail),
+                        "detail": detail,
                         "status_code": exc.status_code,
                     },
                 )
@@ -110,6 +123,8 @@ def stream_status_operation(
             )
         except Exception as exc:  # pragma: no cover
             logger.exception("%s: %s", failure_message, exc)
+            if on_error:
+                on_error(request_id, failure_message)
             push_message(
                 format_sse_event(
                     "error",
