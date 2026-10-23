@@ -108,7 +108,6 @@ def search_buckets(
 @router.get(
     "/usage-summary",
     response_model=BrowserUsageSummary,
-    response_model_exclude_none=True,
 )
 def get_usage_summary(
     context: S3ExecutionContext = Depends(get_s3_execution_context),

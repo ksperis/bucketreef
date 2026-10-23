@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from app.db import S3Account
+from app.models.browser import BrowserUsageSummary
 from app.services.browser_usage_summary_service import BrowserUsageSummaryService
 from app.services.s3_execution_context import S3ExecutionContext
 
@@ -10,6 +11,18 @@ def _account_context() -> S3ExecutionContext:
     account = S3Account(name="browser-usage-service")
     account.id = 77
     return S3ExecutionContext.from_account(account)
+
+
+def test_browser_usage_summary_requires_the_complete_canonical_payload():
+    assert set(BrowserUsageSummary.model_json_schema()["required"]) == {
+        "available",
+        "source",
+        "label",
+        "used_bytes",
+        "object_count",
+        "quota_max_size_bytes",
+        "quota_max_objects",
+    }
 
 
 def test_browser_usage_summary_converts_quota_and_drops_invalid_values(db_session, monkeypatch):
@@ -51,10 +64,14 @@ def test_browser_usage_summary_rejects_non_positive_s3_user_identity(db_session)
 
     result = BrowserUsageSummaryService(db_session).build(account)
 
-    assert result.model_dump(exclude_none=True) == {
+    assert result.model_dump() == {
         "available": False,
         "source": "s3_user",
         "label": "S3 User",
+        "used_bytes": None,
+        "object_count": None,
+        "quota_max_size_bytes": None,
+        "quota_max_objects": None,
     }
 
 
@@ -70,8 +87,12 @@ def test_browser_usage_summary_returns_unavailable_for_missing_s3_user(db_sessio
 
     result = BrowserUsageSummaryService(db_session).build(account)
 
-    assert result.model_dump(exclude_none=True) == {
+    assert result.model_dump() == {
         "available": False,
         "source": "s3_user",
         "label": "S3 User",
+        "used_bytes": None,
+        "object_count": None,
+        "quota_max_size_bytes": None,
+        "quota_max_objects": None,
     }

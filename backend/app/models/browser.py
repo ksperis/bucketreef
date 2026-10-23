@@ -101,13 +101,13 @@ class PaginatedBrowserBucketsResponse(ApiModel):
 
 
 class BrowserUsageSummary(ApiModel):
-    available: bool = False
-    source: Optional[Literal["account", "s3_user", "portal", "connection"]] = None
-    label: Optional[str] = None
-    used_bytes: Optional[int] = None
-    object_count: Optional[int] = None
-    quota_max_size_bytes: Optional[int] = None
-    quota_max_objects: Optional[int] = None
+    available: bool
+    source: Optional[Literal["account", "s3_user", "portal", "connection"]]
+    label: Optional[str]
+    used_bytes: Optional[int]
+    object_count: Optional[int]
+    quota_max_size_bytes: Optional[int]
+    quota_max_objects: Optional[int]
 
 
 class BrowserObjectVersion(ApiModel):

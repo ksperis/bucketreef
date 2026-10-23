@@ -246,6 +246,10 @@ def test_browser_usage_summary_hides_account_when_live_usage_is_unavailable(clie
         "available": False,
         "source": "account",
         "label": "Account",
+        "used_bytes": None,
+        "object_count": None,
+        "quota_max_size_bytes": None,
+        "quota_max_objects": None,
     }
 
 
@@ -325,6 +329,10 @@ def test_browser_usage_summary_hides_s3_user_when_live_usage_is_unavailable(clie
         "available": False,
         "source": "s3_user",
         "label": "S3 User",
+        "used_bytes": None,
+        "object_count": None,
+        "quota_max_size_bytes": None,
+        "quota_max_objects": None,
     }
 
 
@@ -399,6 +407,10 @@ def test_browser_usage_summary_does_not_fallback_to_portal_storage_space_rows(cl
         "available": False,
         "source": "portal",
         "label": "Storage Spaces",
+        "used_bytes": None,
+        "object_count": None,
+        "quota_max_size_bytes": None,
+        "quota_max_objects": None,
     }
 
 
@@ -421,4 +433,8 @@ def test_browser_usage_summary_hides_connection_usage_without_bucket_listing(cli
         "available": False,
         "source": "connection",
         "label": "Connection",
+        "used_bytes": None,
+        "object_count": None,
+        "quota_max_size_bytes": None,
+        "quota_max_objects": None,
     }
