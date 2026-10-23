@@ -19,7 +19,7 @@ from app.core.database import get_db
 from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import User
 from app.models.access_context import ManagerActor
-from app.models.execution_context import ManagerContext
+from app.models.execution_context import ManagerAccessMode, ManagerContext
 from app.models.session import ManagerSessionPrincipal
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -100,7 +100,7 @@ def _manager_stats_state(
     return False, None, None
 
 
-def _manager_access_mode(context: S3ExecutionContext) -> str:
+def _manager_access_mode(context: S3ExecutionContext) -> ManagerAccessMode:
     if context.context_kind == "account":
         return "admin"
     if context.context_kind in {"session", "connection", "s3_user"}:
@@ -170,7 +170,7 @@ def _manager_browser_state(
 def _manager_iam_identity(
     context: S3ExecutionContext,
     actor: ManagerActor,
-    access_mode: str,
+    access_mode: ManagerAccessMode,
     connection_iam_identity: Optional[str],
 ) -> Optional[str]:
     if access_mode == "admin":

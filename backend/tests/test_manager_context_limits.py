@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.db import User, UserRole
+from app.models.execution_context import ManagerContext
 from app.routers.manager import context as context_router
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.s3_account_factory import make_s3_account
@@ -25,6 +26,43 @@ def _prepare_context(db_session, monkeypatch):
     monkeypatch.setattr(context_router, "is_manager_bucket_quota_available", lambda *_args, **_kwargs: False)
     monkeypatch.setattr(context_router, "is_manager_rgw_access_key_management_available", lambda *_args, **_kwargs: False)
     return S3ExecutionContext.from_account(account), actor
+
+
+def test_manager_context_schema_requires_complete_canonical_payload():
+    schema = ManagerContext.model_json_schema()
+
+    assert set(schema["required"]) == {
+        "feature_states",
+        "naming_validation_profile",
+        "access_mode",
+        "context_kind",
+        "iam_identity",
+        "manager_stats_enabled",
+        "manager_stats_message",
+        "manager_browser_enabled",
+        "manager_browser_message",
+        "manager_bucket_quota_enabled",
+        "manager_ceph_keys_enabled",
+        "manager_access_key_metadata_enabled",
+        "manager_access_key_expiration_enabled",
+        "manager_private_access_enabled",
+        "quota_max_size_gb",
+        "quota_max_objects",
+        "max_buckets",
+        "max_users",
+        "max_roles",
+        "max_groups",
+    }
+    assert set(schema["properties"]["access_mode"]["enum"]) == {
+        "admin",
+        "session",
+        "s3_user",
+        "connection",
+    }
+    assert set(schema["properties"]["context_kind"]["enum"]) == {
+        "account",
+        "connection",
+    }
 
 
 def test_manager_context_keeps_limits_deferred_by_default(db_session, monkeypatch):
