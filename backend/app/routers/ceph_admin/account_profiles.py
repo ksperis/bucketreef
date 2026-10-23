@@ -146,7 +146,7 @@ def get_rgw_account_detail(
     )
 
 
-@router.put("/{account_id}/config", response_model=CephAdminRgwAccountDetail)
+@router.patch("/{account_id}/config", response_model=CephAdminRgwAccountDetail)
 def update_rgw_account_config(
     account_id: str,
     update: CephAdminRgwAccountConfigUpdate,
