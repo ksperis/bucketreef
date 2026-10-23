@@ -93,7 +93,7 @@ export function iam(c: DemoRequest): Response | undefined {
   const entity = required(collection.find(e => e.name === name || e.arn === name));
   if (!resource) {
     if (c.method === "GET") return json(entity);
-    if (c.method === "PUT") {
+    if (c.method === "PATCH") {
       const previousName = entity.name;
       const nextName = typeof c.body.name === "string" && c.body.name ? c.body.name : previousName;
       Object.assign(entity, c.body, { name: nextName });

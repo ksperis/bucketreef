@@ -41,16 +41,19 @@ describe("demo IAM mutations", () => {
     });
   });
 
-  it("renames an IAM user while keeping its dependent demo state addressable", async () => {
+  it("updates an IAM user with PATCH while keeping its dependent demo state addressable", async () => {
     const state = createSeed();
     const user = state.iam[state.accounts[0].id].users[0];
     state.iam[state.accounts[0].id].keys[user.name] = [{ access_key_id: "DEMO1", status: "Active" }];
     const oldName = user.name;
+    const path = `/manager/iam/users/${encodeURIComponent(oldName)}`;
+
+    expect(iam(request(state, path, "PUT", { path: "/legacy/" }))).toBeUndefined();
 
     const response = iam(request(
       state,
-      `/manager/iam/users/${encodeURIComponent(oldName)}`,
-      "PUT",
+      path,
+      "PATCH",
       { name: "backup-renamed", path: "/renamed/" },
     ));
 
