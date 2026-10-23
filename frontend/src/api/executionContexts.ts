@@ -18,16 +18,16 @@ export type ExecutionContext = {
   kind: ExecutionContextKind;
   id: string;
   display_name: string;
-  connection_scope?: "shared" | "private" | null;
+  connection_scope: "shared" | "private" | null;
   tags: TagDefinitionSummary[];
   endpoint_tags: TagDefinitionSummary[];
-  manager_role?: ManagerAccountRole | null;
-  portal_role?: PortalAccountRole | null;
-  rgw_account_id?: string | null;
-  endpoint_id?: number | null;
+  manager_role: ManagerAccountRole | null;
+  portal_role: PortalAccountRole | null;
+  rgw_account_id: string | null;
+  endpoint_id: number | null;
   endpoint_name: string;
   endpoint_is_default: boolean;
-  endpoint_provider?: "ceph" | "aws" | "other" | null;
+  endpoint_provider: "ceph" | "aws" | "other" | null;
   endpoint_url: string;
   storage_endpoint_capabilities: Record<string, boolean>;
   capabilities: ExecutionContextCapabilities;
@@ -54,7 +54,7 @@ export type WorkspaceAccess = {
   manager: { available: boolean; context_count: number };
   browser: { available: boolean; context_count: number };
   portal: { available: boolean; context_count: number };
-  default_workspace?: "admin" | "ceph-admin" | "storage-ops" | "manager" | "portal" | "browser" | null;
+  default_workspace: "admin" | "ceph-admin" | "storage-ops" | "manager" | "portal" | "browser" | null;
 };
 
 export async function getWorkspaceAccess(): Promise<WorkspaceAccess> {

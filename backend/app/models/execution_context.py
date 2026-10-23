@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional, Literal
 
-from pydantic import Field
-
 from app.models.base import ApiModel
 from app.models.feature_policy import FeatureState
 from app.models.tagging import TagDefinitionSummary
@@ -23,18 +21,18 @@ class ExecutionContext(ApiModel):
     kind: Literal["account", "connection", "s3_user", "portal_account"]
     id: str
     display_name: str
-    connection_scope: Optional[Literal["shared", "private"]] = None
-    manager_role: Optional[ManagerAccountRoleValue] = None
-    portal_role: Optional[PortalAccountRoleValue] = None
-    rgw_account_id: Optional[str] = None
-    endpoint_id: Optional[int] = None
+    connection_scope: Optional[Literal["shared", "private"]]
+    manager_role: Optional[ManagerAccountRoleValue]
+    portal_role: Optional[PortalAccountRoleValue]
+    rgw_account_id: Optional[str]
+    endpoint_id: Optional[int]
     endpoint_name: str
     endpoint_is_default: bool
-    endpoint_provider: Optional[str] = None
+    endpoint_provider: Optional[Literal["ceph", "aws", "other"]]
     endpoint_url: str
     storage_endpoint_capabilities: dict[str, bool]
-    tags: list[TagDefinitionSummary] = Field(default_factory=list)
-    endpoint_tags: list[TagDefinitionSummary] = Field(default_factory=list)
+    tags: list[TagDefinitionSummary]
+    endpoint_tags: list[TagDefinitionSummary]
     capabilities: ExecutionContextCapabilities
 
 
@@ -62,8 +60,8 @@ class ManagerContext(ApiModel):
 
 
 class WorkspaceAvailability(ApiModel):
-    available: bool = False
-    context_count: int = 0
+    available: bool
+    context_count: int
 
 
 class WorkspaceAccess(ApiModel):
@@ -73,4 +71,4 @@ class WorkspaceAccess(ApiModel):
     manager: WorkspaceAvailability
     browser: WorkspaceAvailability
     portal: WorkspaceAvailability
-    default_workspace: Optional[Literal["admin", "ceph-admin", "storage-ops", "manager", "portal", "browser"]] = None
+    default_workspace: Optional[Literal["admin", "ceph-admin", "storage-ops", "manager", "portal", "browser"]]

@@ -99,7 +99,7 @@ export function readModels(c: DemoRequest): Response | undefined {
     const browser = c.url.searchParams.get("workspace") === "browser";
     const selected = state.accounts.filter(a => (browser ? accountGrant(c, a).portal_role : accountGrant(c, a).manager_role));
     return json(selected.map(a => ({ kind: browser ? "portal_account" : "account", id: String(a.id), display_name: a.name,
-      tags: a.tags, endpoint_tags: [], manager_role: browser ? null : "account_administrator", portal_role: browser ? accountGrant(c, a).portal_role : null,
+      connection_scope: null, tags: a.tags, endpoint_tags: [], manager_role: browser ? null : "account_administrator", portal_role: browser ? accountGrant(c, a).portal_role : null,
       rgw_account_id: a.rgw_account_id, endpoint_id: a.storage_endpoint_id, endpoint_name: a.storage_endpoint_name, endpoint_url: a.storage_endpoint_url,
       endpoint_provider: "ceph", endpoint_is_default: a.storage_endpoint_is_default, storage_endpoint_capabilities: a.storage_endpoint_capabilities,
       capabilities: { can_manage_iam: !browser, sts_capable: false, admin_api_capable: !browser },
