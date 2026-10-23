@@ -6,6 +6,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import func, select
 from webauthn.helpers import bytes_to_base64url
 
 from app.core.security import get_password_hash
@@ -36,7 +37,9 @@ def _user(db_session, *, email: str, role: str = UserRole.UI_USER.value) -> User
 
 def _set_passkey_policy(db_session, *, admins: bool = True, users: bool = False) -> None:
     load_app_settings_for_db(db_session)
-    row = db_session.query(AppSetting).filter(AppSetting.key == "default").one()
+    row = db_session.scalars(
+        select(AppSetting).where(AppSetting.key == "default")
+    ).one()
     settings = AppSettings.model_validate_json(row.payload_json)
     settings.general.require_passkey_for_admins = admins
     settings.general.require_passkey_for_users = users
@@ -89,7 +92,7 @@ def test_registration_options_require_user_verification_and_none_attestation(db_
     assert options["timeout"] == 300_000
     assert options["attestation"] == "none"
     assert options["authenticatorSelection"]["userVerification"] == "required"
-    challenge = db_session.query(AuthChallenge).one()
+    challenge = db_session.scalars(select(AuthChallenge)).one()
     assert challenge.binding_sid == "session-1"
     assert challenge.expires_at > challenge.created_at
 
@@ -198,7 +201,9 @@ def test_recovery_codes_are_returned_once_hashed_at_rest_and_atomically_consumed
 
     assert len(codes) == 10
     assert len(set(codes)) == 10
-    persisted = db_session.query(RecoveryCode).filter(RecoveryCode.user_id == user.id).all()
+    persisted = db_session.scalars(
+        select(RecoveryCode).where(RecoveryCode.user_id == user.id)
+    ).all()
     assert len(persisted) == 10
     serialized = json.dumps([row.code_hash for row in persisted])
     assert all(code not in serialized for code in codes)
@@ -262,9 +267,11 @@ def test_operator_reset_is_restricted_to_exact_sole_superadmin_and_revokes_every
     db_session.refresh(session)
     assert reset.auth_version == 2
     assert session.revoked_at is not None
-    assert db_session.query(WebAuthnCredential).count() == 0
-    assert db_session.query(RecoveryCode).count() == 0
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "operator_reset_last_superadmin_mfa").one()
+    assert db_session.scalar(select(func.count()).select_from(WebAuthnCredential)) == 0
+    assert db_session.scalar(select(func.count()).select_from(RecoveryCode)) == 0
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "operator_reset_last_superadmin_mfa")
+    ).one()
     assert user.email not in (audit.metadata_json or "")
 
 
