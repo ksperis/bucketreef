@@ -33,6 +33,7 @@ from app.services.association_names import load_s3_user_names, load_shared_s3_co
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.manager_tool_access import manager_tool_column_values, read_manager_tool_access
 from app.services.portal_role_sync import (
+    PortalRoleMap,
     capture_effective_portal_roles,
     sync_portal_role_downgrades,
     sync_portal_role_promotions,
@@ -58,6 +59,41 @@ class _UiGroupOutputPreload:
 class UiGroupsService:
     def __init__(self, db: Session) -> None:
         self.db = db
+
+    def _existing_portal_scope(self, group_id: int) -> tuple[set[int], set[int]]:
+        user_ids = set(
+            self.db.scalars(
+                select(UserUiGroup.user_id).where(UserUiGroup.group_id == group_id)
+            ).all()
+        )
+        account_ids = set(
+            self.db.scalars(
+                select(UiGroupS3Account.account_id).where(UiGroupS3Account.group_id == group_id)
+            ).all()
+        )
+        return user_ids, account_ids
+
+    def _commit_portal_role_changes(
+        self,
+        *,
+        before: PortalRoleMap,
+        user_ids: set[int],
+        account_ids: set[int],
+        sync_promotions: bool = True,
+    ) -> None:
+        after = capture_effective_portal_roles(
+            self.db,
+            user_ids=user_ids,
+            account_ids=account_ids,
+        )
+        try:
+            sync_portal_role_downgrades(self.db, before=before, after=after)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        if sync_promotions:
+            sync_portal_role_promotions(self.db, before=before, after=after)
 
     def create_group(self, payload: UiGroupCreate) -> UiGroup:
         name = self._normalize_name(payload.name)
@@ -92,14 +128,11 @@ class UiGroupsService:
         self._set_s3_user_links(group, payload.s3_user_links)
         self._set_s3_connection_links(group, payload.s3_connection_ids)
         self.db.flush()
-        portal_roles_after = capture_effective_portal_roles(
-            self.db,
+        self._commit_portal_role_changes(
+            before=portal_roles_before,
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
         )
-        sync_portal_role_downgrades(self.db, before=portal_roles_before, after=portal_roles_after)
-        self.db.commit()
-        sync_portal_role_promotions(self.db, before=portal_roles_before, after=portal_roles_after)
         self.db.refresh(group)
         return group
 
@@ -107,14 +140,7 @@ class UiGroupsService:
         group = self.db.get(UiGroup, group_id)
         if not group:
             raise UiGroupNotFoundError("UI group not found")
-        existing_user_ids = set(
-            self.db.scalars(select(UserUiGroup.user_id).where(UserUiGroup.group_id == group.id)).all()
-        )
-        existing_account_ids = set(
-            self.db.scalars(
-                select(UiGroupS3Account.account_id).where(UiGroupS3Account.group_id == group.id)
-            ).all()
-        )
+        existing_user_ids, existing_account_ids = self._existing_portal_scope(group.id)
         affected_user_ids = existing_user_ids | {
             int(user_id) for user_id in (payload.user_ids or [])
         }
@@ -160,18 +186,11 @@ class UiGroupsService:
         group.updated_at = utcnow()
         self.db.add(group)
         self.db.flush()
-        portal_roles_after = capture_effective_portal_roles(
-            self.db,
+        self._commit_portal_role_changes(
+            before=portal_roles_before,
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
         )
-        try:
-            sync_portal_role_downgrades(self.db, before=portal_roles_before, after=portal_roles_after)
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-        sync_portal_role_promotions(self.db, before=portal_roles_before, after=portal_roles_after)
         self.db.refresh(group)
         return group
 
@@ -179,14 +198,7 @@ class UiGroupsService:
         group = self.db.get(UiGroup, group_id)
         if not group:
             raise UiGroupNotFoundError("UI group not found")
-        affected_user_ids = set(
-            self.db.scalars(select(UserUiGroup.user_id).where(UserUiGroup.group_id == group.id)).all()
-        )
-        affected_account_ids = set(
-            self.db.scalars(
-                select(UiGroupS3Account.account_id).where(UiGroupS3Account.group_id == group.id)
-            ).all()
-        )
+        affected_user_ids, affected_account_ids = self._existing_portal_scope(group.id)
         portal_roles_before = capture_effective_portal_roles(
             self.db,
             user_ids=affected_user_ids,
@@ -194,17 +206,12 @@ class UiGroupsService:
         )
         self.db.delete(group)
         self.db.flush()
-        portal_roles_after = capture_effective_portal_roles(
-            self.db,
+        self._commit_portal_role_changes(
+            before=portal_roles_before,
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
+            sync_promotions=False,
         )
-        try:
-            sync_portal_role_downgrades(self.db, before=portal_roles_before, after=portal_roles_after)
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
 
     def get_group(self, group_id: int) -> Optional[UiGroup]:
         return self.db.get(UiGroup, group_id)

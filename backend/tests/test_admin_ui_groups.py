@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import update
+from sqlalchemy import func, select, update
 
 from tests.feature_policy_fixtures import enable_manager_features
 from app.db import (
@@ -27,8 +27,10 @@ from app.db import (
     UiGroupS3Connection,
 )
 from app.main import app
+from app.models.ui_group import UiGroupCreate
 from app.routers import dependencies, execution_contexts
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.ui_groups_service import UiGroupsService
 from app.services.users_service import UsersService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 from tests.s3_account_factory import make_s3_account
@@ -223,6 +225,22 @@ def test_ui_group_crud_defaults_and_rejects_private_connections(client: TestClie
     )
     assert reject_resp.status_code == 400
     assert "Only shared S3 connections can be linked" in reject_resp.json()["detail"]
+
+
+def test_ui_group_create_rolls_back_when_portal_role_sync_fails(db_session, monkeypatch):
+    from app.services import ui_groups_service as service_module
+
+    def fail_sync(*_args, **_kwargs):
+        raise RuntimeError("portal sync failed")
+
+    monkeypatch.setattr(service_module, "sync_portal_role_downgrades", fail_sync)
+
+    with pytest.raises(RuntimeError, match="portal sync failed"):
+        UiGroupsService(db_session).create_group(UiGroupCreate(name="Rollback group"))
+
+    assert db_session.scalar(
+        select(func.count()).select_from(UiGroup).where(UiGroup.name == "Rollback group")
+    ) == 0
 
 
 def test_ui_group_projection_and_search_hide_private_connection_links(
