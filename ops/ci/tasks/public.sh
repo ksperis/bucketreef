@@ -9,6 +9,9 @@ case "$1" in
   backend-vuln-scan|frontend-vuln-scan)
     # The public runner has no private registry credentials.
     docker run --rm --volume "$PWD:/work" --workdir /work \
-      --entrypoint sh "$(python3 ops/ci/toolchain.py image aquasec/trivy:0.69.3)" ops/ci/tasks/run.sh "$1" ;;
+      --entrypoint sh "$(python3 ops/ci/toolchain.py image aquasec/trivy:0.76.1)" ops/ci/tasks/run.sh "$1"
+    sh ops/ci/tasks/runtime-image-scan.sh "${1%-vuln-scan}" ;;
+  scheduler-contract)
+    BUCKETREEF_SCAN_RUNTIME_IMAGE=true sh ops/ci/tasks/run.sh "$1" ;;
   *) sh ops/ci/tasks/run.sh "$1" ;;
 esac

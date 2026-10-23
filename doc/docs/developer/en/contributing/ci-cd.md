@@ -114,10 +114,16 @@ competing tests. See the suite's README for the current capability exclusions.
 ## Tools, caches and maintenance
 
 `ops/ci/tools.json` locks image indexes and CLI versions. GitHub actions are pinned
-to commit SHAs. Node 24.21.0 is shared by the workflow, frontend image and
+to commit SHAs. Node 24.22.1 is shared by the workflow, frontend image and
 `frontend/.node-version`. The Playwright image and npm package both use 1.58.2;
 its job replaces the image's embedded Node with the checksummed Node 24 binary
 and verifies the installed package/version before running. Upgrade these together.
+
+Public dependency validation also audits development/CI npm dependencies and the
+Cloudflare deployment toolchain. Backend and frontend vulnerability jobs build and
+scan their actual runtime images, while the scheduler contract scans the image it
+already builds. Protected GitLab pipelines additionally scan both architectures of
+the immutable registry images. Trivy is pinned to 0.76.1 across these paths.
 The dependency lockfile remains authoritative for the browser payload.
 Image builds read the index digest from Buildx's JSON manifest output, supported
 by the pinned Docker 27 CLI. Missing or invalid digests stop the job before runtime
