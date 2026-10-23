@@ -240,7 +240,7 @@ def test_ldap_resolver_merges_env_and_ui_with_env_precedence(db_session):
     assert runtime["ui"].display_name == "UI LDAP"
 
     service = LDAPAuthService(db_session, get_users_service(db_session), settings=settings)
-    assert service.list_providers() == [
+    assert [provider.model_dump() for provider in service.list_providers()] == [
         {"id": "corp", "display_name": "Env LDAP"},
         {"id": "ui", "display_name": "UI LDAP"},
     ]
