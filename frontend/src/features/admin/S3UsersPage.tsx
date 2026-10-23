@@ -53,6 +53,7 @@ import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
 import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
+import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
 import { extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
@@ -230,33 +231,27 @@ export default function S3UsersPage() {
     try {
       const quick = filter.trim();
       if (quick && quickFilterMode === "exact") {
-        const allMatches: S3User[] = [];
-        let nextPage = 1;
-        while (true) {
-          const response = await listS3Users({
+        const allMatches = await collectPaginatedItems((nextPage) =>
+          listS3Users({
             page: nextPage,
             page_size: 200,
             search: quick,
             sort_by: sort.field,
             sort_dir: sort.direction,
             include_quota: false,
-          });
-          allMatches.push(...response.items);
-          if (!response.has_next) break;
-          nextPage += 1;
-        }
+          }),
+        );
 
         const exactMatches = allMatches.filter((user) => {
           return matchesExactTextCandidate(getS3UserSearchCandidates(user), quick);
         });
         const totalExact = exactMatches.length;
-        const totalPages = Math.max(1, Math.ceil(totalExact / pageSize));
+        const totalPages = pageCount(totalExact, pageSize);
         if (totalExact > 0 && page > totalPages) {
           setPage(totalPages);
           return;
         }
-        const start = (page - 1) * pageSize;
-        setUsers(exactMatches.slice(start, start + pageSize));
+        setUsers(slicePage(exactMatches, page, pageSize));
         setTotalUsers(totalExact);
       } else {
         const response = await listS3Users({
@@ -267,7 +262,7 @@ export default function S3UsersPage() {
           sort_dir: sort.direction,
           include_quota: false,
         });
-        const totalPages = Math.max(1, Math.ceil((response.total || 0) / pageSize));
+        const totalPages = pageCount(response.total || 0, pageSize);
         if (response.total > 0 && page > totalPages) {
           setPage(totalPages);
           return;

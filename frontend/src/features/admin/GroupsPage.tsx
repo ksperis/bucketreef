@@ -73,6 +73,7 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import { extractApiError } from "../../utils/apiError";
 import { nextSortState } from "../../utils/sortValues";
+import { pageCount } from "../../utils/pagination";
 import {
   clearAdminPrincipalEditRequest,
   readAdminPrincipalEditRequest,
@@ -308,7 +309,7 @@ export default function GroupsPage() {
         sort_by: sort.field,
         sort_dir: sort.direction,
       });
-      const totalPages = Math.max(1, Math.ceil((response.total || 0) / pageSize));
+      const totalPages = pageCount(response.total || 0, pageSize);
       if (response.total > 0 && page > totalPages) {
         setPage(totalPages);
         return;

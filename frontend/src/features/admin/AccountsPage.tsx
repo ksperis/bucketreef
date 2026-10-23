@@ -51,6 +51,7 @@ import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
+import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
@@ -161,10 +162,8 @@ export default function S3AccountsPage() {
     try {
       const quick = filter.trim();
       if (quick && quickFilterMode === "exact") {
-        const allMatches: S3Account[] = [];
-        let nextPage = 1;
-        while (true) {
-          const response = await listS3Accounts({
+        const allMatches = await collectPaginatedItems((nextPage) =>
+          listS3Accounts({
             page: nextPage,
             page_size: 200,
             search: quick,
@@ -172,11 +171,8 @@ export default function S3AccountsPage() {
             sort_dir: sort.direction,
             include_quota: false,
             include_rgw_details: false,
-          });
-          allMatches.push(...response.items);
-          if (!response.has_next) break;
-          nextPage += 1;
-        }
+          }),
+        );
 
         const exactMatches = allMatches.filter((account) => {
           const candidates = [
@@ -189,13 +185,12 @@ export default function S3AccountsPage() {
           return matchesExactTextCandidate(candidates, quick);
         });
         const totalExact = exactMatches.length;
-        const totalPages = Math.max(1, Math.ceil(totalExact / pageSize));
+        const totalPages = pageCount(totalExact, pageSize);
         if (totalExact > 0 && page > totalPages) {
           setPage(totalPages);
           return;
         }
-        const start = (page - 1) * pageSize;
-        setS3Accounts(exactMatches.slice(start, start + pageSize));
+        setS3Accounts(slicePage(exactMatches, page, pageSize));
         setTotalAccounts(totalExact);
       } else {
         const response = await listS3Accounts({
@@ -207,7 +202,7 @@ export default function S3AccountsPage() {
           include_quota: false,
           include_rgw_details: false,
         });
-        const totalPages = Math.max(1, Math.ceil((response.total || 0) / pageSize));
+        const totalPages = pageCount(response.total || 0, pageSize);
         if (response.total > 0 && page > totalPages) {
           setPage(totalPages);
           return;

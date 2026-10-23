@@ -47,6 +47,7 @@ import { useProfileI18n } from "../shared/profileMessages";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
 import { extractApiError } from "../../utils/apiError";
+import { pageCount } from "../../utils/pagination";
 import { isAdminLikeRole, isSuperAdminRole, readStoredUser, setSessionUserCache } from "../../utils/workspaces";
 import {
   clearAdminPrincipalEditRequest,
@@ -411,7 +412,7 @@ export default function UsersPage() {
         sort_by: sort.field,
         sort_dir: sort.direction,
       });
-      const totalPages = Math.max(1, Math.ceil((response.total || 0) / pageSize));
+      const totalPages = pageCount(response.total || 0, pageSize);
       if (response.total > 0 && page > totalPages) {
         setPage(totalPages);
         return;
