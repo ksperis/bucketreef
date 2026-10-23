@@ -103,6 +103,61 @@ def test_import_root_lookup_rejects_conflicting_nested_account_id():
         RgwAccountRootService.load_existing_root_user(Admin(), "root", "RGW1")
 
 
+def test_import_root_resolution_rejects_multiple_account_roots():
+    account_id = "RGW12345678901234567"
+
+    class Admin:
+        def list_user_ids(self):
+            return ["research$root-a", "research$root-b"]
+
+        def get_user(self, uid, tenant=None, allow_not_found=False):
+            return {
+                "uid": f"{tenant}${uid}",
+                "tenant": tenant,
+                "account_id": account_id,
+                "account_root": True,
+            }
+
+    with pytest.raises(ValueError, match="Multiple RGW account roots"):
+        RgwAccountRootService().resolve_import_identity(
+            Admin(),
+            {"account": {"id": account_id, "tenant": "research"}},
+            account_id,
+            None,
+        )
+
+
+def test_import_root_resolution_uses_account_tenant_for_unqualified_account_user():
+    account_id = "RGW12345678901234567"
+    calls: list[tuple[str, str | None]] = []
+
+    class Admin:
+        def get_user(self, uid, tenant=None, allow_not_found=False):
+            calls.append((uid, tenant))
+            return {
+                "uid": f"{tenant}${uid}",
+                "tenant": tenant,
+                "account_id": account_id,
+                "account_root": True,
+            }
+
+    resolved = RgwAccountRootService().resolve_import_identity(
+        Admin(),
+        {
+            "account": {
+                "id": account_id,
+                "tenant": "research",
+                "user_list": ["custom-root"],
+            }
+        },
+        account_id,
+        None,
+    )
+
+    assert resolved == ("custom-root", "research")
+    assert calls == [("custom-root", "research"), ("custom-root", "research")]
+
+
 class FakeRGWAdmin:
     def get_user_by_access_key(self, access_key, **kwargs):
         return {"caps": "users=read,write;accounts=read,write"}
