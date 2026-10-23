@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 
+import sqlalchemy as sa
+
 from app.db import (
     CostStorageDaily,
     CostUsageDaily,
@@ -52,8 +54,8 @@ def test_quota_usage_history_upserts_keep_one_row(db_session):
     service.upsert_daily(subject, 20, 2, 2, 20.0, now)
     db_session.commit()
 
-    hourly = db_session.query(QuotaUsageHourly).one()
-    daily = db_session.query(QuotaUsageDaily).one()
+    hourly = db_session.scalars(sa.select(QuotaUsageHourly)).one()
+    daily = db_session.scalars(sa.select(QuotaUsageDaily)).one()
     assert hourly.used_bytes == 20
     assert hourly.bucket_count == 2
     assert daily.last_used_bytes == 20
@@ -92,7 +94,7 @@ def test_user_quota_notifications_are_idempotent_per_event_key(db_session):
 
     assert first == 1
     assert second == 0
-    assert db_session.query(UserNotification).count() == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(UserNotification)) == 1
 
 
 def test_cost_daily_upserts_keep_one_row(db_session):
@@ -138,8 +140,8 @@ def test_cost_daily_upserts_keep_one_row(db_session):
         by_bucket=None,
     )
 
-    usage = db_session.query(CostUsageDaily).one()
-    storage = db_session.query(CostStorageDaily).one()
+    usage = db_session.scalars(sa.select(CostUsageDaily)).one()
+    storage = db_session.scalars(sa.select(CostStorageDaily)).one()
     assert usage.bytes_in == 10
     assert usage.ops_total == 30
     assert storage.total_bytes == 200
@@ -174,8 +176,8 @@ def test_health_latest_and_rollup_upserts_keep_one_row(db_session):
     service._update_rollup_bucket(second, DEFAULT_ROLLUP_RESOLUTION_SECONDS)
     db_session.commit()
 
-    latest = db_session.query(EndpointHealthLatest).one()
-    rollup = db_session.query(EndpointHealthRollup).one()
+    latest = db_session.scalars(sa.select(EndpointHealthLatest)).one()
+    rollup = db_session.scalars(sa.select(EndpointHealthRollup)).one()
     assert latest.status == HealthCheckStatus.DEGRADED.value
     assert latest.latency_ms == 1200
     assert rollup.bucket_start == service._bucket_start(checked_at, DEFAULT_ROLLUP_RESOLUTION_SECONDS)
