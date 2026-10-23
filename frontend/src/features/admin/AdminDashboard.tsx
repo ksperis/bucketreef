@@ -252,7 +252,13 @@ function coverageLabel(coverage?: AdminDashboardCoverage): string {
 function coverageNote(coverage: AdminDashboardCoverage | undefined, text: AdminDashboardText): string | null {
   if (!coverage || coverage.eligible_count === 0) return null;
   if (coverage.complete_count === coverage.eligible_count) return null;
-  const details = coverage.issues.map((issue) => `${issue.name}: ${issue.reason}`).join("; ");
+  const details = coverage.issues.map((issue) => {
+    if (!issue.endpoint_url) return `${issue.name}: ${issue.reason}`;
+    const reason = issue.reason
+      .replace(/(?:<|\[)redacted-endpoint(?:>|\]):\s*/gi, "")
+      .trim();
+    return `${issue.name} — ${issue.endpoint_url}: ${reason}`;
+  }).join("; ");
   const prefix = text(coverage.contributing_count > 0 ? "partialData" : "dataUnavailable");
   return text("coverageNote", { prefix, complete: coverage.complete_count, total: coverage.eligible_count, details: details ? ` ${details}` : "" });
 }

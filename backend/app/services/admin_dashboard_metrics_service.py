@@ -17,7 +17,7 @@ from app.services.admin_metrics_service import AdminMetricsService
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.traffic_service import TrafficWindow, window_start
-from app.utils.storage_endpoint_features import resolve_feature_flags
+from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
 
 STORAGE_FIELDS = ("bucket_count", "object_count", "used_bytes")
 TRAFFIC_FIELDS = ("bytes_in", "bytes_out", "ops", "success_ops")
@@ -54,6 +54,7 @@ class AdminDashboardMetricsService:
         return {
             "endpoint_id": endpoint.id,
             "name": endpoint.name,
+            "admin_endpoint_url": resolve_rgw_admin_api_endpoint(endpoint),
             "storage_enabled": flags.metrics_enabled,
             "traffic_enabled": flags.usage_enabled,
         }
@@ -133,7 +134,12 @@ class AdminDashboardMetricsService:
     @staticmethod
     def _coverage(results: list[dict], contributed: list[dict], complete: list[dict]) -> dict:
         issues = [
-            {"endpoint_id": r["endpoint_id"], "name": r["name"], "reason": r["reason"]}
+            {
+                "endpoint_id": r["endpoint_id"],
+                "name": r["name"],
+                "endpoint_url": r.get("admin_endpoint_url"),
+                "reason": r["reason"],
+            }
             for r in results if r.get("reason")
         ]
         return {
