@@ -3,6 +3,8 @@
 
 from datetime import UTC, datetime, timedelta
 
+import sqlalchemy as sa
+
 from app.db import QuotaAlertState
 from app.services.quota_alert_state_service import (
     QUOTA_ALERT_FULL,
@@ -83,7 +85,7 @@ def test_quota_alert_state_tracks_escalation_reset_and_reentry(db_session):
     assert reentry.should_alert is True
     assert reentry.previous_level == QUOTA_ALERT_NORMAL
 
-    state = db_session.query(QuotaAlertState).one()
+    state = db_session.scalars(sa.select(QuotaAlertState)).one()
     assert state.s3_account_id == subject.subject_id
     assert state.s3_user_id is None
     assert state.last_level == QUOTA_ALERT_THRESHOLD
