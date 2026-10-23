@@ -196,7 +196,7 @@ Use `/portal/storage-spaces*` and `/portal/storage-spaces/{spaceId}/shares*`
 for end-user collaboration workflows. The shared project override is governed
 through `/admin/accounts/{accountId}/portal-settings`; its delegation flag is
 disabled by default. `GET /portal/settings` exposes the effective values to all
-project members. When delegation is enabled, `PUT /portal/settings` lets only
+project members. When delegation is enabled, `PATCH /portal/settings` lets only
 the project's `portal_manager` update that same override; disabling delegation
 makes an existing override read-only without deleting or deactivating it.
 
@@ -245,7 +245,7 @@ The Portal frontend uses these surfaces:
 - Super-admin Portal override governance:
   `/admin/accounts/{accountId}/portal-settings`.
 - Project settings visibility and delegated shared override editing:
-  `GET/PUT /portal/settings`.
+  `GET/PATCH /portal/settings`.
 - Storage Space Versioning, Lifecycle, and version history retention:
   `GET/PUT /portal/storage-spaces/{spaceId}/settings`.
 

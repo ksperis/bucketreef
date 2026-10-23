@@ -226,7 +226,7 @@ export LDAP_PROVIDERS__corp__subject_attribute="entryUUID"
 - Common: `GET /health`, `POST /api/auth/login`, `GET /api/users/me`
 - Admin API tokens: `GET/POST /api/auth/api-tokens`, `DELETE /api/auth/api-tokens/{token_id}`
 - Admin space (`super_admin`): `GET/POST /api/admin/accounts`, `GET /api/admin/stats/overview`
-- Admin users (`super_admin`): `GET/POST /api/admin/users`, `PUT /api/admin/users/{id}`, `DELETE /api/admin/users/{id}`
+- Admin users (`super_admin`): `GET/POST /api/admin/users`, `PATCH /api/admin/users/{id}`, `DELETE /api/admin/users/{id}`
 - Manager space (`account_admin` or `super_admin`): `GET/POST/DELETE /api/manager/buckets`, `GET /api/manager/iam/policies`, `GET /api/manager/stats/buckets`
 
 First administrator bootstrap:
