@@ -20,9 +20,9 @@ type BucketOpsSelectionListBuckets = (
   scopeId: number,
   params: ListCephAdminBucketsParams,
 ) => Promise<{
-  items?: CephAdminBucket[];
+  items: CephAdminBucket[];
   has_next: boolean;
-  total?: number;
+  total: number;
 }>;
 
 type UseBucketOpsSelectionOptions = {

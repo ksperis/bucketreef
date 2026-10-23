@@ -33,7 +33,7 @@ type UseBucketOpsSelectionActionsOptions = {
   listBuckets: (
     scopeId: number,
     params: ListCephAdminBucketsParams,
-  ) => Promise<{ items?: CephAdminBucket[]; has_next: boolean }>;
+  ) => Promise<{ items: CephAdminBucket[]; has_next: boolean }>;
   persistUiTagChanges: (
     targets: BucketUiTagTarget[],
     add: Array<BucketUiTagDefinition | BucketUiTagDraft>,

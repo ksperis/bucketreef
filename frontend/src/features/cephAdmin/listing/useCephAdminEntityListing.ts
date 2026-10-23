@@ -24,8 +24,8 @@ type EntityListingParams = {
 };
 
 type EntityListingResponse<Entity> = {
-  items?: Entity[];
-  total?: number;
+  items: Entity[];
+  total: number;
 };
 
 type ListEntities<Entity> = (
@@ -169,9 +169,9 @@ export function useCephAdminEntityListing<Entity>({
         }
 
         if (!isCurrentRequest()) return;
-        const baseItems = baseResponse.items ?? [];
+        const baseItems = baseResponse.items;
         setItems(baseItems);
-        setTotal(baseResponse.total ?? 0);
+        setTotal(baseResponse.total);
         setLoading(false);
         setAdvancedProgress(INACTIVE_ADVANCED_PROGRESS);
 
@@ -186,7 +186,7 @@ export function useCephAdminEntityListing<Entity>({
           );
           if (!isCurrentRequest()) return;
 
-          const detailsByKey = new Map((detailResponse.items ?? []).map((entity) => [entityKey(entity), entity]));
+          const detailsByKey = new Map(detailResponse.items.map((entity) => [entityKey(entity), entity]));
           setItems(baseItems.map((entity) => detailsByKey.get(entityKey(entity)) ?? entity));
         } finally {
           if (isCurrentRequest()) setLoadingDetails(false);

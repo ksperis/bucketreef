@@ -24,9 +24,9 @@ import {
 import { formatDownloadTimestamp } from "../../utils/download";
 
 type BucketOpsExportPage = {
-  items?: CephAdminBucket[];
+  items: CephAdminBucket[];
   has_next: boolean;
-  total?: number;
+  total: number;
 };
 
 type BucketOpsSelectionExportInput = {

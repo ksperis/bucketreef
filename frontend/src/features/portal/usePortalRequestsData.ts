@@ -200,7 +200,7 @@ export function usePortalRequestsData({
     setCollaboratorsError(null);
     try {
       const data = await fetchPortalCollaborators(accountId);
-      setCollaborators(data.collaborators ?? []);
+      setCollaborators(data.collaborators);
     } catch (err) {
       console.error(err);
       setCollaborators([]);

@@ -19,7 +19,7 @@ type SelectionTarget = {
 };
 
 type SelectionTargetPage = {
-  items?: CephAdminBucket[];
+  items: CephAdminBucket[];
   has_next: boolean;
 };
 

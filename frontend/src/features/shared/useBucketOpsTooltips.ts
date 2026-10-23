@@ -146,7 +146,7 @@ export function useBucketOpsTooltips({
         include: ["owner_name"],
         with_stats: false,
       });
-      const candidate = (response.items ?? []).find(
+      const candidate = response.items.find(
         (item) =>
           item.name === bucket.name &&
           (item.tenant ?? "") === (bucket.tenant ?? "") &&
