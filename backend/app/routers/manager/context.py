@@ -71,21 +71,36 @@ def _manager_stats_state(
         manager_usage_metrics_resource(db, context),
     ).enabled
     if context.context_kind == "connection":
-        if not context.manager_capabilities.can_manage_buckets:
-            return False, "Metrics are not available for this connection.", None
-        if context.source_connection is None:
-            return False, "Metrics are unavailable: connection context is incomplete.", None
-        resolution = ConnectionIdentityService().resolve_metrics_identity(context.source_connection)
-        if not resolution.eligible:
-            return False, (resolution.reason or "Metrics are unavailable for this connection."), None
-        if not rgw_usage_metrics_enabled:
-            return False, "RGW traffic and usage metrics are disabled.", resolution.iam_identity
-        if not has_supervision_credentials(context):
-            return False, "Supervision credentials are not configured for this endpoint.", resolution.iam_identity
-        if isinstance(actor, ManagerSessionPrincipal) and not actor.capabilities.can_view_traffic:
-            return False, "Metrics are not available for this profile.", resolution.iam_identity
-        return True, None, resolution.iam_identity
+        return _manager_connection_stats_state(context, actor, rgw_usage_metrics_enabled)
+    return _manager_rgw_stats_state(context, actor, rgw_usage_metrics_enabled)
 
+
+def _manager_connection_stats_state(
+    context: S3ExecutionContext,
+    actor: ManagerActor,
+    rgw_usage_metrics_enabled: bool,
+) -> tuple[bool, Optional[str], Optional[str]]:
+    if not context.manager_capabilities.can_manage_buckets:
+        return False, "Metrics are not available for this connection.", None
+    if context.source_connection is None:
+        return False, "Metrics are unavailable: connection context is incomplete.", None
+    resolution = ConnectionIdentityService().resolve_metrics_identity(context.source_connection)
+    if not resolution.eligible:
+        return False, (resolution.reason or "Metrics are unavailable for this connection."), None
+    if not rgw_usage_metrics_enabled:
+        return False, "RGW traffic and usage metrics are disabled.", resolution.iam_identity
+    if not has_supervision_credentials(context):
+        return False, "Supervision credentials are not configured for this endpoint.", resolution.iam_identity
+    if isinstance(actor, ManagerSessionPrincipal) and not actor.capabilities.can_view_traffic:
+        return False, "Metrics are not available for this profile.", resolution.iam_identity
+    return True, None, resolution.iam_identity
+
+
+def _manager_rgw_stats_state(
+    context: S3ExecutionContext,
+    actor: ManagerActor,
+    rgw_usage_metrics_enabled: bool,
+) -> tuple[bool, Optional[str], Optional[str]]:
     if not rgw_usage_metrics_enabled:
         return False, "RGW traffic and usage metrics are disabled.", None
     if not has_supervision_credentials(context):
