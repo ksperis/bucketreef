@@ -19,6 +19,26 @@ def test_remaining_portal_models_have_canonical_domain_modules() -> None:
     assert PortalProjectSettings.__module__ == "app.models.portal_settings"
 
 
+def test_portal_settings_models_require_complete_canonical_payloads() -> None:
+    assert set(PortalAccountSettings.model_json_schema()["required"]) == {
+        "effective",
+        "feature_states",
+        "admin_override",
+        "delegated_to_portal_managers",
+        "portal_collaborator_role_management_delegated",
+        "portal_collaborator_addition_delegated",
+    }
+    assert set(PortalProjectSettings.model_json_schema()["required"]) == {
+        "effective",
+        "feature_states",
+        "project_override",
+        "delegated_to_portal_managers",
+        "portal_collaborator_role_management_delegated",
+        "portal_collaborator_addition_delegated",
+        "can_update",
+    }
+
+
 def test_monitoring_and_settings_routes_preserve_their_openapi_contracts() -> None:
     paths = app.openapi()["paths"]
 

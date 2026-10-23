@@ -37,7 +37,7 @@ export type PortalState = {
 
 export type PortalAccountSettings = {
   effective: PortalSettings;
-  feature_states?: Record<string, FeatureState>;
+  feature_states: Record<string, FeatureState>;
   admin_override: PortalSettingsOverride;
   delegated_to_portal_managers: boolean;
   portal_collaborator_role_management_delegated: boolean;
@@ -46,7 +46,7 @@ export type PortalAccountSettings = {
 
 export type PortalProjectSettings = {
   effective: PortalSettings;
-  feature_states?: Record<string, FeatureState>;
+  feature_states: Record<string, FeatureState>;
   project_override: PortalSettingsOverride;
   delegated_to_portal_managers: boolean;
   portal_collaborator_role_management_delegated: boolean;

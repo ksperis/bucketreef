@@ -248,7 +248,7 @@ export default function ProjectSettingsEditor({
     const policy = feature ? settings?.effective.feature_policies?.[feature.policy] : undefined;
     const platformValue = policy ? enabled(policy === "default_on") : undefined;
     if (feature) {
-      const featureState = settings?.feature_states?.[feature.state];
+      const featureState = settings?.feature_states[feature.state];
       const blocked = featureState?.blocked_reason === "platform_disabled" || policy === "disabled";
       const platformDisabledLabel = t({
         en: "Platform disabled",

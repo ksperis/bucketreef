@@ -52,6 +52,7 @@ const project: PortalProjectSettings = {
       cors_allowed_origins: ["https://portal.example.test"],
     },
   },
+  feature_states: {},
   project_override: {},
   delegated_to_portal_managers: true,
   portal_collaborator_role_management_delegated: false,
