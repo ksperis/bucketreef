@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 from app.db import PortalAccountRole, AuditLog, PortalStorageSpaceMetadata, S3Account, User, UserRole
@@ -88,7 +89,9 @@ def test_portal_manager_can_choose_icon_and_action_is_audited(client: TestClient
     db_session.refresh(metadata)
     assert metadata.icon_source == "preset"
     assert metadata.icon_preset == "database"
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "update_storage_space_icon").one()
+    audit = db_session.scalars(
+        sa.select(AuditLog).where(AuditLog.action == "update_storage_space_icon")
+    ).one()
     assert audit.scope == "portal"
     assert audit.entity_id == "research-data"
     assert "database" in (audit.metadata_json or "")
@@ -133,7 +136,11 @@ def test_uploaded_icon_is_validated_served_with_versioned_private_cache_and_audi
         f'"storage-space-icon-{account.id}-research-data-'
     )
     assert fetched.headers["x-content-type-options"] == "nosniff"
-    assert db_session.query(AuditLog).filter(AuditLog.action == "upload_storage_space_icon").count() == 1
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(AuditLog).where(
+            AuditLog.action == "upload_storage_space_icon"
+        )
+    ) == 1
 
     disguised = client.put(
         "/api/portal/storage-spaces/research-data/icon/image",
