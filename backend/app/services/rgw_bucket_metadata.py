@@ -48,10 +48,9 @@ def resolve_bucket_owner_identity(entry: dict) -> tuple[str | None, str | None]:
 def build_bucket_summary(entry: dict) -> BucketListingSummary | None:
     if not isinstance(entry, dict):
         return None
-    bucket_name = extract_bucket_name(entry)
+    bucket_name, tenant, tenant_metadata_resolved = extract_bucket_identity(entry)
     if not bucket_name:
         return None
-    tenant = normalize_optional_scalar(entry.get("tenant"))
     owner = normalize_optional_scalar(entry.get("owner"))
     usage_bytes, objects = extract_usage_stats(entry.get("usage"))
     quota_size = None
@@ -75,7 +74,7 @@ def build_bucket_summary(entry: dict) -> BucketListingSummary | None:
     return BucketListingSummary(
         name=bucket_name,
         tenant=tenant,
-        tenant_metadata_resolved="tenant" in entry and entry.get("tenant") is not None,
+        tenant_metadata_resolved=tenant_metadata_resolved,
         owner=owner,
         used_bytes=usage_bytes,
         object_count=objects,
@@ -84,11 +83,29 @@ def build_bucket_summary(entry: dict) -> BucketListingSummary | None:
     )
 
 
-def extract_bucket_name(entry: dict) -> str | None:
+def extract_bucket_identity(entry: dict) -> tuple[str | None, str | None, bool]:
     if not isinstance(entry, dict):
-        return None
+        return None, None, False
     name = entry.get("name")
     if not name and isinstance(entry.get("bucket"), str):
         name = entry.get("bucket")
     bucket_name = str(name or "").strip()
-    return bucket_name or None
+    if not bucket_name:
+        return None, None, False
+
+    tenant = normalize_optional_scalar(entry.get("tenant"))
+    tenant_metadata_resolved = "tenant" in entry and entry.get("tenant") is not None
+    if "/" in bucket_name:
+        qualified_tenant, unqualified_name = bucket_name.split("/", 1)
+        qualified_tenant = qualified_tenant.strip()
+        unqualified_name = unqualified_name.strip()
+        if qualified_tenant and unqualified_name and (tenant is None or tenant == qualified_tenant):
+            bucket_name = unqualified_name
+            tenant = tenant or qualified_tenant
+            tenant_metadata_resolved = True
+    return bucket_name, tenant, tenant_metadata_resolved
+
+
+def extract_bucket_name(entry: dict) -> str | None:
+    bucket_name, _tenant, _tenant_metadata_resolved = extract_bucket_identity(entry)
+    return bucket_name

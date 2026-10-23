@@ -410,5 +410,13 @@
   "of": "总计",
   "users": "用户",
   "{count} result": "{count} 个结果",
-  "{count} results": "{count} 个结果"
+  "{count} results": "{count} 个结果",
+  "Loaded accounts": "已加载的账户",
+  "Loaded users": "已加载的用户",
+  "Next account": "下一个账户",
+  "Next user": "下一个用户",
+  "Previous account": "上一个账户",
+  "Previous user": "上一个用户",
+  "RGW account settings": "RGW 账户设置",
+  "RGW user settings": "RGW 用户设置"
 }

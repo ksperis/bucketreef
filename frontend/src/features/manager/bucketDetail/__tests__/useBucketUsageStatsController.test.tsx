@@ -85,12 +85,14 @@ describe("useBucketUsageStatsController", () => {
     expect(apiMocks.getCephAdminBucketUsageStats).toHaveBeenCalledWith(
       7,
       "reports",
+      undefined,
     );
     expect(
       apiMocks.streamCephAdminBucketUsageStatsForBucket,
     ).toHaveBeenCalledWith(
       7,
       "reports",
+      undefined,
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(result.current.snapshot).toEqual(snapshot);

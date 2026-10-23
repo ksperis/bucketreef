@@ -726,7 +726,7 @@ describe("BucketDetailPage replication state", () => {
     await user.click(screen.getByRole("tab", { name: "Objects" }));
 
     await waitFor(() =>
-      expect(listCephAdminBucketObjectsMock).toHaveBeenCalledWith(1, "demo-bucket", "")
+      expect(listCephAdminBucketObjectsMock).toHaveBeenCalledWith(1, "demo-bucket", "", null)
     );
     expect(screen.getAllByText("reports/")).not.toHaveLength(0);
     expect(screen.getByText("reports/summary.csv")).toBeInTheDocument();
@@ -1262,7 +1262,7 @@ describe("BucketDetailPage replication state", () => {
     await user.click(objectLockSaveButton);
 
     await waitFor(() => {
-      expect(setCephAdminBucketVersioningMock).toHaveBeenCalledWith(1, "demo-bucket", true);
+      expect(setCephAdminBucketVersioningMock).toHaveBeenCalledWith(1, "demo-bucket", true, null);
       expect(updateCephAdminBucketObjectLockMock).toHaveBeenCalled();
     });
 

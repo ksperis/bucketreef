@@ -128,7 +128,7 @@ describe("useBucketOpsTooltips", () => {
       }),
     );
     expect(api.getBucketProperties).toHaveBeenCalledOnce();
-    expect(api.getBucketProperties).toHaveBeenCalledWith(7, "reports");
+    expect(api.getBucketProperties).toHaveBeenCalledWith(7, "tenant-a:reports");
   });
 
   it("ignores stale work after a cache reset without disrupting the replacement request", async () => {

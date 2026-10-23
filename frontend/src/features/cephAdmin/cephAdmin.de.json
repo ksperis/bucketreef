@@ -410,5 +410,13 @@
   "of": "von",
   "users": "Benutzer",
   "{count} result": "{count} Ergebnis",
-  "{count} results": "{count} Ergebnisse"
+  "{count} results": "{count} Ergebnisse",
+  "Loaded accounts": "Geladene Konten",
+  "Loaded users": "Geladene Benutzer",
+  "Next account": "Nächstes Konto",
+  "Next user": "Nächster Benutzer",
+  "Previous account": "Vorheriges Konto",
+  "Previous user": "Vorheriger Benutzer",
+  "RGW account settings": "RGW-Kontoeinstellungen",
+  "RGW user settings": "RGW-Benutzereinstellungen"
 }
