@@ -296,7 +296,7 @@ def create_access_key(
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
-@router.put("/{user_name}/keys/{access_key_id}/metadata", response_model=AccessKeyMetadata)
+@router.patch("/{user_name}/keys/{access_key_id}/metadata", response_model=AccessKeyMetadata)
 def update_access_key_metadata(
     user_name: str,
     access_key_id: str,

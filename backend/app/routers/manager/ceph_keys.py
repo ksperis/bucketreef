@@ -109,7 +109,7 @@ def create_ceph_access_key(
         raise_http_error_from_value_error(exc)
 
 
-@router.put("/{access_key}/metadata", response_model=AccessKeyMetadata)
+@router.patch("/{access_key}/metadata", response_model=AccessKeyMetadata)
 def update_ceph_access_key_metadata(
     access_key: str,
     payload: AccessKeyMetadataInput,
