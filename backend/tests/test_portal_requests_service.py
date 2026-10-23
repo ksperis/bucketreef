@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from sqlalchemy import func, select
 
 from app.db import (
     ManagerAccountRole, PortalAccountRole,
@@ -140,8 +141,12 @@ def test_portal_request_creation_lists_only_requester_and_notifies_admin(db_sess
 
     requester_rows = service.list_for_portal_user(requester, _portal_access(account, requester))
     other_rows = service.list_for_portal_user(other, _portal_access(account, other))
-    notification = db_session.query(UserNotification).filter(UserNotification.user_id == admin.id).one()
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "create_portal_request").one()
+    notification = db_session.scalars(
+        select(UserNotification).where(UserNotification.user_id == admin.id)
+    ).one()
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "create_portal_request")
+    ).one()
 
     assert created.status == "pending"
     assert created.payload["portal_role"] == PortalAccountRole.PORTAL_USER.value
@@ -163,8 +168,15 @@ def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
 
     approved = service.approve_request(created.id, admin, message="Done")
 
-    target = db_session.query(User).filter(User.email == "jane.viewer@example.org").one()
-    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    target = db_session.scalars(
+        select(User).where(User.email == "jane.viewer@example.org")
+    ).one()
+    link = db_session.scalars(
+        select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ).one()
     message = approved.messages[0]
 
     assert approved.status == "approved"
@@ -191,8 +203,15 @@ def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
 
     approved = service.approve_request(created.id, admin)
 
-    target = db_session.query(User).filter(User.email == "jane.viewer@example.org").one()
-    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    target = db_session.scalars(
+        select(User).where(User.email == "jane.viewer@example.org")
+    ).one()
+    link = db_session.scalars(
+        select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ).one()
     assert approved.result is not None
     assert approved.result["requested_portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
     assert approved.result["portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
@@ -205,7 +224,8 @@ def test_approve_user_access_rejects_noncanonical_missing_intent(db_session):
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
     service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
     created = _create_user_request(service, account, requester)
-    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row is not None
     payload = json.loads(row.payload_json)
     payload.pop("portal_role")
     payload.pop("intent", None)
@@ -236,7 +256,8 @@ def test_approve_user_access_rejects_noncanonical_persisted_values(
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
     service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
     created = _create_user_request(service, account, requester)
-    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row is not None
     payload = json.loads(row.payload_json)
     payload[field] = value
     row.payload_json = json.dumps(payload)
@@ -266,7 +287,12 @@ def test_approve_user_access_preserves_existing_portal_manager_role(db_session):
 
     approved = service.approve_request(created.id, admin)
 
-    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    link = db_session.scalars(
+        select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ).one()
     assert approved.status == "approved"
     assert approved.result is not None
     assert approved.result["created_user"] is False
@@ -304,8 +330,13 @@ def test_approve_user_removal_deletes_portal_user_link_only(db_session):
     assert approved.status == "approved"
     assert approved.result is not None
     assert approved.result["target_email"] == "jane.viewer@example.org"
-    assert db_session.query(User).filter(User.id == target.id).one()
-    assert db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).first() is None
+    assert db_session.get(User, target.id) is not None
+    assert db_session.scalar(
+        select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ) is None
 
 
 def test_approve_user_removal_refuses_portal_manager_link(db_session):
@@ -335,10 +366,16 @@ def test_approve_user_removal_refuses_portal_manager_link(db_session):
     with pytest.raises(PortalRequestExecutionError):
         service.approve_request(created.id, admin)
 
-    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row is not None
     assert row.status == "failed"
     assert "Only Portal user links" in (row.error_message or "")
-    assert db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    assert db_session.scalars(
+        select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ).one()
 
 
 def test_role_change_request_promotes_direct_portal_user(db_session):
@@ -381,7 +418,12 @@ def test_role_change_request_promotes_direct_portal_user(db_session):
 
     approved = service.approve_request(created.id, admin)
 
-    link = db_session.query(UserS3Account).filter_by(user_id=target.id, account_id=account.id).one()
+    link = db_session.scalars(
+        select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ).one()
     assert approved.status == "approved"
     assert approved.result == {
         "target_user_id": target.id,
@@ -430,7 +472,8 @@ def test_role_change_execution_rejects_noncanonical_persisted_values(
             portal_role=PortalAccountRole.PORTAL_MANAGER.value,
         ),
     )
-    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row is not None
     payload = json.loads(row.payload_json)
     payload[field] = value
     row.payload_json = json.dumps(payload)
@@ -500,7 +543,8 @@ def test_role_change_request_fails_if_role_changed_before_approval(db_session):
     with pytest.raises(PortalRequestExecutionError, match="changed after this request"):
         service.approve_request(created.id, admin)
 
-    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row is not None
     assert row.status == "failed"
 
 
@@ -540,24 +584,26 @@ def test_collaborator_addition_delegation_combinations(
     )
 
     assert created.status == expected_status
-    admin_notifications = (
-        db_session.query(UserNotification)
-        .filter(UserNotification.user_id == admin.id)
-        .all()
-    )
+    admin_notifications = db_session.scalars(
+        select(UserNotification).where(UserNotification.user_id == admin.id)
+    ).all()
     assert len(admin_notifications) == (0 if expected_status == "approved" else 1)
     if expected_status == "approved":
-        target = db_session.query(User).filter(User.email == "jane.viewer@example.org").one()
-        link = db_session.query(UserS3Account).filter_by(
-            user_id=target.id,
-            account_id=account.id,
+        target = db_session.scalars(
+            select(User).where(User.email == "jane.viewer@example.org")
+        ).one()
+        link = db_session.scalars(
+            select(UserS3Account).where(
+                UserS3Account.user_id == target.id,
+                UserS3Account.account_id == account.id,
+            )
         ).one()
         assert link.portal_role == requested_role
-        delegated_audit = (
-            db_session.query(AuditLog)
-            .filter(AuditLog.action == "execute_delegated_portal_request")
-            .one()
-        )
+        delegated_audit = db_session.scalars(
+            select(AuditLog).where(
+                AuditLog.action == "execute_delegated_portal_request"
+            )
+        ).one()
         assert json.loads(delegated_audit.metadata_json)["execution"] == "delegated"
 
 
@@ -580,21 +626,25 @@ def test_delegated_execution_failure_is_sanitized_and_audited(db_session, monkey
 
     expected_detail = "secret_key=<redacted> endpoint=<redacted-url>"
     assert str(error.value) == expected_detail
-    failed = db_session.query(PortalAdminRequest).filter_by(account_id=account.id).one()
+    failed = db_session.scalars(
+        select(PortalAdminRequest).where(PortalAdminRequest.account_id == account.id)
+    ).one()
     assert failed.status == "failed"
     assert failed.error_message == expected_detail
 
-    audit = (
-        db_session.query(AuditLog)
-        .filter(AuditLog.action == "execute_delegated_portal_request")
-        .one()
-    )
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "execute_delegated_portal_request")
+    ).one()
     assert audit.scope == "portal"
     assert audit.status == "failure"
     metadata = json.loads(audit.metadata_json)
     assert metadata["execution"] == "delegated"
     assert metadata["error"] == expected_detail
-    assert db_session.query(UserNotification).filter(UserNotification.user_id == admin.id).count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(UserNotification)
+        .where(UserNotification.user_id == admin.id)
+    ) == 0
 
 
 @pytest.mark.parametrize(
@@ -652,13 +702,21 @@ def test_delegated_role_change_is_applied_immediately(
     assert created.result["previous_portal_role"] == current_role
     assert created.result["portal_role"] == requested_role
     assert (
-        db_session.query(UserS3Account)
-        .filter_by(user_id=target.id, account_id=account.id)
+        db_session.scalars(
+            select(UserS3Account).where(
+                UserS3Account.user_id == target.id,
+                UserS3Account.account_id == account.id,
+            )
+        )
         .one()
         .portal_role
         == requested_role
     )
-    assert db_session.query(UserNotification).filter(UserNotification.user_id == admin.id).count() == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(UserNotification)
+        .where(UserNotification.user_id == admin.id)
+    ) == 0
     assert iam_projection_calls == [(target.id, account.id, requested_role)]
 
 
@@ -690,7 +748,11 @@ def test_nondelegated_role_change_stays_pending_and_notifies_admin(db_session):
     )
 
     assert created.status == "pending"
-    assert db_session.query(UserNotification).filter(UserNotification.user_id == admin.id).count() == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(UserNotification)
+        .where(UserNotification.user_id == admin.id)
+    ) == 1
 
 
 def test_role_change_rejects_self_and_group_backed_membership(db_session):
@@ -763,11 +825,18 @@ def test_approve_user_access_marks_failed_for_inactive_existing_user(db_session)
     with pytest.raises(PortalRequestExecutionError):
         service.approve_request(created.id, admin)
 
-    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row is not None
     assert row.status == "failed"
     assert "inactive" in (row.error_message or "")
-    assert db_session.query(UserNotification).filter(UserNotification.user_id == requester.id).count() == 1
-    audit = db_session.query(AuditLog).filter(AuditLog.action == "approve_portal_request").one()
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(UserNotification)
+        .where(UserNotification.user_id == requester.id)
+    ) == 1
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "approve_portal_request")
+    ).one()
     assert audit.status == "failure"
 
 
@@ -823,7 +892,7 @@ def test_setting_change_request_rejects_when_project_settings_are_delegated(db_s
             ),
         )
 
-    assert db_session.query(PortalAdminRequest).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(PortalAdminRequest)) == 0
 
 
 def test_approve_setting_change_preserves_concurrent_project_overrides(db_session, monkeypatch):
@@ -952,7 +1021,7 @@ def test_create_quota_change_rejects_target_below_current_usage(db_session, monk
             ),
         )
 
-    assert db_session.query(PortalAdminRequest).count() == 0
+    assert db_session.scalar(select(func.count()).select_from(PortalAdminRequest)) == 0
 
 
 def test_quota_direction_mismatch_fails_request(db_session):
@@ -976,7 +1045,8 @@ def test_quota_direction_mismatch_fails_request(db_session):
     with pytest.raises(PortalRequestExecutionError):
         service.approve_request(created.id, admin)
 
-    row = db_session.query(PortalAdminRequest).filter_by(id=created.id).one()
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row is not None
     assert row.status == "failed"
     assert fake_accounts.updates == []
 
