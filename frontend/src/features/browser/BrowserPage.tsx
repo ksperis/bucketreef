@@ -12,13 +12,9 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import {
-  useLocation,
   useSearchParams,
 } from "react-router-dom";
-import { readStoredUser } from "../../utils/workspaces";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
-import type { BrowserRequestOptions } from "../../api/browserWorkspace";
-import { useBrowserContext } from "./BrowserContext";
 import BrowserBulkAttributesModal from "./BrowserBulkAttributesModal";
 import BrowserObjectExplorer from "./BrowserObjectExplorer";
 import BrowserObjectSearchHeader from "./BrowserObjectSearchHeader";
@@ -76,10 +72,7 @@ import BrowserBulkRestoreModal from "./BrowserBulkRestoreModal";
 import BrowserArchivePreparationDialog from "./BrowserArchivePreparationDialog";
 import BrowserCleanupModal from "./BrowserCleanupModal";
 import {
-  FULL_BROWSER_CAPABILITY_FACTS,
   type BrowserActionId,
-  type BrowserCapabilityFacts,
-  type BrowserFunctionalProfile,
   runBrowserAction,
 } from "./browserActions";
 import { useBrowserActionStates } from "./useBrowserActionStates";
@@ -107,7 +100,6 @@ import {
   DEFAULT_FOLDERS_PANEL_WIDTH_PX,
   MAX_FOLDERS_PANEL_WIDTH_PX,
   MIN_FOLDERS_PANEL_WIDTH_PX,
-  readStoredBrowserRootUiState,
 } from "./browserRootUiState";
 import { storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
@@ -128,14 +120,12 @@ import {
 import {
   buildBrowserBucketPresentation,
 } from "./browserBucketModel";
-import {
-  resolveBrowserWorkspaceContext,
-} from "./browserPageContextModel";
 import type {
   BrowserItem,
   UploadQueueItem,
 } from "./browserTypes";
 import { useBrowserI18n } from "./browserI18n";
+import { useBrowserPageRuntimeContext } from "./useBrowserPageRuntimeContext";
 
 const MOBILE_OBJECT_LIST_MEDIA_QUERY = "(max-width: 767px)";
 
@@ -165,12 +155,6 @@ export default function BrowserPage({
   transferReporter,
 }: BrowserPageProps = {}) {
   const { text, intlLocale } = useBrowserI18n();
-  const browserContext = useBrowserContext();
-  const selectedContext = browserContext.selectedContext;
-  const location = useLocation();
-  const workspaceSurface =
-    workspaceSurfaceOverride ??
-    (selectedContext?.kind === "portal_account" ? "portal" : "browser");
   const {
     normalizedPath,
     isPortalBrowserSurface,
@@ -184,58 +168,33 @@ export default function BrowserPage({
     workspaceObjectNounPlural,
     resolvedLockedBucketName,
     showWorkspaceSidebar,
-  } = resolveBrowserWorkspaceContext({
-    pathname: location.pathname,
+    selectedContext,
+    browserContexts,
+    storedUser,
     workspaceSurface,
+    contextIdForApi,
+    hasExecutionContext,
+    browserRequestOptions,
+    browserRootContextId,
+    bucketAccessContextKey,
+    initialStoredRootUiState,
+    resolvedFunctionalProfile,
+    resolvedCapabilityFacts,
+    isPortalProfile,
+    executionContextKind,
+    isStorageSpaceContext,
+    portalAccountIdForApi,
+    isCephAdminContext,
+  } = useBrowserPageRuntimeContext({
+    contextIdForApi: contextIdOverride,
+    executionContextKind: executionContextKindOverride,
+    hasContext: hasContextOverride,
+    workspaceSurface: workspaceSurfaceOverride,
+    functionalProfile: functionalProfileOverride,
+    capabilityFacts: capabilityFactsOverride,
     lockedBucketName,
   });
-  const contextIdForApi = contextIdOverride ?? browserContext.contextIdForApi;
-  const hasExecutionContext = hasContextOverride ?? browserContext.hasContext;
   const canOpenExternalObjectDetails = Boolean(onOpenObjectDetails);
-  const browserRequestOptions = useMemo<BrowserRequestOptions | undefined>(
-    () =>
-      workspaceSurface === "portal" || workspaceSurface === "manager"
-        ? { workspaceSurface }
-        : undefined,
-    [workspaceSurface],
-  );
-  const browserRootContextId =
-    contextIdForApi == null ? null : String(contextIdForApi);
-  const bucketAccessContextKey =
-    contextIdForApi == null ? null : `${workspaceSurface}:${String(contextIdForApi)}`;
-  const storedUser = useMemo(() => readStoredUser(), []);
-  const userBrowserAdvancedFeaturesEnabled = storedUser
-    ? storedUser.authType === "s3_session" ||
-      Boolean(storedUser.effective_access?.browser_advanced_features_enabled)
-    : true;
-  const rootBrowserAdvancedFeaturesEnabled =
-    !isMainBrowserPath || userBrowserAdvancedFeaturesEnabled;
-  const initialStoredRootUiState = useMemo(
-    () => (isMainBrowserPath ? readStoredBrowserRootUiState() : null),
-    [isMainBrowserPath],
-  );
-  const resolvedFunctionalProfile: BrowserFunctionalProfile =
-    functionalProfileOverride ??
-    (isPortalBrowserSurface
-      ? "portal"
-      : rootBrowserAdvancedFeaturesEnabled
-        ? "advanced"
-        : "standard");
-  const resolvedCapabilityFacts = useMemo<BrowserCapabilityFacts>(
-    () => capabilityFactsOverride ?? FULL_BROWSER_CAPABILITY_FACTS,
-    [capabilityFactsOverride],
-  );
-  const isPortalProfile = resolvedFunctionalProfile === "portal";
-  const executionContextKind =
-    executionContextKindOverride ?? selectedContext?.kind ?? null;
-  const isStorageSpaceContext = executionContextKind === "portal_account";
-  const portalAccountId = isStorageSpaceContext && contextIdForApi != null
-    ? Number(contextIdForApi)
-    : null;
-  const portalAccountIdForApi = portalAccountId != null && Number.isInteger(portalAccountId) && portalAccountId > 0
-    ? portalAccountId
-    : null;
-  const isCephAdminContext = executionContextKind === "ceph_admin";
   const {
     close: closeBucketMenu,
     filterInputRef: bucketMenuFilterRef,
@@ -1115,7 +1074,7 @@ export default function BrowserPage({
     unavailable: unavailableBrowserFavorites,
   } = useBrowserFavoritesRuntime({
     storedUser,
-    contexts: browserContext.contexts,
+    contexts: browserContexts,
     bucketName,
     bucketLabel: isStorageSpaceContext
       ? bucketDisplayNameByName.get(bucketName)
