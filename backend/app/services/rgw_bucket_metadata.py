@@ -4,6 +4,7 @@ from typing import Literal
 
 from app.models.bucket_listing import BucketListingSummary
 from app.utils.normalize import normalize_optional_scalar
+from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.usage_stats import extract_usage_stats
 
@@ -53,24 +54,11 @@ def build_bucket_summary(entry: dict) -> BucketListingSummary | None:
         return None
     owner = normalize_optional_scalar(entry.get("owner"))
     usage_bytes, objects = extract_usage_stats(entry.get("usage"))
-    quota_size = None
-    quota_objects = None
     quota = entry.get("bucket_quota") or entry.get("quota")
-    if isinstance(quota, dict):
-        try:
-            # RGW may return both max_size (bytes) and max_size_kb (KiB).
-            # max_size has priority and must not be scaled again.
-            if quota.get("max_size") is not None:
-                quota_size = int(quota.get("max_size"))
-            elif quota.get("max_size_kb") is not None:
-                quota_size = int(quota.get("max_size_kb")) * 1024
-        except (TypeError, ValueError):
-            quota_size = None
-        try:
-            if quota.get("max_objects") is not None:
-                quota_objects = int(quota.get("max_objects"))
-        except (TypeError, ValueError):
-            quota_objects = None
+    quota_size, quota_objects = extract_quota_limits(
+        {"bucket_quota": quota},
+        keys=("bucket_quota",),
+    )
     return BucketListingSummary(
         name=bucket_name,
         tenant=tenant,

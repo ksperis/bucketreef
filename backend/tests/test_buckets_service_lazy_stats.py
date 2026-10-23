@@ -205,6 +205,31 @@ def test_list_buckets_prefers_quota_max_size_bytes_when_both_units_are_present(m
     assert buckets[0].quota_max_size_bytes != max_size_bytes * 1024
 
 
+def test_list_buckets_ignores_disabled_bucket_quota(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
+    monkeypatch.setattr(
+        service,
+        "_admin_bucket_list",
+        lambda *args, **kwargs: [
+            {
+                "bucket": "bucket-a",
+                "bucket_quota": {
+                    "enabled": False,
+                    "max_size": 4096,
+                    "max_objects": 10,
+                },
+            }
+        ],
+    )
+
+    buckets = service.list_buckets(account, with_stats=True)
+
+    assert buckets[0].quota_max_size_bytes is None
+    assert buckets[0].quota_max_objects is None
+
+
 def test_list_buckets_versioning_only_avoids_bundle_properties(monkeypatch):
     service = BucketsService()
     account = _build_account()
