@@ -23,33 +23,28 @@ export type BucketOverview = {
 
 export type S3AccountUsagePoint = {
   account_id: string;
-  account_name?: string | null;
-  used_bytes?: number | null;
-  object_count?: number | null;
-  bucket_count?: number | null;
+  account_name: string | null;
+  used_bytes: number | null;
+  object_count: number | null;
+  bucket_count: number | null;
 };
 
 export type S3UserUsagePoint = {
   user_id: number;
-  user_name?: string | null;
-  rgw_user_uid?: string | null;
-  used_bytes?: number | null;
-  object_count?: number | null;
-  bucket_count?: number | null;
+  user_name: string | null;
+  rgw_user_uid: string;
+  used_bytes: number | null;
+  object_count: number | null;
+  bucket_count: number | null;
 };
 
-export type AdminStats = {
+export type AdminStorageStats = {
   total_accounts: number;
-  total_users: number;
-  total_admins: number;
   total_s3_users: number;
-  total_buckets: number;
-  account_usage?: S3AccountUsagePoint[];
-  s3_user_usage?: S3UserUsagePoint[];
-  storage_totals?: StorageTotals;
-  traffic?: AdminTrafficStats | null;
-  traffic_error?: string | null;
-  generated_at?: string;
+  account_usage: S3AccountUsagePoint[];
+  s3_user_usage: S3UserUsagePoint[];
+  storage_totals: StorageTotals;
+  generated_at: string;
 };
 
 export type StorageStats = {
@@ -146,15 +141,13 @@ export type ManagerUsageTrendsResponse = {
 };
 
 export type StorageTotals = {
-  used_bytes?: number | null;
-  object_count?: number | null;
-  bucket_count?: number | null;
-  accounts_with_usage?: number | null;
+  used_bytes: number | null;
+  object_count: number | null;
+  bucket_count: number | null;
+  accounts_with_usage: number;
 };
 
 export type AdminTrafficStats = ManagerTrafficStats;
-type AdminStorageStats = AdminStats;
-
 export type AdminDashboardScope = {
   endpoints: {
     endpoint_id: number;

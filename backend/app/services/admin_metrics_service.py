@@ -459,7 +459,6 @@ class AdminMetricsService:
         return {"storage_totals": fields, "complete": complete, "reason": reason or None}
 
     def _storage_snapshot(self) -> dict:
-        summary = self.build_summary_payload(self.db, endpoint_id=self.endpoint_id)
         accounts, s3_users, allowed_identifiers = self._load_scope_targets()
 
         try:
@@ -470,9 +469,9 @@ class AdminMetricsService:
 
         if all_buckets is not None:
             filtered_buckets = self._filter_buckets(all_buckets, allowed_identifiers)
-            return self._storage_snapshot_from_bucket_list(summary, accounts, s3_users, filtered_buckets)
+            return self._storage_snapshot_from_bucket_list(accounts, s3_users, filtered_buckets)
 
-        return self._storage_snapshot_from_account_fallback(summary, accounts, s3_users)
+        return self._storage_snapshot_from_account_fallback(accounts, s3_users)
 
     def _resolve_fallback_account_usage(
         self,
@@ -488,10 +487,11 @@ class AdminMetricsService:
 
     def _storage_snapshot_from_account_fallback(
         self,
-        summary: dict,
         accounts: Iterable[S3Account],
         s3_users: Iterable[S3User],
     ) -> dict:
+        accounts = list(accounts)
+        s3_users = list(s3_users)
         totals = _StorageUsageTotals()
         account_usage: list[dict] = []
         for account in accounts:
@@ -526,13 +526,14 @@ class AdminMetricsService:
                     "rgw_user_uid": user.rgw_user_uid,
                     "used_bytes": used_bytes,
                     "object_count": used_objects,
+                    "bucket_count": bucket_count,
                 }
             )
         s3_user_usage.sort(key=lambda entry: entry.get("used_bytes") or 0, reverse=True)
 
         return {
-            **summary,
-            "total_buckets": totals.total_buckets,
+            "total_accounts": len(accounts),
+            "total_s3_users": len(s3_users),
             "account_usage": account_usage,
             "s3_user_usage": s3_user_usage,
             "storage_totals": totals.payload(accounts_with_usage=len(account_usage)),
@@ -540,17 +541,18 @@ class AdminMetricsService:
 
     def _storage_snapshot_from_bucket_list(
         self,
-        summary: dict,
         accounts: Iterable[S3Account],
         s3_users: Iterable[S3User],
         bucket_list: Iterable[Dict],
     ) -> dict:
+        accounts = list(accounts)
+        s3_users = list(s3_users)
         usage_index = _BucketUsageIndex.build(bucket_list)
         account_usage = self._account_usage_from_bucket_index(accounts, usage_index)
         s3_user_usage = self._s3_user_usage_from_bucket_index(s3_users, usage_index)
         return {
-            **summary,
-            "total_buckets": usage_index.totals.total_buckets,
+            "total_accounts": len(accounts),
+            "total_s3_users": len(s3_users),
             "account_usage": account_usage,
             "s3_user_usage": s3_user_usage,
             "storage_totals": usage_index.totals.payload(accounts_with_usage=len(account_usage)),

@@ -33,13 +33,10 @@ function makeCephEndpoint() {
 function makeStorageStats() {
   return {
     total_accounts: 1,
-    total_users: 1,
-    total_admins: 1,
     total_s3_users: 1,
-    total_buckets: 1,
-    account_usage: [{ account_id: "tenant-a", account_name: "Tenant A", used_bytes: 2048, object_count: 4 }],
-    s3_user_usage: [{ user_id: 1, user_name: "User A", rgw_user_uid: "user-a", used_bytes: 1024, object_count: 2 }],
-    storage_totals: { used_bytes: 2048, object_count: 4, bucket_count: 1 },
+    account_usage: [{ account_id: "tenant-a", account_name: "Tenant A", used_bytes: 2048, object_count: 4, bucket_count: 1 }],
+    s3_user_usage: [{ user_id: 1, user_name: "User A", rgw_user_uid: "user-a", used_bytes: 1024, object_count: 2, bucket_count: 1 }],
+    storage_totals: { used_bytes: 2048, object_count: 4, bucket_count: 1, accounts_with_usage: 1 },
     generated_at: "2026-05-04T10:00:00Z",
   };
 }
