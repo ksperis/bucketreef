@@ -8,14 +8,14 @@ export type OidcProviderSource = "environment" | "ui";
 
 export type OidcProviderFieldLock = {
   forced: boolean;
-  source?: string | null;
+  source: string | null;
 };
 
 export type LdapProviderSource = "environment" | "ui";
 
 export type LdapProviderFieldLock = {
   forced: boolean;
-  source?: string | null;
+  source: string | null;
 };
 
 export type OidcProviderAdminItem = {
@@ -25,9 +25,9 @@ export type OidcProviderAdminItem = {
   client_id: string;
   redirect_uri: string;
   scopes: string[];
-  prompt?: string | null;
+  prompt: string | null;
   enabled: boolean;
-  icon_url?: string | null;
+  icon_url: string | null;
   use_pkce: boolean;
   use_nonce: boolean;
   linking_policy: "manual" | "trusted_email";
@@ -60,15 +60,15 @@ export type LdapProviderAdminItem = {
   provider_id: string;
   display_name: string;
   url: string;
-  bind_dn?: string | null;
+  bind_dn: string | null;
   user_base_dn: string;
   user_filter: string;
   email_attribute: string;
-  name_attribute?: string | null;
-  subject_attribute?: string | null;
+  name_attribute: string | null;
+  subject_attribute: string | null;
   start_tls: boolean;
   tls_verify: boolean;
-  tls_ca_file?: string | null;
+  tls_ca_file: string | null;
   allow_legacy_tls: boolean;
   timeout_seconds: number;
   enabled: boolean;

@@ -57,31 +57,31 @@ class LDAPLoginRequest(ApiModel):
 
 
 class LDAPProviderFieldLock(ApiModel):
-    forced: bool = False
-    source: Optional[str] = None
+    forced: bool
+    source: Optional[str]
 
 
 class LDAPProviderAdminItem(ApiModel):
     provider_id: str
     display_name: str
     url: str
-    bind_dn: Optional[str] = None
+    bind_dn: Optional[str]
     user_base_dn: str
-    user_filter: str = LDAP_PROVIDER_DEFAULT_USER_FILTER
-    email_attribute: str = "mail"
-    name_attribute: Optional[str] = "displayName"
-    subject_attribute: Optional[str] = None
-    start_tls: bool = False
-    tls_verify: bool = True
-    tls_ca_file: Optional[str] = None
-    allow_legacy_tls: bool = False
-    timeout_seconds: float = 5.0
-    enabled: bool = True
-    allow_insecure: bool = False
+    user_filter: str
+    email_attribute: str
+    name_attribute: Optional[str]
+    subject_attribute: Optional[str]
+    start_tls: bool
+    tls_verify: bool
+    tls_ca_file: Optional[str]
+    allow_legacy_tls: bool
+    timeout_seconds: float
+    enabled: bool
+    allow_insecure: bool
     source: Literal["environment", "ui"]
     editable: bool
-    field_locks: dict[str, LDAPProviderFieldLock] = Field(default_factory=dict)
-    has_bind_password: bool = False
+    field_locks: dict[str, LDAPProviderFieldLock]
+    has_bind_password: bool
 
 
 class LDAPProviderAdminPayload(ApiModel):

@@ -5,7 +5,7 @@ import UiField from "../../../components/ui/UiField";
 import UiInput from "../../../components/ui/UiInput";
 import { useAdminI18n } from "../adminI18n";
 
-type FieldLocks = { field_locks: Record<string, { forced: boolean; source?: string | null }> };
+type FieldLocks = { field_locks: Record<string, { forced: boolean; source: string | null }> };
 
 /** Provider fields keep their API lock names even when the draft uses text adapters. */
 export function authProviderFieldState(provider: FieldLocks | null, readOnly: boolean) {
