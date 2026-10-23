@@ -264,7 +264,7 @@ def cleanup_source(
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
-):
+) -> BucketMigrationActionResponse:
     return _queue_maintenance(migration_id, "cleanup_source", payload, db, scope, audit)
 
 
@@ -279,7 +279,7 @@ def restore_access(
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
-):
+) -> BucketMigrationActionResponse:
     return _queue_maintenance(migration_id, "restore_access", payload, db, scope, audit)
 
 
@@ -294,7 +294,7 @@ def cleanup_target(
     db: Session = Depends(get_db),
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
-):
+) -> BucketMigrationActionResponse:
     return _queue_maintenance(migration_id, "cleanup_target", payload, db, scope, audit)
 
 

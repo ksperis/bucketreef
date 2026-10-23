@@ -219,7 +219,7 @@ def reconcile_service_identities(
     service: StorageEndpointsService = Depends(get_service),
     current_user: User = Depends(get_current_ui_superadmin),
     audit_service: AuditService = Depends(get_audit_service),
-):
+) -> StorageEndpoint:
     require_admin_sensitive_action(request, service.db, current_user)
     try:
         endpoint = service.get_endpoint_record(endpoint_id)
