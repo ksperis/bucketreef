@@ -45,7 +45,7 @@ class PortalIamMixin:
             verify_tls=verify_tls,
         )
 
-    def check_eligibility(self, user: User, access: "AccountAccess") -> tuple[bool, list[str]]:
+    def check_eligibility(self, access: "AccountAccess") -> tuple[bool, list[str]]:
         """Return whether the portal can be used for this account context.
 
         Portal is intended for RGW accounts configured with IAM semantics. This
