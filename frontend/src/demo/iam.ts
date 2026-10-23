@@ -42,7 +42,15 @@ function portalKeyView(key: AccessKey, secretAccessKey: string | null = key.secr
   };
 }
 
-export function keyActions(c: DemoRequest, iam: DemoIam, owner: string, keyId?: string, ceph = false, portal = false): Response | undefined {
+export function keyActions(
+  c: DemoRequest,
+  iam: DemoIam,
+  owner: string,
+  keyId?: string,
+  ceph = false,
+  portal = false,
+  statusRoute = false,
+): Response | undefined {
   const keys = iam.keys[owner] ?? (iam.keys[owner] = []);
   const view = (key: AccessKey) => ceph
     ? { access_key: key.access_key_id, status: key.status, created_at: key.created_at, is_active: key.status === "Active", user: owner }
@@ -57,26 +65,28 @@ export function keyActions(c: DemoRequest, iam: DemoIam, owner: string, keyId?: 
     return json({ ...view(key), [ceph ? "secret_key" : "secret_access_key"]: "DEMO-ONLY-NOT-A-REAL-SECRET-DO-NOT-USE" }, 201);
   }
   const key = keyId ? required(keys.find(k => k.access_key_id === decodeURIComponent(keyId))) : undefined;
-  if (key && c.method === "PUT") { key.status = c.body.active ? "Active" : "Inactive"; return json(view(key)); }
-  if (key && c.method === "DELETE") { iam.keys[owner] = keys.filter(k => k !== key); return done(); }
+  if (key && statusRoute && c.method === "PUT") { key.status = c.body.active ? "Active" : "Inactive"; return json(view(key)); }
+  if (key && !statusRoute && c.method === "DELETE") { iam.keys[owner] = keys.filter(k => k !== key); return done(); }
   return undefined;
 }
 
 export function iam(c: DemoRequest): Response | undefined {
-  const portalKeys = c.path.match(/^\/portal\/access-keys(?:\/([^/]+)(?:\/status)?)?$/);
-  const cephKeys = c.path.match(/^\/manager\/ceph\/keys(?:\/([^/]+)(?:\/status)?)?$/);
-  const match = c.path.match(/^\/manager\/iam\/(users|groups|roles|policies)(?:\/([^/]+)(?:\/(keys|policies|inline-policies|users|tags)(?:\/([^/]+)(?:\/status)?)?)?)?$/);
+  const portalKeys = c.path.match(/^\/portal\/access-keys(?:\/([^/]+)(?:\/(status))?)?$/);
+  const cephKeys = c.path.match(/^\/manager\/ceph\/keys(?:\/([^/]+)(?:\/(status))?)?$/);
+  const match = c.path.match(/^\/manager\/iam\/(users|groups|roles|policies)(?:\/([^/]+)(?:\/(keys|policies|inline-policies|users|tags)(?:\/([^/]+)(?:\/(status))?)?)?)?$/);
   if (!match && !portalKeys && !cephKeys) return undefined;
   const account = scopedAccount(c); const data = required(c.state.iam[account.id]);
   if (portalKeys || cephKeys) {
     const owner = portalKeys ? `portal-${c.user.id}` : "account-root";
     if (portalKeys && c.body.target_type === "external") throw new DemoError(403, "External key sharing is disabled in this demo");
     if (portalKeys && c.method === "GET" && !portalKeys[1]) return json({ iam_user: { iam_user_id: null, iam_username: owner, arn: `arn:aws:iam::${account.rgw_account_id}:user/${owner}`, created_at: null }, s3_endpoint: account.storage_endpoint_url, force_path_style: true, access_keys: (data.keys[owner] ?? []).map(k => portalKeyView(k)), can_manage_access_keys: true, can_create_external_access: false, max_access_keys: 3 });
-    return keyActions(c, data, owner, (portalKeys ?? cephKeys)![1], false, Boolean(portalKeys));
+    const keyRoute = (portalKeys ?? cephKeys)!;
+    return keyActions(c, data, owner, keyRoute[1], false, Boolean(portalKeys), keyRoute[2] === "status");
   }
   const segment = match![1] as "users" | "groups" | "roles" | "policies";
   const name = match![2] ? decodeURIComponent(match![2]) : undefined;
   const resource = match![3]; const resourceId = match![4] ? decodeURIComponent(match![4]) : undefined;
+  if (match![5] && resource !== "keys") return undefined;
   const collection = data[segment];
   if (!name) {
     if (c.method === "GET") return json(collection.map(entity => ({ ...entity, has_keys: (data.keys[entity.name]?.length ?? 0) > 0 })));
@@ -110,7 +120,7 @@ export function iam(c: DemoRequest): Response | undefined {
     }
     if (c.method === "DELETE") { collection.splice(collection.findIndex(item => item.name === entity.name), 1); delete data.keys[entity.name]; delete data.inline[`${segment}/${name}`]; delete data.attachments[`${segment}/${name}`]; return done(); }
   }
-  if (resource === "keys" && segment === "users") return keyActions(c, data, entity.name, resourceId);
+  if (resource === "keys" && segment === "users") return keyActions(c, data, entity.name, resourceId, false, false, match![5] === "status");
   if (resource === "users" && segment === "groups") {
     if (c.method === "GET") return json(data.users.filter(u => u.groups?.includes(entity.name)));
     const user = required(data.users.find(u => u.name === (resourceId ?? c.body.name)));

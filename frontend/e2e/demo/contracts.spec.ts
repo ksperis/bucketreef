@@ -48,6 +48,8 @@ test("iam: policies, membership and fictitious keys share Ceph inventory", async
   await api(page, `/ceph-admin/endpoints/11/accounts/${account.account_id}/config`, "PATCH", { quota_enabled: true, quota_max_size_bytes: 700 * 1024 ** 3, max_users: 150 });
   const created = await api(page, "/ceph-admin/endpoints/11/users", "POST", { uid: "new-rgw-user", account_id: account.account_id, display_name: "Demo RGW", generate_key: true, quota_enabled: true, quota_max_size_bytes: 2 * 1024 ** 3 });
   expect(created.data.generated_key.secret_key).toContain("DEMO-ONLY"); expect(created.data.detail.quota.max_size_bytes).toBe(2 * 1024 ** 3);
+  const keyId = encodeURIComponent(created.data.generated_key.access_key);
+  expect((await api(page, `/ceph-admin/endpoints/11/users/${encodeURIComponent(created.data.detail.uid)}/keys/${keyId}/status`, "PUT", { active: false })).status).toBe(200);
   const updatedRgwUser = await api(page, `/ceph-admin/endpoints/11/users/${encodeURIComponent(created.data.detail.uid)}/config`, "PATCH", { display_name: "Updated demo RGW" });
   expect(updatedRgwUser.data.display_name).toBe("Updated demo RGW");
   await open(page, "/manager/users");
