@@ -134,7 +134,7 @@ def resolve_portal_browser_context(
     request: Request,
     metadata_only: bool = False,
 ) -> S3ExecutionContext:
-    app_settings = app_settings_service.load_app_settings()
+    app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
     if not app_settings.general.portal_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal feature is disabled")
     if not app_settings.general.browser_portal_enabled:
