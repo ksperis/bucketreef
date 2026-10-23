@@ -74,6 +74,10 @@ class BucketLifecycleConfig(ApiModel):
     rules: List[dict] = Field(default_factory=list)
 
 
+class BucketTags(ApiModel):
+    tags: List[BucketTag] = Field(default_factory=list)
+
+
 class BucketTagsUpdate(ApiModel):
     tags: List[BucketTag] = Field(default_factory=list)
 
@@ -147,6 +151,10 @@ class BucketQuotaUpdate(ApiModel):
 
 class BucketCorsUpdate(ApiModel):
     rules: list[dict]
+
+
+class BucketCors(ApiModel):
+    rules: list[dict] = Field(default_factory=list)
 
 
 class BucketEncryptionConfiguration(ApiModel):

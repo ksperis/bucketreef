@@ -7,11 +7,13 @@ from fastapi import APIRouter, Depends, status
 
 from app.models.access_context import ManagerActor
 from app.models.bucket import (
+    BucketCors,
     BucketCorsUpdate,
     BucketLifecycleConfig,
     BucketLoggingConfiguration,
     BucketNotificationConfiguration,
     BucketReplicationConfiguration,
+    BucketTags,
     BucketTagsUpdate,
     BucketWebsiteConfiguration,
 )
@@ -75,13 +77,13 @@ def delete_lifecycle(
     )
 
 
-@router.get("/{bucket_name}/cors")
+@router.get("/{bucket_name}/cors", response_model=BucketCors)
 def get_cors(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
-):
+) -> BucketCors:
     return bucket_config_actions.get_bucket_cors_config(
         service=service,
         context=context,
@@ -89,14 +91,14 @@ def get_cors(
     )
 
 
-@router.put("/{bucket_name}/cors")
+@router.put("/{bucket_name}/cors", response_model=BucketCors)
 def put_cors(
     bucket_name: str,
     payload: BucketCorsUpdate,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-):
+) -> BucketCors:
     return mutation.update(
         actor=current_user,
         context=context,
@@ -308,13 +310,13 @@ def delete_website(
     )
 
 
-@router.get("/{bucket_name}/tags")
+@router.get("/{bucket_name}/tags", response_model=BucketTags)
 def get_tags(
     bucket_name: str,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
-):
+) -> BucketTags:
     return bucket_config_actions.get_bucket_tags_config(
         service=service,
         context=context,
@@ -322,14 +324,14 @@ def get_tags(
     )
 
 
-@router.put("/{bucket_name}/tags")
+@router.put("/{bucket_name}/tags", response_model=BucketTags)
 def put_tags(
     bucket_name: str,
     payload: BucketTagsUpdate,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
-):
+) -> BucketTags:
     return mutation.update(
         actor=current_user,
         context=context,

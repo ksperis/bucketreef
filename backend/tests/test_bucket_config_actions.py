@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from app.db import S3Account
+from app.models.bucket import BucketCors
 from app.services import bucket_config_actions
 
 
@@ -23,5 +24,5 @@ def test_get_bucket_cors_config_uses_dedicated_cors_service():
         bucket_name="demo-bucket",
     )
 
-    assert result == {"rules": [{"AllowedMethods": ["GET"], "AllowedOrigins": ["*"]}]}
+    assert result == BucketCors(rules=[{"AllowedMethods": ["GET"], "AllowedOrigins": ["*"]}])
     assert calls == {"cors": 1}
