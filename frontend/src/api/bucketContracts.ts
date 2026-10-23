@@ -39,10 +39,10 @@ export type BucketTag = {
 };
 
 export type BucketObjectLockConfiguration = {
-  enabled?: boolean | null;
-  mode?: string | null;
-  days?: number | null;
-  years?: number | null;
+  enabled: boolean | null;
+  mode: string | null;
+  days: number | null;
+  years: number | null;
 };
 
 export type BucketNotificationConfiguration = {

@@ -90,17 +90,17 @@ class BucketTagsUpdate(ApiModel):
 
 
 class BucketObjectLock(ApiModel):
-    enabled: Optional[bool] = None
-    mode: Optional[str] = None
-    days: Optional[int] = None
-    years: Optional[int] = None
+    enabled: Optional[bool]
+    mode: Optional[str]
+    days: Optional[int]
+    years: Optional[int]
 
 
 class BucketObjectLockUpdate(ApiModel):
-    enabled: Optional[bool] = None
-    mode: Optional[str] = None
-    days: Optional[int] = None
-    years: Optional[int] = None
+    enabled: Optional[bool]
+    mode: Optional[str]
+    days: Optional[int]
+    years: Optional[int]
 
     @field_validator("days", "years")
     @classmethod

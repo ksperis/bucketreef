@@ -39,7 +39,7 @@ class FakeBucketsService:
         return "Enabled"
 
     def get_object_lock(self, bucket_name, account):  # noqa: ANN001
-        return BucketObjectLock(enabled=True, mode="GOVERNANCE", days=30)
+        return BucketObjectLock(enabled=True, mode="GOVERNANCE", days=30, years=None)
 
     def get_public_access_block(self, bucket_name, account):  # noqa: ANN001
         return BucketPublicAccessBlock(

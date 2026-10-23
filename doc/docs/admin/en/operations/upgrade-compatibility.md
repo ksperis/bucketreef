@@ -1,5 +1,14 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 canonical Object Lock payloads
+
+Bucket Object Lock reads and updates now require the complete four-field shape:
+`enabled`, `mode`, `days`, and `years`. Each value remains nullable, but callers
+must state the intended value instead of relying on omission defaults.
+
+The bundled frontend already sends the complete payload. No database migration
+is required.
+
 ## 2026-10 canonical public access block updates
 
 Bucket public-access-block reads now return all four nullable state fields,

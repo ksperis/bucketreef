@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Callable
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
-from app.models.bucket import BucketPublicAccessBlockUpdate
+from app.models.bucket import BucketObjectLockUpdate, BucketPublicAccessBlockUpdate
 from app.services.s3_execution_context import S3ExecutionTarget
 
 if TYPE_CHECKING:
@@ -142,7 +142,12 @@ class _BucketSettingsCopyRunner:
             self.service._configuration.set_object_lock(
                 self.target_bucket,
                 self.target_execution_context,
-                object_lock,
+                BucketObjectLockUpdate(
+                    enabled=object_lock.enabled,
+                    mode=object_lock.mode,
+                    days=object_lock.days,
+                    years=object_lock.years,
+                ),
             )
 
     def _copy_encryption(self) -> None:
