@@ -31,6 +31,7 @@ import { listMinimalUsers, type UserSummary } from "../../api/users";
 import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import { extractApiError } from "../../utils/apiError";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
+import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
 import { extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -234,30 +235,24 @@ export default function S3ConnectionsPage() {
     try {
       const quick = filter.trim();
       if (quick && quickFilterMode === "exact") {
-        const allMatches: S3ConnectionAdminItem[] = [];
-        let nextPage = 1;
-        while (true) {
-          const response = await listAdminS3Connections({
+        const allMatches = await collectPaginatedItems((nextPage) =>
+          listAdminS3Connections({
             page: nextPage,
             page_size: 200,
             search: quick,
-          });
-          allMatches.push(...response.items);
-          if (!response.has_next) break;
-          nextPage += 1;
-        }
+          }),
+        );
 
         const exactMatches = allMatches.filter((connection) =>
           matchesExactTextCandidate(getConnectionSearchCandidates(connection), quick)
         );
         const totalExact = exactMatches.length;
-        const totalPages = Math.max(1, Math.ceil(totalExact / pageSize));
+        const totalPages = pageCount(totalExact, pageSize);
         if (totalExact > 0 && page > totalPages) {
           setPage(totalPages);
           return;
         }
-        const start = (page - 1) * pageSize;
-        setItems(exactMatches.slice(start, start + pageSize));
+        setItems(slicePage(exactMatches, page, pageSize));
         setTotal(totalExact);
       } else {
         const response = await listAdminS3Connections({
@@ -265,7 +260,7 @@ export default function S3ConnectionsPage() {
           page_size: pageSize,
           search: quick || undefined,
         });
-        const totalPages = Math.max(1, Math.ceil((response.total || 0) / pageSize));
+        const totalPages = pageCount(response.total || 0, pageSize);
         if (response.total > 0 && page > totalPages) {
           setPage(totalPages);
           return;
