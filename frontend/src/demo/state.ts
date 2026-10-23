@@ -268,7 +268,7 @@ export function createSeed(): DemoState {
   users[1].account_links = accounts.map(a => ({ account_id: a.id, manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: true }));
   users[2].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false }));
   users[3].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_manager", allow_manager_browser_data_access: false }));
-  for (const account of accounts) account.user_links = users.flatMap(user => user.account_links?.filter(link => link.account_id === account.id).map(link => ({ ...link, user_id: user.id, user_email: user.email, user_full_name: user.full_name })) ?? []);
+  for (const account of accounts) account.user_links = users.flatMap(user => user.account_links?.filter(link => link.account_id === account.id).map(link => ({ ...link, user_id: user.id, user_email: user.email, user_full_name: user.full_name, user_avatar: user.avatar })) ?? []);
   const groups: UiGroup[] = ["Platform", "Engineering", "Design", "Research", "Operations", "Contractors"].map((name, i) => createDemoGroup({
     id: 201 + i,
     name,
@@ -280,7 +280,7 @@ export function createSeed(): DemoState {
   const designGroupGrant = { account_id: accounts[0].id, manager_role: "account_administrator" as const, portal_role: null, allow_manager_browser_data_access: true };
   groups[2].account_links = [designGroupGrant];
   groups[2].account_details = [{ id: accounts[0].id, name: accounts[0].name, rgw_account_id: accounts[0].rgw_account_id }];
-  accounts[0].group_links = [{ ...designGroupGrant, group_id: groups[2].id, group_name: groups[2].name }];
+  accounts[0].group_links = [{ ...designGroupGrant, group_id: groups[2].id, group_name: groups[2].name, group_avatar: groups[2].avatar }];
   const buckets: DemoBucket[] = [];
   // Different account workloads, ordered as documents/media/reports/backups/logs/datasets.
   const objectCounts = [

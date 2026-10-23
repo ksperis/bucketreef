@@ -35,8 +35,28 @@ export function accountQuotaChanged(draft: AdminAccountForm, baseline: AdminAcco
 export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAccountForm, allowQuotaUpdates: boolean, canManageManagerFeatures: boolean): Parameters<typeof updateS3Account>[1] {
   return {
     tags: normalizeUiTags(draft.tags),
-    user_links: draft.user_links,
-    group_links: draft.group_links,
+    user_links: draft.user_links.map(({
+      user_id,
+      manager_role,
+      portal_role,
+      allow_manager_browser_data_access,
+    }) => ({
+      user_id,
+      manager_role,
+      portal_role,
+      allow_manager_browser_data_access,
+    })),
+    group_links: draft.group_links.map(({
+      group_id,
+      manager_role,
+      portal_role,
+      allow_manager_browser_data_access,
+    }) => ({
+      group_id,
+      manager_role,
+      portal_role,
+      allow_manager_browser_data_access,
+    })),
     allow_bucket_usage_stats: draft.allow_bucket_usage_stats,
     allow_bucket_usage_stats_collection: draft.allow_bucket_usage_stats_collection,
     ...(canManageManagerFeatures ? {

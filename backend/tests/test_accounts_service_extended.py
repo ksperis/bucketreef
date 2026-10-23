@@ -8,7 +8,7 @@ import pytest
 from tests.feature_policy_fixtures import enable_manager_features
 from app.db import ManagerAccountRole, PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
 from app.models.iam import IAMGroup, IAMRole, IAMUser
-from app.models.s3_account import AccountUserLink, S3AccountUpdate
+from app.models.s3_account import AccountUserLinkInput, S3AccountUpdate
 from app.services.managed_resource_naming import (
     PORTAL_MANAGER_GROUP_NAME,
     PORTAL_MANAGER_GROUP_POLICY_NAME,
@@ -267,7 +267,7 @@ def test_update_account_user_links_missing_user(db_session, monkeypatch):
             account.id,
             S3AccountUpdate(
                 user_links=[
-                    AccountUserLink(
+                    AccountUserLinkInput(
                         user_id=99999,
                         manager_role=None,
                         portal_role=PortalAccountRole.PORTAL_USER.value,
@@ -326,12 +326,12 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
             quota_max_size_gb=1.0,
             quota_max_objects=100,
             user_links=[
-                AccountUserLink(
+                AccountUserLinkInput(
                     user_id=keep_user.id,
                     manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
                     portal_role=None,
                 ),
-                AccountUserLink(
+                AccountUserLinkInput(
                     user_id=add_user.id,
                     manager_role=None,
                     portal_role=PortalAccountRole.PORTAL_USER.value,

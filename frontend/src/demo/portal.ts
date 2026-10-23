@@ -75,7 +75,7 @@ export function portal(c: DemoRequest): Response | undefined {
             if (intent === "role_change") {
               const user = required(state.users.find(u => u.id === Number(request.payload.target_user_id)));
               user.account_links = [...(user.account_links ?? []).filter(l => l.account_id !== account.id), { account_id: account.id, manager_role: null, portal_role: portalRole, allow_manager_browser_data_access: false }];
-              account.user_links = [...account.user_links.filter(l => l.user_id !== user.id), { user_id: user.id, user_email: user.email, user_full_name: user.full_name, manager_role: null, portal_role: portalRole, allow_manager_browser_data_access: false }];
+              account.user_links = [...account.user_links.filter(l => l.user_id !== user.id), { user_id: user.id, user_email: user.email, user_full_name: user.full_name, user_avatar: user.avatar, manager_role: null, portal_role: portalRole, allow_manager_browser_data_access: false }];
               request.result = { target_user_id: user.id, portal_role: portalRole };
             } else {
               const email = textField(request.payload, "target_email"); let user = state.users.find(u => u.email === email);
@@ -88,7 +88,7 @@ export function portal(c: DemoRequest): Response | undefined {
                 state.users.push(user);
               }
               user.account_links = [...(user.account_links ?? []).filter(l => l.account_id !== account.id), { account_id: account.id, manager_role: null, portal_role: portalRole, allow_manager_browser_data_access: false }];
-              account.user_links = [...account.user_links.filter(l => l.user_id !== user!.id), { user_id: user.id, user_email: email, user_full_name: user.full_name, manager_role: null, portal_role: portalRole, allow_manager_browser_data_access: false }];
+              account.user_links = [...account.user_links.filter(l => l.user_id !== user!.id), { user_id: user.id, user_email: email, user_full_name: user.full_name, user_avatar: user.avatar, manager_role: null, portal_role: portalRole, allow_manager_browser_data_access: false }];
               request.result = { user_id: user.id, email, portal_role: portalRole };
             }
           } else if (request.request_type === "portal_user_removal") {
