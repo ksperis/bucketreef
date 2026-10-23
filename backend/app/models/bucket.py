@@ -52,8 +52,8 @@ class BucketVersioningUpdate(ApiModel):
 
 
 class BucketVersioningStatus(ApiModel):
-    status: Optional[str] = None
-    enabled: bool = False
+    status: Optional[str]
+    enabled: bool
 
 
 class BucketPolicyIn(ApiModel):
@@ -61,7 +61,7 @@ class BucketPolicyIn(ApiModel):
 
 
 class BucketPolicyOut(ApiModel):
-    policy: Optional[dict] = None
+    policy: Optional[dict]
 
 
 class LifecycleRule(ApiModel):
@@ -191,9 +191,9 @@ class BucketReplicationConfiguration(ApiModel):
 
 
 class BucketLoggingConfiguration(ApiModel):
-    enabled: Optional[bool] = None
-    target_bucket: Optional[str] = None
-    target_prefix: Optional[str] = None
+    enabled: bool
+    target_bucket: Optional[str]
+    target_prefix: Optional[str]
 
 
 class BucketWebsiteRedirectAllRequestsTo(ApiModel):

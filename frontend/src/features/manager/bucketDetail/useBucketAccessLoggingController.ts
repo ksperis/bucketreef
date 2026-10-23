@@ -75,7 +75,7 @@ export function useBucketAccessLoggingController({
       const data = cephAdmin
         ? endpointId
           ? await getCephAdminBucketLogging(endpointId, bucketName, cephAdminTenant)
-          : { enabled: false }
+          : { enabled: false, target_bucket: null, target_prefix: null }
         : await getBucketLogging(contextId, bucketName);
       apply(data);
     } catch (loadError) {
@@ -133,7 +133,7 @@ export function useBucketAccessLoggingController({
       } else {
         await deleteBucketLogging(contextId, bucketName);
       }
-      apply({ enabled: false });
+      apply({ enabled: false, target_bucket: null, target_prefix: null });
       setStatus("Access logging disabled.");
     } catch (clearError) {
       setError(
