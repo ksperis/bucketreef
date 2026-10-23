@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 current-user profile partial updates use PATCH
+
+Authenticated profile updates now use `PATCH /users/me`. The profile payload is
+intentionally sparse and applies only supplied fields, so the former `PUT`
+route has been removed instead of retained as a compatibility alias. Avatar
+replacement remains `PUT /users/me/avatar`.
+
+The bundled frontend has been updated with the API cutover. No database
+migration is required.
+
 ## 2026-10 private S3 connection partial updates use PATCH
 
 User-owned S3 connection updates now use `PATCH /connections/{connection_id}`.

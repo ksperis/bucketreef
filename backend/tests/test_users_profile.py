@@ -45,7 +45,7 @@ def test_update_users_me_updates_full_name(client, db_session, monkeypatch):
     settings.general.allow_user_profile_name_edit = True
     monkeypatch.setattr("app.routers.users.load_app_settings_for_db", lambda _db: settings)
 
-    response = client.put("/api/users/me", json={"full_name": "Nouveau Nom"})
+    response = client.patch("/api/users/me", json={"full_name": "Nouveau Nom"})
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["full_name"] == "Nouveau Nom"
@@ -90,7 +90,7 @@ def test_users_me_can_select_initials_avatar(client, db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put("/api/users/me", json={"avatar_preference": "initials"})
+    response = client.patch("/api/users/me", json={"avatar_preference": "initials"})
 
     assert response.status_code == 200, response.text
     assert response.json()["avatar"] == {
@@ -193,7 +193,7 @@ def test_update_users_me_updates_ui_language(client, db_session, language):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put("/api/users/me", json={"ui_language": language})
+    response = client.patch("/api/users/me", json={"ui_language": language})
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["ui_language"] == language
@@ -212,7 +212,7 @@ def test_update_users_me_clears_ui_language(client, db_session):
     db_session.commit()
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put("/api/users/me", json={"ui_language": None})
+    response = client.patch("/api/users/me", json={"ui_language": None})
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["ui_language"] is None
@@ -225,7 +225,7 @@ def test_update_users_me_updates_quota_alert_toggle(client, db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put("/api/users/me", json={"quota_alerts_enabled": False})
+    response = client.patch("/api/users/me", json={"quota_alerts_enabled": False})
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["quota_alerts_enabled"] is False
@@ -249,7 +249,7 @@ def test_update_users_me_updates_ui_preferences(client, db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put(
+    response = client.patch(
         "/api/users/me",
         json={
             "ui_preferences": {
@@ -271,7 +271,7 @@ def test_update_users_me_updates_global_watch_for_admin(client, db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"), role=UserRole.UI_ADMIN.value)
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put("/api/users/me", json={"quota_alerts_global_watch": True})
+    response = client.patch("/api/users/me", json={"quota_alerts_global_watch": True})
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["quota_alerts_global_watch"] is True
@@ -284,7 +284,7 @@ def test_update_users_me_rejects_global_watch_for_non_admin(client, db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"), role=UserRole.UI_USER.value)
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put("/api/users/me", json={"quota_alerts_global_watch": True})
+    response = client.patch("/api/users/me", json={"quota_alerts_global_watch": True})
     assert response.status_code == 400
     assert response.json()["detail"] == "Global quota watch requires admin role"
 
@@ -293,7 +293,7 @@ def test_update_users_me_changes_password_with_current_password(client, db_sessi
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put(
+    response = client.patch(
         "/api/users/me",
         json={
             "current_password": "old-password",
@@ -310,7 +310,7 @@ def test_update_users_me_rejects_wrong_current_password(client, db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put(
+    response = client.patch(
         "/api/users/me",
         json={
             "current_password": "bad-password",
@@ -325,7 +325,7 @@ def test_update_users_me_rejects_password_change_without_local_password(client, 
     user = _seed_user(db_session, hashed_password=None)
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put(
+    response = client.patch(
         "/api/users/me",
         json={
             "current_password": "irrelevant",
@@ -340,7 +340,7 @@ def test_update_users_me_rejects_short_new_password(client, db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
 
-    response = client.put(
+    response = client.patch(
         "/api/users/me",
         json={
             "current_password": "old-password",

@@ -223,7 +223,7 @@ export async function fetchCurrentUser(): Promise<User> {
 }
 
 export async function updateCurrentUser(payload: UpdateCurrentUserPayload): Promise<User> {
-  const { data } = await client.put<User>("/users/me", payload);
+  const { data } = await client.patch<User>("/users/me", payload);
   return data;
 }
 
