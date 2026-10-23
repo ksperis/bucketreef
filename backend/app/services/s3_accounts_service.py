@@ -570,40 +570,54 @@ class S3AccountsService:
             if item.rgw_account_id in seen_ids:
                 continue
             seen_ids.add(item.rgw_account_id)
-            endpoint = self._resolve_storage_endpoint(item.storage_endpoint_id, require_ceph=True)
-            admin = self._admin_for_endpoint(endpoint, allow_missing=False)
-            if admin is None:
-                raise ValueError("Admin operations are disabled for this endpoint.")
-            rgw_info = admin.get_account(item.rgw_account_id, allow_not_found=True)
-            if not rgw_info or rgw_info.get("not_found"):
-                raise ValueError(f"S3Account {item.rgw_account_id} not found in RGW")
-            account_info = rgw_info.get("account") if isinstance(rgw_info.get("account"), dict) else rgw_info
-            account_name = account_info.get("name") or item.name or item.rgw_account_id
-            root_uid, rgw_tenant = self.account_roots.resolve_import_identity(
-                admin,
-                rgw_info,
-                item.rgw_account_id,
-                item.root_uid,
-            )
-            if item.rgw_tenant is not None and item.rgw_tenant != rgw_tenant:
-                raise ValueError("Requested RGW tenant does not match the account tenant returned by RGW")
-            if rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
-                raise ValueError("Managed RGW tenant creation is disabled")
             prepared.append(
-                _PreparedAccountImport(
-                    source=item,
-                    endpoint=endpoint,
-                    admin=admin,
-                    account_name=str(account_name),
-                    root_uid=root_uid,
-                    root_display_name=self.account_roots.root_display_name(
-                        str(account_name),
-                        item.rgw_account_id,
-                    ),
-                    rgw_tenant=rgw_tenant,
+                self._prepare_account_import(
+                    item,
+                    allow_managed_rgw_tenant_creation=app_settings.general.allow_managed_rgw_tenant_creation,
                 )
             )
+        self._validate_prepared_account_names(prepared)
+        return prepared
 
+    def _prepare_account_import(
+        self,
+        item: S3AccountImport,
+        *,
+        allow_managed_rgw_tenant_creation: bool,
+    ) -> _PreparedAccountImport:
+        endpoint = self._resolve_storage_endpoint(item.storage_endpoint_id, require_ceph=True)
+        admin = self._admin_for_endpoint(endpoint, allow_missing=False)
+        if admin is None:
+            raise ValueError("Admin operations are disabled for this endpoint.")
+        rgw_info = admin.get_account(item.rgw_account_id, allow_not_found=True)
+        if not rgw_info or rgw_info.get("not_found"):
+            raise ValueError(f"S3Account {item.rgw_account_id} not found in RGW")
+        account_info = rgw_info.get("account") if isinstance(rgw_info.get("account"), dict) else rgw_info
+        account_name = str(account_info.get("name") or item.name or item.rgw_account_id)
+        root_uid, rgw_tenant = self.account_roots.resolve_import_identity(
+            admin,
+            rgw_info,
+            item.rgw_account_id,
+            item.root_uid,
+        )
+        if item.rgw_tenant is not None and item.rgw_tenant != rgw_tenant:
+            raise ValueError("Requested RGW tenant does not match the account tenant returned by RGW")
+        if rgw_tenant and not allow_managed_rgw_tenant_creation:
+            raise ValueError("Managed RGW tenant creation is disabled")
+        return _PreparedAccountImport(
+            source=item,
+            endpoint=endpoint,
+            admin=admin,
+            account_name=account_name,
+            root_uid=root_uid,
+            root_display_name=self.account_roots.root_display_name(
+                account_name,
+                item.rgw_account_id,
+            ),
+            rgw_tenant=rgw_tenant,
+        )
+
+    def _validate_prepared_account_names(self, prepared: list[_PreparedAccountImport]) -> None:
         seen_scopes: set[tuple[int, str, str]] = set()
         for item in prepared:
             scope = (item.endpoint.id, item.rgw_tenant, item.account_name)
@@ -616,7 +630,6 @@ class S3AccountsService:
                 error_message=f"S3Account name already exists: {item.account_name}",
             )
             seen_scopes.add(scope)
-        return prepared
 
     def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
         prepared = self._prepare_account_imports(imports)
