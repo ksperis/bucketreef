@@ -2,6 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import client from "./client";
+import { resolveApiBaseUrl, streamBucketsWithSse } from "./sseBucketsStream";
+
+export type CephAdminEntityResource = "accounts" | "users";
+
 export type CephAdminEntityListingParams = {
   page?: number;
   page_size?: number;
@@ -56,4 +61,40 @@ export function buildCephAdminEntityListingQuery(
     query.set("include", params.include.join(","));
   }
   return query;
+}
+
+export async function listCephAdminEntities<TResult>(
+  endpointId: number,
+  resource: CephAdminEntityResource,
+  params?: CephAdminEntityListingParams,
+  options?: CephAdminEntityListingRequestOptions,
+): Promise<TResult> {
+  const { data } = await client.get<TResult>(
+    `/ceph-admin/endpoints/${endpointId}/${resource}`,
+    {
+      params: {
+        ...params,
+        include: params?.include?.join(","),
+      },
+      signal: options?.signal,
+    },
+  );
+  return data;
+}
+
+export async function streamCephAdminEntities<TResult>(
+  endpointId: number,
+  resource: CephAdminEntityResource,
+  params?: CephAdminEntityListingParams,
+  options?: CephAdminListingStreamOptions,
+): Promise<TResult> {
+  const baseUrl = resolveApiBaseUrl();
+  const queryText = buildCephAdminEntityListingQuery(params).toString();
+  const url = `${baseUrl}/ceph-admin/endpoints/${endpointId}/${resource}/stream${queryText ? `?${queryText}` : ""}`;
+  return streamBucketsWithSse<CephAdminListingStreamProgress, TResult>({
+    url,
+    options,
+    streamFailedLabel: "Advanced search stream failed",
+    missingResultMessage: "Advanced search stream ended without a result payload",
+  });
 }
