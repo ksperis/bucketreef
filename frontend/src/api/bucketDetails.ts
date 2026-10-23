@@ -22,6 +22,7 @@ import type {
   BucketTag,
   BucketVersioningStatus,
   BucketWebsiteConfiguration,
+  BucketWebsiteUpdate,
 } from "./bucketContracts";
 import client from "./client";
 
@@ -281,7 +282,7 @@ function createManagerBucketDetailsApi() {
     putBucketWebsite: (
       contextId: S3ExecutionContextSelector,
       bucketName: string,
-      payload: BucketWebsiteConfiguration,
+      payload: BucketWebsiteUpdate,
     ) =>
       write<BucketWebsiteConfiguration>(
         contextId,

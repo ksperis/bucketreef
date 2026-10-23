@@ -125,6 +125,8 @@ describe("useBucketWebsiteController", () => {
 
   it("loads and clears a Ceph Admin redirect configuration", async () => {
     apiMocks.getCephAdminBucketWebsite.mockResolvedValue({
+      index_document: null,
+      error_document: null,
       redirect_all_requests_to: {
         host_name: "www.example.com",
         protocol: "https",

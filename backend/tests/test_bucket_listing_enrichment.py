@@ -58,7 +58,12 @@ def _context() -> S3ExecutionContext:
             },
         ),
         (
-            BucketWebsiteConfiguration(index_document="  ", error_document="  ", routing_rules=[]),
+            BucketWebsiteConfiguration(
+                index_document="  ",
+                error_document="  ",
+                redirect_all_requests_to=None,
+                routing_rules=[],
+            ),
             "Disabled",
             "inactive",
             {

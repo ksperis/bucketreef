@@ -10,6 +10,8 @@ from app.models.bucket import (
     BucketObjectLockUpdate,
     BucketPublicAccessBlock,
     BucketPublicAccessBlockUpdate,
+    BucketWebsiteConfiguration,
+    BucketWebsiteUpdate,
     BucketVersioningUpdate,
 )
 from app.services import bucket_config_actions
@@ -36,6 +38,20 @@ def test_object_lock_read_and_write_contracts_are_explicit() -> None:
 
     with pytest.raises(ValidationError):
         BucketObjectLockUpdate.model_validate({"enabled": True})
+
+
+def test_website_read_and_write_contracts_are_explicit() -> None:
+    expected_fields = {
+        "index_document",
+        "error_document",
+        "redirect_all_requests_to",
+        "routing_rules",
+    }
+    assert set(BucketWebsiteConfiguration.model_json_schema()["required"]) == expected_fields
+    assert set(BucketWebsiteUpdate.model_json_schema()["required"]) == expected_fields
+
+    with pytest.raises(ValidationError):
+        BucketWebsiteUpdate.model_validate({"routing_rules": []})
 
 
 def test_get_bucket_cors_config_uses_dedicated_cors_service():

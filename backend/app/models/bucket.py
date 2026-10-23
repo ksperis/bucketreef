@@ -209,7 +209,14 @@ class BucketWebsiteRedirectAllRequestsTo(ApiModel):
 
 
 class BucketWebsiteConfiguration(ApiModel):
-    index_document: Optional[str] = None
-    error_document: Optional[str] = None
-    redirect_all_requests_to: Optional[BucketWebsiteRedirectAllRequestsTo] = None
+    index_document: Optional[str]
+    error_document: Optional[str]
+    redirect_all_requests_to: Optional[BucketWebsiteRedirectAllRequestsTo]
+    routing_rules: List[dict]
+
+
+class BucketWebsiteUpdate(ApiModel):
+    index_document: Optional[str]
+    error_document: Optional[str]
+    redirect_all_requests_to: Optional[BucketWebsiteRedirectAllRequestsTo]
     routing_rules: List[dict]

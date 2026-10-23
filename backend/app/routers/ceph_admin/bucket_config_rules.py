@@ -15,6 +15,7 @@ from app.models.bucket import (
     BucketTags,
     BucketTagsUpdate,
     BucketWebsiteConfiguration,
+    BucketWebsiteUpdate,
 )
 from app.routers.ceph_admin.bucket_config_common import (
     _run_bucket_config_read,
@@ -271,7 +272,7 @@ def get_website(
 @router.put("/{bucket_name}/website", response_model=BucketWebsiteConfiguration)
 def put_website(
     bucket_name: str,
-    payload: BucketWebsiteConfiguration,
+    payload: BucketWebsiteUpdate,
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketWebsiteConfiguration:

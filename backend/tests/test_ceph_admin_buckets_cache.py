@@ -2429,7 +2429,12 @@ def test_ceph_admin_bucket_listing_feature_param_filters_cover_non_lifecycle_fea
                 redirect_all_requests_to=BucketWebsiteRedirectAllRequestsTo(host_name="www.example.test"),
                 routing_rules=[{"Condition": {"KeyPrefixEquals": "docs/"}}],
             )
-        return BucketWebsiteConfiguration(index_document=None, redirect_all_requests_to=None, routing_rules=[])
+        return BucketWebsiteConfiguration(
+            index_document=None,
+            error_document=None,
+            redirect_all_requests_to=None,
+            routing_rules=[],
+        )
 
     def fake_get_policy(self, name: str, account):
         if name == "bucket-a":
