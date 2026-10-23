@@ -1815,6 +1815,9 @@ describe("BrowserPage interactions", () => {
     "exposes direct Download and Delete actions in the %s profile without selecting the row",
     async (functionalProfile) => {
       const user = userEvent.setup();
+      const anchorClickSpy = vi
+        .spyOn(HTMLAnchorElement.prototype, "click")
+        .mockImplementation(() => undefined);
       const windowOpenSpy = vi
         .spyOn(window, "open")
         .mockImplementation(() => null);
@@ -1861,6 +1864,7 @@ describe("BrowserPage interactions", () => {
       expect(
         within(rowActions).getByRole("button", { name: "Delete" }),
       ).toBeInTheDocument();
+      anchorClickSpy.mockRestore();
       windowOpenSpy.mockRestore();
     },
   );
