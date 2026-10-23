@@ -26,7 +26,6 @@ router = APIRouter(
 @router.post(
     "/purge",
     response_model=UserNotificationPurgeResponse | OperationSkippedResponse,
-    response_model_exclude_none=True,
 )
 def purge_user_notifications(
     _: None = Depends(require_internal_cron_token),
