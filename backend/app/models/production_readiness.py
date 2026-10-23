@@ -18,11 +18,11 @@ class ProductionReadinessFinding(ApiModel):
     code: str
     label: str
     result: CheckResult
-    severity: Optional[CheckSeverity] = None
+    severity: Optional[CheckSeverity]
     level: CheckLevel
     message: str
     documentation_url: str
-    blocks_startup: bool = False
+    blocks_startup: bool
 
 
 class ProductionReadinessResponse(ApiModel):
