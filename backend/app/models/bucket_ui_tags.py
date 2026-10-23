@@ -15,12 +15,12 @@ BucketUiTagVisibility = Literal["private", "shared"]
 
 
 class BucketUiTagDefinitionSummary(TagDefinitionSummary):
-    scope: Literal["standard"] = "standard"
+    scope: Literal["standard"]
     visibility: BucketUiTagVisibility
 
 
 class BucketUiTagCatalogResponse(ApiModel):
-    definitions: list[BucketUiTagDefinitionSummary] = Field(default_factory=list)
+    definitions: list[BucketUiTagDefinitionSummary]
 
 
 class CephAdminBucketUiTagTarget(ApiModel):

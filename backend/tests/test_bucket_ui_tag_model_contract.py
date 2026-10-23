@@ -4,11 +4,26 @@
 from app.main import app
 from app.models.base import ApiModel
 from app.models.bucket_ui_tags import (
+    BucketUiTagCatalogResponse,
+    BucketUiTagDefinitionSummary,
     CephAdminBucketUiTagCreate,
     CephAdminBucketUiTagDefinitionPatch,
     StorageOpsBucketUiTagCreate,
     StorageOpsBucketUiTagDefinitionPatch,
 )
+
+
+def test_bucket_ui_tag_responses_require_complete_canonical_payloads() -> None:
+    assert set(BucketUiTagDefinitionSummary.model_json_schema()["required"]) == {
+        "id",
+        "label",
+        "color_key",
+        "scope",
+        "visibility",
+    }
+    assert set(BucketUiTagCatalogResponse.model_json_schema()["required"]) == {
+        "definitions"
+    }
 
 
 def test_storage_ops_ui_tag_models_are_the_canonical_bases() -> None:

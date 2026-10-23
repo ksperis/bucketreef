@@ -11,6 +11,7 @@ from app.models.s3_connection_admin import (
 )
 from app.models.s3_user import S3UserCreate, S3UserUpdate
 from app.models.storage_endpoint import StorageEndpointTagsUpdate
+from app.models.tagging import TagDefinitionListResponse, TagDefinitionSummary
 
 
 REQUIRED_TAG_MODELS = [
@@ -53,6 +54,16 @@ OPTIONAL_TAG_MODELS = [
     pytest.param(S3ConnectionAdminUpdate, id="admin-connection"),
     pytest.param(S3UserUpdate, id="s3-user"),
 ]
+
+
+def test_tag_definition_responses_require_complete_canonical_payloads() -> None:
+    assert set(TagDefinitionSummary.model_json_schema()["required"]) == {
+        "id",
+        "label",
+        "color_key",
+        "scope",
+    }
+    assert set(TagDefinitionListResponse.model_json_schema()["required"]) == {"items"}
 
 
 @pytest.mark.parametrize(("model_type", "base_payload"), REQUIRED_TAG_MODELS)
