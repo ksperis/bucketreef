@@ -1,4 +1,5 @@
 import type { CephAdminRgwAccountDetail } from "../api/cephAdminAccounts";
+import type { CephAdminEndpoint, CephAdminEndpointAccess } from "../api/cephAdminEndpoints";
 import type { CephAdminRgwUserDetail } from "../api/cephAdminUsers";
 import { GiB } from "./state";
 import { governance } from "./governance";
@@ -6,9 +7,36 @@ import { generatedKey, keyActions } from "./iam";
 import { DemoError, json, listing, required, textField, type DemoRequest } from "./http";
 
 export function ceph(c: DemoRequest): Response | undefined {
-  if (c.path === "/ceph-admin/endpoints" && c.method === "GET") return json(c.state.endpoints);
+  if (c.path === "/ceph-admin/endpoints" && c.method === "GET") {
+    const endpoints: CephAdminEndpoint[] = c.state.endpoints.map(endpoint => ({
+      id: endpoint.id,
+      name: endpoint.name,
+      endpoint_url: endpoint.endpoint_url,
+      admin_endpoint: endpoint.features.admin.endpoint ?? null,
+      region: endpoint.region ?? null,
+      is_default: endpoint.is_default,
+      capabilities: endpoint.capabilities ?? {},
+      tags: endpoint.tags,
+    }));
+    return json(endpoints);
+  }
   const access = c.path.match(/^\/ceph-admin\/endpoints\/(\d+)\/access$/);
-  if (access && c.method === "GET") return json({ endpoint_id: Number(access[1]), can_admin: true, can_accounts: true, can_metrics: true, admin_warning: null });
+  if (access && c.method === "GET") {
+    const probed = c.url.searchParams.get("probe") === "true";
+    const response: CephAdminEndpointAccess = {
+      endpoint_id: Number(access[1]),
+      can_admin: true,
+      can_accounts: true,
+      can_metrics: true,
+      admin_warning: null,
+      accounts_warning: null,
+      active_rgw_uid: null,
+      active_rgw_tenant: null,
+      availability_status: probed ? "available" : "unknown",
+      availability_checked_at: probed ? c.state.initializedAt : null,
+    };
+    return json(response);
+  }
   const match = c.path.match(/^\/ceph-admin\/endpoints\/(\d+)\/(accounts|users)(?:\/([^/]+)(?:\/(detail|config|keys)(?:\/([^/]+)(?:\/status)?)?)?)?$/);
   if (!match) return undefined;
   const endpoint = required(c.state.endpoints.find(e => e.id === Number(match[1])));
