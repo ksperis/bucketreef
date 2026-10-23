@@ -20,22 +20,22 @@ import type {
 } from "./usageHistory";
 
 export type PortalUsage = {
-  used_bytes?: number | null;
-  used_objects?: number | null;
-  quota_max_size_bytes?: number | null;
-  quota_max_objects?: number | null;
-  max_buckets?: number | null;
-  storage_spaces?: PortalUsageStorageSpace[];
-  other_storage_space?: PortalUsageStorageSpace | null;
+  used_bytes: number | null;
+  used_objects: number | null;
+  quota_max_size_bytes: number | null;
+  quota_max_objects: number | null;
+  max_buckets: number | null;
+  storage_spaces: PortalUsageStorageSpace[];
+  other_storage_space: PortalUsageStorageSpace | null;
 };
 
 export type PortalUsageStorageSpace = {
   id: string;
   name: string;
-  used_bytes?: number | null;
-  object_count?: number | null;
-  quota_max_size_bytes?: number | null;
-  quota_max_objects?: number | null;
+  used_bytes: number | null;
+  object_count: number | null;
+  quota_max_size_bytes: number | null;
+  quota_max_objects: number | null;
 };
 
 export type PortalStorageSpaceUsageStatsSnapshot = Omit<
@@ -44,7 +44,7 @@ export type PortalStorageSpaceUsageStatsSnapshot = Omit<
 >;
 
 type PortalStorageSpaceUsageStatsResponse = {
-  snapshot?: PortalStorageSpaceUsageStatsSnapshot | null;
+  snapshot: PortalStorageSpaceUsageStatsSnapshot | null;
 };
 
 export async function fetchPortalUsage(

@@ -6572,7 +6572,15 @@ def test_portal_alerts_are_derived_from_quota_and_public_sharing(monkeypatch, db
     monkeypatch.setattr(
         service,
         "get_usage",
-        lambda *_args, **_kwargs: PortalUsage(used_bytes=90, used_objects=None, quota_max_size_bytes=100),
+        lambda *_args, **_kwargs: PortalUsage(
+            used_bytes=90,
+            used_objects=None,
+            quota_max_size_bytes=100,
+            quota_max_objects=None,
+            max_buckets=None,
+            storage_spaces=[],
+            other_storage_space=None,
+        ),
     )
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 
@@ -6844,7 +6852,15 @@ def test_portal_alerts_are_empty_for_isolated_tenant_and_no_signals(monkeypatch,
     monkeypatch.setattr(
         service,
         "get_usage",
-        lambda *_args, **_kwargs: PortalUsage(used_bytes=None, used_objects=None, quota_max_size_bytes=None),
+        lambda *_args, **_kwargs: PortalUsage(
+            used_bytes=None,
+            used_objects=None,
+            quota_max_size_bytes=None,
+            quota_max_objects=None,
+            max_buckets=None,
+            storage_spaces=[],
+            other_storage_space=None,
+        ),
     )
     access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 

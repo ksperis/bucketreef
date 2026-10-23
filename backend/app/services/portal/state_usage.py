@@ -70,6 +70,8 @@ class PortalStateUsageMixin:
             name="Other",
             used_bytes=other_bytes,
             object_count=other_objects,
+            quota_max_size_bytes=None,
+            quota_max_objects=None,
         )
 
     def get_state(self, access: "AccountAccess") -> PortalState:
@@ -123,6 +125,7 @@ class PortalStateUsageMixin:
                 quota_max_objects=quota_max_objects,
                 max_buckets=max_buckets,
                 storage_spaces=[],
+                other_storage_space=None,
             )
         try:
             rgw_admin = self._runtime_read_for_account(account)
@@ -136,6 +139,7 @@ class PortalStateUsageMixin:
                 quota_max_objects=quota_max_objects,
                 max_buckets=max_buckets,
                 storage_spaces=self._usage_storage_space_breakdown(user, access, {}),
+                other_storage_space=None,
             )
 
         usage_by_bucket: dict[str, tuple[Optional[int], Optional[int]]] = {}

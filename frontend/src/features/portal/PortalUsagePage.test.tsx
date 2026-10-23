@@ -59,7 +59,10 @@ const mocks = vi.hoisted(() => {
       used_bytes: 512,
       used_objects: 12,
       quota_max_size_bytes: 1024,
-      storage_spaces: [{ id: "research-data", name: "Research Data", used_bytes: 512, object_count: 12 }],
+      quota_max_objects: null,
+      max_buckets: null,
+      storage_spaces: [{ id: "research-data", name: "Research Data", used_bytes: 512, object_count: 12, quota_max_size_bytes: null, quota_max_objects: null }],
+      other_storage_space: null,
     },
     usageLoading: false,
     usageError: null,
@@ -304,7 +307,10 @@ describe("PortalUsagePage", () => {
       used_bytes: 512,
       used_objects: 12,
       quota_max_size_bytes: 1024,
-      storage_spaces: [{ id: "research-data", name: "Research Data", used_bytes: 512, object_count: 12 }],
+      quota_max_objects: null,
+      max_buckets: null,
+      storage_spaces: [{ id: "research-data", name: "Research Data", used_bytes: 512, object_count: 12, quota_max_size_bytes: null, quota_max_objects: null }],
+      other_storage_space: null,
     };
     mocks.hookResult.usageLoading = false;
     mocks.hookResult.usageError = null;
@@ -428,7 +434,15 @@ describe("PortalUsagePage", () => {
     mocks.hookResult.storageSpaces = [
       { id: "empty-space", name: "Empty Space", role: "Viewer", used_bytes: null, object_count: null, quota_max_size_bytes: null },
     ];
-    mocks.hookResult.usage = { used_bytes: null, used_objects: null, storage_spaces: [] };
+    mocks.hookResult.usage = {
+      used_bytes: null,
+      used_objects: null,
+      quota_max_size_bytes: null,
+      quota_max_objects: null,
+      max_buckets: null,
+      storage_spaces: [],
+      other_storage_space: null,
+    };
     mocks.hookResult.traffic = null;
     mocks.hookResult.trafficError = "Traffic data is unavailable.";
     mocks.hookResult.state = { quota_max_size_bytes: null, bucket_usage_stats_enabled: true, cost_estimation_enabled: true };
@@ -516,8 +530,10 @@ describe("PortalUsagePage", () => {
       used_bytes: 1024,
       used_objects: 22,
       quota_max_size_bytes: 2048,
-      storage_spaces: [{ id: "research-data", name: "Research Data", used_bytes: 512, object_count: 12 }],
-      other_storage_space: { id: "__other__", name: "Other", used_bytes: 512, object_count: 10 },
+      quota_max_objects: null,
+      max_buckets: null,
+      storage_spaces: [{ id: "research-data", name: "Research Data", used_bytes: 512, object_count: 12, quota_max_size_bytes: null, quota_max_objects: null }],
+      other_storage_space: { id: "__other__", name: "Other", used_bytes: 512, object_count: 10, quota_max_size_bytes: null, quota_max_objects: null },
     };
 
     renderPage();

@@ -102,8 +102,10 @@ describe("buildPortalWorkspaceModel", () => {
             used_bytes: 700,
             object_count: 70,
             quota_max_size_bytes: 800,
+            quota_max_objects: null,
           },
         ],
+        other_storage_space: null,
       },
       userEmail: "manager@example.com",
     });

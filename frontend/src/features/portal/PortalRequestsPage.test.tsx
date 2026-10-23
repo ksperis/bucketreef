@@ -121,7 +121,9 @@ describe("PortalRequestsPage", () => {
       used_objects: 42,
       quota_max_size_bytes: 20 * 1024 ** 3,
       quota_max_objects: 123,
+      max_buckets: null,
       storage_spaces: [],
+      other_storage_space: null,
     });
     mocks.fetchPortalCollaborators.mockResolvedValue({
       summary: {

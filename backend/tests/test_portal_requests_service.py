@@ -926,7 +926,15 @@ def test_create_quota_change_rejects_target_below_current_usage(db_session, monk
             self.db = db
 
         def get_usage(self, actor, access):  # noqa: ANN001
-            return PortalUsage(used_bytes=12 * 1024**3)
+            return PortalUsage(
+                used_bytes=12 * 1024**3,
+                used_objects=None,
+                quota_max_size_bytes=None,
+                quota_max_objects=None,
+                max_buckets=None,
+                storage_spaces=[],
+                other_storage_space=None,
+            )
 
     monkeypatch.setattr("app.services.portal_requests_service.PortalService", FakePortalService)
     service = PortalRequestsService(db_session, accounts_service=FakeAccountsService(quota=(20.0, 123)))
