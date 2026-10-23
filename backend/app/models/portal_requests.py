@@ -181,9 +181,9 @@ class PortalAdminRequestDecision(ApiModel):
 
 class PortalAdminRequestMessageOut(ApiModel):
     id: int
-    author_user_id: Optional[int] = None
+    author_user_id: Optional[int]
     author_email: str
-    author_role: Optional[str] = None
+    author_role: Optional[str]
     message: str
     created_at: datetime
 
@@ -191,17 +191,17 @@ class PortalAdminRequestMessageOut(ApiModel):
 class PortalAdminRequestOut(ApiModel):
     id: int
     account_id: int
-    account_name: Optional[str] = None
+    account_name: Optional[str]
     request_type: PortalAdminRequestType
     status: PortalAdminRequestStatus
     payload: dict[str, Any]
-    result: Optional[dict[str, Any]] = None
-    error_message: Optional[str] = None
-    requester_user_id: Optional[int] = None
+    result: Optional[dict[str, Any]]
+    error_message: Optional[str]
+    requester_user_id: Optional[int]
     requester_email: str
-    decided_by_user_id: Optional[int] = None
-    decided_by_email: Optional[str] = None
-    decided_at: Optional[datetime] = None
+    decided_by_user_id: Optional[int]
+    decided_by_email: Optional[str]
+    decided_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
-    messages: list[PortalAdminRequestMessageOut] = Field(default_factory=list)
+    messages: list[PortalAdminRequestMessageOut]

@@ -85,9 +85,9 @@ type PortalAdminRequestCreate =
 
 export type PortalAdminRequestMessage = {
   id: number;
-  author_user_id?: number | null;
+  author_user_id: number | null;
   author_email: string;
-  author_role?: string | null;
+  author_role: string | null;
   message: string;
   created_at: string;
 };
@@ -95,17 +95,17 @@ export type PortalAdminRequestMessage = {
 export type PortalAdminRequest = {
   id: number;
   account_id: number;
-  account_name?: string | null;
+  account_name: string | null;
   request_type: PortalAdminRequestType;
   status: PortalAdminRequestStatus;
   payload: Record<string, unknown>;
-  result?: Record<string, unknown> | null;
-  error_message?: string | null;
-  requester_user_id?: number | null;
+  result: Record<string, unknown> | null;
+  error_message: string | null;
+  requester_user_id: number | null;
   requester_email: string;
-  decided_by_user_id?: number | null;
-  decided_by_email?: string | null;
-  decided_at?: string | null;
+  decided_by_user_id: number | null;
+  decided_by_email: string | null;
+  decided_at: string | null;
   created_at: string;
   updated_at: string;
   messages: PortalAdminRequestMessage[];

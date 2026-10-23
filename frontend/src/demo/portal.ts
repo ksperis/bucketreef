@@ -55,7 +55,7 @@ export function portal(c: DemoRequest): Response | undefined {
       if (!["portal_user_access", "portal_user_removal", "account_quota_change"].includes(type)) throw new DemoError(403, "Global and project settings stay locked in this demo. Try a membership or quota request.");
       const now = new Date().toISOString(); const { request_type: _type, ...payload } = body;
       if (type === "portal_user_access") portalAccessRequest(payload);
-      const request: PortalAdminRequest = { id: state.nextId++, account_id: account!.id, account_name: account!.name, request_type: type, status: "pending", payload, requester_user_id: c.user.id, requester_email: c.user.email, created_at: now, updated_at: now, messages: [] };
+      const request: PortalAdminRequest = { id: state.nextId++, account_id: account!.id, account_name: account!.name, request_type: type, status: "pending", payload, result: null, error_message: null, requester_user_id: c.user.id, requester_email: c.user.email, decided_by_user_id: null, decided_by_email: null, decided_at: null, created_at: now, updated_at: now, messages: [] };
       state.requests.push(request); return json(request, 201);
     }
     if (admin && method === "POST" && requestMatch[2]) {

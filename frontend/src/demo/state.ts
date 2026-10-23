@@ -313,7 +313,9 @@ export function createSeed(): DemoState {
   const requests: PortalAdminRequest[] = ["account_quota_change", "portal_user_access", "portal_user_access"].map((type, i) => ({
     id: 501 + i, account_id: 101, account_name: accounts[0].name, request_type: type as PortalAdminRequest["request_type"], status: "pending",
     payload: type === "account_quota_change" ? { direction: "increase", target_quota_value: 750, target_quota_unit: "GiB", reason: "Upcoming autumn campaign" } : { intent: "add", target_name: `${first[6 + i]} Williams`, target_email: `new-colleague-${i}@example.com`, portal_role: "portal_user", reason: "Join the project team" },
-    requester_user_id: 4, requester_email: users[3].email, created_at: at(i + 1), updated_at: at(i + 1), messages: [],
+    result: null, error_message: null, requester_user_id: 4, requester_email: users[3].email,
+    decided_by_user_id: null, decided_by_email: null, decided_at: null,
+    created_at: at(i + 1), updated_at: at(i + 1), messages: [],
   }));
   const iam: Record<number, DemoIam> = {};
   for (const account of accounts) {
