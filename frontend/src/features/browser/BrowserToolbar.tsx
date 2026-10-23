@@ -170,19 +170,26 @@ export default function BrowserToolbar({
     ? "hidden shrink-0 items-center gap-1.5 md:flex"
     : "hidden w-full shrink-0 flex-wrap items-center justify-end gap-2 md:flex 2xl:w-auto";
 
-  const hasViewSection = Boolean(moreMenu.view);
-  const hasStatusSection = moreMenu.status.visible;
-  const hasLayoutSection = Boolean(moreMenu.layout.folders);
-  const hasColumnsSection = Boolean(moreMenu.columns);
   const menuPathActions = moreMenu.pathActions.filter(
     (action) => !directToolbarPathActionIds.has(action.id),
   );
-  const currentPathMenuActions = menuPathActions.filter((action) =>
+  const layoutPathMenuActions = menuPathActions.filter(
+    (action) => action.section === "layout",
+  );
+  const nonLayoutPathMenuActions = menuPathActions.filter(
+    (action) => action.section !== "layout",
+  );
+  const currentPathMenuActions = nonLayoutPathMenuActions.filter((action) =>
     currentPathMenuActionIds.has(action.id),
   );
-  const technicalPathMenuActions = menuPathActions.filter(
+  const technicalPathMenuActions = nonLayoutPathMenuActions.filter(
     (action) => !currentPathMenuActionIds.has(action.id),
   );
+  const hasViewSection =
+    Boolean(moreMenu.view) || layoutPathMenuActions.length > 0;
+  const hasStatusSection = moreMenu.status.visible;
+  const hasLayoutSection = Boolean(moreMenu.layout.folders);
+  const hasColumnsSection = Boolean(moreMenu.columns);
   const hasCurrentPathActions = currentPathMenuActions.length > 0;
   const hasTechnicalPathActions = technicalPathMenuActions.length > 0;
   const hasPathActions = hasCurrentPathActions || hasTechnicalPathActions;
@@ -518,53 +525,66 @@ export default function BrowserToolbar({
                 <div className={contextMenuSeparatorClasses} />
               )}
 
-            {!hasPrioritizedSelectionActions && moreMenu.view && (
+            {!hasPrioritizedSelectionActions && hasViewSection && (
               <>
                 <p className={overflowSectionTitleClasses}>{text("Browser view")}</p>
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={!moreMenu.view.compactMode}
-                  className={contextMenuItemClasses}
-                  onClick={() =>
-                    runMoreAction(() =>
-                      moreMenu.view?.onSetCompactMode(false),
-                    )
-                  }
-                >
-                  <ListIcon className="h-3.5 w-3.5" />
-                  {text("Comfortable")}
-                  {!moreMenu.view.compactMode && (
-                    <span
-                      aria-hidden="true"
-                      className="ml-auto text-primary-600 dark:text-primary-300"
+                {moreMenu.view && (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={!moreMenu.view.compactMode}
+                      className={contextMenuItemClasses}
+                      onClick={() =>
+                        runMoreAction(() =>
+                          moreMenu.view?.onSetCompactMode(false),
+                        )
+                      }
                     >
-                      ✓
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={moreMenu.view.compactMode}
-                  className={contextMenuItemClasses}
-                  onClick={() =>
-                    runMoreAction(() =>
-                      moreMenu.view?.onSetCompactMode(true),
-                    )
-                  }
-                >
-                  <CompactIcon className="h-3.5 w-3.5" />
-                  {text("Compact")}
-                  {moreMenu.view.compactMode && (
-                    <span
-                      aria-hidden="true"
-                      className="ml-auto text-primary-600 dark:text-primary-300"
+                      <ListIcon className="h-3.5 w-3.5" />
+                      {text("Comfortable")}
+                      {!moreMenu.view.compactMode && (
+                        <span
+                          aria-hidden="true"
+                          className="ml-auto text-primary-600 dark:text-primary-300"
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={moreMenu.view.compactMode}
+                      className={contextMenuItemClasses}
+                      onClick={() =>
+                        runMoreAction(() =>
+                          moreMenu.view?.onSetCompactMode(true),
+                        )
+                      }
                     >
-                      ✓
-                    </span>
-                  )}
-                </button>
+                      <CompactIcon className="h-3.5 w-3.5" />
+                      {text("Compact")}
+                      {moreMenu.view.compactMode && (
+                        <span
+                          aria-hidden="true"
+                          className="ml-auto text-primary-600 dark:text-primary-300"
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
+                {layoutPathMenuActions.map((action) => (
+                  <BrowserToolbarActionMenuItem
+                    key={action.id}
+                    action={action}
+                    onSelect={() =>
+                      runMoreAction(() => onRunPathAction(action.id))
+                    }
+                  />
+                ))}
               </>
             )}
 

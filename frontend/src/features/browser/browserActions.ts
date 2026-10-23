@@ -170,6 +170,8 @@ export const TOOLBAR_MORE_PATH_ACTION_IDS: BrowserActionId[] = [
   "multipartUploads",
   "configureBucket",
   "copyPath",
+  "toggleShowFolders",
+  "toggleShowDeleted",
 ];
 
 export const TOOLBAR_MORE_SELECTION_FULL_ACTION_IDS: BrowserActionId[] = [
