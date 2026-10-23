@@ -17,7 +17,6 @@ export type S3ConnectionUserDetail = {
   email: string;
   full_name: string | null;
   avatar: UserAvatarDescriptor | null;
-  allow_manager_browser_data_access: boolean;
 };
 
 export type S3ConnectionGroupDetail = {

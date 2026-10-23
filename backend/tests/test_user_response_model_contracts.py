@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from app.models.ui_group import UiGroupAvatar, UiGroupOut
-from app.models.user import UserAvatar, UserOut, UserSummary
+from app.models.user import UserAssociationDetail, UserAvatar, UserOut, UserSummary
 
 
 def test_user_avatar_requires_complete_canonical_payload() -> None:
@@ -23,6 +23,18 @@ def test_ui_group_avatar_requires_complete_canonical_payload() -> None:
         "url",
         "updated_at",
     }
+
+
+def test_user_association_detail_requires_complete_canonical_payload() -> None:
+    schema = UserAssociationDetail.model_json_schema()
+
+    assert set(schema["required"]) == {
+        "id",
+        "email",
+        "full_name",
+        "avatar",
+    }
+    assert "allow_manager_browser_data_access" not in schema["properties"]
 
 
 def test_user_summary_requires_complete_canonical_payload() -> None:

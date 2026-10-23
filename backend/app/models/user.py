@@ -112,9 +112,8 @@ class UserSummary(ApiModel):
 class UserAssociationDetail(ApiModel):
     id: int
     email: str
-    full_name: Optional[str] = None
-    avatar: Optional[UserAvatar] = None
-    allow_manager_browser_data_access: bool = False
+    full_name: Optional[str]
+    avatar: Optional[UserAvatar]
 
 
 class User(ApiModel):
