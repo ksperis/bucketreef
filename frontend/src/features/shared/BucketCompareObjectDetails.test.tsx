@@ -8,7 +8,13 @@ const etag = "0123456789abcdef0123456789abcdef-12";
 
 function renderDetails(onExplore = vi.fn()) {
   render(<>
-    <BucketCompareObjectDetails rows={[{ key, etag: `"${etag}"`, size: 1024 }]}
+    <BucketCompareObjectDetails rows={[{
+      key,
+      etag: `"${etag}"`,
+      size: 1024,
+      last_modified: null,
+      storage_class: null,
+    }]}
       options={{ buildBrowserHref: () => "/browser?fixture", onExplore }} />
     <button type="button">Next control</button>
   </>);

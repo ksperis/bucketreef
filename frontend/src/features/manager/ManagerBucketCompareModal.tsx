@@ -37,7 +37,6 @@ import {
   CompareVisibleKeysCopyFeedback,
   bucketComparisonCancelledMessage,
   buildBucketCompareMappingModel,
-  compareObjectDetailsFromKeys,
   extractCompareError,
   formatCompareDisplayLimitMessage,
   formatUnknown,
@@ -836,11 +835,11 @@ export default function ManagerBucketCompareModal({
                 ? (() => {
                     const onlySourceDetails =
                       content.only_source_count > 0
-                        ? (content.only_source_details?.length ? content.only_source_details : compareObjectDetailsFromKeys(content.only_source_sample))
+                        ? content.only_source_details
                         : [];
                     const onlyTargetDetails =
                       content.only_target_count > 0
-                        ? (content.only_target_details?.length ? content.only_target_details : compareObjectDetailsFromKeys(content.only_target_sample))
+                        ? content.only_target_details
                         : [];
                     const differentSourceDetails =
                       content.different_count > 0 ? content.different_sample.map(sourceCompareObjectDetailFromDiff) : [];

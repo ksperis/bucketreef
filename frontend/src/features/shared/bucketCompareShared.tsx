@@ -40,14 +40,14 @@ type CompareDiffLine = {
 
 type CompareObjectDiffLike = {
   key: string;
-  source_size?: number | null;
-  target_size?: number | null;
-  source_etag?: string | null;
-  target_etag?: string | null;
-  source_last_modified?: string | null;
-  target_last_modified?: string | null;
-  source_storage_class?: string | null;
-  target_storage_class?: string | null;
+  source_size: number | null;
+  target_size: number | null;
+  source_etag: string | null;
+  target_etag: string | null;
+  source_last_modified: string | null;
+  target_last_modified: string | null;
+  source_storage_class: string | null;
+  target_storage_class: string | null;
 };
 
 export type CompareVisibleKeysCopyFeedback = {
@@ -317,10 +317,6 @@ export const getObjectParentPrefix = (key: string): string => {
   if (index < 0) return "";
   return key.slice(0, index + 1);
 };
-
-export const compareObjectDetailsFromKeys = (
-  keys: string[]
-): CompareObjectDetailLike[] => keys.map((key) => ({ key }));
 
 export const sourceCompareObjectDetailFromDiff = (
   diff: CompareObjectDiffLike
