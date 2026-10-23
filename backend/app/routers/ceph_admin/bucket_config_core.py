@@ -77,14 +77,13 @@ def update_versioning(
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
-    _run_bucket_config_update(
+    return _run_bucket_config_update(
         ctx,
         bucket_name,
         tenant=tenant,
         config_area="versioning",
         payload=payload,
     )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.put(
