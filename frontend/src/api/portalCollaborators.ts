@@ -12,12 +12,12 @@ import type { UserAvatarDescriptor } from "./users";
 export type PortalCollaborator = {
   user_id: number;
   email: string;
-  display_name?: string | null;
+  display_name: string | null;
   portal_role: PortalAccountRole;
   access_source: "direct" | "group" | "direct_and_group";
-  member_since?: string | null;
-  avatar?: UserAvatarDescriptor | null;
-  can_review_access?: boolean;
+  member_since: string | null;
+  avatar: UserAvatarDescriptor | null;
+  can_review_access: boolean;
 };
 
 export type PortalCollaboratorStorageSpaceAccessSource =
@@ -51,7 +51,7 @@ type PortalCollaboratorTrend = {
 export type PortalCollaboratorSummary = {
   collaborator_count: number;
   external_access_key_count: number;
-  trend?: PortalCollaboratorTrend | null;
+  trend: PortalCollaboratorTrend | null;
 };
 
 export type PortalCollaboratorsResponse = {

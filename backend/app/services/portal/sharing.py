@@ -375,6 +375,7 @@ class PortalSharingMixin:
                     portal_role=portal_role,
                     access_source=self._portal_access_source(sources),
                     already_shared=user_id in shared_user_ids,
+                    avatar=None,
                 )
             )
         return sorted(rows, key=lambda item: item.email.lower())
