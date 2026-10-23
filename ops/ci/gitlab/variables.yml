@@ -2,7 +2,7 @@ variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ''
   VITE_API_URL: /api
-  TRIVY_IMAGE: aquasec/trivy:0.69.3
+  TRIVY_IMAGE: aquasec/trivy:0.76.1
   BINFMT_IMAGE: tonistiigi/binfmt@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
   TRIVY_CACHE_DIR: $CI_PROJECT_DIR/.trivycache
   TRIVY_SEVERITY: HIGH,CRITICAL

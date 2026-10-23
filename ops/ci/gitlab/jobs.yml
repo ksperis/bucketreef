@@ -4,7 +4,7 @@
     entrypoint:
     - ''
   cache:
-    key: trusted-trivy-0.69.3
+    key: trusted-trivy-0.76.1
     paths:
     - .trivycache/
   before_script:
@@ -184,7 +184,7 @@ backend-vuln-scan:
     - gl-security-reports/backend-sbom.cdx.json
 frontend-quality:
   stage: test
-  image: node:24.21.0-bookworm
+  image: node:24.22.1-bookworm
   needs: []
   script:
   - sh ops/ci/tasks/run.sh frontend-quality
@@ -192,13 +192,13 @@ frontend-quality:
   - npm ci --prefix frontend --no-audit --no-fund
 frontend-audit:
   stage: test
-  image: node:24.21.0-bookworm
+  image: node:24.22.1-bookworm
   needs: []
   script:
   - sh ops/ci/tasks/run.sh frontend-audit
 frontend-tests:
   stage: test
-  image: node:24.21.0-bookworm
+  image: node:24.22.1-bookworm
   needs: []
   parallel:
     matrix:
@@ -281,7 +281,7 @@ frontend-demo:
       junit: gl-test-reports/demo-junit.xml
 .demo-publication:
   stage: publish-demo
-  image: node:24.21.0-bookworm
+  image: node:24.22.1-bookworm
   environment:
     name: demo-production
     url: https://demo.bucketreef.ksperis.com
@@ -687,14 +687,14 @@ docs-build:
     expire_in: 30 days
 docs-screenshots:
   stage: test
-  image: node:24.21.0-bookworm
+  image: node:24.22.1-bookworm
   needs: []
   interruptible: true
   script:
   - sh ops/ci/tasks/run.sh docs-screenshots
 docs-deploy:
   stage: deploy
-  image: node:24.21.0-bookworm
+  image: node:24.22.1-bookworm
   needs:
   - docs-build
   - docs-screenshots

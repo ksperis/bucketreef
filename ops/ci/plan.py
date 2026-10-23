@@ -127,7 +127,9 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
     for path in paths or []:
         if path.startswith((".github/", "ops/ci/")) or path in {".gitlab-ci.yml", ".trivyignore", "pytest.ini"}:
             full = True
-        elif path.startswith(("doc/", "ops/cloudflare/")) or path == "README.md":
+        elif path.startswith("ops/cloudflare/"):
+            add(DOCS | {"frontend-audit"}, path)
+        elif path.startswith("doc/") or path == "README.md":
             add(DOCS, path)
         elif path.startswith("frontend/scripts/docs-screenshots/") or path.startswith("frontend/playwright.docs"):
             add(DOCS | FRONTEND, path)

@@ -24,7 +24,9 @@ case "${1:?Validation name required}" in
     PYTHONPATH=. python3 -m pytest tests_postgresql -q --junit-xml=../gl-test-reports/backend-postgresql-junit.xml ;;
   backend-deadcode) cd backend; python3 scripts/check_vulture.py ;;
   frontend-quality) cd frontend; npm run check:ci; npm run demo:isolation ;;
-  frontend-audit) npm audit --prefix frontend --omit=dev --audit-level=high ;;
+  frontend-audit)
+    npm audit --prefix frontend --audit-level=high
+    npm audit --prefix ops/cloudflare --audit-level=high ;;
   frontend-demo) cd frontend; CI=1 npm run test:demo ;;
   frontend-tests)
     cd frontend

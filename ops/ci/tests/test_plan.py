@@ -22,6 +22,7 @@ from required import check
     ("frontend/e2e/helpers/config.ts", {"frontend-quality", "frontend-browser-e2e"}, {"frontend-tests", "frontend-demo", "build-frontend"}),
     ("frontend/e2e/demo/ui.spec.ts", {"frontend-quality", "frontend-demo"}, {"frontend-tests", "frontend-browser-e2e", "build-frontend"}),
     ("frontend/package-lock.json", {"frontend-audit", "frontend-vuln-scan", "build-backend", "build-frontend"}, {"ceph-functional-tests"}),
+    ("ops/cloudflare/package-lock.json", {"docs-build", "docs-screenshots", "frontend-audit"}, {"build-backend"}),
     ("frontend/scripts/docs-screenshots/check.mjs", {"docs-build", "frontend-quality"}, {"build-backend"}),
     ("backend/tests/test_example.py", {"backend-tests"}, {"backend-security-contract", "backend-postgresql-tests", "backend-deadcode", "ceph-functional-tests"}),
     ("backend/tests_postgresql/test_example.py", {"backend-postgresql-tests"}, {"backend-tests", "backend-security-contract", "backend-deadcode", "ceph-functional-tests"}),

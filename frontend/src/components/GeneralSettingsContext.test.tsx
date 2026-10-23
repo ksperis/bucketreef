@@ -58,6 +58,7 @@ describe("GeneralSettingsProvider fallbacks", () => {
     sessionState.authenticated = false;
     window.localStorage.clear();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(appSettingsApi.fetchGeneralSettings).mockReset();
     vi.mocked(appSettingsApi.fetchRuntimeSurfaces).mockReset();
     vi.mocked(appSettingsApi.fetchRuntimeSurfaces).mockResolvedValue({
       admin: false,
