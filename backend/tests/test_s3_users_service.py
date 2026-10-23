@@ -28,10 +28,10 @@ from app.db import (
 )
 from app.models.s3_user import (
     S3UserCreate,
-    S3UserGroupLink,
+    S3UserGroupLinkInput,
     S3UserImport,
     S3UserUpdate,
-    S3UserUserLink,
+    S3UserUserLinkInput,
 )
 from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
@@ -566,7 +566,7 @@ def test_update_links_normalizes_non_ui_roles_to_ui_user(db_session, monkeypatch
 
     updated = service.update_user(
         created.id,
-        S3UserUpdate(user_links=[S3UserUserLink(user_id=actor.id)]),
+        S3UserUpdate(user_links=[S3UserUserLinkInput(user_id=actor.id)]),
     )
 
     db_session.refresh(actor)
@@ -609,7 +609,7 @@ def test_update_links_validates_users_before_removing_existing_links(
         service.update_user(
             created.id,
             S3UserUpdate(
-                user_links=[S3UserUserLink(user_id=999_999)],
+                user_links=[S3UserUserLinkInput(user_id=999_999)],
             ),
         )
 
@@ -657,8 +657,8 @@ def test_update_links_validates_groups_before_mutating_user_links(
         service.update_user(
             created.id,
             S3UserUpdate(
-                user_links=[S3UserUserLink(user_id=replacement_actor.id)],
-                group_links=[S3UserGroupLink(group_id=999_999)],
+                user_links=[S3UserUserLinkInput(user_id=replacement_actor.id)],
+                group_links=[S3UserGroupLinkInput(group_id=999_999)],
             ),
         )
 
