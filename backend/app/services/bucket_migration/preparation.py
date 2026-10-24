@@ -484,51 +484,55 @@ class BucketMigrationPreparationMixin:
                 continue
             if item.preparation_effects_json:
                 raise ValueError("Restore temporary changes before continuing")
-            try:
-                self._precheck_can_list_bucket(source, item.source_bucket)
-                current = self._inspector.inspect_bucket_state(
-                    source,
-                    item.source_bucket,
-                    probe_policy=self._inspector.build_probe_policy(
-                        copy_bucket_settings=migration.copy_bucket_settings
-                    ),
-                    scan_versions=False,
-                )
-                previous = _json_loads(item.source_snapshot_json) or {}
-                for feature in ("versioning", "object_lock", "encryption"):
-                    if previous.get(feature) != current.get(feature):
-                        raise ValueError(
-                            f"Source {feature.replace('_', ' ')} changed since preparation. Prepare a new migration before continuing."
-                        )
-                if any(
-                    value.get("state") == "unavailable"
-                    for value in current.get("feature_availability", {}).values()
-                ):
+            self._revalidate_source_transfer_preconditions(migration, source, item)
+            self._revalidate_destination_transfer_preconditions(target, item)
+
+    def _revalidate_source_transfer_preconditions(self, migration, source, item) -> None:
+        try:
+            self._precheck_can_list_bucket(source, item.source_bucket)
+            current = self._inspector.inspect_bucket_state(
+                source,
+                item.source_bucket,
+                probe_policy=self._inspector.build_probe_policy(
+                    copy_bucket_settings=migration.copy_bucket_settings
+                ),
+                scan_versions=False,
+            )
+            previous = _json_loads(item.source_snapshot_json) or {}
+            for feature in ("versioning", "object_lock", "encryption"):
+                if previous.get(feature) != current.get(feature):
                     raise ValueError(
-                        "A required source feature cannot be verified. Restore access before continuing."
+                        f"Source {feature.replace('_', ' ')} changed since preparation. Prepare a new migration before continuing."
                     )
-                if migration.copy_bucket_settings and current.get(
-                    "unsupported_settings"
-                ):
-                    raise ValueError(
-                        "The source now has unsupported settings. Prepare a new migration with compatible settings."
-                    )
-                if self._item_execution_strategy(item) == "version_aware":
-                    self._precheck_version_aware_source_access(
-                        source, item.source_bucket, previous
-                    )
-            except PermissionError:
-                raise
-            except Exception as exc:
+            if any(
+                value.get("state") == "unavailable"
+                for value in current.get("feature_availability", {}).values()
+            ):
                 raise ValueError(
-                    f"Source '{item.source_bucket}' needs attention: {sanitized_error_log_detail(exc)}"
-                ) from exc
-            exists = self._precheck_bucket_exists(target, item.target_bucket)
-            if exists is None or (exists and not item.target_created_by_migration):
-                raise ValueError(
-                    f"Destination '{item.target_bucket}' is unavailable or already exists. Check its name and permissions."
+                    "A required source feature cannot be verified. Restore access before continuing."
                 )
-            if item.target_created_by_migration and not exists:
+            if migration.copy_bucket_settings and current.get("unsupported_settings"):
                 raise ValueError(
-                    f"Destination '{item.target_bucket}' created by this migration is missing. It cannot be resumed safely."
+                    "The source now has unsupported settings. Prepare a new migration with compatible settings."
                 )
+            if self._item_execution_strategy(item) == "version_aware":
+                self._precheck_version_aware_source_access(
+                    source, item.source_bucket, previous
+                )
+        except PermissionError:
+            raise
+        except Exception as exc:
+            raise ValueError(
+                f"Source '{item.source_bucket}' needs attention: {sanitized_error_log_detail(exc)}"
+            ) from exc
+
+    def _revalidate_destination_transfer_preconditions(self, target, item) -> None:
+        exists = self._precheck_bucket_exists(target, item.target_bucket)
+        if exists is None or (exists and not item.target_created_by_migration):
+            raise ValueError(
+                f"Destination '{item.target_bucket}' is unavailable or already exists. Check its name and permissions."
+            )
+        if item.target_created_by_migration and not exists:
+            raise ValueError(
+                f"Destination '{item.target_bucket}' created by this migration is missing. It cannot be resumed safely."
+            )
