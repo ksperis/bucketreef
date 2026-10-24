@@ -45,8 +45,6 @@ type BucketMigrationPrecheckItemReport = {
   target_bucket?: string;
   strategy?: string;
   blocking?: boolean;
-  rollback_safe?: boolean;
-  same_endpoint_copy_safe?: boolean;
   source_object_count?: number | null;
   target_object_count?: number | null;
   source_profile?: Record<string, unknown> | null;
@@ -66,8 +64,6 @@ export type BucketMigrationPrecheckReport = {
   summary: Record<string, unknown>;
   capabilities: Record<string, unknown>;
   unsupported_features: string[];
-  rollback_safe?: boolean;
-  same_endpoint_copy_safe?: boolean;
 };
 
 type BucketMigrationItemStatus =

@@ -346,6 +346,18 @@ responses, precheck reports, and migration webhook payloads no longer expose the
 retired setting. Downgrade recreates `delete_source=false` and restores the retired
 precheck field as `true`, which matches the non-destructive transfer contract.
 
+## 2026-10 bucket migration precheck safety cleanup
+
+Migration `0184_remove_bucket_migration_report_safety` removes the redundant
+`rollback_safe` and `same_endpoint_copy_safe` booleans from persisted precheck
+reports. Blocking safety is already represented by typed diagnostics with explicit
+codes, severity and blocking state, and no runtime or frontend logic consumes the
+aggregate booleans.
+
+Deploy the migration, backend, and frontend together. Downgrade reconstructs the
+retired booleans from the persisted diagnostics so older downgrade steps can still
+rebuild their historical execution-plan shape.
+
 ## 2026-10 bucket migration execution strategy column
 
 Migration `0179_bucket_migration_execution_strategy` replaces the generic

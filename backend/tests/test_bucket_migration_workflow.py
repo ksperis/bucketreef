@@ -230,7 +230,11 @@ def test_same_endpoint_copy_aggregates_success(prepared):
     service._is_same_endpoint = Mock(return_value=True)
     service._precheck_same_endpoint_copy_source_access = Mock(return_value="validated")
     service.run_precheck(migration.id, active_checks=True)
-    assert json.loads(migration.precheck_report_json)["same_endpoint_copy_safe"] is True
+    report = json.loads(migration.precheck_report_json)
+    assert any(
+        check["code"] == "same_endpoint_copy_validated"
+        for check in report["items"][0]["checks"]
+    )
 
 
 def test_source_deletion_configuration_field_is_rejected(prepared):

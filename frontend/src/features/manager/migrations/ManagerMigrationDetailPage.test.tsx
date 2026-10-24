@@ -95,8 +95,6 @@ function buildDetail(): BucketMigrationDetail {
           warnings: 1,
           strategy: "skip_existing",
           blocking: false,
-          rollback_safe: true,
-          same_endpoint_copy_safe: true,
           checks: [
             {
               code: "target_exists",
@@ -120,8 +118,6 @@ function buildDetail(): BucketMigrationDetail {
           warnings: 0,
           strategy: "current_only",
           blocking: true,
-          rollback_safe: false,
-          same_endpoint_copy_safe: true,
           checks: [
             {
               code: "source_access_failed",
