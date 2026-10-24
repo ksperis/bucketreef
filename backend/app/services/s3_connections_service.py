@@ -360,32 +360,19 @@ class S3ConnectionsService:
         *,
         endpoint_plan: Optional[tuple[Optional[int], Optional[str]]],
     ) -> bool:
-        endpoint_changed = endpoint_plan is not None and endpoint_plan != (
-            row.storage_endpoint_id,
-            row.custom_endpoint_config,
-        )
-        should_probe_iam = False
         if payload.name is not None:
             row.name = payload.name
         if "is_active" in payload_data:
             row.is_active = bool(payload.is_active)
-        if endpoint_plan is not None:
-            row.storage_endpoint_id, row.custom_endpoint_config = endpoint_plan
-            should_probe_iam = bool(_CAPABILITY_PROBE_FIELDS & payload_data.keys())
-        access_key_changed = payload.access_key_id is not None and row.access_key_id != payload.access_key_id
-        if payload.access_key_id is not None:
-            row.access_key_id = payload.access_key_id
-            should_probe_iam = True
-        if payload.secret_access_key is not None:
-            row.secret_access_key = payload.secret_access_key
-            should_probe_iam = True
-        if "access_manager" in payload_data or "access_browser" in payload_data:
-            access_manager, access_browser = self._resolve_access_flags(
-                access_manager=payload.access_manager if "access_manager" in payload_data else bool(row.access_manager),
-                access_browser=payload.access_browser if "access_browser" in payload_data else bool(row.access_browser),
+        should_probe_iam, endpoint_changed, access_key_changed = (
+            self._apply_private_endpoint_credentials(
+                row,
+                payload,
+                payload_data,
+                endpoint_plan=endpoint_plan,
             )
-            row.access_manager = access_manager
-            row.access_browser = access_browser
+        )
+        self._apply_private_access_flags(row, payload, payload_data)
         self._apply_rgw_identity_update(row, payload, payload_data)
         if (access_key_changed or endpoint_changed) and not _RGW_IDENTITY_FIELDS.intersection(payload_data):
             row.rgw_user_uid = None
@@ -394,6 +381,57 @@ class S3ConnectionsService:
         if "tags" in payload_data:
             self.tags.replace_connection_tags(row, payload.tags)
         return should_probe_iam
+
+    def _apply_private_endpoint_credentials(
+        self,
+        row: DBS3Connection,
+        payload: S3ConnectionUpdate,
+        payload_data: dict[str, Any],
+        *,
+        endpoint_plan: Optional[tuple[Optional[int], Optional[str]]],
+    ) -> tuple[bool, bool, bool]:
+        endpoint_changed = endpoint_plan is not None and endpoint_plan != (
+            row.storage_endpoint_id,
+            row.custom_endpoint_config,
+        )
+        should_probe_iam = False
+        if endpoint_plan is not None:
+            row.storage_endpoint_id, row.custom_endpoint_config = endpoint_plan
+            should_probe_iam = bool(_CAPABILITY_PROBE_FIELDS & payload_data.keys())
+        access_key_changed = (
+            payload.access_key_id is not None
+            and row.access_key_id != payload.access_key_id
+        )
+        if payload.access_key_id is not None:
+            row.access_key_id = payload.access_key_id
+            should_probe_iam = True
+        if payload.secret_access_key is not None:
+            row.secret_access_key = payload.secret_access_key
+            should_probe_iam = True
+        return should_probe_iam, endpoint_changed, access_key_changed
+
+    def _apply_private_access_flags(
+        self,
+        row: DBS3Connection,
+        payload: S3ConnectionUpdate,
+        payload_data: dict[str, Any],
+    ) -> None:
+        if "access_manager" not in payload_data and "access_browser" not in payload_data:
+            return
+        access_manager, access_browser = self._resolve_access_flags(
+            access_manager=(
+                payload.access_manager
+                if "access_manager" in payload_data
+                else bool(row.access_manager)
+            ),
+            access_browser=(
+                payload.access_browser
+                if "access_browser" in payload_data
+                else bool(row.access_browser)
+            ),
+        )
+        row.access_manager = access_manager
+        row.access_browser = access_browser
 
     def delete(self, user_id: int, connection_id: int) -> None:
         row = self.get_owned(user_id, connection_id)
