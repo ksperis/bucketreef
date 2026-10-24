@@ -285,8 +285,15 @@ class PortalSharingMixin:
         user: User,
         access: "AccountAccess",
         bucket_name: str,
+        *,
+        include_archived: bool = False,
     ) -> None:
-        if self._user_storage_space_role(user, access, bucket_name) not in {"Owner", "Manager"}:
+        if self._user_storage_space_role(
+            user,
+            access,
+            bucket_name,
+            include_archived=include_archived,
+        ) not in {"Owner", "Manager"}:
             raise PortalForbiddenError("Full content access required for this storage space.")
 
     def _require_storage_space_active(self, account: S3Account, bucket_name: str) -> PortalStorageSpaceMetadata | None:

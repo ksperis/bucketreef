@@ -482,6 +482,25 @@ class PortalStorageSpacesMixin:
         used_bytes, object_count = extract_usage_stats(usage)
         return True, used_bytes, object_count
 
+    def _require_empty_storage_space_for_deletion(
+        self,
+        account: S3Account,
+        bucket_name: str,
+    ) -> tuple[bool, Optional[int], Optional[int]]:
+        bucket_exists, used_bytes, object_count = self._storage_space_deletion_usage(
+            account,
+            bucket_name,
+        )
+        if bucket_exists and (used_bytes is None or object_count is None):
+            raise RuntimeError(
+                "Storage Space usage statistics are unavailable. Retry before deleting the space."
+            )
+        if bucket_exists and (used_bytes != 0 or object_count != 0):
+            raise PortalStorageSpaceNotEmpty(
+                "Storage Space is not empty. Delete all current files and clean up its history before deleting it."
+            )
+        return bucket_exists, used_bytes, object_count
+
     def delete_storage_space(
         self,
         user: User,
@@ -494,25 +513,18 @@ class PortalStorageSpacesMixin:
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None:
             raise PortalNotFoundError("Storage space not found or not allowed.")
-        roles_by_bucket = self._storage_space_roles_by_bucket(
+        self._require_storage_space_full_content_access(
             user,
-            access.account,
-            access.portal_role,
+            access,
+            bucket_name,
             include_archived=True,
         )
-        if roles_by_bucket.get(bucket_name) not in {"Owner", "Manager"}:
-            raise PortalForbiddenError("Full content access required for this storage space.")
-
-        bucket_exists, used_bytes, object_count = self._storage_space_deletion_usage(
-            access.account,
-            bucket_name,
-        )
-        if bucket_exists and (used_bytes is None or object_count is None):
-            raise RuntimeError("Storage Space usage statistics are unavailable. Retry before deleting the space.")
-        if bucket_exists and (used_bytes != 0 or object_count != 0):
-            raise PortalStorageSpaceNotEmpty(
-                "Storage Space is not empty. Delete all current files and clean up its history before deleting it."
+        bucket_exists, used_bytes, object_count = (
+            self._require_empty_storage_space_for_deletion(
+                access.account,
+                bucket_name,
             )
+        )
 
         participant_user_ids = self._storage_space_participant_user_ids(metadata)
         external_access_count = self.db.scalar(
