@@ -147,6 +147,34 @@ def test_backend_audit_matrix_tracks_auth_attempt_delegation():
         assert rows[key].signals["delegated_auth_attempt_audit"]
 
 
+def test_backend_audit_matrix_tracks_manager_iam_role_update_delegation():
+    backend_root = Path(__file__).resolve().parents[1]
+    row = next(
+        row
+        for row in collect_rows(backend_root)
+        if row.function == "update_role"
+        and row.file.relative_to(backend_root)
+        == Path("app/routers/manager/iam_roles.py")
+    )
+
+    assert row.signals["delegated_manager_iam_role_update_audit"]
+
+
+def test_manager_iam_role_audit_signal_requires_exact_helper(tmp_path):
+    routers = tmp_path / "app" / "routers"
+    routers.mkdir(parents=True)
+    (routers / "example.py").write_text(
+        '@router.patch("/example")\n'
+        'def example():\n'
+        '    return future_update_iam_role(service, role_name, payload)\n'
+    )
+
+    row, = collect_rows(tmp_path)
+
+    assert not row.signals["delegated_manager_iam_role_update_audit"]
+    assert not row.has_audit_signal
+
+
 def test_backend_audit_matrix_tracks_ceph_admin_bucket_ui_tag_delegation():
     backend_root = Path(__file__).resolve().parents[1]
     row = next(
