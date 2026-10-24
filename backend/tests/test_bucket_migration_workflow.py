@@ -502,7 +502,7 @@ def test_cleanup_failure_preserves_verified_transfer(prepared):
     service.run_maintenance(migration.id)
     assert migration.status == "completed"
     assert item.status == "completed"
-    assert item.cleanup_status == "failed"
+    assert item.cleanup_error == "cleanup denied"
     assert migration.maintenance_status == "failed"
     assert not item.source_deleted
 
@@ -514,7 +514,6 @@ def test_access_recovery_resolves_restoration_failure_after_source_deletion(prep
     item.status = "completed"
     item.source_deleted = True
     item.target_lock_applied = True
-    item.cleanup_status = "failed"
     item.cleanup_error = "Could not restore destination policy"
     service._configuration.get_policy = Mock(return_value=None)
     service._configuration.delete_policy = Mock()
@@ -525,7 +524,7 @@ def test_access_recovery_resolves_restoration_failure_after_source_deletion(prep
     service.run_maintenance(migration.id)
     assert migration.status == item.status == "completed"
     assert migration.maintenance_status == "completed"
-    assert item.cleanup_status == "completed" and item.cleanup_error is None
+    assert item.cleanup_error is None
     assert item.source_deleted and not item.target_lock_applied
 
 

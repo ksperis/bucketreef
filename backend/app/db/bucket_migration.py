@@ -105,7 +105,6 @@ class BucketMigrationItem(Base):
     target_created_by_migration = Column(Boolean, nullable=False, default=False, server_default="0")
     preparation_effects_json = Column(Text, nullable=True)
     source_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
-    cleanup_status = Column(String, nullable=False, default="idle", server_default="idle")
     cleanup_error = Column(Text, nullable=True)
     cleanup_verification_json = Column(Text, nullable=True)
 

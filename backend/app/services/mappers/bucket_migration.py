@@ -38,7 +38,6 @@ def bucket_migration_item_to_view(item: BucketMigrationItem) -> BucketMigrationI
         target_created_by_migration=bool(item.target_created_by_migration),
         recovery_required=bool(item.preparation_effects_json),
         source_deleted=bool(item.source_deleted),
-        cleanup_status=item.cleanup_status or "idle",
         cleanup_error=item.cleanup_error,
         objects_copied=int(item.objects_copied or 0),
         objects_deleted=int(item.objects_deleted or 0),

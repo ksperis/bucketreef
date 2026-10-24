@@ -135,7 +135,6 @@ class BucketMigrationItemView(ApiModel):
     target_created_by_migration: bool
     recovery_required: bool
     source_deleted: bool
-    cleanup_status: str
     cleanup_error: Optional[str]
 
     objects_copied: int
