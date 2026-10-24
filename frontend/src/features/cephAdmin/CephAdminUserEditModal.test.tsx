@@ -35,11 +35,11 @@ describe("RGW user configuration form", () => {
     fireEvent.change(screen.getByLabelText("Display name"), { target: { value: " Alice Ops " } });
     fireEvent.change(screen.getByLabelText("Default placement"), { target: { value: "" } });
     fireEvent.change(screen.getByLabelText("Caps mode"), { target: { value: "add" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Caps", exact: true }), { target: { value: "users=read,usage=read\nusers=read" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Caps", exact: true }), { target: { value: "users=read,write;usage=read\nusers=read,write" } });
     fireEvent.submit(form);
     await waitFor(() => expect(updateConfig).toHaveBeenCalledWith(7, "alice", expect.objectContaining({
       display_name: "Alice Ops",
-      caps: { mode: "add", values: ["users=read", "usage=read"] },
+      caps: { mode: "add", values: ["users=read,write", "usage=read"] },
       extra_params: { "default-placement": "", "default-storage-class": "STANDARD" },
     }), "tenant-a", "RGW12345678901234567"));
     const payload = updateConfig.mock.calls[0][2];
