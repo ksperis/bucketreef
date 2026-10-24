@@ -4,8 +4,8 @@ set -eu
 version=$(python3 ops/ci/toolchain.py node)
 test "$version" = 24.22.1
 case "$(uname -m)" in
-  x86_64) arch=x64; checksum=6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6 ;;
-  aarch64) arch=arm64; checksum=dbabf7a1cbf947e6059ffad2c27b80041db97dea1e553b62afdee7f13fca336e ;;
+  x86_64) arch=x64; checksum=eb6728e77c576a35162c122c45ccadf224d89ff00abc8dae46cc2897c6002d7c ;;
+  aarch64) arch=arm64; checksum=33c37be234ba8bee041961047b19160f4d7d0f164e8e246f78bdd10feff148b3 ;;
   *) exit 1 ;;
 esac
 temporary=$(mktemp -d)

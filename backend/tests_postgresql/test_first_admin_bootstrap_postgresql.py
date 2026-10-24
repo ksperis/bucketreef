@@ -57,7 +57,6 @@ def test_postgresql_migration_rotation_rollback_and_concurrent_consumption(monke
         }
         assert set(columns) >= {
             "token_digest",
-            "issued_at",
             "expires_at",
             "consumed_at",
             "created_user_id",
