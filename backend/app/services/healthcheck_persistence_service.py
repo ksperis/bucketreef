@@ -150,7 +150,6 @@ class HealthCheckPersistenceService:
         latency_value = int(result.latency_ms) if result.latency_ms is not None and result.status != HealthCheckStatus.DOWN else None
 
         if active and active.status == result.status.value:
-            active.checks_count = int(active.checks_count or 0) + 1
             if latency_value is not None:
                 sample_count = int(active.latency_sample_count or 0)
                 avg = int(active.avg_latency_ms) if active.avg_latency_ms is not None else latency_value
@@ -182,7 +181,6 @@ class HealthCheckPersistenceService:
                 status=result.status.value,
                 started_at=result.checked_at,
                 ended_at=None,
-                checks_count=1,
                 min_latency_ms=latency_value,
                 avg_latency_ms=latency_value,
                 max_latency_ms=latency_value,

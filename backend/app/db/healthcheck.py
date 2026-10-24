@@ -100,7 +100,6 @@ class EndpointHealthStatusSegment(Base):
     status = Column(String, nullable=False, index=True)
     started_at = Column(UTCDateTime(), nullable=False, index=True)
     ended_at = Column(UTCDateTime(), nullable=True, index=True)
-    checks_count = Column(Integer, nullable=False, default=0, server_default="0")
     min_latency_ms = Column(Integer, nullable=True)
     avg_latency_ms = Column(Integer, nullable=True)
     max_latency_ms = Column(Integer, nullable=True)
