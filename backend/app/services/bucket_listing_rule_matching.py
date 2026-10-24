@@ -34,6 +34,20 @@ _NEGATED_TAG_OPS = frozenset({"neq", "not_in"})
 _EXACT_FEATURE_STATES = frozenset(
     {"partial", "suspended", "configured", "not_set", "unavailable"}
 )
+_STRING_FIELD_RULES = frozenset(
+    {
+        "name",
+        "tenant",
+        "owner",
+        "owner_name",
+        "owner_kind",
+        "context_id",
+        "context_name",
+        "context_kind",
+        "endpoint_name",
+        "bucket_identity",
+    }
+)
 
 
 def _exact_name_rule_values(rule: BucketFilterRule) -> set[str] | None:
@@ -120,25 +134,38 @@ def _match_tag_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> boo
     return not matched if op in _NEGATED_TAG_OPS else matched
 
 
-def match_bucket_field_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> bool:
-    field = rule.field
-    op = rule.op
-    if not field or not op:
-        return False
-    if field == "tag":
-        return _match_tag_rule(bucket, rule)
+def _bucket_field_value(bucket: BucketListingSummary, field: str):
     if field == "owner_kind":
-        value = owner_kind_from_owner(bucket.owner)
-    elif field == "quota_usage_size_percent":
-        value = compute_usage_ratio_percent(bucket.used_bytes, bucket.quota_max_size_bytes)
-    elif field == "quota_usage_object_percent":
-        value = compute_usage_ratio_percent(bucket.object_count, bucket.quota_max_objects)
-    elif field == "owner_quota_usage_size_percent":
-        value = compute_usage_ratio_percent(bucket.owner_used_bytes, bucket.owner_quota_max_size_bytes)
-    elif field == "owner_quota_usage_object_percent":
-        value = compute_usage_ratio_percent(bucket.owner_object_count, bucket.owner_quota_max_objects)
-    else:
-        value = getattr(bucket, field, None)
+        return owner_kind_from_owner(bucket.owner)
+    if field == "quota_usage_size_percent":
+        return compute_usage_ratio_percent(bucket.used_bytes, bucket.quota_max_size_bytes)
+    if field == "quota_usage_object_percent":
+        return compute_usage_ratio_percent(bucket.object_count, bucket.quota_max_objects)
+    if field == "owner_quota_usage_size_percent":
+        return compute_usage_ratio_percent(bucket.owner_used_bytes, bucket.owner_quota_max_size_bytes)
+    if field == "owner_quota_usage_object_percent":
+        return compute_usage_ratio_percent(bucket.owner_object_count, bucket.owner_quota_max_objects)
+    return getattr(bucket, field, None)
+
+
+def _match_owner_kind_rule(value: object, rule: BucketFilterRule) -> bool:
+    return match_text_rule(
+        value,
+        rule.op or "",
+        rule.value,
+        scalar_normalizer=normalize_owner_kind_scalar,
+        candidate_normalizer=normalize_owner_kind,
+        require_candidates=True,
+    )
+
+
+def _match_bucket_scalar_rule(
+    *,
+    field: str,
+    value: object,
+    rule: BucketFilterRule,
+) -> bool:
+    op = rule.op or ""
     if op == "is_null":
         return value is None
     if op == "not_null":
@@ -153,36 +180,29 @@ def match_bucket_field_rule(bucket: BucketListingSummary, rule: BucketFilterRule
         )
     if value is None:
         return False
-
-    string_fields = {
-        "name",
-        "tenant",
-        "owner",
-        "owner_name",
-        "owner_kind",
-        "context_id",
-        "context_name",
-        "context_kind",
-        "endpoint_name",
-        "bucket_identity",
-    }
-    if field in string_fields:
-        if field == "owner_kind":
-            return match_text_rule(
-                value,
-                op,
-                rule.value,
-                scalar_normalizer=normalize_owner_kind_scalar,
-                candidate_normalizer=normalize_owner_kind,
-                require_candidates=True,
-            )
+    if field == "owner_kind":
+        return _match_owner_kind_rule(value, rule)
+    if field in _STRING_FIELD_RULES:
         return match_text_rule(value, op, rule.value)
-
     return match_numeric_rule(
         value,
         op,
         rule.value,
         coerce=coerce_filter_number,
+    )
+
+
+def match_bucket_field_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> bool:
+    field = rule.field
+    op = rule.op
+    if not field or not op:
+        return False
+    if field == "tag":
+        return _match_tag_rule(bucket, rule)
+    return _match_bucket_scalar_rule(
+        field=field,
+        value=_bucket_field_value(bucket, field),
+        rule=rule,
     )
 
 

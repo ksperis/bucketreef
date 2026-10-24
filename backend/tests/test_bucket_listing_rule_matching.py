@@ -95,6 +95,34 @@ def test_match_bucket_tag_rule_requires_tags():
     assert not match_bucket_field_rule(BucketListingSummary(name="bucket-a"), rule)
 
 
+@pytest.mark.parametrize(
+    ("rule_data", "matched"),
+    [
+        ({"field": "owner_kind", "op": "eq", "value": "account"}, True),
+        ({"field": "owner_suspended", "op": "eq", "value": False}, True),
+        ({"field": "owner_name", "op": "contains", "value": "team"}, True),
+        ({"field": "quota_usage_size_percent", "op": "gte", "value": 50}, True),
+        ({"field": "quota_usage_object_percent", "op": "lt", "value": 75}, True),
+        ({"field": "tenant", "op": "is_null"}, True),
+        ({"field": "tenant", "op": "not_null"}, False),
+    ],
+)
+def test_match_bucket_field_rule_routes_derived_and_scalar_fields(rule_data, matched):
+    bucket = BucketListingSummary(
+        name="bucket-a",
+        owner="RGW00000000000000001",
+        owner_name="Team Storage",
+        owner_suspended=None,
+        used_bytes=50,
+        quota_max_size_bytes=100,
+        object_count=5,
+        quota_max_objects=10,
+    )
+    rule = BucketFilterRule.model_validate(rule_data)
+
+    assert match_bucket_field_rule(bucket, rule) is matched
+
+
 def _query(match: str, *rules: dict) -> BucketFilterQuery:
     return BucketFilterQuery(
         match=match,
