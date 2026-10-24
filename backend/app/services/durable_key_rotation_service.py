@@ -326,6 +326,27 @@ class DurableKeyRotationService:
         *,
         deactivate_only: bool,
     ) -> tuple[dict[str, str], object]:
+        self._validate_pending_rotation_target(
+            endpoint,
+            key_type,
+            target,
+            intent,
+            deactivate_only=deactivate_only,
+        )
+        kwargs, payload = self._load_pending_rotation_principal(admin, target, intent)
+        if key_type in SERVICE_TYPES:
+            self._validate_pending_service_identity(target, payload)
+        return kwargs, payload
+
+    def _validate_pending_rotation_target(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target: RotationTarget,
+        intent: KeyRotationIntent,
+        *,
+        deactivate_only: bool,
+    ) -> None:
         if (
             intent.rgw_endpoint != resolve_rgw_admin_api_endpoint(endpoint)
             or intent.deactivate_only != deactivate_only
@@ -364,17 +385,28 @@ class DurableKeyRotationService:
                     "Cannot rotate an identity without ownership proof."
                 )
 
+    @staticmethod
+    def _load_pending_rotation_principal(
+        admin: RGWAdminClient,
+        target: RotationTarget,
+        intent: KeyRotationIntent,
+    ) -> tuple[dict[str, str], object]:
         kwargs = {"tenant": intent.tenant} if intent.tenant else {}
         payload = admin.get_user(intent.rgw_uid, **kwargs)
         if isinstance(target, (S3Account, S3User)):
             require_rgw_user_identity(payload, intent.rgw_uid, intent.tenant or "")
-        if key_type in SERVICE_TYPES:
-            if not self.identities._owns(target, payload):
-                raise ReplacementValidationError(
-                    "Cannot rotate an identity without ownership proof."
-                )
-            self.identities._validate_managed_keys(target, payload)
         return kwargs, payload
+
+    def _validate_pending_service_identity(
+        self,
+        target: RotationTarget,
+        payload: object,
+    ) -> None:
+        if not self.identities._owns(target, payload):
+            raise ReplacementValidationError(
+                "Cannot rotate an identity without ownership proof."
+            )
+        self.identities._validate_managed_keys(target, payload)
 
     def _activate_replacement(
         self,
