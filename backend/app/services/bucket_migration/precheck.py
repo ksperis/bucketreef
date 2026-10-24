@@ -180,6 +180,70 @@ def _feature_label(feature: str) -> str:
     return _FEATURE_LABELS.get(feature, feature.replace("_", " ").strip().title())
 
 
+def _planned_bucket_settings(
+    *,
+    profile: dict[str, Any] | None,
+    strategy: str,
+    copy_bucket_settings: bool,
+) -> tuple[list[str], list[str]]:
+    configured = (profile or {}).get("supported_settings", {})
+    availability = (profile or {}).get("feature_availability", {})
+    copied = [
+        name
+        for name in _SUPPORTED_BUCKET_SETTINGS
+        if copy_bucket_settings
+        and configured.get(name)
+        and availability.get(name, {}).get("state", "available") == "available"
+    ]
+    if strategy == "version_aware" and "versioning" not in copied:
+        copied.insert(0, "versioning")
+    omitted = [
+        name
+        for name in (*_SUPPORTED_BUCKET_SETTINGS, *_UNSUPPORTED_BUCKET_SETTINGS)
+        if name not in copied
+    ]
+    return copied, omitted
+
+
+def _planned_item_result(
+    *,
+    item: Any,
+    source: _SourceInspection,
+    target: _TargetInspection,
+    source_plan: _SourcePlan,
+    checks: list[dict[str, Any]],
+    copy_bucket_settings: bool,
+) -> _PlannedItem:
+    counts = _count_entries(checks)
+    settings_copied, settings_omitted = _planned_bucket_settings(
+        profile=source.profile,
+        strategy=source_plan.strategy,
+        copy_bucket_settings=copy_bucket_settings,
+    )
+    return _PlannedItem(
+        report={
+            "item_id": item.id,
+            "source_bucket": item.source_bucket,
+            "target_bucket": item.target_bucket,
+            "strategy": source_plan.strategy,
+            "settings_copied": settings_copied,
+            "settings_omitted": settings_omitted,
+            "blocking": any(entry["blocking"] for entry in checks),
+            "source_object_count": source.object_count,
+            "target_object_count": target.object_count,
+            "source_profile": source.profile,
+            "target_profile": target.profile,
+            "checks": checks,
+            "errors": counts["errors"],
+            "warnings": counts["warnings"],
+        },
+        infos=counts["infos"],
+        warnings=counts["warnings"],
+        blocking_errors=counts["blocking_errors"],
+        unsupported_features=source_plan.unsupported_features,
+    )
+
+
 class BucketMigrationPrecheckPlanner:
     def __init__(self, service: Any, inspector: BucketMigrationInspector) -> None:
         self._service = service
@@ -664,8 +728,6 @@ class BucketMigrationPrecheckPlanner:
             same_endpoint_copy_enabled=same_endpoint_copy_enabled,
             add_check=add_check,
         )
-        counts = _count_entries(checks)
-        blocking = any(entry["blocking"] for entry in checks)
         self._store_item_plan(
             item,
             checked_at=checked_at,
@@ -673,46 +735,13 @@ class BucketMigrationPrecheckPlanner:
             target_profile=target.profile,
             strategy=source_plan.strategy,
         )
-        configured = (source.profile or {}).get("supported_settings", {})
-        availability = (source.profile or {}).get("feature_availability", {})
-        settings_copied = [
-            name
-            for name in _SUPPORTED_BUCKET_SETTINGS
-            if migration.copy_bucket_settings
-            and configured.get(name)
-            and availability.get(name, {}).get("state", "available") == "available"
-        ]
-        if (
-            source_plan.strategy == "version_aware"
-            and "versioning" not in settings_copied
-        ):
-            settings_copied.insert(0, "versioning")
-        settings_omitted = [
-            name
-            for name in (*_SUPPORTED_BUCKET_SETTINGS, *_UNSUPPORTED_BUCKET_SETTINGS)
-            if name not in settings_copied
-        ]
-        return _PlannedItem(
-            report={
-                "item_id": item.id,
-                "source_bucket": item.source_bucket,
-                "target_bucket": item.target_bucket,
-                "strategy": source_plan.strategy,
-                "settings_copied": settings_copied,
-                "settings_omitted": settings_omitted,
-                "blocking": blocking,
-                "source_object_count": source.object_count,
-                "target_object_count": target.object_count,
-                "source_profile": source.profile,
-                "target_profile": target.profile,
-                "checks": checks,
-                "errors": counts["errors"],
-                "warnings": counts["warnings"],
-            },
-            infos=counts["infos"],
-            warnings=counts["warnings"],
-            blocking_errors=counts["blocking_errors"],
-            unsupported_features=source_plan.unsupported_features,
+        return _planned_item_result(
+            item=item,
+            source=source,
+            target=target,
+            source_plan=source_plan,
+            checks=checks,
+            copy_bucket_settings=bool(migration.copy_bucket_settings),
         )
 
     def _store_item_plan(
