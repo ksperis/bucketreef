@@ -461,6 +461,15 @@ inputs to health evaluation and aggregation.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 admin stats response cleanup
+
+Admin statistics responses no longer expose the unused `unassigned_accounts`,
+`unassigned_s3_users`, or `accounts_with_usage` counters. Assignment totals
+and storage usage aggregates that are displayed by the frontend remain
+unchanged.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

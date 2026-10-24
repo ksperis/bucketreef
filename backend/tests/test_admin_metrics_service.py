@@ -42,7 +42,6 @@ def test_storage_snapshot_fallback_aggregates_accounts_without_double_counting_u
         "used_bytes": 100,
         "object_count": 10,
         "bucket_count": 2,
-        "accounts_with_usage": 1,
     }
     assert [entry["account_id"] for entry in snapshot["account_usage"]] == ["account-1"]
     assert snapshot["s3_user_usage"] == [
@@ -93,7 +92,6 @@ def test_consolidated_storage_snapshot_indexes_owner_usage_and_keeps_unmapped_to
         "used_bytes": 130,
         "object_count": 14,
         "bucket_count": 3,
-        "accounts_with_usage": 1,
     }
     assert snapshot["account_usage"] == [
         {

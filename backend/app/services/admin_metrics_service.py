@@ -65,12 +65,11 @@ class _StorageUsageTotals:
         if bucket_count and self.total_buckets == 0:
             self.total_buckets = bucket_count
 
-    def payload(self, *, accounts_with_usage: int) -> dict:
+    def payload(self) -> dict:
         return {
             "used_bytes": self.used_bytes if self.has_bytes else None,
             "object_count": self.object_count if self.has_objects else None,
             "bucket_count": self.total_buckets or None,
-            "accounts_with_usage": accounts_with_usage,
         }
 
 
@@ -394,7 +393,7 @@ class AdminMetricsService:
             "total_s3_users": len(s3_users),
             "account_usage": account_usage,
             "s3_user_usage": s3_user_usage,
-            "storage_totals": totals.payload(accounts_with_usage=len(account_usage)),
+            "storage_totals": totals.payload(),
         }
 
     def _storage_snapshot_from_bucket_list(
@@ -413,7 +412,7 @@ class AdminMetricsService:
             "total_s3_users": len(s3_users),
             "account_usage": account_usage,
             "s3_user_usage": s3_user_usage,
-            "storage_totals": usage_index.totals.payload(accounts_with_usage=len(account_usage)),
+            "storage_totals": usage_index.totals.payload(),
         }
 
     @staticmethod

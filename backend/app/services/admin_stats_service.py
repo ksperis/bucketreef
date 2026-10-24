@@ -35,10 +35,6 @@ class _AssignmentCounts:
     total: int
     assigned: int
 
-    @property
-    def unassigned(self) -> int:
-        return max(self.total - self.assigned, 0)
-
 
 class AdminStatsService:
     """Resolve Admin statistics scope and collect endpoint/principal metrics."""
@@ -132,9 +128,7 @@ class AdminStatsService:
             "total_none_users": total_none_users,
             "total_s3_users": s3_users.total,
             "assigned_accounts": accounts.assigned,
-            "unassigned_accounts": accounts.unassigned,
             "assigned_s3_users": s3_users.assigned,
-            "unassigned_s3_users": s3_users.unassigned,
             "total_endpoints": total_ceph_endpoints + total_other_endpoints,
             "total_ceph_endpoints": total_ceph_endpoints,
             "total_other_endpoints": total_other_endpoints,

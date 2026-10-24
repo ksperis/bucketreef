@@ -21,9 +21,7 @@ class AdminSummary(ApiModel):
     active_sessions_by_type: AdminActiveSessionsByType
     total_s3_users: int
     assigned_accounts: int
-    unassigned_accounts: int
     assigned_s3_users: int
-    unassigned_s3_users: int
     total_endpoints: int
     total_ceph_endpoints: int
     total_other_endpoints: int
@@ -53,7 +51,6 @@ class AdminStorageTotals(ApiModel):
     used_bytes: Optional[int]
     object_count: Optional[int]
     bucket_count: Optional[int]
-    accounts_with_usage: int
 
 
 class AdminStorageStats(ApiModel):
