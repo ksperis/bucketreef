@@ -198,6 +198,11 @@ def _feature_param_quantifier(rule: BucketFilterRule) -> str:
     return "none" if (rule.quantifier or "").strip().lower() == "none" else "any"
 
 
+def _grouped_rule_op(rule: BucketFilterRule, force_presence_positive: bool) -> str:
+    op = (rule.op or "").strip().lower()
+    return "has" if force_presence_positive and op == "has_not" else op
+
+
 _GroupedEntry = TypeVar("_GroupedEntry")
 _GroupedEntryMatcher = Callable[[_GroupedEntry, BucketFilterRule, bool], bool]
 
@@ -241,43 +246,69 @@ def _match_grouped_entry_rules_all(
     return True
 
 
+_LifecycleParamMatcher = Callable[[dict, str, object], bool]
+
+
+def _match_lifecycle_rule_type(entry: dict, op: str, expected: object) -> bool:
+    values = _extract_lifecycle_rule_types(entry)
+    if op == "has":
+        return any(_match_text_value(value, "eq", expected) for value in values)
+    if op == "has_not":
+        return not any(_match_text_value(value, "eq", expected) for value in values)
+    return False
+
+
+def _match_lifecycle_abort_presence(entry: dict, op: str, _expected: object) -> bool:
+    present = extract_lifecycle_abort_days(entry) is not None
+    if op == "has":
+        return present
+    if op == "has_not":
+        return not present
+    return False
+
+
+def _match_lifecycle_transition_days(entry: dict, op: str, expected: object) -> bool:
+    return any(
+        _match_numeric_value(days, op, expected)
+        for days in extract_lifecycle_transition_days(entry)
+    )
+
+
+_LIFECYCLE_PARAM_MATCHERS: dict[str, _LifecycleParamMatcher] = {
+    "lifecycle_rule_id": lambda entry, op, expected: _match_text_value(
+        _extract_lifecycle_rule_id(entry), op, expected
+    ),
+    "lifecycle_rule_status": lambda entry, op, expected: _match_text_value(
+        _extract_lifecycle_rule_status(entry), op, expected
+    ),
+    "lifecycle_rule_type": _match_lifecycle_rule_type,
+    "lifecycle_expiration_days": lambda entry, op, expected: _match_numeric_value(
+        extract_lifecycle_expiration_days(entry), op, expected
+    ),
+    "lifecycle_noncurrent_expiration_days": lambda entry, op, expected: _match_numeric_value(
+        extract_lifecycle_noncurrent_expiration_days(entry), op, expected
+    ),
+    "lifecycle_transition_days": _match_lifecycle_transition_days,
+    "lifecycle_abort_multipart_present": _match_lifecycle_abort_presence,
+    "lifecycle_abort_multipart_days": lambda entry, op, expected: _match_numeric_value(
+        extract_lifecycle_abort_days(entry), op, expected
+    ),
+}
+
+
 def _lifecycle_rule_matches_param(
     lifecycle_rule: dict,
     rule: BucketFilterRule,
     force_presence_positive: bool = False,
 ) -> bool:
-    param = rule.param
-    op = (rule.op or "").strip().lower()
-    if force_presence_positive and op == "has_not":
-        op = "has"
-    if param == "lifecycle_rule_id":
-        return _match_text_value(_extract_lifecycle_rule_id(lifecycle_rule), op, rule.value)
-    if param == "lifecycle_rule_status":
-        return _match_text_value(_extract_lifecycle_rule_status(lifecycle_rule), op, rule.value)
-    if param == "lifecycle_rule_type":
-        rule_types = _extract_lifecycle_rule_types(lifecycle_rule)
-        if op == "has":
-            return any(_match_text_value(value, "eq", rule.value) for value in rule_types)
-        if op == "has_not":
-            return not any(_match_text_value(value, "eq", rule.value) for value in rule_types)
+    matcher = _LIFECYCLE_PARAM_MATCHERS.get(rule.param or "")
+    if matcher is None:
         return False
-    if param == "lifecycle_abort_multipart_present":
-        present = extract_lifecycle_abort_days(lifecycle_rule) is not None
-        if op == "has":
-            return present
-        if op == "has_not":
-            return not present
-        return False
-    if param == "lifecycle_expiration_days":
-        return _match_numeric_value(extract_lifecycle_expiration_days(lifecycle_rule), op, rule.value)
-    if param == "lifecycle_noncurrent_expiration_days":
-        return _match_numeric_value(extract_lifecycle_noncurrent_expiration_days(lifecycle_rule), op, rule.value)
-    if param == "lifecycle_transition_days":
-        transition_days = extract_lifecycle_transition_days(lifecycle_rule)
-        return any(_match_numeric_value(days, op, rule.value) for days in transition_days)
-    if param == "lifecycle_abort_multipart_days":
-        return _match_numeric_value(extract_lifecycle_abort_days(lifecycle_rule), op, rule.value)
-    return False
+    return matcher(
+        lifecycle_rule,
+        _grouped_rule_op(rule, force_presence_positive),
+        rule.value,
+    )
 
 
 def _match_lifecycle_param_rule_individual(rule: BucketFilterRule, lifecycle_rules: list[dict]) -> bool:
@@ -318,9 +349,7 @@ def _cors_rule_matches_param(
     rule: BucketFilterRule,
     force_presence_positive: bool = False,
 ) -> bool:
-    op = (rule.op or "").strip().lower()
-    if force_presence_positive and op == "has_not":
-        op = "has"
+    op = _grouped_rule_op(rule, force_presence_positive)
     values = extract_cors_rule_values(entry, rule.param or "")
     if op in {"has", "has_not"}:
         return _match_presence_values(values, op, rule.value)
@@ -381,9 +410,7 @@ def _notification_rule_matches_param(
 ) -> bool:
     entry_type, entry = notification_entry
     param = rule.param
-    op = (rule.op or "").strip().lower()
-    if force_presence_positive and op == "has_not":
-        op = "has"
+    op = _grouped_rule_op(rule, force_presence_positive)
     if param == "notification_rule_id":
         return _match_text_value(extract_notification_rule_id(entry), op, rule.value)
     if param == "notification_rule_type":
