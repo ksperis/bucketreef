@@ -105,7 +105,6 @@ function buildDraftDetail(): BucketMigrationDetail {
         target_created_by_migration: false,
         recovery_required: false,
         source_deleted: false,
-        cleanup_status: "idle",
         cleanup_error: null,
         objects_copied: 0,
         objects_deleted: 0,

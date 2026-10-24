@@ -381,6 +381,16 @@ Manager UI; target creation ownership is tracked separately by
 Deploy the migration, backend, and frontend together. Downgrade recreates the
 retired column with its historical `false` default.
 
+## 2026-10 bucket migration cleanup-state simplification
+
+Migration `0187_remove_bucket_migration_cleanup_status` removes the unused
+per-item `cleanup_status` column and matching internal API field. Maintenance
+progress is tracked by the migration-level `maintenance_status`, while per-item
+failures remain available through `cleanup_error`.
+
+Deploy the migration, backend, and frontend together. Downgrade recreates the
+retired per-item status with its historical `idle` default.
+
 ## 2026-10 bucket migration execution strategy column
 
 Migration `0179_bucket_migration_execution_strategy` replaces the generic

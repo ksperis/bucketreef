@@ -86,7 +86,6 @@ class BucketMigrationMaintenanceMixin:
             elif not item.target_lock_applied:
                 # Deletion succeeded; only restoration had failed. A successful
                 # recovery resolves that separate outcome.
-                item.cleanup_status = "completed"
                 item.cleanup_error = None
         if migration.status == "draft":
             migration.preparation_status = "stale"
@@ -109,7 +108,6 @@ class BucketMigrationMaintenanceMixin:
             )
         if not item.target_lock_applied:
             self._apply_target_write_lock_policy(target, item.target_bucket, item)
-        item.cleanup_status = "deleting"
         item.cleanup_error = None
         self._commit()
         self._delete_maintenance_bucket(target, item.target_bucket, check)
@@ -134,13 +132,11 @@ class BucketMigrationMaintenanceMixin:
                     self._cleanup_verified_source(item, source, target, check)
                 else:
                     self._cleanup_failed_target(item, source, target, check)
-                item.cleanup_status = "completed"
                 item.cleanup_error = None
             except _WorkerLeaseLostError:
                 raise
             except Exception as exc:
                 self.db.rollback()
-                item.cleanup_status = "failed"
                 item.cleanup_error = sanitized_error_log_detail(exc)
                 errors.append(f"{item.source_bucket}: {item.cleanup_error}")
             self._assert_workflow_lease()
@@ -363,7 +359,6 @@ class BucketMigrationMaintenanceMixin:
                     "Verified destination changed since deletion began. Source cleanup is blocked."
                 )
         else:
-            item.cleanup_status = "verifying"
             self._commit()
             self._apply_read_only_policy(source.execution_context, item.source_bucket, item)
             source_hash = self._cleanup_fingerprint(
@@ -376,7 +371,6 @@ class BucketMigrationMaintenanceMixin:
             item.cleanup_verification_json = _json_dumps(
                 {"target_sha256": target_hash, "verified_at": utcnow().isoformat()}
             )
-            item.cleanup_status = "deleting"
             self._commit()
         check()
         source_exists = self._precheck_bucket_exists(source, item.source_bucket)

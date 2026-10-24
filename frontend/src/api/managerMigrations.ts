@@ -113,7 +113,6 @@ export type BucketMigrationItemView = {
   target_created_by_migration: boolean;
   recovery_required: boolean;
   source_deleted: boolean;
-  cleanup_status: string;
   cleanup_error: string | null;
   objects_copied: number;
   objects_deleted: number;
