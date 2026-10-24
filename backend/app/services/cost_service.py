@@ -481,7 +481,6 @@ class CostService:
         return CostAnalyticsConcentration(
             top_five_cost=top_five_cost,
             other_cost=max(subject_total_cost - top_five_cost, 0),
-            subject_total_cost=subject_total_cost,
             top_five_ratio=top_five_cost / subject_total_cost if subject_total_cost > 0 else 0,
         )
 

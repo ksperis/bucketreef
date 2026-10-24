@@ -112,7 +112,6 @@ def test_cost_responses_require_complete_canonical_payloads() -> None:
     assert set(CostAnalyticsConcentration.model_json_schema()["required"]) == {
         "top_five_cost",
         "other_cost",
-        "subject_total_cost",
         "top_five_ratio",
     }
     assert set(CostAnalyticsResponse.model_json_schema()["required"]) == {

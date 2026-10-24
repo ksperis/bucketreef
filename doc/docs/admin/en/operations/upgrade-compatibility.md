@@ -488,6 +488,15 @@ records the send timestamp.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 cost analytics response cleanup
+
+Cost analytics concentration responses no longer expose
+`subject_total_cost`. The value remains an internal intermediate used to
+derive `other_cost` and `top_five_ratio`, which are the values displayed by
+the frontend.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the
