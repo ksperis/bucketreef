@@ -81,6 +81,13 @@ def require_user_scope(
 ) -> dict[str, Any]:
     """Resolve the RGW identity before any user/key mutation, failing closed on drift."""
     payload = load_user_payload(uid, tenant, rgw_admin)
+    actual_uid, actual_tenant, account_values = _resolved_user_scope(payload)
+    _require_matching_identity(uid, tenant, actual_uid, actual_tenant)
+    _require_matching_account(expected_account_id, account_values)
+    return payload
+
+
+def _resolved_user_scope(payload: dict[str, Any]) -> tuple[Optional[str], Optional[str], set[str]]:
     user = extract_rgw_user_payload(payload)
     raw_uid = normalize_optional_scalar(
         user.get("uid")
@@ -100,11 +107,26 @@ def require_user_scope(
         )
         if value
     }
-    if raw_uid != uid or (actual_tenant or None) != (tenant or None):
+    return raw_uid, actual_tenant, account_values
+
+
+def _require_matching_identity(
+    uid: str,
+    tenant: Optional[str],
+    actual_uid: Optional[str],
+    actual_tenant: Optional[str],
+) -> None:
+    if actual_uid != uid or (actual_tenant or None) != (tenant or None):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="RGW user identity has changed; refresh the user list",
         )
+
+
+def _require_matching_account(
+    expected_account_id: Optional[str],
+    account_values: set[str],
+) -> None:
     if expected_account_id:
         if account_values != {expected_account_id}:
             raise HTTPException(
@@ -116,7 +138,6 @@ def require_user_scope(
             status_code=status.HTTP_409_CONFLICT,
             detail="expected_account_id is required for an account user",
         )
-    return payload
 
 
 def _parse_key_status(status_value: Any) -> tuple[Optional[str], Optional[bool]]:
