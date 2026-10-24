@@ -136,15 +136,8 @@ def remediate_manager_bucket_comparison(
     )
 
     result = ManagerBucketCompareActionResult(
-        action=action_result.action,
-        source_context_id=source_context.context_id,
-        target_context_id=target_context.context_id,
-        source_bucket=payload.source_bucket,
-        target_bucket=payload.target_bucket,
-        planned_count=action_result.planned_count,
         succeeded_count=action_result.succeeded_count,
         failed_count=action_result.failed_count,
-        failed_keys_sample=action_result.failed_keys_sample,
         message=_remediation_message(
             action=payload.action,
             planned_count=action_result.planned_count,

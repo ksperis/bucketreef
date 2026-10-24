@@ -176,15 +176,8 @@ type ManagerBucketCompareActionRequest = {
 };
 
 export type ManagerBucketCompareActionResult = {
-  action: ManagerBucketCompareAction;
-  source_context_id: string;
-  target_context_id: string;
-  source_bucket: string;
-  target_bucket: string;
-  planned_count: number;
   succeeded_count: number;
   failed_count: number;
-  failed_keys_sample: string[];
   message: string;
 };
 

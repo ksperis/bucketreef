@@ -91,15 +91,8 @@ def test_manager_bucket_compare_responses_require_complete_canonical_payloads() 
         "config_diff",
     }
     assert set(ManagerBucketCompareActionResult.model_json_schema()["required"]) == {
-        "action",
-        "source_context_id",
-        "target_context_id",
-        "source_bucket",
-        "target_bucket",
-        "planned_count",
         "succeeded_count",
         "failed_count",
-        "failed_keys_sample",
         "message",
     }
 
@@ -434,12 +427,6 @@ def test_compare_bucket_action_sync_source_only(monkeypatch):
         audit_service=audit,
     )
 
-    assert response.action == "sync_source_only"
-    assert response.source_context_id == "1"
-    assert response.target_context_id == "2"
-    assert response.source_bucket == "bucket-a"
-    assert response.target_bucket == "bucket-b"
-    assert response.planned_count == 3
     assert response.succeeded_count == 3
     assert response.failed_count == 0
     assert captured["source_bucket"] == "bucket-a"
@@ -452,6 +439,11 @@ def test_compare_bucket_action_sync_source_only(monkeypatch):
     assert audit.calls[0]["action"] == "bucket_compare_remediation"
     assert audit.calls[0]["metadata"]["object_keys_count"] == 3
     assert audit.calls[0]["metadata"]["object_keys_sample"] == ["logs/a.txt", "logs/b.txt", "logs/c.txt"]
+    assert audit.calls[0]["metadata"]["compare_action"] == "sync_source_only"
+    assert audit.calls[0]["metadata"]["source_context_id"] == "1"
+    assert audit.calls[0]["metadata"]["target_context_id"] == "2"
+    assert audit.calls[0]["metadata"]["source_bucket"] == "bucket-a"
+    assert audit.calls[0]["metadata"]["target_bucket"] == "bucket-b"
     assert audit.calls[0]["metadata"]["planned_count"] == 3
 
 
@@ -490,7 +482,8 @@ def test_compare_bucket_action_runs_sync_different(monkeypatch):
         audit_service=_RecordingAudit(),
     )
 
-    assert response.action == "sync_different"
+    assert response.succeeded_count == 1
+    assert response.failed_count == 0
     assert captured["action"] == "sync_different"
 
 
@@ -530,10 +523,11 @@ def test_compare_bucket_action_forwards_object_keys(monkeypatch):
         audit_service=audit,
     )
 
-    assert response.planned_count == 1
+    assert response.succeeded_count == 1
     assert captured["object_keys"] == [" logs/a.txt "]
     assert audit.calls[0]["metadata"]["object_keys_count"] == 1
     assert audit.calls[0]["metadata"]["object_keys_sample"] == [" logs/a.txt "]
+    assert audit.calls[0]["metadata"]["planned_count"] == 1
 
 
 def test_compare_bucket_action_delete_returns_partial_failure(monkeypatch):
@@ -560,6 +554,7 @@ def test_compare_bucket_action_delete_returns_partial_failure(monkeypatch):
         ),
     )
 
+    audit = _RecordingAudit()
     response = buckets_router.run_compare_bucket_action(
         payload=payload,
         request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
@@ -567,15 +562,14 @@ def test_compare_bucket_action_delete_returns_partial_failure(monkeypatch):
         source_context=source_context,
         actor=SimpleNamespace(),
         service=BucketComparisonService(),
-        audit_service=_RecordingAudit(),
+        audit_service=audit,
     )
 
-    assert response.action == "delete_target_only"
-    assert response.planned_count == 5
     assert response.succeeded_count == 3
     assert response.failed_count == 2
-    assert response.failed_keys_sample == ["orphan-1", "orphan-2"]
     assert "partially" in response.message.lower()
+    assert audit.calls[0]["metadata"]["planned_count"] == 5
+    assert audit.calls[0]["metadata"]["failed_keys_sample"] == ["orphan-1", "orphan-2"]
 
 
 def test_compare_bucket_action_rejects_source_equals_target_for_same_context(monkeypatch):

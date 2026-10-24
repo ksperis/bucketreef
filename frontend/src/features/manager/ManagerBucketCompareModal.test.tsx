@@ -119,15 +119,8 @@ function buildCompareResult(overrides?: Partial<ManagerBucketCompareResult>): Ma
 
 function buildActionResult(overrides?: Partial<ManagerBucketCompareActionResult>): ManagerBucketCompareActionResult {
   return {
-    action: "sync_source_only",
-    source_context_id: "ctx-source",
-    target_context_id: "ctx-target",
-    source_bucket: "bucket-a",
-    target_bucket: "bucket-a",
-    planned_count: 2,
     succeeded_count: 2,
     failed_count: 0,
-    failed_keys_sample: [],
     message: "Action completed",
     ...overrides,
   };
@@ -458,7 +451,7 @@ describe("ManagerBucketCompareModal remediation actions", () => {
 
   it("runs a single-object remediation from an object row", async () => {
     compareManagerBucketPairMock.mockResolvedValueOnce(buildCompareResult()).mockResolvedValueOnce(buildCompareResult());
-    runManagerBucketCompareActionMock.mockResolvedValueOnce(buildActionResult({ planned_count: 1, succeeded_count: 1 }));
+    runManagerBucketCompareActionMock.mockResolvedValueOnce(buildActionResult({ succeeded_count: 1 }));
 
     const user = await runInitialComparison();
     const sourceOnlyDetails = await openSourceOnlyDetails(user);

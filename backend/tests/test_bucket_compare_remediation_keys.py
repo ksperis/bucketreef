@@ -109,7 +109,6 @@ def test_http_remediation_targets_only_selected_exact_keys(client, monkeypatch, 
     response = client.post("/api/manager/buckets/compare/action", params={"context_id": "1"}, json=_payload(selected, action))
 
     assert response.status_code == 200, response.text
-    assert response.json()["planned_count"] == len(selected)
     assert response.json()["succeeded_count"] == len(selected)
     assert response.json()["failed_count"] == 0
     expected_target = unselected if mode == "delete" else {**unselected, **{key: source_objects[key] for key in selected}}
@@ -118,6 +117,7 @@ def test_http_remediation_targets_only_selected_exact_keys(client, monkeypatch, 
     assert all(body.closed for body in bodies)
     target_client.close.assert_called_once_with()
     assert source_client.close.call_count == int(mode != "delete")
+    assert audit.record_action.call_args.kwargs["metadata"]["planned_count"] == len(selected)
     assert audit.record_action.call_args.kwargs["metadata"]["object_keys_sample"] == selected
 
 

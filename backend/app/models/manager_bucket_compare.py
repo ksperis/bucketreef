@@ -65,13 +65,6 @@ class ManagerBucketCompareActionRequest(ApiModel):
 
 
 class ManagerBucketCompareActionResult(ApiModel):
-    action: ManagerBucketCompareAction
-    source_context_id: str
-    target_context_id: str
-    source_bucket: str
-    target_bucket: str
-    planned_count: int
     succeeded_count: int
     failed_count: int
-    failed_keys_sample: list[str]
     message: str
