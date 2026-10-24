@@ -148,7 +148,7 @@ def _delete_bucket(
         manager_session.delete(
             f"/manager/buckets/{bucket_name}",
             params={"context_id": account_id, "force": "true"},
-            expected_status=(200, 404),
+            expected_status=(204, 404),
         )
     except BackendAPIError:
         return
@@ -276,6 +276,7 @@ def _copy_object(
             ],
             "replace_tags": replace_tags,
         },
+        expected_status=204,
     )
 
 
@@ -805,6 +806,8 @@ def _configure_unsupported_bucket_setting(
     website_payload = {
         "index_document": "index.html",
         "error_document": "error.html",
+        "redirect_all_requests_to": None,
+        "routing_rules": [],
     }
     try:
         manager_session.put(
@@ -880,6 +883,7 @@ def _configure_unsupported_bucket_setting(
             f"/manager/buckets/{bucket_name}/versioning",
             params=_context_params(account_id),
             json={"enabled": True},
+            expected_status=204,
         )
         _wait_for_value(
             "bucket versioning",
@@ -894,6 +898,7 @@ def _configure_unsupported_bucket_setting(
             f"/manager/buckets/{replication_target}/versioning",
             params=_context_params(account_id),
             json={"enabled": True},
+            expected_status=204,
         )
         _wait_for_value(
             "replication target versioning",
@@ -1625,7 +1630,7 @@ def test_bucket_migration_precheck_fails_for_object_lock_governance_when_support
         source.manager_session.put(
             f"/manager/buckets/{source_bucket}/object-lock",
             params=_context_params(source.account_id),
-            json={"enabled": True, "mode": "GOVERNANCE", "days": 1},
+            json={"enabled": True, "mode": "GOVERNANCE", "days": 1, "years": None},
         )
     except BackendAPIError as exc:
         _skip_if_cluster_unavailable("manager bucket object-lock", exc)

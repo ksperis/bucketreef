@@ -277,7 +277,7 @@ def _grant_account_access_to_user(
             "allow_manager_browser_data_access": True,
         }
     )
-    super_admin_session.put(
+    super_admin_session.patch(
         f"/admin/users/{user_id}",
         json={"account_links": account_links},
         expected_status=200,
@@ -379,7 +379,7 @@ def _provision_account(
     manager_user_id = created_user["id"]
     resource_tracker.track_user(manager_user_id)
 
-    super_admin_session.put(
+    super_admin_session.patch(
         f"/admin/users/{manager_user_id}",
         json={
             "account_links": [

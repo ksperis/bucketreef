@@ -214,6 +214,7 @@ def test_account_bucket_object_flow(
         f"/manager/buckets/{bucket_name}/versioning",
         params={"context_id": account_id},
         json={"enabled": True},
+        expected_status=204,
     )
     properties = manager_session.get(
         f"/manager/buckets/{bucket_name}/properties",
@@ -221,11 +222,11 @@ def test_account_bucket_object_flow(
     )
     assert properties.get("versioning_status") == "Enabled"
 
-    delete_response = manager_session.delete(
+    manager_session.delete(
         f"/manager/buckets/{bucket_name}",
         params={"context_id": account_id, "force": "true"},
+        expected_status=204,
     )
-    assert delete_response["message"].startswith("Bucket"), "Bucket deletion acknowledgement missing"
     resource_tracker.discard_bucket(account_id, bucket_name)
 
     super_admin_session.delete(

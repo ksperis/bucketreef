@@ -148,6 +148,9 @@ class BackendSession:
     def put(self, path: str, *, expected_status: int | Iterable[int] = (200,), **kwargs: Any) -> Any:
         return self.json("PUT", path, expected_status=expected_status, **kwargs)
 
+    def patch(self, path: str, *, expected_status: int | Iterable[int] = (200,), **kwargs: Any) -> Any:
+        return self.json("PATCH", path, expected_status=expected_status, **kwargs)
+
     def delete(self, path: str, *, expected_status: int | Iterable[int] = (200,), **kwargs: Any) -> Any:
         response = self.request("DELETE", path, expected_status=expected_status, **kwargs)
         if response.content:

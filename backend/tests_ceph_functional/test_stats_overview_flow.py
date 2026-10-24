@@ -71,5 +71,6 @@ def test_manager_stats_overview_and_traffic(
     manager_session.delete(
         f"/manager/buckets/{bucket_name}",
         params={"context_id": account_id, "force": "true"},
+        expected_status=204,
     )
     resource_tracker.discard_bucket(account_id, bucket_name)

@@ -115,7 +115,7 @@ def _ensure_bucket_object_lock_if_supported(
         session.put(
             f"/manager/buckets/{bucket_name}/object-lock",
             params=_context_params(account_id),
-            json={"enabled": True, "mode": "GOVERNANCE", "days": 1},
+            json={"enabled": True, "mode": "GOVERNANCE", "days": 1, "years": None},
         )
         return True
     except BackendAPIError as exc:
@@ -408,7 +408,6 @@ def test_browser_object_access_and_protection_roundtrip_flow(
                 },
             )
             assert bypass_retention["mode"] == "GOVERNANCE"
-            assert bypass_retention["bypass_governance"] is True
             fetched_bypass_retention = manager_session.get(
                 f"/browser/buckets/{bucket_name}/object-retention",
                 params={"context_id": account_id, "key": object_key, "version_id": version_id},
@@ -774,6 +773,7 @@ def test_browser_multipart_listing_and_completion_flow(
             f"/browser/buckets/{bucket_name}/multipart/{upload_id}/complete",
             params={"context_id": account_id, "key": object_key},
             json={"parts": completed_parts},
+            expected_status=204,
         )
         assembled_payload = part_one + part_two
         _assert_object_matches(
@@ -803,7 +803,7 @@ def test_browser_multipart_listing_and_completion_flow(
         manager_session.delete(
             f"/browser/buckets/{bucket_name}/multipart/{second_upload_id}",
             params={"context_id": account_id, "key": second_key},
-            expected_status=(200,),
+            expected_status=(204,),
         )
         uploads_after_abort = manager_session.get(
             f"/browser/buckets/{bucket_name}/multipart",
@@ -863,6 +863,7 @@ def test_browser_copy_replace_metadata_tags_acl_flow(
                 "replace_tags": True,
                 "acl": "public-read",
             },
+            expected_status=204,
         )
 
         _assert_object_matches(
