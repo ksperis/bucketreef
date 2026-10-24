@@ -225,7 +225,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
     external_access_key_id: str | None = None
     personal_access_key_id: str | None = None
 
-    super_admin_session.put(
+    super_admin_session.patch(
         f"/admin/accounts/{account_id}/portal-settings",
         json={"server_access_logging_enabled": True},
         expected_status=200,
@@ -366,7 +366,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
         # the rollover. Disabling logging is documented to flush pending log
         # objects immediately, which makes this live qualification deterministic
         # without sleeping for the default roll interval.
-        super_admin_session.put(
+        super_admin_session.patch(
             f"/admin/accounts/{account_id}/portal-settings",
             json={"server_access_logging_enabled": False},
             expected_status=200,

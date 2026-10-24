@@ -72,7 +72,7 @@ def test_ceph_admin_users_listing_detail_config_keys_and_metrics(
 
     updated = run_or_skip(
         "ceph-admin user config update",
-        lambda: super_admin_session.put(
+        lambda: super_admin_session.patch(
             f"{base_path}/{uid}/config",
             params=tenant_query,
             json={

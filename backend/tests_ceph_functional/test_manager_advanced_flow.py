@@ -267,7 +267,7 @@ def test_manager_bucket_advanced_security_roundtrip(
             object_lock_payload = manager_session.put(
                 f"/manager/buckets/{bucket_name}/object-lock",
                 params=_context_params(account_id),
-                json={"enabled": True, "mode": "GOVERNANCE", "days": 1},
+                json={"enabled": True, "mode": "GOVERNANCE", "days": 1, "years": None},
             )
         except BackendAPIError as exc:
             if looks_unsupported(
@@ -385,7 +385,7 @@ def test_manager_iam_roles_and_groups_flow(
         )
         assert [entry["name"] for entry in role_inline_policies] == ["RoleInlineAccess"]
 
-        manager_session.put(
+        manager_session.patch(
             f"/manager/iam/roles/{role_name}",
             params=_context_params(account_id),
             json={

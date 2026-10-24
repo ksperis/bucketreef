@@ -89,7 +89,7 @@ def _grant_account_root_access(
             "allow_manager_browser_data_access": True,
         }
     )
-    admin_session.put(
+    admin_session.patch(
         f"/admin/users/{user_id}",
         json={"account_links": account_links},
         expected_status=200,
@@ -127,6 +127,7 @@ def _create_folder(
         f"/browser/buckets/{bucket_name}/folders",
         params=_context_params(account_id),
         json={"prefix": prefix},
+        expected_status=204,
     )
 
 
@@ -186,6 +187,7 @@ def _copy_object(
             "destination_key": destination_key,
             "move": move,
         },
+        expected_status=204,
     )
 
 
@@ -515,12 +517,13 @@ def _direct_copy_between_accounts(
                 f"/browser/buckets/{destination_bucket}/multipart/{upload_id}/complete",
                 params={"context_id": destination_account_id, "key": destination_key},
                 json={"parts": completed_parts},
+                expected_status=204,
             )
         except Exception:
             session.delete(
                 f"/browser/buckets/{destination_bucket}/multipart/{upload_id}",
                 params={"context_id": destination_account_id, "key": destination_key},
-                expected_status=(200, 404),
+                expected_status=(204, 404),
             )
             raise
     else:

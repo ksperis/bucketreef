@@ -51,7 +51,7 @@ def test_manager_iam_key_metadata_and_audit(
         "allow_access_key_expiration": account_before.get("allow_access_key_expiration"),
         "allow_activity_history": account_before.get("allow_activity_history"),
     }
-    super_admin_session.put(
+    super_admin_session.patch(
         f"/admin/accounts/{account_id}",
         json={
             "allow_access_key_metadata": True,
@@ -71,7 +71,7 @@ def test_manager_iam_key_metadata_and_audit(
         assert created_user["name"] == user_name
         assert created_user.get("has_keys") is False
 
-        updated_user = manager_session.put(
+        updated_user = manager_session.patch(
             f"/manager/iam/users/{user_name}",
             params={"context_id": account_id},
             json={"path": "/functional/"},
@@ -120,7 +120,7 @@ def test_manager_iam_key_metadata_and_audit(
         assert listed_key["name"] == "functional-primary"
         assert listed_key["notes"] == "Ceph functional IAM qualification"
 
-        updated_metadata = manager_session.put(
+        updated_metadata = manager_session.patch(
             f"/manager/iam/users/{user_name}/keys/{created_key_id}/metadata",
             params={"context_id": account_id},
             json={"name": "functional-renamed", "notes": "metadata roundtrip", "expires_at": expires_at},
@@ -187,7 +187,7 @@ def test_manager_iam_key_metadata_and_audit(
             )
         except BackendAPIError:
             pass
-        super_admin_session.put(f"/admin/accounts/{account_id}", json=original_overrides)
+        super_admin_session.patch(f"/admin/accounts/{account_id}", json=original_overrides)
 
 
 def test_manager_iam_role_tags_detect_storage_backend_false_success(
@@ -286,6 +286,7 @@ def test_admin_manager_stats_access_and_bucket_audit(
             f"/manager/buckets/{bucket_name}/versioning",
             params={"context_id": account_id},
             json={"enabled": True},
+            expected_status=204,
         )
 
         bucket_stats = _wait_for_value(
@@ -395,7 +396,7 @@ def test_admin_manager_stats_access_and_bucket_audit(
         assert {"create_bucket", "update_bucket_versioning"} <= activity_actions
 
         original_activity_override = account_detail.get("allow_activity_history")
-        super_admin_session.put(
+        super_admin_session.patch(
             f"/admin/accounts/{account_id}",
             json={"allow_activity_history": False},
         )
@@ -415,7 +416,7 @@ def test_admin_manager_stats_access_and_bucket_audit(
             assert update_entry["entity_id"] == str(account_id)
             assert update_entry["metadata"]["allow_activity_history"] is False
         finally:
-            super_admin_session.put(
+            super_admin_session.patch(
                 f"/admin/accounts/{account_id}",
                 json={"allow_activity_history": original_activity_override},
             )

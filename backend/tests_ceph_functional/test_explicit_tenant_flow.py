@@ -212,7 +212,7 @@ def test_managed_explicit_tenant_creation_respects_global_opt_in(
             super_admin_session,
             ceph_test_settings.super_admin_email,
         )
-        super_admin_session.put(
+        super_admin_session.patch(
             f"/admin/users/{super_admin_user_id}",
             json={
                 "account_links": [
@@ -627,7 +627,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
     assert imported_user["rgw_user_uid"] == standalone_uid
 
     super_admin_user_id = _super_admin_id(super_admin_session, ceph_test_settings.super_admin_email)
-    super_admin_session.put(
+    super_admin_session.patch(
         f"/admin/users/{super_admin_user_id}",
         json={
             "account_links": [
@@ -736,7 +736,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
         if "detail" not in traffic:
             assert traffic["window"] in {"day", "DAY"}
 
-    super_admin_session.put(
+    super_admin_session.patch(
         f"/admin/s3-users/{s3_user_id}",
         json={"quota_max_objects": 1234},
     )
@@ -846,7 +846,7 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
         tenant=account_tenant,
     )
 
-    super_admin_session.put(
+    super_admin_session.patch(
         f"/admin/users/{super_admin_user_id}",
         json={
             "account_links": [],

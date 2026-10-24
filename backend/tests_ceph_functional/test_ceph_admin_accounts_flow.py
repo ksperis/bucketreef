@@ -177,7 +177,7 @@ def test_ceph_admin_accounts_listing_detail_update_and_metrics(
 
     updated = run_or_skip(
         "ceph-admin account config update",
-        lambda: super_admin_session.put(
+        lambda: super_admin_session.patch(
             f"{base_path}/{rgw_account_id}/config",
             json={
                 "max_users": 25,

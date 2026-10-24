@@ -134,7 +134,7 @@ def _delete_bucket(
         manager_session.delete(
             f"/manager/buckets/{bucket_name}",
             params={"context_id": account_id, "force": "true"},
-            expected_status=(200, 404),
+            expected_status=(204, 404),
         )
     except BackendAPIError:
         return
@@ -247,7 +247,7 @@ def _create_replication_connection_context(
         )
         connection_id = int(created_connection["id"])
         context["connection_id"] = connection_id
-        super_admin_session.put(
+        super_admin_session.patch(
             f"/admin/s3-connections/{connection_id}",
             json={"user_ids": [user_id]},
             expected_status=200,
@@ -297,6 +297,7 @@ def test_manager_bucket_configuration_roundtrip(
             f"/manager/buckets/{bucket_name}/versioning",
             params=_context_params(account_id),
             json={"enabled": True},
+            expected_status=204,
         )
         properties = _wait_for_value(
             "bucket versioning",
@@ -568,6 +569,8 @@ def test_manager_bucket_website_roundtrip(
         website_payload = {
             "index_document": "index.html",
             "error_document": "error.html",
+            "redirect_all_requests_to": None,
+            "routing_rules": [],
         }
         manager_session.put(
             f"/manager/buckets/{bucket_name}/website",
@@ -849,7 +852,7 @@ def test_manager_bucket_replication_roundtrip(
             manager_session.delete(
                 f"/manager/buckets/{bucket_name}",
                 params={"context_id": account_ref, "force": "true"},
-                expected_status=(200, 404),
+                expected_status=(204, 404),
             )
         except BackendAPIError:
             pass

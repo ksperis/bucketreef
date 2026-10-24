@@ -95,7 +95,11 @@ def test_ceph_admin_bucket_configuration_and_compare(
 
         run_or_skip(
             "ceph-admin bucket versioning",
-            lambda: super_admin_session.put(f"{base_path}/versioning", json={"enabled": True}),
+            lambda: super_admin_session.put(
+                f"{base_path}/versioning",
+                json={"enabled": True},
+                expected_status=204,
+            ),
         )
 
         lifecycle_rules = [
@@ -166,12 +170,19 @@ def test_ceph_admin_bucket_configuration_and_compare(
         _optional("ceph-admin bucket object-lock get", lambda: super_admin_session.get(f"{base_path}/object-lock"))
         _optional(
             "ceph-admin bucket object-lock update",
-            lambda: super_admin_session.put(f"{base_path}/object-lock", json={"enabled": False}),
+            lambda: super_admin_session.put(
+                f"{base_path}/object-lock",
+                json={"enabled": False, "mode": None, "days": None, "years": None},
+            ),
         )
 
         _optional(
             "ceph-admin bucket quota update",
-            lambda: super_admin_session.put(f"{base_path}/quota", json={"max_size_gb": 1, "max_objects": 1000}),
+            lambda: super_admin_session.patch(
+                f"{base_path}/quota",
+                json={"max_size_gb": 1, "max_objects": 1000},
+                expected_status=204,
+            ),
         )
 
         _optional("ceph-admin bucket notifications get", lambda: super_admin_session.get(f"{base_path}/notifications"))
@@ -206,6 +217,8 @@ def test_ceph_admin_bucket_configuration_and_compare(
                 json={
                     "index_document": "index.html",
                     "error_document": "error.html",
+                    "redirect_all_requests_to": None,
+                    "routing_rules": [],
                 },
             ),
         ):
@@ -277,7 +290,7 @@ def test_ceph_admin_bucket_configuration_and_compare(
                 manager_session.delete(
                     f"/manager/buckets/{bucket_name}",
                     params={"context_id": account_id, "force": "true"},
-                    expected_status=(200, 404),
+                    expected_status=(204, 404),
                 )
                 resource_tracker.discard_bucket(account_id, bucket_name)
             except BackendAPIError:

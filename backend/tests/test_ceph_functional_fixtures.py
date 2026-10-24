@@ -22,8 +22,8 @@ def test_account_fixture_grants_portal_only_when_requested_before_login(portal_r
     authenticator = Mock()
 
     def login(email, password):
-        links = admin.put.call_args.kwargs["json"]["account_links"]
-        assert admin.put.call_args.args == ("/admin/users/7",)
+        links = admin.patch.call_args.kwargs["json"]["account_links"]
+        assert admin.patch.call_args.args == ("/admin/users/7",)
         assert links == [{"account_id": 12, "manager_role": "account_administrator",
                           "portal_role": portal_role, "allow_manager_browser_data_access": True}]
         return "authenticated-session"
@@ -35,7 +35,7 @@ def test_account_fixture_grants_portal_only_when_requested_before_login(portal_r
         **({"portal_role": portal_role} if portal_role else {}),
     )
     assert context.manager_session == "authenticated-session"
-    assert admin.put.call_args_list[0].kwargs["json"]["account_links"][0]["portal_role"] is None
+    assert admin.patch.call_args_list[0].kwargs["json"]["account_links"][0]["portal_role"] is None
 
 
 def test_select_storage_endpoint_prefers_configured_name() -> None:
@@ -84,7 +84,7 @@ def test_grant_account_root_access_preserves_existing_account_links() -> None:
                 ]
             }
 
-        def put(self, path: str, *, json: dict, expected_status: int) -> None:
+        def patch(self, path: str, *, json: dict, expected_status: int) -> None:
             self.updated = (path, json, expected_status)
 
     session = StubAdminSession()
@@ -137,7 +137,7 @@ def test_grant_account_access_to_user_preserves_existing_account_links() -> None
                 ]
             }
 
-        def put(self, path: str, *, json: dict, expected_status: int) -> None:
+        def patch(self, path: str, *, json: dict, expected_status: int) -> None:
             self.updated = (path, json, expected_status)
 
     session = StubAdminSession()
