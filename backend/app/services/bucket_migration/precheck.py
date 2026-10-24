@@ -652,7 +652,6 @@ class BucketMigrationPrecheckPlanner:
             initial_strategy=("current_only"),
             add_check=add_check,
         )
-        item.source_snapshot_json = self._service._json_dumps_safe(source.profile)
         self._rules.add_item_safety_checks(
             source_ctx,
             target_ctx,

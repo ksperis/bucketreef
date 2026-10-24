@@ -247,6 +247,7 @@ class BucketMigrationPrecheckRules:
                 target_context,
                 item,
                 migration,
+                source_profile=source_profile,
                 strategy=strategy,
                 add_check=add_check,
             )
@@ -332,6 +333,7 @@ class BucketMigrationPrecheckRules:
         item,
         migration,
         *,
+        source_profile,
         strategy,
         add_check,
     ) -> None:
@@ -365,7 +367,12 @@ class BucketMigrationPrecheckRules:
             )
         try:
             self._service._precheck_destination(
-                migration, item, source_context, target_context, strategy=strategy
+                migration,
+                item,
+                source_context,
+                target_context,
+                source_profile=source_profile,
+                strategy=strategy,
             )
             add_check(
                 code="target_write_validated",

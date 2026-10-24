@@ -385,13 +385,15 @@ class BucketMigrationPreparationMixin:
         target_ctx,
         client,
         probe: str,
+        *,
+        source_profile: Optional[dict[str, Any]] = None,
     ) -> None:
         page = self._context_client(source_ctx).list_objects_v2(
             Bucket=item.source_bucket, MaxKeys=1
         )
         contents = page.get("Contents") or []
         candidate = self._sample_version_probe_candidate(
-            source_profile=_json_loads(item.source_snapshot_json)
+            source_profile=source_profile
         )
         copy_source = {"Bucket": item.source_bucket}
         if candidate:
@@ -417,7 +419,14 @@ class BucketMigrationPreparationMixin:
             client.copy_object(Bucket=probe, Key="copy-check", CopySource=copy_source)
 
     def _precheck_destination(
-        self, migration, item, source_ctx, target_ctx, *, strategy: str
+        self,
+        migration,
+        item,
+        source_ctx,
+        target_ctx,
+        *,
+        source_profile: Optional[dict[str, Any]] = None,
+        strategy: str,
     ) -> None:
         probe = migration_probe_bucket_name(migration.id)
         self._journal_preparation_effect(
@@ -468,6 +477,7 @@ class BucketMigrationPreparationMixin:
                     target_ctx,
                     client,
                     probe,
+                    source_profile=source_profile,
                 )
             client.delete_object(**identity)
             if strategy == "version_aware":
