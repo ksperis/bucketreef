@@ -55,6 +55,42 @@ def test_build_daily_from_rollups_weights_latency_averages():
     ]
 
 
+def test_build_daily_from_rollups_keeps_empty_days_in_requested_range():
+    start = datetime(2026, 9, 1, tzinfo=UTC)
+    rows = [
+        EndpointHealthRollup(
+            storage_endpoint_id=1,
+            bucket_start=start,
+            up_count=1,
+            degraded_count=0,
+            down_count=0,
+        )
+    ]
+
+    assert build_daily_from_rollups(
+        rows,
+        start=start,
+        end=start + timedelta(days=1),
+    ) == [
+        {
+            "day": "2026-09-01",
+            "ok_count": 1,
+            "degraded_count": 0,
+            "down_count": 0,
+            "avg_latency_ms": None,
+            "p95_latency_ms": None,
+        },
+        {
+            "day": "2026-09-02",
+            "ok_count": 0,
+            "degraded_count": 0,
+            "down_count": 0,
+            "avg_latency_ms": None,
+            "p95_latency_ms": None,
+        },
+    ]
+
+
 def test_build_segment_timeline_map_clips_requested_window():
     start = datetime(2026, 9, 1, 10, tzinfo=UTC)
     now = start + timedelta(hours=2)

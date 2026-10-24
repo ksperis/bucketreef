@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -166,6 +167,46 @@ def build_rollup_availability_map(
     return availability_by_endpoint
 
 
+@dataclass
+class _DailyHealthAccumulator:
+    day: str
+    ok_count: int = 0
+    degraded_count: int = 0
+    down_count: int = 0
+    latency_total: int = 0
+    latency_samples: int = 0
+    p95_values: list[int] = field(default_factory=list)
+
+    def add(self, row: EndpointHealthRollup) -> None:
+        self.ok_count += int(row.up_count or 0)
+        self.degraded_count += int(row.degraded_count or 0)
+        self.down_count += int(row.down_count or 0)
+        sample_count = int(row.latency_sample_count or 0)
+        if sample_count > 0 and row.latency_avg_ms is not None:
+            self.latency_total += int(row.latency_avg_ms) * sample_count
+            self.latency_samples += sample_count
+        if row.latency_p95_ms is not None:
+            self.p95_values.append(int(row.latency_p95_ms))
+
+    def to_payload(self) -> dict[str, Any]:
+        avg_latency_ms = (
+            int(round(self.latency_total / self.latency_samples))
+            if self.latency_samples > 0
+            else None
+        )
+        p95_latency_ms = (
+            _percentile(self.p95_values, 0.95) if self.p95_values else None
+        )
+        return {
+            "day": self.day,
+            "ok_count": self.ok_count,
+            "degraded_count": self.degraded_count,
+            "down_count": self.down_count,
+            "avg_latency_ms": avg_latency_ms,
+            "p95_latency_ms": p95_latency_ms,
+        }
+
+
 def build_daily_from_rollups(
     rollup_rows: list[EndpointHealthRollup],
     *,
@@ -174,22 +215,12 @@ def build_daily_from_rollups(
 ) -> list[dict[str, Any]]:
     if not rollup_rows:
         return []
-    by_day: dict[str, dict[str, Any]] = {}
+    by_day: dict[str, _DailyHealthAccumulator] = {}
     cursor = start.date()
     end_day = end.date()
     while cursor <= end_day:
         day_key = cursor.isoformat()
-        by_day[day_key] = {
-            "day": day_key,
-            "ok_count": 0,
-            "degraded_count": 0,
-            "down_count": 0,
-            "avg_latency_ms": None,
-            "p95_latency_ms": None,
-            "_latency_total": 0,
-            "_latency_samples": 0,
-            "_p95_values": [],
-        }
+        by_day[day_key] = _DailyHealthAccumulator(day=day_key)
         cursor += timedelta(days=1)
 
     for row in rollup_rows:
@@ -197,33 +228,6 @@ def build_daily_from_rollups(
         aggregate = by_day.get(day_key)
         if aggregate is None:
             continue
-        up_count = int(row.up_count or 0)
-        degraded_count = int(row.degraded_count or 0)
-        down_count = int(row.down_count or 0)
-        aggregate["ok_count"] += up_count
-        aggregate["degraded_count"] += degraded_count
-        aggregate["down_count"] += down_count
-        sample_count = int(row.latency_sample_count or 0)
-        if sample_count > 0 and row.latency_avg_ms is not None:
-            aggregate["_latency_total"] += int(row.latency_avg_ms) * sample_count
-            aggregate["_latency_samples"] += sample_count
-        if row.latency_p95_ms is not None:
-            aggregate["_p95_values"].append(int(row.latency_p95_ms))
+        aggregate.add(row)
 
-    output: list[dict[str, Any]] = []
-    for day_key in sorted(by_day.keys()):
-        aggregate = by_day[day_key]
-        latency_samples = int(aggregate["_latency_samples"])
-        if latency_samples > 0:
-            aggregate["avg_latency_ms"] = int(
-                round(int(aggregate["_latency_total"]) / latency_samples)
-            )
-        p95_values = [int(value) for value in aggregate["_p95_values"]]
-        if p95_values:
-            aggregate["p95_latency_ms"] = _percentile(p95_values, 0.95)
-        aggregate.pop("_latency_total", None)
-        aggregate.pop("_latency_samples", None)
-        aggregate.pop("_p95_values", None)
-        output.append(aggregate)
-
-    return output
+    return [by_day[day_key].to_payload() for day_key in sorted(by_day)]
