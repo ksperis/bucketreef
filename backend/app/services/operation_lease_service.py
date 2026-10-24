@@ -97,7 +97,6 @@ class OperationLeaseService:
         values = {
             BackendOperationLease.lease_owner: lease_owner,
             BackendOperationLease.lease_until: lease_until,
-            BackendOperationLease.acquired_at: now,
             BackendOperationLease.updated_at: now,
             BackendOperationLease.metadata_json: metadata_json,
         }
@@ -123,7 +122,6 @@ class OperationLeaseService:
             operation_name=name,
             lease_owner=lease_owner,
             lease_until=lease_until,
-            acquired_at=now,
             updated_at=now,
             metadata_json=metadata_json,
         )

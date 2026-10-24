@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0189_remove_onboarding_journey_dead_state"
+_EXPECTED_ALEMBIC_HEAD = "0190_remove_operation_lease_acquired_at"
 
 
 def _alembic_config() -> Config:
