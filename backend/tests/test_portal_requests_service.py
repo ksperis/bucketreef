@@ -189,6 +189,29 @@ def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
     assert message.message == "Done"
 
 
+def test_approve_user_access_rolls_back_placeholder_when_assignment_fails(
+    db_session,
+    monkeypatch,
+):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = _create_user_request(service, account, requester)
+    monkeypatch.setattr(
+        service.users_service,
+        "assign_user_to_account",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("assignment failed")),
+    )
+
+    with pytest.raises(PortalRequestExecutionError, match="assignment failed"):
+        service.approve_request(created.id, admin)
+
+    assert db_session.scalar(
+        select(User).where(User.email == "jane.viewer@example.org")
+    ) is None
+
+
 def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
@@ -215,6 +238,37 @@ def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
     assert approved.result is not None
     assert approved.result["requested_portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
     assert approved.result["portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
+    assert link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+
+
+def test_approve_user_access_does_not_downgrade_existing_portal_manager(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    target = _seed_user(db_session, email="jane.viewer@example.org")
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        )
+    )
+    db_session.commit()
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = _create_user_request(service, account, requester)
+
+    approved = service.approve_request(created.id, admin)
+
+    assert approved.result is not None
+    assert approved.result["requested_portal_role"] == PortalAccountRole.PORTAL_USER.value
+    assert approved.result["portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
+    link = db_session.scalars(
+        select(UserS3Account).where(
+            UserS3Account.user_id == target.id,
+            UserS3Account.account_id == account.id,
+        )
+    ).one()
     assert link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
 
 
