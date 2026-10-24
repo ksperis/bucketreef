@@ -55,7 +55,6 @@ export type EndpointHealthSeries = {
   check_target_url: string | null;
   check_type: string;
   scope: string;
-  resolution_seconds: number;
   series: EndpointHealthPoint[];
   daily: EndpointHealthDailyPoint[];
 };
@@ -117,7 +116,6 @@ export type EndpointHealthOverviewEndpoint = {
   check_mode: "http" | "s3";
   check_target_url: string | null;
   availability_pct: number | null;
-  baseline_latency_ms: number | null;
   timeline: EndpointHealthTimelinePoint[];
 };
 
@@ -141,7 +139,6 @@ export type EndpointHealthLatencyOverviewEndpoint = {
   min_latency_ms: number | null;
   avg_latency_ms: number | null;
   max_latency_ms: number | null;
-  sample_count: number;
   check_type: string;
   scope: string;
 };

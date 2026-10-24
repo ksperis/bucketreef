@@ -64,7 +64,6 @@ def test_healthcheck_response_models_require_complete_canonical_payloads() -> No
         "check_target_url",
         "check_type",
         "scope",
-        "resolution_seconds",
         "series",
         "daily",
     }
@@ -110,7 +109,6 @@ def test_healthcheck_response_models_require_complete_canonical_payloads() -> No
         "check_mode",
         "check_target_url",
         "availability_pct",
-        "baseline_latency_ms",
         "timeline",
     }
     assert _required(EndpointHealthLatencyOverviewEndpoint) == {
@@ -125,7 +123,6 @@ def test_healthcheck_response_models_require_complete_canonical_payloads() -> No
         "min_latency_ms",
         "avg_latency_ms",
         "max_latency_ms",
-        "sample_count",
         "check_type",
         "scope",
     }

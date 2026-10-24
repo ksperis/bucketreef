@@ -452,6 +452,15 @@ of the frontend contract.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 healthcheck response cleanup
+
+Admin healthcheck read responses no longer expose the unused
+`resolution_seconds`, `baseline_latency_ms`, or `sample_count` projection
+fields. Rollup resolution, latency baselines, and sample counts remain internal
+inputs to health evaluation and aggregation.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

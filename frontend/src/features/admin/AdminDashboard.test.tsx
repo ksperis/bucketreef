@@ -194,7 +194,6 @@ describe("AdminDashboard feature summary", () => {
           latency_ms: 76,
           check_mode: "http",
           availability_pct: 100,
-          baseline_latency_ms: 80,
           timeline: [],
         },
         {
@@ -206,7 +205,6 @@ describe("AdminDashboard feature summary", () => {
           latency_ms: null,
           check_mode: "http",
           availability_pct: 96,
-          baseline_latency_ms: null,
           timeline: [],
         },
       ],

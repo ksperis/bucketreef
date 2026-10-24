@@ -19,7 +19,6 @@ function buildSeries(overrides?: Partial<EndpointHealthSeries>): EndpointHealthS
     check_target_url: "https://endpoint.example.test",
     check_type: "availability",
     scope: "endpoint",
-    resolution_seconds: 300,
     series: [
       { timestamp: "2026-03-01T00:00:00.000Z", status: "up", latency_ms: 101, http_status: 200 },
       { timestamp: "2026-03-01T00:05:00.000Z", status: "degraded", latency_ms: 2500, http_status: 503 },

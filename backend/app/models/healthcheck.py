@@ -71,7 +71,6 @@ class EndpointHealthSeries(ApiModel):
     check_target_url: Optional[str]
     check_type: str
     scope: str
-    resolution_seconds: int
     series: list[EndpointHealthPoint]
     daily: list[EndpointHealthDailyPoint]
 
@@ -133,7 +132,6 @@ class EndpointHealthOverviewEndpoint(ApiModel):
     check_mode: str
     check_target_url: Optional[str]
     availability_pct: Optional[float]
-    baseline_latency_ms: Optional[int]
     timeline: list[EndpointHealthTimelinePoint]
 
 
@@ -157,7 +155,6 @@ class EndpointHealthLatencyOverviewEndpoint(ApiModel):
     min_latency_ms: Optional[int]
     avg_latency_ms: Optional[int]
     max_latency_ms: Optional[int]
-    sample_count: int
     check_type: str
     scope: str
 
