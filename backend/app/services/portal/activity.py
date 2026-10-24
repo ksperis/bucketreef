@@ -83,6 +83,35 @@ class PortalActivityMixin:
         }
         return labels.get(action, action.replace("_", " ").title())
 
+    def _portal_activity_item(
+        self,
+        log: AuditLog,
+        *,
+        user_id: int,
+        visible_spaces: dict[str, PortalStorageSpaceSummary],
+        selected_space: PortalStorageSpaceSummary | None,
+    ) -> PortalActivityItem | None:
+        metadata = self._audit_metadata(log)
+        raw_space_id = self._audit_storage_space_id(log, metadata)
+        storage_space = self._audit_storage_space(log, metadata, visible_spaces)
+        if raw_space_id is not None and storage_space is None:
+            return None
+        if selected_space is not None and storage_space != selected_space:
+            return None
+        if storage_space is None and log.user_id != user_id:
+            return None
+        return PortalActivityItem(
+            id=log.id,
+            created_at=log.created_at,
+            actor=log.user_email,
+            action=self._portal_action_label(log.action),
+            target=self._audit_target_label(log, metadata, storage_space),
+            storage_space_id=storage_space.id if storage_space else None,
+            storage_space_name=storage_space.name if storage_space else None,
+            ip_address=log.ip_address,
+            status=log.status,
+        )
+
     def list_portal_activity(
         self,
         user: User,
@@ -109,28 +138,15 @@ class PortalActivityMixin:
         ).all()
         items: list[PortalActivityItem] = []
         for log in logs:
-            metadata = self._audit_metadata(log)
-            raw_space_id = self._audit_storage_space_id(log, metadata)
-            storage_space = self._audit_storage_space(log, metadata, visible_spaces)
-            if raw_space_id is not None and storage_space is None:
-                continue
-            if selected_space is not None and storage_space != selected_space:
-                continue
-            if storage_space is None and log.user_id != user.id:
-                continue
-            items.append(
-                PortalActivityItem(
-                    id=log.id,
-                    created_at=log.created_at,
-                    actor=log.user_email,
-                    action=self._portal_action_label(log.action),
-                    target=self._audit_target_label(log, metadata, storage_space),
-                    storage_space_id=storage_space.id if storage_space else None,
-                    storage_space_name=storage_space.name if storage_space else None,
-                    ip_address=log.ip_address,
-                    status=log.status,
-                )
+            item = self._portal_activity_item(
+                log,
+                user_id=int(user.id),
+                visible_spaces=visible_spaces,
+                selected_space=selected_space,
             )
+            if item is None:
+                continue
+            items.append(item)
             if len(items) >= query_limit:
                 break
         return items
