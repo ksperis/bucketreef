@@ -87,7 +87,6 @@ describe("GeneralSettingsPage branding", () => {
       complete: false,
       journeys: [],
       can_configure: true,
-      actor_id: 1,
       source: "standard",
     });
     resumeOnboardingMock.mockResolvedValue({
@@ -95,7 +94,6 @@ describe("GeneralSettingsPage branding", () => {
       complete: false,
       journeys: [],
       can_configure: true,
-      actor_id: 1,
       source: "standard",
     });
     sendQuotaNotificationTestEmailMock.mockResolvedValue({

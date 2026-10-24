@@ -170,7 +170,6 @@ function journey(id: string, draft: OnboardingDraft, configured = false): Onboar
     revision: 1,
     draft,
     resources: {},
-    pending_step: null,
     configured,
     preview: configured ? { review_token: "", features: [], changes: [], blockers: [] } : previewFor(draft),
     links: {},
@@ -209,7 +208,6 @@ beforeEach(() => {
     source: "standard",
     journeys: [],
     can_configure: true,
-    actor_id: 1,
   };
   mocks.fetchOnboardingStatus.mockImplementation(async () => status);
   mocks.listStorageEndpoints.mockResolvedValue([cephEndpoint, awsEndpoint]);

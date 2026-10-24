@@ -96,7 +96,6 @@ class OnboardingJourneyOut(ApiModel):
     revision: int
     draft: OnboardingDraft
     resources: dict
-    pending_step: str | None
     configured: bool
     preview: OnboardingPreview
     links: dict[str, str]
@@ -110,4 +109,3 @@ class OnboardingStatus(ApiModel):
     source: Literal["quickstart", "standard"]
     journeys: list[OnboardingJourneyOut]
     can_configure: bool
-    actor_id: int
