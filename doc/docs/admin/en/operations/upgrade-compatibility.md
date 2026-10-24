@@ -396,7 +396,9 @@ retired per-item status with its historical `idle` default.
 Bucket migration list/detail responses no longer expose runtime fields that the
 Manager frontend never consumed. The trimmed fields include internal worker and
 revision state, unused timestamps and counters, plus the persisted strong-integrity
-setting; execution state remains stored and used by the backend exactly as before.
+setting. Recent migration events expose only the identifier, message and creation
+time used by the Manager UI; item linkage, severity and metadata remain persisted
+internally. Execution state remains stored and used by the backend exactly as before.
 
 Deploy the backend and frontend together. This cleanup changes only the internal
 application API response shape and does not require a database migration.

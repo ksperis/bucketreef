@@ -148,10 +148,7 @@ class BucketMigrationItemView(ApiModel):
 
 class BucketMigrationEventView(ApiModel):
     id: int
-    item_id: Optional[int]
-    level: str
     message: str
-    metadata: Optional[dict]
     created_at: datetime
 
 

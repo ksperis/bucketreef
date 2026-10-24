@@ -50,10 +50,7 @@ def bucket_migration_item_to_view(item: BucketMigrationItem) -> BucketMigrationI
 def bucket_migration_event_to_view(entry: BucketMigrationEvent) -> BucketMigrationEventView:
     return BucketMigrationEventView(
         id=entry.id,
-        item_id=entry.item_id,
-        level=entry.level,
         message=entry.message,
-        metadata=load_migration_json(entry.metadata_json),
         created_at=entry.created_at,
     )
 
