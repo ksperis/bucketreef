@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.2.18 - 2026-10-24
+
+### Added
+
+- Replace the expanded Billing product model with a focused Cost Explorer, including configurable global and per-endpoint prices, Admin analytics, Portal usage costs, and targeted Account/RGW User/Portal cost-estimation policies.
+- Add RGW User usage-metrics, bucket-composition, and scheduled-collection overrides so Account and RGW User usage controls follow the same inheritance model.
+- Add production-oriented Helm HA support for deployments behind external TLS termination, including trusted-proxy handling, ingress-aware CronJobs, and clearer PostgreSQL HA guidance.
+- Add runtime-image vulnerability scanning to public CI and refresh Node.js, Go, Python, Vite/Vitest, Wrangler, Trivy, and related dependency pins.
+
+### Changed
+
+- Rework bucket migration planning, diagnostics, execution strategy, progress, and cleanup models around canonical persisted state while simplifying the Manager migration UI and service boundaries.
+- Make Ceph Admin bucket operations tenant-aware by carrying the RGW tenant and unqualified bucket name through configuration, comparison, integrity, purge, usage-statistics, and backup workflows.
+- Simplify backend read/write models across Admin, Manager, Portal, Browser, authentication, statistics, health, quotas, and cost workflows. The bundled frontend is updated in the same release, so these coordinated application-API changes are not treated as breaking external contracts.
+- Rename the backend API-prefix setting from `API_V1_PREFIX` to `API_PREFIX`; the default route remains `/api`.
+- Continue consolidating frontend state, pagination, IAM editing, bucket-operation actions, Browser runtime context, and settings feedback without changing the corresponding user-facing storage semantics.
+
+### Fixed
+
+- Correct IAM role audit delegation classification and align healthcheck/demo payloads with the current backend contracts.
+- Preserve settings save feedback and usable mobile action targets, and keep sticky action hover surfaces visually opaque.
+- Update vulnerable dependencies and verify backend, frontend, and scheduler runtime images with zero HIGH/CRITICAL findings in the release security checks.
+- Harden tenant-qualified Ceph Admin bucket operations so same-name buckets in different RGW tenants cannot collapse into one logical target.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path before starting the matching backend. Migrations `0167` through `0193` withdraw the 0.2.17 Billing expansion, introduce the Cost model and estimation policies, add RGW usage controls, canonicalize bucket-migration state, preserve tenant identity in usage data, and remove retired internal state.
+- Deploy the backend and bundled frontend from the same release. Internal application route and payload changes are coordinated within 0.2.18 and are not considered breaking external contracts.
+- **Breaking change for external Billing integrations:** the Billing Integration API v1 (`/api/integrations/billing/v1`) and `billing:read` token scope introduced in 0.2.17 are removed as BucketReef returns to cost exploration rather than invoicing lifecycle management. Migrations preserve daily usage history but reset incompatible 0.2.17 Billing configuration.
+- **Breaking change for custom deployments:** rename `API_V1_PREFIX` to `API_PREFIX`. The removed `API_V1_PREFIX` variable is no longer read by the backend; the default `/api` path is unchanged.
+
 ## 0.2.17 - 2026-10-19
 
 ### Added
