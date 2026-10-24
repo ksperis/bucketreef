@@ -527,6 +527,16 @@ frontend actually displays it.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 webhook delivery response cleanup
+
+Admin webhook delivery read models no longer expose the unused
+`delivery_id`, `event_id`, `endpoint_id`, `next_attempt_at`, or
+`created_at` fields. Delivery scheduling and external webhook identifiers
+remain persisted and continue to drive the worker and outbound webhook
+protocol. The test-delivery action still returns its queued `delivery_id`.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

@@ -5,17 +5,12 @@ export type WebhookDeliveryStatus = "pending" | "retrying" | "delivered" | "fail
 
 export type WebhookDelivery = {
   id: number;
-  delivery_id: string;
-  event_id: string;
-  endpoint_id: number;
   event_type: string;
   is_test: boolean;
   status: WebhookDeliveryStatus;
   attempt_count: number;
-  next_attempt_at: string;
   last_http_status: number | null;
   last_error: string | null;
-  created_at: string;
   updated_at: string;
   delivered_at: string | null;
 };

@@ -114,7 +114,7 @@ def test_webhook_admin_api_lifecycle_keeps_secret_one_shot_and_audit_safe(webhoo
     delivery_id = queued.json()["delivery_id"]
     deliveries = webhook_client.get(f"/api/admin/settings/webhooks/{endpoint_id}/deliveries")
     assert deliveries.status_code == 200
-    assert any(row["delivery_id"] == delivery_id and row["is_test"] is True for row in deliveries.json())
+    assert any(row["is_test"] is True and row["event_type"] == "system.webhook.test" for row in deliveries.json())
     assert db_session.scalar(
         sa.select(sa.func.count()).select_from(WebhookDelivery).where(
             WebhookDelivery.delivery_id == delivery_id
