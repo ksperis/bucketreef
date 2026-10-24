@@ -74,7 +74,6 @@ function buildDetail(): BucketMigrationDetail {
     lock_target_writes: true,
     use_same_endpoint_copy: true,
     auto_grant_source_read_for_copy: true,
-    mapping_prefix: "",
     status: "running",
     pause_requested: false,
     cancel_requested: false,

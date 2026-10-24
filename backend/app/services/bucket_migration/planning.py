@@ -80,10 +80,7 @@ class BucketMigrationPlanningMixin:
         seen_targets: set[str] = set()
         for entry in payload.buckets:
             source_bucket = (entry.source_bucket or "").strip()
-            target_bucket = (
-                (entry.target_bucket or "").strip()
-                or f"{payload.mapping_prefix}{source_bucket}"
-            ).strip()
+            target_bucket = (entry.target_bucket or "").strip()
             if not source_bucket:
                 raise ValueError("source bucket is required")
             if not target_bucket:
@@ -289,7 +286,6 @@ class BucketMigrationPlanningMixin:
             lock_target_writes=bool(payload.lock_target_writes),
             use_same_endpoint_copy=configuration.use_same_endpoint_copy,
             auto_grant_source_read_for_copy=configuration.auto_grant_source_read_for_copy,
-            mapping_prefix=payload.mapping_prefix or None,
             status="draft",
             precheck_status="pending",
             precheck_report_json=None,
@@ -358,7 +354,6 @@ class BucketMigrationPlanningMixin:
         migration.auto_grant_source_read_for_copy = (
             configuration.auto_grant_source_read_for_copy
         )
-        migration.mapping_prefix = payload.mapping_prefix or None
         migration.parallelism_max = configuration.parallelism
         migration.status = "draft"
         migration.pause_requested = False

@@ -323,12 +323,11 @@ def test_create_migration_creates_items_and_defaults(db_session):
     payload = BucketMigrationCreateRequest(
         source_context_id=str(source.id),
         target_context_id=str(target.id),
-        mapping_prefix="mig-",
         mode="pre_sync",
         copy_bucket_settings=True,
         auto_grant_source_read_for_copy=False,
         buckets=[
-            BucketMigrationBucketMapping(source_bucket="bucket-a"),
+            BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="mig-bucket-a"),
             BucketMigrationBucketMapping(source_bucket="bucket-b", target_bucket="custom-b"),
         ],
     )
@@ -372,7 +371,7 @@ def test_create_migration_uses_admin_default_parallelism(db_session):
     payload = BucketMigrationCreateRequest(
         source_context_id=str(source.id),
         target_context_id=str(target.id),
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
 
     with patch(
@@ -514,7 +513,7 @@ def test_create_migration_clamps_requested_parallelism_to_admin_max(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         parallelism_max=42,
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
 
     with patch(
@@ -540,14 +539,13 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
         BucketMigrationCreateRequest(
             source_context_id=str(source.id),
             target_context_id=str(target.id),
-            mapping_prefix="legacy-",
             mode="pre_sync",
             copy_bucket_settings=True,
             lock_target_writes=True,
             auto_grant_source_read_for_copy=False,
             buckets=[
-                BucketMigrationBucketMapping(source_bucket="bucket-a"),
-                BucketMigrationBucketMapping(source_bucket="bucket-b"),
+                BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="legacy-bucket-a"),
+                BucketMigrationBucketMapping(source_bucket="bucket-b", target_bucket="legacy-bucket-b"),
             ],
         ),
         user,
@@ -570,14 +568,13 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
             configuration_revision=1,
             source_context_id=str(source.id),
             target_context_id=str(target_alt.id),
-            mapping_prefix="new-",
             mode="one_shot",
             copy_bucket_settings=False,
             lock_target_writes=False,
             use_same_endpoint_copy=False,
             auto_grant_source_read_for_copy=False,
             buckets=[
-                BucketMigrationBucketMapping(source_bucket="bucket-a"),
+                BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="new-bucket-a"),
                 BucketMigrationBucketMapping(source_bucket="bucket-c", target_bucket="custom-c"),
             ],
         ),
@@ -591,7 +588,6 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert updated.lock_target_writes is False
     assert updated.use_same_endpoint_copy is False
     assert updated.auto_grant_source_read_for_copy is False
-    assert updated.mapping_prefix == "new-"
     assert updated.status == "draft"
     assert updated.precheck_status == "pending"
     assert updated.precheck_report_json is None
@@ -628,7 +624,7 @@ def test_update_draft_migration_rejects_cross_account_when_admin_scope_missing_o
         BucketMigrationCreateRequest(
             source_context_id=str(source.id),
             target_context_id=str(target.id),
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
         ),
         user,
     )
@@ -663,7 +659,7 @@ def test_update_draft_migration_rejects_non_draft_status(db_session):
         BucketMigrationCreateRequest(
             source_context_id=str(source.id),
             target_context_id=str(target.id),
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
         ),
         user,
     )
@@ -763,7 +759,7 @@ def test_continue_after_presync_moves_items_to_cutover_step(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="pre_sync",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
 
@@ -790,7 +786,7 @@ def test_claim_next_runnable_migration_assigns_exclusive_lease(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="one_shot",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
     migration.status = "queued"
@@ -818,7 +814,7 @@ def test_claim_next_runnable_migration_reclaims_expired_lease(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="one_shot",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
     migration.status = "queued"
@@ -859,7 +855,7 @@ def test_claim_next_runnable_migration_respects_max_active_per_endpoint(db_sessi
         BucketMigrationCreateRequest(
             source_context_id=str(source_a.id),
             target_context_id=str(target_a.id),
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
         ),
         user,
     )
@@ -867,7 +863,7 @@ def test_claim_next_runnable_migration_respects_max_active_per_endpoint(db_sessi
         BucketMigrationCreateRequest(
             source_context_id=f"s3u-{source_b_user.id}",
             target_context_id=str(target_b.id),
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-b")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-b", target_bucket="bucket-b-dst")],
         ),
         user,
     )
@@ -875,7 +871,7 @@ def test_claim_next_runnable_migration_respects_max_active_per_endpoint(db_sessi
         BucketMigrationCreateRequest(
             source_context_id=str(source_c.id),
             target_context_id=str(target_c.id),
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-c")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-c", target_bucket="bucket-c-dst")],
         ),
         user,
     )
@@ -913,7 +909,7 @@ def test_claim_next_runnable_migration_rechecks_endpoint_limit_after_claim(db_se
         BucketMigrationCreateRequest(
             source_context_id=str(source_a.id),
             target_context_id=str(target_a.id),
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
         ),
         user,
     )
@@ -921,7 +917,7 @@ def test_claim_next_runnable_migration_rechecks_endpoint_limit_after_claim(db_se
         BucketMigrationCreateRequest(
             source_context_id=f"s3u-{source_b_user.id}",
             target_context_id=str(target_b.id),
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-b")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-b", target_bucket="bucket-b-dst")],
         ),
         user,
     )
@@ -1392,7 +1388,7 @@ def test_failed_strong_transfer_verification_retains_source(db_session):
         target_context_id=str(target.id),
         mode="one_shot",
         strong_integrity_check=True,
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
     item = migration.items[0]
@@ -1439,7 +1435,7 @@ def test_verified_copy_retains_source_even_when_strong_check_is_selected(db_sess
         target_context_id=str(target.id),
         mode="one_shot",
         strong_integrity_check=True,
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
     item = migration.items[0]
@@ -1484,7 +1480,7 @@ def test_verified_copy_retains_source_without_optional_strong_check(db_session):
         target_context_id=str(target.id),
         mode="one_shot",
         strong_integrity_check=False,
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
     item = migration.items[0]
@@ -1553,7 +1549,7 @@ def test_start_migration_requires_precheck_passed(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="one_shot",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
 
@@ -1586,7 +1582,7 @@ def test_run_precheck_interruption_persists_canonical_report(db_session):
             source_context_id=str(source.id),
             target_context_id=str(target.id),
             mode="one_shot",
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
         ),
         user,
     )
@@ -1628,7 +1624,7 @@ def test_run_precheck_passed_then_start_allowed(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="one_shot",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
 
@@ -1679,7 +1675,7 @@ def test_run_precheck_failed_blocks_start(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="one_shot",
-        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+        buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
     )
     migration = service.create_migration(payload, user)
 
@@ -3502,7 +3498,7 @@ def test_add_event_sanitizes_exception_text_before_persistence(db_session):
             source_context_id=str(source.id),
             target_context_id=str(target.id),
             mode="one_shot",
-            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
         ),
         user,
     )

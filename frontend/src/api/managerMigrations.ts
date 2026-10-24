@@ -79,14 +79,13 @@ type BucketMigrationItemStatus =
 
 type BucketMigrationBucketMapping = {
   source_bucket: string;
-  target_bucket?: string | null;
+  target_bucket: string;
 };
 
 type BucketMigrationDraftRequest = {
   source_context_id: string;
   target_context_id: string;
   buckets: BucketMigrationBucketMapping[];
-  mapping_prefix?: string;
   mode?: BucketMigrationMode;
   copy_bucket_settings?: boolean;
   strong_integrity_check?: boolean;
@@ -153,7 +152,6 @@ export type BucketMigrationView = {
   lock_target_writes: boolean;
   use_same_endpoint_copy: boolean;
   auto_grant_source_read_for_copy: boolean;
-  mapping_prefix: string | null;
   status: BucketMigrationStatus;
   pause_requested: boolean;
   cancel_requested: boolean;
