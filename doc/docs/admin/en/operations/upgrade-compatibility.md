@@ -549,6 +549,13 @@ the application API.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 endpoint health status segment cleanup
+
+Migration \`0192_remove_endpoint_health_checks_count\` removes the unused
+\`endpoint_health_status_segments.checks_count\` column. Health status segments
+continue to retain their time range and latency aggregates; latency aggregation
+uses the separate \`latency_sample_count\` state.
+
 ## 2026-10 Portal deleted-folder restore progress cleanup
 
 Portal deleted-folder restore progress events no longer include the unused
