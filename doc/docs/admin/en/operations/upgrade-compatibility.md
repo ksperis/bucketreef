@@ -497,6 +497,16 @@ the frontend.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 authentication response cleanup
+
+Authentication responses no longer expose the unused S3-session
+`session_id` and `user_uid` descriptor fields or the external-identity
+`link_request_id`. Session and RGW user identifiers remain internal to
+authentication and audit workflows, and external-identity link requests remain
+traceable through audit records.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

@@ -16,11 +16,9 @@ type SessionCapabilities = {
 };
 
 export type AuthSessionDescriptor = {
-    session_id: string;
     actor_type: string;
     account_id: string | null;
     account_name: string | null;
-    user_uid: string | null;
     capabilities: SessionCapabilities;
 };
 
@@ -29,7 +27,6 @@ export type AuthenticationResponse = {
   user: AuthUser | null;
   session: AuthSessionDescriptor | null;
   redirect_path: string | null;
-  link_request_id: string | null;
   recovery_codes: string[] | null;
 };
 

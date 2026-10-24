@@ -164,7 +164,6 @@ def external_identity_link_response(
         user=None,
         session=None,
         redirect_path=None,
-        link_request_id=link_request_id,
         recovery_codes=None,
     )
 
