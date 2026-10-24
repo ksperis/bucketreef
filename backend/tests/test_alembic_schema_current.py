@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0182_canonical_bucket_migration_diagnostics"
+_EXPECTED_ALEMBIC_HEAD = "0185_remove_bucket_migration_mapping_prefix"
 
 
 def _alembic_config() -> Config:
