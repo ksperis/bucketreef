@@ -391,6 +391,16 @@ failures remain available through `cleanup_error`.
 Deploy the migration, backend, and frontend together. Downgrade recreates the
 retired per-item status with its historical `idle` default.
 
+## 2026-10 bucket migration read-model cleanup
+
+Bucket migration list/detail responses no longer expose runtime fields that the
+Manager frontend never consumed. The trimmed fields include internal worker and
+revision state, unused timestamps and counters, plus the persisted strong-integrity
+setting; execution state remains stored and used by the backend exactly as before.
+
+Deploy the backend and frontend together. This cleanup changes only the internal
+application API response shape and does not require a database migration.
+
 ## 2026-10 bucket migration execution strategy column
 
 Migration `0179_bucket_migration_execution_strategy` replaces the generic

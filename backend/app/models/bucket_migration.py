@@ -129,7 +129,6 @@ class BucketMigrationItemView(ApiModel):
     target_bucket: str
     status: BucketMigrationItemStatus
     step: str
-    pre_sync_done: bool
     read_only_applied: bool
     target_lock_applied: bool
     target_created_by_migration: bool
@@ -138,21 +137,13 @@ class BucketMigrationItemView(ApiModel):
     cleanup_error: Optional[str]
 
     objects_copied: int
-    objects_deleted: int
 
-    source_count: Optional[int]
-    target_count: Optional[int]
-    matched_count: Optional[int]
     different_count: Optional[int]
     only_source_count: Optional[int]
     only_target_count: Optional[int]
     diff_sample: Optional[dict]
 
     error_message: Optional[str]
-    started_at: Optional[datetime]
-    finished_at: Optional[datetime]
-    created_at: datetime
-    updated_at: datetime
 
 
 class BucketMigrationEventView(ApiModel):
@@ -166,25 +157,20 @@ class BucketMigrationEventView(ApiModel):
 
 class BucketMigrationView(ApiModel):
     id: int
-    created_by_user_id: Optional[int]
 
     source_context_id: str
     target_context_id: str
     mode: BucketMigrationMode
     copy_bucket_settings: bool
-    strong_integrity_check: bool
     lock_target_writes: bool
     use_same_endpoint_copy: bool
     auto_grant_source_read_for_copy: bool
 
     status: BucketMigrationStatus
-    pause_requested: bool
-    cancel_requested: bool
     precheck_status: BucketMigrationPrecheckStatus
     precheck_report: Optional[dict]
     precheck_checked_at: Optional[datetime]
     configuration_revision: int
-    checked_revision: Optional[int]
     preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"]
     preparation_active_checks: bool
     preparation_completed_items: int
@@ -193,8 +179,6 @@ class BucketMigrationView(ApiModel):
     maintenance_error: Optional[str]
     available_actions: dict[str, BucketMigrationActionAvailability]
 
-    parallelism_max: int
-
     total_items: int
     completed_items: int
     failed_items: int
@@ -202,12 +186,6 @@ class BucketMigrationView(ApiModel):
     awaiting_items: int
 
     error_message: Optional[str]
-
-    started_at: Optional[datetime]
-    finished_at: Optional[datetime]
-    last_heartbeat_at: Optional[datetime]
-
-    created_at: datetime
     updated_at: datetime
 
 
