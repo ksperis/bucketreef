@@ -25,19 +25,20 @@ from app.routers.manager.iam_common import (
     get_iam_service_for_context,
 )
 from app.services.audit_service import AuditService
-from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
+from app.services.resource_name_validation import validate_inline_policy_request
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.manager_iam_support import (
+    create_iam_user,
     load_iam_user_details,
     load_inline_policies,
     managed_iam_user_source,
     resolve_attached_policy,
     save_inline_policy,
     update_iam_user,
+    validate_iam_user_create,
 )
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_sources import iam_source_reference
-from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.rgw_iam import RGWIAMService
 
 router = APIRouter(prefix="/manager/iam/users", tags=["manager-iam-users"])
@@ -131,26 +132,13 @@ def create_user(
     current_user: ManagerActor = Depends(require_iam_capable_manager),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> IAMUserWithKey:
-    if any(group in PORTAL_MANAGED_IAM_GROUP_NAMES for group in (payload.groups or [])):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Portal-managed IAM groups cannot be assigned through generic IAM user creation",
-        )
-    validate_inline_policy_requests(payload.inline_policies, "user", context)
+    try:
+        validate_iam_user_create(payload, context)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
     service = get_iam_service_for_context(context)
     try:
-        created_user, created_key = service.create_user(payload.name, create_key=payload.create_key)
-        # Optionally attach user to groups
-        if payload.groups:
-            for group_name in payload.groups:
-                service.add_user_to_group(group_name, payload.name)
-        # Optionally attach managed policies
-        if payload.policies:
-            for policy_arn in payload.policies:
-                service.attach_user_policy(payload.name, policy_arn)
-        if payload.inline_policies:
-            for inline in payload.inline_policies:
-                service.put_user_inline_policy(payload.name, inline.name, inline.document)
+        result = create_iam_user(service, payload)
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -163,10 +151,10 @@ def create_user(
                 "groups": payload.groups or [],
                 "policies": payload.policies or [],
                 "inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else [],
-                "access_key_created": bool(created_key),
+                "access_key_created": result.access_key is not None,
             },
         )
-        return IAMUserWithKey(**created_user.model_dump(), access_key=created_key)
+        return result
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 

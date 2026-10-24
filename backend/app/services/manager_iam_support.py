@@ -12,13 +12,16 @@ from app.core.domain_errors import (
     ManagerIAMCredentialsMissingError,
     ManagerIAMManagedUserConflictError,
     ManagerIAMUserNotFoundError,
+    ResourceConflictError,
 )
 from app.db import AccountIAMUser
-from app.models.iam import IAMUser, IAMUserUpdate
+from app.models.iam import IAMUser, IAMUserCreate, IAMUserUpdate, IAMUserWithKey
 from app.models.policy import InlinePolicy, Policy
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_sources import iam_source_reference
+from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
+from app.services.resource_name_validation import validate_inline_policy_requests
 from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.s3_endpoint import resolve_iam_client_options
@@ -122,6 +125,34 @@ def update_iam_user(
         name_updated=new_name is not None,
         path_updated=new_path is not None,
     )
+
+
+def validate_iam_user_create(
+    payload: IAMUserCreate,
+    context: S3ExecutionContext,
+) -> None:
+    if any(group in PORTAL_MANAGED_IAM_GROUP_NAMES for group in (payload.groups or [])):
+        raise ResourceConflictError(
+            "Portal-managed IAM groups cannot be assigned through generic IAM user creation"
+        )
+    validate_inline_policy_requests(payload.inline_policies, "user", context)
+
+
+def create_iam_user(
+    service: RGWIAMService,
+    payload: IAMUserCreate,
+) -> IAMUserWithKey:
+    created_user, created_key = service.create_user(
+        payload.name,
+        create_key=payload.create_key,
+    )
+    for group_name in payload.groups or []:
+        service.add_user_to_group(group_name, payload.name)
+    for policy_arn in payload.policies or []:
+        service.attach_user_policy(payload.name, policy_arn)
+    for inline in payload.inline_policies or []:
+        service.put_user_inline_policy(payload.name, inline.name, inline.document)
+    return IAMUserWithKey(**created_user.model_dump(), access_key=created_key)
 
 
 def validate_inline_policy_name(payload: InlinePolicy, policy_name: str) -> None:
