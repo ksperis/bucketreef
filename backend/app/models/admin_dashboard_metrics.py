@@ -11,9 +11,6 @@ from app.models.traffic import TrafficSeriesPoint
 class AdminDashboardEndpoint(ApiModel):
     endpoint_id: int
     name: str
-    admin_endpoint_url: Optional[str]
-    storage_enabled: bool
-    traffic_enabled: bool
 
 
 class AdminDashboardScope(ApiModel):

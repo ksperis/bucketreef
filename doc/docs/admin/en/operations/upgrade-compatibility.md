@@ -517,6 +517,16 @@ the frontend response.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 admin dashboard scope response cleanup
+
+The Admin dashboard scope response now returns only each supervised endpoint's
+`endpoint_id` and `name`. Internal Admin Ops URLs and per-feature enablement
+flags remain backend inputs for collection, while collection failures continue
+to expose their sanitized endpoint URL through `coverage.issues` where the
+frontend actually displays it.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the
