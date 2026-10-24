@@ -38,32 +38,22 @@ export type BucketMigrationPrecheckEntry = {
 
 type BucketMigrationPrecheckItemReport = {
   item_id: number;
-  state?: "ready" | "blocked" | "unverified" | "warning";
-  settings_copied?: string[];
-  settings_omitted?: string[];
-  source_bucket?: string;
-  target_bucket?: string;
-  strategy?: string;
-  blocking?: boolean;
-  source_object_count?: number | null;
-  target_object_count?: number | null;
-  source_profile?: Record<string, unknown> | null;
-  target_profile?: Record<string, unknown> | null;
-  checks?: BucketMigrationPrecheckEntry[];
-  errors?: number;
-  warnings?: number;
+  state: "ready" | "blocked" | "unverified" | "warning";
+  blocking: boolean;
+  warnings: number;
+  settings_copied: string[];
+  settings_omitted: string[];
+  source_bucket: string;
+  strategy: string;
+  source_object_count: number | null;
+  checks: BucketMigrationPrecheckEntry[];
 };
 
 export type BucketMigrationPrecheckReport = {
-  status: BucketMigrationPrecheckStatus;
-  checked_at: string;
-  checks?: BucketMigrationPrecheckEntry[];
+  checks: BucketMigrationPrecheckEntry[];
   items: BucketMigrationPrecheckItemReport[];
   errors: number;
   warnings: number;
-  summary: Record<string, unknown>;
-  capabilities: Record<string, unknown>;
-  unsupported_features: string[];
 };
 
 type BucketMigrationItemStatus =

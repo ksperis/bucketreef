@@ -50,14 +50,10 @@ function buildPrecheckReport(
   overrides: Partial<BucketMigrationPrecheckReport> = {},
 ): BucketMigrationPrecheckReport {
   return {
-    status: "pending",
-    checked_at: "2026-03-05T10:00:00Z",
+    checks: [],
     items: [],
     errors: 0,
     warnings: 0,
-    summary: {},
-    capabilities: {},
-    unsupported_features: [],
     ...overrides,
   };
 }
@@ -75,21 +71,19 @@ function buildDetail(): BucketMigrationDetail {
     status: "running",
     precheck_status: "passed",
     precheck_report: buildPrecheckReport({
-      status: "failed",
       errors: 1,
       warnings: 1,
-      summary: {
-        blocking_errors: 1,
-        warnings: 1,
-        infos: 2,
-      },
       items: [
         {
           item_id: 101,
-          errors: 0,
-          warnings: 1,
+          source_bucket: "bucket-running",
           strategy: "skip_existing",
+          state: "warning",
           blocking: false,
+          warnings: 1,
+          source_object_count: 25,
+          settings_copied: ["versioning"],
+          settings_omitted: ["object_lock"],
           checks: [
             {
               code: "target_exists",
@@ -109,10 +103,14 @@ function buildDetail(): BucketMigrationDetail {
         },
         {
           item_id: 103,
-          errors: 1,
-          warnings: 0,
+          source_bucket: "bucket-failed",
           strategy: "current_only",
+          state: "blocked",
           blocking: true,
+          warnings: 0,
+          source_object_count: 20,
+          settings_copied: [],
+          settings_omitted: ["versioning"],
           checks: [
             {
               code: "source_access_failed",
