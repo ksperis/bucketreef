@@ -132,6 +132,22 @@ def test_manager_migration_list_is_scoped_to_authorized_contexts(client, db_sess
         assert response.status_code == 200
         payload = response.json()
         assert [entry["id"] for entry in payload["items"]] == [migration_in_scope]
+        assert set(payload["items"][0]) == {
+            "id",
+            "source_context_id",
+            "target_context_id",
+            "status",
+            "precheck_checked_at",
+            "preparation_status",
+            "preparation_completed_items",
+            "maintenance_status",
+            "total_items",
+            "completed_items",
+            "failed_items",
+            "skipped_items",
+            "awaiting_items",
+            "updated_at",
+        }
 
         filtered = client.get("/api/manager/migrations", params={"context_id": "30"})
         assert filtered.status_code == 200

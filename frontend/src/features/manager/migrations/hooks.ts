@@ -12,7 +12,7 @@ import {
   listManagerMigrations,
   streamManagerMigration,
   type BucketMigrationDetail,
-  type BucketMigrationView,
+  type BucketMigrationListItem,
 } from "../../../api/managerMigrations";
 import { extractError, normalizeEndpointUrl } from "./shared";
 
@@ -58,7 +58,7 @@ export function useManagerSourceBuckets(sourceContextId: string) {
 }
 
 export function useManagerMigrationsList(sourceContextId: string) {
-  const [migrations, setMigrations] = useState<BucketMigrationView[]>([]);
+  const [migrations, setMigrations] = useState<BucketMigrationListItem[]>([]);
   const [migrationsLoading, setMigrationsLoading] = useState(true);
   const [migrationsError, setMigrationsError] = useState<string | null>(null);
 

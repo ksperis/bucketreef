@@ -1,5 +1,8 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import type { BucketMigrationView } from "../../../api/managerMigrations";
+import type {
+  BucketMigrationListItem,
+  BucketMigrationView,
+} from "../../../api/managerMigrations";
 import { useManagerI18n } from "../managerI18n";
 
 export function MigrationStages({ current }: { current: number }) {
@@ -33,7 +36,12 @@ export function MigrationStages({ current }: { current: number }) {
   );
 }
 
-export function migrationLabel(migration: BucketMigrationView): string {
+type MigrationLabelState = Pick<
+  BucketMigrationView | BucketMigrationListItem,
+  "status" | "preparation_status" | "maintenance_status" | "precheck_checked_at"
+>;
+
+export function migrationLabel(migration: MigrationLabelState): string {
   if (
     migration.maintenance_status === "queued" ||
     migration.maintenance_status === "running"
@@ -42,7 +50,7 @@ export function migrationLabel(migration: BucketMigrationView): string {
   if (
     migration.status === "draft" &&
     migration.preparation_status === "unverified" &&
-    migration.precheck_report
+    migration.precheck_checked_at
   )
     return "Active checks required";
   if (migration.status === "draft")

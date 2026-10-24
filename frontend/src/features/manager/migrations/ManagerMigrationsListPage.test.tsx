@@ -3,8 +3,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  BucketMigrationListItem,
   BucketMigrationStatus,
-  BucketMigrationView,
 } from "../../../api/managerMigrations";
 import ManagerMigrationsListPage from "./ManagerMigrationsListPage";
 
@@ -26,34 +26,21 @@ vi.mock("../ExecutionContextProvider", () => ({
   }),
 }));
 
-function buildMigration(id: number, status: BucketMigrationStatus): BucketMigrationView {
+function buildMigration(id: number, status: BucketMigrationStatus): BucketMigrationListItem {
   return {
     id,
     source_context_id: "src-ctx",
     target_context_id: "tgt-ctx",
-    mode: "one_shot",
-    copy_bucket_settings: false,
-    lock_target_writes: true,
-    use_same_endpoint_copy: false,
-    auto_grant_source_read_for_copy: false,
     status,
-    precheck_status: "passed",
-    precheck_report: null,
     precheck_checked_at: null,
-    configuration_revision: 1,
     preparation_status: status === "draft" ? "ready" : "unverified",
-    preparation_active_checks: false,
     preparation_completed_items: 2,
-    maintenance_operation: null,
     maintenance_status: "idle",
-    maintenance_error: null,
-    available_actions: {},
     total_items: 2,
     completed_items: 1,
     failed_items: 0,
     skipped_items: 0,
     awaiting_items: 0,
-    error_message: null,
     updated_at: "2026-03-05T10:00:01Z",
   };
 }

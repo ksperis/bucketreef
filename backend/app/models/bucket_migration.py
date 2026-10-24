@@ -211,8 +211,25 @@ class BucketMigrationDetail(BucketMigrationView):
     recent_events: list[BucketMigrationEventView]
 
 
+class BucketMigrationListItem(ApiModel):
+    id: int
+    source_context_id: str
+    target_context_id: str
+    status: BucketMigrationStatus
+    precheck_checked_at: Optional[datetime]
+    preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"]
+    preparation_completed_items: int
+    maintenance_status: str
+    total_items: int
+    completed_items: int
+    failed_items: int
+    skipped_items: int
+    awaiting_items: int
+    updated_at: datetime
+
+
 class BucketMigrationListResponse(ApiModel):
-    items: list[BucketMigrationView]
+    items: list[BucketMigrationListItem]
 
 
 class BucketMigrationActionResponse(ApiModel):
