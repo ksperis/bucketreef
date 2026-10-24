@@ -440,35 +440,19 @@ class PortalStorageSpacesMixin:
         ).all()
         storage_space_name = self._display_storage_space_name(bucket_name, metadata)
         origin = self._storage_space_origin(metadata)
-        bucket_already_absent = not bucket_exists
 
         try:
-            if bucket_exists:
-                try:
-                    bucket_already_absent = not self.delete_empty_bucket(access, bucket_name)
-                except s3_deletion.BucketNotEmptyError as exc:
-                    raise PortalStorageSpaceNotEmpty(
-                        "Storage Space is not empty. Delete all current files and clean up its history before deleting it."
-                    ) from exc
-
-            self._delete_storage_space_external_iam_credentials(access.account, metadata)
-            now = utcnow()
-            for link in public_links:
-                link.revoked_at = now
-                self.db.add(link)
-            self.db.execute(
-                delete(PortalExternalAccessCredential)
-                .where(PortalExternalAccessCredential.storage_space_metadata_id == metadata.id)
-                .execution_options(synchronize_session=False)
+            bucket_already_absent = self._delete_storage_space_bucket(
+                access,
+                bucket_name,
+                bucket_exists=bucket_exists,
             )
-            self.db.execute(
-                delete(PortalStorageSpaceGrant)
-                .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
-                .execution_options(synchronize_session=False)
+            self._delete_storage_space_state(
+                access.account,
+                metadata,
+                public_links,
+                participant_user_ids,
             )
-            self.db.delete(metadata)
-            self.db.flush()
-            self._sync_storage_space_user_projections(access.account, participant_user_ids)
             self.db.commit()
         except Exception:
             self.db.rollback()
@@ -485,6 +469,48 @@ class PortalStorageSpacesMixin:
             "public_link_count": len(public_links),
             "bucket_already_absent": bucket_already_absent,
         }
+
+    def _delete_storage_space_bucket(
+        self,
+        access: "AccountAccess",
+        bucket_name: str,
+        *,
+        bucket_exists: bool,
+    ) -> bool:
+        if not bucket_exists:
+            return True
+        try:
+            return not self.delete_empty_bucket(access, bucket_name)
+        except s3_deletion.BucketNotEmptyError as exc:
+            raise PortalStorageSpaceNotEmpty(
+                "Storage Space is not empty. Delete all current files and clean up its history before deleting it."
+            ) from exc
+
+    def _delete_storage_space_state(
+        self,
+        account: S3Account,
+        metadata: PortalStorageSpaceMetadata,
+        public_links: list[DBPortalPublicLink],
+        participant_user_ids: set[int],
+    ) -> None:
+        self._delete_storage_space_external_iam_credentials(account, metadata)
+        now = utcnow()
+        for link in public_links:
+            link.revoked_at = now
+            self.db.add(link)
+        self.db.execute(
+            delete(PortalExternalAccessCredential)
+            .where(PortalExternalAccessCredential.storage_space_metadata_id == metadata.id)
+            .execution_options(synchronize_session=False)
+        )
+        self.db.execute(
+            delete(PortalStorageSpaceGrant)
+            .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
+            .execution_options(synchronize_session=False)
+        )
+        self.db.delete(metadata)
+        self.db.flush()
+        self._sync_storage_space_user_projections(account, participant_user_ids)
 
     def _resolve_storage_space_bucket_name(
         self,
