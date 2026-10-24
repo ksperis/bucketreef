@@ -814,6 +814,45 @@ def test_active_destination_probe_exercises_multipart_tags_and_cleanup(prepared)
     service._buckets.delete_bucket.assert_called_once()
 
 
+def test_same_endpoint_probe_uses_in_memory_source_profile(prepared):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    source = service._resolve_context(migration.source_context_id)
+    target = service._resolve_context(migration.target_context_id)
+    source_client = Mock()
+    source_client.list_objects_v2.return_value = {"Contents": []}
+    target_client = Mock()
+    item.source_snapshot_json = None
+
+    service._context_client = Mock(return_value=source_client)
+    service._probe_same_endpoint_copy(
+        migration,
+        item,
+        source,
+        target,
+        target_client,
+        "probe-bucket",
+        source_profile={
+            "version_scan": {
+                "sample_version": {
+                    "key": "versioned-object",
+                    "version_id": "version-1",
+                }
+            }
+        },
+    )
+
+    target_client.copy_object.assert_called_once_with(
+        Bucket="probe-bucket",
+        Key="copy-check",
+        CopySource={
+            "Bucket": item.source_bucket,
+            "Key": "versioned-object",
+            "VersionId": "version-1",
+        },
+    )
+
+
 def test_probe_interruption_leaves_durable_cleanup_intent(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
