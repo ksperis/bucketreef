@@ -122,6 +122,52 @@ class WebhookDeliveryWorker:
             list(executor.map(self._deliver_one, ids))
         return True
 
+    def _delivery_request(
+        self,
+        delivery: WebhookDelivery,
+        endpoint: WebhookEndpoint,
+    ) -> tuple[bytes, dict[str, str]]:
+        body = delivery.payload_json.encode("utf-8")
+        timestamp = str(int(utcnow().timestamp()))
+        signature = hmac.new(
+            endpoint.signing_secret.encode("utf-8"),
+            timestamp.encode("ascii") + b"." + body,
+            hashlib.sha256,
+        ).hexdigest()
+        return body, {
+            "Content-Type": "application/json",
+            "User-Agent": "bucketreef-webhook/1.0",
+            "X-BucketReef-Event": delivery.event_type,
+            "X-BucketReef-Delivery": delivery.delivery_id,
+            "X-BucketReef-Timestamp": timestamp,
+            "X-BucketReef-Signature": f"v1={signature}",
+        }
+
+    def _apply_delivery_response(self, delivery: WebhookDelivery, response: object) -> None:
+        status_code = int(getattr(response, "status_code", 0) or 0)
+        delivery.last_http_status = status_code or None
+        if 200 <= status_code < 300:
+            now = utcnow()
+            delivery.status = "delivered"
+            delivery.attempt_count = int(delivery.attempt_count or 0) + 1
+            delivery.last_error = None
+            delivery.delivered_at = now
+            delivery.updated_at = now
+            return
+
+        if status_code in _RETRYABLE_HTTP or status_code == 503 or status_code >= 500:
+            headers = getattr(response, "headers", {}) or {}
+            retry_after = self._retry_after_seconds(headers.get("Retry-After"))
+            self._retry_or_fail(
+                delivery,
+                error=f"HTTP {status_code}",
+                retry_after_seconds=retry_after,
+            )
+            return
+
+        delivery.attempt_count = int(delivery.attempt_count or 0) + 1
+        self._fail_terminal(delivery, f"HTTP {status_code}")
+
     def _deliver_one(self, delivery_id: int) -> None:
         with self._session_factory() as db:
             delivery = db.get(WebhookDelivery, delivery_id)
@@ -145,21 +191,7 @@ class WebhookDeliveryWorker:
                 db.commit()
                 return
 
-            body = delivery.payload_json.encode("utf-8")
-            timestamp = str(int(utcnow().timestamp()))
-            signature = hmac.new(
-                endpoint.signing_secret.encode("utf-8"),
-                timestamp.encode("ascii") + b"." + body,
-                hashlib.sha256,
-            ).hexdigest()
-            headers = {
-                "Content-Type": "application/json",
-                "User-Agent": "bucketreef-webhook/1.0",
-                "X-BucketReef-Event": delivery.event_type,
-                "X-BucketReef-Delivery": delivery.delivery_id,
-                "X-BucketReef-Timestamp": timestamp,
-                "X-BucketReef-Signature": f"v1={signature}",
-            }
+            body, headers = self._delivery_request(delivery, endpoint)
 
             try:
                 response = requests.post(
@@ -169,42 +201,12 @@ class WebhookDeliveryWorker:
                     timeout=self._runtime.timeout_seconds,
                     allow_redirects=False,
                 )
-            except requests.RequestException as exc:
-                self._retry_or_fail(delivery, error=exc)
-                db.commit()
-                return
             except Exception as exc:  # noqa: BLE001
                 self._retry_or_fail(delivery, error=exc)
                 db.commit()
                 return
 
-            status_code = int(getattr(response, "status_code", 0) or 0)
-            delivery.last_http_status = status_code or None
-            if 200 <= status_code < 300:
-                now = utcnow()
-                delivery.status = "delivered"
-                delivery.attempt_count = int(delivery.attempt_count or 0) + 1
-                delivery.last_error = None
-                delivery.delivered_at = now
-                delivery.updated_at = now
-                db.commit()
-                return
-
-            retryable = (
-                status_code in _RETRYABLE_HTTP
-                or status_code == 503
-                or status_code >= 500
-            )
-            if retryable:
-                retry_after = self._retry_after_seconds(response.headers.get("Retry-After"))
-                self._retry_or_fail(
-                    delivery,
-                    error=f"HTTP {status_code}",
-                    retry_after_seconds=retry_after,
-                )
-            else:
-                delivery.attempt_count = int(delivery.attempt_count or 0) + 1
-                self._fail_terminal(delivery, f"HTTP {status_code}")
+            self._apply_delivery_response(delivery, response)
             db.commit()
 
     def _retry_or_fail(
