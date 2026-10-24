@@ -115,6 +115,10 @@ def test_migration_covers_every_utc_datetime_column_present_at_revision() -> Non
         "lease_until",
         "updated_at",
     )
+    expected_current_columns["quota_alert_states"] = (
+        "created_at",
+        "updated_at",
+    )
     bucket_migration_columns = expected_current_columns["bucket_migrations"]
     preparation_index = bucket_migration_columns.index("precheck_checked_at") + 1
     expected_current_columns["bucket_migrations"] = (
