@@ -31,6 +31,19 @@ _BucketUiTagDomain = Literal["bucket_ui_ceph_admin", "bucket_ui_storage_ops"]
 _ASSIGNMENT_TARGET_BATCH_SIZE = 200
 
 
+def matches_bucket_ui_tag_filter(
+    tags: Sequence[BucketUiTagDefinitionSummary],
+    requested_ids: set[int],
+    match_mode: str,
+) -> bool:
+    if not requested_ids:
+        return True
+    assigned_ids = {tag.id for tag in tags}
+    if match_mode == "all":
+        return requested_ids.issubset(assigned_ids)
+    return not requested_ids.isdisjoint(assigned_ids)
+
+
 @dataclass(frozen=True)
 class _BucketUiTagMutationPlan:
     additions_by_id: dict[int, TagDefinition]
