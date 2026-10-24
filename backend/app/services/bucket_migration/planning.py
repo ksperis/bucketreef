@@ -489,14 +489,13 @@ class BucketMigrationPlanningMixin:
         self.db.delete(migration)
         self._commit()
 
-    def start_migration(
+    def _validate_start_request(
         self,
-        migration_id: int,
+        migration: BucketMigration,
         *,
-        configuration_revision: int | None = None,
-        confirm_write_interruption: bool = False,
-    ) -> BucketMigration:
-        migration = self.get_migration(migration_id)
+        configuration_revision: int | None,
+        confirm_write_interruption: bool,
+    ) -> None:
         self._assert_migration_creator_access(migration)
         self._assert_cross_account_admin_contexts(
             migration.source_context_id, migration.target_context_id
@@ -510,30 +509,41 @@ class BucketMigrationPlanningMixin:
             raise ValueError(
                 "Confirm the source write interruption before starting an immediate migration"
             )
+
+    def _record_start_precondition_failure(
+        self,
+        migration: BucketMigration,
+        exc: ValueError,
+    ) -> None:
+        from .precheck import _check_entry
+
+        migration.preparation_status = "stale"
+        migration.checked_revision = None
+        migration.precheck_status = "failed"
+        report = _json_loads(migration.precheck_report_json) or {}
+        report["checks"] = [
+            _check_entry(
+                code="start_precondition_changed",
+                severity="error",
+                blocking=True,
+                scope="migration",
+                message=sanitized_error_log_detail(exc),
+            )
+        ]
+        report["errors"] = max(1, report.get("errors", 0))
+        report["status"] = "failed"
+        migration.precheck_report_json = _json_dumps(report)
+        self._commit()
+
+    def _revalidate_start_preconditions(self, migration: BucketMigration) -> None:
         try:
             self._revalidate_transfer_preconditions(migration)
         except ValueError as exc:
-            migration.preparation_status = "stale"
-            migration.checked_revision = None
-            migration.precheck_status = "failed"
-            report = _json_loads(migration.precheck_report_json) or {}
-            from .precheck import _check_entry
-
-            report["checks"] = [
-                _check_entry(
-                    code="start_precondition_changed",
-                    severity="error",
-                    blocking=True,
-                    scope="migration",
-                    message=sanitized_error_log_detail(exc),
-                )
-            ]
-            report["errors"] = max(1, report.get("errors", 0))
-            report["status"] = "failed"
-            migration.precheck_report_json = _json_dumps(report)
-            self._commit()
+            self._record_start_precondition_failure(migration, exc)
             raise
-        if migration.status not in {"draft"}:
+
+    def _validate_start_execution_plan(self, migration: BucketMigration) -> None:
+        if migration.status != "draft":
             raise ValueError("Migration cannot be started from current status")
         if migration.precheck_status != "passed":
             raise ValueError("Precheck must pass before start. Run /precheck first.")
@@ -545,6 +555,8 @@ class BucketMigrationPlanningMixin:
                     "Precheck must be re-run before start. "
                     f"Item '{item.source_bucket}' -> '{item.target_bucket}' is not runnable: {exc}"
                 ) from exc
+
+    def _queue_migration_for_start(self, migration: BucketMigration) -> None:
         self._transition_command(migration, status="queued")
         migration.pause_requested = False
         migration.cancel_requested = False
@@ -563,6 +575,23 @@ class BucketMigrationPlanningMixin:
             item.updated_at = utcnow()
         self._add_event(migration, level="info", message="Migration queued.")
         self._commit()
+
+    def start_migration(
+        self,
+        migration_id: int,
+        *,
+        configuration_revision: int | None = None,
+        confirm_write_interruption: bool = False,
+    ) -> BucketMigration:
+        migration = self.get_migration(migration_id)
+        self._validate_start_request(
+            migration,
+            configuration_revision=configuration_revision,
+            confirm_write_interruption=confirm_write_interruption,
+        )
+        self._revalidate_start_preconditions(migration)
+        self._validate_start_execution_plan(migration)
+        self._queue_migration_for_start(migration)
         self.db.refresh(migration)
         return migration
 
