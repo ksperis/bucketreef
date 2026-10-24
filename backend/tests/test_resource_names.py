@@ -48,6 +48,24 @@ def test_shared_ui_api_contract(vector):
             validate()
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "xn--reserved",
+        "sthree-reserved",
+        "amzn-s3-demo-reserved",
+        "bucket-s3alias",
+        "bucket--ol-s3",
+        "bucket.mrap",
+        "bucket--x-s3",
+        "bucket--table-s3",
+    ],
+)
+def test_bucket_contract_rejects_reserved_names(name):
+    with pytest.raises(ValueError, match="Invalid bucket name"):
+        validate_s3_bucket_name(name)
+
+
 @pytest.mark.parametrize("model", [IAMUserCreate, IAMGroupCreate, IAMRoleCreate, PolicyCreate])
 def test_creation_models_reject_missing_or_invalid_name_at_field(model):
     for name in ["", "bad name", "name*", "é"]:

@@ -246,6 +246,7 @@ def test_source_deletion_cannot_be_requested_in_configuration(prepared):
         "has space",
         "bad..dots",
         "1.2.3.4",
+        "999.999.999.999",
         "bad-",
         "xn--reserved",
         "x" * 64,

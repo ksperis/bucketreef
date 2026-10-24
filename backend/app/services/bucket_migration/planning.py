@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import logging
-import ipaddress
-import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
@@ -21,6 +19,7 @@ from app.models.bucket_migration import (
     BucketMigrationDraftRequest,
     BucketMigrationUpdateRequest,
 )
+from app.utils.resource_names import validate_s3_bucket_name
 from app.utils.time import utcnow
 
 from ._shared import (
@@ -91,27 +90,12 @@ class BucketMigrationPlanningMixin:
                 raise ValueError(
                     f"target bucket is required for source '{source_bucket}'"
                 )
-            invalid_name = (
-                not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", target_bucket)
-                or ".." in target_bucket
-                or ".-" in target_bucket
-                or "-." in target_bucket
-            )
             try:
-                ipaddress.ip_address(target_bucket)
-                invalid_name = True
-            except ValueError:
-                pass
-            if (
-                invalid_name
-                or target_bucket.startswith(("xn--", "sthree-", "amzn-s3-demo-"))
-                or target_bucket.endswith(
-                    ("-s3alias", "--ol-s3", ".mrap", "--x-s3", "--table-s3")
-                )
-            ):
+                validate_s3_bucket_name(target_bucket)
+            except ValueError as exc:
                 raise ValueError(
                     f"Invalid destination bucket name '{target_bucket}'. Use 3–63 lowercase letters, numbers, dots or hyphens."
-                )
+                ) from exc
             if target_bucket in seen_targets:
                 raise ValueError(f"Duplicate target bucket mapping: {target_bucket}")
             seen_targets.add(target_bucket)
