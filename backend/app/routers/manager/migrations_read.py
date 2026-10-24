@@ -28,7 +28,7 @@ from app.services.bucket_migration.runtime import (
 )
 from app.services.mappers.bucket_migration import (
     bucket_migration_to_detail as _migration_to_detail,
-    bucket_migration_to_view as _migration_to_view,
+    bucket_migration_to_list_item as _migration_to_list_item,
 )
 from app.utils.http_errors import raise_http_exception_from_exception
 
@@ -129,7 +129,9 @@ def list_migrations(
 ) -> BucketMigrationListResponse:
     service = build_bucket_migration_service(db, scope)
     migrations = service.list_migrations(limit=limit, context_id=context_id)
-    return BucketMigrationListResponse(items=[_migration_to_view(migration) for migration in migrations])
+    return BucketMigrationListResponse(
+        items=[_migration_to_list_item(migration) for migration in migrations]
+    )
 
 
 @router.get("/{migration_id}", response_model=BucketMigrationDetail)

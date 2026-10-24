@@ -12,6 +12,7 @@ from app.models.bucket_migration import (
     BucketMigrationDetail,
     BucketMigrationEventView,
     BucketMigrationItemView,
+    BucketMigrationListItem,
     BucketMigrationPrecheckItemView,
     BucketMigrationPrecheckReportView,
     BucketMigrationView,
@@ -120,6 +121,25 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         skipped_items=int(migration.skipped_items),
         awaiting_items=int(migration.awaiting_items),
         error_message=migration.error_message,
+        updated_at=migration.updated_at,
+    )
+
+
+def bucket_migration_to_list_item(migration: BucketMigration) -> BucketMigrationListItem:
+    return BucketMigrationListItem(
+        id=migration.id,
+        source_context_id=migration.source_context_id,
+        target_context_id=migration.target_context_id,
+        status=migration.status,
+        precheck_checked_at=migration.precheck_checked_at,
+        preparation_status=preparation_state(migration),
+        preparation_completed_items=migration.preparation_completed_items,
+        maintenance_status=migration.maintenance_status,
+        total_items=int(migration.total_items),
+        completed_items=int(migration.completed_items),
+        failed_items=int(migration.failed_items),
+        skipped_items=int(migration.skipped_items),
+        awaiting_items=int(migration.awaiting_items),
         updated_at=migration.updated_at,
     )
 

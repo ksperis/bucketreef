@@ -549,6 +549,17 @@ the application API.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 bucket migration list response cleanup
+
+The Manager migration list endpoint now returns a dedicated summary read model
+instead of the full migration detail projection. List rows keep context IDs,
+workflow/preparation state, progress counters, maintenance state, and update
+time. Detailed configuration, actions, errors, and precheck reports remain on
+the single-migration endpoint and stream, avoiding unnecessary persisted-report
+parsing during list refreshes.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

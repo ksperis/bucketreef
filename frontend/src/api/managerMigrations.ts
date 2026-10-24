@@ -152,8 +152,25 @@ export type BucketMigrationDetail = BucketMigrationView & {
   recent_events: BucketMigrationEventView[];
 };
 
+export type BucketMigrationListItem = {
+  id: number;
+  source_context_id: string;
+  target_context_id: string;
+  status: BucketMigrationStatus;
+  precheck_checked_at: string | null;
+  preparation_status: "unverified" | "checking" | "blocked" | "ready" | "stale";
+  preparation_completed_items: number;
+  maintenance_status: string;
+  total_items: number;
+  completed_items: number;
+  failed_items: number;
+  skipped_items: number;
+  awaiting_items: number;
+  updated_at: string;
+};
+
 type BucketMigrationListResponse = {
-  items: BucketMigrationView[];
+  items: BucketMigrationListItem[];
 };
 
 type BucketMigrationActionResponse = {
@@ -175,7 +192,7 @@ type ManagerMigrationStreamOptions = {
   onDone?: (event: ManagerMigrationStreamDone) => void;
 };
 
-export async function listManagerMigrations(limit = 100, contextId?: string | null): Promise<BucketMigrationView[]> {
+export async function listManagerMigrations(limit = 100, contextId?: string | null): Promise<BucketMigrationListItem[]> {
   const params: { limit: number; context_id?: string } = { limit };
   if (contextId && contextId.trim()) {
     params.context_id = contextId.trim();
