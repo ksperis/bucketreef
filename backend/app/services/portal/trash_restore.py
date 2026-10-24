@@ -133,7 +133,6 @@ class _PortalDeletedPrefixRestoreRunner:
                         "restore",
                         "Restoring deleted files...",
                         total_candidates_final=True,
-                        current_key=key,
                     )
                 self._check_cancel()
 
@@ -161,7 +160,6 @@ class _PortalDeletedPrefixRestoreRunner:
         message: str,
         *,
         total_candidates_final: bool = False,
-        current_key: str | None = None,
     ) -> None:
         if self.progress_callback is None:
             return
@@ -178,7 +176,6 @@ class _PortalDeletedPrefixRestoreRunner:
                 restored_objects=self.state.restored_objects,
                 failed_objects=self.state.failed_objects,
                 total_candidates_final=total_candidates_final,
-                current_key=current_key,
                 message=message,
             )
         )

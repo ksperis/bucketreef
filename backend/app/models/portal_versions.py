@@ -140,7 +140,6 @@ class PortalDeletedPrefixRestoreProgress(ApiModel):
     restored_objects: int
     failed_objects: int
     total_candidates_final: bool
-    current_key: Optional[str]
     message: Optional[str]
 
 
