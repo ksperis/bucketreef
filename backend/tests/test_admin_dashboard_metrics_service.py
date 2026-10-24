@@ -91,8 +91,8 @@ def test_scope_includes_managed_and_external_without_default_or_admin_dependency
     one.admin_access_key = one.admin_secret_key = None
     db_session.commit()
     assert dashboard.AdminDashboardMetricsService(db_session).scope() == {"endpoints": [
-        {"endpoint_id": one.id, "name": "one", "admin_endpoint_url": "https://one.test", "storage_enabled": True, "traffic_enabled": True},
-        {"endpoint_id": two.id, "name": "two", "admin_endpoint_url": "https://two.test", "storage_enabled": False, "traffic_enabled": True},
+        {"endpoint_id": one.id, "name": "one"},
+        {"endpoint_id": two.id, "name": "two"},
     ]}
 
 
@@ -319,7 +319,7 @@ def test_malformed_storage_responses_are_unavailable_not_empty(db_session):
 def test_endpoint_feature_change_during_collection_is_reported(db_session, monkeypatch):
     row = endpoint(db_session, "changed")
     service = dashboard.AdminDashboardMetricsService(db_session)
-    target = service.scope()["endpoints"][0]
+    target = service._target(row)
     row.features_config = "features:\n  metrics:\n    enabled: false\n  usage:\n    enabled: false\n"
     db_session.commit()
     monkeypatch.setattr(dashboard, "get_supervision_rgw_client", lambda endpoint: pytest.fail("Disabled endpoint must not call RGW"))

@@ -126,8 +126,8 @@ describe("AdminDashboard feature summary", () => {
       total_users: 0,
     });
     mocks.fetchAdminDashboardScope.mockResolvedValue({ endpoints: [
-      { endpoint_id: 1, name: "INRAE-eprod-debug", storage_enabled: true, traffic_enabled: true },
-      { endpoint_id: 2, name: "INRAE-eprod-idf", storage_enabled: true, traffic_enabled: true },
+      { endpoint_id: 1, name: "INRAE-eprod-debug" },
+      { endpoint_id: 2, name: "INRAE-eprod-idf" },
     ] });
     mocks.fetchAdminDashboardStorage.mockResolvedValue({
       cache: { hit: true, expires_at: "2026-06-05T11:46:46Z" },
@@ -765,8 +765,8 @@ describe("AdminDashboard feature summary", () => {
       }],
     }, measurements: Object.fromEntries(["bucket_count", "object_count", "used_bytes"].map((key) => [key, { contributing_count: 1, complete_count: 1 }])) });
     mocks.fetchAdminDashboardScope.mockResolvedValue({ endpoints: [
-      { endpoint_id: 1, name: "Ceph Archive", storage_enabled: true, traffic_enabled: true },
-      { endpoint_id: 3, name: "Ceph Production", storage_enabled: true, traffic_enabled: true },
+      { endpoint_id: 1, name: "Ceph Archive" },
+      { endpoint_id: 3, name: "Ceph Production" },
     ] });
     await renderDashboard();
     const card = screen.getByRole("region", { name: "Storage & traffic" });

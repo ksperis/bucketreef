@@ -60,7 +60,10 @@ class AdminDashboardMetricsService:
         }
 
     def scope(self) -> dict:
-        endpoints = [self._target(endpoint) for endpoint in self._scope_endpoints()]
+        endpoints = [
+            {"endpoint_id": endpoint.id, "name": endpoint.name}
+            for endpoint in self._scope_endpoints()
+        ]
         return {"endpoints": endpoints}
 
     def _cache_scope(self, kind: str) -> tuple[list[dict], str]:

@@ -149,9 +149,6 @@ export type AdminDashboardScope = {
   endpoints: {
     endpoint_id: number;
     name: string;
-    admin_endpoint_url: string | null;
-    storage_enabled: boolean;
-    traffic_enabled: boolean;
   }[];
 };
 
