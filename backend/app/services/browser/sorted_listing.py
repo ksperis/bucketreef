@@ -190,10 +190,10 @@ class SortedObjectSnapshotBuilder:
                 return
 
     def _insert_object(self, store: TemporarySqliteStore, item: dict) -> None:
-        key = item.get("Key")
-        if not isinstance(key, str) or not key:
+        identity = self._object_identity(item)
+        if identity is None:
             return
-        size = int(item.get("Size") or 0)
+        key, size = identity
         if not self.options.include_folder_markers and is_current_folder_marker(
             key=key,
             prefix=self.options.prefix,
@@ -203,12 +203,12 @@ class SortedObjectSnapshotBuilder:
         is_folder_marker = key.endswith("/") and size == 0
         if self.options.recursive and self.options.item_type != "file":
             self._insert_recursive_prefixes(store, key, is_folder_marker)
-        if self.options.item_type == "folder" or (self.options.recursive and is_folder_marker and not self.options.include_folder_markers):
-            return
-        if not self.matches_query(key):
-            return
         storage_class = item.get("StorageClass")
-        if self.options.storage_class and storage_class != self.options.storage_class:
+        if not self._should_store_object(
+            key=key,
+            is_folder_marker=is_folder_marker,
+            storage_class=storage_class,
+        ):
             return
         last_modified_ts, last_modified_iso = self._datetime_values(item.get("LastModified"))
         store.connection.execute(
@@ -227,6 +227,28 @@ class SortedObjectSnapshotBuilder:
                 self.clean_etag(item.get("ETag")),
             ),
         )
+
+    @staticmethod
+    def _object_identity(item: dict) -> tuple[str, int] | None:
+        key = item.get("Key")
+        if not isinstance(key, str) or not key:
+            return None
+        return key, int(item.get("Size") or 0)
+
+    def _should_store_object(
+        self,
+        *,
+        key: str,
+        is_folder_marker: bool,
+        storage_class: object,
+    ) -> bool:
+        if self.options.item_type == "folder":
+            return False
+        if self.options.recursive and is_folder_marker and not self.options.include_folder_markers:
+            return False
+        if not self.matches_query(key):
+            return False
+        return not self.options.storage_class or storage_class == self.options.storage_class
 
     def _insert_recursive_prefixes(
         self,
