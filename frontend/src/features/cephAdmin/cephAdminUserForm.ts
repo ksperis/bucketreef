@@ -6,7 +6,7 @@ export type CephAdminUserCapsMode = NonNullable<CephAdminRgwUserCapsUpdate["mode
 type CephAdminUserFieldErrors = Partial<Record<"maxBuckets" | "quotaSize" | "quotaObjects", string>>;
 
 export function parseCephAdminUserCaps(value: string): string[] {
-  return [...new Set(value.split(/\r?\n|,/).map((entry) => entry.trim()).filter(Boolean))];
+  return [...new Set(value.split(/\r?\n|;/).map((entry) => entry.trim()).filter(Boolean))];
 }
 
 export function validateCephAdminUserLimits(values: {

@@ -37,6 +37,7 @@ from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
+from app.utils.rgw_caps import canonicalize_rgw_caps
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_tenant,
@@ -84,31 +85,7 @@ def _extract_caps(payload: dict[str, Any]) -> list[str]:
     values = payload.get("caps")
     if values is None and isinstance(payload.get("user"), dict):
         values = payload["user"].get("caps")
-    result: list[str] = []
-    if isinstance(values, dict):
-        for key, value in values.items():
-            key_value = normalize_optional_scalar(key)
-            perm_value = normalize_optional_scalar(value)
-            if key_value and perm_value:
-                result.append(f"{key_value}={perm_value}")
-    elif isinstance(values, list):
-        for entry in values:
-            if isinstance(entry, dict):
-                cap_type = normalize_optional_scalar(entry.get("type"))
-                perm = normalize_optional_scalar(entry.get("perm"))
-                if cap_type and perm:
-                    result.append(f"{cap_type}={perm}")
-                elif cap_type:
-                    result.append(cap_type)
-            elif isinstance(entry, str):
-                cleaned = entry.strip()
-                if cleaned:
-                    result.append(cleaned)
-    elif isinstance(values, str):
-        cleaned = values.strip()
-        if cleaned:
-            result.append(cleaned)
-    return list(dict.fromkeys(result))
+    return canonicalize_rgw_caps(values)
 
 
 def _resolve_user_identity(

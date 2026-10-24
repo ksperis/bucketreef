@@ -1,13 +1,13 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import logging
-import re
 from collections.abc import Callable
 from typing import Literal
 
 from app.db import StorageEndpoint, StorageProvider
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.utils.rgw_caps import parse_rgw_caps_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -28,56 +28,6 @@ def _empty_permissions() -> StorageEndpointAdminOpsPermissions:
     return StorageEndpointAdminOpsPermissions.empty()
 
 
-def _append_capability(
-    parsed: dict[str, set[str]],
-    scope: str,
-    permissions: str,
-) -> None:
-    normalized_scope = scope.strip().lower()
-    if not normalized_scope:
-        return
-    scope_permissions = parsed.setdefault(normalized_scope, set())
-    tokens = {
-        token.strip().lower()
-        for token in re.split(r"[,\s]+", permissions)
-        if token.strip()
-    }
-    scope_permissions.update(tokens or {"*"})
-
-
-def _parse_caps_payload(raw_caps: object) -> dict[str, set[str]]:
-    parsed: dict[str, set[str]] = {}
-    if not raw_caps:
-        return parsed
-
-    if isinstance(raw_caps, str):
-        for item in raw_caps.split(";"):
-            scope, separator, permissions = item.partition("=")
-            if separator:
-                _append_capability(parsed, scope, permissions)
-        return parsed
-
-    if isinstance(raw_caps, list):
-        for item in raw_caps:
-            if isinstance(item, str):
-                scope, separator, permissions = item.partition("=")
-                if separator:
-                    _append_capability(parsed, scope, permissions)
-                continue
-            if isinstance(item, dict):
-                scope = str(item.get("type") or item.get("scope") or "").strip()
-                permissions = str(
-                    item.get("perm") or item.get("permissions") or "*"
-                ).strip()
-                _append_capability(parsed, scope, permissions)
-        return parsed
-
-    if isinstance(raw_caps, dict):
-        for scope, permissions in raw_caps.items():
-            _append_capability(parsed, str(scope), str(permissions))
-    return parsed
-
-
 def _allows(scope_permissions: set[str], permission: str) -> bool:
     normalized_permission = permission.strip().lower()
     return bool(
@@ -90,7 +40,7 @@ def _allows(scope_permissions: set[str], permission: str) -> bool:
 
 
 def admin_ops_permissions_from_caps(raw_caps: object) -> StorageEndpointAdminOpsPermissions:
-    parsed_caps = _parse_caps_payload(raw_caps)
+    parsed_caps = parse_rgw_caps_permissions(raw_caps)
     users_permissions = parsed_caps.get("users", set())
     buckets_permissions = parsed_caps.get("buckets", set())
     accounts_permissions = parsed_caps.get("accounts", set())

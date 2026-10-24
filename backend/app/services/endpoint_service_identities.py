@@ -21,7 +21,8 @@ from app.services.operation_lease_service import OperationLeaseHandle, Operation
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import extract_ceph_admin_flags, classify_rgw_credential_failure
 from app.services.rgw_endpoint_clients import get_endpoint_bootstrap_rgw_client
-from app.services.storage_endpoint_admin_permissions import _parse_caps_payload, admin_ops_permissions_from_caps
+from app.services.storage_endpoint_admin_permissions import admin_ops_permissions_from_caps
+from app.utils.rgw_caps import parse_rgw_caps_permissions
 from app.utils.time import utcnow
 from app.utils.storage_endpoint_features import normalize_features_config, required_service_identity_kinds
 
@@ -180,8 +181,8 @@ class EndpointServiceIdentityService:
             if not is_admin or is_system:
                 raise ValueError("Ceph Admin requires admin=true and system=false.")
             return
-        expected = _parse_caps_payload(SERVICE_CAPS[kind])
-        actual = _parse_caps_payload(payload.get("caps"))
+        expected = parse_rgw_caps_permissions(SERVICE_CAPS[kind])
+        actual = parse_rgw_caps_permissions(payload.get("caps"))
         if is_admin or is_system or actual != expected:
             raise ValueError(f"{kind} identity must have only {SERVICE_CAPS[kind]} and no admin/system flag.")
 
