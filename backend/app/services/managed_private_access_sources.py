@@ -170,6 +170,18 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "An assigned RGW User context is required"
             )
+        s3_user = self._load_assigned_rgw_user(user, s3_user_id)
+        self._require_managed_ceph_source(s3_user)
+        principal = self._rgw_user_principal(s3_user)
+        return ManagedPrivateAccessSource(
+            "s3_user",
+            s3_user.id,
+            "rgw_user",
+            principal,
+            None,
+        )
+
+    def _load_assigned_rgw_user(self, user: User, s3_user_id: int) -> S3User:
         resolved = self.access.resolve_user(user)
         if not resolved.has_s3_user(s3_user_id):
             raise ManagedPrivateAccessForbidden(
@@ -180,6 +192,9 @@ class ManagedPrivateAccessSourceResolver:
         ).scalar_one_or_none()
         if s3_user is None:
             raise ManagedPrivateAccessError("RGW User not found")
+        return s3_user
+
+    def _require_managed_ceph_source(self, s3_user: S3User) -> None:
         endpoint = s3_user.storage_endpoint
         if (
             not resolve_feature_policy(
@@ -195,17 +210,13 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "Managed Ceph private access is not allowed for this context"
             )
+
+    @staticmethod
+    def _rgw_user_principal(s3_user: S3User) -> str:
         try:
-            principal = rgw_qualified_uid(s3_user.rgw_user_uid, resolve_target_tenant(s3_user))
+            return rgw_qualified_uid(s3_user.rgw_user_uid, resolve_target_tenant(s3_user))
         except (ValueError, RGWAdminError) as exc:
             raise ManagedPrivateAccessError("The RGW User tenant could not be verified") from exc
-        return ManagedPrivateAccessSource(
-            "s3_user",
-            s3_user.id,
-            "rgw_user",
-            principal,
-            None,
-        )
 
     def derive_destination(
         self,
