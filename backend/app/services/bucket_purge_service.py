@@ -69,6 +69,34 @@ class BucketPurgeOptions:
 
 
 @dataclass
+class _BucketPurgeTotals:
+    listed_objects: int = 0
+    listed_versions: int = 0
+    deleted_objects: int = 0
+    deleted_versions: int = 0
+    failed_count: int = 0
+
+    def add_bucket_result(self, result: BucketPurgeBucketResult) -> None:
+        self.listed_objects += result.listed_objects
+        self.listed_versions += result.listed_versions
+        self.deleted_objects += result.deleted_objects
+        self.deleted_versions += result.deleted_versions
+        self.failed_count += result.failed_count
+
+    def with_progress(
+        self,
+        progress: s3_deletion.BucketContentPurgeProgress,
+    ) -> "_BucketPurgeTotals":
+        return _BucketPurgeTotals(
+            listed_objects=self.listed_objects + progress.listed_objects,
+            listed_versions=self.listed_versions + progress.listed_versions,
+            deleted_objects=self.deleted_objects + progress.deleted_objects,
+            deleted_versions=self.deleted_versions + progress.deleted_versions,
+            failed_count=self.failed_count + progress.failed_count,
+        )
+
+
+@dataclass
 class _BucketDeletePurgeState:
     target: BucketPurgeResolvedTarget
     options: BucketPurgeOptions
@@ -156,11 +184,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
     ) -> BucketPurgeResult:
         started_at = datetime.now(timezone.utc)
         bucket_results: list[BucketPurgeBucketResult] = []
-        total_listed_objects = 0
-        total_listed_versions = 0
-        total_deleted_objects = 0
-        total_deleted_versions = 0
-        total_failed = 0
+        totals = _BucketPurgeTotals()
         initial_entry_estimates = self._resolve_initial_entry_estimates(targets)
         initial_total_entries_estimate = self._sum_known_entry_estimates(initial_entry_estimates)
 
@@ -197,28 +221,20 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                 options,
                 total_buckets=len(targets),
                 completed_buckets=index,
-                base_listed_objects=total_listed_objects,
-                base_listed_versions=total_listed_versions,
-                base_deleted_objects=total_deleted_objects,
-                base_deleted_versions=total_deleted_versions,
-                base_failed_count=total_failed,
+                base_totals=totals,
                 total_entries_estimate=initial_total_entries_estimate,
                 is_last_bucket=index == len(targets) - 1,
                 progress_callback=emit,
                 cancel_check=cancel_check,
             )
             bucket_results.append(bucket_result)
-            total_listed_objects += bucket_result.listed_objects
-            total_listed_versions += bucket_result.listed_versions
-            total_deleted_objects += bucket_result.deleted_objects
-            total_deleted_versions += bucket_result.deleted_versions
-            total_failed += bucket_result.failed_count
+            totals.add_bucket_result(bucket_result)
             total_entries_estimate = self._progress_total_entries_estimate(
                 initial_total_entries_estimate,
-                listed_objects=total_listed_objects,
-                listed_versions=total_listed_versions,
-                deleted_objects=total_deleted_objects,
-                deleted_versions=total_deleted_versions,
+                listed_objects=totals.listed_objects,
+                listed_versions=totals.listed_versions,
+                deleted_objects=totals.deleted_objects,
+                deleted_versions=totals.deleted_versions,
                 total_entries_final=index == len(targets) - 1 and bucket_result.status != "failed",
             )
             total_entries_final = index == len(targets) - 1 and bucket_result.status != "failed"
@@ -231,13 +247,13 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                     context_name=target.context_name,
                     total_buckets=len(targets),
                     completed_buckets=index + 1,
-                    listed_objects=total_listed_objects,
-                    listed_versions=total_listed_versions,
-                    deleted_objects=total_deleted_objects,
-                    deleted_versions=total_deleted_versions,
+                    listed_objects=totals.listed_objects,
+                    listed_versions=totals.listed_versions,
+                    deleted_objects=totals.deleted_objects,
+                    deleted_versions=totals.deleted_versions,
                     total_entries_estimate=total_entries_estimate,
                     total_entries_final=total_entries_final,
-                    failed_count=total_failed,
+                    failed_count=totals.failed_count,
                     bucket_deleted=False,
                     message=f"Completed purge for {target.bucket_name}.",
                 )
@@ -246,7 +262,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         status: BucketPurgeStatus = "completed"
         if bucket_results and all(item.status == "failed" for item in bucket_results):
             status = "failed"
-        elif total_failed > 0 or any(item.status != "completed" for item in bucket_results):
+        elif totals.failed_count > 0 or any(item.status != "completed" for item in bucket_results):
             status = "completed_with_errors"
 
         finished_at = datetime.now(timezone.utc)
@@ -254,11 +270,11 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             status=status,
             total_buckets=len(targets),
             completed_buckets=len(bucket_results),
-            listed_objects=total_listed_objects,
-            listed_versions=total_listed_versions,
-            deleted_objects=total_deleted_objects,
-            deleted_versions=total_deleted_versions,
-            failed_count=total_failed,
+            listed_objects=totals.listed_objects,
+            listed_versions=totals.listed_versions,
+            deleted_objects=totals.deleted_objects,
+            deleted_versions=totals.deleted_versions,
+            failed_count=totals.failed_count,
             bucket_deleted=False,
             started_at=started_at,
             finished_at=finished_at,
@@ -334,11 +350,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         *,
         total_buckets: int,
         completed_buckets: int,
-        base_listed_objects: int,
-        base_listed_versions: int,
-        base_deleted_objects: int,
-        base_deleted_versions: int,
-        base_failed_count: int,
+        base_totals: _BucketPurgeTotals,
         total_entries_estimate: int | None,
         is_last_bucket: bool,
         progress_callback: ProgressCallback,
@@ -348,10 +360,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
         def low_progress(progress: s3_deletion.BucketContentPurgeProgress) -> None:
             stage = _normalize_progress_stage(progress.stage)
-            listed_objects = base_listed_objects + progress.listed_objects
-            listed_versions = base_listed_versions + progress.listed_versions
-            deleted_objects = base_deleted_objects + progress.deleted_objects
-            deleted_versions = base_deleted_versions + progress.deleted_versions
+            current = base_totals.with_progress(progress)
             progress_callback(
                 BucketPurgeProgress(
                     request_id=None,
@@ -361,20 +370,20 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                     context_name=target.context_name,
                     total_buckets=total_buckets,
                     completed_buckets=completed_buckets,
-                    listed_objects=listed_objects,
-                    listed_versions=listed_versions,
-                    deleted_objects=deleted_objects,
-                    deleted_versions=deleted_versions,
+                    listed_objects=current.listed_objects,
+                    listed_versions=current.listed_versions,
+                    deleted_objects=current.deleted_objects,
+                    deleted_versions=current.deleted_versions,
                     total_entries_estimate=self._progress_total_entries_estimate(
                         total_entries_estimate,
-                        listed_objects=listed_objects,
-                        listed_versions=listed_versions,
-                        deleted_objects=deleted_objects,
-                        deleted_versions=deleted_versions,
+                        listed_objects=current.listed_objects,
+                        listed_versions=current.listed_versions,
+                        deleted_objects=current.deleted_objects,
+                        deleted_versions=current.deleted_versions,
                         total_entries_final=is_last_bucket and stage == "completed",
                     ),
                     total_entries_final=is_last_bucket and stage == "completed",
-                    failed_count=base_failed_count + progress.failed_count,
+                    failed_count=current.failed_count,
                     bucket_deleted=False,
                     message=progress.message,
                 )
