@@ -161,37 +161,72 @@ def _extract_lifecycle_rule_status(rule_entry: dict) -> str | None:
     return value or None
 
 
-def _extract_lifecycle_rule_types(rule_entry: dict) -> list[str]:
-    types: list[str] = []
+def _lifecycle_mapping_has_value(
+    rule_entry: dict,
+    section: str,
+    *keys: str,
+) -> bool:
+    value = rule_entry.get(section)
+    return isinstance(value, dict) and any(value.get(key) is not None for key in keys)
 
+
+def _lifecycle_delete_marker_expiration(rule_entry: dict) -> bool:
     expiration = rule_entry.get("Expiration")
-    if isinstance(expiration, dict):
-        if expiration.get("Days") is not None or expiration.get("Date") is not None:
-            types.append("expiration")
-        if expiration.get("ExpiredObjectDeleteMarker") is True:
-            types.append("delete_markers")
+    return isinstance(expiration, dict) and expiration.get("ExpiredObjectDeleteMarker") is True
 
-    noncurrent_expiration = rule_entry.get("NoncurrentVersionExpiration")
-    if isinstance(noncurrent_expiration, dict) and noncurrent_expiration.get("NoncurrentDays") is not None:
-        types.append("noncurrent_expiration")
 
-    abort_incomplete = rule_entry.get("AbortIncompleteMultipartUpload")
-    if isinstance(abort_incomplete, dict) and abort_incomplete.get("DaysAfterInitiation") is not None:
-        types.append("abort_multipart")
+def _lifecycle_transition_present(rule_entry: dict, plural: str, singular: str) -> bool:
+    transitions = rule_entry.get(plural)
+    return (isinstance(transitions, list) and bool(transitions)) or isinstance(
+        rule_entry.get(singular),
+        dict,
+    )
 
-    transitions = rule_entry.get("Transitions")
-    if isinstance(transitions, list) and len(transitions) > 0:
-        types.append("transition")
-    elif isinstance(rule_entry.get("Transition"), dict):
-        types.append("transition")
 
-    noncurrent_transitions = rule_entry.get("NoncurrentVersionTransitions")
-    if isinstance(noncurrent_transitions, list) and len(noncurrent_transitions) > 0:
-        types.append("noncurrent_transition")
-    elif isinstance(rule_entry.get("NoncurrentVersionTransition"), dict):
-        types.append("noncurrent_transition")
+_LifecycleRuleTypePredicate = Callable[[dict], bool]
+_LIFECYCLE_RULE_TYPE_PREDICATES: tuple[tuple[str, _LifecycleRuleTypePredicate], ...] = (
+    (
+        "expiration",
+        lambda entry: _lifecycle_mapping_has_value(entry, "Expiration", "Days", "Date"),
+    ),
+    ("delete_markers", _lifecycle_delete_marker_expiration),
+    (
+        "noncurrent_expiration",
+        lambda entry: _lifecycle_mapping_has_value(
+            entry,
+            "NoncurrentVersionExpiration",
+            "NoncurrentDays",
+        ),
+    ),
+    (
+        "abort_multipart",
+        lambda entry: _lifecycle_mapping_has_value(
+            entry,
+            "AbortIncompleteMultipartUpload",
+            "DaysAfterInitiation",
+        ),
+    ),
+    (
+        "transition",
+        lambda entry: _lifecycle_transition_present(entry, "Transitions", "Transition"),
+    ),
+    (
+        "noncurrent_transition",
+        lambda entry: _lifecycle_transition_present(
+            entry,
+            "NoncurrentVersionTransitions",
+            "NoncurrentVersionTransition",
+        ),
+    ),
+)
 
-    return types
+
+def _extract_lifecycle_rule_types(rule_entry: dict) -> list[str]:
+    return [
+        rule_type
+        for rule_type, predicate in _LIFECYCLE_RULE_TYPE_PREDICATES
+        if predicate(rule_entry)
+    ]
 
 
 def _feature_param_quantifier(rule: BucketFilterRule) -> str:
