@@ -32,6 +32,7 @@ from app.models.s3_account import (
     S3AccountSummary,
     S3AccountUpdate,
 )
+from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.managed_resource_naming import (
     PORTAL_MANAGED_IAM_GROUP_NAMES,
@@ -103,6 +104,14 @@ class _PreparedAccountImport:
     root_uid: str
     root_display_name: str
     rgw_tenant: str
+
+
+@dataclass(frozen=True)
+class _AccountIAMDeletionInventory:
+    users: list[IAMUser]
+    groups: list[IAMGroup]
+    roles: list[IAMRole]
+    group_members: dict[str, list[IAMUser]]
 
 
 class S3AccountsService:
@@ -1050,6 +1059,14 @@ class S3AccountsService:
             return
 
         iam = self._iam_for_account(account)
+        inventory = self._load_account_iam_deletion_inventory(iam)
+        self._require_account_iam_deletion_ready(inventory)
+        self._remove_portal_iam_groups(iam, inventory.groups)
+
+    @staticmethod
+    def _load_account_iam_deletion_inventory(
+        iam: RGWIAMService,
+    ) -> _AccountIAMDeletionInventory:
         try:
             users = iam.list_users()
             groups = iam.list_groups()
@@ -1062,25 +1079,40 @@ class S3AccountsService:
             raise ValueError(
                 f"Unable to verify RGW IAM resources; cannot delete the RGW tenant: {sanitized_error_log_detail(exc)}"
             ) from exc
+        return _AccountIAMDeletionInventory(
+            users=users,
+            groups=groups,
+            roles=roles,
+            group_members=group_members,
+        )
 
+    @staticmethod
+    def _require_account_iam_deletion_ready(
+        inventory: _AccountIAMDeletionInventory,
+    ) -> None:
         unexpected_groups = sorted(
             group.name
-            for group in groups
+            for group in inventory.groups
             if group.name not in PORTAL_MANAGED_IAM_GROUP_NAMES
         )
         groups_with_members = sorted(
             group_name
-            for group_name, members in group_members.items()
+            for group_name, members in inventory.group_members.items()
             if members
         )
-        if users or roles or unexpected_groups or groups_with_members:
+        if inventory.users or inventory.roles or unexpected_groups or groups_with_members:
             raise ValueError(
                 "RGW tenant still has attached IAM resources "
-                f"(users={len(users)}, roles={len(roles)}, "
+                f"(users={len(inventory.users)}, roles={len(inventory.roles)}, "
                 f"groups={len(unexpected_groups)}, groups_with_members={len(groups_with_members)}); "
                 "remove them first."
             )
 
+    @staticmethod
+    def _remove_portal_iam_groups(
+        iam: RGWIAMService,
+        groups: list[IAMGroup],
+    ) -> None:
         try:
             for group in groups:
                 for policy_arn in group.policies or []:
