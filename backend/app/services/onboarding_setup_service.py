@@ -296,28 +296,34 @@ class OnboardingSetupService:
         ):
             raise OnboardingError("ceph_identity_denied")
 
-    def _create_endpoint(
-        self,
-        actor,
-        row,
+    @staticmethod
+    def _new_endpoint_features(
         draft,
-        payload,
-        resources,
         requirements: _EndpointRequirements,
-        credentials: _EndpointCredentials,
         detection,
-    ) -> StorageEndpoint:
+    ) -> StorageEndpointFeatures:
         features = StorageEndpointFeatures()
         features.admin.enabled = requirements.account_api
         features.account.enabled = requirements.account_api
-        features.usage.enabled = draft.supervision and detection.usage if detection else False
-        features.metrics.enabled = draft.supervision
-        endpoint_name = resources.get("endpoint_name") or self._unique_endpoint_name(
-            draft.endpoint_url
+        features.usage.enabled = bool(
+            draft.supervision and detection and detection.usage
         )
-        if not resources.get("endpoint_name"):
-            self.progress.checkpoint(row, endpoint_name=endpoint_name)
-        endpoint_payload = StorageEndpointCreate(
+        features.metrics.enabled = draft.supervision
+        return features
+
+    @classmethod
+    def _new_endpoint_payload(
+        cls,
+        *,
+        endpoint_name: str,
+        draft,
+        payload,
+        requirements: _EndpointRequirements,
+        credentials: _EndpointCredentials,
+        detection,
+    ) -> StorageEndpointCreate:
+        features = cls._new_endpoint_features(draft, requirements, detection)
+        return StorageEndpointCreate(
             name=endpoint_name,
             endpoint_url=draft.endpoint_url,
             region=draft.region or None,
@@ -335,6 +341,31 @@ class OnboardingSetupService:
             supervision_access_key=credentials.supervision[0] or None,
             supervision_secret_key=credentials.supervision[1] or None,
             features_config=dump_features_config(features.model_dump()),
+        )
+
+    def _create_endpoint(
+        self,
+        actor,
+        row,
+        draft,
+        payload,
+        resources,
+        requirements: _EndpointRequirements,
+        credentials: _EndpointCredentials,
+        detection,
+    ) -> StorageEndpoint:
+        endpoint_name = resources.get("endpoint_name") or self._unique_endpoint_name(
+            draft.endpoint_url
+        )
+        if not resources.get("endpoint_name"):
+            self.progress.checkpoint(row, endpoint_name=endpoint_name)
+        endpoint_payload = self._new_endpoint_payload(
+            endpoint_name=endpoint_name,
+            draft=draft,
+            payload=payload,
+            requirements=requirements,
+            credentials=credentials,
+            detection=detection,
         )
         created = self.endpoints.create_endpoint(endpoint_payload)
         self.progress.checkpoint(row, endpoint_id=created.id)
