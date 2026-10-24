@@ -255,36 +255,43 @@ def _filter_value_texts(value: Any) -> list[str]:
     return [normalized for item in values if (normalized := _normalize_filter_value(item))]
 
 
-def _filter_values(entry: PortalServerAccessLogEntry, field: str) -> list[str]:
+_ENTRY_FILTER_FIELDS: dict[str, tuple[str, ...]] = {
+    "action": ("operation_category", "operation", "direction"),
+    "space": ("storage_space_id", "storage_space_name", "bucket_name"),
+    "path": ("object_key", "object_name", "request_uri"),
+}
+
+
+def _identity_filter_values(entry: PortalServerAccessLogEntry) -> list[str]:
     identity = entry.requester_identity
-    if field == "action":
-        return _filter_value_texts([entry.operation_category, entry.operation, entry.direction])
-    if field == "space":
-        return _filter_value_texts([entry.storage_space_id, entry.storage_space_name, entry.bucket_name])
-    if field == "path":
-        return _filter_value_texts([entry.object_key, entry.object_name, entry.request_uri])
+    return _filter_value_texts(
+        [
+            entry.requester,
+            identity.label if identity else None,
+            identity.kind if identity else None,
+            identity.detail if identity else None,
+            identity.access_key_id if identity else None,
+            identity.iam_username if identity else None,
+            identity.user_id if identity else None,
+            identity.email if identity else None,
+        ]
+    )
+
+
+def _result_filter_values(entry: PortalServerAccessLogEntry) -> list[str]:
+    result_label = None
+    if entry.status_code is not None:
+        result_label = "success" if entry.status_code < 400 else "failure"
+    return _filter_value_texts([entry.status_code, entry.error_code, result_label])
+
+
+def _filter_values(entry: PortalServerAccessLogEntry, field: str) -> list[str]:
+    if entry_fields := _ENTRY_FILTER_FIELDS.get(field):
+        return _filter_value_texts([getattr(entry, name) for name in entry_fields])
     if field == "identity":
-        return _filter_value_texts(
-            [
-                entry.requester,
-                identity.label if identity else None,
-                identity.kind if identity else None,
-                identity.detail if identity else None,
-                identity.access_key_id if identity else None,
-                identity.iam_username if identity else None,
-                identity.user_id if identity else None,
-                identity.email if identity else None,
-            ]
-        )
+        return _identity_filter_values(entry)
     if field == "result":
-        result_label = (
-            "success"
-            if entry.status_code is not None and entry.status_code < 400
-            else "failure"
-            if entry.status_code is not None
-            else None
-        )
-        return _filter_value_texts([entry.status_code, entry.error_code, result_label])
+        return _result_filter_values(entry)
     return []
 
 
