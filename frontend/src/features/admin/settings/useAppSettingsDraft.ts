@@ -13,7 +13,6 @@ import {
 } from "../../../auth/useRecentWebAuthnStepUp";
 import { useSettingsDraft } from "../../../components/settings/useSettingsDraft";
 import { extractApiError } from "../../../utils/apiError";
-import { useSession } from "../../../auth/SessionProvider";
 import { useGeneralSettings } from "../../../components/GeneralSettingsContext";
 import {
   mergeSettingsChanges,
@@ -42,7 +41,6 @@ export function useAppSettingsDraft(
 ) {
   const { text } = useAppSettingsI18n();
   const { setGeneralSettings } = useGeneralSettings();
-  const { refresh: refreshSession } = useSession();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const form = useSettingsDraft<AppSettingsValues>({});
   const [error, setError] = useState<SettingsError | null>(null);
@@ -140,7 +138,6 @@ export function useAppSettingsDraft(
       accept(selectSettings(saved, paths));
       conflict.current = null;
       setGeneralSettings(projectGeneralSettings(saved));
-      void refreshSession?.();
       onSaved?.(saved);
       setMessage("saved");
     } catch (err) {

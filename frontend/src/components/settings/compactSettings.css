@@ -148,6 +148,11 @@
     gap: var(--settings-column-gap);
   }
 }
+@media (max-width: 1023px) {
+  :root {
+    --settings-tristate-option-size: 44px;
+  }
+}
 /* A large screen can still be operated by touch, including hybrid laptops. */
 @media (any-pointer: coarse) {
   :root {
@@ -260,7 +265,7 @@
 .settings-tristate-option {
   width: var(--settings-tristate-option-size);
   min-width: var(--settings-tristate-option-size);
-  min-height: calc(var(--settings-tristate-option-size) - 4px);
+  min-height: var(--settings-tristate-option-size);
   padding: 0;
   font-size: 13px;
   line-height: 1;
@@ -380,8 +385,5 @@
   .settings-effective-local {
     justify-content: flex-start;
   }
-}
-@media (any-pointer: coarse) {
-  .settings-tristate-option { min-height: var(--settings-tristate-option-size); }
 }
 @media (max-width: 1023px), (pointer: coarse) { .settings-info-trigger { min-width: 44px; min-height: 44px; } }
