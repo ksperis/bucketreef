@@ -59,5 +59,4 @@ class ApiTokenInfo(ApiModel):
 
 class ApiTokenCreateResponse(ApiModel):
     access_token: str
-    token_type: str
     api_token: ApiTokenInfo

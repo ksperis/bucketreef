@@ -33,7 +33,6 @@ def test_api_token_responses_require_complete_canonical_payloads() -> None:
     }
     assert set(ApiTokenCreateResponse.model_json_schema()["required"]) == {
         "access_token",
-        "token_type",
         "api_token",
     }
 

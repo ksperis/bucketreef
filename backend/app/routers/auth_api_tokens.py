@@ -77,7 +77,6 @@ def create_api_token(
     )
     return ApiTokenCreateResponse(
         access_token=token,
-        token_type="bearer",
         api_token=_to_api_token_info(row),
     )
 
