@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from app.core.sensitive_data import sanitized_error_log_detail, sanitize_error_detail
@@ -111,6 +111,28 @@ class _PlannedItem:
     delete_source_safe: bool
     rollback_safe: bool
     unsupported_features: frozenset[str]
+
+
+@dataclass
+class _PrecheckAggregation:
+    infos: int = 0
+    warnings: int = 0
+    blocking_errors: int = 0
+    same_endpoint_copy_safe: bool = True
+    delete_source_safe: bool = True
+    rollback_safe: bool = True
+    unsupported_features: set[str] = field(default_factory=set)
+
+    def add(self, planned: _PlannedItem) -> None:
+        self.infos += planned.infos
+        self.warnings += planned.warnings
+        self.blocking_errors += planned.blocking_errors
+        self.unsupported_features.update(planned.unsupported_features)
+        self.same_endpoint_copy_safe = (
+            self.same_endpoint_copy_safe and planned.same_endpoint_copy_safe
+        )
+        self.delete_source_safe = self.delete_source_safe and planned.delete_source_safe
+        self.rollback_safe = self.rollback_safe and planned.rollback_safe
 
 
 def _check_entry(
@@ -729,27 +751,21 @@ class BucketMigrationPrecheckPlanner:
         self,
         report: dict[str, Any],
         *,
-        infos: int,
-        warnings: int,
-        blocking_errors: int,
-        same_endpoint_copy_safe: bool,
-        delete_source_safe: bool,
-        rollback_safe: bool,
-        unsupported_features: set[str],
+        aggregation: _PrecheckAggregation,
     ) -> dict[str, Any]:
-        report["same_endpoint_copy_safe"] = same_endpoint_copy_safe
-        report["delete_source_safe"] = delete_source_safe
-        report["rollback_safe"] = rollback_safe
-        report["unsupported_features"] = sorted(unsupported_features)
-        report["errors"] = blocking_errors
-        report["warnings"] = warnings
-        report["status"] = "failed" if blocking_errors > 0 else "passed"
+        report["same_endpoint_copy_safe"] = aggregation.same_endpoint_copy_safe
+        report["delete_source_safe"] = aggregation.delete_source_safe
+        report["rollback_safe"] = aggregation.rollback_safe
+        report["unsupported_features"] = sorted(aggregation.unsupported_features)
+        report["errors"] = aggregation.blocking_errors
+        report["warnings"] = aggregation.warnings
+        report["status"] = "failed" if aggregation.blocking_errors > 0 else "passed"
         report["summary"] = {
             "items": len(report["items"]),
-            "infos": infos,
-            "warnings": warnings,
-            "errors": blocking_errors,
-            "blocking_errors": blocking_errors,
+            "infos": aggregation.infos,
+            "warnings": aggregation.warnings,
+            "errors": aggregation.blocking_errors,
+            "blocking_errors": aggregation.blocking_errors,
             "strategies": {
                 strategy: sum(
                     item.get("strategy") == strategy for item in report["items"]
@@ -762,6 +778,19 @@ class BucketMigrationPrecheckPlanner:
             },
         }
         return report
+
+    def _planned_item_state(self, planned: _PlannedItem) -> str:
+        only_active_pending = all(
+            not entry["blocking"] or entry["code"] == "active_checks_required"
+            for entry in planned.report["checks"]
+        )
+        if only_active_pending and not self._service._preparation_active_checks:
+            return "unverified"
+        if planned.blocking_errors:
+            return "blocked"
+        if planned.warnings:
+            return "warning"
+        return "ready"
 
     def run(
         self, migration: Any, *, checked_at: Any, on_progress=None
@@ -782,13 +811,7 @@ class BucketMigrationPrecheckPlanner:
         same_endpoint_copy_enabled = bool(
             same_endpoint and migration.use_same_endpoint_copy
         )
-        global_same_endpoint_copy_safe = True
-        global_delete_source_safe = True
-        global_rollback_safe = True
-        global_unsupported_features: set[str] = set()
-        blocking_errors = 0
-        warnings = 0
-        infos = 0
+        aggregation = _PrecheckAggregation()
         probe_policy = self._inspector.build_probe_policy(
             copy_bucket_settings=bool(migration.copy_bucket_settings)
         )
@@ -806,42 +829,13 @@ class BucketMigrationPrecheckPlanner:
                 probe_policy=probe_policy,
                 same_endpoint_copy_enabled=same_endpoint_copy_enabled,
             )
-            only_active_pending = all(
-                not entry["blocking"] or entry["code"] == "active_checks_required"
-                for entry in planned.report["checks"]
-            )
-            planned.report["state"] = (
-                "unverified"
-                if only_active_pending
-                and not self._service._preparation_active_checks
-                else (
-                    "blocked"
-                    if planned.blocking_errors
-                    else "warning" if planned.warnings else "ready"
-                )
-            )
+            planned.report["state"] = self._planned_item_state(planned)
             report["items"].append(planned.report)
             if on_progress:
                 on_progress(report)
-            infos += planned.infos
-            warnings += planned.warnings
-            blocking_errors += planned.blocking_errors
-            global_unsupported_features.update(planned.unsupported_features)
-            global_same_endpoint_copy_safe = (
-                global_same_endpoint_copy_safe and planned.same_endpoint_copy_safe
-            )
-            global_delete_source_safe = (
-                global_delete_source_safe and planned.delete_source_safe
-            )
-            global_rollback_safe = global_rollback_safe and planned.rollback_safe
+            aggregation.add(planned)
 
         return self._finalize_report(
             report,
-            infos=infos,
-            warnings=warnings,
-            blocking_errors=blocking_errors,
-            same_endpoint_copy_safe=global_same_endpoint_copy_safe,
-            delete_source_safe=global_delete_source_safe,
-            rollback_safe=global_rollback_safe,
-            unsupported_features=global_unsupported_features,
+            aggregation=aggregation,
         )
