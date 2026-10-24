@@ -391,6 +391,18 @@ failures remain available through `cleanup_error`.
 Deploy the migration, backend, and frontend together. Downgrade recreates the
 retired per-item status with its historical `idle` default.
 
+## 2026-10 bucket migration request-state simplification
+
+Migration `0188_remove_bucket_migration_request_flags` removes the redundant
+`pause_requested` and `cancel_requested` boolean columns. The migration status
+already carries the same request states atomically as `pause_requested` and
+`cancel_requested`, and worker control now reads that status as the single source
+of truth.
+
+Deploy the migration and backend together. Downgrade recreates both booleans and
+derives their values from the matching status so older code sees the historical
+mirrored representation.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

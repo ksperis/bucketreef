@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0187_remove_bucket_migration_cleanup_status"
+_EXPECTED_ALEMBIC_HEAD = "0188_remove_bucket_migration_request_flags"
 
 
 def _alembic_config() -> Config:
