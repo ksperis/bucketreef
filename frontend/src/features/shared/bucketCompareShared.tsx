@@ -625,6 +625,81 @@ export const useBucketCompareConfigFeatures = <TFeature extends string>(
   };
 };
 
+export const useBucketCompareWorkflowState = <
+  TFeature extends string,
+  TResult,
+  TItem extends BucketCompareSettledRunItem<TResult>,
+>({
+  sourceBuckets,
+  targetBuckets,
+  sameTargetSelected,
+  configFeatures,
+}: {
+  sourceBuckets: string[];
+  targetBuckets: string[];
+  sameTargetSelected: boolean;
+  configFeatures: readonly TFeature[];
+}) => {
+  const [mappingMode, setMappingMode] = useState<"by_name" | "manual">("by_name");
+  const [includeContent, setIncludeContent] = useState(true);
+  const [includeConfig, setIncludeConfig] = useState(false);
+  const [ignoreModifiedAfter, setIgnoreModifiedAfter] = useState("");
+  const [parallelism, setParallelism] = useState(4);
+  const [running, setRunning] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [resultSearch, setResultSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BucketCompareRunFilters["status"]>("all");
+  const [diffFilter, setDiffFilter] = useState<BucketCompareRunFilters["differences"]>("all");
+
+  useEffect(() => {
+    if (sameTargetSelected && mappingMode !== "manual") {
+      setMappingMode("manual");
+    }
+  }, [mappingMode, sameTargetSelected]);
+
+  const mapping = useBucketCompareManualMappingState({
+    mappingMode,
+    sourceBuckets,
+    targetBuckets,
+    sameTargetSelected,
+  });
+  const config = useBucketCompareConfigFeatures<TFeature>(configFeatures);
+  const run = useBucketCompareRunState<TResult, TItem>();
+  const clipboard = useCompareVisibleKeysClipboard();
+  const requestControllersRef = useRef(new Set<AbortController>());
+
+  return {
+    mappingMode,
+    setMappingMode,
+    includeContent,
+    setIncludeContent,
+    includeConfig,
+    setIncludeConfig,
+    ignoreModifiedAfter,
+    setIgnoreModifiedAfter,
+    parallelism,
+    setParallelism,
+    running,
+    setRunning,
+    stopping,
+    setStopping,
+    runError,
+    setRunError,
+    resultSearch,
+    setResultSearch,
+    statusFilter,
+    setStatusFilter,
+    diffFilter,
+    setDiffFilter,
+    requestControllersRef,
+    ...mapping,
+    ...config,
+    ...run,
+    ...clipboard,
+  };
+};
+
 export const buildBucketCompareMappingModel = ({
   targetSelected,
   targetKind,

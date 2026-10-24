@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
@@ -50,10 +50,7 @@ import {
   sourceCompareObjectDetailFromDiff,
   summarizeBucketCompareRun,
   targetCompareObjectDetailFromDiff,
-  useBucketCompareConfigFeatures,
-  useBucketCompareManualMappingState,
-  useBucketCompareRunState,
-  useCompareVisibleKeysClipboard,
+  useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
 import {
   formatDownloadTimestamp,
@@ -155,51 +152,61 @@ export default function ManagerBucketCompareModal({
   const [targetBucketNames, setTargetBucketNames] = useState<string[]>([]);
   const [targetBucketsLoading, setTargetBucketsLoading] = useState(false);
   const [targetBucketsError, setTargetBucketsError] = useState<string | null>(null);
-  const [mappingMode, setMappingMode] = useState<"by_name" | "manual">("by_name");
-  const [includeContent, setIncludeContent] = useState(true);
-  const [includeConfig, setIncludeConfig] = useState(false);
-  const [ignoreModifiedAfter, setIgnoreModifiedAfter] = useState("");
-  const [parallelism, setParallelism] = useState(4);
-  const [running, setRunning] = useState(false);
-  const [stopping, setStopping] = useState(false);
-  const [runError, setRunError] = useState<string | null>(null);
   const [lastRunOptions, setLastRunOptions] = useState<CompareRunOptionsSnapshot | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingRemediationAction | null>(null);
   const [downloadFeedback, setDownloadFeedback] = useState<(CompareVisibleKeysCopyFeedback & { id: string }) | null>(null);
   const [downloadInFlight, setDownloadInFlight] = useState<string | null>(null);
-  const [resultSearch, setResultSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | CompareRunItem["status"]>("all");
-  const [diffFilter, setDiffFilter] = useState<"all" | "with_diff" | "no_diff">("all");
   const sameContextSelected = targetContextId === sourceContextId;
   const {
+    mappingMode,
+    setMappingMode,
+    includeContent,
+    setIncludeContent,
+    includeConfig,
+    setIncludeConfig,
+    ignoreModifiedAfter,
+    setIgnoreModifiedAfter,
+    parallelism,
+    setParallelism,
+    running,
+    setRunning,
+    stopping,
+    setStopping,
+    runError,
+    setRunError,
+    resultSearch,
+    setResultSearch,
+    statusFilter,
+    setStatusFilter,
+    diffFilter,
+    setDiffFilter,
     manualMapping,
     parsedRawMapping,
     rawMappingText,
     setManualMapping,
     setRawMappingText,
-  } = useBucketCompareManualMappingState({
-    mappingMode,
-    sourceBuckets: sortedSourceBuckets,
-    targetBuckets: targetBucketNames,
-    sameTargetSelected: sameContextSelected,
-  });
-  const {
     selectedConfigFeatures,
     setSelectedConfigFeatures,
     toggleConfigFeature,
-  } = useBucketCompareConfigFeatures<ManagerBucketCompareConfigFeature>(
-    ALL_CONFIG_FEATURE_KEYS
-  );
-  const {
     cancelRequestedRef,
     items,
     progress,
     setItems,
     setProgress,
     settleRunItem,
-  } = useBucketCompareRunState<ManagerBucketCompareResult, CompareRunItem>();
-  const requestControllersRef = useRef(new Set<AbortController>());
-  const { copyFeedback, copyVisibleKeys } = useCompareVisibleKeysClipboard();
+    requestControllersRef,
+    copyFeedback,
+    copyVisibleKeys,
+  } = useBucketCompareWorkflowState<
+    ManagerBucketCompareConfigFeature,
+    ManagerBucketCompareResult,
+    CompareRunItem
+  >({
+    sourceBuckets: sortedSourceBuckets,
+    targetBuckets: targetBucketNames,
+    sameTargetSelected: sameContextSelected,
+    configFeatures: ALL_CONFIG_FEATURE_KEYS,
+  });
 
   const contextDisplayNameById = useMemo(() => {
     const byId = new Map<string, string>();
@@ -222,12 +229,6 @@ export default function ManagerBucketCompareModal({
       return null;
     });
   }, [targetContextOptions]);
-
-  useEffect(() => {
-    if (sameContextSelected && mappingMode !== "manual") {
-      setMappingMode("manual");
-    }
-  }, [mappingMode, sameContextSelected]);
 
   useEffect(() => {
     if (!targetContextId) {
@@ -469,7 +470,7 @@ export default function ManagerBucketCompareModal({
           : item
       )
     );
-  }, [cancelRequestedRef, running, setItems]);
+  }, [cancelRequestedRef, requestControllersRef, running, setItems, setStopping]);
 
   const handleClose = useCallback(() => {
     stopComparison();
@@ -483,7 +484,7 @@ export default function ManagerBucketCompareModal({
       controllers.forEach((controller) => controller.abort());
       controllers.clear();
     };
-  }, [cancelRequestedRef]);
+  }, [cancelRequestedRef, requestControllersRef]);
 
   const exportGlobalDiff = () => {
     if (items.length === 0) return;

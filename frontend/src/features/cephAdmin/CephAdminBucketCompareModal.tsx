@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
@@ -45,10 +45,7 @@ import {
   sourceCompareObjectDetailFromDiff,
   summarizeBucketCompareRun,
   targetCompareObjectDetailFromDiff,
-  useBucketCompareConfigFeatures,
-  useBucketCompareManualMappingState,
-  useBucketCompareRunState,
-  useCompareVisibleKeysClipboard,
+  useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
 import {
   formatDownloadTimestamp,
@@ -125,48 +122,58 @@ export default function CephAdminBucketCompareModal({
   );
   const [targetBucketsLoading, setTargetBucketsLoading] = useState(false);
   const [targetBucketsError, setTargetBucketsError] = useState<string | null>(null);
-  const [mappingMode, setMappingMode] = useState<"by_name" | "manual">("by_name");
-  const [includeContent, setIncludeContent] = useState(true);
-  const [includeConfig, setIncludeConfig] = useState(false);
-  const [ignoreModifiedAfter, setIgnoreModifiedAfter] = useState("");
-  const [parallelism, setParallelism] = useState(4);
-  const [running, setRunning] = useState(false);
-  const [stopping, setStopping] = useState(false);
-  const [runError, setRunError] = useState<string | null>(null);
   const [pendingExplore, setPendingExplore] = useState<PendingExploreNavigation | null>(null);
-  const [resultSearch, setResultSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | CompareRunItem["status"]>("all");
-  const [diffFilter, setDiffFilter] = useState<"all" | "with_diff" | "no_diff">("all");
   const sameEndpointSelected = targetEndpointId === sourceEndpointId;
   const {
+    mappingMode,
+    setMappingMode,
+    includeContent,
+    setIncludeContent,
+    includeConfig,
+    setIncludeConfig,
+    ignoreModifiedAfter,
+    setIgnoreModifiedAfter,
+    parallelism,
+    setParallelism,
+    running,
+    setRunning,
+    stopping,
+    setStopping,
+    runError,
+    setRunError,
+    resultSearch,
+    setResultSearch,
+    statusFilter,
+    setStatusFilter,
+    diffFilter,
+    setDiffFilter,
     manualMapping,
     parsedRawMapping,
     rawMappingText,
     setManualMapping,
     setRawMappingText,
-  } = useBucketCompareManualMappingState({
-    mappingMode,
-    sourceBuckets: sortedSourceBuckets,
-    targetBuckets: targetBucketNames,
-    sameTargetSelected: sameEndpointSelected,
-  });
-  const {
     selectedConfigFeatures,
     setSelectedConfigFeatures,
     toggleConfigFeature,
-  } = useBucketCompareConfigFeatures<CephAdminBucketCompareConfigFeature>(
-    ALL_CONFIG_FEATURE_KEYS
-  );
-  const {
     cancelRequestedRef,
     items,
     progress,
     setItems,
     setProgress,
     settleRunItem,
-  } = useBucketCompareRunState<CephAdminBucketCompareResult, CompareRunItem>();
-  const requestControllersRef = useRef(new Set<AbortController>());
-  const { copyFeedback, copyVisibleKeys } = useCompareVisibleKeysClipboard();
+    requestControllersRef,
+    copyFeedback,
+    copyVisibleKeys,
+  } = useBucketCompareWorkflowState<
+    CephAdminBucketCompareConfigFeature,
+    CephAdminBucketCompareResult,
+    CompareRunItem
+  >({
+    sourceBuckets: sortedSourceBuckets,
+    targetBuckets: targetBucketNames,
+    sameTargetSelected: sameEndpointSelected,
+    configFeatures: ALL_CONFIG_FEATURE_KEYS,
+  });
 
 
   useEffect(() => {
@@ -181,12 +188,6 @@ export default function CephAdminBucketCompareModal({
       return null;
     });
   }, [targetEndpointOptions]);
-
-  useEffect(() => {
-    if (sameEndpointSelected && mappingMode !== "manual") {
-      setMappingMode("manual");
-    }
-  }, [mappingMode, sameEndpointSelected]);
 
   useEffect(() => {
     if (!targetEndpointId) {
@@ -429,7 +430,7 @@ export default function CephAdminBucketCompareModal({
           : item
       )
     );
-  }, [cancelRequestedRef, running, setItems]);
+  }, [cancelRequestedRef, requestControllersRef, running, setItems, setStopping]);
 
   const handleClose = useCallback(() => {
     stopComparison();
@@ -443,7 +444,7 @@ export default function CephAdminBucketCompareModal({
       requestControllers.forEach((controller) => controller.abort());
       requestControllers.clear();
     };
-  }, [cancelRequestedRef]);
+  }, [cancelRequestedRef, requestControllersRef]);
 
   const exportGlobalDiff = () => {
     if (items.length === 0) return;
