@@ -403,6 +403,17 @@ Deploy the migration and backend together. Downgrade recreates both booleans and
 derives their values from the matching status so older code sees the historical
 mirrored representation.
 
+## 2026-10 onboarding journey state cleanup
+
+Migration `0189_remove_onboarding_journey_dead_state` removes the unused
+`evidence_json`, `readiness_json`, and `validated_at` columns from
+`onboarding_journeys`. The current guided onboarding flow stores its canonical
+draft, created resources, pending step, and configured timestamp; the retired
+columns were no longer populated or consumed.
+
+Deploy the migration and backend together. Downgrade recreates the removed JSON
+columns as empty objects and restores the nullable validation timestamp.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

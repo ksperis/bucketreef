@@ -356,8 +356,6 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
             result.model_dump_json(),
             progress.draft_json,
             progress.resources_json,
-            progress.evidence_json,
-            progress.readiness_json,
             *[row.metadata_json or "" for row in db_session.scalars(sa.select(AuditLog)).all()],
         ]
     )
