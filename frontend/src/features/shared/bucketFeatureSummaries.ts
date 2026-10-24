@@ -187,8 +187,8 @@ export function buildCorsRuleSummaryLines(rules?: unknown[] | null): string[] {
   if (normalized.length === 0) return ["Rules: 0 (not configured)"];
   const lines = [`Rules: ${normalized.length}`];
   normalized.slice(0, 3).forEach((rule, index) => {
-    const methods = displayValue(rule.AllowedMethods ?? rule.allowedMethods ?? []);
-    const origins = displayValue(rule.AllowedOrigins ?? rule.allowedOrigins ?? []);
+    const methods = displayValue(rule.AllowedMethods ?? []);
+    const origins = displayValue(rule.AllowedOrigins ?? []);
     lines.push(joinParts([`Rule ${index + 1}`, methods ? `Methods: ${methods}` : null, origins ? `Origins: ${origins}` : null], "CORS rule"));
   });
   if (normalized.length > 3) lines.push(`+${normalized.length - 3} more rule(s)`);

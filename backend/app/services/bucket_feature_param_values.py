@@ -189,9 +189,9 @@ def _text_list_from_keys(entry: dict, keys: tuple[str, ...]) -> list[str]:
 
 def extract_cors_rule_values(entry: dict, param: str) -> list[str]:
     if param == "cors_allowed_method":
-        return _text_list_from_keys(entry, ("AllowedMethods", "allowedMethods", "allowed_methods", "AllowedMethod"))
+        return _text_list_from_keys(entry, ("AllowedMethods",))
     if param == "cors_allowed_origin":
-        return _text_list_from_keys(entry, ("AllowedOrigins", "allowedOrigins", "allowed_origins", "AllowedOrigin"))
+        return _text_list_from_keys(entry, ("AllowedOrigins",))
     return []
 
 

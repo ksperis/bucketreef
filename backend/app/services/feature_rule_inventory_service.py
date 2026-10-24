@@ -281,38 +281,41 @@ def _normalize_policy_rules(policy: dict[str, Any] | None) -> list[FeatureRuleIn
     ]
 
 
+def _normalize_cors_rule(
+    raw_rule: dict[str, Any],
+    index: int,
+) -> FeatureRuleInventoryRule | None:
+    rule = _as_record(raw_rule)
+    if not rule:
+        return None
+    methods = _display_value(rule.get("AllowedMethods") or [])
+    origins = _display_value(rule.get("AllowedOrigins") or [])
+    headers = _display_value(rule.get("AllowedHeaders") or [])
+    expose = _display_value(rule.get("ExposeHeaders") or [])
+    max_age = rule.get("MaxAgeSeconds")
+    return FeatureRuleInventoryRule(
+        id=f"Rule {index + 1}",
+        type="cors",
+        title=origins or f"CORS rule {index + 1}",
+        summary=_join_parts(
+            [
+                f"Allowed headers: {headers}" if headers else None,
+                f"Exposed headers: {expose}" if expose else None,
+                f"Max age: {max_age}s" if max_age is not None else None,
+            ],
+            fallback="No header or max-age details",
+        ),
+        chips=[methods] if methods else [],
+        raw=_sanitize_raw_payload(rule),
+    )
+
+
 def _normalize_cors_rules(rules: list[dict[str, Any]]) -> list[FeatureRuleInventoryRule]:
-    normalized: list[FeatureRuleInventoryRule] = []
-    for index, raw_rule in enumerate(rules):
-        rule = _as_record(raw_rule)
-        if not rule:
-            continue
-        methods = _display_value(rule.get("AllowedMethods") or rule.get("allowedMethods") or [])
-        origins = _display_value(rule.get("AllowedOrigins") or rule.get("allowedOrigins") or [])
-        headers = _display_value(rule.get("AllowedHeaders") or rule.get("allowedHeaders") or [])
-        expose = _display_value(rule.get("ExposeHeaders") or rule.get("exposeHeaders") or [])
-        max_age = rule.get("MaxAgeSeconds") or rule.get("maxAgeSeconds")
-        chips = []
-        if methods:
-            chips.append(methods)
-        normalized.append(
-            FeatureRuleInventoryRule(
-                id=f"Rule {index + 1}",
-                type="cors",
-                title=origins or f"CORS rule {index + 1}",
-                summary=_join_parts(
-                    [
-                        f"Allowed headers: {headers}" if headers else None,
-                        f"Exposed headers: {expose}" if expose else None,
-                        f"Max age: {max_age}s" if max_age is not None else None,
-                    ],
-                    fallback="No header or max-age details",
-                ),
-                chips=chips,
-                raw=_sanitize_raw_payload(rule),
-            )
-        )
-    return normalized
+    return [
+        normalized
+        for index, raw_rule in enumerate(rules)
+        if (normalized := _normalize_cors_rule(raw_rule, index)) is not None
+    ]
 
 
 def _notification_filter_summary(rule: dict[str, Any]) -> str | None:
