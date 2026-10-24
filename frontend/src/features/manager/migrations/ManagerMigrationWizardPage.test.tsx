@@ -129,7 +129,6 @@ describe("ManagerMigrationWizardPage", () => {
         target_context_id: "tgt-ctx",
         buckets: [{ source_bucket: "bucket-a", target_bucket: "new-bucket" }],
         mode: "pre_sync",
-        delete_source: false,
         auto_grant_source_read_for_copy: false,
       }),
     );

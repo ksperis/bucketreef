@@ -233,9 +233,9 @@ def test_same_endpoint_copy_aggregates_success(prepared):
     assert json.loads(migration.precheck_report_json)["same_endpoint_copy_safe"] is True
 
 
-def test_source_deletion_cannot_be_requested_in_configuration(prepared):
+def test_source_deletion_configuration_field_is_rejected(prepared):
     _, _, payload = prepared
-    with pytest.raises(ValueError, match="separate operation"):
+    with pytest.raises(ValueError, match="delete_source"):
         BucketMigrationCreateRequest(**{**payload.model_dump(), "delete_source": True})
 
 
@@ -687,7 +687,7 @@ def test_partial_retry_does_not_reset_successful_items(prepared):
     assert migration.items[0].status == "pending"
 
 
-def test_cutover_is_explicit_and_never_sets_auto_deletion(prepared):
+def test_cutover_is_explicit_and_keeps_source(prepared):
     service, migration, _ = prepared
     service.run_precheck(migration.id, active_checks=True)
     migration.status = "awaiting_cutover"
@@ -697,7 +697,7 @@ def test_cutover_is_explicit_and_never_sets_auto_deletion(prepared):
         service.continue_after_presync(migration.id)
     service.continue_after_presync(migration.id, confirmed=True)
     assert migration.items[0].step == "apply_read_only"
-    assert not migration.delete_source
+    assert migration.items[0].source_deleted is False
 
 
 def test_maintenance_result_and_actions_are_exposed_without_policy_backups(prepared):

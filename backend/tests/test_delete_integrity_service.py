@@ -160,7 +160,6 @@ def test_delete_user_nulls_nullable_foreign_keys(db_session):
         target_context_id="20",
         mode="one_shot",
         copy_bucket_settings=False,
-        delete_source=False,
         lock_target_writes=True,
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,

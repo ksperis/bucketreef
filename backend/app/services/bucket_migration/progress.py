@@ -516,7 +516,6 @@ class BucketMigrationProgressMixin:
                 "source_context_id": migration.source_context_id,
                 "target_context_id": migration.target_context_id,
                 "copy_bucket_settings": bool(migration.copy_bucket_settings),
-                "delete_source": bool(migration.delete_source),
                 "strong_integrity_check": bool(migration.strong_integrity_check),
                 "lock_target_writes": bool(migration.lock_target_writes),
                 "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),

@@ -34,7 +34,6 @@ function buildMigration(id: number, status: BucketMigrationStatus): BucketMigrat
     target_context_id: "tgt-ctx",
     mode: "one_shot",
     copy_bucket_settings: false,
-    delete_source: false,
     strong_integrity_check: false,
     lock_target_writes: true,
     use_same_endpoint_copy: false,

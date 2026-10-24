@@ -58,7 +58,6 @@ function buildDraftDetail(): BucketMigrationDetail {
     target_context_id: "tgt-ctx",
     mode: "one_shot",
     copy_bucket_settings: true,
-    delete_source: false,
     strong_integrity_check: false,
     lock_target_writes: true,
     use_same_endpoint_copy: false,

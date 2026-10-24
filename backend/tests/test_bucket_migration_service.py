@@ -326,7 +326,6 @@ def test_create_migration_creates_items_and_defaults(db_session):
         mapping_prefix="mig-",
         mode="pre_sync",
         copy_bucket_settings=True,
-        delete_source=False,
         auto_grant_source_read_for_copy=False,
         buckets=[
             BucketMigrationBucketMapping(source_bucket="bucket-a"),
@@ -544,7 +543,6 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
             mapping_prefix="legacy-",
             mode="pre_sync",
             copy_bucket_settings=True,
-            delete_source=False,
             lock_target_writes=True,
             auto_grant_source_read_for_copy=False,
             buckets=[
@@ -575,7 +573,6 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
             mapping_prefix="new-",
             mode="one_shot",
             copy_bucket_settings=False,
-            delete_source=False,
             lock_target_writes=False,
             use_same_endpoint_copy=False,
             auto_grant_source_read_for_copy=False,
@@ -590,7 +587,6 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert updated.target_context_id == str(target_alt.id)
     assert updated.mode == "one_shot"
     assert updated.copy_bucket_settings is False
-    assert updated.delete_source is False
     assert updated.strong_integrity_check is False
     assert updated.lock_target_writes is False
     assert updated.use_same_endpoint_copy is False
@@ -1395,7 +1391,6 @@ def test_failed_strong_transfer_verification_retains_source(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="one_shot",
-        delete_source=False,
         strong_integrity_check=True,
         buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
     )
@@ -1443,7 +1438,6 @@ def test_verified_copy_retains_source_even_when_strong_check_is_selected(db_sess
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="one_shot",
-        delete_source=False,
         strong_integrity_check=True,
         buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
     )
@@ -1489,7 +1483,6 @@ def test_verified_copy_retains_source_without_optional_strong_check(db_session):
         source_context_id=str(source.id),
         target_context_id=str(target.id),
         mode="one_shot",
-        delete_source=False,
         strong_integrity_check=False,
         buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a")],
     )
@@ -4027,7 +4020,6 @@ def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkey
         target_context_id="20",
         mode="one_shot",
         copy_bucket_settings=False,
-        delete_source=False,
         lock_target_writes=True,
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
@@ -4069,7 +4061,9 @@ def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkey
         sa.select(WebhookDelivery).where(WebhookDelivery.endpoint_id == webhook.id)
     ).one()
     assert delivery.event_type == MIGRATION_EVENT_TYPE
-    assert json.loads(delivery.payload_json)["data"]["migration"]["id"] == migration.id
+    webhook_migration = json.loads(delivery.payload_json)["data"]["migration"]
+    assert webhook_migration["id"] == migration.id
+    assert "delete_source" not in webhook_migration
 
 
 
@@ -4079,7 +4073,6 @@ def test_fail_migration_fatal_is_idempotent_for_final_status(db_session):
         target_context_id="20",
         mode="one_shot",
         copy_bucket_settings=False,
-        delete_source=False,
         lock_target_writes=True,
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
@@ -4117,7 +4110,6 @@ def test_worker_marks_migration_failed_on_fatal_exception(tmp_path, monkeypatch)
                 target_context_id="20",
                 mode="one_shot",
                 copy_bucket_settings=False,
-                delete_source=False,
                 lock_target_writes=True,
                 use_same_endpoint_copy=False,
                 auto_grant_source_read_for_copy=False,

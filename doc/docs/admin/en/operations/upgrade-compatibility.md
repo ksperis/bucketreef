@@ -333,6 +333,19 @@ Deploy the migration, backend, and frontend together. New diagnostics always
 emit the complete canonical shape. Downgrade removes nullable fields whose value
 is `null` for compatibility with the previous application version.
 
+## 2026-10 bucket migration source-cleanup contract
+
+Migration `0183_remove_bucket_migration_delete_source` removes the obsolete
+`bucket_migrations.delete_source` column and `delete_source_safe` precheck fields.
+Source deletion is already an explicit, separately confirmed maintenance operation
+through `/cleanup-source`; current migrations never schedule source deletion as a
+transfer step.
+
+Deploy the migration, backend, and frontend together. Creation and update payloads,
+responses, precheck reports, and migration webhook payloads no longer expose the
+retired setting. Downgrade recreates `delete_source=false` and restores the retired
+precheck field as `true`, which matches the non-destructive transfer contract.
+
 ## 2026-10 bucket migration execution strategy column
 
 Migration `0179_bucket_migration_execution_strategy` replaces the generic
@@ -604,8 +617,9 @@ API compatibility changes:
 - `POST /continue` requires `{ "confirmed": true }` for cutover.
 - `POST /restore-access`, `/cleanup-target` and `/cleanup-source` require explicit
   confirmation and return **202**. Their status is independent of the transfer result.
-- Creation/update rejects `delete_source: true`. The combined rollback endpoints
-  reject execution and direct clients to the separate recovery operations.
+- Source cleanup is available only through the explicit `/cleanup-source` operation.
+  Migration configuration no longer has a `delete_source` field. The combined rollback
+  endpoints reject execution and direct clients to the separate recovery operations.
 
 Preparation has its own worker loop, separate from long copies. Both loops renew
 leases during blocking storage requests. Mutation intents and original policies

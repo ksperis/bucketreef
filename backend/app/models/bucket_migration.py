@@ -61,7 +61,6 @@ class BucketMigrationDraftRequest(ApiModel):
     mapping_prefix: str = ""
     mode: BucketMigrationMode = "pre_sync"
     copy_bucket_settings: bool = False
-    delete_source: bool = False
     strong_integrity_check: bool = False
     lock_target_writes: bool = True
     use_same_endpoint_copy: bool = False
@@ -69,8 +68,6 @@ class BucketMigrationDraftRequest(ApiModel):
     parallelism_max: Optional[int] = Field(default=None, ge=1, le=128)
     @model_validator(mode="after")
     def validate_payload(self):
-        if self.delete_source:
-            raise ValueError("Source deletion is a separate operation after migration verification")
         self.source_context_id = (self.source_context_id or "").strip()
         self.target_context_id = (self.target_context_id or "").strip()
         self.mapping_prefix = (self.mapping_prefix or "").strip()
@@ -179,7 +176,6 @@ class BucketMigrationView(ApiModel):
     target_context_id: str
     mode: BucketMigrationMode
     copy_bucket_settings: bool
-    delete_source: bool
     strong_integrity_check: bool
     lock_target_writes: bool
     use_same_endpoint_copy: bool

@@ -184,7 +184,6 @@ class BucketMigrationPlanningMixin:
             "target_context_id": payload.target_context_id,
             "mode": payload.mode,
             "copy_bucket_settings": bool(payload.copy_bucket_settings),
-            "delete_source": bool(payload.delete_source),
             "strong_integrity_check": bool(payload.strong_integrity_check),
             "lock_target_writes": bool(payload.lock_target_writes),
             "use_same_endpoint_copy": configuration.use_same_endpoint_copy,
@@ -286,7 +285,6 @@ class BucketMigrationPlanningMixin:
             target_context_id=payload.target_context_id,
             mode=payload.mode,
             copy_bucket_settings=bool(payload.copy_bucket_settings),
-            delete_source=False,
             strong_integrity_check=bool(payload.strong_integrity_check),
             lock_target_writes=bool(payload.lock_target_writes),
             use_same_endpoint_copy=configuration.use_same_endpoint_copy,
@@ -354,7 +352,6 @@ class BucketMigrationPlanningMixin:
         migration.target_context_id = payload.target_context_id
         migration.mode = payload.mode
         migration.copy_bucket_settings = bool(payload.copy_bucket_settings)
-        migration.delete_source = False
         migration.strong_integrity_check = bool(payload.strong_integrity_check)
         migration.lock_target_writes = bool(payload.lock_target_writes)
         migration.use_same_endpoint_copy = configuration.use_same_endpoint_copy

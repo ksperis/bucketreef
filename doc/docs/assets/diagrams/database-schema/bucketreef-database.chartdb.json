@@ -3633,7 +3633,7 @@
       "name": "audit_logs",
       "schema": null,
       "x": 900,
-      "y": 8296,
+      "y": 8266,
       "fields": [
         {
           "id": "field:audit_logs.id",
@@ -17303,27 +17303,6 @@
           "check": null
         },
         {
-          "id": "field:bucket_migrations.delete_source",
-          "name": "delete_source",
-          "type": {
-            "id": "boolean",
-            "name": "boolean"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": "0",
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:bucket_migrations.strong_integrity_check",
           "name": "strong_integrity_check",
           "type": {
@@ -18266,7 +18245,7 @@
       "name": "bucket_migration_items",
       "schema": null,
       "x": 60,
-      "y": 8296,
+      "y": 8266,
       "fields": [
         {
           "id": "field:bucket_migration_items.id",
@@ -19380,7 +19359,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 10098,
+      "y": 10068,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -22059,7 +22038,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 10098,
+      "y": 10068,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -22228,7 +22207,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9512,
+      "y": 9482,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -22919,7 +22898,7 @@
       "name": "webhook_endpoints",
       "schema": null,
       "x": 480,
-      "y": 8296,
+      "y": 8266,
       "fields": [
         {
           "id": "field:webhook_endpoints.id",
@@ -23132,7 +23111,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9512,
+      "y": 9482,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -23273,7 +23252,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9512,
+      "y": 9482,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -25092,7 +25071,7 @@
       "x": 0,
       "y": 6738,
       "width": 1320,
-      "height": 4216,
+      "height": 4186,
       "color": "#D97706",
       "order": 4
     },
