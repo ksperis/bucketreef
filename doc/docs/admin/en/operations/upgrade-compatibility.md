@@ -370,6 +370,17 @@ their final destination names on `bucket_migration_items`, so no target data is
 lost. Downgrade recreates the retired nullable prefix column without attempting to
 infer a prefix from explicit target names.
 
+## 2026-10 bucket migration target-state cleanup
+
+Migration `0186_remove_bucket_migration_target_exists` removes the unused
+`bucket_migration_items.target_bucket_exists` column and the matching internal API
+field. The value was never set to `true` or used by migration execution or the
+Manager UI; target creation ownership is tracked separately by
+`target_created_by_migration`.
+
+Deploy the migration, backend, and frontend together. Downgrade recreates the
+retired column with its historical `false` default.
+
 ## 2026-10 bucket migration execution strategy column
 
 Migration `0179_bucket_migration_execution_strategy` replaces the generic

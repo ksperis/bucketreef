@@ -18416,27 +18416,6 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.target_bucket_exists",
-          "name": "target_bucket_exists",
-          "type": {
-            "id": "boolean",
-            "name": "boolean"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": "0",
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:bucket_migration_items.target_created_by_migration",
           "name": "target_created_by_migration",
           "type": {
@@ -19338,7 +19317,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 10038,
+      "y": 10008,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -22017,7 +21996,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 10038,
+      "y": 10008,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -22186,7 +22165,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9452,
+      "y": 9422,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -23090,7 +23069,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9452,
+      "y": 9422,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -23231,7 +23210,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9452,
+      "y": 9422,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -25050,7 +25029,7 @@
       "x": 0,
       "y": 6738,
       "width": 1320,
-      "height": 4156,
+      "height": 4126,
       "color": "#D97706",
       "order": 4
     },

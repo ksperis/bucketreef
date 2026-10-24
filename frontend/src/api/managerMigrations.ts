@@ -110,7 +110,6 @@ export type BucketMigrationItemView = {
   pre_sync_done: boolean;
   read_only_applied: boolean;
   target_lock_applied: boolean;
-  target_bucket_exists: boolean;
   target_created_by_migration: boolean;
   recovery_required: boolean;
   source_deleted: boolean;

@@ -102,7 +102,6 @@ class BucketMigrationItem(Base):
     pre_sync_done = Column(Boolean, nullable=False, default=False, server_default="0")
     read_only_applied = Column(Boolean, nullable=False, default=False, server_default="0")
     target_lock_applied = Column(Boolean, nullable=False, default=False, server_default="0")
-    target_bucket_exists = Column(Boolean, nullable=False, default=False, server_default="0")
     target_created_by_migration = Column(Boolean, nullable=False, default=False, server_default="0")
     preparation_effects_json = Column(Text, nullable=True)
     source_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
