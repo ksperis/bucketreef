@@ -35,6 +35,40 @@ def is_private_or_local_ip(address: IPAddress) -> bool:
     )
 
 
+def _normalized_allowed_schemes(allowed_schemes: Iterable[str]) -> set[str]:
+    normalized = {
+        str(scheme).strip().lower()
+        for scheme in allowed_schemes
+        if str(scheme).strip()
+    }
+    return normalized or {"https"}
+
+
+def _validated_outbound_host(
+    url: str,
+    *,
+    field_name: str,
+    allowed_schemes: set[str],
+    display_scheme: str,
+) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme not in allowed_schemes or not parsed.netloc or not parsed.hostname:
+        raise ValueError(f"{field_name} must be a valid {display_scheme} URL")
+    if parsed.username or parsed.password:
+        raise ValueError(f"{field_name} must not include user credentials")
+    return parsed.hostname.strip().lower().rstrip(".")
+
+
+def _resolved_outbound_ips(host: str, *, field_name: str) -> set[IPAddress]:
+    try:
+        resolved_ips = resolve_hostname_ips(host)
+    except socket.gaierror as exc:
+        raise ValueError(f"{field_name} host cannot be resolved: {exc}") from exc
+    if not resolved_ips:
+        raise ValueError(f"{field_name} host cannot be resolved")
+    return resolved_ips
+
+
 def validate_outbound_url(
     url: str,
     *,
@@ -45,28 +79,17 @@ def validate_outbound_url(
     allow_private_targets: bool = False,
     private_target_hint: Optional[str] = None,
 ) -> None:
-    parsed = urlparse(url)
-    normalized_schemes = {str(scheme).strip().lower() for scheme in allowed_schemes if str(scheme).strip()}
-    if not normalized_schemes:
-        normalized_schemes = {"https"}
+    normalized_schemes = _normalized_allowed_schemes(allowed_schemes)
     display_scheme = scheme_label or "/".join(sorted(normalized_schemes))
-
-    if parsed.scheme not in normalized_schemes or not parsed.netloc or not parsed.hostname:
-        raise ValueError(f"{field_name} must be a valid {display_scheme} URL")
-    if parsed.username or parsed.password:
-        raise ValueError(f"{field_name} must not include user credentials")
-
-    host = parsed.hostname.strip().lower().rstrip(".")
+    host = _validated_outbound_host(
+        url,
+        field_name=field_name,
+        allowed_schemes=normalized_schemes,
+        display_scheme=display_scheme,
+    )
     if allowed_hosts is not None and not host_matches_allowlist(host, allowed_hosts):
         raise ValueError(f"{field_name} host is not allowed by policy")
-
-    try:
-        resolved_ips = resolve_hostname_ips(host)
-    except socket.gaierror as exc:
-        raise ValueError(f"{field_name} host cannot be resolved: {exc}") from exc
-    if not resolved_ips:
-        raise ValueError(f"{field_name} host cannot be resolved")
-
+    resolved_ips = _resolved_outbound_ips(host, field_name=field_name)
     if not allow_private_targets and any(is_private_or_local_ip(address) for address in resolved_ips):
         raise ValueError(f"{field_name} resolves to a private or local network address{private_target_hint or ''}")
 
