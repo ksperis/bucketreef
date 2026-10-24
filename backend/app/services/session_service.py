@@ -79,6 +79,24 @@ class SessionService:
     ) -> tuple[str, Optional[str], Optional[str], Optional[str], SessionCapabilities]:
         if not endpoint:
             raise SessionIntrospectionError("S3 endpoint is required")
+        owner_id, owner_name = self._validated_bucket_owner(access_key, secret_key, endpoint)
+        user_info = self._fetch_admin_identity(access_key, secret_key, endpoint=endpoint)
+        actor_type, account_id, account_name, user_uid = self._resolve_session_identity(
+            owner_id,
+            owner_name,
+            user_info,
+        )
+        iam_full_access = self._probe_iam_manage(access_key, secret_key, endpoint=endpoint)
+        capabilities = self._derive_capabilities(actor_type, iam_full_access)
+        capabilities.endpoint_url = normalize_s3_endpoint(endpoint)
+        return actor_type, account_id, account_name, user_uid, capabilities
+
+    @staticmethod
+    def _validated_bucket_owner(
+        access_key: str,
+        secret_key: str,
+        endpoint: str,
+    ) -> tuple[Optional[str], Optional[str]]:
         raw_client = s3_client.get_s3_client(access_key, secret_key, endpoint=endpoint)
         try:
             raw = raw_client.list_buckets()
@@ -87,9 +105,17 @@ class SessionService:
         owner = raw.get("Owner") or {}
         owner_id = owner.get("ID") or owner.get("Id")
         account_name = owner.get("DisplayName") or owner.get("display_name")
-        user_info = self._fetch_admin_identity(access_key, secret_key, endpoint=endpoint)
+        return owner_id, account_name
+
+    @staticmethod
+    def _resolve_session_identity(
+        owner_id: Optional[str],
+        owner_name: Optional[str],
+        user_info: Optional[dict],
+    ) -> tuple[str, Optional[str], Optional[str], Optional[str]]:
         actor_type = "account_user"
         account_id = owner_id
+        account_name = owner_name
         user_uid = None
         if user_info:
             account_id = (
@@ -102,10 +128,7 @@ class SessionService:
             account_name = user_info.get("account_name") or account_name
             if str(user_info.get("account_root")).lower() in {"true", "1", "yes"}:
                 actor_type = "account_root"
-        iam_full_access = self._probe_iam_manage(access_key, secret_key, endpoint=endpoint)
-        capabilities = self._derive_capabilities(actor_type, iam_full_access)
-        capabilities.endpoint_url = normalize_s3_endpoint(endpoint)
-        return actor_type, account_id, account_name, user_uid, capabilities
+        return actor_type, account_id, account_name, user_uid
 
     # helpers
     def _cleanup_existing_sessions(self, access_key: str) -> None:
