@@ -43,6 +43,13 @@ def test_validate_custom_login_s3_endpoint_rejects_unsafe_urls(monkeypatch, raw:
         validate_custom_login_s3_endpoint(raw)
 
 
+def test_validate_custom_login_s3_endpoint_reports_invalid_port(monkeypatch):
+    monkeypatch.setattr(s3_endpoint, "validate_outbound_url", lambda *args, **kwargs: None)
+
+    with pytest.raises(ValueError, match="Custom endpoint URL has an invalid port"):
+        validate_custom_login_s3_endpoint("https://s3.example.test:not-a-port")
+
+
 def test_production_user_supplied_endpoint_requires_operator_allowlist(monkeypatch):
     monkeypatch.setattr(s3_endpoint.settings, "app_env", "production")
     monkeypatch.setattr(s3_endpoint.settings, "user_supplied_s3_endpoint_allowed_hosts", [])

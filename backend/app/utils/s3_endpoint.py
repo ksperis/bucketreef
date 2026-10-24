@@ -20,10 +20,11 @@ def normalize_s3_endpoint(value: Optional[str]) -> Optional[str]:
     return normalized or None
 
 
-def validate_user_supplied_s3_endpoint(value: str, *, field_name: str = "Endpoint URL") -> str:
-    normalized = normalize_s3_endpoint(value)
-    if not normalized:
-        raise ValueError(f"{field_name} is required")
+def _validated_https_s3_components(
+    normalized: str,
+    *,
+    field_name: str,
+) -> tuple[str, str, int | None, str]:
     parsed = urlsplit(normalized)
     scheme = (parsed.scheme or "").lower()
     if scheme != "https":
@@ -39,23 +40,46 @@ def validate_user_supplied_s3_endpoint(value: str, *, field_name: str = "Endpoin
         port = parsed.port
     except ValueError as exc:
         raise ValueError(f"{field_name} has an invalid port") from exc
-    host = hostname.lower()
+    return scheme, hostname.lower(), port, parsed.path or ""
+
+
+def _s3_endpoint_netloc(hostname: str, port: int | None) -> str:
+    host = hostname
     if ":" in host and not host.startswith("["):
         host = f"[{host}]"
-    netloc = f"{host}:{port}" if port is not None else host
-    cleaned = urlunsplit((scheme, netloc, parsed.path or "", "", "")).rstrip("/")
+    return f"{host}:{port}" if port is not None else host
+
+
+def _canonical_https_s3_endpoint(normalized: str, *, field_name: str) -> str:
+    scheme, hostname, port, path = _validated_https_s3_components(
+        normalized,
+        field_name=field_name,
+    )
+    cleaned = urlunsplit(
+        (scheme, _s3_endpoint_netloc(hostname, port), path, "", "")
+    ).rstrip("/")
     if not cleaned:
         raise ValueError(f"{field_name} is invalid")
+    return cleaned
+
+
+def _user_supplied_s3_allowed_hosts() -> set[str] | None:
+    if settings.app_env != "production":
+        return None
+    return set(settings.user_supplied_s3_endpoint_allowed_hosts)
+
+
+def validate_user_supplied_s3_endpoint(value: str, *, field_name: str = "Endpoint URL") -> str:
+    normalized = normalize_s3_endpoint(value)
+    if not normalized:
+        raise ValueError(f"{field_name} is required")
+    cleaned = _canonical_https_s3_endpoint(normalized, field_name=field_name)
     validate_outbound_url(
         cleaned,
         field_name=field_name,
         allowed_schemes=("https",),
         scheme_label="https",
-        allowed_hosts=(
-            set(settings.user_supplied_s3_endpoint_allowed_hosts)
-            if settings.app_env == "production"
-            else None
-        ),
+        allowed_hosts=_user_supplied_s3_allowed_hosts(),
     )
     return cleaned
 
