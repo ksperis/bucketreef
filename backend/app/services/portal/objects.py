@@ -217,6 +217,40 @@ class PortalObjectsMixin:
             next_version_id_marker=response.get("NextVersionIdMarker"),
         )
 
+    @staticmethod
+    def _storage_space_versions_by_key(response: dict) -> dict[str, list[dict]]:
+        versions_by_key: dict[str, list[dict]] = {}
+        for version in response.get("Versions", []):
+            version_key = version.get("Key")
+            if version_key:
+                versions_by_key.setdefault(version_key, []).append(version)
+        return versions_by_key
+
+    def _portal_trash_item(
+        self,
+        marker: dict,
+        versions_by_key: dict[str, list[dict]],
+    ) -> PortalTrashItem | None:
+        key = marker.get("Key")
+        marker_version_id = marker.get("VersionId")
+        if not key or not marker_version_id or not marker.get("IsLatest"):
+            return None
+        previous = max(
+            versions_by_key.get(key, []),
+            key=lambda value: value.get("LastModified")
+            or datetime.min.replace(tzinfo=timezone.utc),
+            default=None,
+        )
+        return PortalTrashItem(
+            key=key,
+            name=self._object_name(key),
+            deleted_at=marker.get("LastModified"),
+            delete_marker_version_id=marker_version_id,
+            previous_version_id=previous.get("VersionId") if previous else None,
+            previous_last_modified=previous.get("LastModified") if previous else None,
+            size=int(previous.get("Size") or 0) if previous else None,
+        )
+
     def list_storage_space_trash(
         self,
         user: User,
@@ -242,35 +276,12 @@ class PortalObjectsMixin:
             version_id_marker=version_id_marker,
             max_keys=max_keys,
         )
-        versions_by_key: dict[str, list[dict]] = {}
-        for version in response.get("Versions", []):
-            version_key = version.get("Key")
-            if version_key:
-                versions_by_key.setdefault(version_key, []).append(version)
-        items: list[PortalTrashItem] = []
-        for marker in response.get("DeleteMarkers", []):
-            key = marker.get("Key")
-            marker_version_id = marker.get("VersionId")
-            if not key or not marker_version_id or not marker.get("IsLatest"):
-                continue
-            previous_versions = versions_by_key.get(key, [])
-            previous = max(
-                previous_versions,
-                key=lambda value: value.get("LastModified")
-                or datetime.min.replace(tzinfo=timezone.utc),
-                default=None,
-            )
-            items.append(
-                PortalTrashItem(
-                    key=key,
-                    name=self._object_name(key),
-                    deleted_at=marker.get("LastModified"),
-                    delete_marker_version_id=marker_version_id,
-                    previous_version_id=previous.get("VersionId") if previous else None,
-                    previous_last_modified=previous.get("LastModified") if previous else None,
-                    size=int(previous.get("Size") or 0) if previous else None,
-                )
-            )
+        versions_by_key = self._storage_space_versions_by_key(response)
+        items = [
+            item
+            for marker in response.get("DeleteMarkers", [])
+            if (item := self._portal_trash_item(marker, versions_by_key)) is not None
+        ]
         items.sort(
             key=lambda item: item.deleted_at or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
