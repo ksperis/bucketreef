@@ -29,14 +29,9 @@ def _usage_objects_from_entry(entry: Optional[Dict[str, Any]]) -> Optional[int]:
         return None
 
 
-def extract_usage_stats(usage: Optional[Dict[str, Any]]) -> Tuple[Optional[int], Optional[int]]:
-    """
-    Normalizes RGW usage payloads and returns quota-aligned (bytes, objects)
-    regardless of the underlying field naming.
-    """
-    if not isinstance(usage, dict):
-        return None, None
-
+def _direct_usage_stats(
+    usage: Dict[str, Any],
+) -> Optional[Tuple[Optional[int], Optional[int]]]:
     total_bytes = usage.get("total_bytes")
     total_objects = usage.get("total_objects")
     if total_objects is None:
@@ -46,10 +41,14 @@ def extract_usage_stats(usage: Optional[Dict[str, Any]]) -> Tuple[Optional[int],
             total_bytes = int(float(usage["size_kb_actual"]) * 1024)
         except (TypeError, ValueError):
             total_bytes = None
+    if total_bytes is None and total_objects is None:
+        return None
+    return total_bytes, total_objects
 
-    if total_bytes is not None or total_objects is not None:
-        return total_bytes, total_objects
 
+def _categorized_usage_stats(
+    usage: Dict[str, Any],
+) -> Tuple[Optional[int], Optional[int]]:
     bytes_acc = 0
     objects_acc = 0
     has_bytes = False
@@ -68,6 +67,18 @@ def extract_usage_stats(usage: Optional[Dict[str, Any]]) -> Tuple[Optional[int],
             has_objects = True
 
     return (bytes_acc if has_bytes else None, objects_acc if has_objects else None)
+
+
+def extract_usage_stats(usage: Optional[Dict[str, Any]]) -> Tuple[Optional[int], Optional[int]]:
+    """
+    Normalizes RGW usage payloads and returns quota-aligned (bytes, objects)
+    regardless of the underlying field naming.
+    """
+    if not isinstance(usage, dict):
+        return None, None
+
+    direct_stats = _direct_usage_stats(usage)
+    return direct_stats if direct_stats is not None else _categorized_usage_stats(usage)
 
 
 def compute_usage_ratio_percent(used: object, quota: object) -> float | None:
