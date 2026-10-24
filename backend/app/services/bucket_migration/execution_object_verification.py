@@ -6,6 +6,7 @@ import hashlib
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, wait
+from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -23,7 +24,48 @@ from ._shared import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class _StrongVerificationResults:
+    verified_count: int = 0
+    failed_keys: list[str] = field(default_factory=list)
+    method_counts: dict[str, int] = field(
+        default_factory=lambda: {"head_checksum": 0, "stream_sha256": 0}
+    )
+
+    def record(self, key: str, *, verified: bool, method: str) -> None:
+        self.method_counts[method] = self.method_counts.get(method, 0) + 1
+        if verified:
+            self.verified_count += 1
+        else:
+            self.failed_keys.append(key)
+
+    def record_failure(self, key: str) -> None:
+        self.failed_keys.append(key)
+
+    def as_tuple(self) -> tuple[int, list[str], dict[str, int]]:
+        return self.verified_count, self.failed_keys, self.method_counts
+
+
 class BucketMigrationObjectVerificationMixin:
+    def _strong_verification_clients(
+        self,
+        thread_local: threading.local,
+        source_ctx: _ResolvedContext,
+        target_ctx: _ResolvedContext,
+        *,
+        source_client: Any | None = None,
+        target_client: Any | None = None,
+    ) -> tuple[Any, Any]:
+        resolved_source_client = getattr(thread_local, "source_client", None)
+        if resolved_source_client is None:
+            resolved_source_client = source_client or self._context_client(source_ctx)
+            thread_local.source_client = resolved_source_client
+        resolved_target_client = getattr(thread_local, "target_client", None)
+        if resolved_target_client is None:
+            resolved_target_client = target_client or self._context_client(target_ctx)
+            thread_local.target_client = resolved_target_client
+        return resolved_source_client, resolved_target_client
+
     def _strong_verify_size_only_objects(
         self,
         source_ctx: _ResolvedContext,
@@ -40,21 +82,18 @@ class BucketMigrationObjectVerificationMixin:
         if not keys:
             return 0, [], {"head_checksum": 0, "stream_sha256": 0}
 
-        verified_count = 0
-        failed_keys: list[str] = []
-        method_counts: dict[str, int] = {"head_checksum": 0, "stream_sha256": 0}
+        results = _StrongVerificationResults()
         worker_count = max(1, min(int(parallelism_max), len(keys)))
         thread_local = threading.local()
 
         def _verify_worker(key: str) -> tuple[bool, str]:
-            resolved_source_client = getattr(thread_local, "source_client", None)
-            if resolved_source_client is None:
-                resolved_source_client = source_client or self._context_client(source_ctx)
-                thread_local.source_client = resolved_source_client
-            resolved_target_client = getattr(thread_local, "target_client", None)
-            if resolved_target_client is None:
-                resolved_target_client = target_client or self._context_client(target_ctx)
-                thread_local.target_client = resolved_target_client
+            resolved_source_client, resolved_target_client = self._strong_verification_clients(
+                thread_local,
+                source_ctx,
+                target_ctx,
+                source_client=source_client,
+                target_client=target_client,
+            )
             return self._strong_verify_single_object(
                 source_ctx,
                 target_ctx,
@@ -70,7 +109,7 @@ class BucketMigrationObjectVerificationMixin:
             if state == "lost_lease":
                 raise _WorkerLeaseLostError("Worker lease lost while strong-verifying objects")
             if state in {"pause", "cancel"}:
-                return -1, [], method_counts
+                return -1, [], results.method_counts
 
             with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-migration-strong-verify") as executor:
                 futures = {
@@ -93,19 +132,15 @@ class BucketMigrationObjectVerificationMixin:
                             verified, method = future.result()
                         except Exception as exc:  # noqa: BLE001
                             logger.warning("Strong verification failed for '%s': %s", key, exc)
-                            failed_keys.append(key)
+                            results.record_failure(key)
                             continue
-                        method_counts[method] = method_counts.get(method, 0) + 1
-                        if verified:
-                            verified_count += 1
-                        else:
-                            failed_keys.append(key)
+                        results.record(key, verified=verified, method=method)
 
                 if interrupted_state == "lost_lease":
                     raise _WorkerLeaseLostError("Worker lease lost while strong-verifying objects")
                 if interrupted_state in {"pause", "cancel"}:
-                    return -1, [], method_counts
-        return verified_count, failed_keys, method_counts
+                    return -1, [], results.method_counts
+        return results.as_tuple()
 
     def _strong_verify_single_object(
         self,
@@ -379,22 +414,17 @@ class BucketMigrationObjectVerificationMixin:
         control_check: Callable[[], str],
     ) -> tuple[int, int, list[str], dict[str, int]]:
         size_only_count = 0
-        verified_count = 0
-        failed_keys: list[str] = []
-        method_counts: dict[str, int] = {"head_checksum": 0, "stream_sha256": 0}
+        results = _StrongVerificationResults()
         worker_count = max(1, int(parallelism_max))
         pair_batch: list[_VersionTimelineDiffKey] = []
         thread_local = threading.local()
 
-        def _verify_worker(pair: _VersionTimelineDiffKey) -> tuple[str, bool, str]:
-            resolved_source_client = getattr(thread_local, "source_client", None)
-            if resolved_source_client is None:
-                resolved_source_client = self._context_client(source_ctx)
-                thread_local.source_client = resolved_source_client
-            resolved_target_client = getattr(thread_local, "target_client", None)
-            if resolved_target_client is None:
-                resolved_target_client = self._context_client(target_ctx)
-                thread_local.target_client = resolved_target_client
+        def _verify_worker(pair: _VersionTimelineDiffKey) -> tuple[bool, str]:
+            resolved_source_client, resolved_target_client = self._strong_verification_clients(
+                thread_local,
+                source_ctx,
+                target_ctx,
+            )
             verified, method = self._strong_verify_single_object(
                 source_ctx,
                 target_ctx,
@@ -406,10 +436,9 @@ class BucketMigrationObjectVerificationMixin:
                 source_client=resolved_source_client,
                 target_client=resolved_target_client,
             )
-            return pair.key, verified, method
+            return verified, method
 
         def flush_pair_batch(executor: ThreadPoolExecutor) -> bool:
-            nonlocal verified_count
             if not pair_batch:
                 return True
             state = control_check()
@@ -434,16 +463,12 @@ class BucketMigrationObjectVerificationMixin:
                 for future in done:
                     pair = futures[future]
                     try:
-                        key, verified, method = future.result()
+                        verified, method = future.result()
                     except Exception as exc:  # noqa: BLE001
                         logger.warning("Version-aware strong verification failed: %s", exc)
-                        failed_keys.append(pair.key)
+                        results.record_failure(pair.key)
                         continue
-                    method_counts[method] = method_counts.get(method, 0) + 1
-                    if verified:
-                        verified_count += 1
-                    else:
-                        failed_keys.append(key)
+                    results.record(pair.key, verified=verified, method=method)
 
             if interrupted_state == "lost_lease":
                 raise _WorkerLeaseLostError("Worker lease lost while strong-verifying version-aware objects")
@@ -468,10 +493,15 @@ class BucketMigrationObjectVerificationMixin:
                     if len(pair_batch) < worker_count:
                         continue
                     if not flush_pair_batch(executor):
-                        return -1, 0, [], method_counts
+                        return -1, 0, [], results.method_counts
                 if not flush_pair_batch(executor):
-                    return -1, 0, [], method_counts
+                    return -1, 0, [], results.method_counts
         except _MigrationControlRequested:
-            return -1, 0, [], method_counts
+            return -1, 0, [], results.method_counts
 
-        return size_only_count, verified_count, failed_keys, method_counts
+        return (
+            size_only_count,
+            results.verified_count,
+            results.failed_keys,
+            results.method_counts,
+        )
