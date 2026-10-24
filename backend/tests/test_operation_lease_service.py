@@ -47,7 +47,6 @@ def test_operation_lease_expired_row_can_be_taken(db_session):
         operation_name="cost:daily:2026-07-03",
         lease_owner="backend-a",
         lease_until=utcnow() - timedelta(seconds=1),
-        acquired_at=utcnow() - timedelta(minutes=10),
         updated_at=utcnow() - timedelta(minutes=10),
     )
     db_session.add(expired)

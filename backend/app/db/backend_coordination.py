@@ -16,7 +16,6 @@ class BackendOperationLease(Base):
     operation_name = Column(String, primary_key=True)
     lease_owner = Column(String, nullable=False)
     lease_until = Column(UTCDateTime(), nullable=False, index=True)
-    acquired_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     metadata_json = Column(Text, nullable=True)
 

@@ -21999,27 +21999,6 @@
           "check": null
         },
         {
-          "id": "field:backend_operation_leases.acquired_at",
-          "name": "acquired_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:backend_operation_leases.updated_at",
           "name": "updated_at",
           "type": {

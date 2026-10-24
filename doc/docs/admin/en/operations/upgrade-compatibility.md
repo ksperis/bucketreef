@@ -414,6 +414,17 @@ columns were no longer populated or consumed.
 Deploy the migration and backend together. Downgrade recreates the removed JSON
 columns as empty objects and restores the nullable validation timestamp.
 
+## 2026-10 operation lease timestamp cleanup
+
+Migration `0190_remove_operation_lease_acquired_at` removes the unused
+`backend_operation_leases.acquired_at` column. Lease ownership is determined by
+`lease_owner` and `lease_until`, while `updated_at` already records acquisition,
+renewal, and release writes; no runtime path consumed a separate acquisition
+timestamp.
+
+Deploy the migration and backend together. Downgrade recreates `acquired_at`
+from the row's current `updated_at` value.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the
