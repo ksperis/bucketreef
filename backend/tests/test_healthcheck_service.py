@@ -154,6 +154,48 @@ def test_s3_healthcheck_honors_endpoint_force_path_style(monkeypatch):
     assert result.error_message is None
 
 
+def test_healthcheck_classifies_http_server_error_as_degraded():
+    status, error_message = HealthCheckService(db=None)._classify_probe_result(
+        http_status=503,
+        latency_ms=25,
+        error_message=None,
+        baseline_latency_ms=None,
+    )
+
+    assert status == HealthCheckStatus.DEGRADED
+    assert error_message == "HTTP 503"
+
+
+def test_healthcheck_classifies_relative_latency_spike_as_degraded(monkeypatch):
+    monkeypatch.setattr(healthcheck_service.settings, "healthcheck_degraded_latency_ms", 2000)
+    monkeypatch.setattr(healthcheck_service.settings, "healthcheck_relative_degraded_ratio", 1.8)
+    monkeypatch.setattr(healthcheck_service.settings, "healthcheck_relative_degraded_min_delta_ms", 200)
+
+    status, error_message = HealthCheckService(db=None)._classify_probe_result(
+        http_status=200,
+        latency_ms=300,
+        error_message=None,
+        baseline_latency_ms=100,
+    )
+
+    assert status == HealthCheckStatus.DEGRADED
+    assert error_message == "Latency spike: 300 ms vs baseline 100 ms"
+
+
+def test_healthcheck_classifies_absolute_latency_threshold_as_degraded(monkeypatch):
+    monkeypatch.setattr(healthcheck_service.settings, "healthcheck_degraded_latency_ms", 100)
+
+    status, error_message = HealthCheckService(db=None)._classify_probe_result(
+        http_status=200,
+        latency_ms=120,
+        error_message=None,
+        baseline_latency_ms=None,
+    )
+
+    assert status == HealthCheckStatus.DEGRADED
+    assert error_message == "Latency 120 ms above threshold"
+
+
 def test_healthcheck_endpoint_lists_are_sorted_by_name_case_insensitive(db_session):
     _seed_endpoint(db_session, name="Zulu", endpoint_url="https://zulu.example.test", is_default=True)
     _seed_endpoint(db_session, name="alpha", endpoint_url="https://alpha.example.test", is_default=False)

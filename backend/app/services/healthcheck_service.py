@@ -179,6 +179,46 @@ class HealthCheckService:
         return latency_ms >= int(round(baseline_latency_ms * ratio)) and (latency_ms - baseline_latency_ms) >= min_delta
 
     @staticmethod
+    def _degraded_probe_message(
+        *,
+        http_status: Optional[int],
+        latency_ms: Optional[int],
+        baseline_latency_ms: Optional[int],
+        relative_latency_degraded: bool,
+    ) -> Optional[str]:
+        if http_status is not None and http_status >= 500:
+            return f"HTTP {http_status}"
+        if relative_latency_degraded and baseline_latency_ms is not None and latency_ms is not None:
+            return f"Latency spike: {latency_ms} ms vs baseline {baseline_latency_ms} ms"
+        if settings.healthcheck_degraded_latency_ms and latency_ms is not None:
+            return f"Latency {latency_ms} ms above threshold"
+        return None
+
+    def _classify_probe_result(
+        self,
+        *,
+        http_status: Optional[int],
+        latency_ms: Optional[int],
+        error_message: Optional[str],
+        baseline_latency_ms: Optional[int],
+    ) -> tuple[HealthCheckStatus, Optional[str]]:
+        status = _compute_status(http_status, latency_ms, error_message)
+        relative_latency_degraded = self._is_latency_substantially_degraded(
+            latency_ms,
+            baseline_latency_ms,
+        )
+        if status == HealthCheckStatus.UP and relative_latency_degraded:
+            status = HealthCheckStatus.DEGRADED
+        if status == HealthCheckStatus.DEGRADED and error_message is None:
+            error_message = self._degraded_probe_message(
+                http_status=http_status,
+                latency_ms=latency_ms,
+                baseline_latency_ms=baseline_latency_ms,
+                relative_latency_degraded=relative_latency_degraded,
+            )
+        return status, error_message
+
+    @staticmethod
     def _resolve_verify_ssl(target: EndpointCheckTarget) -> bool:
         return bool(settings.healthcheck_verify_ssl) and bool(target.verify_tls)
 
@@ -258,18 +298,12 @@ class HealthCheckService:
         finally:
             latency_ms = int((time.monotonic() - start) * 1000)
 
-        status = _compute_status(http_status, latency_ms, error_message)
-        if status == HealthCheckStatus.UP and self._is_latency_substantially_degraded(latency_ms, baseline_latency_ms):
-            status = HealthCheckStatus.DEGRADED
-            if baseline_latency_ms is not None and latency_ms is not None:
-                error_message = f"Latency spike: {latency_ms} ms vs baseline {baseline_latency_ms} ms"
-        elif status == HealthCheckStatus.DEGRADED and error_message is None:
-            if http_status is not None and http_status >= 500:
-                error_message = f"HTTP {http_status}"
-            elif baseline_latency_ms is not None and latency_ms is not None and self._is_latency_substantially_degraded(latency_ms, baseline_latency_ms):
-                error_message = f"Latency spike: {latency_ms} ms vs baseline {baseline_latency_ms} ms"
-            elif settings.healthcheck_degraded_latency_ms and latency_ms is not None:
-                error_message = f"Latency {latency_ms} ms above threshold"
+        status, error_message = self._classify_probe_result(
+            http_status=http_status,
+            latency_ms=latency_ms,
+            error_message=error_message,
+            baseline_latency_ms=baseline_latency_ms,
+        )
 
         return HealthCheckResult(
             endpoint_id=target.endpoint_id,
