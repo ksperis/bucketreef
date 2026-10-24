@@ -45,6 +45,26 @@ _FEATURE_LABELS = {
     "notifications": "Notifications",
     "replication": "Replication",
 }
+_FEATURE_AVAILABILITY_CHECKS: dict[str, tuple[str, str, bool, str]] = {
+    "disabled_by_endpoint": (
+        "feature_disabled_on_endpoint",
+        "info",
+        False,
+        "{feature_label} inspection skipped because endpoint capability '{capability}' is disabled.",
+    ),
+    "skipped_not_required": (
+        "feature_skipped_not_required",
+        "info",
+        False,
+        "{feature_label} inspection skipped because it is not required when bucket settings copy is disabled.",
+    ),
+    "unavailable": (
+        "feature_probe_unavailable",
+        "error",
+        True,
+        "{feature_label} could not be verified. This required inspection is unavailable on the endpoint.",
+    ),
+}
 
 
 def new_precheck_report(*, checked_at: Any) -> dict[str, Any]:
@@ -185,6 +205,9 @@ class BucketMigrationPrecheckPlanner:
             state = str(raw.get("state") or "").strip().lower()
             if not state or state == "available":
                 continue
+            check = _FEATURE_AVAILABILITY_CHECKS.get(state)
+            if check is None:
+                continue
             capability = str(raw.get("capability") or "").strip() or None
             reason = str(raw.get("reason") or "").strip() or None
             feature_label = _feature_label(feature_name)
@@ -193,39 +216,18 @@ class BucketMigrationPrecheckPlanner:
                 details["capability"] = capability
             if reason:
                 details["reason"] = reason
-            if state == "disabled_by_endpoint":
-                add_check(
-                    code=f"{scope_prefix}_feature_disabled_on_endpoint",
-                    severity="info",
-                    blocking=False,
-                    scope=f"{scope_prefix}_bucket",
-                    message=(
-                        f"{feature_label} inspection skipped because endpoint capability "
-                        f"'{capability or feature_name}' is disabled."
-                    ),
-                    details=details,
-                )
-            elif state == "skipped_not_required":
-                add_check(
-                    code=f"{scope_prefix}_feature_skipped_not_required",
-                    severity="info",
-                    blocking=False,
-                    scope=f"{scope_prefix}_bucket",
-                    message=(
-                        f"{feature_label} inspection skipped because it is not required "
-                        "when bucket settings copy is disabled."
-                    ),
-                    details=details,
-                )
-            elif state == "unavailable":
-                add_check(
-                    code=f"{scope_prefix}_feature_probe_unavailable",
-                    severity="error",
-                    blocking=True,
-                    scope=f"{scope_prefix}_bucket",
-                    message=f"{feature_label} could not be verified. This required inspection is unavailable on the endpoint.",
-                    details=details,
-                )
+            code_suffix, severity, blocking, message_template = check
+            add_check(
+                code=f"{scope_prefix}_{code_suffix}",
+                severity=severity,
+                blocking=blocking,
+                scope=f"{scope_prefix}_bucket",
+                message=message_template.format(
+                    feature_label=feature_label,
+                    capability=capability or feature_name,
+                ),
+                details=details,
+            )
 
     def _inspect_source_bucket(
         self,
