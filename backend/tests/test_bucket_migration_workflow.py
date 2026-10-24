@@ -23,6 +23,7 @@ from app.models.bucket_migration import (
     BucketMigrationView,
 )
 from app.services.bucket_migration import maintenance as bucket_migration_maintenance
+from app.services.bucket_migration._shared import _BucketVersionEntry
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.bucket_migration.workflow import available_actions, preparation_state
 from app.services.managed_resource_naming import MIGRATION_PROBE_OBJECT_KEY
@@ -582,6 +583,59 @@ def test_fingerprint_detects_tag_changes_and_preserves_exact_identity(prepared):
         object(), "bucket", strategy="current_only", check=lambda: "run"
     )
     assert first != second
+
+
+def test_version_aware_fingerprint_uses_exact_version_identity(prepared):
+    service, _, _ = prepared
+    entries = [
+        _BucketVersionEntry(
+            key=" key ",
+            version_id="version-1",
+            is_delete_marker=False,
+            is_latest=False,
+            last_modified=None,
+            size=7,
+            etag="etag",
+            storage_class=None,
+            order_index=0,
+        ),
+        _BucketVersionEntry(
+            key=" key ",
+            version_id="delete-marker-1",
+            is_delete_marker=True,
+            is_latest=True,
+            last_modified=None,
+            size=0,
+            etag=None,
+            storage_class=None,
+            order_index=1,
+        ),
+    ]
+    service._iter_bucket_version_timelines = Mock(
+        return_value=iter([(" key ", entries)])
+    )
+    client = Mock()
+    client.get_object_tagging.return_value = {
+        "TagSet": [{"Key": " tag ", "Value": " value "}]
+    }
+    service._context_client = Mock(return_value=client)
+    service._stream_object_sha256 = Mock(return_value="content-sha256")
+    check = Mock(return_value="run")
+
+    service._cleanup_fingerprint(
+        object(), "bucket", strategy="version_aware", check=check
+    )
+
+    client.get_object_tagging.assert_called_once_with(
+        Bucket="bucket", Key=" key ", VersionId="version-1"
+    )
+    service._stream_object_sha256.assert_called_once_with(
+        client,
+        "bucket",
+        " key ",
+        version_id="version-1",
+        control_check=check,
+    )
 
 
 def test_cleanup_target_keeps_success_and_source_protection(prepared):

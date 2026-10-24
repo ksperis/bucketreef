@@ -218,47 +218,79 @@ class BucketMigrationMaintenanceMixin:
             errors.append(sanitized_error_log_detail(exc))
         self._finish_maintenance_run(migration, errors)
 
+    def _iter_cleanup_fingerprint_entries(
+        self,
+        context,
+        bucket: str,
+        *,
+        strategy: str,
+        client,
+    ):
+        if strategy == "version_aware":
+            for _key, timeline in self._iter_bucket_version_timelines(
+                context,
+                bucket,
+                client=client,
+            ):
+                yield from timeline
+            return
+        yield from self._iter_bucket_objects(context, bucket, client=client)
+
+    def _cleanup_fingerprint_entry_value(
+        self,
+        client,
+        bucket: str,
+        entry,
+        *,
+        check,
+    ) -> dict[str, object]:
+        marker = isinstance(entry, _BucketVersionEntry) and entry.is_delete_marker
+        value: dict[str, object] = {"key": entry.key, "delete_marker": marker}
+        if marker:
+            return value
+
+        version_id = entry.version_id if isinstance(entry, _BucketVersionEntry) else None
+        identity = {"Bucket": bucket, "Key": entry.key}
+        if version_id:
+            identity["VersionId"] = version_id
+        tags = client.get_object_tagging(**identity).get("TagSet")
+        if not isinstance(tags, list) or any(
+            not isinstance(tag, dict)
+            or not isinstance(tag.get("Key"), str)
+            or not isinstance(tag.get("Value"), str)
+            for tag in tags
+        ):
+            raise RuntimeError("Object tags could not be verified")
+        value["tags"] = sorted((tag["Key"], tag["Value"]) for tag in tags)
+        value["sha256"] = self._stream_object_sha256(
+            client,
+            bucket,
+            entry.key,
+            version_id=version_id,
+            control_check=check,
+        )
+        return value
+
     def _cleanup_fingerprint(
         self, context, bucket: str, *, strategy: str, check
     ) -> str:
         """Hash exact keys, ordered history, markers, tags and streamed SHA-256 content."""
         digest = hashlib.sha256()
         client = self._context_client(context)
-        if strategy == "version_aware":
-            entries = (
-                entry
-                for _key, timeline in self._iter_bucket_version_timelines(
-                    context, bucket, client=client
-                )
-                for entry in timeline
-            )
-        else:
-            entries = self._iter_bucket_objects(context, bucket, client=client)
+        entries = self._iter_cleanup_fingerprint_entries(
+            context,
+            bucket,
+            strategy=strategy,
+            client=client,
+        )
         for entry in entries:
             check()
-            marker = isinstance(entry, _BucketVersionEntry) and entry.is_delete_marker
-            value = {"key": entry.key, "delete_marker": marker}
-            if not marker:
-                version_id = entry.version_id if isinstance(entry, _BucketVersionEntry) else None
-                identity = {"Bucket": bucket, "Key": entry.key}
-                if version_id:
-                    identity["VersionId"] = version_id
-                tags = client.get_object_tagging(**identity).get("TagSet")
-                if not isinstance(tags, list) or any(
-                    not isinstance(tag, dict)
-                    or not isinstance(tag.get("Key"), str)
-                    or not isinstance(tag.get("Value"), str)
-                    for tag in tags
-                ):
-                    raise RuntimeError("Object tags could not be verified")
-                value["tags"] = sorted((tag["Key"], tag["Value"]) for tag in tags)
-                value["sha256"] = self._stream_object_sha256(
-                    client,
-                    bucket,
-                    entry.key,
-                    version_id=version_id,
-                    control_check=check,
-                )
+            value = self._cleanup_fingerprint_entry_value(
+                client,
+                bucket,
+                entry,
+                check=check,
+            )
             encoded = _json_dumps(value).encode("utf-8")
             digest.update(len(encoded).to_bytes(8, "big"))
             digest.update(encoded)
