@@ -22242,27 +22242,6 @@
           "check": null
         },
         {
-          "id": "field:first_admin_bootstrap.issued_at",
-          "name": "issued_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:first_admin_bootstrap.expires_at",
           "name": "expires_at",
           "type": {

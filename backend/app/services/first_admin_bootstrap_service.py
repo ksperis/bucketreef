@@ -126,7 +126,6 @@ class FirstAdminBootstrapService:
                     FirstAdminBootstrap(
                         id=FIRST_ADMIN_BOOTSTRAP_ID,
                         token_digest=digest,
-                        issued_at=now,
                         expires_at=expires_at,
                     )
                 )
@@ -141,7 +140,6 @@ class FirstAdminBootstrapService:
                     )
                     .values(
                         token_digest=digest,
-                        issued_at=now,
                         expires_at=expires_at,
                         created_user_id=None,
                     )

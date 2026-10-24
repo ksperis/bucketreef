@@ -17,7 +17,6 @@ class FirstAdminBootstrap(Base):
 
     id = Column(Integer, primary_key=True)
     token_digest = Column(String(64), nullable=True)
-    issued_at = Column(UTCDateTime(), nullable=True)
     expires_at = Column(UTCDateTime(), nullable=True)
     consumed_at = Column(UTCDateTime(), nullable=True)
     created_user_id = Column(
