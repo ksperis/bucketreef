@@ -443,6 +443,15 @@ and the persisted `api_token` metadata.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 onboarding response cleanup
+
+Admin onboarding responses no longer expose the unused `actor_id` status field
+or the internal journey `pending_step`. The backend continues to persist and
+use `pending_step` to resume interrupted onboarding work; it is no longer part
+of the frontend contract.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

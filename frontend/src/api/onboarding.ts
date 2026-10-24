@@ -10,7 +10,6 @@ export type OnboardingStatus = {
   source: "quickstart" | "standard";
   journeys: OnboardingJourney[];
   can_configure: boolean;
-  actor_id: number;
 };
 
 export type OnboardingPreview = {
@@ -45,7 +44,6 @@ export type OnboardingJourney = {
     connection_id?: number;
     rgw_account_id?: string;
   };
-  pending_step: string | null;
   configured: boolean;
   preview: OnboardingPreview;
   links: Partial<Record<"manager" | "portal" | "browser" | "private_manager" | "ceph_admin", string>>;

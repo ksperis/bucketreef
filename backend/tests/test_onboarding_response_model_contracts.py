@@ -10,7 +10,6 @@ def test_onboarding_responses_require_complete_canonical_payloads() -> None:
         "revision",
         "draft",
         "resources",
-        "pending_step",
         "configured",
         "preview",
         "links",
@@ -23,5 +22,4 @@ def test_onboarding_responses_require_complete_canonical_payloads() -> None:
         "source",
         "journeys",
         "can_configure",
-        "actor_id",
     }

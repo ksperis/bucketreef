@@ -363,7 +363,6 @@ class OnboardingService:
             revision=row.revision,
             draft=draft,
             resources=json.loads(row.resources_json),
-            pending_step=row.pending_step,
             configured=bool(row.configured_at),
             preview=self.preview(actor, row) if not row.configured_at else OnboardingPreview(),
             links=self._links(row, draft),
@@ -391,7 +390,6 @@ class OnboardingService:
             source=get_settings().onboarding_source,
             journeys=journeys,
             can_configure=is_superadmin_ui_role(actor.role),
-            actor_id=actor.id,
         )
 
     def dismiss(self, actor, dismissed=True):
