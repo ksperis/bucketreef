@@ -9,6 +9,15 @@ from typing import Literal
 NamingValidationProfile = Literal["ceph", "standard"]
 IAMEntity = Literal["user", "group", "role", "policy"]
 
+_RESERVED_S3_BUCKET_PREFIXES = ("xn--", "sthree-", "amzn-s3-demo-")
+_RESERVED_S3_BUCKET_SUFFIXES = (
+    "-s3alias",
+    "--ol-s3",
+    ".mrap",
+    "--x-s3",
+    "--table-s3",
+)
+
 
 def validate_s3_bucket_name(name: str) -> str:
     if (
@@ -16,6 +25,8 @@ def validate_s3_bucket_name(name: str) -> str:
         or not re.fullmatch(r"[a-z0-9][a-z0-9.-]*[a-z0-9]", name)
         or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label) for label in name.split("."))
         or re.fullmatch(r"[0-9]{1,3}(?:\.[0-9]{1,3}){3}", name)
+        or name.startswith(_RESERVED_S3_BUCKET_PREFIXES)
+        or name.endswith(_RESERVED_S3_BUCKET_SUFFIXES)
     ):
         raise ValueError("Invalid bucket name. Use 3–63 lowercase letters, digits, dots or hyphens in DNS-compatible form.")
     return name
