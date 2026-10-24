@@ -123,10 +123,7 @@ export type BucketMigrationItemView = {
 
 export type BucketMigrationEventView = {
   id: number;
-  item_id: number | null;
-  level: string;
   message: string;
-  metadata: Record<string, unknown> | null;
   created_at: string;
 };
 
