@@ -119,46 +119,22 @@ class PortalCollaboratorRequestsService:
             return self._execute_user_role_change(row, payload)
         if intent != "add":
             raise ValueError("Invalid Portal collaborator request intent")
-        target_name = str(payload.get("target_name") or "").strip()
-        target_email = str(payload.get("target_email") or "").strip().lower()
-        requested_portal_role = payload.get("portal_role")
-        if not target_name or not target_email:
-            raise ValueError("Target user name and email are required")
-        if requested_portal_role not in _PORTAL_ROLES:
-            raise ValueError("Invalid requested Portal role")
 
-        target = self.users_service.get_by_email_case_insensitive(target_email)
-        created_user = False
-        if target:
-            if not target.is_active:
-                raise ValueError("Target user is inactive")
-            if target_name and not target.full_name:
-                target.full_name = target_name
-            self.db.add(target)
-        else:
-            target = User(
-                email=target_email,
-                full_name=target_name,
-                hashed_password=None,
-                is_active=True,
-                role=UserRole.UI_USER.value,
-            )
-            self.db.add(target)
-            self.db.commit()
-            self.db.refresh(target)
-            created_user = True
-
+        target_name, target_email, requested_portal_role = (
+            self._validated_user_addition(payload)
+        )
+        target, created_user = self._resolve_user_addition_target(
+            target_name=target_name,
+            target_email=target_email,
+        )
         existing_link = self._direct_portal_link(
             int(target.id),
             int(row.account_id),
         )
-        next_portal_role = requested_portal_role
-        if (
-            existing_link
-            and existing_link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
-            and requested_portal_role == PortalAccountRole.PORTAL_USER.value
-        ):
-            next_portal_role = existing_link.portal_role
+        next_portal_role = self._addition_portal_role(
+            existing_link,
+            requested_portal_role=requested_portal_role,
+        )
         self.users_service.assign_user_to_account(
             int(target.id),
             int(row.account_id),
@@ -172,6 +148,59 @@ class PortalCollaboratorRequestsService:
             "requested_portal_role": requested_portal_role,
             "portal_role": next_portal_role,
         }
+
+    @staticmethod
+    def _validated_user_addition(payload: dict[str, Any]) -> tuple[str, str, str]:
+        target_name = str(payload.get("target_name") or "").strip()
+        target_email = str(payload.get("target_email") or "").strip().lower()
+        requested_portal_role = payload.get("portal_role")
+        if not target_name or not target_email:
+            raise ValueError("Target user name and email are required")
+        if requested_portal_role not in _PORTAL_ROLES:
+            raise ValueError("Invalid requested Portal role")
+        return target_name, target_email, requested_portal_role
+
+    def _resolve_user_addition_target(
+        self,
+        *,
+        target_name: str,
+        target_email: str,
+    ) -> tuple[User, bool]:
+        target = self.users_service.get_by_email_case_insensitive(target_email)
+        if target:
+            if not target.is_active:
+                raise ValueError("Target user is inactive")
+            if not target.full_name:
+                target.full_name = target_name
+            self.db.add(target)
+            return target, False
+
+        target = User(
+            email=target_email,
+            full_name=target_name,
+            hashed_password=None,
+            is_active=True,
+            role=UserRole.UI_USER.value,
+        )
+        self.db.add(target)
+        # Keep placeholder creation in the same transaction as account assignment.
+        # assign_user_to_account owns the commit and rolls back both on failure.
+        self.db.flush()
+        return target, True
+
+    @staticmethod
+    def _addition_portal_role(
+        existing_link: UserS3Account | None,
+        *,
+        requested_portal_role: str,
+    ) -> str:
+        if (
+            existing_link
+            and existing_link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+            and requested_portal_role == PortalAccountRole.PORTAL_USER.value
+        ):
+            return existing_link.portal_role
+        return requested_portal_role
 
     def execute_user_removal(
         self,
