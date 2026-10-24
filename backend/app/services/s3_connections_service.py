@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from collections.abc import Collection
 from typing import Any, Optional
 
 from sqlalchemy import select, update
@@ -173,20 +174,54 @@ class S3ConnectionsService:
             load_app_settings_for_db_readonly(self.db).manager.feature_policies,
             row,
         )
-        update_credentials = payload.credentials is not None
+        fields_set = payload.model_fields_set
         endpoint_plan, group_ids, user_ids = self._prepare_admin_shared_update(
             row,
             payload,
-            update_credentials=update_credentials,
+            update_credentials=payload.credentials is not None,
         )
-        payload_data = payload.model_dump(exclude_unset=True)
+        endpoint_changed = self._apply_admin_shared_values(
+            row,
+            payload,
+            fields_set=fields_set,
+            endpoint_plan=endpoint_plan,
+        )
+        self._apply_rgw_identity_update(row, payload, fields_set)
+        access_key_changed = self._apply_admin_shared_credentials(row, payload)
+        self._clear_rgw_identity_after_source_change(
+            row,
+            fields_set=fields_set,
+            source_changed=endpoint_changed or access_key_changed,
+        )
+        if "tags" in fields_set:
+            self.tags.replace_connection_tags(row, payload.tags)
+        self.associations.replace_links(
+            row.id,
+            group_ids=group_ids,
+            user_ids=user_ids,
+        )
+        if _CAPABILITY_PROBE_FIELDS & fields_set or payload.credentials is not None:
+            self._refresh_detected_capabilities(row)
+        row.updated_at = utcnow()
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    def _apply_admin_shared_values(
+        self,
+        row: DBS3Connection,
+        payload: S3ConnectionAdminUpdate,
+        *,
+        fields_set: set[str],
+        endpoint_plan: Optional[tuple[Optional[int], Optional[str]]],
+    ) -> bool:
         endpoint_changed = endpoint_plan is not None and endpoint_plan != (
             row.storage_endpoint_id,
             row.custom_endpoint_config,
         )
         if payload.name is not None:
             row.name = payload.name
-        if "is_active" in payload_data:
+        if "is_active" in fields_set:
             row.is_active = bool(payload.is_active)
         if endpoint_plan is not None:
             row.storage_endpoint_id, row.custom_endpoint_config = endpoint_plan
@@ -196,34 +231,35 @@ class S3ConnectionsService:
             row.remediation_required = False
             row.remediation_reason = None
             row.is_active = True
-        self._apply_rgw_identity_update(row, payload, payload_data)
-        if endpoint_changed and not _RGW_IDENTITY_FIELDS.intersection(payload_data):
-            row.rgw_user_uid = None
-            row.rgw_tenant = None
-            row.rgw_account_id = None
-        if "allow_activity_history" in payload_data:
+        if "allow_activity_history" in fields_set:
             row.allow_activity_history = payload.allow_activity_history
-        if "tags" in payload_data:
-            self.tags.replace_connection_tags(row, payload.tags)
-        self.associations.replace_links(
-            row.id,
-            group_ids=group_ids,
-            user_ids=user_ids,
-        )
-        if payload.credentials is not None:
-            access_key_changed = row.access_key_id != payload.credentials.access_key_id
-            row.access_key_id = payload.credentials.access_key_id
-            row.secret_access_key = payload.credentials.secret_access_key
-            if access_key_changed and not _RGW_IDENTITY_FIELDS.intersection(payload_data):
-                row.rgw_user_uid = None
-                row.rgw_tenant = None
-                row.rgw_account_id = None
-        if _CAPABILITY_PROBE_FIELDS & payload_data.keys() or update_credentials:
-            self._refresh_detected_capabilities(row)
-        row.updated_at = utcnow()
-        self.db.commit()
-        self.db.refresh(row)
-        return row
+        return endpoint_changed
+
+    @staticmethod
+    def _apply_admin_shared_credentials(
+        row: DBS3Connection,
+        payload: S3ConnectionAdminUpdate,
+    ) -> bool:
+        credentials = payload.credentials
+        if credentials is None:
+            return False
+        access_key_changed = row.access_key_id != credentials.access_key_id
+        row.access_key_id = credentials.access_key_id
+        row.secret_access_key = credentials.secret_access_key
+        return access_key_changed
+
+    @staticmethod
+    def _clear_rgw_identity_after_source_change(
+        row: DBS3Connection,
+        *,
+        fields_set: set[str],
+        source_changed: bool,
+    ) -> None:
+        if not source_changed or _RGW_IDENTITY_FIELDS.intersection(fields_set):
+            return
+        row.rgw_user_uid = None
+        row.rgw_tenant = None
+        row.rgw_account_id = None
 
     def get_owned(self, user_id: int, connection_id: int) -> DBS3Connection:
         row = self.db.scalar(
@@ -509,14 +545,14 @@ class S3ConnectionsService:
     def _apply_rgw_identity_update(
         row: DBS3Connection,
         payload: S3ConnectionUpdate | S3ConnectionAdminUpdate,
-        payload_data: dict[str, Any],
+        fields_set: Collection[str],
     ) -> None:
-        if not _RGW_IDENTITY_FIELDS.intersection(payload_data):
+        if not _RGW_IDENTITY_FIELDS.intersection(fields_set):
             return
         user_uid, tenant, account_id = normalize_connection_rgw_identity(
-            payload.rgw_user_uid if "rgw_user_uid" in payload_data else row.rgw_user_uid,
-            payload.rgw_tenant if "rgw_tenant" in payload_data else row.rgw_tenant,
-            payload.rgw_account_id if "rgw_account_id" in payload_data else row.rgw_account_id,
+            payload.rgw_user_uid if "rgw_user_uid" in fields_set else row.rgw_user_uid,
+            payload.rgw_tenant if "rgw_tenant" in fields_set else row.rgw_tenant,
+            payload.rgw_account_id if "rgw_account_id" in fields_set else row.rgw_account_id,
         )
         row.rgw_user_uid = user_uid
         row.rgw_tenant = tenant

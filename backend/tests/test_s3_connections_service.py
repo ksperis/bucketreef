@@ -26,10 +26,11 @@ from app.db import (
 )
 from app.models.s3_connection import (
     S3ConnectionCreate,
+    S3ConnectionCredentialsUpdate,
     S3ConnectionCredentialsValidationRequest,
     S3ConnectionUpdate,
 )
-from app.models.s3_connection_admin import S3ConnectionAdminCreate
+from app.models.s3_connection_admin import S3ConnectionAdminCreate, S3ConnectionAdminUpdate
 from app.services.s3_connections_service import S3ConnectionsService
 
 
@@ -263,6 +264,108 @@ def test_create_admin_shared_rolls_back_service_owned_transaction_on_failure(
         select(func.count()).select_from(S3Connection).where(S3Connection.name == "rollback-shared")
     ) == 0
     assert db_session.get(User, user.id) is not None
+
+
+def test_update_admin_shared_clears_identity_when_endpoint_changes(
+    db_session,
+    monkeypatch,
+):
+    owner = _user(db_session, "admin-endpoint-identity@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="shared-endpoint-identity",
+        is_shared=True,
+        access_manager=True,
+        access_browser=False,
+        rgw_user_uid="alice",
+        rgw_tenant="tenant-a",
+        rgw_account_id="RGW00000000000000001",
+    )
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_connection_endpoint_planner.validate_user_supplied_s3_endpoint",
+        lambda value, field_name="Endpoint URL": value.rstrip("/"),
+    )
+    monkeypatch.setattr(service, "_refresh_detected_capabilities", lambda current: None)
+
+    updated = service.update_admin_shared(
+        row,
+        S3ConnectionAdminUpdate(endpoint_url="https://replacement.example.test"),
+    )
+
+    assert updated.rgw_user_uid is None
+    assert updated.rgw_tenant is None
+    assert updated.rgw_account_id is None
+
+
+def test_update_admin_shared_clears_identity_when_access_key_changes(
+    db_session,
+    monkeypatch,
+):
+    owner = _user(db_session, "admin-credential-identity@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="shared-credential-identity",
+        is_shared=True,
+        access_manager=True,
+        access_browser=False,
+        rgw_user_uid="alice",
+        rgw_tenant="tenant-a",
+        rgw_account_id="RGW00000000000000001",
+    )
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(service, "_refresh_detected_capabilities", lambda current: None)
+
+    updated = service.update_admin_shared(
+        row,
+        S3ConnectionAdminUpdate(
+            credentials=S3ConnectionCredentialsUpdate(
+                access_key_id="AKIA-REPLACEMENT",
+                secret_access_key="SECRET-REPLACEMENT",
+            )
+        ),
+    )
+
+    assert updated.rgw_user_uid is None
+    assert updated.rgw_tenant is None
+    assert updated.rgw_account_id is None
+
+
+def test_update_admin_shared_keeps_explicit_identity_on_source_change(
+    db_session,
+    monkeypatch,
+):
+    owner = _user(db_session, "admin-explicit-identity@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="shared-explicit-identity",
+        is_shared=True,
+        access_manager=True,
+        access_browser=False,
+        rgw_user_uid="alice",
+        rgw_tenant="tenant-a",
+    )
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_connection_endpoint_planner.validate_user_supplied_s3_endpoint",
+        lambda value, field_name="Endpoint URL": value.rstrip("/"),
+    )
+    monkeypatch.setattr(service, "_refresh_detected_capabilities", lambda current: None)
+
+    updated = service.update_admin_shared(
+        row,
+        S3ConnectionAdminUpdate(
+            endpoint_url="https://replacement-explicit.example.test",
+            rgw_user_uid="bob",
+            rgw_tenant="tenant_b",
+        ),
+    )
+
+    assert updated.rgw_user_uid == "bob"
+    assert updated.rgw_tenant == "tenant_b"
 
 
 def test_touch_usage_rolls_back_failed_commit(db_session, monkeypatch):
