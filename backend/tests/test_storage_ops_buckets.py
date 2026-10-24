@@ -1348,6 +1348,64 @@ def test_storage_ops_applies_cheap_field_prefilter_before_feature_enrichment(cli
         app.dependency_overrides.pop(storage_ops_router.get_buckets_service, None)
 
 
+@pytest.mark.parametrize(
+    ("match", "rules", "expected_fields", "expected_complete"),
+    [
+        (
+            "all",
+            [{"field": "name", "op": "eq", "value": "alpha"}],
+            ["name"],
+            True,
+        ),
+        (
+            "all",
+            [
+                {"field": "name", "op": "eq", "value": "alpha"},
+                {"feature": "versioning", "state": "enabled"},
+            ],
+            ["name"],
+            False,
+        ),
+        (
+            "any",
+            [
+                {"field": "name", "op": "eq", "value": "alpha"},
+                {"feature": "versioning", "state": "enabled"},
+            ],
+            None,
+            False,
+        ),
+        (
+            "any",
+            [
+                {"field": "name", "op": "eq", "value": "alpha"},
+                {"field": "context_kind", "op": "eq", "value": "account"},
+            ],
+            ["name", "context_kind"],
+            True,
+        ),
+    ],
+)
+def test_storage_ops_cheap_field_prefilter_plan(
+    match,
+    rules,
+    expected_fields,
+    expected_complete,
+):
+    parsed_filter = BucketFilterQuery.model_validate({"match": match, "rules": rules})
+
+    cheap_filter, complete = storage_ops_filtering.build_storage_ops_cheap_field_prefilter(
+        parsed_filter
+    )
+
+    assert complete is expected_complete
+    if expected_fields is None:
+        assert cheap_filter is None
+    else:
+        assert cheap_filter is not None
+        assert [rule.field for rule in cheap_filter.rules] == expected_fields
+
+
 def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
     captured: dict[str, object] = {}
     parsed_filter = BucketFilterQuery.model_validate(
