@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from app.models.bucket_filter import BucketFilterQuery
+from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
 from app.models.storage_ops import StorageOpsBucketSummary
 from app.services.bucket_listing_owner_metadata import OWNER_DETAIL_FIELDS
 from app.services.bucket_listing_shared import listing_sort_key
@@ -138,6 +138,61 @@ def match_storage_ops_field_rule(
     return actual_match or encoded_match
 
 
+def _matches_storage_ops_base_rules(
+    bucket: StorageOpsBucketSummary,
+    field_rules: list[BucketFilterRule],
+    feature_state_rules: list[BucketFilterRule],
+    *,
+    match_mode: str,
+    has_feature_param_rules: bool,
+) -> bool:
+    results = [
+        *(match_storage_ops_field_rule(bucket, rule) for rule in field_rules),
+        *(match_bucket_feature_rule(bucket, rule) for rule in feature_state_rules),
+    ]
+    if not results:
+        return not has_feature_param_rules or match_mode == "all"
+    return all(results) if match_mode == "all" else any(results)
+
+
+def _partition_storage_ops_param_candidates(
+    buckets: list[StorageOpsBucketSummary],
+    field_rules: list[BucketFilterRule],
+    feature_state_rules: list[BucketFilterRule],
+    *,
+    match_mode: str,
+) -> tuple[list[StorageOpsBucketSummary], list[StorageOpsBucketSummary]]:
+    if match_mode == "all":
+        return [], [
+            bucket
+            for bucket in buckets
+            if _matches_storage_ops_base_rules(
+                bucket,
+                field_rules,
+                feature_state_rules,
+                match_mode=match_mode,
+                has_feature_param_rules=True,
+            )
+        ]
+
+    pre_matched: list[StorageOpsBucketSummary] = []
+    param_candidates: list[StorageOpsBucketSummary] = []
+    for bucket in buckets:
+        target = (
+            pre_matched
+            if _matches_storage_ops_base_rules(
+                bucket,
+                field_rules,
+                feature_state_rules,
+                match_mode=match_mode,
+                has_feature_param_rules=True,
+            )
+            else param_candidates
+        )
+        target.append(bucket)
+    return pre_matched, param_candidates
+
+
 def apply_storage_ops_advanced_filter(
     buckets: list[StorageOpsBucketSummary],
     parsed_filter: BucketFilterQuery | None,
@@ -151,29 +206,25 @@ def apply_storage_ops_advanced_filter(
         _split_rules(parsed_filter)
     )
 
-    def base_match(bucket: StorageOpsBucketSummary) -> bool:
-        results = [
-            *(match_storage_ops_field_rule(bucket, rule) for rule in field_rules),
-            *(match_bucket_feature_rule(bucket, rule) for rule in feature_state_rules),
-        ]
-        if not results:
-            return not feature_param_rules or match_mode == "all"
-        return all(results) if match_mode == "all" else any(results)
-
     if not feature_param_rules:
-        return [bucket for bucket in buckets if base_match(bucket)]
+        return [
+            bucket
+            for bucket in buckets
+            if _matches_storage_ops_base_rules(
+                bucket,
+                field_rules,
+                feature_state_rules,
+                match_mode=match_mode,
+                has_feature_param_rules=False,
+            )
+        ]
 
-    if match_mode == "all":
-        pre_matched: list[StorageOpsBucketSummary] = []
-        param_candidates = [bucket for bucket in buckets if base_match(bucket)]
-    else:
-        pre_matched = []
-        param_candidates = []
-        for bucket in buckets:
-            if base_match(bucket):
-                pre_matched.append(bucket)
-            else:
-                param_candidates.append(bucket)
+    pre_matched, param_candidates = _partition_storage_ops_param_candidates(
+        buckets,
+        field_rules,
+        feature_state_rules,
+        match_mode=match_mode,
+    )
     if not param_candidates:
         return pre_matched
 
@@ -199,7 +250,12 @@ def apply_storage_ops_advanced_filter(
 
 def _split_rules(
     parsed_filter: BucketFilterQuery | None,
-) -> tuple[list, list, list, str]:
+) -> tuple[
+    list[BucketFilterRule],
+    list[BucketFilterRule],
+    list[BucketFilterRule],
+    str,
+]:
     if not parsed_filter or not parsed_filter.rules:
         return [], [], [], "all"
     field_rules = [rule for rule in parsed_filter.rules if rule.field]
