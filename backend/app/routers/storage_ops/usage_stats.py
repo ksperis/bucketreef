@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 def stream_storage_ops_bucket_usage_stats(
     payload: BucketUsageStatsTargetRequest,
     request: Request,
-    _user: User = Depends(get_current_storage_ops_admin),
+    user: User = Depends(get_current_storage_ops_admin),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     requested_targets = payload.targets
