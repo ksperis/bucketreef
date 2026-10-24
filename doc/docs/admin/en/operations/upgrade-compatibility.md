@@ -507,6 +507,16 @@ traceable through audit records.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 bucket comparison action response cleanup
+
+Manager bucket-comparison action responses now return only
+`succeeded_count`, `failed_count`, and the user-facing `message`. Request
+identity fields, the planned count, and failed-key samples remain available to
+the backend for orchestration and audit metadata instead of being duplicated in
+the frontend response.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the
