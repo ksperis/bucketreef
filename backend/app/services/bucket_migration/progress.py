@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from sqlalchemy import or_, select, update
-from app.core.sensitive_data import sanitized_error_log_detail
-
 import logging
 from datetime import timedelta
 from typing import Any, Optional
 
 from app.core.config import get_settings
-from app.core.sensitive_data import sanitize_error_detail
+from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
@@ -341,6 +339,64 @@ class BucketMigrationProgressMixin:
         self._add_event(migration, level="info", message="Migration canceled.")
         self._recompute_counters(migration)
 
+    def _ready_for_cutover(self, migration: BucketMigration) -> bool:
+        if migration.mode != "pre_sync" or migration.awaiting_items <= 0:
+            return False
+        actionable_items = migration.total_items - migration.skipped_items
+        return (
+            migration.awaiting_items + migration.completed_items == actionable_items
+        )
+
+    def _mark_awaiting_cutover(self, migration: BucketMigration) -> None:
+        migration.status = "awaiting_cutover"
+        migration.worker_lease_owner = None
+        migration.worker_lease_until = None
+        migration.updated_at = utcnow()
+        self._add_event(
+            migration,
+            level="info",
+            message="All items pre-synced; waiting for cutover.",
+        )
+
+    def _has_pending_migration_items(self, migration: BucketMigration) -> bool:
+        return any(
+            item.status in {"pending", "running", "paused"}
+            for item in migration.items
+        )
+
+    def _mark_migration_finished(
+        self,
+        migration: BucketMigration,
+        *,
+        target_ctx: Optional[_ResolvedContext],
+    ) -> None:
+        migration.status = (
+            "completed_with_errors" if migration.failed_items > 0 else "completed"
+        )
+        migration.worker_lease_owner = None
+        migration.worker_lease_until = None
+        migration.finished_at = utcnow()
+        migration.updated_at = utcnow()
+        release_errors = self._release_target_write_locks(
+            migration,
+            target_ctx,
+            verify_restored=True,
+            preserve_awaiting=True,
+        )
+        if release_errors:
+            if migration.status == "completed":
+                migration.status = "completed_with_errors"
+            migration.error_message = _truncate_optional_db_text(
+                f"Migration finished with {len(release_errors)} target lock cleanup error(s): "
+                + " | ".join(release_errors[:3]),
+                max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
+            )
+        self._add_event(
+            migration,
+            level="info",
+            message=f"Migration finished with status '{migration.status}'.",
+        )
+
     def _finalize_or_wait_cutover(
         self,
         migration: BucketMigration,
@@ -356,41 +412,16 @@ class BucketMigrationProgressMixin:
             self._mark_paused(migration)
             return
 
-        total_actionable = len([item for item in migration.items if item.status not in {"skipped"}])
-        awaiting_count = len([item for item in migration.items if item.status == "awaiting_cutover"])
-        pending_count = len([item for item in migration.items if item.status in {"pending", "running", "paused"}])
-
-        if migration.mode == "pre_sync" and awaiting_count > 0 and awaiting_count + migration.completed_items == total_actionable:
-            migration.status = "awaiting_cutover"
-            migration.worker_lease_owner = None
-            migration.worker_lease_until = None
-            migration.updated_at = utcnow()
-            self._add_event(migration, level="info", message="All items pre-synced; waiting for cutover.")
+        if self._ready_for_cutover(migration):
+            self._mark_awaiting_cutover(migration)
             return
 
-        if pending_count > 0:
+        if self._has_pending_migration_items(migration):
             migration.status = "running"
             migration.updated_at = utcnow()
             return
 
-        if migration.failed_items > 0:
-            migration.status = "completed_with_errors"
-        else:
-            migration.status = "completed"
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.finished_at = utcnow()
-        migration.updated_at = utcnow()
-        release_errors = self._release_target_write_locks(migration, target_ctx, verify_restored=True, preserve_awaiting=True)
-        if release_errors:
-            if migration.status == "completed":
-                migration.status = "completed_with_errors"
-            migration.error_message = _truncate_optional_db_text(
-                f"Migration finished with {len(release_errors)} target lock cleanup error(s): "
-                + " | ".join(release_errors[:3]),
-                max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
-            )
-        self._add_event(migration, level="info", message=f"Migration finished with status '{migration.status}'.")
+        self._mark_migration_finished(migration, target_ctx=target_ctx)
 
     def _recompute_counters(self, migration: BucketMigration) -> None:
         completed = 0
