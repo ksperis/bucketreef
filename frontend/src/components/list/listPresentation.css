@@ -149,7 +149,9 @@
   .ui-data-table [data-table-actions="true"] { position: sticky; right: 0; box-shadow: -1px 0 0 var(--ui-border-soft); }
   .ui-data-table th[data-table-actions="true"] { z-index: 2; }
   .ui-data-table td[data-table-actions="true"] { z-index: 1; background: var(--ui-surface); }
-  .ui-data-table tbody tr:hover td[data-table-actions="true"] { background: var(--ui-hover); }
+  .ui-data-table tbody tr:hover td[data-table-actions="true"] {
+    background: linear-gradient(var(--ui-hover), var(--ui-hover)), var(--ui-surface);
+  }
 }
 @media (max-width: 767px), (pointer: coarse) {
   :root { --list-control-height: 44px; }
