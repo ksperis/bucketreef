@@ -241,6 +241,80 @@ class DurableKeyRotationService:
         elif key_type == "endpoint_admin":
             self._validate_endpoint_admin_replacement(endpoint, access, secret)
 
+    def _resolve_rotation_principal(
+        self,
+        admin: RGWAdminClient,
+        key_type: str,
+        target: RotationTarget,
+        old_access: str,
+    ) -> tuple[str, str | None]:
+        from app.services.key_rotation_rgw import RgwAccessKeyRotator
+
+        uid, preferred_tenant = self._principal_hint(target)
+        if uid is None:
+            return RgwAccessKeyRotator().resolve_identity_from_access_key(
+                admin,
+                old_access,
+            )
+        if isinstance(target, (S3Account, S3User)):
+            return uid, preferred_tenant or None
+        if key_type in SERVICE_TYPES:
+            return uid, None
+
+        tenant = RgwAccessKeyRotator().detect_user_tenant(
+            admin,
+            uid=uid,
+            preferred_tenant=preferred_tenant,
+        )
+        return uid, tenant
+
+    @staticmethod
+    def _load_rotation_principal(
+        admin: RGWAdminClient,
+        target: RotationTarget,
+        uid: str,
+        tenant: str | None,
+    ) -> object:
+        kwargs = {"tenant": tenant} if tenant else {}
+        payload = admin.get_user(uid, allow_not_found=True, **kwargs)
+        if isinstance(target, (S3Account, S3User)):
+            require_rgw_user_identity(payload, uid, tenant or "")
+        return payload
+
+    def _validate_service_rotation_ownership(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target: RotationTarget,
+        payload: object,
+    ) -> None:
+        if key_type not in SERVICE_TYPES:
+            return
+        provenance = (
+            f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
+        )
+        if target.provenance != provenance or not self.identities._owns(
+            target,
+            payload,
+        ):
+            raise ReplacementValidationError(
+                "Cannot rotate an identity without ownership proof."
+            )
+        self.identities._validate_managed_keys(target, payload)
+
+    @staticmethod
+    def _require_current_access_key(
+        admin: RGWAdminClient,
+        payload: object,
+        old_access: str,
+    ) -> None:
+        if any(
+            item.get("access_key") == old_access
+            for item in admin.extract_keys(payload)
+        ):
+            return
+        raise ValueError("Current key does not belong to the expected principal.")
+
     def _prepare_intent(
         self,
         endpoint: StorageEndpoint,
@@ -254,48 +328,20 @@ class DurableKeyRotationService:
         if not old_access or not old_secret:
             raise ValueError("Rotation credentials are not configured.")
 
-        uid, preferred_tenant = self._principal_hint(target)
-        tenant = None
-        if uid is None:
-            from app.services.key_rotation_rgw import RgwAccessKeyRotator
-
-            uid, tenant = RgwAccessKeyRotator().resolve_identity_from_access_key(
-                admin, old_access
-            )
-        elif isinstance(target, (S3Account, S3User)):
-            tenant = preferred_tenant or None
-        elif key_type not in SERVICE_TYPES:
-            from app.services.key_rotation_rgw import RgwAccessKeyRotator
-
-            tenant = RgwAccessKeyRotator().detect_user_tenant(
-                admin,
-                uid=uid,
-                preferred_tenant=preferred_tenant,
-            )
-
-        payload = (
-            admin.get_user(uid, tenant=tenant, allow_not_found=True)
-            if tenant
-            else admin.get_user(uid, allow_not_found=True)
+        uid, tenant = self._resolve_rotation_principal(
+            admin,
+            key_type,
+            target,
+            old_access,
         )
-        if isinstance(target, (S3Account, S3User)):
-            require_rgw_user_identity(payload, uid, tenant or "")
-        if key_type in SERVICE_TYPES:
-            provenance = (
-                f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
-            )
-            if target.provenance != provenance or not self.identities._owns(
-                target, payload
-            ):
-                raise ReplacementValidationError(
-                    "Cannot rotate an identity without ownership proof."
-                )
-            self.identities._validate_managed_keys(target, payload)
-        if not any(
-            item.get("access_key") == old_access
-            for item in admin.extract_keys(payload)
-        ):
-            raise ValueError("Current key does not belong to the expected principal.")
+        payload = self._load_rotation_principal(admin, target, uid, tenant)
+        self._validate_service_rotation_ownership(
+            endpoint,
+            key_type,
+            target,
+            payload,
+        )
+        self._require_current_access_key(admin, payload, old_access)
 
         intent = KeyRotationIntent(
             endpoint_id=endpoint.id,
