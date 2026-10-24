@@ -75,7 +75,6 @@ describe("EndpointStatusDetailPage latency chart", () => {
       check_target_url: "https://s3-z2.example.test",
       check_type: "availability",
       scope: "endpoint",
-      resolution_seconds: 300,
       series: [
         { timestamp: "2026-03-04T00:00:00.000Z", status: "degraded", latency_ms: null, http_status: 503, check_mode: "http" },
         { timestamp: "2026-03-04T00:20:00.000Z", status: "down", latency_ms: null, http_status: null, check_mode: "http" },

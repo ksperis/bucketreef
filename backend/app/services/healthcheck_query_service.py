@@ -151,7 +151,6 @@ class HealthCheckQueryService:
             "check_target_url": profile.target_url,
             "check_type": DEFAULT_CHECK_TYPE,
             "scope": DEFAULT_SCOPE,
-            "resolution_seconds": DEFAULT_ROLLUP_RESOLUTION_SECONDS,
             "series": series,
             "daily": daily,
         }
@@ -187,13 +186,11 @@ class HealthCheckQueryService:
                 checked_at = latest_scope.checked_at.isoformat()
                 latency_ms = latest_scope.latency_ms
                 check_mode = _coerce_check_mode(latest_scope.check_mode)
-                baseline = latest_scope.avg_latency_ms
             else:
                 status = HealthCheckStatus.UNKNOWN.value
                 checked_at = now.isoformat()
                 latency_ms = None
                 check_mode = profile.mode
-                baseline = None
 
             payload.append(
                 {
@@ -206,7 +203,6 @@ class HealthCheckQueryService:
                     "check_mode": check_mode,
                     "check_target_url": profile.target_url,
                     "availability_pct": availability,
-                    "baseline_latency_ms": baseline,
                     "timeline": timeline,
                 }
             )
@@ -239,7 +235,6 @@ class HealthCheckQueryService:
                 min_latency_ms = latest_scope.min_latency_ms
                 avg_latency_ms = latest_scope.avg_latency_ms
                 max_latency_ms = latest_scope.max_latency_ms
-                sample_count = int(latest_scope.latency_sample_count or 0)
             else:
                 status = HealthCheckStatus.UNKNOWN.value
                 checked_at = now.isoformat()
@@ -248,7 +243,6 @@ class HealthCheckQueryService:
                 min_latency_ms = None
                 avg_latency_ms = None
                 max_latency_ms = None
-                sample_count = 0
             payload.append(
                 {
                     "endpoint_id": endpoint.id,
@@ -262,7 +256,6 @@ class HealthCheckQueryService:
                     "min_latency_ms": min_latency_ms,
                     "avg_latency_ms": avg_latency_ms,
                     "max_latency_ms": max_latency_ms,
-                    "sample_count": sample_count,
                     "check_type": "availability",
                     "scope": "endpoint",
                 }
