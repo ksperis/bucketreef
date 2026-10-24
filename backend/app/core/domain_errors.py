@@ -71,5 +71,9 @@ class ManagerIAMManagedUserConflictError(ResourceConflictError):
     pass
 
 
+class ManagerIAMUserNotFoundError(ResourceNotFoundError):
+    pass
+
+
 class ManagerIAMCredentialsMissingError(ValueError):
     pass

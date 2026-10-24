@@ -184,8 +184,8 @@ def test_update_user_renames_moves_metadata_and_audits_changed_fields(monkeypatc
     audit = _Audit()
     metadata = _Metadata(object())
     monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)
-    monkeypatch.setattr(iam_users, "_annotate_managed_user", lambda _db, _account, user: user)
-    monkeypatch.setattr(iam_users, "AccessKeyMetadataService", lambda _db: metadata)
+    monkeypatch.setattr(manager_iam_support, "managed_iam_user_source", lambda *_args: None)
+    monkeypatch.setattr(manager_iam_support, "AccessKeyMetadataService", lambda _db: metadata)
     context = _context()
 
     result = iam_users.update_user(
@@ -210,10 +210,11 @@ def test_update_user_renames_moves_metadata_and_audits_changed_fields(monkeypatc
 def test_update_user_blocks_bucketreef_managed_identity(monkeypatch):
     service = _UserService()
     monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)
-    def annotate_managed(_db, _account, user):
-        user.is_bucketreef_managed = True
-        return user
-    monkeypatch.setattr(iam_users, "_annotate_managed_user", annotate_managed)
+    monkeypatch.setattr(
+        manager_iam_support,
+        "managed_iam_user_source",
+        lambda _db, _account, _name: ("portal", None),
+    )
 
     with pytest.raises(HTTPException) as exc_info:
         iam_users.update_user(
@@ -236,7 +237,7 @@ def test_update_user_maps_provider_name_conflict_to_http_409(monkeypatch):
 
     service.update_user = conflict
     monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)
-    monkeypatch.setattr(iam_users, "_annotate_managed_user", lambda _db, _account, user: user)
+    monkeypatch.setattr(manager_iam_support, "managed_iam_user_source", lambda *_args: None)
 
     with pytest.raises(HTTPException) as exc_info:
         iam_users.update_user(

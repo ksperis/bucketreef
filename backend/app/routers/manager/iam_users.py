@@ -14,7 +14,11 @@ from app.routers.dependencies import (
     get_audit_service,
     require_iam_capable_manager,
 )
-from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_bad_gateway_from_runtime,
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 from app.routers.manager.iam_common import (
     ensure_unmanaged_iam_user,
     ensure_inline_policy_name,
@@ -24,10 +28,12 @@ from app.services.audit_service import AuditService
 from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.manager_iam_support import (
+    load_iam_user_details,
     load_inline_policies,
     managed_iam_user_source,
     resolve_attached_policy,
     save_inline_policy,
+    update_iam_user,
 )
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_sources import iam_source_reference
@@ -50,15 +56,6 @@ def _annotate_managed_user(db: Session, context: S3ExecutionContext, item: IAMUs
 
 def _ensure_unmanaged_user(db: Session, context: S3ExecutionContext, user_name: str) -> None:
     ensure_unmanaged_iam_user(db, context, user_name)
-
-
-def _load_user_details(service: RGWIAMService, user: IAMUser) -> IAMUser:
-    user.groups = [group.name for group in service.list_groups_for_user(user.name)]
-    user.policies = [policy.arn for policy in service.list_user_policies(user.name) if policy.arn]
-    inline = service.list_user_inline_policies(user.name)
-    user.inline_policies = inline or None
-    user.has_keys = bool(service.list_access_keys(user.name))
-    return user
 
 
 @router.get("", response_model=list[IAMUser])
@@ -89,7 +86,7 @@ def get_user(
         user = service.get_user(user_name)
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        return _annotate_managed_user(db, context, _load_user_details(service, user))
+        return _annotate_managed_user(db, context, load_iam_user_details(service, user))
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -105,40 +102,24 @@ def update_user(
 ) -> IAMUser:
     service = get_iam_service_for_context(context)
     try:
-        existing = service.get_user(user_name)
-        if existing is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        _annotate_managed_user(db, context, existing)
-        if existing.is_bucketreef_managed:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="BucketReef-managed IAM users cannot be renamed or moved",
-            )
-        new_name = payload.name if payload.name is not None and payload.name != user_name else None
-        new_path = payload.path if payload.path is not None and payload.path != existing.path else None
-        service.update_user(user_name, new_name=new_name, new_path=new_path)
-        effective_name = new_name or user_name
-        if new_name is not None and context.id is not None:
-            AccessKeyMetadataService(db).rename_iam_principal_metadata(context.id, user_name, effective_name)
-        updated = service.get_user(effective_name)
-        if updated is None:
-            raise RuntimeError("Updated IAM user could not be reloaded")
-        _load_user_details(service, updated)
-        if new_name is not None or new_path is not None:
+        result = update_iam_user(db, context, service, user_name, payload)
+        if result.name_updated or result.path_updated:
             audit_service.record_action(
                 user=current_user,
                 scope="manager",
                 action="update_iam_user",
                 entity_type="iam_user",
-                entity_id=effective_name,
+                entity_id=result.user.name,
                 execution_context=context,
                 metadata={
-                    "previous_name": user_name if new_name is not None else None,
-                    "name_updated": new_name is not None,
-                    "path_updated": new_path is not None,
+                    "previous_name": result.previous_name,
+                    "name_updated": result.name_updated,
+                    "path_updated": result.path_updated,
                 },
             )
-        return updated
+        return result.user
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
