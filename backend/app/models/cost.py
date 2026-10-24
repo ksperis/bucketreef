@@ -144,7 +144,6 @@ class CostAnalyticsHistoryPoint(ApiModel):
 class CostAnalyticsConcentration(ApiModel):
     top_five_cost: float
     other_cost: float
-    subject_total_cost: float
     top_five_ratio: float = Field(..., ge=0, le=1)
 
 

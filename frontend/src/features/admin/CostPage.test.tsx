@@ -168,7 +168,6 @@ function analytics() {
     concentration: {
       top_five_cost: 12,
       other_cost: 0.5,
-      subject_total_cost: 12.5,
       top_five_ratio: 0.96,
     },
     history: Array.from({ length: 12 }, (_, index) => ({

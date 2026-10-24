@@ -1043,7 +1043,6 @@ def test_cost_analytics_reconciles_endpoints_pricing_top_ten_and_history(db_sess
     assert len(result.top_subjects) == 10
     assert result.top_subjects[0].name == "user-11"
     assert result.top_subjects[-1].name == "user-02"
-    assert result.concentration.subject_total_cost == pytest.approx(133)
     assert result.concentration.top_five_cost == pytest.approx(90)
     assert result.concentration.other_cost == pytest.approx(43)
     assert result.concentration.top_five_ratio == pytest.approx(90 / 133)
@@ -1064,4 +1063,3 @@ def test_cost_analytics_reconciles_endpoints_pricing_top_ten_and_history(db_sess
     assert no_data.summary.coverage.days_collected == 0
     assert no_data.by_endpoint == []
     assert no_data.top_subjects == []
-    assert no_data.concentration.subject_total_cost == 0

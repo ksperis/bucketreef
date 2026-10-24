@@ -176,7 +176,6 @@ export type CostAnalyticsHistoryPoint = {
 export type CostAnalyticsConcentration = {
   top_five_cost: number;
   other_cost: number;
-  subject_total_cost: number;
   top_five_ratio: number;
 };
 
