@@ -2,9 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 import json
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
-from app.core.database import get_db
 from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.iam import IAMRole, IAMRoleCreate, IAMRoleUpdate, IAMTag
@@ -14,12 +12,16 @@ from app.routers.dependencies import (
     get_audit_service,
     require_iam_capable_manager,
 )
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
     get_iam_service_for_context,
 )
 from app.services.audit_service import AuditService
+from app.services.manager_iam_role_service import update_iam_role
 from app.services.manager_iam_support import load_inline_policies, resolve_attached_policy, save_inline_policy
 from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
@@ -39,12 +41,6 @@ DEFAULT_ASSUME_ROLE = """
 router = APIRouter(prefix="/manager/iam/roles", tags=["manager-iam-roles"])
 
 
-def _same_policy_document(left: object, right: object) -> bool:
-    return json.dumps(left, sort_keys=True, separators=(",", ":")) == json.dumps(
-        right, sort_keys=True, separators=(",", ":")
-    )
-
-
 def _ensure_role_tags_persisted(requested: list[IAMTag], current: list[IAMTag]) -> None:
     current_pairs = {(tag.key, tag.value) for tag in current}
     if any((tag.key, tag.value) not in current_pairs for tag in requested):
@@ -59,7 +55,6 @@ def _ensure_role_tag_removed(tag_key: str, current: list[IAMTag]) -> None:
 @router.get("", response_model=list[IAMRole])
 def list_roles(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
-    db: Session = Depends(get_db),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[IAMRole]:
     service = get_iam_service_for_context(context)
@@ -161,65 +156,18 @@ def update_role(
 ) -> IAMRole:
     service = get_iam_service_for_context(context)
     try:
-        existing = service.get_role(role_name)
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-    if existing is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
-
-    if payload.path is not None and payload.path != existing.path:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Updating an IAM role path is not supported. Create a new role with the desired path.",
+        return update_iam_role(
+            service,
+            role_name,
+            payload,
+            context=context,
+            current_user=current_user,
+            audit_service=audit_service,
         )
-
-    assume_policy = payload.assume_role_policy_document
-    if isinstance(assume_policy, str):
-        try:
-            assume_policy = json.loads(assume_policy)
-        except json.JSONDecodeError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Assume role policy must be valid JSON") from exc
-
-    duration_changed = (
-        payload.max_session_duration is not None
-        and payload.max_session_duration != existing.max_session_duration
-    )
-    assume_policy_changed = (
-        assume_policy is not None
-        and not _same_policy_document(assume_policy, existing.assume_role_policy_document)
-    )
-    updated = existing
-    try:
-        if duration_changed:
-            service.update_role_max_session_duration(role_name, payload.max_session_duration)
-            audit_service.record_action(
-                user=current_user,
-                scope="manager",
-                action="update_iam_role",
-                entity_type="iam_role",
-                entity_id=role_name,
-                execution_context=context,
-                metadata={"max_session_duration": payload.max_session_duration},
-            )
-        if assume_policy_changed:
-            service.update_role_assume_policy(role_name, assume_policy)
-            audit_service.record_action(
-                user=current_user,
-                scope="manager",
-                action="update_iam_role",
-                entity_type="iam_role",
-                entity_id=role_name,
-                execution_context=context,
-                metadata={"assume_role_policy_updated": True},
-            )
-        if duration_changed or assume_policy_changed:
-            updated = service.get_role(role_name)
-            if updated is None:
-                raise RuntimeError("Updated IAM role could not be reloaded")
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-
-    return updated
 
 
 @router.get("/{role_name}/tags", response_model=list[IAMTag])
