@@ -129,33 +129,49 @@ def rgw_user_account_root(payload: Any) -> bool | None:
     return explicit
 
 
+_RGW_USER_ID_FIELDS = ("uid", "user_id", "user")
+
+
+def _rgw_user_identity_candidates(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    candidates = [payload]
+    nested_user = payload.get("user")
+    if isinstance(nested_user, dict):
+        candidates.append(nested_user)
+    return candidates
+
+
+def _collect_rgw_user_identity(
+    candidate: dict[str, Any],
+    *,
+    uids: set[str],
+    tenants: set[str],
+) -> None:
+    explicit_tenant = normalize_optional_scalar(candidate.get("tenant"))
+    if explicit_tenant:
+        tenants.add(explicit_tenant)
+
+    for field in _RGW_USER_ID_FIELDS:
+        raw_value = candidate.get(field)
+        if not isinstance(raw_value, str):
+            continue
+        uid = normalize_optional_string(raw_value)
+        if not uid:
+            continue
+        if "$" in uid:
+            embedded_tenant, uid = (part.strip() for part in uid.split("$", 1))
+            if not embedded_tenant or not uid:
+                raise ValueError("RGW returned an invalid tenant-qualified user identity")
+            tenants.add(embedded_tenant)
+        uids.add(uid)
+
+
 def extract_rgw_user_identity(payload: Any) -> tuple[str | None, str | None]:
     if not isinstance(payload, dict):
         return None, None
-    candidates = [payload]
-    if isinstance(payload.get("user"), dict):
-        candidates.append(payload["user"])
     uids: set[str] = set()
     tenants: set[str] = set()
-    for candidate in candidates:
-        if candidate.get("tenant") is not None:
-            explicit_tenant = str(candidate["tenant"]).strip()
-            if explicit_tenant:
-                tenants.add(explicit_tenant)
-        for field in ("uid", "user_id", "user"):
-            if not isinstance(candidate.get(field), str):
-                continue
-            raw = normalize_optional_string(candidate[field])
-            if not raw:
-                continue
-            if "$" in raw:
-                embedded_tenant, raw = raw.split("$", 1)
-                embedded_tenant = embedded_tenant.strip()
-                raw = raw.strip()
-                if not embedded_tenant or not raw:
-                    raise ValueError("RGW returned an invalid tenant-qualified user identity")
-                tenants.add(embedded_tenant)
-            uids.add(raw)
+    for candidate in _rgw_user_identity_candidates(payload):
+        _collect_rgw_user_identity(candidate, uids=uids, tenants=tenants)
     if len(tenants) > 1:
         raise ValueError("RGW returned conflicting tenant identity fields")
     if len(uids) > 1:
