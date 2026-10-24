@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
 from app.db import S3Account, StorageEndpoint
@@ -827,3 +828,39 @@ def test_get_object_columns_reuses_backend_cache_and_invalidates_after_mutation(
     assert third.items[0].content_type == "text/plain"
     assert head_calls == ["a.txt", "a.txt"]
     assert tag_calls == ["a.txt", "a.txt"]
+
+
+def test_get_object_columns_deduplicates_keys_and_reports_lazy_errors(monkeypatch):
+    head_calls: list[str] = []
+    tag_calls: list[str] = []
+
+    class FakeClient:
+        def head_object(self, **kwargs):  # noqa: ANN001
+            head_calls.append(kwargs["Key"])
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "HeadObject",
+            )
+
+        def get_object_tagging(self, **kwargs):  # noqa: ANN001
+            tag_calls.append(kwargs["Key"])
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "GetObjectTagging",
+            )
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
+
+    result = service.get_object_columns(
+        "bucket-a",
+        _account(),
+        keys=["error.txt", "error.txt"],
+        columns={"content_type", "tags_count"},
+    )
+
+    assert [item.key for item in result.items] == ["error.txt"]
+    assert result.items[0].metadata_status == "error"
+    assert result.items[0].tags_status == "error"
+    assert head_calls == ["error.txt"]
+    assert tag_calls == ["error.txt"]
