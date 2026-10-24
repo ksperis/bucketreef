@@ -198,37 +198,76 @@ class EndpointServiceIdentityService:
         check_usage: bool = True,
     ) -> dict | None:
         if kind == "runtime":
-            if not access_key:
-                raise ValueError("Runtime access key is required for validation.")
-            payload = client.get_user_by_access_key(access_key, allow_not_found=True)
-            cls.validate_payload("runtime", payload)
-            uid = payload.get("user_id") or payload.get("uid")
-            if (
-                not uid
-                or payload.get("keys")
-                or payload.get("swift_keys")
-                or payload.get("temp_url_keys")
-            ):
-                raise ValueError("Runtime user lookup must succeed without returning keys.")
-            client.get_account("RGW00000000000000000", allow_not_found=True)
-            if check_buckets:
-                client.get_all_buckets(uid=bucket_uid or str(uid), with_stats=True)
-            return None
+            return cls._validate_runtime_functional_access(
+                client,
+                access_key=access_key,
+                bucket_uid=bucket_uid,
+                check_buckets=check_buckets,
+            )
 
         if kind == "supervision":
-            if check_buckets:
-                client.get_all_buckets(with_stats=True)
-            if check_usage:
-                return client.get_usage(show_entries=False, show_summary=True)
-            return None
+            return cls._validate_supervision_functional_access(
+                client,
+                check_buckets=check_buckets,
+                check_usage=check_usage,
+            )
 
         if kind == "ceph_admin":
-            if not access_key:
-                raise ValueError("Ceph Admin access key is required for validation.")
-            cls.validate_payload("ceph_admin", client.get_user_by_access_key(access_key, allow_not_found=True))
-            return None
+            return cls._validate_ceph_admin_functional_access(client, access_key=access_key)
 
         raise ValueError(f"Unsupported service identity kind: {kind}.")
+
+    @classmethod
+    def _validate_runtime_functional_access(
+        cls,
+        client: RGWAdminClient,
+        *,
+        access_key: str | None,
+        bucket_uid: str | None,
+        check_buckets: bool,
+    ) -> None:
+        if not access_key:
+            raise ValueError("Runtime access key is required for validation.")
+        payload = client.get_user_by_access_key(access_key, allow_not_found=True)
+        cls.validate_payload("runtime", payload)
+        uid = payload.get("user_id") or payload.get("uid")
+        if (
+            not uid
+            or payload.get("keys")
+            or payload.get("swift_keys")
+            or payload.get("temp_url_keys")
+        ):
+            raise ValueError("Runtime user lookup must succeed without returning keys.")
+        client.get_account("RGW00000000000000000", allow_not_found=True)
+        if check_buckets:
+            client.get_all_buckets(uid=bucket_uid or str(uid), with_stats=True)
+
+    @staticmethod
+    def _validate_supervision_functional_access(
+        client: RGWAdminClient,
+        *,
+        check_buckets: bool,
+        check_usage: bool,
+    ) -> dict | None:
+        if check_buckets:
+            client.get_all_buckets(with_stats=True)
+        if check_usage:
+            return client.get_usage(show_entries=False, show_summary=True)
+        return None
+
+    @classmethod
+    def _validate_ceph_admin_functional_access(
+        cls,
+        client: RGWAdminClient,
+        *,
+        access_key: str | None,
+    ) -> None:
+        if not access_key:
+            raise ValueError("Ceph Admin access key is required for validation.")
+        cls.validate_payload(
+            "ceph_admin",
+            client.get_user_by_access_key(access_key, allow_not_found=True),
+        )
 
     def _functional_check(
         self,
