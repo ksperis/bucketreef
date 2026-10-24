@@ -81,6 +81,65 @@ def test_delete_empty_bucket_maps_provider_errors(monkeypatch, error_code, expec
         s3_deletion.delete_empty_bucket("private-empty")
 
 
+def test_delete_bucket_rejects_nonempty_bucket_without_force(monkeypatch):
+    class DeleteClient:
+        def __init__(self):
+            self.deleted = []
+
+        def list_objects_v2(self, **kwargs):
+            assert kwargs == {"Bucket": "nonempty", "MaxKeys": 1}
+            return {"KeyCount": 1, "Contents": [{"Key": "object"}]}
+
+        def delete_bucket(self, **kwargs):
+            self.deleted.append(kwargs)
+
+    client = DeleteClient()
+    monkeypatch.setattr(s3_deletion, "get_s3_client", lambda *_args, **_kwargs: client)
+    monkeypatch.setattr(
+        s3_deletion,
+        "purge_bucket_contents",
+        lambda *_args, **_kwargs: pytest.fail("purge must require force"),
+    )
+
+    with pytest.raises(s3_deletion.BucketNotEmptyError, match="force=true"):
+        s3_deletion.delete_bucket("nonempty")
+
+    assert client.deleted == []
+
+
+def test_delete_bucket_force_purges_before_bucket_delete(monkeypatch):
+    class DeleteClient:
+        def __init__(self):
+            self.deleted = []
+
+        def list_objects_v2(self, **_kwargs):
+            return {"KeyCount": 1, "Contents": [{"Key": "object"}]}
+
+        def delete_bucket(self, **kwargs):
+            self.deleted.append(kwargs["Bucket"])
+
+    client = DeleteClient()
+    purge_calls = []
+    monkeypatch.setattr(s3_deletion, "get_s3_client", lambda *_args, **_kwargs: client)
+
+    def purge(client_arg, bucket_name, **kwargs):
+        purge_calls.append((client_arg, bucket_name, kwargs))
+        return s3_deletion.BucketContentPurgeResult(bucket_name=bucket_name)
+
+    monkeypatch.setattr(s3_deletion, "purge_bucket_contents", purge)
+
+    s3_deletion.delete_bucket("nonempty", force=True)
+
+    assert purge_calls == [
+        (
+            client,
+            "nonempty",
+            {"parallelism": 10, "include_versions": True},
+        )
+    ]
+    assert client.deleted == ["nonempty"]
+
+
 def test_s3_bucket_replication_owns_replication_contracts_without_legacy_exports():
     assert s3_bucket_replication.get_bucket_replication.__module__ == "app.services.s3_bucket_replication"
     assert s3_bucket_replication.put_bucket_replication.__module__ == "app.services.s3_bucket_replication"

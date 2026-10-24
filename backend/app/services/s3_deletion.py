@@ -495,6 +495,46 @@ def delete_empty_bucket(
     return True
 
 
+def _bucket_has_current_objects(client: Any, bucket_name: str) -> bool:
+    try:
+        response = client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
+    except (BotoCoreError, ClientError) as exc:
+        raise RuntimeError(
+            f"Unable to inspect bucket '{bucket_name}': {exc}"
+        ) from exc
+    return (response.get("KeyCount") or 0) > 0 or bool(response.get("Contents"))
+
+
+def _purge_bucket_before_delete(client: Any, bucket_name: str) -> None:
+    try:
+        purge_result = purge_bucket_contents(
+            client,
+            bucket_name,
+            parallelism=10,
+            include_versions=True,
+        )
+        if purge_result.failed_count <= 0:
+            return
+        sample_failures = purge_result.failures_sample[:3]
+        sample = ", ".join(failure.message for failure in sample_failures)
+        remaining = purge_result.failed_count - len(sample_failures)
+        extra = f" (+{remaining} more)" if remaining > 0 else ""
+        raise RuntimeError(
+            f"Unable to purge bucket contents in '{bucket_name}': {sample}{extra}"
+        )
+    except ClientError as exc:
+        error_code = aws_error_code(exc, lowercase=True)
+        if error_code in {"nosuchbucket", "nosuchversion"}:
+            return
+        raise RuntimeError(
+            f"Unable to purge bucket contents in '{bucket_name}': {exc}"
+        ) from exc
+    except BotoCoreError as exc:
+        raise RuntimeError(
+            f"Unable to purge bucket contents in '{bucket_name}': {exc}"
+        ) from exc
+
+
 def delete_bucket(
     bucket_name: str,
     force: bool = False,
@@ -515,35 +555,14 @@ def delete_bucket(
         force_path_style=force_path_style,
         verify_tls=verify_tls,
     )
-    try:
-        resp = client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
-    except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to inspect bucket '{bucket_name}': {exc}") from exc
-
-    has_objects = (resp.get("KeyCount") or 0) > 0 or bool(resp.get("Contents"))
+    has_objects = _bucket_has_current_objects(client, bucket_name)
     if has_objects and not force:
         raise BucketNotEmptyError(
             f"Bucket '{bucket_name}' is not empty. Retry with force=true to delete all objects."
         )
 
     if force:
-        try:
-            purge_result = purge_bucket_contents(client, bucket_name, parallelism=10, include_versions=True)
-            if purge_result.failed_count > 0:
-                sample_failures = purge_result.failures_sample[:3]
-                sample = ", ".join(failure.message for failure in sample_failures)
-                extra = (
-                    f" (+{purge_result.failed_count - len(sample_failures)} more)"
-                    if purge_result.failed_count > len(sample_failures)
-                    else ""
-                )
-                raise RuntimeError(f"Unable to purge bucket contents in '{bucket_name}': {sample}{extra}")
-        except ClientError as exc:
-            error_code = aws_error_code(exc, lowercase=True)
-            if error_code not in {"nosuchbucket", "nosuchversion"}:
-                raise RuntimeError(f"Unable to purge bucket contents in '{bucket_name}': {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to purge bucket contents in '{bucket_name}': {exc}") from exc
+        _purge_bucket_before_delete(client, bucket_name)
 
     try:
         client.delete_bucket(Bucket=bucket_name)
