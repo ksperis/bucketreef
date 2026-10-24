@@ -25,7 +25,13 @@ from app.db import (
     UserS3User,
     UserUiGroup,
 )
-from app.models.user import PASSWORD_POLICY_ERROR, S3UserMembership, UserCreate, UserUpdate
+from app.models.user import (
+    PASSWORD_POLICY_ERROR,
+    S3UserMembership,
+    UserCreate,
+    UserSelfUpdate,
+    UserUpdate,
+)
 from app.services.user_output_service import UserOutputService
 from app.services.users_service import UsersService
 from tests.s3_account_factory import make_s3_account
@@ -520,27 +526,37 @@ def test_update_current_user_password_paths(db_session):
     user = _seed_user(db_session, "profile@example.com", role=UserRole.UI_USER.value, password="initialpass123")
 
     with pytest.raises(ValueError, match="Both current_password and new_password are required"):
-        service.update_current_user(user, current_password="initialpass123", new_password=None)
+        service.update_current_user(
+            user,
+            UserSelfUpdate(current_password="initialpass123", new_password=None),
+        )
 
     user.hashed_password = None
     db_session.add(user)
     db_session.commit()
     with pytest.raises(ValueError, match="unavailable"):
-        service.update_current_user(user, current_password="x", new_password="nextpass12345")
+        service.update_current_user(
+            user,
+            UserSelfUpdate(current_password="x", new_password="nextpass12345"),
+        )
 
     user.hashed_password = get_password_hash("initialpass123")
     db_session.add(user)
     db_session.commit()
     with pytest.raises(ValueError, match="incorrect"):
-        service.update_current_user(user, current_password="bad", new_password="nextpass12345")
+        service.update_current_user(
+            user,
+            UserSelfUpdate(current_password="bad", new_password="nextpass12345"),
+        )
 
     updated = service.update_current_user(
         user,
-        full_name=" Profile Name ",
-        ui_language="fr",
-        update_ui_language=True,
-        current_password="initialpass123",
-        new_password="nextpass12345",
+        UserSelfUpdate(
+            full_name=" Profile Name ",
+            ui_language="fr",
+            current_password="initialpass123",
+            new_password="nextpass12345",
+        ),
     )
     assert updated.full_name == "Profile Name"
     assert updated.ui_language == "fr"
