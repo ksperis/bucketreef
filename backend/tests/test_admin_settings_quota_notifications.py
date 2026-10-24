@@ -53,9 +53,7 @@ def test_superadmin_can_send_quota_notification_test_email(client: TestClient, m
         assert recipient_email == "superadmin@example.com"
         assert notification_settings.smtp_host == "smtp.example.test"
         return {
-            "status": "sent",
             "recipient": recipient_email,
-            "sent_at": "2026-01-01T00:00:00",
         }
 
     monkeypatch.setattr(
@@ -67,9 +65,7 @@ def test_superadmin_can_send_quota_notification_test_email(client: TestClient, m
     response = client.post("/api/admin/settings/quota-notifications/test-email", json=_smtp_payload())
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert payload["status"] == "sent"
     assert payload["recipient"] == "superadmin@example.com"
-    assert payload["sent_at"] == "2026-01-01T00:00:00"
 
 
 def test_admin_cannot_send_quota_notification_test_email(client: TestClient):

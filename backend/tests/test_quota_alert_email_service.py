@@ -57,7 +57,7 @@ def test_build_mailer_requires_username_for_environment_password():
     )
 
 
-def test_send_test_email_normalizes_recipient_and_reports_timestamp(
+def test_send_test_email_normalizes_recipient_and_timestamps_message(
     monkeypatch,
 ):
     service = QuotaAlertEmailService()
@@ -80,11 +80,12 @@ def test_send_test_email_normalizes_recipient_and_reports_timestamp(
     )
 
     assert result == {
-        "status": "sent",
         "recipient": "admin@example.test",
-        "sent_at": "2026-08-14T17:00:00+00:00",
     }
     assert fake_mailer.calls[0]["recipients"] == [
         "admin@example.test"
     ]
     assert "SMTP configuration" in str(fake_mailer.calls[0]["subject"])
+    assert "Sent at (UTC): 2026-08-14T17:00:00+00:00" in str(
+        fake_mailer.calls[0]["body"]
+    )

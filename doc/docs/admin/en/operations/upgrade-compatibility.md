@@ -479,6 +479,15 @@ counts and averages displayed by the frontend.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 quota test-email response cleanup
+
+The quota notification SMTP test endpoint now returns only the recipient
+address used for the successful test. The constant `status` and redundant
+`sent_at` response fields were unused by the frontend; the message body still
+records the send timestamp.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the
