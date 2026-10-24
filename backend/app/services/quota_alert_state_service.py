@@ -71,7 +71,6 @@ class QuotaAlertStateService:
             state = self._create_state(
                 subject=subject,
                 next_level=next_level,
-                ratio_pct=ratio_pct,
                 now=now,
             )
             try:
@@ -91,13 +90,7 @@ class QuotaAlertStateService:
             next_level=next_level,
         )
         state.last_level = next_level
-        state.last_ratio_pct = ratio_pct
-        state.last_checked_at = now
         state.updated_at = now
-
-        if should_alert:
-            state.last_notified_level = next_level
-            state.last_notified_at = now
 
         return QuotaAlertTransition(
             should_alert=should_alert,
@@ -128,7 +121,6 @@ class QuotaAlertStateService:
         *,
         subject: SubjectContext,
         next_level: str,
-        ratio_pct: Optional[float],
         now: datetime,
     ) -> QuotaAlertState:
         account_id, user_id = quota_subject_ids(subject)
@@ -137,8 +129,6 @@ class QuotaAlertStateService:
             s3_account_id=account_id,
             s3_user_id=user_id,
             last_level=next_level,
-            last_ratio_pct=ratio_pct,
-            last_checked_at=now,
             created_at=now,
             updated_at=now,
         )
