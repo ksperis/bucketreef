@@ -13,13 +13,59 @@ class PrecheckItemSafety:
     rollback_safe: bool
 
 
+@dataclass(frozen=True)
+class SourceStrategyDecision:
+    strategy: str
+    requires_object_lock_governance: bool
+
+
 class BucketMigrationPrecheckRules:
     """Evaluate migration strategy and fail-closed safety rules for one item."""
 
     def __init__(self, service: Any) -> None:
         self._service = service
 
-    def add_source_strategy_check(
+    def evaluate_source_strategy(
+        self,
+        *,
+        profile: dict[str, Any],
+        initial_strategy: str,
+        add_check: Callable[..., None],
+    ) -> SourceStrategyDecision:
+        versioning = profile.get("versioning") or {}
+        version_scan = profile.get("version_scan") or {}
+        object_lock = profile.get("object_lock") or {}
+        requires_version_aware = bool(
+            versioning.get("enabled")
+            or versioning.get("suspended")
+            or version_scan.get("has_noncurrent_versions")
+            or version_scan.get("has_delete_markers")
+        )
+        requires_object_lock_governance = bool(
+            object_lock.get("enabled")
+            or object_lock.get("mode")
+            or object_lock.get("days") is not None
+            or object_lock.get("years") is not None
+        )
+        strategy = (
+            "version_aware"
+            if requires_version_aware or requires_object_lock_governance
+            else initial_strategy
+        )
+        self._add_source_strategy_check(
+            versioning=versioning,
+            version_scan=version_scan,
+            object_lock=object_lock,
+            requires_version_aware=requires_version_aware,
+            requires_object_lock_governance=requires_object_lock_governance,
+            add_check=add_check,
+        )
+        return SourceStrategyDecision(
+            strategy=strategy,
+            requires_object_lock_governance=requires_object_lock_governance,
+        )
+
+    def _add_source_strategy_check(
         self,
         *,
         versioning: dict[str, Any],
