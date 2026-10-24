@@ -48,7 +48,7 @@ POST_MIGRATION_UTC_COLUMNS = {
     ),
     "external_identities": ("created_at", "last_login_at", "revoked_at"),
     "external_identity_link_requests": ("created_at", "expires_at", "decided_at"),
-    "first_admin_bootstrap": ("issued_at", "expires_at", "consumed_at"),
+    "first_admin_bootstrap": ("expires_at", "consumed_at"),
     "onboarding_journeys": ("configured_at", "created_at", "updated_at"),
     "endpoint_service_identities": ("last_reconciled_at", "created_at", "updated_at"),
     "key_rotation_intents": ("created_at", "updated_at"),
@@ -110,6 +110,10 @@ def test_migration_covers_every_utc_datetime_column_present_at_revision() -> Non
         "idle_expires_at",
         "absolute_expires_at",
         "revoked_at",
+    )
+    expected_current_columns["backend_operation_leases"] = (
+        "lease_until",
+        "updated_at",
     )
     bucket_migration_columns = expected_current_columns["bucket_migrations"]
     preparation_index = bucket_migration_columns.index("precheck_checked_at") + 1
