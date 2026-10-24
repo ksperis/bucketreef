@@ -108,11 +108,9 @@ def current_session(
     row = current_auth_session(request, db)
     if isinstance(actor, ManagerSessionPrincipal):
         descriptor = SessionDescriptor(
-            session_id=actor.session_id,
             actor_type=actor.actor_type,
             account_id=actor.account_id,
             account_name=actor.account_name,
-            user_uid=actor.user_uid,
             capabilities=actor.capabilities,
         )
         return CurrentSessionResponse(

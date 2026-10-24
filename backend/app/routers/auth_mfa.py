@@ -133,7 +133,6 @@ def webauthn_registration_verify(
         user=get_users_service(db).user_to_out(user),
         session=None,
         redirect_path=None,
-        link_request_id=None,
         recovery_codes=codes,
     )
 
@@ -190,7 +189,6 @@ def webauthn_authentication_verify(
         user=get_users_service(db).user_to_out(user),
         session=None,
         redirect_path=None,
-        link_request_id=None,
         recovery_codes=None,
     )
 
@@ -227,6 +225,5 @@ def verify_recovery_code(
         user=get_users_service(db).user_to_out(user),
         session=None,
         redirect_path=None,
-        link_request_id=None,
         recovery_codes=None,
     )

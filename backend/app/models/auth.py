@@ -22,7 +22,6 @@ class AuthenticationResponse(ApiModel):
     user: Optional[UserOut]
     session: Optional[SessionDescriptor]
     redirect_path: Optional[str]
-    link_request_id: Optional[str]
     recovery_codes: Optional[list[str]]
 
 

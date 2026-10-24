@@ -937,7 +937,6 @@ def test_oidc_email_collision_creates_an_audited_manual_link_response(auth_clien
         "user": None,
         "session": None,
         "redirect_path": None,
-        "link_request_id": "link-request-1",
         "recovery_codes": None,
     }
     audit = db_session.scalars(

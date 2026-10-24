@@ -98,11 +98,9 @@ def login_with_s3_keys(
     )
     set_auth_cookies(response, credentials)
     descriptor = SessionDescriptor(
-        session_id=principal.session_id,
         actor_type=principal.actor_type,
         account_id=principal.account_id,
         account_name=principal.account_name,
-        user_uid=principal.user_uid,
         capabilities=principal.capabilities,
     )
     attempt.audit(
@@ -123,6 +121,5 @@ def login_with_s3_keys(
         user=None,
         session=descriptor,
         redirect_path=None,
-        link_request_id=None,
         recovery_codes=None,
     )
