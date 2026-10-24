@@ -75,5 +75,9 @@ class ManagerIAMUserNotFoundError(ResourceNotFoundError):
     pass
 
 
+class ManagerIAMRoleNotFoundError(ResourceNotFoundError):
+    pass
+
+
 class ManagerIAMCredentialsMissingError(ValueError):
     pass
