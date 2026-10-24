@@ -89,5 +89,3 @@ def test_quota_alert_state_tracks_escalation_reset_and_reentry(db_session):
     assert state.s3_account_id == subject.subject_id
     assert state.s3_user_id is None
     assert state.last_level == QUOTA_ALERT_THRESHOLD
-    assert state.last_notified_level == QUOTA_ALERT_THRESHOLD
-    assert state.last_notified_at == now + timedelta(minutes=4)

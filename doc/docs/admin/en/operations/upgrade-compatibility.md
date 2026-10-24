@@ -556,6 +556,13 @@ Migration \`0192_remove_endpoint_health_checks_count\` removes the unused
 continue to retain their time range and latency aggregates; latency aggregation
 uses the separate \`latency_sample_count\` state.
 
+## 2026-10 quota alert state cleanup
+
+Migration \`0193_remove_unused_quota_alert_state\` removes four write-only
+quota-alert history fields: \`last_ratio_pct\`, \`last_checked_at\`,
+\`last_notified_level\`, and \`last_notified_at\`. Alert transition and
+deduplication behavior continues to use the persisted \`last_level\`.
+
 ## 2026-10 Portal deleted-folder restore progress cleanup
 
 Portal deleted-folder restore progress events no longer include the unused

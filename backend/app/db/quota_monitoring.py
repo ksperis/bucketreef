@@ -178,10 +178,6 @@ class QuotaAlertState(Base):
     s3_account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True, index=True)
     s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
     last_level = Column(String, nullable=False, default="normal", server_default="normal")
-    last_ratio_pct = Column(Numeric(8, 3), nullable=True)
-    last_checked_at = Column(UTCDateTime(), nullable=False, default=utcnow)
-    last_notified_level = Column(String, nullable=True)
-    last_notified_at = Column(UTCDateTime(), nullable=True)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
