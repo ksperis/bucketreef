@@ -624,19 +624,14 @@ class CostService:
             CostUsageDaily.day >= period.start,
             CostUsageDaily.day < period.end,
         )
-        if endpoint_id is not None:
-            usage_statement = usage_statement.where(
-                CostUsageDaily.storage_endpoint_id == endpoint_id
-            )
-        else:
-            usage_statement = usage_statement.join(
-                StorageEndpoint,
-                StorageEndpoint.id == CostUsageDaily.storage_endpoint_id,
-            ).where(StorageEndpoint.provider == StorageProvider.CEPH.value)
-        if subject_type == "account":
-            usage_statement = usage_statement.where(CostUsageDaily.s3_account_id.isnot(None))
-        elif subject_type == "s3_user":
-            usage_statement = usage_statement.where(CostUsageDaily.s3_user_id.isnot(None))
+        usage_statement = self._scope_daily_cost_statement(
+            usage_statement,
+            endpoint_column=CostUsageDaily.storage_endpoint_id,
+            account_column=CostUsageDaily.s3_account_id,
+            user_column=CostUsageDaily.s3_user_id,
+            endpoint_id=endpoint_id,
+            subject_type=subject_type,
+        )
         usage_row = self.db.execute(usage_statement).one()
         bytes_in = int(usage_row[0] or 0)
         bytes_out = int(usage_row[1] or 0)
@@ -651,19 +646,14 @@ class CostService:
             CostStorageDaily.day >= period.start,
             CostStorageDaily.day < period.end,
         )
-        if endpoint_id is not None:
-            storage_statement = storage_statement.where(
-                CostStorageDaily.storage_endpoint_id == endpoint_id
-            )
-        else:
-            storage_statement = storage_statement.join(
-                StorageEndpoint,
-                StorageEndpoint.id == CostStorageDaily.storage_endpoint_id,
-            ).where(StorageEndpoint.provider == StorageProvider.CEPH.value)
-        if subject_type == "account":
-            storage_statement = storage_statement.where(CostStorageDaily.s3_account_id.isnot(None))
-        elif subject_type == "s3_user":
-            storage_statement = storage_statement.where(CostStorageDaily.s3_user_id.isnot(None))
+        storage_statement = self._scope_daily_cost_statement(
+            storage_statement,
+            endpoint_column=CostStorageDaily.storage_endpoint_id,
+            account_column=CostStorageDaily.s3_account_id,
+            user_column=CostStorageDaily.s3_user_id,
+            endpoint_id=endpoint_id,
+            subject_type=subject_type,
+        )
         storage_row = self.db.execute(storage_statement).one()
         total_bytes = storage_row[0] or 0
         total_objects = storage_row[1]
@@ -682,6 +672,29 @@ class CostService:
             storage_days_with_data=days_with_storage,
             usage_days_with_data=days_with_usage,
         )
+
+    @staticmethod
+    def _scope_daily_cost_statement(
+        statement,
+        *,
+        endpoint_column,
+        account_column,
+        user_column,
+        endpoint_id: Optional[int],
+        subject_type: Optional[str],
+    ):
+        if endpoint_id is not None:
+            statement = statement.where(endpoint_column == endpoint_id)
+        else:
+            statement = statement.join(
+                StorageEndpoint,
+                StorageEndpoint.id == endpoint_column,
+            ).where(StorageEndpoint.provider == StorageProvider.CEPH.value)
+        if subject_type == "account":
+            return statement.where(account_column.isnot(None))
+        if subject_type == "s3_user":
+            return statement.where(user_column.isnot(None))
+        return statement
 
     def _usage_totals_by_subject(
         self,
