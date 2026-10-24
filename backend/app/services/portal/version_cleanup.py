@@ -2,9 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, Iterator, TYPE_CHECKING
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -35,6 +35,142 @@ class PortalStorageSpaceVersionCleanupTarget:
     bucket_name: str
     storage_space_id: str
     storage_space_name: str
+
+
+@dataclass
+class _PortalVersionCleanupRun:
+    target: PortalStorageSpaceVersionCleanupTarget
+    progress_callback: PortalVersionCleanupProgressCallback | None
+    cancel_check: PortalVersionCleanupCancelCheck | None
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    scanned_versions: int = 0
+    scanned_delete_markers: int = 0
+    delete_candidates: int = 0
+    deleted_versions: int = 0
+    deleted_delete_markers: int = 0
+    bytes_freed: int = 0
+
+    def check_cancel(self) -> None:
+        if self.cancel_check:
+            self.cancel_check()
+
+    def emit(
+        self,
+        stage: PortalStorageSpaceVersionCleanupStage,
+        message: str | None = None,
+        *,
+        total_candidates_final: bool = False,
+    ) -> None:
+        if self.progress_callback is None:
+            return
+        self.progress_callback(
+            PortalStorageSpaceVersionCleanupProgress(
+                request_id=None,
+                stage=stage,
+                storage_space_id=self.target.storage_space_id,
+                storage_space_name=self.target.storage_space_name,
+                scanned_versions=self.scanned_versions,
+                scanned_delete_markers=self.scanned_delete_markers,
+                delete_candidates=self.delete_candidates,
+                deleted_versions=self.deleted_versions,
+                deleted_delete_markers=self.deleted_delete_markers,
+                bytes_freed=self.bytes_freed,
+                total_candidates_final=total_candidates_final,
+                message=message,
+            )
+        )
+
+    def update_scan_progress(self, counts: ObjectVersionScanCounts) -> None:
+        self.scanned_versions = counts.versions
+        self.scanned_delete_markers = counts.delete_markers
+        self.emit("list", "Scanning historical versions and delete markers...")
+
+    def delete_versions_batch(
+        self,
+        cleanup_store: ObjectVersionCleanupStore,
+        batch: list[tuple[str, str, int]],
+    ) -> None:
+        self.check_cancel()
+        items = [
+            {"Key": key, "VersionId": version_id}
+            for key, version_id, _size in batch
+        ]
+        s3_deletion.delete_objects_count(
+            self.target.client,
+            self.target.bucket_name,
+            items,
+        )
+        cleanup_store.remove_versions(
+            [(key, version_id) for key, version_id, _size in batch]
+        )
+        self.deleted_versions += len(batch)
+        self.bytes_freed += sum(size for _key, _version_id, size in batch)
+        self.emit("delete", "Deleting historical versions...")
+
+    def delete_markers_batch(self, batch: list[tuple[str, str]]) -> None:
+        self.check_cancel()
+        items = [{"Key": key, "VersionId": version_id} for key, version_id in batch]
+        s3_deletion.delete_objects_count(
+            self.target.client,
+            self.target.bucket_name,
+            items,
+        )
+        self.deleted_delete_markers += len(batch)
+        self.emit(
+            "delete",
+            "Deleting orphan delete markers...",
+            total_candidates_final=True,
+        )
+
+    def result(self) -> PortalStorageSpaceVersionCleanupResult:
+        return PortalStorageSpaceVersionCleanupResult(
+            status="completed",
+            storage_space_id=self.target.storage_space_id,
+            storage_space_name=self.target.storage_space_name,
+            scanned_versions=self.scanned_versions,
+            scanned_delete_markers=self.scanned_delete_markers,
+            deleted_versions=self.deleted_versions,
+            deleted_delete_markers=self.deleted_delete_markers,
+            bytes_freed=self.bytes_freed,
+            started_at=self.started_at,
+            finished_at=datetime.now(timezone.utc),
+        )
+
+
+def _version_batches(
+    cleanup_store: ObjectVersionCleanupStore,
+    *,
+    batch_size: int = 1000,
+) -> Iterator[list[tuple[str, str, int]]]:
+    batch: list[tuple[str, str, int]] = []
+    for row in cleanup_store.iter_noncurrent_versions():
+        batch.append(
+            (
+                str(row["key"]),
+                str(row["version_id"]),
+                int(row["size_bytes"] or 0),
+            )
+        )
+        if len(batch) >= batch_size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
+
+def _marker_batches(
+    cleanup_store: ObjectVersionCleanupStore,
+    *,
+    batch_size: int = 1000,
+) -> Iterator[list[tuple[str, str]]]:
+    batch: list[tuple[str, str]] = []
+    for row in cleanup_store.iter_orphan_markers():
+        batch.append((str(row["key"]), str(row["version_id"])))
+        if len(batch) >= batch_size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
 
 
 class PortalStorageSpaceVersionCleanupMixin:
@@ -73,123 +209,46 @@ class PortalStorageSpaceVersionCleanupMixin:
         progress_callback: PortalVersionCleanupProgressCallback | None = None,
         cancel_check: PortalVersionCleanupCancelCheck | None = None,
     ) -> PortalStorageSpaceVersionCleanupResult:
-        started_at = datetime.now(timezone.utc)
-        scanned_versions = 0
-        scanned_delete_markers = 0
-        delete_candidates = 0
-        deleted_versions = 0
-        deleted_delete_markers = 0
-        bytes_freed = 0
-
-        def check_cancel() -> None:
-            if cancel_check:
-                cancel_check()
-
-        def emit(
-            stage: PortalStorageSpaceVersionCleanupStage,
-            message: str | None = None,
-            *,
-            total_candidates_final: bool = False,
-        ) -> None:
-            if progress_callback:
-                progress_callback(
-                    PortalStorageSpaceVersionCleanupProgress(
-                        request_id=None,
-                        stage=stage,
-                        storage_space_id=target.storage_space_id,
-                        storage_space_name=target.storage_space_name,
-                        scanned_versions=scanned_versions,
-                        scanned_delete_markers=scanned_delete_markers,
-                        delete_candidates=delete_candidates,
-                        deleted_versions=deleted_versions,
-                        deleted_delete_markers=deleted_delete_markers,
-                        bytes_freed=bytes_freed,
-                        total_candidates_final=total_candidates_final,
-                        message=message,
-                    )
-                )
-
-        def delete_versions_batch(cleanup_store: ObjectVersionCleanupStore, batch: list[tuple[str, str, int]]) -> None:
-            nonlocal deleted_versions, bytes_freed
-            if not batch:
-                return
-            check_cancel()
-            items = [{"Key": key, "VersionId": version_id} for key, version_id, _size in batch]
-            s3_deletion.delete_objects_count(target.client, target.bucket_name, items)
-            cleanup_store.remove_versions(
-                [(key, version_id) for key, version_id, _size in batch]
-            )
-            deleted_versions += len(batch)
-            bytes_freed += sum(size for _key, _version_id, size in batch)
-            emit("delete", "Deleting historical versions...")
-
-        def delete_markers_batch(batch: list[tuple[str, str]]) -> None:
-            nonlocal deleted_delete_markers
-            if not batch:
-                return
-            check_cancel()
-            items = [{"Key": key, "VersionId": version_id} for key, version_id in batch]
-            s3_deletion.delete_objects_count(target.client, target.bucket_name, items)
-            deleted_delete_markers += len(batch)
-            emit("delete", "Deleting orphan delete markers...", total_candidates_final=True)
-
-        emit("prepare", "Preparing Storage Space history cleanup...")
+        run = _PortalVersionCleanupRun(
+            target=target,
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
+        )
+        run.emit("prepare", "Preparing Storage Space history cleanup...")
         try:
             with TemporarySqliteStore(prefix="bucketreef-portal-version-cleanup-") as store:
                 cleanup_store = ObjectVersionCleanupStore(store.connection)
-                emit("list", "Scanning historical versions and delete markers...")
-
-                def update_scan_progress(counts: ObjectVersionScanCounts) -> None:
-                    nonlocal scanned_versions, scanned_delete_markers
-                    scanned_versions = counts.versions
-                    scanned_delete_markers = counts.delete_markers
-                    emit("list", "Scanning historical versions and delete markers...")
-
+                run.emit("list", "Scanning historical versions and delete markers...")
                 scan_counts = cleanup_store.scan(
                     target.client,
                     target.bucket_name,
-                    before_page=check_cancel,
-                    after_page=update_scan_progress,
+                    before_page=run.check_cancel,
+                    after_page=run.update_scan_progress,
                 )
-                scanned_versions = scan_counts.versions
-                scanned_delete_markers = scan_counts.delete_markers
-                delete_candidates = cleanup_store.count_noncurrent_versions()
-                emit("delete", "Deleting historical versions...")
+                run.scanned_versions = scan_counts.versions
+                run.scanned_delete_markers = scan_counts.delete_markers
+                run.delete_candidates = cleanup_store.count_noncurrent_versions()
+                run.emit("delete", "Deleting historical versions...")
 
-                versions_batch: list[tuple[str, str, int]] = []
-                for row in cleanup_store.iter_noncurrent_versions():
-                    versions_batch.append((str(row["key"]), str(row["version_id"]), int(row["size_bytes"] or 0)))
-                    if len(versions_batch) >= 1000:
-                        delete_versions_batch(cleanup_store, versions_batch)
-                        versions_batch.clear()
-                delete_versions_batch(cleanup_store, versions_batch)
+                for batch in _version_batches(cleanup_store):
+                    run.delete_versions_batch(cleanup_store, batch)
 
-                marker_candidates = cleanup_store.count_orphan_markers()
-                delete_candidates += marker_candidates
-                emit("delete", "Deleting orphan delete markers...", total_candidates_final=True)
+                run.delete_candidates += cleanup_store.count_orphan_markers()
+                run.emit(
+                    "delete",
+                    "Deleting orphan delete markers...",
+                    total_candidates_final=True,
+                )
 
-                markers_batch: list[tuple[str, str]] = []
-                for row in cleanup_store.iter_orphan_markers():
-                    markers_batch.append((str(row["key"]), str(row["version_id"])))
-                    if len(markers_batch) >= 1000:
-                        delete_markers_batch(markers_batch)
-                        markers_batch.clear()
-                delete_markers_batch(markers_batch)
+                for batch in _marker_batches(cleanup_store):
+                    run.delete_markers_batch(batch)
 
-            emit("completed", "Storage Space history cleanup completed.", total_candidates_final=True)
-            finished_at = datetime.now(timezone.utc)
-            return PortalStorageSpaceVersionCleanupResult(
-                status="completed",
-                storage_space_id=target.storage_space_id,
-                storage_space_name=target.storage_space_name,
-                scanned_versions=scanned_versions,
-                scanned_delete_markers=scanned_delete_markers,
-                deleted_versions=deleted_versions,
-                deleted_delete_markers=deleted_delete_markers,
-                bytes_freed=bytes_freed,
-                started_at=started_at,
-                finished_at=finished_at,
+            run.emit(
+                "completed",
+                "Storage Space history cleanup completed.",
+                total_candidates_final=True,
             )
+            return run.result()
         except BucketPurgeCancelled:
             raise
         except (ClientError, BotoCoreError, RuntimeError) as exc:
