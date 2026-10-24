@@ -418,6 +418,27 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         accounts_with_listed_buckets: int | None = None,
         skipped_account_count: int | None = None,
     ) -> BucketUsageStatsAggregate:
+        expected_targets = self._normalize_aggregate_targets(targets)
+        rows_by_key = self._aggregate_snapshot_rows(db, expected_targets)
+        snapshots = self._aggregate_target_snapshots(expected_targets, rows_by_key)
+
+        return build_bucket_usage_aggregate(
+            scope_kind=scope_kind,
+            scope_id=scope_id,
+            scope_name=scope_name,
+            bucket_count=len(expected_targets),
+            buckets_with_snapshot=len(snapshots),
+            snapshots=snapshots,
+            warnings=warnings,
+            managed_account_count=managed_account_count,
+            accounts_with_listed_buckets=accounts_with_listed_buckets,
+            skipped_account_count=skipped_account_count,
+        )
+
+    @staticmethod
+    def _normalize_aggregate_targets(
+        targets: Iterable[BucketUsageStatsAggregateTarget],
+    ) -> list[BucketUsageStatsAggregateTarget]:
         expected_targets: list[BucketUsageStatsAggregateTarget] = []
         seen_targets: set[tuple[str, str, str, str]] = set()
         for target in targets:
@@ -437,9 +458,16 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                 continue
             seen_targets.add(key)
             expected_targets.append(normalized)
+        return expected_targets
 
+    @staticmethod
+    def _aggregate_snapshot_rows(
+        db: Session,
+        targets: list[BucketUsageStatsAggregateTarget],
+    ) -> dict[tuple[str, str, str, str], BucketUsageStatsSnapshotRow]:
         rows_by_key: dict[tuple[str, str, str, str], BucketUsageStatsSnapshotRow] = {}
-        for target_scope_kind, target_scope_id in sorted({(target.scope_kind, target.scope_id) for target in expected_targets}):
+        scopes = sorted({(target.scope_kind, target.scope_id) for target in targets})
+        for target_scope_kind, target_scope_id in scopes:
             rows = db.scalars(
                 select(BucketUsageStatsSnapshotRow).where(
                     BucketUsageStatsSnapshotRow.scope_kind == target_scope_kind,
@@ -448,30 +476,22 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             ).all()
             for row in rows:
                 rows_by_key[(row.scope_kind, row.scope_id, row.bucket_tenant, row.bucket_name)] = row
+        return rows_by_key
 
+    def _aggregate_target_snapshots(
+        self,
+        targets: list[BucketUsageStatsAggregateTarget],
+        rows_by_key: dict[tuple[str, str, str, str], BucketUsageStatsSnapshotRow],
+    ) -> list[BucketUsageStatsSnapshot]:
         snapshots: list[BucketUsageStatsSnapshot] = []
-        covered_targets = 0
-        for target in expected_targets:
+        for target in targets:
             row = rows_by_key.get(
                 (target.scope_kind, target.scope_id, target.bucket_tenant, target.bucket_name)
             )
             if row is None:
                 continue
             snapshots.append(self._snapshot_from_row(row))
-            covered_targets += 1
-
-        return build_bucket_usage_aggregate(
-            scope_kind=scope_kind,
-            scope_id=scope_id,
-            scope_name=scope_name,
-            bucket_count=len(expected_targets),
-            buckets_with_snapshot=covered_targets,
-            snapshots=snapshots,
-            warnings=warnings,
-            managed_account_count=managed_account_count,
-            accounts_with_listed_buckets=accounts_with_listed_buckets,
-            skipped_account_count=skipped_account_count,
-        )
+        return snapshots
 
     def upsert_snapshot(self, db: Session, snapshot: BucketUsageStatsSnapshot) -> BucketUsageStatsSnapshot:
         row = db.scalars(
