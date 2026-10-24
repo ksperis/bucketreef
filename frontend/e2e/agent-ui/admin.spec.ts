@@ -41,6 +41,7 @@ test("saves Ceph Admin enablement through standard settings without endpoint act
   expect(activationRequests).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath("ceph-admin-standard-settings.png") });
   expect(errors).toEqual([]);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
   await page.context().storageState({ path: E2E_ADMIN_STORAGE_STATE_PATH });
 });
 
@@ -389,10 +390,10 @@ for (const theme of ["light", "dark"] as const) {
         const sidebar = page.locator(
           `aside[data-sidebar-variant="${width === 390 ? "mobile" : "desktop"}"]`,
         );
-        await expect(
-          sidebar.locator('a[href="/admin/authentication-settings"]'),
-        ).toHaveAttribute("aria-current", "page");
         if (width === 1440) {
+          await expect(
+            sidebar.locator('a[href="/admin/authentication-settings"]'),
+          ).toHaveAttribute("aria-current", "page");
           await page.getByRole("button", { name: "Collapse sidebar" }).click();
           await expect(
             sidebar.locator('a[href="/admin/authentication-settings"]'),
@@ -402,12 +403,13 @@ for (const theme of ["light", "dark"] as const) {
           await page
             .getByRole("button", { name: "Open navigation", exact: true })
             .click();
-          await expect(
-            sidebar.locator('a[href="/admin/authentication-settings"]'),
-          ).toBeVisible();
-          await page
-            .getByRole("button", { name: "Close navigation", exact: true })
-            .click();
+          const authenticationLink = sidebar.locator(
+            'a[href="/admin/authentication-settings"]',
+          );
+          await expect(authenticationLink).toBeVisible();
+          await expect(authenticationLink).toHaveAttribute("aria-current", "page");
+          await page.keyboard.press("Escape");
+          await expect(sidebar).toHaveCount(0);
         }
         expect(
           await page.evaluate(
