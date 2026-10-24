@@ -9,7 +9,7 @@ from app.services.feature_policy_service import (
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from dataclasses import dataclass
 import logging
-from typing import Any, Optional
+from typing import Any, Iterator, Optional
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -77,20 +77,20 @@ from app.utils.name_ordering import name_order_by
 logger = logging.getLogger(__name__)
 
 
+def _account_search_values(account: S3AccountSchema) -> Iterator[Optional[str]]:
+    yield account.name
+    yield account.rgw_account_id
+    yield from (tag.label for tag in account.tags or [])
+    for link in account.user_links or []:
+        yield link.user_email
+        yield link.user_full_name
+    yield from (link.group_name for link in account.group_links or [])
+
+
 def _account_matches_search(account: S3AccountSchema, search_value: str) -> bool:
-    return (
-        search_value in (account.name or "").lower()
-        or search_value in account.rgw_account_id.lower()
-        or any(search_value in (tag.label or "").lower() for tag in (account.tags or []))
-        or any(
-            search_value in (link.user_email or "").lower()
-            or search_value in (link.user_full_name or "").lower()
-            for link in (account.user_links or [])
-        )
-        or any(
-            search_value in (link.group_name or "").lower()
-            for link in (account.group_links or [])
-        )
+    return any(
+        search_value in (candidate or "").lower()
+        for candidate in _account_search_values(account)
     )
 
 
