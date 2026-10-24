@@ -59,6 +59,33 @@ def _requested_ids_changed(requested, persisted) -> bool:
     return {int(value) for value in requested} != {int(value) for value in persisted}
 
 
+def _manager_tool_access_changed(entity, requested: ManagerToolAccess | None) -> bool:
+    return requested is not None and read_manager_tool_access(entity) != requested
+
+
+def _admin_user_scalar_security_changed(user: User, payload: UserUpdate) -> bool:
+    return any(
+        (
+            bool(payload.password),
+            payload.email is not None
+            and str(payload.email).strip() != str(user.email).strip(),
+            payload.role is not None and payload.role != user.role,
+            payload.is_active is not None
+            and bool(payload.is_active) != bool(user.is_active),
+        )
+    )
+
+
+def _admin_user_memberships_changed(user: User, payload: UserUpdate) -> bool:
+    return _requested_ids_changed(
+        payload.s3_connection_ids,
+        (link.s3_connection_id for link in user.s3_connection_links),
+    ) or _requested_ids_changed(
+        payload.group_ids,
+        (link.group_id for link in user.ui_group_links),
+    )
+
+
 def passkey_required_for_role(db: Session, role: str) -> bool:
     general = load_app_settings_for_db(db).general
     if role in PRIVILEGED_UI_ROLES:
@@ -138,26 +165,15 @@ def _s3_user_links_changed(user: User, payload: UserUpdate) -> bool:
 
 def admin_user_update_requires_step_up(user: User, payload: UserUpdate) -> bool:
     """Return whether an update would change persisted identity or access state."""
-    if payload.password:
-        return True
-    if payload.email is not None and str(payload.email).strip() != str(user.email).strip():
-        return True
-    if payload.role is not None and payload.role != user.role:
-        return True
-    if payload.is_active is not None and bool(payload.is_active) != bool(user.is_active):
-        return True
-    if _direct_access_fields_changed(user, payload):
-        return True
-    if payload.manager_tool_access is not None and read_manager_tool_access(user) != payload.manager_tool_access:
-        return True
-    if _account_links_changed(user, payload) or _s3_user_links_changed(user, payload):
-        return True
-    return _requested_ids_changed(
-        payload.s3_connection_ids,
-        (link.s3_connection_id for link in user.s3_connection_links),
-    ) or _requested_ids_changed(
-        payload.group_ids,
-        (link.group_id for link in user.ui_group_links),
+    return any(
+        (
+            _admin_user_scalar_security_changed(user, payload),
+            _direct_access_fields_changed(user, payload),
+            _manager_tool_access_changed(user, payload.manager_tool_access),
+            _account_links_changed(user, payload),
+            _s3_user_links_changed(user, payload),
+            _admin_user_memberships_changed(user, payload),
+        )
     )
 
 
@@ -212,7 +228,7 @@ def admin_group_update_requires_step_up(group: UiGroup, payload: UiGroupUpdate) 
     """Return whether a group update changes effective access or security state."""
     if _direct_access_fields_changed(group, payload, _GROUP_DIRECT_ACCESS_FIELDS):
         return True
-    if payload.manager_tool_access is not None and read_manager_tool_access(group) != payload.manager_tool_access:
+    if _manager_tool_access_changed(group, payload.manager_tool_access):
         return True
     if _requested_ids_changed(
         payload.user_ids,
