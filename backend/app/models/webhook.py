@@ -67,17 +67,12 @@ class WebhookEndpointPayload(ApiModel):
 
 class WebhookDeliveryOut(ApiModel):
     id: int
-    delivery_id: str
-    event_id: str
-    endpoint_id: int
     event_type: str
     is_test: bool
     status: Literal["pending", "retrying", "delivered", "failed"]
     attempt_count: int
-    next_attempt_at: datetime
     last_http_status: int | None
     last_error: str | None
-    created_at: datetime
     updated_at: datetime
     delivered_at: datetime | None
 

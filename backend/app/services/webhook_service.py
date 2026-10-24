@@ -334,17 +334,12 @@ class WebhookService:
     def _delivery_out(row: WebhookDelivery) -> WebhookDeliveryOut:
         return WebhookDeliveryOut(
             id=int(row.id),
-            delivery_id=row.delivery_id,
-            event_id=row.event_id,
-            endpoint_id=int(row.endpoint_id),
             event_type=row.event_type,
             is_test=bool(row.is_test),
             status=row.status,
             attempt_count=int(row.attempt_count or 0),
-            next_attempt_at=row.next_attempt_at,
             last_http_status=row.last_http_status,
             last_error=row.last_error,
-            created_at=row.created_at,
             updated_at=row.updated_at,
             delivered_at=row.delivered_at,
         )

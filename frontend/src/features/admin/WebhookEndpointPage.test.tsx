@@ -79,17 +79,12 @@ const importedEndpoint: WebhookEndpoint = {
 
 const delivery: WebhookDelivery = {
   id: 22,
-  delivery_id: "delivery-22",
-  event_id: "event-11",
-  endpoint_id: 9,
   event_type: "manager.bucket_migration.event",
   is_test: false,
   status: "failed",
   attempt_count: 3,
-  next_attempt_at: timestamp,
   last_http_status: 503,
   last_error: "HTTP 503",
-  created_at: timestamp,
   updated_at: timestamp,
   delivered_at: null,
 };
