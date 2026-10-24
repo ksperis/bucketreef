@@ -39,10 +39,10 @@ from app.models.user import (
     AccountMembership,
     ManagerToolAccess,
     UiPreferences,
-    UserAvatarPreference,
     UserCreate,
     UserOut,
     UserProfilePreferencesUpdate,
+    UserSelfUpdate,
     UserSummary,
     UserUpdate,
     validate_password_policy,
@@ -334,52 +334,33 @@ class UsersService:
         if "avatar_preference" in fields:
             UserAvatarService(self.db).set_preference(user, payload.avatar_preference or "auto")
 
-    def update_current_user(
-        self,
-        user: User,
-        *,
-        full_name: Optional[str] = None,
-        ui_language: Optional[str] = None,
-        update_ui_language: bool = False,
-        quota_alerts_enabled: Optional[bool] = None,
-        update_quota_alerts_enabled: bool = False,
-        quota_alerts_global_watch: Optional[bool] = None,
-        update_quota_alerts_global_watch: bool = False,
-        ui_preferences: Optional[UiPreferences] = None,
-        update_ui_preferences: bool = False,
-        avatar_preference: Optional[UserAvatarPreference] = None,
-        update_avatar_preference: bool = False,
-        current_password: Optional[str] = None,
-        new_password: Optional[str] = None,
-    ) -> User:
-        normalized_name = full_name.strip() if full_name is not None else None
-        if full_name is not None:
-            user.full_name = normalized_name or None
-        preference_changes = {}
-        for name, value, included in (
-            ("ui_language", ui_language, update_ui_language),
-            ("quota_alerts_enabled", quota_alerts_enabled, update_quota_alerts_enabled),
-            ("quota_alerts_global_watch", quota_alerts_global_watch, update_quota_alerts_global_watch),
-            ("avatar_preference", avatar_preference, update_avatar_preference),
-        ):
-            if included:
-                preference_changes[name] = value
-        self._apply_profile_preferences(user, UserProfilePreferencesUpdate(**preference_changes))
-        if update_ui_preferences:
-            user.ui_preferences_json = _dump_ui_preferences(ui_preferences or UiPreferences())
+    @staticmethod
+    def _apply_current_user_password(user: User, payload: UserSelfUpdate) -> bool:
+        current_password = payload.current_password
+        new_password = payload.new_password
+        if current_password is None and new_password is None:
+            return False
+        if not current_password or not new_password:
+            raise ValueError("Both current_password and new_password are required")
+        if not user.hashed_password:
+            raise ValueError("Password change is unavailable for this account")
+        if not verify_password(current_password, user.hashed_password):
+            raise ValueError("Current password is incorrect")
+        validate_password_policy(new_password)
+        user.hashed_password = get_password_hash(new_password)
+        user.auth_version += 1
+        return True
 
-        password_changed = False
-        if current_password is not None or new_password is not None:
-            if not current_password or not new_password:
-                raise ValueError("Both current_password and new_password are required")
-            if not user.hashed_password:
-                raise ValueError("Password change is unavailable for this account")
-            if not verify_password(current_password, user.hashed_password):
-                raise ValueError("Current password is incorrect")
-            validate_password_policy(new_password)
-            user.hashed_password = get_password_hash(new_password)
-            user.auth_version += 1
-            password_changed = True
+    def update_current_user(self, user: User, payload: UserSelfUpdate) -> User:
+        update_fields = payload.model_fields_set
+        if "full_name" in update_fields:
+            normalized_name = (payload.full_name or "").strip()
+            user.full_name = normalized_name or None
+        self._apply_profile_preferences(user, payload)
+        if "ui_preferences" in update_fields:
+            user.ui_preferences_json = _dump_ui_preferences(payload.ui_preferences or UiPreferences())
+
+        password_changed = self._apply_current_user_password(user, payload)
 
         self.db.add(user)
         self.db.commit()
