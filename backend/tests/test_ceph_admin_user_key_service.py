@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.services import ceph_admin_user_key_service as module
-from app.services.ceph_admin_user_access import serialize_access_keys
+from app.services.ceph_admin_user_access import require_user_scope, serialize_access_keys
 from app.services.ceph_admin_user_key_service import CephAdminUserKeyService
 
 
@@ -82,6 +82,41 @@ def test_serialize_access_keys_drops_upstream_secret_material():
 
     assert keys[0].access_key == "AKIA-LISTED"
     assert "secret_key" not in keys[0].model_dump()
+
+
+def test_require_user_scope_accepts_embedded_tenant_identity():
+    class _ScopeRgwAdmin:
+        @staticmethod
+        def get_user(uid, tenant=None, allow_not_found=True):  # noqa: ARG004
+            return {"user": {"uid": "tenant-a$cost-user", "account_id": "acc-1"}}
+
+    payload = require_user_scope("cost-user", "tenant-a", "acc-1", _ScopeRgwAdmin())
+
+    assert payload["user"]["uid"] == "tenant-a$cost-user"
+
+
+def test_require_user_scope_rejects_account_drift():
+    class _ScopeRgwAdmin:
+        @staticmethod
+        def get_user(uid, tenant=None, allow_not_found=True):  # noqa: ARG004
+            return {"user": {"uid": uid, "tenant": tenant, "account_id": "acc-2"}}
+
+    with pytest.raises(HTTPException, match="RGW user account has changed") as raised:
+        require_user_scope("cost-user", None, "acc-1", _ScopeRgwAdmin())
+
+    assert raised.value.status_code == 409
+
+
+def test_require_user_scope_requires_account_context_for_account_user():
+    class _ScopeRgwAdmin:
+        @staticmethod
+        def get_user(uid, tenant=None, allow_not_found=True):  # noqa: ARG004
+            return {"user": {"uid": uid, "tenant": tenant, "account_id": "acc-1"}}
+
+    with pytest.raises(HTTPException, match="expected_account_id is required") as raised:
+        require_user_scope("cost-user", None, None, _ScopeRgwAdmin())
+
+    assert raised.value.status_code == 409
 
 
 def test_list_keys_marks_managed_private_access(monkeypatch):
