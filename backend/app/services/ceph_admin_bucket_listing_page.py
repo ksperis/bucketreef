@@ -13,7 +13,11 @@ from app.services.bucket_listing_owner_metadata import (
     backfill_bucket_owner_metadata,
     resolve_owner_names_for_buckets,
 )
-from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
+from app.services.bucket_ui_tags_service import (
+    BucketUiTagsService,
+    PhysicalBucketTarget,
+    matches_bucket_ui_tag_filter,
+)
 from app.services.ceph_admin_bucket_listing_cache import (
     CephAdminBucketListingSnapshot,
     clone_ceph_admin_bucket_list,
@@ -105,12 +109,11 @@ class CephAdminBucketPageBuilder:
         matched: list[BucketListingSummary] = []
         for bucket, target in zip(results, targets):
             bucket.ui_tags = list(tags_by_target.get(target, []))
-            if not requested:
-                matched.append(bucket)
-                continue
-            assigned = {tag.id for tag in bucket.ui_tags}
-            include = requested.issubset(assigned) if self.request.ui_tag_match == "all" else bool(requested & assigned)
-            if include:
+            if matches_bucket_ui_tag_filter(
+                bucket.ui_tags,
+                requested,
+                self.request.ui_tag_match,
+            ):
                 matched.append(bucket)
         return matched
 
