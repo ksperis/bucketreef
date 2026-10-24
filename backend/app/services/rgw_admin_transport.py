@@ -200,16 +200,24 @@ class RGWAdminTransport:
             data=data,
             timeout=timeout,
         )
-        handled_error = (
-            (resp.status_code == 409 and allow_conflict)
-            or (resp.status_code == 404 and allow_not_found)
-            or (resp.status_code in (405, 501) and allow_not_implemented)
-            or resp.status_code >= 400
-        )
-        error_code: Optional[str] = None
-        safe_detail = "Upstream service error."
-        if handled_error:
-            error_code, safe_detail = self._safe_response_error_details(resp)
+        if resp.status_code >= 400:
+            return self._request_error_result(
+                resp,
+                allow_conflict=allow_conflict,
+                allow_not_found=allow_not_found,
+                allow_not_implemented=allow_not_implemented,
+            )
+        return self._request_success_result(resp)
+
+    def _request_error_result(
+        self,
+        resp: requests.Response,
+        *,
+        allow_conflict: bool,
+        allow_not_found: bool,
+        allow_not_implemented: bool,
+    ) -> Dict[str, Any]:
+        error_code, safe_detail = self._safe_response_error_details(resp)
         if resp.status_code == 409 and allow_conflict:
             return {
                 "conflict": True,
@@ -231,19 +239,20 @@ class RGWAdminTransport:
                 "error_code": error_code,
                 "detail": safe_detail,
             }
-        if resp.status_code >= 400:
-            logger.warning(
-                "RGW admin error status=%s code=%s detail=%s",
-                resp.status_code,
-                error_code or "unknown",
-                safe_detail,
-            )
-            raise RGWAdminError(
-                f"RGW admin error {resp.status_code} "
-                f"code={error_code or 'unknown'} detail={safe_detail}",
-                status_code=resp.status_code,
-                error_code=error_code,
-            )
+        logger.warning(
+            "RGW admin error status=%s code=%s detail=%s",
+            resp.status_code,
+            error_code or "unknown",
+            safe_detail,
+        )
+        raise RGWAdminError(
+            f"RGW admin error {resp.status_code} "
+            f"code={error_code or 'unknown'} detail={safe_detail}",
+            status_code=resp.status_code,
+            error_code=error_code,
+        )
+
+    def _request_success_result(self, resp: requests.Response) -> Dict[str, Any]:
         if not self._response_has_body(resp):
             return {}
         try:
