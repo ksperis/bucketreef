@@ -215,6 +215,33 @@ def test_admin_ops_transport_preserves_empty_status_and_parses_json_xml_text(mon
     assert text_error.result == "plain failure"
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        (
+            {"Code": "TopLevel", "Message": "top-level message"},
+            ("TopLevel", "top-level message"),
+        ),
+        (
+            {"Error": {"Code": "Wrapped", "Message": "wrapped message"}},
+            ("Wrapped", "wrapped message"),
+        ),
+        (
+            {"error": {"code": "Lower", "message": "lower message"}},
+            ("Lower", "lower message"),
+        ),
+        (
+            {"error_code": "LegacyCode", "error_message": "legacy message"},
+            ("LegacyCode", "legacy message"),
+        ),
+        ("plain failure", (None, "plain failure")),
+        (None, (None, None)),
+    ],
+)
+def test_admin_ops_error_details_accept_supported_payload_shapes(payload, expected):
+    assert _client()._operation_error_details(payload) == expected
+
+
 def test_admin_ops_methods_send_exact_methods_and_omit_false_booleans(monkeypatch):
     client = _client()
     calls: list[dict] = []

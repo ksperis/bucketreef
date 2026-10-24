@@ -310,7 +310,7 @@ class RGWAdminTransport:
         return bool(getattr(resp, "content", b"") or getattr(resp, "text", ""))
 
     @staticmethod
-    def _operation_error_details(payload: Any) -> tuple[Optional[str], Optional[str]]:
+    def _unwrap_operation_error_payload(payload: Any) -> Any:
         candidate = payload
         if isinstance(candidate, dict) and len(candidate) == 1:
             nested = next(iter(candidate.values()))
@@ -320,21 +320,35 @@ class RGWAdminTransport:
             nested_error = candidate.get("Error") or candidate.get("error")
             if isinstance(nested_error, dict):
                 candidate = nested_error
+        return candidate
+
+    @staticmethod
+    def _operation_error_field(candidate: dict[str, Any], *keys: str) -> Optional[str]:
+        raw_value: Any = None
+        for key in keys:
+            raw_value = candidate.get(key)
+            if raw_value:
+                break
+        return str(raw_value).strip() if raw_value is not None else None
+
+    @classmethod
+    def _operation_error_details(cls, payload: Any) -> tuple[Optional[str], Optional[str]]:
+        candidate = cls._unwrap_operation_error_payload(payload)
         if not isinstance(candidate, dict):
             return None, candidate if isinstance(candidate, str) and candidate else None
-        raw_code = (
-            candidate.get("Code")
-            or candidate.get("code")
-            or candidate.get("error_code")
-        )
-        raw_message = (
-            candidate.get("Message")
-            or candidate.get("message")
-            or candidate.get("error_message")
-        )
         return (
-            str(raw_code).strip() if raw_code is not None else None,
-            str(raw_message).strip() if raw_message is not None else None,
+            cls._operation_error_field(
+                candidate,
+                "Code",
+                "code",
+                "error_code",
+            ),
+            cls._operation_error_field(
+                candidate,
+                "Message",
+                "message",
+                "error_message",
+            ),
         )
 
     @classmethod
