@@ -448,32 +448,9 @@ class BucketMigrationPrecheckPlanner:
                 unsupported_features=unsupported_features,
             )
 
-        versioning = profile.get("versioning") or {}
-        version_scan = profile.get("version_scan") or {}
-        object_lock = profile.get("object_lock") or {}
-        requires_version_aware = bool(
-            versioning.get("enabled")
-            or versioning.get("suspended")
-            or version_scan.get("has_noncurrent_versions")
-            or version_scan.get("has_delete_markers")
-        )
-        requires_object_lock_governance = bool(
-            object_lock.get("enabled")
-            or object_lock.get("mode")
-            or object_lock.get("days") is not None
-            or object_lock.get("years") is not None
-        )
-        strategy = (
-            "version_aware"
-            if requires_version_aware or requires_object_lock_governance
-            else initial_strategy
-        )
-        self._rules.add_source_strategy_check(
-            versioning=versioning,
-            version_scan=version_scan,
-            object_lock=object_lock,
-            requires_version_aware=requires_version_aware,
-            requires_object_lock_governance=requires_object_lock_governance,
+        strategy = self._rules.evaluate_source_strategy(
+            profile=profile,
+            initial_strategy=initial_strategy,
             add_check=add_check,
         )
         self._rules.add_source_encryption_check(
@@ -487,7 +464,10 @@ class BucketMigrationPrecheckPlanner:
             add_check=add_check,
         )
 
-        if strategy == "version_aware" and not requires_object_lock_governance:
+        if (
+            strategy.strategy == "version_aware"
+            and not strategy.requires_object_lock_governance
+        ):
             self._rules.validate_version_aware_source_access(
                 context,
                 item,
@@ -496,7 +476,7 @@ class BucketMigrationPrecheckPlanner:
             )
 
         return _SourcePlan(
-            strategy=strategy,
+            strategy=strategy.strategy,
             unsupported_features=unsupported_features,
         )
 
