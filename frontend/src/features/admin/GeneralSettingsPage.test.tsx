@@ -14,7 +14,7 @@ const fetchDefaultAppSettingsMock = vi.fn<() => Promise<AppSettings>>();
 const fetchGeneralFeatureLocksMock = vi.fn<() => Promise<GeneralFeatureLocks>>();
 const updateAppSettingsMock = vi.fn<(payload: AppSettings) => Promise<AppSettings>>();
 const sendQuotaNotificationTestEmailMock = vi.fn<
-  (payload: QuotaNotificationSettings) => Promise<{ status: string; recipient: string; sent_at: string }>
+  (payload: QuotaNotificationSettings) => Promise<{ recipient: string }>
 >();
 const applyBrandingMock = vi.fn();
 const fetchOnboardingStatusMock = vi.fn();
@@ -97,9 +97,7 @@ describe("GeneralSettingsPage branding", () => {
       source: "standard",
     });
     sendQuotaNotificationTestEmailMock.mockResolvedValue({
-      status: "sent",
       recipient: "superadmin@example.com",
-      sent_at: "2026-01-01T00:00:00",
     });
   });
 

@@ -107,9 +107,7 @@ class QuotaAlertEmailService:
             raise ValueError(f"Unable to send test email: {exc}") from exc
 
         return {
-            "status": "sent",
             "recipient": recipient,
-            "sent_at": checked_at.isoformat(),
         }
 
     @staticmethod

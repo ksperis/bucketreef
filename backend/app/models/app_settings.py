@@ -261,9 +261,7 @@ class QuotaNotificationSettings(ApiModel):
 
 
 class QuotaNotificationTestEmailResult(ApiModel):
-    status: Literal["sent"]
     recipient: str
-    sent_at: str
 
 
 class IdentityProviderDeleteResult(ApiModel):
