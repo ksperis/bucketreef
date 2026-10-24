@@ -19,6 +19,8 @@ from app.models.bucket_migration import (
     BucketMigrationEventView,
     BucketMigrationItemView,
     BucketMigrationListResponse,
+    BucketMigrationPrecheckItemView,
+    BucketMigrationPrecheckReportView,
     BucketMigrationUpdateRequest,
     BucketMigrationView,
 )
@@ -95,6 +97,8 @@ def prepared(db_session):
     "model",
     [
         BucketMigrationActionAvailability,
+        BucketMigrationPrecheckItemView,
+        BucketMigrationPrecheckReportView,
         BucketMigrationItemView,
         BucketMigrationEventView,
         BucketMigrationView,
@@ -1083,10 +1087,33 @@ def test_precheck_api_returns_202_and_result_survives_reopen(
             == "checking"
         )
         service.run_precheck(migration.id)
+        persisted_report = json.loads(
+            service.get_migration(migration.id).precheck_report_json or "{}"
+        )
         reopened = client.get(f"/api/manager/migrations/{migration.id}").json()
         assert reopened["status"] == "draft"
         assert reopened["preparation_status"] == "unverified"
-        assert reopened["precheck_report"]["configuration_revision"] == 1
+        assert persisted_report["configuration_revision"] == 1
+        assert "source_profile" in persisted_report["items"][0]
+        assert set(reopened["precheck_report"]) == {
+            "errors",
+            "warnings",
+            "checks",
+            "items",
+        }
+        assert set(reopened["precheck_report"]["items"][0]) == {
+            "item_id",
+            "source_bucket",
+            "strategy",
+            "state",
+            "blocking",
+            "warnings",
+            "settings_copied",
+            "settings_omitted",
+            "source_object_count",
+            "checks",
+        }
+        assert "source_profile" not in reopened["precheck_report"]["items"][0]
         assert not reopened["available_actions"]["start"]["enabled"]
     finally:
         app.dependency_overrides.pop(

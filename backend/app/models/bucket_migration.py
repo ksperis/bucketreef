@@ -123,6 +123,26 @@ class BucketMigrationDiagnostic(ApiModel):
     details: Optional[dict]
 
 
+class BucketMigrationPrecheckItemView(ApiModel):
+    item_id: int
+    source_bucket: str
+    strategy: str
+    state: Literal["ready", "blocked", "unverified", "warning"]
+    blocking: bool
+    warnings: int
+    settings_copied: list[str]
+    settings_omitted: list[str]
+    source_object_count: Optional[int]
+    checks: list[BucketMigrationDiagnostic]
+
+
+class BucketMigrationPrecheckReportView(ApiModel):
+    errors: int
+    warnings: int
+    checks: list[BucketMigrationDiagnostic]
+    items: list[BucketMigrationPrecheckItemView]
+
+
 class BucketMigrationItemView(ApiModel):
     id: int
     source_bucket: str
@@ -165,7 +185,7 @@ class BucketMigrationView(ApiModel):
 
     status: BucketMigrationStatus
     precheck_status: BucketMigrationPrecheckStatus
-    precheck_report: Optional[dict]
+    precheck_report: Optional[BucketMigrationPrecheckReportView]
     precheck_checked_at: Optional[datetime]
     configuration_revision: int
     preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"]

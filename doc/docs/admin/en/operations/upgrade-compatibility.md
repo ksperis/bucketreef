@@ -537,6 +537,18 @@ protocol. The test-delivery action still returns its queued `delivery_id`.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 bucket migration precheck response cleanup
+
+Manager migration responses now expose an explicit precheck read model instead
+of returning the persisted precheck JSON verbatim. The response keeps the
+blocking/warning counts, diagnostics, and reviewed per-bucket plan used by the
+frontend. Internal context snapshots, source/target bucket profiles, target
+object counts, capability summaries, and duplicated status/revision metadata
+remain persisted for workflow execution but are no longer projected through
+the application API.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

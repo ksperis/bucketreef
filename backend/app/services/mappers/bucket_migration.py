@@ -12,6 +12,8 @@ from app.models.bucket_migration import (
     BucketMigrationDetail,
     BucketMigrationEventView,
     BucketMigrationItemView,
+    BucketMigrationPrecheckItemView,
+    BucketMigrationPrecheckReportView,
     BucketMigrationView,
 )
 
@@ -23,6 +25,41 @@ def load_migration_json(value: Optional[str]) -> Optional[dict]:
     if not isinstance(parsed, dict):
         raise ValueError("Persisted bucket migration JSON must be an object")
     return parsed
+
+
+def migration_precheck_report_to_view(
+    value: Optional[str],
+) -> Optional[BucketMigrationPrecheckReportView]:
+    report = load_migration_json(value)
+    if report is None:
+        return None
+    raw_items = report.get("items")
+    if not isinstance(raw_items, list):
+        raise ValueError("Persisted bucket migration precheck items must be a list")
+    items: list[BucketMigrationPrecheckItemView] = []
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            raise ValueError("Persisted bucket migration precheck item must be an object")
+        items.append(
+            BucketMigrationPrecheckItemView(
+                item_id=raw_item["item_id"],
+                source_bucket=raw_item["source_bucket"],
+                strategy=raw_item["strategy"],
+                state=raw_item["state"],
+                blocking=bool(raw_item["blocking"]),
+                warnings=int(raw_item["warnings"]),
+                settings_copied=raw_item["settings_copied"],
+                settings_omitted=raw_item["settings_omitted"],
+                source_object_count=raw_item.get("source_object_count"),
+                checks=raw_item["checks"],
+            )
+        )
+    return BucketMigrationPrecheckReportView(
+        errors=int(report.get("errors", 0)),
+        warnings=int(report.get("warnings", 0)),
+        checks=report.get("checks") or [],
+        items=items,
+    )
 
 
 def bucket_migration_item_to_view(item: BucketMigrationItem) -> BucketMigrationItemView:
@@ -67,7 +104,7 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         auto_grant_source_read_for_copy=bool(migration.auto_grant_source_read_for_copy),
         status=migration.status,
         precheck_status=migration.precheck_status,
-        precheck_report=load_migration_json(migration.precheck_report_json),
+        precheck_report=migration_precheck_report_to_view(migration.precheck_report_json),
         precheck_checked_at=migration.precheck_checked_at,
         configuration_revision=migration.configuration_revision,
         preparation_status=preparation_state(migration),
