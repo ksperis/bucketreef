@@ -144,7 +144,6 @@ export type StorageTotals = {
   used_bytes: number | null;
   object_count: number | null;
   bucket_count: number | null;
-  accounts_with_usage: number;
 };
 
 export type AdminTrafficStats = ManagerTrafficStats;
@@ -218,9 +217,7 @@ export type AdminSummary = {
   };
   total_s3_users: number;
   assigned_accounts: number;
-  unassigned_accounts: number;
   assigned_s3_users: number;
-  unassigned_s3_users: number;
   total_endpoints: number;
   total_ceph_endpoints: number;
   total_other_endpoints: number;

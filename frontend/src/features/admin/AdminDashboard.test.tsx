@@ -124,8 +124,6 @@ describe("AdminDashboard feature summary", () => {
       total_s3_users: 0,
       total_shared_connections: 0,
       total_users: 0,
-      unassigned_accounts: 0,
-      unassigned_s3_users: 0,
     });
     mocks.fetchAdminDashboardScope.mockResolvedValue({ endpoints: [
       { endpoint_id: 1, name: "INRAE-eprod-debug", storage_enabled: true, traffic_enabled: true },
@@ -145,7 +143,6 @@ describe("AdminDashboard feature summary", () => {
         used_bytes: 5_320_000_000_000_000,
         object_count: 2_140_000_000,
         bucket_count: 1850,
-        accounts_with_usage: 12,
       },
       account_usage: [],
       s3_user_usage: [],
@@ -432,8 +429,6 @@ describe("AdminDashboard feature summary", () => {
       total_s3_users: 12,
       total_shared_connections: 3,
       total_users: 0,
-      unassigned_accounts: 0,
-      unassigned_s3_users: 0,
     });
 
     await renderDashboard();
