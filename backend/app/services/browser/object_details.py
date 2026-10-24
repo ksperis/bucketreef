@@ -197,6 +197,20 @@ def _restore_copied_tags(
         raise RuntimeError(f"Unable to restore tags for '{key}': {exc}") from exc
 
 
+def _is_owner_full_control_grant(
+    grantee: dict[str, Any],
+    *,
+    owner_id: str,
+    permission: str,
+) -> bool:
+    return bool(
+        str(grantee.get("Type") or "") == "CanonicalUser"
+        and owner_id
+        and str(grantee.get("ID") or "") == owner_id
+        and permission == "FULL_CONTROL"
+    )
+
+
 def _object_acl_grant_state(
     response: dict[str, Any],
 ) -> tuple[set[str], set[str], bool]:
@@ -204,25 +218,24 @@ def _object_acl_grant_state(
     owner_id = str(owner.get("ID") or "")
     all_users_permissions: set[str] = set()
     authenticated_users_permissions: set[str] = set()
+    group_permissions = {
+        _ALL_USERS_ACL_URI: all_users_permissions,
+        _AUTHENTICATED_USERS_ACL_URI: authenticated_users_permissions,
+    }
     has_extra_grants = False
 
     for grant in response.get("Grants") or []:
         grantee = grant.get("Grantee") or {}
         permission = str(grant.get("Permission") or "").upper()
-        grantee_type = str(grantee.get("Type") or "")
-        grantee_id = str(grantee.get("ID") or "")
         uri = str(grantee.get("URI") or "")
-        if uri == _ALL_USERS_ACL_URI:
-            all_users_permissions.add(permission)
+        grouped_permissions = group_permissions.get(uri)
+        if grouped_permissions is not None:
+            grouped_permissions.add(permission)
             continue
-        if uri == _AUTHENTICATED_USERS_ACL_URI:
-            authenticated_users_permissions.add(permission)
-            continue
-        if (
-            grantee_type == "CanonicalUser"
-            and owner_id
-            and grantee_id == owner_id
-            and permission == "FULL_CONTROL"
+        if _is_owner_full_control_grant(
+            grantee,
+            owner_id=owner_id,
+            permission=permission,
         ):
             continue
         if permission:
