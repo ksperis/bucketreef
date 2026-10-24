@@ -358,6 +358,18 @@ Deploy the migration, backend, and frontend together. Downgrade reconstructs the
 retired booleans from the persisted diagnostics so older downgrade steps can still
 rebuild their historical execution-plan shape.
 
+## 2026-10 explicit bucket migration targets
+
+Migration `0185_remove_bucket_migration_mapping_prefix` removes the unused
+`bucket_migrations.mapping_prefix` column. Each bucket mapping now requires its
+final `target_bucket` explicitly; the Manager wizard already sends this canonical
+shape after applying its prefix, suffix and per-bucket overrides.
+
+Deploy the migration, backend, and frontend together. Existing migrations keep
+their final destination names on `bucket_migration_items`, so no target data is
+lost. Downgrade recreates the retired nullable prefix column without attempting to
+infer a prefix from explicit target names.
+
 ## 2026-10 bucket migration execution strategy column
 
 Migration `0179_bucket_migration_execution_strategy` replaces the generic

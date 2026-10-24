@@ -161,7 +161,7 @@ def test_manager_migration_create_rejects_context_out_of_scope(client):
             json={
                 "source_context_id": "99",
                 "target_context_id": "20",
-                "buckets": [{"source_bucket": "bucket-a"}],
+                "buckets": [{"source_bucket": "bucket-a", "target_bucket": "bucket-a-dst"}],
             },
         )
         assert response.status_code == 403
@@ -178,7 +178,7 @@ def test_manager_migration_create_rejects_update_revision_field(client):
                 "source_context_id": "10",
                 "target_context_id": "20",
                 "configuration_revision": 1,
-                "buckets": [{"source_bucket": "bucket-a"}],
+                "buckets": [{"source_bucket": "bucket-a", "target_bucket": "bucket-a-dst"}],
             },
         )
         assert response.status_code == 422
@@ -196,7 +196,7 @@ def test_manager_migration_update_rejects_context_out_of_scope(client, db_sessio
                 "source_context_id": "10",
                 "target_context_id": "999",
                 "configuration_revision": 1,
-                "buckets": [{"source_bucket": "bucket-a"}],
+                "buckets": [{"source_bucket": "bucket-a", "target_bucket": "bucket-a-dst"}],
             },
         )
         assert response.status_code == 403
@@ -218,7 +218,7 @@ def test_manager_migration_update_requires_configuration_revision(client, db_ses
             json={
                 "source_context_id": "10",
                 "target_context_id": "20",
-                "buckets": [{"source_bucket": "bucket-a"}],
+                "buckets": [{"source_bucket": "bucket-a", "target_bucket": "bucket-a-dst"}],
             },
         )
         assert response.status_code == 422
@@ -234,7 +234,7 @@ def test_manager_migration_create_rejects_cross_account_when_one_account_not_adm
             json={
                 "source_context_id": "10",
                 "target_context_id": "20",
-                "buckets": [{"source_bucket": "bucket-a"}],
+                "buckets": [{"source_bucket": "bucket-a", "target_bucket": "bucket-a-dst"}],
             },
         )
         assert response.status_code == 403

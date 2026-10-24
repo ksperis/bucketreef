@@ -38,7 +38,6 @@ function buildMigration(id: number, status: BucketMigrationStatus): BucketMigrat
     lock_target_writes: true,
     use_same_endpoint_copy: false,
     auto_grant_source_read_for_copy: false,
-    mapping_prefix: "",
     status,
     pause_requested: false,
     cancel_requested: status === "cancel_requested",

@@ -40,16 +40,16 @@ BucketMigrationItemStatus = Literal[
 
 class BucketMigrationBucketMapping(ApiModel):
     source_bucket: str
-    target_bucket: Optional[str] = None
+    target_bucket: str
 
     @model_validator(mode="after")
     def validate_names(self):
         self.source_bucket = (self.source_bucket or "").strip()
         if not self.source_bucket:
             raise ValueError("source_bucket is required")
-        if self.target_bucket is not None:
-            normalized_target = self.target_bucket.strip()
-            self.target_bucket = normalized_target or None
+        self.target_bucket = (self.target_bucket or "").strip()
+        if not self.target_bucket:
+            raise ValueError("target_bucket is required")
         return self
 
 
@@ -58,7 +58,6 @@ class BucketMigrationDraftRequest(ApiModel):
     target_context_id: str
     buckets: list[BucketMigrationBucketMapping] = Field(default_factory=list, min_length=1)
 
-    mapping_prefix: str = ""
     mode: BucketMigrationMode = "pre_sync"
     copy_bucket_settings: bool = False
     strong_integrity_check: bool = False
@@ -70,7 +69,6 @@ class BucketMigrationDraftRequest(ApiModel):
     def validate_payload(self):
         self.source_context_id = (self.source_context_id or "").strip()
         self.target_context_id = (self.target_context_id or "").strip()
-        self.mapping_prefix = (self.mapping_prefix or "").strip()
         if not self.source_context_id:
             raise ValueError("source_context_id is required")
         if not self.target_context_id:
@@ -180,7 +178,6 @@ class BucketMigrationView(ApiModel):
     lock_target_writes: bool
     use_same_endpoint_copy: bool
     auto_grant_source_read_for_copy: bool
-    mapping_prefix: Optional[str]
 
     status: BucketMigrationStatus
     pause_requested: bool

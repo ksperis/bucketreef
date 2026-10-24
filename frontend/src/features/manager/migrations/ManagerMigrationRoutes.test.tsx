@@ -62,7 +62,6 @@ function buildDraftDetail(): BucketMigrationDetail {
     lock_target_writes: true,
     use_same_endpoint_copy: false,
     auto_grant_source_read_for_copy: false,
-    mapping_prefix: "",
     status: "draft",
     configuration_revision: 1,
     checked_revision: null,
