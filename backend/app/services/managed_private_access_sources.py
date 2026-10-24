@@ -15,7 +15,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account, S3Connection, S3User, StorageProvider, User
 from app.models.feature_policy import resolve_feature_policy
 from app.services.app_settings_service import load_app_settings_for_db_readonly
-from app.services.effective_access_service import EffectiveAccessService
+from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
 from app.services.managed_resource_naming import managed_private_iam_username
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessError,
@@ -81,35 +81,7 @@ class ManagedPrivateAccessSourceResolver:
         effective = self.access.resolve_user(user)
         connection_id, s3_user_id, account_id = _source_ids(context)
         if isinstance(connection_id, int):
-            connection = self.db.execute(
-                select(S3Connection).where(S3Connection.id == connection_id)
-            ).scalar_one_or_none()
-            if (
-                connection is None
-                or not self.access.connection_is_allowed(
-                    user,
-                    connection,
-                    workspace="manager",
-                    resolved=effective,
-                )
-                or not s3_connection_can_manage_iam(connection.capabilities_json)
-            ):
-                raise ManagedPrivateAccessForbidden(
-                    "IAM provisioning is not allowed for this connection"
-                )
-            endpoint = connection.storage_endpoint
-            if endpoint is not None and not resolve_feature_flags(endpoint).iam_enabled:
-                raise ManagedPrivateAccessForbidden(
-                    "IAM is disabled for this endpoint"
-                )
-            username = self._iam_username(user.id, "connection", connection.id)
-            return ManagedPrivateAccessSource(
-                "connection",
-                connection.id,
-                "iam_user",
-                username,
-                username,
-            )
+            return self._resolve_connection_iam_source(user, effective, connection_id)
 
         if s3_user_id is not None:
             raise ManagedPrivateAccessForbidden(
@@ -119,6 +91,50 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "A persisted RGW Account context is required"
             )
+        return self._resolve_account_iam_source(user.id, effective, account_id)
+
+    def _resolve_connection_iam_source(
+        self,
+        user: User,
+        effective: ResolvedUserAccess,
+        connection_id: int,
+    ) -> ManagedPrivateAccessSource:
+        connection = self.db.execute(
+            select(S3Connection).where(S3Connection.id == connection_id)
+        ).scalar_one_or_none()
+        if (
+            connection is None
+            or not self.access.connection_is_allowed(
+                user,
+                connection,
+                workspace="manager",
+                resolved=effective,
+            )
+            or not s3_connection_can_manage_iam(connection.capabilities_json)
+        ):
+            raise ManagedPrivateAccessForbidden(
+                "IAM provisioning is not allowed for this connection"
+            )
+        endpoint = connection.storage_endpoint
+        if endpoint is not None and not resolve_feature_flags(endpoint).iam_enabled:
+            raise ManagedPrivateAccessForbidden(
+                "IAM is disabled for this endpoint"
+            )
+        username = self._iam_username(user.id, "connection", connection.id)
+        return ManagedPrivateAccessSource(
+            "connection",
+            connection.id,
+            "iam_user",
+            username,
+            username,
+        )
+
+    def _resolve_account_iam_source(
+        self,
+        user_id: int,
+        effective: ResolvedUserAccess,
+        account_id: int,
+    ) -> ManagedPrivateAccessSource:
         link = effective.account_link_for(account_id)
         if link is None or not self.access.manager_account_allowed(link):
             raise ManagedPrivateAccessForbidden(
@@ -135,7 +151,7 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "IAM is disabled for this endpoint"
             )
-        username = self._iam_username(user.id, "account", account_id)
+        username = self._iam_username(user_id, "account", account_id)
         return ManagedPrivateAccessSource(
             "account",
             account_id,
