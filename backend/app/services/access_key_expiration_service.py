@@ -11,9 +11,10 @@ from app.core.sensitive_data import sanitize_persisted_error
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.db.enums import StorageProvider
 from app.models.access_key_metadata import AccessKeyExpirationRunResult
+from app.models.iam import AccessKey
 from app.services.audit_service import AuditService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
-from app.services.rgw_iam import get_iam_service
+from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_users_service import S3UsersService
 from app.utils.s3_endpoint import resolve_iam_client_options
@@ -71,6 +72,27 @@ class AccessKeyExpirationService:
         account = self.db.get(S3Account, row.account_id)
         if account is None:
             return self._remove_missing(row)
+        principal_name = self._validated_iam_principal(row, account)
+        context, iam = self._iam_service_for_account(account)
+        if not self._ensure_iam_key_inactive(
+            iam,
+            principal_name=principal_name,
+            access_key_id=row.access_key_id,
+        ):
+            return self._remove_missing(row)
+        self._mark_enforced(
+            row,
+            entity_type="iam_user",
+            entity_id=principal_name,
+            execution_context=context,
+        )
+        return "enforced"
+
+    def _validated_iam_principal(
+        self,
+        row: ManagerAccessKeyMetadata,
+        account: S3Account,
+    ) -> str:
         endpoint = account.storage_endpoint
         if endpoint is None or endpoint.provider != StorageProvider.CEPH.value:
             raise PermanentExpirationError("Individual access-key expiration is supported only for Ceph RGW accounts")
@@ -78,6 +100,10 @@ class AccessKeyExpirationService:
             raise PermanentExpirationError("IAM principal is missing for the access-key expiration")
         if ManagedPrivateAccessService(self.db).managed_key("account", account.id, row.access_key_id) is not None:
             raise PermanentExpirationError("Managed private-access keys cannot be expired from the generic key inventory")
+        return row.principal_name
+
+    @staticmethod
+    def _iam_service_for_account(account: S3Account) -> tuple[S3ExecutionContext, RGWIAMService]:
         context = S3ExecutionContext.from_account(
             account,
             access_key=account.rgw_access_key,
@@ -94,29 +120,61 @@ class AccessKeyExpirationService:
             region=region,
             verify_tls=verify_tls,
         )
-        remote = next(
-            (key for key in iam.list_access_keys(row.principal_name) if key.access_key_id == row.access_key_id),
+        return context, iam
+
+    @staticmethod
+    def _find_iam_access_key(
+        iam: RGWIAMService,
+        *,
+        principal_name: str,
+        access_key_id: str,
+    ) -> AccessKey | None:
+        return next(
+            (
+                key
+                for key in iam.list_access_keys(principal_name)
+                if key.access_key_id == access_key_id
+            ),
             None,
         )
-        if remote is None:
-            return self._remove_missing(row)
-        if str(remote.status or "Active").strip().lower() not in {"inactive", "disabled", "suspended"}:
-            iam.update_access_key_status(row.principal_name, row.access_key_id, "Inactive")
-            remote = next(
-                (key for key in iam.list_access_keys(row.principal_name) if key.access_key_id == row.access_key_id),
-                None,
-            )
-            if remote is None:
-                return self._remove_missing(row)
-            if str(remote.status or "Active").strip().lower() not in {"inactive", "disabled", "suspended"}:
-                raise RuntimeError("Provider did not confirm the IAM access key as inactive")
-        self._mark_enforced(
-            row,
-            entity_type="iam_user",
-            entity_id=row.principal_name,
-            execution_context=context,
+
+    @staticmethod
+    def _iam_key_is_inactive(key: AccessKey) -> bool:
+        return str(key.status or "Active").strip().lower() in {
+            "inactive",
+            "disabled",
+            "suspended",
+        }
+
+    @classmethod
+    def _ensure_iam_key_inactive(
+        cls,
+        iam: RGWIAMService,
+        *,
+        principal_name: str,
+        access_key_id: str,
+    ) -> bool:
+        remote = cls._find_iam_access_key(
+            iam,
+            principal_name=principal_name,
+            access_key_id=access_key_id,
         )
-        return "enforced"
+        if remote is None:
+            return False
+        if cls._iam_key_is_inactive(remote):
+            return True
+
+        iam.update_access_key_status(principal_name, access_key_id, "Inactive")
+        remote = cls._find_iam_access_key(
+            iam,
+            principal_name=principal_name,
+            access_key_id=access_key_id,
+        )
+        if remote is None:
+            return False
+        if not cls._iam_key_is_inactive(remote):
+            raise RuntimeError("Provider did not confirm the IAM access key as inactive")
+        return True
 
     def _process_s3_user(self, row: ManagerAccessKeyMetadata) -> str:
         s3_user = self.db.get(S3User, row.s3_user_id)

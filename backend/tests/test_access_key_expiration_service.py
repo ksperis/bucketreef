@@ -258,3 +258,107 @@ def test_due_iam_key_is_disabled_and_confirmed(db_session, monkeypatch):
         ("set", "alice", "AK-IAM", "Inactive"),
         ("list", "alice"),
     ]
+
+
+def test_missing_iam_provider_key_removes_stale_local_record(db_session, monkeypatch):
+    endpoint = _endpoint(db_session)
+    account = S3Account(
+        name="expiration-account-missing",
+        rgw_account_id="80000000000000003",
+        rgw_user_uid="80000000000000003-admin",
+        rgw_access_key="AK-ROOT",
+        rgw_secret_key="SK-ROOT",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.flush()
+    row = ManagerAccessKeyMetadata(
+        account_id=account.id,
+        principal_name="alice",
+        access_key_id="AK-IAM",
+        expires_at=utcnow() - timedelta(minutes=1),
+        expiration_state="scheduled",
+    )
+    db_session.add(row)
+    db_session.commit()
+    row_id = row.id
+
+    class MissingIamService(_FakeIamService):
+        def list_access_keys(self, user_name: str) -> list[AccessKey]:
+            self.calls.append(("list", user_name))
+            return []
+
+    fake = MissingIamService()
+    monkeypatch.setattr(
+        access_key_expiration_service,
+        "resolve_iam_client_options",
+        lambda _context: ("https://iam.example.test", None, True),
+    )
+    monkeypatch.setattr(
+        access_key_expiration_service,
+        "get_iam_service",
+        lambda *_args, **_kwargs: fake,
+    )
+
+    result = AccessKeyExpirationService(db_session).run_due()
+
+    assert result.missing == 1
+    assert db_session.get(ManagerAccessKeyMetadata, row_id) is None
+    assert fake.calls == [("list", "alice")]
+
+
+def test_iam_provider_must_confirm_key_is_inactive(db_session, monkeypatch):
+    endpoint = _endpoint(db_session)
+    account = S3Account(
+        name="expiration-account-unconfirmed",
+        rgw_account_id="80000000000000004",
+        rgw_user_uid="80000000000000004-admin",
+        rgw_access_key="AK-ROOT",
+        rgw_secret_key="SK-ROOT",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.flush()
+    row = ManagerAccessKeyMetadata(
+        account_id=account.id,
+        principal_name="alice",
+        access_key_id="AK-IAM",
+        expires_at=utcnow() - timedelta(minutes=1),
+        expiration_state="scheduled",
+    )
+    db_session.add(row)
+    db_session.commit()
+
+    class UnconfirmedIamService(_FakeIamService):
+        def update_access_key_status(
+            self,
+            user_name: str,
+            access_key_id: str,
+            status: str,
+        ) -> None:
+            self.calls.append(("set", user_name, access_key_id, status))
+
+    fake = UnconfirmedIamService()
+    monkeypatch.setattr(
+        access_key_expiration_service,
+        "resolve_iam_client_options",
+        lambda _context: ("https://iam.example.test", None, True),
+    )
+    monkeypatch.setattr(
+        access_key_expiration_service,
+        "get_iam_service",
+        lambda *_args, **_kwargs: fake,
+    )
+
+    result = AccessKeyExpirationService(db_session).run_due()
+
+    db_session.refresh(row)
+    assert result.retried == 1
+    assert row.expiration_state == "retrying"
+    assert row.expiration_enforced_at is None
+    assert "did not confirm" in (row.expiration_last_error or "")
+    assert fake.calls == [
+        ("list", "alice"),
+        ("set", "alice", "AK-IAM", "Inactive"),
+        ("list", "alice"),
+    ]
