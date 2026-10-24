@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from app.utils.s3_etag import etag_md5
@@ -17,6 +18,64 @@ from ._shared import (
     _VersionTimelineDiffKey,
     _WorkerLeaseLostError,
 )
+
+
+@dataclass
+class _VersionAwareDiffAccumulator:
+    source_count: int = 0
+    target_count: int = 0
+    matched_count: int = 0
+    different_count: int = 0
+    only_source_count: int = 0
+    only_target_count: int = 0
+    sample: dict[str, list[Any]] = field(
+        default_factory=lambda: {
+            "only_source_sample": [],
+            "only_target_sample": [],
+            "different_sample": [],
+        }
+    )
+
+    def _append_sample(self, category: str, value: Any) -> None:
+        if len(self.sample[category]) < 200:
+            self.sample[category].append(value)
+
+    def record_only_source(self, key: str, *, has_current_object: bool) -> None:
+        self.source_count += int(has_current_object)
+        self.only_source_count += 1
+        self._append_sample("only_source_sample", key)
+
+    def record_only_target(self, key: str, *, has_current_object: bool) -> None:
+        self.target_count += int(has_current_object)
+        self.only_target_count += 1
+        self._append_sample("only_target_sample", key)
+
+    def record_pair(
+        self,
+        comparison: _VersionTimelineComparison,
+        *,
+        source_has_current_object: bool,
+        target_has_current_object: bool,
+    ) -> None:
+        self.source_count += int(source_has_current_object)
+        self.target_count += int(target_has_current_object)
+        if comparison.equal:
+            self.matched_count += 1
+            return
+        self.different_count += 1
+        if comparison.first_difference is not None:
+            self._append_sample("different_sample", comparison.first_difference)
+
+    def build(self) -> _VersionAwareDiff:
+        return _VersionAwareDiff(
+            source_count=self.source_count,
+            target_count=self.target_count,
+            matched_count=self.matched_count,
+            different_count=self.different_count,
+            only_source_count=self.only_source_count,
+            only_target_count=self.only_target_count,
+            sample=self.sample,
+        )
 
 
 class BucketMigrationObjectComparisonMixin:
@@ -143,17 +202,7 @@ class BucketMigrationObjectComparisonMixin:
         source_item = next(source_iter, None)
         target_item = next(target_iter, None)
 
-        source_count = 0
-        target_count = 0
-        matched_count = 0
-        different_count = 0
-        only_source_count = 0
-        only_target_count = 0
-        sample = {
-            "only_source_sample": [],
-            "only_target_sample": [],
-            "different_sample": [],
-        }
+        diff = _VersionAwareDiffAccumulator()
         scanned_keys = 0
 
         while source_item is not None or target_item is not None:
@@ -167,47 +216,39 @@ class BucketMigrationObjectComparisonMixin:
 
             if source_item is None:
                 target_key, target_timeline = target_item
-                if self._timeline_has_current_object(target_timeline):
-                    target_count += 1
-                only_target_count += 1
-                if len(sample["only_target_sample"]) < 200:
-                    sample["only_target_sample"].append(target_key)
+                diff.record_only_target(
+                    target_key,
+                    has_current_object=self._timeline_has_current_object(target_timeline),
+                )
                 target_item = next(target_iter, None)
                 continue
 
             if target_item is None:
                 source_key, source_timeline = source_item
-                if self._timeline_has_current_object(source_timeline):
-                    source_count += 1
-                only_source_count += 1
-                if len(sample["only_source_sample"]) < 200:
-                    sample["only_source_sample"].append(source_key)
+                diff.record_only_source(
+                    source_key,
+                    has_current_object=self._timeline_has_current_object(source_timeline),
+                )
                 source_item = next(source_iter, None)
                 continue
 
             source_key, source_timeline = source_item
             target_key, target_timeline = target_item
             if source_key < target_key:
-                if self._timeline_has_current_object(source_timeline):
-                    source_count += 1
-                only_source_count += 1
-                if len(sample["only_source_sample"]) < 200:
-                    sample["only_source_sample"].append(source_key)
+                diff.record_only_source(
+                    source_key,
+                    has_current_object=self._timeline_has_current_object(source_timeline),
+                )
                 source_item = next(source_iter, None)
                 continue
             if target_key < source_key:
-                if self._timeline_has_current_object(target_timeline):
-                    target_count += 1
-                only_target_count += 1
-                if len(sample["only_target_sample"]) < 200:
-                    sample["only_target_sample"].append(target_key)
+                diff.record_only_target(
+                    target_key,
+                    has_current_object=self._timeline_has_current_object(target_timeline),
+                )
                 target_item = next(target_iter, None)
                 continue
 
-            if self._timeline_has_current_object(source_timeline):
-                source_count += 1
-            if self._timeline_has_current_object(target_timeline):
-                target_count += 1
             comparison = self._compare_version_timeline_pair(
                 source_client,
                 target_client,
@@ -217,24 +258,15 @@ class BucketMigrationObjectComparisonMixin:
                 source_timeline=source_timeline,
                 target_timeline=target_timeline,
             )
-            if comparison.equal:
-                matched_count += 1
-            else:
-                different_count += 1
-                if comparison.first_difference is not None and len(sample["different_sample"]) < 200:
-                    sample["different_sample"].append(comparison.first_difference)
+            diff.record_pair(
+                comparison,
+                source_has_current_object=self._timeline_has_current_object(source_timeline),
+                target_has_current_object=self._timeline_has_current_object(target_timeline),
+            )
             source_item = next(source_iter, None)
             target_item = next(target_iter, None)
 
-        return _VersionAwareDiff(
-            source_count=source_count,
-            target_count=target_count,
-            matched_count=matched_count,
-            different_count=different_count,
-            only_source_count=only_source_count,
-            only_target_count=only_target_count,
-            sample=sample,
-        )
+        return diff.build()
 
     def _compare_buckets_version_aware(
         self,
