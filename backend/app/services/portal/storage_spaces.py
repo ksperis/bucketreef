@@ -185,14 +185,11 @@ class PortalStorageSpacesMixin:
         cleaned_bucket_name = (bucket_name or "").strip()
         if not cleaned_bucket_name:
             raise PortalBadRequestError("Bucket name requis.")
-        if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-            raise PortalForbiddenError("Storage Space import not allowed for this role.")
-        portal_settings = self.get_effective_portal_settings(access.account)
-        if visibility == "private" and not portal_settings.allow_private_storage_space_create:
-            raise PortalForbiddenError("Private Storage Space creation is disabled for this project.")
-        metadata = self._storage_space_metadata(access.account, cleaned_bucket_name)
-        if metadata is not None:
-            raise PortalConflictError("Bucket is already registered as a Storage Space.")
+        self._validate_storage_space_import_access(
+            access,
+            bucket_name=cleaned_bucket_name,
+            visibility=visibility,
+        )
         share_scope, account_member_role = self._normalize_storage_space_sharing(
             visibility,
             share_scope,
@@ -204,43 +201,30 @@ class PortalStorageSpacesMixin:
             share_scope=share_scope,
             initial_shares=initial_shares,
         )
-        access_key, secret_key = self._account_credentials(access.account)
-        buckets = s3_client.list_buckets(
-            access_key=access_key,
-            secret_key=secret_key,
-            **self._s3_client_kwargs(access.account),
+        self._require_storage_space_import_bucket(
+            access.account,
+            cleaned_bucket_name,
         )
-        if cleaned_bucket_name not in {bucket.get("name") for bucket in buckets}:
-            raise PortalNotFoundError("Bucket not found for this account.")
-        iam_service = self._get_iam_service(access.account)
-        link, _, _ = self._ensure_portal_user(user, access.account, iam_service)
-        self._sync_user_group_membership(
-            iam_service,
-            link.iam_username,
-            access.portal_role,
-            account=access.account,
+        self._prepare_storage_space_import_identity(user, access)
+        metadata = self._imported_storage_space_metadata(
+            user,
+            access,
+            bucket_name=cleaned_bucket_name,
+            description=description,
+            visibility=visibility,
+            share_scope=share_scope,
+            account_member_role=account_member_role,
+            project_key=project_key,
+            dataset_label=dataset_label,
         )
-        self._ensure_active_key(link, iam_service)
         try:
-            metadata = PortalStorageSpaceMetadata(account_id=access.account.id, bucket_name=cleaned_bucket_name)
-            self.db.add(metadata)
-            metadata.display_name = cleaned_bucket_name
-            metadata.owner_user_id = user.id if visibility == "private" else None
-            metadata.visibility = visibility
-            metadata.share_scope = share_scope
-            metadata.account_member_role = account_member_role
-            if description is not None:
-                metadata.description = description
-            if project_key is not None:
-                metadata.project_key = project_key
-            if dataset_label is not None:
-                metadata.dataset_label = dataset_label
-            metadata.origin = "imported"
-            metadata.name_editable = False
-            metadata.updated_at = utcnow()
             self.db.add(metadata)
             self.db.flush()
-            self._add_storage_space_initial_grants(metadata, user, validated_initial_shares)
+            self._add_storage_space_initial_grants(
+                metadata,
+                user,
+                validated_initial_shares,
+            )
             self.db.flush()
             self._sync_storage_space_access_projection(access.account, metadata)
             self.db.commit()
@@ -251,6 +235,79 @@ class PortalStorageSpacesMixin:
         if storage_space is None:
             raise RuntimeError("Imported Storage Space is not visible.")
         return storage_space
+
+    def _validate_storage_space_import_access(
+        self,
+        access: "AccountAccess",
+        *,
+        bucket_name: str,
+        visibility: PortalStorageSpaceVisibility,
+    ) -> None:
+        if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
+            raise PortalForbiddenError("Storage Space import not allowed for this role.")
+        portal_settings = self.get_effective_portal_settings(access.account)
+        if visibility == "private" and not portal_settings.allow_private_storage_space_create:
+            raise PortalForbiddenError("Private Storage Space creation is disabled for this project.")
+        if self._storage_space_metadata(access.account, bucket_name) is not None:
+            raise PortalConflictError("Bucket is already registered as a Storage Space.")
+
+    def _require_storage_space_import_bucket(
+        self,
+        account: S3Account,
+        bucket_name: str,
+    ) -> None:
+        access_key, secret_key = self._account_credentials(account)
+        buckets = s3_client.list_buckets(
+            access_key=access_key,
+            secret_key=secret_key,
+            **self._s3_client_kwargs(account),
+        )
+        if bucket_name not in {bucket.get("name") for bucket in buckets}:
+            raise PortalNotFoundError("Bucket not found for this account.")
+
+    def _prepare_storage_space_import_identity(
+        self,
+        user: User,
+        access: "AccountAccess",
+    ) -> None:
+        iam_service = self._get_iam_service(access.account)
+        link, _, _ = self._ensure_portal_user(user, access.account, iam_service)
+        self._sync_user_group_membership(
+            iam_service,
+            link.iam_username,
+            access.portal_role,
+            account=access.account,
+        )
+        self._ensure_active_key(link, iam_service)
+
+    @staticmethod
+    def _imported_storage_space_metadata(
+        user: User,
+        access: "AccountAccess",
+        *,
+        bucket_name: str,
+        description: str | None,
+        visibility: PortalStorageSpaceVisibility,
+        share_scope: PortalStorageSpaceShareScope,
+        account_member_role: PortalStorageSpaceRole | None,
+        project_key: str | None,
+        dataset_label: str | None,
+    ) -> PortalStorageSpaceMetadata:
+        return PortalStorageSpaceMetadata(
+            account_id=access.account.id,
+            bucket_name=bucket_name,
+            display_name=bucket_name,
+            description=description,
+            owner_user_id=user.id if visibility == "private" else None,
+            visibility=visibility,
+            share_scope=share_scope,
+            account_member_role=account_member_role,
+            project_key=project_key,
+            dataset_label=dataset_label,
+            origin="imported",
+            name_editable=False,
+            updated_at=utcnow(),
+        )
 
     def update_storage_space(
         self,
