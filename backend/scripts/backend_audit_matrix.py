@@ -39,6 +39,7 @@ SIGNAL_FIELDS = {
     "delegated_bucket_migration_maintenance_audit": "_queue_maintenance(",
     "delegated_access_key_expiration_audit": "AccessKeyExpirationService(db).run_due(",
     "delegated_auth_attempt_audit": "AuthAttemptContext.from_request(",
+    "delegated_manager_iam_role_update_audit": "update_iam_role(",
 }
 DELEGATED_AUDIT_SIGNALS = frozenset(
     {
@@ -63,6 +64,7 @@ DELEGATED_AUDIT_SIGNALS = frozenset(
         "delegated_bucket_migration_maintenance_audit",
         "delegated_access_key_expiration_audit",
         "delegated_auth_attempt_audit",
+        "delegated_manager_iam_role_update_audit",
     }
 )
 
@@ -228,6 +230,12 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
                 and call.func.attr == "audit"
                 and isinstance(call.func.value, ast.Name)
                 and call.func.value.id == "attempt"
+                for call in ast.walk(node)
+            )
+            signals["delegated_manager_iam_role_update_audit"] = any(
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Name)
+                and call.func.id == "update_iam_role"
                 for call in ast.walk(node)
             )
             for method, path in routes:
