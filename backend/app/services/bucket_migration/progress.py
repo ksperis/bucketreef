@@ -104,8 +104,6 @@ class BucketMigrationProgressMixin:
 
             error_text = sanitized_error_log_detail(error or "unknown fatal error")
             migration.status = "failed"
-            migration.pause_requested = False
-            migration.cancel_requested = False
             migration.worker_lease_owner = None
             migration.worker_lease_until = None
             migration.error_message = _truncate_optional_db_text(
@@ -150,8 +148,6 @@ class BucketMigrationProgressMixin:
             select(
                 BucketMigration.worker_lease_owner,
                 BucketMigration.worker_lease_until,
-                BucketMigration.cancel_requested,
-                BucketMigration.pause_requested,
                 BucketMigration.status,
             ).where(BucketMigration.id == migration_id)
         ).one()
@@ -169,15 +165,14 @@ class BucketMigrationProgressMixin:
                 if not self._renew_migration_lease(migration_id, worker_id=worker_id, lease_seconds=effective_lease_seconds):
                     return "lost_lease"
                 migration = self.get_migration(migration_id)
-        if migration.cancel_requested or migration.status == "cancel_requested":
+        if migration.status == "cancel_requested":
             return "cancel"
-        if migration.pause_requested or migration.status == "pause_requested":
+        if migration.status == "pause_requested":
             return "pause"
         return "run"
 
     def _mark_paused(self, migration: BucketMigration) -> None:
         migration.status = "paused"
-        migration.pause_requested = False
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.updated_at = utcnow()
@@ -314,8 +309,6 @@ class BucketMigrationProgressMixin:
         target_ctx: Optional[_ResolvedContext] = None,
     ) -> None:
         migration.status = "canceled"
-        migration.pause_requested = False
-        migration.cancel_requested = False
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.finished_at = utcnow()
@@ -405,10 +398,10 @@ class BucketMigrationProgressMixin:
         target_ctx: Optional[_ResolvedContext] = None,
     ) -> None:
         self._recompute_counters(migration)
-        if migration.cancel_requested or migration.status == "cancel_requested":
+        if migration.status == "cancel_requested":
             self._mark_canceled(migration, source_ctx=source_ctx, target_ctx=target_ctx)
             return
-        if migration.pause_requested or migration.status == "pause_requested":
+        if migration.status == "pause_requested":
             self._mark_paused(migration)
             return
 

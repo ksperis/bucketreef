@@ -355,8 +355,6 @@ class BucketMigrationPlanningMixin:
         )
         migration.parallelism_max = configuration.parallelism
         migration.status = "draft"
-        migration.pause_requested = False
-        migration.cancel_requested = False
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.precheck_status = "pending"
@@ -533,8 +531,6 @@ class BucketMigrationPlanningMixin:
 
     def _queue_migration_for_start(self, migration: BucketMigration) -> None:
         self._transition_command(migration, status="queued")
-        migration.pause_requested = False
-        migration.cancel_requested = False
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.error_message = None
@@ -581,7 +577,6 @@ class BucketMigrationPlanningMixin:
             migration,
             allowed_statuses=("queued", "running", "pause_requested"),
             status="pause_requested",
-            pause_requested=True,
         )
         migration.updated_at = utcnow()
         self._add_event(migration, level="info", message="Pause requested.")
@@ -595,8 +590,6 @@ class BucketMigrationPlanningMixin:
         self._revalidate_transfer_preconditions(migration)
         if migration.status not in {"paused"}:
             raise ValueError("Resume is only available from paused status")
-        migration.pause_requested = False
-        migration.cancel_requested = False
         self._transition_command(migration, status="queued")
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
@@ -613,9 +606,7 @@ class BucketMigrationPlanningMixin:
     def stop_migration(self, migration_id: int) -> BucketMigration:
         migration = self.get_migration(migration_id)
         require_action(migration, "stop")
-        self._transition_command(
-            migration, status="cancel_requested", cancel_requested=True
-        )
+        self._transition_command(migration, status="cancel_requested")
         migration.updated_at = utcnow()
         self._add_event(migration, level="info", message="Stop requested.")
         self._commit()
@@ -635,8 +626,6 @@ class BucketMigrationPlanningMixin:
                 "Continue is only available when migration is awaiting cutover"
             )
         self._transition_command(migration, status="queued")
-        migration.pause_requested = False
-        migration.cancel_requested = False
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.updated_at = utcnow()

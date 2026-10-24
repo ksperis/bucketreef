@@ -447,7 +447,6 @@ def test_pause_tolerates_worker_transition_from_queued_to_running(prepared):
     paused = service.request_pause(migration.id)
 
     assert paused.status == "pause_requested"
-    assert paused.pause_requested is True
 
 
 def test_maintenance_bucket_delete_invalidates_bucket_list_caches(prepared, monkeypatch):
@@ -927,13 +926,11 @@ def test_finalize_honors_pause_requested_after_item_stops(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
     migration.status = "pause_requested"
-    migration.pause_requested = True
     item.status = "paused"
 
     service._finalize_or_wait_cutover(migration)
 
     assert migration.status == "paused"
-    assert migration.pause_requested is False
     assert item.status == "paused"
 
 

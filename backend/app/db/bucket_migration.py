@@ -42,8 +42,6 @@ class BucketMigration(Base):
     auto_grant_source_read_for_copy = Column(Boolean, nullable=False, default=False, server_default="0")
 
     status = Column(String, nullable=False, default="draft", server_default="draft", index=True)
-    pause_requested = Column(Boolean, nullable=False, default=False, server_default="0")
-    cancel_requested = Column(Boolean, nullable=False, default=False, server_default="0")
     worker_lease_owner = Column(String, nullable=True, index=True)
     worker_lease_until = Column(UTCDateTime(), nullable=True, index=True)
     precheck_status = Column(String, nullable=False, default="pending", server_default="pending", index=True)

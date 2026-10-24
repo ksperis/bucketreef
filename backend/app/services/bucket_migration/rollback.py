@@ -45,8 +45,6 @@ class BucketMigrationRollbackMixin:
 
     def _queue_migration_for_retry(self, migration: BucketMigration, *, message: str) -> None:
         self._transition_command(migration, status="queued")
-        migration.pause_requested = False
-        migration.cancel_requested = False
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.error_message = None
