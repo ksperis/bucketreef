@@ -173,7 +173,7 @@ export function readModels(c: DemoRequest): Response | undefined {
     const base = { endpoint_id: endpointId, window, start: rows[0].timestamp, end: rows.at(-1)!.timestamp, generated_at: state.initializedAt };
     if (path.endsWith("series")) return json({ ...base, data_points: series.length, series, daily: series.map(p => ({ day: p.timestamp.slice(0, 10), ok_count: 95, degraded_count: 1, down_count: 0, avg_latency_ms: p.latency_ms, p95_latency_ms: p.latency_ms + 15 })) });
     if (path.endsWith("raw-checks")) { const checks = series.map(p => ({ ...p, checked_at: p.timestamp })); return json({ ...base, ...page(checks, c.url), checks: page(checks, c.url).items }); }
-    if (path.endsWith("latency-overview")) return json({ ...base, endpoints: state.endpoints.map(e => ({ endpoint_id: e.id, name: e.name, endpoint_url: e.endpoint_url, status: e.id === 11 ? "up" : "degraded", checked_at: state.initializedAt, latency_ms: e.id === 11 ? 82 : 390, min_latency_ms: 72, avg_latency_ms: 105, max_latency_ms: 420, sample_count: 2160 })) });
+    if (path.endsWith("latency-overview")) return json({ ...base, endpoints: state.endpoints.map(e => ({ endpoint_id: e.id, name: e.name, endpoint_url: e.endpoint_url, status: e.id === 11 ? "up" : "degraded", checked_at: state.initializedAt, latency_ms: e.id === 11 ? 82 : 390, min_latency_ms: 72, avg_latency_ms: 105, max_latency_ms: 420 })) });
     const incidents = snapshots["health-workspace-admin"].incidents;
     return json({ ...base, total: incidents.length, incidents: datedSnapshot(path.endsWith("incidents-global") ? incidents : incidents.filter(i => i.endpoint_id === endpointId), state.initializedAt) });
   }
