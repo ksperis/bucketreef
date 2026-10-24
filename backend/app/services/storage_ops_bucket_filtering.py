@@ -49,6 +49,23 @@ def match_storage_ops_simple_search(
     return False
 
 
+def _is_cheap_storage_ops_field_rule(rule: BucketFilterRule) -> bool:
+    return bool(
+        rule.field
+        and rule.field != "tag"
+        and rule.field not in OWNER_DETAIL_FIELDS
+    )
+
+
+def _has_deferred_storage_ops_rules(rules: list[BucketFilterRule]) -> bool:
+    return any(
+        rule.feature
+        or rule.field == "tag"
+        or rule.field in OWNER_DETAIL_FIELDS
+        for rule in rules
+    )
+
+
 def build_storage_ops_cheap_field_prefilter(
     parsed_filter: BucketFilterQuery | None,
 ) -> tuple[BucketFilterQuery | None, bool]:
@@ -59,28 +76,21 @@ def build_storage_ops_cheap_field_prefilter(
     cheap_field_rules = [
         rule
         for rule in rules
-        if rule.field and rule.field not in ({"tag"} | OWNER_DETAIL_FIELDS)
+        if _is_cheap_storage_ops_field_rule(rule)
     ]
-    has_feature_rules = any(rule.feature for rule in rules)
-    has_tag_rule = any(rule.field == "tag" for rule in rules)
-    has_owner_enriched_rule = any(rule.field in OWNER_DETAIL_FIELDS for rule in rules)
     if not cheap_field_rules:
         return None, False
 
-    if parsed_filter.match == "all":
-        cheap_filter = parsed_filter.model_copy(update={"rules": cheap_field_rules})
-        is_complete = (
-            not has_feature_rules
-            and not has_tag_rule
-            and not has_owner_enriched_rule
-            and len(cheap_field_rules) == len(rules)
-        )
-        return cheap_filter, is_complete
-
-    if has_feature_rules or has_tag_rule or has_owner_enriched_rule:
+    has_deferred_rules = _has_deferred_storage_ops_rules(rules)
+    if parsed_filter.match == "any" and has_deferred_rules:
         return None, False
     cheap_filter = parsed_filter.model_copy(update={"rules": cheap_field_rules})
-    return cheap_filter, True
+    if parsed_filter.match == "any":
+        return cheap_filter, True
+    return cheap_filter, (
+        not has_deferred_rules
+        and len(cheap_field_rules) == len(rules)
+    )
 
 
 def sort_storage_ops_buckets(
