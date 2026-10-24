@@ -59,16 +59,10 @@ class PortalStorageSpacesMixin:
         project_key: Optional[str] = None,
         dataset_label: Optional[str] = None,
     ) -> PortalStorageSpaceSummary:
-        portal_settings = self.get_effective_portal_settings(access.account)
-        allow_private_create = portal_settings.allow_private_storage_space_create
-        is_portal_user = access.portal_role == PortalAccountRole.PORTAL_USER.value
-        is_portal_manager = access.portal_role == PortalAccountRole.PORTAL_MANAGER.value
-        if not (is_portal_manager or (allow_private_create and is_portal_user)):
-            raise PortalForbiddenError("Storage Space creation not allowed for this role.")
-        if is_portal_user and visibility != "private":
-            raise PortalForbiddenError("Portal users can only create private Storage Spaces.")
-        if visibility == "private" and not allow_private_create:
-            raise PortalForbiddenError("Private Storage Space creation is disabled for this project.")
+        portal_settings = self._validate_storage_space_creation_access(
+            access,
+            visibility=visibility,
+        )
         share_scope, account_member_role = self._normalize_storage_space_sharing(
             visibility,
             share_scope,
@@ -80,17 +74,13 @@ class PortalStorageSpacesMixin:
             share_scope=share_scope,
             initial_shares=initial_shares,
         )
-        existing = {space.internal_bucket_name or space.id for space in self.list_storage_spaces(user, access, include_archived=True)}
-        if naming_mode == "named_bucket":
-            if not portal_settings.allow_portal_named_bucket_create:
-                raise PortalForbiddenError("Named bucket Storage Space creation is not allowed for this account.")
-            bucket_name = self._unique_storage_space_bucket_name(name, existing)
-            origin = "portal_named"
-            name_editable = False
-        else:
-            bucket_name = self._unique_uuid_storage_space_bucket_name(existing)
-            origin = "portal_generic"
-            name_editable = True
+        bucket_name, origin, name_editable = self._storage_space_creation_target(
+            user,
+            access,
+            name=name,
+            naming_mode=naming_mode,
+            portal_settings=portal_settings,
+        )
         bucket_created = False
         try:
             self.create_bucket(user, access, bucket_name, portal_settings=portal_settings)
@@ -132,6 +122,51 @@ class PortalStorageSpacesMixin:
         if storage_space is None:
             raise RuntimeError("Created Storage Space is not visible.")
         return storage_space
+
+    def _validate_storage_space_creation_access(
+        self,
+        access: "AccountAccess",
+        *,
+        visibility: PortalStorageSpaceVisibility,
+    ):
+        portal_settings = self.get_effective_portal_settings(access.account)
+        allow_private_create = portal_settings.allow_private_storage_space_create
+        is_portal_user = access.portal_role == PortalAccountRole.PORTAL_USER.value
+        is_portal_manager = access.portal_role == PortalAccountRole.PORTAL_MANAGER.value
+        if not (is_portal_manager or (allow_private_create and is_portal_user)):
+            raise PortalForbiddenError("Storage Space creation not allowed for this role.")
+        if is_portal_user and visibility != "private":
+            raise PortalForbiddenError("Portal users can only create private Storage Spaces.")
+        if visibility == "private" and not allow_private_create:
+            raise PortalForbiddenError(
+                "Private Storage Space creation is disabled for this project."
+            )
+        return portal_settings
+
+    def _storage_space_creation_target(
+        self,
+        user: User,
+        access: "AccountAccess",
+        *,
+        name: str,
+        naming_mode: PortalStorageSpaceNamingMode,
+        portal_settings,
+    ) -> tuple[str, str, bool]:
+        existing = {
+            space.internal_bucket_name or space.id
+            for space in self.list_storage_spaces(
+                user,
+                access,
+                include_archived=True,
+            )
+        }
+        if naming_mode != "named_bucket":
+            return self._unique_uuid_storage_space_bucket_name(existing), "portal_generic", True
+        if not portal_settings.allow_portal_named_bucket_create:
+            raise PortalForbiddenError(
+                "Named bucket Storage Space creation is not allowed for this account."
+            )
+        return self._unique_storage_space_bucket_name(name, existing), "portal_named", False
 
     def import_storage_space(
         self,
