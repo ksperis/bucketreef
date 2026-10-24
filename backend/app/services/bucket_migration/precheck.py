@@ -107,8 +107,6 @@ class _PlannedItem:
     infos: int
     warnings: int
     blocking_errors: int
-    same_endpoint_copy_safe: bool
-    rollback_safe: bool
     unsupported_features: frozenset[str]
 
 
@@ -117,8 +115,6 @@ class _PrecheckAggregation:
     infos: int = 0
     warnings: int = 0
     blocking_errors: int = 0
-    same_endpoint_copy_safe: bool = True
-    rollback_safe: bool = True
     unsupported_features: set[str] = field(default_factory=set)
 
     def add(self, planned: _PlannedItem) -> None:
@@ -126,10 +122,6 @@ class _PrecheckAggregation:
         self.warnings += planned.warnings
         self.blocking_errors += planned.blocking_errors
         self.unsupported_features.update(planned.unsupported_features)
-        self.same_endpoint_copy_safe = (
-            self.same_endpoint_copy_safe and planned.same_endpoint_copy_safe
-        )
-        self.rollback_safe = self.rollback_safe and planned.rollback_safe
 
 
 def _check_entry(
@@ -661,7 +653,7 @@ class BucketMigrationPrecheckPlanner:
             add_check=add_check,
         )
         item.source_snapshot_json = self._service._json_dumps_safe(source.profile)
-        safety = self._rules.evaluate_item_safety(
+        self._rules.add_item_safety_checks(
             source_ctx,
             target_ctx,
             item,
@@ -710,8 +702,6 @@ class BucketMigrationPrecheckPlanner:
                 "settings_copied": settings_copied,
                 "settings_omitted": settings_omitted,
                 "blocking": blocking,
-                "rollback_safe": safety.rollback_safe,
-                "same_endpoint_copy_safe": safety.same_endpoint_copy_safe,
                 "source_object_count": source.object_count,
                 "target_object_count": target.object_count,
                 "source_profile": source.profile,
@@ -723,8 +713,6 @@ class BucketMigrationPrecheckPlanner:
             infos=counts["infos"],
             warnings=counts["warnings"],
             blocking_errors=counts["blocking_errors"],
-            same_endpoint_copy_safe=safety.same_endpoint_copy_safe,
-            rollback_safe=safety.rollback_safe,
             unsupported_features=source_plan.unsupported_features,
         )
 
@@ -748,8 +736,6 @@ class BucketMigrationPrecheckPlanner:
         *,
         aggregation: _PrecheckAggregation,
     ) -> dict[str, Any]:
-        report["same_endpoint_copy_safe"] = aggregation.same_endpoint_copy_safe
-        report["rollback_safe"] = aggregation.rollback_safe
         report["unsupported_features"] = sorted(aggregation.unsupported_features)
         report["errors"] = aggregation.blocking_errors
         report["warnings"] = aggregation.warnings
