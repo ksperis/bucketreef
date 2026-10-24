@@ -107,7 +107,6 @@ export type BucketMigrationItemView = {
   target_bucket: string;
   status: BucketMigrationItemStatus;
   step: string;
-  pre_sync_done: boolean;
   read_only_applied: boolean;
   target_lock_applied: boolean;
   target_created_by_migration: boolean;
@@ -115,19 +114,11 @@ export type BucketMigrationItemView = {
   source_deleted: boolean;
   cleanup_error: string | null;
   objects_copied: number;
-  objects_deleted: number;
-  source_count: number | null;
-  target_count: number | null;
-  matched_count: number | null;
   different_count: number | null;
   only_source_count: number | null;
   only_target_count: number | null;
   diff_sample: Record<string, unknown> | null;
   error_message: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  created_at: string;
-  updated_at: string;
 };
 
 export type BucketMigrationEventView = {
@@ -141,23 +132,18 @@ export type BucketMigrationEventView = {
 
 export type BucketMigrationView = {
   id: number;
-  created_by_user_id: number | null;
   source_context_id: string;
   target_context_id: string;
   mode: BucketMigrationMode;
   copy_bucket_settings: boolean;
-  strong_integrity_check: boolean;
   lock_target_writes: boolean;
   use_same_endpoint_copy: boolean;
   auto_grant_source_read_for_copy: boolean;
   status: BucketMigrationStatus;
-  pause_requested: boolean;
-  cancel_requested: boolean;
   precheck_status: BucketMigrationPrecheckStatus;
   precheck_report: BucketMigrationPrecheckReport | null;
   precheck_checked_at: string | null;
   configuration_revision: number;
-  checked_revision: number | null;
   preparation_status: "unverified" | "checking" | "blocked" | "ready" | "stale";
   preparation_active_checks: boolean;
   preparation_completed_items: number;
@@ -165,17 +151,12 @@ export type BucketMigrationView = {
   maintenance_status: string;
   maintenance_error: string | null;
   available_actions: Record<string, { enabled: boolean; reason: string | null }>;
-  parallelism_max: number;
   total_items: number;
   completed_items: number;
   failed_items: number;
   skipped_items: number;
   awaiting_items: number;
   error_message: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  last_heartbeat_at: string | null;
-  created_at: string;
   updated_at: string;
 };
 
