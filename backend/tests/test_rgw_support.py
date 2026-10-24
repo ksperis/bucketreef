@@ -89,6 +89,24 @@ def test_extract_rgw_user_identity_rejects_empty_embedded_tenant():
         extract_rgw_user_identity({"user_id": "$user"})
 
 
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            {"uid": "alice", "user": {"uid": "bob"}},
+            "conflicting user identity",
+        ),
+        (
+            {"tenant": "tenant-a", "user": {"uid": "tenant-b$alice"}},
+            "conflicting tenant identity",
+        ),
+    ],
+)
+def test_extract_rgw_user_identity_rejects_conflicting_fields(payload, message):
+    with pytest.raises(ValueError, match=message):
+        extract_rgw_user_identity(payload)
+
+
 def test_rgw_qualified_uid_rejects_conflicting_explicit_tenant():
     with pytest.raises(ValueError, match="tenant conflicts"):
         rgw_qualified_uid("tenant-a$user", "tenant-b")
