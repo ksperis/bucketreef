@@ -35,7 +35,6 @@ def bucket_migration_item_to_view(item: BucketMigrationItem) -> BucketMigrationI
         pre_sync_done=bool(item.pre_sync_done),
         read_only_applied=bool(item.read_only_applied),
         target_lock_applied=bool(item.target_lock_applied),
-        target_bucket_exists=bool(item.target_bucket_exists),
         target_created_by_migration=bool(item.target_created_by_migration),
         recovery_required=bool(item.preparation_effects_json),
         source_deleted=bool(item.source_deleted),

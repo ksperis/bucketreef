@@ -224,7 +224,6 @@ class BucketMigrationPlanningMixin:
         item.pre_sync_done = False
         item.read_only_applied = False
         item.target_lock_applied = False
-        item.target_bucket_exists = False
         item.objects_copied = 0
         item.objects_deleted = 0
         item.source_count = None

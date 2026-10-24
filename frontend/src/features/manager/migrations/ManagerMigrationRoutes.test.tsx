@@ -102,7 +102,6 @@ function buildDraftDetail(): BucketMigrationDetail {
         pre_sync_done: false,
         read_only_applied: false,
         target_lock_applied: false,
-        target_bucket_exists: false,
         target_created_by_migration: false,
         recovery_required: false,
         source_deleted: false,

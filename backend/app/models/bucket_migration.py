@@ -132,7 +132,6 @@ class BucketMigrationItemView(ApiModel):
     pre_sync_done: bool
     read_only_applied: bool
     target_lock_applied: bool
-    target_bucket_exists: bool
     target_created_by_migration: bool
     recovery_required: bool
     source_deleted: bool
