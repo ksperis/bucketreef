@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 SERVICE_TYPES = {"endpoint_runtime": "runtime", "endpoint_supervision": "supervision"}
 IDENTITY_TYPES = {**SERVICE_TYPES, "ceph_admin": "ceph_admin"}
+ROTATION_TYPES = (*SERVICE_TYPES, "ceph_admin", "endpoint_admin", "account", "s3_user")
 RotationTarget = EndpointServiceIdentity | S3Account | S3User | StorageEndpoint
 
 
@@ -520,6 +521,62 @@ class DurableKeyRotationService:
             target.status = "error"
             self.db.commit()
 
+    @staticmethod
+    def _validate_rotation_request(key_type: str, *, deactivate_only: bool) -> None:
+        if deactivate_only and key_type in SERVICE_TYPES:
+            raise ValueError(
+                "Managed service identities require deleting previous keys; select delete mode."
+            )
+        if key_type not in ROTATION_TYPES:
+            raise ValueError("Unsupported rotation category.")
+
+    def _load_rotation_context(
+        self,
+        endpoint_id: int,
+        key_type: str,
+        target_id: int,
+    ) -> tuple[StorageEndpoint, RotationTarget, KeyRotationIntent | None, RGWAdminClient]:
+        endpoint = self.db.scalar(
+            select(StorageEndpoint)
+            .where(StorageEndpoint.id == endpoint_id)
+            .execution_options(populate_existing=True)
+        )
+        if endpoint is None or endpoint.provider != "ceph":
+            raise ValueError(
+                "Key rotation is only supported for an available Ceph endpoint."
+            )
+
+        target = self._target(endpoint, key_type, target_id)
+        intent = pending_rotation(self.db, endpoint.id, key_type, target.id)
+        if (
+            key_type not in IDENTITY_TYPES
+            and intent is None
+            and not resolve_feature_flags(endpoint).admin_enabled
+        ):
+            raise ValueError("Admin feature is disabled for this category.")
+        if key_type in IDENTITY_TYPES and target.status != "ready" and intent is None:
+            raise ValueError("Only ready service identities can be rotated.")
+
+        admin, permissions = self.identities.admin_permissions(endpoint)
+        if not permissions.users_write:
+            raise ValueError("Key rotation requires Admin Ops users=write.")
+        return endpoint, target, intent, admin
+
+    def _complete_rotation(
+        self,
+        endpoint: StorageEndpoint,
+        key_type: str,
+        target: RotationTarget,
+        intent: KeyRotationIntent,
+    ) -> None:
+        self._audit(endpoint, intent, "completed")
+        self.db.delete(intent)
+        if key_type in IDENTITY_TYPES:
+            target.last_error = None
+            target.status = "ready"
+            target.last_reconciled_at = utcnow()
+        self.db.commit()
+
     def rotate(
         self,
         endpoint: StorageEndpoint,
@@ -528,30 +585,14 @@ class DurableKeyRotationService:
         *,
         deactivate_only: bool = False,
     ) -> tuple[str, str, str]:
-        if deactivate_only and key_type in SERVICE_TYPES:
-            raise ValueError("Managed service identities require deleting previous keys; select delete mode.")
-        if key_type not in (*SERVICE_TYPES, "ceph_admin", "endpoint_admin", "account", "s3_user"):
-            raise ValueError("Unsupported rotation category.")
+        self._validate_rotation_request(key_type, deactivate_only=deactivate_only)
         lease, handle = self.identities._lease(endpoint)
-        intent = None
         try:
-            endpoint_id = endpoint.id
-            endpoint = self.db.scalar(
-                select(StorageEndpoint)
-                .where(StorageEndpoint.id == endpoint_id)
-                .execution_options(populate_existing=True)
+            endpoint, target, intent, admin = self._load_rotation_context(
+                endpoint.id,
+                key_type,
+                target_id,
             )
-            if endpoint is None or endpoint.provider != "ceph":
-                raise ValueError("Key rotation is only supported for an available Ceph endpoint.")
-            target = self._target(endpoint, key_type, target_id)
-            intent = pending_rotation(self.db, endpoint.id, key_type, target.id)
-            if key_type not in IDENTITY_TYPES and intent is None and not resolve_feature_flags(endpoint).admin_enabled:
-                raise ValueError("Admin feature is disabled for this category.")
-            if key_type in IDENTITY_TYPES and target.status != "ready" and intent is None:
-                raise ValueError("Only ready service identities can be rotated.")
-            admin, permissions = self.identities.admin_permissions(endpoint)
-            if not permissions.users_write:
-                raise ValueError("Key rotation requires Admin Ops users=write.")
             if intent is None:
                 intent = self._prepare_intent(
                     endpoint,
@@ -585,13 +626,7 @@ class DurableKeyRotationService:
                 admin,
                 kwargs,
             )
-            self._audit(endpoint, intent, "completed")
-            self.db.delete(intent)
-            if key_type in IDENTITY_TYPES:
-                target.last_error = None
-                target.status = "ready"
-                target.last_reconciled_at = utcnow()
-            self.db.commit()
+            self._complete_rotation(endpoint, key_type, target, intent)
             return result
         except (ValueError, RGWAdminError, SQLAlchemyError) as exc:
             self._record_rotation_failure(endpoint, key_type, target_id, exc)
