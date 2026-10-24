@@ -10,36 +10,47 @@ from app.services.deployment_check_models import DeploymentCheckFinding, finding
 from app.services.deployment_identity_checks import environment_ldap_findings, environment_oidc_findings
 
 
+_PRODUCTION_ORIGIN_GROUPS = (
+    ("PUBLIC_ORIGIN/PUBLIC_ORIGINS", "public"),
+    ("WEBAUTHN_ORIGIN/WEBAUTHN_ORIGINS", "webauthn"),
+)
+
+
+def _is_production_origin(origin: str) -> bool:
+    parsed = urlparse(origin)
+    return bool(
+        parsed.scheme == "https"
+        and parsed.hostname
+        and parsed.path in {"", "/"}
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def _rp_id_covers_origin(rp_id: str, origin: str) -> bool:
+    host = (urlparse(origin).hostname or "").lower().rstrip(".")
+    return host == rp_id or host.endswith(f".{rp_id}")
+
+
 def _origin_problem(settings: Settings) -> str | None:
-    public_origins = settings.effective_public_origins()
-    webauthn_origins = settings.effective_webauthn_origins()
-    parsed_webauthn = []
-    for name, origins in (
-        ("PUBLIC_ORIGIN/PUBLIC_ORIGINS", public_origins),
-        ("WEBAUTHN_ORIGIN/WEBAUTHN_ORIGINS", webauthn_origins),
-    ):
-        for origin in origins:
-            parsed = urlparse(origin)
-            if (
-                parsed.scheme != "https"
-                or not parsed.hostname
-                or parsed.path not in {"", "/"}
-                or parsed.params
-                or parsed.query
-                or parsed.fragment
-            ):
-                return f"{name} must contain HTTPS origins without paths for production."
-            if name.startswith("WEBAUTHN"):
-                parsed_webauthn.append(parsed)
+    origins_by_kind = {
+        "public": settings.effective_public_origins(),
+        "webauthn": settings.effective_webauthn_origins(),
+    }
+    for name, kind in _PRODUCTION_ORIGIN_GROUPS:
+        if any(not _is_production_origin(origin) for origin in origins_by_kind[kind]):
+            return f"{name} must contain HTTPS origins without paths for production."
+
+    public_origins = origins_by_kind["public"]
+    webauthn_origins = origins_by_kind["webauthn"]
     if not set(webauthn_origins).issubset(set(public_origins)):
         return "Every WebAuthn origin must also be a trusted public origin."
     rp_id = settings.webauthn_rp_id.strip().lower().rstrip(".")
     if not rp_id or ":" in rp_id or "/" in rp_id:
         return "WEBAUTHN_RP_ID must be a DNS domain for production."
-    for origin in parsed_webauthn:
-        host = (origin.hostname or "").lower().rstrip(".")
-        if host != rp_id and not host.endswith(f".{rp_id}"):
-            return "WEBAUTHN_RP_ID must cover every configured WebAuthn origin."
+    if any(not _rp_id_covers_origin(rp_id, origin) for origin in webauthn_origins):
+        return "WEBAUTHN_RP_ID must cover every configured WebAuthn origin."
     return None
 
 
