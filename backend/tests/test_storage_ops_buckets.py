@@ -1179,6 +1179,48 @@ def test_storage_ops_context_id_prefilter_skips_non_matching_contexts(client, mo
         app.dependency_overrides.pop(storage_ops_router.get_buckets_service, None)
 
 
+def test_storage_ops_context_prefilter_applies_context_only_match_any():
+    refs = [
+        storage_ops_listing_service.StorageOpsContextRef(
+            context_id="1",
+            context_name="Account A",
+            context_kind="account",
+            endpoint_id=7,
+            endpoint_name="Primary",
+        ),
+        storage_ops_listing_service.StorageOpsContextRef(
+            context_id="conn-2",
+            context_name="Connection B",
+            context_kind="connection",
+            endpoint_id=8,
+            endpoint_name="Archive",
+        ),
+        storage_ops_listing_service.StorageOpsContextRef(
+            context_id="s3u-3",
+            context_name="User C",
+            context_kind="s3_user",
+            endpoint_id=7,
+            endpoint_name="Primary",
+        ),
+    ]
+    parsed_filter = BucketFilterQuery.model_validate(
+        {
+            "match": "any",
+            "rules": [
+                {"field": "context_kind", "op": "eq", "value": "account"},
+                {"field": "endpoint_name", "op": "eq", "value": "archive"},
+            ],
+        }
+    )
+
+    filtered = storage_ops_listing_service._filter_context_refs_by_advanced_filter(
+        refs,
+        parsed_filter,
+    )
+
+    assert [ref.context_id for ref in filtered] == ["1", "conn-2"]
+
+
 def test_storage_ops_context_prefilter_keeps_other_contexts_for_match_any_mixed_rules(client, monkeypatch):
     resolved_contexts: list[str] = []
 

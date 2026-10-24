@@ -8,7 +8,7 @@ import json
 import logging
 from typing import Callable, Iterable
 
-from app.models.bucket_filter import BucketFilterQuery
+from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
 from app.models.execution_context import ExecutionContext
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse, StorageOpsBucketSummary, StorageOpsContextKind
 from app.services.bucket_listing_cache import get_cached_bucket_listing_for_context
@@ -118,39 +118,59 @@ def _context_probe_bucket(ref: StorageOpsContextRef) -> StorageOpsBucketSummary:
     )
 
 
+def _context_prefilter_rules(
+    parsed_filter: BucketFilterQuery | None,
+) -> tuple[list[BucketFilterRule], str] | None:
+    if not parsed_filter or not parsed_filter.rules:
+        return None
+    context_rules = [
+        rule
+        for rule in parsed_filter.rules
+        if rule.field in CONTEXT_IDENTITY_FIELDS
+    ]
+    if not context_rules:
+        return None
+    if parsed_filter.match == "any" and any(
+        (rule.field and rule.field not in CONTEXT_IDENTITY_FIELDS) or rule.feature
+        for rule in parsed_filter.rules
+    ):
+        return None
+    return context_rules, parsed_filter.match
+
+
+def _context_ref_matches_rules(
+    ref: StorageOpsContextRef,
+    rules: list[BucketFilterRule],
+    *,
+    match_mode: str,
+) -> bool:
+    probe = _context_probe_bucket(ref)
+    matches = (
+        match_storage_ops_field_rule(probe, rule)
+        for rule in rules
+    )
+    return all(matches) if match_mode == "all" else any(matches)
+
+
 def _filter_context_refs_by_advanced_filter(
     refs: list[StorageOpsContextRef],
     parsed_filter: BucketFilterQuery | None,
 ) -> list[StorageOpsContextRef]:
-    if not refs or not parsed_filter or not parsed_filter.rules:
+    if not refs:
         return refs
-
-    context_rules = [rule for rule in parsed_filter.rules if rule.field in CONTEXT_IDENTITY_FIELDS]
-    if not context_rules:
+    prefilter = _context_prefilter_rules(parsed_filter)
+    if prefilter is None:
         return refs
-
-    has_non_context_rules = any(
-        (rule.field and rule.field not in CONTEXT_IDENTITY_FIELDS) or rule.feature
-        for rule in parsed_filter.rules
-    )
-
-    if parsed_filter.match == "all":
-        filtered: list[StorageOpsContextRef] = []
-        for ref in refs:
-            probe = _context_probe_bucket(ref)
-            if all(match_storage_ops_field_rule(probe, rule) for rule in context_rules):
-                filtered.append(ref)
-        return filtered
-
-    # For "any", context-only rules can reduce context fan-out safely.
-    if not has_non_context_rules:
-        filtered = []
-        for ref in refs:
-            probe = _context_probe_bucket(ref)
-            if any(match_storage_ops_field_rule(probe, rule) for rule in context_rules):
-                filtered.append(ref)
-        return filtered
-    return refs
+    context_rules, match_mode = prefilter
+    return [
+        ref
+        for ref in refs
+        if _context_ref_matches_rules(
+            ref,
+            context_rules,
+            match_mode=match_mode,
+        )
+    ]
 
 
 def resolve_storage_ops_contexts(
