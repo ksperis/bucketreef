@@ -107,6 +107,4 @@ def test_summarize_bucket_usage_and_overview_share_canonical_calculations() -> N
         "empty_buckets": 1,
         "avg_bucket_size_bytes": 200,
         "avg_objects_per_bucket": 1,
-        "largest_bucket": bucket_usage[0],
-        "most_objects_bucket": bucket_usage[1],
     }

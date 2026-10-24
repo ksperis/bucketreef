@@ -19,8 +19,6 @@ class StorageStatsBucketOverview(ApiModel):
     empty_buckets: int
     avg_bucket_size_bytes: Optional[int]
     avg_objects_per_bucket: Optional[int]
-    largest_bucket: Optional[StorageStatsBucketUsagePoint]
-    most_objects_bucket: Optional[StorageStatsBucketUsagePoint]
 
 
 class StorageStats(ApiModel):

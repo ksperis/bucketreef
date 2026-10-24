@@ -17,8 +17,6 @@ export type BucketOverview = {
   empty_buckets: number;
   avg_bucket_size_bytes?: number | null;
   avg_objects_per_bucket?: number | null;
-  largest_bucket?: BucketUsagePoint | null;
-  most_objects_bucket?: BucketUsagePoint | null;
 };
 
 export type S3AccountUsagePoint = {

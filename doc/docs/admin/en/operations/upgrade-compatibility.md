@@ -470,6 +470,15 @@ unchanged.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 bucket overview response cleanup
+
+Admin and Manager storage statistics no longer expose the unused
+`largest_bucket` and `most_objects_bucket` overview fields. Bucket-level
+usage remains available in `bucket_usage`, while the overview keeps the
+counts and averages displayed by the frontend.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the
