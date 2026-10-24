@@ -137,71 +137,24 @@ class BucketMigrationPreparationMixin:
                 raise RuntimeError(
                     "Temporary changes could not be restored. Restore access before checking again."
                 )
-            report["configuration_revision"] = revision
-            report["active_checks"] = active_checks
-            report["status"] = (
-                "failed"
-                if report.get("errors")
-                else "passed" if active_checks else "pending"
-            )
-            migration.precheck_report_json = _json_dumps(report)
-            migration.precheck_status = report["status"]
-            migration.preparation_status = (
-                "blocked"
-                if report.get("errors")
-                else "ready" if active_checks else "unverified"
-            )
-            migration.checked_revision = (
-                revision if migration.preparation_status == "ready" else None
-            )
-            migration.precheck_checked_at = utcnow()
-            migration.error_message = None
-            self._add_event(
+            self._complete_precheck_report(
                 migration,
-                level="info",
-                message="Preparation checks completed.",
-                metadata={
-                    "revision": revision,
-                    "errors": report.get("errors", 0),
-                    "active_checks": active_checks,
-                },
+                report,
+                revision=revision,
+                active_checks=active_checks,
             )
         except _WorkerLeaseLostError:
             self.db.rollback()
             raise
         except Exception as exc:  # Recovery information remains durable after failures.
             self.db.rollback()
-            migration = self.get_migration(migration_id)
-            if worker_id and migration.worker_lease_owner != worker_id:
-                raise _WorkerLeaseLostError("Preparation lease lost") from exc
-            migration.preparation_status = "blocked"
-            migration.precheck_status = "failed"
-            migration.checked_revision = None
-            migration.error_message = sanitized_error_log_detail(exc)
-            report = _json_loads(migration.precheck_report_json) or new_precheck_report(
-                checked_at=checked_at
+            migration = self._record_precheck_failure(
+                migration_id,
+                exc,
+                worker_id=worker_id,
+                checked_at=checked_at,
+                revision=revision,
             )
-            report.update(
-                status="failed",
-                errors=max(1, int(report.get("errors", 0))),
-                configuration_revision=revision,
-            )
-            report["checks"] = [
-                {
-                    "code": "preparation_interrupted",
-                    "severity": "error",
-                    "blocking": True,
-                    "scope": "migration",
-                    "message": migration.error_message,
-                    "impact": None,
-                    "remediation": "Restore access if required, then run checks again.",
-                    "permission": None,
-                    "context_id": None,
-                    "bucket": None,
-                    "details": None,
-                }
-            ]
-            migration.precheck_report_json = _json_dumps(report)
         finally:
             self._preparation_checkpoint = None
             self._preparation_item = None
@@ -209,6 +162,86 @@ class BucketMigrationPreparationMixin:
         migration.worker_lease_until = None
         migration.updated_at = utcnow()
         self._commit()
+        return migration
+
+    def _complete_precheck_report(
+        self,
+        migration,
+        report: dict,
+        *,
+        revision: int,
+        active_checks: bool,
+    ) -> None:
+        report["configuration_revision"] = revision
+        report["active_checks"] = active_checks
+        report["status"] = (
+            "failed"
+            if report.get("errors")
+            else "passed" if active_checks else "pending"
+        )
+        migration.precheck_report_json = _json_dumps(report)
+        migration.precheck_status = report["status"]
+        migration.preparation_status = (
+            "blocked"
+            if report.get("errors")
+            else "ready" if active_checks else "unverified"
+        )
+        migration.checked_revision = (
+            revision if migration.preparation_status == "ready" else None
+        )
+        migration.precheck_checked_at = utcnow()
+        migration.error_message = None
+        self._add_event(
+            migration,
+            level="info",
+            message="Preparation checks completed.",
+            metadata={
+                "revision": revision,
+                "errors": report.get("errors", 0),
+                "active_checks": active_checks,
+            },
+        )
+
+    def _record_precheck_failure(
+        self,
+        migration_id: int,
+        exc: Exception,
+        *,
+        worker_id: str | None,
+        checked_at,
+        revision: int,
+    ):
+        migration = self.get_migration(migration_id)
+        if worker_id and migration.worker_lease_owner != worker_id:
+            raise _WorkerLeaseLostError("Preparation lease lost") from exc
+        migration.preparation_status = "blocked"
+        migration.precheck_status = "failed"
+        migration.checked_revision = None
+        migration.error_message = sanitized_error_log_detail(exc)
+        report = _json_loads(migration.precheck_report_json) or new_precheck_report(
+            checked_at=checked_at
+        )
+        report.update(
+            status="failed",
+            errors=max(1, int(report.get("errors", 0))),
+            configuration_revision=revision,
+        )
+        report["checks"] = [
+            {
+                "code": "preparation_interrupted",
+                "severity": "error",
+                "blocking": True,
+                "scope": "migration",
+                "message": migration.error_message,
+                "impact": None,
+                "remediation": "Restore access if required, then run checks again.",
+                "permission": None,
+                "context_id": None,
+                "bucket": None,
+                "details": None,
+            }
+        ]
+        migration.precheck_report_json = _json_dumps(report)
         return migration
 
     def _journal_preparation_effect(self, item, name: str, payload: dict) -> None:
