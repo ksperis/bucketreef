@@ -183,6 +183,50 @@ def test_apply_server_access_log_filter_supports_null_identity_checks(op, matche
     assert apply_server_access_log_filter([entry], query) == ([entry] if matched else [])
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Portal User",
+        "portal_user",
+        "Project member",
+        "AKIAEXAMPLE",
+        "portal-user-1",
+        42,
+        "user@example.com",
+    ],
+)
+def test_apply_server_access_log_filter_matches_resolved_identity_fields(value):
+    entry = _filter_entry()
+    entry.requester = None
+    entry.requester_identity = PortalServerAccessRequesterIdentity(
+        label="Portal User",
+        kind="portal_user",
+        detail="Project member",
+        access_key_id="AKIAEXAMPLE",
+        iam_username="portal-user-1",
+        user_id=42,
+        email="user@example.com",
+        resolved=True,
+    )
+    query = PortalServerAccessLogFilterQuery(
+        rules=[PortalServerAccessLogFilterRule(field="identity", op="eq", value=value)]
+    )
+
+    assert apply_server_access_log_filter([entry], query) == [entry]
+
+
+@pytest.mark.parametrize("value", ["failure", "AccessDenied", 403])
+def test_apply_server_access_log_filter_matches_failure_result_fields(value):
+    entry = _filter_entry()
+    entry.status_code = 403
+    entry.error_code = "AccessDenied"
+    query = PortalServerAccessLogFilterQuery(
+        rules=[PortalServerAccessLogFilterRule(field="result", op="eq", value=value)]
+    )
+
+    assert apply_server_access_log_filter([entry], query) == [entry]
+
+
 def test_apply_server_access_log_filter_honors_any_and_all_rule_modes():
     entry = _filter_entry()
     rules = [
