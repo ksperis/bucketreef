@@ -425,6 +425,16 @@ timestamp.
 Deploy the migration and backend together. Downgrade recreates `acquired_at`
 from the row's current `updated_at` value.
 
+## 2026-10 first-admin bootstrap timestamp cleanup
+
+Migration `0191_remove_first_admin_bootstrap_issued_at` removes the unused
+`first_admin_bootstrap.issued_at` column. Bootstrap availability and token
+expiry are determined by `token_digest`, `expires_at`, and `consumed_at`;
+no runtime path consumed a separate issuance timestamp.
+
+Deploy the migration and backend together. Downgrade recreates `issued_at` as
+a nullable column without reconstructing historical issuance timestamps.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the
