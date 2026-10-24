@@ -369,6 +369,50 @@ class BrowserObjectDetailsMixin:
         _OBJECT_LAZY_TAGS_CACHE.set(cache_key, result)
         return result
 
+    @staticmethod
+    def _lazy_column_status(
+        requested: bool,
+        value: _ObjectLazyHeadCacheValue | _ObjectLazyTagsCacheValue | None,
+    ) -> str:
+        return "ready" if not requested or (value is not None and value.available) else "error"
+
+    def _object_column_values(
+        self,
+        bucket_name: str,
+        context: S3ExecutionTarget,
+        key: str,
+        *,
+        wants_head: bool,
+        wants_tags: bool,
+        sse_customer: Optional[SseCustomerContext],
+    ) -> ObjectColumnValues:
+        head_value = (
+            self._get_object_lazy_head_columns(
+                bucket_name,
+                context,
+                key,
+                sse_customer=sse_customer,
+            )
+            if wants_head
+            else None
+        )
+        tags_value = (
+            self._get_object_lazy_tags_columns(bucket_name, context, key)
+            if wants_tags
+            else None
+        )
+        return ObjectColumnValues(
+            key=key,
+            content_type=head_value.content_type if head_value else None,
+            tags_count=tags_value.tags_count if tags_value else None,
+            metadata_count=head_value.metadata_count if head_value else None,
+            cache_control=head_value.cache_control if head_value else None,
+            expires=head_value.expires if head_value else None,
+            restore_status=head_value.restore_status if head_value else None,
+            metadata_status=self._lazy_column_status(wants_head, head_value),
+            tags_status=self._lazy_column_status(wants_tags, tags_value),
+        )
+
     def get_object_columns(
         self,
         bucket_name: str,
@@ -382,34 +426,19 @@ class BrowserObjectDetailsMixin:
         tags_columns = {"tags_count"}
         wants_head = bool(columns & head_columns)
         wants_tags = bool(columns & tags_columns)
-        items: list[ObjectColumnValues] = []
-
-        for key in dict.fromkeys(keys):
-            head_value: Optional[_ObjectLazyHeadCacheValue] = None
-            tags_value: Optional[_ObjectLazyTagsCacheValue] = None
-            if wants_head:
-                head_value = self._get_object_lazy_head_columns(
+        return ObjectColumnsResponse(
+            items=[
+                self._object_column_values(
                     bucket_name,
                     context,
                     key,
+                    wants_head=wants_head,
+                    wants_tags=wants_tags,
                     sse_customer=sse_customer,
                 )
-            if wants_tags:
-                tags_value = self._get_object_lazy_tags_columns(bucket_name, context, key)
-            items.append(
-                ObjectColumnValues(
-                    key=key,
-                    content_type=head_value.content_type if head_value else None,
-                    tags_count=tags_value.tags_count if tags_value else None,
-                    metadata_count=head_value.metadata_count if head_value else None,
-                    cache_control=head_value.cache_control if head_value else None,
-                    expires=head_value.expires if head_value else None,
-                    restore_status=head_value.restore_status if head_value else None,
-                    metadata_status="ready" if (not wants_head or (head_value and head_value.available)) else "error",
-                    tags_status="ready" if (not wants_tags or (tags_value and tags_value.available)) else "error",
-                )
-            )
-        return ObjectColumnsResponse(items=items)
+                for key in dict.fromkeys(keys)
+            ]
+        )
 
     def get_object_tags(
         self,
