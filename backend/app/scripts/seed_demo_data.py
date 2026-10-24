@@ -312,6 +312,89 @@ def user_plans_for_account(
     return plans
 
 
+def _bucket_plans_from_config(
+    entry: dict,
+    account_slug: str,
+    defaults: argparse.Namespace,
+) -> list[BucketPlan]:
+    buckets_cfg = entry.get("buckets") or []
+    iam_user = entry.get("iam_user")
+    if not buckets_cfg:
+        bucket_count = int(
+            entry.get("bucket_count")
+            or random.randint(defaults.min_buckets, defaults.max_buckets)
+        )
+        return bucket_plans_for_account(
+            account_slug,
+            bucket_count,
+            defaults.min_objects,
+            defaults.max_objects,
+            iam_user,
+        )
+
+    buckets: list[BucketPlan] = []
+    used_bucket_names: set[str] = set()
+    for bucket_config in buckets_cfg:
+        if not isinstance(bucket_config, dict):
+            continue
+        bucket_name = bucket_config.get("name") or generate_bucket_name(
+            account_slug,
+            used_bucket_names,
+        )
+        bucket_name = slugify(bucket_name)
+        object_count = int(
+            bucket_config.get("object_count")
+            or bucket_config.get("objects")
+            or random.randint(defaults.min_objects, defaults.max_objects)
+        )
+        buckets.append(
+            BucketPlan(
+                name=bucket_name,
+                object_count=object_count,
+                iam_user=iam_user,
+            )
+        )
+        used_bucket_names.add(bucket_name)
+    return buckets
+
+
+def _user_plans_from_config(
+    entry: dict,
+    account_slug: str,
+    defaults: argparse.Namespace,
+) -> list[UserPlan]:
+    users_cfg = entry.get("users") or []
+    if not users_cfg:
+        return user_plans_for_account(
+            account_slug,
+            defaults.users_per_account,
+            defaults.password,
+        )
+
+    users: list[UserPlan] = []
+    for user_config in users_cfg:
+        if not isinstance(user_config, dict):
+            continue
+        full_name = (
+            user_config.get("full_name")
+            or user_config.get("name")
+            or random_full_name()
+        )
+        email_value = user_config.get("email") or random_email(
+            account_slug,
+            slugify(full_name).replace("-", "."),
+        )
+        password = user_config.get("password") or defaults.password
+        users.append(
+            UserPlan(
+                email=email_value,
+                full_name=full_name,
+                password=password,
+            )
+        )
+    return users
+
+
 def plans_from_config(
     config: dict,
     defaults: argparse.Namespace,
@@ -329,34 +412,8 @@ def plans_from_config(
         account_slug = slugify(name)
         email = entry.get("email") or random_email(account_slug)
         quota_gb = entry.get("quota_gb", defaults.quota_gb)
-        buckets_cfg = entry.get("buckets") or []
-        users_cfg = entry.get("users") or []
-        buckets: list[BucketPlan] = []
-        used_bucket_names: set[str] = set()
-        if buckets_cfg:
-            for b in buckets_cfg:
-                if not isinstance(b, dict):
-                    continue
-                bucket_name = b.get("name") or generate_bucket_name(account_slug, used_bucket_names)
-                bucket_name = slugify(bucket_name)
-                object_count = int(b.get("object_count") or b.get("objects") or random.randint(defaults.min_objects, defaults.max_objects))
-                buckets.append(BucketPlan(name=bucket_name, object_count=object_count, iam_user=entry.get("iam_user")))
-                used_bucket_names.add(bucket_name)
-        else:
-            bucket_count = int(entry.get("bucket_count") or random.randint(defaults.min_buckets, defaults.max_buckets))
-            iam_user = entry.get("iam_user")
-            buckets = bucket_plans_for_account(account_slug, bucket_count, defaults.min_objects, defaults.max_objects, iam_user)
-        users: list[UserPlan] = []
-        if users_cfg:
-            for u in users_cfg:
-                if not isinstance(u, dict):
-                    continue
-                full_name = u.get("full_name") or u.get("name") or random_full_name()
-                email_value = u.get("email") or random_email(account_slug, slugify(full_name).replace("-", "."))
-                password = u.get("password") or defaults.password
-                users.append(UserPlan(email=email_value, full_name=full_name, password=password))
-        else:
-            users = user_plans_for_account(account_slug, defaults.users_per_account, defaults.password)
+        buckets = _bucket_plans_from_config(entry, account_slug, defaults)
+        users = _user_plans_from_config(entry, account_slug, defaults)
         plans.append(
             AccountPlan(
                 name=name,
