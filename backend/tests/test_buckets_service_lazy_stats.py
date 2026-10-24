@@ -129,6 +129,48 @@ def test_list_buckets_fetches_admin_stats_when_enabled(monkeypatch):
     assert buckets[0].quota_max_objects == 10
 
 
+def test_list_buckets_indexes_admin_stats_by_name_alias(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
+    monkeypatch.setattr(
+        service,
+        "_admin_bucket_list",
+        lambda *args, **kwargs: [
+            {
+                "name": "bucket-a",
+                "usage": {"rgw.main": {"size_actual": 512, "num_objects": 2}},
+            }
+        ],
+    )
+
+    buckets = service.list_buckets(account)
+
+    assert buckets[0].used_bytes == 512
+    assert buckets[0].object_count == 2
+
+
+def test_list_buckets_keeps_s3_results_when_admin_stats_fail(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    monkeypatch.setattr(
+        s3_client,
+        "list_buckets",
+        lambda **kwargs: [None, {}, {"name": "bucket-a"}],
+    )
+    monkeypatch.setattr(
+        service,
+        "_admin_bucket_list",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("admin unavailable")),
+    )
+
+    buckets = service.list_buckets(account)
+
+    assert [bucket.name for bucket in buckets] == ["bucket-a"]
+    assert buckets[0].used_bytes is None
+    assert buckets[0].object_count is None
+
+
 def test_get_bucket_stats_skips_admin_for_bucket_outside_s3_scope(monkeypatch):
     service = BucketsService()
     account = _build_account()
