@@ -42,6 +42,17 @@ class _StrongVerificationResults:
     def record_failure(self, key: str) -> None:
         self.failed_keys.append(key)
 
+    def merge(
+        self,
+        verified_count: int,
+        failed_keys: list[str],
+        method_counts: dict[str, int],
+    ) -> None:
+        self.verified_count += verified_count
+        self.failed_keys.extend(failed_keys)
+        for method, count in method_counts.items():
+            self.method_counts[method] = self.method_counts.get(method, 0) + int(count or 0)
+
     def as_tuple(self) -> tuple[int, list[str], dict[str, int]]:
         return self.verified_count, self.failed_keys, self.method_counts
 
@@ -280,20 +291,14 @@ class BucketMigrationObjectVerificationMixin:
         worker_count = max(1, int(parallelism_max))
         batch_size = max(worker_count, worker_count * _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER)
         size_only_count = 0
-        verified_count = 0
-        failed_keys: list[str] = []
-        method_counts: dict[str, int] = {"head_checksum": 0, "stream_sha256": 0}
+        results = _StrongVerificationResults()
         size_only_batch: list[str] = []
         scan_count_since_control = 0
         source_client = self._context_client(source_ctx)
         target_client = self._context_client(target_ctx)
 
-        def merge_method_counts(local_counts: dict[str, int]) -> None:
-            for method, count in local_counts.items():
-                method_counts[method] = method_counts.get(method, 0) + int(count or 0)
-
         def flush_batch() -> bool:
-            nonlocal verified_count, size_only_batch
+            nonlocal size_only_batch
             if not size_only_batch:
                 return True
             verified_now, failed_now, method_counts_now = self._strong_verify_size_only_objects(
@@ -310,9 +315,7 @@ class BucketMigrationObjectVerificationMixin:
             size_only_batch = []
             if verified_now < 0:
                 return False
-            verified_count += verified_now
-            failed_keys.extend(failed_now)
-            merge_method_counts(method_counts_now)
+            results.merge(verified_now, failed_now, method_counts_now)
             return True
 
         for entry in self._iter_bucket_diff_entries(
@@ -329,7 +332,7 @@ class BucketMigrationObjectVerificationMixin:
                 if state == "lost_lease":
                     raise _WorkerLeaseLostError("Worker lease lost while collecting strong-verification candidates")
                 if state in {"pause", "cancel"}:
-                    return -1, 0, [], method_counts
+                    return -1, 0, [], results.method_counts
                 scan_count_since_control = 0
 
             if entry.kind != "matched" or entry.compare_by != "size":
@@ -339,11 +342,16 @@ class BucketMigrationObjectVerificationMixin:
             if len(size_only_batch) < batch_size:
                 continue
             if not flush_batch():
-                return -1, 0, [], method_counts
+                return -1, 0, [], results.method_counts
 
         if not flush_batch():
-            return -1, 0, [], method_counts
-        return size_only_count, verified_count, failed_keys, method_counts
+            return -1, 0, [], results.method_counts
+        return (
+            size_only_count,
+            results.verified_count,
+            results.failed_keys,
+            results.method_counts,
+        )
 
     def _iter_version_aware_size_only_pairs(
         self,
