@@ -30,6 +30,30 @@ def extract_positive_limit(payload: Any, key: str) -> Optional[int]:
     return parse_positive_limit(payload.get(key) or limits_payload.get(key))
 
 
+def _first_quota_payload(
+    payload: Dict[str, Any],
+    keys: Tuple[str, ...],
+) -> Optional[Dict[str, Any]]:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, dict):
+            return value
+    return None
+
+
+def _positive_rgw_int(value: Any) -> Optional[int]:
+    parsed = parse_rgw_int(value)
+    return parsed if parsed is not None and parsed > 0 else None
+
+
+def _quota_max_size_bytes(quota: Dict[str, Any]) -> Optional[int]:
+    max_size = _positive_rgw_int(quota.get("max_size") or quota.get("max_size_bytes"))
+    if max_size is not None:
+        return max_size
+    max_size_kb = _positive_rgw_int(quota.get("max_size_kb"))
+    return max_size_kb * 1024 if max_size_kb is not None else None
+
+
 def extract_quota_limits(
     payload: Optional[Dict[str, Any]],
     *,
@@ -37,34 +61,15 @@ def extract_quota_limits(
 ) -> Tuple[Optional[int], Optional[int]]:
     if not isinstance(payload, dict):
         return None, None
-    quota: Optional[Dict[str, Any]] = None
-    for key in keys:
-        value = payload.get(key)
-        if isinstance(value, dict):
-            quota = value
-            break
-    if not isinstance(quota, dict):
+    quota = _first_quota_payload(payload, keys)
+    if quota is None:
         return None, None
 
     enabled = parse_rgw_bool(quota.get("enabled"))
     if enabled is False:
         return None, None
 
-    max_size = parse_rgw_int(quota.get("max_size") or quota.get("max_size_bytes"))
-    if max_size is None or max_size <= 0:
-        max_size_kb = parse_rgw_int(quota.get("max_size_kb"))
-        if max_size_kb is not None and max_size_kb > 0:
-            max_size = max_size_kb * 1024
-        else:
-            max_size = None
-    if max_size is not None and max_size <= 0:
-        max_size = None
-
-    max_objects = parse_rgw_int(quota.get("max_objects"))
-    if max_objects is not None and max_objects <= 0:
-        max_objects = None
-
-    return max_size, max_objects
+    return _quota_max_size_bytes(quota), _positive_rgw_int(quota.get("max_objects"))
 
 
 def bytes_to_gb(value: Optional[int]) -> Optional[float]:
