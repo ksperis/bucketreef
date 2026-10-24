@@ -21,7 +21,6 @@ def _seed_migration(session_factory: sessionmaker, *, status: str) -> int:
             target_context_id="target-ctx",
             mode="one_shot",
             copy_bucket_settings=False,
-            delete_source=False,
             lock_target_writes=True,
             use_same_endpoint_copy=False,
             auto_grant_source_read_for_copy=False,

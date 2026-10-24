@@ -108,7 +108,6 @@ class _PlannedItem:
     warnings: int
     blocking_errors: int
     same_endpoint_copy_safe: bool
-    delete_source_safe: bool
     rollback_safe: bool
     unsupported_features: frozenset[str]
 
@@ -119,7 +118,6 @@ class _PrecheckAggregation:
     warnings: int = 0
     blocking_errors: int = 0
     same_endpoint_copy_safe: bool = True
-    delete_source_safe: bool = True
     rollback_safe: bool = True
     unsupported_features: set[str] = field(default_factory=set)
 
@@ -131,7 +129,6 @@ class _PrecheckAggregation:
         self.same_endpoint_copy_safe = (
             self.same_endpoint_copy_safe and planned.same_endpoint_copy_safe
         )
-        self.delete_source_safe = self.delete_source_safe and planned.delete_source_safe
         self.rollback_safe = self.rollback_safe and planned.rollback_safe
 
 
@@ -713,7 +710,6 @@ class BucketMigrationPrecheckPlanner:
                 "settings_copied": settings_copied,
                 "settings_omitted": settings_omitted,
                 "blocking": blocking,
-                "delete_source_safe": safety.delete_source_safe,
                 "rollback_safe": safety.rollback_safe,
                 "same_endpoint_copy_safe": safety.same_endpoint_copy_safe,
                 "source_object_count": source.object_count,
@@ -728,7 +724,6 @@ class BucketMigrationPrecheckPlanner:
             warnings=counts["warnings"],
             blocking_errors=counts["blocking_errors"],
             same_endpoint_copy_safe=safety.same_endpoint_copy_safe,
-            delete_source_safe=safety.delete_source_safe,
             rollback_safe=safety.rollback_safe,
             unsupported_features=source_plan.unsupported_features,
         )
@@ -754,7 +749,6 @@ class BucketMigrationPrecheckPlanner:
         aggregation: _PrecheckAggregation,
     ) -> dict[str, Any]:
         report["same_endpoint_copy_safe"] = aggregation.same_endpoint_copy_safe
-        report["delete_source_safe"] = aggregation.delete_source_safe
         report["rollback_safe"] = aggregation.rollback_safe
         report["unsupported_features"] = sorted(aggregation.unsupported_features)
         report["errors"] = aggregation.blocking_errors

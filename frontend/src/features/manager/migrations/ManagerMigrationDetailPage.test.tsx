@@ -70,7 +70,6 @@ function buildDetail(): BucketMigrationDetail {
     target_context_id: "tgt-ctx",
     mode: "one_shot",
     copy_bucket_settings: true,
-    delete_source: false,
     strong_integrity_check: false,
     lock_target_writes: true,
     use_same_endpoint_copy: true,
@@ -96,7 +95,6 @@ function buildDetail(): BucketMigrationDetail {
           warnings: 1,
           strategy: "skip_existing",
           blocking: false,
-          delete_source_safe: true,
           rollback_safe: true,
           same_endpoint_copy_safe: true,
           checks: [
@@ -122,7 +120,6 @@ function buildDetail(): BucketMigrationDetail {
           warnings: 0,
           strategy: "current_only",
           blocking: true,
-          delete_source_safe: false,
           rollback_safe: false,
           same_endpoint_copy_safe: true,
           checks: [

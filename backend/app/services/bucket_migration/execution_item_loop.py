@@ -45,7 +45,6 @@ class _MigrationItemExecutionLoop:
             "apply_read_only": self._run_apply_read_only,
             "sync": self._run_sync,
             "verify": self._run_verify,
-            "delete_source": self._run_delete_source,
             "completed": self._finish_terminal_step,
             "skipped": self._finish_terminal_step,
         }
@@ -214,9 +213,6 @@ class _MigrationItemExecutionLoop:
             strategy=strategy,
             control_check=self.control_check,
         )
-
-    def _run_delete_source(self, _strategy: str) -> bool:
-        raise RuntimeError("Source deletion requires a separate, confirmed cleanup operation")
 
     def _finish_terminal_step(self, _strategy: str) -> bool:
         if self.item.status == "running":

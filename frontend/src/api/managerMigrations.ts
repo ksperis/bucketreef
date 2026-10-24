@@ -45,7 +45,6 @@ type BucketMigrationPrecheckItemReport = {
   target_bucket?: string;
   strategy?: string;
   blocking?: boolean;
-  delete_source_safe?: boolean;
   rollback_safe?: boolean;
   same_endpoint_copy_safe?: boolean;
   source_object_count?: number | null;
@@ -67,7 +66,6 @@ export type BucketMigrationPrecheckReport = {
   summary: Record<string, unknown>;
   capabilities: Record<string, unknown>;
   unsupported_features: string[];
-  delete_source_safe?: boolean;
   rollback_safe?: boolean;
   same_endpoint_copy_safe?: boolean;
 };
@@ -95,7 +93,6 @@ type BucketMigrationDraftRequest = {
   mapping_prefix?: string;
   mode?: BucketMigrationMode;
   copy_bucket_settings?: boolean;
-  delete_source?: boolean;
   strong_integrity_check?: boolean;
   lock_target_writes?: boolean;
   use_same_endpoint_copy?: boolean;
@@ -156,7 +153,6 @@ export type BucketMigrationView = {
   target_context_id: string;
   mode: BucketMigrationMode;
   copy_bucket_settings: boolean;
-  delete_source: boolean;
   strong_integrity_check: boolean;
   lock_target_writes: boolean;
   use_same_endpoint_copy: boolean;

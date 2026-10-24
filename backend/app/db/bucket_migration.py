@@ -36,7 +36,6 @@ class BucketMigration(Base):
 
     mode = Column(String, nullable=False, default="pre_sync", server_default="pre_sync")
     copy_bucket_settings = Column(Boolean, nullable=False, default=False, server_default="0")
-    delete_source = Column(Boolean, nullable=False, default=False, server_default="0")
     strong_integrity_check = Column(Boolean, nullable=False, default=False, server_default="0")
     lock_target_writes = Column(Boolean, nullable=False, default=True, server_default="1")
     use_same_endpoint_copy = Column(Boolean, nullable=False, default=False, server_default="0")

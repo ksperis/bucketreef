@@ -182,7 +182,6 @@ export default function ManagerMigrationWizardPage() {
         use_same_endpoint_copy: storageCopy && !crossEndpoint,
         auto_grant_source_read_for_copy:
           storageCopy && !crossEndpoint && temporaryGrant,
-        delete_source: false,
         strong_integrity_check: true,
       };
       let detail;

@@ -14,7 +14,6 @@ def _migration(**overrides):
     values = {
         "id": 101,
         "parallelism_max": 3,
-        "delete_source": False,
         "strong_integrity_check": False,
         "last_heartbeat_at": None,
         "updated_at": None,
@@ -203,7 +202,7 @@ def test_verify_step_fails_non_clean_diff(db_session):
 
 def test_verify_step_completes_clean_item_without_source_deletion(db_session):
     service = BucketMigrationService(db_session)
-    migration = _migration(delete_source=False)
+    migration = _migration()
     item = _item(step="verify")
     target_execution_context = object()
     finalized: list[tuple[object, str]] = []

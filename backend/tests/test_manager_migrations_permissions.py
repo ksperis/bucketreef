@@ -75,7 +75,6 @@ def _seed_migration(db_session, *, source_context_id: str, target_context_id: st
         target_context_id=target_context_id,
         mode="one_shot",
         copy_bucket_settings=False,
-        delete_source=False,
         lock_target_writes=True,
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,

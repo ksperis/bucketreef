@@ -9,7 +9,6 @@ from typing import Any, Callable
 @dataclass(frozen=True)
 class PrecheckItemSafety:
     same_endpoint_copy_safe: bool
-    delete_source_safe: bool
     rollback_safe: bool
 
 
@@ -257,15 +256,13 @@ class BucketMigrationPrecheckRules:
                 strategy=strategy,
                 add_check=add_check,
             )
-        delete_source_safe, rollback_safe = self._check_destructive_safety(
+        rollback_safe = self._check_rollback_safety(
             source_profile,
-            migration=migration,
             strategy=strategy,
             add_check=add_check,
         )
         return PrecheckItemSafety(
             same_endpoint_copy_safe=same_endpoint_copy_safe,
-            delete_source_safe=delete_source_safe,
             rollback_safe=rollback_safe,
         )
 
@@ -397,43 +394,18 @@ class BucketMigrationPrecheckRules:
                 message=f"Destination write test or temporary bucket cleanup failed: {exc}",
             )
 
-    def _check_destructive_safety(
+    def _check_rollback_safety(
         self,
         source_profile: dict[str, Any] | None,
         *,
-        migration: Any,
         strategy: str,
         add_check: Callable[..., None],
-    ) -> tuple[bool, bool]:
+    ) -> bool:
         object_lock = (source_profile or {}).get("object_lock", {})
         object_lock_configured = any(
             bool(object_lock.get(field))
             for field in ("enabled", "mode", "days", "years")
         )
-        delete_source_safe = True
-        if migration.delete_source:
-            delete_source_safe = not (
-                strategy == "version_aware" and object_lock_configured
-            )
-            add_check(
-                code=(
-                    "delete_source_supported"
-                    if delete_source_safe
-                    else "delete_source_object_lock_not_supported"
-                ),
-                severity="info" if delete_source_safe else "error",
-                blocking=not delete_source_safe,
-                scope="delete_source",
-                message=(
-                    "Source deletion is compatible with the planned migration strategy."
-                    if delete_source_safe
-                    else (
-                        "Source deletion is blocked because object-lock governance "
-                        "is not supported by the version-aware migration worker."
-                    )
-                ),
-            )
-
         rollback_safe = (
             strategy in {"current_only", "skip_existing", "version_aware"}
             and not object_lock_configured
@@ -449,4 +421,4 @@ class BucketMigrationPrecheckRules:
                     "current migration engine."
                 ),
             )
-        return delete_source_safe, rollback_safe
+        return rollback_safe
