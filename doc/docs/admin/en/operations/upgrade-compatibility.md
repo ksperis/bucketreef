@@ -435,6 +435,14 @@ no runtime path consumed a separate issuance timestamp.
 Deploy the migration and backend together. Downgrade recreates `issued_at` as
 a nullable column without reconstructing historical issuance timestamps.
 
+## 2026-10 API token create response cleanup
+
+The `POST /api/auth/api-tokens` response no longer includes the constant
+`token_type` field. The frontend only consumes the one-time `access_token`
+and the persisted `api_token` metadata.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration read-model cleanup
 
 Bucket migration list/detail responses no longer expose runtime fields that the

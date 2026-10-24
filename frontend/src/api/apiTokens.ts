@@ -22,7 +22,6 @@ type CreateApiTokenPayload = {
 
 type CreateApiTokenResponse = {
   access_token: string;
-  token_type: string;
   api_token: ApiTokenInfo;
 };
 
