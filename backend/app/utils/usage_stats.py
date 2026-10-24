@@ -175,14 +175,10 @@ def build_bucket_overview(bucket_usage: list[dict[str, Any]]) -> dict[str, Any]:
         else None
     )
     avg_object_count = int(sum(object_samples) / len(object_samples)) if object_samples else None
-    largest_bucket = max(bucket_usage, key=lambda entry: entry.get("used_bytes") or 0, default=None)
-    most_objects_bucket = max(bucket_usage, key=lambda entry: entry.get("object_count") or 0, default=None)
     return {
         "bucket_count": bucket_count,
         "non_empty_buckets": len(non_empty_buckets),
         "empty_buckets": bucket_count - len(non_empty_buckets),
         "avg_bucket_size_bytes": avg_bucket_size,
         "avg_objects_per_bucket": avg_object_count,
-        "largest_bucket": largest_bucket,
-        "most_objects_bucket": most_objects_bucket,
     }
