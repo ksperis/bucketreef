@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import List, Optional
 import logging
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -40,14 +39,22 @@ class BucketsService:
                 f"Unable to initialize admin client: {sanitized_error_log_detail(exc)}"
             ) from exc
 
-    def _admin_bucket_list(self, execution_context: S3ExecutionTarget, with_stats: bool = True) -> list[dict]:
+    def _admin_bucket_list(
+        self,
+        execution_context: S3ExecutionTarget,
+        with_stats: bool = True,
+    ) -> list[dict]:
         uid = resolve_target_admin_uid(execution_context)
         if not uid:
             return []
         rgw_admin = self._rgw_runtime_for_context(execution_context)
         try:
             tenant = resolve_target_tenant(execution_context)
-            payload = rgw_admin.get_all_buckets(uid=uid, with_stats=with_stats, **({"tenant": tenant} if tenant else {}))
+            payload = rgw_admin.get_all_buckets(
+                uid=uid,
+                with_stats=with_stats,
+                **({"tenant": tenant} if tenant else {}),
+            )
         except (RGWAdminError, ValueError) as exc:
             raise RuntimeError(
                 f"Unable to list buckets via admin API: {sanitized_error_log_detail(exc)}"
@@ -60,69 +67,103 @@ class BucketsService:
             error_message="S3ExecutionTarget is missing admin credentials",
         )
 
+    @staticmethod
+    def _context_label(execution_context: S3ExecutionTarget) -> str | int | None:
+        return execution_context.rgw_account_id or execution_context.id
+
+    def _admin_stats_by_bucket(
+        self,
+        execution_context: S3ExecutionTarget,
+        *,
+        with_stats: bool,
+    ) -> dict[str, dict]:
+        context_label = self._context_label(execution_context)
+        if not with_stats:
+            logger.debug(
+                "S3 execution context %s skipped RGW admin stats enrichment",
+                context_label,
+            )
+            return {}
+
+        try:
+            admin_list = self._admin_bucket_list(execution_context, with_stats=True)
+        except RuntimeError as exc:
+            logger.warning(
+                "Unable to fetch admin bucket stats for %s: %s",
+                context_label,
+                exc,
+            )
+            return {}
+
+        logger.debug(
+            "S3 execution context %s fetched %s bucket stats via RGW admin",
+            context_label,
+            len(admin_list),
+        )
+        return {
+            bucket_name: entry
+            for entry in admin_list
+            if isinstance(entry, dict)
+            and (bucket_name := entry.get("bucket") or entry.get("name"))
+        }
+
+    @staticmethod
+    def _usage_and_quota(
+        stats: object,
+    ) -> tuple[int | None, int | None, int | None, int | None]:
+        usage = stats.get("usage") if isinstance(stats, dict) else None
+        usage_bytes, object_count = extract_usage_stats(usage)
+        quota_size, quota_objects = extract_quota_limits(
+            stats if isinstance(stats, dict) else None,
+            keys=("bucket_quota",),
+        )
+        return usage_bytes, object_count, quota_size, quota_objects
+
+    @classmethod
+    def _bucket_from_listing(
+        cls,
+        entry: object,
+        admin_by_name: dict[str, dict],
+    ) -> Bucket | None:
+        if not isinstance(entry, dict):
+            return None
+        bucket_name = entry.get("name")
+        if not bucket_name:
+            return None
+
+        usage_bytes, object_count, quota_size, quota_objects = cls._usage_and_quota(
+            admin_by_name.get(bucket_name)
+        )
+        return Bucket(
+            name=bucket_name,
+            creation_date=entry.get("creation_date"),
+            used_bytes=usage_bytes,
+            object_count=object_count,
+            quota_max_size_bytes=quota_size,
+            quota_max_objects=quota_objects,
+        )
+
     def list_buckets(
         self,
         execution_context: S3ExecutionTarget,
-        include: Optional[set[str]] = None,
+        include: set[str] | None = None,
         with_stats: bool = True,
-    ) -> List[Bucket]:
+    ) -> list[Bucket]:
         buckets = s3_client.list_buckets(**self._client_kwargs(execution_context))
-        admin_by_name: dict[str, dict] = {}
-        if with_stats:
-            try:
-                admin_list = self._admin_bucket_list(execution_context, with_stats=True)
-                logger.debug(
-                    "S3 execution context %s fetched %s bucket stats via RGW admin",
-                    execution_context.rgw_account_id or execution_context.id,
-                    len(admin_list),
-                )
-                admin_by_name = {
-                    entry.get("bucket") or entry.get("name"): entry
-                    for entry in admin_list
-                    if isinstance(entry, dict) and (entry.get("bucket") or entry.get("name"))
-                }
-            except RuntimeError as exc:
-                logger.warning(
-                    "Unable to fetch admin bucket stats for %s: %s",
-                    execution_context.rgw_account_id or execution_context.id,
-                    exc,
-                )
-        else:
-            logger.debug(
-                "S3 execution context %s skipped RGW admin stats enrichment",
-                execution_context.rgw_account_id or execution_context.id,
-            )
+        admin_by_name = self._admin_stats_by_bucket(
+            execution_context,
+            with_stats=with_stats,
+        )
         logger.debug(
             "S3 execution context %s listed %s buckets",
-            execution_context.rgw_account_id or execution_context.id,
+            self._context_label(execution_context),
             len(buckets),
         )
-        enriched: list[Bucket] = []
-        for b in buckets:
-            bucket_name = None
-            if isinstance(b, dict):
-                bucket_name = b.get("name")
-            if not bucket_name:
-                continue
-            usage_bytes: Optional[int] = None
-            objects: Optional[int] = None
-            quota_size: Optional[int] = None
-            quota_objects: Optional[int] = None
-            stats = admin_by_name.get(bucket_name)
-            usage = stats.get("usage") if isinstance(stats, dict) else None
-            usage_bytes, objects = extract_usage_stats(usage)
-            quota_size, quota_objects = extract_quota_limits(stats, keys=("bucket_quota",))
-
-            enriched.append(
-                Bucket(
-                    name=bucket_name,
-                    creation_date=b.get("creation_date"),
-                    used_bytes=usage_bytes,
-                    object_count=objects,
-                    quota_max_size_bytes=quota_size,
-                    quota_max_objects=quota_objects,
-                )
-            )
+        enriched = [
+            bucket
+            for entry in buckets
+            if (bucket := self._bucket_from_listing(entry, admin_by_name)) is not None
+        ]
         if not include:
             return enriched
 
@@ -155,10 +196,7 @@ class BucketsService:
             creation_date = entry.get("creation_date")
             break
 
-        usage_bytes: Optional[int] = None
-        object_count: Optional[int] = None
-        quota_size: Optional[int] = None
-        quota_objects: Optional[int] = None
+        stats = None
 
         if with_stats and bucket_in_scope:
             account_uid = resolve_target_admin_uid(execution_context)
@@ -170,17 +208,15 @@ class BucketsService:
                         normalized_bucket, uid=account_uid, allow_not_found=True,
                         **({"tenant": tenant} if tenant else {}),
                     )
-                    usage = stats.get("usage") if isinstance(stats, dict) else None
-                    usage_bytes, object_count = extract_usage_stats(usage)
-                    quota_size, quota_objects = extract_quota_limits(stats, keys=("bucket_quota",))
                 except (RuntimeError, RGWAdminError, ValueError) as exc:
                     logger.warning(
                         "Unable to fetch bucket stats for %s on %s: %s",
                         normalized_bucket,
-                        execution_context.rgw_account_id or execution_context.id,
+                        self._context_label(execution_context),
                         exc,
                     )
 
+        usage_bytes, object_count, quota_size, quota_objects = self._usage_and_quota(stats)
         return Bucket(
             name=normalized_bucket,
             creation_date=creation_date,
@@ -195,7 +231,7 @@ class BucketsService:
         name: str,
         execution_context: S3ExecutionTarget,
         versioning: bool = False,
-        location_constraint: Optional[str] = None,
+        location_constraint: str | None = None,
         object_lock_enabled: bool = False,
     ) -> None:
         s3_client.create_bucket(
@@ -213,7 +249,7 @@ class BucketsService:
             )
         logger.debug(
             "S3 execution context %s created bucket %s (versioning=%s object_lock=%s location=%s)",
-            execution_context.rgw_account_id or execution_context.id,
+            self._context_label(execution_context),
             name,
             effective_versioning,
             object_lock_enabled,
@@ -231,7 +267,7 @@ class BucketsService:
         )
         logger.debug(
             "S3 execution context %s deleted bucket %s force=%s",
-            execution_context.rgw_account_id or execution_context.id,
+            self._context_label(execution_context),
             name,
             force,
         )
