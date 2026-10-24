@@ -169,7 +169,6 @@ export type PortalDeletedPrefixRestoreProgress = {
   restored_objects: number;
   failed_objects: number;
   total_candidates_final: boolean;
-  current_key: string | null;
   message: string | null;
 };
 

@@ -549,6 +549,15 @@ the application API.
 
 Deploy matching backend and frontend versions together.
 
+## 2026-10 Portal deleted-folder restore progress cleanup
+
+Portal deleted-folder restore progress events no longer include the unused
+`current_key` field. The frontend derives progress from the aggregate scan and
+restore counters, so per-file keys are no longer serialized on every restore
+completion event.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-10 bucket migration list response cleanup
 
 The Manager migration list endpoint now returns a dedicated summary read model
