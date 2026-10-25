@@ -899,14 +899,12 @@ describe("S3UsersPage modal tabs", () => {
     const fields = within(form);
     const text = fields.getByLabelText("RGW user IDs");
     expect(fields.getByText(/for the default tenant/)).toBeInTheDocument();
+    await waitFor(() => expect(fields.getByRole("button", {name: "Import", exact: true})).toBeEnabled());
     fireEvent.change(text, {target: {value: "tenant$user-alpha"}});
     fireEvent.submit(form);
-    await waitFor(() =>
-      expect(text).toHaveAccessibleDescription("Tenant-qualified RGW user IDs require Managed RGW tenant creation."),
-      {timeout: 10_000},
-    );
+    expect(text).toHaveAccessibleDescription("Tenant-qualified RGW user IDs require Managed RGW tenant creation.");
     expect(importS3UsersMock).not.toHaveBeenCalled();
-  }, 15_000);
+  });
 
   it("keeps endpoint capability failures visible and prevents creating or importing", async () => {
     getStorageEndpointMock.mockResolvedValue({id: 10, provider: "ceph", admin_ops_permissions: {accounts_write: false, users_write: false}});
