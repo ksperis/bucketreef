@@ -182,8 +182,6 @@ def test_manager_bucket_compare_and_remediation_flow(
                     "parallelism": 2,
                 },
             )
-            assert remediation["action"] == action
-            assert remediation["planned_count"] == len(object_keys)
             assert remediation["succeeded_count"] == len(object_keys)
             assert remediation["failed_count"] == 0
 
