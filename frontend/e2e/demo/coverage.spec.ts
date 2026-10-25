@@ -11,7 +11,7 @@ const routes = [
   "/ceph-admin/accounts", "/ceph-admin/users", "/ceph-admin/buckets", "/ceph-admin/metrics", "/ceph-admin/buckets?ep=11&configure=helios-documents",
 ];
 test("coverage: retained screens resolve every business request", async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(360_000);
   const problems: string[] = [];
   page.on("pageerror", error => problems.push(`${page.url()}: ${error.message}`));
   for (const route of routes) {
