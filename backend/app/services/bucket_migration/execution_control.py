@@ -220,6 +220,16 @@ class BucketMigrationExecutionControlMixin:
 
         self.db.refresh(migration)
         self._assert_workflow_lease()
+        state = control_check()
+        if self._stop_for_control_state(
+            migration,
+            state,
+            source_ctx=source_ctx,
+            target_ctx=target_ctx,
+        ):
+            return
+        self.db.refresh(migration)
+        self._assert_workflow_lease()
         self._finalize_or_wait_cutover(migration, source_ctx=source_ctx, target_ctx=target_ctx)
         if migration.status not in _RUNNABLE_MIGRATION_STATUSES:
             self._clear_owned_worker_lease(migration, worker_id=worker_id)
