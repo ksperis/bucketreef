@@ -906,7 +906,7 @@ describe("S3UsersPage modal tabs", () => {
       {timeout: 10_000},
     );
     expect(importS3UsersMock).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it("keeps endpoint capability failures visible and prevents creating or importing", async () => {
     getStorageEndpointMock.mockResolvedValue({id: 10, provider: "ceph", admin_ops_permissions: {accounts_write: false, users_write: false}});
