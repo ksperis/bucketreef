@@ -28,6 +28,9 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
+extra:
+  homepage: https://bucketreef.ksperis.com/
+
 markdown_extensions:
   - admonition
   - attr_list
