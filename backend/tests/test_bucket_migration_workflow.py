@@ -455,6 +455,43 @@ def test_pause_tolerates_worker_transition_from_queued_to_running(prepared):
     assert paused.status == "pause_requested"
 
 
+def test_prepare_migration_run_does_not_overwrite_pause_after_stale_read(
+    prepared, monkeypatch
+):
+    service, migration, _ = prepared
+    migration.status = "queued"
+    service._commit()
+    injected = False
+
+    def pause_after_status_check():
+        nonlocal injected
+        now = utcnow()
+        if not injected:
+            injected = True
+            service.db.execute(
+                sa.update(BucketMigration)
+                .where(BucketMigration.id == migration.id)
+                .values(status="pause_requested")
+                .execution_options(synchronize_session=False)
+            )
+        return now
+
+    monkeypatch.setattr(
+        "app.services.bucket_migration.execution_control.utcnow",
+        pause_after_status_check,
+    )
+
+    prepared_migration = service._prepare_migration_run(
+        migration,
+        worker_id=None,
+        lease_seconds=60,
+    )
+
+    assert prepared_migration is migration
+    service.db.refresh(migration)
+    assert migration.status == "pause_requested"
+
+
 def test_maintenance_bucket_delete_invalidates_bucket_list_caches(prepared, monkeypatch):
     service, _, _ = prepared
     account = SimpleNamespace(id=17)
