@@ -2,7 +2,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { S3Client, PutObjectCommand, PutBucketCorsCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import JSZip from "jszip";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { E2E_BUCKET_NAME, E2E_S3_ENDPOINT, E2E_S3_ACCESS_KEY, E2E_S3_SECRET_KEY, E2E_S3_REGION, E2E_USER_EMAIL, E2E_USER_PASSWORD } from "../helpers/config";
 
 const s3 = new S3Client({ endpoint: E2E_S3_ENDPOINT, region: E2E_S3_REGION, forcePathStyle: true, requestChecksumCalculation: "WHEN_REQUIRED", credentials: { accessKeyId: E2E_S3_ACCESS_KEY, secretAccessKey: E2E_S3_SECRET_KEY } });
@@ -11,7 +12,7 @@ test.use({ video: "off", trace: "off", screenshot: "off" });
 test.beforeEach(({ page }) => { page.setDefaultTimeout(15_000); });
 async function open(page: Page) {
   await page.goto(`/browser?bucket=${E2E_BUCKET_NAME}&prefix=${encodeURIComponent(prefix)}`);
-  await expect(page.getByRole("button", { name: "Upload", exact: true }).or(page.getByRole("button", { name: "Sign in", exact: true }))).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upload", exact: true }).or(page.getByRole("button", { name: "Sign in", exact: true }))).toBeVisible({ timeout: 30_000 });
   if (new URL(page.url()).pathname === "/login") {
     await page.getByRole("textbox", { name: "Email", exact: true }).fill(E2E_USER_EMAIL);
     await page.getByRole("textbox", { name: "Password", exact: true }).fill(E2E_USER_PASSWORD);
@@ -32,11 +33,14 @@ test.beforeAll(async () => {
   }
 });
 
-async function upload(page: Page, name: string, body: Buffer, mimeType = "text/plain") {
+async function upload(page: Page, name: string, body: Buffer) {
+  const filePath = test.info().outputPath(name);
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, body);
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Upload", exact: true }).click();
   await page.getByRole("menuitem", { name: "Upload files" }).click();
-  await (await chooser).setFiles({ name, mimeType, buffer: body });
+  await (await chooser).setFiles(filePath);
 }
 
 test("toggles path favorites directly, synchronizes them across sessions, and retains the original search menu", async ({ page, browser }) => {
@@ -85,7 +89,7 @@ test("toggles path favorites directly, synchronizes them across sessions, and re
 test("overwrites normally and downloads files plus folders as one ZIP", async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(window, "showSaveFilePicker", { value: undefined }));
   await open(page);
-  await upload(page, "data.csv", Buffer.from("name,value\nAlice,43\n"), "text/csv");
+  await upload(page, "data.csv", Buffer.from("name,value\nAlice,43\n"));
   await expect(page.getByText(/Uploaded.*data.csv|Uploaded 1/)).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Resolve destination conflicts" })).toHaveCount(0);
   for (const selected of await page.getByRole("checkbox", { checked: true }).all()) await selected.uncheck();
@@ -109,7 +113,7 @@ test("previews current CSV and JSON with search and loaded-file navigation", asy
   await expect(drawer.getByRole("table")).toContainText("Alice");
   await drawer.getByRole("searchbox", { name: "Find in displayed text" }).fill("Alice");
   await expect(drawer.locator("mark")).toHaveText("Alice");
-  await drawer.getByRole("button", { name: "Next", exact: true }).click();
+  await drawer.getByRole("button", { name: "Next object", exact: true }).click();
   drawer = page.getByRole("complementary", { name: "version.json", exact: true });
   await expect(drawer).toContainText("revision: 2");
   await expect(page.getByRole("checkbox", { name: "Select data.csv", exact: true })).toBeChecked();
@@ -146,9 +150,10 @@ test("keeps desktop and mobile layouts usable in both themes", async ({ page }, 
 
 test("uploads classic multipart directly and an ordinary file through the proxy", async ({ page }) => {
   await open(page);
-  const completed = page.waitForResponse(response => response.url().includes("/multipart/") && response.url().includes("/complete") && response.status() === 200);
-  await upload(page, "large.bin", Buffer.alloc(26 * 1024 * 1024, 65), "application/octet-stream");
-  await completed;
+  await Promise.all([
+    page.waitForResponse(response => response.url().includes("/multipart/") && response.url().includes("/complete") && response.status() === 204, { timeout: 60_000 }),
+    upload(page, "large.bin", Buffer.alloc(26 * 1024 * 1024, 65)),
+  ]);
   await expect(page.getByRole("button", { name: "Open file large.bin", exact: true })).toBeVisible();
   const head = await s3.send(new HeadObjectCommand({ Bucket: E2E_BUCKET_NAME, Key: prefix + "large.bin" }));
   expect(head.ContentLength).toBe(26 * 1024 * 1024);

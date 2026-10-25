@@ -677,12 +677,23 @@ def _continue_migration(
 def _find_precheck_item(
     detail: dict[str, Any], source_bucket: str, target_bucket: str
 ) -> dict[str, Any]:
+    migration_item = next(
+        (
+            item
+            for item in detail.get("items") or []
+            if item.get("source_bucket") == source_bucket
+            and item.get("target_bucket") == target_bucket
+        ),
+        None,
+    )
+    if migration_item is None:
+        raise AssertionError(
+            f"Unable to locate migration item for {source_bucket} -> {target_bucket}"
+        )
+
     report = detail.get("precheck_report") or {}
     for item in report.get("items") or []:
-        if (
-            item.get("source_bucket") == source_bucket
-            and item.get("target_bucket") == target_bucket
-        ):
+        if item.get("item_id") == migration_item.get("id"):
             return item
     raise AssertionError(
         f"Unable to locate precheck report item for {source_bucket} -> {target_bucket}"
