@@ -940,6 +940,34 @@ def test_finalize_honors_pause_requested_after_item_stops(prepared):
     assert item.status == "paused"
 
 
+def test_run_migration_rechecks_pause_after_last_item(prepared):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    migration.mode = "pre_sync"
+    migration.status = "queued"
+    service._commit()
+    service._assert_migration_creator_access = Mock()
+    service._resolve_context = Mock(
+        return_value=SimpleNamespace(execution_context=SimpleNamespace())
+    )
+    service._control_state = Mock(side_effect=["run", "pause"])
+
+    def _finish_item(*_args, **_kwargs):
+        item.status = "awaiting_cutover"
+        item.step = "awaiting_cutover"
+        service._commit()
+        return migration
+
+    service._execute_migration_item = Mock(side_effect=_finish_item)
+    service._finalize_or_wait_cutover = Mock()
+
+    service.run_migration(migration.id)
+
+    assert migration.status == "paused"
+    assert item.status == "awaiting_cutover"
+    service._finalize_or_wait_cutover.assert_not_called()
+
+
 def test_partial_precopy_preserves_successful_destination_lock(prepared):
     service, migration, _ = prepared
     migration.status = "running"
