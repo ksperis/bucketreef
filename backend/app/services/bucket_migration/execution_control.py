@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from typing import Callable, Optional
 
 from app.core.config import get_settings
@@ -51,7 +51,17 @@ class BucketMigrationExecutionControlMixin:
         if migration.status in _RUNNABLE_MIGRATION_STATUSES:
             now = utcnow()
             if migration.status not in {"pause_requested", "cancel_requested"}:
-                migration.status = "running"
+                self.db.execute(
+                    update(BucketMigration)
+                    .where(
+                        BucketMigration.id == migration.id,
+                        BucketMigration.status.in_(("queued", "running")),
+                    )
+                    .values(status="running")
+                    .execution_options(synchronize_session=False)
+                )
+                self._commit()
+                self.db.refresh(migration)
             if migration.started_at is None:
                 migration.started_at = now
             migration.updated_at = now
