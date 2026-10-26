@@ -272,7 +272,7 @@ frontend-demo:
   - sh ops/ci/tasks/run.sh frontend-demo
   artifacts:
     when: always
-    expire_in: never
+    expire_in: 1 week
     paths:
     - frontend/dist-demo/
     - gl-test-reports/demo-junit.xml
