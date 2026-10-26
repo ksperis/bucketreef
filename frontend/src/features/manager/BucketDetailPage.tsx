@@ -1373,16 +1373,6 @@ function BucketDetailPageContent({
             label: text("Usage & Metrics"),
             content: (
               <div className={bucketDetailSectionStackClass}>
-                {showQuotaTab && (
-                  <div className="settings-compact">
-                    <BucketQuotaFeature
-                      controller={quotaController}
-                      editable={canEditQuota}
-                      featureEnabled={quotaFeatureEnabled}
-                      loading={loadingBucket}
-                    />
-                  </div>
-                )}
                 <MetricsCard
                   title={text("Current usage and quota")}
                   description={text("Live usage, quotas, and traffic sourced from backend metrics.")}
@@ -1409,6 +1399,16 @@ function BucketDetailPageContent({
                     />
                   </div>
                 </MetricsCard>
+                {showQuotaTab && (
+                  <div className="settings-compact">
+                    <BucketQuotaFeature
+                      controller={quotaController}
+                      editable={canEditQuota}
+                      featureEnabled={quotaFeatureEnabled}
+                      loading={loadingBucket}
+                    />
+                  </div>
+                )}
                 {!canViewLiveBucketMetrics && (
                   <PageBanner>
                     {!isCephAdmin && managerStatsMessage
