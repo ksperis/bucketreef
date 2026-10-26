@@ -4,11 +4,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  deleteBucketCors,
-  getBucketCors,
-  putBucketCors,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketCors,
   getCephAdminBucketCors,
@@ -59,6 +55,7 @@ export function useBucketCorsController({
   enabled,
   endpointId,
 }: UseBucketCorsControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<CorsRuleRecord[]>([]);
   const [draftRules, setDraftRules] = useState<CorsRuleRecord[]>([]);
   const [jsonText, setJsonText] = useState("[]");
@@ -94,7 +91,7 @@ export function useBucketCorsController({
         }
         data = await getCephAdminBucketCors(endpointId, bucketName, cephAdminTenant);
       } else {
-        data = await getBucketCors(contextId, bucketName);
+        data = await bucketDetailsApi.getBucketCors(contextId, bucketName);
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
@@ -105,7 +102,7 @@ export function useBucketCorsController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: CorsRuleRecord[],
@@ -196,15 +193,15 @@ export function useBucketCorsController({
       if (cephAdmin) {
         await deleteCephAdminBucketCors(endpointId as number, bucketName, cephAdminTenant);
       } else {
-        await deleteBucketCors(contextId, bucketName);
+        await bucketDetailsApi.deleteBucketCors(contextId, bucketName);
       }
       return [];
     }
     const saved = cephAdmin
       ? await putCephAdminBucketCors(endpointId as number, bucketName, nextRules, cephAdminTenant)
-      : await putBucketCors(contextId, bucketName, nextRules);
+      : await bucketDetailsApi.putBucketCors(contextId, bucketName, nextRules);
     return normalizeRules(saved.rules ?? nextRules);
-  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const removeRuleDirect = useCallback(async (index: number) => {
     if (saving) return;

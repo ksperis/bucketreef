@@ -3,7 +3,10 @@
 
 """Shared dependencies for Manager bucket configuration routes."""
 
-from fastapi import Depends
+from fastapi import Depends, Request
+
+from app.core.config import get_settings
+from app.utils.request_paths import path_matches_prefix
 
 from app.routers.dependencies import get_audit_service
 from app.services.audit_service import AuditService
@@ -24,12 +27,19 @@ def _invalidate_manager_bucket_config_cache(
 
 
 def get_manager_bucket_config_mutation_service(
+    request: Request,
     configuration_service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> BucketConfigMutationService:
     return BucketConfigMutationService(
         configuration_service=configuration_service,
         audit_service=audit_service,
-        audit_scope="manager",
+        audit_scope=(
+            "browser"
+            if path_matches_prefix(
+                request.url.path, f"{get_settings().api_prefix}/browser/buckets/config"
+            )
+            else "manager"
+        ),
         cache_invalidator=_invalidate_manager_bucket_config_cache,
     )

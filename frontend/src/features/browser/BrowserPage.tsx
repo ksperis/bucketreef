@@ -967,7 +967,7 @@ export default function BrowserPage({
     functionalProfile: resolvedFunctionalProfile,
     capabilityFacts: resolvedCapabilityFacts,
     bucketConfigurationAvailable: bucketConfigurationEnabled,
-    bucketConfigurationReadOnly: workspaceSurface === "browser",
+    bucketConfigurationReadOnly: workspaceSurface === "portal",
     selectionItems,
     copyUrlDisabled: sseActive,
     copyUrlDisabledReason,
@@ -2009,7 +2009,7 @@ export default function BrowserPage({
         copyUrlDisabledReason={copyUrlDisabledReason}
         multipartUploadsAvailable={resolvedFunctionalProfile === "advanced"}
         bucketConfigurationAvailable={bucketConfigurationEnabled}
-        bucketConfigurationReadOnly={workspaceSurface === "browser"}
+        bucketConfigurationReadOnly={workspaceSurface === "portal"}
         functionalProfile={resolvedFunctionalProfile}
         capabilityFacts={resolvedCapabilityFacts}
         clipboard={clipboard}

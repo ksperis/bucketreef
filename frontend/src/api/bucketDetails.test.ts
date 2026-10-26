@@ -59,14 +59,36 @@ describe("bucket details api", () => {
     );
   });
 
-  it("limits browser bucket details to inspector reads", () => {
-    expect(Object.keys(browserBucketDetails).sort()).toEqual([
-      "getBucketLogging",
-      "getBucketPolicy",
-      "getBucketProperties",
-      "getBucketStats",
-      "getBucketWebsite",
-    ]);
+  it("exposes native bucket configuration, excluding RGW quota operations", () => {
+    expect(browserBucketDetails.getBucketAcl).toBeTypeOf("function");
+    expect(browserBucketDetails.setBucketVersioning).toBeTypeOf("function");
+    expect(browserBucketDetails.putBucketPolicy).toBeTypeOf("function");
+    expect(browserBucketDetails.deleteBucketPolicy).toBeTypeOf("function");
+    expect(browserBucketDetails.putBucketReplication).toBeTypeOf("function");
+    expect(browserBucketDetails).not.toHaveProperty("updateBucketQuota");
+  });
+
+  it("uses browser routes for native bucket configuration writes and deletes", async () => {
+    const policy = { Version: "2012-10-17", Statement: [] };
+
+    await browserBucketDetails.setBucketVersioning("conn-7", "reports/2026", true);
+    await browserBucketDetails.putBucketPolicy("conn-7", "reports/2026", policy);
+    await browserBucketDetails.deleteBucketPolicy("conn-7", "reports/2026");
+
+    expect(clientMock.put).toHaveBeenCalledWith(
+      "/browser/buckets/config/reports%2F2026/versioning",
+      { enabled: true },
+      { params: { context_id: "conn-7" } },
+    );
+    expect(clientMock.put).toHaveBeenCalledWith(
+      "/browser/buckets/config/reports%2F2026/policy",
+      { policy },
+      { params: { context_id: "conn-7" } },
+    );
+    expect(clientMock.delete).toHaveBeenCalledWith(
+      "/browser/buckets/config/reports%2F2026/policy",
+      { params: { context_id: "conn-7" } },
+    );
   });
 
   it("keeps manager writes and deletes on their detail resource", async () => {

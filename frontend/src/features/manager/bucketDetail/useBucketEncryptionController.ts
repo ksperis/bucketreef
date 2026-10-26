@@ -4,11 +4,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  deleteBucketEncryption,
-  getBucketEncryption,
-  putBucketEncryption,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketEncryption,
   getCephAdminBucketEncryption,
@@ -62,6 +58,7 @@ export function useBucketEncryptionController({
   enabled,
   endpointId,
 }: UseBucketEncryptionControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<EncryptionRuleRecord[]>([]);
   const [draftRules, setDraftRules] = useState<EncryptionRuleRecord[]>([]);
   const [jsonText, setJsonText] = useState("[]");
@@ -97,7 +94,7 @@ export function useBucketEncryptionController({
         }
         data = await getCephAdminBucketEncryption(endpointId, bucketName, cephAdminTenant);
       } else {
-        data = await getBucketEncryption(contextId, bucketName);
+        data = await bucketDetailsApi.getBucketEncryption(contextId, bucketName);
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
@@ -111,7 +108,7 @@ export function useBucketEncryptionController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditor = useCallback(() => {
     if (!enabled) return;
@@ -206,7 +203,7 @@ export function useBucketEncryptionController({
           if (!endpointId) return;
           await deleteCephAdminBucketEncryption(endpointId, bucketName, cephAdminTenant);
         } else {
-          await deleteBucketEncryption(contextId, bucketName);
+          await bucketDetailsApi.deleteBucketEncryption(contextId, bucketName);
         }
         applyBaseline([]);
         setDraftRules([]);
@@ -218,7 +215,7 @@ export function useBucketEncryptionController({
           if (!endpointId) return;
           saved = await putCephAdminBucketEncryption(endpointId, bucketName, nextRules, cephAdminTenant);
         } else {
-          saved = await putBucketEncryption(contextId, bucketName, nextRules);
+          saved = await bucketDetailsApi.putBucketEncryption(contextId, bucketName, nextRules);
         }
         const savedRules = normalizeRules(saved.rules ?? nextRules);
         applyBaseline(savedRules);
@@ -234,7 +231,7 @@ export function useBucketEncryptionController({
     } finally {
       setSaving(false);
     }
-  }, [
+  }, [bucketDetailsApi,
     contextId,
     applyBaseline,
     bucketName,

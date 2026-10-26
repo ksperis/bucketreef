@@ -4,10 +4,7 @@
  */
 import { useCallback, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  getBucketPublicAccessBlock,
-  updateBucketPublicAccessBlock,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketPublicAccessBlock } from "../../../api/bucketContracts";
 import {
   getCephAdminBucketPublicAccessBlock,
@@ -60,6 +57,7 @@ export function useBucketPublicAccessController({
   enabled,
   endpointId,
 }: UseBucketPublicAccessControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [config, setConfig] = useState(() => normalize());
   const [snapshot, setSnapshot] = useState(() => normalize());
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +86,7 @@ export function useBucketPublicAccessController({
         ? endpointId
           ? await getCephAdminBucketPublicAccessBlock(endpointId, bucketName, cephAdminTenant)
           : defaultPublicAccessBlock
-        : await getBucketPublicAccessBlock(contextId, bucketName);
+        : await bucketDetailsApi.getBucketPublicAccessBlock(contextId, bucketName);
       apply(data);
     } catch (loadError) {
       apply();
@@ -101,7 +99,7 @@ export function useBucketPublicAccessController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const save = async () => {
     if (!bucketName || !enabled) return;
@@ -119,7 +117,7 @@ export function useBucketPublicAccessController({
               cephAdminTenant,
             )
           : payload
-        : await updateBucketPublicAccessBlock(contextId, bucketName, payload);
+        : await bucketDetailsApi.updateBucketPublicAccessBlock(contextId, bucketName, payload);
       apply(saved);
       setStatus("Public access block updated.");
     } catch (saveError) {

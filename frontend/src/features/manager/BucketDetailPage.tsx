@@ -104,6 +104,7 @@ type BucketDetailPageProps = {
   hideQuotaTab?: boolean;
   embedded?: boolean;
   hideObjectsTab?: boolean;
+  hideUsageMetricsTab?: boolean;
   bucketListPathOverride?: string;
   onBackToBuckets?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
@@ -189,6 +190,7 @@ function BucketDetailPageContent({
   hideQuotaTab = false,
   embedded = false,
   hideObjectsTab = false,
+  hideUsageMetricsTab = false,
   bucketListPathOverride,
   onBackToBuckets,
   onDirtyChange,
@@ -383,8 +385,8 @@ function BucketDetailPageContent({
   const showQuotaTab = !hideQuotaTab && (isCephAdmin || Boolean(quotaFeatureEnabled && hasManagerExecutionContext));
   const showObjectsTab = !hideObjectsTab;
   const availableTabs = useMemo(() => {
-    return resolveBucketDetailTabs({ showObjectsTab });
-  }, [showObjectsTab]);
+    return resolveBucketDetailTabs({ showObjectsTab }).filter((tab) => !hideUsageMetricsTab || tab !== "usage-metrics");
+  }, [showObjectsTab, hideUsageMetricsTab]);
 
   useEffect(() => {
     if (!availableTabs.includes(activeTab)) {
@@ -461,7 +463,7 @@ function BucketDetailPageContent({
     bucketName,
     cephAdmin: isCephAdmin,
     cephAdminTenant: cephAdminTenantOverride,
-    enabled: hasContext,
+    enabled: hasContext && !hideUsageMetricsTab,
     endpointId,
   });
   const {
@@ -478,7 +480,7 @@ function BucketDetailPageContent({
     bucketName,
     cephAdmin: isCephAdmin,
     cephAdminTenant: cephAdminTenantOverride,
-    enabled: hasContext,
+    enabled: hasContext && showObjectsTab,
     endpointId,
   });
   const snsFeatureEnabled = useMemo(() => {

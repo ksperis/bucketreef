@@ -71,13 +71,13 @@ function createBucketDetailsTransport(basePath: string) {
   };
 }
 
-function createManagerBucketDetailsApi() {
+function createBucketDetailsApi(basePath: string) {
   const {
     bucketPath,
     getBucketStats,
     read,
     requestConfig,
-  } = createBucketDetailsTransport(MANAGER_BUCKETS_PATH);
+  } = createBucketDetailsTransport(basePath);
   const write = async <T>(
     contextId: S3ExecutionContextSelector,
     bucketName: string,
@@ -314,25 +314,7 @@ function createManagerBucketDetailsApi() {
   };
 }
 
-function createBrowserBucketDetailsApi() {
-  const { getBucketStats, read } = createBucketDetailsTransport(
-    BROWSER_BUCKET_CONFIG_PATH,
-  );
-
-  return {
-    getBucketStats,
-    getBucketProperties: (contextId: S3ExecutionContextSelector, bucketName: string) =>
-      read<BucketProperties>(contextId, bucketName, "properties"),
-    getBucketPolicy: (contextId: S3ExecutionContextSelector, bucketName: string) =>
-      read<BucketPolicy>(contextId, bucketName, "policy"),
-    getBucketLogging: (contextId: S3ExecutionContextSelector, bucketName: string) =>
-      read<BucketLoggingConfiguration>(contextId, bucketName, "logging"),
-    getBucketWebsite: (contextId: S3ExecutionContextSelector, bucketName: string) =>
-      read<BucketWebsiteConfiguration>(contextId, bucketName, "website"),
-  };
-}
-
-const managerBucketDetails = createManagerBucketDetailsApi();
+const managerBucketDetails = createBucketDetailsApi(MANAGER_BUCKETS_PATH);
 
 export const {
   deleteBucketCors,
@@ -375,4 +357,7 @@ export const {
   updateBucketQuota,
 } = managerBucketDetails;
 
-export const browserBucketDetails = createBrowserBucketDetailsApi();
+// RGW quotas are Manager/Ceph Admin operations, outside Browser S3 settings.
+const { updateBucketQuota: _unsupportedBrowserQuota, ...browserBucketDetails } =
+  createBucketDetailsApi(BROWSER_BUCKET_CONFIG_PATH);
+export { browserBucketDetails };

@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import { getBucketStats } from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { Bucket } from "../../../api/bucketContracts";
 import { listCephAdminBuckets } from "../../../api/cephAdminBuckets";
 import { extractApiError } from "../../../utils/apiError";
@@ -28,6 +28,7 @@ export function useBucketMetadataController({
   endpointId,
   withStats,
 }: UseBucketMetadataControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [bucket, setBucket] = useState<Bucket | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,7 +76,7 @@ export function useBucketMetadataController({
             }
           : null;
       } else {
-        nextBucket = await getBucketStats(contextId, bucketName, {
+        nextBucket = await bucketDetailsApi.getBucketStats(contextId, bucketName, {
           with_stats: withStats,
         });
       }
@@ -91,7 +92,7 @@ export function useBucketMetadataController({
         setLoading(false);
       }
     }
-  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, withStats]);
+  }, [bucketDetailsApi, contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, withStats]);
 
   return {
     bucket,

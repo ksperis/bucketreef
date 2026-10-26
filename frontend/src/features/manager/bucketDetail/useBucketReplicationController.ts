@@ -4,11 +4,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  deleteBucketReplication,
-  getBucketReplication,
-  putBucketReplication,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketReplication,
   getCephAdminBucketReplication,
@@ -90,6 +86,7 @@ export function useBucketReplicationController({
   enabled,
   endpointId,
 }: UseBucketReplicationControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [configuration, setConfiguration] = useState<Record<string, unknown>>({});
   const [draftConfiguration, setDraftConfiguration] = useState<Record<string, unknown>>({});
   const [draftRuleIds, setDraftRuleIds] = useState<string[]>([]);
@@ -122,7 +119,7 @@ export function useBucketReplicationController({
         ? endpointId
           ? await getCephAdminBucketReplication(endpointId, bucketName, cephAdminTenant)
           : { configuration: {} }
-        : await getBucketReplication(contextId, bucketName);
+        : await bucketDetailsApi.getBucketReplication(contextId, bucketName);
       applyBaseline(data.configuration);
     } catch (loadFailure) {
       applyBaseline({});
@@ -135,7 +132,7 @@ export function useBucketReplicationController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: Record<string, unknown>,
@@ -274,15 +271,15 @@ export function useBucketReplicationController({
       if (cephAdmin) {
         await deleteCephAdminBucketReplication(endpointId as number, bucketName, cephAdminTenant);
       } else {
-        await deleteBucketReplication(contextId, bucketName);
+        await bucketDetailsApi.deleteBucketReplication(contextId, bucketName);
       }
       return {};
     }
     const saved = cephAdmin
       ? await putCephAdminBucketReplication(endpointId as number, bucketName, nextConfiguration, cephAdminTenant)
-      : await putBucketReplication(contextId, bucketName, nextConfiguration);
+      : await bucketDetailsApi.putBucketReplication(contextId, bucketName, nextConfiguration);
     return normalizeReplicationEditorConfiguration(saved.configuration ?? nextConfiguration);
-  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const persistDirectConfiguration = useCallback(async (
     nextConfiguration: Record<string, unknown>,

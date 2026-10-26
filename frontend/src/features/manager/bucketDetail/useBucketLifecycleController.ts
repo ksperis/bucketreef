@@ -4,11 +4,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  deleteBucketLifecycle,
-  getBucketLifecycle,
-  putBucketLifecycle,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketLifecycle,
   getCephAdminBucketLifecycle,
@@ -70,6 +66,7 @@ export function useBucketLifecycleController({
   enabled,
   endpointId,
 }: UseBucketLifecycleControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<LifecycleRuleRecord[]>([]);
   const [draftRules, setDraftRules] = useState<LifecycleRuleRecord[]>([]);
   const [jsonText, setJsonText] = useState("[]");
@@ -109,7 +106,7 @@ export function useBucketLifecycleController({
         }
         data = await getCephAdminBucketLifecycle(endpointId, bucketName, cephAdminTenant);
       } else {
-        data = await getBucketLifecycle(contextId, bucketName);
+        data = await bucketDetailsApi.getBucketLifecycle(contextId, bucketName);
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
@@ -118,7 +115,7 @@ export function useBucketLifecycleController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: LifecycleRuleRecord[],
@@ -230,15 +227,15 @@ export function useBucketLifecycleController({
       if (cephAdmin) {
         await deleteCephAdminBucketLifecycle(endpointId as number, bucketName, cephAdminTenant);
       } else {
-        await deleteBucketLifecycle(contextId, bucketName);
+        await bucketDetailsApi.deleteBucketLifecycle(contextId, bucketName);
       }
       return [];
     }
     const saved = cephAdmin
       ? await putCephAdminBucketLifecycle(endpointId as number, bucketName, nextRules, cephAdminTenant)
-      : await putBucketLifecycle(contextId, bucketName, nextRules);
+      : await bucketDetailsApi.putBucketLifecycle(contextId, bucketName, nextRules);
     return normalizeRules(saved.rules ?? nextRules);
-  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const persistDirectRules = useCallback(async (
     nextRules: LifecycleRuleRecord[],

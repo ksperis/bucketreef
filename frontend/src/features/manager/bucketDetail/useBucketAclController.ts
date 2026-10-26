@@ -4,10 +4,7 @@
  */
 import { useCallback, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  getBucketAcl,
-  updateBucketAcl,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketAcl } from "../../../api/bucketContracts";
 import {
   getCephAdminBucketAcl,
@@ -80,6 +77,7 @@ export function useBucketAclController({
   enabled,
   endpointId,
 }: UseBucketAclControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [acl, setAcl] = useState<BucketAcl | null>(null);
   const [draft, setDraft] = useState<AclDraft>(privateDraft);
   const [snapshot, setSnapshot] = useState<AclDraft>(privateDraft);
@@ -110,7 +108,7 @@ export function useBucketAclController({
         ? endpointId
           ? await getCephAdminBucketAcl(endpointId, bucketName, cephAdminTenant)
           : null
-        : await getBucketAcl(contextId, bucketName);
+        : await bucketDetailsApi.getBucketAcl(contextId, bucketName);
       applyLoaded(data);
     } catch (loadError) {
       applyLoaded();
@@ -118,7 +116,7 @@ export function useBucketAclController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyLoaded, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyLoaded, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const updatePreset = (preset: string) => {
     setDraft((current) => ({ ...current, preset }));
@@ -154,7 +152,7 @@ export function useBucketAclController({
         ? endpointId
           ? await updateCephAdminBucketAcl(endpointId, bucketName, aclValue, cephAdminTenant)
           : null
-        : await updateBucketAcl(contextId, bucketName, aclValue);
+        : await bucketDetailsApi.updateBucketAcl(contextId, bucketName, aclValue);
       setAcl(updated);
 
       const savedDraft = {

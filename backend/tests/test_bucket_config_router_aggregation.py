@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from fastapi import APIRouter
+from fastapi import APIRouter, FastAPI
 
 from app.routers import browser_bucket_config
 from app.routers.ceph_admin import (
@@ -26,14 +26,36 @@ def _route_operations(router: APIRouter) -> set[tuple[str, tuple[str, ...]]]:
     }
 
 
-def test_browser_bucket_config_exposes_only_inspector_reads() -> None:
-    assert _route_operations(browser_bucket_config.router) == {
+def test_browser_bucket_config_exposes_inspector_reads_and_advanced_s3_settings() -> None:
+    inspector_reads = {
         ("/buckets/config/{bucket_name}/logging", ("GET",)),
         ("/buckets/config/{bucket_name}/policy", ("GET",)),
         ("/buckets/config/{bucket_name}/properties", ("GET",)),
         ("/buckets/config/{bucket_name}/stats", ("GET",)),
         ("/buckets/config/{bucket_name}/website", ("GET",)),
     }
+    manager_features = (
+        manager_bucket_config_core.router,
+        manager_bucket_config_access.router,
+        manager_bucket_config_rules.router,
+    )
+    advanced_operations = {
+        (f"/buckets/config{path}", methods)
+        for router in manager_features
+        for path, methods in _route_operations(router)
+        if (f"/buckets/config{path}", methods) not in inspector_reads
+    }
+    # FastAPI may defer include_router() expansion until OpenAPI generation.
+    app = FastAPI()
+    app.include_router(browser_bucket_config.router)
+    operations = {
+        (path, (method.upper(),))
+        for path, item in app.openapi()["paths"].items()
+        for method in item
+        if method.lower() in {"get", "post", "put", "patch", "delete"}
+    }
+    assert operations == inspector_reads | advanced_operations
+    assert not any(path.endswith("/quota") for path, _ in operations)
 
 
 def test_manager_bucket_config_router_aggregates_every_feature_family() -> None:

@@ -87,14 +87,17 @@ export function BrowserBucketConfigurationDrawer({
   onDirtyChange,
 }: BrowserBucketConfigurationDrawerProps) {
   const { text } = useBrowserI18n();
-  const browserReadOnly = workspaceSurface === "browser";
-
-  if (!browserReadOnly) {
+  if (workspaceSurface !== "portal") {
+    const mode = workspaceSurface === "ceph-admin"
+      ? "ceph-admin"
+      : workspaceSurface === "browser"
+        ? "browser"
+        : "manager";
     return (
       <BucketConfigurationDrawer
         bucketName={bucketName}
         contextId={contextId ?? null}
-        mode={workspaceSurface === "ceph-admin" ? "ceph-admin" : "manager"}
+        mode={mode}
         onClose={onClose}
         onDirtyChange={onDirtyChange}
       />

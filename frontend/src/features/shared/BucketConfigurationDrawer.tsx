@@ -7,13 +7,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useI18n } from "../../i18n";
 import { BucketDetailContent } from "../manager/BucketDetailPage";
+import { BrowserBucketExecutionContextProvider } from "../manager/ExecutionContextProvider";
+import { BrowserBucketDetailsScope } from "./BucketDetailsScope";
 import DetailsDrawerNavigation, {
   guardDetailsDrawerNavigation,
   type DetailsDrawerNavigationState,
 } from "./DetailsDrawerNavigation";
 import DetailsDrawerShell from "./DetailsDrawerShell";
 
-type BucketConfigurationDrawerMode = "ceph-admin" | "manager" | "storage-ops";
+type BucketConfigurationDrawerMode = "ceph-admin" | "manager" | "storage-ops" | "browser";
 
 type BucketConfigurationDrawerProps = {
   bucketName: string;
@@ -127,17 +129,36 @@ export default function BucketConfigurationDrawer({
       onClose={() => requestTransition(onClose)}
       width="wide"
     >
-      <BucketDetailContent
-        mode={mode === "ceph-admin" ? "ceph-admin" : "manager"}
-        bucketNameOverride={bucketName}
-        cephAdminTenantOverride={mode === "ceph-admin" ? tenant : null}
-        contextIdOverride={mode === "ceph-admin" ? null : contextId}
-        hideQuotaTab={mode === "storage-ops"}
-        embedded
-        hideObjectsTab={mode === "manager"}
-        onDirtyChange={handleDirtyChange}
-        onBusyChange={setBusy}
-      />
+      {mode === "browser" ? (
+        <BrowserBucketExecutionContextProvider>
+          <BrowserBucketDetailsScope>
+            <BucketDetailContent
+              mode="manager"
+              bucketNameOverride={bucketName}
+              contextIdOverride={contextId}
+              bucketListPathOverride="/browser"
+              hideQuotaTab
+              hideObjectsTab
+              hideUsageMetricsTab
+              embedded
+              onDirtyChange={handleDirtyChange}
+              onBusyChange={setBusy}
+            />
+          </BrowserBucketDetailsScope>
+        </BrowserBucketExecutionContextProvider>
+      ) : (
+        <BucketDetailContent
+          mode={mode === "ceph-admin" ? "ceph-admin" : "manager"}
+          bucketNameOverride={bucketName}
+          cephAdminTenantOverride={mode === "ceph-admin" ? tenant : null}
+          contextIdOverride={mode === "ceph-admin" ? null : contextId}
+          hideQuotaTab={mode === "storage-ops"}
+          embedded
+          hideObjectsTab={mode === "manager"}
+          onDirtyChange={handleDirtyChange}
+          onBusyChange={setBusy}
+        />
+      )}
       {closeGuard.confirmationDialog}
     </DetailsDrawerShell>
   );

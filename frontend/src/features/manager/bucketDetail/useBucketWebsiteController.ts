@@ -4,11 +4,7 @@
  */
 import { useCallback, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  deleteBucketWebsite,
-  getBucketWebsite,
-  putBucketWebsite,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type {
   BucketWebsiteConfiguration,
   BucketWebsiteUpdate,
@@ -87,6 +83,7 @@ export function useBucketWebsiteController({
   enabled,
   endpointId,
 }: UseBucketWebsiteControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [draft, setDraft] = useState<WebsiteDraft>(emptyDraft);
   const [snapshot, setSnapshot] = useState<WebsiteDraft>(emptyDraft);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +113,7 @@ export function useBucketWebsiteController({
         ? endpointId
           ? await getCephAdminBucketWebsite(endpointId, bucketName, cephAdminTenant)
           : null
-        : await getBucketWebsite(contextId, bucketName);
+        : await bucketDetailsApi.getBucketWebsite(contextId, bucketName);
       apply(config);
     } catch (loadError) {
       apply();
@@ -129,7 +126,7 @@ export function useBucketWebsiteController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const update = <Key extends keyof WebsiteDraft>(
     key: Key,
@@ -192,7 +189,7 @@ export function useBucketWebsiteController({
         ? endpointId
           ? await putCephAdminBucketWebsite(endpointId, bucketName, payload, cephAdminTenant)
           : payload
-        : await putBucketWebsite(contextId, bucketName, payload);
+        : await bucketDetailsApi.putBucketWebsite(contextId, bucketName, payload);
       apply(saved);
       setStatus("Website configuration updated.");
     } catch (saveError) {
@@ -217,7 +214,7 @@ export function useBucketWebsiteController({
         if (!endpointId) return;
         await deleteCephAdminBucketWebsite(endpointId, bucketName, cephAdminTenant);
       } else {
-        await deleteBucketWebsite(contextId, bucketName);
+        await bucketDetailsApi.deleteBucketWebsite(contextId, bucketName);
       }
       apply();
       setStatus("Website configuration cleared.");
