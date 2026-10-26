@@ -127,6 +127,26 @@ For multi-selection diagnostics, use **Actions… > RGW Admin Ops > Check bucket
 indexes…**. The bulk workflow is read-only, supports at most 200 buckets, shows
 per-bucket results, and never enables index repair. Repairs remain unitary.
 
+## Operational tutorials
+
+Use these runbooks when the task spans a group of buckets and needs a
+repeatable selection, review, change, and verification workflow.
+
+| Goal | Tutorial |
+|---|---|
+| Standardize a lifecycle rule without overwriting unrelated rules | [Standardize Bucket Lifecycle Policies at Scale](bulk-lifecycle-campaign.md) |
+| Remove stale multipart-upload parts automatically | [Clean Up Abandoned Multipart Uploads at Scale](multipart-upload-cleanup.md) |
+| Limit growth from retained object versions | [Control Storage Growth on Versioned Buckets](versioned-bucket-retention.md) |
+| Build a capacity review queue before a quota is exhausted | [Find Buckets Approaching Their Quota](quota-capacity-review.md) |
+| Review and remediate potential public exposure | [Audit Public S3 Exposure Across a Ceph RGW Cluster](public-access-audit.md) |
+| Diagnose index inconsistencies after an RGW incident | [Check Bucket Indexes in Bulk After RGW Inconsistencies](bucket-index-checks.md) |
+| Apply the same S3 event notification to a bucket family | [Roll Out S3 Event Notifications Across Multiple Buckets](notification-rollout.md) |
+| Inventory encryption algorithms and KMS keys | [Audit Server-Side Encryption and KMS Usage](encryption-kms-audit.md) |
+
+The tutorials intentionally keep **Advanced filter** and **UI tags** as shared
+building blocks. They are reference tools used by several operational
+campaigns rather than separate copies of the same selection procedure.
+
 ## Expected result
 
 You can run Ceph cluster-wide tasks without switching to account-scoped Manager workflows.
@@ -142,7 +162,6 @@ You can run Ceph cluster-wide tasks without switching to account-scoped Manager 
 - [User profile](../../profile.md)
 - [How-to: Use Advanced Filter in Ceph Admin](advanced-filter.md)
 - [How-to: Use UI tags in Ceph Admin](ui-tags.md)
-- [How-to: Standardize Bucket Lifecycle Policies at Scale](bulk-lifecycle-campaign.md)
 - [Feature: Bucket usage stats](../bucket-usage.md)
 - [Ops / Ceph RGW backend notes](../backends/ceph-rgw.md)
 

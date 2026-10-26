@@ -47,7 +47,15 @@ nav:
           - Overview: storage/ceph-admin/index.md
           - Advanced filter: storage/ceph-admin/advanced-filter.md
           - UI tags: storage/ceph-admin/ui-tags.md
-          - Bulk lifecycle campaign: storage/ceph-admin/bulk-lifecycle-campaign.md
+          - Operational tutorials:
+              - Standardize lifecycle policies: storage/ceph-admin/bulk-lifecycle-campaign.md
+              - Clean up abandoned multipart uploads: storage/ceph-admin/multipart-upload-cleanup.md
+              - Control versioned bucket growth: storage/ceph-admin/versioned-bucket-retention.md
+              - Find buckets approaching quota: storage/ceph-admin/quota-capacity-review.md
+              - Audit public S3 exposure: storage/ceph-admin/public-access-audit.md
+              - Check bucket indexes in bulk: storage/ceph-admin/bucket-index-checks.md
+              - Roll out S3 event notifications: storage/ceph-admin/notification-rollout.md
+              - Audit encryption and KMS usage: storage/ceph-admin/encryption-kms-audit.md
       - Storage Ops:
           - Overview: storage/storage-ops/index.md
           - UI tags: storage/storage-ops/ui-tags.md
