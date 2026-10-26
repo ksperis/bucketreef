@@ -98,10 +98,14 @@ export async function registerApiMocks(
       return;
     }
 
+    const contentType = rule.contentType ?? "application/json";
     await route.fulfill({
       status,
-      contentType: "application/json",
-      body: JSON.stringify(payload),
+      contentType,
+      body:
+        typeof payload === "string" && contentType !== "application/json"
+          ? payload
+          : JSON.stringify(payload),
     });
   });
 

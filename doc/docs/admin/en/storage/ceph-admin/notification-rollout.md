@@ -79,6 +79,15 @@ Named entries with the same ID are replaced. Entries with other IDs remain in
 place. Anonymous entries are appended only when an identical anonymous entry is
 not already present, so stable IDs are preferable for managed rollouts.
 
+The preview below demonstrates that boundary: `audit-removals` is preserved in
+both **Before** and **After**, while the named `project-ingest-events` entry is
+the one being updated for the rollout.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/ceph-admin-notification-rollout-preview.light.png" alt="Ceph Admin notification rollout preview preserving the audit-removals entry while updating project-ingest-events" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/ceph-admin-notification-rollout-preview.dark.png" alt="Ceph Admin notification rollout preview preserving the audit-removals entry while updating project-ingest-events" loading="lazy">
+</div>
+
 ## 5. Apply and verify
 
 1. Apply the change after the preview is clean.

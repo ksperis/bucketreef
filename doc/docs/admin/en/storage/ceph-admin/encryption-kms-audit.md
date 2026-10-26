@@ -41,6 +41,15 @@ Useful review sets include buckets with no expected algorithm, buckets using
 `aws:kms` with an unexpected key ID, and buckets whose configuration cannot be
 resolved because the endpoint does not expose SSE capability.
 
+Expose the encryption columns during the review so mismatches are visible in
+the working set. The example below separates the expected KMS key, a legacy KMS
+key, and an `AES256` bucket with no KMS key ID.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/ceph-admin-encryption-kms-audit.light.png" alt="Ceph Admin encryption audit comparing aws:kms keys and an AES256 bucket without a KMS key ID" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/ceph-admin-encryption-kms-audit.dark.png" alt="Ceph Admin encryption audit comparing aws:kms keys and an AES256 bucket without a KMS key ID" loading="lazy">
+</div>
+
 ## 3. Tag the findings
 
 Use **Actions… > Selection > Manage UI tags…** to classify results, for example:

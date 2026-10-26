@@ -22,6 +22,7 @@ export type MockRule = {
   path: RegExp;
   status?: number;
   delayMs?: number;
+  contentType?: string;
   body:
     | MockResponse
     | ((ctx: {

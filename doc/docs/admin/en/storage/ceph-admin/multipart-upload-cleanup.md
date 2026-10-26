@@ -55,6 +55,11 @@ The lifecycle detail filters include incomplete multipart cleanup presence and
 days after initiation, so the campaign can be based on actual configuration
 rather than bucket names alone.
 
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/ceph-admin-multipart-cleanup-audit.light.png" alt="Ceph Admin Advanced filter finding buckets without an incomplete multipart upload cleanup lifecycle rule" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/ceph-admin-multipart-cleanup-audit.dark.png" alt="Ceph Admin Advanced filter finding buckets without an incomplete multipart upload cleanup lifecycle rule" loading="lazy">
+</div>
+
 ## 2. Mark the review set
 
 1. Select the filtered buckets.

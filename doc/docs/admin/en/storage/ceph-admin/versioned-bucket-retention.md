@@ -50,6 +50,15 @@ The target lifecycle rule is:
 6. Review exceptions such as immutable archives or buckets governed by another
    retention policy.
 
+The active-filter summary below makes the two conditions explicit: the bucket
+must have versioning enabled and must not already have a noncurrent-version
+expiration rule.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/ceph-admin-version-retention-audit.light.png" alt="Ceph Admin active filters requiring Versioning Enabled and no noncurrent-version expiration lifecycle rule" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/ceph-admin-version-retention-audit.dark.png" alt="Ceph Admin active filters requiring Versioning Enabled and no noncurrent-version expiration lifecycle rule" loading="lazy">
+</div>
+
 ## 2. Tag the campaign
 
 Select the approved buckets and use

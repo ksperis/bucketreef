@@ -41,6 +41,14 @@ Select the candidate buckets and use
 The result table reports **Bucket**, **Tenant**, **Status**, and **Result** for
 each checked bucket.
 
+The bulk check remains diagnostic. A completed run can mix clean buckets and
+anomalies, while the warning at the top keeps the repair boundary explicit.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/ceph-admin-bucket-index-check-results.light.png" alt="Ceph Admin read-only bucket index check with two consistent buckets and one index mismatch" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/ceph-admin-bucket-index-check-results.dark.png" alt="Ceph Admin read-only bucket index check with two consistent buckets and one index mismatch" loading="lazy">
+</div>
+
 ## 4. Separate clean and suspicious buckets
 
 Review every failed or inconsistent result. Apply a UI tag such as

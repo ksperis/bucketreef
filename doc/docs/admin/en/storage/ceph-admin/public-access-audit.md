@@ -41,6 +41,17 @@ For each candidate, open its bucket configuration and review:
 Classify each bucket as **intentionally public**, **private**, or **needs owner
 review**.
 
+The permissions view is useful because it puts the controls side by side. In
+the example below the Block Public Access configuration is only partial, the
+ACL is private, and the bucket policy contains both an allow statement with a
+`Principal` of `*` and a transport deny. The effective exposure therefore
+cannot be inferred from a single flag.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/ceph-admin-public-access-audit.light.png" alt="Ceph Admin bucket permissions showing partial Block Public Access, a private ACL, and bucket policy statements for exposure review" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/ceph-admin-public-access-audit.dark.png" alt="Ceph Admin bucket permissions showing partial Block Public Access, a private ACL, and bucket policy statements for exposure review" loading="lazy">
+</div>
+
 ## 3. Mark the audit result
 
 Use **Actions… > Selection > Manage UI tags…** to maintain working sets such as:
