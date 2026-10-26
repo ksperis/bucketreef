@@ -22,6 +22,13 @@ Keep unrelated buckets such as `etl-prod-critical-01` and
 `backup-immutable-01` in the same endpoint so the selection step demonstrates
 why filtering and preview matter.
 
+This is a useful storage-operations pattern because lifecycle drift tends to
+appear over time: newly created development buckets may have no retention rule,
+older buckets may still use a previous retention period, and production data
+must remain outside the campaign. The objective is therefore to standardize
+short-lived development data without touching unrelated buckets or unrelated
+lifecycle rules.
+
 The target rule is:
 
 ```json
@@ -41,6 +48,10 @@ BucketReef merges lifecycle rules by rule identifier. A bucket without
 `tmp-cleanup` receives the rule, a bucket with a different `tmp-cleanup` rule
 gets that rule replaced, and lifecycle rules with other identifiers remain in
 place.
+
+The campaign is idempotent. Once all eight target buckets contain the exact
+rule above, previewing the same change again should report zero changes and
+eight unchanged buckets.
 
 ## Prerequisites
 
@@ -92,6 +103,11 @@ record for the maintenance window.
 This provides a reviewable record of the starting state even though the bulk
 lifecycle operation preserves unrelated lifecycle rules automatically.
 
+The backup is a record of each bucket's original configuration, not a one-click
+rollback. If a rollback is required, restore the previous lifecycle rules only
+on the buckets that were changed, using the exported configuration as the
+reference for the individual bucket configuration or S3 API operation.
+
 ## 4. Prepare the lifecycle update
 
 1. With the eight buckets selected, open
@@ -116,6 +132,10 @@ For the example inventory, the expected result is:
 | Already compliant | 1 |
 | Total selected | 8 |
 
+Do not apply the campaign unless the summary also shows **Errors: 0**. For this
+scenario the expected preview banner is **Changes: 7 / Unchanged: 1 / Errors:
+0**.
+
 Review **Before / After** for representative buckets. In particular, verify
 that `etl-dev-archive-01` keeps its unrelated `archive-retention` rule while
 receiving the new `tmp-cleanup` rule.
@@ -132,6 +152,10 @@ updated, unchanged, and failed counts. A failure on one bucket does not make a
 successful update on another bucket roll back automatically, so investigate
 failed targets individually before retrying them.
 
+If the apply result differs from the preview, treat the successful buckets and
+failed buckets separately. Re-run preview against the failed targets before any
+retry so the next operation is based on their current state.
+
 ## 7. Verify the resulting policy
 
 1. Return to **Ceph Admin > Buckets** and refresh the inventory.
@@ -140,18 +164,22 @@ failed targets individually before retrying them.
 4. Confirm that the eight campaign buckets are returned.
 5. Open at least one bucket that previously had no lifecycle rule, one that had
    the 60-day rule, and `etl-dev-archive-01` to verify the final configuration.
+6. Optionally preview the same bulk lifecycle operation again. A fully
+   standardized campaign should now show **Changes: 0 / Unchanged: 8 / Errors:
+   0**.
 
 You can keep `retention-audit-2026` as the campaign record, or replace it with
 a durable tag such as `retention-30d-applied` after the verification step.
 
 ## Video walkthrough
 
-The maintained capture below demonstrates the core campaign in Ceph Admin:
-filtering the ETL development buckets, selecting them in bulk, associating the
-campaign UI tag, configuring `tmp-cleanup`, reviewing the per-bucket preview,
-and applying the lifecycle change.
+The maintained silent capture below demonstrates the core campaign in Ceph
+Admin: filtering the ETL development buckets, selecting them in bulk,
+associating the campaign UI tag, configuring `tmp-cleanup`, reviewing the
+per-bucket preview, and applying the lifecycle change. The backup and
+post-change verification remain explicit in the numbered runbook above.
 
-<video class="docs-workflow-video" controls autoplay muted loop playsinline preload="metadata">
+<video class="docs-workflow-video" controls muted playsinline preload="metadata" poster="/assets/screenshots/user/ceph-admin-bulk-lifecycle.light.png">
   <source src="/assets/screenshots/user/ceph-admin-bulk-lifecycle.workflow.webm" type="video/webm">
   Your browser does not support the workflow video. The written steps above describe the same operation.
 </video>
