@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { test, type Browser, type Page } from "@playwright/test";
 
@@ -15,9 +17,70 @@ import type {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const moduleRequire = createRequire(import.meta.url);
 const SCREENSHOT_DIR = path.resolve(__dirname, "../../../doc/docs/assets/screenshots/user");
 const SCREENSHOT_VARIANTS: ScreenshotThemeVariant[] = ["light", "dark"];
 const ACTION_TIMEOUT_MS = 15_000;
+
+type PlaywrightRegistryModule = {
+  registry: {
+    findExecutable(name: string): {
+      executablePath(): string;
+    };
+  };
+};
+
+function playwrightFfmpegPath() {
+  const playwrightCorePackage = moduleRequire.resolve("playwright-core/package.json");
+  const registryModulePath = path.join(
+    path.dirname(playwrightCorePackage),
+    "lib/server/registry/index.js",
+  );
+  const { registry } = moduleRequire(registryModulePath) as PlaywrightRegistryModule;
+  const executablePath = registry.findExecutable("ffmpeg").executablePath();
+  if (!executablePath) {
+    throw new Error("Playwright FFmpeg executable is unavailable");
+  }
+  return executablePath;
+}
+
+async function trimWorkflowVideo(inputPath: string, outputPath: string, trimStartMs: number) {
+  const ffmpeg = playwrightFfmpegPath();
+  await new Promise<void>((resolve, reject) => {
+    execFile(
+      ffmpeg,
+      [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-ss",
+        (trimStartMs / 1_000).toFixed(3),
+        "-i",
+        inputPath,
+        "-an",
+        "-c:v",
+        "libvpx",
+        "-crf",
+        "18",
+        "-b:v",
+        "0",
+        "-y",
+        outputPath,
+      ],
+      (error, _stdout, stderr) => {
+        if (error) {
+          reject(
+            new Error(`Unable to trim workflow video: ${stderr.trim() || error.message}`, {
+              cause: error,
+            }),
+          );
+          return;
+        }
+        resolve();
+      },
+    );
+  });
+}
 
 async function writeDebugArtifacts(page: Page, scenarioId: string, runtimeErrors: string[]) {
   const debugPath = path.join(SCREENSHOT_DIR, `${scenarioId}.debug.png`);
@@ -230,9 +293,18 @@ async function captureScenarioWorkflowVideo(browser: Browser, scenario: DocScree
     const video = page.video();
     await context.close();
     if (!video) throw new Error(`Workflow video was not recorded for ${scenario.id}`);
-    await video.saveAs(
-      path.join(SCREENSHOT_DIR, `${scenario.workflowVideo.outputBasename}.webm`),
+    const outputPath = path.join(
+      SCREENSHOT_DIR,
+      `${scenario.workflowVideo.outputBasename}.webm`,
     );
+    const trimStartMs = scenario.workflowVideo.trimStartMs ?? 0;
+    if (trimStartMs > 0) {
+      const rawVideoPath = path.join(temporaryVideoDir, `${scenario.id}.raw.webm`);
+      await video.saveAs(rawVideoPath);
+      await trimWorkflowVideo(rawVideoPath, outputPath, trimStartMs);
+    } else {
+      await video.saveAs(outputPath);
+    }
   } catch (error) {
     if (!page.isClosed()) {
       await writeDebugArtifacts(page, `${scenario.id}.workflow`, runtimeErrors);
