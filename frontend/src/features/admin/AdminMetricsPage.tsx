@@ -308,9 +308,9 @@ export default function AdminMetricsPage() {
     () =>
       [
         { id: "storage" as const, label: text("storage") },
-        { id: "usage-composition" as const, label: text("usageComposition") },
         ...(showUsageHistoryTrends ? [{ id: "usage-history" as const, label: text("usageHistory") }] : []),
         { id: "traffic" as const, label: text("traffic") },
+        { id: "usage-composition" as const, label: text("usageComposition") },
       ],
     [showUsageHistoryTrends, text]
   );

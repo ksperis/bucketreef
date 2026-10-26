@@ -347,6 +347,14 @@ describe("PortalUsagePage", () => {
   it("renders storage health, space breakdown, file types, trends, activity and visible costs", async () => {
     renderPage();
 
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Overview",
+      "By space",
+      "Trends",
+      "Uploads & downloads",
+      "Costs",
+      "File types",
+    ]);
     expect(screen.getByRole("heading", { name: "Storage health" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open spaces" })).toHaveAttribute("href", "/portal/storage-spaces");
     expect(screen.getByText("Room and files")).toBeInTheDocument();

@@ -217,6 +217,21 @@ describe("AdminMetricsPage", () => {
     expect(screen.queryByText("Coverage")).not.toBeInTheDocument();
   });
 
+  it("keeps usage composition as the last metrics tab", async () => {
+    usageHistoryEnabled = true;
+    listStorageEndpointsMock.mockResolvedValue([makeCephEndpoint()]);
+
+    render(<MemoryRouter><AdminMetricsPage /></MemoryRouter>);
+
+    await screen.findByText("Storage breakdown");
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Storage",
+      "Usage history",
+      "Traffic",
+      "Usage composition",
+    ]);
+  });
+
   it("keeps disabled storage metrics inside the storage snapshot card", async () => {
     listStorageEndpointsMock.mockResolvedValue([makeCephEndpoint()]);
     fetchAdminStorageMock.mockRejectedValueOnce(makeApiError("Storage metrics are disabled for this endpoint"));

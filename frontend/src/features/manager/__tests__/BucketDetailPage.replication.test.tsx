@@ -1684,7 +1684,9 @@ describe("BucketDetailPage replication state", () => {
     expect(await screen.findByText("Current usage and quota")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Refresh", exact: true })).toHaveLength(1);
     const trafficTitle = screen.getByRole("heading", { name: "Traffic" });
+    const inventoryTitle = screen.getByRole("heading", { name: "Inventory statistics" });
     expect(trafficTitle).toHaveClass("ui-section");
+    expect(trafficTitle.compareDocumentPosition(inventoryTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText("Bucket: demo-bucket")).not.toBeInTheDocument();
   });
 

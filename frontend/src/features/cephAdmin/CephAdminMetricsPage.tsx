@@ -265,8 +265,8 @@ export default function CephAdminMetricsPage() {
     () =>
       [
         { id: "storage" as const, label: surfaceText("Storage") },
-        ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: surfaceText("Usage composition") }] : []),
         { id: "traffic" as const, label: surfaceText("Traffic") },
+        ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: surfaceText("Usage composition") }] : []),
       ],
     [canLoadUsageStatsAggregate, surfaceText]
   );

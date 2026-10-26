@@ -117,10 +117,10 @@ export default function PortalUsagePage() {
       [
         { id: "storage" as const, label: t({ en: "Overview", fr: "Vue d'ensemble", de: "Überblick", zh: "概览" }) },
         { id: "storage-spaces" as const, label: t({ en: "By space", fr: "Par espace", de: "Nach Bereich", zh: "按空间" }) },
-        ...(bucketUsageStatsEnabled ? [{ id: "usage-composition" as const, label: t({ en: "File types", fr: "Types de fichiers", de: "Dateitypen", zh: "文件类型" }) }] : []),
         ...(generalSettings.usage_history_enabled ? [{ id: "usage-history" as const, label: t({ en: "Trends", fr: "Tendances", de: "Trends", zh: "趋势" }) }] : []),
         { id: "traffic" as const, label: t({ en: "Uploads & downloads", fr: "Envois et téléchargements", de: "Uploads & Downloads", zh: "上传与下载" }) },
         ...(costEstimationEnabled ? [{ id: "cost" as const, label: t({ en: "Costs", fr: "Coûts", de: "Kosten", zh: "费用" }) }] : []),
+        ...(bucketUsageStatsEnabled ? [{ id: "usage-composition" as const, label: t({ en: "File types", fr: "Types de fichiers", de: "Dateitypen", zh: "文件类型" }) }] : []),
       ],
     [bucketUsageStatsEnabled, costEstimationEnabled, generalSettings.usage_history_enabled, t]
   );

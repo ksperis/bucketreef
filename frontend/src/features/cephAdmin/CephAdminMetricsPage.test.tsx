@@ -163,6 +163,17 @@ describe("CephAdminMetricsPage", () => {
     streamCephAdminUsageStatsAggregateMock.mockResolvedValue({ status: "completed" });
   });
 
+  it("keeps usage composition as the last metrics tab", async () => {
+    renderPage();
+
+    await waitFor(() => expect(getCephAdminUsageStatsAggregateMock).toHaveBeenCalled());
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Storage",
+      "Traffic",
+      "Usage composition",
+    ]);
+  });
+
   it("keeps disabled storage metrics inside the storage snapshot card", async () => {
     useCephAdminEndpointMock.mockReturnValue(buildEndpointContext({ metrics: false, usage: true }));
 

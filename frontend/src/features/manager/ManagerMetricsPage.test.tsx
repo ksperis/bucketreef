@@ -263,6 +263,35 @@ describe("ManagerMetricsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps usage composition as the last metrics tab", async () => {
+    usageHistoryEnabled = true;
+    bucketUsageStatsEnabled = true;
+    costEnabled = true;
+    costEstimationEnabled = true;
+    setManagerUser();
+    useExecutionContextMock.mockReturnValue(buildContext());
+    useManagerStatsMock.mockReturnValue(buildStatsResult());
+
+    render(
+      <MemoryRouter>
+        <ManagerMetricsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(fetchManagerUsageHistoryTrendsMock).toHaveBeenCalled();
+      expect(getManagerUsageStatsAggregateMock).toHaveBeenCalled();
+      expect(getManagerCostMeMock).toHaveBeenCalled();
+    });
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Storage",
+      "Usage history",
+      "Traffic",
+      "Costs",
+      "Usage composition",
+    ]);
+  });
+
   it("shows backend reason when metrics are unavailable for selected context", () => {
     useExecutionContextMock.mockReturnValue(
       buildContext({

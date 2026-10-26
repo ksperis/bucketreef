@@ -252,10 +252,10 @@ export default function ManagerMetricsPage() {
     () =>
       [
         { id: "storage" as const, label: text("Storage") },
-        ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: text("Usage composition") }] : []),
         ...(showUsageHistoryTrends ? [{ id: "usage-history" as const, label: text("Usage history") }] : []),
         { id: "traffic" as const, label: text("Traffic") },
         ...(canShowCostEstimation ? [{ id: "cost" as const, label: text("Costs") }] : []),
+        ...(canLoadUsageStatsAggregate ? [{ id: "usage-composition" as const, label: text("Usage composition") }] : []),
       ],
     [canLoadUsageStatsAggregate, canShowCostEstimation, showUsageHistoryTrends, text]
   );
