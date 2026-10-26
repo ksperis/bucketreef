@@ -51,6 +51,10 @@ function scenarioById(id: string): DocScreenshotScenario {
 }
 
 async function runAction(page: Page, action: ScenarioAction) {
+  if (action.type === "pause") {
+    await page.waitForTimeout(action.durationMs);
+    return;
+  }
   if (action.type === "wait") {
     await page.locator(action.selector).first().waitFor({ state: "visible", timeout: 30_000 });
     return;
@@ -65,6 +69,12 @@ async function runAction(page: Page, action: ScenarioAction) {
   }
   if (action.type === "select") {
     await page.locator(action.selector).first().selectOption(action.value, { timeout: 15_000 });
+    return;
+  }
+  if (action.type === "scroll") {
+    await page.locator(action.selector).first().evaluate((element) => {
+      element.scrollIntoView({ block: "center", inline: "nearest" });
+    });
     return;
   }
   await page.locator(action.selector).first().press(action.key, { timeout: 15_000 });

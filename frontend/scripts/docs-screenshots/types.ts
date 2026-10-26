@@ -28,6 +28,7 @@ export type MockRule = {
         url: URL;
         method: string;
         requestBodyText: string;
+        state: Map<string, unknown>;
       }) => MockResponse);
 };
 
@@ -36,6 +37,8 @@ export type ScenarioAction =
   | { type: "wait"; selector: string }
   | { type: "fill"; selector: string; value: string }
   | { type: "select"; selector: string; value: string }
+  | { type: "scroll"; selector: string }
+  | { type: "pause"; durationMs: number }
   | { type: "press"; selector: string; key: string };
 
 export type DocScreenshotScenario = {

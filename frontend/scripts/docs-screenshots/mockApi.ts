@@ -13,6 +13,7 @@ export async function registerApiMocks(
   user: AuthUser | null = null,
 ): Promise<RegisteredApiMocks> {
   const unmatchedRequests: string[] = [];
+  const state = new Map<string, unknown>();
   const now = Date.now();
   const session: CurrentSessionResponse | null = user
     ? {
@@ -84,7 +85,7 @@ export async function registerApiMocks(
 
     const payload =
       typeof rule.body === "function"
-        ? rule.body({ url, method, requestBodyText })
+        ? rule.body({ url, method, requestBodyText, state })
         : rule.body;
 
     if (rule.delayMs && rule.delayMs > 0) {

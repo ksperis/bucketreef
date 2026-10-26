@@ -889,6 +889,8 @@ const cephBulkLifecycleUiTag = {
   visibility: "shared" as const,
 };
 
+const cephBulkLifecycleTagsAppliedStateKey = "ceph-bulk-lifecycle-tags-applied";
+
 const cephBulkLifecycleBuckets = [
   ["etl-dev-ingest-01", "ETL Ingest"],
   ["etl-dev-ingest-02", "ETL Ingest"],
@@ -970,11 +972,19 @@ const cephBulkLifecycleListRule: MockRule = {
   id: "ceph-bulk-lifecycle-buckets",
   method: "GET",
   path: /^\/ceph-admin\/endpoints\/11\/buckets$/,
-  body: ({ url }) => {
+  body: ({ url, state }) => {
     const filter = (url.searchParams.get("filter") ?? "").trim().toLowerCase();
-    const items = filter
+    const baseItems = filter
       ? cephBulkLifecycleBuckets.filter((bucket) => bucket.name.toLowerCase().includes(filter))
       : cephBulkLifecycleBuckets;
+    const tagsApplied = state.get(cephBulkLifecycleTagsAppliedStateKey) === true;
+    const items = baseItems.map((bucket) => ({
+      ...bucket,
+      ui_tags:
+        tagsApplied && bucket.name.startsWith("etl-dev-")
+          ? [cephBulkLifecycleUiTag]
+          : bucket.ui_tags,
+    }));
     return {
       items,
       total: items.length,
@@ -998,7 +1008,10 @@ const cephBulkLifecycleUiTagsPatchRule: MockRule = {
   id: "ceph-bulk-lifecycle-ui-tags-patch",
   method: "PATCH",
   path: /^\/ceph-admin\/endpoints\/11\/bucket-ui-tags$/,
-  body: { definitions: [cephBulkLifecycleUiTag] },
+  body: ({ state }) => {
+    state.set(cephBulkLifecycleTagsAppliedStateKey, true);
+    return { definitions: [cephBulkLifecycleUiTag] };
+  },
 };
 
 const cephBulkLifecycleGetRule: MockRule = {
@@ -1638,6 +1651,8 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "click", selector: "[role='menuitem']:has-text('Manage UI tags')" },
       { type: "wait", selector: "text=Manage UI tags" },
       { type: "click", selector: "button[aria-label='Add UI tag retention-audit-2026']" },
+      { type: "wait", selector: "table tbody tr:first-child:has-text('retention-audit-2026')" },
+      { type: "pause", durationMs: 1800 },
       { type: "wait", selector: "button[aria-label='Actions for 8 selected buckets']" },
       { type: "click", selector: "button[aria-label='Actions for 8 selected buckets']" },
       { type: "click", selector: "[role='menuitem']:has-text('Configure selected buckets')" },
@@ -1651,6 +1666,8 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "click", selector: "button:has-text('Format JSON')" },
       { type: "click", selector: "button:has-text('Preview')" },
       { type: "wait", selector: "text=Changes: 7 / Unchanged: 1 / Errors: 0" },
+      { type: "scroll", selector: "p:has-text('Before')" },
+      { type: "pause", durationMs: 2200 },
       { type: "click", selector: "button:has-text('Apply changes')" },
       { type: "wait", selector: "text=Updated 7 buckets" },
       { type: "press", selector: "body", key: "Home" },
