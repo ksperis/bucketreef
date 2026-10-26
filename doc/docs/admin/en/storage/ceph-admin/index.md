@@ -142,6 +142,7 @@ You can run Ceph cluster-wide tasks without switching to account-scoped Manager 
 - [User profile](../../profile.md)
 - [How-to: Use Advanced Filter in Ceph Admin](advanced-filter.md)
 - [How-to: Use UI tags in Ceph Admin](ui-tags.md)
+- [How-to: Standardize Bucket Lifecycle Policies at Scale](bulk-lifecycle-campaign.md)
 - [Feature: Bucket usage stats](../bucket-usage.md)
 - [Ops / Ceph RGW backend notes](../backends/ceph-rgw.md)
 
