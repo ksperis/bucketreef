@@ -1039,6 +1039,296 @@ const cephBulkLifecyclePutRule: MockRule = {
   },
 };
 
+function cephTutorialBucket(
+  name: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    name,
+    tenant: null,
+    owner: "RGW-DOCS",
+    owner_name: "Docs storage team",
+    owner_suspended: false,
+    used_bytes: 2_000_000_000,
+    object_count: 12_000,
+    quota_max_size_bytes: null,
+    quota_max_objects: null,
+    owner_used_bytes: null,
+    owner_object_count: null,
+    owner_quota_max_size_bytes: null,
+    owner_quota_max_objects: null,
+    tags: [{ key: "env", value: "prod" }],
+    features: {
+      versioning: { state: "enabled", tone: "active" },
+      lifecycle: { state: "configured", tone: "active" },
+    },
+    column_details: null,
+    ui_tags: [],
+    ...overrides,
+  };
+}
+
+function cephTutorialBucketListRule(
+  id: string,
+  items: Array<Record<string, unknown>>,
+): MockRule {
+  return {
+    id,
+    method: "GET",
+    path: /^\/ceph-admin\/endpoints\/11\/buckets$/,
+    body: ({ url }) => ({
+      items,
+      total: items.length,
+      page: 1,
+      page_size: Number(url.searchParams.get("page_size") ?? 25),
+      has_next: false,
+      stats_available: true,
+      stats_warning: null,
+    }),
+  };
+}
+
+const cephQuotaReviewBuckets = [
+  cephTutorialBucket("analytics-prod-raw", {
+    owner_name: "Analytics",
+    used_bytes: 8_200_000_000_000,
+    object_count: 7_800_000,
+    quota_max_size_bytes: 10_000_000_000_000,
+    quota_max_objects: 10_000_000,
+  }),
+  cephTutorialBucket("research-prod-sequences", {
+    owner_name: "Research",
+    used_bytes: 9_100_000_000_000,
+    object_count: 18_600_000,
+    quota_max_size_bytes: 10_000_000_000_000,
+    quota_max_objects: 20_000_000,
+  }),
+  cephTutorialBucket("ml-prod-models", {
+    owner_name: "ML Platform",
+    used_bytes: 4_600_000_000_000,
+    object_count: 4_350_000,
+    quota_max_size_bytes: 5_000_000_000_000,
+    quota_max_objects: 5_000_000,
+  }),
+];
+
+const cephIndexCheckBuckets = [
+  cephTutorialBucket("payments-prod-events", { owner_name: "Payments" }),
+  cephTutorialBucket("catalog-prod-media", { owner_name: "Catalog" }),
+  cephTutorialBucket("orders-prod-archive", { owner_name: "Orders" }),
+];
+
+const cephIndexCheckStreamRule: MockRule = {
+  id: "ceph-tutorial-index-check-stream",
+  method: "POST",
+  path: /^\/ceph-admin\/endpoints\/11\/bucket-index-check\/stream$/,
+  contentType: "text/event-stream",
+  body: [
+    "event: progress",
+    'data: {"request_id":"docs-index-audit","stage":"complete","bucket_name":"orders-prod-archive","tenant":null,"total_buckets":3,"completed_buckets":3,"failed_buckets":1,"message":"Bucket index checks complete"}',
+    "",
+    "event: result",
+    'data: {"status":"completed_with_errors","total_buckets":3,"completed_buckets":3,"failed_buckets":1,"started_at":"2026-10-26T09:00:00Z","finished_at":"2026-10-26T09:00:02Z","buckets":[{"name":"payments-prod-events","tenant":null,"status":"completed","duration_seconds":0.4,"operation":"check_bucket_index","rgw_status_code":200,"rgw_error_code":null,"message":"Index is consistent","result":{}},{"name":"catalog-prod-media","tenant":null,"status":"failed","duration_seconds":0.7,"operation":"check_bucket_index","rgw_status_code":500,"rgw_error_code":"IndexMismatch","message":"Header and index entry counts differ","result":{}},{"name":"orders-prod-archive","tenant":null,"status":"completed","duration_seconds":0.3,"operation":"check_bucket_index","rgw_status_code":200,"rgw_error_code":null,"message":"Index is consistent","result":{}}]}',
+    "",
+    "",
+  ].join("\n"),
+};
+
+const cephVersionRetentionStreamRule: MockRule = {
+  id: "ceph-tutorial-version-retention-stream",
+  method: "GET",
+  path: /^\/ceph-admin\/endpoints\/11\/buckets\/stream$/,
+  contentType: "text/event-stream",
+  body: [
+    "event: result",
+    `data: ${JSON.stringify({
+      items: [
+        cephTutorialBucket("archive-prod-records", { owner_name: "Records" }),
+        cephTutorialBucket("ml-prod-checkpoints", { owner_name: "ML Platform" }),
+      ],
+      total: 2,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+      stats_available: true,
+      stats_warning: null,
+    })}`,
+    "",
+    "event: done",
+    'data: {"request_id":"docs-version-retention"}',
+    "",
+    "",
+  ].join("\n"),
+};
+
+const cephNotificationBuckets = [
+  cephTutorialBucket("project-prod-ingest-01", { owner_name: "Project ingest" }),
+  cephTutorialBucket("project-prod-ingest-02", { owner_name: "Project ingest" }),
+];
+
+const cephNotificationGetRule: MockRule = {
+  id: "ceph-tutorial-notification-get",
+  method: "GET",
+  path: /^\/ceph-admin\/endpoints\/11\/buckets\/project-prod-ingest-0[12]\/notifications$/,
+  body: ({ url }) => {
+    const firstBucket = url.pathname.includes("project-prod-ingest-01");
+    const topicConfigurations = [
+      {
+        Id: "audit-removals",
+        TopicArn: "arn:aws:sns:default::audit-events",
+        Events: ["s3:ObjectRemoved:*"],
+      },
+    ];
+    if (firstBucket) {
+      topicConfigurations.push({
+        Id: "project-ingest-events",
+        TopicArn: "arn:aws:sns:default::project-ingest",
+        Events: ["s3:ObjectCreated:*"],
+        Filter: {
+          Key: { FilterRules: [{ Name: "prefix", Value: "staging/" }] },
+        },
+      } as typeof topicConfigurations[number]);
+    }
+    return { configuration: { TopicConfigurations: topicConfigurations } };
+  },
+};
+
+function cephPublicAuditResource(resource: string | undefined) {
+  switch (resource) {
+    case "properties":
+      return {
+        versioning_status: "Enabled",
+        object_lock: null,
+        public_access_block: null,
+        lifecycle_rules: [],
+        cors_rules: [],
+      };
+    case "versioning":
+      return { status: "Enabled", enabled: true };
+    case "object-lock":
+      return { enabled: false, mode: null, days: null, years: null };
+    case "lifecycle":
+      return { rules: [] };
+    case "encryption":
+      return {
+        rules: [
+          {
+            ApplyServerSideEncryptionByDefault: {
+              SSEAlgorithm: "AES256",
+            },
+          },
+        ],
+      };
+    case "notifications":
+      return { configuration: {} };
+    case "logging":
+      return { enabled: true, target_bucket: "security-audit-logs", target_prefix: "public-assets/" };
+    case "website":
+      return { index_document: "index.html", error_document: "error.html", redirect_all_requests_to: null, routing_rules: [] };
+    case "replication":
+      return { configuration: {} };
+    case "policy":
+      return {
+        policy: {
+          Version: "2012-10-17",
+          Statement: [
+            {
+              Sid: "PartnerReadFromOfficeNetwork",
+              Effect: "Allow",
+              Principal: "*",
+              Action: "s3:GetObject",
+              Resource: "arn:aws:s3:::public-assets-prod/shared/*",
+              Condition: {
+                IpAddress: { "aws:SourceIp": "203.0.113.0/24" },
+              },
+            },
+            {
+              Sid: "DenyInsecureTransport",
+              Effect: "Deny",
+              Principal: "*",
+              Action: "s3:*",
+              Resource: [
+                "arn:aws:s3:::public-assets-prod",
+                "arn:aws:s3:::public-assets-prod/*",
+              ],
+              Condition: {
+                Bool: { "aws:SecureTransport": "false" },
+              },
+            },
+          ],
+        },
+      };
+    case "acl":
+      return {
+        owner: "RGW-DOCS",
+        grants: [
+          {
+            grantee: {
+              type: "CanonicalUser",
+              id: "RGW-DOCS",
+              display_name: "RGW-DOCS",
+            },
+            permission: "FULL_CONTROL",
+          },
+        ],
+      };
+    case "cors":
+      return { rules: [] };
+    case "tags":
+      return { tags: [{ key: "classification", value: "partner-shared" }] };
+    case "public-access-block":
+      return {
+        block_public_acls: true,
+        ignore_public_acls: true,
+        block_public_policy: false,
+        restrict_public_buckets: false,
+      };
+    default:
+      return null;
+  }
+}
+
+const cephPublicAuditResourcesRule: MockRule = {
+  id: "ceph-tutorial-public-audit-resources",
+  method: "GET",
+  path: /^\/ceph-admin\/endpoints\/11\/buckets\/public-assets-prod\/(properties|versioning|object-lock|lifecycle|encryption|notifications|logging|website|replication|policy|acl|cors|tags|public-access-block)$/,
+  body: ({ url }) =>
+    cephPublicAuditResource(url.pathname.split("/").at(-1)),
+};
+
+const cephEncryptionAuditBuckets = [
+  cephTutorialBucket("finance-prod-ledger", {
+    owner_name: "Finance",
+    features: {
+      server_side_encryption: { state: "configured", tone: "active" },
+    },
+    column_details: {
+      sse_algorithms: ["aws:kms"],
+      sse_kms_key_ids: ["finance-prod-key"],
+    },
+  }),
+  cephTutorialBucket("finance-prod-reports", {
+    owner_name: "Finance",
+    features: {
+      server_side_encryption: { state: "configured", tone: "active" },
+    },
+    column_details: {
+      sse_algorithms: ["aws:kms"],
+      sse_kms_key_ids: ["legacy-finance-key"],
+    },
+  }),
+  cephTutorialBucket("finance-prod-export", {
+    owner_name: "Finance",
+    features: {
+      server_side_encryption: { state: "configured", tone: "active" },
+    },
+    column_details: {
+      sse_algorithms: ["AES256"],
+      sse_kms_key_ids: [],
+    },
+  }),
+];
+
 export const scenarios: DocScreenshotScenario[] = [
   {
     id: "user-overview",
@@ -1685,6 +1975,237 @@ export const scenarios: DocScreenshotScenario[] = [
       pauseAfterActionMs: 1200,
       finalPauseMs: 3000,
     },
+  },
+  {
+    id: "ceph-admin-multipart-cleanup-audit",
+    docPage: "admin/en/storage/ceph-admin/multipart-upload-cleanup.md",
+    route: "/ceph-admin/buckets",
+    outputBasename: "ceph-admin-multipart-cleanup-audit",
+    waitFor: "h1:has-text('Buckets')",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
+    actions: [
+      { type: "click", selector: "button:has-text('Advanced filter')" },
+      { type: "click", selector: "button:has-text('Feature details')" },
+      {
+        type: "select",
+        selector: "#bucket-ops-feature-detail-lifecycleRuleTypeMode",
+        value: "has_not",
+      },
+      {
+        type: "select",
+        selector: "#bucket-ops-feature-detail-lifecycleRuleTypeValue",
+        value: "abort_multipart",
+      },
+      {
+        type: "scroll",
+        selector: "#bucket-ops-feature-detail-lifecycleRuleTypeValue",
+      },
+    ],
+    mockRules: withBaseRules(),
+    capture: { selector: "[role='dialog']", padding: 0 },
+  },
+  {
+    id: "ceph-admin-version-retention-audit",
+    docPage: "admin/en/storage/ceph-admin/versioned-bucket-retention.md",
+    route: "/ceph-admin/buckets",
+    outputBasename: "ceph-admin-version-retention-audit",
+    waitFor: "h1:has-text('Buckets')",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
+    actions: [
+      { type: "click", selector: "button:has-text('Advanced filter')" },
+      { type: "click", selector: "button:has-text('Feature states')" },
+      {
+        type: "select",
+        selector: "select:has(option[value='suspended'])",
+        value: "enabled",
+      },
+      { type: "click", selector: "button:has-text('Feature details')" },
+      {
+        type: "select",
+        selector: "#bucket-ops-feature-detail-lifecycleRuleTypeMode",
+        value: "has_not",
+      },
+      {
+        type: "select",
+        selector: "#bucket-ops-feature-detail-lifecycleRuleTypeValue",
+        value: "noncurrent_expiration",
+      },
+      { type: "click", selector: "button:has-text('Apply filters')" },
+      { type: "wait", selector: ".ui-list-active-filters" },
+    ],
+    mockRules: withBaseRules(cephVersionRetentionStreamRule),
+    capture: { selector: ".ui-list-active-filters", padding: 18 },
+  },
+  {
+    id: "ceph-admin-quota-capacity-review",
+    docPage: "admin/en/storage/ceph-admin/quota-capacity-review.md",
+    route: "/ceph-admin/buckets",
+    outputBasename: "ceph-admin-quota-capacity-review",
+    waitFor: "text=analytics-prod-raw",
+    user: adminUser,
+    storage: {
+      ...baseStorage(),
+      selectedWorkspace: "ceph-admin",
+      extraEntries: {
+        "ceph-admin.bucket_list.columns.v2": JSON.stringify([
+          "owner_name",
+          "used_bytes",
+          "quota_max_size_bytes",
+          "quota_usage_size_percent",
+          "object_count",
+          "quota_usage_object_percent",
+        ]),
+      },
+    },
+    mockRules: withBaseRules(
+      cephTutorialBucketListRule(
+        "ceph-tutorial-quota-review-buckets",
+        cephQuotaReviewBuckets,
+      ),
+    ),
+    capture: { selector: "table", padding: 18 },
+  },
+  {
+    id: "ceph-admin-public-access-audit",
+    docPage: "admin/en/storage/ceph-admin/public-access-audit.md",
+    route: "/ceph-admin/buckets",
+    outputBasename: "ceph-admin-public-access-audit",
+    waitFor: "button:has-text('public-assets-prod')",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
+    actions: [
+      { type: "click", selector: "button:has-text('public-assets-prod')" },
+      { type: "wait", selector: "[role='complementary']" },
+      { type: "click", selector: "[role='tab']:has-text('Permissions')" },
+      {
+        type: "wait",
+        selector: "[data-testid='bucket-feature-block-public-access']",
+      },
+      { type: "wait", selector: "[data-testid='bucket-feature-policy']" },
+    ],
+    mockRules: withBaseRules(
+      cephTutorialBucketListRule("ceph-tutorial-public-audit-bucket", [
+        cephTutorialBucket("public-assets-prod", { owner_name: "Digital assets" }),
+      ]),
+      cephPublicAuditResourcesRule,
+    ),
+    capture: { selector: "[role='complementary']", padding: 0 },
+  },
+  {
+    id: "ceph-admin-bucket-index-check-results",
+    docPage: "admin/en/storage/ceph-admin/bucket-index-checks.md",
+    route: "/ceph-admin/buckets",
+    outputBasename: "ceph-admin-bucket-index-check-results",
+    waitFor: "text=payments-prod-events",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
+    actions: [
+      {
+        type: "click",
+        selector: "input[aria-label='Select all filtered buckets']",
+      },
+      {
+        type: "click",
+        selector: "button[aria-label='Actions for 3 selected buckets']",
+      },
+      {
+        type: "click",
+        selector: "[role='menuitem']:has-text('Check bucket indexes')",
+      },
+      { type: "wait", selector: "h1:has-text('Check bucket indexes')" },
+      { type: "click", selector: "button:has-text('Run index checks')" },
+      { type: "wait", selector: "text=Header and index entry counts differ" },
+    ],
+    mockRules: withBaseRules(
+      cephTutorialBucketListRule(
+        "ceph-tutorial-index-check-buckets",
+        cephIndexCheckBuckets,
+      ),
+      cephIndexCheckStreamRule,
+    ),
+    capture: {
+      selector:
+        "div.space-y-4:has(table:has-text('Header and index entry counts differ'))",
+      padding: 12,
+    },
+  },
+  {
+    id: "ceph-admin-notification-rollout-preview",
+    docPage: "admin/en/storage/ceph-admin/notification-rollout.md",
+    route: "/ceph-admin/buckets",
+    outputBasename: "ceph-admin-notification-rollout-preview",
+    waitFor: "text=project-prod-ingest-01",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
+    actions: [
+      {
+        type: "click",
+        selector: "input[aria-label='Select all filtered buckets']",
+      },
+      {
+        type: "click",
+        selector: "button[aria-label='Actions for 2 selected buckets']",
+      },
+      {
+        type: "click",
+        selector: "[role='menuitem']:has-text('Configure selected buckets')",
+      },
+      {
+        type: "wait",
+        selector: "h1:has-text('Configure selected buckets')",
+      },
+      {
+        type: "select",
+        selector: "#bucket-ops-bulk-operation",
+        value: "add_notifications",
+      },
+      {
+        type: "fill",
+        selector: "#bucket-ops-bulk-notification-configuration",
+        value:
+          '{"TopicConfigurations":[{"Id":"project-ingest-events","TopicArn":"arn:aws:sns:default::project-ingest","Events":["s3:ObjectCreated:*"],"Filter":{"Key":{"FilterRules":[{"Name":"prefix","Value":"incoming/"}]}}}]}',
+      },
+      { type: "click", selector: "button:has-text('Format JSON')" },
+      { type: "click", selector: "button:has-text('Preview')" },
+      { type: "wait", selector: "text=Changes: 2 / Unchanged: 0 / Errors: 0" },
+      { type: "scroll", selector: "p:has-text('Before')" },
+    ],
+    mockRules: withBaseRules(
+      cephTutorialBucketListRule(
+        "ceph-tutorial-notification-buckets",
+        cephNotificationBuckets,
+      ),
+      cephNotificationGetRule,
+    ),
+  },
+  {
+    id: "ceph-admin-encryption-kms-audit",
+    docPage: "admin/en/storage/ceph-admin/encryption-kms-audit.md",
+    route: "/ceph-admin/buckets",
+    outputBasename: "ceph-admin-encryption-kms-audit",
+    waitFor: "text=finance-prod-ledger",
+    user: adminUser,
+    storage: {
+      ...baseStorage(),
+      selectedWorkspace: "ceph-admin",
+      extraEntries: {
+        "ceph-admin.bucket_list.columns.v2": JSON.stringify([
+          "owner_name",
+          "server_side_encryption",
+          "sse_algorithms",
+          "sse_kms_key_ids",
+        ]),
+      },
+    },
+    mockRules: withBaseRules(
+      cephTutorialBucketListRule(
+        "ceph-tutorial-encryption-audit-buckets",
+        cephEncryptionAuditBuckets,
+      ),
+    ),
+    capture: { selector: "table", padding: 18 },
   },
   {
     id: "howto-storage-ops-ui-tags",

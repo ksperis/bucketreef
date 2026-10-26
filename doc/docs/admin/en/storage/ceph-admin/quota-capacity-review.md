@@ -26,6 +26,15 @@ approved capacity change.
 Treat the percentage as an operational signal. Quota statistics may lag recent
 writes, so a near-limit result should be verified before changing capacity.
 
+The listing can expose used capacity, configured quota, percentage, object
+count, and object-quota percentage together so the review is based on the
+actual constraint rather than the bucket name alone.
+
+<div class="docs-themed-shot" data-docs-themed-shot>
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/ceph-admin-quota-capacity-review.light.png" alt="Ceph Admin bucket quota review showing used capacity, configured quota, quota percentage, and object usage" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/ceph-admin-quota-capacity-review.dark.png" alt="Ceph Admin bucket quota review showing used capacity, configured quota, quota percentage, and object usage" loading="lazy">
+</div>
+
 ## 2. Build a capacity review set
 
 Select the filtered rows and use
