@@ -259,8 +259,21 @@ async function clearWorkflowFieldEmphasis(page: Page) {
 
 async function runAction(page: Page, action: ScenarioAction, visualizeWorkflow = false) {
   try {
+    if (action.type === "pause") {
+      await page.waitForTimeout(action.durationMs);
+      return;
+    }
     if (action.type === "wait") {
       await page.locator(action.selector).first().waitFor({ state: "visible", timeout: ACTION_TIMEOUT_MS });
+      return;
+    }
+    if (action.type === "scroll") {
+      const locator = page.locator(action.selector).first();
+      await locator.waitFor({ state: "attached", timeout: ACTION_TIMEOUT_MS });
+      await locator.evaluate((element) => {
+        element.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      });
+      await page.waitForTimeout(500);
       return;
     }
     if (action.type === "click") {
@@ -299,7 +312,8 @@ async function runAction(page: Page, action: ScenarioAction, visualizeWorkflow =
     await locator.waitFor({ state: "visible", timeout: ACTION_TIMEOUT_MS });
     await locator.press(action.key, { timeout: ACTION_TIMEOUT_MS });
   } catch (error) {
-    throw new Error(`Unable to run screenshot action ${action.type} on selector "${action.selector}"`, {
+    const target = "selector" in action ? ` on selector "${action.selector}"` : "";
+    throw new Error(`Unable to run screenshot action ${action.type}${target}`, {
       cause: error,
     });
   }
