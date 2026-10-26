@@ -30,10 +30,11 @@ case "${1:?Validation name required}" in
   frontend-demo) cd frontend; CI=1 npm run test:demo ;;
   frontend-tests)
     cd frontend
+    vitest_test_timeout_ms="${VITEST_TEST_TIMEOUT_MS:-20000}"
     if [ -n "${VITEST_SHARD:-}" ]; then
-      npm run test:ci -- --testTimeout 10000 --shard "$VITEST_SHARD"
+      npm run test:ci -- --testTimeout "$vitest_test_timeout_ms" --shard "$VITEST_SHARD"
     else
-      npm run test:ci -- --testTimeout 10000
+      npm run test:ci -- --testTimeout "$vitest_test_timeout_ms"
     fi ;;
   frontend-browser-e2e)
     export E2E_START_MOTO=true E2E_S3_ENDPOINT=http://127.0.0.1:5000
