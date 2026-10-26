@@ -4,11 +4,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  deleteBucketNotifications,
-  getBucketNotifications,
-  putBucketNotifications,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketNotifications,
   getCephAdminBucketNotifications,
@@ -82,6 +78,7 @@ export function useBucketNotificationsController({
   enabled,
   endpointId,
 }: UseBucketNotificationsControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [configuration, setConfiguration] = useState<NotificationConfigurationRecord>({});
   const [draftConfiguration, setDraftConfiguration] = useState<NotificationConfigurationRecord>({});
   const [jsonText, setJsonText] = useState("{}");
@@ -113,7 +110,7 @@ export function useBucketNotificationsController({
         ? endpointId
           ? await getCephAdminBucketNotifications(endpointId, bucketName, cephAdminTenant)
           : { configuration: {} }
-        : await getBucketNotifications(contextId, bucketName);
+        : await bucketDetailsApi.getBucketNotifications(contextId, bucketName);
       applyBaseline(data.configuration);
     } catch (loadFailure) {
       applyBaseline({});
@@ -123,7 +120,7 @@ export function useBucketNotificationsController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const openEditorDraft = useCallback((
     nextDraft: NotificationConfigurationRecord,
@@ -224,15 +221,15 @@ export function useBucketNotificationsController({
       if (cephAdmin) {
         await deleteCephAdminBucketNotifications(endpointId as number, bucketName, cephAdminTenant);
       } else {
-        await deleteBucketNotifications(contextId, bucketName);
+        await bucketDetailsApi.deleteBucketNotifications(contextId, bucketName);
       }
       return {};
     }
     const saved = cephAdmin
       ? await putCephAdminBucketNotifications(endpointId as number, bucketName, nextConfiguration, cephAdminTenant)
-      : await putBucketNotifications(contextId, bucketName, nextConfiguration);
+      : await bucketDetailsApi.putBucketNotifications(contextId, bucketName, nextConfiguration);
     return cloneConfiguration(asConfiguration(saved.configuration ?? nextConfiguration));
-  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const removeTopicDirect = useCallback(async (index: number) => {
     if (saving) return;

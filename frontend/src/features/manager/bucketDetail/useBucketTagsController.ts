@@ -4,11 +4,7 @@
  */
 import { useCallback, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  deleteBucketTags,
-  getBucketTags,
-  putBucketTags,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketTag } from "../../../api/bucketContracts";
 import {
   deleteCephAdminBucketTags,
@@ -53,6 +49,7 @@ export function useBucketTagsController({
   enabled,
   endpointId,
 }: UseBucketTagsControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [tags, setTags] = useState<BucketTagDraft[]>([]);
   const [snapshot, setSnapshot] = useState<BucketTag[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +78,7 @@ export function useBucketTagsController({
         ? endpointId
           ? await getCephAdminBucketTags(endpointId, bucketName, cephAdminTenant)
           : { tags: [] }
-        : await getBucketTags(contextId, bucketName);
+        : await bucketDetailsApi.getBucketTags(contextId, bucketName);
       apply(response.tags);
     } catch (loadError) {
       apply([]);
@@ -89,7 +86,7 @@ export function useBucketTagsController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, apply, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const clearFeedback = () => {
     setError(null);
@@ -130,7 +127,7 @@ export function useBucketTagsController({
           if (!endpointId) return;
           await deleteCephAdminBucketTags(endpointId, bucketName, cephAdminTenant);
         } else {
-          await deleteBucketTags(contextId, bucketName);
+          await bucketDetailsApi.deleteBucketTags(contextId, bucketName);
         }
         apply([]);
         setStatus("Bucket tags cleared.");
@@ -139,7 +136,7 @@ export function useBucketTagsController({
           if (!endpointId) return;
           await putCephAdminBucketTags(endpointId, bucketName, filtered, cephAdminTenant);
         } else {
-          await putBucketTags(contextId, bucketName, filtered);
+          await bucketDetailsApi.putBucketTags(contextId, bucketName, filtered);
         }
         apply(filtered);
         setStatus("Bucket tags updated.");
@@ -160,7 +157,7 @@ export function useBucketTagsController({
         if (!endpointId) return;
         await deleteCephAdminBucketTags(endpointId, bucketName, cephAdminTenant);
       } else {
-        await deleteBucketTags(contextId, bucketName);
+        await bucketDetailsApi.deleteBucketTags(contextId, bucketName);
       }
       apply([]);
       setStatus("Bucket tags cleared.");

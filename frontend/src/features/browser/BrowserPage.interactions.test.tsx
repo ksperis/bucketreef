@@ -2601,7 +2601,7 @@ describe("BrowserPage interactions", () => {
       within(menu).getByRole("menuitem", { name: "Copy path" }),
     ).toBeInTheDocument();
     expect(
-      within(menu).getByRole("menuitem", { name: "Bucket details" }),
+      within(menu).getByRole("menuitem", { name: "Bucket settings" }),
     ).toBeInTheDocument();
     expect(
       within(menu).getByRole("menuitemcheckbox", { name: "Folders panel" }),
@@ -2872,14 +2872,14 @@ describe("BrowserPage interactions", () => {
     expect(proxyUploadMock).not.toHaveBeenCalled();
   });
 
-  it("opens read-only bucket details from More on /browser", async () => {
+  it("opens bucket settings from More in the standalone Advanced Browser", async () => {
     const user = userEvent.setup();
     renderPage();
     await findRowByLabel("a.txt");
 
     const menu = await openContextMoreMenu(user);
     await user.click(
-      within(menu).getByRole("menuitem", { name: "Bucket details" }),
+      within(menu).getByRole("menuitem", { name: "Bucket settings" }),
     );
 
     expect(
@@ -2907,7 +2907,7 @@ describe("BrowserPage interactions", () => {
     expect(within(drawer).getAllByText("bucket-1")).not.toHaveLength(0);
   });
 
-  it("shows Bucket details disabled in More when no bucket is selected", async () => {
+  it("shows Bucket settings disabled in More when no bucket is selected", async () => {
     const user = userEvent.setup();
     searchBrowserBucketsMock.mockResolvedValue({
       items: [],
@@ -2922,7 +2922,7 @@ describe("BrowserPage interactions", () => {
 
     const menu = await openContextMoreMenu(user);
     expect(
-      within(menu).getByRole("menuitem", { name: "Bucket details" }),
+      within(menu).getByRole("menuitem", { name: "Bucket settings" }),
     ).toBeDisabled();
   });
 

@@ -4,10 +4,7 @@
  */
 import { useCallback, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import {
-  getBucketVersioning,
-  setBucketVersioning,
-} from "../../../api/bucketDetails";
+import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   getCephAdminBucketVersioning,
   setCephAdminBucketVersioning,
@@ -35,6 +32,7 @@ export function useBucketVersioningController({
   enabled,
   endpointId,
 }: UseBucketVersioningControllerOptions) {
+  const bucketDetailsApi = useBucketDetailsApi();
   const [status, setStatus] = useState<string | null>(null);
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -63,7 +61,7 @@ export function useBucketVersioningController({
         ? endpointId
           ? await getCephAdminBucketVersioning(endpointId, bucketName, cephAdminTenant)
           : { status: null }
-        : await getBucketVersioning(contextId, bucketName);
+        : await bucketDetailsApi.getBucketVersioning(contextId, bucketName);
       applyStatus(data.status ?? null);
     } catch (loadFailure) {
       applyStatus(null);
@@ -73,7 +71,7 @@ export function useBucketVersioningController({
     } finally {
       setLoading(false);
     }
-  }, [contextId, applyStatus, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyStatus, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const updateDraft = (value: boolean) => {
     setDraftEnabled(value);
@@ -109,7 +107,7 @@ export function useBucketVersioningController({
           cephAdminTenant,
         );
       } else {
-        await setBucketVersioning(contextId, bucketName, draftEnabled);
+        await bucketDetailsApi.setBucketVersioning(contextId, bucketName, draftEnabled);
       }
       applyStatus(draftEnabled ? "Enabled" : "Suspended");
     } catch (saveFailure) {

@@ -81,8 +81,12 @@ delete workflow through the completed entry in **Operations overview**.
 - Actions can be disabled for the current state. For example, `Copy URL` is disabled when SSE-C is active, and deleted items must be restored from versions before direct download or delete operations.
 - Standard includes normal file operations and read-only properties. Advanced
   adds technical S3 tools, editable properties, bulk and cross-context
-  operations, multipart supervision, and path details. **Bucket details** in
-  standalone Browser remains a read-only summary.
+  operations, multipart supervision, and path details. **Bucket settings**
+  in standalone Advanced Browser can edit native S3 configuration using the
+  selected private Browser connection or S3 session, subject to its S3 IAM
+  permissions. Standard and Portal cannot edit bucket settings in Browser.
+  RGW Admin Ops, bucket quotas, and Manager-only usage metrics remain outside
+  the standalone Browser configuration panel.
 - A row click always opens its primary destination. Selection is explicit via
   the checkbox, including Shift-click for a range, so clicking another column
   no longer changes selection unexpectedly.

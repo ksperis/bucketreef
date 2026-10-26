@@ -34,6 +34,10 @@ vi.mock("../manager/BucketDetailPage", () => ({
   },
 }));
 
+vi.mock("../manager/ExecutionContextProvider", () => ({
+  BrowserBucketExecutionContextProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 function installMatchMedia(matches = false) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
@@ -141,6 +145,30 @@ describe("BucketConfigurationDrawer", () => {
       expect.objectContaining({
         mode: "manager",
         hideObjectsTab: true,
+      }),
+    );
+  });
+
+  it("uses the Browser configuration scope and hides Manager-only tabs", () => {
+    render(
+      <BucketConfigurationDrawer
+        bucketName="archive"
+        contextId="conn-12"
+        mode="browser"
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(detailProps.latest).toEqual(
+      expect.objectContaining({
+        bucketNameOverride: "archive",
+        contextIdOverride: "conn-12",
+        bucketListPathOverride: "/browser",
+        mode: "manager",
+        embedded: true,
+        hideQuotaTab: true,
+        hideObjectsTab: true,
+        hideUsageMetricsTab: true,
       }),
     );
   });

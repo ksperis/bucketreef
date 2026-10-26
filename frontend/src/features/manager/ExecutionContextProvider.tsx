@@ -8,6 +8,7 @@ import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerCo
 import type { FeatureState } from "../../api/featurePolicies";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
+import { useBrowserContext } from "../browser/BrowserContext";
 
 import type { NamingValidationProfile } from "../../utils/resourceNames";
 
@@ -37,7 +38,7 @@ type ExecutionContextState = {
   managerFeatureStates: Record<string, FeatureState> | null;
 };
 
-const ExecutionContextStateContext = createContext<ExecutionContextState>({
+const defaultExecutionContextState: ExecutionContextState = {
   namingValidationProfile: null,
   contexts: [],
   contextsLoaded: false,
@@ -61,7 +62,10 @@ const ExecutionContextStateContext = createContext<ExecutionContextState>({
   managerAccessKeyExpirationEnabled: null,
   managerPrivateAccessEnabled: null,
   managerFeatureStates: null,
-});
+};
+const ExecutionContextStateContext = createContext<ExecutionContextState>(
+  defaultExecutionContextState,
+);
 
 type ExecutionContextProviderScope = "manager" | "browser";
 
@@ -211,4 +215,26 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
 
 export function useExecutionContext() {
   return useContext(ExecutionContextStateContext);
+}
+
+/** Use the Browser's already-authorized catalogue without fetching Manager access. */
+export function BrowserBucketExecutionContextProvider({ children }: { children: ReactNode }) {
+  const browser = useBrowserContext();
+  return (
+    <ExecutionContextStateContext.Provider value={{
+        ...defaultExecutionContextState,
+        contexts: browser.contexts,
+        contextsLoaded: browser.contextsLoaded,
+        selectedContextId: browser.selectedContextId,
+        requiresContextSelection: browser.requiresContextSelection,
+        hasExecutionContext: browser.hasContext,
+        contextIdForApi: browser.contextIdForApi ?? null,
+        sessionAccountName: browser.sessionAccountName,
+        selectedContextName: browser.selectedContext?.display_name ?? browser.sessionAccountName,
+        selectedContextKind: browser.selectedKind,
+        accessError: browser.accessError,
+      }}>
+      {children}
+    </ExecutionContextStateContext.Provider>
+  );
 }

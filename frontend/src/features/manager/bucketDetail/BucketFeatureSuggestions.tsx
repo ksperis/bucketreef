@@ -15,6 +15,8 @@ import {
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
 import { listCephAdminBucketObjects } from "../../../api/cephAdminBucketDetails";
 import { listCephAdminBuckets } from "../../../api/cephAdminBuckets";
+import { searchBrowserBuckets } from "../../../api/browserBuckets";
+import { listBrowserObjects } from "../../../api/browserObjects";
 import { listBuckets } from "../../../api/managerBuckets";
 import { listManagerObjects } from "../../../api/managerObjects";
 import { listTopics } from "../../../api/topics";
@@ -23,6 +25,7 @@ import type {
   SettingsSuggestionSource,
 } from "../../../components/settings/SettingsAutocomplete";
 import { useManagerI18n } from "../managerI18n";
+import { useBrowserBucketDetailsScope } from "../../shared/BucketDetailsScope";
 
 const knownStorageClasses = [
   "STANDARD",
@@ -220,9 +223,11 @@ export function BucketFeatureSuggestionsProvider({
   children: ReactNode;
 }) {
   const { text } = useManagerI18n();
+  const browserScope = useBrowserBucketDetailsScope();
   const generationRef = useRef(0);
   const objectCacheRef = useRef(new Map<string, Promise<ObjectListingShape>>());
   const managerBucketsRef = useRef<Promise<string[]> | null>(null);
+  const browserBucketsRef = useRef(new Map<string, Promise<string[]>>());
   const cephBucketsRef = useRef(new Map<string, Promise<string[]>>());
   const topicsRef = useRef<Promise<SettingsAutocompleteSuggestion[]> | null>(null);
   const [observedStorageClasses, setObservedStorageClasses] = useState<string[]>([]);
@@ -232,11 +237,12 @@ export function BucketFeatureSuggestionsProvider({
     generationRef.current += 1;
     objectCacheRef.current.clear();
     managerBucketsRef.current = null;
+    browserBucketsRef.current.clear();
     cephBucketsRef.current.clear();
     topicsRef.current = null;
     setObservedStorageClasses([]);
     setObservedSuffixes([]);
-  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, browserScope]);
 
   const observeObjects = useCallback((listing: ObjectListingShape) => {
     const storageClasses = listing.objects
@@ -273,7 +279,9 @@ export function BucketFeatureSuggestionsProvider({
                 prefix,
                 cephAdminTenant,
               )
-            : await listManagerObjects(contextId, bucketName, prefix);
+            : browserScope
+              ? await listBrowserObjects(contextId, bucketName, { prefix })
+              : await listManagerObjects(contextId, bucketName, prefix);
           if (generationRef.current !== generation) return { objects: [], prefixes: [] };
           const listing: ObjectListingShape = {
             objects: data.objects.map((object) => ({
@@ -296,6 +304,7 @@ export function BucketFeatureSuggestionsProvider({
       contextId,
       bucketName,
       cephAdmin,
+      browserScope,
       cephAdminTenant,
       enabled,
       endpointId,
@@ -354,6 +363,25 @@ export function BucketFeatureSuggestionsProvider({
         return request;
       }
 
+      if (browserScope) {
+        const cached = browserBucketsRef.current.get(query);
+        if (cached) return cached;
+        const request = searchBrowserBuckets(contextId, {
+          search: query,
+          page: 1,
+          pageSize: 50,
+        })
+          .then((data) =>
+            generationRef.current === generation ? data.items.map((bucket) => bucket.name) : [],
+          )
+          .catch(() => {
+            if (generationRef.current === generation) browserBucketsRef.current.delete(query);
+            return [];
+          });
+        browserBucketsRef.current.set(query, request);
+        return request;
+      }
+
       if (!managerBucketsRef.current) {
         managerBucketsRef.current = listBuckets(contextId, { with_stats: false })
           .then((data) =>
@@ -366,7 +394,7 @@ export function BucketFeatureSuggestionsProvider({
       }
       return managerBucketsRef.current;
     },
-    [contextId, cephAdmin, enabled, endpointId],
+    [contextId, cephAdmin, browserScope, enabled, endpointId],
   );
 
   const loadBucketSuggestions = useCallback(
@@ -384,7 +412,7 @@ export function BucketFeatureSuggestionsProvider({
 
   const loadTopicSuggestions = useCallback(
     async (_query: string) => {
-      if (!enabled || cephAdmin || !topicsEnabled) return [];
+      if (!enabled || cephAdmin || browserScope || !topicsEnabled) return [];
       const generation = generationRef.current;
       if (!topicsRef.current) {
         topicsRef.current = listTopics(contextId)
@@ -405,7 +433,7 @@ export function BucketFeatureSuggestionsProvider({
       }
       return topicsRef.current;
     },
-    [contextId, cephAdmin, enabled, topicsEnabled],
+    [contextId, cephAdmin, browserScope, enabled, topicsEnabled],
   );
 
   const policyResourceSuggestions = useMemo<SettingsAutocompleteSuggestion[]>(() => {
@@ -459,7 +487,7 @@ export function BucketFeatureSuggestionsProvider({
       objectKeys: { loadSuggestions: loadObjectKeySuggestions },
       buckets: { loadSuggestions: loadBucketSuggestions },
       destinationBucketArns: { loadSuggestions: loadDestinationBucketArnSuggestions },
-      topicArns: cephAdmin ? EMPTY_SOURCE : { loadSuggestions: loadTopicSuggestions },
+      topicArns: cephAdmin || browserScope ? EMPTY_SOURCE : { loadSuggestions: loadTopicSuggestions },
       storageClasses: { suggestions: storageClassSuggestions },
       suffixes: { suggestions: suffixSuggestions },
       policyActions: { suggestions: policyActionSuggestions },
@@ -474,6 +502,7 @@ export function BucketFeatureSuggestionsProvider({
     }),
     [
       cephAdmin,
+      browserScope,
       loadBucketSuggestions,
       loadDestinationBucketArnSuggestions,
       loadObjectKeySuggestions,
