@@ -1647,10 +1647,12 @@ export const scenarios: DocScreenshotScenario[] = [
         selector: "#bucket-ops-bulk-lifecycle-rules",
         value: '{"ID":"tmp-cleanup","Status":"Enabled","Filter":{"Prefix":"tmp/"},"Expiration":{"Days":30}}',
       },
+      { type: "click", selector: "button:has-text('Format JSON')" },
       { type: "click", selector: "button:has-text('Preview')" },
       { type: "wait", selector: "text=Changes: 7 / Unchanged: 1 / Errors: 0" },
       { type: "click", selector: "button:has-text('Apply changes')" },
       { type: "wait", selector: "text=Updated 7 buckets" },
+      { type: "press", selector: "body", key: "Home" },
     ],
     mockRules: withBaseRules(
       cephBulkLifecycleListRule,
@@ -1661,8 +1663,8 @@ export const scenarios: DocScreenshotScenario[] = [
     ),
     workflowVideo: {
       outputBasename: "ceph-admin-bulk-lifecycle.workflow",
-      pauseAfterActionMs: 850,
-      finalPauseMs: 2200,
+      pauseAfterActionMs: 1200,
+      finalPauseMs: 3000,
     },
   },
   {
