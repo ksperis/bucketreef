@@ -933,7 +933,10 @@ describe("BucketDetailPage replication state", () => {
     );
 
     await user.click(await screen.findByRole("tab", { name: "Usage & Metrics" }));
-    expect(await screen.findByTestId("bucket-feature-quota")).toBeInTheDocument();
+    const currentUsageTitle = screen.getByText("Current usage and quota");
+    const quotaFeature = await screen.findByTestId("bucket-feature-quota");
+    expect(quotaFeature).toBeInTheDocument();
+    expect(currentUsageTitle.compareDocumentPosition(quotaFeature) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("hides Storage Ops quota configuration when the context is not quota eligible", async () => {
