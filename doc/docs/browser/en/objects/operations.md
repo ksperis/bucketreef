@@ -52,7 +52,7 @@ Select the execution context before choosing a bucket. The same bucket name may 
 The following short capture shows the complete multi-object selection and
 delete workflow through the completed entry in **Operations overview**.
 
-<video class="docs-workflow-video" controls autoplay muted loop playsinline preload="metadata">
+<video class="docs-workflow-video" controls muted playsinline preload="metadata" poster="/assets/screenshots/user/feature-objects-browser.light.png">
   <source src="/assets/screenshots/user/feature-objects-browser.workflow.webm" type="video/webm">
   Your browser does not support the workflow video. The written steps above describe the same operation.
 </video>

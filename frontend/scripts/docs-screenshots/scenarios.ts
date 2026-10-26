@@ -1538,6 +1538,7 @@ export const scenarios: DocScreenshotScenario[] = [
     mockRules: withBaseRules(browserDelayedDeleteRule),
     workflowVideo: {
       outputBasename: "feature-objects-browser.workflow",
+      trimStartMs: 1500,
       pauseAfterActionMs: 700,
       finalPauseMs: 1800,
     },
@@ -1663,6 +1664,7 @@ export const scenarios: DocScreenshotScenario[] = [
     ),
     workflowVideo: {
       outputBasename: "ceph-admin-bulk-lifecycle.workflow",
+      trimStartMs: 1500,
       pauseAfterActionMs: 1200,
       finalPauseMs: 3000,
     },

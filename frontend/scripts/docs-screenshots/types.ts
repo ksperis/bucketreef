@@ -53,6 +53,7 @@ export type DocScreenshotScenario = {
   };
   workflowVideo?: {
     outputBasename: string;
+    trimStartMs?: number;
     pauseAfterActionMs?: number;
     finalPauseMs?: number;
   };
