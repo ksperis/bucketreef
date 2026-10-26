@@ -47,6 +47,7 @@ nav:
           - Overview: storage/ceph-admin/index.md
           - Advanced filter: storage/ceph-admin/advanced-filter.md
           - UI tags: storage/ceph-admin/ui-tags.md
+          - Bulk lifecycle campaign: storage/ceph-admin/bulk-lifecycle-campaign.md
       - Storage Ops:
           - Overview: storage/storage-ops/index.md
           - UI tags: storage/storage-ops/ui-tags.md

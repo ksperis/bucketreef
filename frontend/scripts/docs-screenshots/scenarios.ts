@@ -881,6 +881,151 @@ const storageOpsBucketsStreamRule: MockRule = {
   },
 };
 
+const cephBulkLifecycleUiTag = {
+  id: 42,
+  label: "retention-audit-2026",
+  color_key: "blue",
+  scope: "standard" as const,
+  visibility: "shared" as const,
+};
+
+const cephBulkLifecycleBuckets = [
+  ["etl-dev-ingest-01", "ETL Ingest"],
+  ["etl-dev-ingest-02", "ETL Ingest"],
+  ["etl-dev-ingest-03", "ETL Ingest"],
+  ["etl-dev-transform-01", "ETL Transform"],
+  ["etl-dev-transform-02", "ETL Transform"],
+  ["etl-dev-transform-03", "ETL Transform"],
+  ["etl-dev-archive-01", "ETL Archive"],
+  ["etl-dev-quality-01", "ETL Quality"],
+  ["etl-prod-critical-01", "ETL Production"],
+  ["backup-immutable-01", "Backup Platform"],
+].map(([name, ownerName], index) => ({
+  name,
+  tenant: null,
+  owner: `RGW-DOC-${index + 1}`,
+  owner_name: ownerName,
+  owner_suspended: false,
+  used_bytes: 20_000_000 + index * 3_500_000,
+  object_count: 120 + index * 19,
+  quota_max_size_bytes: null,
+  quota_max_objects: null,
+  owner_used_bytes: null,
+  owner_object_count: null,
+  owner_quota_max_size_bytes: null,
+  owner_quota_max_objects: null,
+  tags: [{ key: "workload", value: name.startsWith("etl-") ? "etl" : "backup" }],
+  features: {
+    versioning: { state: "disabled", tone: "inactive" },
+    lifecycle: {
+      state:
+        name.startsWith("etl-dev-ingest-")
+          ? "not_set"
+          : "configured",
+      tone:
+        name.startsWith("etl-dev-ingest-")
+          ? "inactive"
+          : "active",
+    },
+  },
+  column_details: null,
+  ui_tags: [],
+}));
+
+function cephBulkLifecycleRulesForBucket(bucketName: string) {
+  if (bucketName.startsWith("etl-dev-transform-")) {
+    return [
+      {
+        ID: "tmp-cleanup",
+        Status: "Enabled",
+        Filter: { Prefix: "tmp/" },
+        Expiration: { Days: 60 },
+      },
+    ];
+  }
+  if (bucketName === "etl-dev-archive-01") {
+    return [
+      {
+        ID: "archive-retention",
+        Status: "Enabled",
+        Filter: { Prefix: "archive/" },
+        Expiration: { Days: 365 },
+      },
+    ];
+  }
+  if (bucketName === "etl-dev-quality-01") {
+    return [
+      {
+        ID: "tmp-cleanup",
+        Status: "Enabled",
+        Filter: { Prefix: "tmp/" },
+        Expiration: { Days: 30 },
+      },
+    ];
+  }
+  return [];
+}
+
+const cephBulkLifecycleListRule: MockRule = {
+  id: "ceph-bulk-lifecycle-buckets",
+  method: "GET",
+  path: /^\/ceph-admin\/endpoints\/11\/buckets$/,
+  body: ({ url }) => {
+    const filter = (url.searchParams.get("filter") ?? "").trim().toLowerCase();
+    const items = filter
+      ? cephBulkLifecycleBuckets.filter((bucket) => bucket.name.toLowerCase().includes(filter))
+      : cephBulkLifecycleBuckets;
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      page_size: Number(url.searchParams.get("page_size") ?? 50),
+      has_next: false,
+      stats_available: true,
+      stats_warning: null,
+    };
+  },
+};
+
+const cephBulkLifecycleUiTagsGetRule: MockRule = {
+  id: "ceph-bulk-lifecycle-ui-tags-get",
+  method: "GET",
+  path: /^\/ceph-admin\/endpoints\/11\/bucket-ui-tags$/,
+  body: { definitions: [cephBulkLifecycleUiTag] },
+};
+
+const cephBulkLifecycleUiTagsPatchRule: MockRule = {
+  id: "ceph-bulk-lifecycle-ui-tags-patch",
+  method: "PATCH",
+  path: /^\/ceph-admin\/endpoints\/11\/bucket-ui-tags$/,
+  body: { definitions: [cephBulkLifecycleUiTag] },
+};
+
+const cephBulkLifecycleGetRule: MockRule = {
+  id: "ceph-bulk-lifecycle-get",
+  method: "GET",
+  path: /^\/ceph-admin\/endpoints\/11\/buckets\/[^/]+\/lifecycle$/,
+  body: ({ url }) => {
+    const match = url.pathname.match(/\/buckets\/([^/]+)\/lifecycle$/);
+    const bucketName = decodeURIComponent(match?.[1] ?? "");
+    return { rules: cephBulkLifecycleRulesForBucket(bucketName) };
+  },
+};
+
+const cephBulkLifecyclePutRule: MockRule = {
+  id: "ceph-bulk-lifecycle-put",
+  method: "PUT",
+  path: /^\/ceph-admin\/endpoints\/11\/buckets\/[^/]+\/lifecycle$/,
+  body: ({ requestBodyText }) => {
+    try {
+      const payload = JSON.parse(requestBodyText || "{}") as { rules?: unknown[] };
+      return { rules: payload.rules ?? [] };
+    } catch {
+      return { rules: [] };
+    }
+  },
+};
+
 export const scenarios: DocScreenshotScenario[] = [
   {
     id: "user-overview",
@@ -1474,6 +1619,51 @@ export const scenarios: DocScreenshotScenario[] = [
       { type: "wait", selector: "[role='group'][aria-label='Tag settings for review']" },
     ],
     mockRules: withBaseRules(),
+  },
+  {
+    id: "ceph-admin-bulk-lifecycle",
+    docPage: "admin/en/storage/ceph-admin/bulk-lifecycle-campaign.md",
+    route: "/ceph-admin/buckets",
+    outputBasename: "ceph-admin-bulk-lifecycle",
+    waitFor: "h1:has-text('Buckets')",
+    user: adminUser,
+    storage: { ...baseStorage(), selectedWorkspace: "ceph-admin" },
+    actions: [
+      { type: "fill", selector: "textarea[placeholder='Bucket name(s)']", value: "etl-dev-" },
+      { type: "wait", selector: "text=Page 1 of 1 · 8 results" },
+      { type: "click", selector: "input[aria-label='Select all filtered buckets']" },
+      { type: "wait", selector: "text=8 buckets selected" },
+      { type: "click", selector: "button[aria-label='Actions for 8 selected buckets']" },
+      { type: "click", selector: "[role='menuitem']:has-text('Manage UI tags')" },
+      { type: "wait", selector: "text=Manage UI tags" },
+      { type: "click", selector: "button[aria-label='Add UI tag retention-audit-2026']" },
+      { type: "wait", selector: "button[aria-label='Actions for 8 selected buckets']" },
+      { type: "click", selector: "button[aria-label='Actions for 8 selected buckets']" },
+      { type: "click", selector: "[role='menuitem']:has-text('Configure selected buckets')" },
+      { type: "wait", selector: "h1:has-text('Configure selected buckets')" },
+      { type: "select", selector: "#bucket-ops-bulk-operation", value: "add_lifecycle" },
+      {
+        type: "fill",
+        selector: "#bucket-ops-bulk-lifecycle-rules",
+        value: '{"ID":"tmp-cleanup","Status":"Enabled","Filter":{"Prefix":"tmp/"},"Expiration":{"Days":30}}',
+      },
+      { type: "click", selector: "button:has-text('Preview')" },
+      { type: "wait", selector: "text=Changes: 7 / Unchanged: 1 / Errors: 0" },
+      { type: "click", selector: "button:has-text('Apply changes')" },
+      { type: "wait", selector: "text=Updated 7 buckets" },
+    ],
+    mockRules: withBaseRules(
+      cephBulkLifecycleListRule,
+      cephBulkLifecycleUiTagsGetRule,
+      cephBulkLifecycleUiTagsPatchRule,
+      cephBulkLifecycleGetRule,
+      cephBulkLifecyclePutRule,
+    ),
+    workflowVideo: {
+      outputBasename: "ceph-admin-bulk-lifecycle.workflow",
+      pauseAfterActionMs: 850,
+      finalPauseMs: 2200,
+    },
   },
   {
     id: "howto-storage-ops-ui-tags",
