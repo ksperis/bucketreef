@@ -16,6 +16,7 @@ import ListPageSection from "../../../components/list/ListPageSection";
 import PageEmptyState from "../../../components/PageEmptyState";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
+import { uiMutedTextClass } from "../../../components/ui/styles";
 import { extractApiError, isCancelledError } from "../../../utils/apiError";
 import { useCephAdminEndpoint } from "../CephAdminEndpointContext";
 import { useCephAdminI18n } from "../cephAdminI18n";
@@ -398,10 +399,20 @@ export default function MultisiteOverviewPage() {
     {
       id: "availability",
       label: text("Availability"),
-      render: (flow) =>
-        hasNoDataSyncState(family, flow)
-          ? <UiBadge tone="neutral">{text("No sync state")}</UiBadge>
-          : <ObservationBadge observation={flow.status} text={text} />,
+      render: (flow) => {
+        const noSyncState = hasNoDataSyncState(family, flow);
+        const reason = noSyncState
+          ? text("Ceph returned no data sync status for this direction.")
+          : flow.status.reason_code;
+        return (
+          <div className="flex flex-col items-start gap-1">
+            {noSyncState
+              ? <UiBadge tone="neutral">{text("No sync state")}</UiBadge>
+              : <ObservationBadge observation={flow.status} text={text} />}
+            {reason ? <span className={`ui-caption ${uiMutedTextClass}`}>{reason}</span> : null}
+          </div>
+        );
+      },
     },
     {
       id: "phase",
@@ -418,14 +429,6 @@ export default function MultisiteOverviewPage() {
               received: flow.status.data?.shards.length ?? 0,
               expected: flow.status.data?.expected_shards ?? text("Unknown"),
             }),
-    },
-    {
-      id: "reason",
-      label: text("Reason"),
-      render: (flow) =>
-        hasNoDataSyncState(family, flow)
-          ? text("Ceph returned no data sync status for this direction.")
-          : flow.status.reason_code ?? "—",
     },
     {
       id: "actions",
