@@ -22,6 +22,7 @@ describe("PageHeader", () => {
     expect(breadcrumb).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute("href", "/admin");
     expect(within(breadcrumb).getByText("Cost")).toHaveAttribute("aria-current", "page");
+    expect(within(breadcrumb).getByText("/")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh" }).parentElement).toHaveClass("sm:pt-6");
     expect(container.querySelector("header")).not.toHaveClass("ui-surface-card");

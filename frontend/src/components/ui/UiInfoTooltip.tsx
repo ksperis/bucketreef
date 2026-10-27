@@ -7,6 +7,7 @@ import { InfoIcon } from "../../features/browser/browserIcons";
 import AnchoredPortalMenu from "./AnchoredPortalMenu";
 import UiButton from "./UiButton";
 import { cx, uiMenuClass } from "./styles";
+import { useDismissibleLayer } from "./useDismissibleLayer";
 
 
 export default function UiInfoTooltip({ label, children, triggerClassName, tooltipClassName }: { label: string; children: ReactNode; triggerClassName?: string; tooltipClassName?: string }) {
@@ -37,20 +38,12 @@ export default function UiInfoTooltip({ label, children, triggerClassName, toolt
   };
 
   useEffect(() => cancelClose, [cancelClose]);
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!anchor.current?.contains(target) && !tooltip.current?.contains(target)) close();
-    };
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") close(); };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [close, open]);
+  useDismissibleLayer({
+    open,
+    insideRefs: [anchor, tooltip],
+    onDismiss: close,
+    outsideEvent: "pointerdown",
+  });
 
   return (
     <span ref={anchor} className="inline-flex"
