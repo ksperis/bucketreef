@@ -169,8 +169,11 @@ export default function BucketReplicationPage() {
     () => new Map(latestObservation?.shards.map((shard) => [shard.shard_id, shard.change]) ?? []),
     [latestObservation],
   );
-  const selectedSource = endpointOptions.find((endpoint) => String(endpoint.endpointId) === form.sourceEndpointId);
-  const selectedDestination = endpointOptions.find((endpoint) => String(endpoint.endpointId) === form.destinationEndpointId);
+  const sameEndpoint = Boolean(
+    form.sourceEndpointId
+      && form.destinationEndpointId
+      && form.sourceEndpointId === form.destinationEndpointId,
+  );
   const loadedShards = useMemo(() => visibleResult?.status.data?.shards ?? [], [visibleResult]);
   const filteredShards = useMemo(() => {
     const query = shardSearch.trim().toLocaleLowerCase();
@@ -302,13 +305,19 @@ export default function BucketReplicationPage() {
         ]}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <ObservationBadge observation={visibleResult.source} text={text} />
-          <span className="ui-caption text-[var(--ui-text-muted)]">{text("Source identity")}</span>
-          <ObservationBadge observation={visibleResult.destination} text={text} />
-          <span className="ui-caption text-[var(--ui-text-muted)]">{text("Destination identity")}</span>
-          <ObservationBadge observation={visibleResult.bilog} text={text} />
-          <span className="ui-caption text-[var(--ui-text-muted)]">{text("Source generations")}</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="inline-flex items-center gap-2">
+            <span className="ui-caption text-[var(--ui-text-muted)]">{text("Source identity")}</span>
+            <ObservationBadge observation={visibleResult.source} text={text} />
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="ui-caption text-[var(--ui-text-muted)]">{text("Destination identity")}</span>
+            <ObservationBadge observation={visibleResult.destination} text={text} />
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <span className="ui-caption text-[var(--ui-text-muted)]">{text("Source generations")}</span>
+            <ObservationBadge observation={visibleResult.bilog} text={text} />
+          </span>
         </div>
         {logHref ? <ListActionLink to={logHref}>{text("Open source log")}</ListActionLink> : null}
       </div>
@@ -331,20 +340,25 @@ export default function BucketReplicationPage() {
         idPrefix="multisite-bucket"
       />
       {activeTab === "shards" ? (
-        <ListPageSection variant="section" title={text("Destination shard states")} description={text("Comparison is limited to observations collected for this exact source and destination scope.")} countLabel={text("{count} shards", { count: visibleResult.status.data?.shards.length ?? 0 })}>
-          <div className="space-y-2">
+        <ListPageSection
+          variant="section"
+          title={text("Destination shard states")}
+          description={text("Comparison is limited to observations collected for this exact source and destination scope.")}
+          search={(
             <UiInput
-              label={text("Search loaded shard states")}
+              aria-label={text("Search loaded shard states")}
+              type="search"
+              size="compact"
               value={shardSearch}
               onChange={(event) => {
                 setShardSearch(event.target.value);
                 setShardPage(1);
               }}
+              placeholder={text("Search loaded shard states")}
             />
-            <p className="ui-caption text-[var(--ui-text-muted)]">
-              {text("Search applies only to the {count} shard states already loaded by this diagnostic.", { count: loadedShards.length })}
-            </p>
-          </div>
+          )}
+          countLabel={text("{count} shards", { count: visibleResult.status.data?.shards.length ?? 0 })}
+        >
           <DataTableShell
             columns={shardColumns}
             rows={pagedShards}
@@ -415,23 +429,30 @@ export default function BucketReplicationPage() {
       ]}
     >
       <div className="space-y-4">
-        <section className="grid gap-3 rounded-lg border border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] p-3 lg:grid-cols-2">
-          <UiSelect label={text("Source zone and endpoint")} value={form.sourceEndpointId} onChange={(event) => updateForm("sourceEndpointId", event.target.value)} disabled={topology.loading}>
-            <option value="">{text("Select source")}</option>
-            {endpointOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpointLabel(endpoint)}</option>)}
-          </UiSelect>
-          <UiSelect label={text("Destination zone and endpoint")} value={form.destinationEndpointId} onChange={(event) => updateForm("destinationEndpointId", event.target.value)} disabled={topology.loading}>
-            <option value="">{text("Select destination")}</option>
-            {endpointOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpointLabel(endpoint)}</option>)}
-          </UiSelect>
-          <UiInput label={text("Source bucket")} value={form.sourceBucket} onChange={(event) => updateForm("sourceBucket", event.target.value)} />
-          <UiInput label={text("Source tenant")} value={form.sourceTenant} onChange={(event) => updateForm("sourceTenant", event.target.value)} />
-          <UiInput label={text("Destination bucket")} value={form.destinationBucket} onChange={(event) => updateForm("destinationBucket", event.target.value)} />
-          <UiInput label={text("Destination tenant")} value={form.destinationTenant} onChange={(event) => updateForm("destinationTenant", event.target.value)} />
-          <div className="flex flex-wrap items-end gap-2 lg:col-span-2">
+        <section className="rounded-lg border border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] p-3">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <fieldset className="min-w-0 space-y-3">
+              <legend className="mb-2 ui-caption font-semibold text-[var(--ui-text-muted)]">{text("Source")}</legend>
+              <UiSelect label={text("Source zone and endpoint")} value={form.sourceEndpointId} onChange={(event) => updateForm("sourceEndpointId", event.target.value)} disabled={topology.loading}>
+                <option value="">{text("Select source")}</option>
+                {endpointOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpointLabel(endpoint)}</option>)}
+              </UiSelect>
+              <UiInput label={text("Source bucket")} value={form.sourceBucket} onChange={(event) => updateForm("sourceBucket", event.target.value)} />
+              <UiInput label={text("Source tenant")} value={form.sourceTenant} onChange={(event) => updateForm("sourceTenant", event.target.value)} />
+            </fieldset>
+            <fieldset className="min-w-0 space-y-3">
+              <legend className="mb-2 ui-caption font-semibold text-[var(--ui-text-muted)]">{text("Destination")}</legend>
+              <UiSelect label={text("Destination zone and endpoint")} value={form.destinationEndpointId} onChange={(event) => updateForm("destinationEndpointId", event.target.value)} disabled={topology.loading}>
+                <option value="">{text("Select destination")}</option>
+                {endpointOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpointLabel(endpoint)}</option>)}
+              </UiSelect>
+              <UiInput label={text("Destination bucket")} value={form.destinationBucket} onChange={(event) => updateForm("destinationBucket", event.target.value)} />
+              <UiInput label={text("Destination tenant")} value={form.destinationTenant} onChange={(event) => updateForm("destinationTenant", event.target.value)} />
+            </fieldset>
+          </div>
+          <div className="mt-3 flex flex-wrap items-start gap-2 border-t border-[color:var(--ui-border-soft)] pt-3">
             <UiButton size="sm" onClick={readDiagnostic} loading={loading} disabled={!resolvedScope}>{text("Read diagnostic")}</UiButton>
-            {selectedSource && selectedDestination && selectedSource.endpointId === selectedDestination.endpointId ? <UiInlineMessage tone="warning">{text("Source and destination endpoints must be different.")}</UiInlineMessage> : null}
-            {!resolvedScope && form.sourceEndpointId && form.destinationEndpointId && form.sourceEndpointId === form.destinationEndpointId ? <UiInlineMessage tone="warning">{text("Source and destination endpoints must be different.")}</UiInlineMessage> : null}
+            {sameEndpoint ? <UiInlineMessage tone="warning">{text("Source and destination endpoints must be different.")}</UiInlineMessage> : null}
           </div>
         </section>
         {topology.error ? <UiInlineMessage tone="error">{topology.error}</UiInlineMessage> : null}

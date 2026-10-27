@@ -267,7 +267,7 @@ export default function MultisiteLogExplorerPage() {
             <UiInput label={text("Generation")} value={form.generation} onChange={(event) => updateForm("generation", event.target.value)} />
             <UiInput label={text("Shard (optional)")} type="number" min={0} value={form.shard} onChange={(event) => updateForm("shard", event.target.value)} />
           </> : null}
-          <div className="flex items-end lg:col-span-3"><UiButton type="submit" size="sm" loading={loading} disabled={!resolvedScope}>{text("Read logs")}</UiButton></div>
+          <div className="flex items-end border-t border-[color:var(--ui-border-soft)] pt-3 lg:col-span-3"><UiButton type="submit" size="sm" loading={loading} disabled={!resolvedScope}>{text("Read logs")}</UiButton></div>
         </form>
         {topology.error ? <UiInlineMessage tone="error">{topology.error}</UiInlineMessage> : null}
         {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}

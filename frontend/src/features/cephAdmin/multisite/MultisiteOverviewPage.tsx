@@ -662,7 +662,9 @@ export default function MultisiteOverviewPage() {
         ) : null}
         {overview.uncollected.length > 0 ? (
           <UiInlineMessage tone="warning">
-            {text("{count} flow scopes were not collected in this overview page.", { count: overview.uncollected.length })}
+            {overview.uncollected.length === 1
+              ? text("One flow scope was not collected in this overview page.")
+              : text("{count} flow scopes were not collected in this overview page.", { count: overview.uncollected.length })}
           </UiInlineMessage>
         ) : null}
         {overview.next_offset != null ? (

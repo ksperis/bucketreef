@@ -510,6 +510,7 @@
   "Zone": "Zone Ceph",
   "Zonegroup": "Groupe de zones",
   "Zones": "Zones Ceph",
+  "One flow scope was not collected in this overview page.": "Un scope de flux n’a pas été collecté dans cette vue d’ensemble.",
   "{count} flow scopes were not collected in this overview page.": "{count} scopes de flux n’ont pas été collectés dans cette vue d’ensemble.",
   "{count} flows": "{count} flux",
   "{count} zones": "{count} zones Ceph",
