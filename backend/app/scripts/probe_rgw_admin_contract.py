@@ -198,4 +198,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    import sys
+    if "--multisite" in sys.argv:
+        from app.scripts.probe_ceph_multisite import main as multisite_main
+        sys.argv.remove("--multisite")
+        raise SystemExit(multisite_main())
     raise SystemExit(main())

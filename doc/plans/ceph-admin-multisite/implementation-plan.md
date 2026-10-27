@@ -1,6 +1,7 @@
 # Plan d’implémentation — Ceph Admin Multisite Diagnostics
 
-Statut : proposition détaillée à examiner, avec maquette navigable. Date :
+Statut initial : proposition détaillée, puis implémentation V1 sur cette branche ;
+voir le [suivi des validations et limites](implementation-status.md). Date :
 27 octobre 2026. Branche dédiée : `feat-ceph-admin-multisite`.
 
 ## 1. Résultat attendu et limites de cette itération
@@ -14,8 +15,9 @@ Permettre à un administrateur de stockage de répondre à quatre questions :
 4. Qu’est-ce qui a changé entre deux observations et quelles entrées du journal
    source peut-on examiner pour poursuivre le diagnostic ?
 
-La livraison actuelle est **le plan et la maquette**, pas l’implémentation du
-module. Le périmètre de la future V1 comprend les trois vues et les observations
+La conception initiale livrait **le plan et la maquette**. L'implémentation V1
+est désormais suivie dans [le bilan de qualification](implementation-status.md).
+Son périmètre comprend les trois vues et les observations
 successives pendant une session de consultation. Un historique permanent et un
 collecteur en arrière-plan sont un lot ultérieur, explicitement distinct.
 
@@ -82,7 +84,8 @@ contrat d’identité, à concevoir séparément. Aucune élévation automatique
 ### Navigation commune
 
 Ajouter « Multisite » dans le groupe Monitoring de `CephAdminLayout`, après
-Usage & Metrics. Utiliser les contrats de navigation et breadcrumbs existants.
+Usage & Metrics, avec son pictogramme de sites reliés. Le groupe Monitoring est
+placé sous Data dans la sidebar. Utiliser les contrats de navigation et breadcrumbs existants.
 
 Routes UI proposées :
 
@@ -420,7 +423,8 @@ coordination de fichiers.
 
 Modèle à utiliser : `model="chatgpt-web/gpt-5.6-sol"`,
 `reasoning_effort="high"`. Ne pas remplacer ce modèle silencieusement.
-Il n’est pas disponible dans cette session : aucun sous-agent n’a été lancé.
+Il n'était pas disponible dans la session de conception. La session
+d'implémentation l'utilise avec au plus trois sous-agents simultanés.
 
 Paquets autonomes dès qu’il sera exposé :
 
@@ -539,7 +543,7 @@ que les tests de lecture seule et d’isolement passent, et que la qualification
 Tentacle confirme les cas courants et limites. Une capture de maquette ne
 constitue pas une validation des API sur un cluster.
 
-Points encore à mesurer avant implémentation : payloads réels du laboratoire,
+Points à mesurer avant qualification complète : payloads réels du laboratoire,
 nombre maximal de zones/shards, comportement précis du mode merge, encodage des
 marqueurs source par backend de journal, identité du LB et disponibilité des
 instances de bucket. Ces inconnues ont des états de repli prévus ; elles ne sont

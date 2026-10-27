@@ -112,7 +112,7 @@ describe("CephAdminLayout", () => {
     useGeneralSettingsMock.mockReset();
   });
 
-  it("keeps Dashboard ungrouped and places Monitoring before Ceph administration", () => {
+  it("keeps Dashboard ungrouped and places Monitoring below Data", () => {
     useCephAdminEndpointMock.mockReturnValue(buildEndpointContext());
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
 
@@ -124,13 +124,14 @@ describe("CephAdminLayout", () => {
 
     expect(capturedNavSections.map((section) => section.label)).toEqual([
       undefined,
-      "Monitoring",
       "CEPH S3",
       "Data",
+      "Monitoring",
     ]);
     expect(capturedNavSections[0]?.links.map((link) => link.label)).toEqual(["Dashboard"]);
     expect(capturedNavSections[0]?.links[0]?.iconName).toBe("home");
-    expect(capturedNavSections[1]?.links.map((link) => link.label)).toEqual(["Usage & Metrics"]);
+    expect(capturedNavSections[3]?.links.map((link) => link.label)).toEqual(["Usage & Metrics", "Multisite"]);
+    expect(getNavLink("Multisite")?.iconName).toBe("multisite");
   });
 
   it("uses endpoint-selection hint when no endpoint is selected", () => {

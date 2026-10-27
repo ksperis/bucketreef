@@ -1,0 +1,91 @@
+{
+  "sync_status": {
+    "state": "incremental-sync",
+    "full": {
+      "position": {
+        "name": "replication/object-1.txt"
+      },
+      "count": 1
+    },
+    "incremental_gen": 0
+  },
+  "inc_status": [
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178856Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178874Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178883Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178887Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178891Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "00000000002.173103.11",
+        "timestamp": "2026-10-25T05:12:17.178894Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178898Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178908Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178911Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178915Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "",
+        "timestamp": "2026-10-25T05:12:17.178918Z"
+      }
+    }
+  ]
+}

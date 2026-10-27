@@ -53,6 +53,7 @@ function CephAdminShell() {
   const endpointUnavailable = selectedEndpointAccess?.availability_status === "unavailable";
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const endpointDependentRoute = normalizedPath !== "/ceph-admin" && normalizedPath !== "/ceph-admin/profile";
+  const multisiteRoute = normalizedPath.startsWith("/ceph-admin/multisite");
   const usageFeatureEnabled = selectedEndpoint?.capabilities?.metrics !== false;
   const trafficFeatureEnabled = selectedEndpoint?.capabilities?.usage !== false;
   const canAdmin = endpointSelected && !selectedEndpointAccessLoading && Boolean(selectedEndpointAccess?.can_admin);
@@ -127,17 +128,6 @@ function CephAdminShell() {
       links: [{ ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.dashboard), label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.dashboard.label), end: true, iconName: "home" }],
     },
     {
-      label: surfaceText("Monitoring"),
-      links: [
-        {
-          ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.metrics),
-          label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.metrics.label),
-          disabled: !canMetrics,
-          disabledHint: !canMetrics ? metricsDisabledHint : undefined,
-        },
-      ],
-    },
-    {
       label: "CEPH S3",
       links: [
         {
@@ -168,6 +158,24 @@ function CephAdminShell() {
           label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.browser.label),
           disabled: browserLinkDisabled,
           disabledHint: browserDisabledHint,
+        },
+      ],
+    },
+    {
+      label: surfaceText("Monitoring"),
+      links: [
+        {
+          ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.metrics),
+          label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.metrics.label),
+          disabled: !canMetrics,
+          disabledHint: !canMetrics ? metricsDisabledHint : undefined,
+        },
+        {
+          ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.multisite),
+          label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.multisite.label),
+          iconName: "multisite",
+          disabled: !endpointSelected,
+          disabledHint: !endpointSelected ? surfaceText("Select a Ceph endpoint first.") : undefined,
         },
       ],
     },
@@ -300,7 +308,7 @@ function CephAdminShell() {
             title={surfaceText("Selecting Ceph endpoint")}
             description={surfaceText("Ceph Admin is selecting the endpoint to use for this operation.")}
           />
-        ) : endpointDependentRoute && selectedEndpointAccessError ? (
+        ) : endpointDependentRoute && !multisiteRoute && selectedEndpointAccessError ? (
           <ErrorState
             kind="unavailable"
             title={surfaceText("Endpoint availability could not be checked")}
@@ -308,13 +316,13 @@ function CephAdminShell() {
             primaryAction={{ label: surfaceText("Retry"), onClick: retrySelectedEndpointAccess }}
             secondaryAction={{ label: surfaceText("Back to dashboard"), to: "/ceph-admin" }}
           />
-        ) : endpointDependentRoute && selectedEndpointAccessLoading ? (
+        ) : endpointDependentRoute && !multisiteRoute && selectedEndpointAccessLoading ? (
           <PageEmptyState
             eyebrow={surfaceText("Checking")}
             title={surfaceText("Checking endpoint availability")}
             description={surfaceText("Ceph Admin operations will open as soon as the selected endpoint responds.")}
           />
-        ) : endpointDependentRoute && endpointUnavailable ? (
+        ) : endpointDependentRoute && !multisiteRoute && endpointUnavailable ? (
           <ErrorState
             kind="unavailable"
             title={surfaceText("Storage endpoint unavailable")}

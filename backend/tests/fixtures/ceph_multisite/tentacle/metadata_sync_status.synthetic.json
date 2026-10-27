@@ -1,0 +1,22 @@
+{
+  "info": {
+    "status": "sync",
+    "num_shards": 2,
+    "period": "period-a",
+    "realm_epoch": 7
+  },
+  "markers": [
+    {
+      "key": "0",
+      "val": {
+        "state": 1,
+        "marker": "00000000001.1.0",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-27T09:31:42.000000Z",
+        "realm_epoch": 7
+      }
+    }
+  ]
+}

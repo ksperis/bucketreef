@@ -1,0 +1,47 @@
+{
+  "fixture_kind": "anonymized_lab_capture",
+  "captured_at": "2026-10-27T13:02:18.109192+00:00",
+  "server_version": null,
+  "reference_contract": "upstream Ceph v20.2.4",
+  "remote_mutations": 0,
+  "transformations": [
+    "projection of diagnostic allowlisted fields",
+    "consistent realm/period/zonegroup/zone/bucket identifiers and names replaced",
+    "object name anonymized; marker positions and timestamps retained"
+  ],
+  "files": {
+    "period.captured.json": {
+      "sha256": "1e6e8ab65de89d43334314ae76535326c9abcec92a15454abbc16d8b9d0959f1"
+    },
+    "realm.captured.json": {
+      "sha256": "ceaa873cc37638348d7757dc94327ab93e853054a7a850deb70d28529e611299"
+    },
+    "metadata-master.captured.json": {
+      "sha256": "47650c02d78154a9310cd155a98ce0bf721507c522cac41e7eb98a52eceaf96d"
+    },
+    "metadata-replica.captured.json": {
+      "sha256": "2c951b1d060c298811b301d91edcc62e47d4cd1f29e5f50f02969aaa62d3e838"
+    },
+    "data-replica.captured.json": {
+      "sha256": "b52337b9f505f7de30924b2c9aaa6b4dfbc5bb62547412b836680f0406955576"
+    },
+    "bucket-identity.captured.json": {
+      "sha256": "cea1fb591ed71b3be2ba5367fbad7b323c4154efe12899eada26357ca9451268"
+    },
+    "bucket-sync.captured.json": {
+      "sha256": "61e1719d68e4ab5add010da82db44c0c0f8cb40e0f2788674781e8bb909de48a"
+    },
+    "bilog-info.captured.json": {
+      "sha256": "9ad46aa5cc2f58991db30522f7fe5846f9af6458e1e75733cbb6558c15ab6488"
+    },
+    "metadata-log-empty.captured.json": {
+      "sha256": "d68c86f0abf763febae577bda1d55a7ccf4418feb13dd876f656a94a14c275f5"
+    },
+    "data-log-empty.captured.json": {
+      "sha256": "3402e2c2a9ed7d269dbad451fdb738be14b5bdedb23dc0707286ba2c2bbc1086"
+    },
+    "bilog-empty.captured.json": {
+      "sha256": "b8cc27cd461e97992cdb2ec45c5bf48c802011d22d26e9529dd98bc5d522796f"
+    }
+  }
+}

@@ -18,6 +18,7 @@ type BucketOpsRowActionsMenuProps = {
   onConfigure: (bucket: CephAdminBucket) => void;
   onAdminOps?: (bucket: CephAdminBucket, kind: BucketAdminOpsKind) => void;
   onOpenInManager?: (bucket: CephAdminBucket) => void;
+  onOpenMultisite?: (bucket: CephAdminBucket) => void;
 };
 
 export default function BucketOpsRowActionsMenu({
@@ -29,6 +30,7 @@ export default function BucketOpsRowActionsMenu({
   onConfigure,
   onAdminOps,
   onOpenInManager,
+  onOpenMultisite,
 }: BucketOpsRowActionsMenuProps) {
   const { text: surfaceText } = useSharedI18n();
   const action = (id: Parameters<typeof bucketAction>[0]) => {
@@ -66,6 +68,12 @@ export default function BucketOpsRowActionsMenu({
               disabledReason: surfaceText("Ceph Admin Browser is disabled in application settings."),
               onSelect: () => onOpenInBrowser(bucket),
             },
+            ...(onOpenMultisite ? [{
+              id: "multisite",
+              label: surfaceText("Multisite"),
+              disabled: !selectedEndpointId,
+              onSelect: () => onOpenMultisite(bucket),
+            }] : []),
           ],
         },
         {

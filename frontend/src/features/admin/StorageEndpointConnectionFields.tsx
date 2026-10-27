@@ -72,6 +72,23 @@ export default function StorageEndpointConnectionFields({
         </UiInlineMessage>}
       </div>
     </SettingsSection>
+    {form.provider === "ceph" && <SettingsSection title={text("multisiteAssociation")}
+      description={text("multisiteAssociationDescription")} presentation="compact">
+      <div className="settings-fields sm:grid-cols-2">
+        <UiInput label={text("multisiteRealmId")} value={form.multisite_realm_id} readOnly={readOnly}
+          placeholder="00000000-0000-0000-0000-000000000000" error={errors.multisite_realm_id}
+          onChange={event => setForm(previous => ({ ...previous, multisite_realm_id: event.target.value }))} />
+        <UiInput label={text("multisiteZonegroupId")} value={form.multisite_zonegroup_id} readOnly={readOnly}
+          placeholder="00000000-0000-0000-0000-000000000000" error={errors.multisite_zonegroup_id}
+          onChange={event => setForm(previous => ({ ...previous, multisite_zonegroup_id: event.target.value }))} />
+        <UiInput label={text("multisiteZoneId")} value={form.multisite_zone_id} readOnly={readOnly}
+          placeholder="00000000-0000-0000-0000-000000000000" error={errors.multisite_zone_id}
+          onChange={event => setForm(previous => ({ ...previous, multisite_zone_id: event.target.value }))} />
+      </div>
+      <SettingsItem title={text("multisiteDiagnosticEndpoint")} description={text("multisiteDiagnosticDescription")} compact
+        action={<SettingsSwitch ariaLabel={text("multisiteDiagnosticEndpoint")} checked={form.multisite_diagnostic}
+          disabled={readOnly} onChange={value => setForm(previous => ({ ...previous, multisite_diagnostic: value }))} />} />
+    </SettingsSection>}
     <SettingsSection title={text("locationSection")} description={text("locationDescription")} presentation="compact">
       <div className="settings-fields sm:grid-cols-2">
         <UiInput label={text("optionalLatitude")} type="number" value={form.latitude} readOnly={readOnly} min={-90} max={90} step="any"

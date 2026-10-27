@@ -1,5 +1,14 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 Ceph Admin multisite diagnostics
+
+Migration `0194_storage_endpoint_multisite_association` adds nullable realm,
+zonegroup and zone IDs plus an explicit diagnostic-endpoint choice. Existing
+endpoints start unassociated. Declare these fields in Admin before attributing
+incoming synchronization observations; no zone or credential is changed in RGW.
+Deploy the bundled backend and frontend together for the new diagnostic DTOs
+and routes. See [Multisite diagnostics](../storage/ceph-admin/multisite.md).
+
 ## 2026-10 bucket quota updates use PATCH
 
 Manager and Ceph Admin bucket quota updates now use `PATCH` on their existing

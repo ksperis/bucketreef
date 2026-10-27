@@ -17,6 +17,29 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
   const endpoint = aws ? awsS3EndpointForRegion(region) : form.endpoint_url.trim();
   if (!form.name.trim()) errors.name = "Endpoint name is required.";
   if (!endpoint) errors.endpoint_url = "Endpoint URL is required.";
+  const multisiteIds = {
+    multisite_realm_id: form.multisite_realm_id.trim(),
+    multisite_zonegroup_id: form.multisite_zonegroup_id.trim(),
+    multisite_zone_id: form.multisite_zone_id.trim(),
+  };
+  const multisiteValues = Object.values(multisiteIds);
+  const hasAnyMultisiteId = multisiteValues.some(Boolean);
+  const hasCompleteMultisiteAssociation = multisiteValues.every(Boolean);
+  const canonicalUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  if (hasAnyMultisiteId && !hasCompleteMultisiteAssociation) {
+    for (const field of Object.keys(multisiteIds) as Array<keyof typeof multisiteIds>) {
+      if (!multisiteIds[field]) errors[field] = "Realm, zonegroup and zone IDs must be provided together.";
+    }
+  }
+  for (const [field, value] of Object.entries(multisiteIds) as Array<[keyof typeof multisiteIds, string]>) {
+    if (value && !canonicalUuid.test(value)) errors[field] = "Use a lowercase canonical UUID.";
+  }
+  if (hasAnyMultisiteId && form.provider !== "ceph") {
+    errors.multisite_realm_id = "Multisite associations are only supported for Ceph endpoints.";
+  }
+  if (form.multisite_diagnostic && !hasCompleteMultisiteAssociation) {
+    errors.multisite_zone_id = "A diagnostic endpoint requires a complete multisite association.";
+  }
   let latitude: number | null = null;
   let longitude: number | null = null;
   for (const [field, label, min, max] of [["latitude", "Latitude", -90, 90], ["longitude", "Longitude", -180, 180]] as const) {
@@ -48,6 +71,10 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
     name: form.name.trim(), endpoint_url: endpoint, region: region || null,
     force_path_style: Boolean(form.force_path_style), verify_tls: Boolean(form.verify_tls),
     latitude, longitude, provider: form.provider, features_config: buildFeaturesYaml(features),
+    multisite_realm_id: form.provider === "ceph" ? (multisiteIds.multisite_realm_id || null) : null,
+    multisite_zonegroup_id: form.provider === "ceph" ? (multisiteIds.multisite_zonegroup_id || null) : null,
+    multisite_zone_id: form.provider === "ceph" ? (multisiteIds.multisite_zone_id || null) : null,
+    multisite_diagnostic: form.provider === "ceph" && form.multisite_diagnostic,
   };
   if (form.provider === "ceph") {
     payload.service_identity_mode = form.service_identity_mode;

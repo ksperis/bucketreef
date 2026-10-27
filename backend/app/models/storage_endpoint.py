@@ -3,13 +3,27 @@
 import math
 from datetime import datetime
 from typing import Literal, Optional
+from uuid import UUID
 
-from pydantic import ConfigDict, Field, SecretStr, field_validator
+from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from app.models.base import ApiModel
 from app.db import StorageProvider
 from app.models.tagging import RequiredTagDefinitionList, TagDefinitionSummary
 from app.utils.normalize import normalize_optional_string_field
+
+
+def validate_multisite_id_value(value: Optional[str]) -> Optional[str]:
+    normalized = normalize_optional_string_field(value)
+    if normalized is None:
+        return None
+    try:
+        parsed = UUID(normalized)
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ValueError("Multisite IDs must be canonical UUIDs.") from exc
+    if str(parsed) != normalized:
+        raise ValueError("Multisite IDs must be lowercase canonical UUIDs.")
+    return normalized
 
 
 class StorageEndpointFeature(ApiModel):
@@ -92,6 +106,10 @@ class StorageEndpointMetadata(ApiModel):
     features_config: Optional[str] = None
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)
+    multisite_realm_id: Optional[str] = None
+    multisite_zonegroup_id: Optional[str] = None
+    multisite_zone_id: Optional[str] = None
+    multisite_diagnostic: bool = False
 
     normalize_string_fields = field_validator("name", "endpoint_url", "region", mode="before")(
         normalize_optional_string_field
@@ -114,6 +132,22 @@ class StorageEndpointMetadata(ApiModel):
         if not math.isfinite(value) or value < -180 or value > 180:
             raise ValueError("Longitude must be a finite number between -180 and 180.")
         return value
+
+    @field_validator("multisite_realm_id", "multisite_zonegroup_id", "multisite_zone_id", mode="before")
+    @classmethod
+    def validate_multisite_id(cls, value: Optional[str]) -> Optional[str]:
+        return validate_multisite_id_value(value)
+
+    @model_validator(mode="after")
+    def validate_multisite_association(self):
+        ids = (self.multisite_realm_id, self.multisite_zonegroup_id, self.multisite_zone_id)
+        if any(ids) and not all(ids):
+            raise ValueError("Multisite realm, zonegroup and zone IDs must be provided together.")
+        if self.multisite_diagnostic and not all(ids):
+            raise ValueError("A diagnostic endpoint requires a complete multisite association.")
+        if any(ids) and self.provider != StorageProvider.CEPH:
+            raise ValueError("Multisite associations are only supported for Ceph endpoints.")
+        return self
 
 
 class StorageEndpointCreate(StorageEndpointMetadata):
@@ -148,6 +182,10 @@ class StorageEndpointUpdate(ApiModel):
     features_config: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    multisite_realm_id: Optional[str] = None
+    multisite_zonegroup_id: Optional[str] = None
+    multisite_zone_id: Optional[str] = None
+    multisite_diagnostic: Optional[bool] = None
 
     normalize_string_fields = field_validator("name", "endpoint_url", "region", mode="before")(
         normalize_optional_string_field
@@ -162,6 +200,11 @@ class StorageEndpointUpdate(ApiModel):
     @classmethod
     def validate_optional_longitude(cls, value: Optional[float]) -> Optional[float]:
         return StorageEndpointMetadata.validate_longitude(value)
+
+    @field_validator("multisite_realm_id", "multisite_zonegroup_id", "multisite_zone_id", mode="before")
+    @classmethod
+    def validate_optional_multisite_id(cls, value: Optional[str]) -> Optional[str]:
+        return validate_multisite_id_value(value)
 
 
 class StorageEndpointTagsUpdate(ApiModel):
@@ -180,6 +223,10 @@ class StorageEndpoint(StorageEndpointMetadata):
     features_config: Optional[str]
     latitude: Optional[float]
     longitude: Optional[float]
+    multisite_realm_id: Optional[str]
+    multisite_zonegroup_id: Optional[str]
+    multisite_zone_id: Optional[str]
+    multisite_diagnostic: bool
     is_default: bool
     is_editable: bool
     created_at: datetime

@@ -1,0 +1,63 @@
+{
+  "id": "22222222-2222-4222-8222-222222222222",
+  "epoch": 3,
+  "sync_status": [],
+  "period_map": {
+    "id": "22222222-2222-4222-8222-222222222222",
+    "zonegroups": [
+      {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "name": "zonegroup-lab",
+        "api_name": "zonegroup-lab",
+        "is_master": true,
+        "master_zone": "44444444-4444-4444-8444-444444444444",
+        "zones": [
+          {
+            "id": "55555555-5555-4555-8555-555555555555",
+            "name": "zone-destination",
+            "read_only": false,
+            "sync_from_all": true,
+            "sync_from": []
+          },
+          {
+            "id": "44444444-4444-4444-8444-444444444444",
+            "name": "zone-source",
+            "read_only": false,
+            "sync_from_all": true,
+            "sync_from": []
+          }
+        ],
+        "realm_id": "11111111-1111-4111-8111-111111111111",
+        "sync_policy": {
+          "groups": [
+            {
+              "id": "bucket-replication-allowed",
+              "pipes": [
+                {
+                  "id": "allow-bucket-replication",
+                  "source": {
+                    "bucket": "*",
+                    "zones": [
+                      "44444444-4444-4444-8444-444444444444"
+                    ]
+                  },
+                  "dest": {
+                    "bucket": "*",
+                    "zones": [
+                      "55555555-5555-4555-8555-555555555555"
+                    ]
+                  }
+                }
+              ],
+              "status": "allowed"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "master_zonegroup": "33333333-3333-4333-8333-333333333333",
+  "master_zone": "44444444-4444-4444-8444-444444444444",
+  "realm_id": "11111111-1111-4111-8111-111111111111",
+  "realm_epoch": 2
+}

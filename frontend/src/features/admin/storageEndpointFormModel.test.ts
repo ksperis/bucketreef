@@ -90,6 +90,8 @@ describe("storage endpoint form model", () => {
 
     expect(first.provider).toBe("ceph");
     expect(first.verify_tls).toBe(true);
+    expect(first.multisite_realm_id).toBe("");
+    expect(first.multisite_diagnostic).toBe(false);
     expect(second.features.iam.enabled).toBe(true);
   });
 });
