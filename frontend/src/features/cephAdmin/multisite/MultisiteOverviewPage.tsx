@@ -392,6 +392,9 @@ export default function MultisiteOverviewPage() {
   const metadataReplicationFlows = overview?.metadata.filter(
     (flow) => flow.source_zone_id !== flow.destination_zone_id,
   ) ?? [];
+  const dataReplicationFlows = overview?.data.filter(
+    (flow) => !hasNoDataSyncState("data", flow),
+  ) ?? [];
   const realmData = overview?.topology.realm?.data;
   const realmName =
     realmData && typeof realmData === "object" && "name" in realmData && typeof realmData.name === "string"
@@ -700,14 +703,14 @@ export default function MultisiteOverviewPage() {
         <ListPageSection
           variant="section"
           title={text("Data replication")}
-          description={text("Per-source data sync observations. No sync state means Ceph returned no status for that direction; it does not by itself prove a replication error.")}
-          countLabel={text("{count} flows", { count: overview.data.length })}
+          description={text("Per-source data sync observations. A configured relation is not proof that every bucket is replicated.")}
+          countLabel={text("{count} flows", { count: dataReplicationFlows.length })}
         >
           <DataTableShell
             columns={flowColumns("data")}
-            rows={overview.data}
+            rows={dataReplicationFlows}
             rowKey={(flow) => `data:${flow.destination_endpoint_id}:${flow.source_zone_id}`}
-            status={overview.data.length ? "ready" : "empty"}
+            status={dataReplicationFlows.length ? "ready" : "empty"}
             loadingMessage={text("Loading data flows…")}
             errorMessage={text("Unable to display data flows.")}
             emptyMessage={text("No data flow observation was returned.")}

@@ -314,9 +314,10 @@ describe("MultisiteOverviewPage", () => {
     expect(within(metadataSection as HTMLElement).queryByText("Not applicable")).not.toBeInTheDocument();
   });
 
-  it("explains a missing Ceph data sync state without presenting an unknown phase", async () => {
+  it("hides data directions for which Ceph returned no sync state", async () => {
     const fixture = overview("Realm fixture", "marker-a", "2026-10-27T10:00:00Z", null);
     fixture.data = [
+      flow("marker-visible", "2026-10-27T10:00:00Z"),
       {
         destination_endpoint_id: 1,
         destination_zone_id: "zone-source",
@@ -344,9 +345,9 @@ describe("MultisiteOverviewPage", () => {
     expect(await screen.findByText("Realm fixture")).toBeInTheDocument();
     const dataSection = screen.getByRole("heading", { name: "Data replication" }).closest("section");
     expect(dataSection).not.toBeNull();
-    expect(within(dataSection as HTMLElement).getByText("No sync state")).toBeInTheDocument();
-    expect(within(dataSection as HTMLElement).getByText("Ceph returned no data sync status for this direction.")).toBeInTheDocument();
-    expect(within(dataSection as HTMLElement).queryByText("Unknown")).not.toBeInTheDocument();
+    expect(within(dataSection as HTMLElement).getByText("1 flows")).toBeInTheDocument();
+    expect(within(dataSection as HTMLElement).queryByText("No sync state")).not.toBeInTheDocument();
+    expect(within(dataSection as HTMLElement).queryByText("Ceph returned no data sync status for this direction.")).not.toBeInTheDocument();
   });
 
   it("keeps overview tables focused on topology and replication state", async () => {
