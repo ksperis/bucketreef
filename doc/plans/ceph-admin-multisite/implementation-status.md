@@ -4,9 +4,9 @@
 
 ## Périmètre implémenté
 
-- La migration 0194, qui avait ajouté une association multisite persistée aux
-  endpoints, est annulée fonctionnellement par 0195. Realm, zonegroup, zone et
-  endpoint de diagnostic ne font plus partie de la configuration endpoint.
+- Aucune migration de base n'est nécessaire. Realm, zonegroup, zone et endpoint
+  de diagnostic ne font pas partie de la configuration persistée des endpoints ;
+  ils sont découverts en direct depuis RGW.
 - Découverte live de la zone locale via `GET /admin/config?type=zone`, puis du
   realm/period. Les endpoints Ceph Admin enregistrés sont associés aux zones en
   lisant leur propre configuration locale. Une correspondance unique sélectionne
@@ -41,7 +41,7 @@ Dernière exécution intégrée :
 
 | Contrôle | Résultat |
 | --- | --- |
-| Pytest ciblé services/clients/permissions/endpoints/migrations/schéma | 247 réussis |
+| Pytest ciblé services/clients/permissions/endpoints/schéma | 247 réussis lors de la qualification intégrée |
 | Vitest ciblé Ceph Admin/formulaires/navigation/workbench | 246 réussis |
 | Playwright trois routes, desktop/mobile, clair/sombre et cas limites | 20 réussis |
 | TypeScript, ESLint, deadcode, présentation des listings | Réussis |
@@ -49,10 +49,13 @@ Dernière exécution intégrée :
 | Schéma DB généré et `git diff --check` | Conformes |
 | Relecture des nouvelles captures du laboratoire anonymisées | 7 réussis |
 
-La migration a été exécutée sur SQLite, y compris aller/retour. Les
-contraintes et l'index partiel ont leur syntaxe PostgreSQL explicite ; aucun
-serveur PostgreSQL réel n'a été utilisé pour ces tests. Ces résultats sont
-ceux des suites ciblées, pas une exécution de toute la CI du dépôt.
+Le schéma Alembic reste inchangé par le monitoring multisite et correspond au
+modèle SQLAlchemy courant sur SQLite. Ces résultats sont ceux des suites
+ciblées, pas une exécution de toute la CI du dépôt.
+
+Après retrait des migrations transitoires, le contrôle Alembic/SQLAlchemy
+ciblé passe avec 10 tests, et le head unique est
+`0193_remove_unused_quota_alert_state`.
 
 Les suites ciblent les contrats de lecture seule, les erreurs 403/404/5xx,
 le JSON invalide ou trop volumineux, les permissions Manager/Portal/anonyme,

@@ -2,10 +2,9 @@
 
 ## 2026-10 Ceph Admin multisite diagnostics
 
-Migration `0194_storage_endpoint_multisite_association` adds nullable realm,
-zonegroup and zone IDs plus an explicit diagnostic-endpoint choice. Existing
-endpoints start unassociated. Declare these fields in Admin before attributing
-incoming synchronization observations; no zone or credential is changed in RGW.
+Multisite topology and diagnostic endpoint selection are discovered live from
+the configured Ceph Admin endpoints. Realm, zonegroup and zone associations are
+not persisted in BucketReef, so this feature requires no database migration.
 Deploy the bundled backend and frontend together for the new diagnostic DTOs
 and routes. See [Multisite diagnostics](../storage/ceph-admin/multisite.md).
 
