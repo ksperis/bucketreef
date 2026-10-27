@@ -119,7 +119,7 @@ export default function PageHeader({
                 ) : (
                   <span aria-current={idx === breadcrumbs.length - 1 ? "page" : undefined}>{bc.label}</span>
                 )}
-                {idx < breadcrumbs.length - 1 && <span className="shrink-0 opacity-55">/</span>}
+                {idx < breadcrumbs.length - 1 && <span aria-hidden="true" className="shrink-0 opacity-55">/</span>}
               </span>
             ))}
           </nav>

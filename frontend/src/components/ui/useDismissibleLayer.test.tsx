@@ -61,6 +61,32 @@ describe("useDismissibleLayer", () => {
     surface.remove();
   });
 
+  it("can preserve pointerdown outside dismissal semantics", () => {
+    const anchor = document.createElement("button");
+    document.body.append(anchor);
+    const onDismiss = vi.fn();
+
+    const { unmount } = renderHook(() =>
+      useDismissibleLayer({
+        open: true,
+        insideRefs: [{ current: anchor }],
+        onDismiss,
+        outsideEvent: "pointerdown",
+      }),
+    );
+
+    fireEvent.mouseDown(document.body);
+    fireEvent.pointerDown(anchor);
+    expect(onDismiss).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(document.body);
+    expect(onDismiss).toHaveBeenCalledOnce();
+    expect(onDismiss).toHaveBeenCalledWith("outside");
+
+    unmount();
+    anchor.remove();
+  });
+
   it("uses the latest callback and can prevent the Escape default", () => {
     const initialDismiss = vi.fn();
     const latestDismiss = vi.fn();

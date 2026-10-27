@@ -12,6 +12,7 @@ type UseDismissibleLayerOptions = {
   onDismiss: (reason: DismissibleLayerReason) => void;
   dismissOnEscape?: boolean;
   dismissOnFocusOutside?: boolean;
+  outsideEvent?: "mousedown" | "pointerdown";
   preventEscapeDefault?: boolean;
   /** Nested popovers consume Escape before their enclosing dialog handles it. */
   stopEscapePropagation?: boolean;
@@ -23,6 +24,7 @@ export function useDismissibleLayer({
   onDismiss,
   dismissOnEscape = true,
   dismissOnFocusOutside = false,
+  outsideEvent = "mousedown",
   preventEscapeDefault = false,
   stopEscapePropagation = false,
 }: UseDismissibleLayerOptions) {
@@ -55,17 +57,17 @@ export function useDismissibleLayer({
       onDismissRef.current("escape");
     };
 
-    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener(outsideEvent, handleOutside);
     if (dismissOnFocusOutside) document.addEventListener("focusin", handleOutside);
     if (dismissOnEscape) {
       document.addEventListener("keydown", handleKeyDown, stopEscapePropagation);
     }
     return () => {
-      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener(outsideEvent, handleOutside);
       if (dismissOnFocusOutside) document.removeEventListener("focusin", handleOutside);
       if (dismissOnEscape) {
         document.removeEventListener("keydown", handleKeyDown, stopEscapePropagation);
       }
     };
-  }, [dismissOnEscape, dismissOnFocusOutside, open, preventEscapeDefault, stopEscapePropagation]);
+  }, [dismissOnEscape, dismissOnFocusOutside, open, outsideEvent, preventEscapeDefault, stopEscapePropagation]);
 }
