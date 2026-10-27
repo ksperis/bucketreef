@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -35,6 +35,7 @@ const TECHNICAL_IDENTICAL_KEYS = new Set([
   "IAM",
   "JSON",
   "MiB",
+  "Multisite",
   "GiB",
   "TiB",
   "RGW",
@@ -88,6 +89,7 @@ const IDENTICAL_KEYS_BY_LOCALE: Record<string, Set<string>> = {
     "Endpoint",
     "Endpoints",
     "Flags",
+    "Generation",
     "Limits",
     "Name",
     "Op mask",
@@ -133,6 +135,7 @@ function collectLiteral(expression: ts.Expression | undefined, values: Set<strin
 function collectCephAdminTranslationKeys(): string[] {
   const keys = new Set<string>();
   cephAdminSourceFiles(cephAdminSourceDirectory).forEach((path) => {
+    const isMultisiteSource = path.includes(`${sep}multisite${sep}`);
     const source = ts.createSourceFile(
       path,
       readFileSync(path, "utf8"),
@@ -144,7 +147,8 @@ function collectCephAdminTranslationKeys(): string[] {
       if (
         ts.isCallExpression(node) &&
         ts.isIdentifier(node.expression) &&
-        node.expression.text === "surfaceText"
+        (node.expression.text === "surfaceText" ||
+          (isMultisiteSource && node.expression.text === "text"))
       ) {
         collectLiteral(node.arguments[0], keys);
       }

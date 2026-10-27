@@ -1,0 +1,26 @@
+{
+  "sync_status": {
+    "state": "incremental-sync",
+    "full": {
+      "position": "",
+      "count": 8240
+    },
+    "incremental_gen": 3
+  },
+  "inc_status": [
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "0000000012.34.1",
+        "timestamp": "2026-10-27T09:31:42.000000Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "0000000013.21.1",
+        "timestamp": "2026-10-27T09:31:44.000000Z"
+      }
+    }
+  ]
+}

@@ -126,6 +126,24 @@ class StorageEndpointsService:
         if self.db.scalar(statement.limit(1)) is not None:
             raise ValueError("An endpoint with this URL already exists.")
 
+    def _ensure_unique_multisite_diagnostic(
+        self,
+        state: NormalizedEndpointState,
+        exclude_id: Optional[int] = None,
+    ) -> None:
+        if not state.multisite_diagnostic:
+            return
+        statement = select(StorageEndpoint.id).where(
+            StorageEndpoint.multisite_realm_id == state.multisite_realm_id,
+            StorageEndpoint.multisite_zonegroup_id == state.multisite_zonegroup_id,
+            StorageEndpoint.multisite_zone_id == state.multisite_zone_id,
+            StorageEndpoint.multisite_diagnostic.is_(True),
+        )
+        if exclude_id:
+            statement = statement.where(StorageEndpoint.id != exclude_id)
+        if self.db.scalar(statement.limit(1)) is not None:
+            raise ValueError("This multisite zone already has a diagnostic endpoint.")
+
     def detect_features(
         self,
         payload: StorageEndpointFeatureDetectionRequest,
@@ -182,6 +200,10 @@ class StorageEndpointsService:
         endpoint.verify_tls = config.verify_tls
         endpoint.latitude = config.latitude
         endpoint.longitude = config.longitude
+        endpoint.multisite_realm_id = config.multisite_realm_id
+        endpoint.multisite_zonegroup_id = config.multisite_zonegroup_id
+        endpoint.multisite_zone_id = config.multisite_zone_id
+        endpoint.multisite_diagnostic = config.multisite_diagnostic
         endpoint.provider = config.provider.value
         endpoint.admin_access_key = config.admin_access_key
         endpoint.admin_secret_key = config.admin_secret_key
@@ -659,6 +681,7 @@ class StorageEndpointsService:
         state = normalize_storage_endpoint_state(payload)
         self._ensure_unique_name(state.name)
         self._ensure_unique_endpoint(state.endpoint_url)
+        self._ensure_unique_multisite_diagnostic(state)
         endpoint = StorageEndpoint(name=state.name, endpoint_url=state.endpoint_url)
         self._apply_endpoint_state(endpoint, state)
         endpoint.is_default = False
@@ -683,6 +706,7 @@ class StorageEndpointsService:
         state = normalize_storage_endpoint_update(endpoint, payload)
         self._ensure_unique_name(state.name, exclude_id=endpoint.id)
         self._ensure_unique_endpoint(state.endpoint_url, exclude_id=endpoint.id)
+        self._ensure_unique_multisite_diagnostic(state, exclude_id=endpoint.id)
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
         lease, handle = identities._lease(endpoint)

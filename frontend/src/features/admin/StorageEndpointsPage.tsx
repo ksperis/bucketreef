@@ -389,6 +389,10 @@ export default function StorageEndpointsPage() {
         admin_secret_key: provider === "ceph" ? prev.admin_secret_key : "",
         supervision_access_key: provider === "ceph" ? prev.supervision_access_key : "",
         supervision_secret_key: provider === "ceph" ? prev.supervision_secret_key : "",
+        multisite_realm_id: provider === "ceph" ? prev.multisite_realm_id : "",
+        multisite_zonegroup_id: provider === "ceph" ? prev.multisite_zonegroup_id : "",
+        multisite_zone_id: provider === "ceph" ? prev.multisite_zone_id : "",
+        multisite_diagnostic: provider === "ceph" ? prev.multisite_diagnostic : false,
         features: constrained,
       };
     });

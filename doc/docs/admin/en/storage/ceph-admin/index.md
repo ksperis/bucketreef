@@ -27,6 +27,7 @@ See the [dashboard preview](/developer/en/documentation/screenshots-gallery/#cep
    - **Buckets**: cluster-level bucket inventory and configuration.
      Bucket quota and usage columns can be enabled as single-line atomic columns for easier reading and cleaner CSV exports.
    - **Usage & Metrics**: tabbed cluster-level usage composition, endpoint storage metrics, and traffic metrics.
+   - **Multisite**: [read-only topology, bucket replication diagnostics and source journals](multisite.md).
    - **Browser**: object navigation when enabled.
 4. In **Buckets**, long-running bulk actions show progress bars with completion and failure counters.
    Select one or more rows, then open **Actions…**. The menu separates local

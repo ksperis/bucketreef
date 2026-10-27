@@ -13,6 +13,7 @@ from app.models.storage_endpoint import (
     StorageEndpointCreate,
     StorageEndpointMetadata,
     StorageEndpointUpdate,
+    validate_multisite_id_value,
 )
 from app.utils.normalize import (
     normalize_optional_string,
@@ -69,6 +70,10 @@ class EnvStorageEndpoint(ApiModel):
     features_config: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    multisite_realm_id: Optional[str] = None
+    multisite_zonegroup_id: Optional[str] = None
+    multisite_zone_id: Optional[str] = None
+    multisite_diagnostic: bool = False
     features: Optional[dict[str, dict[str, object]]] = None
     is_default: bool = False
 
@@ -92,6 +97,11 @@ class EnvStorageEndpoint(ApiModel):
     def validate_longitude(_cls, value: Optional[float]) -> Optional[float]:
         return StorageEndpointMetadata.validate_longitude(value)
 
+    @field_validator("multisite_realm_id", "multisite_zonegroup_id", "multisite_zone_id", mode="before")
+    @classmethod
+    def validate_multisite_ids(_cls, value: Optional[str]) -> Optional[str]:
+        return validate_multisite_id_value(value)
+
 
 @dataclass(frozen=True)
 class NormalizedEndpointState:
@@ -102,6 +112,10 @@ class NormalizedEndpointState:
     verify_tls: bool
     latitude: Optional[float]
     longitude: Optional[float]
+    multisite_realm_id: Optional[str]
+    multisite_zonegroup_id: Optional[str]
+    multisite_zone_id: Optional[str]
+    multisite_diagnostic: bool
     provider: StorageProvider
     admin_access_key: Optional[str]
     admin_secret_key: Optional[str]
@@ -335,6 +349,10 @@ def normalize_storage_endpoint_state(
         verify_tls=bool(payload.verify_tls),
         latitude=payload.latitude,
         longitude=payload.longitude,
+        multisite_realm_id=payload.multisite_realm_id,
+        multisite_zonegroup_id=payload.multisite_zonegroup_id,
+        multisite_zone_id=payload.multisite_zone_id,
+        multisite_diagnostic=bool(payload.multisite_diagnostic),
         provider=provider,
         admin_access_key=credentials["admin_access_key"],
         admin_secret_key=credentials["admin_secret_key"],
@@ -432,6 +450,10 @@ def _storage_endpoint_update_base(
         features_config=endpoint.features_config,
         latitude=endpoint.latitude,
         longitude=endpoint.longitude,
+        multisite_realm_id=endpoint.multisite_realm_id,
+        multisite_zonegroup_id=endpoint.multisite_zonegroup_id,
+        multisite_zone_id=endpoint.multisite_zone_id,
+        multisite_diagnostic=endpoint.multisite_diagnostic,
     ).model_dump()
 
 
@@ -605,6 +627,10 @@ def normalize_env_storage_endpoint_states(
                 features_config=raw_features,
                 latitude=entry.latitude,
                 longitude=entry.longitude,
+                multisite_realm_id=entry.multisite_realm_id,
+                multisite_zonegroup_id=entry.multisite_zonegroup_id,
+                multisite_zone_id=entry.multisite_zone_id,
+                multisite_diagnostic=entry.multisite_diagnostic,
             ),
         )
         states.append(replace(

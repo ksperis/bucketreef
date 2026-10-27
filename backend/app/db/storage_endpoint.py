@@ -9,10 +9,12 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Float,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import relationship
 from app.core.security import EncryptedString
@@ -35,6 +37,28 @@ class StorageEndpoint(Base):
             "AND length(endpoint_url) > 0",
             name="ck_storage_endpoints_endpoint_url_canonical",
         ),
+        CheckConstraint(
+            "((multisite_realm_id IS NULL AND multisite_zonegroup_id IS NULL AND multisite_zone_id IS NULL) "
+            "OR (multisite_realm_id IS NOT NULL AND multisite_zonegroup_id IS NOT NULL AND multisite_zone_id IS NOT NULL))",
+            name="ck_storage_endpoints_multisite_association_complete",
+        ),
+        CheckConstraint(
+            "NOT multisite_diagnostic OR multisite_zone_id IS NOT NULL",
+            name="ck_storage_endpoints_multisite_diagnostic_requires_zone",
+        ),
+        CheckConstraint(
+            "multisite_realm_id IS NULL OR provider = 'ceph'",
+            name="ck_storage_endpoints_multisite_ceph_only",
+        ),
+        Index(
+            "uq_storage_endpoints_multisite_diagnostic_zone",
+            "multisite_realm_id",
+            "multisite_zonegroup_id",
+            "multisite_zone_id",
+            unique=True,
+            postgresql_where=text("multisite_diagnostic = true"),
+            sqlite_where=text("multisite_diagnostic = 1"),
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -51,6 +75,10 @@ class StorageEndpoint(Base):
     features_config = Column(Text, nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    multisite_realm_id = Column(String, nullable=True)
+    multisite_zonegroup_id = Column(String, nullable=True)
+    multisite_zone_id = Column(String, nullable=True)
+    multisite_diagnostic = Column(Boolean, default=False, nullable=False, server_default="0")
     force_path_style = Column(Boolean, default=False, nullable=False, server_default="0")
     verify_tls = Column(Boolean, default=True, nullable=False, server_default="1")
     is_default = Column(Boolean, default=False, nullable=False, server_default="0")

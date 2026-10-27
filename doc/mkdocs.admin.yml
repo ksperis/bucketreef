@@ -45,6 +45,7 @@ nav:
           - Other S3 implementations: storage/backends/other-s3.md
       - Ceph Admin:
           - Overview: storage/ceph-admin/index.md
+          - Multisite diagnostics: storage/ceph-admin/multisite.md
           - Advanced filter: storage/ceph-admin/advanced-filter.md
           - UI tags: storage/ceph-admin/ui-tags.md
           - Operational tutorials:

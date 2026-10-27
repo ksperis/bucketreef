@@ -551,6 +551,7 @@ export type SidebarLinkIconName =
   | "integrity"
   | "purge"
   | "migration"
+  | "multisite"
   | "stack"
   | "dot";
 
@@ -560,6 +561,7 @@ export function resolveSidebarLinkIconName(link: Pick<SidebarLink, "label" | "to
   if (key.includes("dashboard") || key.includes("home")) return "home";
   if (key.includes("metric")) return "chart";
   if (key.includes("history")) return "history";
+  if (key.includes("multisite")) return "multisite";
   if (key.includes("bucket")) return "bucket";
   if (key.includes("browser")) return "folder";
   if (key.includes("connection")) return "connection";
@@ -615,6 +617,7 @@ function resolveSidebarLinkIcon(link: SidebarLink) {
   if (iconName === "integrity") return <NavIntegrityIcon />;
   if (iconName === "purge") return <NavPurgeIcon />;
   if (iconName === "migration") return <NavMigrationIcon />;
+  if (iconName === "multisite") return <NavMultisiteIcon />;
   if (iconName === "stack") return <NavStackIcon />;
   return <NavDotIcon />;
 }
@@ -682,6 +685,17 @@ function NavEndpointIcon(props: React.SVGProps<SVGSVGElement>) {
       <rect x="4" y="4" width="12" height="4.5" rx="1.4" strokeWidth={1.7} />
       <rect x="4" y="11.5" width="12" height="4.5" rx="1.4" strokeWidth={1.7} />
       <path strokeLinecap="round" strokeWidth={1.7} d="M7 6.3h.1M7 13.8h.1M10 8.5v3" />
+    </svg>
+  );
+}
+
+function NavMultisiteIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M10 7v3M5 13v-3h10v3" />
+      <rect x="7.5" y="2.5" width="5" height="4.5" rx="1" strokeWidth={1.7} />
+      <rect x="2.5" y="13" width="5" height="4.5" rx="1" strokeWidth={1.7} />
+      <rect x="12.5" y="13" width="5" height="4.5" rx="1" strokeWidth={1.7} />
     </svg>
   );
 }

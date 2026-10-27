@@ -138,7 +138,7 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
   );
   const endpointDependentRoute = useMemo(() => {
     const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
-    return normalizedPath !== "/ceph-admin" && normalizedPath !== "/ceph-admin/profile";
+    return normalizedPath !== "/ceph-admin" && normalizedPath !== "/ceph-admin/profile" && !normalizedPath.startsWith("/ceph-admin/multisite");
   }, [location.pathname]);
 
   useEffect(() => {

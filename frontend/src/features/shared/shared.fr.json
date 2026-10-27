@@ -286,6 +286,7 @@
   "Medium cost: owner-suspended filters require owner status lookups.": "Coût moyen : les filtres owner suspendu nécessitent son statut.",
   "Medium cost: usage/quota filters are active and require stats retrieval.": "Coût moyen : les filtres usage/quota nécessitent les stats.",
   "Min": "Min",
+  "Multisite": "Multisite",
   "MinIO": "MinIO",
   "Name, endpoint, provider, tag...": "Nom, Endpoint, provider, tag...",
   "New UI tags": "Nouveaux tags UI",

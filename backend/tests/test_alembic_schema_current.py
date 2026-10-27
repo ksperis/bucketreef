@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0193_remove_unused_quota_alert_state"
+_EXPECTED_ALEMBIC_HEAD = "0194_storage_endpoint_multisite_association"
 
 
 def _alembic_config() -> Config:

@@ -4,6 +4,43 @@ import { createEmptyForm } from "./storageEndpointFormModel";
 import { buildStorageEndpointSubmission } from "./storageEndpointSubmission";
 
 describe("feature-dependent Ceph service credentials", () => {
+  it("serializes a complete Ceph multisite association", () => {
+    const form = createEmptyForm();
+    Object.assign(form, {
+      name: "Ceph",
+      endpoint_url: "https://ceph.example.test",
+      multisite_realm_id: "11111111-1111-1111-1111-111111111111",
+      multisite_zonegroup_id: "22222222-2222-2222-2222-222222222222",
+      multisite_zone_id: "33333333-3333-3333-3333-333333333333",
+      multisite_diagnostic: true,
+    });
+
+    const result = buildStorageEndpointSubmission(form, false);
+
+    expect(result.errors).toBeUndefined();
+    expect(result.payload).toMatchObject({
+      multisite_realm_id: "11111111-1111-1111-1111-111111111111",
+      multisite_zonegroup_id: "22222222-2222-2222-2222-222222222222",
+      multisite_zone_id: "33333333-3333-3333-3333-333333333333",
+      multisite_diagnostic: true,
+    });
+  });
+
+  it("rejects partial and non-canonical multisite IDs", () => {
+    const form = createEmptyForm();
+    Object.assign(form, {
+      name: "Ceph",
+      endpoint_url: "https://ceph.example.test",
+      multisite_realm_id: "11111111-1111-1111-1111-111111111111",
+      multisite_zonegroup_id: "not-a-uuid",
+      multisite_diagnostic: true,
+    });
+
+    const result = buildStorageEndpointSubmission(form, false);
+
+    expect(result.errors).toHaveProperty("multisite_zonegroup_id");
+    expect(result.errors).toHaveProperty("multisite_zone_id");
+  });
   it("accepts missing Supervision with every collector disabled", () => {
     const form = createEmptyForm();
     Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: "external",

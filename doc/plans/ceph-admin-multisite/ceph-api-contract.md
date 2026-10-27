@@ -3,7 +3,9 @@
 Vérification statique au 27 octobre 2026. Source : dépôt upstream Ceph, tag
 `v20.2.4`, commit `7f793731f1b39eb4f465e960113d2363c311b964`.
 Les sources ont été téléchargées et l’arbre du tag résolu via GitHub. Ce document
-ne prétend pas qu’un cluster réel a été interrogé.
+décrit la vérification statique initiale. Les lectures réelles effectuées
+ensuite sur le laboratoire, leurs captures anonymisées et leurs limites sont
+consignées dans le [bilan de qualification](implementation-status.md).
 
 ## 1. Preuves principales dans le code
 
