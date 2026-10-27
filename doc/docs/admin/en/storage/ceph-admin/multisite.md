@@ -84,8 +84,8 @@ authorization. Credentials, configuration and exact scope isolate cache keys.
 
 Operators may tune `CEPH_MULTISITE_TIMEOUT_SECONDS`,
 `CEPH_MULTISITE_DEADLINE_SECONDS` and `CEPH_MULTISITE_CALL_BUDGET`.
-Collection is on demand. Optional 30-second refresh only runs while the page
-is visible; it does not enable a background collector or persistent history.
+Collection is on demand and refresh is manual. There is no background collector,
+automatic polling or persistent history.
 
 The initial contract targets upstream Tentacle 20.2.4 with RADOS. Distribution
 and driver variants need separate qualification. To capture laboratory reads

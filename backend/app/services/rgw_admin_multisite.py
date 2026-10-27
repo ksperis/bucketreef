@@ -428,33 +428,6 @@ class RGWAdminMultisiteOperations:
             params["marker"] = marker
         return self._multisite_get("bilog", params)
 
-    def get_mdlog_shard_info(
-        self,
-        period: str,
-        shard_id: int,
-    ) -> dict[str, Any]:
-        return self._multisite_get(
-            "mdlog_shard_info",
-            {
-                "type": "metadata",
-                "period": _required_text(period, "period"),
-                "id": _shard_id(shard_id),
-                "info": "",
-                "format": "json",
-            },
-        )
-
-    def get_datalog_shard_info(self, shard_id: int) -> dict[str, Any]:
-        return self._multisite_get(
-            "datalog_shard_info",
-            {
-                "type": "data",
-                "id": _shard_id(shard_id),
-                "info": "",
-                "format": "json",
-            },
-        )
-
     def get_multisite_bucket_info(
         self,
         bucket: str,

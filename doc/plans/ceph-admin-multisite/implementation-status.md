@@ -20,16 +20,16 @@
 - DTO et normalisation des dumps Tentacle : statuts inconnus conservés,
   shards `{key,val}`, entiers 64 bits transmis sans perte de précision,
   disponibilité et provenance par composant, détails par projection de champs.
-- Services et dix routes Ceph Admin GET : topologie, capacités, overview,
-  flux, bucket/instances/générations et trois familles de journaux. Autorité
+- Services et huit routes Ceph Admin GET : état, topologie, overview, flux,
+  diagnostic bucket et trois familles de journaux. Autorité
   existante réappliquée aux endpoints secondaires, cache isolé par identité,
   configuration et périmètre, budget/concurrence/deadline et résultats partiels.
 - Trois routes UI, navigation Monitoring et lien depuis l'inventaire bucket,
-  endpoint de workspace conservé, scopes source/destination distincts,
+  scopes source/destination distincts,
   pagination des journaux, recherche locale, exports JSON/CSV et provenance.
-- Observations en mémoire de session, comparaison d'égalité, nouveau contexte
-  lors d'un changement d'instance/période/génération, rétention 20/30 minutes,
-  rafraîchissement uniquement manuel via l'action de page.
+- Aucun historique ni comparaison de collectes côté frontend. Les pages affichent
+  l'état Ceph courant et se rafraîchissent uniquement via l'action manuelle ; les
+  observations backend restent des enveloppes de disponibilité, cache et provenance.
 - Traductions FR/DE/ZH, documentation Admin et notes de migration, schéma DB
   régénéré. Les classes de stockage découvertes restent dans la réponse live de
   zone et ne sont pas persistées. Aucun historique persistant ni collecteur en
@@ -100,7 +100,7 @@ avec un utilisateur de l'instance de production.
 | Générations bilog source | Une génération, `gen=0`, `num_shards=11`, marqueur composite conservé |
 | Buckets avec tenant | Noms et tenants vérifiés sur les deux instances ; absence de sync conservée en `not_found` |
 | Buckets source et destination de noms différents | Résolution distincte, absence de statut conservée en `not_found` |
-| Journaux metadata/data/bilog et infos de shards | Réponses complètes et normalisées ; pages observées vides |
+| Journaux metadata/data/bilog | Réponses complètes et normalisées ; pages observées vides |
 | Deux collectes sans changement d'écriture | Positions identiques pour le flux data observé, aucune déduction de panne |
 
 Les réponses réelles n'ont nécessité aucune correction du client, des DTO ou

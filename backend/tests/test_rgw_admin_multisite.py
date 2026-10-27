@@ -95,11 +95,9 @@ def test_explicit_signatures_build_only_allowlisted_get_queries(monkeypatch) -> 
         marker="bilog-marker",
         max_entries=500,
     )
-    client.get_mdlog_shard_info("period-a", 8)
-    client.get_datalog_shard_info(9)
     client.get_multisite_bucket_info("bucket-a", tenant="tenant-a")
 
-    assert len(calls) == 12
+    assert len(calls) == 10
     assert {call["method"] for call in calls} == {"GET"}
     assert {call["path"] for call in calls} <= {
         "/admin/realm",
@@ -137,9 +135,7 @@ def test_explicit_signatures_build_only_allowlisted_get_queries(monkeypatch) -> 
     assert calls[8]["params"]["bucket-instance"] == "bucket-a:instance-a:7"
     assert calls[8]["params"]["generation"] == uint64
     assert calls[8]["params"]["format-ver"] == "2"
-    assert calls[9]["params"]["info"] == ""
-    assert calls[10]["params"]["info"] == ""
-    assert calls[11]["params"] == {
+    assert calls[9]["params"] == {
         "bucket": "tenant-a/bucket-a",
         "stats": "true",
         "format": "json",
