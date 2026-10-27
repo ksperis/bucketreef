@@ -3,8 +3,9 @@ import { useCallback } from "react";
 import type { BucketUsageStatsDistributionEntry } from "../../api/bucketUsageStats";
 import type { UiLanguage } from "../../components/language";
 import { interpolateText, translate, useI18n, type I18nMessage } from "../../i18n";
+import { sharedMessage } from "./sharedI18n";
 
-const m = (en: string, zh: string) => ({ en, zh });
+const m = sharedMessage;
 
 export const bucketUsageStatsMessage = {
   buckets: m("buckets", "个存储桶"),

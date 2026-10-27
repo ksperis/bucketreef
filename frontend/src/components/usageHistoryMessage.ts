@@ -2,8 +2,9 @@
 import { useCallback } from "react";
 
 import { interpolateText, useI18n, type I18nMessage } from "../i18n";
+import { sharedMessage } from "../features/shared/sharedI18n";
 
-const m = (en: string, zh: string) => ({ en, zh });
+const m = sharedMessage;
 
 export const usageHistoryMessage = {
   admin: m("Admin", "管理员"),
