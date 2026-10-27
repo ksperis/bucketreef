@@ -433,8 +433,10 @@ describe("Sidebar", () => {
         <Sidebar
           sections={[
             {
+              id: "settings",
               label: "Settings",
               collapsed: true,
+              collapsible: true,
               links: [{ to: "/admin/general-settings", label: "General" }],
             },
           ]}
@@ -449,8 +451,10 @@ describe("Sidebar", () => {
         <Sidebar
           sections={[
             {
+              id: "settings",
               label: "Settings",
               collapsed: false,
+              collapsible: true,
               links: [{ to: "/admin/general-settings", label: "General" }],
             },
           ]}
@@ -492,6 +496,28 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("link", { name: "General" })).not.toBeInTheDocument();
   });
 
+  it("does not infer collapsibility from a Settings label", () => {
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Sidebar
+          title="ADMIN"
+          sections={[
+            {
+              id: "settings",
+              label: "Settings",
+              collapsed: true,
+              links: [{ to: "/admin/general-settings", label: "General" }],
+            },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole("button", { name: "Settings" })).not.toBeInTheDocument();
+    expect(screen.getByText("Settings")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "General" })).toBeInTheDocument();
+  });
+
   it("keeps the active route section open even when it was persisted as collapsed", () => {
     window.localStorage.setItem(
       "shell:sidebar-sections:v1:admin",
@@ -529,8 +555,10 @@ describe("Sidebar", () => {
         <Sidebar
           sections={[
             {
+              id: "settings",
               label: "Settings",
               collapsed: false,
+              collapsible: true,
               links: [{ to: "/admin/general-settings", label: "General" }],
             },
           ]}
@@ -554,8 +582,10 @@ describe("Sidebar", () => {
           compact
           sections={[
             {
+              id: "settings",
               label: "Settings",
               collapsed: false,
+              collapsible: true,
               links: [{ to: "/admin/general-settings", label: "General" }],
             },
           ]}

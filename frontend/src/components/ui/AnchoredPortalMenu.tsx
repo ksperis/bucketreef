@@ -5,7 +5,13 @@
 import { CSSProperties, ReactNode, RefObject, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-export type AnchoredMenuPlacement = "bottom-start" | "bottom-end" | "bottom-center" | "top-start" | "top-end";
+export type AnchoredMenuPlacement =
+  | "bottom-start"
+  | "bottom-end"
+  | "bottom-center"
+  | "top-start"
+  | "top-end"
+  | "right-center";
 
 type UseAnchoredMenuPositionParams = {
   open: boolean;
@@ -32,7 +38,22 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function resolveX(rect: DOMRect, width: number, placement: AnchoredMenuPlacement): number {
+function resolveX(
+  rect: DOMRect,
+  width: number,
+  viewportWidth: number,
+  placement: AnchoredMenuPlacement,
+  offset: number
+): number {
+  if (placement === "right-center") {
+    const right = rect.right + offset;
+    const left = rect.left - width - offset;
+    const canFitRight = right + width <= viewportWidth - VIEWPORT_MARGIN;
+    const canFitLeft = left >= VIEWPORT_MARGIN;
+    if (canFitRight) return right;
+    if (canFitLeft) return left;
+    return right;
+  }
   if (placement === "bottom-center") return rect.left + (rect.width - width) / 2;
   if (placement.endsWith("end")) {
     return rect.right - width;
@@ -47,6 +68,13 @@ function resolveY(
   placement: AnchoredMenuPlacement,
   offset: number
 ): number {
+  if (placement === "right-center") {
+    return clamp(
+      rect.top + (rect.height - height) / 2,
+      VIEWPORT_MARGIN,
+      Math.max(VIEWPORT_MARGIN, viewportHeight - height - VIEWPORT_MARGIN)
+    );
+  }
   const preferTop = placement.startsWith("top");
   const below = rect.bottom + offset;
   const above = rect.top - height - offset;
@@ -96,7 +124,7 @@ function useAnchoredMenuPosition({
       const targetMinWidth = Math.max(0, Math.min(minWidth === "anchor" ? anchorRect.width : minWidth, maxWidth));
       const menuWidth = Math.min(Math.max(menuRect.width, targetMinWidth), maxWidth);
       const x = clamp(
-        resolveX(anchorRect, menuWidth, placement),
+        resolveX(anchorRect, menuWidth, viewportWidth, placement, offset),
         VIEWPORT_MARGIN,
         Math.max(VIEWPORT_MARGIN, viewportWidth - menuWidth - VIEWPORT_MARGIN)
       );

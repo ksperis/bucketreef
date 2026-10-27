@@ -395,7 +395,6 @@ body {
     position: fixed;
     z-index: 80;
     max-width: min(18rem, calc(100vw - 5rem));
-    transform: translateY(-50%);
     white-space: nowrap;
     border-radius: 0.375rem;
     background: var(--shell-text);
