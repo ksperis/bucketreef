@@ -651,14 +651,14 @@ export default function MultisiteOverviewPage() {
             { label: text("Realm"), value: realmName },
             { label: text("Realm epoch"), value: overview.topology.period.data?.realm_epoch ?? "—" },
             { label: text("Zones"), value: zones.length },
-            { label: text("Declared diagnostic endpoints"), value: text("{declared} / {total}", { declared: declaredZoneCount, total: zones.length }) },
+            { label: text("Available diagnostic endpoints"), value: text("{declared} / {total}", { declared: declaredZoneCount, total: zones.length }) },
           ]}
         />
         <ObservationNotice observation={overview.topology.period} text={text} />
-        {!overview.topology.association_valid ? (
+        {overview.topology.configuration_reason ? (
           <UiInlineMessage tone="warning">
-            {text("Endpoint association is not valid: {reason}", {
-              reason: overview.topology.association_reason ?? text("Unknown reason"),
+            {text("Multisite topology is not fully available: {reason}", {
+              reason: overview.topology.configuration_reason,
             })}
           </UiInlineMessage>
         ) : null}
@@ -676,7 +676,7 @@ export default function MultisiteOverviewPage() {
         <ListPageSection
           variant="section"
           title={text("Zones")}
-          description={text("Configured zones and explicitly declared diagnostic endpoints.")}
+          description={text("Configured zones and automatically matched diagnostic endpoints.")}
           countLabel={text("{count} zones", { count: zones.length })}
         >
           <DataTableShell

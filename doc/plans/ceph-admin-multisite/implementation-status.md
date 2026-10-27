@@ -4,9 +4,16 @@
 
 ## Périmètre implémenté
 
-- Migration additive 0194 : association realm/zonegroup/zone nullable,
-  choix explicite d'un endpoint de diagnostic et unicité par zone.
-  Administration dans le formulaire endpoint et configuration ENV existants.
+- La migration 0194, qui avait ajouté une association multisite persistée aux
+  endpoints, est annulée fonctionnellement par 0195. Realm, zonegroup, zone et
+  endpoint de diagnostic ne font plus partie de la configuration endpoint.
+- Découverte live de la zone locale via `GET /admin/config?type=zone`, puis du
+  realm/period. Les endpoints Ceph Admin enregistrés sont associés aux zones en
+  lisant leur propre configuration locale. Une correspondance unique sélectionne
+  l'exécuteur de diagnostic ; une correspondance ambiguë n'en sélectionne aucun.
+- Probe léger `/multisite/state` pour la navigation : seul un succès sans
+  realm désactive l'entrée Multisite. Un refus ou une indisponibilité reste
+  `unknown` et laisse la page accessible.
 - Client RGW à méthodes GET explicites et paramètres allowlistés, signature,
   TLS et refus des redirections réutilisés. Corps limités pendant le
   téléchargement, JSON complet obligatoire, journaux bornés à 500 entrées.
@@ -24,7 +31,9 @@
   lors d'un changement d'instance/période/génération, rétention 20/30 minutes,
   rafraîchissement visible facultatif à 30 secondes.
 - Traductions FR/DE/ZH, documentation Admin et notes de migration, schéma DB
-  régénéré. Aucun historique persistant ni collecteur en arrière-plan.
+  régénéré. Les classes de stockage découvertes restent dans la réponse live de
+  zone et ne sont pas persistées. Aucun historique persistant ni collecteur en
+  arrière-plan.
 
 ## Validation automatisée
 
@@ -69,9 +78,9 @@ premières tentatives expiraient ; après le redémarrage des instances par
 l'utilisateur, les deux endpoints publics répondent aux GET signés.
 
 Les identités Ceph Admin des deux endpoints ont été vérifiées par le probe
-existant. Les associations de zones utilisées pour les tests ont été déclarées
-dans une base SQLite **isolée en mémoire**, sans changer la configuration de
-l'application existante. Les dix routes de diagnostic ont été exercées via
+existant. La nouvelle découverte de zone lit directement la configuration RGW
+avec ces identités et projette immédiatement les champs non sensibles ; aucune
+association n'est enregistrée en base. Les routes de diagnostic ont été exercées via
 FastAPI TestClient avec un acteur de test isolé et les vrais clients RGW :
 14 lectures applicatives vérifiées, toutes avec une réponse HTTP 200 et des
 disponibilités par composant conformes. Ce n'est pas une connexion navigateur

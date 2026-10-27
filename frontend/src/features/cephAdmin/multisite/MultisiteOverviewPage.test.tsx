@@ -143,8 +143,28 @@ function overview(name: string, marker: string, collectedAt: string, nextOffset:
   ];
   return {
     topology: {
-      association_valid: true,
-      association_reason: null,
+      configured: true,
+      configuration_reason: null,
+      local_zone: {
+        availability: "available",
+        data: {
+          id: "zone-source",
+          name: "Source zone",
+          realm_id: "realm-id",
+          placements: [],
+          storage_classes: ["STANDARD"],
+        },
+        collected_at: collectedAt,
+        last_success_at: collectedAt,
+        stale: false,
+        reason_code: null,
+        provenance: {
+          ...status(marker, collectedAt).provenance,
+          endpoint_id: 1,
+          local_zone_id: "zone-source",
+          operation: "zone_configuration",
+        },
+      },
       realm: {
         availability: "available",
         data: { name },

@@ -9,7 +9,8 @@ function multisiteObservation<T>(data: T, endpointId = 12): MultisiteObservation
 }
 
 const MULTISITE_TOPOLOGY: MultisiteTopology = {
-  association_valid: true, association_reason: null,
+  configured: true, configuration_reason: null,
+  local_zone: multisiteObservation({ id: "zone-a", name: "Paris", realm_id: "realm-a", placements: [{ name: "default-placement", storage_classes: ["STANDARD"] }], storage_classes: ["STANDARD"] }, 11),
   period: multisiteObservation({ id: "period-a", realm_id: "realm-a", epoch: "9", realm_epoch: "11", master_zone: "zone-a", details: {},
     zones: [
       { id: "zone-a", name: "Paris", zonegroup_id: "zg-a", zonegroup_name: "Europe", metadata_master: true, read_only: false, sync_from_all: true, sync_from: [], policy_requires_confirmation: false,
@@ -20,6 +21,14 @@ const MULTISITE_TOPOLOGY: MultisiteTopology = {
         endpoints: [], diagnostic_endpoint_id: null },
     ] }, 11),
   realm: multisiteObservation({ id: "realm-a", name: "European realm" }, 11),
+};
+const MULTISITE_STATE = {
+  status: "active" as const,
+  realm_id: "realm-a",
+  local_zone_id: "zone-a",
+  checked_at: "2026-10-27T10:00:00.123456Z",
+  availability: "available" as const,
+  reason_code: null,
 };
 
 const MULTISITE_STATUS: MultisiteSyncStatus = {
@@ -42,6 +51,7 @@ const MULTISITE_BUCKET: MultisiteBucketDiagnostic = {
 export function multisiteRules(): MockRule[] {
   const base = "\\/ceph-admin\\/endpoints\\/\\d+\\/multisite\\/";
   return [
+    { id: "multisite-state", path: new RegExp(`^${base}state$`), body: MULTISITE_STATE },
     { id: "multisite-topology", path: new RegExp(`^${base}topology$`), body: MULTISITE_TOPOLOGY },
     { id: "multisite-overview", path: new RegExp(`^${base}overview$`), body: MULTISITE_OVERVIEW },
     { id: "multisite-bucket", path: new RegExp(`^${base}bucket/status$`), body: MULTISITE_BUCKET },

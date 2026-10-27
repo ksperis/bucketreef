@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.ceph_multisite import (
-    BilogInfo, BucketDiagnostic, Capabilities, Flow, LogPage, Observation, Overview, Topology,
+    BilogInfo, BucketDiagnostic, Capabilities, Flow, LogPage, MultisiteState,
+    Observation, Overview, Topology,
 )
 from app.routers.dependencies import get_current_ceph_admin
 from app.services.ceph_multisite_service import CephMultisiteService
@@ -35,6 +36,11 @@ Service = Annotated[CephMultisiteService, Depends(service)]
 @router.get("/topology", response_model=Topology)
 def topology(svc: Service):
     return svc.topology()
+
+
+@router.get("/state", response_model=MultisiteState)
+def state(svc: Service):
+    return svc.state()
 
 
 @router.get("/capabilities", response_model=Capabilities)

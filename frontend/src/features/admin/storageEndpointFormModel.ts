@@ -39,10 +39,6 @@ export type FormState = {
   verify_tls: boolean;
   latitude: string;
   longitude: string;
-  multisite_realm_id: string;
-  multisite_zonegroup_id: string;
-  multisite_zone_id: string;
-  multisite_diagnostic: boolean;
   provider: StorageProvider;
   tags: UiTagDefinition[];
   service_identity_mode: "managed" | "external";
@@ -317,10 +313,6 @@ export function createEmptyForm(): FormState {
     verify_tls: true,
     latitude: "",
     longitude: "",
-    multisite_realm_id: "",
-    multisite_zonegroup_id: "",
-    multisite_zone_id: "",
-    multisite_diagnostic: false,
     provider: "ceph",
     tags: [],
     service_identity_mode: "managed",
@@ -408,10 +400,6 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     verify_tls: endpoint.verify_tls !== false,
     latitude: formatCoordinateInput(endpoint.latitude),
     longitude: formatCoordinateInput(endpoint.longitude),
-    multisite_realm_id: endpoint.multisite_realm_id ?? "",
-    multisite_zonegroup_id: endpoint.multisite_zonegroup_id ?? "",
-    multisite_zone_id: endpoint.multisite_zone_id ?? "",
-    multisite_diagnostic: Boolean(endpoint.multisite_diagnostic),
     provider: endpoint.provider,
     tags: normalizeUiTags(endpoint.tags),
     service_identity_mode: runtimeIdentity?.mode ?? "external",

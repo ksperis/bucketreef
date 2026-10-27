@@ -208,32 +208,31 @@ Au changement de périmètre, annuler les requêtes et ignorer les réponses tar
 
 ## 4. Architecture proposée
 
-### Configuration des associations zone / endpoint
+### Découverte live zone / endpoint
 
-Un objet period décrit les zones, mais ne garantit pas qu’un endpoint
-BucketReef représente une seule zone. On ne peut pas identifier la zone locale
-de façon fiable en prenant le premier endpoint ou en comparant seulement le DNS.
+La zone locale est découverte avec `GET /admin/config?type=zone` au moyen de
+l'identité Ceph Admin du endpoint. Cette lecture fournit l'ID de zone et le
+realm, puis le period fournit zonegroups et zones. Aucune association multisite
+n'est stockée dans `StorageEndpoint`.
 
-Ajouter à la configuration existante de `StorageEndpoint` une association
-multisite facultative `{realm_id, zonegroup_id, zone_id}`. Elle est administrée
-dans les réglages Admin existants, hors des dashboards en lecture seule. Pas de
-nouvelle saisie de clé, de bouton de création de zone ni d’enregistrement
-d’endpoint depuis la vue Multisite.
-
-- Sans association, permettre la lecture de configuration, puis expliquer que
-  les observations locales ne peuvent pas être attribuées avec certitude.
-- Vérifier que les IDs associés figurent dans la configuration lue. Un mismatch
-  bloque l’attribution ; ne jamais « corriger » les IDs automatiquement.
-- Plusieurs endpoints pour une zone : un endpoint de diagnostic choisi
-  explicitement ; pas de bascule invisible ni de somme des mêmes données.
+- À l'ouverture de la page, lire la zone locale du point d'entrée, puis le
+  realm/period lorsqu'un realm est configuré.
+- Pour chaque endpoint Ceph Admin enregistré, relire sa propre zone locale avec
+  sa propre identité et l'associer à la zone du period ayant le même ID/realm.
+- Un seul endpoint enregistré pour une zone devient l'exécuteur de diagnostic.
+  Plusieurs correspondances rendent le choix ambigu et aucun endpoint n'est
+  sélectionné implicitement.
+- Un 401/403, timeout ou contrat invalide sur un endpoint secondaire le laisse
+  non attribué sans bloquer les autres zones.
 - Aucun appel automatique aux URLs publiées dans le period. Seuls les endpoints
   enregistrés et autorisés dans BucketReef sont utilisés.
-- L’association est une déclaration d’exploitation, pas une attestation
-  serveur : un LB inter-zones doit être déclaré incompatible pour le diagnostic.
-  Des réponses divergentes invalident la comparaison.
+- Le probe de navigation désactive Multisite uniquement si la lecture de zone
+  réussit et qu'aucun realm n'est configuré. Tout échec reste `unknown`.
 
-La migration est additive et nullable. Elle ne change pas les droits sur les
-autres workspaces ni les identités techniques existantes.
+La lecture de zone nécessite `zone=read`. Comme la réponse Ceph brute peut
+contenir `system_key`, le client projette immédiatement uniquement ID/nom de
+zone, realm, placements et noms de classes de stockage. Les classes restent des
+données live dans cette itération et ne sont pas persistées.
 
 ### Chaîne backend
 
@@ -298,7 +297,8 @@ Préfixe existant `/api/ceph-admin/endpoints/{endpoint_id}/multisite` (respecter
 
 | Route GET | Usage |
 | --- | --- |
-| `/capabilities` | Résultat par famille et association de zone |
+| `/state` | Probe léger actif/inactif/inconnu basé sur la zone locale |
+| `/capabilities` | Résultat par famille et attribution live de zone |
 | `/topology` | Configuration period normalisée, références des endpoints autorisés |
 | `/overview` | États metadata/data des destinations observables, erreurs partielles |
 | `/flows/status` | Statut local pour une source et une destination explicites |
@@ -325,7 +325,7 @@ des endpoints et l’exécution emploient la même autorité d’accès.
 | 405/501 ou preuve explicite de route non supportée | unsupported pour cette opération, pas pour tout l’endpoint |
 | timeout/TLS/connexion/5xx | unavailable ; conserver dernière réussite avec stale=true |
 | JSON inattendu, incomplet ou tronqué | erreur de contrat explicite, aucun état « sain » |
-| rôle/association de zone absente | misconfigured ou not_observed selon les données accessibles |
+| zone locale absente du period | misconfigured ; aucune attribution arbitraire |
 | statut `stopped` Ceph | afficher l’état réel ; ce n’est pas une indisponibilité HTTP |
 
 Le cas metadata master doit aussi accepter une réponse HTTP 200 avec une
@@ -350,8 +350,8 @@ Valeurs de départ configurables à mesurer au laboratoire :
   collecte, timeout 8 s par appel et deadline globale 20 s. Renvoyer les résultats
   disponibles et le périmètre non collecté, sans attente illimitée.
 - Configuration/topologie : cache serveur 60 s, statuts 10 s ; journaux sans
-  préchargement. Cache isolé par endpoint, identité/configuration et périmètre,
-  invalidé lors d’une modification des associations ou credentials.
+  préchargement. Cache isolé par endpoint, identité/configuration et périmètre ;
+  une modification de credentials change l'empreinte et force une nouvelle lecture.
 - Une page de journal vaut 100 entrées par défaut, maximum applicatif 500
   (mdlog/datalog plafonnent eux-mêmes à 1000). Taille de corps limitée, par
   exemple 4 MiB configurable ; limite explicite, jamais truncation silencieuse.
@@ -498,7 +498,9 @@ pas. Utiliser des secrets locaux non versionnés et des comptes de test autoris�
 
 | Scénario | Preuve attendue |
 | --- | --- |
-| Aucune association locale / aucun realm | état explicite, pas de zone arbitrairement choisie |
+| Zone locale sans realm | état inactif explicite, menu grisé |
+| Lecture de zone refusée/indisponible | état inconnu, menu accessible, aucun secret exposé |
+| Deux endpoints enregistrés pour la même zone | attribution visible, aucun exécuteur choisi automatiquement |
 | Metadata master puis secondaire | rôle, phase, cardinalité et réponses 200/404 conformes au cluster |
 | Écriture puis période d’inactivité | marqueurs observés, aucune fausse alerte sur marqueur inchangé |
 | Coupure réseau puis rétablissement | unavailable/stale, reprise des lectures ; pas de commande corrective |

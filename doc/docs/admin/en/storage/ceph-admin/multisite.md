@@ -5,25 +5,36 @@ configuration, incoming synchronization states and source journals. The module
 uses signed RGW Admin Ops GET requests. It cannot trim logs, initialize or stop
 sync, repair buckets, change policies, or create zones or credentials.
 
-## Associate registered endpoints with zones
+## Live topology discovery
 
-In **Admin → Storage endpoints**, edit each Ceph endpoint and enter its realm,
-zonegroup and zone IDs together. Explicitly select the diagnostic endpoint for
-each zone. If several registered endpoints represent the same zone, choose one.
-An endpoint must consistently reach that zone; a load balancer spanning several
-zones cannot provide reliable attribution.
+When **Ceph Admin → Monitoring → Multisite** opens, BucketReef reads the local
+zone configuration from the selected endpoint and then reads the current
+realm/period. Registered Ceph Admin endpoints are matched to period zones by
+reading each endpoint's own local zone configuration. The endpoint form does
+not store realm, zonegroup, zone or diagnostic associations.
 
-BucketReef checks these declarations against the period configuration. Without
-an association, the configuration remains readable but local synchronization
-observations cannot be attributed. A mismatch blocks attribution and is never
-corrected automatically. Published URLs in a period are configuration data;
-BucketReef only contacts endpoints registered in the application.
+If exactly one registered endpoint maps to a zone, BucketReef uses it for
+diagnostic reads. If several endpoints map to the same zone, the mapping is
+shown but no diagnostic endpoint is selected automatically. A secondary
+endpoint whose local-zone read is denied or unavailable is left unassigned.
+Published URLs in a period are configuration data; BucketReef never follows
+them automatically and only contacts endpoints registered in the application.
+
+The navigation performs a lightweight local-zone probe for the selected
+endpoint. The Multisite entry is disabled only when that read succeeds and the
+zone has no realm. A denied, unavailable or invalid response leaves the state
+unknown and keeps the page accessible so the operator can inspect the error.
+One zone inside a configured realm still counts as Multisite configured.
 
 The existing external Ceph Admin identity remains in use (`admin=true`,
-`system=false`). The new application path is read-only; this does not reduce
-the identity's broader storage privileges. Relevant RGW read checks include
-`zone`, `mdlog`, `datalog`, `bilog` and `buckets`. Missing permissions are shown
-as denied. BucketReef never grants capabilities automatically.
+`system=false`). The discovery call `GET /admin/config?type=zone` requires
+`zone=read`; that raw Ceph response can contain the multisite system key.
+BucketReef immediately projects it to zone ID/name, realm ID, placements and
+storage-class names. The raw body is never persisted or returned by this
+feature, and provider error bodies from this operation are not surfaced.
+Relevant diagnostic reads also include `mdlog`, `datalog`, `bilog` and
+`buckets`. Missing permissions are shown as denied. BucketReef never grants
+capabilities automatically.
 
 ## Read the three views
 

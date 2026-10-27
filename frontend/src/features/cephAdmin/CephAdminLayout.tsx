@@ -41,6 +41,7 @@ function CephAdminShell() {
     selectedEndpointAccess,
     selectedEndpointAccessLoading,
     selectedEndpointAccessError,
+    selectedMultisiteState,
     retrySelectedEndpointAccess,
     retryEndpoints,
     loading,
@@ -51,6 +52,7 @@ function CephAdminShell() {
   const selectorEnabled = endpoints.length > 0;
   const endpointSelected = selectorEnabled && selectedEndpointId != null;
   const endpointUnavailable = selectedEndpointAccess?.availability_status === "unavailable";
+  const multisiteInactive = selectedMultisiteState?.status === "inactive";
   const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
   const endpointDependentRoute = normalizedPath !== "/ceph-admin" && normalizedPath !== "/ceph-admin/profile";
   const multisiteRoute = normalizedPath.startsWith("/ceph-admin/multisite");
@@ -174,8 +176,12 @@ function CephAdminShell() {
           ...workspacePageLink(CEPH_ADMIN_PAGE_CONTRACTS.multisite),
           label: surfaceText(CEPH_ADMIN_PAGE_CONTRACTS.multisite.label),
           iconName: "multisite",
-          disabled: !endpointSelected,
-          disabledHint: !endpointSelected ? surfaceText("Select a Ceph endpoint first.") : undefined,
+          disabled: !endpointSelected || multisiteInactive,
+          disabledHint: !endpointSelected
+            ? surfaceText("Select a Ceph endpoint first.")
+            : multisiteInactive
+              ? surfaceText("Multisite is not configured on this endpoint.")
+              : undefined,
         },
       ],
     },

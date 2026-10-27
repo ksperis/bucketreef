@@ -18,7 +18,8 @@ from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import StorageEndpoint
 from app.models.ceph_multisite import (
     BilogInfo, BucketDiagnostic, BucketIdentity, Capabilities, EndpointReference,
-    Family, Flow, Observation, Operation, Overview, Provenance, SyncStatus, Topology,
+    Family, Flow, LocalZoneConfiguration, MultisiteState, Observation, Operation,
+    Overview, Provenance, SyncStatus, Topology,
 )
 from app.services.ceph_admin_endpoint_service import (
     CephAdminEndpointService, CephAdminEndpointProviderError, CephAdminEndpointUnavailableError,
@@ -54,6 +55,7 @@ class CephMultisiteService:
         self.deadline = monotonic() + self.settings.ceph_multisite_deadline_seconds
         self.calls = 0
         self.budget_lock = Lock()
+        self.local_zones: dict[int, LocalZoneConfiguration] = {}
 
     def resolve(self, endpoint_id: int) -> StorageEndpoint:
         # Use precisely the workspace's endpoint authority for secondary targets.
@@ -70,10 +72,6 @@ class CephMultisiteService:
             raise HTTPException(403, "Ceph Admin credentials are not configured")
         return endpoint
 
-    @staticmethod
-    def association(endpoint) -> tuple[str | None, str | None, str | None]:
-        return tuple(getattr(endpoint, f"multisite_{field}_id", None) for field in ("realm", "zonegroup", "zone"))
-
     def client(self, endpoint):
         identity = endpoint.service_identity("ceph_admin")
         return get_rgw_admin_client(
@@ -87,15 +85,16 @@ class CephMultisiteService:
         fingerprint = sha256(repr((
             identity.access_key, identity.secret_key, endpoint.endpoint_url,
             endpoint.features_config, endpoint.region, endpoint.verify_tls,
-            self.association(endpoint), getattr(endpoint, "multisite_diagnostic", False),
         )).encode()).hexdigest()
         return self.actor_id, endpoint.id, fingerprint, operation, scope
 
     def missing(self, endpoint, operation: Operation, reason: str, *, availability="not_observed", source=None) -> Observation:
-        realm, _, zone = self.association(endpoint)
+        local = self.local_zones.get(endpoint.id)
         return Observation(
             availability=availability, collected_at=utcnow().isoformat(), reason_code=reason,
-            provenance=Provenance(endpoint_id=endpoint.id, realm_id=realm, local_zone_id=zone,
+            provenance=Provenance(endpoint_id=endpoint.id,
+                                  realm_id=local.realm_id if local else None,
+                                  local_zone_id=local.id if local else None,
                                   source_zone_id=source, operation=operation, collection_id=self.collection_id),
         )
 
@@ -149,23 +148,97 @@ class CephMultisiteService:
             observation.stale = True
         return observation
 
+    def local_zone(self, endpoint) -> Observation[LocalZoneConfiguration]:
+        observation = self.observe(
+            endpoint,
+            "zone_configuration",
+            lambda client: client.get_zone_configuration(),
+            LocalZoneConfiguration.model_validate,
+            ttl=60,
+        )
+        if observation.availability == "available" and observation.data is not None:
+            self.local_zones[endpoint.id] = observation.data
+            observation.provenance.realm_id = observation.data.realm_id
+            observation.provenance.local_zone_id = observation.data.id
+        else:
+            self.local_zones.pop(endpoint.id, None)
+        return observation
+
+    def state(self) -> MultisiteState:
+        observation = self.local_zone(self.entry)
+        if observation.availability != "available" or observation.data is None:
+            return MultisiteState(
+                status="unknown",
+                checked_at=observation.collected_at,
+                availability=observation.availability,
+                reason_code=observation.reason_code,
+            )
+        local = observation.data
+        return MultisiteState(
+            status="active" if local.realm_id else "inactive",
+            realm_id=local.realm_id,
+            local_zone_id=local.id,
+            checked_at=observation.collected_at,
+            availability=observation.availability,
+            reason_code=None,
+        )
+
     def topology(self) -> Topology:
-        realm, group, local_zone = self.association(self.entry)
-        period = self.observe(self.entry, "period", lambda c: c.get_period(realm_id=realm), normalize_period, ttl=60)
-        topology = Topology(period=period, association_valid=False)
+        local_zone = self.local_zone(self.entry)
+        if local_zone.availability != "available" or local_zone.data is None:
+            return Topology(
+                local_zone=local_zone,
+                period=self.missing(
+                    self.entry,
+                    "period",
+                    "configuration_unavailable",
+                    availability="not_observed",
+                ),
+                configured=None,
+                configuration_reason="configuration_unavailable",
+            )
+        local = local_zone.data
+        if local.realm_id is None:
+            return Topology(
+                local_zone=local_zone,
+                period=self.missing(
+                    self.entry,
+                    "period",
+                    "multisite_not_configured",
+                    availability="not_applicable",
+                ),
+                configured=False,
+                configuration_reason="multisite_not_configured",
+            )
+
+        period = self.observe(
+            self.entry,
+            "period",
+            lambda c: c.get_period(realm_id=local.realm_id),
+            normalize_period,
+            scope=(local.realm_id,),
+            ttl=60,
+        )
+        topology = Topology(local_zone=local_zone, period=period, configured=True)
+        topology.realm = self.observe(
+            self.entry,
+            "realm",
+            lambda c: c.get_realm(local.realm_id),
+            lambda payload: project(obj(payload)),
+            scope=(local.realm_id,),
+            ttl=60,
+        )
         if period.data is None:
-            topology.association_reason = "configuration_unavailable"
+            topology.configuration_reason = "period_unavailable"
             return topology
         data = period.data
-        topology.realm = self.observe(self.entry, "realm", lambda c: c.get_realm(data.realm_id),
-                                      lambda p: project(obj(p)), scope=(data.realm_id,), ttl=60)
-        if not all((realm, group, local_zone)):
-            topology.association_reason = "local_zone_not_associated"
-        else:
-            topology.association_valid = realm == data.realm_id and any(
-                z.id == local_zone and z.zonegroup_id == group for z in data.zones)
-            if not topology.association_valid:
-                topology.association_reason = "association_mismatch"
+        if data.realm_id != local.realm_id:
+            topology.configuration_reason = "realm_mismatch"
+            return topology
+        if not any(zone.id == local.id for zone in data.zones):
+            topology.configuration_reason = "local_zone_not_in_period"
+            return topology
+
         # The catalogue and execution share CephAdminEndpointService. Never
         # connect to the untrusted endpoint URLs published in the period.
         for ref in self.endpoints.list_endpoints():
@@ -175,34 +248,46 @@ class CephMultisiteService:
                 # A secondary endpoint may be withdrawn between catalogue and
                 # resolution. It no longer contributes a usable association.
                 continue
-            ep_realm, ep_group, ep_zone = self.association(endpoint)
-            if ep_realm != data.realm_id:
+            discovered = self.local_zone(endpoint)
+            if (
+                discovered.availability != "available"
+                or discovered.data is None
+                or discovered.data.realm_id != data.realm_id
+            ):
                 continue
-            for zone in data.zones:
-                if zone.id == ep_zone and zone.zonegroup_id == ep_group:
-                    zone.endpoints.append(EndpointReference(
-                        id=endpoint.id, name=endpoint.name,
-                        diagnostic=bool(getattr(endpoint, "multisite_diagnostic", False)),
-                    ))
+            zone = next((candidate for candidate in data.zones if candidate.id == discovered.data.id), None)
+            if zone is not None:
+                zone.endpoints.append(EndpointReference(
+                    id=endpoint.id,
+                    name=endpoint.name,
+                    diagnostic=False,
+                ))
         for zone in data.zones:
-            selected = [ref.id for ref in zone.endpoints if ref.diagnostic]
-            # Even a single endpoint must be chosen explicitly.
-            zone.diagnostic_endpoint_id = selected[0] if len(selected) == 1 else None
+            if len(zone.endpoints) == 1:
+                zone.endpoints[0].diagnostic = True
+                zone.diagnostic_endpoint_id = zone.endpoints[0].id
+            else:
+                zone.diagnostic_endpoint_id = None
         return topology
 
     def validated_zone(self, topology: Topology, endpoint):
         data = topology.period.data
-        realm, group, zone = self.association(endpoint)
-        if data and realm == data.realm_id:
-            return next((z for z in data.zones if z.id == zone and z.zonegroup_id == group), None)
+        if data is None:
+            return None
+        local = self.local_zones.get(endpoint.id)
+        if local is None:
+            observation = self.local_zone(endpoint)
+            local = observation.data
+        if local and local.realm_id == data.realm_id:
+            return next((zone for zone in data.zones if zone.id == local.id), None)
         return None
 
     def flow(self, topology: Topology, destination, source_zone_id: str, family: Family) -> Flow:
         zone = self.validated_zone(topology, destination)
         operation = "metadata_status" if family == "metadata" else "data_status"
         source = next((z for z in topology.period.data.zones if z.id == source_zone_id), None) if topology.period.data else None
-        if not topology.association_valid or zone is None or source is None:
-            status = self.missing(destination, operation, "association_mismatch", availability="misconfigured", source=source_zone_id)
+        if topology.configuration_reason or zone is None or source is None:
+            status = self.missing(destination, operation, "zone_mapping_unavailable", availability="misconfigured", source=source_zone_id)
         elif family == "metadata" and zone.metadata_master:
             # Ceph may also return a default 200 on the metadata master; its
             # known role takes precedence over the empty structure.
@@ -223,7 +308,7 @@ class CephMultisiteService:
     def overview(self, offset: int = 0) -> Overview:
         topology = self.topology()
         result = Overview(topology=topology, metadata=[], data=[], uncollected=[])
-        if not topology.period.data or not topology.association_valid:
+        if not topology.period.data or topology.configuration_reason:
             return result
         zones = topology.period.data.zones
         selected_zones = zones[offset:offset + 8]
@@ -260,7 +345,8 @@ class CephMultisiteService:
             try:
                 flow = future.result()
             except Exception:
-                flow = Flow(destination_endpoint_id=dest.id, destination_zone_id=self.association(dest)[2] or "",
+                local = self.local_zones.get(dest.id)
+                flow = Flow(destination_endpoint_id=dest.id, destination_zone_id=local.id if local else "",
                             source_zone_id=source, status=self.missing(dest, "metadata_status" if family == "metadata" else "data_status",
                                                                      "collection_failed", availability="unavailable", source=source))
             getattr(result, family).append(flow)
@@ -269,8 +355,12 @@ class CephMultisiteService:
         for future in pending:
             future.cancel()
             _, dest, _ = futures[future]
-            result.uncollected.append(self.association(dest)[2] or str(dest.id))
-        result.uncollected.extend(self.association(dest)[2] or str(dest.id) for _, dest, _ in jobs[self.settings.ceph_multisite_call_budget:])
+            local = self.local_zones.get(dest.id)
+            result.uncollected.append(local.id if local else str(dest.id))
+        result.uncollected.extend(
+            (self.local_zones.get(dest.id).id if self.local_zones.get(dest.id) else str(dest.id))
+            for _, dest, _ in jobs[self.settings.ceph_multisite_call_budget:]
+        )
         result.uncollected = sorted(set(result.uncollected))
         result.metadata.sort(key=lambda f: (f.destination_zone_id, f.source_zone_id))
         result.data.sort(key=lambda f: (f.destination_zone_id, f.source_zone_id))
@@ -304,9 +394,9 @@ class CephMultisiteService:
         topology = self.topology()
         src_zone = self.validated_zone(topology, source_endpoint)
         dst_zone = self.validated_zone(topology, destination_endpoint)
-        if (not topology.association_valid or src_zone is None or dst_zone is None
+        if (topology.configuration_reason or src_zone is None or dst_zone is None
                 or src_zone.id != source_zone_id or src_zone.id == dst_zone.id):
-            raise HTTPException(422, "Source and destination require distinct, verified zone associations")
+            raise HTTPException(422, "Source and destination require distinct, verified zone mappings")
         source = self.bucket_identity(source_endpoint, source_bucket, source_tenant)
         destination = self.bucket_identity(destination_endpoint, bucket, tenant)
         if source.data and destination.data and not source.stale and not destination.stale:
