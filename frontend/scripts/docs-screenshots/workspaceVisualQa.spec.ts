@@ -376,6 +376,39 @@ test.describe("Workspace visual QA", () => {
     mockRegistry.assertNoUnmatched();
   });
 
+  test("mobile login secondary actions keep touch targets", async ({ page }) => {
+    const scenario = scenarioById("user-overview");
+    const mockRegistry = await registerApiMocks(
+      page,
+      [
+        { id: "anonymous-session", path: /^\/auth\/session$/, status: 401, body: { detail: "Not authenticated" } },
+        { id: "anonymous-refresh", method: "POST", path: /^\/auth\/refresh$/, status: 401, body: { detail: "Not authenticated" } },
+        { id: "anonymous-oidc-providers", path: /^\/auth\/oidc\/providers$/, body: [] },
+        { id: "anonymous-ldap-providers", path: /^\/auth\/ldap\/providers$/, body: [] },
+        ...scenario.mockRules,
+      ],
+      "mobile-login-touch-targets",
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/login?mfa=mfa_required", { waitUntil: "domcontentloaded" });
+    const recoveryButton = page.getByRole("button", { name: "Use recovery code", exact: true });
+    await expect(recoveryButton).toBeVisible();
+    expect(await recoveryButton.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    const revealButton = page.getByRole("button", { name: "Show password", exact: true });
+    await expect(revealButton).toBeVisible();
+    const revealBounds = await revealButton.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height };
+    });
+    expect(revealBounds.width).toBeGreaterThanOrEqual(44);
+    expect(revealBounds.height).toBeGreaterThanOrEqual(44);
+    await expectNoHorizontalOverflow(page);
+    mockRegistry.assertNoUnmatched();
+  });
+
   for (const routeCase of ROUTE_CASES) {
     const scenario = scenarioById(routeCase.scenarioId);
     for (const theme of THEMES) {

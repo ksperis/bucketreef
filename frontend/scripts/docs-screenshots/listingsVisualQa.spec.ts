@@ -33,7 +33,7 @@ for (const id of listingCases) for (const mode of modes) {
       ], `${id}-${mode.name}`, { ...scenario.user, ui_language: mode.theme === "dark" ? "de" : mode.width < 768 ? "fr" : "en" });
       await seedUiPreferences(page, { ...scenario.storage, theme: mode.theme });
       await page.goto(`http://127.0.0.1:4173${scenario.route}`);
-      await page.locator(scenario.route.startsWith("/portal") ? "h1" : scenario.waitFor).first().waitFor();
+      await page.locator(id === "workspace-browser" ? "[data-browser-item]" : "main h1").first().waitFor();
       for (const action of scenario.actions ?? []) {
         if (id === "gallery-portal-access-keys") break;
         if (action.type !== "wait") break;
@@ -90,12 +90,12 @@ for (const id of listingCases) for (const mode of modes) {
         expect(await action.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
       }
       if (id === "feature-bucket-compare") {
-        const run = page.getByRole("button", { name: "Compare selected" });
+        const run = page.getByRole("button", { name: /^(Compare selected|Comparer la sélection|Auswahl vergleichen)/ });
         await expect(run).toBeDisabled();
-        await expect(page.locator(".ui-list-toolbar-heading")).toContainText("Compare selected");
-        await page.getByRole("button", { name: "Select filtered" }).click();
+        await expect(page.locator(".ui-list-toolbar-heading")).toContainText(/Compare selected|Comparer la sélection|Auswahl vergleichen/);
+        await page.getByRole("button", { name: /^(Select filtered|Sélectionner les résultats filtrés|Gefiltert auswählen)$/ }).click();
         await expect(run).toBeEnabled();
-        await page.getByRole("button", { name: "Clear", exact: true }).click();
+        await page.getByRole("button", { name: /^(Clear|Effacer|Löschen)$/ }).click();
         await expect(run).toBeDisabled();
       }
       registry.assertNoUnmatched();

@@ -53,7 +53,7 @@ export function AuthPasswordInput({
         aria-label={actionLabel}
         aria-pressed={visible}
         onClick={() => setVisible((current) => !current)}
-        className="absolute bottom-2.5 right-3 ui-caption font-semibold text-primary-700 hover:text-primary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
+        className="absolute bottom-2.5 right-3 ui-caption font-semibold text-primary-700 hover:text-primary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 max-lg:bottom-0 max-lg:right-1 max-lg:flex max-lg:min-h-11 max-lg:min-w-11 max-lg:items-center max-lg:justify-center"
       >
         {text(visible ? "hide" : "show")}
       </button>

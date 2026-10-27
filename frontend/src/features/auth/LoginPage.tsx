@@ -422,7 +422,12 @@ export default function LoginPage() {
                 onChange={(event) => setRecoveryCode(event.target.value)}
                 autoComplete="one-time-code"
               />
-              <button type="button" className="mt-3 ui-body font-semibold text-primary-700" disabled={loading || !recoveryCode.trim()} onClick={() => void completeRecovery()}>
+              <button
+                type="button"
+                className="mt-3 ui-body font-semibold text-primary-700 max-lg:inline-flex max-lg:min-h-11 max-lg:items-center"
+                disabled={loading || !recoveryCode.trim()}
+                onClick={() => void completeRecovery()}
+              >
                 {text("useRecoveryCode")}
               </button>
             </div>

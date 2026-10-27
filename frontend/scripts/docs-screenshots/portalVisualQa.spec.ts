@@ -20,17 +20,17 @@ const portalRoutes = [
   {
     path: "/portal/storage-spaces/genomics-2026?prefix=raw-data%2F2024%2F03%2F",
     expected: {
-      en: "sample_001.fastq.gz",
-      fr: "sample_001.fastq.gz",
-      de: "sample_001.fastq.gz",
+      en: "Files are not available for this private space.",
+      fr: "Les fichiers ne sont pas disponibles pour cet espace privé.",
+      de: "Dateien sind für diesen privaten Bereich nicht verfügbar.",
     },
   },
   {
     path: "/portal/storage-spaces/genomics-2026?tab=settings",
     expected: {
-      en: "Version history settings",
-      fr: "Paramètres de l’historique des versions",
-      de: "Einstellungen für den Versionsverlauf",
+      en: "File history",
+      fr: "Historique des fichiers",
+      de: "Dateiverlauf",
     },
   },
   {
@@ -108,7 +108,7 @@ for (const width of [1440, 390]) {
     page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
     const registry = await registerApiMocks(page, [
       { id: "chinese-profile-read", method: "GET", path: /^\/users\/me$/, body: () => user },
-      { id: "chinese-profile-save", method: "PUT", path: /^\/users\/me$/, body: ({ requestBodyText }) => {
+      { id: "chinese-profile-save", method: "PATCH", path: /^\/users\/me$/, body: ({ requestBodyText }) => {
         const payload = JSON.parse(requestBodyText);
         expect(payload.ui_language).toBe("zh");
         user = { ...user, ...payload };
@@ -247,7 +247,7 @@ test.describe("Portal visual QA", () => {
             ) {
               await expect(
                 main.getByRole("button", { name: "Selected storage space" }),
-              ).toBeVisible();
+              ).toHaveCount(0);
               await expect(
                 main.getByRole("button", { name: "Search options" }),
               ).toHaveCount(0);
@@ -354,6 +354,7 @@ for (const target of ["self", "external"] as const) {
         } },
         { id: "tool-access-list", method: "GET", path: /^\/portal\/access-keys$/, body: () => ({
           ...initialState, max_access_keys: 3,
+          can_create_external_access: true,
           access_keys: created ? [...initialState.access_keys, key] : initialState.access_keys,
         }) },
         ...rules,

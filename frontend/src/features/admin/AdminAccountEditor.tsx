@@ -25,6 +25,7 @@ import ProjectSettingsEditor, { type ProjectSettingsAdapter } from "../shared/Pr
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminAccountStats } from "./useAdminAccountStats";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import { useI18n } from "../../i18n";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminQuotaFields from "./AdminQuotaFields";
 import { adminQuotaErrors } from "./useAdminRgwFormValidation";
@@ -69,7 +70,8 @@ export default function AdminAccountEditor(props: Props) {
 }
 
 function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
-  const { intlLocale, text: adminText } = useAdminI18n();
+  const { locale, intlLocale, text: adminText } = useAdminI18n();
+  const { t: projectSettingsText } = useI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const form = useSettingsDraft(() => adminAccountForm(account));
   const [tab, setTab] = useState<EditTab>("general");
@@ -281,7 +283,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
         </div>
         {portalEnabled && <div hidden={tab !== "portal"}>
           <ProjectSettingsEditor accountId={account.id} projectName={account.name} adapter={portalAdapter} admin navigationGuard={false}
-            disabled={controller.locked} onDirtyChange={setPortalDirty} onBusyChange={setPortalBusy} />
+            t={projectSettingsText} locale={locale} disabled={controller.locked} onDirtyChange={setPortalDirty} onBusyChange={setPortalBusy} />
         </div>}
       </WorkflowTabs>
     </WorkflowPage>

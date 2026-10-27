@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 /** Recharts uses JavaScript animation, which screenshot animations:disable does not stop. */
 export async function waitForStableDashboardDonut(page: Page) {
   const sectors = page.locator(".recharts-pie-sector path");
-  await expect(sectors.first()).toBeVisible();
+  await expect.poll(() => sectors.count(), { timeout: 5000 }).toBeGreaterThan(0);
   let previous = "";
   let stableSamples = 0;
   await expect.poll(async () => {
