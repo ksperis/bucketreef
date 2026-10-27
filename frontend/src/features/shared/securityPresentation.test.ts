@@ -22,6 +22,12 @@ describe("security session presentation", () => {
     expect(sessionActivity("2026-09-09T11:58:00Z", now, locale, text(locale))).toContain(relative.format(-2, "minute"));
     expect(securityDate("invalid", locale, "unknown")).toBe("unknown");
   });
+  it("keeps French passkey terminology distinct from S3 access keys", () => {
+    expect(profileMessages.passkeys.fr).toBe("Passkeys");
+    expect(profileMessages.noPasskeys.fr).toBe("Aucune passkey enregistrée.");
+    expect(profileMessages.verify.fr).toBe("Vérifier avec une passkey");
+  });
+
   it("identifies browser and system from the user agent with an explicit fallback", () => {
     expect(sessionDevice(session({ user_agent: "Mozilla/5.0 (Windows NT 10.0) Chrome/145.0 Safari/537.36 Edg/145.0" }), text("fr"))).toBe("Edge sur Windows");
     expect(sessionDevice(session({ user_agent: "custom-client" }), text("de"))).toBe("Unbekannter Browser");

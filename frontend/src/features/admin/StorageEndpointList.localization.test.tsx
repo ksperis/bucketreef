@@ -61,7 +61,7 @@ describe("StorageEndpointList localization", () => {
     fireEvent.click(screen.getByRole("button", { name: "fr" }));
     const frenchTotal = new Intl.NumberFormat("fr").format(endpoints.length);
     const normalizedFrenchTotal = frenchTotal.replace(/\s/g, " ");
-    await waitFor(() => expect(screen.getByText(`0 sur ${normalizedFrenchTotal} points de terminaison`)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(`0 sur ${normalizedFrenchTotal} endpoints`)).toBeInTheDocument());
     expect(screen.getByText("Filtres actifs :")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tout effacer" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Changer le mode de correspondance du filtre" })).toBeInTheDocument();

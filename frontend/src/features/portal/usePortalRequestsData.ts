@@ -210,7 +210,7 @@ export function usePortalRequestsData({
           t({
             en: "Unable to load collaborators.",
             fr: "Impossible de charger les collaborateurs.",
-            de: "Mitwirkende konnen nicht geladen werden.",
+            de: "Mitwirkende können nicht geladen werden.",
             zh: "无法加载协作者。",
           }),
         ),
