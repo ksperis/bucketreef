@@ -4,8 +4,17 @@
  */
 import type { CheckLevel } from "../../api/productionReadiness";
 import type { I18nMessage } from "../../i18n";
+import { adminMessage } from "./adminI18n";
 
-export const productionReadinessMessages = {
+type EnZhMessage = { en: string; zh: string };
+
+function localizeMessages<T extends Record<string, EnZhMessage>>(messages: T) {
+  return Object.fromEntries(
+    Object.entries(messages).map(([key, message]) => [key, adminMessage(message.en, message.zh)]),
+  ) as { [K in keyof T]: ReturnType<typeof adminMessage> };
+}
+
+export const productionReadinessMessages = localizeMessages({
   title: { en: "Production readiness", zh: "生产就绪检查" },
   description: {
     en: "Security, deployment and operational checks for this backend runtime.",
@@ -45,17 +54,17 @@ export const productionReadinessMessages = {
   },
   showSuccessfulCheck: { en: "Show {count} successful check", zh: "显示 {count} 项通过的检查" },
   showSuccessfulChecks: { en: "Show {count} successful checks", zh: "显示 {count} 项通过的检查" },
-} satisfies Record<string, I18nMessage>;
+});
 
-export const productionReadinessLevelLabels: Record<CheckLevel, I18nMessage> = {
+export const productionReadinessLevelLabels: Record<CheckLevel, I18nMessage> = localizeMessages({
   blocked: { en: "Blocked", zh: "阻断" },
   critical: { en: "Critical", zh: "严重" },
   warning: { en: "Warning", zh: "警告" },
   manual: { en: "Manual", zh: "人工确认" },
   ok: { en: "OK", zh: "通过" },
-};
+});
 
-export const productionReadinessGroupDescriptions: Record<CheckLevel, I18nMessage> = {
+export const productionReadinessGroupDescriptions: Record<CheckLevel, I18nMessage> = localizeMessages({
   blocked: {
     en: "Obvious security problems. In production, checks marked as startup-blocking prevent the backend from serving requests.",
     zh: "明显的安全问题。在生产环境中，标记为阻止启动的检查项会阻止后端处理请求。",
@@ -76,12 +85,12 @@ export const productionReadinessGroupDescriptions: Record<CheckLevel, I18nMessag
     en: "Automated checks that currently satisfy their expected configuration.",
     zh: "当前符合预期配置的自动检查项。",
   },
-};
+});
 
-export const productionReadinessLevelSummaries: Record<CheckLevel, I18nMessage> = {
+export const productionReadinessLevelSummaries: Record<CheckLevel, I18nMessage> = localizeMessages({
   blocked: { en: "Can prevent startup in production.", zh: "可能阻止生产环境启动。" },
   critical: { en: "Correct before production publication.", zh: "应在生产环境上线前修正。" },
   warning: { en: "Review against your deployment context.", zh: "请结合实际部署环境核查。" },
   manual: { en: "Requires explicit operator verification.", zh: "需要运维人员明确确认。" },
   ok: { en: "Automated checks currently satisfied.", zh: "当前已通过自动检查。" },
-};
+});

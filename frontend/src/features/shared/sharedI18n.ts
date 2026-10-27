@@ -21,6 +21,18 @@ function sharedText(
   return interpolateText(lookupCatalogMessage(message, locale, SHARED_CATALOGS) ?? message, values);
 }
 
+export function sharedMessage(
+  en: string,
+  zhFallback?: string,
+): { en: string; fr: string; de: string; zh: string } {
+  return {
+    en,
+    fr: lookupCatalogMessage(en, "fr", SHARED_CATALOGS) ?? en,
+    de: lookupCatalogMessage(en, "de", SHARED_CATALOGS) ?? en,
+    zh: lookupCatalogMessage(en, "zh", SHARED_CATALOGS) ?? zhFallback ?? en,
+  };
+}
+
 export function useSharedI18n() {
   const { locale } = useI18n();
   const text = useCallback(

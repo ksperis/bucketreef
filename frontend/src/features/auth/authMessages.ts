@@ -5,9 +5,10 @@
 import { useCallback } from "react";
 
 import { PRODUCT_SUBTITLE } from "../../constants/product";
-import { interpolateText, useI18n, type I18nMessage } from "../../i18n";
+import { interpolateText, useI18n } from "../../i18n";
+import { sharedMessage } from "../shared/sharedI18n";
 
-const m = (en: string, zh: string): I18nMessage => ({ en, zh });
+const m = sharedMessage;
 
 export const authMessages = {
   password: m("Password", "密码"),

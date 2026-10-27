@@ -19,6 +19,65 @@ import managerZh from "./features/manager/manager.zh.json";
 import sharedDe from "./features/shared/shared.de.json";
 import sharedFr from "./features/shared/shared.fr.json";
 import sharedZh from "./features/shared/shared.zh.json";
+import { metricsMessage } from "./components/metricsMessage";
+import { paginationControlsMessage } from "./components/paginationControlsMessage";
+import { shellMessages } from "./components/shellMessages";
+import { usageHistoryMessage } from "./components/usageHistoryMessage";
+import {
+  productionReadinessGroupDescriptions,
+  productionReadinessLevelLabels,
+  productionReadinessLevelSummaries,
+  productionReadinessMessages,
+} from "./features/admin/productionReadinessMessages";
+import { authMessages } from "./features/auth/authMessages";
+import { bucketUsageStatsMessage } from "./features/shared/bucketUsageStatsMessage";
+import type { I18nMessage } from "./i18n";
+
+
+
+const SHELL_SHARED_MESSAGE_KEYS = [
+  "unavailableContext",
+  "navigation",
+  "unknown",
+  "s3Session",
+  "superadmin",
+  "admin",
+  "user",
+  "noAccess",
+  "session",
+  "adminMode",
+  "connectionMode",
+  "s3UserMode",
+] as const;
+
+function englishSources(messageSets: readonly Readonly<Record<string, I18nMessage>>[]): string[] {
+  const sources = new Set<string>();
+  for (const messages of messageSets) {
+    for (const message of Object.values(messages)) {
+      if (typeof message !== "string" && message.en) sources.add(message.en);
+    }
+  }
+  return [...sources];
+}
+
+function placeholders(text: string): string[] {
+  return [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+}
+
+function expectCatalogCoverage(
+  sources: readonly string[],
+  catalogs: Readonly<{ fr: Readonly<Record<string, string>>; de: Readonly<Record<string, string>> }>,
+) {
+  for (const source of sources) {
+    for (const locale of ["fr", "de"] as const) {
+      const translation = catalogs[locale][source];
+      expect(translation, `${locale} translation missing for: ${source}`).toBeDefined();
+      expect(placeholders(translation), `${locale} placeholders differ for: ${source}`).toEqual(
+        placeholders(source),
+      );
+    }
+  }
+}
 
 const TECHNICAL_TERMS = ["Ceph", "RGW", "S3", "IAM", "CORS", "Bucket", "Tenant"] as const;
 const LOCALIZED_TECHNICAL_TERMS: Partial<Record<"fr" | "de" | "zh", ReadonlySet<(typeof TECHNICAL_TERMS)[number]>>> = {
@@ -77,4 +136,32 @@ describe("compact i18n catalogs", () => {
       }
     }
   });
+
+  it("covers shared message modules in French and German", () => {
+    const shellSharedMessages = Object.fromEntries(
+      SHELL_SHARED_MESSAGE_KEYS.map((key) => [key, shellMessages[key]]),
+    );
+    const sources = englishSources([
+      authMessages,
+      metricsMessage,
+      paginationControlsMessage,
+      usageHistoryMessage,
+      bucketUsageStatsMessage,
+      shellSharedMessages,
+    ]);
+
+    expectCatalogCoverage(sources, sharedCatalogs);
+  });
+
+  it("covers production readiness messages in French and German", () => {
+    const sources = englishSources([
+      productionReadinessMessages,
+      productionReadinessLevelLabels,
+      productionReadinessGroupDescriptions,
+      productionReadinessLevelSummaries,
+    ]);
+
+    expectCatalogCoverage(sources, adminCatalogs);
+  });
+
 });

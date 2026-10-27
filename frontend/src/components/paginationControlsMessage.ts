@@ -1,10 +1,11 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
-import { interpolateText, useI18n, type I18nMessage } from "../i18n";
+import { interpolateText, useI18n } from "../i18n";
+import { sharedMessage } from "../features/shared/sharedI18n";
 
-const m = (en: string, zh: string): I18nMessage => ({ en, zh });
+const m = sharedMessage;
 
-const paginationControlsMessage = {
+export const paginationControlsMessage = {
   previous: m("Previous", "上一页"),
   next: m("Next", "下一页"),
   pageResult: m("Page {page} of {pages} · {total} result", "第 {page} 页，共 {pages} 页 · {total} 条结果"),

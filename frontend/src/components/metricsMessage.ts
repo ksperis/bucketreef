@@ -1,9 +1,10 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
 
-import { interpolateText, useI18n, type I18nMessage } from "../i18n";
+import { interpolateText, useI18n } from "../i18n";
+import { sharedMessage } from "../features/shared/sharedI18n";
 
-const m = (en: string, zh: string): I18nMessage => ({ en, zh });
+const m = sharedMessage;
 
 export const metricsMessage = {
   updated: m("Updated:", "更新时间："),
