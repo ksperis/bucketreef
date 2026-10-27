@@ -165,6 +165,10 @@ export default function MultisiteLogExplorerPage() {
     if (!resolvedScope) return;
     load(resolvedScope, { current: null, previous: [] }, formIdentity, form);
   };
+  const refreshLogs = () => {
+    if (!resolvedScope || !visibleObservation) return;
+    load(resolvedScope, history, formIdentity, form);
+  };
   const nextPage = () => {
     if (!resolvedScope || !page?.truncated || !page.next_cursor) return;
     load(resolvedScope, advanceLogCursor(history, page.next_cursor), formIdentity, form);
@@ -228,7 +232,17 @@ export default function MultisiteLogExplorerPage() {
   });
 
   return (
-    <MultisitePage activeTab="logs">
+    <MultisitePage
+      activeTab="logs"
+      actions={[
+        {
+          label: text("Refresh"),
+          variant: "secondary",
+          disabled: loading || visibleObservation == null,
+          onClick: refreshLogs,
+        },
+      ]}
+    >
       <div className="space-y-4">
         <form onSubmit={(event) => { event.preventDefault(); readLogs(); }} className="grid gap-3 rounded-lg border border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] p-3 lg:grid-cols-3">
           <UiSelect label={text("Log family")} value={form.family} onChange={(event) => updateForm("family", event.target.value as MultisiteFamily)}>

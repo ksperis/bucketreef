@@ -14,7 +14,6 @@ import DataTableShell, { type DataTableColumn } from "../../../components/list/D
 import { ListActionButton, ListActions } from "../../../components/list/ListControls";
 import ListPageSection from "../../../components/list/ListPageSection";
 import PageEmptyState from "../../../components/PageEmptyState";
-import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { extractApiError, isCancelledError } from "../../../utils/apiError";
@@ -30,7 +29,7 @@ import {
 } from "./MultisiteCommon";
 import MultisitePage from "./MultisitePage";
 import { formatTimestamp, type MultisiteText } from "./multisiteUtils";
-import { compareMultisiteObservation, useMultisiteAutoRefresh } from "./useMultisiteObservations";
+import { compareMultisiteObservation } from "./useMultisiteObservations";
 
 type FlowFamily = "metadata" | "data";
 type FlowSelection = {
@@ -383,7 +382,6 @@ export default function MultisiteOverviewPage() {
   }, [offset, recordFlowObservation, revision, scope, selectedEndpointId, text]);
 
   const refreshOverview = useCallback(() => setRevision((value) => value + 1), []);
-  const { autoRefresh, setAutoRefresh } = useMultisiteAutoRefresh(refreshOverview);
 
   const zones = overview?.topology.period.data?.zones ?? [];
   const realmData = overview?.topology.realm?.data;
@@ -755,17 +753,6 @@ export default function MultisiteOverviewPage() {
           onClick: refreshOverview,
         },
       ]}
-      metaContent={
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="ui-caption text-[var(--ui-text-muted)]">{text("Auto-refresh every 30 seconds")}</span>
-          <SettingsSwitch
-            checked={autoRefresh}
-            onChange={setAutoRefresh}
-            disabled={endpointLoading || selectedEndpointId == null}
-            ariaLabel={text("Auto-refresh overview every 30 seconds")}
-          />
-        </div>
-      }
     >
       {content}
       {selection && selectedFlow && selectedEndpointId != null ? (

@@ -13,7 +13,6 @@ import DataTableShell, { dataTableDefaultActionProps, type DataTableColumn } fro
 import { ListActionButton, ListActionLink } from "../../../components/list/ListControls";
 import ListPageSection from "../../../components/list/ListPageSection";
 import PageTabs from "../../../components/PageTabs";
-import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiButton from "../../../components/ui/UiButton";
 import UiDetails from "../../../components/ui/UiDetails";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
@@ -33,7 +32,7 @@ import {
 import MultisitePage from "./MultisitePage";
 import { initialBucketScopeForm, resolveBucketScope, type BucketScopeForm } from "./multisiteBucketScope";
 import { buildMultisiteHref, formatTimestamp, getDeclaredEndpointOptions } from "./multisiteUtils";
-import { useMultisiteAutoRefresh, useMultisiteObservations } from "./useMultisiteObservations";
+import { useMultisiteObservations } from "./useMultisiteObservations";
 import { useMultisiteTopology } from "./useMultisiteTopology";
 
 type BucketTab = "shards" | "generations" | "observations";
@@ -94,7 +93,6 @@ export default function BucketReplicationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<BucketTab>("shards");
-  const [refreshScope, setRefreshScope] = useState<string | null>(null);
   const [shardSearch, setShardSearch] = useState("");
   const [shardPage, setShardPage] = useState(1);
   const [selectedShardId, setSelectedShardId] = useState<number | null>(null);
@@ -121,7 +119,6 @@ export default function BucketReplicationPage() {
     setResultScope(null);
     setError(null);
     setLoading(false);
-    setRefreshScope(null);
     setShardSearch("");
     setShardPage(1);
     setSelectedShardId(null);
@@ -164,16 +161,8 @@ export default function BucketReplicationPage() {
   }, [formScope, recordObservation, resolvedScope, searchParams, selectedEndpointId, selectedShardId, setSearchParams, text]);
 
   const readDiagnostic = useCallback(() => {
-    setRefreshScope(formScope);
     fetchDiagnostic();
-  }, [fetchDiagnostic, formScope]);
-
-  const autoRefreshDiagnostic = useCallback(() => {
-    if (refreshScope !== formScope || loading) return;
-    fetchDiagnostic();
-  }, [fetchDiagnostic, formScope, loading, refreshScope]);
-
-  const { autoRefresh, setAutoRefresh } = useMultisiteAutoRefresh(autoRefreshDiagnostic);
+  }, [fetchDiagnostic]);
   const visibleResult = resultScope === formScope ? result : null;
   const latestObservation = observationHistory.at(-1);
   const latestShardChanges = useMemo(
@@ -416,13 +405,14 @@ export default function BucketReplicationPage() {
   return (
     <MultisitePage
       activeTab="bucket"
-      metaContent={(
-        <div className="mt-1 flex flex-wrap items-center gap-2 ui-caption text-[var(--ui-text-muted)]">
-          <span>{text("Auto-refresh every 30 seconds while this tab is visible")}</span>
-          <SettingsSwitch checked={autoRefresh} onChange={setAutoRefresh} disabled={!resolvedScope || loading} ariaLabel={text("Auto-refresh bucket diagnostic every 30 seconds")} />
-          {autoRefresh && refreshScope !== formScope ? <span>{text("Auto-refresh is paused until you read this scope.")}</span> : null}
-        </div>
-      )}
+      actions={[
+        {
+          label: text("Refresh"),
+          variant: "secondary",
+          disabled: loading || visibleResult == null,
+          onClick: fetchDiagnostic,
+        },
+      ]}
     >
       <div className="space-y-4">
         <section className="grid gap-3 rounded-lg border border-[color:var(--ui-border-soft)] bg-[var(--ui-surface)] p-3 lg:grid-cols-2">

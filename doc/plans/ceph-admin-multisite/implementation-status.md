@@ -29,7 +29,7 @@
   pagination des journaux, recherche locale, exports JSON/CSV et provenance.
 - Observations en mémoire de session, comparaison d'égalité, nouveau contexte
   lors d'un changement d'instance/période/génération, rétention 20/30 minutes,
-  rafraîchissement visible facultatif à 30 secondes.
+  rafraîchissement uniquement manuel via l'action de page.
 - Traductions FR/DE/ZH, documentation Admin et notes de migration, schéma DB
   régénéré. Les classes de stockage découvertes restent dans la réponse live de
   zone et ne sont pas persistées. Aucun historique persistant ni collecteur en
