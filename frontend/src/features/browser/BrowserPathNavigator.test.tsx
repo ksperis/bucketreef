@@ -28,6 +28,19 @@ const buildProps = (
 });
 
 describe("BrowserPathNavigator", () => {
+  it("uses a 44px parent-folder target in compact mobile navigation", () => {
+    render(
+      <BrowserPathNavigator
+        {...buildProps({ compactMobile: true, canGoUp: true })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Parent folder" })).toHaveClass(
+      "min-h-[44px]",
+      "min-w-[44px]",
+    );
+  });
+
   it("opens path editing from the root display", () => {
     const onStartEditing = vi.fn();
     render(<BrowserPathNavigator {...buildProps({ onStartEditing })} />);

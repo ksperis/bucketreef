@@ -32,6 +32,22 @@ const directPathAction: BrowserActionState = {
   enabled: true,
 };
 
+const newFolderAction: BrowserActionState = {
+  id: "newFolder",
+  section: "path",
+  label: "New folder",
+  visible: true,
+  enabled: true,
+};
+
+const refreshAction: BrowserActionState = {
+  id: "refresh",
+  section: "path",
+  label: "Refresh",
+  visible: true,
+  enabled: true,
+};
+
 const technicalPathAction: BrowserActionState = {
   id: "versions",
   section: "path",
@@ -59,6 +75,7 @@ const showDeletedAction: BrowserActionState = {
 function buildProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
   return {
     compactMode: true,
+    mobileViewport: false,
     bucketSelector: {
       rootRef: createRef<HTMLDivElement>(),
       filterInputRef: createRef<HTMLInputElement>(),
@@ -195,6 +212,47 @@ describe("BrowserToolbar", () => {
     expect(props.onRunPathAction).toHaveBeenNthCalledWith(3, "newFolder");
     expect(props.onRunPathAction).toHaveBeenNthCalledWith(4, "refresh");
     expect(props.onRunPathAction).toHaveBeenNthCalledWith(5, "uploadFiles");
+  });
+
+  it("keeps mobile navigation on one row and moves secondary path actions to More", () => {
+    const props = buildProps({
+      mobileViewport: true,
+      moreMenu: {
+        ...buildProps().moreMenu,
+        pathActions: [directPathAction, newFolderAction, refreshAction],
+      },
+    });
+    render(<BrowserToolbar {...props} />);
+
+    const toolbar = screen.getByRole("toolbar", {
+      name: "Browser context bar",
+    });
+    expect(toolbar).toHaveClass("items-stretch");
+    expect(toolbar).not.toHaveClass("flex-col");
+    expect(within(toolbar).getByRole("button", { name: "Upload" })).toHaveClass(
+      "ui-list-action-touch",
+    );
+    expect(within(toolbar).getByRole("button", { name: "More" })).toHaveClass(
+      "ui-list-action-touch",
+    );
+    expect(
+      within(toolbar).queryByRole("button", { name: "New folder" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(toolbar).queryByRole("button", { name: "Refresh" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(toolbar).getByRole("button", { name: "More" }));
+    let menu = screen.getByRole("menu", { name: "More" });
+    expect(within(menu).getByText("Current path")).toBeInTheDocument();
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "New folder" }));
+
+    fireEvent.click(within(toolbar).getByRole("button", { name: "More" }));
+    menu = screen.getByRole("menu", { name: "More" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Refresh" }));
+
+    expect(props.onRunPathAction).toHaveBeenNthCalledWith(1, "newFolder");
+    expect(props.onRunPathAction).toHaveBeenNthCalledWith(2, "refresh");
   });
 
   it("renders the desktop selection bar and routes its primary actions", () => {

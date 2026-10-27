@@ -6,6 +6,8 @@ import { useState } from "react";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageBanner from "../../components/PageBanner";
 import PageHeader from "../../components/PageHeader";
+import UiDetails from "../../components/ui/UiDetails";
+import { cx, uiToneBannerClasses } from "../../components/ui/styles";
 import BrowserEmbed from "../browser/BrowserEmbed";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useExecutionContext } from "./ExecutionContextProvider";
@@ -30,14 +32,26 @@ export default function ManagerBrowserPage() {
   const breadcrumbs = selectedBrowserBucketName
     ? managerPageBreadcrumbs(text, "browser", { label: selectedBrowserBucketName })
     : managerPageBreadcrumbs(text, "browser");
+  const attributionIdentity =
+    iamIdentity ?? selectedContext?.display_name ??
+    (accessMode === "connection" ? "the selected connection" : "this S3 identity");
+  const attributionMessage =
+    accessMode === "admin" || accessMode === "s3_user"
+      ? `${text("RGW logs will attribute operations to")} ${attributionIdentity}${text(", not to the UI user.")}`
+      : accessMode === "connection" && !iamIdentity
+        ? `${text("The provider principal could not be resolved. This Browser uses the credentials of")} ${selectedContext?.display_name ?? "the selected connection"}${text("; provider logs will attribute operations to that identity.")}`
+        : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
-      <PageHeader
-        title={text("Browser")}
-        description={text("Object navigation using the active Manager context.")}
-        breadcrumbs={breadcrumbs}
-      />
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-2 md:gap-4">
+      <div className="hidden md:block">
+        <PageHeader
+          title={text("Browser")}
+          description={text("Object navigation using the active Manager context.")}
+          breadcrumbs={breadcrumbs}
+        />
+      </div>
+      <h1 className="sr-only md:hidden">{text("Browser")}</h1>
       <div className="min-h-0 flex-1">
         {!hasExecutionContext ? (
           <PageEmptyState
@@ -56,15 +70,34 @@ export default function ManagerBrowserPage() {
             className="h-full"
           />
         ) : (
-          <div className="flex h-full min-h-0 flex-col gap-3">
-            {accessMode === "admin" || accessMode === "s3_user" ? (
-              <PageBanner tone="warning">
-                {text("RGW logs will attribute operations to")} {iamIdentity ?? selectedContext?.display_name ?? "this S3 identity"}{text(", not to the UI user.")}
-              </PageBanner>
-            ) : accessMode === "connection" && !iamIdentity ? (
-              <PageBanner tone="warning">
-                {text("The provider principal could not be resolved. This Browser uses the credentials of")} {selectedContext?.display_name ?? "the selected connection"}{text("; provider logs will attribute operations to that identity.")}
-              </PageBanner>
+          <div className="flex h-full min-h-0 flex-col gap-2 md:gap-3">
+            {attributionMessage ? (
+              <>
+                <PageBanner tone="warning" className="hidden md:block">
+                  {attributionMessage}
+                </PageBanner>
+                <UiDetails
+                  className={cx(
+                    "overflow-hidden rounded-md border md:hidden",
+                    uiToneBannerClasses.warning,
+                  )}
+                >
+                  <summary
+                    aria-label={`RGW: ${attributionIdentity}`}
+                    className="flex min-h-[44px] cursor-pointer items-center gap-2 px-3 py-2 ui-caption"
+                  >
+                    <span className="shrink-0 font-semibold">RGW</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="min-w-0 flex-1 truncate font-semibold">
+                      {attributionIdentity}
+                    </span>
+                    <span aria-hidden="true" className="shrink-0">ⓘ</span>
+                  </summary>
+                  <div className="border-t border-current/15 px-3 py-2 ui-caption">
+                    {attributionMessage}
+                  </div>
+                </UiDetails>
+              </>
             ) : null}
             <div className="min-h-0 flex-1">
               <BrowserEmbed

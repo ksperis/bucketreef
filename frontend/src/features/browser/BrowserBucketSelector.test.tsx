@@ -88,4 +88,16 @@ describe("BrowserBucketSelector", () => {
     expect(screen.getByRole("button", { name: "Choose bucket" })).not.toHaveAttribute("aria-haspopup");
     expect(screen.queryByRole("textbox", { name: "Filter buckets" })).not.toBeInTheDocument();
   });
+
+  it("keeps the compact mobile selector touchable while allowing it to shrink", () => {
+    render(
+      <BrowserBucketSelector
+        {...buildProps({ compactMobile: true, open: false })}
+      />,
+    );
+
+    const selector = screen.getByRole("button", { name: "Choose bucket" });
+    expect(selector).toHaveClass("min-h-[44px]", "w-full", "min-w-0");
+    expect(selector.parentElement).toHaveClass("w-1/2", "min-w-0");
+  });
 });
