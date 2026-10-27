@@ -69,6 +69,10 @@ function changeLabel(change: ObservationChange, text: MultisiteText) {
   return text("Unchanged");
 }
 
+function hasNoDataSyncState(family: FlowFamily, flow: MultisiteFlow) {
+  return family === "data" && flow.status.availability === "not_found" && !flow.status.data;
+}
+
 function ChangeBadge({ change, text }: { change: ObservationChange | undefined; text: MultisiteText }) {
   if (!change) return <span>—</span>;
   const tone = change === "changed" ? "info" : change === "new_context" ? "warning" : "neutral";
@@ -522,12 +526,15 @@ export default function MultisiteOverviewPage() {
     {
       id: "availability",
       label: text("Availability"),
-      render: (flow) => <ObservationBadge observation={flow.status} text={text} />,
+      render: (flow) =>
+        hasNoDataSyncState(family, flow)
+          ? <UiBadge tone="neutral">{text("No sync state")}</UiBadge>
+          : <ObservationBadge observation={flow.status} text={text} />,
     },
     {
       id: "phase",
       label: text("Phase"),
-      render: (flow) => <PhaseBadge phase={flow.status.data?.phase} text={text} />,
+      render: (flow) => hasNoDataSyncState(family, flow) ? <span>—</span> : <PhaseBadge phase={flow.status.data?.phase} text={text} />,
     },
     {
       id: "change",
@@ -538,10 +545,12 @@ export default function MultisiteOverviewPage() {
       id: "shards",
       label: text("Shards"),
       render: (flow) =>
-        text("{received} / {expected}", {
-          received: flow.status.data?.shards.length ?? 0,
-          expected: flow.status.data?.expected_shards ?? text("Unknown"),
-        }),
+        hasNoDataSyncState(family, flow)
+          ? "—"
+          : text("{received} / {expected}", {
+              received: flow.status.data?.shards.length ?? 0,
+              expected: flow.status.data?.expected_shards ?? text("Unknown"),
+            }),
     },
     {
       id: "freshness",
@@ -551,7 +560,10 @@ export default function MultisiteOverviewPage() {
     {
       id: "reason",
       label: text("Reason"),
-      render: (flow) => flow.status.reason_code ?? "—",
+      render: (flow) =>
+        hasNoDataSyncState(family, flow)
+          ? text("Ceph returned no data sync status for this direction.")
+          : flow.status.reason_code ?? "—",
     },
     {
       id: "actions",
@@ -716,7 +728,7 @@ export default function MultisiteOverviewPage() {
         <ListPageSection
           variant="section"
           title={text("Data replication")}
-          description={text("Per-source data sync observations. A configured relation is not proof that every bucket is replicated.")}
+          description={text("Per-source data sync observations. No sync state means Ceph returned no status for that direction; it does not by itself prove a replication error.")}
           countLabel={text("{count} flows", { count: overview.data.length })}
         >
           <DataTableShell

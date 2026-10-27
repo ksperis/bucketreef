@@ -313,4 +313,39 @@ describe("MultisiteOverviewPage", () => {
     expect(within(metadataSection as HTMLElement).getByText("1 flows")).toBeInTheDocument();
     expect(within(metadataSection as HTMLElement).queryByText("Not applicable")).not.toBeInTheDocument();
   });
+
+  it("explains a missing Ceph data sync state without presenting an unknown phase", async () => {
+    const fixture = overview("Realm fixture", "marker-a", "2026-10-27T10:00:00Z", null);
+    fixture.data = [
+      {
+        destination_endpoint_id: 1,
+        destination_zone_id: "zone-source",
+        source_zone_id: "zone-destination",
+        scope_requires_confirmation: false,
+        status: {
+          ...status("marker-missing", "2026-10-27T10:00:00Z"),
+          availability: "not_found",
+          reason_code: "rgw_read_failed",
+          data: null,
+          provenance: {
+            ...status("marker-missing", "2026-10-27T10:00:00Z").provenance,
+            endpoint_id: 1,
+            local_zone_id: "zone-source",
+            source_zone_id: "zone-destination",
+            http_status: 404,
+          },
+        },
+      },
+    ];
+    getMultisiteOverviewMock.mockResolvedValue(fixture);
+
+    render(<MultisiteOverviewPage />);
+
+    expect(await screen.findByText("Realm fixture")).toBeInTheDocument();
+    const dataSection = screen.getByRole("heading", { name: "Data replication" }).closest("section");
+    expect(dataSection).not.toBeNull();
+    expect(within(dataSection as HTMLElement).getByText("No sync state")).toBeInTheDocument();
+    expect(within(dataSection as HTMLElement).getByText("Ceph returned no data sync status for this direction.")).toBeInTheDocument();
+    expect(within(dataSection as HTMLElement).queryByText("Unknown")).not.toBeInTheDocument();
+  });
 });
