@@ -16,7 +16,6 @@ Family = Literal["metadata", "data", "bucket-index"]
 Operation = Literal[
     "zone_configuration", "period", "realm", "metadata_status", "data_status", "bucket_status",
     "bucket_instance", "bilog_info", "metadata_log", "data_log", "bilog",
-    "metadata_shard_info", "data_shard_info",
 ]
 T = TypeVar("T")
 
@@ -168,10 +167,3 @@ class LogPage(ApiModel):
     truncated: bool
     last_update: str | None = None
     next_log: dict[str, Any] | None = None
-
-
-class Capabilities(ApiModel):
-    topology: Topology
-    metadata: Observation[SyncStatus]
-    data: list[Flow]
-    bucket_index: Observation[BilogInfo]

@@ -119,7 +119,7 @@ Deux tables distinguent ensuite metadata et data :
 - Metadata : destination, metadata master de référence, phase, nombre attendu
   de shards metadata et compte des états reçus, fraîcheur.
 - Data : source, destination, phase globale, états des shards datalog reçus,
-  observation depuis la précédente collecte, action Voir les shards.
+  action Voir les shards.
 
 Le nombre de relations candidates n’est pas un KPI de flux actifs. Une policy
 complexe non résolue garde le libellé « Périmètre à confirmer ». Les sources
@@ -127,7 +127,7 @@ connues peuvent être interrogées de manière bornée pour constater l’existe
 d’un gestionnaire de sync ; un succès ne prouve pas que chaque bucket est inclus.
 
 Le panneau d’un flux montre la famille de shards, phase, marqueur complet,
-timestamp Ceph, comparaison entre observations et provenance. Les nombres de
+timestamp Ceph et provenance. Les nombres de
 shards mdlog, datalog et bilog ne sont jamais additionnés en un total de santé.
 
 ### Réplication d’un bucket
@@ -145,16 +145,13 @@ alerte de retard.
 
 Sous-onglets :
 
-1. **Shards** : état, marqueur destination, timestamp du marqueur Ceph et
-   changement entre deux collectes. Filtres locaux clairement limités aux
+1. **Shards** : état, marqueur destination et timestamp du marqueur Ceph.
+   Filtres locaux clairement limités aux
    statuts chargés. Panneau pour le marqueur entier et le JSON.
 2. **Générations source** : `gen`, `num_shards`, repères « Suivie » et « Plus
    récente » lorsque les lectures ont réussi. Pas de dates ni d’état « Active ».
 3. **Journal source** : listing bilog, génération et instance explicites ;
    `write`, `del`, etc., `pending`/`complete` comme état de l’opération source.
-4. **Observations** : comparaison des collectes du même périmètre. Marqueur
-   modifié, inchangé, première observation ou contexte devenu incomparable.
-
 Le mode normal est un couple source/destination non fusionné. Le mode
 `options=merge` reste un contrôle avancé facultatif après qualification : il
 sera intitulé « Statut fusionné de destinations locales », avec avertissement
@@ -245,7 +242,7 @@ router Ceph Admin → service Multisite → résolution d’endpoints autorisés
 Le routeur reste mince. Le client expose des méthodes explicites :
 `get_realm`, `get_period`, `get_metadata_sync_status`, `get_data_sync_status`,
 `get_bucket_sync_status`, `get_bilog_info`, `list_mdlog`, `list_datalog`,
-`list_bilog`, `get_mdlog_shard_info`, `get_datalog_shard_info`.
+`list_bilog` et `get_multisite_bucket_info`.
 
 La couche de diagnostic ne reçoit aucune méthode HTTP, URL ou chemin libre du
 frontend. Contrôler aussi les paramètres : un GET n’est pas une garantie de
@@ -298,16 +295,13 @@ Préfixe existant `/api/ceph-admin/endpoints/{endpoint_id}/multisite` (respecter
 | Route GET | Usage |
 | --- | --- |
 | `/state` | Probe léger actif/inactif/inconnu basé sur la zone locale |
-| `/capabilities` | Résultat par famille et attribution live de zone |
 | `/topology` | Configuration period normalisée, références des endpoints autorisés |
 | `/overview` | États metadata/data des destinations observables, erreurs partielles |
 | `/flows/status` | Statut local pour une source et une destination explicites |
 | `/bucket/status` | Couple de buckets et source-zone ; version=2 obligatoire |
-| `/bucket/bilog-info` | Infos/générations sur l’endpoint source explicite |
 | `/logs/metadata` | Période, shard, taille et curseur |
 | `/logs/data` | Shard, taille, curseur, extra-info=true imposé |
 | `/logs/bucket-index` | Bucket/instance/génération/shard et curseur |
-| `/logs/shard-info` | Famille metadata/data, source tail facultatif |
 
 Chaque endpoint de destination/source secondaire est résolu à nouveau avec
 les garde-fous Ceph Admin existants. Ne pas accepter un `source_endpoint_id`
@@ -343,8 +337,8 @@ seule l’absence de changements ou le rattrapage de la destination.
 
 Valeurs de départ configurables à mesurer au laboratoire :
 
-- V1 : collecte à la demande, actualisation automatique facultative toutes les
-  30 s uniquement quand l’onglet est visible ; aucune tâche de fond implicite.
+- V1 : collecte à la demande et actualisation uniquement manuelle ; aucune tâche
+  de fond implicite.
 - Une collecte overview traite au plus 8 destinations à la fois ; pages/groupes
   suivants explicites. Concurrence maximale 3 appels RGW, budget 32 appels par
   collecte, timeout 8 s par appel et deadline globale 20 s. Renvoyer les résultats
@@ -360,39 +354,16 @@ Valeurs de départ configurables à mesurer au laboratoire :
   limites de corps avant de qualifier les configurations très volumineuses.
 - Pas de polling des journaux ni de tous les buckets. Le statut de données
   n’est pas une liste de tous les buckets en retard.
-- Les préférences de rafraîchissement n’accordent aucune permission ; chaque
-  requête est revalidée, et une révocation ne réutilise pas un cache ancien.
+- Chaque rafraîchissement revalide les permissions ; une révocation ne réutilise
+  pas un cache ancien.
 
-## 5. Observation des marqueurs
+## 5. Historique des observations — retiré
 
-Clé de comparaison : endpoint/zone destination, realm, source-zone, famille,
-bucket source et destination avec instance, shard, génération, période et
-instance_id quand ils existent. Les champs qui n’existent pas pour une famille
-ne sont pas inventés. Un changement de période/génération/instance invalide le
-rapprochement et produit « Nouveau contexte », pas une régression.
-
-V1 : conserver les 20 dernières observations, au plus 30 minutes, en mémoire du
-frontend pour le périmètre courant. Pas de localStorage de journaux, pas de
-fausse continuité après rechargement. Comparer l’égalité des marqueurs/positions
-et des états : « modifié », « inchangé », « première observation ».
-
-Un marqueur inchangé n’est pas une panne. Un timestamp ancien ne mesure pas
-automatiquement un retard. Une source inaccessible rend la comparaison source /
-destination indéterminée. Si une lecture source est ajoutée, afficher uniquement
-« positions égales/différentes à ces instants » pour des marqueurs du même
-contexte dont la sémantique a été qualifiée ; aucune garantie de cohérence objet.
-
-Ne pas analyser `max_marker` comme un compteur universel : les marqueurs bilog
-peuvent être composites par shard. Une comparaison source/destination fiable
-nécessite un adaptateur par famille et génération, avec fixtures réelles et
-cas de log trim/resharding. Ce travail n’est pas caché dans la V1.
-
-V1.1 facultative : table d’observations compactes, `UTCDateTime`, index sur
-périmètre+date, rétention 24 h par défaut, plafond par endpoint, purge bornée.
-Un collecteur opt-in ne lit que les flux/buckets explicitement suivis, réutilise
-le scheduler existant et les autorisations, ne conserve pas les noms d’objets
-du journal. Évaluer SQLite et PostgreSQL avant activation. Ce lot ne bloque
-pas les trois écrans V1 et n’est pas représenté comme déjà livré par la maquette.
+La comparaison session-only entre collectes, la rétention frontend et la vue
+« Observations » ont été retirées après revue UX. L’implémentation conserve les
+marqueurs Ceph bruts et la provenance utiles au diagnostic, sans fabriquer un
+état « modifié », « inchangé » ou « première observation » entre deux lectures.
+Un historique persistant ou un collecteur périodique reste hors périmètre.
 
 ## 6. Lots de travail, fichiers et validation
 
@@ -403,7 +374,7 @@ minces → services → clients. Chaque lot possède son critère de sortie.
 | Lot | Contenu / fichiers principaux | Dépendance | Validation de sortie | Charge indicative |
 | --- | --- | --- | --- | --- |
 | 0 | Actualiser branche et références ; capturer vrais payloads Tentacle ; enrichir `backend/app/scripts/probe_rgw_admin_contract.py` sans mutation | — | réponses assainies et matrice endpoints/caps/erreurs ; confirmer bucket-instance | 1–2 j |
-| 1 | Associations facultatives de zones : `backend/app/db.py` ou module ORM propriétaire, `models/storage_endpoint.py`, migration Alembic suivante disponible, service Admin existant et formulaire endpoint | 0 | migration aller/retour si supporté, nulls anciens endpoints, IDs incorrects, doublons, aucun appel Ceph d’écriture | 1–2 j |
+| 1 | Retiré : associations persistantes remplacées par la découverte live des zones à partir des identités Ceph Admin existantes | 0 | aucune migration ni configuration d’association ; ambiguïtés laissées non attribuées | — |
 | 2 | `services/rgw_admin_multisite.py`, intégration au client `rgw_admin.py` ; allowlist GET/params et parsing exact ; fixtures `tests/fixtures/ceph_multisite/tentacle/` | 0 | URLs/flags/tenants/générations, JSON réel, exceptions 403/404/5xx, streaming invalide ; zéro mutation | 2–3 j |
 | 3 | `models/ceph_multisite.py`, `services/ceph_multisite_service.py`, `routers/ceph_admin/multisite.py`, enregistrement dans `main.py` ; disponibilité, budgets, caches et autorisation sur chaque endpoint | 1,2 | accès anonyme/Manager/Portal refusé ; endpoint secondaire interdit ; partial success ; cache après révocation | 2–3 j |
 | 4 | `frontend/src/api/cephMultisite.ts`, routes `router.tsx`, `navigation/workspacePages.ts`, breadcrumbs, `CephAdminLayout.tsx` ; sous-dossier `features/cephAdmin/multisite/` | 3 | navigation, endpoint sélectionné, deep links, annulation des requêtes et états absents | 1 j |
@@ -431,8 +402,8 @@ Paquets autonomes dès qu’il sera exposé :
 | Vague | Agent 1 | Agent 2 | Agent 3 | Intégration principale |
 | --- | --- | --- | --- | --- |
 | Analyse | Contrat Ceph : handlers + dumps + tests réels | Architecture BucketReef, identités, cache, autorisations | UX existante, composants, états, parcours | Arbitrer, vérifier les preuves, figer contrats et maquette |
-| Implémentation A | Client Ceph + fixtures (lot 2) | Association de zones (lot 1) | Tests de contrat/risques en lecture seule | Lots 0/3 et revue des changements partagés |
-| Implémentation B | Vue d’ensemble (lot 5) | Bucket (lot 6) | Journaux (lot 7) | Routes/API partagées et hook d’observations |
+| Implémentation A | Client Ceph + fixtures (lot 2) | Découverte live des zones (lot 1) | Tests de contrat/risques en lecture seule | Lots 0/3 et revue des changements partagés |
+| Implémentation B | Vue d’ensemble (lot 5) | Bucket (lot 6) | Journaux (lot 7) | Routes/API partagées et état courant |
 | Qualification | Permissions/allowlist backend | Parcours UI et accessibilité | Scénarios vrais RGW et documentation | Résoudre les écarts et livrer |
 
 Chaque mission indique fichiers possédés, entrées, résultat attendu, tests et
@@ -529,7 +500,7 @@ suites si elle ne touche que les textes de conception.
 - Réutiliser la résolution Ceph Admin et `EffectiveAccessService` selon les
   conventions du dépôt ; aucune permission parallèle ni accès Portal.
 - Métadonnées de collection : traces opérationnelles bornées ; pas une entrée
-  d’audit utilisateur pour chaque polling. Les éventuels changements de
+  d’audit utilisateur pour chaque lecture. Les éventuels changements de
   configuration Admin suivent l’audit de contrôle existant.
 - Pas de secrets ou headers signés dans les DTO, exports, logs, traces ou JSON.
   Whitelist des champs et assainissement récursif pour les détails ; noms de

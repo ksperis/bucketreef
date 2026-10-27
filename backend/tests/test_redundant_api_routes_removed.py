@@ -22,6 +22,9 @@ from app.main import app
         ("get", "/api/portal/access-logs?date=2026-07-08"),
         ("get", "/api/portal/requests/1"),
         ("get", "/api/ceph-admin/endpoints/1/info"),
+        ("get", "/api/ceph-admin/endpoints/1/multisite/capabilities"),
+        ("get", "/api/ceph-admin/endpoints/1/multisite/bucket/bilog-info"),
+        ("get", "/api/ceph-admin/endpoints/1/multisite/logs/shard-info"),
     ],
 )
 def test_redundant_api_routes_return_not_found(client, method: str, path: str) -> None:

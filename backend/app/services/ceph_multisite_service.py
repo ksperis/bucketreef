@@ -17,9 +17,9 @@ from app.core.config import get_settings
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import StorageEndpoint
 from app.models.ceph_multisite import (
-    BilogInfo, BucketDiagnostic, BucketIdentity, Capabilities, EndpointReference,
-    Family, Flow, LocalZoneConfiguration, MultisiteState, Observation, Operation,
-    Overview, Provenance, SyncStatus, Topology,
+    BilogInfo, BucketDiagnostic, BucketIdentity, EndpointReference, Family, Flow,
+    LocalZoneConfiguration, MultisiteState, Observation, Operation, Overview,
+    Provenance, SyncStatus, Topology,
 )
 from app.services.ceph_admin_endpoint_service import (
     CephAdminEndpointService, CephAdminEndpointProviderError, CephAdminEndpointUnavailableError,
@@ -367,13 +367,6 @@ class CephMultisiteService:
         executor.shutdown(wait=False, cancel_futures=True)
         return result
 
-    def capabilities(self) -> Capabilities:
-        overview = self.overview()
-        local = next((flow.status for flow in overview.metadata if flow.destination_endpoint_id == self.entry.id), None)
-        return Capabilities(topology=overview.topology,
-                            metadata=local or self.missing(self.entry, "metadata_status", "local_zone_not_observed"), data=overview.data,
-                            bucket_index=self.missing(self.entry, "bilog_info", "explicit_bucket_scope_required"))
-
     def bucket_identity(self, endpoint, name: str, tenant: str | None) -> Observation[BucketIdentity]:
         def normalize(payload):
             payload = obj(payload)
@@ -417,15 +410,6 @@ class CephMultisiteService:
             bilog = self.missing(source_endpoint, "bilog_info", "bucket_instance_not_observed")
         return BucketDiagnostic(source=source, destination=destination, status=status, bilog=bilog)
 
-    def bilog_info(self, target_endpoint_id: int, bucket: str, tenant: str | None = None):
-        endpoint = self.resolve(target_endpoint_id)
-        identity = self.bucket_identity(endpoint, bucket, tenant)
-        if identity.data is None or identity.stale:
-            return self.missing(endpoint, "bilog_info", "bucket_instance_not_observed")
-        return self.observe(endpoint, "bilog_info", lambda c: c.get_bilog_info(
-            bucket=bucket, instance_id=identity.data.instance_id, tenant=tenant), normalize_bilog_info,
-            scope=(tenant, bucket, identity.data.instance_id))
-
     def logs(self, family: Family, *, target_endpoint_id: int, shard: int | None = None,
              period: str | None = None, bucket: str | None = None, tenant: str | None = None,
              instance_id: str | None = None, generation: str | None = None,
@@ -457,12 +441,3 @@ class CephMultisiteService:
             operation = "bilog"
         return self.observe(endpoint, operation, read, lambda p: normalize_log(p, family, scope, cursor),
                             scope=tuple(scope.values()) + (cursor, limit), ttl=0)
-
-    def shard_info(self, *, target_endpoint_id: int, family: str, shard: int, period: str | None = None):
-        endpoint = self.resolve(target_endpoint_id)
-        if family == "metadata" and not period:
-            raise HTTPException(422, "Metadata shard information requires a period")
-        operation = "metadata_shard_info" if family == "metadata" else "data_shard_info"
-        return self.observe(endpoint, operation, lambda c: c.get_mdlog_shard_info(period=period, shard_id=shard)
-                            if family == "metadata" else c.get_datalog_shard_info(shard_id=shard),
-                            lambda p: project(obj(p)), scope=(period, shard), ttl=0)

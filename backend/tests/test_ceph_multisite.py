@@ -649,23 +649,6 @@ def test_metadata_master_role_is_not_applicable_before_provider_read(
     assert flow.status.provenance.http_status is None
 
 
-def test_capabilities_exposes_bucket_index_as_explicit_bucket_scope(db_session, monkeypatch) -> None:
-    endpoint = _endpoint(db_session, endpoint_id=1, zone="zone-a")
-    service = CephMultisiteService(db_session, endpoint.id, actor_id=10)
-    topology = _topology(endpoint.id, [_zone("zone-a", endpoint.id, master=True)])
-    monkeypatch.setattr(
-        service,
-        "overview",
-        lambda: Overview(topology=topology, metadata=[], data=[], uncollected=[]),
-    )
-
-    capabilities = service.capabilities()
-
-    assert capabilities.bucket_index.availability == "not_observed"
-    assert capabilities.bucket_index.reason_code == "explicit_bucket_scope_required"
-    assert capabilities.bucket_index.provenance.operation == "bilog_info"
-
-
 def test_bucket_identity_cache_keeps_tenants_and_instances_distinct(db_session, monkeypatch) -> None:
     endpoint = _endpoint(db_session, endpoint_id=1, zone="zone-a")
     service = CephMultisiteService(db_session, endpoint.id, actor_id=10)
@@ -727,35 +710,61 @@ def test_bucket_log_converts_uint64_generation_to_int_for_client(db_session, mon
     assert result.data.scope["instance_id"] == "instance-a"
 
 
-def test_secondary_endpoint_is_reauthorized_before_cached_bucket_reads(db_session, monkeypatch) -> None:
-    local = _endpoint(db_session, endpoint_id=1, zone="zone-a")
-    secondary = _endpoint(db_session, endpoint_id=2, zone="zone-b")
-    service = CephMultisiteService(db_session, local.id, actor_id=10)
-    calls: list[str] = []
+def test_bucket_diagnostic_reauthorizes_source_before_cached_reads(db_session, monkeypatch) -> None:
+    destination = _endpoint(db_session, endpoint_id=1, zone="zone-a")
+    source = _endpoint(db_session, endpoint_id=2, zone="zone-b")
+    service = CephMultisiteService(db_session, destination.id, actor_id=10)
+    topology = _topology(
+        destination.id,
+        [_zone("zone-a", destination.id, master=True), _zone("zone-b", source.id)],
+    )
+    service.local_zones[destination.id] = _local_zone_observation(destination.id, "zone-a").data
+    service.local_zones[source.id] = _local_zone_observation(source.id, "zone-b").data
+    monkeypatch.setattr(service, "topology", lambda: topology)
+    calls: list[tuple[int, str]] = []
 
     class Client:
+        def __init__(self, endpoint_id: int):
+            self.endpoint_id = endpoint_id
+
         def get_multisite_bucket_info(self, bucket: str, tenant: str | None = None):
-            calls.append("bucket-info")
-            return {"id": "instance-b", "bucket": bucket, "tenant": tenant}
+            calls.append((self.endpoint_id, "bucket-info"))
+            return {"id": f"instance-{self.endpoint_id}", "bucket": bucket, "tenant": tenant}
 
-        def get_bilog_info(self, bucket: str, instance_id: str, tenant: str | None = None):
-            calls.append("bilog-info")
-            return {"oldest_gen": 1, "latest_gen": 1, "generations": []}
+        def get_bucket_sync_status(self, **_kwargs):
+            calls.append((self.endpoint_id, "bucket-status"))
+            return {"sync_status": {"state": "incremental-sync", "incremental_gen": 0}, "inc_status": []}
 
-    monkeypatch.setattr(service, "client", lambda _endpoint: Client())
+        def get_bilog_info(self, **_kwargs):
+            calls.append((self.endpoint_id, "bilog-info"))
+            return {"oldest_gen": 0, "latest_gen": 0, "generations": []}
 
-    first = service.bilog_info(secondary.id, "bucket-a", "tenant-a")
-    assert first.availability == "available"
-    assert calls == ["bucket-info", "bilog-info"]
+    monkeypatch.setattr(service, "client", lambda endpoint: Client(endpoint.id))
 
-    secondary.ceph_admin_allowed = False
+    first = service.bucket(
+        source_endpoint_id=source.id,
+        destination_endpoint_id=destination.id,
+        source_zone_id="zone-b",
+        bucket="bucket-destination",
+        source_bucket="bucket-source",
+    )
+    assert first.status.availability == "available"
+    calls_before_revoke = list(calls)
+
+    source.ceph_admin_allowed = False
     db_session.flush()
 
     with pytest.raises(HTTPException) as raised:
-        service.bilog_info(secondary.id, "bucket-a", "tenant-a")
+        service.bucket(
+            source_endpoint_id=source.id,
+            destination_endpoint_id=destination.id,
+            source_zone_id="zone-b",
+            bucket="bucket-destination",
+            source_bucket="bucket-source",
+        )
 
     assert raised.value.status_code == 403
-    assert calls == ["bucket-info", "bilog-info"]
+    assert calls == calls_before_revoke
 
 
 def test_topology_and_overview_tolerate_secondary_revoked_after_listing(db_session, monkeypatch) -> None:
