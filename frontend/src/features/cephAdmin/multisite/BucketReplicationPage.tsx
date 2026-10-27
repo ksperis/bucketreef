@@ -32,19 +32,10 @@ import {
 import MultisitePage from "./MultisitePage";
 import { initialBucketScopeForm, resolveBucketScope, type BucketScopeForm } from "./multisiteBucketScope";
 import { buildMultisiteHref, formatTimestamp, getDeclaredEndpointOptions } from "./multisiteUtils";
-import { useMultisiteObservations } from "./useMultisiteObservations";
 import { useMultisiteTopology } from "./useMultisiteTopology";
 
-type BucketTab = "shards" | "generations" | "observations";
+type BucketTab = "shards" | "generations";
 const SHARD_PAGE_SIZE = 1000;
-
-function changeLabel(change: string | undefined, text: ReturnType<typeof useCephAdminI18n>["text"]) {
-  if (change === "first_observation") return text("First observation");
-  if (change === "new_context") return text("New context");
-  if (change === "changed") return text("Changed");
-  if (change === "unchanged") return text("Unchanged");
-  return text("Not observed");
-}
 
 function observationNeedsDetails(observation: MultisiteObservation<unknown>) {
   return observation.availability !== "available" || observation.stale || Boolean(observation.reason_code);
@@ -101,7 +92,6 @@ export default function BucketReplicationPage() {
   const requestController = useRef<AbortController | null>(null);
 
   const formScope = useMemo(() => JSON.stringify({ entry: selectedEndpointId, form }), [form, selectedEndpointId]);
-  const { observations: observationHistory, record: recordObservation } = useMultisiteObservations(formScope);
   const resolvedScope = useMemo(() => resolveBucketScope(form, endpointOptions), [endpointOptions, form]);
 
   useEffect(() => {
@@ -140,7 +130,6 @@ export default function BucketReplicationPage() {
         if (controller.signal.aborted || requestId.current !== id) return;
         setResult(next);
         setResultScope(scopeAtRequest);
-        recordObservation(next.status, JSON.stringify([next.source.data, next.destination.data]));
         const params = new URLSearchParams(searchParams);
         params.set("destination_endpoint_id", String(resolvedScope.destination_endpoint_id));
         params.set("source_endpoint_id", String(resolvedScope.source_endpoint_id));
@@ -158,17 +147,12 @@ export default function BucketReplicationPage() {
       .finally(() => {
         if (!controller.signal.aborted && requestId.current === id) setLoading(false);
       });
-  }, [formScope, recordObservation, resolvedScope, searchParams, selectedEndpointId, selectedShardId, setSearchParams, text]);
+  }, [formScope, resolvedScope, searchParams, selectedEndpointId, selectedShardId, setSearchParams, text]);
 
   const readDiagnostic = useCallback(() => {
     fetchDiagnostic();
   }, [fetchDiagnostic]);
   const visibleResult = resultScope === formScope ? result : null;
-  const latestObservation = observationHistory.at(-1);
-  const latestShardChanges = useMemo(
-    () => new Map(latestObservation?.shards.map((shard) => [shard.shard_id, shard.change]) ?? []),
-    [latestObservation],
-  );
   const sameEndpoint = Boolean(
     form.sourceEndpointId
       && form.destinationEndpointId
@@ -257,7 +241,6 @@ export default function BucketReplicationPage() {
     { id: "phase", label: text("Phase"), render: (row) => <PhaseBadge phase={row.phase} text={text} /> },
     { id: "marker", label: text("Destination marker"), cellClassName: "max-w-[24rem] truncate font-mono", render: (row) => <span title={row.marker ?? undefined}>{row.marker ?? "—"}</span> },
     { id: "timestamp", label: text("Ceph timestamp"), render: (row) => formatTimestamp(row.timestamp) },
-    { id: "change", label: text("Observation change"), render: (row) => changeLabel(latestShardChanges.get(row.shard_id), text) },
   ];
 
   const generationRows = visibleResult?.bilog.data?.generations ?? [];
@@ -266,14 +249,6 @@ export default function BucketReplicationPage() {
     { id: "shards", label: text("Shards"), render: (row) => row.num_shards },
     { id: "followed", label: text("Followed"), render: (row) => row.gen === visibleResult?.status.data?.generation ? text("Yes") : text("No") },
     { id: "latest", label: text("Newest source generation"), render: (row) => row.gen === visibleResult?.bilog.data?.latest_gen ? text("Yes") : text("No") },
-  ];
-
-  const observationColumns: Array<DataTableColumn<(typeof observationHistory)[number]>> = [
-    { id: "collected", label: text("Collected"), primary: true, render: (row) => formatTimestamp(row.collected_at) },
-    { id: "phase", label: text("Phase"), render: (row) => row.phase },
-    { id: "change", label: text("Change"), render: (row) => changeLabel(row.change, text) },
-    { id: "shards", label: text("Shard states"), render: (row) => row.shards.length },
-    { id: "changed", label: text("Changed shards"), render: (row) => row.shards.filter((shard) => shard.change === "changed").length },
   ];
 
   const logHref = visibleResult && resolvedScope
@@ -331,7 +306,6 @@ export default function BucketReplicationPage() {
         tabs={[
           { id: "shards", label: text("Shards") },
           { id: "generations", label: text("Source generations") },
-          { id: "observations", label: text("Observations") },
         ]}
         activeTab={activeTab}
         onChange={(id) => setActiveTab(id as BucketTab)}
@@ -343,7 +317,6 @@ export default function BucketReplicationPage() {
         <ListPageSection
           variant="section"
           title={text("Destination shard states")}
-          description={text("Comparison is limited to observations collected for this exact source and destination scope.")}
           search={(
             <UiInput
               aria-label={text("Search loaded shard states")}
@@ -377,11 +350,7 @@ export default function BucketReplicationPage() {
         <ListPageSection variant="section" title={text("Source generations")} description={text("Generation identifiers are kept as opaque source values.")} countLabel={text("{count} generations", { count: generationRows.length })}>
           <DataTableShell columns={generationColumns} rows={generationRows} rowKey={(row) => row.gen} status={generationRows.length ? "ready" : "empty"} loadingMessage={text("Loading source generations…")} errorMessage={text("Unable to display source generations.")} emptyMessage={text("No source generation was returned.")} responsiveCards />
         </ListPageSection>
-      ) : (
-        <ListPageSection variant="section" title={text("Session observations")} description={text("These observations are session-only and compare marker equality within the same resolved identity context.")} countLabel={text("{count} observations", { count: observationHistory.length })}>
-          <DataTableShell columns={observationColumns} rows={observationHistory} rowKey={(row) => `${row.received_at}:${row.collected_at}`} status={observationHistory.length ? "ready" : "empty"} loadingMessage={text("Loading observations…")} errorMessage={text("Unable to display observations.")} emptyMessage={text("Read the diagnostic at least once to start session observations.")} responsiveCards />
-        </ListPageSection>
-      )}
+      ) : null}
       {selectedShard && visibleResult ? (
         <MultisiteDetailDrawer
           title={text("Shard {id} details", { id: selectedShard.shard_id })}
@@ -397,7 +366,6 @@ export default function BucketReplicationPage() {
               { label: text("Phase"), value: selectedShard.phase || text("Unknown") },
               { label: text("Raw status"), value: selectedShard.raw_status ?? "—" },
               { label: text("Ceph timestamp"), value: formatTimestamp(selectedShard.timestamp) },
-              { label: text("Observation change"), value: changeLabel(latestShardChanges.get(selectedShard.shard_id), text) },
             ]}
           />
           <div>

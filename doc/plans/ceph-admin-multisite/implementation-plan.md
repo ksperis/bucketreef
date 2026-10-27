@@ -410,10 +410,10 @@ minces → services → clients. Chaque lot possède son critère de sortie.
 | 5 | `MultisiteOverviewPage.tsx`, tables zones/metadata/data, `FlowDetailDrawer.tsx`, couverture ; réemploi des primitives | 4 | chiffres dérivés corrects par famille, états partiels, 0/1/3/30 zones ; clavier et mobile | 1–2 j |
 | 6 | `BucketReplicationPage.tsx`, formulaire de périmètre, `BucketShardTable.tsx`, `BilogGenerationsTable.tsx`, liens d’inventaire bucket existant | 4 | buckets source≠dest, tenant identique/noms identiques, instance absente, resharding, génération source≠suivie | 2–3 j |
 | 7 | `MultisiteLogExplorerPage.tsx`, `LogEntryDrawer.tsx`, pagination adaptée à chaque famille, export local des entrées chargées | 4,6 | mdlog period, datalog extra-info, bilog next_log/op_id ; filtre local annoncé ; JSON et CSV assainis | 1–2 j |
-| 8 | `useMultisiteObservations.ts`, comparaison d’égalité, scope exact, polling visible opt-in, fraicheur et reset de session | 5,6 | égalité, changements de contexte, onglet masqué, réponse tardive, réinitialisation, absence de faux retard | 1–2 j |
-| 9 | i18n Ceph Admin, docs Admin/opérations, contrats OpenAPI générés selon conventions, scénario docs screenshots, tests visuels/E2E et qualification laboratoire | 5–8 | scénarios ci-dessous, light/dark, desktop/mobile, CI ciblée et vérification générale requise | 2–3 j |
+| 8 | Retiré : la comparaison session-only des observations a été supprimée au profit d’un état Ceph courant rafraîchi explicitement | 5,6 | aucune colonne ou vue de changement local ; refresh manuel conserve les états Ceph bruts utiles | — |
+| 9 | i18n Ceph Admin, docs Admin/opérations, contrats OpenAPI générés selon conventions, scénario docs screenshots, tests visuels/E2E et qualification laboratoire | 5–7 | scénarios ci-dessous, light/dark, desktop/mobile, CI ciblée et vérification générale requise | 2–3 j |
 
-Ordre recommandé : 0 → 1+2 → 3 → 4 → 5+6+7 → 8 → 9. Charge indicative cumulée
+Ordre recommandé : 0 → 1+2 → 3 → 4 → 5+6+7 → 9. Charge indicative cumulée
 14–23 jours de travail, à recalibrer après les payloads et la topologie du
 laboratoire. Ce n’est ni une promesse de délai calendaire ni le temps de cette
 première itération. Les lots parallèles restent soumis aux dépendances et à la

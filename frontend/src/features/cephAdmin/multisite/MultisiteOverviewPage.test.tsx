@@ -230,7 +230,7 @@ describe("MultisiteOverviewPage", () => {
     });
   });
 
-  it("uses next_offset, hides the previous page immediately, and resets observations across page scopes", async () => {
+  it("uses next_offset and hides the previous page immediately across page scopes", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const page0 = deferred<MultisiteOverview>();
     const page8 = deferred<MultisiteOverview>();
@@ -243,7 +243,6 @@ describe("MultisiteOverviewPage", () => {
     render(<MultisiteOverviewPage />);
     page0.resolve(overview("Realm page 0", "marker-a", "2026-10-27T10:00:00Z", 8));
     expect(await screen.findByText("Realm page 0")).toBeInTheDocument();
-    expect(screen.getAllByText("First observation").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     expect(screen.queryByText("Realm page 0")).not.toBeInTheDocument();
@@ -251,7 +250,6 @@ describe("MultisiteOverviewPage", () => {
 
     page8.resolve(overview("Realm page 8", "marker-b", "2026-10-27T10:01:00Z", null));
     expect(await screen.findByText("Realm page 8")).toBeInTheDocument();
-    expect(screen.getAllByText("First observation").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Previous page" }));
     expect(screen.queryByText("Realm page 8")).not.toBeInTheDocument();
@@ -262,7 +260,7 @@ describe("MultisiteOverviewPage", () => {
     consoleError.mockRestore();
   });
 
-  it("refreshes one drawer flow and records its equality change without console errors", async () => {
+  it("refreshes one drawer flow with the latest Ceph state without console errors", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     getMultisiteOverviewMock.mockResolvedValue(overview("Realm fixture", "marker-a", "2026-10-27T10:00:00Z", null));
     getMultisiteFlowMock.mockResolvedValue(flow("marker-b", "2026-10-27T10:01:00Z"));
@@ -270,12 +268,14 @@ describe("MultisiteOverviewPage", () => {
     render(<MultisiteOverviewPage />);
     expect(await screen.findByText("Realm fixture")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "View details" }));
+    expect(screen.getByText("marker-a")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Refresh flow" }));
 
     await waitFor(() =>
       expect(getMultisiteFlowMock).toHaveBeenCalledWith(1, 2, "zone-source", "data", expect.any(AbortSignal)),
     );
-    await waitFor(() => expect(screen.getAllByText("Changed").length).toBeGreaterThan(0));
+    expect(await screen.findByText("marker-b")).toBeInTheDocument();
+    expect(screen.queryByText("marker-a")).not.toBeInTheDocument();
     expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
@@ -367,6 +367,7 @@ describe("MultisiteOverviewPage", () => {
     expect(screen.queryByRole("columnheader", { name: "Declared diagnostic endpoint" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Observation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Collected" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Change" })).not.toBeInTheDocument();
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
   });
 });
