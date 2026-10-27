@@ -347,7 +347,7 @@ export default function BucketReplicationPage() {
           />
         </ListPageSection>
       ) : activeTab === "generations" ? (
-        <ListPageSection variant="section" title={text("Source generations")} description={text("Generation identifiers are kept as opaque source values.")} countLabel={text("{count} generations", { count: generationRows.length })}>
+        <ListPageSection variant="section" title={text("Source generations")} description={text("Source bucket generations reported by Ceph.")} countLabel={text("{count} generations", { count: generationRows.length })}>
           <DataTableShell columns={generationColumns} rows={generationRows} rowKey={(row) => row.gen} status={generationRows.length ? "ready" : "empty"} loadingMessage={text("Loading source generations…")} errorMessage={text("Unable to display source generations.")} emptyMessage={text("No source generation was returned.")} responsiveCards />
         </ListPageSection>
       ) : null}

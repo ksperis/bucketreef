@@ -478,7 +478,7 @@ export default function MultisiteOverviewPage() {
       <PageEmptyState
         eyebrow={text("Loading")}
         title={text("Loading Ceph endpoints")}
-        description={text("Multisite diagnostics will open when the Ceph Admin endpoint list is available.")}
+        description={text("The multisite overview will be available once the Ceph Admin endpoint list has loaded.")}
       />
     );
   } else if (endpointError) {
@@ -496,7 +496,7 @@ export default function MultisiteOverviewPage() {
       <PageEmptyState
         eyebrow={text("Unavailable")}
         title={text("Select a Ceph endpoint")}
-        description={text("A Ceph Admin endpoint is required to inspect multisite replication.")}
+        description={text("Select a Ceph Admin endpoint to inspect multisite replication.")}
         tone="warning"
       />
     );
@@ -515,7 +515,7 @@ export default function MultisiteOverviewPage() {
       <PageEmptyState
         eyebrow={text("Loading")}
         title={text("Loading multisite overview")}
-        description={text("Reading topology and observable replication flows.")}
+        description={text("Loading the current multisite topology and replication status.")}
       />
     );
   } else {
@@ -554,7 +554,7 @@ export default function MultisiteOverviewPage() {
         <ListPageSection
           variant="section"
           title={text("Zones")}
-          description={text("Zones configured in the current multisite realm.")}
+          description={text("Zones in the current multisite realm.")}
           countLabel={text("{count} zones", { count: zones.length })}
         >
           <DataTableShell
@@ -572,7 +572,7 @@ export default function MultisiteOverviewPage() {
         <ListPageSection
           variant="section"
           title={text("Metadata replication")}
-          description={text("Incoming metadata sync observations, kept distinct from data replication.")}
+          description={text("Metadata synchronization status from the metadata master to each replica zone.")}
           countLabel={text("{count} flows", { count: metadataReplicationFlows.length })}
         >
           <DataTableShell
@@ -590,7 +590,7 @@ export default function MultisiteOverviewPage() {
         <ListPageSection
           variant="section"
           title={text("Data replication")}
-          description={text("Per-source data sync observations. A configured relation is not proof that every bucket is replicated.")}
+          description={text("Data synchronization status between zones. Use Bucket replication to inspect a specific bucket.")}
           countLabel={text("{count} flows", { count: dataReplicationFlows.length })}
         >
           <DataTableShell
