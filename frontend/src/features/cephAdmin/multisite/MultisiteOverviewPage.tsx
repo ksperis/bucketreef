@@ -480,7 +480,9 @@ export default function MultisiteOverviewPage() {
       id: "role",
       label: text("Role"),
       render: (zone) => (
-        <UiBadge tone="neutral">{zone.metadata_master ? text("Metadata master") : text("Replica")}</UiBadge>
+        <UiBadge tone={zone.metadata_master ? "primary" : "info"}>
+          {zone.metadata_master ? text("Metadata master") : text("Replica")}
+        </UiBadge>
       ),
     },
   ];
