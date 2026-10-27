@@ -97,6 +97,7 @@ export const MANAGER_PAGE_CONTRACTS = {
 export const CEPH_ADMIN_PAGE_CONTRACTS = {
   dashboard: { label: "Dashboard", path: "/ceph-admin" },
   metrics: { label: "Usage & Metrics", path: "/ceph-admin/metrics" },
+  multisite: { label: "Multisite", path: "/ceph-admin/multisite" },
   accounts: { label: "RGW Accounts", path: "/ceph-admin/accounts" },
   users: { label: "RGW Users", path: "/ceph-admin/users" },
   buckets: { label: "Buckets", path: "/ceph-admin/buckets" },

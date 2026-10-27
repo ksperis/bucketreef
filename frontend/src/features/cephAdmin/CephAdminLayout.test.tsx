@@ -83,6 +83,15 @@ function buildEndpointContext(overrides?: Record<string, unknown>) {
     },
     selectedEndpointAccessLoading: false,
     selectedEndpointAccessError: null,
+    selectedMultisiteState: {
+      status: "active",
+      realm_id: "realm-a",
+      local_zone_id: "zone-a",
+      checked_at: "2026-10-27T14:00:00+00:00",
+      availability: "available",
+      reason_code: null,
+    },
+    selectedMultisiteStateLoading: false,
     retrySelectedEndpointAccess: vi.fn(),
     retryEndpoints: vi.fn(async () => {}),
     loading: false,
@@ -112,7 +121,7 @@ describe("CephAdminLayout", () => {
     useGeneralSettingsMock.mockReset();
   });
 
-  it("keeps Dashboard ungrouped and places Monitoring before Ceph administration", () => {
+  it("keeps Dashboard ungrouped and places Monitoring below Data", () => {
     useCephAdminEndpointMock.mockReturnValue(buildEndpointContext());
     useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
 
@@ -124,13 +133,59 @@ describe("CephAdminLayout", () => {
 
     expect(capturedNavSections.map((section) => section.label)).toEqual([
       undefined,
-      "Monitoring",
       "CEPH S3",
       "Data",
+      "Monitoring",
     ]);
     expect(capturedNavSections[0]?.links.map((link) => link.label)).toEqual(["Dashboard"]);
     expect(capturedNavSections[0]?.links[0]?.iconName).toBe("home");
-    expect(capturedNavSections[1]?.links.map((link) => link.label)).toEqual(["Usage & Metrics"]);
+    expect(capturedNavSections[3]?.links.map((link) => link.label)).toEqual(["Usage & Metrics", "Multisite"]);
+    expect(getNavLink("Multisite")?.iconName).toBe("multisite");
+  });
+
+  it("disables Multisite only when the endpoint probe confirms it is inactive", () => {
+    useCephAdminEndpointMock.mockReturnValue(buildEndpointContext({
+      selectedMultisiteState: {
+        status: "inactive",
+        realm_id: null,
+        local_zone_id: "zone-a",
+        checked_at: "2026-10-27T14:00:00+00:00",
+        availability: "available",
+        reason_code: null,
+      },
+    }));
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(
+      <MemoryRouter initialEntries={["/ceph-admin"]}>
+        <CephAdminLayout />
+      </MemoryRouter>
+    );
+
+    expect(getNavLink("Multisite")?.disabled).toBe(true);
+    expect(getNavLink("Multisite")?.disabledHint).toBe("Multisite is not configured on this endpoint.");
+  });
+
+  it("keeps Multisite accessible when the probe state is unknown", () => {
+    useCephAdminEndpointMock.mockReturnValue(buildEndpointContext({
+      selectedMultisiteState: {
+        status: "unknown",
+        realm_id: null,
+        local_zone_id: null,
+        checked_at: "2026-10-27T14:00:00+00:00",
+        availability: "denied",
+        reason_code: "rgw_read_failed",
+      },
+    }));
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(
+      <MemoryRouter initialEntries={["/ceph-admin"]}>
+        <CephAdminLayout />
+      </MemoryRouter>
+    );
+
+    expect(getNavLink("Multisite")?.disabled).toBe(false);
   });
 
   it("uses endpoint-selection hint when no endpoint is selected", () => {

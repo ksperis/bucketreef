@@ -11,7 +11,6 @@ from app.db import StorageProvider
 from app.models.tagging import RequiredTagDefinitionList, TagDefinitionSummary
 from app.utils.normalize import normalize_optional_string_field
 
-
 class StorageEndpointFeature(ApiModel):
     enabled: bool = False
     endpoint: Optional[str] = None
@@ -115,7 +114,6 @@ class StorageEndpointMetadata(ApiModel):
             raise ValueError("Longitude must be a finite number between -180 and 180.")
         return value
 
-
 class StorageEndpointCreate(StorageEndpointMetadata):
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[SecretStr] = None
@@ -162,7 +160,6 @@ class StorageEndpointUpdate(ApiModel):
     @classmethod
     def validate_optional_longitude(cls, value: Optional[float]) -> Optional[float]:
         return StorageEndpointMetadata.validate_longitude(value)
-
 
 class StorageEndpointTagsUpdate(ApiModel):
     tags: RequiredTagDefinitionList

@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 
 from app.services.rgw_admin_accounts import RGWAdminAccountOperations
 from app.services.rgw_admin_buckets import RGWAdminBucketOperations
+from app.services.rgw_admin_multisite import RGWAdminMultisiteOperations
 from app.services.rgw_admin_transport import (
     RGWAdminError,
     RGWAdminOperationResponse,
@@ -22,6 +23,7 @@ __all__ = [
 class RGWAdminClient(
     RGWAdminAccountOperations,
     RGWAdminBucketOperations,
+    RGWAdminMultisiteOperations,
     RGWAdminUserOperations,
     RGWAdminTransport,
 ):

@@ -109,6 +109,7 @@ class RGWAdminTransport:
         params: Optional[Dict[str, Any]] = None,
         data: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = None,
+        max_response_bytes: Optional[int] = None,
     ) -> requests.Response:
         url = f"{self.endpoint}{path}"
         start = perf_counter()
@@ -128,6 +129,7 @@ class RGWAdminTransport:
                 timeout=self.request_timeout_seconds if timeout is None else timeout,
                 verify=self.verify_tls,
                 allow_redirects=False,
+                **({"stream": True} if max_response_bytes is not None else {}),
             )
             logger.debug(
                 "RGW request method=%s path=%s status=%s duration_ms=%.2f",
@@ -170,6 +172,25 @@ class RGWAdminTransport:
                     status_code=resp.status_code,
                     error_code="RedirectNotAllowed",
                 )
+            if max_response_bytes is not None:
+                # Diagnostic lists can stream an unbounded body after a successful
+                # header. Require the complete document within the byte budget.
+                chunks: list[bytes] = []
+                received = 0
+                try:
+                    for chunk in resp.iter_content(chunk_size=65536):
+                        received += len(chunk)
+                        if received > max_response_bytes:
+                            raise RGWAdminError(
+                                "RGW diagnostic response exceeds its byte limit",
+                                status_code=resp.status_code,
+                                error_code="ResponseTooLarge",
+                            )
+                        chunks.append(chunk)
+                    resp._content = b"".join(chunks)
+                    resp._content_consumed = True
+                finally:
+                    resp.close()
         except requests.RequestException as exc:
             safe_detail = sanitized_error_log_detail(exc)
             logger.warning(

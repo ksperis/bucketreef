@@ -10,6 +10,10 @@ import {
   getCephAdminEndpointAccess,
   listCephAdminEndpoints,
 } from "../../api/cephAdminEndpoints";
+import {
+  getMultisiteState,
+  type MultisiteState,
+} from "../../api/cephMultisite";
 import { extractApiError } from "../../utils/apiError";
 import { CLIENT_STORAGE_KEYS, readClientStorage, writeClientStorage } from "../../utils/clientStorage";
 import { resolveUrlScopedSelection } from "../../utils/urlScopedSelection";
@@ -25,6 +29,8 @@ type CephAdminEndpointContextValue = {
   selectedEndpointAccess: CephAdminEndpointAccess | null;
   selectedEndpointAccessLoading: boolean;
   selectedEndpointAccessError: string | null;
+  selectedMultisiteState: MultisiteState | null;
+  selectedMultisiteStateLoading: boolean;
   retrySelectedEndpointAccess: () => void;
   retryEndpoints: () => Promise<void>;
   loading: boolean;
@@ -39,6 +45,8 @@ const CephAdminEndpointContext = createContext<CephAdminEndpointContextValue>({
   selectedEndpointAccess: null,
   selectedEndpointAccessLoading: false,
   selectedEndpointAccessError: null,
+  selectedMultisiteState: null,
+  selectedMultisiteStateLoading: false,
   retrySelectedEndpointAccess: () => {},
   retryEndpoints: async () => {},
   loading: false,
@@ -69,6 +77,8 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
   const [selectedEndpointAccess, setSelectedEndpointAccess] = useState<CephAdminEndpointAccess | null>(null);
   const [selectedEndpointAccessLoading, setSelectedEndpointAccessLoading] = useState(false);
   const [selectedEndpointAccessError, setSelectedEndpointAccessError] = useState<string | null>(null);
+  const [selectedMultisiteState, setSelectedMultisiteState] = useState<MultisiteState | null>(null);
+  const [selectedMultisiteStateLoading, setSelectedMultisiteStateLoading] = useState(false);
   const [endpointAccessRefreshToken, setEndpointAccessRefreshToken] = useState(0);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -138,7 +148,7 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
   );
   const endpointDependentRoute = useMemo(() => {
     const normalizedPath = location.pathname.replace(/\/+$/, "") || "/";
-    return normalizedPath !== "/ceph-admin" && normalizedPath !== "/ceph-admin/profile";
+    return normalizedPath !== "/ceph-admin" && normalizedPath !== "/ceph-admin/profile" && !normalizedPath.startsWith("/ceph-admin/multisite");
   }, [location.pathname]);
 
   useEffect(() => {
@@ -179,6 +189,38 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
     };
   }, [endpointAccessRefreshToken, endpointDependentRoute, loading, selectedEndpointId]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    async function probeSelectedEndpointMultisite() {
+      if (loading) return;
+      if (selectedEndpointId == null) {
+        setSelectedMultisiteState(null);
+        setSelectedMultisiteStateLoading(false);
+        return;
+      }
+      setSelectedMultisiteState(null);
+      setSelectedMultisiteStateLoading(true);
+      try {
+        const state = await getMultisiteState(selectedEndpointId, controller.signal);
+        if (!controller.signal.aborted) {
+          setSelectedMultisiteState(state);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setSelectedMultisiteState(null);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setSelectedMultisiteStateLoading(false);
+        }
+      }
+    }
+    void probeSelectedEndpointMultisite();
+    return () => {
+      controller.abort();
+    };
+  }, [loading, selectedEndpointId]);
+
   const retrySelectedEndpointAccess = useCallback(() => {
     setEndpointAccessRefreshToken((value) => value + 1);
   }, []);
@@ -192,6 +234,8 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
       selectedEndpointAccess,
       selectedEndpointAccessLoading,
       selectedEndpointAccessError,
+      selectedMultisiteState,
+      selectedMultisiteStateLoading,
       retrySelectedEndpointAccess,
       retryEndpoints: refresh,
       loading,
@@ -205,6 +249,8 @@ export function CephAdminEndpointProvider({ children }: { children: ReactNode })
       selectedEndpointAccess,
       selectedEndpointAccessLoading,
       selectedEndpointAccessError,
+      selectedMultisiteState,
+      selectedMultisiteStateLoading,
       retrySelectedEndpointAccess,
       refresh,
       loading,

@@ -92,7 +92,6 @@ class EnvStorageEndpoint(ApiModel):
     def validate_longitude(_cls, value: Optional[float]) -> Optional[float]:
         return StorageEndpointMetadata.validate_longitude(value)
 
-
 @dataclass(frozen=True)
 class NormalizedEndpointState:
     name: str

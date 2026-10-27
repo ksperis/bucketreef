@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
@@ -168,6 +168,7 @@ type BucketOpsWorkbenchProps = {
 export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchProps) {
   const { text: surfaceText } = useSharedI18n();
   const location = useLocation();
+  const navigate = useNavigate();
   const { generalSettings } = useGeneralSettings();
   const {
     selectedEndpointId: cephSelectedEndpointId,
@@ -1044,6 +1045,11 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
           navigateToBucketAction("browser", currentBucket)
         }
         onConfigure={openBucketConfiguration}
+        onOpenMultisite={isStorageOps ? undefined : (currentBucket) => {
+          const params = new URLSearchParams({ ep: String(selectedEndpointId), destination_endpoint_id: String(selectedEndpointId), bucket: currentBucket.name });
+          if (currentBucket.tenant) params.set("tenant", currentBucket.tenant);
+          navigate(`/ceph-admin/multisite/bucket?${params.toString()}`);
+        }}
         onAdminOps={(currentBucket, kind: BucketAdminOpsKind) => {
           if (isStorageOps) return;
           setAdminOpsAction({ kind, bucket: currentBucket });

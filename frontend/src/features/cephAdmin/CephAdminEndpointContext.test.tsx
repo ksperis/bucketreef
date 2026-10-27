@@ -9,10 +9,14 @@ import { setSessionUserCache } from "../../utils/workspaces";
 
 const listCephAdminEndpointsMock = vi.fn();
 const getCephAdminEndpointAccessMock = vi.fn();
+const getMultisiteStateMock = vi.fn();
 
 vi.mock("../../api/cephAdminEndpoints", () => ({
   listCephAdminEndpoints: (...args: unknown[]) => listCephAdminEndpointsMock(...args),
   getCephAdminEndpointAccess: (...args: unknown[]) => getCephAdminEndpointAccessMock(...args),
+}));
+vi.mock("../../api/cephMultisite", () => ({
+  getMultisiteState: (...args: unknown[]) => getMultisiteStateMock(...args),
 }));
 
 const ENDPOINTS = [
@@ -52,6 +56,7 @@ describe("CephAdminEndpointProvider", () => {
     localStorage.clear();
     listCephAdminEndpointsMock.mockReset();
     getCephAdminEndpointAccessMock.mockReset();
+    getMultisiteStateMock.mockReset();
     listCephAdminEndpointsMock.mockResolvedValue(ENDPOINTS);
     getCephAdminEndpointAccessMock.mockImplementation(async (endpointId: number) => ({
       endpoint_id: endpointId,
@@ -64,6 +69,14 @@ describe("CephAdminEndpointProvider", () => {
       active_rgw_tenant: null,
       availability_status: "unknown",
       availability_checked_at: null,
+    }));
+    getMultisiteStateMock.mockImplementation(async (endpointId: number) => ({
+      status: "active",
+      realm_id: "realm-a",
+      local_zone_id: "zone-" + endpointId,
+      checked_at: "2026-10-27T14:00:00+00:00",
+      availability: "available",
+      reason_code: null,
     }));
   });
 
@@ -95,6 +108,7 @@ describe("CephAdminEndpointProvider", () => {
     await user.click(screen.getByRole("button", { name: "Open endpoint 2" }));
 
     await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("2"));
+    await waitFor(() => expect(getMultisiteStateMock).toHaveBeenLastCalledWith(2, expect.any(AbortSignal)));
   });
 
   it("retries endpoint discovery after a list failure", async () => {

@@ -1,0 +1,778 @@
+{
+  "info": {
+    "status": "sync",
+    "num_shards": 64,
+    "period": "22222222-2222-4222-8222-222222222222",
+    "realm_epoch": 2
+  },
+  "markers": [
+    {
+      "key": 0,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027141.790444_780712.1",
+        "next_step_marker": "",
+        "total_entries": 6,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:41.790444Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 1,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027147.749768_780769.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:47.749768Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 2,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026834.842772_778331.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:00:34.842772Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 3,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027101.304484_780289.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:01.304484Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 4,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027149.288445_780775.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:49.288445Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 5,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027159.574665_780856.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:59.574665Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 6,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027157.907476_780837.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:57.907476Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 7,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026886.887075_778864.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:01:26.887075Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 8,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027136.836004_780662.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:36.836004Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 9,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027622.968272_781045.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:42.968272Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 10,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026857.626490_778523.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:00:57.626490Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 11,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027035.044631_779706.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:03:55.044631Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 12,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027158.511948_780843.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:58.511948Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 13,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027144.028666_780734.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:44.028666Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 14,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027141.261560_780699.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:41.261560Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 15,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026831.157748_778299.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:00:31.157748Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 16,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027144.048398_780735.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:44.048398Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 17,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027150.777539_780780.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:50.777539Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 18,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027622.906428_781043.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:42.906428Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 19,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027622.897363_781040.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:42.897363Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 20,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027120.103088_780488.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:20.103088Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 21,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027622.982105_781046.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:42.982105Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 22,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027623.050145_781049.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:43.050145Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 23,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026855.099222_778485.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:00:55.099222Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 24,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027147.930903_780770.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:47.930903Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 25,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026940.384679_779247.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:02:20.384679Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 26,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027623.057127_781050.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:43.057127Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 27,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027014.779530_779548.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:03:34.779530Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 28,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026971.017705_779381.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:02:51.017705Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 29,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027141.282121_780700.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:41.282121Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 30,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027147.480822_780767.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:47.480822Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 31,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027623.131061_781052.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:43.131061Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 32,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026929.995215_779171.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:02:09.995215Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 33,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027160.513633_780876.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:06:00.513633Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 34,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026960.880204_779309.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:02:40.880204Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 35,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027135.311605_780625.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:35.311605Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 36,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027111.913976_780403.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:11.913976Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 37,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027111.893238_780402.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:11.893238Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 38,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027133.622038_780585.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:33.622038Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 39,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027622.901417_781042.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:42.901417Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 40,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027150.962842_780781.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:50.962842Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 41,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027120.704746_780501.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:20.704746Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 42,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027135.925600_780632.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:35.925600Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 43,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027147.056997_780764.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:47.056997Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 44,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027004.306073_779471.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:03:24.306073Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 45,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027136.182979_780645.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:36.182979Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 46,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027119.700188_780473.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:19.700188Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 47,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027133.923777_780602.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:33.923777Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 48,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027622.900663_781041.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:42.900663Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 49,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027136.661114_780661.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:36.661114Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 50,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027155.749373_780819.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:55.749373Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 51,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027161.881069_780883.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:06:01.881069Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 52,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027161.858680_780882.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:06:01.858680Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 53,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027623.063499_781051.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:43.063499Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 54,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027623.144202_781053.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:43.144202Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 55,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027622.991195_781047.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:42.991195Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 56,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027623.049252_781048.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:13:43.049252Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 57,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027135.517476_780627.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:35.517476Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 58,
+      "val": {
+        "state": 1,
+        "marker": "1_1793026969.598371_779366.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:02:49.598371Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 59,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027147.168120_780765.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:47.168120Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 60,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027099.168644_780257.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:04:59.168644Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 61,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027158.493159_780842.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:58.493159Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 62,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027100.315447_780269.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:00.315447Z",
+        "realm_epoch": 2
+      }
+    },
+    {
+      "key": 63,
+      "val": {
+        "state": 1,
+        "marker": "1_1793027136.475132_780657.1",
+        "next_step_marker": "",
+        "total_entries": 0,
+        "pos": 0,
+        "timestamp": "2026-10-26T15:05:36.475132Z",
+        "realm_epoch": 2
+      }
+    }
+  ]
+}

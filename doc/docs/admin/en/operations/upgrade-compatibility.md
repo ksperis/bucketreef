@@ -1,5 +1,13 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 Ceph Admin multisite diagnostics
+
+Multisite topology and diagnostic endpoint selection are discovered live from
+the configured Ceph Admin endpoints. Realm, zonegroup and zone associations are
+not persisted in BucketReef, so this feature requires no database migration.
+Deploy the bundled backend and frontend together for the new diagnostic DTOs
+and routes. See [Multisite diagnostics](../storage/ceph-admin/multisite.md).
+
 ## 2026-10 bucket quota updates use PATCH
 
 Manager and Ceph Admin bucket quota updates now use `PATCH` on their existing

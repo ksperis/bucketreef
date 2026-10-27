@@ -1,0 +1,14 @@
+{
+  "bucket_ver": 9007199254740993,
+  "master_ver": 18446744073709551615,
+  "max_marker": "00000000003.42.1",
+  "syncstopped": false,
+  "oldest_gen": 9007199254740993,
+  "latest_gen": 18446744073709551615,
+  "generations": [
+    {
+      "gen": 18446744073709551615,
+      "num_shards": 64
+    }
+  ]
+}
