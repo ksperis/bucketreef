@@ -162,6 +162,82 @@ def test_optional_params_are_omitted_without_changing_contract(monkeypatch) -> N
     assert calls[2]["params"]["bucket-instance"] == "bucket-a:instance-a"
 
 
+def test_zone_configuration_is_allowlisted_and_projects_only_safe_fields(monkeypatch) -> None:
+    client = _client()
+    payload = {
+        "id": "zone-a",
+        "name": "Paris",
+        "realm_id": "realm-a",
+        "system_key": {
+            "access_key": "SYNC-ACCESS-SHOULD-NOT-LEAK",
+            "secret_key": "SYNC-SECRET-SHOULD-NOT-LEAK",
+        },
+        "placement_pools": [
+            {
+                "key": "default-placement",
+                "val": {
+                    "storage_classes": {
+                        "STANDARD": {"data_pool": "default.rgw.buckets.data"},
+                        "COLD": {"data_pool": "default.rgw.buckets.cold"},
+                    },
+                },
+            }
+        ],
+    }
+    calls = _capture(monkeypatch, client, json.dumps(payload).encode())
+
+    projected = client.get_zone_configuration()
+
+    assert calls == [
+        {
+            "method": "GET",
+            "path": "/admin/config",
+            "params": {"type": "zone", "format": "json"},
+            "timeout": 8.0,
+            "data": None,
+        }
+    ]
+    assert projected == {
+        "id": "zone-a",
+        "name": "Paris",
+        "realm_id": "realm-a",
+        "placements": [
+            {
+                "name": "default-placement",
+                "storage_classes": ["COLD", "STANDARD"],
+            }
+        ],
+        "storage_classes": ["COLD", "STANDARD"],
+    }
+    rendered = json.dumps(projected)
+    assert "SYNC-ACCESS-SHOULD-NOT-LEAK" not in rendered
+    assert "SYNC-SECRET-SHOULD-NOT-LEAK" not in rendered
+    assert "system_key" not in rendered
+
+
+def test_zone_configuration_error_body_is_never_exposed(monkeypatch) -> None:
+    client = _client()
+    monkeypatch.setattr(
+        client,
+        "_send_request",
+        lambda *args, **kwargs: _Response(
+            status_code=403,
+            content=(
+                b'{"system_key":{"access_key":"SYNC-ACCESS-SHOULD-NOT-LEAK",'
+                b'"secret_key":"SYNC-SECRET-SHOULD-NOT-LEAK"},"Message":"denied"}'
+            ),
+        ),
+    )
+
+    with pytest.raises(RGWAdminError) as raised:
+        client.get_zone_configuration()
+
+    assert raised.value.status_code == 403
+    assert str(raised.value) == "RGW zone configuration read failed"
+    assert "SYNC-ACCESS-SHOULD-NOT-LEAK" not in str(raised.value)
+    assert "SYNC-SECRET-SHOULD-NOT-LEAK" not in str(raised.value)
+
+
 def test_internal_allowlist_rejects_unknown_operation_and_parameter() -> None:
     client = _client()
     with pytest.raises(ValueError, match="Unsupported RGW multisite read operation"):

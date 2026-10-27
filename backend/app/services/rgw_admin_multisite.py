@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from app.services.rgw_admin_transport import RGWAdminError
 
@@ -24,6 +24,10 @@ class _ReadOperation:
 
 
 _READ_OPERATIONS: dict[str, _ReadOperation] = {
+    "zone_configuration": _ReadOperation(
+        "/admin/config",
+        frozenset({"type", "format"}),
+    ),
     "realm": _ReadOperation("/admin/realm", frozenset({"id", "format"})),
     "period": _ReadOperation(
         "/admin/realm/period",
@@ -103,6 +107,77 @@ _READ_OPERATIONS: dict[str, _ReadOperation] = {
 }
 
 
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Expected a string")
+    normalized = value.strip()
+    return normalized or None
+
+
+def project_local_zone_configuration(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Return only non-sensitive local-zone fields needed by BucketReef."""
+    zone_id = _optional_text(payload.get("id"))
+    zone_name = _optional_text(payload.get("name"))
+    if zone_id is None or zone_name is None:
+        raise ValueError("RGW zone configuration is missing id or name")
+
+    placements: list[dict[str, Any]] = []
+    raw_placements = payload.get("placement_pools") or []
+    if isinstance(raw_placements, dict):
+        placement_items = [
+            {"key": key, "val": value}
+            for key, value in raw_placements.items()
+        ]
+    elif isinstance(raw_placements, list):
+        placement_items = raw_placements
+    else:
+        raise ValueError("RGW zone placement_pools has an invalid type")
+
+    storage_classes: set[str] = set()
+    for item in placement_items:
+        if not isinstance(item, dict):
+            continue
+        name = _optional_text(item.get("key") or item.get("name"))
+        if name is None:
+            continue
+        value = item.get("val") if isinstance(item.get("val"), dict) else item
+        raw_classes = value.get("storage_classes") if isinstance(value, dict) else None
+        if isinstance(raw_classes, dict):
+            classes = sorted(
+                {
+                    normalized
+                    for key in raw_classes
+                    if (normalized := _optional_text(key)) is not None
+                }
+            )
+        elif isinstance(raw_classes, list):
+            classes = sorted(
+                {
+                    normalized
+                    for entry in raw_classes
+                    if (normalized := _optional_text(
+                        entry.get("key") if isinstance(entry, dict) else entry
+                    )) is not None
+                }
+            )
+        elif raw_classes is None:
+            classes = []
+        else:
+            raise ValueError("RGW zone storage_classes has an invalid type")
+        storage_classes.update(classes)
+        placements.append({"name": name, "storage_classes": classes})
+
+    return {
+        "id": zone_id,
+        "name": zone_name,
+        "realm_id": _optional_text(payload.get("realm_id")),
+        "placements": placements,
+        "storage_classes": sorted(storage_classes),
+    }
+
+
 def _required_text(value: str, name: str) -> str:
     normalized = str(value).strip()
     if not normalized:
@@ -142,6 +217,8 @@ class RGWAdminMultisiteOperations:
         self,
         operation_name: str,
         params: Mapping[str, Any],
+        *,
+        projector: Callable[[Mapping[str, Any]], dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         operation = _READ_OPERATIONS.get(operation_name)
         if operation is None:
@@ -174,6 +251,14 @@ class RGWAdminMultisiteOperations:
                 error_code="ResponseTooLarge",
             )
 
+        if response.status_code >= 400 and operation_name == "zone_configuration":
+            # /admin/config?type=zone may expose the multisite system_key in
+            # provider-generated error payloads. Never feed that body into the
+            # generic provider error parser.
+            raise RGWAdminError(
+                "RGW zone configuration read failed",
+                status_code=response.status_code,
+            )
         if response.status_code >= 400:
             return self._request_error_result(
                 response,
@@ -198,7 +283,14 @@ class RGWAdminMultisiteOperations:
                 status_code=response.status_code,
                 error_code="InvalidJSON",
             )
-        return payload
+        return projector(payload) if projector is not None else payload
+
+    def get_zone_configuration(self) -> dict[str, Any]:
+        return self._multisite_get(
+            "zone_configuration",
+            {"type": "zone", "format": "json"},
+            projector=project_local_zone_configuration,
+        )
 
     def get_realm(self, realm_id: str) -> dict[str, Any]:
         return self._multisite_get(

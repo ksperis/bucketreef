@@ -14,7 +14,7 @@ Availability = Literal[
 ]
 Family = Literal["metadata", "data", "bucket-index"]
 Operation = Literal[
-    "period", "realm", "metadata_status", "data_status", "bucket_status",
+    "zone_configuration", "period", "realm", "metadata_status", "data_status", "bucket_status",
     "bucket_instance", "bilog_info", "metadata_log", "data_log", "bilog",
     "metadata_shard_info", "data_shard_info",
 ]
@@ -48,6 +48,28 @@ class EndpointReference(ApiModel):
     diagnostic: bool
 
 
+class ZonePlacement(ApiModel):
+    name: str
+    storage_classes: list[str] = Field(default_factory=list)
+
+
+class LocalZoneConfiguration(ApiModel):
+    id: str
+    name: str
+    realm_id: str | None = None
+    placements: list[ZonePlacement] = Field(default_factory=list)
+    storage_classes: list[str] = Field(default_factory=list)
+
+
+class MultisiteState(ApiModel):
+    status: Literal["active", "inactive", "unknown"]
+    realm_id: str | None = None
+    local_zone_id: str | None = None
+    checked_at: str
+    availability: Availability
+    reason_code: str | None = None
+
+
 class Zone(ApiModel):
     id: str
     name: str
@@ -73,10 +95,11 @@ class Period(ApiModel):
 
 
 class Topology(ApiModel):
+    local_zone: Observation[LocalZoneConfiguration]
     period: Observation[Period]
     realm: Observation[dict[str, Any]] | None = None
-    association_valid: bool
-    association_reason: str | None = None
+    configured: bool | None = None
+    configuration_reason: str | None = None
 
 
 class Shard(ApiModel):

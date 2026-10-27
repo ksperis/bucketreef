@@ -51,10 +51,6 @@ export type StorageEndpoint = {
   force_path_style: boolean;
   latitude: number | null;
   longitude: number | null;
-  multisite_realm_id: string | null;
-  multisite_zonegroup_id: string | null;
-  multisite_zone_id: string | null;
-  multisite_diagnostic: boolean;
   verify_tls: boolean;
   provider: StorageProvider;
   admin_access_key: string | null;
@@ -98,10 +94,6 @@ export type StorageEndpointPayload = {
   force_path_style?: boolean;
   latitude?: number | null;
   longitude?: number | null;
-  multisite_realm_id?: string | null;
-  multisite_zonegroup_id?: string | null;
-  multisite_zone_id?: string | null;
-  multisite_diagnostic?: boolean;
   verify_tls?: boolean;
   provider?: StorageProvider;
   admin_access_key?: string | null;

@@ -263,90 +263,6 @@
           "check": null
         },
         {
-          "id": "field:storage_endpoints.multisite_realm_id",
-          "name": "multisite_realm_id",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:storage_endpoints.multisite_zonegroup_id",
-          "name": "multisite_zonegroup_id",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:storage_endpoints.multisite_zone_id",
-          "name": "multisite_zone_id",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:storage_endpoints.multisite_diagnostic",
-          "name": "multisite_diagnostic",
-          "type": {
-            "id": "boolean",
-            "name": "boolean"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": "0",
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:storage_endpoints.force_path_style",
           "name": "force_path_style",
           "type": {
@@ -497,19 +413,6 @@
           "comments": null
         },
         {
-          "id": "index:storage_endpoints:uq_storage_endpoints_multisite_diagnostic_zone",
-          "name": "uq_storage_endpoints_multisite_diagnostic_zone",
-          "unique": true,
-          "fieldIds": [
-            "field:storage_endpoints.multisite_realm_id",
-            "field:storage_endpoints.multisite_zonegroup_id",
-            "field:storage_endpoints.multisite_zone_id"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        },
-        {
           "id": "unique:storage_endpoints:uq_storage_endpoints_identity_namespace",
           "name": "uq_storage_endpoints_identity_namespace",
           "unique": true,
@@ -547,21 +450,6 @@
         {
           "id": "check:storage_endpoints:ck_storage_endpoints_endpoint_url_canonical",
           "expression": "endpoint_url = trim(endpoint_url) AND endpoint_url NOT LIKE '%/' AND length(endpoint_url) > 0",
-          "createdAt": 0
-        },
-        {
-          "id": "check:storage_endpoints:ck_storage_endpoints_multisite_association_complete",
-          "expression": "((multisite_realm_id IS NULL AND multisite_zonegroup_id IS NULL AND multisite_zone_id IS NULL) OR (multisite_realm_id IS NOT NULL AND multisite_zonegroup_id IS NOT NULL AND multisite_zone_id IS NOT NULL))",
-          "createdAt": 0
-        },
-        {
-          "id": "check:storage_endpoints:ck_storage_endpoints_multisite_ceph_only",
-          "expression": "multisite_realm_id IS NULL OR provider = 'ceph'",
-          "createdAt": 0
-        },
-        {
-          "id": "check:storage_endpoints:ck_storage_endpoints_multisite_diagnostic_requires_zone",
-          "expression": "NOT multisite_diagnostic OR multisite_zone_id IS NOT NULL",
           "createdAt": 0
         },
         {

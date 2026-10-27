@@ -28,14 +28,30 @@ export type MultisiteZone = {
   endpoints: { id: number; name: string; diagnostic: boolean }[];
   diagnostic_endpoint_id: number | null;
 };
+export type MultisiteLocalZoneConfiguration = {
+  id: string;
+  name: string;
+  realm_id: string | null;
+  placements: { name: string; storage_classes: string[] }[];
+  storage_classes: string[];
+};
+export type MultisiteState = {
+  status: "active" | "inactive" | "unknown";
+  realm_id: string | null;
+  local_zone_id: string | null;
+  checked_at: string;
+  availability: MultisiteAvailability;
+  reason_code: string | null;
+};
 export type MultisiteTopology = {
+  local_zone: MultisiteObservation<MultisiteLocalZoneConfiguration>;
   period: MultisiteObservation<{
     id: string; realm_id: string; epoch: string | null; realm_epoch: string | null;
     master_zone: string | null; zones: MultisiteZone[]; details: Record<string, unknown>;
   }>;
   realm: MultisiteObservation<Record<string, unknown>> | null;
-  association_valid: boolean;
-  association_reason: string | null;
+  configured: boolean | null;
+  configuration_reason: string | null;
 };
 export type MultisiteShard = {
   shard_id: number; phase: string; raw_status: string | number | null;
@@ -89,6 +105,9 @@ async function get<T>(endpointId: number, path: string, params: Record<string, u
 }
 export function getMultisiteTopology(endpointId: number, signal?: AbortSignal) {
   return get<MultisiteTopology>(endpointId, "topology", {}, signal);
+}
+export function getMultisiteState(endpointId: number, signal?: AbortSignal) {
+  return get<MultisiteState>(endpointId, "state", {}, signal);
 }
 export function getMultisiteOverview(endpointId: number, offset = 0, signal?: AbortSignal) {
   return get<MultisiteOverview>(endpointId, "overview", { offset }, signal);

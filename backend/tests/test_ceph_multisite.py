@@ -10,7 +10,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.db import StorageEndpoint, StorageProvider, User, UserRole
-from app.models.ceph_multisite import Flow, Observation, Overview, Period, Provenance, Topology, Zone
+from app.models.ceph_multisite import (
+    Flow,
+    LocalZoneConfiguration,
+    Observation,
+    Overview,
+    Period,
+    Provenance,
+    Topology,
+    Zone,
+)
 from app.models.session import ManagerSessionPrincipal, SessionCapabilities
 from app.routers import dependencies
 from app.routers.ceph_admin import multisite as multisite_router
@@ -40,7 +49,6 @@ def _endpoint(
     *,
     endpoint_id: int,
     zone: str,
-    diagnostic: bool = True,
 ) -> StorageEndpoint:
     endpoint = StorageEndpoint(
         id=endpoint_id,
@@ -50,10 +58,6 @@ def _endpoint(
         region="us-east-1",
         verify_tls=True,
         ceph_admin_allowed=True,
-        multisite_realm_id="realm-a",
-        multisite_zonegroup_id="zg-a",
-        multisite_zone_id=zone,
-        multisite_diagnostic=diagnostic,
     )
     endpoint.service_identities.append(
         service_identity("ceph_admin", f"AK-{zone}", f"SK-{zone}")
@@ -61,6 +65,34 @@ def _endpoint(
     db_session.add(endpoint)
     db_session.flush()
     return endpoint
+
+
+def _local_zone_observation(
+    endpoint_id: int,
+    zone: str,
+    *,
+    realm_id: str | None = "realm-a",
+) -> Observation[LocalZoneConfiguration]:
+    return Observation(
+        availability="available",
+        data=LocalZoneConfiguration(
+            id=zone,
+            name=zone,
+            realm_id=realm_id,
+            placements=[],
+            storage_classes=["STANDARD"],
+        ),
+        collected_at="2026-10-27T10:00:00+00:00",
+        last_success_at="2026-10-27T10:00:00+00:00",
+        provenance=Provenance(
+            endpoint_id=endpoint_id,
+            realm_id=realm_id,
+            local_zone_id=zone,
+            operation="zone_configuration",
+            http_status=200,
+            collection_id="test-collection",
+        ),
+    )
 
 
 def _period_observation(endpoint_id: int, zones: list[Zone]) -> Observation[Period]:
@@ -89,7 +121,15 @@ def _period_observation(endpoint_id: int, zones: list[Zone]) -> Observation[Peri
 
 
 def _topology(endpoint_id: int, zones: list[Zone]) -> Topology:
-    return Topology(period=_period_observation(endpoint_id, zones), association_valid=True)
+    local = next(
+        (zone for zone in zones if zone.diagnostic_endpoint_id == endpoint_id),
+        zones[0],
+    )
+    return Topology(
+        local_zone=_local_zone_observation(endpoint_id, local.id),
+        period=_period_observation(endpoint_id, zones),
+        configured=True,
+    )
 
 
 def _zone(zone_id: str, endpoint_id: int, *, master: bool = False) -> Zone:
@@ -193,9 +233,14 @@ def test_normalize_period_real_zonegroups_shape_and_mismatch_does_not_attribute(
         assert period.zones[-1].id == f"zone-{zone_count - 1}"
 
     endpoint = _endpoint(db_session, endpoint_id=1, zone="zone-0")
-    endpoint.multisite_zonegroup_id = "zg-other"
     service = CephMultisiteService(db_session, endpoint.id, actor_id=10)
+    service.local_zones[endpoint.id] = LocalZoneConfiguration(
+        id="zone-missing",
+        name="zone-missing",
+        realm_id="realm-a",
+    )
     topology = Topology(
+        local_zone=_local_zone_observation(endpoint.id, "zone-missing"),
         period=Observation(
             availability="available",
             data=period,
@@ -208,8 +253,8 @@ def test_normalize_period_real_zonegroups_shape_and_mismatch_does_not_attribute(
                 collection_id="test-collection",
             ),
         ),
-        association_valid=False,
-        association_reason="association_mismatch",
+        configured=True,
+        configuration_reason="local_zone_not_in_period",
     )
 
     assert service.validated_zone(topology, endpoint) is None
@@ -353,6 +398,222 @@ def test_observe_cache_isolated_after_ceph_admin_credentials_change(db_session, 
     assert reads == ["AK-zone-a", "AK-ROTATED"]
 
 
+def test_multisite_state_is_inactive_only_after_successful_local_zone_read(
+    db_session,
+    monkeypatch,
+) -> None:
+    endpoint = _endpoint(db_session, endpoint_id=1, zone="zone-a")
+    service = CephMultisiteService(db_session, endpoint.id, actor_id=10)
+    monkeypatch.setattr(
+        service,
+        "local_zone",
+        lambda _endpoint: _local_zone_observation(endpoint.id, "zone-a", realm_id=None),
+    )
+
+    state = service.state()
+
+    assert state.status == "inactive"
+    assert state.realm_id is None
+    assert state.local_zone_id == "zone-a"
+    assert state.availability == "available"
+
+
+def test_multisite_state_keeps_menu_available_when_zone_read_is_denied(
+    db_session,
+    monkeypatch,
+) -> None:
+    endpoint = _endpoint(db_session, endpoint_id=1, zone="zone-a")
+    service = CephMultisiteService(db_session, endpoint.id, actor_id=10)
+    denied = service.missing(
+        endpoint,
+        "zone_configuration",
+        "rgw_read_failed",
+        availability="denied",
+    )
+    monkeypatch.setattr(service, "local_zone", lambda _endpoint: denied)
+
+    state = service.state()
+
+    assert state.status == "unknown"
+    assert state.availability == "denied"
+    assert state.reason_code == "rgw_read_failed"
+
+
+def test_topology_discovers_endpoint_zone_mapping_and_leaves_ambiguous_zone_unselected(
+    db_session,
+    monkeypatch,
+) -> None:
+    local = _endpoint(db_session, endpoint_id=1, zone="zone-a")
+    secondary_a = _endpoint(db_session, endpoint_id=2, zone="zone-b")
+    secondary_b = _endpoint(db_session, endpoint_id=3, zone="zone-b-duplicate")
+    service = CephMultisiteService(db_session, local.id, actor_id=10)
+    endpoints = {endpoint.id: endpoint for endpoint in (local, secondary_a, secondary_b)}
+    period = _period_observation(
+        local.id,
+        [_zone("zone-a", local.id, master=True), _zone("zone-b", secondary_a.id)],
+    )
+    realm = Observation(
+        availability="available",
+        data={"id": "realm-a", "name": "realm-a"},
+        collected_at="2026-10-27T10:00:00+00:00",
+        provenance=Provenance(
+            endpoint_id=local.id,
+            realm_id="realm-a",
+            local_zone_id="zone-a",
+            operation="realm",
+            collection_id="test-collection",
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "observe",
+        lambda _endpoint, operation, *_args, **_kwargs: period if operation == "period" else realm,
+    )
+    monkeypatch.setattr(
+        service.endpoints,
+        "list_endpoints",
+        lambda: [SimpleNamespace(id=endpoint.id) for endpoint in endpoints.values()],
+    )
+    monkeypatch.setattr(service, "resolve", lambda endpoint_id: endpoints[endpoint_id])
+
+    def local_zone(endpoint):
+        zone_id = "zone-a" if endpoint.id == local.id else "zone-b"
+        observation = _local_zone_observation(endpoint.id, zone_id)
+        service.local_zones[endpoint.id] = observation.data
+        return observation
+
+    monkeypatch.setattr(service, "local_zone", local_zone)
+
+    topology = service.topology()
+
+    zone_a = next(zone for zone in topology.period.data.zones if zone.id == "zone-a")
+    zone_b = next(zone for zone in topology.period.data.zones if zone.id == "zone-b")
+    assert topology.configured is True
+    assert topology.configuration_reason is None
+    assert zone_a.diagnostic_endpoint_id == local.id
+    assert [ref.id for ref in zone_a.endpoints] == [local.id]
+    assert zone_b.diagnostic_endpoint_id is None
+    assert [ref.id for ref in zone_b.endpoints] == [secondary_a.id, secondary_b.id]
+    assert all(ref.diagnostic is False for ref in zone_b.endpoints)
+
+
+def test_topology_skips_secondary_when_live_zone_read_is_denied(db_session, monkeypatch) -> None:
+    local = _endpoint(db_session, endpoint_id=1, zone="zone-a")
+    secondary = _endpoint(db_session, endpoint_id=2, zone="zone-b")
+    service = CephMultisiteService(db_session, local.id, actor_id=10)
+    period = _period_observation(
+        local.id,
+        [_zone("zone-a", local.id, master=True), _zone("zone-b", secondary.id)],
+    )
+    realm = Observation(
+        availability="available",
+        data={"id": "realm-a", "name": "realm-a"},
+        collected_at="2026-10-27T10:00:00+00:00",
+        provenance=Provenance(
+            endpoint_id=local.id,
+            realm_id="realm-a",
+            local_zone_id="zone-a",
+            operation="realm",
+            collection_id="test-collection",
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "observe",
+        lambda _endpoint, operation, *_args, **_kwargs: period if operation == "period" else realm,
+    )
+    monkeypatch.setattr(
+        service.endpoints,
+        "list_endpoints",
+        lambda: [SimpleNamespace(id=local.id), SimpleNamespace(id=secondary.id)],
+    )
+    monkeypatch.setattr(
+        service,
+        "resolve",
+        lambda endpoint_id: local if endpoint_id == local.id else secondary,
+    )
+
+    def local_zone(endpoint):
+        if endpoint.id == local.id:
+            observation = _local_zone_observation(local.id, "zone-a")
+            service.local_zones[local.id] = observation.data
+            return observation
+        return service.missing(
+            secondary,
+            "zone_configuration",
+            "rgw_read_failed",
+            availability="denied",
+        )
+
+    monkeypatch.setattr(service, "local_zone", local_zone)
+
+    topology = service.topology()
+
+    zone_b = next(zone for zone in topology.period.data.zones if zone.id == "zone-b")
+    assert zone_b.endpoints == []
+    assert zone_b.diagnostic_endpoint_id is None
+
+
+def test_topology_does_not_map_secondary_from_stale_zone_configuration(
+    db_session,
+    monkeypatch,
+) -> None:
+    local = _endpoint(db_session, endpoint_id=1, zone="zone-a")
+    secondary = _endpoint(db_session, endpoint_id=2, zone="zone-b")
+    service = CephMultisiteService(db_session, local.id, actor_id=10)
+    period = _period_observation(
+        local.id,
+        [_zone("zone-a", local.id, master=True), _zone("zone-b", secondary.id)],
+    )
+    realm = Observation(
+        availability="available",
+        data={"id": "realm-a", "name": "realm-a"},
+        collected_at="2026-10-27T10:00:00+00:00",
+        provenance=Provenance(
+            endpoint_id=local.id,
+            realm_id="realm-a",
+            local_zone_id="zone-a",
+            operation="realm",
+            collection_id="test-collection",
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "observe",
+        lambda _endpoint, operation, *_args, **_kwargs: period if operation == "period" else realm,
+    )
+    monkeypatch.setattr(
+        service.endpoints,
+        "list_endpoints",
+        lambda: [SimpleNamespace(id=local.id), SimpleNamespace(id=secondary.id)],
+    )
+    monkeypatch.setattr(
+        service,
+        "resolve",
+        lambda endpoint_id: local if endpoint_id == local.id else secondary,
+    )
+    stale_secondary = _local_zone_observation(secondary.id, "zone-b")
+    stale_secondary.availability = "unavailable"
+    stale_secondary.stale = True
+
+    def local_zone(endpoint):
+        if endpoint.id == local.id:
+            observation = _local_zone_observation(local.id, "zone-a")
+            service.local_zones[local.id] = observation.data
+            return observation
+        service.local_zones.pop(secondary.id, None)
+        return stale_secondary
+
+    monkeypatch.setattr(service, "local_zone", local_zone)
+
+    topology = service.topology()
+
+    zone_b = next(zone for zone in topology.period.data.zones if zone.id == "zone-b")
+    assert zone_b.endpoints == []
+    assert zone_b.diagnostic_endpoint_id is None
+    assert secondary.id not in service.local_zones
+
+
 @pytest.mark.parametrize("provider_convention", ["empty-200", "not-found-404"])
 def test_metadata_master_role_is_not_applicable_before_provider_read(
     db_session,
@@ -368,6 +629,7 @@ def test_metadata_master_role_is_not_applicable_before_provider_read(
             _zone("zone-b", 2),
         ],
     )
+    service.local_zones[destination.id] = topology.local_zone.data
     attempted: list[str] = []
 
     class ProviderClient:
@@ -522,6 +784,11 @@ def test_topology_and_overview_tolerate_secondary_revoked_after_listing(db_sessi
         "observe",
         lambda _endpoint, operation, *_args, **_kwargs: period if operation == "period" else realm,
     )
+    def local_zone(endpoint):
+        observation = _local_zone_observation(endpoint.id, "zone-a" if endpoint.id == local.id else "zone-b")
+        service.local_zones[endpoint.id] = observation.data
+        return observation
+    monkeypatch.setattr(service, "local_zone", local_zone)
     monkeypatch.setattr(
         service.endpoints,
         "list_endpoints",
@@ -539,7 +806,8 @@ def test_topology_and_overview_tolerate_secondary_revoked_after_listing(db_sessi
 
     zone_a = next(zone for zone in topology.period.data.zones if zone.id == "zone-a")
     zone_b = next(zone for zone in topology.period.data.zones if zone.id == "zone-b")
-    assert topology.association_valid is True
+    assert topology.configured is True
+    assert topology.configuration_reason is None
     assert zone_a.diagnostic_endpoint_id == local.id
     assert zone_b.endpoints == []
     assert zone_b.diagnostic_endpoint_id is None
@@ -664,12 +932,27 @@ def _overview_fixture(db_session, monkeypatch):
     service = CephMultisiteService(db_session, 1, actor_id=10)
     monkeypatch.setattr(service, "topology", lambda: topology)
     by_id = {endpoint.id: endpoint for endpoint in endpoints}
+    service.local_zones.update(
+        {
+            endpoint.id: LocalZoneConfiguration(
+                id=zone.id,
+                name=zone.name,
+                realm_id="realm-a",
+            )
+            for endpoint, zone in zip(endpoints, zones, strict=True)
+        }
+    )
     monkeypatch.setattr(service, "resolve", lambda endpoint_id: by_id[endpoint_id])
 
     def flow(_topology, destination, source_zone_id, family):
+        destination_zone = next(
+            zone
+            for zone in _topology.period.data.zones
+            if zone.diagnostic_endpoint_id == destination.id
+        )
         return Flow(
             destination_endpoint_id=destination.id,
-            destination_zone_id=destination.multisite_zone_id,
+            destination_zone_id=destination_zone.id,
             source_zone_id=source_zone_id,
             status=service.missing(
                 destination,

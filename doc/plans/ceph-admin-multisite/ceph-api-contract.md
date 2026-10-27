@@ -49,6 +49,7 @@ des propriétés racine. Aucun wrapper n’est inventé à partir du C++.
 
 | Lecture | Query Ceph | Champs de sortie utilisables |
 | --- | --- | --- |
+| Zone locale | `/admin/config?type=zone` | `id`, `name`, `realm_id`, placements et noms de classes de stockage après projection stricte ; ne jamais exposer `system_key` |
 | Configuration | `/admin/realm/period[?realm_id=…&period_id=…&epoch=…]` | Objet RGWPeriod, period_map/zonegroups/zones, realm_id, realm_epoch et epoch distincts |
 | Nom du realm | `/admin/realm?id=REALM_ID` | Objet realm ; nom si disponible, sinon garder le realm_id |
 | Metadata sync, destination | `/admin/log?type=metadata&status` | `info.{status,num_shards,period,realm_epoch}`, `markers[]:{key,val}` |
@@ -69,6 +70,11 @@ et `bucket-instance=name:instance[:shard]`. Ne pas réutiliser aveuglément le m
 constructeur de paramètres entre ces opérations. Résoudre le vrai bucket_id
 depuis l’inventaire / get_bucket_info existant, sans lui substituer un nom de
 zone ou de bucket. Conserver les tenants et instances source/destination.
+
+`/admin/config?type=zone` nécessite `zone=read`. Le dump brut de zone peut
+contenir la clé système multisite ; BucketReef ne conserve donc jamais ce
+payload générique. Le client transforme la réponse avant de la remettre au
+service et ignore le corps provider en cas d'erreur HTTP sur cette opération.
 
 ### Anomalie à qualifier : requêtes bilog avec seulement bucket
 
