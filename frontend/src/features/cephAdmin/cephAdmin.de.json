@@ -507,7 +507,6 @@
   "Unable to load multisite overview.": "Multisite-Übersicht kann nicht geladen werden.",
   "Unknown reason": "Unbekannter Grund",
   "Unsupported": "Nicht unterstützt",
-  "Workspace endpoint: {endpoint}": "Workspace-Endpoint: {endpoint}",
   "Zone": "Ceph-Zone",
   "Zonegroup": "Zonengruppe",
   "Zones": "Ceph-Zonen",

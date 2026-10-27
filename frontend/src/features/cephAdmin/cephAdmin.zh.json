@@ -507,7 +507,6 @@
   "Unable to load multisite overview.": "无法加载多站点概览。",
   "Unknown reason": "未知原因",
   "Unsupported": "不支持",
-  "Workspace endpoint: {endpoint}": "Workspace Endpoint：{endpoint}",
   "Zone": "Ceph Zone",
   "Zonegroup": "Zonegroup 组",
   "Zones": "Ceph Zones",

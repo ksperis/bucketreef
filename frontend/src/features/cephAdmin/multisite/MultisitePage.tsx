@@ -6,7 +6,6 @@ import type { PageHeaderProps } from "../../../components/PageHeader";
 import PageShell from "../../../components/PageShell";
 import PageTabs, { PageTabPanel } from "../../../components/PageTabs";
 import UiBadge from "../../../components/ui/UiBadge";
-import { useCephAdminEndpoint } from "../CephAdminEndpointContext";
 import { useCephAdminI18n } from "../cephAdminI18n";
 import { cephAdminPageBreadcrumbs } from "../cephAdminBreadcrumbs";
 
@@ -22,12 +21,10 @@ type MultisitePageProps = {
   activeTab: MultisiteTab;
   children: ReactNode;
   actions?: PageHeaderProps["actions"];
-  metaContent?: ReactNode;
 };
 
-export default function MultisitePage({ activeTab, children, actions, metaContent }: MultisitePageProps) {
+export default function MultisitePage({ activeTab, children, actions }: MultisitePageProps) {
   const { text } = useCephAdminI18n();
-  const { selectedEndpoint } = useCephAdminEndpoint();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -49,14 +46,6 @@ export default function MultisitePage({ activeTab, children, actions, metaConten
       breadcrumbs={cephAdminPageBreadcrumbs("multisite")}
       actions={actions}
       inlineContent={<UiBadge tone="neutral">{text("Read only")}</UiBadge>}
-      metaContent={
-        <>
-          <p className="ui-caption text-[var(--ui-text-muted)]">
-            {text("Workspace endpoint: {endpoint}", { endpoint: selectedEndpoint?.name ?? text("Not selected") })}
-          </p>
-          {metaContent}
-        </>
-      }
     >
       <PageTabs
         tabs={[
