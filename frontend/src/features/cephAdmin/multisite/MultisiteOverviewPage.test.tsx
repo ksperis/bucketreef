@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MultisiteFlow, MultisiteObservation, MultisiteOverview, MultisiteSyncStatus } from "../../../api/cephMultisite";
@@ -278,5 +278,39 @@ describe("MultisiteOverviewPage", () => {
     await waitFor(() => expect(screen.getAllByText("Changed").length).toBeGreaterThan(0));
     expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+
+  it("hides the metadata master self-observation from the replication table", async () => {
+    const fixture = overview("Realm fixture", "marker-a", "2026-10-27T10:00:00Z", null);
+    fixture.metadata = [
+      {
+        destination_endpoint_id: 1,
+        destination_zone_id: "zone-source",
+        source_zone_id: "zone-source",
+        scope_requires_confirmation: false,
+        status: {
+          ...status("marker-self", "2026-10-27T10:00:00Z"),
+          availability: "not_applicable",
+          reason_code: "metadata_master",
+          data: null,
+        },
+      },
+      {
+        destination_endpoint_id: 2,
+        destination_zone_id: "zone-destination",
+        source_zone_id: "zone-source",
+        scope_requires_confirmation: false,
+        status: status("marker-replica", "2026-10-27T10:00:00Z"),
+      },
+    ];
+    getMultisiteOverviewMock.mockResolvedValue(fixture);
+
+    render(<MultisiteOverviewPage />);
+
+    expect(await screen.findByText("Realm fixture")).toBeInTheDocument();
+    const metadataSection = screen.getByRole("heading", { name: "Metadata replication" }).closest("section");
+    expect(metadataSection).not.toBeNull();
+    expect(within(metadataSection as HTMLElement).getByText("1 flows")).toBeInTheDocument();
+    expect(within(metadataSection as HTMLElement).queryByText("Not applicable")).not.toBeInTheDocument();
   });
 });
