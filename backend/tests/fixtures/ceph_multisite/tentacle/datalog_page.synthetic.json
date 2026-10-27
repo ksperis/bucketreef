@@ -1,0 +1,14 @@
+{
+  "marker": "00000000000000000001",
+  "last_update": "2026-10-27T09:31:44.000000Z",
+  "truncated": false,
+  "entries": [
+    {
+      "entity_type": "bucket",
+      "key": "tenant-a/bucket-a",
+      "timestamp": "2026-10-27T09:31:43.000000Z",
+      "gen": 18446744073709551615,
+      "log_id": "log-1"
+    }
+  ]
+}

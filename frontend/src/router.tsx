@@ -111,6 +111,9 @@ const CephAdminAccountsPage = lazy(() => import("./features/cephAdmin/CephAdminA
 const CephAdminUsersPage = lazy(() => import("./features/cephAdmin/CephAdminUsersPage"));
 const CephAdminBucketsPage = lazy(() => import("./features/cephAdmin/CephAdminBucketsPage"));
 const CephAdminMetricsPage = lazy(() => import("./features/cephAdmin/CephAdminMetricsPage"));
+const MultisiteOverviewPage = lazy(() => import("./features/cephAdmin/multisite/MultisiteOverviewPage"));
+const BucketReplicationPage = lazy(() => import("./features/cephAdmin/multisite/BucketReplicationPage"));
+const MultisiteLogExplorerPage = lazy(() => import("./features/cephAdmin/multisite/MultisiteLogExplorerPage"));
 const CephAdminBrowserPage = lazy(() => import("./features/cephAdmin/CephAdminBrowserPage"));
 const StorageOpsLayout = lazy(() => import("./features/storageOps/StorageOpsLayout"));
 const StorageOpsDashboard = lazy(() => import("./features/storageOps/StorageOpsDashboard"));
@@ -240,6 +243,9 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route index element={<CephAdminDashboard />} />
                   <Route path="profile" element={<AccountProfilePage />} />
                   <Route path="metrics" element={<CephAdminMetricsPage />} />
+              <Route path="multisite" element={<MultisiteOverviewPage />} />
+              <Route path="multisite/bucket" element={<BucketReplicationPage />} />
+              <Route path="multisite/logs" element={<MultisiteLogExplorerPage />} />
                   <Route path="accounts" element={<CephAdminAccountsPage />} />
                   <Route path="users" element={<CephAdminUsersPage />} />
                   <Route path="buckets" element={<CephAdminBucketsPage />} />

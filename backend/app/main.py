@@ -64,6 +64,7 @@ from app.routers.ceph_admin import purge as ceph_admin_purge
 from app.routers.ceph_admin import usage_stats as ceph_admin_usage_stats
 from app.routers.ceph_admin import metrics as ceph_admin_metrics
 from app.routers.ceph_admin import admin_ops as ceph_admin_admin_ops
+from app.routers.ceph_admin import multisite as ceph_admin_multisite
 from app.routers.storage_ops import summary as storage_ops_summary
 from app.routers.storage_ops import buckets as storage_ops_buckets
 from app.routers.storage_ops import bucket_ui_tags as storage_ops_bucket_ui_tags
@@ -283,6 +284,7 @@ if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_production_readiness.router, prefix=settings.api_prefix)
     app.include_router(admin_webhooks.router, prefix=settings.api_prefix)
 if runtime_surface_enabled(settings, "ceph_admin"):
+    app.include_router(ceph_admin_multisite.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
     app.include_router(ceph_admin_endpoints.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
     app.include_router(ceph_admin_accounts.router, prefix=settings.api_prefix, dependencies=[Depends(require_ceph_admin_enabled)])
     app.include_router(

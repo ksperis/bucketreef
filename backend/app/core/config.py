@@ -341,6 +341,9 @@ class Settings(BaseSettings):
         gt=0,
         description="HTTP timeout for explicit RGW Admin availability probes",
     )
+    ceph_multisite_timeout_seconds: float = Field(8.0, gt=0, le=30)
+    ceph_multisite_deadline_seconds: float = Field(20.0, gt=0, le=60)
+    ceph_multisite_call_budget: int = Field(32, ge=1, le=64)
     rgw_admin_bucket_list_stats_timeout_seconds: float = Field(
         120.0,
         gt=0,
