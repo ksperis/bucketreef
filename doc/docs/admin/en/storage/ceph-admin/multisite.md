@@ -43,10 +43,12 @@ capabilities automatically.
   unreadable components and destinations outside the current collection.
   Complex policy candidates retain a scope warning. A successful status read
   does not establish that every bucket participates in that flow.
-- **Bucket replication** requires explicit source and destination endpoints,
-  source zone and bucket names. Tenants and resolved bucket instances remain
-  separate on both sides. Shards expose the destination marker and Ceph phase;
-  source bilog generations show the followed and latest generations separately.
+- **Bucket replication** offers only source and destination zones that form a
+  configured data-sync route and have an automatically matched Ceph Admin
+  endpoint. Read-only zones are not offered as sources. Tenants and resolved
+  bucket instances remain separate on both sides. Shards expose the destination
+  marker and Ceph phase; source bilog generations show the followed and latest
+  generations separately.
 - **Logs** reads one family and shard at a time. Metadata requires a period;
   bucket index requires a bucket instance and generation. Data logs preserve
   `extra-info` fields. Pagination follows provider markers; there is no invented

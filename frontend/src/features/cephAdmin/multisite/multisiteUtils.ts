@@ -15,6 +15,11 @@ export type MultisiteEndpointOption = {
   zonegroupName: string;
 };
 
+export type MultisiteReplicationRoute = {
+  source: MultisiteEndpointOption;
+  destination: MultisiteEndpointOption;
+};
+
 export function getDeclaredEndpointOptions(topology: MultisiteTopology | null): MultisiteEndpointOption[] {
   const zones = topology?.period.data?.zones ?? [];
   const options: MultisiteEndpointOption[] = [];
@@ -37,6 +42,35 @@ export function getDeclaredEndpointOptions(topology: MultisiteTopology | null): 
     }
   }
   return options;
+}
+
+export function getBucketReplicationRoutes(topology: MultisiteTopology | null): MultisiteReplicationRoute[] {
+  const zones = topology?.period.data?.zones ?? [];
+  const endpoints = getDeclaredEndpointOptions(topology);
+  const endpointByZoneId = new Map(endpoints.map((endpoint) => [endpoint.zoneId, endpoint]));
+  const routes: MultisiteReplicationRoute[] = [];
+
+  for (const destinationZone of zones) {
+    const destination = endpointByZoneId.get(destinationZone.id);
+    if (!destination) continue;
+
+    for (const sourceZone of zones) {
+      if (sourceZone.id === destinationZone.id || sourceZone.read_only === true) continue;
+      const source = endpointByZoneId.get(sourceZone.id);
+      if (!source) continue;
+
+      if (destinationZone.sync_from_all === false && !destinationZone.policy_requires_confirmation) {
+        const explicitlyEnabled = destinationZone.sync_from.some(
+          (candidate) => candidate === sourceZone.id || candidate === sourceZone.name,
+        );
+        if (!explicitlyEnabled) continue;
+      }
+
+      routes.push({ source, destination });
+    }
+  }
+
+  return routes;
 }
 
 export function formatTimestamp(value: string | null | undefined): string {

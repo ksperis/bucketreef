@@ -31,7 +31,7 @@ import {
 } from "./MultisiteCommon";
 import MultisitePage from "./MultisitePage";
 import { initialBucketScopeForm, resolveBucketScope, type BucketScopeForm } from "./multisiteBucketScope";
-import { buildMultisiteHref, formatTimestamp, getDeclaredEndpointOptions } from "./multisiteUtils";
+import { buildMultisiteHref, formatTimestamp, getBucketReplicationRoutes } from "./multisiteUtils";
 import { useMultisiteTopology } from "./useMultisiteTopology";
 
 type BucketTab = "shards" | "generations";
@@ -75,7 +75,23 @@ export default function BucketReplicationPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const topology = useMultisiteTopology(selectedEndpointId, text("Unable to load multisite topology."));
-  const endpointOptions = useMemo(() => getDeclaredEndpointOptions(topology.data), [topology.data]);
+  const replicationRoutes = useMemo(() => getBucketReplicationRoutes(topology.data), [topology.data]);
+  const sourceOptions = useMemo(() => {
+    const seen = new Set<number>();
+    return replicationRoutes.flatMap((route) => {
+      if (seen.has(route.source.endpointId)) return [];
+      seen.add(route.source.endpointId);
+      return [route.source];
+    });
+  }, [replicationRoutes]);
+  const destinationOptions = useMemo(() => {
+    const seen = new Set<number>();
+    return replicationRoutes.flatMap((route) => {
+      if (seen.has(route.destination.endpointId)) return [];
+      seen.add(route.destination.endpointId);
+      return [route.destination];
+    });
+  }, [replicationRoutes]);
   const [form, setForm] = useState<BucketScopeForm>({
     sourceEndpointId: "", destinationEndpointId: "", sourceBucket: "", sourceTenant: "", destinationBucket: "", destinationTenant: "",
   });
@@ -92,15 +108,15 @@ export default function BucketReplicationPage() {
   const requestController = useRef<AbortController | null>(null);
 
   const formScope = useMemo(() => JSON.stringify({ entry: selectedEndpointId, form }), [form, selectedEndpointId]);
-  const resolvedScope = useMemo(() => resolveBucketScope(form, endpointOptions), [endpointOptions, form]);
+  const resolvedScope = useMemo(() => resolveBucketScope(form, replicationRoutes), [form, replicationRoutes]);
 
   useEffect(() => {
-    if (endpointOptions.length === 0) return;
+    if (replicationRoutes.length === 0) return;
     const key = `${selectedEndpointId ?? "none"}:${searchParams.toString()}`;
     if (initializedFor.current === key) return;
     initializedFor.current = key;
-    setForm(initialBucketScopeForm(searchParams, endpointOptions, selectedEndpointId));
-  }, [endpointOptions, searchParams, selectedEndpointId]);
+    setForm(initialBucketScopeForm(searchParams, replicationRoutes, selectedEndpointId));
+  }, [replicationRoutes, searchParams, selectedEndpointId]);
 
   useEffect(() => {
     requestController.current?.abort();
@@ -153,11 +169,6 @@ export default function BucketReplicationPage() {
     fetchDiagnostic();
   }, [fetchDiagnostic]);
   const visibleResult = resultScope === formScope ? result : null;
-  const sameEndpoint = Boolean(
-    form.sourceEndpointId
-      && form.destinationEndpointId
-      && form.sourceEndpointId === form.destinationEndpointId,
-  );
   const loadedShards = useMemo(() => visibleResult?.status.data?.shards ?? [], [visibleResult]);
   const filteredShards = useMemo(() => {
     const query = shardSearch.trim().toLocaleLowerCase();
@@ -214,11 +225,37 @@ export default function BucketReplicationPage() {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const endpointLabel = (endpoint: (typeof endpointOptions)[number]) => text("{zone} — {endpoint} (#{id})", {
-    zone: endpoint.zoneName,
-    endpoint: endpoint.endpointName,
-    id: endpoint.endpointId,
-  });
+  const updateSourceEndpoint = (value: string) => {
+    setForm((current) => {
+      if (!value) return { ...current, sourceEndpointId: "" };
+      const sourceEndpointId = Number(value);
+      const currentDestinationId = Number(current.destinationEndpointId);
+      const route = replicationRoutes.find(
+        (candidate) => candidate.source.endpointId === sourceEndpointId && candidate.destination.endpointId === currentDestinationId,
+      ) ?? replicationRoutes.find((candidate) => candidate.source.endpointId === sourceEndpointId);
+      return {
+        ...current,
+        sourceEndpointId: value,
+        destinationEndpointId: route ? String(route.destination.endpointId) : current.destinationEndpointId,
+      };
+    });
+  };
+
+  const updateDestinationEndpoint = (value: string) => {
+    setForm((current) => {
+      if (!value) return { ...current, destinationEndpointId: "" };
+      const destinationEndpointId = Number(value);
+      const currentSourceId = Number(current.sourceEndpointId);
+      const route = replicationRoutes.find(
+        (candidate) => candidate.destination.endpointId === destinationEndpointId && candidate.source.endpointId === currentSourceId,
+      ) ?? replicationRoutes.find((candidate) => candidate.destination.endpointId === destinationEndpointId);
+      return {
+        ...current,
+        sourceEndpointId: route ? String(route.source.endpointId) : current.sourceEndpointId,
+        destinationEndpointId: value,
+      };
+    });
+  };
 
   const shardColumns: Array<DataTableColumn<MultisiteShard>> = [
     {
@@ -401,18 +438,18 @@ export default function BucketReplicationPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <fieldset className="min-w-0 space-y-3">
               <legend className="mb-2 ui-caption font-semibold text-[var(--ui-text-muted)]">{text("Source")}</legend>
-              <UiSelect label={text("Source zone and endpoint")} value={form.sourceEndpointId} onChange={(event) => updateForm("sourceEndpointId", event.target.value)} disabled={topology.loading}>
+              <UiSelect label={text("Source zone")} value={form.sourceEndpointId} onChange={(event) => updateSourceEndpoint(event.target.value)} disabled={topology.loading}>
                 <option value="">{text("Select source")}</option>
-                {endpointOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpointLabel(endpoint)}</option>)}
+                {sourceOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpoint.zoneName}</option>)}
               </UiSelect>
               <UiInput label={text("Source bucket")} value={form.sourceBucket} onChange={(event) => updateForm("sourceBucket", event.target.value)} />
               <UiInput label={text("Source tenant")} value={form.sourceTenant} onChange={(event) => updateForm("sourceTenant", event.target.value)} />
             </fieldset>
             <fieldset className="min-w-0 space-y-3">
               <legend className="mb-2 ui-caption font-semibold text-[var(--ui-text-muted)]">{text("Destination")}</legend>
-              <UiSelect label={text("Destination zone and endpoint")} value={form.destinationEndpointId} onChange={(event) => updateForm("destinationEndpointId", event.target.value)} disabled={topology.loading}>
+              <UiSelect label={text("Destination zone")} value={form.destinationEndpointId} onChange={(event) => updateDestinationEndpoint(event.target.value)} disabled={topology.loading}>
                 <option value="">{text("Select destination")}</option>
-                {endpointOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpointLabel(endpoint)}</option>)}
+                {destinationOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpoint.zoneName}</option>)}
               </UiSelect>
               <UiInput label={text("Destination bucket")} value={form.destinationBucket} onChange={(event) => updateForm("destinationBucket", event.target.value)} />
               <UiInput label={text("Destination tenant")} value={form.destinationTenant} onChange={(event) => updateForm("destinationTenant", event.target.value)} />
@@ -420,7 +457,6 @@ export default function BucketReplicationPage() {
           </div>
           <div className="mt-3 flex flex-wrap items-start gap-2 border-t border-[color:var(--ui-border-soft)] pt-3">
             <UiButton size="sm" onClick={readDiagnostic} loading={loading} disabled={!resolvedScope}>{text("Read diagnostic")}</UiButton>
-            {sameEndpoint ? <UiInlineMessage tone="warning">{text("Source and destination endpoints must be different.")}</UiInlineMessage> : null}
           </div>
         </section>
         {topology.error ? <UiInlineMessage tone="error">{topology.error}</UiInlineMessage> : null}
