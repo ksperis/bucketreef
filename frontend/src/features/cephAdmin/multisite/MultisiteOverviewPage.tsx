@@ -384,6 +384,9 @@ export default function MultisiteOverviewPage() {
   const refreshOverview = useCallback(() => setRevision((value) => value + 1), []);
 
   const zones = overview?.topology.period.data?.zones ?? [];
+  const metadataReplicationFlows = overview?.metadata.filter(
+    (flow) => flow.source_zone_id !== flow.destination_zone_id,
+  ) ?? [];
   const realmData = overview?.topology.realm?.data;
   const realmName =
     realmData && typeof realmData === "object" && "name" in realmData && typeof realmData.name === "string"
@@ -695,13 +698,13 @@ export default function MultisiteOverviewPage() {
           variant="section"
           title={text("Metadata replication")}
           description={text("Incoming metadata sync observations, kept distinct from data replication.")}
-          countLabel={text("{count} flows", { count: overview.metadata.length })}
+          countLabel={text("{count} flows", { count: metadataReplicationFlows.length })}
         >
           <DataTableShell
             columns={flowColumns("metadata")}
-            rows={overview.metadata}
+            rows={metadataReplicationFlows}
             rowKey={(flow) => `metadata:${flow.destination_endpoint_id}:${flow.source_zone_id}`}
-            status={overview.metadata.length ? "ready" : "empty"}
+            status={metadataReplicationFlows.length ? "ready" : "empty"}
             loadingMessage={text("Loading metadata flows…")}
             errorMessage={text("Unable to display metadata flows.")}
             emptyMessage={text("No metadata flow observation was returned.")}
