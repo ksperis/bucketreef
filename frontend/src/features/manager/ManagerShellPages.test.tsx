@@ -1228,8 +1228,12 @@ describe("manager shell pages", () => {
     expect(embed).toHaveAttribute("data-account-id", "account-1");
     expect(embed).toHaveAttribute("data-workspace-surface", "manager");
     expect(screen.queryByText("Effective S3 identity")).not.toBeInTheDocument();
-    expect(screen.queryByText("RGW-ROOT")).not.toBeInTheDocument();
-    expect(screen.getByText(/RGW logs will attribute operations to RGW-ROOT, not to the UI user/)).toBeInTheDocument();
+    expect(screen.getByLabelText("RGW: RGW-ROOT")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        /RGW logs will attribute operations to RGW-ROOT, not to the UI user/,
+      ),
+    ).not.toHaveLength(0);
     fireEvent.click(embed);
 
     expect(within(screen.getByRole("navigation")).getByText("bucket-a")).toBeInTheDocument();

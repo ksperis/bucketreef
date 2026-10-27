@@ -14,6 +14,7 @@ const eyebrowClasses = cx("ui-caption font-semibold", uiMutedTextClass);
 type BrowserBucketSelectorProps = {
   rootRef: RefObject<HTMLDivElement>;
   filterInputRef: RefObject<HTMLInputElement>;
+  compactMobile?: boolean;
   lockedBucketName?: string | null;
   hasContext: boolean;
   open: boolean;
@@ -45,6 +46,7 @@ type BrowserBucketSelectorProps = {
 export default function BrowserBucketSelector({
   rootRef,
   filterInputRef,
+  compactMobile = false,
   lockedBucketName,
   hasContext,
   open,
@@ -81,10 +83,22 @@ export default function BrowserBucketSelector({
   );
 
   return (
-    <div ref={rootRef} className="relative flex shrink-0 items-stretch">
+    <div
+      ref={rootRef}
+      className={
+        compactMobile
+          ? "relative flex w-1/2 min-w-0 max-w-[10rem] shrink-0 items-stretch"
+          : "relative flex shrink-0 items-stretch"
+      }
+    >
       <button
         type="button"
-        className={`${buttonClassName} min-h-9`}
+        className={cx(
+          buttonClassName,
+          compactMobile
+            ? "min-h-[44px] w-full min-w-0 max-w-none px-2"
+            : "min-h-9",
+        )}
         onClick={lockedBucketName ? undefined : onToggle}
         disabled={!hasContext}
         aria-haspopup={lockedBucketName ? undefined : "listbox"}
@@ -92,8 +106,16 @@ export default function BrowserBucketSelector({
         aria-label={buttonActionLabel}
         title={buttonActionLabel}
       >
-        <BucketIcon className="h-3.5 w-3.5 text-slate-500 dark:text-slate-300" />
-        <span className="max-w-[200px] truncate sm:max-w-[260px]">
+        {!compactMobile && (
+          <BucketIcon className="h-3.5 w-3.5 text-slate-500 dark:text-slate-300" />
+        )}
+        <span
+          className={
+            compactMobile
+              ? "min-w-0 flex-1 truncate"
+              : "max-w-[200px] truncate sm:max-w-[260px]"
+          }
+        >
           {buttonLabel}
         </span>
         {!lockedBucketName && (

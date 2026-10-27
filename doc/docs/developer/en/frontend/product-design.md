@@ -130,6 +130,13 @@ configuration drawers use the same header placement so navigation does not
 create a dedicated row above the content. Use
 compact icon buttons with accessible labels and preserve keyboard access and
 disabled states at the list boundaries.
+
+On mobile, embedded Browser surfaces keep the object list dominant: redundant
+host page title/breadcrumb chrome may be hidden, persistent execution-identity
+and transfer information should use compact disclosures, and bucket, path,
+Upload, and More stay in one context row when space permits. Errors and warnings
+that require action remain expanded. Desktop layout and information density are
+unchanged by these mobile adaptations.
 Mark the currently viewed object independently from checkbox selection and keyboard
 focus, with a persistent row tint and vertical marker beside the name. Expose
 that state with `aria-current` on the opening control and a polite announcement

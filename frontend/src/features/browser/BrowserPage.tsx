@@ -1570,10 +1570,12 @@ export default function BrowserPage({
   const showFolderToggle = showPanelToggles && canUseFoldersPanel;
   const isActionBarVisible = selectedCount > 0;
   const showContextToolbarActions = !isActionBarVisible;
-  const browserChromeShellClasses =
-    "relative z-20 shrink-0 pb-2";
-  const browserContentShellClasses =
-    "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
+  const browserChromeShellClasses = isMobileViewport
+    ? "relative z-20 shrink-0 pb-1.5"
+    : "relative z-20 shrink-0 pb-2";
+  const browserContentShellClasses = isMobileViewport
+    ? "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+    : "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
   const toolbarSelectionSummary = text("{count} selected", { count: selectedCount.toLocaleString(intlLocale) });
   const toolbarCanUploadFiles = pathActionStates.uploadFiles.enabled;
   const toolbarCanUploadFolder = pathActionStates.uploadFolder.enabled;
@@ -1649,7 +1651,13 @@ export default function BrowserPage({
 
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+    <div
+      className={
+        isMobileViewport
+          ? "flex h-full min-h-0 flex-1 flex-col gap-2 overflow-hidden"
+          : "flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden"
+      }
+    >
       {isEmbeddedBrowserPath ? (
         <h2 className="sr-only">{isPortalBrowserSurface ? text("Portal browser") : text("Browser")}</h2>
       ) : (
@@ -1660,6 +1668,7 @@ export default function BrowserPage({
         <div className={browserChromeShellClasses}>
           <BrowserToolbar
             compactMode={compactMode}
+            mobileViewport={isMobileViewport}
             bucketSelector={{
               rootRef: bucketMenuRef,
               filterInputRef: bucketMenuFilterRef,
@@ -1816,6 +1825,8 @@ export default function BrowserPage({
           statusMessage={statusMessage}
           corsInformation={corsInformation}
           warnings={warnings}
+          mobileViewport={isMobileViewport}
+          compactTransferStatus={accessBadge?.label ?? null}
           hasCorsAction={hasCorsAction}
           corsActionTriggerRef={corsActionTriggerRef}
           corsActionPopoverRef={corsActionPopoverRef}

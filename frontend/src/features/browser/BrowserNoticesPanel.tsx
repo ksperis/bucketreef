@@ -2,6 +2,7 @@
 import type { RefObject } from "react";
 import { ListActionButton } from "../../components/list/ListControls";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
+import UiDetails from "../../components/ui/UiDetails";
 import { cx, uiCardMutedClass, uiMenuClass } from "../../components/ui/styles";
 import { InfoIcon } from "./browserIcons";
 import { useBrowserI18n } from "./browserI18n";
@@ -11,6 +12,8 @@ type BrowserNoticesPanelProps = {
   statusMessage: string | null;
   corsInformation: string | null;
   warnings: string[];
+  mobileViewport: boolean;
+  compactTransferStatus?: string | null;
   hasCorsAction: boolean;
   corsActionTriggerRef: RefObject<HTMLButtonElement>;
   corsActionPopoverRef: RefObject<HTMLDivElement>;
@@ -29,6 +32,8 @@ export default function BrowserNoticesPanel({
   statusMessage,
   corsInformation,
   warnings,
+  mobileViewport,
+  compactTransferStatus,
   hasCorsAction,
   corsActionTriggerRef,
   corsActionPopoverRef,
@@ -44,6 +49,92 @@ export default function BrowserNoticesPanel({
     return null;
   }
 
+  const corsInformationContent = corsInformation ? (
+    <p className="font-medium text-sky-700 dark:text-sky-200">
+      {hasCorsAction ? (
+        <span className="inline-flex items-center gap-1">
+          <span>{corsInformation}</span>
+          <button
+            ref={corsActionTriggerRef}
+            type="button"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-full text-sky-700 transition hover:text-sky-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 dark:text-sky-200 dark:hover:text-sky-100 dark:focus-visible:outline-sky-200"
+            onClick={toggleCorsActionPopover}
+            aria-label={text("CORS actions")}
+            title={text("CORS actions")}
+            aria-haspopup="dialog"
+            aria-expanded={showCorsActionPopover}
+          >
+            <InfoIcon className="h-3.5 w-3.5" />
+          </button>
+          <AnchoredPortalMenu
+            open={showCorsActionPopover}
+            anchorRef={corsActionTriggerRef}
+            placement="bottom-start"
+            offset={6}
+            minWidth={288}
+            className={`w-80 ${floatingMenuClasses}`}
+          >
+            <div ref={corsActionPopoverRef}>
+              <p className="ui-caption text-slate-600 dark:text-slate-300">
+                {text(
+                  "Allow direct access from {origin} by adding CORS rules to this bucket.",
+                  { origin: uiOrigin ?? "" },
+                )}
+              </p>
+              <ListActionButton
+                type="button"
+                variant="success"
+                className="mt-2"
+                onClick={onEnsureCors}
+                disabled={corsFixing}
+                title={text("Add {origin} to bucket CORS rules.", {
+                  origin: uiOrigin ?? "",
+                })}
+                aria-label={text("Add {origin} to CORS", {
+                  origin: uiOrigin ?? "",
+                })}
+              >
+                {corsFixing
+                  ? text("Adding...")
+                  : text("Add {origin} to CORS", {
+                      origin: uiOrigin ?? "",
+                    })}
+              </ListActionButton>
+            </div>
+          </AnchoredPortalMenu>
+        </span>
+      ) : (
+        corsInformation
+      )}
+    </p>
+  ) : null;
+
+  const compactCorsOnly =
+    mobileViewport &&
+    Boolean(corsInformation) &&
+    !bucketError &&
+    !statusMessage &&
+    warnings.length === 0;
+
+  if (compactCorsOnly) {
+    return (
+      <div className="shrink-0 pb-1.5">
+        <UiDetails className={`${noticeSurfaceClasses} overflow-hidden shadow-none`}>
+          <summary className="flex min-h-[44px] cursor-pointer items-center gap-2 px-3 py-2 ui-caption font-semibold text-sky-700 dark:text-sky-200">
+            <InfoIcon className="h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              {text("Transfers")}
+              {compactTransferStatus ? ` · ${compactTransferStatus}` : ""}
+            </span>
+          </summary>
+          <div className="border-t border-[color:var(--ui-border-soft)] px-3 py-2 ui-caption text-slate-600 dark:text-slate-300">
+            {corsInformationContent}
+          </div>
+        </UiDetails>
+      </div>
+    );
+  }
+
   return (
     <div className="shrink-0 pb-2">
       <div
@@ -57,65 +148,7 @@ export default function BrowserNoticesPanel({
         {statusMessage && (
           <p className="text-slate-500 dark:text-slate-400">{statusMessage}</p>
         )}
-        {corsInformation && (
-          <p className="font-medium text-sky-700 dark:text-sky-200">
-            {hasCorsAction ? (
-              <span className="inline-flex items-center gap-1">
-                <span>{corsInformation}</span>
-                <button
-                  ref={corsActionTriggerRef}
-                  type="button"
-                  className="inline-flex h-4 w-4 items-center justify-center rounded-full text-sky-700 transition hover:text-sky-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 dark:text-sky-200 dark:hover:text-sky-100 dark:focus-visible:outline-sky-200"
-                  onClick={toggleCorsActionPopover}
-                  aria-label={text("CORS actions")}
-                  title={text("CORS actions")}
-                  aria-haspopup="dialog"
-                  aria-expanded={showCorsActionPopover}
-                >
-                  <InfoIcon className="h-3.5 w-3.5" />
-                </button>
-                <AnchoredPortalMenu
-                  open={showCorsActionPopover}
-                  anchorRef={corsActionTriggerRef}
-                  placement="bottom-start"
-                  offset={6}
-                  minWidth={288}
-                  className={`w-80 ${floatingMenuClasses}`}
-                >
-                  <div ref={corsActionPopoverRef}>
-                    <p className="ui-caption text-slate-600 dark:text-slate-300">
-                      {text(
-                        "Allow direct access from {origin} by adding CORS rules to this bucket.",
-                        { origin: uiOrigin ?? "" },
-                      )}
-                    </p>
-                    <ListActionButton
-                      type="button"
-                      variant="success"
-                      className="mt-2"
-                      onClick={onEnsureCors}
-                      disabled={corsFixing}
-                      title={text("Add {origin} to bucket CORS rules.", {
-                        origin: uiOrigin ?? "",
-                      })}
-                      aria-label={text("Add {origin} to CORS", {
-                        origin: uiOrigin ?? "",
-                      })}
-                    >
-                      {corsFixing
-                        ? text("Adding...")
-                        : text("Add {origin} to CORS", {
-                            origin: uiOrigin ?? "",
-                          })}
-                    </ListActionButton>
-                  </div>
-                </AnchoredPortalMenu>
-              </span>
-            ) : (
-              corsInformation
-            )}
-          </p>
-        )}
+        {corsInformationContent}
         {warnings.map((warning, index) => (
           <p
             key={`${warning}-${index}`}

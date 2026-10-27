@@ -163,6 +163,7 @@ export const TOOLBAR_MORE_PATH_ACTION_IDS: BrowserActionId[] = [
   "uploadFiles",
   "uploadFolder",
   "newFolder",
+  "refresh",
   "paste",
   "versions",
   "restoreToDate",
@@ -172,6 +173,7 @@ export const TOOLBAR_MORE_PATH_ACTION_IDS: BrowserActionId[] = [
   "copyPath",
   "toggleShowFolders",
   "toggleShowDeleted",
+  "restore",
 ];
 
 export const TOOLBAR_MORE_SELECTION_FULL_ACTION_IDS: BrowserActionId[] = [

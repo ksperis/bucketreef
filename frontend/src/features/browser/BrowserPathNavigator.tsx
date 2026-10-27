@@ -19,6 +19,7 @@ type BrowserPathBreadcrumb = {
 
 type BrowserPathNavigatorProps = {
   inputRef: RefObject<HTMLInputElement>;
+  compactMobile?: boolean;
   editing: boolean;
   value: string;
   disabled: boolean;
@@ -51,6 +52,7 @@ const suggestionSourceBadge = (source: PathSuggestion["source"], text: (message:
 
 export default function BrowserPathNavigator({
   inputRef,
+  compactMobile = false,
   editing,
   value,
   disabled,
@@ -75,7 +77,11 @@ export default function BrowserPathNavigator({
 
   return (
     <div
-      className={`${pathStripClasses} ui-caption font-semibold text-slate-500 dark:text-slate-400`}
+      className={cx(
+        pathStripClasses,
+        compactMobile && "min-h-[44px] px-1.5 py-0",
+        "ui-caption font-semibold text-slate-500 dark:text-slate-400",
+      )}
       onClick={editing ? undefined : onStartEditing}
       onDoubleClick={editing ? undefined : onStartEditing}
     >
@@ -101,7 +107,10 @@ export default function BrowserPathNavigator({
             }
             size="compact"
             fieldClassName="min-w-0"
-            className="ui-list-control min-w-0 w-full font-medium"
+            className={cx(
+              "ui-list-control min-w-0 w-full font-medium",
+              compactMobile && "min-h-[44px]",
+            )}
             disabled={disabled}
             spellCheck={false}
           />
@@ -175,6 +184,7 @@ export default function BrowserPathNavigator({
         <>
           <UiIconButton
             size="compact"
+            className={compactMobile ? "min-h-[44px] min-w-[44px] shrink-0" : undefined}
             onClick={(event) => {
               event.stopPropagation();
               onGoUp();
@@ -224,6 +234,7 @@ export default function BrowserPathNavigator({
           {favorite && (
             <UiIconButton
               size="compact"
+              className={compactMobile ? "min-h-[44px] min-w-[44px] shrink-0" : undefined}
               aria-pressed={favorite.active}
               disabled={favorite.disabled || favorite.busy}
               label={tr(favorite.active ? "Remove from favorites" : "Add to favorites")}

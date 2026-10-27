@@ -52,15 +52,24 @@ const overflowStatusRowClasses =
   "flex items-start gap-3 px-1 py-1 ui-caption text-slate-600 dark:text-slate-300";
 const overflowSectionTitleClasses =
   "px-1 py-1 ui-caption font-semibold text-slate-500 dark:text-slate-400";
-const directToolbarPathActionIds = new Set<BrowserActionId>([
+const desktopDirectToolbarPathActionIds = new Set<BrowserActionId>([
   "uploadFiles",
   "uploadFolder",
   "newFolder",
+  "refresh",
+  "restore",
+]);
+const mobileDirectToolbarPathActionIds = new Set<BrowserActionId>([
+  "uploadFiles",
+  "uploadFolder",
 ]);
 const currentPathMenuActionIds = new Set<BrowserActionId>([
   "details",
+  "newFolder",
   "paste",
   "copyPath",
+  "refresh",
+  "restore",
 ]);
 
 type ToolbarToggle = {
@@ -77,6 +86,7 @@ type ToolbarColumns = Pick<
 
 type BrowserToolbarProps = {
   compactMode: boolean;
+  mobileViewport: boolean;
   bucketSelector: ComponentProps<typeof BrowserBucketSelector>;
   pathNavigator: ComponentProps<typeof BrowserPathNavigator>;
   deletedObjects: {
@@ -136,6 +146,7 @@ type BrowserToolbarProps = {
 
 export default function BrowserToolbar({
   compactMode,
+  mobileViewport,
   bucketSelector,
   pathNavigator,
   deletedObjects,
@@ -160,16 +171,26 @@ export default function BrowserToolbar({
   const [uploadMenuOpen, setUploadMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
-  const toolbarShellClasses = compactMode
-    ? "flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
-    : "flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between";
-  const toolbarActionsClasses = compactMode
-    ? "flex shrink-0 flex-wrap items-center justify-end gap-2"
-    : "flex w-full flex-wrap items-center justify-end gap-2 2xl:w-auto";
+  const toolbarShellClasses = mobileViewport
+    ? "flex min-w-0 items-stretch gap-1.5"
+    : compactMode
+      ? "flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
+      : "flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between";
+  const toolbarContextClasses = mobileViewport
+    ? "flex min-w-0 flex-1 items-stretch gap-1.5"
+    : "flex min-w-0 w-full flex-1 flex-col gap-2 md:flex-row md:items-stretch lg:items-center";
+  const toolbarActionsClasses = mobileViewport
+    ? "flex shrink-0 items-center gap-1.5"
+    : compactMode
+      ? "flex shrink-0 flex-wrap items-center justify-end gap-2"
+      : "flex w-full flex-wrap items-center justify-end gap-2 2xl:w-auto";
   const selectionActionsClasses = compactMode
     ? "hidden shrink-0 items-center gap-1.5 md:flex"
     : "hidden w-full shrink-0 flex-wrap items-center justify-end gap-2 md:flex 2xl:w-auto";
 
+  const directToolbarPathActionIds = mobileViewport
+    ? mobileDirectToolbarPathActionIds
+    : desktopDirectToolbarPathActionIds;
   const menuPathActions = moreMenu.pathActions.filter(
     (action) => !directToolbarPathActionIds.has(action.id),
   );
@@ -270,12 +291,12 @@ export default function BrowserToolbar({
         data-density={compactMode ? "compact" : "comfortable"}
         className={toolbarShellClasses}
       >
-        <div className="flex min-w-0 w-full flex-1 flex-col gap-2 md:flex-row md:items-stretch lg:items-center">
-          <BrowserBucketSelector {...bucketSelector} />
-          <BrowserPathNavigator {...pathNavigator} />
+        <div className={toolbarContextClasses}>
+          <BrowserBucketSelector {...bucketSelector} compactMobile={mobileViewport} />
+          <BrowserPathNavigator {...pathNavigator} compactMobile={mobileViewport} />
         </div>
         <div className={toolbarActionsClasses}>
-          {deletedObjects.showToggle && (
+          {deletedObjects.showToggle && !mobileViewport && (
             <ListActionButton iconOnly={compactMode} variant="secondary"
               type="button"
 
@@ -302,7 +323,7 @@ export default function BrowserToolbar({
               )}
             </ListActionButton>
           )}
-          {deletedObjects.showRestore && (
+          {deletedObjects.showRestore && !mobileViewport && (
             <ListActionButton iconOnly={compactMode} variant="secondary"
               type="button"
 
@@ -320,6 +341,7 @@ export default function BrowserToolbar({
               <ListActionButton iconOnly={compactMode} variant="primary"
                 ref={uploadButtonRef}
                 type="button"
+                touchTarget={mobileViewport}
                 onClick={toggleUploadMenu}
                 disabled={
                   !contextActions.canUploadFiles &&
@@ -350,29 +372,34 @@ export default function BrowserToolbar({
                 onUploadFiles={() => runUploadAction("uploadFiles")}
                 onUploadFolder={() => runUploadAction("uploadFolder")}
               />
-              <ListActionButton iconOnly={compactMode} variant="secondary"
-                type="button"
-                onClick={() => onRunPathAction("newFolder")}
-                disabled={!contextActions.canCreateFolder}
-                aria-label={text("New folder")}
-                title={text("New folder")}
-              >
-                <FolderPlusIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>{text("New folder")}</span>}
-              </ListActionButton>
-              <ListActionButton iconOnly={compactMode} variant="secondary"
-                type="button"
-                onClick={() => onRunPathAction("refresh")}
-                disabled={!contextActions.canRefresh}
-                aria-label={text("Refresh")}
-                title={text("Refresh")}
-              >
-                <RefreshIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>{text("Refresh")}</span>}
-              </ListActionButton>
+              {!mobileViewport && (
+                <ListActionButton iconOnly={compactMode} variant="secondary"
+                  type="button"
+                  onClick={() => onRunPathAction("newFolder")}
+                  disabled={!contextActions.canCreateFolder}
+                  aria-label={text("New folder")}
+                  title={text("New folder")}
+                >
+                  <FolderPlusIcon className="h-3.5 w-3.5" />
+                  {!compactMode && <span>{text("New folder")}</span>}
+                </ListActionButton>
+              )}
+              {!mobileViewport && (
+                <ListActionButton iconOnly={compactMode} variant="secondary"
+                  type="button"
+                  onClick={() => onRunPathAction("refresh")}
+                  disabled={!contextActions.canRefresh}
+                  aria-label={text("Refresh")}
+                  title={text("Refresh")}
+                >
+                  <RefreshIcon className="h-3.5 w-3.5" />
+                  {!compactMode && <span>{text("Refresh")}</span>}
+                </ListActionButton>
+              )}
               <ListActionButton iconOnly={compactMode} variant="secondary"
                 ref={moreButtonRef}
                 type="button"
+                touchTarget={mobileViewport}
                 onClick={toggleMoreMenu}
                 disabled={!hasMoreMenu}
                 aria-haspopup={hasMoreMenu ? "menu" : undefined}
