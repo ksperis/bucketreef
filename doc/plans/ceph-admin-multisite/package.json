@@ -1,0 +1,6 @@
+{
+  "name": "bucketreef-multisite-design-preview",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "node preview.mjs" }
+}
