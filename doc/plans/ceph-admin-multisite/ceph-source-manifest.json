@@ -1,0 +1,118 @@
+{
+  "tag": "v20.2.4",
+  "commit": "7f793731f1b39eb4f465e960113d2363c311b964",
+  "tree": "e47f813b4a70c3451f8ca814513aeb7031a20594",
+  "verified_on": "2026-10-27",
+  "verification": "Static source review; no live Ceph calls",
+  "bucketreef_base": "d84b4e63817d22ce8bfc35788a2be3bd970d75ed",
+  "sources": [
+    {
+      "path": "src/rgw/driver/rados/rgw_rest_log.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/driver/rados/rgw_rest_log.cc",
+      "sha256": "103d50c85cc5c529f7aae769c8a465f1e3e01b1ec18f97b6a6d24b80a7ca63dd",
+      "size_bytes": 37870
+    },
+    {
+      "path": "src/rgw/driver/rados/rgw_rest_log.h",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/driver/rados/rgw_rest_log.h",
+      "sha256": "839cd01523881feec2c9936718bd893cb6b85b5c7c5cba3bf64829a8c99ad68c",
+      "size_bytes": 9265
+    },
+    {
+      "path": "src/rgw/driver/rados/rgw_rest_realm.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/driver/rados/rgw_rest_realm.cc",
+      "sha256": "820fa89dc3f8b5a8831512ae0d2af528eced3d6e860365b3c045b091a5d54e35",
+      "size_bytes": 12999
+    },
+    {
+      "path": "src/rgw/driver/rados/rgw_data_sync.h",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/driver/rados/rgw_data_sync.h",
+      "sha256": "7276f8dd7628fa99ed66d2e45b078569aaf6a72aac1ba775261d816f1425146b",
+      "size_bytes": 29919
+    },
+    {
+      "path": "src/rgw/driver/rados/rgw_data_sync.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/driver/rados/rgw_data_sync.cc",
+      "sha256": "bcd88c86e1e5cde3fc0f10e2a57129d9401b28c7a265c737a74e4e68dcf23ff9",
+      "size_bytes": 252320
+    },
+    {
+      "path": "src/rgw/driver/rados/rgw_sync.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/driver/rados/rgw_sync.cc",
+      "sha256": "046f199388c77ae5f87f91f0080aba9f77c10f76ee38438bcb83de09e992e0b8",
+      "size_bytes": 92987
+    },
+    {
+      "path": "src/rgw/rgw_meta_sync_status.h",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/rgw_meta_sync_status.h",
+      "sha256": "1866a860186fc799c5bd3cd83739acbe5753acc699e5fbafd7a1c2f2f82ae8cd",
+      "size_bytes": 2955
+    },
+    {
+      "path": "src/rgw/rgw_zone.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/rgw_zone.cc",
+      "sha256": "47a2c3bb36a42b85df3c22eed3946450c39d418117603793082bd80fa403ee21",
+      "size_bytes": 47085
+    },
+    {
+      "path": "src/rgw/rgw_period.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/rgw_period.cc",
+      "sha256": "edd7d6ffd2f99cc671997c4b493d8d8fb2b17400628ca9b4bf68afe4bef1366f",
+      "size_bytes": 9693
+    },
+    {
+      "path": "src/rgw/rgw_realm.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/rgw_realm.cc",
+      "sha256": "3969637ce6a5e79568a67a4d0e00b9e7ab6295a73137293a2fe4ddb3e6638423",
+      "size_bytes": 7285
+    },
+    {
+      "path": "src/rgw/rgw_sync_policy.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/rgw_sync_policy.cc",
+      "sha256": "5fbf34592029ad1b40e063e465e7be4ca17902e31875d174d7bd64c9b54db0d5",
+      "size_bytes": 17809
+    },
+    {
+      "path": "src/rgw/driver/rados/rgw_datalog.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/driver/rados/rgw_datalog.cc",
+      "sha256": "dce5d97b699dd3888ed6e4f350dbf6ea428003be2dc14dab4fd002fbba9c968f",
+      "size_bytes": 52377
+    },
+    {
+      "path": "src/rgw/rgw_common.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/rgw_common.cc",
+      "sha256": "43314787679fea31e4f9c37010f86f382c94506f6f18ec716907b84cc7098b47",
+      "size_bytes": 97080
+    },
+    {
+      "path": "src/rgw/rgw_metadata.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/rgw_metadata.cc",
+      "sha256": "cbcb0f1ad56c021fc16a7ce603d41ee2481dcd7301b3c9323b4472be3869b6c1",
+      "size_bytes": 12356
+    },
+    {
+      "path": "src/cls/rgw/cls_rgw_types.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/cls/rgw/cls_rgw_types.cc",
+      "sha256": "058b0a75a95fd240c6e4bc2e52138254bf56877577015ce40c078fd196d217cc",
+      "size_bytes": 27795
+    },
+    {
+      "path": "src/common/ceph_json.h",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/common/ceph_json.h",
+      "sha256": "2233c00f2481f073212587d32b58ea00d18c083b6b1b69978ac5e683b9a5335d",
+      "size_bytes": 25541
+    },
+    {
+      "path": "src/common/Formatter.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/common/Formatter.cc",
+      "sha256": "066767450af15a6f83d2211ccc9d476505e05a499c1f95b0647ea7249f78fa4d",
+      "size_bytes": 23544
+    },
+    {
+      "path": "src/rgw/rgw_rest.cc",
+      "url": "https://github.com/ceph/ceph/blob/7f793731f1b39eb4f465e960113d2363c311b964/src/rgw/rgw_rest.cc",
+      "sha256": "f030f7a5c3eb365068e4b169fbfc1ebd07e5470727a495dae15f29a2e23b2389",
+      "size_bytes": 63074
+    }
+  ]
+}
