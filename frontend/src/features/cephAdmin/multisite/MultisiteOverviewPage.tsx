@@ -188,6 +188,7 @@ function FlowDrawer({
       onClose={onClose}
       returnFocus={returnFocus}
       text={text}
+      surfaceClassName="w-full lg:w-[64rem]"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ChangeBadge change={observationSample?.change} text={text} />

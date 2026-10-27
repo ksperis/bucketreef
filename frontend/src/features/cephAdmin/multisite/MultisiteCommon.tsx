@@ -110,6 +110,7 @@ export function MultisiteDetailDrawer({
   onClose,
   text,
   returnFocus,
+  surfaceClassName = "w-full lg:w-[44rem]",
 }: {
   title: string;
   subtitle?: ReactNode;
@@ -117,6 +118,7 @@ export function MultisiteDetailDrawer({
   onClose: () => void;
   text: MultisiteText;
   returnFocus?: () => HTMLElement | null;
+  surfaceClassName?: string;
 }) {
   const mobile = useMobileDrawer();
   return (
@@ -126,7 +128,7 @@ export function MultisiteDetailDrawer({
       showBackdrop={mobile}
       onClose={onClose}
       returnFocus={returnFocus}
-      surfaceClassName="w-full lg:w-[44rem]"
+      surfaceClassName={surfaceClassName}
       backdropLabel={text("Close details")}
     >
       <UiDrawerHeader>
