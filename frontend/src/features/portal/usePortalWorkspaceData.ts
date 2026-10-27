@@ -201,7 +201,7 @@ export function usePortalWorkspaceData({
               t({
                 en: "Unable to load storage spaces.",
                 fr: "Impossible de charger les espaces de stockage.",
-                de: "Storage Spaces konnen nicht geladen werden.",
+                de: "Storage Spaces können nicht geladen werden.",
                 zh: "无法加载存储空间。",
               })
             )

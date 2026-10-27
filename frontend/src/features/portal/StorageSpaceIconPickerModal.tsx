@@ -29,7 +29,7 @@ const MAX_ICON_BYTES = 1024 * 1024;
 const ALLOWED_ICON_TYPES = new Set(["image/png", "image/jpeg"]);
 
 const presetLabels: Record<StorageSpaceIconPreset, Record<UiLanguage, string>> = {
-  bucket: { en: "Bucket", fr: "Seau", de: "Bucket", zh: "存储桶" },
+  bucket: { en: "Bucket", fr: "Bucket", de: "Bucket", zh: "存储桶" },
   folder: { en: "Folder", fr: "Dossier", de: "Ordner", zh: "文件夹" },
   archive: { en: "Archive", fr: "Archive", de: "Archiv", zh: "归档" },
   database: { en: "Database", fr: "Base de données", de: "Datenbank", zh: "数据库" },

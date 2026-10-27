@@ -41,6 +41,7 @@ const TECHNICAL_IDENTICAL_KEYS = new Set([
   "TiB",
   "UID",
   "OIDC",
+  "Passkey",
   "Portal",
   "RGW",
   "S3",
@@ -305,6 +306,7 @@ describe("Admin i18n", () => {
       ["Browser settings", "Paramètres Browser"],
       ["Endpoint", "Endpoint"],
       ["Endpoints", "Endpoints"],
+      ["Passkey", "Passkey"],
       ["Manager UI", "Manager UI"],
       ["Portal UI", "Portal UI"],
       ["Superadmin", "Superadmin"],
@@ -328,6 +330,16 @@ describe("Admin i18n", () => {
     for (const key of compactKeys) {
       expect(adminText(key, "fr").length, `${key} is too long for compact UI copy`).toBeLessThanOrEqual(24);
     }
+  });
+
+  it("keeps German sentence translations complete", () => {
+    const truncated = requiredAdminKeys.filter((key) => {
+      if (!key.trimEnd().endsWith(".")) return false;
+      const translated = adminText(key, "de").trimEnd();
+      return !/[.!?…)”"]$/.test(translated);
+    });
+    expect(truncated, "German Admin sentences look truncated").toEqual([]);
+    expect(adminText("Passkey", "de")).toBe("Passkey");
   });
 
   it("does not leave visible Admin copy as raw English JSX", () => {

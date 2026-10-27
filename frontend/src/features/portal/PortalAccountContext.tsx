@@ -63,7 +63,7 @@ export function PortalAccountProvider({ children }: { children: ReactNode }) {
               t({
                 en: "Unable to load projects.",
                 fr: "Impossible de charger les projets.",
-                de: "Projekte konnen nicht geladen werden.",
+                de: "Projekte können nicht geladen werden.",
                 zh: "无法加载项目。",
               })
             )

@@ -390,7 +390,7 @@
   "Object facts": "Informations sur l’objet",
   "Object listing is limited to {count} entries. Narrow your path or search to continue.": "La liste des objets est limitée à {count} entrées. Rétrécissez votre chemin ou effectuez une recherche pour continuer.",
   "Object Lock": "Object Lock",
-  "Object Lock is not enabled on this bucket. Legal hold and retention settings are unavailable.": "Le verrouillage d'objet n'est pas activé sur ce bucket. Les paramètres de conservation juridique et de rétention ne sont pas disponibles.",
+  "Object Lock is not enabled on this bucket. Legal hold and retention settings are unavailable.": "Object Lock n’est pas activé sur ce bucket. Les paramètres de conservation juridique et de rétention ne sont pas disponibles.",
   "Object path": "Chemin de l'objet",
   "Object quota": "Quota d'objets",
   "Object type filter": "Filtre par type d'objet",
