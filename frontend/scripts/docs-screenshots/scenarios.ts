@@ -1,4 +1,5 @@
 import { buildBaseRules } from "./fixtures/base";
+import { multisiteRules } from "./fixtures/multisite";
 import type { DocScreenshotScenario, LocalStorageSeed, MockRule } from "./types";
 import { adminUser, storageOpsAdminUser, storageUser, superAdminUser } from "./fixtures/users";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../src/api/featurePolicies";
@@ -17,6 +18,7 @@ function withBaseRules(...extraRules: MockRule[]): MockRule[] {
   return [...extraRules,
     { id: "admin-navigation-pending", path: /^\/admin\/navigation\/pending-requests$/, body: { identity_link_requests: 0, portal_requests: 0 } },
     { id: "browser-favorites", method: "GET", path: /^\/users\/me\/browser-favorites$/, body: [] },
+    ...multisiteRules(),
     ...buildBaseRules(),
   ];
 }
@@ -315,6 +317,7 @@ const storageOpsEnabledGeneralSettingsRule: MockRule = {
   id: "settings-general-storage-ops-enabled",
   path: /^\/settings\/general$/,
   body: {
+    manager_feature_policies: DEFAULT_MANAGER_FEATURE_POLICIES,
     manager_enabled: true,
     ceph_admin_enabled: true,
     browser_enabled: true,

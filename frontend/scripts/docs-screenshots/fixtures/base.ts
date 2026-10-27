@@ -1,5 +1,9 @@
 import type { AccountUserLink } from "../../../src/api/accounts";
-import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../../src/api/featurePolicies";
+import {
+  DEFAULT_MANAGER_FEATURE_POLICIES,
+  DEFAULT_PROJECT_COLLECTION_POLICIES,
+  DEFAULT_PROJECT_FEATURE_POLICIES,
+} from "../../../src/api/featurePolicies";
 import type { User } from "../../../src/api/users";
 import type { MockRule } from "../types";
 import { adminUser, storageUser, superAdminUser } from "./users";
@@ -154,6 +158,7 @@ const ADMIN_STORAGE_ENDPOINTS = [
     provider: "other",
     admin_access_key: null,
     has_admin_secret: false,
+    service_identities: [],
     capabilities: {
       admin: false,
       account: false,
@@ -188,6 +193,8 @@ const ADMIN_STORAGE_ENDPOINTS = [
 ];
 
 const GENERAL_SETTINGS = {
+  project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
+  project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,
   manager_feature_policies: DEFAULT_MANAGER_FEATURE_POLICIES,
   manager_enabled: true,
   ceph_admin_enabled: true,
@@ -733,6 +740,7 @@ const PORTAL_PROJECT_SETTINGS = {
       cors_allowed_origins: ["https://portal.docs.example.com"],
     },
   },
+  feature_states: {},
   project_override: {},
   delegated_to_portal_managers: false,
   portal_collaborator_role_management_delegated: false,
@@ -1691,6 +1699,7 @@ export function buildBaseRules(): MockRule[] {
         return {
           feature_states: {
             activity_history: { enabled: true, source: "platform" },
+            bucket_usage_stats: { enabled: true, source: "platform" },
           },
           access_mode: isConnection ? "connection" : isS3User ? "s3_user" : "admin",
           iam_identity: isConnection ? "conn-blueharbor" : isS3User ? "platform-admin" : "helios-admin",
@@ -1830,6 +1839,14 @@ export function buildBaseRules(): MockRule[] {
       path: /^\/admin\/storage-endpoints\/meta$/,
       body: {
         managed_by_env: false,
+      },
+    },
+    {
+      id: "admin-storage-endpoint-detail",
+      path: /^\/admin\/storage-endpoints\/\d+$/,
+      body: ({ url }) => {
+        const endpointId = Number(url.pathname.split("/").pop());
+        return ADMIN_STORAGE_ENDPOINTS.find((endpoint) => endpoint.id === endpointId) ?? null;
       },
     },
     {

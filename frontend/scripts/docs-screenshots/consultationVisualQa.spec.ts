@@ -85,12 +85,14 @@ for (const entry of cases) for (const mode of [
         await expect(page.getByText("sample.csv", { exact: true }).first()).toBeVisible();
       }
       const content = entry.route === "/admin/metrics"
-        ? page.getByText("Storage snapshot", { exact: true })
+          ? page.getByText(/^(Storage snapshot|Instantané de stockage|Speicher-Snapshot)$/)
         : entry.route === "/admin/endpoint-status"
-          ? page.getByText("Endpoint Latency", { exact: true })
+          ? page.getByText(/^(Endpoint Latency|Latence de l’endpoint|Endpunkt-Latenz)$/)
           : page.locator('table tbody td[data-mobile-primary="true"]').first();
       await expect(content).toBeVisible();
-      if (entry.route === "/admin/metrics") await expect(page.getByText("Instant count", { exact: true })).toBeVisible();
+      if (entry.route === "/admin/metrics") {
+        await expect(page.getByText(/^(Instant count|Compte instantané|Sofortzählung)$/)).toBeVisible();
+      }
       await page.screenshot({ path: testInfo.outputPath("page.png"), fullPage: true, animations: "disabled" });
       await assertListHeaders(page, { singleLine: mode.width === 1440 && !entry.route.includes("view=access") });
       const geometry = await content.boundingBox();
@@ -117,7 +119,7 @@ for (const entry of cases) for (const mode of [
         }
       }
       if (["/admin/usage-history", "/admin/cost"].includes(entry.route)) {
-        const sort = page.getByLabel("Sort by", { exact: true });
+        const sort = page.getByLabel(/^(Sort by|Trier par|Sortieren nach)$/);
         if (mode.width < 768) {
           await expect(sort).toBeVisible();
           const field = entry.route === "/admin/cost" ? "cost" : "ratio";

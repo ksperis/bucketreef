@@ -102,7 +102,7 @@ for (const locale of ["en", "fr", "de"] as const) {
       test(`compact Portal settings ${locale} ${theme} ${width}`, async ({
         page,
       }, testInfo) => {
-        const rules = buildBaseRules().map((rule) =>
+        const rules = buildPortalSettingsRules().map((rule) =>
           rule.id === "portal-project-settings"
             ? {
                 ...rule,
@@ -243,17 +243,20 @@ for (const theme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 900 });
       await seedUiPreferences(page, { selectedWorkspace: "admin", theme });
       await page.goto("/admin/s3-accounts");
-      await page.getByRole("button", { name: "Edit", exact: true }).first().click();
-      await page.getByRole("tab", { name: "Portal settings", exact: true }).click();
-      await expect(page.getByRole("heading", { name: "Allowed features" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Save changes", exact: true })).toHaveCount(0);
-      await page.getByRole("combobox", { name: "Browser workspace access" }).selectOption("disabled");
-      await expect(page.getByRole("button", { name: "Save changes", exact: true })).toHaveCount(1);
+      await page.getByRole("button", { name: "Bearbeiten", exact: true }).first().click();
+      await page.getByRole("tab", { name: "Portal-Einstellungen", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Erlaubte Funktionen" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Änderungen speichern", exact: true })).toHaveCount(0);
+      await page
+        .getByRole("radiogroup", { name: "Browser-Arbeitsbereich" })
+        .getByRole("radio", { name: "Deaktiviert", exact: true })
+        .click();
+      await expect(page.getByRole("button", { name: "Änderungen speichern", exact: true })).toHaveCount(1);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
       await recordSettingsGeometry(page, testInfo);
       await page.screenshot({ path: testInfo.outputPath(`admin-project-${theme}-${width}.png`), fullPage: true, animations: "disabled" });
-      await page.getByRole("switch", { name: "Customize — CORS origins" }).click();
-      await page.getByRole("button", { name: "Configure", exact: true }).click();
+      await page.getByRole("switch", { name: "Anpassen — CORS-Ursprünge" }).click();
+      await page.getByRole("button", { name: "Konfigurieren", exact: true }).click();
       await expect(page.getByRole("dialog").getByRole("textbox")).toBeFocused();
       expect(errors).toEqual([]);
       registry.assertNoUnmatched();

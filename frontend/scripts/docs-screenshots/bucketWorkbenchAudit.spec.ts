@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { buildBaseRules } from "./fixtures/base";
+import { multisiteRules } from "./fixtures/multisite";
 import { superAdminUser } from "./fixtures/users";
 import { registerApiMocks } from "./mockApi";
 import { seedUiPreferences } from "./uiPreferences";
@@ -230,6 +231,7 @@ function bucketWorkbenchRules(): MockRule[] {
       path: /^\/ceph-admin\/endpoints\/11\/buckets\/helios-retail-logs\/lifecycle$/,
       body: ({ requestBodyText }) => JSON.parse(requestBodyText),
     },
+    ...multisiteRules(),
     ...baseRules,
   ];
 }
@@ -250,40 +252,30 @@ async function openBucketConfiguration(
     selectedCephAdminEndpointId: "11",
     theme,
   });
-  await page.goto(surface === "manager"
-    ? "/manager/buckets/helios-retail-logs"
-    : "/ceph-admin/buckets?ep=11&configure=helios-retail-logs");
+  if (surface === "manager") {
+    await page.goto("/manager/buckets/helios-retail-logs");
+  } else {
+    await page.goto("/ceph-admin/buckets?ep=11");
+    await page.getByRole("button", { name: "helios-retail-logs", exact: true }).click();
+  }
   await page.getByRole("tab", { name: "Properties", exact: true }).click();
-  const lifecycle = page.getByTestId("bucket-feature-lifecycle");
-  await expect(lifecycle).toBeVisible();
-  await expect(lifecycle).toHaveAttribute("data-feature-presentation", "collection");
-  return { errors, lifecycle, registry };
+  await expect(page.getByTestId("bucket-feature-versioning")).toBeVisible();
+  return { errors, registry };
 }
 
 for (const surface of ["manager", "ceph-admin"] as const) {
   for (const theme of ["light", "dark"] as const) {
     for (const width of [1440, 390]) {
       test(`${surface} bucket feature cards ${theme} ${width}`, async ({ page }, testInfo) => {
-      const { errors, lifecycle, registry } = await openBucketConfiguration(page, surface, theme, width);
-      await expect(lifecycle.getByText("3 rules", { exact: true })).toBeVisible();
+      const { errors, registry } = await openBucketConfiguration(page, surface, theme, width);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
       await expect(page.getByTestId("bucket-feature-versioning")).toHaveAttribute("data-feature-presentation", "simple");
       await expect(page.getByTestId("bucket-feature-encryption")).toHaveAttribute("data-feature-presentation", "simple");
       await expect(page.getByTestId("bucket-feature-object-lock")).toHaveAttribute("data-feature-presentation", "simple");
       await expect(page.getByTestId("bucket-feature-tags")).toHaveAttribute("data-feature-presentation", "simple");
-
-      const table = lifecycle.getByRole("table");
-      await expect(table).toBeVisible();
-      if (width >= 768) {
-        await expect(table.getByRole("columnheader", { name: "Rule" })).toBeVisible();
-        await expect(table.getByRole("columnheader", { name: "Scope" })).toBeVisible();
-        await expect(table.getByRole("columnheader", { name: "Actions" })).toBeVisible();
-        await expect(table.getByRole("columnheader", { name: "Status" })).toBeVisible();
-        await expect(table.getByRole("columnheader", { name: "Manage" })).toBeVisible();
-      } else {
-        expect(await table.locator("thead").evaluate((node) => getComputedStyle(node).display)).toBe("none");
-        expect(await lifecycle.getByRole("button", { name: "Remove", exact: true }).first().evaluate((node) => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-      }
+      await expect(page.getByTestId("bucket-feature-website")).toHaveAttribute("data-feature-presentation", "simple");
+      await expect(page.getByTestId("bucket-feature-access-logging")).toHaveAttribute("data-feature-presentation", "simple");
+      await expect(page.getByTestId("bucket-feature-notifications")).toHaveAttribute("data-feature-presentation", "collection");
 
       await page.screenshot({
         path: testInfo.outputPath(`bucket-properties-${surface}-${theme}-${width}.png`),
@@ -305,16 +297,30 @@ for (const surface of ["manager", "ceph-admin"] as const) {
         animations: "disabled",
       });
 
-      await page.getByRole("tab", { name: "Advanced", exact: true }).click();
-      for (const testId of ["bucket-feature-replication", "bucket-feature-notifications"]) {
+      await page.getByRole("tab", { name: "Data management", exact: true }).click();
+      const lifecycle = page.getByTestId("bucket-feature-lifecycle");
+      await expect(lifecycle).toBeVisible();
+      await expect(lifecycle).toHaveAttribute("data-feature-presentation", "collection");
+      await expect(lifecycle.getByText("3 rules", { exact: true })).toBeVisible();
+      for (const testId of ["bucket-feature-replication"]) {
         await expect(page.getByTestId(testId)).toHaveAttribute("data-feature-presentation", "collection");
       }
-      for (const testId of ["bucket-feature-website", "bucket-feature-access-logging"]) {
-        await expect(page.getByTestId(testId)).toHaveAttribute("data-feature-presentation", "simple");
+
+      const table = lifecycle.getByRole("table");
+      await expect(table).toBeVisible();
+      if (width >= 768) {
+        await expect(table.getByRole("columnheader", { name: "Rule" })).toBeVisible();
+        await expect(table.getByRole("columnheader", { name: "Scope" })).toBeVisible();
+        await expect(table.getByRole("columnheader", { name: "Actions" })).toBeVisible();
+        await expect(table.getByRole("columnheader", { name: "Status" })).toBeVisible();
+        await expect(table.getByRole("columnheader", { name: "Manage" })).toBeVisible();
+      } else {
+        expect(await table.locator("thead").evaluate((node) => getComputedStyle(node).display)).toBe("none");
+        expect(await lifecycle.getByRole("button", { name: "Remove", exact: true }).first().evaluate((node) => node.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
       await page.screenshot({
-        path: testInfo.outputPath(`bucket-advanced-${surface}-${theme}-${width}.png`),
+        path: testInfo.outputPath(`bucket-data-management-${surface}-${theme}-${width}.png`),
         fullPage: true,
         animations: "disabled",
       });
@@ -397,9 +403,10 @@ for (const width of [1440, 390]) {
       animations: "disabled",
     });
 
-    await cors.getByRole("button", { name: "Edit", exact: true }).click();
+    await cors.getByRole("button", { name: "JSON", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Edit CORS rules" });
     await expect(dialog).toBeVisible();
+    await dialog.getByRole("tab", { name: "Visual", exact: true }).click();
     await expect(dialog.getByRole("tab", { name: "Visual", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(dialog.getByTestId("cors-visual-rule")).toHaveCount(3);
     await expect(dialog.getByTestId("cors-advanced-rule")).toContainText("Advanced rule — edit in JSON");
@@ -512,10 +519,10 @@ for (const width of [1440, 390]) {
 
     const encryption = page.getByTestId("bucket-feature-encryption");
     await expect(encryption).toBeVisible();
-    await expect(encryption.getByText("Enabled · 3 rules", { exact: true })).toBeVisible();
+    await expect(encryption.getByText("Configured", { exact: true })).toBeVisible();
+    await expect(encryption.getByText("AES256 · S3 managed key · 3 rules", { exact: true })).toBeVisible();
     await expect(encryption.getByRole("textbox")).toHaveCount(0);
     await expect(encryption.getByText("AES256", { exact: true })).toBeVisible();
-    await expect(encryption.getByText("aws:kms", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
 
     await page.screenshot({
@@ -639,7 +646,7 @@ function remainingEditorVisualQaRules(): MockRule[] {
 const remainingEditorVisualQaCases = [
   {
     id: "lifecycle",
-    tab: "Properties",
+    tab: "Data management",
     featureTestId: "bucket-feature-lifecycle",
     dialogName: "Edit lifecycle rules",
     visualItemTestId: "lifecycle-visual-rule",
@@ -655,7 +662,7 @@ const remainingEditorVisualQaCases = [
   },
   {
     id: "notifications",
-    tab: "Advanced",
+    tab: "Properties",
     featureTestId: "bucket-feature-notifications",
     dialogName: "Edit bucket notifications",
     visualItemTestId: "notifications-visual-topic",
@@ -663,7 +670,7 @@ const remainingEditorVisualQaCases = [
   },
   {
     id: "replication",
-    tab: "Advanced",
+    tab: "Data management",
     featureTestId: "bucket-feature-replication",
     dialogName: "Edit replication configuration",
     visualItemTestId: "replication-visual-rule",

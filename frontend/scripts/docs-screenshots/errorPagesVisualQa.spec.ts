@@ -88,7 +88,7 @@ test("an authenticated request rejected after refresh reaches the session-ended 
   await expect(page.locator(".error-state--embedded")).toBeVisible();
   await page.route("**/api/admin/users**", (route) => route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
   await page.route("**/api/auth/refresh", (route) => route.fulfill({ status: 401, contentType: "application/json", body: "{}" }));
-  await page.getByRole("link", { name: "UI Users", exact: true }).click();
+  await page.getByRole("link", { name: "Utilisateurs UI", exact: true }).click();
   await expect(page).toHaveURL(/\/session-expired$/);
   await expect(page.locator('[data-error-kind="session_expired"]')).toBeVisible();
   await expect(page.getByRole("link", { name: "Se reconnecter", exact: true })).toHaveAttribute("href", "/login");

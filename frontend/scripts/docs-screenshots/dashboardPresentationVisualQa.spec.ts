@@ -6,7 +6,7 @@ import { seedUiPreferences } from "./uiPreferences";
 import type { MockRule } from "./types";
 
 const surfaces = [
-  { workspace: "manager", scenarioId: "workspace-manager", kpis: 4, headings: ["Storage overview", "Top buckets by storage", "Data types", "Quota status", "Access management", "Storage backend health", "Recent activity", "Ongoing / Recent incidents"] },
+  { workspace: "manager", scenarioId: "workspace-manager", kpis: 4, headings: ["Storage overview", "Top buckets by storage", "Data types", "Quota status", "Storage backend health", "Recent activity", "Ongoing / Recent incidents"] },
   { workspace: "portal", scenarioId: "workspace-portal", kpis: 5, headings: ["Storage overview", "Top storage spaces", "Recent activity", "Alerts & service status", "Quick links"] },
   { workspace: "ceph-admin", scenarioId: "workspace-ceph-admin", kpis: 0, headings: ["Endpoint Health", "Ongoing / Recent Incidents", "Usage & Metrics", "RGW Accounts", "RGW Users", "Buckets"] },
   { workspace: "storage-ops", scenarioId: "gallery-storage-ops-dashboard", kpis: 0, headings: [] },
@@ -41,7 +41,12 @@ function expectedRows(workspace: "manager" | "portal", width: number, dataTypes 
   const kpis = workspace === "manager" ? 4 : 5;
   const kpiRows = width >= 1280 ? [kpis] : width >= 768 ? (kpis === 4 ? [2, 2] : [2, 2, 1]) : Array<number>(kpis).fill(1);
   if (workspace === "portal") return [kpiRows, width >= 1024 ? [2] : [1, 1], width >= 1536 ? [3] : width >= 1024 ? [2, 1] : [1, 1, 1]];
-  return [kpiRows, dataTypes ? (width >= 1280 ? [3] : width >= 1024 ? [2, 1] : [1, 1, 1]) : width >= 1024 ? [2] : [1, 1], width >= 1536 ? [3] : width >= 1024 ? [2, 1] : [1, 1, 1], width >= 1280 ? [2] : [1, 1]];
+  return [
+    kpiRows,
+    dataTypes ? (width >= 1280 ? [3] : width >= 1024 ? [2, 1] : [1, 1, 1]) : width >= 1024 ? [2] : [1, 1],
+    width >= 1024 ? [2] : [1, 1],
+    width >= 1280 ? [2] : [1, 1],
+  ];
 }
 
 async function panelContentGeometry(page: Page) {
@@ -174,8 +179,22 @@ type DashboardState = "empty" | "unavailable" | "loading" | "without-data-types"
 
 function stateRules(rules: MockRule[], state: DashboardState): MockRule[] {
   return rules.map((rule) => {
-    if (state === "without-data-types" && rule.id === "settings-general") {
-      return { ...rule, body: { ...(rule.body as object), bucket_usage_stats_enabled: false } };
+    if (state === "without-data-types" && rule.id === "manager-context") {
+      return {
+        ...rule,
+        body: (context) => {
+          const body = typeof rule.body === "function" ? rule.body(context) : rule.body;
+          const record = body as Record<string, unknown>;
+          const featureStates = (record.feature_states ?? {}) as Record<string, unknown>;
+          return {
+            ...record,
+            feature_states: {
+              ...featureStates,
+              bucket_usage_stats: { enabled: false, source: "platform" },
+            },
+          };
+        },
+      };
     }
     if (state === "onboarding" && rule.id === "portal-storage-spaces") return { ...rule, body: [] };
     if (state === "empty") {
