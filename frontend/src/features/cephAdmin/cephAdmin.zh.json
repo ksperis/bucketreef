@@ -513,6 +513,7 @@
   "Zone": "Ceph Zone",
   "Zonegroup": "Zonegroup 组",
   "Zones": "Ceph Zones",
+  "Zones configured in the current multisite realm.": "当前 multisite realm 中配置的 Zone。",
   "One flow scope was not collected in this overview page.": "此概览页中有 1 个流范围未采集。",
   "{count} flow scopes were not collected in this overview page.": "此概览页中有 {count} 个流范围未采集。",
   "{count} flows": "{count} 个流",

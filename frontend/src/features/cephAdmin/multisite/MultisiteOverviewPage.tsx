@@ -397,16 +397,7 @@ export default function MultisiteOverviewPage() {
     realmData && typeof realmData === "object" && "name" in realmData && typeof realmData.name === "string"
       ? realmData.name
       : overview?.topology.period.data?.realm_id ?? "—";
-  const declaredZoneCount = zones.filter((zone) => zone.diagnostic_endpoint_id != null).length;
-  const flowByDestination = useMemo(() => {
-    const map = new Map<number, MultisiteFlow>();
-    for (const flow of [...(overview?.metadata ?? []), ...(overview?.data ?? [])]) {
-      if (!map.has(flow.destination_endpoint_id) || flow.status.availability === "available") {
-        map.set(flow.destination_endpoint_id, flow);
-      }
-    }
-    return map;
-  }, [overview]);
+  const observableZoneCount = zones.filter((zone) => zone.diagnostic_endpoint_id != null).length;
 
   const selectedFlow = useMemo(() => {
     if (
@@ -492,22 +483,6 @@ export default function MultisiteOverviewPage() {
         <UiBadge tone="neutral">{zone.metadata_master ? text("Metadata master") : text("Replica")}</UiBadge>
       ),
     },
-    {
-      id: "endpoint",
-      label: text("Declared diagnostic endpoint"),
-      render: (zone) => {
-        const endpoint = zone.endpoints.find((candidate) => candidate.id === zone.diagnostic_endpoint_id);
-        return endpoint ? `${endpoint.name} (#${endpoint.id})` : text("Not declared");
-      },
-    },
-    {
-      id: "observation",
-      label: text("Observation"),
-      render: (zone) => {
-        const flow = zone.diagnostic_endpoint_id == null ? null : flowByDestination.get(zone.diagnostic_endpoint_id);
-        return flow ? <ObservationBadge observation={flow.status} text={text} /> : <UiBadge>{text("Not observed")}</UiBadge>;
-      },
-    },
   ];
 
   const flowColumns = (family: FlowFamily): Array<DataTableColumn<MultisiteFlow>> => [
@@ -551,11 +526,6 @@ export default function MultisiteOverviewPage() {
               received: flow.status.data?.shards.length ?? 0,
               expected: flow.status.data?.expected_shards ?? text("Unknown"),
             }),
-    },
-    {
-      id: "freshness",
-      label: text("Collected"),
-      render: (flow) => formatTimestamp(flow.status.collected_at),
     },
     {
       id: "reason",
@@ -665,7 +635,7 @@ export default function MultisiteOverviewPage() {
             { label: text("Realm"), value: realmName },
             { label: text("Realm epoch"), value: overview.topology.period.data?.realm_epoch ?? "—" },
             { label: text("Zones"), value: zones.length },
-            { label: text("Available diagnostic endpoints"), value: text("{declared} / {total}", { declared: declaredZoneCount, total: zones.length }) },
+            { label: text("Available diagnostic endpoints"), value: text("{declared} / {total}", { declared: observableZoneCount, total: zones.length }) },
           ]}
         />
         <ObservationNotice observation={overview.topology.period} text={text} />
@@ -692,7 +662,7 @@ export default function MultisiteOverviewPage() {
         <ListPageSection
           variant="section"
           title={text("Zones")}
-          description={text("Configured zones and automatically matched diagnostic endpoints.")}
+          description={text("Zones configured in the current multisite realm.")}
           countLabel={text("{count} zones", { count: zones.length })}
         >
           <DataTableShell

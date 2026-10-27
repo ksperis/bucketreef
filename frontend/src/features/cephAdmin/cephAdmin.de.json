@@ -513,6 +513,7 @@
   "Zone": "Ceph-Zone",
   "Zonegroup": "Zonengruppe",
   "Zones": "Ceph-Zonen",
+  "Zones configured in the current multisite realm.": "Im aktuellen Multisite-Realm konfigurierte Zonen.",
   "One flow scope was not collected in this overview page.": "Ein Flow-Bereich wurde in dieser Übersicht nicht erfasst.",
   "{count} flow scopes were not collected in this overview page.": "{count} Flow-Bereiche wurden in dieser Übersicht nicht erfasst.",
   "{count} flows": "{count} Flows",
