@@ -348,4 +348,24 @@ describe("MultisiteOverviewPage", () => {
     expect(within(dataSection as HTMLElement).getByText("Ceph returned no data sync status for this direction.")).toBeInTheDocument();
     expect(within(dataSection as HTMLElement).queryByText("Unknown")).not.toBeInTheDocument();
   });
+
+  it("keeps overview tables focused on topology and replication state", async () => {
+    const fixture = overview("Realm fixture", "marker-a", "2026-10-27T10:00:00Z", null);
+    fixture.metadata = [{
+      destination_endpoint_id: 2,
+      destination_zone_id: "zone-destination",
+      source_zone_id: "zone-source",
+      scope_requires_confirmation: false,
+      status: status("marker-metadata", "2026-10-27T10:00:00Z"),
+    }];
+    getMultisiteOverviewMock.mockResolvedValue(fixture);
+
+    render(<MultisiteOverviewPage />);
+
+    expect(await screen.findByText("Realm fixture")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Declared diagnostic endpoint" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Observation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Collected" })).not.toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  });
 });
