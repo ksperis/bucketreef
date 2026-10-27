@@ -76,15 +76,3 @@ export function useMultisiteObservations(scope: string) {
   }, [scope]);
   return { observations, record, reset };
 }
-
-export function useMultisiteAutoRefresh(refresh: () => void) {
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") refresh();
-    }, 30000);
-    return () => window.clearInterval(timer);
-  }, [autoRefresh, refresh]);
-  return { autoRefresh, setAutoRefresh };
-}

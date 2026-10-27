@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { MultisiteObservation, MultisiteSyncStatus } from "../../../api/cephMultisite";
-import { compareMultisiteObservation, useMultisiteAutoRefresh, useMultisiteObservations } from "./useMultisiteObservations";
+import { compareMultisiteObservation, useMultisiteObservations } from "./useMultisiteObservations";
 
 function observation(marker: string, generation = "3"): MultisiteObservation<MultisiteSyncStatus> {
   return {
@@ -40,24 +40,6 @@ describe("multisite session observations", () => {
     expect(result.current.observations[0].change).toBe("first_observation");
     act(() => result.current.reset());
     expect(result.current.observations).toEqual([]);
-  });
-  it("refreshes only when opted in and visible, and stops on unmount", () => {
-    vi.useFakeTimers();
-    const refresh = vi.fn();
-    const { result, unmount } = renderHook(() => useMultisiteAutoRefresh(refresh));
-    act(() => vi.advanceTimersByTime(30000));
-    expect(refresh).not.toHaveBeenCalled();
-    act(() => result.current.setAutoRefresh(true));
-    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
-    act(() => vi.advanceTimersByTime(30000));
-    expect(refresh).not.toHaveBeenCalled();
-    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
-    act(() => vi.advanceTimersByTime(30000));
-    expect(refresh).toHaveBeenCalledTimes(1);
-    unmount();
-    act(() => vi.advanceTimersByTime(30000));
-    expect(refresh).toHaveBeenCalledTimes(1);
-    vi.restoreAllMocks(); vi.useRealTimers();
   });
   it("expires observations after 30 minutes even without another collection", () => {
     vi.useFakeTimers();
