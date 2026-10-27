@@ -28,8 +28,7 @@ import {
   ProvenanceSummary,
 } from "./MultisiteCommon";
 import MultisitePage from "./MultisitePage";
-import { formatTimestamp, type MultisiteText } from "./multisiteUtils";
-import { compareMultisiteObservation } from "./useMultisiteObservations";
+import { formatTimestamp } from "./multisiteUtils";
 
 type FlowFamily = "metadata" | "data";
 type FlowSelection = {
@@ -40,11 +39,6 @@ type FlowSelection = {
   sourceZoneId: string;
 };
 type OverviewSnapshot = { endpointId: number; offset: number; data: MultisiteOverview };
-type ObservationSample = NonNullable<ReturnType<typeof compareMultisiteObservation>>;
-type ObservationChange = ObservationSample["change"];
-
-const OBSERVATION_TTL_MS = 30 * 60 * 1000;
-const OBSERVATION_LIMIT = 20;
 
 function zoneLabel(zones: MultisiteZone[], id: string | null | undefined) {
   if (!id) return "—";
@@ -52,38 +46,14 @@ function zoneLabel(zones: MultisiteZone[], id: string | null | undefined) {
   return zone ? `${zone.name} (${zone.id})` : id;
 }
 
-function flowIdentityKey(endpointId: number, family: FlowFamily, flow: MultisiteFlow) {
-  return JSON.stringify([
-    endpointId,
-    family,
-    flow.destination_endpoint_id,
-    flow.destination_zone_id,
-    flow.source_zone_id,
-  ]);
-}
-
-function changeLabel(change: ObservationChange, text: MultisiteText) {
-  if (change === "first_observation") return text("First observation");
-  if (change === "new_context") return text("New context");
-  if (change === "changed") return text("Changed");
-  return text("Unchanged");
-}
-
 function hasNoDataSyncState(family: FlowFamily, flow: MultisiteFlow) {
   return family === "data" && flow.status.availability === "not_found" && !flow.status.data;
-}
-
-function ChangeBadge({ change, text }: { change: ObservationChange | undefined; text: MultisiteText }) {
-  if (!change) return <span>—</span>;
-  const tone = change === "changed" ? "info" : change === "new_context" ? "warning" : "neutral";
-  return <UiBadge tone={tone}>{changeLabel(change, text)}</UiBadge>;
 }
 
 function FlowDrawer({
   endpointId,
   family,
   flow,
-  observationSample,
   zones,
   onFlowRefresh,
   onClose,
@@ -92,7 +62,6 @@ function FlowDrawer({
   endpointId: number;
   family: FlowFamily;
   flow: MultisiteFlow;
-  observationSample: ObservationSample | undefined;
   zones: MultisiteZone[];
   onFlowRefresh: (flow: MultisiteFlow) => void;
   onClose: () => void;
@@ -108,10 +77,6 @@ function FlowDrawer({
   const status = observation.data;
   const shards = status?.shards ?? [];
   const chunk = shards.slice(offset, offset + 1000);
-  const shardChanges = useMemo(
-    () => new Map(observationSample?.shards.map((shard) => [shard.shard_id, shard.change]) ?? []),
-    [observationSample],
-  );
 
   useEffect(
     () => () => {
@@ -165,11 +130,6 @@ function FlowDrawer({
       render: (row) => <PhaseBadge phase={row.phase} text={text} />,
     },
     {
-      id: "change",
-      label: text("Change"),
-      render: (row) => <ChangeBadge change={shardChanges.get(row.shard_id)} text={text} />,
-    },
-    {
       id: "marker",
       label: text("Marker"),
       cellClassName: "max-w-[24rem] truncate font-mono",
@@ -194,8 +154,7 @@ function FlowDrawer({
       text={text}
       surfaceClassName="w-full lg:w-[64rem]"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <ChangeBadge change={observationSample?.change} text={text} />
+      <div className="flex justify-end">
         <ListActionButton loading={refreshing} onClick={refreshFlow}>
           {refreshing ? text("Refreshing flow…") : text("Refresh flow")}
         </ListActionButton>
@@ -204,7 +163,6 @@ function FlowDrawer({
       <ObservationNotice observation={observation} text={text} />
       <InlineSummary
         items={[
-          { label: text("Change"), value: observationSample ? changeLabel(observationSample.change, text) : "—" },
           { label: text("Phase"), value: status?.phase ?? text("Unknown") },
           { label: text("Family"), value: status?.family ?? family },
           { label: text("Expected shards"), value: status?.expected_shards ?? "—" },
@@ -277,80 +235,18 @@ export default function MultisiteOverviewPage() {
   const [errorState, setErrorState] = useState<{ scope: string; message: string } | null>(null);
   const [revision, setRevision] = useState(0);
   const [selection, setSelection] = useState<FlowSelection | null>(null);
-  const [observationRevision, setObservationRevision] = useState(0);
-  const observationStore = useRef(new Map<string, ObservationSample[]>());
   const requestId = useRef(0);
   const triggerRef = useRef<HTMLElement | null>(null);
 
   const offset = page.endpointId === selectedEndpointId ? page.offset : 0;
   const previousOffsets = page.endpointId === selectedEndpointId ? page.previousOffsets : [];
   const scope = selectedEndpointId == null ? null : `${selectedEndpointId}:${offset}`;
-  const observationScope = useRef<string | null>(scope);
   const overview =
     scope && overviewSnapshot && overviewSnapshot.endpointId === selectedEndpointId && overviewSnapshot.offset === offset
       ? overviewSnapshot.data
       : null;
   const loading = scope != null && pendingScope === scope;
   const error = scope != null && errorState?.scope === scope ? errorState.message : null;
-
-  if (observationScope.current !== scope) {
-    observationScope.current = scope;
-    observationStore.current.clear();
-  }
-
-  const recordFlowObservation = useCallback((endpointId: number, family: FlowFamily, flow: MultisiteFlow) => {
-    const key = flowIdentityKey(endpointId, family, flow);
-    const now = Date.now();
-    const previous = (observationStore.current.get(key) ?? []).filter(
-      (entry) => now - entry.received_at <= OBSERVATION_TTL_MS,
-    );
-    const next = compareMultisiteObservation(previous.at(-1), flow.status, key, now);
-    if (!next || previous.at(-1)?.collected_at === next.collected_at) {
-      if (previous.length !== (observationStore.current.get(key) ?? []).length) {
-        if (previous.length) observationStore.current.set(key, previous);
-        else observationStore.current.delete(key);
-        setObservationRevision((value) => value + 1);
-      }
-      return;
-    }
-    observationStore.current.set(key, [...previous, next].slice(-OBSERVATION_LIMIT));
-    setObservationRevision((value) => value + 1);
-  }, []);
-
-  const latestFlowObservation = (family: FlowFamily, flow: MultisiteFlow) => {
-    if (
-      selectedEndpointId == null ||
-      flow.status.availability !== "available" ||
-      flow.status.stale ||
-      !flow.status.data
-    ) {
-      return undefined;
-    }
-    const history = observationStore.current.get(flowIdentityKey(selectedEndpointId, family, flow)) ?? [];
-    const latest = history.at(-1);
-    return latest && Date.now() - latest.received_at <= OBSERVATION_TTL_MS ? latest : undefined;
-  };
-
-  useEffect(() => {
-    let earliestExpiry = Number.POSITIVE_INFINITY;
-    for (const history of observationStore.current.values()) {
-      for (const sample of history) earliestExpiry = Math.min(earliestExpiry, sample.received_at + OBSERVATION_TTL_MS);
-    }
-    if (!Number.isFinite(earliestExpiry)) return;
-    const timer = window.setTimeout(() => {
-      const now = Date.now();
-      let changed = false;
-      for (const [key, history] of observationStore.current) {
-        const next = history.filter((sample) => now - sample.received_at < OBSERVATION_TTL_MS);
-        if (next.length === history.length) continue;
-        changed = true;
-        if (next.length) observationStore.current.set(key, next);
-        else observationStore.current.delete(key);
-      }
-      if (changed) setObservationRevision((value) => value + 1);
-    }, Math.max(1, earliestExpiry - Date.now()));
-    return () => window.clearTimeout(timer);
-  }, [observationRevision, scope]);
 
   useEffect(() => {
     if (page.endpointId === selectedEndpointId) return;
@@ -373,8 +269,6 @@ export default function MultisiteOverviewPage() {
       .then((next) => {
         if (controller.signal.aborted || requestId.current !== id) return;
         setOverviewSnapshot({ endpointId, offset, data: next });
-        for (const flow of next.metadata) recordFlowObservation(endpointId, "metadata", flow);
-        for (const flow of next.data) recordFlowObservation(endpointId, "data", flow);
       })
       .catch((failure) => {
         if (controller.signal.aborted || requestId.current !== id || isCancelledError(failure)) return;
@@ -384,7 +278,7 @@ export default function MultisiteOverviewPage() {
         if (!controller.signal.aborted && requestId.current === id) setPendingScope(null);
       });
     return () => controller.abort();
-  }, [offset, recordFlowObservation, revision, scope, selectedEndpointId, text]);
+  }, [offset, revision, scope, selectedEndpointId, text]);
 
   const refreshOverview = useCallback(() => setRevision((value) => value + 1), []);
 
@@ -452,9 +346,8 @@ export default function MultisiteOverviewPage() {
         );
         return { ...current, data: { ...current.data, [currentSelection.family]: updated } };
       });
-      recordFlowObservation(currentSelection.endpointId, currentSelection.family, next);
     },
-    [recordFlowObservation],
+    [],
   );
 
   const zoneColumns: Array<DataTableColumn<MultisiteZone>> = [
@@ -494,13 +387,12 @@ export default function MultisiteOverviewPage() {
     {
       id: "source",
       label: text("Source"),
-      primary: family === "data",
+      primary: true,
       render: (flow) => zoneLabel(zones, flow.source_zone_id),
     },
     {
       id: "destination",
       label: text("Destination"),
-      primary: family === "metadata",
       render: (flow) => zoneLabel(zones, flow.destination_zone_id),
     },
     {
@@ -515,11 +407,6 @@ export default function MultisiteOverviewPage() {
       id: "phase",
       label: text("Phase"),
       render: (flow) => hasNoDataSyncState(family, flow) ? <span>—</span> : <PhaseBadge phase={flow.status.data?.phase} text={text} />,
-    },
-    {
-      id: "change",
-      label: text("Change"),
-      render: (flow) => <ChangeBadge change={latestFlowObservation(family, flow)?.change} text={text} />,
     },
     {
       id: "shards",
@@ -754,7 +641,6 @@ export default function MultisiteOverviewPage() {
           endpointId={selectedEndpointId}
           family={selection.family}
           flow={selectedFlow}
-          observationSample={latestFlowObservation(selection.family, selectedFlow)}
           zones={zones}
           onFlowRefresh={(next) => applyFlowRefresh(selection, next)}
           onClose={() => setSelection(null)}

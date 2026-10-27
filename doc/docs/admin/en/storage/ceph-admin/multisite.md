@@ -61,15 +61,9 @@ sync to inspect. Previous successful status reads can remain visible as stale
 for up to 30 minutes after transient failures; denied results do not reveal
 cached data. Journals are fetched on demand without preloading or polling.
 
-## Interpret observations
+## Interpret current status
 
-Session observations compare opaque markers and states by equality within an
-exact endpoint, realm, zone, bucket instance, shard, period and generation
-scope. The last 20 observations are kept in memory for at most 30 minutes.
-Reloading the page starts a new session. A changed period, generation or bucket
-instance starts a new comparison context.
-
-An unchanged marker does not establish a fault. `sync` and
+`sync` and
 `incremental-sync` are phases, not proof that a destination is current. Source
 bilog `pending`/`complete` describe the source operation, not the replication
 state of an object. Generation differences are observations, not exact lag.
