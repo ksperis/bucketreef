@@ -42,7 +42,7 @@ export default function MultisitePage({ activeTab, children, actions }: Multisit
   return (
     <PageShell
       title={text("Multisite diagnostics")}
-      description={text("Read-only Ceph multisite replication diagnostics for the selected endpoint.")}
+      description={text("Inspect Ceph multisite topology, replication status, bucket synchronization, and logs for the selected endpoint.")}
       breadcrumbs={cephAdminPageBreadcrumbs("multisite")}
       actions={actions}
       inlineContent={<UiBadge tone="neutral">{text("Read only")}</UiBadge>}

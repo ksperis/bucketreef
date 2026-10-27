@@ -285,7 +285,7 @@ export default function MultisiteLogExplorerPage() {
             <ListPageSection
               variant="section"
               title={text("Loaded entries")}
-              description={text("Search and exports apply only to the entries loaded on this page.")}
+              description={text("Search and export only the entries currently loaded on this page.")}
               search={<UiInput aria-label={text("Search loaded log entries")} type="search" size="compact" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={text("Search loaded entries")} />}
               actions={<>
                 <ListActionButton onClick={() => downloadTextFile("multisite-log.json", `${safeJson({ family: page.family, scope: page.scope, collected_at: visibleObservation.collected_at, provenance: visibleObservation.provenance, entries: filteredEntries })}\n`, "application/json")}>{text("Export JSON")}</ListActionButton>
