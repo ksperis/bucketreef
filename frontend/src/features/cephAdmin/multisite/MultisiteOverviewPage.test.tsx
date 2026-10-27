@@ -368,6 +368,36 @@ describe("MultisiteOverviewPage", () => {
     expect(screen.queryByRole("columnheader", { name: "Observation" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Collected" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Change" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Reason" })).not.toBeInTheDocument();
     expect(screen.getByText("2 / 2")).toBeInTheDocument();
+  });
+
+  it("shows a flow diagnostic beside availability only when one exists", async () => {
+    const fixture = overview("Realm fixture", "marker-a", "2026-10-27T10:00:00Z", null);
+    fixture.metadata = [{
+      destination_endpoint_id: 2,
+      destination_zone_id: "zone-destination",
+      source_zone_id: "zone-source",
+      scope_requires_confirmation: false,
+      status: {
+        ...status("marker-metadata", "2026-10-27T10:00:00Z"),
+        availability: "unavailable",
+        reason_code: "rgw_read_failed",
+        data: null,
+      },
+    }];
+    getMultisiteOverviewMock.mockResolvedValue(fixture);
+
+    render(<MultisiteOverviewPage />);
+
+    expect(await screen.findByText("Realm fixture")).toBeInTheDocument();
+    const metadataSection = screen.getByRole("heading", { name: "Metadata replication" }).closest("section");
+    expect(metadataSection).not.toBeNull();
+    expect(within(metadataSection as HTMLElement).getByText("Unavailable")).toBeInTheDocument();
+    expect(within(metadataSection as HTMLElement).getByText("rgw_read_failed")).toBeInTheDocument();
+    expect(within(metadataSection as HTMLElement).queryByRole("columnheader", { name: "Reason" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(metadataSection as HTMLElement).getByRole("button", { name: "View details" }));
+    expect(await screen.findByText("Reason: rgw_read_failed")).toBeInTheDocument();
   });
 });
