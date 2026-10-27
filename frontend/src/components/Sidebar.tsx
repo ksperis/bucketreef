@@ -2,8 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { CSSProperties, ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { CSSProperties, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { matchPath, NavLink, useLocation } from "react-router-dom";
 import { PRODUCT_NAME } from "../constants/product";
 import { resolveWorkspaceProfilePath } from "../navigation/workspacePages";
@@ -12,6 +11,7 @@ import {
   writeClientJsonToKey,
 } from "../utils/clientStorage";
 import BrandMark from "./BrandMark";
+import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { SIDEBAR_COMPACT_WIDTH, SIDEBAR_DEFAULT_WIDTH } from "./sidebarSizing";
 import { useShellI18n } from "./shellMessages";
 
@@ -89,8 +89,7 @@ type SidebarProps = {
 };
 
 function isSectionCollapsible(section: SidebarSection) {
-  if (!section.label) return false;
-  return section.collapsible ?? section.label.trim().toLowerCase() === "settings";
+  return Boolean(section.label && section.collapsible);
 }
 
 function sidebarSectionStorageKey(title: string, pathname: string) {
@@ -100,7 +99,23 @@ function sidebarSectionStorageKey(title: string, pathname: string) {
 }
 
 function sidebarSectionStateKey(section: SidebarSection, index: number) {
-  return section.id?.trim() || section.label?.trim() || `section-${index}`;
+  return section.id?.trim() || `section-${index}`;
+}
+
+function sidebarSectionPersistenceKey(section: SidebarSection) {
+  return section.id?.trim() || null;
+}
+
+function storedSidebarSectionState(
+  stored: Record<string, boolean> | null,
+  section: SidebarSection,
+): boolean | undefined {
+  const persistenceKey = sidebarSectionPersistenceKey(section);
+  const legacyLabelKey = section.label?.trim();
+  return (
+    (persistenceKey ? stored?.[persistenceKey] : undefined) ??
+    (legacyLabelKey ? stored?.[legacyLabelKey] : undefined)
+  );
 }
 
 function sidebarLinkMatchesPath(link: SidebarLink, pathname: string) {
@@ -118,26 +133,6 @@ function CompactSidebarHint({
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const anchorRef = useRef<HTMLSpanElement | null>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
-
-  useLayoutEffect(() => {
-    if (!visible || dismissed) return;
-    const update = () => {
-      const rect = anchorRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setPosition({
-        top: Math.round(rect.top + rect.height / 2),
-        left: Math.round(rect.right + 8),
-      });
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-    };
-  }, [dismissed, visible]);
 
   const show = () => {
     setDismissed(false);
@@ -160,18 +155,16 @@ function CompactSidebarHint({
       }}
     >
       {children}
-      {visible && !dismissed && typeof document !== "undefined"
-        ? createPortal(
-            <span
-              role="tooltip"
-              className="shell-sidebar-tooltip"
-              style={{ top: position.top, left: position.left }}
-            >
-              {label}
-            </span>,
-            document.body,
-          )
-        : null}
+      <AnchoredPortalMenu
+        open={visible && !dismissed}
+        anchorRef={anchorRef}
+        placement="right-center"
+        offset={8}
+        minWidth={0}
+        className="shell-sidebar-tooltip"
+      >
+        <span role="tooltip">{label}</span>
+      </AnchoredPortalMenu>
     </span>
   );
 }
@@ -212,7 +205,7 @@ export default function Sidebar({
         initial[stateKey] = isSectionCollapsible(section)
           ? section.collapsed === false
             ? false
-            : stored?.[stateKey] ?? stored?.[section.label] ?? section.collapsed ?? false
+            : storedSidebarSectionState(stored, section) ?? section.collapsed ?? false
           : false;
       }
     });
@@ -236,8 +229,7 @@ export default function Sidebar({
           next[stateKey] = false;
         } else {
           next[stateKey] =
-            stored?.[stateKey] ??
-            stored?.[section.label] ??
+            storedSidebarSectionState(stored, section) ??
             previous[stateKey] ??
             section.collapsed ??
             false;
@@ -252,14 +244,26 @@ export default function Sidebar({
     activeLink?.scrollIntoView?.({ block: "nearest" });
   }, [collapsedSections, compact, location.pathname]);
 
-  const toggleSection = (label: string, collapsible: boolean) => {
+  const toggleSection = (stateKey: string, persistenceKey: string | null, collapsible: boolean) => {
     if (!collapsible) return;
     setCollapsedSections((prev) => {
+      const nextCollapsed = !prev[stateKey];
       const next = {
         ...prev,
-        [label]: !prev[label],
+        [stateKey]: nextCollapsed,
       };
-      writeClientJsonToKey(collapsedStorageKey, next);
+      if (persistenceKey) {
+        const persisted = effectiveSections.reduce<Record<string, boolean>>((result, section, index) => {
+          const sectionPersistenceKey = sidebarSectionPersistenceKey(section);
+          if (!sectionPersistenceKey || !isSectionCollapsible(section)) return result;
+          const sectionStateKey = sidebarSectionStateKey(section, index);
+          result[sectionPersistenceKey] = sectionStateKey === stateKey
+            ? nextCollapsed
+            : Boolean(next[sectionStateKey]);
+          return result;
+        }, {});
+        writeClientJsonToKey(collapsedStorageKey, persisted);
+      }
       return next;
     });
   };
@@ -357,13 +361,14 @@ export default function Sidebar({
             {effectiveSections.map((section, index) => {
               const collapsible = isSectionCollapsible(section);
               const sectionStateKey = sidebarSectionStateKey(section, index);
+              const sectionPersistenceKey = sidebarSectionPersistenceKey(section);
               const activeSection = section.links.some((link) => sidebarLinkMatchesPath(link, location.pathname));
               const isCollapsed =
                 compact || !section.label ? false : Boolean(collapsedSections[sectionStateKey] && !activeSection);
               const showSeparator = index < effectiveSections.length - 1;
               return (
                 <section
-                  key={section.label ?? `untitled-${index}`}
+                  key={section.id ?? section.label ?? `untitled-${index}`}
                   className={`${showSeparator && !compact ? "border-b border-[color:var(--shell-border-soft)] pb-3" : ""} ${compact ? "shell-sidebar-compact-rail" : ""} space-y-1.5`}
                 >
                   {compact ? (
@@ -371,7 +376,7 @@ export default function Sidebar({
                   ) : !section.label ? null : collapsible ? (
                     <button
                       type="button"
-                      onClick={() => toggleSection(sectionStateKey, collapsible)}
+                      onClick={() => toggleSection(sectionStateKey, sectionPersistenceKey, collapsible)}
                       className="shell-section-label shell-sidebar-section-toggle flex h-5 w-full items-center justify-between rounded-md px-2 text-[10px] font-semibold uppercase transition hover:bg-[var(--shell-hover)] hover:text-[var(--shell-text)]"
                     >
                       <span>{section.label}</span>

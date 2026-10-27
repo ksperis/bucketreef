@@ -6,11 +6,11 @@ import { act, render, screen } from "@testing-library/react";
 import { useRef } from "react";
 import AnchoredPortalMenu from "./AnchoredPortalMenu";
 
-function Harness() {
+function Harness({ placement }: { placement?: "right-center" }) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   return <>
     <button ref={anchorRef}>Anchor</button>
-    <AnchoredPortalMenu open anchorRef={anchorRef} className="test-menu">
+    <AnchoredPortalMenu open anchorRef={anchorRef} placement={placement} minWidth={placement ? 0 : "anchor"} className="test-menu">
       <span>Panel</span>
     </AnchoredPortalMenu>
   </>;
@@ -54,5 +54,31 @@ describe("AnchoredPortalMenu", () => {
     expect(menu.style.top).toBe("60px");
     unmount();
     expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("positions right-center content beside the anchor and falls back to the left edge", () => {
+    let frame: FrameRequestCallback = () => undefined;
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frame = callback; return 1; });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("innerWidth", 800);
+    vi.stubGlobal("innerHeight", 600);
+    let anchorLeft = 100;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return this.tagName === "BUTTON"
+        ? new DOMRect(anchorLeft, 100, 40, 40)
+        : new DOMRect(0, 0, 120, 60);
+    });
+
+    const { rerender } = render(<Harness placement="right-center" />);
+    act(() => frame(0));
+    const menu = screen.getByText("Panel").parentElement!;
+    expect(menu.style.left).toBe("148px");
+    expect(menu.style.top).toBe("90px");
+
+    anchorLeft = 700;
+    rerender(<Harness placement="right-center" />);
+    act(() => frame(1));
+    expect(menu.style.left).toBe("572px");
+    expect(menu.style.top).toBe("90px");
   });
 });

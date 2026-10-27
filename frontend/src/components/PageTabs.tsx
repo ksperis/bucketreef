@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { type KeyboardEvent, type ReactNode } from "react";
+import { type KeyboardEvent, type ReactNode, useId } from "react";
 import { cx, uiCardClass, uiDividerClass } from "./ui/styles";
 
 export type PageTab = {
@@ -64,8 +64,11 @@ export default function PageTabs({
   ariaLabel,
   idPrefix,
 }: PageTabsProps) {
+  const generatedIdPrefix = useId();
+  const resolvedIdPrefix = idPrefix ?? `page-tabs-${generatedIdPrefix}`;
+
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, tabId: string) => {
-    if (!ariaLabel || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
 
     const enabledTabs = tabs.filter((tab) => !tab.disabled);
     const currentIndex = enabledTabs.findIndex((tab) => tab.id === tabId);
@@ -92,20 +95,21 @@ export default function PageTabs({
         Boolean(headerActions) && stackHeaderActionsOnMobile && "max-lg:basis-full",
         variant === "line" ? "gap-x-2 gap-y-1" : "gap-2",
       )}
-      role={ariaLabel ? "tablist" : undefined}
+      role="tablist"
       aria-label={ariaLabel}
     >
       {tabs.map((tab) => {
         const isActive = tab.id === activeTab;
+        const controlsPanel = Boolean(idPrefix || tab.content !== undefined);
         return (
           <button
             key={tab.id}
             type="button"
-            role={ariaLabel ? "tab" : undefined}
-            aria-selected={ariaLabel ? isActive : undefined}
-            aria-controls={ariaLabel && idPrefix ? pageTabPanelId(idPrefix, tab.id) : undefined}
-            id={ariaLabel && idPrefix ? pageTabId(idPrefix, tab.id) : undefined}
-            tabIndex={ariaLabel ? (isActive ? 0 : -1) : undefined}
+            role="tab"
+            aria-selected={isActive}
+            aria-controls={controlsPanel ? pageTabPanelId(resolvedIdPrefix, tab.id) : undefined}
+            id={pageTabId(resolvedIdPrefix, tab.id)}
+            tabIndex={isActive ? 0 : -1}
             disabled={tab.disabled}
             onClick={() => onChange(tab.id)}
             onKeyDown={(event) => handleKeyDown(event, tab.id)}
@@ -153,13 +157,9 @@ export default function PageTabs({
     return (
       <div>
         {tabBar}
-        {ariaLabel && idPrefix ? (
-          <PageTabPanel idPrefix={idPrefix} tabId={activeTab} className="mt-4">
-            {activeContent}
-          </PageTabPanel>
-        ) : (
-          <div className="mt-4">{activeContent}</div>
-        )}
+        <PageTabPanel idPrefix={resolvedIdPrefix} tabId={activeTab} className="mt-4">
+          {activeContent}
+        </PageTabPanel>
       </div>
     );
   }
@@ -170,14 +170,11 @@ export default function PageTabs({
         {tabList}
         {headerActions ? <div className="flex items-center gap-2">{headerActions}</div> : null}
       </div>
-      {activeContent &&
-        (ariaLabel && idPrefix ? (
-          <PageTabPanel idPrefix={idPrefix} tabId={activeTab} className="p-3">
-            {activeContent}
-          </PageTabPanel>
-        ) : (
-          <div className="p-3">{activeContent}</div>
-        ))}
+      {activeContent && (
+        <PageTabPanel idPrefix={resolvedIdPrefix} tabId={activeTab} className="p-3">
+          {activeContent}
+        </PageTabPanel>
+      )}
     </div>
   );
 }

@@ -83,6 +83,48 @@ describe("PageTabs", () => {
     expect(screen.getByRole("tabpanel").parentElement).not.toHaveClass("ui-surface-card");
   });
 
+  it("keeps tabs semantic and keyboard accessible without optional accessibility props", () => {
+    function GeneratedTabs() {
+      const [activeTab, setActiveTab] = useState("general");
+      return (
+        <PageTabs
+          tabs={[
+            { id: "general", label: "General", content: <p>General settings</p> },
+            { id: "advanced", label: "Advanced", content: <p>Advanced settings</p> },
+          ]}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          variant="bar"
+        />
+      );
+    }
+
+    render(<GeneratedTabs />);
+
+    const tabList = screen.getByRole("tablist");
+    const generalTab = screen.getByRole("tab", { name: "General" });
+    const advancedTab = screen.getByRole("tab", { name: "Advanced" });
+    const generalPanel = screen.getByRole("tabpanel");
+
+    expect(tabList).not.toHaveAttribute("aria-label");
+    expect(generalTab).toHaveAttribute("tabindex", "0");
+    expect(advancedTab).toHaveAttribute("tabindex", "-1");
+    expect(generalTab.id).not.toBe("");
+    expect(generalPanel.id).not.toBe("");
+    expect(generalTab).toHaveAttribute("aria-controls", generalPanel.id);
+    expect(generalPanel).toHaveAttribute("aria-labelledby", generalTab.id);
+
+    fireEvent.keyDown(generalTab, { key: "ArrowRight" });
+
+    const advancedPanel = screen.getByRole("tabpanel");
+    expect(advancedTab).toHaveFocus();
+    expect(advancedTab).toHaveAttribute("aria-selected", "true");
+    expect(advancedTab).toHaveAttribute("tabindex", "0");
+    expect(advancedPanel).toHaveTextContent("Advanced settings");
+    expect(advancedTab).toHaveAttribute("aria-controls", advancedPanel.id);
+    expect(advancedPanel).toHaveAttribute("aria-labelledby", advancedTab.id);
+  });
+
   it("owns the shared baseline for top-level page tabs", () => {
     const { container } = render(
       <PageTabs
@@ -95,6 +137,7 @@ describe("PageTabs", () => {
 
     expect(container.firstElementChild).toHaveClass("border-b");
     expect(container.firstElementChild).toHaveClass("border-[color:var(--ui-border-soft)]");
+    expect(screen.getByRole("tab", { name: "General" })).not.toHaveAttribute("aria-controls");
     expect(screen.getByText("General").parentElement).toHaveClass("min-w-0", "flex-1", "flex-wrap");
   });
 });
