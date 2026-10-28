@@ -1,13 +1,11 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { deleteOpenStackCloud, listAdminOpenStackClouds, saveOpenStackCloud, type OpenStackCloud, type OpenStackCloudWrite } from "../../api/openstack";
-import { listMinimalUsers, type UserSummary } from "../../api/users";
-import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { useRecentWebAuthnStepUp } from "../../auth/useRecentWebAuthnStepUp";
 import PageHeader from "../../components/PageHeader";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { SettingsInput } from "../../components/settings/SettingsControls";
-import { SettingsChoiceRow, SettingsItem, SettingsSection, SettingsSwitch } from "../../components/settings/SettingsLayout";
+import { SettingsItem, SettingsSection, SettingsSwitch } from "../../components/settings/SettingsLayout";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
@@ -15,15 +13,12 @@ import { ListActions, ListActionButton, ListBadge } from "../../components/list/
 import { extractApiError } from "../../utils/apiError";
 import { useOpenStackI18n } from "../shared/openstackMessages";
 
-const emptyCloud = (): OpenStackCloudWrite => ({ name: "", auth_url: "", enabled: false, allow_password: true, allow_token: true, managed_endpoints_only: false, default_domain: null, all_users: false, user_ids: [], group_ids: [] });
-const toggleId = (values: number[], id: number, checked: boolean) => checked ? [...values.filter((value) => value !== id), id] : values.filter((value) => value !== id);
+const emptyCloud = (): OpenStackCloudWrite => ({ name: "", auth_url: "", enabled: false, allow_password: true, allow_token: true, managed_endpoints_only: false, default_domain: null });
 
 export default function OpenStackCloudsPage() {
   const { text } = useOpenStackI18n();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const [clouds, setClouds] = useState<OpenStackCloud[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
-  const [groups, setGroups] = useState<UiGroupSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +30,7 @@ export default function OpenStackCloudsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [items, people, teams] = await Promise.all([listAdminOpenStackClouds(), listMinimalUsers(), listMinimalGroups()]);
-      setClouds(items); setUsers(people); setGroups(teams);
+      setClouds(await listAdminOpenStackClouds());
     } catch (failure) { setError(extractApiError(failure, text("error"))); }
     finally { setLoading(false); }
   }, [text]);
@@ -121,22 +115,8 @@ export default function OpenStackCloudsPage() {
           <div className="settings-fields">
             <SettingsItem compact title={text("managedEndpointsOnly")} description={text("managedEndpointsOnlyDescription")}
               action={<SettingsSwitch checked={draft.managed_endpoints_only} ariaLabel={text("managedEndpointsOnly")} onChange={(value) => setDraft({ ...draft, managed_endpoints_only: value })} />} />
-            <SettingsItem compact title={text("allUsers")} description={text("allUsersDescription")}
-              action={<SettingsSwitch checked={draft.all_users} ariaLabel={text("allUsers")} onChange={(value) => setDraft({ ...draft, all_users: value })} />} />
             <UiInlineMessage tone="info">{text("endpointsDescription")}</UiInlineMessage>
-            {!draft.all_users ? <div className="grid gap-4 md:grid-cols-2">
-              <fieldset className="min-w-0 max-h-72 overflow-y-auto pr-1">
-                <legend className="settings-label mb-1">{text("users")}</legend>
-                {users.map((item) => <SettingsChoiceRow key={item.id} title={item.full_name ?? item.email}
-                  description={item.full_name ? item.email : undefined} checked={draft.user_ids.includes(item.id)}
-                  onChange={(checked) => setDraft({ ...draft, user_ids: toggleId(draft.user_ids, item.id, checked) })} />)}
-              </fieldset>
-              <fieldset className="min-w-0 max-h-72 overflow-y-auto pr-1">
-                <legend className="settings-label mb-1">{text("groups")}</legend>
-                {groups.map((item) => <SettingsChoiceRow key={item.id} title={item.name} checked={draft.group_ids.includes(item.id)}
-                  onChange={(checked) => setDraft({ ...draft, group_ids: toggleId(draft.group_ids, item.id, checked) })} />)}
-              </fieldset>
-            </div> : null}
+            <UiInlineMessage tone="info">{text("authorizationManagedElsewhere")}</UiInlineMessage>
           </div>
         </SettingsSection>
 

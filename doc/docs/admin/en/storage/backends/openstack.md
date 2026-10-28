@@ -17,14 +17,20 @@ metadata and supported endpoint capabilities. BucketReef prefers an `s3`
 service and its `public` endpoint for each region. An `object-store` service is
 accepted only when its URL is a direct S3-compatible target rather than a Swift
 `/v1/AUTH_*` path. Enable password authentication, primary user-token
-authentication, or both. The optional default domain is a user hint.
-Assign UI users/groups, or explicitly allow all authorized UI users, then enable
-and save the cloud. By default, every S3 endpoint advertised by Keystone is
+authentication, or both. The optional default domain is a user hint, then enable
+and save the cloud.
+
+Grant cloud access from **UI Users > Associations** or **UI Groups >
+Associations**. For access that should apply to every current and future active
+UI user, associate the cloud with the built-in **All users** group. Membership
+of that system group is implicit and cannot be edited.
+
+By default, every S3 endpoint advertised by Keystone is
 allowed. Enable **Only allow BucketReef-managed S3 endpoints** when the cloud
 must be limited to URLs already declared as BucketReef Storage Endpoints. In
 that mode, unmanaged Keystone regions remain visible to users but cannot be
 selected, and the backend rejects attempts to activate them. New clouds remain
-disabled and restricted to explicitly assigned BucketReef users by default.
+disabled and inaccessible until a user or group association grants access.
 
 Configure the backend's outbound policy first:
 
@@ -37,7 +43,8 @@ OPENSTACK_ALLOW_PRIVATE_TARGETS=false
 ```
 
 Requests use HTTPS, bounded timeouts and response sizes, and reject redirects.
-Saving cloud configuration or assignments invalidates its active connections.
+Saving cloud configuration, or changing a user/group cloud association,
+invalidates affected active connections.
 S3 endpoint URLs coming from an authenticated, project-scoped Keystone catalog
 are treated as administrator-controlled configuration. They must still be HTTPS
 URLs without embedded credentials, query parameters or fragments, but they do

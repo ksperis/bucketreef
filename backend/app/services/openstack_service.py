@@ -9,7 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import AuthSession, UiGroup, User
+from app.db import AuthSession, User
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
 from app.models.account_capabilities import AccountCapabilities
 from app.models.execution_context import (
@@ -48,13 +48,7 @@ class OpenStackService:
         cloud = self.db.scalar(select(OpenStackCloud).where(OpenStackCloud.id == cloud_id).with_for_update().execution_options(populate_existing=True)) if cloud_id is not None else OpenStackCloud()
         if cloud is None:
             raise OpenStackError("cloud_not_found", "OpenStack cloud not found", 404)
-        values = payload.model_dump(exclude={"user_ids", "group_ids"})
-        refs = {}
-        for field, model, ids in (("users", User, payload.user_ids), ("groups", UiGroup, payload.group_ids)):
-            rows = self.db.scalars(select(model).where(model.id.in_(set(ids)))).all()
-            if len(rows) != len(set(ids)):
-                raise OpenStackError("invalid_reference", "A user or group does not exist", 422)
-            refs[field] = rows
+        values = payload.model_dump()
         # Invalidate before changing trust or grants, even when a cloud is merely disabled.
         if cloud_id is not None:
             self.db.expire(cloud, ["connections"])
@@ -63,8 +57,6 @@ class OpenStackService:
                 self._erase_connection(connection)
         for name, value in values.items():
             setattr(cloud, name, value)
-        for name, rows in refs.items():
-            setattr(cloud, name, rows)
         self.db.add(cloud)
         try:
             self.db.commit()
@@ -72,6 +64,27 @@ class OpenStackService:
             self.db.rollback()
             raise OpenStackError("cloud_conflict", "OpenStack cloud name already exists", 409) from None
         return cloud
+
+    def invalidate_user_access(self, user_ids: set[int], cloud_ids: set[int]) -> None:
+        if not user_ids or not cloud_ids:
+            return
+        connections = self.db.scalars(
+            select(OpenStackConnection).where(
+                OpenStackConnection.user_id.in_(user_ids),
+                OpenStackConnection.cloud_id.in_(cloud_ids),
+            )
+        ).all()
+        for connection in connections:
+            self._erase_connection(connection)
+
+    def invalidate_cloud_access(self, cloud_ids: set[int]) -> None:
+        if not cloud_ids:
+            return
+        connections = self.db.scalars(
+            select(OpenStackConnection).where(OpenStackConnection.cloud_id.in_(cloud_ids))
+        ).all()
+        for connection in connections:
+            self._erase_connection(connection)
 
     def delete_cloud(self, cloud_id: int) -> None:
         cloud = self.db.get(OpenStackCloud, cloud_id)

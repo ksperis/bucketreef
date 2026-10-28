@@ -8,6 +8,7 @@ from pydantic import EmailStr, field_validator
 from app.models.account_access import AccountAccessGrant
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
+from app.models.openstack import LinkedOpenStackCloud
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
 UiLanguage = Literal["en", "fr", "de", "zh"]
@@ -128,6 +129,7 @@ class UserCreate(ApiModel):
     manager_tool_access: Optional[ManagerToolAccess] = None
     browser_advanced_features_enabled: bool = False
     group_ids: Optional[list[int]] = None
+    openstack_cloud_ids: Optional[list[int]] = None
 
 
 class UserProfilePreferencesUpdate(ApiModel):
@@ -153,6 +155,7 @@ class UserUpdate(UserProfilePreferencesUpdate):
     s3_user_links: Optional[list[S3UserMembership]] = None
     s3_connection_ids: Optional[list[int]] = None
     group_ids: Optional[list[int]] = None
+    openstack_cloud_ids: Optional[list[int]] = None
 
 
 class UserSelfUpdate(UserProfilePreferencesUpdate):
@@ -202,6 +205,7 @@ class UserOut(ApiModel):
     s3_user_links: list[S3UserMembership]
     s3_user_details: list[LinkedS3User]
     s3_connection_details: list[LinkedS3Connection]
+    openstack_cloud_details: list[LinkedOpenStackCloud]
     effective_access: EffectiveUserAccess
     last_login_at: Optional[datetime]
 

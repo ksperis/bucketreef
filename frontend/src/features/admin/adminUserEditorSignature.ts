@@ -9,10 +9,12 @@ type AdminUserEditorSignatureInput = {
   selectedAccounts: AccountSelection[];
   selectedS3Users: S3UserMembership[];
   selectedS3Connections: number[];
+  selectedOpenStackClouds: number[];
   selectedGroups: number[];
   pendingAccountSelections: number[];
   pendingS3UserSelections: number[];
   pendingConnectionSelections: number[];
+  pendingOpenStackSelections: number[];
   pendingGroupSelections: number[];
   accountAccessChoice: Record<number, AccountAccessGrant>;
 };
@@ -29,10 +31,12 @@ export function emptyAdminUserEditorSignature(
     selectedAccounts: [],
     selectedS3Users: [],
     selectedS3Connections: [],
+    selectedOpenStackClouds: [],
     selectedGroups: [],
     pendingAccountSelections: [],
     pendingS3UserSelections: [],
     pendingConnectionSelections: [],
+    pendingOpenStackSelections: [],
     pendingGroupSelections: [],
     accountAccessChoice: {},
   });

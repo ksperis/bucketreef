@@ -36,6 +36,7 @@ import {
 import { S3AccountSummary, listMinimalS3Accounts } from "../../api/accounts";
 import { S3UserSummary, listMinimalS3Users } from "../../api/s3Users";
 import { S3ConnectionSummary, listMinimalS3Connections } from "../../api/s3ConnectionsAdmin";
+import { listAdminOpenStackClouds, type OpenStackCloud } from "../../api/openstack";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import {
   AccountAccessRoleValidationMessage,
@@ -83,7 +84,7 @@ import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
-type AssociationTab = "accounts" | "s3_users" | "connections";
+type AssociationTab = "accounts" | "s3_users" | "connections" | "openstack";
 const MAX_VISIBLE_OPTIONS = 10;
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
   { value: "users", label: "team" },
@@ -112,6 +113,7 @@ function emptyGroupForm(): UiGroupPayload {
     account_links: [],
     s3_user_links: [],
     s3_connection_ids: [],
+    openstack_cloud_ids: [],
   };
 }
 
@@ -140,6 +142,7 @@ function groupFormFromGroup(group: UiGroup): UiGroupPayload {
       allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     })),
     s3_connection_ids: group.s3_connection_details.map((connection) => Number(connection.id)),
+    openstack_cloud_ids: (group.openstack_cloud_details ?? []).map((cloud) => Number(cloud.id)),
   };
 }
 
@@ -175,6 +178,7 @@ export default function GroupsPage() {
   const [accounts, setAccounts] = useState<S3AccountSummary[]>([]);
   const [s3Users, setS3Users] = useState<S3UserSummary[]>([]);
   const [connections, setConnections] = useState<S3ConnectionSummary[]>([]);
+  const [openStackClouds, setOpenStackClouds] = useState<OpenStackCloud[]>([]);
   const [loading, setLoading] = useState(true);
   const [auxLoading, setAuxLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -208,6 +212,16 @@ export default function GroupsPage() {
     setSelections: setMemberSelections,
     reset: resetMemberPicker,
     toggleSelection: toggleMemberSelection,
+  } = useAdminAssociationPickerState();
+  const {
+    search: openStackSearch,
+    setSearch: setOpenStackSearch,
+    open: showOpenStackPicker,
+    setOpen: setShowOpenStackPicker,
+    selections: openStackSelections,
+    setSelections: setOpenStackSelections,
+    reset: resetOpenStackPicker,
+    toggleSelection: toggleOpenStackSelection,
   } = useAdminAssociationPickerState();
   const {
     search: accountSearch,
@@ -326,16 +340,18 @@ export default function GroupsPage() {
   const loadAuxiliaryData = useCallback(async () => {
     setAuxLoading(true);
     try {
-      const [nextUsers, nextAccounts, nextS3Users, nextConnections] = await Promise.all([
+      const [nextUsers, nextAccounts, nextS3Users, nextConnections, nextOpenStackClouds] = await Promise.all([
         listMinimalUsers(),
         listMinimalS3Accounts(),
         listMinimalS3Users(),
         listMinimalS3Connections(),
+        listAdminOpenStackClouds(),
       ]);
       setUsers(nextUsers);
       setAccounts(nextAccounts);
       setS3Users(nextS3Users);
       setConnections(nextConnections);
+      setOpenStackClouds(nextOpenStackClouds);
     } catch (err) {
       setActionError(extractApiError(err, errorTextRef.current("loadResourcesError")));
     } finally {
@@ -363,6 +379,7 @@ export default function GroupsPage() {
     resetAccountPicker();
     resetS3UserPicker();
     resetConnectionPicker();
+    resetOpenStackPicker();
     setAccountAccessChoice({});
     setAvatarFile(null);
     setRemoveAvatarImage(false);
@@ -410,7 +427,7 @@ export default function GroupsPage() {
   const hasUnsavedChanges = showModal && (
     stableSignature(form) !== initialFormSignature || Boolean(avatarFile) || removeAvatarImage ||
     memberSelections.length > 0 || accountSelections.length > 0 || s3UserSelections.length > 0 ||
-    connectionSelections.length > 0 || Object.keys(accountAccessChoice).length > 0
+    connectionSelections.length > 0 || openStackSelections.length > 0 || Object.keys(accountAccessChoice).length > 0
   );
   const closeGuard = useSettingsCloseGuard({
     hasUnsavedChanges,
@@ -461,7 +478,7 @@ export default function GroupsPage() {
       can_provision_managed_private_connections: Boolean(form.can_provision_managed_private_connections),
       browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
       manager_tool_access: normalizeManagerToolAccess(form.manager_tool_access),
-      user_ids: form.user_ids ?? [],
+      ...(editingGroup?.system_key ? {} : { user_ids: form.user_ids ?? [] }),
       account_links:
         form.account_links?.map((link) => ({
           account_id: Number(link.account_id),
@@ -471,6 +488,7 @@ export default function GroupsPage() {
         })) ?? [],
       s3_user_links: form.s3_user_links ?? [],
       s3_connection_ids: form.s3_connection_ids ?? [],
+      openstack_cloud_ids: form.openstack_cloud_ids ?? [],
     };
     savingRef.current = true;
     setSaving(true);
@@ -499,6 +517,7 @@ export default function GroupsPage() {
         setAccountSelections([]);
         setS3UserSelections([]);
         setConnectionSelections([]);
+        setOpenStackSelections([]);
         setAccountAccessChoice({});
       } else {
         closeModal();
@@ -534,6 +553,7 @@ export default function GroupsPage() {
   const selectedUserIds = new Set(form.user_ids ?? []);
   const selectedS3UserIds = new Set((form.s3_user_links ?? []).map((link) => link.s3_user_id));
   const selectedConnectionIds = new Set(form.s3_connection_ids ?? []);
+  const selectedOpenStackCloudIds = new Set(form.openstack_cloud_ids ?? []);
   const selectedAccountIds = new Set((form.account_links ?? []).map((link) => Number(link.account_id)));
   const showAccountPortalRoleColumn = showPortalRole;
   const userLabelById = new Map(users.map((user) => [user.id, user.email]));
@@ -549,10 +569,14 @@ export default function GroupsPage() {
   const availableConnections = connections.filter(
     (connection) => !selectedConnectionIds.has(connection.id) && includesQuery(connection.name, connectionSearch)
   );
+  const availableOpenStackClouds = openStackClouds.filter(
+    (cloud) => !selectedOpenStackCloudIds.has(cloud.id) && includesQuery(cloud.name, openStackSearch)
+  );
   const visibleUsers = availableUsers.slice(0, MAX_VISIBLE_OPTIONS);
   const visibleAccounts = availableAccounts.slice(0, MAX_VISIBLE_OPTIONS);
   const visibleS3Users = availableS3Users.slice(0, MAX_VISIBLE_OPTIONS);
   const visibleConnections = availableConnections.slice(0, MAX_VISIBLE_OPTIONS);
+  const visibleOpenStackClouds = availableOpenStackClouds.slice(0, MAX_VISIBLE_OPTIONS);
 
   const renderMembersTab = () => (
     <AdminAssociationLinkedTable
@@ -998,13 +1022,102 @@ export default function GroupsPage() {
             />
           ),
         },
+        {
+          id: "openstack",
+          label: text("openStack"),
+          count: selectedOpenStackCloudIds.size,
+          actionLabel: showOpenStackPicker ? text("close") : text("addOpenStackClouds"),
+          onAction: () => setShowOpenStackPicker((current) => !current),
+          content: (
+            <AdminAssociationLinkedTable
+              title={text("linkedOpenStackClouds")}
+              headers={[{ label: text("cloud") }, { label: text("actions"), align: "right" }]}
+              hasItems={selectedOpenStackCloudIds.size > 0}
+              emptyLabel={text("noLinkedOpenStackClouds")}
+              rows={(form.openstack_cloud_ids ?? []).map((cloudId) => (
+                <tr key={cloudId}>
+                  <td className="ui-table-primary">
+                    {openStackClouds.find((cloud) => cloud.id === cloudId)?.name ?? text("cloudNumber", { id: cloudId })}
+                  </td>
+                  <td className="ui-table-actions-cell w-px text-right">
+                    <ListActionButton
+                      type="button"
+                      variant="danger"
+                      onClick={() =>
+                        setForm((current) => ({
+                          ...current,
+                          openstack_cloud_ids: (current.openstack_cloud_ids ?? []).filter((id) => id !== cloudId),
+                        }))
+                      }
+                    >
+                      {text("remove")}
+                    </ListActionButton>
+                  </td>
+                </tr>
+              ))}
+              picker={
+                showOpenStackPicker ? (
+                  <AdminAssociationPickerPanel
+                    title={text("addOpenStackClouds")}
+                    hint={text("searchByName")}
+                    search={openStackSearch}
+                    onSearchChange={setOpenStackSearch}
+                    searchAriaLabel={text("searchGroupOpenStackClouds")}
+                    loading={auxLoading}
+                    availableCount={availableOpenStackClouds.length}
+                    maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                    selectedCount={openStackSelections.length}
+                    loadingLabel={text("loadingOpenStackClouds")}
+                    emptyLabel={text("noOpenStackCloudsAvailable")}
+                    addDisabled={openStackSelections.length === 0}
+                    onCancel={() => {
+                      setShowOpenStackPicker(false);
+                      setOpenStackSelections([]);
+                      setOpenStackSearch("");
+                    }}
+                    onAdd={() => {
+                      setForm((current) => ({
+                        ...current,
+                        openstack_cloud_ids: [
+                          ...new Set([...(current.openstack_cloud_ids ?? []), ...openStackSelections]),
+                        ].sort((a, b) => a - b),
+                      }));
+                      setShowOpenStackPicker(false);
+                      setOpenStackSelections([]);
+                      setOpenStackSearch("");
+                    }}
+                  >
+                    {visibleOpenStackClouds.map((cloud) => (
+                      <div
+                        key={cloud.id}
+                        className={adminAssociationOptionRowClass(openStackSelections.includes(cloud.id))}
+                      >
+                        <AdminAssociationOptionCheckbox
+                          checked={openStackSelections.includes(cloud.id)}
+                          onChange={() => toggleOpenStackSelection(cloud.id)}
+                          inputPosition="end"
+                          className="w-full justify-between"
+                        >
+                          <span>{cloud.name}</span>
+                        </AdminAssociationOptionCheckbox>
+                      </div>
+                    ))}
+                  </AdminAssociationPickerPanel>
+                ) : undefined
+              }
+            />
+          ),
+        },
       ]}
       activeTab={associationTab}
       onChange={(id) => {
-        setAssociationTab(id === "s3_users" ? "s3_users" : id === "connections" ? "connections" : "accounts");
+        setAssociationTab(
+          id === "s3_users" || id === "connections" || id === "openstack" ? id : "accounts"
+        );
         setShowAccountPicker(false);
         setShowS3UserPicker(false);
         setShowConnectionPicker(false);
+        setShowOpenStackPicker(false);
       }}
     />
   );
@@ -1085,7 +1198,7 @@ export default function GroupsPage() {
               idPrefix="admin-ui-group-editor"
               tabs={[
                 { id: "general", label: text("general") },
-                { id: "members", label: text("members") },
+                ...(!editingGroup?.system_key ? [{ id: "members" as const, label: text("members") }] : []),
                 { id: "associations", label: text("associations") },
                 { id: "access", label: text("platformAccess") },
               ]}
@@ -1095,13 +1208,16 @@ export default function GroupsPage() {
               <>
                 <SettingsSection title={text("identity")} presentation="compact">
                   <div className="settings-fields">
-                    <UiInput id="admin-ui-group-name" label={text("name")} required
+                    <UiInput id="admin-ui-group-name" label={text("name")} required disabled={Boolean(editingGroup?.system_key)}
                       value={form.name ?? ""} placeholder={text("namePlaceholder")}
                       error={attempted && !String(form.name || "").trim() ? text("nameRequired") : undefined}
                       onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} />
                     <UiTextarea label={text("description")} rows={3} value={form.description ?? ""}
                       placeholder={text("descriptionPlaceholder")}
                       onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+                    {editingGroup?.system_key === "all_users" && (
+                      <p className="settings-readonly">{text("allUsersImplicitMembership")}</p>
+                    )}
                   </div>
                 </SettingsSection>
                 <SettingsSection title={text("groupPictogram")} presentation="compact"

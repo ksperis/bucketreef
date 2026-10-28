@@ -112,6 +112,10 @@ export type User = {
     id: number;
     name: string;
   }[];
+  openstack_cloud_details: {
+    id: number;
+    name: string;
+  }[];
   effective_access: EffectiveUserAccess;
   last_login_at: string | null;
 };
@@ -136,6 +140,7 @@ export type CreateUserPayload = {
   manager_tool_access?: ManagerToolAccess | null;
   browser_advanced_features_enabled?: boolean;
   group_ids?: number[] | null;
+  openstack_cloud_ids?: number[] | null;
 };
 
 export type UpdateUserPayload = {
@@ -158,6 +163,7 @@ export type UpdateUserPayload = {
   s3_user_links?: S3UserMembership[] | null;
   s3_connection_ids?: number[] | null;
   group_ids?: number[] | null;
+  openstack_cloud_ids?: number[] | null;
 };
 
 type UpdateCurrentUserPayload = {

@@ -18,7 +18,75 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0195_openstack_catalog_targets"
+_EXPECTED_ALEMBIC_HEAD = "0196_openstack_all_users_group"
+
+
+def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):
+    database_path = tmp_path / "openstack-all-users.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0195_openstack_catalog_targets")
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO ui_groups (id, name, description, created_at, updated_at) "
+                    "VALUES (23, 'All users', 'Legacy custom group', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                )
+            )
+            connection.execute(
+                sa.text(
+                    "INSERT INTO openstack_clouds "
+                    "(id, name, auth_url, enabled, allow_password, allow_token, managed_endpoints_only, "
+                    "default_domain, all_users, config_version, created_at) "
+                    "VALUES (17, 'Global legacy cloud', 'https://identity.example.test/v3', "
+                    "1, 1, 1, 1, NULL, 1, 1, CURRENT_TIMESTAMP)"
+                )
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            inspector = sa.inspect(connection)
+            assert "all_users" not in {
+                column["name"] for column in inspector.get_columns("openstack_clouds")
+            }
+            group = connection.execute(
+                sa.text(
+                    "SELECT id, name, system_key FROM ui_groups WHERE system_key = 'all_users'"
+                )
+            ).mappings().one()
+            assert group["name"] == "All users"
+            legacy_group = connection.execute(
+                sa.text(
+                    "SELECT id, name, system_key, description FROM ui_groups WHERE id = 23"
+                )
+            ).mappings().one()
+            assert legacy_group == {
+                "id": 23,
+                "name": "All users (custom)",
+                "system_key": None,
+                "description": "Legacy custom group",
+            }
+            assert connection.scalar(
+                sa.text(
+                    "SELECT count(*) FROM openstack_cloud_groups "
+                    "WHERE cloud_id = 17 AND group_id = :group_id"
+                ),
+                {"group_id": group["id"]},
+            ) == 1
+            assert connection.scalar(
+                sa.text("SELECT count(*) FROM user_ui_groups WHERE group_id = :group_id"),
+                {"group_id": group["id"]},
+            ) == 0
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
 
 
 def _alembic_config() -> Config:
