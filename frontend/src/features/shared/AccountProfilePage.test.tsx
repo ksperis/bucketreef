@@ -80,6 +80,13 @@ describe("AccountProfilePage", () => {
     expect(screen.getByRole("tab", { name: "Private S3 connections" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Security" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "API tokens" })).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Profile and preferences",
+      "Security",
+      "Private S3 connections",
+      "OpenStack",
+      "API tokens",
+    ]);
     expect(screen.getByText("Your details, preferences, and sign-in security.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Private S3 connections" }));
