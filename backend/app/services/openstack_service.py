@@ -12,7 +12,11 @@ from sqlalchemy.orm import Session
 from app.db import AuthSession, StorageEndpoint, UiGroup, User
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
 from app.models.account_capabilities import AccountCapabilities
-from app.models.execution_context import ExecutionContext, ExecutionContextCapabilities
+from app.models.execution_context import (
+    ExecutionContext,
+    ExecutionContextCapabilities,
+    OpenStackExecutionContextMetadata,
+)
 from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
 from app.services.s3_execution_context import S3ExecutionContext
@@ -380,10 +384,16 @@ class OpenStackService:
                 continue
             caps = {"admin": False, "metrics": False, "usage": False, "sts": False, "iam": execution.manager_capabilities.can_manage_iam}
             result.append(ExecutionContext(
-                kind="openstack_project", id=execution.context_id, display_name=execution.name,
+                kind="openstack_project", id=execution.context_id, display_name=context.project_name,
                 connection_scope="private", manager_role=None, portal_role=None, rgw_account_id=None,
                 **_storage_endpoint_projection(context.endpoint, capability_overrides=caps), tags=[], endpoint_tags=[],
                 capabilities=ExecutionContextCapabilities(can_manage_iam=execution.manager_capabilities.can_manage_iam, sts_capable=False, admin_api_capable=False),
+                openstack=OpenStackExecutionContextMetadata(
+                    cloud_name=context.connection.cloud.name,
+                    identity_name=context.connection.display_name,
+                    project_id=context.project_id,
+                    project_name=context.project_name,
+                ),
             ))
         return result
 

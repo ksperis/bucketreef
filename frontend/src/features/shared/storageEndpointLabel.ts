@@ -37,6 +37,9 @@ export function formatAccountLabel(
   context: AccountLike,
   includeContextBadge = true
 ): string {
+  if (isExecutionContext(context) && context.kind === "openstack_project") {
+    return context.openstack?.project_name || context.display_name;
+  }
   const isS3User = isExecutionContext(context) && context.kind === "s3_user";
   const isConnection = isExecutionContext(context) && context.kind === "connection";
   const badge = includeContextBadge

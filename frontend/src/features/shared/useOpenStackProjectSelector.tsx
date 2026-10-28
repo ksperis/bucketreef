@@ -129,8 +129,8 @@ export function useOpenStackProjectSelector({
     () => options
       .map((option) => ({
         value: openStackProjectOptionValue(option),
-        label: `${option.project_name} · OpenStack`,
-        description: `${option.cloud_name} · ${option.identity_name}`,
+        label: option.project_name,
+        description: `OpenStack · ${option.cloud_name} · ${option.identity_name}`,
         searchText: [
           option.project_id,
           option.project_domain_id,

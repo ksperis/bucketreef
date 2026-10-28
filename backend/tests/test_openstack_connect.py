@@ -88,7 +88,15 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
 
     first_context = service.activate(user, auth.id, connection.id, "project-a", endpoint.id, None)
     assert service.project_options(user, auth.id) == []
-    assert [row.id for row in service.catalogue(user, auth.id)] == [first_context]
+    catalogue = service.catalogue(user, auth.id)
+    assert [row.id for row in catalogue] == [first_context]
+    assert catalogue[0].display_name == "Project A"
+    assert catalogue[0].openstack.model_dump() == {
+        "cloud_name": "Cloud A",
+        "identity_name": "Person",
+        "project_id": "project-a",
+        "project_name": "Project A",
+    }
 
     service.authenticate(
         user,
