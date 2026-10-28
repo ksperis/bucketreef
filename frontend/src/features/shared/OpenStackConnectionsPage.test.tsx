@@ -30,7 +30,6 @@ describe("OpenStack connections", () => {
     expect(screen.queryByText("Project access")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Browser" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open Manager" })).not.toBeInTheDocument();
-    expect(api.listOpenStackProjects).not.toHaveBeenCalled();
     expect(api.getOpenStackProjectAccess).not.toHaveBeenCalled();
   });
 

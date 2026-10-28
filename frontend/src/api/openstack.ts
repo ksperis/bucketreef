@@ -13,7 +13,6 @@ export type OpenStackConnection = {
   id: string; cloud_id: number; cloud_name: string; display_name: string; keystone_user_id: string;
   connected: boolean; expires_at: string | null;
 };
-export type OpenStackProject = { id: string; name: string; domain_id: string | null };
 export type OpenStackProjectOption = {
   connection_id: string;
   cloud_id: number;
@@ -56,9 +55,6 @@ export async function listOpenStackConnections(): Promise<OpenStackConnection[]>
 }
 export async function connectOpenStack(payload: OpenStackAuthentication): Promise<OpenStackConnection> {
   return (await client.post<OpenStackConnection>(`${root}/connections`, payload)).data;
-}
-export async function listOpenStackProjects(id: string): Promise<OpenStackProject[]> {
-  return (await client.get<OpenStackProject[]>(`${root}/connections/${encodeURIComponent(id)}/projects`)).data;
 }
 export async function listOpenStackProjectOptions(): Promise<OpenStackProjectOption[]> {
   return (await client.get<OpenStackProjectOption[]>(`${root}/project-options`)).data;

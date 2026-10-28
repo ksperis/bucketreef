@@ -171,13 +171,6 @@ class OpenStackService:
                     display_name=connection.display_name, keystone_user_id=connection.keystone_user_id,
                     connected=connected, expires_at=session.expires_at if connected else None)
 
-    def projects(self, user: User, auth_id: str, connection_id: str) -> list[dict]:
-        connection = self.owned(user, connection_id)
-        session = self._session(user, auth_id, connection)
-        projects = KeystoneClient(connection.cloud.auth_url).projects(session.token)
-        self._session(user, auth_id, connection, expected_id=session.id)
-        return projects
-
     def _managed_endpoint(self, endpoint_url: str):
         try:
             canonical_url = validate_openstack_catalog_s3_endpoint(endpoint_url)
@@ -301,9 +294,6 @@ class OpenStackService:
                     "project_domain_id": project.get("domain_id"),
                 })
         return result
-
-    def keys(self, user: User, auth_id: str, connection_id: str, project_id: str) -> list[dict]:
-        return self.project_access(user, auth_id, connection_id, project_id)["credentials"]
 
     def activate(self, user: User, auth_id: str, connection_id: str, project_id: str, target_id: str, access_key: str | None) -> str:
         connection = self.owned(user, connection_id)
