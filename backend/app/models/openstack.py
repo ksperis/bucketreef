@@ -83,12 +83,6 @@ class OpenStackConnectionRead(ApiModel):
     expires_at: datetime | None
 
 
-class OpenStackProjectRead(ApiModel):
-    id: str
-    name: str
-    domain_id: str | None = None
-
-
 class OpenStackProjectOptionRead(ApiModel):
     connection_id: str
     cloud_id: int

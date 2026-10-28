@@ -14,7 +14,7 @@ from app.db.openstack import OpenStackCloud, OpenStackConnection
 from app.models.openstack import (
     OpenStackActivate, OpenStackAuthenticate, OpenStackCloudPublic,
     OpenStackCloudWrite, OpenStackConnectionRead, OpenStackContextRead, OpenStackProjectAccessRead,
-    OpenStackProjectOptionRead, OpenStackProjectRead,
+    OpenStackProjectOptionRead,
 )
 from app.routers.dependencies import get_current_account_user
 from app.services.audit_service import AuditService
@@ -83,11 +83,6 @@ def connect(payload: OpenStackAuthenticate, request: Request, db: Session = Depe
     return service.connection_read(connection, user, session.id)
 
 
-@router.get("/connections/{connection_id}/projects", response_model=list[OpenStackProjectRead])
-def projects(connection_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
-    return OpenStackService(db).projects(user, session.id, connection_id)
-
-
 @router.get("/project-options", response_model=list[OpenStackProjectOptionRead])
 def project_options(db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
     return OpenStackService(db).project_options(user, session.id)
@@ -100,12 +95,6 @@ def project_access(connection_id: str, project_id: str, db: Session = Depends(ge
         "targets": access["targets"],
         "access_keys": [key["access"] for key in access["credentials"]],
     }
-
-
-@router.get("/connections/{connection_id}/projects/{project_id}/credentials", response_model=list[str])
-def credentials(connection_id: str, project_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
-    return [key["access"] for key in OpenStackService(db).keys(user, session.id, connection_id, project_id)]
-
 
 @router.post("/connections/{connection_id}/contexts", response_model=OpenStackContextRead)
 def activate(connection_id: str, payload: OpenStackActivate, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
