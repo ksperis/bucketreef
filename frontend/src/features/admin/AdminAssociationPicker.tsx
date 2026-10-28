@@ -72,9 +72,14 @@ export function AdminAssociationSectionHeader({
   onAction,
 }: AdminAssociationSectionHeaderProps) {
   return (
-    <ListToolbar variant="page" title={title} countLabel={countLabel}
-      className="admin-association-toolbar"
-      actions={<ListActionButton onClick={onAction}>{actionLabel}</ListActionButton>} />
+    <div
+      className="admin-association-section-header flex min-w-0 flex-wrap items-center justify-between gap-2"
+      role="region"
+      aria-label={title}
+    >
+      <span className={cx("ui-caption", uiMutedTextClass)}>{countLabel}</span>
+      <ListActionButton onClick={onAction}>{actionLabel}</ListActionButton>
+    </div>
   );
 }
 
@@ -107,16 +112,25 @@ export function AdminAssociationTabs<T extends string>({
         variant="bar"
         ariaLabel={text("associationTypes")}
         idPrefix={idPrefix}
-        tabs={tabs.map(({ id, label, count }) => ({ id, label: `${label} (${count})` }))}
+        tabs={tabs.map(({ id, label }) => ({ id, label }))}
         activeTab={activeTab}
         onChange={(id) => onChange(id as T)}
-        headerActions={active ? <>
-          {active.hint ? <span className={cx("ui-caption", uiMutedTextClass)}>{active.hint}</span> : null}
-          <ListActionButton onClick={active.onAction}>{active.actionLabel}</ListActionButton>
-        </> : undefined}
       />
       <PageTabPanel idPrefix={idPrefix} tabId={activeTab} className="min-w-0">
-        {active?.content}
+        {active ? (
+          <div className="space-y-3">
+            <AdminAssociationSectionHeader
+              title={active.label}
+              countLabel={text("linkedCount", { count: active.count })}
+              actionLabel={active.actionLabel}
+              onAction={active.onAction}
+            />
+            {active.hint ? (
+              <p className={cx("ui-caption", uiMutedTextClass)}>{active.hint}</p>
+            ) : null}
+            {active.content}
+          </div>
+        ) : null}
       </PageTabPanel>
     </div>
   );

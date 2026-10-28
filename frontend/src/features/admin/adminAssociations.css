@@ -1,13 +1,4 @@
-/* Association tabs own their compact spacing without changing other workflows. */
-.admin-association-toolbar.ui-list-toolbar {
-  --list-toolbar-padding: 0;
-  border: 0;
-}
-.admin-association-toolbar .ui-list-toolbar-count {
-  order: -1;
-  margin-left: 0;
-  margin-right: auto;
-}
+/* Association tabs stay flat inside their owning editor/tab surface. */
 .admin-association-tabs [role="tab"] {
   min-height: var(--list-control-height);
 }
@@ -23,7 +14,7 @@
 @media (max-width: 1023px), (any-pointer: coarse) {
   .admin-association-tabs [role="tab"],
   .admin-association-tabs .ui-list-action,
-  .admin-association-toolbar .ui-list-action {
+  .admin-association-section-header .ui-list-action {
     min-height: 44px;
   }
 }

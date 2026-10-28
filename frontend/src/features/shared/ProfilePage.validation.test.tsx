@@ -605,7 +605,7 @@ describe("ProfilePage live validation", () => {
 
   it("clears private connection selection when changing page", async () => {
     listConnectionsMock.mockResolvedValue(
-      Array.from({ length: 12 }, (_, index) =>
+      Array.from({ length: 30 }, (_, index) =>
         makeConnection({
           id: 200 + index,
           name: `page-connection-${index + 1}`,

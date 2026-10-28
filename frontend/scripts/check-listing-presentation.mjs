@@ -9,12 +9,34 @@ const root = path.resolve(import.meta.dirname, "../src");
 const violations = [];
 let tables = 0;
 let actions = 0;
+const manualTableAllowlist = new Map([
+  ["components/list/DataTableShell.tsx", 1],
+  ["demo/toolbar.tsx", 1],
+  ["features/admin/AdminAssociationPicker.tsx", 2],
+  ["features/admin/AdminDashboard.tsx", 1],
+  ["features/admin/S3ConnectionsPage.tsx", 2],
+  ["features/admin/S3UsersPage.tsx", 2],
+  ["features/browser/BrowserObjectTableScaffold.tsx", 1],
+  ["features/cephAdmin/CephAdminAccountEditModal.tsx", 1],
+  ["features/cephAdmin/CephAdminBucketIndexCheckPage.tsx", 1],
+  ["features/cephAdmin/CephAdminUserEditModal.tsx", 2],
+  ["features/manager/BucketDetailPage.tsx", 1],
+  ["features/manager/FeatureRulesTable.tsx", 1],
+  ["features/manager/bucketDetail/BucketAclFeature.tsx", 1],
+  ["features/shared/BucketOperationResult.tsx", 1],
+  ["features/shared/BucketOpsBulkTransferFields.tsx", 1],
+  ["features/shared/BucketOpsTable.tsx", 1],
+  ["features/shared/BucketUsageStatsRunModal.tsx", 1],
+  ["features/shared/ObjectTextPreview.tsx", 1],
+  ["features/shared/bucketCompareShared.tsx", 1],
+]);
 const geometry = /(?:^|\s)(?:\S+:)?!?(?:rounded(?:-\S+)?|font-(?:normal|medium|semibold|bold)|text-(?:xs|sm|base|\[\d[^\]]*\])|(?:min-)?h-\S+|px-\S+|py-\S+)(?=\s|$)/;
 
 function inspect(file) {
   const source = fs.readFileSync(file, "utf8");
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const relative = path.relative(root, file);
+  let rawTables = 0;
   const report = (node, message) => violations.push(`${relative}:${ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1}: ${message}`);
   if (/\b(?:manager-table|compact-table)\b/.test(source)) report(ast, "Use the shared ui-data-table foundation.");
   const visit = (node) => {
@@ -39,6 +61,7 @@ function inspect(file) {
         }
       }
       if (tag === "table" || tag === "DataTableShell") tables += 1;
+      if (tag === "table") rawTables += 1;
       if (["ListActionButton", "ListActionLink", "ListBadge"].includes(tag)) {
         actions += 1;
         const className = node.attributes.properties.find((prop) => ts.isJsxAttribute(prop) && prop.name.getText(ast) === "className");
@@ -58,6 +81,15 @@ function inspect(file) {
     ts.forEachChild(node, visit);
   };
   visit(ast);
+  const allowedManualTables = manualTableAllowlist.get(relative) ?? 0;
+  if (rawTables !== allowedManualTables) {
+    report(
+      ast,
+      rawTables > allowedManualTables
+        ? `Use DataTableShell for ordinary tables. Manual <table> sites are limited to the reviewed specialized allow-list (${allowedManualTables} allowed here, found ${rawTables}).`
+        : `Update the manual-table allow-list after removing a reviewed exception (${allowedManualTables} allowed here, found ${rawTables}).`,
+    );
+  }
 }
 function walk(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {

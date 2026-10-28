@@ -8,6 +8,7 @@ const m = (en: string, zh: string) => adminMessage(en, zh);
 
 const adminAssociationMessages = {
   associationTypes: m("Association types", "关联类型"),
+  linkedCount: m("{count} linked", "已关联 {count} 项"),
   managerRole: m("Manager role", "Manager 角色"),
   portalRole: m("Portal role", "Portal 角色"),
   noResults: m("No results.", "没有结果。"),

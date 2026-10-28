@@ -161,6 +161,38 @@ When row actions stay visible, order them **Set as default**, **Edit/View**,
 remain at least 44px. The information limits above apply only to this endpoint
 inventory, not to other tables.
 
+## Table contexts
+
+BucketReef uses three table contexts. Choose the context from the workflow,
+then keep the shared table geometry and interaction language inside it.
+
+1. **Page inventory.** Use one `ListPageSection` surface containing the list
+   toolbar, `DataTableShell`, and pagination when needed. Keep the page title and
+   primary create action in `PageHeader`. Default paginated inventories to 25
+   rows when no workflow-specific size is required, normally offering
+   `10 / 25 / 50 / 100`.
+2. **Embedded association or configuration.** Keep the presentation flat inside
+   the owning tab, editor, dialog, or settings section. Show only useful state
+   such as the linked count plus the local Add action, followed by the table.
+   Do not repeat the tab title in another card header, add a redundant list
+   toolbar, or nest card borders. Use `DataTableShell` for ordinary data rows;
+   a shared lightweight association wrapper is acceptable when the caller owns
+   composed row content. Small association lists normally do not paginate, and
+   search is added only when the available catalogue is large enough to need it.
+3. **Specialized operational grid.** Browser, Bucket Ops, diagnostics, previews,
+   and similar tools may retain task-specific geometry, horizontal scrolling,
+   selection behavior, or row modes. They still consume the shared typography,
+   header treatment, separators, selection and hover states, action controls,
+   and density tokens.
+
+Across all three contexts, one functional block owns one visual boundary. Keep
+tables flat with a muted header, thin horizontal separators, discreet hover and
+selection states, and no vertical grid. Avoid nested cards, decorative shadows,
+or extra framing. The first meaningful column is the primary identity; numeric
+values align right; row actions align right. Use badges only for semantic
+status, type, or role information. Prefer one to three visible compact actions
+and move lower-priority actions into the shared More menu when necessary.
+
 ## Common table and listing presentation
 
 Use `DataTableShell` or the `ui-data-table` foundation for every table, including
