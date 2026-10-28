@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
 from app.db import AuthSession, StorageEndpoint, UiGroup, User, UserUiGroup
-from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectCredential, OpenStackSession
+from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
 from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite
 from app.services.auth_session_service import AuthSessionService
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
@@ -57,6 +57,49 @@ def connect(db, setup):
     connection = service.authenticate(user, auth.id, OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"))
     ctx = service.activate(user, auth.id, connection.id, "project-a", endpoint.id, None)
     return service, user, auth, connection, ctx
+
+
+def test_connected_projects_are_candidates_and_reuse_previously_activated_context(db_session, setup_cloud):
+    user, endpoint, cloud = setup_cloud
+    auth, _ = authenticated(db_session, user)
+    service = OpenStackService(db_session)
+    connection = service.authenticate(
+        user,
+        auth.id,
+        OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"),
+    )
+
+    assert service.catalogue(user, auth.id) == []
+    options = service.project_options(user, auth.id)
+    assert options == [{
+        "connection_id": connection.id,
+        "cloud_id": cloud.id,
+        "cloud_name": "Cloud A",
+        "identity_name": "Person",
+        "keystone_user_id": "keystone-user",
+        "project_id": "project-a",
+        "project_name": "Project A",
+        "project_domain_id": "domain-a",
+        "endpoints": [{"id": endpoint.id, "name": "S3", "region": "region-a"}],
+    }]
+    access = ExecutionContextCatalogService(db_session, auth.id).workspace_access(user)
+    assert access.manager.available and access.manager.context_count == 1
+    assert access.browser.available and access.browser.context_count == 1
+
+    first_context = service.activate(user, auth.id, connection.id, "project-a", endpoint.id, None)
+    assert service.project_options(user, auth.id) == []
+    assert [row.id for row in service.catalogue(user, auth.id)] == [first_context]
+
+    service.authenticate(
+        user,
+        auth.id,
+        OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"),
+    )
+    assert service.catalogue(user, auth.id) == []
+    assert [item["project_id"] for item in service.project_options(user, auth.id)] == ["project-a"]
+    second_context = service.activate(user, auth.id, connection.id, "project-a", endpoint.id, None)
+    assert second_context == first_context
+    assert db_session.query(OpenStackProjectContext).count() == 1
 
 
 def test_context_is_explicit_private_session_bound_and_secrets_are_encrypted(db_session, setup_cloud):

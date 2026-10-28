@@ -115,6 +115,22 @@ describe("TopbarContextAccountSelector", () => {
     expect(within(listbox).getByRole("option", { name: /Team storage.*S3 connection/ })).toBeInTheDocument();
   });
 
+  it("labels an activated OpenStack project as OpenStack", async () => {
+    const user = userEvent.setup();
+    renderSelector({
+      contexts: [
+        makeContext({
+          id: "os-project-a",
+          kind: "openstack_project",
+          display_name: "Project A",
+        }),
+      ],
+    });
+
+    const listbox = await openMenu(user);
+    expect(within(listbox).getByRole("option", { name: /Project A.*OpenStack/ })).toBeInTheDocument();
+  });
+
   it("uses id as deterministic tie-breaker when type, name and label are identical", async () => {
     const user = userEvent.setup();
     const onContextChange = vi.fn();

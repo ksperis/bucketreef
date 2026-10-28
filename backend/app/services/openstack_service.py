@@ -169,6 +169,90 @@ class OpenStackService:
         self._session(user, auth_id, connection, expected_id=session.id)
         return projects
 
+    def _active_sessions(self, user: User, auth_id: str | None) -> list[OpenStackSession]:
+        if not auth_id:
+            return []
+        try:
+            self._auth(user, auth_id)
+        except OpenStackError:
+            return []
+        allowed_cloud_ids = {cloud.id for cloud in self.allowed_clouds(user)}
+        now = utcnow()
+        sessions = self.db.scalars(
+            select(OpenStackSession)
+            .join(OpenStackConnection)
+            .where(
+                OpenStackConnection.user_id == user.id,
+                OpenStackSession.auth_session_id == auth_id,
+            )
+            .execution_options(populate_existing=True)
+        ).all()
+        return [
+            session
+            for session in sessions
+            if session.connection.cloud_id in allowed_cloud_ids
+            and session.token
+            and session.expires_at > now
+            and session.cloud_version == session.connection.cloud.config_version
+        ]
+
+    def pending_connection_count(self, user: User, auth_id: str | None) -> int:
+        """Count connected identities that do not already expose an executable context.
+
+        This remains a local database check so workspace discovery never makes
+        workspace-access depend on Keystone network availability.
+        """
+        now = utcnow()
+        pending = 0
+        for session in self._active_sessions(user, auth_id):
+            allowed_endpoint_ids = {endpoint.id for endpoint in session.connection.cloud.endpoints}
+            executable = any(
+                credential.secret_key
+                and credential.expires_at > now
+                and credential.context.endpoint_id in allowed_endpoint_ids
+                for credential in session.credentials
+            )
+            if not executable:
+                pending += 1
+        return pending
+
+    def project_options(self, user: User, auth_id: str) -> list[dict]:
+        """Return Keystone projects that still need a session-bound S3 context."""
+        result: list[dict] = []
+        now = utcnow()
+        for session in self._active_sessions(user, auth_id):
+            connection = session.connection
+            cloud = self.cloud(user, connection.cloud_id)
+            projects = KeystoneClient(cloud.auth_url).projects(session.token)
+            self._session(user, auth_id, connection, expected_id=session.id)
+            endpoint_ids = {endpoint.id for endpoint in cloud.endpoints}
+            active_project_ids = {
+                credential.context.project_id
+                for credential in session.credentials
+                if credential.secret_key
+                and credential.expires_at > now
+                and credential.context.endpoint_id in endpoint_ids
+            }
+            endpoints = [
+                {"id": endpoint.id, "name": endpoint.name, "region": endpoint.region}
+                for endpoint in sorted(cloud.endpoints, key=lambda item: (item.name.casefold(), item.id))
+            ]
+            for project in sorted(projects, key=lambda item: (item["name"].casefold(), item["id"])):
+                if project["id"] in active_project_ids:
+                    continue
+                result.append({
+                    "connection_id": connection.id,
+                    "cloud_id": cloud.id,
+                    "cloud_name": cloud.name,
+                    "identity_name": connection.display_name,
+                    "keystone_user_id": connection.keystone_user_id,
+                    "project_id": project["id"],
+                    "project_name": project["name"],
+                    "project_domain_id": project.get("domain_id"),
+                    "endpoints": endpoints,
+                })
+        return result
+
     def keys(self, user: User, auth_id: str, connection_id: str, project_id: str) -> list[dict]:
         connection = self.owned(user, connection_id)
         session = self._session(user, auth_id, connection)

@@ -78,6 +78,7 @@ function contextKindRank(kind: ExecutionContext["kind"]): number {
 
 type TopbarContextAccountSelectorProps = {
   contexts: ExecutionContext[];
+  additionalOptions?: TopbarDropdownOption[];
   selectedContextId: string | null;
   onContextChange: (selectedValue: string) => void;
   selectedLabel: string;
@@ -92,6 +93,7 @@ type TopbarContextAccountSelectorProps = {
 
 export default function TopbarContextAccountSelector({
   contexts,
+  additionalOptions = [],
   selectedContextId,
   onContextChange,
   selectedLabel,
@@ -106,8 +108,8 @@ export default function TopbarContextAccountSelector({
   const { text } = useShellI18n();
   const showSelectorTags = useSelectorTagsPreference();
   const options = useMemo<TopbarDropdownOption[]>(
-    () =>
-      contexts
+    () => {
+      const contextOptions = contexts
         .map((context) => {
           const label = formatAccountLabel(context);
           const description =
@@ -115,6 +117,8 @@ export default function TopbarContextAccountSelector({
               ? context.connection_scope === "shared"
                 ? text("sharedConnection")
                 : text("privateConnection")
+              : context.kind === "openstack_project"
+                ? "OpenStack"
               : context.kind === "s3_user"
                 ? text("s3UserIdentity")
                 : text("rgwAccount");
@@ -185,8 +189,11 @@ export default function TopbarContextAccountSelector({
           return a.value.localeCompare(b.value, undefined, {
             sensitivity: "base",
           });
-        }),
+        });
+      return [...contextOptions, ...additionalOptions];
+    },
     [
+      additionalOptions,
       contexts,
       showSelectorTags,
       showTriggerTags,

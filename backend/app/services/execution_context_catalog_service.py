@@ -183,10 +183,12 @@ class ExecutionContextCatalogService:
             )
         )
         from app.services.openstack_service import OpenStackService
-        external_count = len(OpenStackService(self.db).catalogue(user, self.auth_session_id))
+        openstack = OpenStackService(self.db)
+        external_count = len(openstack.catalogue(user, self.auth_session_id))
+        pending_openstack_count = openstack.pending_connection_count(user, self.auth_session_id)
         storage_ops_count = manager_count
-        manager_count += external_count
-        browser_count += external_count
+        manager_count += external_count + pending_openstack_count
+        browser_count += external_count + pending_openstack_count
         return {
             "manager": manager_count,
             "storage-ops": storage_ops_count,

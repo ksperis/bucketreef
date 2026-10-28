@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import {
@@ -63,34 +63,41 @@ export function useExecutionContextCatalog({
     return () => window.removeEventListener(EXECUTION_CONTEXTS_REFRESH_EVENT, handleRefresh);
   }, []);
 
+  const loadContexts = useCallback(async (signal?: AbortSignal): Promise<ExecutionContext[]> => {
+    setAccessError(null);
+    setLoadFailed(false);
+    if (!requiresSelection) {
+      setContexts([]);
+      setContextsLoaded(true);
+      return [];
+    }
+    try {
+      const data = await listExecutionContexts(scope, { signal });
+      if (signal?.aborted) return [];
+      const next = Array.isArray(data) ? data : [];
+      setContexts(next);
+      return next;
+    } catch (error) {
+      if (signal?.aborted) return [];
+      setContexts([]);
+      setLoadFailed(true);
+      setAccessError(accessDeniedMessage);
+      throw error;
+    } finally {
+      if (!signal?.aborted) setContextsLoaded(true);
+    }
+  }, [accessDeniedMessage, requiresSelection, scope]);
+
   useEffect(() => {
     const controller = new AbortController();
-    const load = async () => {
-      setAccessError(null);
-      setLoadFailed(false);
-      if (!requiresSelection) {
-        setContexts([]);
-        setContextsLoaded(true);
-        return;
-      }
-      try {
-        const data = await listExecutionContexts(scope, { signal: controller.signal });
-        if (controller.signal.aborted) return;
-        setContexts(Array.isArray(data) ? data : []);
-      } catch {
-        if (controller.signal.aborted) return;
-        setContexts([]);
-        setLoadFailed(true);
-        setAccessError(accessDeniedMessage);
-      } finally {
-        if (!controller.signal.aborted) {
-          setContextsLoaded(true);
-        }
-      }
-    };
-    void load();
+    void loadContexts(controller.signal).catch(() => undefined);
     return () => controller.abort();
-  }, [accessDeniedMessage, refreshToken, requiresSelection, scope]);
+  }, [loadContexts, refreshToken]);
+
+  const refreshContexts = useCallback(
+    () => loadContexts(),
+    [loadContexts],
+  );
 
   useEffect(() => {
     const clearSelection = () => {
@@ -153,6 +160,7 @@ export function useExecutionContextCatalog({
     contextsLoaded,
     selectedContextId,
     selectedContext,
+    refreshContexts,
     requiresSelection,
     accessError,
     sessionAccountName: sessionInfo.accountName,
