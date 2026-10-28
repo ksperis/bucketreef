@@ -182,7 +182,6 @@ function BrowserShell() {
         topbarControlDescriptors={isBrowserExplorerRoute ? topbarControlDescriptors : undefined}
         mainClassName={isBrowserExplorerRoute ? "pb-0" : undefined}
         disableMainScroll={isBrowserExplorerRoute}
-        fullHeight
       >
         {isBrowserExplorerRoute && accessError ? <PageBanner tone="warning">{accessError}</PageBanner> : null}
         {isBrowserExplorerRoute && requiresContextSelection && contextsLoaded && !selectedContextId ? (
