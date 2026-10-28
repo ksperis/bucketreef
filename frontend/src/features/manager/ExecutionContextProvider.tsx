@@ -16,6 +16,7 @@ type ExecutionContextState = {
   namingValidationProfile: NamingValidationProfile | null;
   contexts: ExecutionContext[];
   contextsLoaded: boolean;
+  refreshContexts: () => Promise<ExecutionContext[]>;
   selectedContextId: string | null;
   requiresContextSelection: boolean;
   hasExecutionContext: boolean;
@@ -42,6 +43,7 @@ const defaultExecutionContextState: ExecutionContextState = {
   namingValidationProfile: null,
   contexts: [],
   contextsLoaded: false,
+  refreshContexts: async () => [],
   selectedContextId: null,
   requiresContextSelection: true,
   hasExecutionContext: false,
@@ -81,6 +83,7 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
   const {
     contexts,
     contextsLoaded,
+    refreshContexts,
     selectedContextId,
     selectedContext,
     requiresSelection: requiresContextSelection,
@@ -186,6 +189,7 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
         namingValidationProfile,
         contexts,
         contextsLoaded,
+        refreshContexts,
         selectedContextId,
         requiresContextSelection,
         hasExecutionContext,

@@ -8,6 +8,7 @@ import type { SidebarBodyRenderArgs, SidebarLink } from "../../components/Sideba
 import BrowserLayout, { useBrowserSidebarSlot } from "./BrowserLayout";
 
 const useBrowserContextMock = vi.fn();
+const useOpenStackProjectSelectorMock = vi.fn();
 const fetchManagerContextMock = vi.hoisted(() => vi.fn(() => new Promise<never>(() => undefined)));
 const canAccessPrivateConnectionsSectionMock = vi.hoisted(() => vi.fn(() => false));
 let capturedLayoutProps: {
@@ -24,6 +25,7 @@ let capturedSelectorProps: {
   selectedLabel?: string;
   triggerMode?: "icon" | "icon_label";
   widthClassName?: string;
+  additionalOptions?: Array<{ value: string; label: string }>;
 } | null = null;
 
 vi.mock("./BrowserContext", () => ({
@@ -33,6 +35,10 @@ vi.mock("./BrowserContext", () => ({
 
 vi.mock("../../api/managerContext", () => ({
   fetchManagerContext: fetchManagerContextMock,
+}));
+
+vi.mock("../shared/useOpenStackProjectSelector", () => ({
+  useOpenStackProjectSelector: (options: unknown) => useOpenStackProjectSelectorMock(options),
 }));
 
 vi.mock("../../utils/workspaces", () => ({
@@ -75,6 +81,7 @@ vi.mock("../../components/TopbarContextAccountSelector", () => ({
     selectedContextId?: string | null;
     selectedLabel?: string;
     triggerMode?: "icon" | "icon_label";
+    additionalOptions?: Array<{ value: string; label: string }>;
   }) => {
     capturedSelectorProps = props;
     return <button type="button">Browser account selector</button>;
@@ -92,6 +99,7 @@ function buildBrowserContext(overrides?: Record<string, unknown>) {
       { id: "ctx-2", display_name: "Archive account" },
     ],
     selectedContextId: "ctx-1",
+    refreshContexts: vi.fn(async () => []),
     setSelectedContextId: vi.fn(),
     requiresContextSelection: true,
     contextsLoaded: true,
@@ -128,6 +136,15 @@ describe("BrowserLayout", () => {
     capturedLayoutProps = {};
     capturedSelectorProps = null;
     useBrowserContextMock.mockReset();
+    useOpenStackProjectSelectorMock.mockReset();
+    useOpenStackProjectSelectorMock.mockImplementation(() => ({
+      candidateCount: 0,
+      candidatesLoaded: true,
+      selectorOptions: [],
+      handleContextChange: (value: string, fallback: (selected: string) => void) => fallback(value),
+      dialog: null,
+      reloadOptions: vi.fn(),
+    }));
     fetchManagerContextMock.mockClear();
     canAccessPrivateConnectionsSectionMock.mockReset();
     canAccessPrivateConnectionsSectionMock.mockReturnValue(false);
@@ -183,6 +200,40 @@ describe("BrowserLayout", () => {
     expect(screen.queryByRole("button", { name: "Browser account selector" })).not.toBeInTheDocument();
     expect(screen.getByText("Main account")).toBeInTheDocument();
     expect(capturedSelectorProps).toBeNull();
+  });
+
+  it("offers a discovered OpenStack project when no executable Browser context exists yet", () => {
+    const selectorOptions = [{
+      value: "openstack-project-option:conn-1:project-a",
+      label: "Project A · OpenStack",
+    }];
+    useOpenStackProjectSelectorMock.mockReturnValue({
+      candidateCount: 1,
+      candidatesLoaded: true,
+      selectorOptions,
+      handleContextChange: (value: string, fallback: (selected: string) => void) => fallback(value),
+      dialog: null,
+      reloadOptions: vi.fn(),
+    });
+    useBrowserContextMock.mockReturnValue(buildBrowserContext({
+      contexts: [],
+      selectedContextId: null,
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/browser"]}>
+        <Routes>
+          <Route path="/browser" element={<BrowserLayout />}>
+            <Route index element={<BrowserSidebarSlotConsumer />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("button", { name: "Browser account selector" })).toBeInTheDocument();
+    expect(capturedSelectorProps?.additionalOptions).toEqual(selectorOptions);
+    expect(screen.getByRole("heading", { name: "Select a Browser context", level: 2 })).toBeInTheDocument();
+    expect(screen.queryByText("No private Browser connection")).not.toBeInTheDocument();
   });
 
   it("does not load Manager context for a Browser-only private connection", async () => {

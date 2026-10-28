@@ -15,6 +15,21 @@ export type OpenStackConnection = {
   connected: boolean; expires_at: string | null;
 };
 export type OpenStackProject = { id: string; name: string; domain_id: string | null };
+export type OpenStackProjectOption = {
+  connection_id: string;
+  cloud_id: number;
+  cloud_name: string;
+  identity_name: string;
+  keystone_user_id: string;
+  project_id: string;
+  project_name: string;
+  project_domain_id: string | null;
+  endpoints: { id: number; name: string; region: string | null }[];
+};
+const OPENSTACK_PROJECT_OPTION_PREFIX = "openstack-project-option:";
+export function openStackProjectOptionValue(option: Pick<OpenStackProjectOption, "connection_id" | "project_id">): string {
+  return `${OPENSTACK_PROJECT_OPTION_PREFIX}${encodeURIComponent(option.connection_id)}:${encodeURIComponent(option.project_id)}`;
+}
 type OpenStackAuthentication = {
   cloud_id: number; method: "password" | "token"; username?: string; user_id?: string;
   domain?: string; domain_is_id?: boolean; password?: string; token?: string;
@@ -31,6 +46,9 @@ export async function connectOpenStack(payload: OpenStackAuthentication): Promis
 }
 export async function listOpenStackProjects(id: string): Promise<OpenStackProject[]> {
   return (await client.get<OpenStackProject[]>(`${root}/connections/${encodeURIComponent(id)}/projects`)).data;
+}
+export async function listOpenStackProjectOptions(): Promise<OpenStackProjectOption[]> {
+  return (await client.get<OpenStackProjectOption[]>(`${root}/project-options`)).data;
 }
 export async function listOpenStackKeys(id: string, project: string): Promise<string[]> {
   return (await client.get<string[]>(`${root}/connections/${encodeURIComponent(id)}/projects/${encodeURIComponent(project)}/credentials`)).data;

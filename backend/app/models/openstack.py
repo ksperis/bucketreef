@@ -96,6 +96,18 @@ class OpenStackProjectRead(ApiModel):
     domain_id: str | None = None
 
 
+class OpenStackProjectOptionRead(ApiModel):
+    connection_id: str
+    cloud_id: int
+    cloud_name: str
+    identity_name: str
+    keystone_user_id: str
+    project_id: str
+    project_name: str
+    project_domain_id: str | None = None
+    endpoints: list[OpenStackEndpointRead]
+
+
 class OpenStackActivate(ApiModel):
     project_id: str = Field(min_length=1, max_length=255)
     endpoint_id: int
