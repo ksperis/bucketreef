@@ -14,11 +14,6 @@ from app.utils.time import utcnow
 from .base import Base
 
 
-cloud_endpoints = Table(
-    "openstack_cloud_endpoints", Base.metadata,
-    Column("cloud_id", Integer, ForeignKey("openstack_clouds.id", ondelete="CASCADE"), primary_key=True),
-    Column("endpoint_id", Integer, ForeignKey("storage_endpoints.id", ondelete="CASCADE"), primary_key=True),
-)
 cloud_users = Table(
     "openstack_cloud_users", Base.metadata,
     Column("cloud_id", Integer, ForeignKey("openstack_clouds.id", ondelete="CASCADE"), primary_key=True),
@@ -44,10 +39,10 @@ class OpenStackCloud(Base):
     enabled = Column(Boolean, nullable=False, default=False, server_default="0")
     allow_password = Column(Boolean, nullable=False, default=True, server_default="1")
     allow_token = Column(Boolean, nullable=False, default=True, server_default="1")
+    managed_endpoints_only = Column(Boolean, nullable=False, default=False, server_default="0")
     default_domain = Column(String, nullable=True)
     all_users = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
-    endpoints = relationship("StorageEndpoint", secondary=cloud_endpoints)
     users = relationship("User", secondary=cloud_users)
     groups = relationship("UiGroup", secondary=cloud_groups)
     connections = relationship("OpenStackConnection", cascade="all, delete-orphan", back_populates="cloud")
@@ -82,14 +77,21 @@ class OpenStackSession(Base):
 
 class OpenStackProjectContext(Base):
     __tablename__ = "openstack_project_contexts"
-    __table_args__ = (UniqueConstraint("connection_id", "project_id", "endpoint_id", name="uq_openstack_project_endpoint"),)
+    __table_args__ = (UniqueConstraint("connection_id", "project_id", "target_id", name="uq_openstack_project_target"),)
     id = Column(String, primary_key=True, default=new_id)
     connection_id = Column(String, ForeignKey("openstack_connections.id", ondelete="CASCADE"), nullable=False, index=True)
     project_id = Column(String, nullable=False)
     project_name = Column(String, nullable=False)
-    endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id", ondelete="CASCADE"), nullable=False)
+    # Kept only to migrate contexts created before Keystone catalog discovery.
+    endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id", ondelete="CASCADE"), nullable=True)
+    target_id = Column(String, nullable=False)
+    region_id = Column(String, nullable=False)
+    endpoint_url = Column(String, nullable=False)
+    endpoint_name = Column(String, nullable=False)
+    endpoint_interface = Column(String, nullable=False)
+    service_type = Column(String, nullable=False)
+    service_name = Column(String, nullable=True)
     connection = relationship("OpenStackConnection", back_populates="contexts")
-    endpoint = relationship("StorageEndpoint")
     credentials = relationship("OpenStackProjectCredential", cascade="all, delete-orphan", back_populates="context")
 
 

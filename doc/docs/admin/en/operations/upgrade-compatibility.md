@@ -8,6 +8,18 @@ and frontend together for the new context types. No cloud or additional access
 is enabled automatically. Configure outbound policy and explicit grants before
 use; see [OpenStack connections](../storage/backends/openstack.md).
 
+Migration `0195_openstack_catalog_targets` moves OpenStack S3 execution targets
+from manually associated BucketReef Storage Endpoints to the scoped Keystone
+service catalog. Existing project contexts are retained only as legacy markers
+and require explicit project reactivation before they can execute. The obsolete
+`openstack_cloud_endpoints` association is removed. Deploy backend and frontend
+together because project activation now exchanges a Keystone `target_id`, and
+the selected region/URL are part of the session-bound execution context. The
+migration also adds `openstack_clouds.managed_endpoints_only`, defaulting to
+false. Catalog targets whose canonical S3 URL matches a current Storage Endpoint
+are associated dynamically; enabling the policy restricts activation to those
+managed matches while keeping other Keystone regions visible as disabled choices.
+
 ## 2026-10 Ceph Admin multisite diagnostics
 
 Multisite topology and diagnostic endpoint selection are discovered live from

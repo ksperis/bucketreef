@@ -205,13 +205,10 @@ erDiagram
         boolean enabled "NN; default=0"
         boolean allow_password "NN; default=1"
         boolean allow_token "NN; default=1"
+        boolean managed_endpoints_only "NN; default=0"
         varchar default_domain
         boolean all_users "NN; default=0"
         datetime created_at "NN"
-    }
-    openstack_cloud_endpoints {
-        integer cloud_id PK, FK "NN"
-        integer endpoint_id PK, FK "NN"
     }
     openstack_cloud_users {
         integer cloud_id PK, FK "NN"
@@ -242,7 +239,14 @@ erDiagram
         varchar connection_id FK "NN"
         varchar project_id "NN"
         varchar project_name "NN"
-        integer endpoint_id FK "NN"
+        integer endpoint_id FK
+        varchar target_id "NN"
+        varchar region_id "NN"
+        varchar endpoint_url "NN"
+        varchar endpoint_name "NN"
+        varchar endpoint_interface "NN"
+        varchar service_type "NN"
+        varchar service_name
     }
     openstack_project_credentials {
         varchar id PK "NN"
@@ -304,8 +308,6 @@ erDiagram
     user_s3_connections }o--|| s3_connections : "s3_connection_id to id"
     managed_private_accesses }o--|| users : "owner_user_id to id"
     managed_private_accesses o|--o| s3_connections : "s3_connection_id to id; ON DELETE SET NULL"
-    openstack_cloud_endpoints }o--|| openstack_clouds : "cloud_id to id; ON DELETE CASCADE"
-    openstack_cloud_endpoints }o--|| storage_endpoints : "endpoint_id to id; ON DELETE CASCADE"
     openstack_cloud_users }o--|| openstack_clouds : "cloud_id to id; ON DELETE CASCADE"
     openstack_cloud_users }o--|| users : "user_id to id; ON DELETE CASCADE"
     openstack_cloud_groups }o--|| openstack_clouds : "cloud_id to id; ON DELETE CASCADE"
@@ -315,7 +317,7 @@ erDiagram
     openstack_sessions }o--|| openstack_connections : "connection_id to id; ON DELETE CASCADE"
     openstack_sessions }o--|| auth_sessions : "auth_session_id to id; ON DELETE CASCADE"
     openstack_project_contexts }o--|| openstack_connections : "connection_id to id; ON DELETE CASCADE"
-    openstack_project_contexts }o--|| storage_endpoints : "endpoint_id to id; ON DELETE CASCADE"
+    openstack_project_contexts }o--o| storage_endpoints : "endpoint_id to id; ON DELETE CASCADE"
     openstack_project_credentials }o--|| openstack_sessions : "session_id to id; ON DELETE CASCADE"
     openstack_project_credentials }o--|| openstack_project_contexts : "context_id to id; ON DELETE CASCADE"
     ui_group_s3_accounts }o--|| ui_groups : "group_id to id"

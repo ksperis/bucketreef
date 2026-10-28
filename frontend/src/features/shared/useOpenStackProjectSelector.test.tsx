@@ -7,13 +7,13 @@ import { useOpenStackProjectSelector } from "./useOpenStackProjectSelector";
 
 const apiMocks = vi.hoisted(() => ({
   activateOpenStackContext: vi.fn(),
-  listOpenStackKeys: vi.fn(),
+  getOpenStackProjectAccess: vi.fn(),
   listOpenStackProjectOptions: vi.fn(),
 }));
 
 vi.mock("../../api/openstack", () => ({
   activateOpenStackContext: apiMocks.activateOpenStackContext,
-  listOpenStackKeys: apiMocks.listOpenStackKeys,
+  getOpenStackProjectAccess: apiMocks.getOpenStackProjectAccess,
   listOpenStackProjectOptions: apiMocks.listOpenStackProjectOptions,
   openStackProjectOptionValue: (option: OpenStackProjectOption) =>
     `openstack-project-option:${option.connection_id}:${option.project_id}`,
@@ -35,19 +35,33 @@ const projectOption: OpenStackProjectOption = {
   project_id: "project-a",
   project_name: "Project A",
   project_domain_id: "domain-a",
-  endpoints: [{ id: 7, name: "S3", region: "region-a" }],
+};
+
+const projectAccess = {
+  targets: [{
+    target_id: "catalog-s3-region-a",
+    region_id: "region-a",
+    interface: "public" as const,
+    service_type: "s3",
+    service_name: "S3",
+    endpoint_url: "https://s3.example.test",
+    storage_endpoint_id: null,
+    storage_endpoint_name: null,
+    allowed: true,
+  }],
+  access_keys: ["ACCESS-1"],
 };
 
 describe("useOpenStackProjectSelector", () => {
   beforeEach(() => {
     apiMocks.activateOpenStackContext.mockReset();
-    apiMocks.listOpenStackKeys.mockReset();
+    apiMocks.getOpenStackProjectAccess.mockReset();
     apiMocks.listOpenStackProjectOptions.mockReset();
     apiMocks.listOpenStackProjectOptions.mockResolvedValue([projectOption]);
+    apiMocks.getOpenStackProjectAccess.mockResolvedValue(projectAccess);
   });
 
   it("refreshes executable contexts before navigating to an activated OpenStack project", async () => {
-    apiMocks.listOpenStackKeys.mockResolvedValue(["ACCESS-1"]);
     apiMocks.activateOpenStackContext.mockResolvedValue("os-existing");
     const refreshContexts = vi.fn(async () => [
       { id: "os-existing", kind: "openstack_project" } as ExecutionContext,
@@ -78,15 +92,87 @@ describe("useOpenStackProjectSelector", () => {
 
     await waitFor(() => expect(onActivated).toHaveBeenCalledWith("os-existing"));
     expect(fallback).not.toHaveBeenCalled();
-    expect(apiMocks.listOpenStackKeys).toHaveBeenCalledWith("conn-1", "project-a");
+    expect(apiMocks.getOpenStackProjectAccess).toHaveBeenCalledWith("conn-1", "project-a");
     expect(apiMocks.activateOpenStackContext).toHaveBeenCalledWith(
       "conn-1",
       "project-a",
-      7,
+      "catalog-s3-region-a",
       "ACCESS-1",
     );
     expect(refreshContexts).toHaveBeenCalledTimes(1);
     expect(refreshContexts.mock.invocationCallOrder[0]).toBeLessThan(onActivated.mock.invocationCallOrder[0]);
     expect(result.current.candidateCount).toBe(0);
+  });
+
+  it("exposes Keystone regions for the active OpenStack context", async () => {
+    const activeContext = {
+      id: "os-existing",
+      kind: "openstack_project",
+      endpoint_url: "https://s3.example.test",
+      openstack: {
+        connection_id: "conn-1",
+        cloud_name: "Cloud A",
+        identity_name: "Person",
+        project_id: "project-a",
+        project_name: "Project A",
+        region_id: "region-a",
+      },
+    } as ExecutionContext;
+
+    const { result } = renderHook(() => useOpenStackProjectSelector({
+      enabled: true,
+      activeContext,
+      refreshContexts: vi.fn(async () => [activeContext]),
+      onActivated: vi.fn(),
+    }));
+
+    await waitFor(() => expect(result.current.region.loading).toBe(false));
+    expect(result.current.region.visible).toBe(true);
+    expect(result.current.region.currentRegion).toBe("region-a");
+    expect(result.current.region.currentTargetId).toBe("catalog-s3-region-a");
+    expect(result.current.region.options).toEqual([
+      expect.objectContaining({ value: "catalog-s3-region-a", label: "region-a" }),
+    ]);
+  });
+
+  it("keeps policy-blocked Keystone regions visible and disables them", async () => {
+    apiMocks.getOpenStackProjectAccess.mockResolvedValue({
+      ...projectAccess,
+      targets: [
+        projectAccess.targets[0],
+        {
+          ...projectAccess.targets[0],
+          target_id: "catalog-s3-region-b",
+          region_id: "region-b",
+          endpoint_url: "https://unmanaged.example.test",
+          allowed: false,
+        },
+      ],
+    });
+    const activeContext = {
+      id: "os-existing",
+      kind: "openstack_project",
+      endpoint_url: "https://s3.example.test",
+      openstack: {
+        connection_id: "conn-1",
+        cloud_name: "Cloud A",
+        identity_name: "Person",
+        project_id: "project-a",
+        project_name: "Project A",
+        region_id: "region-a",
+      },
+    } as ExecutionContext;
+    const { result } = renderHook(() => useOpenStackProjectSelector({
+      enabled: true,
+      activeContext,
+      refreshContexts: vi.fn(async () => [activeContext]),
+      onActivated: vi.fn(),
+    }));
+
+    await waitFor(() => expect(result.current.region.loading).toBe(false));
+    expect(result.current.region.options).toEqual([
+      expect.objectContaining({ value: "catalog-s3-region-a", disabled: false }),
+      expect.objectContaining({ value: "catalog-s3-region-b", disabled: true, title: "unmanagedRegion" }),
+    ]);
   });
 });

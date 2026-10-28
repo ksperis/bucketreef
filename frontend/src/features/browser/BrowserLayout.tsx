@@ -28,6 +28,7 @@ import {
 } from "../../utils/workspaces";
 import { useBrowserI18n } from "./browserI18n";
 import { useOpenStackProjectSelector } from "../shared/useOpenStackProjectSelector";
+import OpenStackRegionControl, { OpenStackRegionIcon } from "../shared/OpenStackRegionControl";
 
 export type BrowserSidebarBodyRenderer = (args: SidebarBodyRenderArgs) => ReactNode;
 
@@ -133,6 +134,7 @@ function BrowserShell() {
   };
   const openStackSelector = useOpenStackProjectSelector({
     enabled: requiresContextSelection && isBrowserExplorerRoute,
+    activeContext: selected,
     refreshContexts,
     onActivated: handleS3AccountChange,
   });
@@ -180,6 +182,26 @@ function BrowserShell() {
         ),
     },
   ];
+  if (openStackSelector.region.visible && openStackSelector.region.currentRegion) {
+    topbarControlDescriptors.push({
+      id: "region",
+      icon: <OpenStackRegionIcon className="h-4 w-4" />,
+      selectedLabel: openStackSelector.region.currentRegion,
+      priority: 20,
+      estimatedIconWidth: 36,
+      estimatedLabelWidth: 176,
+      renderControl: (mode) => (
+        <OpenStackRegionControl
+          mode={mode}
+          currentRegion={openStackSelector.region.currentRegion!}
+          currentTargetId={openStackSelector.region.currentTargetId}
+          options={openStackSelector.region.options}
+          loading={openStackSelector.region.loading}
+          onChange={openStackSelector.region.onChange}
+        />
+      ),
+    });
+  }
 
   return (
     <BrowserSidebarSlotContext.Provider value={sidebarSlotValue}>

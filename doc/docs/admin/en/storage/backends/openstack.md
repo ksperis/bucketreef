@@ -2,17 +2,29 @@
 
 Connect to Keystone v3 independently of the BucketReef login method. Keystone
 may use LDAP, SQL identities or federation. Each person selects a project and
-uses an existing personal EC2 credential against a registered S3 endpoint.
+uses an existing personal EC2 credential against an S3 target discovered from
+that project's scoped Keystone service catalog.
 Keystone and the storage service retain authorization authority.
 
 ## Configure a cloud
 
 As a Superadmin, open **Settings > OpenStack > Add cloud**. Enter the final HTTPS
-Keystone URL ending in `/v3` and select registered S3 endpoints. The Swift service
-catalog is not used to discover S3 URLs. Enable password authentication, primary
-user-token authentication, or both. The optional default domain is a user hint.
+Keystone URL ending in `/v3`. S3 regions and endpoint URLs are discovered
+automatically from each project's scoped Keystone service catalog. When a
+discovered S3 URL exactly matches a BucketReef Storage Endpoint URL, the
+OpenStack context is associated with that managed endpoint and reuses its
+metadata and supported endpoint capabilities. BucketReef prefers an `s3`
+service and its `public` endpoint for each region. An `object-store` service is
+accepted only when its URL is a direct S3-compatible target rather than a Swift
+`/v1/AUTH_*` path. Enable password authentication, primary user-token
+authentication, or both. The optional default domain is a user hint.
 Assign UI users/groups, or explicitly allow all authorized UI users, then enable
-and save the cloud. New clouds are disabled and restricted by default.
+and save the cloud. By default, every S3 endpoint advertised by Keystone is
+allowed. Enable **Only allow BucketReef-managed S3 endpoints** when the cloud
+must be limited to URLs already declared as BucketReef Storage Endpoints. In
+that mode, unmanaged Keystone regions remain visible to users but cannot be
+selected, and the backend rejects attempts to activate them. New clouds remain
+disabled and restricted to explicitly assigned BucketReef users by default.
 
 Configure the backend's outbound policy first:
 
@@ -26,15 +38,26 @@ OPENSTACK_ALLOW_PRIVATE_TARGETS=false
 
 Requests use HTTPS, bounded timeouts and response sizes, and reject redirects.
 Saving cloud configuration or assignments invalidates its active connections.
-Changing an associated endpoint's URL, TLS, signing or feature configuration also
-invalidates the cloud sessions, requiring explicit reconnection.
-The S3 provider remains independent of Keystone. No remote resource is provisioned.
+S3 endpoint URLs coming from an authenticated, project-scoped Keystone catalog
+are treated as administrator-controlled configuration. They must still be HTTPS
+URLs without embedded credentials, query parameters or fragments, but they do
+not use BucketReef's user-supplied endpoint allow-list or private-network block.
+If the catalog changes the selected S3 target, region or URL, BucketReef refuses
+to silently redirect an existing execution context and requires explicit
+reactivation. Managed-endpoint association is resolved from the current URL,
+so adding a matching Storage Endpoint later enriches an existing OpenStack
+context without changing its Keystone target or EC2 credentials. No remote
+resource is provisioned.
 
 ## Connect a project
 
 Open **Profile > OpenStack**, or `/profile?tab=openstack` if no storage workspace
-is available yet. Choose a cloud, authenticate, select a project and endpoint,
-then open Browser or Manager. Multiple clouds and identities are supported.
+is available yet. Choose a cloud and authenticate. The available projects then
+appear directly in the Manager and Browser context selector. Selecting a project
+discovers its S3 regions and existing EC2 credentials. If several regions or
+credentials are available, choose them explicitly. The active OpenStack region
+is visible in the workspace topbar and can be changed there. Multiple clouds and
+identities are supported.
 
 BucketReef never stores the supplied password or automatically forwards its own
 LDAP login credentials. User-token authentication requires a primary user token
@@ -61,9 +84,13 @@ validation expires. Long operations retain the initiating session reference and
 stop when access is no longer valid.
 
 Manager UI rights still apply. IAM requires a successful read-only probe with
-the selected credentials. RGW administrative metrics/quotas, managed personal
-access provisioning, STS and credential export are unavailable. No Portal
-project or RGW Account is created.
+the selected credentials. A managed-endpoint association exposes endpoint
+metadata and S3-side capabilities such as BucketReef usage collection without
+substituting endpoint service identities for the user's OpenStack credentials.
+RGW account/user administrative metrics and quotas still require a resolvable
+RGW principal and are not inferred from the OpenStack project alone. Managed
+personal access provisioning, STS and credential export are unavailable. No
+Portal project or RGW Account is created.
 
 Transfers follow the existing Browser policy. Presigned URLs are bounded by the
 current access deadline; already issued URLs remain usable until their own
@@ -77,11 +104,13 @@ distinct users through the normal OpenStack process, with one key in one project
 and two keys in the other.
 
 1. Assign the test cloud to one UI user. Connect separately using a password and
-   a primary user token; select both projects and verify explicit key selection.
+   a primary user token; select both projects and verify catalog region discovery
+   plus explicit key selection.
 2. In a reserved project, open Browser/Manager, create a uniquely named test
    bucket, upload/read/delete a fixture, then remove the empty bucket.
 3. Verify isolation from another user and a second UI session. Test direct and
-   group admission, withdrawal, and an endpoint removed from the cloud.
+   group admission and withdrawal, then change/remove a catalog S3 target and
+   verify that the existing context requires reactivation.
 4. Revoke the initiating session during a test long operation and verify that it
    stops. Reauthenticate and explicitly resume with the same identity/project.
 5. Remove a Keystone role and verify denial after revalidation. Stop Keystone and

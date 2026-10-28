@@ -3,12 +3,11 @@ import client from "./client";
 
 export type OpenStackCloudWrite = {
   name: string; auth_url: string; enabled: boolean; allow_password: boolean; allow_token: boolean;
-  default_domain: string | null; all_users: boolean; endpoint_ids: number[]; user_ids: number[]; group_ids: number[];
+  managed_endpoints_only: boolean; default_domain: string | null; all_users: boolean; user_ids: number[]; group_ids: number[];
 };
 export type OpenStackCloud = OpenStackCloudWrite & { id: number };
 export type OpenStackPublicCloud = {
   id: number; name: string; allow_password: boolean; allow_token: boolean; default_domain: string | null;
-  endpoints: { id: number; name: string; region: string | null }[];
 };
 export type OpenStackConnection = {
   id: string; cloud_id: number; cloud_name: string; display_name: string; keystone_user_id: string;
@@ -24,7 +23,21 @@ export type OpenStackProjectOption = {
   project_id: string;
   project_name: string;
   project_domain_id: string | null;
-  endpoints: { id: number; name: string; region: string | null }[];
+};
+export type OpenStackTarget = {
+  target_id: string;
+  region_id: string;
+  interface: "public" | "internal";
+  service_type: string;
+  service_name: string | null;
+  endpoint_url: string;
+  storage_endpoint_id: number | null;
+  storage_endpoint_name: string | null;
+  allowed: boolean;
+};
+export type OpenStackProjectAccess = {
+  targets: OpenStackTarget[];
+  access_keys: string[];
 };
 const OPENSTACK_PROJECT_OPTION_PREFIX = "openstack-project-option:";
 export function openStackProjectOptionValue(option: Pick<OpenStackProjectOption, "connection_id" | "project_id">): string {
@@ -50,11 +63,11 @@ export async function listOpenStackProjects(id: string): Promise<OpenStackProjec
 export async function listOpenStackProjectOptions(): Promise<OpenStackProjectOption[]> {
   return (await client.get<OpenStackProjectOption[]>(`${root}/project-options`)).data;
 }
-export async function listOpenStackKeys(id: string, project: string): Promise<string[]> {
-  return (await client.get<string[]>(`${root}/connections/${encodeURIComponent(id)}/projects/${encodeURIComponent(project)}/credentials`)).data;
+export async function getOpenStackProjectAccess(id: string, project: string): Promise<OpenStackProjectAccess> {
+  return (await client.get<OpenStackProjectAccess>(`${root}/connections/${encodeURIComponent(id)}/projects/${encodeURIComponent(project)}/access`)).data;
 }
-export async function activateOpenStackContext(id: string, project_id: string, endpoint_id: number, access_key?: string): Promise<string> {
-  return (await client.post<{ context_id: string }>(`${root}/connections/${encodeURIComponent(id)}/contexts`, { project_id, endpoint_id, access_key })).data.context_id;
+export async function activateOpenStackContext(id: string, project_id: string, target_id: string, access_key?: string): Promise<string> {
+  return (await client.post<{ context_id: string }>(`${root}/connections/${encodeURIComponent(id)}/contexts`, { project_id, target_id, access_key })).data.context_id;
 }
 export async function disconnectOpenStack(id: string, forget = false): Promise<void> {
   await client.delete(`${root}/connections/${encodeURIComponent(id)}${forget ? "" : "/session"}`);

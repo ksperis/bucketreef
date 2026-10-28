@@ -18,10 +18,12 @@ class ExecutionContextCapabilities(ApiModel):
 
 
 class OpenStackExecutionContextMetadata(ApiModel):
+    connection_id: str
     cloud_name: str
     identity_name: str
     project_id: str
     project_name: str
+    region_id: str
 
 
 class ExecutionContext(ApiModel):

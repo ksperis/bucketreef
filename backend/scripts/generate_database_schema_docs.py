@@ -97,7 +97,6 @@ DOMAINS = (
             "user_s3_connections",
             "managed_private_accesses",
             "openstack_clouds",
-            "openstack_cloud_endpoints",
             "openstack_cloud_users",
             "openstack_cloud_groups",
             "openstack_connections",

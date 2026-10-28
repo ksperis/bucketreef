@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ExecutionContext } from "../../api/executionContexts";
 import {
   activateOpenStackContext,
-  listOpenStackKeys,
+  getOpenStackProjectAccess,
   listOpenStackProjectOptions,
   openStackProjectOptionValue,
+  type OpenStackProjectAccess,
   type OpenStackProjectOption,
 } from "../../api/openstack";
 import type { TopbarDropdownOption } from "../../components/TopbarDropdownSelect";
@@ -18,18 +19,52 @@ import { useOpenStackI18n } from "./openstackMessages";
 
 type UseOpenStackProjectSelectorOptions = {
   enabled: boolean;
+  activeContext?: ExecutionContext | null;
   refreshContexts: () => Promise<ExecutionContext[]>;
   onActivated: (contextId: string) => void;
 };
 
+type ProjectSelection = {
+  connectionId: string;
+  cloudName: string;
+  identityName: string;
+  projectId: string;
+  projectName: string;
+  candidateValue?: string;
+};
+
 type ActivationState = {
-  option: OpenStackProjectOption;
-  endpointId: string;
+  selection: ProjectSelection;
+  access: OpenStackProjectAccess;
+  targetId: string;
   accessKey: string;
 };
 
+function selectionFromOption(option: OpenStackProjectOption): ProjectSelection {
+  return {
+    connectionId: option.connection_id,
+    cloudName: option.cloud_name,
+    identityName: option.identity_name,
+    projectId: option.project_id,
+    projectName: option.project_name,
+    candidateValue: openStackProjectOptionValue(option),
+  };
+}
+
+function selectionFromContext(context: ExecutionContext): ProjectSelection | null {
+  if (context.kind !== "openstack_project" || !context.openstack) return null;
+  return {
+    connectionId: context.openstack.connection_id,
+    cloudName: context.openstack.cloud_name,
+    identityName: context.openstack.identity_name,
+    projectId: context.openstack.project_id,
+    projectName: context.openstack.project_name,
+  };
+}
+
 export function useOpenStackProjectSelector({
   enabled,
+  activeContext = null,
   refreshContexts,
   onActivated,
 }: UseOpenStackProjectSelectorOptions) {
@@ -37,10 +72,16 @@ export function useOpenStackProjectSelector({
   const [options, setOptions] = useState<OpenStackProjectOption[]>([]);
   const [candidatesLoaded, setCandidatesLoaded] = useState(false);
   const [activation, setActivation] = useState<ActivationState | null>(null);
-  const [keys, setKeys] = useState<string[]>([]);
-  const [keysLoading, setKeysLoading] = useState(false);
+  const [activationLoading, setActivationLoading] = useState(false);
+  const [activeAccess, setActiveAccess] = useState<OpenStackProjectAccess | null>(null);
+  const [activeAccessLoading, setActiveAccessLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const activeSelection = useMemo(
+    () => activeContext ? selectionFromContext(activeContext) : null,
+    [activeContext],
+  );
 
   const reloadOptions = useCallback(async () => {
     if (!enabled) {
@@ -65,27 +106,49 @@ export function useOpenStackProjectSelector({
     void reloadOptions();
   }, [reloadOptions]);
 
+  useEffect(() => {
+    if (!enabled || !activeSelection) {
+      setActiveAccess(null);
+      setActiveAccessLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setActiveAccessLoading(true);
+    getOpenStackProjectAccess(activeSelection.connectionId, activeSelection.projectId)
+      .then((access) => {
+        if (!cancelled) setActiveAccess(access);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveAccess(null);
+      })
+      .finally(() => {
+        if (!cancelled) setActiveAccessLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [activeSelection, enabled]);
+
   const activate = useCallback(async (
-    option: OpenStackProjectOption,
-    endpointId: number,
+    selection: ProjectSelection,
+    targetId: string,
     accessKey: string,
   ) => {
     setBusy(true);
     setError(null);
     try {
       const contextId = await activateOpenStackContext(
-        option.connection_id,
-        option.project_id,
-        endpointId,
+        selection.connectionId,
+        selection.projectId,
+        targetId,
         accessKey,
       );
       const refreshed = await refreshContexts();
       if (!refreshed.some((context) => context.id === contextId)) {
         throw new Error("The activated OpenStack context is not available.");
       }
-      setOptions((current) => current.filter((item) => openStackProjectOptionValue(item) !== openStackProjectOptionValue(option)));
+      if (selection.candidateValue) {
+        setOptions((current) => current.filter((item) => openStackProjectOptionValue(item) !== selection.candidateValue));
+      }
       setActivation(null);
-      setKeys([]);
       onActivated(contextId);
     } catch (failure) {
       setError(errorText(failure));
@@ -95,28 +158,23 @@ export function useOpenStackProjectSelector({
   }, [errorText, onActivated, refreshContexts]);
 
   const beginSelection = useCallback(async (option: OpenStackProjectOption) => {
-    const endpointId = option.endpoints.length === 1 ? String(option.endpoints[0].id) : "";
-    setActivation({ option, endpointId, accessKey: "" });
-    setKeys([]);
+    const selection = selectionFromOption(option);
+    setActivationLoading(true);
     setError(null);
-    setKeysLoading(true);
     try {
-      const availableKeys = await listOpenStackKeys(option.connection_id, option.project_id);
-      setKeys(availableKeys);
-      if (option.endpoints.length === 1 && availableKeys.length === 1) {
-        setActivation({ option, endpointId, accessKey: availableKeys[0] });
-        await activate(option, option.endpoints[0].id, availableKeys[0]);
-        return;
+      const access = await getOpenStackProjectAccess(selection.connectionId, selection.projectId);
+      const allowedTargets = access.targets.filter((target) => target.allowed);
+      const targetId = allowedTargets.length === 1 ? allowedTargets[0].target_id : "";
+      const accessKey = access.access_keys.length === 1 ? access.access_keys[0] : "";
+      setActivation({ selection, access, targetId, accessKey });
+      if (targetId && accessKey) {
+        await activate(selection, targetId, accessKey);
       }
-      setActivation({
-        option,
-        endpointId,
-        accessKey: availableKeys.length === 1 ? availableKeys[0] : "",
-      });
     } catch (failure) {
       setError(errorText(failure));
+      setActivation({ selection, access: { targets: [], access_keys: [] }, targetId: "", accessKey: "" });
     } finally {
-      setKeysLoading(false);
+      setActivationLoading(false);
     }
   }, [activate, errorText]);
 
@@ -137,7 +195,6 @@ export function useOpenStackProjectSelector({
           option.cloud_name,
           option.identity_name,
           option.keystone_user_id,
-          ...option.endpoints.flatMap((endpoint) => [endpoint.name, endpoint.region]),
         ].filter(Boolean).join(" "),
       }))
       .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: "base" })),
@@ -153,38 +210,75 @@ export function useOpenStackProjectSelector({
     void beginSelection(option);
   }, [beginSelection, optionByValue]);
 
+  const activeTarget = useMemo(() => {
+    if (!activeContext?.openstack || !activeAccess) return null;
+    return activeAccess.targets.find((target) => (
+      target.region_id === activeContext.openstack?.region_id
+      && target.endpoint_url === activeContext.endpoint_url
+    )) ?? activeAccess.targets.find((target) => target.region_id === activeContext.openstack?.region_id) ?? null;
+  }, [activeAccess, activeContext]);
+
+  const regionOptions = useMemo<TopbarDropdownOption[]>(() => (
+    activeAccess?.targets.map((target) => ({
+      value: target.target_id,
+      label: target.region_id,
+      description: [target.storage_endpoint_name || target.service_name || target.service_type, target.interface, target.endpoint_url].filter(Boolean).join(" · "),
+      disabled: !target.allowed,
+      title: target.allowed ? undefined : text("unmanagedRegion"),
+      searchText: `${target.region_id} ${target.service_name ?? ""} ${target.service_type} ${target.interface} ${target.endpoint_url}`,
+    })) ?? []
+  ), [activeAccess, text]);
+
+  const handleRegionChange = useCallback((targetId: string) => {
+    if (!activeSelection || !activeAccess || targetId === activeTarget?.target_id) return;
+    const target = activeAccess.targets.find((item) => item.target_id === targetId);
+    if (!target || !target.allowed) return;
+    const accessKey = activeAccess.access_keys.length === 1 ? activeAccess.access_keys[0] : "";
+    if (accessKey) {
+      void activate(activeSelection, target.target_id, accessKey);
+      return;
+    }
+    setError(null);
+    setActivation({ selection: activeSelection, access: activeAccess, targetId: target.target_id, accessKey: "" });
+  }, [activate, activeAccess, activeSelection, activeTarget]);
+
   const confirmActivation = useCallback(() => {
-    if (!activation?.endpointId || !activation.accessKey) return;
-    void activate(activation.option, Number(activation.endpointId), activation.accessKey);
+    if (!activation?.targetId || !activation.accessKey) return;
+    void activate(activation.selection, activation.targetId, activation.accessKey);
   }, [activate, activation]);
 
   const dialog = activation ? (
     <SettingsDialog
-      title={`${activation.option.project_name} · OpenStack`}
+      title={`${activation.selection.projectName} · OpenStack`}
       onClose={() => { if (!busy) setActivation(null); }}
       closeDisabled={busy}
     >
       <div className="space-y-4">
         <p className="ui-body text-[var(--ui-text-muted)]">{text("projectContextHelp")}</p>
         <div className="ui-caption text-[var(--ui-text-muted)]">
-          {activation.option.cloud_name} · {activation.option.identity_name}
+          {activation.selection.cloudName} · {activation.selection.identityName}
         </div>
         {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
-        {keysLoading ? <p role="status" className="ui-caption text-[var(--ui-text-muted)]">{text("loading")}</p> : null}
-        {!keysLoading && keys.length === 0 && !error ? <UiInlineMessage tone="warning">{text("noKeys")}</UiInlineMessage> : null}
+        {activationLoading ? <p role="status" className="ui-caption text-[var(--ui-text-muted)]">{text("loading")}</p> : null}
+        {!activationLoading && activation.access.targets.length === 0 && !error ? <UiInlineMessage tone="warning">{text("noRegions")}</UiInlineMessage> : null}
+        {!activationLoading && activation.access.access_keys.length === 0 && !error ? <UiInlineMessage tone="warning">{text("noKeys")}</UiInlineMessage> : null}
         <div className="grid gap-3">
-          <UiSelect
-            label={text("endpoint")}
-            value={activation.endpointId}
-            disabled={busy || activation.option.endpoints.length <= 1}
-            onChange={(event) => setActivation((current) => current ? { ...current, endpointId: event.target.value } : current)}
-          >
-            {activation.option.endpoints.length > 1 ? <option value="">{text("choose")}</option> : null}
-            {activation.option.endpoints.map((endpoint) => (
-              <option key={endpoint.id} value={endpoint.id}>{endpoint.name}{endpoint.region ? ` (${endpoint.region})` : ""}</option>
-            ))}
-          </UiSelect>
-          {keys.length > 1 ? (
+          {activation.access.targets.length > 0 ? (
+            <UiSelect
+              label={text("endpoint")}
+              value={activation.targetId}
+              disabled={busy || activation.access.targets.length <= 1}
+              onChange={(event) => setActivation((current) => current ? { ...current, targetId: event.target.value } : current)}
+            >
+              {activation.access.targets.length > 1 || !activation.targetId ? <option value="">{text("choose")}</option> : null}
+              {activation.access.targets.map((target) => (
+                <option key={target.target_id} value={target.target_id} disabled={!target.allowed}>
+                  {target.region_id}{target.service_name ? ` · ${target.service_name}` : ""}{target.interface !== "public" ? ` · ${target.interface}` : ""}
+                </option>
+              ))}
+            </UiSelect>
+          ) : null}
+          {activation.access.access_keys.length > 1 ? (
             <UiSelect
               label={text("key")}
               value={activation.accessKey}
@@ -192,7 +286,7 @@ export function useOpenStackProjectSelector({
               onChange={(event) => setActivation((current) => current ? { ...current, accessKey: event.target.value } : current)}
             >
               <option value="">{text("choose")}</option>
-              {keys.map((key) => <option key={key} value={key}>{key}</option>)}
+              {activation.access.access_keys.map((key) => <option key={key} value={key}>{key}</option>)}
             </UiSelect>
           ) : null}
         </div>
@@ -200,7 +294,7 @@ export function useOpenStackProjectSelector({
           <UiButton variant="secondary" disabled={busy} onClick={() => setActivation(null)}>{text("cancel")}</UiButton>
           <UiButton
             loading={busy}
-            disabled={keysLoading || !activation.endpointId || !activation.accessKey}
+            disabled={activationLoading || !activation.targetId || !activation.accessKey}
             onClick={confirmActivation}
           >
             {text("useProject")}
@@ -217,5 +311,13 @@ export function useOpenStackProjectSelector({
     handleContextChange,
     dialog,
     reloadOptions,
+    region: {
+      visible: Boolean(activeSelection && activeContext?.openstack),
+      currentRegion: activeContext?.openstack?.region_id ?? null,
+      currentTargetId: activeTarget?.target_id ?? "",
+      options: regionOptions,
+      loading: activeAccessLoading,
+      onChange: handleRegionChange,
+    },
   };
 }

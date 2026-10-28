@@ -1,21 +1,15 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  activateOpenStackContext,
   connectOpenStack,
   disconnectOpenStack,
   listOpenStackClouds,
   listOpenStackConnections,
-  listOpenStackKeys,
-  listOpenStackProjects,
   type OpenStackConnection,
-  type OpenStackProject,
   type OpenStackPublicCloud,
 } from "../../api/openstack";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import ModalActions from "../../components/ModalActions";
-import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -24,7 +18,6 @@ import {
   SettingsInput,
   SettingsSelect,
 } from "../../components/settings/SettingsControls";
-import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
@@ -33,8 +26,6 @@ import { useOpenStackI18n } from "./openstackMessages";
 
 export default function OpenStackConnectionsPage() {
   const { text, errorText } = useOpenStackI18n();
-  const navigate = useNavigate();
-  const { generalSettings, runtimeSurfaces } = useGeneralSettings();
   const cloudSelectRef = useRef<HTMLSelectElement>(null);
   const [clouds, setClouds] = useState<OpenStackPublicCloud[]>([]);
   const [connections, setConnections] = useState<OpenStackConnection[]>([]);
@@ -48,19 +39,11 @@ export default function OpenStackConnectionsPage() {
   const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [connectBusy, setConnectBusy] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<OpenStackConnection | null>(null);
-  const [projects, setProjects] = useState<OpenStackProject[]>([]);
-  const [projectId, setProjectId] = useState("");
-  const [endpointId, setEndpointId] = useState("");
-  const [keys, setKeys] = useState<string[]>([]);
-  const [key, setKey] = useState("");
-  const [keysLoading, setKeysLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingForget, setPendingForget] = useState<OpenStackConnection | null>(null);
   const cloud = clouds.find((item) => item.id === Number(cloudId));
-  const selectedCloud = clouds.find((item) => item.id === selected?.cloud_id);
   const tableStatus = resolveListTableStatus({
     loading,
     error,
@@ -87,35 +70,6 @@ export default function OpenStackConnectionsPage() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    if (!selected || !projectId) {
-      setKeys([]);
-      setKey("");
-      return;
-    }
-    let cancelled = false;
-    setKeysLoading(true);
-    setKeys([]);
-    setKey("");
-    setError(null);
-    listOpenStackKeys(selected.id, projectId)
-      .then((items) => {
-        if (!cancelled) {
-          setKeys(items);
-          if (items.length === 1) setKey(items[0]);
-        }
-      })
-      .catch((failure) => {
-        if (!cancelled) setError(errorText(failure));
-      })
-      .finally(() => {
-        if (!cancelled) setKeysLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, projectId, errorText]);
 
   const chooseCloud = (id: string) => {
     const next = clouds.find((item) => item.id === Number(id));
@@ -156,18 +110,6 @@ export default function OpenStackConnectionsPage() {
     setConnectError(null);
   };
 
-  const selectConnection = async (connection: OpenStackConnection) => {
-    setSelected(connection);
-    setProjects([]);
-    setProjectId("");
-    setError(null);
-    const endpoints = clouds.find((item) => item.id === connection.cloud_id)?.endpoints ?? [];
-    setEndpointId(endpoints.length === 1 ? String(endpoints[0].id) : "");
-    const items = await listOpenStackProjects(connection.id);
-    setProjects(items);
-    if (items.length === 1) setProjectId(items[0].id);
-  };
-
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setError(null);
@@ -187,7 +129,7 @@ export default function OpenStackConnectionsPage() {
     setConnectError(null);
     void (async () => {
       try {
-        const connection = await connectOpenStack({
+        await connectOpenStack({
           cloud_id: Number(cloudId),
           method,
           ...(method === "token"
@@ -202,11 +144,7 @@ export default function OpenStackConnectionsPage() {
         setShowConnectDialog(false);
         setSecret("");
         await load();
-        try {
-          await selectConnection(connection);
-        } catch (failure) {
-          setError(errorText(failure));
-        }
+        notifyExecutionContextsRefresh();
       } catch (failure) {
         setConnectError(errorText(failure));
       } finally {
@@ -216,27 +154,9 @@ export default function OpenStackConnectionsPage() {
     })();
   };
 
-  const open = (workspace: "browser" | "manager") =>
-    void run(async () => {
-      if (!selected) return;
-      const ctx = await activateOpenStackContext(
-        selected.id,
-        projectId,
-        Number(endpointId),
-        key || undefined,
-      );
-      notifyExecutionContextsRefresh();
-      navigate(`/${workspace}?ctx=${encodeURIComponent(ctx)}`);
-    });
-
   const disconnect = (connection: OpenStackConnection, forget = false) =>
     void run(async () => {
       await disconnectOpenStack(connection.id, forget);
-      if (selected?.id === connection.id) {
-        setSelected(null);
-        setProjects([]);
-        setProjectId("");
-      }
       notifyExecutionContextsRefresh();
       await load();
       setPendingForget(null);
@@ -265,15 +185,14 @@ export default function OpenStackConnectionsPage() {
       mobileRole: "actions",
       render: (row) => (
         <ListActions>
-          <ListActionButton
-            disabled={busy || connectBusy}
-            onClick={() => {
-              if (row.connected) void run(() => selectConnection(row));
-              else openConnectDialog(row);
-            }}
-          >
-            {row.connected ? text("choose") : text("reconnect")}
-          </ListActionButton>
+          {!row.connected ? (
+            <ListActionButton
+              disabled={busy || connectBusy}
+              onClick={() => openConnectDialog(row)}
+            >
+              {text("reconnect")}
+            </ListActionButton>
+          ) : null}
           {row.connected ? (
             <ListActionButton disabled={busy || connectBusy} onClick={() => disconnect(row)}>
               {text("disconnect")}
@@ -334,93 +253,6 @@ export default function OpenStackConnectionsPage() {
       </ListPageSection>
 
       <p className="settings-description">{text("sessionHelp")}</p>
-
-      {selected ? (
-        <SettingsSection
-          presentation="compact"
-          title={text("projectAccess")}
-          description={`${selected.cloud_name} · ${selected.display_name}`}
-        >
-          <div className="settings-stack">
-            {!busy && !projects.length ? <p className="settings-body">{text("noProjects")}</p> : null}
-            <div className="settings-fields sm:grid-cols-2">
-              <SettingsSelect
-                label={text("project")}
-                disabled={busy}
-                value={projectId}
-                onChange={(event) => setProjectId(event.target.value)}
-              >
-                <option value="">{text("choose")}</option>
-                {projects.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} ({item.id})
-                  </option>
-                ))}
-              </SettingsSelect>
-              <SettingsSelect
-                label={text("endpoint")}
-                disabled={busy}
-                value={endpointId}
-                onChange={(event) => setEndpointId(event.target.value)}
-              >
-                <option value="">{text("choose")}</option>
-                {selectedCloud?.endpoints.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                    {item.region ? ` (${item.region})` : ""}
-                  </option>
-                ))}
-              </SettingsSelect>
-              {keys.length > 1 ? (
-                <SettingsSelect
-                  label={text("key")}
-                  value={key}
-                  onChange={(event) => setKey(event.target.value)}
-                  disabled={busy}
-                >
-                  <option value="">{text("choose")}</option>
-                  {keys.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </SettingsSelect>
-              ) : null}
-            </div>
-            {keysLoading ? <p role="status" className="settings-description">{text("loading")}</p> : null}
-            {projectId && !keysLoading && !keys.length && !error ? (
-              <UiInlineMessage tone="warning">{text("noKeys")}</UiInlineMessage>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              {runtimeSurfaces.browser &&
-              generalSettings.browser_enabled &&
-              generalSettings.browser_root_enabled ? (
-                <ProfileButton
-                  disabled={busy || keysLoading || !projectId || !endpointId || !key}
-                  onClick={() => open("browser")}
-                >
-                  {text("browser")}
-                </ProfileButton>
-              ) : null}
-              {runtimeSurfaces.manager && generalSettings.manager_enabled ? (
-                <ProfileButton
-                  disabled={busy || keysLoading || !projectId || !endpointId || !key}
-                  onClick={() => open("manager")}
-                >
-                  {text("manager")}
-                </ProfileButton>
-              ) : null}
-              <ProfileButton
-                variant="secondary"
-                disabled={busy}
-                onClick={() => void run(() => selectConnection(selected))}
-              >
-                {text("refresh")}
-              </ProfileButton>
-            </div>
-          </div>
-        </SettingsSection>
-      ) : null}
 
       {showConnectDialog ? (
         <ProfileDialog

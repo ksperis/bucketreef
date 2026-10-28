@@ -14,7 +14,15 @@ def make_openstack_validator(bind, user_id: int, auth_id: str, context_ref: str,
             user = db.get(User, user_id)
             if user is None:
                 raise OpenStackError("reauthentication_required", "The initiating user is no longer available")
-            current = OpenStackService(db).resolve(user, auth_id, context_ref, attach_guard=False)
+            try:
+                current = OpenStackService(db).resolve(user, auth_id, context_ref, attach_guard=False)
+            except OpenStackError as exc:
+                if exc.code in {"reauthentication_required", "context_not_found"}:
+                    raise OpenStackError(
+                        "reauthentication_required",
+                        "The execution session or configuration changed; restart this operation",
+                    ) from None
+                raise
             if s3_execution_cache_key(current) != fingerprint:
                 raise OpenStackError("reauthentication_required", "The execution session or configuration changed; restart this operation")
     return validate

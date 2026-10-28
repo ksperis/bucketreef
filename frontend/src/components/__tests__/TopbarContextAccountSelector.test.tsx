@@ -127,10 +127,12 @@ describe("TopbarContextAccountSelector", () => {
           endpoint_is_default: false,
           endpoint_url: "https://s3-tls-pprod.stockage.inra.fr",
           openstack: {
+            connection_id: "connection-a",
             cloud_name: "INRAE-OPENSTACK-PPROD",
             identity_name: "labarbe",
             project_id: "project-a",
             project_name: "Project A",
+            region_id: "INRAE-TLS-PPROD",
           },
         }),
       ],
@@ -144,8 +146,10 @@ describe("TopbarContextAccountSelector", () => {
     expect(screen.getByText("Project", { selector: "dt" })).toBeInTheDocument();
     expect(screen.getByText("Identity", { selector: "dt" })).toBeInTheDocument();
     expect(screen.getByText("Cloud", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("Region", { selector: "dt" })).toBeInTheDocument();
     expect(screen.getByText("S3 endpoint", { selector: "dt" })).toBeInTheDocument();
     expect(screen.getByText("INRAE-TLS-PPROD", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("https://s3-tls-pprod.stockage.inra.fr", { selector: "dd" })).toBeInTheDocument();
   });
 
   it("uses id as deterministic tie-breaker when type, name and label are identical", async () => {

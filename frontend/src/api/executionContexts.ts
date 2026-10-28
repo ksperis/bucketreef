@@ -32,10 +32,12 @@ export type ExecutionContext = {
   storage_endpoint_capabilities: Record<string, boolean>;
   capabilities: ExecutionContextCapabilities;
   openstack?: {
+    connection_id: string;
     cloud_name: string;
     identity_name: string;
     project_id: string;
     project_name: string;
+    region_id: string;
   } | null;
 };
 

@@ -59,6 +59,8 @@ export const shellMessages = {
   project: m4("Project", "Projet", "Projekt", "项目"),
   identity: m4("Identity", "Identité", "Identität", "身份"),
   cloud: m4("Cloud", "Cloud", "Cloud", "云"),
+  region: m4("Region", "Région", "Region", "区域"),
+  selectRegion: m4("Select OpenStack region", "Sélectionner la région OpenStack", "OpenStack-Region auswählen", "选择 OpenStack 区域"),
   s3Endpoint: m4("S3 endpoint", "Endpoint S3", "S3-Endpunkt", "S3 端点"),
   unavailableForContext: m4("Not available for this context", "Non disponible pour ce contexte", "Für diesen Kontext nicht verfügbar", "当前上下文不可用"),
   searchAccounts: m4("Search accounts", "Rechercher des comptes", "Konten durchsuchen", "搜索账户"),

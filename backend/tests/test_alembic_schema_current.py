@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0194_openstack_connect"
+_EXPECTED_ALEMBIC_HEAD = "0195_openstack_catalog_targets"
 
 
 def _alembic_config() -> Config:
@@ -51,6 +51,72 @@ def test_alembic_head_matches_sqlalchemy_metadata(tmp_path, monkeypatch):
             assert compare_metadata(context, Base.metadata) == []
         engine.dispose()
     finally:
+        get_settings.cache_clear()
+
+
+def test_openstack_catalog_target_migration_marks_existing_context_for_reactivation(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "openstack-catalog-cutover.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0194_openstack_connect")
+        with engine.begin() as connection:
+            connection.execute(sa.text("PRAGMA foreign_keys=OFF"))
+            connection.execute(sa.text(
+                "INSERT INTO storage_endpoints "
+                "(id, name, endpoint_url, provider, region, is_default, is_editable, created_at, updated_at, "
+                "verify_tls, force_path_style, identity_namespace, ceph_admin_allowed) "
+                "VALUES (91, 'Legacy S3', 'https://legacy-s3.example.test', 'ceph', 'legacy-region', 0, 1, "
+                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 0, 'legacy-openstack', 0)"
+            ))
+            connection.execute(sa.text(
+                "INSERT INTO openstack_clouds "
+                "(id, name, auth_url, enabled, allow_password, allow_token, all_users, created_at) "
+                "VALUES (7, 'Legacy cloud', 'https://identity.example.test/v3', 1, 1, 1, 0, CURRENT_TIMESTAMP)"
+            ))
+            connection.execute(sa.text(
+                "INSERT INTO openstack_cloud_endpoints (cloud_id, endpoint_id) VALUES (7, 91)"
+            ))
+            connection.execute(sa.text(
+                "INSERT INTO openstack_connections "
+                "(id, user_id, cloud_id, keystone_user_id, display_name, created_at) "
+                "VALUES ('conn-legacy', 1, 7, 'keystone-user', 'Legacy user', CURRENT_TIMESTAMP)"
+            ))
+            connection.execute(sa.text(
+                "INSERT INTO openstack_project_contexts "
+                "(id, connection_id, endpoint_id, project_id, project_name) "
+                "VALUES ('ctx-legacy', 'conn-legacy', 91, 'project-legacy', 'Legacy project')"
+            ))
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            row = connection.execute(sa.text(
+                "SELECT endpoint_id, target_id, region_id, endpoint_url, endpoint_name, "
+                "endpoint_interface, service_type, service_name "
+                "FROM openstack_project_contexts WHERE id = 'ctx-legacy'"
+            )).mappings().one()
+            assert row == {
+                "endpoint_id": 91,
+                "target_id": "legacy-storage-endpoint:91",
+                "region_id": "legacy-region",
+                "endpoint_url": "https://legacy-s3.example.test",
+                "endpoint_name": "Legacy S3",
+                "endpoint_interface": "legacy",
+                "service_type": "s3",
+                "service_name": "Legacy S3",
+            }
+            assert "openstack_cloud_endpoints" not in sa.inspect(connection).get_table_names()
+    finally:
+        engine.dispose()
         get_settings.cache_clear()
 
 

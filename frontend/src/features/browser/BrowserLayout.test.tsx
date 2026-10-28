@@ -144,6 +144,14 @@ describe("BrowserLayout", () => {
       handleContextChange: (value: string, fallback: (selected: string) => void) => fallback(value),
       dialog: null,
       reloadOptions: vi.fn(),
+      region: {
+        visible: false,
+        currentRegion: null,
+        currentTargetId: "",
+        options: [],
+        loading: false,
+        onChange: vi.fn(),
+      },
     }));
     fetchManagerContextMock.mockClear();
     canAccessPrivateConnectionsSectionMock.mockReset();
@@ -214,6 +222,14 @@ describe("BrowserLayout", () => {
       handleContextChange: (value: string, fallback: (selected: string) => void) => fallback(value),
       dialog: null,
       reloadOptions: vi.fn(),
+      region: {
+        visible: false,
+        currentRegion: null,
+        currentTargetId: "",
+        options: [],
+        loading: false,
+        onChange: vi.fn(),
+      },
     });
     useBrowserContextMock.mockReturnValue(buildBrowserContext({
       contexts: [],
