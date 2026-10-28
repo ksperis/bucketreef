@@ -37,6 +37,8 @@ export const shellMessages = {
   personalDetailsPreferences: m4("Personal details and preferences", "Informations personnelles et préférences", "Persönliche Angaben und Einstellungen", "个人信息与偏好设置"),
   privateS3Connections: m4("Private S3 connections", "Connexions S3 privées", "Private S3-Verbindungen", "私有 S3 连接"),
   manageEndpointsCredentials: m4("Manage your endpoints and credentials", "Gérer vos endpoints et identifiants", "Endpunkte und Zugangsdaten verwalten", "管理你的端点和凭据"),
+  openStack: m4("OpenStack", "OpenStack", "OpenStack", "OpenStack"),
+  manageOpenStackConnections: m4("Manage your OpenStack connections", "Gérer vos connexions OpenStack", "OpenStack-Verbindungen verwalten", "管理你的 OpenStack 连接"),
   signOut: m4("Sign out", "Se déconnecter", "Abmelden", "退出登录"),
 
   workspace: m4("Workspace", "Espace de travail", "Arbeitsbereich", "工作区"),
