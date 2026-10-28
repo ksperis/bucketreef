@@ -13,8 +13,8 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
 }));
 
 vi.mock("./ProfilePage", () => ({
-  default: ({ profilePath, showConnectionsSection, listPresentation, onUnsavedChangesChange }: { profilePath?: string; showConnectionsSection?: boolean; listPresentation?: boolean; onUnsavedChangesChange?: (dirty: boolean) => void }) => (
-    <div data-testid="profile-content" data-profile-path={profilePath} data-list-presentation={String(listPresentation ?? false)}>
+  default: ({ profilePath, showConnectionsSection, onUnsavedChangesChange }: { profilePath?: string; showConnectionsSection?: boolean; onUnsavedChangesChange?: (dirty: boolean) => void }) => (
+    <div data-testid="profile-content" data-profile-path={profilePath}>
       {showConnectionsSection ? "Connections content" : "Profile content"}
       <button type="button" onClick={() => onUnsavedChangesChange?.(true)}>Make dirty</button>
     </div>
@@ -190,9 +190,9 @@ describe("AccountProfilePage", () => {
     expect(screen.getByText("/profile?tab=profile")).toBeInTheDocument();
   });
 
-  it.each(["admin", "browser", "manager", "portal", "ceph-admin", "storage-ops"])("limits the common connection header to non-Browser uses under /%s", workspace => {
+  it.each(["admin", "browser", "manager", "portal", "ceph-admin", "storage-ops"])("uses the shared profile content width under /%s", workspace => {
     renderPage(`/${workspace}/profile?tab=connections`);
-    expect(screen.getByTestId("profile-content")).toHaveAttribute("data-list-presentation", String(workspace !== "browser"));
+    expect(screen.getByRole("tabpanel")).toHaveClass("settings-compact");
     expect(screen.getByTestId("profile-content")).toHaveAttribute("data-profile-path", `/${workspace}/profile`);
   });
 

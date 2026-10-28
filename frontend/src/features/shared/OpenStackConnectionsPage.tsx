@@ -181,7 +181,8 @@ export default function OpenStackConnectionsPage() {
     },
     {
       id: "actions",
-      label: "",
+      label: text("actions"),
+      align: "right",
       mobileRole: "actions",
       render: (row) => (
         <ListActions>

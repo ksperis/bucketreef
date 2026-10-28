@@ -24,6 +24,7 @@ describe("OpenStack connections", () => {
     renderPage();
 
     expect(await screen.findByText("Research")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass("text-right");
     expect(screen.getByText("Connect your cloud identity. Its OpenStack projects then appear in the Manager and Browser context selector.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Select…" })).not.toBeInTheDocument();
     expect(screen.queryByText("Project access")).not.toBeInTheDocument();

@@ -2,11 +2,16 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActions, ListBadge, ListActionButton, ListSelectionCheckbox } from "../../components/list/ListControls";
+import {
+  ListActions,
+  ListBadge,
+  ListActionButton,
+  ListSelectionBar,
+  ListSelectionCheckbox,
+} from "../../components/list/ListControls";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import ListToolbar from "../../components/ListToolbar";
+import ListPageSection from "../../components/list/ListPageSection";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { useSearchParams } from "react-router-dom";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
@@ -14,7 +19,6 @@ import PageBanner from "../../components/PageBanner";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import UiTagBadgeList from "../../components/UiTagBadgeList";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
-import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import {
   S3Connection,
@@ -76,9 +80,6 @@ type PendingPrivateConnectionDelete = {
 
 type ProfilePageProps = {
   profilePath?: string;
-  /** Opt in outside Browser; the shared Browser profile keeps its existing header. */
-  listPresentation?: boolean;
-  headerActionsTarget?: HTMLElement | null;
   showSettingsCards?: boolean;
   showConnectionsSection?: boolean;
   onUnsavedChangesChange?: (dirty: boolean) => void;
@@ -86,8 +87,6 @@ type ProfilePageProps = {
 
 export default function ProfilePage({
   profilePath = "/",
-  listPresentation = false,
-  headerActionsTarget,
   showSettingsCards: showSettingsCardsProp = true,
   showConnectionsSection: showConnectionsSectionProp = false,
   onUnsavedChangesChange,
@@ -969,59 +968,37 @@ export default function ProfilePage({
             <>
               {connectionsError && <PageBanner tone="error">{connectionsError}</PageBanner>}
               {connectionsMessage && <PageBanner tone="success">{connectionsMessage}</PageBanner>}
-              {listPresentation && headerActionsTarget && canCreateManualConnections && !showCreateConnectionModal && !editingConnection ? createPortal(
-                <ListActionButton variant="primary" onClick={openCreateConnectionModal}>{surfaceText("Add connection")}</ListActionButton>,
-                headerActionsTarget,
-              ) : null}
-              <div className="rounded-lg border border-[color:var(--ui-border)]">
-                {listPresentation ? <ListToolbar variant="page" title={surfaceText("Private S3 connections")}
-                  countLabel={surfaceText(
-                    filteredConnections.length === connections.length
-                      ? "{count} connections shown"
-                      : "{count} connections shown of {total}",
-                    {
-                      count: filteredConnections.length,
-                      total: connections.length,
-                    },
-                  )}
-                  search={<ToolbarSearchInput value={connectionsFilter} onChange={handleConnectionsFilterChange}
-                    placeholder={surfaceText("Name, endpoint, provider, tag...")} label={surfaceText("Search connections")} />} /> : (
-                <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="ui-caption text-slate-500 dark:text-slate-400">
-                    {surfaceText(
-                      filteredConnections.length === connections.length
-                        ? "{count} connections shown"
-                        : "{count} connections shown of {total}",
-                      {
-                        count: filteredConnections.length,
-                        total: connections.length,
-                      },
-                    )}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {surfaceText("Search")}</span>
-                      <ToolbarSearchInput
-                        value={connectionsFilter}
-                        onChange={handleConnectionsFilterChange}
-                        placeholder={surfaceText("Name, endpoint, provider, tag...")}
-                        label={surfaceText("Search connections")}
-                        labelClassName="sr-only"
-                        className="min-w-0 w-full sm:w-72"
-                        inputClassName="w-full"
-                      />
-                    </div>
-                    {canCreateManualConnections && (
-                      <UiButton size="sm" onClick={openCreateConnectionModal}>
-                        {surfaceText("Add connection")}</UiButton>
-                    )}
-                  </div>
-                </div>
+              <ListPageSection
+                variant="section"
+                title={surfaceText("Private S3 connections")}
+                countLabel={surfaceText(
+                  filteredConnections.length === connections.length
+                    ? "{count} connections shown"
+                    : "{count} connections shown of {total}",
+                  {
+                    count: filteredConnections.length,
+                    total: connections.length,
+                  },
                 )}
+                search={(
+                  <ToolbarSearchInput
+                    value={connectionsFilter}
+                    onChange={handleConnectionsFilterChange}
+                    placeholder={surfaceText("Name, endpoint, provider, tag...")}
+                    label={surfaceText("Search connections")}
+                  />
+                )}
+                headingActions={
+                  canCreateManualConnections && !showCreateConnectionModal && !editingConnection ? (
+                    <ListActionButton variant="primary" onClick={openCreateConnectionModal}>
+                      {surfaceText("Add connection")}
+                    </ListActionButton>
+                  ) : null
+                }
+              >
                 {selectedFilteredConnectionIds.length > 0 && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-2 dark:border-slate-800 dark:bg-slate-900/50">
-                    <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
+                  <ListSelectionBar>
+                    <span className="ui-list-selection-summary">
                       {surfaceText("{count} selected", { count: selectedFilteredConnectionIds.length })}
                       {hiddenSelectedConnectionCount > 0
                         ? ` (${surfaceText("{count} not visible", { count: hiddenSelectedConnectionCount })})`
@@ -1051,7 +1028,7 @@ export default function ProfilePage({
                         {surfaceText(bulkDeletingConnections ? "Deleting..." : "Delete selected")}
                       </ListActionButton>
                     </ListActions>
-                  </div>
+                  </ListSelectionBar>
                 )}
                 <DataTableShell
                   columns={privateConnectionTableColumns}
@@ -1061,6 +1038,7 @@ export default function ProfilePage({
                   loadingMessage={surfaceText("Loading connections...")}
                   errorMessage={surfaceText("Unable to load private S3 connections.")}
                   emptyMessage={surfaceText("No private S3 connection configured.")}
+                  responsiveCards
                   pagination={!connectionsLoading && filteredConnections.length > 0 ? {
                     page: connectionsPage,
                     pageSize: connectionsPageSize,
@@ -1077,7 +1055,7 @@ export default function ProfilePage({
                     pageSizeOptions: [5, 10, 25, 50],
                   } : undefined}
                 />
-              </div>
+              </ListPageSection>
             </>
         </div>
       </section>}
