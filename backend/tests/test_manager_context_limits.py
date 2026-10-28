@@ -58,10 +58,12 @@ def test_manager_context_schema_requires_complete_canonical_payload():
         "session",
         "s3_user",
         "connection",
+        "openstack_project",
     }
     assert set(schema["properties"]["context_kind"]["enum"]) == {
         "account",
         "connection",
+        "openstack_project",
     }
 
 

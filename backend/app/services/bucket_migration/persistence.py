@@ -65,9 +65,13 @@ class BucketMigrationPersistenceMixin:
         ).first()
         if user is None:
             return set()
-        return EffectiveAccessService(self.db).build_bucket_migration_scope(user).allowed_context_ids
+        return EffectiveAccessService(self.db).build_bucket_migration_scope(user, auth_session_id=self._execution_auth_session_id).allowed_context_ids
 
     def _assert_migration_creator_access(self, migration: BucketMigration) -> None:
+        if str(migration.source_context_id).startswith("os-") or str(migration.target_context_id).startswith("os-"):
+            self._execution_auth_session_id = self._request_auth_session_id or migration.execution_auth_session_id
+            if self._request_auth_session_id:
+                migration.execution_auth_session_id = self._request_auth_session_id
         allowed = self._creator_allowed_context_ids(migration)
         required = {str(migration.source_context_id), str(migration.target_context_id)}
         if required <= allowed:

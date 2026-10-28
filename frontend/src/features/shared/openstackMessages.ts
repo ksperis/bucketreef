@@ -1,0 +1,70 @@
+/* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { useCallback } from "react";
+import { useI18n } from "../../i18n";
+import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
+const m = (en: string, fr: string, de: string, zh: string) => ({ en, fr, de, zh });
+const messages = {
+  title: m("OpenStack", "OpenStack", "OpenStack", "OpenStack"),
+  intro: m("Connect your cloud identity, then select a project and an S3 endpoint.", "Connectez votre identité cloud, puis sélectionnez un projet et un endpoint S3.", "Cloud-Identität verbinden, dann Projekt und S3-Endpunkt wählen.", "连接云身份，然后选择项目和 S3 端点。"),
+  sessionHelp: m("Access lasts for this BucketReef session. Existing EC2 keys remain in OpenStack.", "L’accès est limité à cette session BucketReef. Les clés EC2 existantes restent dans OpenStack.", "Zugriff gilt für diese BucketReef-Sitzung. Bestehende EC2-Schlüssel bleiben in OpenStack.", "访问仅限当前 BucketReef 会话。现有 EC2 密钥仍保留在 OpenStack。"),
+  cloud: m("Cloud", "Cloud", "Cloud", "云"),
+  choose: m("Select…", "Sélectionner…", "Auswählen…", "选择…"),
+  method: m("Authentication", "Authentification", "Authentifizierung", "认证"),
+  password: m("Password", "Mot de passe", "Passwort", "密码"),
+  token: m("User token", "Token utilisateur", "Benutzertoken", "用户令牌"),
+  username: m("User name", "Identifiant", "Benutzername", "用户名"),
+  userId: m("Use user UUID", "Utiliser l’UUID utilisateur", "Benutzer-UUID verwenden", "使用用户 UUID"),
+  domain: m("User domain", "Domaine utilisateur", "Benutzerdomäne", "用户域"),
+  domainId: m("Domain is a UUID", "Le domaine est un UUID", "Domäne ist eine UUID", "域为 UUID"),
+  connect: m("Connect", "Connecter", "Verbinden", "连接"),
+  reconnect: m("Reconnect", "Reconnecter", "Erneut verbinden", "重新连接"),
+  disconnect: m("Disconnect", "Déconnecter", "Trennen", "断开连接"),
+  forget: m("Forget connection", "Oublier la connexion", "Verbindung entfernen", "移除连接"),
+  connected: m("Connected", "Connecté", "Verbunden", "已连接"),
+  disconnected: m("Reconnect required", "Reconnexion nécessaire", "Erneute Verbindung erforderlich", "需要重新连接"),
+  identity: m("Identity", "Identité", "Identität", "身份"),
+  project: m("Project", "Projet", "Projekt", "项目"),
+  endpoint: m("S3 endpoint", "Endpoint S3", "S3-Endpunkt", "S3 端点"),
+  key: m("EC2 access key", "Clé d’accès EC2", "EC2-Zugriffsschlüssel", "EC2 访问密钥"),
+  noKeys: m("No EC2 key for this project. Provision one in OpenStack, then retry.", "Aucune clé EC2 pour ce projet. Provisionnez-en une dans OpenStack, puis réessayez.", "Kein EC2-Schlüssel für dieses Projekt. In OpenStack erstellen und erneut versuchen.", "此项目没有 EC2 密钥。请在 OpenStack 中创建后重试。"),
+  noProjects: m("No project is available.", "Aucun projet disponible.", "Kein Projekt verfügbar.", "没有可用项目。"),
+  noClouds: m("No OpenStack cloud is available for your account.", "Aucun cloud OpenStack n’est disponible pour votre compte.", "Für Ihr Konto ist keine OpenStack-Cloud verfügbar.", "你的账户没有可用的 OpenStack 云。"),
+  browser: m("Open Browser", "Ouvrir Browser", "Browser öffnen", "打开 Browser"),
+  manager: m("Open Manager", "Ouvrir Manager", "Manager öffnen", "打开 Manager"),
+  loading: m("Loading…", "Chargement…", "Wird geladen…", "加载中…"),
+  error: m("OpenStack request failed.", "La demande OpenStack a échoué.", "OpenStack-Anfrage fehlgeschlagen.", "OpenStack 请求失败。"),
+  denied: m("Keystone denied this operation.", "Keystone a refusé cette opération.", "Keystone hat diesen Vorgang abgelehnt.", "Keystone 拒绝了此操作。"),
+  reauth: m("Reconnect to OpenStack to continue.", "Reconnectez-vous à OpenStack pour continuer.", "Zum Fortfahren erneut mit OpenStack verbinden.", "请重新连接 OpenStack 后继续。"),
+  unavailable: m("The cloud is unavailable. Retry later.", "Le cloud est indisponible. Réessayez plus tard.", "Die Cloud ist nicht verfügbar. Später erneut versuchen.", "云不可用。请稍后重试。"),
+  retry: m("Retry", "Réessayer", "Erneut versuchen", "重试"),
+  refresh: m("Refresh", "Actualiser", "Aktualisieren", "刷新"),
+  name: m("Name", "Nom", "Name", "名称"),
+  url: m("Keystone v3 URL", "URL Keystone v3", "Keystone-v3-URL", "Keystone v3 URL"),
+  enabled: m("Enabled", "Activé", "Aktiviert", "已启用"),
+  allUsers: m("All authorized UI users", "Tous les utilisateurs UI autorisés", "Alle berechtigten UI-Benutzer", "所有获授权的 UI 用户"),
+  users: m("Allowed users", "Utilisateurs autorisés", "Berechtigte Benutzer", "获授权用户"),
+  groups: m("Allowed groups", "Groupes autorisés", "Berechtigte Gruppen", "获授权组"),
+  endpoints: m("S3 endpoints", "Endpoints S3", "S3-Endpunkte", "S3 端点"),
+  add: m("Add cloud", "Ajouter un cloud", "Cloud hinzufügen", "添加云"),
+  edit: m("Edit", "Modifier", "Bearbeiten", "编辑"),
+  remove: m("Delete", "Supprimer", "Löschen", "删除"),
+  save: m("Save", "Enregistrer", "Speichern", "保存"),
+  cancel: m("Cancel", "Annuler", "Abbrechen", "取消"),
+  confirm: m("Confirm", "Confirmer", "Bestätigen", "确认"),
+  deleteHelp: m("Local connections and active sessions will be removed. OpenStack resources are preserved.", "Les connexions locales et sessions actives seront supprimées. Les ressources OpenStack sont conservées.", "Lokale Verbindungen und aktive Sitzungen werden entfernt. OpenStack-Ressourcen bleiben erhalten.", "将移除本地连接和活动会话。OpenStack 资源将保留。"),
+  trustHelp: m("Saving invalidates this cloud’s active connections. Outbound hosts and private CAs are configured by the deployment operator.", "L’enregistrement invalide les connexions actives de ce cloud. L’opérateur configure les hôtes sortants et les CA privées.", "Speichern beendet aktive Cloud-Verbindungen. Ausgehende Hosts und private CAs konfiguriert der Betreiber.", "保存将使此云的活动连接失效。出站主机和私有 CA 由部署运维人员配置。"),
+};
+export function useOpenStackI18n() {
+  const { t } = useI18n();
+  const text = useCallback((key: keyof typeof messages) => t(messages[key]), [t]);
+  const errorText = useCallback((failure: unknown) => {
+    switch (extractApiErrorCode(failure)) {
+      case "reauthentication_required": return text("reauth");
+      case "access_denied": case "project_not_allowed": case "credential_not_allowed": return text("denied");
+      case "provider_unavailable": return text("unavailable");
+      case "no_ec2_credentials": return text("noKeys");
+      default: return extractApiError(failure, text("error"));
+    }
+  }, [text]);
+  return { text, errorText };
+}

@@ -74,7 +74,8 @@ def s3_execution_cache_key(execution_context: S3ExecutionTarget) -> str:
         else ("account", str(execution_context.id))
     )
     payload = json.dumps(
-        [identity, execution_context.rgw_tenant,
+        [identity, getattr(execution_context, "execution_auth_session_id", None),
+         getattr(execution_context, "openstack_session_id", None), execution_context.rgw_tenant,
          execution_context.effective_rgw_credentials(), s3_execution_client_kwargs(execution_context)],
         sort_keys=True,
         separators=(",", ":"),

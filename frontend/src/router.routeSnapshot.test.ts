@@ -21,6 +21,7 @@ describe("route snapshot", () => {
   it("preserves the public frontend route contract", () => {
     expect(collectRoutePaths(createAppRoutes())).toEqual([
       "/#index",
+      "/profile",
       "/admin",
       "/admin#index",
       "/admin/onboarding",
@@ -46,6 +47,7 @@ describe("route snapshot", () => {
       "/admin/production-readiness",
       "/admin/general-settings",
       "/admin/cost-settings",
+      "/admin/openstack",
       "/admin/authentication-settings",
       "/admin/authentication-settings/oidc/new",
       "/admin/authentication-settings/oidc/providers/:providerId",
@@ -63,6 +65,9 @@ describe("route snapshot", () => {
       "/ceph-admin#index",
       "/ceph-admin/profile",
       "/ceph-admin/metrics",
+      "/ceph-admin/multisite",
+      "/ceph-admin/multisite/bucket",
+      "/ceph-admin/multisite/logs",
       "/ceph-admin/accounts",
       "/ceph-admin/users",
       "/ceph-admin/buckets",
@@ -142,10 +147,10 @@ describe("route snapshot", () => {
   );
 
   it.each(["/profile", "/profile/", "/profile?tab=security"])(
-    "uses the unknown-route fallback for the removed profile alias %s",
+    "keeps the standalone profile accessible without a storage workspace at %s",
     (path) => {
       const matches = matchRoutes(createAppRoutes(), path);
-      expect(matches?.at(-1)?.route.path).toBe("*");
+      expect(matches?.at(-1)?.route.path).toBe("/profile");
     },
   );
 

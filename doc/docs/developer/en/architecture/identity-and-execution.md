@@ -21,6 +21,15 @@ for password, role, activation, MFA, and external-identity changes.
 
 ## Personal storage identity contract
 
+OpenStack projects use an explicit `openstack_project` branch and opaque
+`os-<uuid>` selectors, independent of Portal and RGW Accounts. Durable references
+contain no secrets. Keystone tokens and EC2 credentials belong to one
+`AuthSession`, are encrypted, and are erased through every revocation path.
+Catalogue and execution share cloud admission and session validation. Cache
+fingerprints include the UI session; migrations retain its ID and long-running
+S3 clients revalidate before provider requests. Missing OpenStack credentials
+must never be replaced with administrative or ambient credentials.
+
 - Every human operator uses a dedicated IAM identity or owned private S3
   connection; credentials are never shared between people.
 - One personal identity may temporarily have multiple keys during rotation.

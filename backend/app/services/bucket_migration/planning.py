@@ -276,6 +276,7 @@ class BucketMigrationPlanningMixin:
         configuration = self._resolve_draft_configuration(payload)
 
         migration = BucketMigration(
+            execution_auth_session_id=self._execution_auth_session_id,
             created_by_user_id=user.id,
             source_context_id=payload.source_context_id,
             target_context_id=payload.target_context_id,

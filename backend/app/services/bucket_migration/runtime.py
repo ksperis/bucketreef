@@ -20,6 +20,7 @@ def build_bucket_migration_service(
         db,
         authorized_context_ids=scope.allowed_context_ids,
         admin_account_context_ids=scope.admin_account_context_ids,
+        execution_auth_session_id=scope.auth_session_id,
     )
 
 

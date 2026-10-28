@@ -473,7 +473,7 @@
       "name": "endpoint_service_identities",
       "schema": null,
       "x": 2520,
-      "y": 2040,
+      "y": 2852,
       "fields": [
         {
           "id": "field:endpoint_service_identities.id",
@@ -822,7 +822,7 @@
       "name": "key_rotation_intents",
       "schema": null,
       "x": 2940,
-      "y": 2040,
+      "y": 2852,
       "fields": [
         {
           "id": "field:key_rotation_intents.id",
@@ -1225,7 +1225,7 @@
       "name": "manager_access_key_metadata",
       "schema": null,
       "x": 2940,
-      "y": 988,
+      "y": 1424,
       "fields": [
         {
           "id": "field:manager_access_key_metadata.id",
@@ -2187,7 +2187,7 @@
       "name": "user_s3_accounts",
       "schema": null,
       "x": 2940,
-      "y": 1664,
+      "y": 2476,
       "fields": [
         {
           "id": "field:user_s3_accounts.id",
@@ -2443,7 +2443,7 @@
       "name": "account_iam_users",
       "schema": null,
       "x": 2100,
-      "y": 988,
+      "y": 1424,
       "fields": [
         {
           "id": "field:account_iam_users.id",
@@ -3633,7 +3633,7 @@
       "name": "audit_logs",
       "schema": null,
       "x": 900,
-      "y": 8146,
+      "y": 8176,
       "fields": [
         {
           "id": "field:audit_logs.id",
@@ -4531,7 +4531,7 @@
       "id": "table:auth_sessions",
       "name": "auth_sessions",
       "schema": null,
-      "x": 1320,
+      "x": 480,
       "y": 132,
       "fields": [
         {
@@ -4965,7 +4965,7 @@
       "id": "table:refresh_tokens",
       "name": "refresh_tokens",
       "schema": null,
-      "x": 480,
+      "x": 900,
       "y": 132,
       "fields": [
         {
@@ -7170,6 +7170,1264 @@
       "parentAreaId": "area:identity-ui-access"
     },
     {
+      "id": "table:openstack_cloud_endpoints",
+      "name": "openstack_cloud_endpoints",
+      "schema": null,
+      "x": 3360,
+      "y": 1424,
+      "fields": [
+        {
+          "id": "field:openstack_cloud_endpoints.cloud_id",
+          "name": "cloud_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_cloud_endpoints.endpoint_id",
+          "name": "endpoint_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:openstack_cloud_endpoints:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_cloud_endpoints.cloud_id",
+            "field:openstack_cloud_endpoints.endpoint_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 20,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
+      "id": "table:openstack_cloud_users",
+      "name": "openstack_cloud_users",
+      "schema": null,
+      "x": 2520,
+      "y": 2100,
+      "fields": [
+        {
+          "id": "field:openstack_cloud_users.cloud_id",
+          "name": "cloud_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_cloud_users.user_id",
+          "name": "user_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:openstack_cloud_users:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_cloud_users.cloud_id",
+            "field:openstack_cloud_users.user_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 21,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
+      "id": "table:openstack_cloud_groups",
+      "name": "openstack_cloud_groups",
+      "schema": null,
+      "x": 2100,
+      "y": 2100,
+      "fields": [
+        {
+          "id": "field:openstack_cloud_groups.cloud_id",
+          "name": "cloud_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_cloud_groups.group_id",
+          "name": "group_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:openstack_cloud_groups:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_cloud_groups.cloud_id",
+            "field:openstack_cloud_groups.group_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 22,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
+      "id": "table:openstack_clouds",
+      "name": "openstack_clouds",
+      "schema": null,
+      "x": 2100,
+      "y": 988,
+      "fields": [
+        {
+          "id": "field:openstack_clouds.id",
+          "name": "id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.name",
+          "name": "name",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.auth_url",
+          "name": "auth_url",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.config_version",
+          "name": "config_version",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "1",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.enabled",
+          "name": "enabled",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.allow_password",
+          "name": "allow_password",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "1",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.allow_token",
+          "name": "allow_token",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "1",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.default_domain",
+          "name": "default_domain",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.all_users",
+          "name": "all_users",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_clouds.created_at",
+          "name": "created_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:openstack_clouds:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_clouds.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        },
+        {
+          "id": "unique:openstack_clouds:uq_openstack_clouds_name",
+          "name": "uq_openstack_clouds_name",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_clouds.name"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 23,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
+      "id": "table:openstack_connections",
+      "name": "openstack_connections",
+      "schema": null,
+      "x": 2520,
+      "y": 988,
+      "fields": [
+        {
+          "id": "field:openstack_connections.id",
+          "name": "id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_connections.user_id",
+          "name": "user_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_connections.cloud_id",
+          "name": "cloud_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_connections.keystone_user_id",
+          "name": "keystone_user_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_connections.display_name",
+          "name": "display_name",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_connections.created_at",
+          "name": "created_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:openstack_connections:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_connections.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        },
+        {
+          "id": "index:openstack_connections:ix_openstack_connections_cloud_id",
+          "name": "ix_openstack_connections_cloud_id",
+          "unique": false,
+          "fieldIds": [
+            "field:openstack_connections.cloud_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:openstack_connections:ix_openstack_connections_user_id",
+          "name": "ix_openstack_connections_user_id",
+          "unique": false,
+          "fieldIds": [
+            "field:openstack_connections.user_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "unique:openstack_connections:uq_openstack_connection_identity",
+          "name": "uq_openstack_connection_identity",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_connections.user_id",
+            "field:openstack_connections.cloud_id",
+            "field:openstack_connections.keystone_user_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 24,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
+      "id": "table:openstack_sessions",
+      "name": "openstack_sessions",
+      "schema": null,
+      "x": 3360,
+      "y": 988,
+      "fields": [
+        {
+          "id": "field:openstack_sessions.id",
+          "name": "id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_sessions.connection_id",
+          "name": "connection_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_sessions.auth_session_id",
+          "name": "auth_session_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_sessions.token",
+          "name": "token",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_sessions.cloud_version",
+          "name": "cloud_version",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "1",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_sessions.expires_at",
+          "name": "expires_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:openstack_sessions:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_sessions.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        },
+        {
+          "id": "index:openstack_sessions:ix_openstack_sessions_auth_session_id",
+          "name": "ix_openstack_sessions_auth_session_id",
+          "unique": false,
+          "fieldIds": [
+            "field:openstack_sessions.auth_session_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:openstack_sessions:ix_openstack_sessions_connection_id",
+          "name": "ix_openstack_sessions_connection_id",
+          "unique": false,
+          "fieldIds": [
+            "field:openstack_sessions.connection_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "unique:openstack_sessions:uq_openstack_ui_session",
+          "name": "uq_openstack_ui_session",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_sessions.connection_id",
+            "field:openstack_sessions.auth_session_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 25,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
+      "id": "table:openstack_project_contexts",
+      "name": "openstack_project_contexts",
+      "schema": null,
+      "x": 2940,
+      "y": 988,
+      "fields": [
+        {
+          "id": "field:openstack_project_contexts.id",
+          "name": "id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_contexts.connection_id",
+          "name": "connection_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_contexts.project_id",
+          "name": "project_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_contexts.project_name",
+          "name": "project_name",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_contexts.endpoint_id",
+          "name": "endpoint_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:openstack_project_contexts:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_project_contexts.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        },
+        {
+          "id": "index:openstack_project_contexts:ix_openstack_project_contexts_connection_id",
+          "name": "ix_openstack_project_contexts_connection_id",
+          "unique": false,
+          "fieldIds": [
+            "field:openstack_project_contexts.connection_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "unique:openstack_project_contexts:uq_openstack_project_endpoint",
+          "name": "uq_openstack_project_endpoint",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_project_contexts.connection_id",
+            "field:openstack_project_contexts.project_id",
+            "field:openstack_project_contexts.endpoint_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 26,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
+      "id": "table:openstack_project_credentials",
+      "name": "openstack_project_credentials",
+      "schema": null,
+      "x": 2940,
+      "y": 2100,
+      "fields": [
+        {
+          "id": "field:openstack_project_credentials.id",
+          "name": "id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_credentials.session_id",
+          "name": "session_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_credentials.context_id",
+          "name": "context_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_credentials.access_key",
+          "name": "access_key",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_credentials.secret_key",
+          "name": "secret_key",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_credentials.validated_at",
+          "name": "validated_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_credentials.expires_at",
+          "name": "expires_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:openstack_project_credentials.can_manage_iam",
+          "name": "can_manage_iam",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:openstack_project_credentials:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_project_credentials.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        },
+        {
+          "id": "index:openstack_project_credentials:ix_openstack_project_credentials_context_id",
+          "name": "ix_openstack_project_credentials_context_id",
+          "unique": false,
+          "fieldIds": [
+            "field:openstack_project_credentials.context_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:openstack_project_credentials:ix_openstack_project_credentials_session_id",
+          "name": "ix_openstack_project_credentials_session_id",
+          "unique": false,
+          "fieldIds": [
+            "field:openstack_project_credentials.session_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "unique:openstack_project_credentials:uq_openstack_project_credential",
+          "name": "uq_openstack_project_credential",
+          "unique": true,
+          "fieldIds": [
+            "field:openstack_project_credentials.session_id",
+            "field:openstack_project_credentials.context_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 27,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
       "id": "table:s3_users",
       "name": "s3_users",
       "schema": null,
@@ -7658,7 +8916,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 20,
+      "order": 28,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -7667,7 +8925,7 @@
       "name": "user_s3_users",
       "schema": null,
       "x": 2100,
-      "y": 2040,
+      "y": 2852,
       "fields": [
         {
           "id": "field:user_s3_users.id",
@@ -7809,7 +9067,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 21,
+      "order": 29,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -8401,7 +9659,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 22,
+      "order": 30,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -8410,7 +9668,7 @@
       "name": "user_s3_connections",
       "schema": null,
       "x": 3360,
-      "y": 1664,
+      "y": 2476,
       "fields": [
         {
           "id": "field:user_s3_connections.id",
@@ -8573,7 +9831,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 23,
+      "order": 31,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -8582,7 +9840,7 @@
       "name": "managed_private_accesses",
       "schema": null,
       "x": 2520,
-      "y": 988,
+      "y": 1424,
       "fields": [
         {
           "id": "field:managed_private_accesses.id",
@@ -9056,7 +10314,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 24,
+      "order": 32,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -9064,7 +10322,7 @@
       "id": "table:ui_groups",
       "name": "ui_groups",
       "schema": null,
-      "x": 900,
+      "x": 1320,
       "y": 132,
       "fields": [
         {
@@ -9541,7 +10799,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 25,
+      "order": 33,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -9692,7 +10950,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 26,
+      "order": 34,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -9701,7 +10959,7 @@
       "name": "ui_group_s3_accounts",
       "schema": null,
       "x": 3360,
-      "y": 988,
+      "y": 2100,
       "fields": [
         {
           "id": "field:ui_group_s3_accounts.id",
@@ -9948,7 +11206,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 27,
+      "order": 35,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -9957,7 +11215,7 @@
       "name": "ui_group_s3_users",
       "schema": null,
       "x": 2520,
-      "y": 1664,
+      "y": 2476,
       "fields": [
         {
           "id": "field:ui_group_s3_users.id",
@@ -10099,7 +11357,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 28,
+      "order": 36,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -10108,7 +11366,7 @@
       "name": "ui_group_s3_connections",
       "schema": null,
       "x": 2100,
-      "y": 1664,
+      "y": 2476,
       "fields": [
         {
           "id": "field:ui_group_s3_connections.id",
@@ -10271,7 +11529,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 29,
+      "order": 37,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -10540,7 +11798,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 30,
+      "order": 38,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -10779,7 +12037,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 31,
+      "order": 39,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -10972,7 +12230,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 32,
+      "order": 40,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -11165,7 +12423,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 33,
+      "order": 41,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -11358,7 +12616,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 34,
+      "order": 42,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -11551,7 +12809,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 35,
+      "order": 43,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -12025,7 +13283,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 36,
+      "order": 44,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -12226,7 +13484,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 37,
+      "order": 45,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -12396,7 +13654,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 38,
+      "order": 46,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -12807,7 +14065,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 39,
+      "order": 47,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -13194,7 +14452,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 40,
+      "order": 48,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -13560,7 +14818,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 41,
+      "order": 49,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -13786,7 +15044,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 42,
+      "order": 50,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -14040,7 +15298,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 43,
+      "order": 51,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -14437,7 +15695,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 44,
+      "order": 52,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -14813,7 +16071,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 45,
+      "order": 53,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -15090,7 +16348,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 46,
+      "order": 54,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -15553,7 +16811,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 47,
+      "order": 55,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -15799,7 +17057,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 48,
+      "order": 56,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -16239,7 +17497,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 49,
+      "order": 57,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -16638,7 +17896,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 50,
+      "order": 58,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -17060,7 +18318,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 51,
+      "order": 59,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -17071,6 +18329,27 @@
       "x": 60,
       "y": 6840,
       "fields": [
+        {
+          "id": "field:bucket_migrations.execution_auth_session_id",
+          "name": "execution_auth_session_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
         {
           "id": "field:bucket_migrations.id",
           "name": "id",
@@ -18068,7 +19347,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 52,
+      "order": 60,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -18077,7 +19356,7 @@
       "name": "bucket_migration_items",
       "schema": null,
       "x": 60,
-      "y": 8146,
+      "y": 8176,
       "fields": [
         {
           "id": "field:bucket_migration_items.id",
@@ -18893,7 +20172,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 53,
+      "order": 61,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -19140,7 +20419,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 54,
+      "order": 62,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -19149,7 +20428,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 9888,
+      "y": 9918,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -19724,7 +21003,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 55,
+      "order": 63,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -20268,7 +21547,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 56,
+      "order": 64,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -20498,7 +21777,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 57,
+      "order": 65,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -20806,7 +22085,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 58,
+      "order": 66,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -21220,7 +22499,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 59,
+      "order": 67,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -21605,7 +22884,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 60,
+      "order": 68,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -21819,7 +23098,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 61,
+      "order": 69,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -21828,7 +23107,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 9888,
+      "y": 9918,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -21967,7 +23246,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 62,
+      "order": 70,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -21976,7 +23255,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9302,
+      "y": 9332,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -22083,7 +23362,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 63,
+      "order": 71,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -22226,7 +23505,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 64,
+      "order": 72,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -22342,7 +23621,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 65,
+      "order": 73,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -22574,7 +23853,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 66,
+      "order": 74,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -22583,7 +23862,7 @@
       "name": "webhook_endpoints",
       "schema": null,
       "x": 480,
-      "y": 8146,
+      "y": 8176,
       "fields": [
         {
           "id": "field:webhook_endpoints.id",
@@ -22787,7 +24066,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 67,
+      "order": 75,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -22796,7 +24075,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9302,
+      "y": 9332,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -22928,7 +24207,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 68,
+      "order": 76,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -22937,7 +24216,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9302,
+      "y": 9332,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -23401,7 +24680,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 69,
+      "order": 77,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     }
@@ -23702,6 +24981,188 @@
       "targetTableId": "table:users",
       "sourceFieldId": "field:api_tokens.user_id",
       "targetFieldId": "field:users.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_cloud_endpoints.cloud_id->openstack_clouds.id",
+      "name": "fk_openstack_cloud_endpoints_cloud_id_openstack_clouds_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_cloud_endpoints",
+      "targetSchema": null,
+      "targetTableId": "table:openstack_clouds",
+      "sourceFieldId": "field:openstack_cloud_endpoints.cloud_id",
+      "targetFieldId": "field:openstack_clouds.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_cloud_endpoints.endpoint_id->storage_endpoints.id",
+      "name": "fk_openstack_cloud_endpoints_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_cloud_endpoints",
+      "targetSchema": null,
+      "targetTableId": "table:storage_endpoints",
+      "sourceFieldId": "field:openstack_cloud_endpoints.endpoint_id",
+      "targetFieldId": "field:storage_endpoints.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_cloud_users.cloud_id->openstack_clouds.id",
+      "name": "fk_openstack_cloud_users_cloud_id_openstack_clouds_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_cloud_users",
+      "targetSchema": null,
+      "targetTableId": "table:openstack_clouds",
+      "sourceFieldId": "field:openstack_cloud_users.cloud_id",
+      "targetFieldId": "field:openstack_clouds.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_cloud_users.user_id->users.id",
+      "name": "fk_openstack_cloud_users_user_id_users_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_cloud_users",
+      "targetSchema": null,
+      "targetTableId": "table:users",
+      "sourceFieldId": "field:openstack_cloud_users.user_id",
+      "targetFieldId": "field:users.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_cloud_groups.cloud_id->openstack_clouds.id",
+      "name": "fk_openstack_cloud_groups_cloud_id_openstack_clouds_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_cloud_groups",
+      "targetSchema": null,
+      "targetTableId": "table:openstack_clouds",
+      "sourceFieldId": "field:openstack_cloud_groups.cloud_id",
+      "targetFieldId": "field:openstack_clouds.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_cloud_groups.group_id->ui_groups.id",
+      "name": "fk_openstack_cloud_groups_group_id_ui_groups_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_cloud_groups",
+      "targetSchema": null,
+      "targetTableId": "table:ui_groups",
+      "sourceFieldId": "field:openstack_cloud_groups.group_id",
+      "targetFieldId": "field:ui_groups.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_connections.user_id->users.id",
+      "name": "fk_openstack_connections_user_id_users_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_connections",
+      "targetSchema": null,
+      "targetTableId": "table:users",
+      "sourceFieldId": "field:openstack_connections.user_id",
+      "targetFieldId": "field:users.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_connections.cloud_id->openstack_clouds.id",
+      "name": "fk_openstack_connections_cloud_id_openstack_clouds_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_connections",
+      "targetSchema": null,
+      "targetTableId": "table:openstack_clouds",
+      "sourceFieldId": "field:openstack_connections.cloud_id",
+      "targetFieldId": "field:openstack_clouds.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_sessions.connection_id->openstack_connections.id",
+      "name": "fk_openstack_sessions_connection_id_openstack_connections_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_sessions",
+      "targetSchema": null,
+      "targetTableId": "table:openstack_connections",
+      "sourceFieldId": "field:openstack_sessions.connection_id",
+      "targetFieldId": "field:openstack_connections.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_sessions.auth_session_id->auth_sessions.id",
+      "name": "fk_openstack_sessions_auth_session_id_auth_sessions_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_sessions",
+      "targetSchema": null,
+      "targetTableId": "table:auth_sessions",
+      "sourceFieldId": "field:openstack_sessions.auth_session_id",
+      "targetFieldId": "field:auth_sessions.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_project_contexts.connection_id->openstack_connections.id",
+      "name": "fk_openstack_project_contexts_connection_id_openstack_connections_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_project_contexts",
+      "targetSchema": null,
+      "targetTableId": "table:openstack_connections",
+      "sourceFieldId": "field:openstack_project_contexts.connection_id",
+      "targetFieldId": "field:openstack_connections.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_project_contexts.endpoint_id->storage_endpoints.id",
+      "name": "fk_openstack_project_contexts_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_project_contexts",
+      "targetSchema": null,
+      "targetTableId": "table:storage_endpoints",
+      "sourceFieldId": "field:openstack_project_contexts.endpoint_id",
+      "targetFieldId": "field:storage_endpoints.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_project_credentials.session_id->openstack_sessions.id",
+      "name": "fk_openstack_project_credentials_session_id_openstack_sessions_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_project_credentials",
+      "targetSchema": null,
+      "targetTableId": "table:openstack_sessions",
+      "sourceFieldId": "field:openstack_project_credentials.session_id",
+      "targetFieldId": "field:openstack_sessions.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:openstack_project_credentials.context_id->openstack_project_contexts.id",
+      "name": "fk_openstack_project_credentials_context_id_openstack_project_contexts_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:openstack_project_credentials",
+      "targetSchema": null,
+      "targetTableId": "table:openstack_project_contexts",
+      "sourceFieldId": "field:openstack_project_credentials.context_id",
+      "targetFieldId": "field:openstack_project_contexts.id",
       "sourceCardinality": "many",
       "targetCardinality": "one",
       "createdAt": 0
@@ -24383,6 +25844,19 @@
       "createdAt": 0
     },
     {
+      "id": "relationship:bucket_migrations.execution_auth_session_id->auth_sessions.id",
+      "name": "fk_bucket_migrations_execution_auth_session_id_auth_sessions_id [ON DELETE SET NULL]",
+      "sourceSchema": null,
+      "sourceTableId": "table:bucket_migrations",
+      "targetSchema": null,
+      "targetTableId": "table:auth_sessions",
+      "sourceFieldId": "field:bucket_migrations.execution_auth_session_id",
+      "targetFieldId": "field:auth_sessions.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
       "id": "relationship:bucket_migrations.created_by_user_id->users.id",
       "name": "fk_bucket_migrations_created_by_user_id_users_id",
       "sourceSchema": null,
@@ -24726,7 +26200,7 @@
       "x": 2040,
       "y": 0,
       "width": 1740,
-      "height": 2656,
+      "height": 3468,
       "color": "#0F766E",
       "order": 1
     },
@@ -24756,7 +26230,7 @@
       "x": 0,
       "y": 6708,
       "width": 1320,
-      "height": 4036,
+      "height": 4066,
       "color": "#D97706",
       "order": 4
     },

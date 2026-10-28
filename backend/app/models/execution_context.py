@@ -7,8 +7,8 @@ from app.models.feature_policy import FeatureState
 from app.models.tagging import TagDefinitionSummary
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
-ManagerAccessMode = Literal["admin", "session", "s3_user", "connection"]
-ManagerContextKind = Literal["account", "connection"]
+ManagerAccessMode = Literal["admin", "session", "s3_user", "connection", "openstack_project"]
+ManagerContextKind = Literal["account", "connection", "openstack_project"]
 
 
 class ExecutionContextCapabilities(ApiModel):
@@ -18,7 +18,7 @@ class ExecutionContextCapabilities(ApiModel):
 
 
 class ExecutionContext(ApiModel):
-    kind: Literal["account", "connection", "s3_user", "portal_account"]
+    kind: Literal["account", "connection", "s3_user", "portal_account", "openstack_project"]
     id: str
     display_name: str
     connection_scope: Optional[Literal["shared", "private"]]
@@ -65,6 +65,7 @@ class WorkspaceAvailability(ApiModel):
 
 
 class WorkspaceAccess(ApiModel):
+    openstack_connect_available: bool = False
     admin: WorkspaceAvailability
     ceph_admin: WorkspaceAvailability
     storage_ops: WorkspaceAvailability

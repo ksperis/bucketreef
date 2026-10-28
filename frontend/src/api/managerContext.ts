@@ -7,8 +7,8 @@ import type { FeatureState } from "./featurePolicies";
 import type { NamingValidationProfile } from "../utils/resourceNames";
 import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
 
-export type ManagerAccessMode = "admin" | "session" | "s3_user" | "connection";
-export type ManagerContextKind = "account" | "connection";
+export type ManagerAccessMode = "admin" | "session" | "s3_user" | "connection" | "openstack_project";
+export type ManagerContextKind = "account" | "connection" | "openstack_project";
 
 export type ManagerContext = {
   feature_states: Record<string, FeatureState>;

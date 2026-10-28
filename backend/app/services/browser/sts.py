@@ -76,7 +76,7 @@ def _store_sts_credentials(cache_key: StsCacheKey, credentials: CachedStsCredent
 
 
 def browser_sts_enabled(context: S3ExecutionTarget) -> bool:
-    if isinstance(context, S3ExecutionContext) and context.context_kind in {"s3_user", "connection"}:
+    if isinstance(context, S3ExecutionContext) and context.context_kind in {"s3_user", "connection", "openstack_project"}:
         return False
     endpoint = context.storage_endpoint
     if not endpoint:

@@ -8,6 +8,7 @@ import { UNSAFE_DataRouterContext, useLocation, useSearchParams } from "react-ro
 import PageShell from "../../components/PageShell";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { ProfileConfirmation } from "./ProfileControls";
 import { useProfileI18n } from "./profileMessages";
 import {
@@ -18,39 +19,44 @@ import {
 import ApiTokensPage from "../admin/ApiTokensPage";
 import ProfilePage from "./ProfilePage";
 import SecurityPage from "./SecurityPage";
+import OpenStackConnectionsPage from "./OpenStackConnectionsPage";
 import {
   buildWorkspaceBreadcrumbs,
   resolveWorkspaceIdFromPath,
   workspaceProfilePath,
 } from "../../navigation/workspacePages";
 
-type AccountTab = "profile" | "security" | "connections" | "api-tokens";
+type AccountTab = "profile" | "security" | "connections" | "api-tokens" | "openstack";
 
 export default function AccountProfilePage() {
   const { text } = useProfileI18n();
+  const { runtimeSurfaces } = useGeneralSettings();
   const hasDataRouter = Boolean(useContext(UNSAFE_DataRouterContext));
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const storedUser = useMemo(() => readStoredUser(), []);
   const isS3Session = storedUser?.authType === "s3_session";
+  const canAccessOpenStack = !isS3Session && ["ui_user", "ui_admin", "ui_superadmin"].includes(storedUser?.role ?? "")
+    && (runtimeSurfaces.browser || runtimeSurfaces.manager);
   const canAccessApiTokens = !isS3Session && isSuperAdminRole(storedUser?.role);
   const canAccessPrivateConnections =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);
   const availableTabs = useMemo<AccountTab[]>(
     () => [
       "profile",
+      ...(canAccessOpenStack ? (["openstack"] as const) : []),
       ...(!isS3Session ? (["security"] as const) : []),
       ...(canAccessPrivateConnections ? (["connections"] as const) : []),
       ...(canAccessApiTokens ? (["api-tokens"] as const) : []),
     ],
-    [canAccessApiTokens, canAccessPrivateConnections, isS3Session]
+    [canAccessApiTokens, canAccessPrivateConnections, isS3Session, canAccessOpenStack]
   );
   const requestedTab = searchParams.get("tab") as AccountTab | null;
   const activeTab: AccountTab = requestedTab && availableTabs.includes(requestedTab) ? requestedTab : "profile";
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingTab, setPendingTab] = useState<AccountTab | null>(null);
   const workspace = resolveWorkspaceIdFromPath(location.pathname);
-  const profilePath = workspaceProfilePath(workspace);
+  const profilePath = location.pathname === "/profile" ? "/profile" : workspaceProfilePath(workspace);
   const [connectionActionsTarget, setConnectionActionsTarget] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -78,6 +84,7 @@ export default function AccountProfilePage() {
 
   const tabs = [
     { id: "profile", label: text("preferencesTab") },
+    ...(canAccessOpenStack ? [{ id: "openstack", label: "OpenStack" }] : []),
     ...(!isS3Session ? [{ id: "security", label: text("security") }] : []),
     ...(canAccessPrivateConnections ? [{ id: "connections", label: text("connections") }] : []),
     ...(canAccessApiTokens ? [{ id: "api-tokens", label: text("apiTokens") }] : []),
@@ -90,7 +97,7 @@ export default function AccountProfilePage() {
       title={text("title")}
       breadcrumbLabel={text("breadcrumb")}
       description={text(isS3Session ? "temporary" : "intro")}
-      breadcrumbs={buildWorkspaceBreadcrumbs(workspace, { label: text("profile") })}
+      breadcrumbs={location.pathname === "/profile" ? [{ label: text("profile") }] : buildWorkspaceBreadcrumbs(workspace, { label: text("profile") })}
     >
       <PageTabs
         tabs={tabs}
@@ -101,6 +108,7 @@ export default function AccountProfilePage() {
         idPrefix="account-profile"
       />
       <PageTabPanel idPrefix="account-profile" tabId={activeTab}>
+        {activeTab === "openstack" ? <OpenStackConnectionsPage /> : null}
         {activeTab === "profile" ? (
           <ProfilePage profilePath={profilePath} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}

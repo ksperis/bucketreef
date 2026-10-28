@@ -65,6 +65,8 @@ def _manager_stats_state(
     actor: ManagerActor,
     db: Session,
 ) -> tuple[bool, Optional[str], Optional[str]]:
+    if context.context_kind == "openstack_project":
+        return False, "RGW administrative metrics are unavailable for OpenStack contexts.", None
     settings = load_app_settings_for_db_readonly(db)
     rgw_usage_metrics_enabled = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
@@ -119,7 +121,7 @@ def _manager_rgw_stats_state(
 def _manager_access_mode(context: S3ExecutionContext) -> ManagerAccessMode:
     if context.context_kind == "account":
         return "admin"
-    if context.context_kind in {"session", "connection", "s3_user"}:
+    if context.context_kind in {"session", "connection", "s3_user", "openstack_project"}:
         return context.context_kind
     raise RuntimeError("Unsupported Manager execution context")
 
@@ -180,6 +182,8 @@ def _manager_browser_state(
 
     if resolved_access is None or access_service is None:
         raise RuntimeError("UI user effective access was not resolved")
+    if context.context_kind == "openstack_project":
+        return _ManagerBrowserState(True, None)
     if context.context_kind == "connection":
         return _manager_connection_browser_state(context, actor, db, access_service)
 
@@ -222,7 +226,7 @@ def _manager_private_access_enabled(
     db: Session,
     resolved_access: Optional[ResolvedUserAccess],
 ) -> bool:
-    if not isinstance(actor, User):
+    if context.context_kind == "openstack_project" or not isinstance(actor, User):
         return False
     if resolved_access is None:
         raise RuntimeError("UI user effective access was not resolved")
@@ -407,7 +411,7 @@ def get_manager_context(
         feature_states=feature_states,
         naming_validation_profile=naming_validation_profile(context),
         access_mode=access_mode,
-        context_kind=("connection" if access_mode == "connection" else "account"),
+        context_kind=("openstack_project" if access_mode == "openstack_project" else ("connection" if access_mode == "connection" else "account")),
         iam_identity=iam_identity,
         manager_stats_enabled=manager_stats_enabled,
         manager_stats_message=manager_stats_message,

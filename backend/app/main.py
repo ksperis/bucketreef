@@ -3,6 +3,8 @@
 import logging
 from contextlib import asynccontextmanager
 
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi import Depends, FastAPI, Request
 from fastapi.exception_handlers import http_exception_handler as fastapi_http_exception_handler
 from fastapi.responses import JSONResponse
@@ -29,6 +31,9 @@ from app.routers import (
 from app.routers import portal
 from app.routers import portal_requests
 from app.routers import execution_contexts
+from app.routers import openstack
+from app.routers.admin import openstack as admin_openstack
+from app.services.keystone_client import OpenStackError
 from app.routers import connections as user_connections
 from app.routers.admin import s3_accounts as admin_s3_accounts
 from app.routers.admin import audit as admin_audit
@@ -244,6 +249,18 @@ def health_check():
 
 # API routers
 app.include_router(auth.router, prefix=settings.api_prefix)
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith(f"{settings.api_prefix}/me/openstack") or request.url.path.startswith(f"{settings.api_prefix}/admin/openstack-clouds"):
+        errors = [{key: error[key] for key in ("loc", "msg", "type") if key in error} for error in exc.errors()]
+        return JSONResponse(status_code=422, content={"detail": errors}, headers={"Cache-Control": "no-store"})
+    return await request_validation_exception_handler(request, exc)
+
+@app.exception_handler(OpenStackError)
+async def openstack_error_handler(request: Request, exc: OpenStackError):
+    return JSONResponse(status_code=exc.status, content={"detail": {"code": exc.code, "message": exc.message}}, headers={"Cache-Control": "no-store"})
+
 app.include_router(users.router, prefix=settings.api_prefix)
 app.include_router(public_settings.router, prefix=settings.api_prefix)
 if runtime_surface_enabled(settings, "admin"):
@@ -256,6 +273,7 @@ if any(
 ):
     app.include_router(execution_contexts.router, prefix=settings.api_prefix)
     app.include_router(user_connections.router, prefix=settings.api_prefix)
+    app.include_router(openstack.router, prefix=settings.api_prefix)
 if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_access_audit.router, prefix=settings.api_prefix)
     app.include_router(admin_s3_accounts.router, prefix=settings.api_prefix)
@@ -271,6 +289,7 @@ if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_groups.router, prefix=settings.api_prefix)
     app.include_router(admin_storage_endpoints.router, prefix=settings.api_prefix)
     app.include_router(admin_settings.router, prefix=settings.api_prefix)
+    app.include_router(admin_openstack.router, prefix=settings.api_prefix)
     app.include_router(admin_key_rotation.router, prefix=settings.api_prefix)
     app.include_router(admin_onboarding.router, prefix=settings.api_prefix)
     app.include_router(admin_healthchecks.router, prefix=settings.api_prefix)

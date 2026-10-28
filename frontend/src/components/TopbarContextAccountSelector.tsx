@@ -24,6 +24,7 @@ export type ContextAccessMode =
   | "session"
   | "s3_user"
   | "connection"
+  | "openstack_project"
   | null;
 
 const defaultShellText: ShellText = (key, values) =>
@@ -41,6 +42,9 @@ export function getContextAccessModeVisual(mode: ContextAccessMode, text: ShellT
       classes:
         "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100",
     };
+  }
+  if (mode === "openstack_project") {
+    return { label: "OpenStack", shortLabel: "OpenStack", classes: "text-[var(--ui-text)]" };
   }
   if (mode === "connection") {
     return {

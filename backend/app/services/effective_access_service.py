@@ -202,6 +202,19 @@ class ResolvedUserAccess:
 class EffectiveAccessService:
     """Single source for role aggregation and executable UI-user contexts."""
 
+    def can_connect_openstack_cloud(self, user: User, cloud) -> bool:
+        """Cloud admission is independent of manual S3-connection creation."""
+        from app.db.openstack import cloud_users, cloud_groups
+        if not user.is_active or user.role not in {"ui_user", "ui_admin", "ui_superadmin"} or not cloud.enabled:
+            return False
+        if cloud.all_users:
+            return True
+        if self.db.scalar(select(cloud_users.c.user_id).where(cloud_users.c.cloud_id == cloud.id, cloud_users.c.user_id == user.id)) is not None:
+            return True
+        return self.db.scalar(select(cloud_groups.c.group_id).join(
+            UserUiGroup, UserUiGroup.group_id == cloud_groups.c.group_id,
+        ).where(cloud_groups.c.cloud_id == cloud.id, UserUiGroup.user_id == user.id)) is not None
+
     def __init__(self, db: Session) -> None:
         self.db = db
 
@@ -652,6 +665,7 @@ class EffectiveAccessService:
         user: User,
         *,
         resolved: ResolvedUserAccess | None = None,
+        auth_session_id: str | None = None,
     ) -> BucketMigrationAccessScope:
         effective = resolved if resolved is not None else self.resolve_user(user)
         admin_account_context_ids = {
@@ -666,9 +680,13 @@ class EffectiveAccessService:
             f"conn-{connection.id}"
             for connection in self.list_workspace_connections(user, workspace="manager", resolved=effective)
         )
+        if auth_session_id:
+            from app.services.openstack_service import OpenStackService
+            allowed_context_ids.update(item.id for item in OpenStackService(self.db).catalogue(user, auth_session_id))
         return BucketMigrationAccessScope(
             user=user,
             allowed_context_ids=allowed_context_ids,
+            auth_session_id=auth_session_id,
             admin_account_context_ids=admin_account_context_ids,
         )
 

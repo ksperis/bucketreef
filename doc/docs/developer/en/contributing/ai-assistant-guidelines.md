@@ -46,6 +46,7 @@ It defines the executor identity used for S3 operations and may be:
 - account: `<id>`
 - connection: `conn-<id>`
 - S3 user: `s3u-<id>`
+- OpenStack project: `os-<local-uuid>`, with credentials bound to the initiating UI session
 - Ceph Admin endpoint: `ceph-admin-<endpoint_id>` for browser-only admin flows
 
 Execution-context selectors must return the explicit, non-persistent
@@ -103,7 +104,7 @@ Managed workflows may use dedicated technical IAM identities only when:
   audit, settings, and governance. It is never a generic S3 console.
 - `/manager`
   S3 configuration console for S3 accounts, S3 connections, and S3
-  users. It should map directly to S3 and IAM APIs without semantic
+  users, plus authorized OpenStack project contexts. It should map directly to S3 and IAM APIs without semantic
   simplification.
 - `/portal`
   Self-service account workspace for explicit `portal_user` and
@@ -111,7 +112,7 @@ Managed workflows may use dedicated technical IAM identities only when:
   policies, and access keys; it is not a substitute for `/manager`.
 - `/browser`
   Bucket and object exploration for S3 accounts, S3 connections, S3
-  users, and authorized Ceph Admin endpoint contexts.
+  users, OpenStack project contexts, and authorized Ceph Admin endpoint contexts.
 - `/ceph-admin`
   Admin-only Ceph RGW cluster workflows. It remains separate from `/manager`
   and `/browser`.
@@ -164,7 +165,7 @@ Execution rules:
 - `/manager` and `/browser` APIs that depend on execution context require explicit
   `context_id` for UI users.
 - `/portal` APIs require explicit account context and must reject connection,
-  S3 user, and Ceph Admin contexts.
+  S3 user, OpenStack project, and Ceph Admin contexts.
 - `X-Manager-Access-Mode` is ignored in manager account context; account root
   credentials remain the source of execution.
 - Session principals may default to their bound account when `context_id` is
