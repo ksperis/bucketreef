@@ -68,25 +68,26 @@ describe("AdminAssociationPicker", () => {
       ]} />;
     }
     render(<Associations />);
-    const accounts = screen.getByRole("tab", { name: "Accounts (1)" });
-    expect(screen.getByRole("tabpanel", { name: "Accounts (1)" })).toHaveTextContent("Account memberships");
+    const accounts = screen.getByRole("tab", { name: "Accounts" });
+    expect(screen.getByRole("tabpanel", { name: "Accounts" })).toHaveTextContent("Account memberships");
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
-    expect(screen.queryByText(/linked|total/)).not.toBeInTheDocument();
+    expect(screen.getByText("1 linked")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add accounts" }));
     expect(addAccounts).toHaveBeenCalledTimes(1);
     accounts.focus();
     await user.keyboard("{ArrowRight}");
-    expect(screen.getByRole("tab", { name: "Connections (0)" })).toHaveFocus();
-    expect(screen.getByRole("tabpanel", { name: "Connections (0)" })).toHaveTextContent("Connection memberships");
+    expect(screen.getByRole("tab", { name: "Connections" })).toHaveFocus();
+    expect(screen.getByRole("tabpanel", { name: "Connections" })).toHaveTextContent("Connection memberships");
     expect(screen.queryByRole("button", { name: "Add accounts" })).not.toBeInTheDocument();
+    expect(screen.getByText("0 linked")).toBeInTheDocument();
     expect(screen.getByText("Admin S3 connections only")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add connections" }));
     expect(addConnections).toHaveBeenCalledTimes(1);
-    screen.getByRole("tab", { name: "Connections (0)" }).focus();
+    screen.getByRole("tab", { name: "Connections" }).focus();
     await user.keyboard("{Home}");
     expect(accounts).toHaveFocus();
     await user.keyboard("{End}");
-    expect(screen.getByRole("tab", { name: "Connections (0)" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Connections" })).toHaveFocus();
   });
 
   it("renders common search, states, and footer actions", async () => {

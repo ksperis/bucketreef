@@ -140,7 +140,7 @@ export default function ProfilePage({
   );
   const [connectionsFilter, setConnectionsFilter] = useState("");
   const [connectionsPage, setConnectionsPage] = useState(1);
-  const [connectionsPageSize, setConnectionsPageSize] = useState(10);
+  const [connectionsPageSize, setConnectionsPageSize] = useState(25);
   const { catalog: privateTagCatalog, loading: privateTagCatalogLoading, error: privateTagCatalogError } = useTagCatalog(
     { kind: "private" },
     Boolean(showCreateConnectionModal || editingConnectionId != null)
@@ -1052,7 +1052,7 @@ export default function ProfilePage({
                       setSelectedConnectionIds([]);
                       setConnectionsPage(1);
                     },
-                    pageSizeOptions: [5, 10, 25, 50],
+                    pageSizeOptions: [10, 25, 50, 100],
                   } : undefined}
                 />
               </ListPageSection>
