@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { cx, uiDataTableClass, uiPanelMutedClass } from "../../components/ui/styles";
+import { cx, uiPanelMutedClass } from "../../components/ui/styles";
 import {
   CephAdminRgwAccountDetail,
   UpdateCephAdminAccountPayload,
@@ -34,6 +34,7 @@ import DetailsDrawerNavigation, {
   type DetailsDrawerNavigationState,
 } from "../shared/DetailsDrawerNavigation";
 import DetailsDrawerShell from "../shared/DetailsDrawerShell";
+import DataTableShell from "../../components/list/DataTableShell";
 
 type Props = {
   endpointId: number;
@@ -460,39 +461,36 @@ export default function CephAdminAccountEditModal({
                 {surfaceText(metrics.bucket_count === 1 ? "{count} bucket" : "{count} buckets", { count: metrics.bucket_count })}
               </p>
             </div>
-            <div className="mt-3 overflow-x-auto">
-              <table className={uiDataTableClass}>
-                <thead className="bg-slate-100/80 dark:bg-slate-900/60">
-                  <tr>
-                    <th className="text-left">
-                      {surfaceText("Bucket")}</th>
-                    <th className="text-right">
-                      {surfaceText("Used")}</th>
-                    <th className="text-right">
-                      {surfaceText("Objects")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {metrics.bucket_usage.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="ui-table-secondary">
-                        {surfaceText("No bucket usage data available.")}</td>
-                    </tr>
-                  )}
-                  {metrics.bucket_usage.slice(0, 50).map((entry) => (
-                    <tr key={entry.name}>
-                      <td className="ui-table-primary">{entry.name}</td>
-                      <td className="text-right ui-table-secondary">
-                        {formatBytes(entry.used_bytes)}
-                      </td>
-                      <td className="text-right ui-table-secondary">
-                        {formatNumber(entry.object_count)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTableShell
+              columns={[
+                {
+                  id: "bucket",
+                  label: surfaceText("Bucket"),
+                  primary: true,
+                  render: (entry) => entry.name,
+                },
+                {
+                  id: "used",
+                  label: surfaceText("Used"),
+                  align: "right",
+                  render: (entry) => formatBytes(entry.used_bytes),
+                },
+                {
+                  id: "objects",
+                  label: surfaceText("Objects"),
+                  align: "right",
+                  render: (entry) => formatNumber(entry.object_count),
+                },
+              ]}
+              rows={metrics.bucket_usage.slice(0, 50)}
+              rowKey={(entry) => entry.name}
+              status={metrics.bucket_usage.length > 0 ? "ready" : "empty"}
+              loadingMessage={surfaceText("Loading bucket usage...")}
+              errorMessage={surfaceText("Unable to load bucket usage.")}
+              emptyMessage={surfaceText("No bucket usage data available.")}
+              primaryColumnId="bucket"
+              containerClassName="mt-3"
+            />
           </div>
         </>
       )}

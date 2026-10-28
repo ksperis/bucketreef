@@ -56,7 +56,7 @@ import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textM
 import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
 import { extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import AdminQuotaFields from "./AdminQuotaFields";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
@@ -1011,68 +1011,56 @@ export default function S3UsersPage() {
 
             {showEditUsersTab && (
               <div className={`${adminAssociationPanelClass} space-y-3`}>
-                <AdminAssociationSectionHeader
+                <AdminAssociationLinkedTable
                   title={adminText("Linked UI users")}
-                  countLabel={`${editForm.user_links.length} linked`}
-                  actionLabel={showEditPortalUserPanel ? "Close" : "Add UI users"}
-                  onAction={() => setShowEditPortalUserPanel((prev) => !prev)}
+                  toolbar={{
+                    countLabel: adminText("{count} linked", { count: editForm.user_links.length }),
+                    actionLabel: adminText(showEditPortalUserPanel ? "Close" : "Add UI users"),
+                    onAction: () => setShowEditPortalUserPanel((prev) => !prev),
+                  }}
+                  headers={[
+                    { label: adminText("User") },
+                    { label: adminText("Actions"), align: "right" },
+                  ]}
+                  hasItems={editForm.user_links.length > 0}
+                  emptyLabel={adminText("No linked users yet.")}
+                  rows={editForm.user_links.map((link) => (
+                    <tr key={link.user_id}>
+                      <td className="ui-table-primary">
+                        {portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
+                      </td>
+                      <td className="ui-table-actions-cell w-px text-right">
+                        <AdminAssociationAdvancedSettings
+                          targetLabel={portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
+                          associationKind="rgw_user"
+                          allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
+                          onApply={(allowed) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              user_links: prev.user_links.map((item) =>
+                                item.user_id === link.user_id
+                                  ? { ...item, allow_manager_browser_data_access: allowed }
+                                  : item
+                              ),
+                            }))
+                          }
+                        />
+                        <ListActionButton
+                          type="button"
+                          onClick={() =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              user_links: prev.user_links.filter((item) => item.user_id !== link.user_id),
+                            }))
+                          }
+                          variant="danger"
+                        >
+                          {adminText("Remove")}
+                        </ListActionButton>
+                      </td>
+                    </tr>
+                  ))}
                 />
-                <div className={associationTableContainerClass}>
-                  <table className="ui-data-table">
-                    <thead>
-                      <tr>
-                        <th className="text-left">
-                          {adminText("User")}</th>
-                        <th className="w-px whitespace-nowrap text-right">
-                          {adminText("Actions")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {editForm.user_links.length === 0 ? (
-                        <tr>
-                          <td colSpan={2} className="ui-table-secondary">
-                            {adminText("No linked users yet.")}</td>
-                        </tr>
-                      ) : (
-                        editForm.user_links.map((link) => (
-                          <tr key={link.user_id}>
-                            <td className="ui-table-primary">
-                              {portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
-                            </td>
-                            <td className="ui-table-actions-cell w-px text-right">
-                              <AdminAssociationAdvancedSettings
-                                targetLabel={portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
-                                associationKind="rgw_user"
-                                allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
-                                onApply={(allowed) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    user_links: prev.user_links.map((item) =>
-                                      item.user_id === link.user_id
-                                        ? { ...item, allow_manager_browser_data_access: allowed }
-                                        : item
-                                    ),
-                                  }))
-                                }
-                              />
-                              <ListActionButton
-                                type="button"
-                                onClick={() =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    user_links: prev.user_links.filter((item) => item.user_id !== link.user_id),
-                                  }))
-                                }
-                                 variant="danger"
-                              >
-                                {adminText("Remove")}</ListActionButton>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
                 {showEditPortalUserPanel && (
                   <AdminAssociationPickerPanel
                     title={adminText("Add UI users")}
@@ -1121,73 +1109,61 @@ export default function S3UsersPage() {
 
             {showEditGroupsTab && (
               <div className={`${adminAssociationPanelClass} space-y-3`}>
-                <AdminAssociationSectionHeader
+                <AdminAssociationLinkedTable
                   title={adminText("Linked UI groups")}
-                  countLabel={`${editForm.group_links.length} linked${uiGroupsLoading ? " · loading..." : ""}`}
-                  actionLabel={showEditGroupPanel ? "Close" : "Add UI groups"}
-                  onAction={() => {
-                    if (!showEditGroupPanel) {
-                      void loadGroupsIfNeeded();
-                    }
-                    setShowEditGroupPanel((prev) => !prev);
+                  toolbar={{
+                    countLabel: `${editForm.group_links.length} linked${uiGroupsLoading ? " · loading..." : ""}`,
+                    actionLabel: adminText(showEditGroupPanel ? "Close" : "Add UI groups"),
+                    onAction: () => {
+                      if (!showEditGroupPanel) {
+                        void loadGroupsIfNeeded();
+                      }
+                      setShowEditGroupPanel((prev) => !prev);
+                    },
                   }}
+                  headers={[
+                    { label: adminText("Group") },
+                    { label: adminText("Actions"), align: "right" },
+                  ]}
+                  hasItems={editForm.group_links.length > 0}
+                  emptyLabel={adminText("No linked groups yet.")}
+                  rows={editForm.group_links.map((link) => (
+                    <tr key={link.group_id}>
+                      <td className="ui-table-primary">
+                        {groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
+                      </td>
+                      <td className="ui-table-actions-cell w-px text-right">
+                        <AdminAssociationAdvancedSettings
+                          targetLabel={groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
+                          associationKind="rgw_user"
+                          allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
+                          onApply={(allowed) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              group_links: prev.group_links.map((item) =>
+                                item.group_id === link.group_id
+                                  ? { ...item, allow_manager_browser_data_access: allowed }
+                                  : item
+                              ),
+                            }))
+                          }
+                        />
+                        <ListActionButton
+                          type="button"
+                          onClick={() =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              group_links: prev.group_links.filter((item) => item.group_id !== link.group_id),
+                            }))
+                          }
+                          variant="danger"
+                        >
+                          {adminText("Remove")}
+                        </ListActionButton>
+                      </td>
+                    </tr>
+                  ))}
                 />
-                <div className={associationTableContainerClass}>
-                  <table className="ui-data-table">
-                    <thead>
-                      <tr>
-                        <th className="text-left">
-                          {adminText("Group")}</th>
-                        <th className="w-px whitespace-nowrap text-right">
-                          {adminText("Actions")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {editForm.group_links.length === 0 ? (
-                        <tr>
-                          <td colSpan={2} className="ui-table-secondary">
-                            {adminText("No linked groups yet.")}</td>
-                        </tr>
-                      ) : (
-                        editForm.group_links.map((link) => (
-                          <tr key={link.group_id}>
-                            <td className="ui-table-primary">
-                              {groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
-                            </td>
-                            <td className="ui-table-actions-cell w-px text-right">
-                              <AdminAssociationAdvancedSettings
-                                targetLabel={groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
-                                associationKind="rgw_user"
-                                allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
-                                onApply={(allowed) =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    group_links: prev.group_links.map((item) =>
-                                      item.group_id === link.group_id
-                                        ? { ...item, allow_manager_browser_data_access: allowed }
-                                        : item
-                                    ),
-                                  }))
-                                }
-                              />
-                              <ListActionButton
-                                type="button"
-                                onClick={() =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    group_links: prev.group_links.filter((item) => item.group_id !== link.group_id),
-                                  }))
-                                }
-                                 variant="danger"
-                              >
-                                {adminText("Remove")}</ListActionButton>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
                 {showEditGroupPanel && (
                   <AdminAssociationPickerPanel
                     title={adminText("Add UI groups")}
