@@ -20,6 +20,7 @@ export type TopbarDropdownOption = {
   label: string;
   description?: string;
   title?: string;
+  disabled?: boolean;
   searchText?: string;
   icon?: ReactNode;
   details?: ReactNode;
@@ -60,6 +61,15 @@ function optionSearchText(option: TopbarDropdownOption): string {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+}
+
+function enabledOptionIndex(options: TopbarDropdownOption[], start: number, step: 1 | -1): number {
+  if (options.length === 0) return -1;
+  for (let offset = 0; offset < options.length; offset += 1) {
+    const index = (start + offset * step + options.length) % options.length;
+    if (!options[index].disabled) return index;
+  }
+  return -1;
 }
 
 export default function TopbarDropdownSelect({
@@ -116,6 +126,7 @@ export default function TopbarDropdownSelect({
   const activateByIndex = (index: number) => {
     if (index < 0 || index >= filteredOptions.length) return;
     const option = filteredOptions[index];
+    if (option.disabled) return;
     setOpen(false);
     if (option.value !== value) onChange(option.value);
     triggerRef.current?.focus();
@@ -142,11 +153,9 @@ export default function TopbarDropdownSelect({
   useEffect(() => {
     if (!open) return;
     setActiveIndex(
-      selectedFilteredIndex >= 0
+      selectedFilteredIndex >= 0 && !filteredOptions[selectedFilteredIndex]?.disabled
         ? selectedFilteredIndex
-        : filteredOptions.length > 0
-          ? 0
-          : -1,
+        : enabledOptionIndex(filteredOptions, 0, 1),
     );
   }, [filteredOptions, open, selectedFilteredIndex]);
 
@@ -176,27 +185,25 @@ export default function TopbarDropdownSelect({
     if (event.key === "ArrowDown") {
       event.preventDefault();
       setActiveIndex((current) =>
-        current < 0 ? 0 : (current + 1) % filteredOptions.length,
+        enabledOptionIndex(filteredOptions, current < 0 ? 0 : current + 1, 1),
       );
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveIndex((current) =>
-        current < 0
-          ? filteredOptions.length - 1
-          : (current - 1 + filteredOptions.length) % filteredOptions.length,
+        enabledOptionIndex(filteredOptions, current < 0 ? filteredOptions.length - 1 : current - 1, -1),
       );
       return;
     }
     if (event.key === "Home") {
       event.preventDefault();
-      setActiveIndex(0);
+      setActiveIndex(enabledOptionIndex(filteredOptions, 0, 1));
       return;
     }
     if (event.key === "End") {
       event.preventDefault();
-      setActiveIndex(filteredOptions.length - 1);
+      setActiveIndex(enabledOptionIndex(filteredOptions, filteredOptions.length - 1, -1));
       return;
     }
     if (event.key === "Enter" || event.key === " ") {
@@ -258,12 +265,16 @@ export default function TopbarDropdownSelect({
                 type="button"
                 role="option"
                 aria-selected={active}
+                aria-disabled={option.disabled || undefined}
+                disabled={option.disabled}
                 title={option.title}
                 tabIndex={-1}
-                onMouseEnter={() => setActiveIndex(index)}
+                onMouseEnter={() => { if (!option.disabled) setActiveIndex(index); }}
                 onClick={() => activateByIndex(index)}
                 className={`flex w-full items-start gap-2 rounded-md px-3 py-1.5 text-left transition ${
-                  active
+                  option.disabled
+                    ? "shell-menu-item cursor-not-allowed opacity-45"
+                    : active
                     ? "shell-menu-item-active"
                     : highlighted
                       ? "shell-menu-item-highlighted"

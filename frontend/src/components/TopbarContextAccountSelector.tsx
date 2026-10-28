@@ -236,7 +236,8 @@ export default function TopbarContextAccountSelector({
                 [text("project"), selectedOpenStack.project_name],
                 [text("identity"), selectedOpenStack.identity_name],
                 [text("cloud"), selectedOpenStack.cloud_name],
-                [text("s3Endpoint"), selectedContext.endpoint_name],
+                [text("region"), selectedOpenStack.region_id],
+                [text("s3Endpoint"), selectedContext.endpoint_url || selectedContext.endpoint_name],
               ].map(([label, value]) => (
                 <div key={label} className="contents">
                   <dt className="shell-muted-text">{label}</dt>

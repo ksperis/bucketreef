@@ -32,6 +32,7 @@ import {
 } from "../../navigation/workspacePages";
 import { useManagerI18n } from "./managerI18n";
 import { useOpenStackProjectSelector } from "../shared/useOpenStackProjectSelector";
+import OpenStackRegionControl, { OpenStackRegionIcon } from "../shared/OpenStackRegionControl";
 
 type SessionCapabilities = {
   can_manage_iam?: boolean;
@@ -148,6 +149,7 @@ function ManagerShell() {
   };
   const openStackSelector = useOpenStackProjectSelector({
     enabled: requiresContextSelection,
+    activeContext: selected,
     refreshContexts,
     onActivated: handleS3AccountChange,
   });
@@ -192,6 +194,26 @@ function ManagerShell() {
         ),
     },
   ];
+  if (openStackSelector.region.visible && openStackSelector.region.currentRegion) {
+    topbarControlDescriptors.push({
+      id: "region",
+      icon: <OpenStackRegionIcon className="h-4 w-4" />,
+      selectedLabel: openStackSelector.region.currentRegion,
+      priority: 20,
+      estimatedIconWidth: 36,
+      estimatedLabelWidth: 176,
+      renderControl: (mode) => (
+        <OpenStackRegionControl
+          mode={mode}
+          currentRegion={openStackSelector.region.currentRegion!}
+          currentTargetId={openStackSelector.region.currentTargetId}
+          options={openStackSelector.region.options}
+          loading={openStackSelector.region.loading}
+          onChange={openStackSelector.region.onChange}
+        />
+      ),
+    });
+  }
 
   const navSections: SidebarSection[] = [
     {

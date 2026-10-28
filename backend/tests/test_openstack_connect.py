@@ -27,22 +27,32 @@ from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 @pytest.fixture
 def setup_cloud(db_session, monkeypatch):
     user = User(email="cloud@example.test", full_name="Cloud User", hashed_password="x", role="ui_user", is_active=True)
-    endpoint = StorageEndpoint(name="S3", endpoint_url="https://s3.example.test", provider="ceph", region="region-a", is_default=True)
-    db_session.add_all([user, endpoint]); db_session.commit()
+    db_session.add(user); db_session.commit()
     cloud = OpenStackService(db_session).save_cloud(OpenStackCloudWrite(
         name="Cloud A", auth_url="https://identity.example.test/v3", enabled=True,
-        default_domain="People", endpoint_ids=[endpoint.id], user_ids=[user.id],
+        default_domain="People", user_ids=[user.id],
     ))
     db_session.commit()
+    target = {
+        "target_id": "catalog-s3-region-a",
+        "region_id": "region-a",
+        "interface": "public",
+        "service_type": "s3",
+        "service_name": "S3",
+        "endpoint_url": "https://s3.example.test",
+    }
     monkeypatch.setattr(OpenStackService, "_probe_iam", lambda *args: False)
     monkeypatch.setattr(KeystoneClient, "authenticate", lambda self, payload, domain: KeystoneIdentity(
         "PRIVATE-KEYSTONE-TOKEN", "keystone-user", "Person", utcnow() + timedelta(minutes=30),
     ))
     monkeypatch.setattr(KeystoneClient, "projects", lambda self, token: [{"id": "project-a", "name": "Project A", "domain_id": "domain-a"}])
-    monkeypatch.setattr(KeystoneClient, "credentials", lambda self, identity, project: [{
-        "access": "EC2-ACCESS", "secret": "PRIVATE-EC2-SECRET", "expires_at": identity.expires_at,
-    }])
-    return user, endpoint, cloud
+    monkeypatch.setattr(KeystoneClient, "project_access", lambda self, identity, project: {
+        "targets": [target.copy()],
+        "credentials": [{
+            "access": "EC2-ACCESS", "secret": "PRIVATE-EC2-SECRET", "expires_at": identity.expires_at,
+        }],
+    })
+    return user, target, cloud
 
 
 def authenticated(db, user):
@@ -51,16 +61,16 @@ def authenticated(db, user):
 
 
 def connect(db, setup):
-    user, endpoint, cloud = setup
+    user, target, cloud = setup
     auth, _ = authenticated(db, user)
     service = OpenStackService(db)
     connection = service.authenticate(user, auth.id, OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"))
-    ctx = service.activate(user, auth.id, connection.id, "project-a", endpoint.id, None)
+    ctx = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
     return service, user, auth, connection, ctx
 
 
 def test_connected_projects_are_candidates_and_reuse_previously_activated_context(db_session, setup_cloud):
-    user, endpoint, cloud = setup_cloud
+    user, target, cloud = setup_cloud
     auth, _ = authenticated(db_session, user)
     service = OpenStackService(db_session)
     connection = service.authenticate(
@@ -80,23 +90,29 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
         "project_id": "project-a",
         "project_name": "Project A",
         "project_domain_id": "domain-a",
-        "endpoints": [{"id": endpoint.id, "name": "S3", "region": "region-a"}],
     }]
     access = ExecutionContextCatalogService(db_session, auth.id).workspace_access(user)
     assert access.manager.available and access.manager.context_count == 1
     assert access.browser.available and access.browser.context_count == 1
 
-    first_context = service.activate(user, auth.id, connection.id, "project-a", endpoint.id, None)
+    first_context = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
     assert service.project_options(user, auth.id) == []
     catalogue = service.catalogue(user, auth.id)
     assert [row.id for row in catalogue] == [first_context]
     assert catalogue[0].display_name == "Project A"
     assert catalogue[0].openstack.model_dump() == {
+        "connection_id": connection.id,
         "cloud_name": "Cloud A",
         "identity_name": "Person",
         "project_id": "project-a",
         "project_name": "Project A",
+        "region_id": "region-a",
     }
+    assert catalogue[0].endpoint_url == "https://s3.example.test"
+    assert catalogue[0].endpoint_id is None
+    project_access = service.project_access(user, auth.id, connection.id, "project-a")
+    assert project_access["targets"][0]["allowed"] is True
+    assert project_access["targets"][0]["storage_endpoint_id"] is None
 
     service.authenticate(
         user,
@@ -105,9 +121,89 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
     )
     assert service.catalogue(user, auth.id) == []
     assert [item["project_id"] for item in service.project_options(user, auth.id)] == ["project-a"]
-    second_context = service.activate(user, auth.id, connection.id, "project-a", endpoint.id, None)
+    second_context = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
     assert second_context == first_context
     assert db_session.query(OpenStackProjectContext).count() == 1
+
+
+def test_managed_endpoint_is_associated_by_catalog_url_and_reused_by_execution(db_session, setup_cloud):
+    endpoint = StorageEndpoint(
+        name="Managed S3",
+        endpoint_url="https://s3.example.test",
+        region="managed-region",
+        provider="ceph",
+        features_config="features:\n  usage:\n    enabled: true\n  metrics:\n    enabled: true\n",
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    user, target, cloud = setup_cloud
+    auth, _ = authenticated(db_session, user)
+    service = OpenStackService(db_session)
+    connection = service.authenticate(
+        user,
+        auth.id,
+        OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"),
+    )
+    access = service.project_access(user, auth.id, connection.id, "project-a")
+    assert access["targets"][0]["storage_endpoint_id"] == endpoint.id
+    assert access["targets"][0]["storage_endpoint_name"] == "Managed S3"
+    assert access["targets"][0]["allowed"] is True
+
+    context_id = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
+    execution = service.resolve(user, auth.id, context_id)
+    assert execution.storage_endpoint_id == endpoint.id
+    assert execution.storage_endpoint is endpoint
+    assert execution.session_endpoint == target["endpoint_url"]
+    assert execution.session_region == target["region_id"]
+
+    context = service.catalogue(user, auth.id)[0]
+    assert context.endpoint_id == endpoint.id
+    assert context.endpoint_name == "Managed S3"
+    assert context.endpoint_provider == "ceph"
+    assert context.endpoint_url == target["endpoint_url"]
+    assert context.storage_endpoint_capabilities["usage"] is True
+    assert context.storage_endpoint_capabilities["metrics"] is True
+    assert context.capabilities.admin_api_capable is False
+
+
+def test_managed_endpoint_association_is_dynamic_for_existing_openstack_context(db_session, setup_cloud):
+    service, user, auth, _, context_id = connect(db_session, setup_cloud)
+    assert service.resolve(user, auth.id, context_id).storage_endpoint is None
+
+    endpoint = StorageEndpoint(
+        name="Managed later",
+        endpoint_url="https://s3.example.test",
+        region="region-a",
+        provider="ceph",
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    execution = service.resolve(user, auth.id, context_id)
+    assert execution.storage_endpoint_id == endpoint.id
+    assert service.catalogue(user, auth.id)[0].endpoint_id == endpoint.id
+
+
+def test_managed_endpoints_only_keeps_unmanaged_target_visible_but_rejects_activation(db_session, setup_cloud):
+    user, target, cloud = setup_cloud
+    cloud.managed_endpoints_only = True
+    db_session.commit()
+    auth, _ = authenticated(db_session, user)
+    service = OpenStackService(db_session)
+    connection = service.authenticate(
+        user,
+        auth.id,
+        OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"),
+    )
+
+    access = service.project_access(user, auth.id, connection.id, "project-a")
+    assert len(access["targets"]) == 1
+    assert access["targets"][0]["allowed"] is False
+    assert access["targets"][0]["storage_endpoint_id"] is None
+    with pytest.raises(OpenStackError) as caught:
+        service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
+    assert caught.value.code == "endpoint_not_allowed"
 
 
 def test_context_is_explicit_private_session_bound_and_secrets_are_encrypted(db_session, setup_cloud):
@@ -182,9 +278,18 @@ def test_endpoint_service_identities_never_enrich_or_administer_openstack_contex
     from app.services.rgw_supervision import get_supervision_credentials
 
     service, user, auth, _, ctx = connect(db_session, setup_cloud)
+    endpoint = StorageEndpoint(
+        name="Managed S3",
+        endpoint_url="https://s3.example.test",
+        region="region-a",
+        provider="ceph",
+    )
+    db_session.add(endpoint)
+    db_session.commit()
     execution = service.resolve(user, auth.id, ctx)
+    assert execution.storage_endpoint_id == endpoint.id
     # Even unrelated endpoint identities or accidental RGW metadata must not
-    # turn an external project into a managed Ceph identity.
+    # turn an associated OpenStack project into a managed Ceph identity.
     execution.rgw_user_uid = "must-not-be-used"
     execution.rgw_account_id = "RGW99999999999999999"
     acquire = Mock(side_effect=AssertionError("Endpoint service credentials must not be acquired"))
@@ -216,8 +321,8 @@ def test_every_revocation_path_erases_secrets(db_session, setup_cloud, revoke):
     elif revoke == "disconnect": service.disconnect(user, auth.id, connection.id)
     elif revoke == "forget": service.disconnect(user, auth.id, connection.id, forget=True)
     else:
-        user, endpoint, cloud = setup_cloud
-        service.save_cloud(OpenStackCloudWrite(name=cloud.name, auth_url=cloud.auth_url, enabled=False, endpoint_ids=[endpoint.id]), cloud.id)
+        user, _, cloud = setup_cloud
+        service.save_cloud(OpenStackCloudWrite(name=cloud.name, auth_url=cloud.auth_url, enabled=False), cloud.id)
         db_session.commit()
     assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
     assert not db_session.scalars(select(OpenStackSession.token)).all() or all(token is None for token in db_session.scalars(select(OpenStackSession.token)).all())
@@ -241,24 +346,30 @@ def test_expired_revalidation_fails_closed_and_never_switches_key(db_session, se
     service, user, auth, _, ctx = connect(db_session, setup_cloud)
     credential = db_session.scalar(select(OpenStackProjectCredential))
     credential.validated_at = utcnow() - timedelta(seconds=61); db_session.commit()
-    monkeypatch.setattr(KeystoneClient, "credentials", Mock(side_effect=OpenStackError("provider_unavailable", "Unavailable", 502)))
+    monkeypatch.setattr(KeystoneClient, "project_access", Mock(side_effect=OpenStackError("provider_unavailable", "Unavailable", 502)))
     with pytest.raises(OpenStackError) as caught: service.resolve(user, auth.id, ctx)
     assert caught.value.status == 502
-    monkeypatch.setattr(KeystoneClient, "credentials", lambda *args: [{"access": "OTHER", "secret": "other", "expires_at": utcnow() + timedelta(minutes=10)}])
+    monkeypatch.setattr(KeystoneClient, "project_access", lambda *args: {
+        "targets": [setup_cloud[1].copy()],
+        "credentials": [{"access": "OTHER", "secret": "other", "expires_at": utcnow() + timedelta(minutes=10)}],
+    })
     with pytest.raises(OpenStackError): service.resolve(user, auth.id, ctx)
     assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
 
 
-def test_key_selection_and_endpoint_are_explicit(db_session, setup_cloud, monkeypatch):
+def test_key_selection_and_catalog_target_are_explicit(db_session, setup_cloud, monkeypatch):
     service, user, auth, connection, _ = connect(db_session, setup_cloud)
-    monkeypatch.setattr(KeystoneClient, "credentials", lambda self, identity, project: [
-        {"access": key, "secret": key, "expires_at": identity.expires_at} for key in ("A", "B")
-    ])
-    with pytest.raises(OpenStackError) as caught: service.activate(user, auth.id, connection.id, "project-a", setup_cloud[1].id, None)
+    monkeypatch.setattr(KeystoneClient, "project_access", lambda self, identity, project: {
+        "targets": [setup_cloud[1].copy()],
+        "credentials": [
+            {"access": key, "secret": key, "expires_at": identity.expires_at} for key in ("A", "B")
+        ],
+    })
+    with pytest.raises(OpenStackError) as caught: service.activate(user, auth.id, connection.id, "project-a", setup_cloud[1]["target_id"], None)
     assert caught.value.code == "credential_selection_required"
-    with pytest.raises(OpenStackError): service.activate(user, auth.id, connection.id, "project-a", -1, "A")
-    with pytest.raises(OpenStackError): service.activate(user, auth.id, connection.id, "different-project", setup_cloud[1].id, "A")
-    assert service.activate(user, auth.id, connection.id, "project-a", setup_cloud[1].id, "B").startswith("os-")
+    with pytest.raises(OpenStackError): service.activate(user, auth.id, connection.id, "project-a", "missing-target", "A")
+    with pytest.raises(OpenStackError): service.activate(user, auth.id, connection.id, "different-project", setup_cloud[1]["target_id"], "A")
+    assert service.activate(user, auth.id, connection.id, "project-a", setup_cloud[1]["target_id"], "B").startswith("os-")
 
 
 def test_logout_during_authentication_cannot_restore_token(db_session, setup_cloud, monkeypatch):
@@ -274,10 +385,10 @@ def test_logout_during_authentication_cannot_restore_token(db_session, setup_clo
 
 
 def test_cloud_configuration_change_during_authentication_cannot_restore_token(db_session, setup_cloud, monkeypatch):
-    user, endpoint, cloud = setup_cloud
+    user, _, cloud = setup_cloud
     auth, _ = authenticated(db_session, user)
     def authenticate(*args):
-        OpenStackService(db_session).save_cloud(OpenStackCloudWrite(name=cloud.name, auth_url=cloud.auth_url, enabled=True, endpoint_ids=[endpoint.id], user_ids=[user.id]), cloud.id)
+        OpenStackService(db_session).save_cloud(OpenStackCloudWrite(name=cloud.name, auth_url=cloud.auth_url, enabled=True, user_ids=[user.id]), cloud.id)
         db_session.commit()
         return KeystoneIdentity("late-token", "ks-user", "Name", utcnow() + timedelta(minutes=10))
     monkeypatch.setattr(KeystoneClient, "authenticate", authenticate)
@@ -287,26 +398,22 @@ def test_cloud_configuration_change_during_authentication_cannot_restore_token(d
     assert db_session.scalar(select(OpenStackSession.id)) is None
 
 
-@pytest.mark.parametrize("change", ["url", "tls"])
-def test_registered_endpoint_trust_changes_invalidate_associated_cloud_sessions(db_session, setup_cloud, change):
-    from app.models.storage_endpoint import StorageEndpointUpdate
-    from app.services.storage_endpoint_normalization import normalize_storage_endpoint_update
-    from app.services.storage_endpoints_service import StorageEndpointsService
-
+def test_catalog_target_change_requires_explicit_reactivation(db_session, setup_cloud, monkeypatch):
     service, user, auth, _, ctx = connect(db_session, setup_cloud)
-    endpoint, cloud = setup_cloud[1:]
-    unrelated = service.save_cloud(OpenStackCloudWrite(name="Unrelated", auth_url="https://elsewhere.example.test/v3"))
-    previous_version = cloud.config_version
-    payload = StorageEndpointUpdate(endpoint_url="https://different.example.test") if change == "url" else StorageEndpointUpdate(verify_tls=False)
-    state = normalize_storage_endpoint_update(endpoint, payload)
-    StorageEndpointsService._apply_endpoint_state(endpoint, state)
+    credential = db_session.scalar(select(OpenStackProjectCredential))
+    credential.validated_at = utcnow() - timedelta(seconds=61)
     db_session.commit()
-    assert cloud.config_version == previous_version + 1
-    assert unrelated.config_version == 1
-    assert db_session.scalar(select(OpenStackSession.token)) is None
-    assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
-    with pytest.raises(OpenStackError, match="Reconnect"):
+    changed = {**setup_cloud[1], "endpoint_url": "https://moved-s3.example.test"}
+    monkeypatch.setattr(KeystoneClient, "project_access", lambda self, identity, project: {
+        "targets": [changed],
+        "credentials": [{
+            "access": "EC2-ACCESS", "secret": "PRIVATE-EC2-SECRET", "expires_at": identity.expires_at,
+        }],
+    })
+    with pytest.raises(OpenStackError) as caught:
         service.resolve(user, auth.id, ctx)
+    assert caught.value.code == "reauthentication_required"
+    assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
 
 
 @pytest.mark.parametrize("revoke", ["family", "one", "all"])
@@ -349,8 +456,8 @@ def test_long_running_guard_stops_after_logout_and_migration_resolves_same_sessi
     assert ctx not in EffectiveAccessService(db_session).build_bucket_migration_scope(user, auth_session_id=auth.id).allowed_context_ids
 
 
-@pytest.mark.parametrize("change", ["reconnect", "endpoint"])
-def test_running_executor_cannot_follow_reauthentication_or_endpoint_changes(db_session, setup_cloud, change):
+@pytest.mark.parametrize("change", ["reconnect", "region"])
+def test_running_executor_cannot_follow_reauthentication_or_region_changes(db_session, setup_cloud, monkeypatch, change):
     service, user, auth, connection, ctx = connect(db_session, setup_cloud)
     original = service.resolve(user, auth.id, ctx)
     original_fingerprint = s3_execution_cache_key(original)
@@ -360,11 +467,24 @@ def test_running_executor_cannot_follow_reauthentication_or_endpoint_changes(db_
         connection = service.authenticate(user, auth.id, OpenStackAuthenticate(
             cloud_id=setup_cloud[2].id, method="token", token="new-authentication",
         ))
-        assert service.activate(user, auth.id, connection.id, "project-a", setup_cloud[1].id, None) == ctx
+        next_ctx = service.activate(user, auth.id, connection.id, "project-a", setup_cloud[1]["target_id"], None)
+        assert next_ctx == ctx
     else:
-        setup_cloud[1].endpoint_url = "https://different-s3.example.test"
-        db_session.commit()
-    assert s3_execution_cache_key(service.resolve(user, auth.id, ctx)) != original_fingerprint
+        region_b = {
+            **setup_cloud[1],
+            "target_id": "catalog-s3-region-b",
+            "region_id": "region-b",
+            "endpoint_url": "https://s3-b.example.test",
+        }
+        monkeypatch.setattr(KeystoneClient, "project_access", lambda self, identity, project: {
+            "targets": [setup_cloud[1].copy(), region_b],
+            "credentials": [{
+                "access": "EC2-ACCESS", "secret": "PRIVATE-EC2-SECRET", "expires_at": identity.expires_at,
+            }],
+        })
+        next_ctx = service.activate(user, auth.id, connection.id, "project-a", region_b["target_id"], None)
+        assert next_ctx != ctx
+    assert s3_execution_cache_key(service.resolve(user, auth.id, next_ctx)) != original_fingerprint
     with pytest.raises(OpenStackError, match="restart"):
         original.access_validator()
 
@@ -424,16 +544,25 @@ def test_presigned_urls_are_bounded_and_rejected_after_logout_or_expiration(db_s
 
 
 def test_routes_return_metadata_only_and_resolve_both_workspaces(client, db_session, setup_cloud, monkeypatch):
-    user, endpoint, cloud = setup_cloud
+    user, target, cloud = setup_cloud
     credentials = authenticate_ui_client(client, db_session, user)
     headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
     response = client.post("/api/me/openstack/connections", json={"cloud_id": cloud.id, "method": "password", "username": "p", "password": "secret"}, headers=headers)
     assert response.status_code == 200, response.text
     connection_id = response.json()["id"]
     assert "PRIVATE-" not in response.text
-    keys = client.get(f"/api/me/openstack/connections/{connection_id}/projects/project-a/credentials")
-    assert keys.json() == ["EC2-ACCESS"]
-    activation = client.post(f"/api/me/openstack/connections/{connection_id}/contexts", json={"project_id": "project-a", "endpoint_id": endpoint.id}, headers=headers)
+    access = client.get(f"/api/me/openstack/connections/{connection_id}/projects/project-a/access")
+    assert access.status_code == 200, access.text
+    assert access.json() == {
+        "targets": [{
+            **target,
+            "storage_endpoint_id": None,
+            "storage_endpoint_name": None,
+            "allowed": True,
+        }],
+        "access_keys": ["EC2-ACCESS"],
+    }
+    activation = client.post(f"/api/me/openstack/connections/{connection_id}/contexts", json={"project_id": "project-a", "target_id": target["target_id"]}, headers=headers)
     assert activation.status_code == 200, activation.text
     ctx = activation.json()["context_id"]
     for workspace in ("manager", "browser"):
@@ -455,7 +584,8 @@ def test_routes_return_metadata_only_and_resolve_both_workspaces(client, db_sess
     assert "project-fixture" in response.text
     assert list_buckets.call_args.kwargs["access_key"] == "EC2-ACCESS"
     assert list_buckets.call_args.kwargs["secret_key"] == "PRIVATE-EC2-SECRET"
-    assert list_buckets.call_args.kwargs["endpoint"] == endpoint.endpoint_url
+    assert list_buckets.call_args.kwargs["endpoint"] == target["endpoint_url"]
+    assert list_buckets.call_args.kwargs["region"] == target["region_id"]
 
 
 class FakeResponse:
@@ -475,6 +605,92 @@ def test_keystone_http_refuses_redirects_and_never_leaks_upstream_error(monkeypa
     assert "PRIVATE" not in str(caught.value)
     assert request.call_args.kwargs["allow_redirects"] is False
     assert request.call_args.kwargs["verify"] is not False
+
+
+def test_keystone_catalog_prefers_s3_and_public_per_region(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.keystone_client.validate_openstack_catalog_s3_endpoint",
+        lambda value: value.rstrip("/"),
+    )
+    catalog = [
+        {
+            "type": "object-store",
+            "name": "Swift compatibility",
+            "endpoints": [{
+                "id": "object-region-c", "region_id": "region-c", "interface": "public",
+                "url": "https://object.example.test",
+            }],
+        },
+        {
+            "type": "s3",
+            "name": "S3 API",
+            "endpoints": [
+                {"id": "internal-a", "region_id": "region-a", "interface": "internal", "url": "https://internal-a.example.test"},
+                {"id": "public-a", "region_id": "region-a", "interface": "public", "url": "https://public-a.example.test/"},
+                {"id": "public-b", "region_id": "region-b", "interface": "public", "url": "https://public-b.example.test"},
+            ],
+        },
+    ]
+
+    assert KeystoneClient._catalog_targets(catalog) == [
+        {
+            "target_id": "public-a", "region_id": "region-a", "interface": "public",
+            "service_type": "s3", "service_name": "S3 API", "endpoint_url": "https://public-a.example.test",
+        },
+        {
+            "target_id": "public-b", "region_id": "region-b", "interface": "public",
+            "service_type": "s3", "service_name": "S3 API", "endpoint_url": "https://public-b.example.test",
+        },
+    ]
+
+
+def test_keystone_catalog_object_store_fallback_rejects_swift_paths(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.keystone_client.validate_openstack_catalog_s3_endpoint",
+        lambda value: value.rstrip("/"),
+    )
+    catalog = [{
+        "type": "object-store",
+        "name": "Object Storage",
+        "endpoints": [
+            {"id": "swift", "region_id": "swift-region", "interface": "public", "url": "https://object.example.test/v1/AUTH_project"},
+            {"id": "direct", "region_id": "s3-region", "interface": "public", "url": "https://s3-compatible.example.test"},
+        ],
+    }]
+
+    assert KeystoneClient._catalog_targets(catalog) == [{
+        "target_id": "direct", "region_id": "s3-region", "interface": "public",
+        "service_type": "object-store", "service_name": "Object Storage", "endpoint_url": "https://s3-compatible.example.test",
+    }]
+
+
+def test_keystone_catalog_trusts_admin_configured_private_s3_target():
+    catalog = [{
+        "type": "s3",
+        "name": "Internal S3",
+        "endpoints": [{
+            "id": "internal-s3", "region_id": "private-region", "interface": "internal",
+            "url": "https://10.42.0.15:9443/",
+        }],
+    }]
+
+    assert KeystoneClient._catalog_targets(catalog) == [{
+        "target_id": "internal-s3", "region_id": "private-region", "interface": "internal",
+        "service_type": "s3", "service_name": "Internal S3", "endpoint_url": "https://10.42.0.15:9443",
+    }]
+
+
+def test_keystone_catalog_still_rejects_non_https_s3_target():
+    catalog = [{
+        "type": "s3",
+        "name": "S3",
+        "endpoints": [{
+            "id": "insecure-s3", "region_id": "region-a", "interface": "public",
+            "url": "http://s3.example.test",
+        }],
+    }]
+
+    assert KeystoneClient._catalog_targets(catalog) == []
 
 
 @pytest.mark.parametrize("method", ["password", "token"])

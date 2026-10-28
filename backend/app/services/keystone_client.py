@@ -12,6 +12,7 @@ import requests
 from app.core.config import get_settings
 from app.models.openstack import OpenStackAuthenticate
 from app.utils.network_targets import validate_outbound_url
+from app.utils.s3_endpoint import validate_openstack_catalog_s3_endpoint
 from app.utils.time import normalize_utc, utcnow
 
 
@@ -161,16 +162,100 @@ class KeystoneClient:
         raise OpenStackError("invalid_provider_response", "Keystone project pagination limit exceeded", 502)
 
     def scoped(self, identity: KeystoneIdentity, project_id: str) -> KeystoneIdentity:
+        return self._scoped_payload(identity, project_id)[0]
+
+    def _scoped_payload(self, identity: KeystoneIdentity, project_id: str) -> tuple[KeystoneIdentity, list[dict]]:
         data, token = self._request("POST", "/auth/tokens", body={"auth": {
             "identity": {"methods": ["token"], "token": {"id": identity.token}}, "scope": {"project": {"id": project_id}},
         }})
         scoped = self._identity(data, token)
         if scoped.user_id != identity.user_id or scoped.project_id != project_id:
             raise OpenStackError("identity_mismatch", "Keystone returned a different user or project", 403)
-        return scoped
+        catalog = data.get("token", {}).get("catalog", [])
+        if not isinstance(catalog, list) or len(catalog) > 512:
+            raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
+        return scoped, catalog
 
-    def credentials(self, identity: KeystoneIdentity, project_id: str) -> list[dict]:
-        scoped = self.scoped(identity, project_id)
+    @staticmethod
+    def _looks_like_direct_s3_url(url: str) -> bool:
+        """Accept object-store fallback only when the catalog URL is not a Swift API path."""
+        path = urlsplit(url).path.strip("/")
+        if not path:
+            return True
+        segments = [part.casefold() for part in path.split("/") if part]
+        return not any(part == "v1" or part == "swift" or part.startswith("auth_") for part in segments)
+
+    @classmethod
+    def _catalog_targets(cls, catalog: list[dict]) -> list[dict]:
+        explicit: list[dict] = []
+        fallback: list[dict] = []
+        endpoint_count = 0
+        for service in catalog:
+            if not isinstance(service, dict):
+                raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
+            service_type = service.get("type")
+            if not isinstance(service_type, str) or not service_type or len(service_type) > 128:
+                continue
+            service_type = service_type.casefold()
+            if service_type not in {"s3", "object-store"}:
+                continue
+            service_name = service.get("name")
+            if service_name is not None and (not isinstance(service_name, str) or len(service_name) > 255):
+                raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
+            endpoints = service.get("endpoints")
+            if not isinstance(endpoints, list):
+                raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
+            endpoint_count += len(endpoints)
+            if endpoint_count > 4096:
+                raise OpenStackError("invalid_provider_response", "Keystone service catalog is too large", 502)
+            for endpoint in endpoints:
+                if not isinstance(endpoint, dict):
+                    raise OpenStackError("invalid_provider_response", "Invalid Keystone catalog endpoint", 502)
+                interface = endpoint.get("interface")
+                if interface not in {"public", "internal"}:
+                    continue
+                raw_url = endpoint.get("url")
+                if not isinstance(raw_url, str) or not raw_url or len(raw_url) > 2048:
+                    continue
+                if service_type == "object-store" and not cls._looks_like_direct_s3_url(raw_url):
+                    continue
+                try:
+                    endpoint_url = validate_openstack_catalog_s3_endpoint(raw_url)
+                    target_id = identifier(endpoint.get("id"))
+                    region_id = identifier(endpoint.get("region_id") or endpoint.get("region") or "default")
+                except ValueError:
+                    continue
+                candidate = {
+                    "target_id": target_id,
+                    "region_id": region_id,
+                    "interface": interface,
+                    "service_type": service_type,
+                    "service_name": service_name,
+                    "endpoint_url": endpoint_url,
+                }
+                (explicit if service_type == "s3" else fallback).append(candidate)
+
+        candidates = explicit or fallback
+        if not candidates:
+            return []
+        # One usable S3 target per real Keystone region. Prefer public over internal.
+        candidates.sort(key=lambda item: (
+            item["region_id"].casefold(),
+            0 if item["interface"] == "public" else 1,
+            (item["service_name"] or "").casefold(),
+            item["target_id"],
+        ))
+        result: list[dict] = []
+        seen_regions: set[str] = set()
+        for candidate in candidates:
+            region_key = candidate["region_id"].casefold()
+            if region_key in seen_regions:
+                continue
+            seen_regions.add(region_key)
+            result.append(candidate)
+        return result
+
+    def _credentials(self, identity: KeystoneIdentity, project_id: str, scoped: KeystoneIdentity) -> list[dict]:
         payload, _ = self._request("GET", f"/users/{quote(identity.user_id, safe='')}/credentials/OS-EC2", token=scoped.token)
         rows = payload.get("credentials")
         if not isinstance(rows, list) or len(rows) > 10000:
@@ -188,3 +273,14 @@ class KeystoneClient:
                 seen.add(row.get("access"))
                 result.append({"access": identifier(row.get("access")), "secret": identifier(row.get("secret")), "expires_at": min(scoped.expires_at, identity.expires_at)})
         return result
+
+    def credentials(self, identity: KeystoneIdentity, project_id: str) -> list[dict]:
+        scoped = self.scoped(identity, project_id)
+        return self._credentials(identity, project_id, scoped)
+
+    def project_access(self, identity: KeystoneIdentity, project_id: str) -> dict:
+        scoped, catalog = self._scoped_payload(identity, project_id)
+        return {
+            "targets": self._catalog_targets(catalog),
+            "credentials": self._credentials(identity, project_id, scoped),
+        }

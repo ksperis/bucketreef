@@ -16,9 +16,9 @@ class OpenStackCloudWrite(ApiModel):
     enabled: bool = False
     allow_password: bool = True
     allow_token: bool = True
+    managed_endpoints_only: bool = False
     default_domain: str | None = Field(default=None, max_length=255)
     all_users: bool = False
-    endpoint_ids: list[int] = Field(default_factory=list, max_length=100)
     user_ids: list[int] = Field(default_factory=list, max_length=10000)
     group_ids: list[int] = Field(default_factory=list, max_length=10000)
 
@@ -37,19 +37,11 @@ class OpenStackCloudWrite(ApiModel):
     def validate_modes(self):
         if not self.allow_password and not self.allow_token:
             raise ValueError("At least one authentication method is required")
-        if self.enabled and not self.endpoint_ids:
-            raise ValueError("An enabled cloud requires an S3 endpoint")
         return self
 
 
 class OpenStackCloudRead(OpenStackCloudWrite):
     id: int
-
-
-class OpenStackEndpointRead(ApiModel):
-    id: int
-    name: str
-    region: str | None
 
 
 class OpenStackCloudPublic(ApiModel):
@@ -58,7 +50,6 @@ class OpenStackCloudPublic(ApiModel):
     allow_password: bool
     allow_token: bool
     default_domain: str | None
-    endpoints: list[OpenStackEndpointRead]
 
 
 class OpenStackAuthenticate(ApiModel):
@@ -105,12 +96,28 @@ class OpenStackProjectOptionRead(ApiModel):
     project_id: str
     project_name: str
     project_domain_id: str | None = None
-    endpoints: list[OpenStackEndpointRead]
+
+
+class OpenStackTargetRead(ApiModel):
+    target_id: str
+    region_id: str
+    interface: Literal["public", "internal"]
+    service_type: str
+    service_name: str | None = None
+    endpoint_url: str
+    storage_endpoint_id: int | None = None
+    storage_endpoint_name: str | None = None
+    allowed: bool = True
+
+
+class OpenStackProjectAccessRead(ApiModel):
+    targets: list[OpenStackTargetRead]
+    access_keys: list[str]
 
 
 class OpenStackActivate(ApiModel):
     project_id: str = Field(min_length=1, max_length=255)
-    endpoint_id: int
+    target_id: str = Field(min_length=1, max_length=1024)
     access_key: str | None = Field(default=None, max_length=1024)
 
 

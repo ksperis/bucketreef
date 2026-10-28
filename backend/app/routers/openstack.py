@@ -13,7 +13,8 @@ from app.db import User
 from app.db.openstack import OpenStackCloud, OpenStackConnection
 from app.models.openstack import (
     OpenStackActivate, OpenStackAuthenticate, OpenStackCloudPublic,
-    OpenStackCloudWrite, OpenStackConnectionRead, OpenStackContextRead, OpenStackProjectOptionRead, OpenStackProjectRead,
+    OpenStackCloudWrite, OpenStackConnectionRead, OpenStackContextRead, OpenStackProjectAccessRead,
+    OpenStackProjectOptionRead, OpenStackProjectRead,
 )
 from app.routers.dependencies import get_current_account_user
 from app.services.audit_service import AuditService
@@ -36,8 +37,8 @@ def ui_session(request: Request, response: Response, db: Session = Depends(get_d
 
 
 def cloud_read(row: OpenStackCloud) -> dict:
-    return {**{key: getattr(row, key) for key in OpenStackCloudWrite.model_fields if key not in {"endpoint_ids", "user_ids", "group_ids"}},
-            "id": row.id, "endpoint_ids": [item.id for item in row.endpoints],
+    return {**{key: getattr(row, key) for key in OpenStackCloudWrite.model_fields if key not in {"user_ids", "group_ids"}},
+            "id": row.id,
             "user_ids": [item.id for item in row.users], "group_ids": [item.id for item in row.groups]}
 
 
@@ -49,8 +50,7 @@ def _record_action(db, user, action, entity, entity_id):
 @router.get("/clouds", response_model=list[OpenStackCloudPublic])
 def available_clouds(db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
     return [dict(id=row.id, name=row.name, allow_password=row.allow_password, allow_token=row.allow_token,
-                 default_domain=row.default_domain,
-                 endpoints=[dict(id=ep.id, name=ep.name, region=ep.region) for ep in row.endpoints])
+                 default_domain=row.default_domain)
             for row in OpenStackService(db).allowed_clouds(user)]
 
 
@@ -92,6 +92,15 @@ def project_options(db: Session = Depends(get_db), user: User = Depends(get_curr
     return OpenStackService(db).project_options(user, session.id)
 
 
+@router.get("/connections/{connection_id}/projects/{project_id}/access", response_model=OpenStackProjectAccessRead)
+def project_access(connection_id: str, project_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
+    access = OpenStackService(db).project_access(user, session.id, connection_id, project_id)
+    return {
+        "targets": access["targets"],
+        "access_keys": [key["access"] for key in access["credentials"]],
+    }
+
+
 @router.get("/connections/{connection_id}/projects/{project_id}/credentials", response_model=list[str])
 def credentials(connection_id: str, project_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
     return [key["access"] for key in OpenStackService(db).keys(user, session.id, connection_id, project_id)]
@@ -99,7 +108,7 @@ def credentials(connection_id: str, project_id: str, db: Session = Depends(get_d
 
 @router.post("/connections/{connection_id}/contexts", response_model=OpenStackContextRead)
 def activate(connection_id: str, payload: OpenStackActivate, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
-    context_id = OpenStackService(db).activate(user, session.id, connection_id, payload.project_id, payload.endpoint_id, payload.access_key)
+    context_id = OpenStackService(db).activate(user, session.id, connection_id, payload.project_id, payload.target_id, payload.access_key)
     _record_action(db, user, "openstack.context.activate", "OpenStackProjectContext", context_id)
     return {"context_id": context_id}
 

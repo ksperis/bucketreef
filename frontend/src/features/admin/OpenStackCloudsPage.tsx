@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { deleteOpenStackCloud, listAdminOpenStackClouds, saveOpenStackCloud, type OpenStackCloud, type OpenStackCloudWrite } from "../../api/openstack";
-import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
 import { listMinimalUsers, type UserSummary } from "../../api/users";
 import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { useRecentWebAuthnStepUp } from "../../auth/useRecentWebAuthnStepUp";
@@ -16,14 +15,13 @@ import { ListActions, ListActionButton, ListBadge } from "../../components/list/
 import { extractApiError } from "../../utils/apiError";
 import { useOpenStackI18n } from "../shared/openstackMessages";
 
-const emptyCloud = (): OpenStackCloudWrite => ({ name: "", auth_url: "", enabled: false, allow_password: true, allow_token: true, default_domain: null, all_users: false, endpoint_ids: [], user_ids: [], group_ids: [] });
+const emptyCloud = (): OpenStackCloudWrite => ({ name: "", auth_url: "", enabled: false, allow_password: true, allow_token: true, managed_endpoints_only: false, default_domain: null, all_users: false, user_ids: [], group_ids: [] });
 const toggleId = (values: number[], id: number, checked: boolean) => checked ? [...values.filter((value) => value !== id), id] : values.filter((value) => value !== id);
 
 export default function OpenStackCloudsPage() {
   const { text } = useOpenStackI18n();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const [clouds, setClouds] = useState<OpenStackCloud[]>([]);
-  const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [groups, setGroups] = useState<UiGroupSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,8 +35,8 @@ export default function OpenStackCloudsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [items, eps, people, teams] = await Promise.all([listAdminOpenStackClouds(), listStorageEndpoints(), listMinimalUsers(), listMinimalGroups()]);
-      setClouds(items); setEndpoints(eps); setUsers(people); setGroups(teams);
+      const [items, people, teams] = await Promise.all([listAdminOpenStackClouds(), listMinimalUsers(), listMinimalGroups()]);
+      setClouds(items); setUsers(people); setGroups(teams);
     } catch (failure) { setError(extractApiError(failure, text("error"))); }
     finally { setLoading(false); }
   }, [text]);
@@ -79,7 +77,6 @@ export default function OpenStackCloudsPage() {
   ];
   if (draft) {
     const invalidAuthentication = !draft.allow_password && !draft.allow_token;
-    const missingEndpoint = draft.enabled && draft.endpoint_ids.length === 0;
     const title = editingId == null ? text("addTitle") : `${text("editTitle")} · ${draft.name || text("title")}`;
     return <>
       <SettingsWorkflowForm
@@ -93,7 +90,7 @@ export default function OpenStackCloudsPage() {
         dirty={dirty}
         persistentEdit={editingId != null}
         busy={busy}
-        disabled={!dirty || invalidAuthentication || missingEndpoint}
+        disabled={!dirty || invalidAuthentication}
         error={error}
         submitLabel={text("save")}
         busyLabel={text("saving")}
@@ -122,16 +119,11 @@ export default function OpenStackCloudsPage() {
 
         <SettingsSection title={text("accessSection")} description={text("accessDescription")} presentation="compact">
           <div className="settings-fields">
+            <SettingsItem compact title={text("managedEndpointsOnly")} description={text("managedEndpointsOnlyDescription")}
+              action={<SettingsSwitch checked={draft.managed_endpoints_only} ariaLabel={text("managedEndpointsOnly")} onChange={(value) => setDraft({ ...draft, managed_endpoints_only: value })} />} />
             <SettingsItem compact title={text("allUsers")} description={text("allUsersDescription")}
               action={<SettingsSwitch checked={draft.all_users} ariaLabel={text("allUsers")} onChange={(value) => setDraft({ ...draft, all_users: value })} />} />
-            <fieldset className="min-w-0">
-              <legend className="settings-label mb-1">{text("endpoints")}</legend>
-              <p className="settings-description mb-1">{text("endpointsDescription")}</p>
-              {endpoints.map((item) => <SettingsChoiceRow key={item.id} title={item.name}
-                checked={draft.endpoint_ids.includes(item.id)}
-                onChange={(checked) => setDraft({ ...draft, endpoint_ids: toggleId(draft.endpoint_ids, item.id, checked) })} />)}
-            </fieldset>
-            {missingEndpoint ? <UiInlineMessage tone="warning">{text("endpointRequired")}</UiInlineMessage> : null}
+            <UiInlineMessage tone="info">{text("endpointsDescription")}</UiInlineMessage>
             {!draft.all_users ? <div className="grid gap-4 md:grid-cols-2">
               <fieldset className="min-w-0 max-h-72 overflow-y-auto pr-1">
                 <legend className="settings-label mb-1">{text("users")}</legend>

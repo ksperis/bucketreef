@@ -127,10 +127,12 @@ describe("TopbarContextAccountSelector", () => {
           endpoint_is_default: false,
           endpoint_url: "https://s3.example.test",
           openstack: {
+            connection_id: "connection-a",
             cloud_name: "OPENSTACK-DEMO",
             identity_name: "demo-user",
             project_id: "project-a",
             project_name: "Project A",
+            region_id: "S3-DEMO",
           },
         }),
       ],
@@ -144,8 +146,10 @@ describe("TopbarContextAccountSelector", () => {
     expect(screen.getByText("Project", { selector: "dt" })).toBeInTheDocument();
     expect(screen.getByText("Identity", { selector: "dt" })).toBeInTheDocument();
     expect(screen.getByText("Cloud", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("Region", { selector: "dt" })).toBeInTheDocument();
     expect(screen.getByText("S3 endpoint", { selector: "dt" })).toBeInTheDocument();
     expect(screen.getByText("S3-DEMO", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("https://s3.example.test", { selector: "dd" })).toBeInTheDocument();
   });
 
   it("uses id as deterministic tie-breaker when type, name and label are identical", async () => {
