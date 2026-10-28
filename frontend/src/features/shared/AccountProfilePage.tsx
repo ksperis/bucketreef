@@ -12,6 +12,7 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { ProfileConfirmation } from "./ProfileControls";
 import { useProfileI18n } from "./profileMessages";
 import {
+  canAccessOpenStackProfileSection,
   canAccessPrivateConnectionsSection,
   isSuperAdminRole,
   readStoredUser,
@@ -36,8 +37,7 @@ export default function AccountProfilePage() {
   const location = useLocation();
   const storedUser = useMemo(() => readStoredUser(), []);
   const isS3Session = storedUser?.authType === "s3_session";
-  const canAccessOpenStack = !isS3Session && ["ui_user", "ui_admin", "ui_superadmin"].includes(storedUser?.role ?? "")
-    && (runtimeSurfaces.browser || runtimeSurfaces.manager);
+  const canAccessOpenStack = canAccessOpenStackProfileSection(storedUser, runtimeSurfaces);
   const canAccessApiTokens = !isS3Session && isSuperAdminRole(storedUser?.role);
   const canAccessPrivateConnections =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);

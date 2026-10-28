@@ -102,6 +102,15 @@ export function canAccessPrivateConnectionsSection(user: PrivateConnectionAccess
   return canCreateManualPrivateConnections(user) || hasOwnedPrivateConnections(user);
 }
 
+export function canAccessOpenStackProfileSection(
+  user: Pick<SessionUser, "role" | "authType"> | null,
+  runtimeSurfaces: Pick<RuntimeSurfaces, "browser" | "manager">,
+): boolean {
+  return user?.authType !== "s3_session"
+    && (user?.role === "ui_user" || user?.role === "ui_admin" || user?.role === "ui_superadmin")
+    && (runtimeSurfaces.browser || runtimeSurfaces.manager);
+}
+
 export function readStoredUser(): SessionUser | null {
   return sessionUserCache;
 }
