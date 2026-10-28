@@ -95,6 +95,13 @@ describe("buildAdminNav", () => {
     expect(authenticationLink?.iconName).toBe("shield");
   });
 
+  it("uses a dedicated icon for OpenStack settings", () => {
+    const openStackLink = getSettingsLink("OpenStack", [true, true, false, false, false, true]);
+
+    expect(openStackLink?.to).toBe("/admin/openstack");
+    expect(openStackLink?.iconName).toBe("openstack");
+  });
+
   it("uses the Manager tools icon in settings navigation", () => {
     const managerLink = getSettingsLink("Manager", [true, true, false, false, false, true]);
 

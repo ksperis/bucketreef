@@ -55,7 +55,10 @@ export const buildAdminNav = (
   const portalRequestCount = pendingRequestCounts?.portal_requests ?? 0;
   const settingsLinks = [
     pageLink(ADMIN_PAGE_CONTRACTS["general-settings"], text),
-    pageLink(ADMIN_PAGE_CONTRACTS.openstack, text),
+    {
+      ...pageLink(ADMIN_PAGE_CONTRACTS.openstack, text),
+      iconName: "openstack" as const,
+    },
     {
       ...pageLink(ADMIN_PAGE_CONTRACTS["authentication-settings"], text),
       iconName: "shield" as const,
