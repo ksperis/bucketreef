@@ -20,7 +20,7 @@ import { useOpenStackI18n } from "./openstackMessages";
 type UseOpenStackProjectSelectorOptions = {
   enabled: boolean;
   activeContext?: ExecutionContext | null;
-  refreshContexts: () => Promise<ExecutionContext[]>;
+  refreshContexts: (preferredContextId?: string) => Promise<ExecutionContext[]>;
   onActivated: (contextId: string) => void;
 };
 
@@ -141,7 +141,7 @@ export function useOpenStackProjectSelector({
         targetId,
         accessKey,
       );
-      const refreshed = await refreshContexts();
+      const refreshed = await refreshContexts(contextId);
       if (!refreshed.some((context) => context.id === contextId)) {
         throw new Error("The activated OpenStack context is not available.");
       }

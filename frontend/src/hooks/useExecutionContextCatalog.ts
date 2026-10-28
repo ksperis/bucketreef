@@ -63,7 +63,10 @@ export function useExecutionContextCatalog({
     return () => window.removeEventListener(EXECUTION_CONTEXTS_REFRESH_EVENT, handleRefresh);
   }, []);
 
-  const loadContexts = useCallback(async (signal?: AbortSignal): Promise<ExecutionContext[]> => {
+  const loadContexts = useCallback(async (
+    signal?: AbortSignal,
+    preferredContextId?: string,
+  ): Promise<ExecutionContext[]> => {
     setAccessError(null);
     setLoadFailed(false);
     if (!requiresSelection) {
@@ -75,6 +78,9 @@ export function useExecutionContextCatalog({
       const data = await listExecutionContexts(scope, { signal });
       if (signal?.aborted) return [];
       const next = Array.isArray(data) ? data : [];
+      if (preferredContextId && next.some((context) => context.id === preferredContextId)) {
+        setSelectedContextIdState(preferredContextId);
+      }
       setContexts(next);
       return next;
     } catch (error) {
@@ -95,7 +101,7 @@ export function useExecutionContextCatalog({
   }, [loadContexts, refreshToken]);
 
   const refreshContexts = useCallback(
-    () => loadContexts(),
+    (preferredContextId?: string) => loadContexts(undefined, preferredContextId),
     [loadContexts],
   );
 

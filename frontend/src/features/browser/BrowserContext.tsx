@@ -13,7 +13,7 @@ const EXECUTION_CONTEXT_STORAGE_KEY = CLIENT_STORAGE_KEYS.selectedBrowserExecuti
 type BrowserContextState = {
   contexts: ExecutionContext[];
   contextsLoaded: boolean;
-  refreshContexts: () => Promise<ExecutionContext[]>;
+  refreshContexts: (preferredContextId?: string) => Promise<ExecutionContext[]>;
   selectedContextId: string | null;
   selectedContext: ExecutionContext | null;
   requiresContextSelection: boolean;
