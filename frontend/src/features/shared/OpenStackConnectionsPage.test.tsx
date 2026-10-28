@@ -31,13 +31,16 @@ beforeEach(() => {
 describe("OpenStack project connection", () => {
   it.each(["Manager", "Browser"] as const)("requires an explicit key choice and opens the selected %s context", async (workspace) => {
     const user = userEvent.setup(); renderPage();
+    await user.click(await screen.findByRole("button", { name: "Connect cloud" }));
+    expect(screen.getByRole("dialog", { name: "Connect OpenStack cloud" })).toBeInTheDocument();
     await user.selectOptions(await screen.findByLabelText("Cloud"), "1");
     await user.type(screen.getByLabelText("User name"), "person");
     await user.type(screen.getByLabelText("Password"), "private-password");
     await user.click(screen.getByRole("button", { name: "Connect", exact: true }));
     const keys = await screen.findByLabelText("EC2 access key");
     expect(screen.getByRole("button", { name: `Open ${workspace}` })).toBeDisabled();
-    expect(screen.getByLabelText("Password")).toHaveValue("");
+    expect(screen.queryByRole("dialog", { name: "Connect OpenStack cloud" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     expect(screen.queryByText("private-password")).not.toBeInTheDocument();
     await user.selectOptions(keys, "second");
     await user.click(screen.getByRole("button", { name: `Open ${workspace}` }));
@@ -47,13 +50,24 @@ describe("OpenStack project connection", () => {
 
   it("uses token authentication without collecting a cloud password", async () => {
     const user = userEvent.setup(); renderPage();
+    await user.click(await screen.findByRole("button", { name: "Connect cloud" }));
     await user.selectOptions(await screen.findByLabelText("Cloud"), "1");
     await user.selectOptions(screen.getByLabelText("Authentication"), "token");
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("User token"), "private-token");
     await user.click(screen.getByRole("button", { name: "Connect", exact: true }));
     await waitFor(() => expect(api.connectOpenStack).toHaveBeenCalledWith({ cloud_id: 1, method: "token", token: "private-token" }));
-    await waitFor(() => expect(screen.getByLabelText("User token")).toHaveValue(""));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Connect OpenStack cloud" })).not.toBeInTheDocument());
+  });
+
+  it("opens reconnection in the shared profile dialog with the previous user identity", async () => {
+    vi.mocked(api.listOpenStackConnections).mockResolvedValue([{ ...connection, connected: false }]);
+    const user = userEvent.setup(); renderPage();
+    await user.click(await screen.findByRole("button", { name: "Reconnect" }));
+    expect(screen.getByRole("dialog", { name: "Connect OpenStack cloud" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Cloud")).toHaveValue("1");
+    expect(screen.getByLabelText("User name")).toHaveValue("person-uuid");
+    expect(screen.getByRole("checkbox", { name: "Use user UUID" })).toBeChecked();
   });
 
   it("handles missing EC2 credentials without offering to create keys", async () => {

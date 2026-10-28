@@ -44,9 +44,9 @@ export default function AccountProfilePage() {
   const availableTabs = useMemo<AccountTab[]>(
     () => [
       "profile",
-      ...(canAccessOpenStack ? (["openstack"] as const) : []),
       ...(!isS3Session ? (["security"] as const) : []),
       ...(canAccessPrivateConnections ? (["connections"] as const) : []),
+      ...(canAccessOpenStack ? (["openstack"] as const) : []),
       ...(canAccessApiTokens ? (["api-tokens"] as const) : []),
     ],
     [canAccessApiTokens, canAccessPrivateConnections, isS3Session, canAccessOpenStack]
@@ -84,9 +84,9 @@ export default function AccountProfilePage() {
 
   const tabs = [
     { id: "profile", label: text("preferencesTab") },
-    ...(canAccessOpenStack ? [{ id: "openstack", label: "OpenStack" }] : []),
     ...(!isS3Session ? [{ id: "security", label: text("security") }] : []),
     ...(canAccessPrivateConnections ? [{ id: "connections", label: text("connections") }] : []),
+    ...(canAccessOpenStack ? [{ id: "openstack", label: "OpenStack" }] : []),
     ...(canAccessApiTokens ? [{ id: "api-tokens", label: text("apiTokens") }] : []),
   ];
 
