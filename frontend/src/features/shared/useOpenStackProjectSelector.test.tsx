@@ -62,6 +62,12 @@ describe("useOpenStackProjectSelector", () => {
     }));
 
     await waitFor(() => expect(result.current.candidateCount).toBe(1));
+    expect(result.current.selectorOptions).toEqual([
+      expect.objectContaining({
+        label: "Project A",
+        description: "OpenStack · Cloud A · Person",
+      }),
+    ]);
 
     act(() => {
       result.current.handleContextChange(

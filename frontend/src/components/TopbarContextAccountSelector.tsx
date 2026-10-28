@@ -107,6 +107,10 @@ export default function TopbarContextAccountSelector({
 }: TopbarContextAccountSelectorProps) {
   const { text } = useShellI18n();
   const showSelectorTags = useSelectorTagsPreference();
+  const selectedContext = contexts.find((context) => context.id === selectedContextId) ?? null;
+  const selectedOpenStack = selectedContext?.kind === "openstack_project"
+    ? selectedContext.openstack ?? null
+    : null;
   const options = useMemo<TopbarDropdownOption[]>(
     () => {
       const contextOptions = contexts
@@ -118,7 +122,9 @@ export default function TopbarContextAccountSelector({
                 ? text("sharedConnection")
                 : text("privateConnection")
               : context.kind === "openstack_project"
-                ? "OpenStack"
+                ? context.openstack
+                  ? `OpenStack · ${context.openstack.cloud_name} · ${context.openstack.identity_name}`
+                  : "OpenStack"
               : context.kind === "s3_user"
                 ? text("s3UserIdentity")
                 : text("rgwAccount");
@@ -131,11 +137,17 @@ export default function TopbarContextAccountSelector({
             selectorEndpointTags,
           );
           const displayName = context.display_name.trim();
-          const optionDescription = context.endpoint_url
-            ? `${description} · ${context.endpoint_url}`
-            : description;
+          const optionDescription = context.kind === "openstack_project"
+            ? description
+            : context.endpoint_url
+              ? `${description} · ${context.endpoint_url}`
+              : description;
           const searchText = [
             context.display_name,
+            context.openstack?.project_id,
+            context.openstack?.project_name,
+            context.openstack?.cloud_name,
+            context.openstack?.identity_name,
             context.endpoint_name,
             context.endpoint_url,
             ...extractUiTagLabels(selectorEntityTags),
@@ -211,17 +223,38 @@ export default function TopbarContextAccountSelector({
       triggerLabel={text("account")}
       placeholder={selectedLabel}
       triggerValue={selectedLabel}
-      title={identityLabel ?? undefined}
+      title={selectedOpenStack
+        ? `${selectedOpenStack.project_name} · ${selectedOpenStack.cloud_name} · ${selectedOpenStack.identity_name}`
+        : identityLabel ?? undefined}
       widthClassName={widthClassName}
       menuHeader={
-        <div className="shell-menu-muted rounded-md border px-2.5 py-2">
-          <p className="shell-muted-text ui-caption uppercase">
-            {text("currentIamIdentity")}
-          </p>
-          <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">
-            {identityLabel ?? text("unavailableForContext")}
-          </p>
-        </div>
+        selectedOpenStack && selectedContext ? (
+          <div className="shell-menu-muted rounded-md border px-2.5 py-2">
+            <p className="shell-muted-text ui-caption uppercase">{text("currentContext")}</p>
+            <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 ui-caption">
+              {[
+                [text("project"), selectedOpenStack.project_name],
+                [text("identity"), selectedOpenStack.identity_name],
+                [text("cloud"), selectedOpenStack.cloud_name],
+                [text("s3Endpoint"), selectedContext.endpoint_name],
+              ].map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="shell-muted-text">{label}</dt>
+                  <dd className="truncate font-semibold text-[var(--shell-text)]" title={value}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : (
+          <div className="shell-menu-muted rounded-md border px-2.5 py-2">
+            <p className="shell-muted-text ui-caption uppercase">
+              {text("currentIamIdentity")}
+            </p>
+            <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">
+              {identityLabel ?? text("unavailableForContext")}
+            </p>
+          </div>
+        )
       }
       search={{
         threshold: searchThreshold,

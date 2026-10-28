@@ -17,6 +17,13 @@ class ExecutionContextCapabilities(ApiModel):
     admin_api_capable: bool
 
 
+class OpenStackExecutionContextMetadata(ApiModel):
+    cloud_name: str
+    identity_name: str
+    project_id: str
+    project_name: str
+
+
 class ExecutionContext(ApiModel):
     kind: Literal["account", "connection", "s3_user", "portal_account", "openstack_project"]
     id: str
@@ -34,6 +41,7 @@ class ExecutionContext(ApiModel):
     tags: list[TagDefinitionSummary]
     endpoint_tags: list[TagDefinitionSummary]
     capabilities: ExecutionContextCapabilities
+    openstack: Optional[OpenStackExecutionContextMetadata] = None
 
 
 class ManagerContext(ApiModel):

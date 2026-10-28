@@ -31,6 +31,12 @@ export type ExecutionContext = {
   endpoint_url: string;
   storage_endpoint_capabilities: Record<string, boolean>;
   capabilities: ExecutionContextCapabilities;
+  openstack?: {
+    cloud_name: string;
+    identity_name: string;
+    project_id: string;
+    project_name: string;
+  } | null;
 };
 
 type ExecutionWorkspace = "manager" | "browser";
