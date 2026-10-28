@@ -9,6 +9,7 @@ import { SettingsItem, SettingsSection, SettingsSwitch } from "../../components/
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import ListPageSection from "../../components/list/ListPageSection";
 import { ListActions, ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { extractApiError } from "../../utils/apiError";
 import { useOpenStackI18n } from "../shared/openstackMessages";
@@ -128,7 +129,9 @@ export default function OpenStackCloudsPage() {
   return <div className="space-y-4">
     <PageHeader title={text("title")} breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: text("title") }]} actions={[{ label: text("add"), onClick: () => edit() }]} />
     {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
-    <DataTableShell rows={clouds} columns={columns} rowKey={(row) => row.id} responsiveCards status={loading ? "loading" : error ? "error" : clouds.length ? "ready" : "empty"} loadingMessage={text("loading")} errorMessage={error ?? text("error")} emptyMessage={text("noClouds")} />
+    <ListPageSection variant="page" title={text("title")}>
+      <DataTableShell rows={clouds} columns={columns} rowKey={(row) => row.id} responsiveCards status={loading ? "loading" : error ? "error" : clouds.length ? "ready" : "empty"} loadingMessage={text("loading")} errorMessage={error ?? text("error")} emptyMessage={text("noClouds")} />
+    </ListPageSection>
     {pendingDelete ? <ConfirmActionDialog title={text("remove")} description={text("deleteHelp")} confirmLabel={text("remove")} cancelLabel={text("cancel")} loading={busy} error={error} onConfirm={() => void remove()} onCancel={() => setPendingDelete(null)} /> : null}
     {verificationDialog}
   </div>;

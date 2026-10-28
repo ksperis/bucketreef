@@ -33,7 +33,7 @@ import { extractApiError } from "../../utils/apiError";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
 import { extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
-import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationSectionHeader, adminAssociationPanelClass, adminAssociationTableContainerClass as associationTableContainerClass } from "./AdminAssociationPicker";
+import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationPanelClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
 import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
@@ -938,46 +938,34 @@ export default function S3ConnectionsPage() {
 
             {showEditUsersTab && (
               <div className="settings-stack">
-                <AdminAssociationSectionHeader
+                <AdminAssociationLinkedTable
                   title={adminText("Linked UI users")}
-                  countLabel={adminText("{count} linked", { count: linkedEditUsers.length })}
-                  actionLabel={adminText(showEditUserPanel ? "Close" : "Add UI users")}
-                  onAction={() => setShowEditUserPanel((prev) => !prev)}
+                  toolbar={{
+                    countLabel: adminText("{count} linked", { count: linkedEditUsers.length }),
+                    actionLabel: adminText(showEditUserPanel ? "Close" : "Add UI users"),
+                    onAction: () => setShowEditUserPanel((prev) => !prev),
+                  }}
+                  headers={[
+                    { label: adminText("User") },
+                    { label: adminText("Actions"), align: "right" },
+                  ]}
+                  hasItems={linkedEditUsers.length > 0}
+                  emptyLabel={adminText("No linked users yet.")}
+                  rows={linkedEditUsers.map((user) => (
+                    <tr key={user.id}>
+                      <td className="ui-table-primary">{user.label}</td>
+                      <td className="ui-table-actions-cell w-px text-right">
+                        <ListActionButton
+                          type="button"
+                          onClick={() => setEditLinkedUserIds((prev) => prev.filter((id) => id !== user.id))}
+                          variant="danger"
+                        >
+                          {adminText("Remove")}
+                        </ListActionButton>
+                      </td>
+                    </tr>
+                  ))}
                 />
-                <div className={associationTableContainerClass}>
-                  <table className="ui-data-table">
-                    <thead>
-                      <tr>
-                        <th className="text-left">
-                          {adminText("User")}</th>
-                        <th className="w-px whitespace-nowrap text-right">
-                          {adminText("Actions")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {linkedEditUsers.length === 0 ? (
-                        <tr>
-                          <td colSpan={2} className="ui-table-secondary">
-                            {adminText("No linked users yet.")}</td>
-                        </tr>
-                      ) : (
-                        linkedEditUsers.map((user) => (
-                          <tr key={user.id}>
-                            <td className="ui-table-primary">{user.label}</td>
-                            <td className="ui-table-actions-cell w-px text-right">
-                              <ListActionButton
-                                type="button"
-                                onClick={() => setEditLinkedUserIds((prev) => prev.filter((id) => id !== user.id))}
-                                 variant="danger"
-                              >
-                                {adminText("Remove")}</ListActionButton>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
                 {showEditUserPanel && (
                   <AdminAssociationPickerPanel
                     title={adminText("Add UI users")}
@@ -1013,46 +1001,34 @@ export default function S3ConnectionsPage() {
 
             {showEditGroupsTab && (
               <div className="settings-stack">
-                <AdminAssociationSectionHeader
+                <AdminAssociationLinkedTable
                   title={adminText("Linked UI groups")}
-                  countLabel={`${linkedEditGroups.length} linked`}
-                  actionLabel={showEditGroupPanel ? "Close" : "Add UI groups"}
-                  onAction={() => setShowEditGroupPanel((prev) => !prev)}
+                  toolbar={{
+                    countLabel: adminText("{count} linked", { count: linkedEditGroups.length }),
+                    actionLabel: adminText(showEditGroupPanel ? "Close" : "Add UI groups"),
+                    onAction: () => setShowEditGroupPanel((prev) => !prev),
+                  }}
+                  headers={[
+                    { label: adminText("Group") },
+                    { label: adminText("Actions"), align: "right" },
+                  ]}
+                  hasItems={linkedEditGroups.length > 0}
+                  emptyLabel={adminText("No linked groups yet.")}
+                  rows={linkedEditGroups.map((group) => (
+                    <tr key={group.id}>
+                      <td className="ui-table-primary">{group.label}</td>
+                      <td className="ui-table-actions-cell w-px text-right">
+                        <ListActionButton
+                          type="button"
+                          onClick={() => setEditLinkedGroupIds((prev) => prev.filter((id) => id !== group.id))}
+                          variant="danger"
+                        >
+                          {adminText("Remove")}
+                        </ListActionButton>
+                      </td>
+                    </tr>
+                  ))}
                 />
-                <div className={associationTableContainerClass}>
-                  <table className="ui-data-table">
-                    <thead>
-                      <tr>
-                        <th className="text-left">
-                          {adminText("Group")}</th>
-                        <th className="w-px whitespace-nowrap text-right">
-                          {adminText("Actions")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {linkedEditGroups.length === 0 ? (
-                        <tr>
-                          <td colSpan={2} className="ui-table-secondary">
-                            {adminText("No linked groups yet.")}</td>
-                        </tr>
-                      ) : (
-                        linkedEditGroups.map((group) => (
-                          <tr key={group.id}>
-                            <td className="ui-table-primary">{group.label}</td>
-                            <td className="ui-table-actions-cell w-px text-right">
-                              <ListActionButton
-                                type="button"
-                                onClick={() => setEditLinkedGroupIds((prev) => prev.filter((id) => id !== group.id))}
-                                 variant="danger"
-                              >
-                                {adminText("Remove")}</ListActionButton>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
                 {showEditGroupPanel && (
                   <AdminAssociationPickerPanel
                     title={adminText("Add UI groups")}
