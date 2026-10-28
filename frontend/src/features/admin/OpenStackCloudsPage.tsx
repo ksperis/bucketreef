@@ -6,15 +6,13 @@ import { listMinimalUsers, type UserSummary } from "../../api/users";
 import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { useRecentWebAuthnStepUp } from "../../auth/useRecentWebAuthnStepUp";
 import PageHeader from "../../components/PageHeader";
-import UiButton from "../../components/ui/UiButton";
-import UiInput from "../../components/ui/UiInput";
-import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
-import { SettingsSwitch } from "../../components/settings/SettingsLayout";
-import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import { SettingsInput } from "../../components/settings/SettingsControls";
+import { SettingsChoiceRow, SettingsItem, SettingsSection, SettingsSwitch } from "../../components/settings/SettingsLayout";
+import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { ListActions, ListActionButton } from "../../components/list/ListControls";
+import { ListActions, ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { extractApiError } from "../../utils/apiError";
 import { useOpenStackI18n } from "../shared/openstackMessages";
 
@@ -35,7 +33,6 @@ export default function OpenStackCloudsPage() {
   const [initial, setInitial] = useState("");
   const [editingId, setEditingId] = useState<number | undefined>();
   const [pendingDelete, setPendingDelete] = useState<OpenStackCloud | null>(null);
-  const [pendingClose, setPendingClose] = useState(false);
   const dirty = draft !== null && JSON.stringify(draft) !== initial;
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,10 +48,16 @@ export default function OpenStackCloudsPage() {
     if ("id" in next) delete (next as Partial<OpenStackCloud>).id;
     setDraft(next); setInitial(JSON.stringify(next)); setEditingId(cloud?.id); setError(null);
   };
+  const closeEditor = () => {
+    setDraft(null);
+    setInitial("");
+    setEditingId(undefined);
+    setError(null);
+  };
   const save = async (event: FormEvent) => {
     event.preventDefault(); if (!draft) return;
     setBusy(true); setError(null);
-    try { await runWithStepUp(() => saveOpenStackCloud(draft, editingId)); setDraft(null); await load(); }
+    try { await runWithStepUp(() => saveOpenStackCloud(draft, editingId)); closeEditor(); await load(); }
     catch (failure) { setError(extractApiError(failure, text("error"))); }
     finally { setBusy(false); }
   };
@@ -68,44 +71,92 @@ export default function OpenStackCloudsPage() {
   const columns: DataTableColumn<OpenStackCloud>[] = [
     { id: "name", label: text("name"), primary: true, render: (row) => row.name },
     { id: "url", label: text("url"), render: (row) => row.auth_url },
-    { id: "enabled", label: text("enabled"), render: (row) => <SettingsSwitch checked={row.enabled} disabled ariaLabel={text("enabled")} onChange={() => undefined} /> },
+    { id: "enabled", label: text("enabled"), render: (row) => <ListBadge tone={row.enabled ? "success" : "neutral"}>{text(row.enabled ? "enabled" : "disabled")}</ListBadge> },
     { id: "actions", label: "", mobileRole: "actions", render: (row) => <ListActions>
       <ListActionButton onClick={() => edit(row)}>{text("edit")}</ListActionButton>
       <ListActionButton onClick={() => setPendingDelete(row)}>{text("remove")}</ListActionButton>
     </ListActions> },
   ];
+  if (draft) {
+    const invalidAuthentication = !draft.allow_password && !draft.allow_token;
+    const missingEndpoint = draft.enabled && draft.endpoint_ids.length === 0;
+    const title = editingId == null ? text("addTitle") : `${text("editTitle")} · ${draft.name || text("title")}`;
+    return <>
+      <SettingsWorkflowForm
+        title={title}
+        description={text("configurationIntro")}
+        formLabel={text("configurationLabel")}
+        breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: text("title"), to: "/admin/openstack" }, { label: editingId == null ? text("add") : text("edit") }]}
+        backLabel={text("backToClouds")}
+        contentVariant="plain"
+        width="wide"
+        dirty={dirty}
+        persistentEdit={editingId != null}
+        busy={busy}
+        disabled={!dirty || invalidAuthentication || missingEndpoint}
+        error={error}
+        submitLabel={text("save")}
+        busyLabel={text("saving")}
+        onSubmit={save}
+        onClose={closeEditor}
+      >
+        <SettingsSection title={text("generalSection")} description={text("generalDescription")} presentation="compact">
+          <div className="settings-fields sm:grid-cols-2">
+            <SettingsInput label={text("name")} required maxLength={128} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+            <SettingsInput label={text("url")} type="url" required pattern="https://.*/v3/?" value={draft.auth_url} onChange={(event) => setDraft({ ...draft, auth_url: event.target.value })} />
+            <SettingsInput label={text("domain")} value={draft.default_domain ?? ""} onChange={(event) => setDraft({ ...draft, default_domain: event.target.value || null })} />
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title={text("authenticationSection")} description={text("authenticationDescription")} presentation="compact">
+          <div className="settings-fields">
+            <SettingsItem compact title={text("enabled")} description={text("enabledDescription")}
+              action={<SettingsSwitch checked={draft.enabled} ariaLabel={text("enabled")} onChange={(value) => setDraft({ ...draft, enabled: value })} />} />
+            <SettingsItem compact title={text("password")} description={text("passwordDescription")}
+              action={<SettingsSwitch checked={draft.allow_password} ariaLabel={text("password")} onChange={(value) => setDraft({ ...draft, allow_password: value })} />} />
+            <SettingsItem compact title={text("token")} description={text("tokenDescription")}
+              action={<SettingsSwitch checked={draft.allow_token} ariaLabel={text("token")} onChange={(value) => setDraft({ ...draft, allow_token: value })} />} />
+            {invalidAuthentication ? <UiInlineMessage tone="warning">{text("authenticationRequired")}</UiInlineMessage> : null}
+          </div>
+        </SettingsSection>
+
+        <SettingsSection title={text("accessSection")} description={text("accessDescription")} presentation="compact">
+          <div className="settings-fields">
+            <SettingsItem compact title={text("allUsers")} description={text("allUsersDescription")}
+              action={<SettingsSwitch checked={draft.all_users} ariaLabel={text("allUsers")} onChange={(value) => setDraft({ ...draft, all_users: value })} />} />
+            <fieldset className="min-w-0">
+              <legend className="settings-label mb-1">{text("endpoints")}</legend>
+              <p className="settings-description mb-1">{text("endpointsDescription")}</p>
+              {endpoints.map((item) => <SettingsChoiceRow key={item.id} title={item.name}
+                checked={draft.endpoint_ids.includes(item.id)}
+                onChange={(checked) => setDraft({ ...draft, endpoint_ids: toggleId(draft.endpoint_ids, item.id, checked) })} />)}
+            </fieldset>
+            {missingEndpoint ? <UiInlineMessage tone="warning">{text("endpointRequired")}</UiInlineMessage> : null}
+            {!draft.all_users ? <div className="grid gap-4 md:grid-cols-2">
+              <fieldset className="min-w-0 max-h-72 overflow-y-auto pr-1">
+                <legend className="settings-label mb-1">{text("users")}</legend>
+                {users.map((item) => <SettingsChoiceRow key={item.id} title={item.full_name ?? item.email}
+                  description={item.full_name ? item.email : undefined} checked={draft.user_ids.includes(item.id)}
+                  onChange={(checked) => setDraft({ ...draft, user_ids: toggleId(draft.user_ids, item.id, checked) })} />)}
+              </fieldset>
+              <fieldset className="min-w-0 max-h-72 overflow-y-auto pr-1">
+                <legend className="settings-label mb-1">{text("groups")}</legend>
+                {groups.map((item) => <SettingsChoiceRow key={item.id} title={item.name} checked={draft.group_ids.includes(item.id)}
+                  onChange={(checked) => setDraft({ ...draft, group_ids: toggleId(draft.group_ids, item.id, checked) })} />)}
+              </fieldset>
+            </div> : null}
+          </div>
+        </SettingsSection>
+
+        <UiInlineMessage tone="info">{text("trustHelp")}</UiInlineMessage>
+      </SettingsWorkflowForm>
+      {verificationDialog}
+    </>;
+  }
   return <div className="space-y-4">
-    <PageHeader title={text("title")} breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: text("title") }]} actions={draft ? [] : [{ label: text("add"), onClick: () => edit() }]} />
+    <PageHeader title={text("title")} breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: text("title") }]} actions={[{ label: text("add"), onClick: () => edit() }]} />
     {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
-    {draft ? <form onSubmit={(event) => void save(event)} className="space-y-4 max-w-4xl">
-      <fieldset disabled={busy} className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          <UiInput label={text("name")} required maxLength={128} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-          <UiInput label={text("url")} type="url" required pattern="https://.*/v3/?" value={draft.auth_url} onChange={(event) => setDraft({ ...draft, auth_url: event.target.value })} />
-          <UiInput label={text("domain")} value={draft.default_domain ?? ""} onChange={(event) => setDraft({ ...draft, default_domain: event.target.value || null })} />
-        </div>
-        {(["enabled", "allow_password", "allow_token", "all_users"] as const).map((field) => <div className="flex items-center justify-between max-w-xl gap-3" key={field}>
-          <span>{text(field === "allow_password" ? "password" : field === "allow_token" ? "token" : field === "all_users" ? "allUsers" : "enabled")}</span>
-          <SettingsSwitch checked={draft[field]} ariaLabel={text(field === "allow_password" ? "password" : field === "allow_token" ? "token" : field === "all_users" ? "allUsers" : "enabled")} onChange={(value) => setDraft({ ...draft, [field]: value })} />
-        </div>)}
-        <fieldset className="space-y-2"><legend>{text("endpoints")}</legend>
-          {endpoints.map((item) => <div key={item.id}><UiCheckboxField checked={draft.endpoint_ids.includes(item.id)} onChange={(event) => setDraft({ ...draft, endpoint_ids: toggleId(draft.endpoint_ids, item.id, event.target.checked) })}>{item.name}</UiCheckboxField></div>)}
-        </fieldset>
-        {!draft.all_users ? <div className="grid gap-4 md:grid-cols-2">
-          <fieldset className="space-y-2 max-h-72 overflow-auto"><legend>{text("users")}</legend>{users.map((item) => <div key={item.id}>
-            <UiCheckboxField checked={draft.user_ids.includes(item.id)} onChange={(event) => setDraft({ ...draft, user_ids: toggleId(draft.user_ids, item.id, event.target.checked) })}>{item.full_name ?? item.email} ({item.email})</UiCheckboxField>
-          </div>)}</fieldset>
-          <fieldset className="space-y-2 max-h-72 overflow-auto"><legend>{text("groups")}</legend>{groups.map((item) => <div key={item.id}>
-            <UiCheckboxField checked={draft.group_ids.includes(item.id)} onChange={(event) => setDraft({ ...draft, group_ids: toggleId(draft.group_ids, item.id, event.target.checked) })}>{item.name}</UiCheckboxField>
-          </div>)}</fieldset>
-        </div> : null}
-        <p className="ui-caption text-[var(--ui-text-muted)]">{text("trustHelp")}</p>
-      </fieldset>
-      <div className="flex gap-2"><UiButton type="submit" disabled={busy || !dirty || (!draft.allow_password && !draft.allow_token) || (draft.enabled && !draft.endpoint_ids.length)}>{text("save")}</UiButton>
-        <UiButton variant="secondary" disabled={busy} onClick={() => dirty ? setPendingClose(true) : setDraft(null)}>{text("cancel")}</UiButton></div>
-    </form> : <DataTableShell rows={clouds} columns={columns} rowKey={(row) => row.id} responsiveCards status={loading ? "loading" : error ? "error" : clouds.length ? "ready" : "empty"} loadingMessage={text("loading")} errorMessage={error ?? text("error")} emptyMessage={text("noClouds")} />}
-    <SettingsNavigationGuard dirty={dirty} onDiscard={() => setDraft(null)} />
-    {pendingClose ? <ConfirmActionDialog title={text("cancel")} description={text("cancel")} confirmLabel={text("confirm")} cancelLabel={text("cancel")} onConfirm={() => { setPendingClose(false); setDraft(null); }} onCancel={() => setPendingClose(false)} /> : null}
+    <DataTableShell rows={clouds} columns={columns} rowKey={(row) => row.id} responsiveCards status={loading ? "loading" : error ? "error" : clouds.length ? "ready" : "empty"} loadingMessage={text("loading")} errorMessage={error ?? text("error")} emptyMessage={text("noClouds")} />
     {pendingDelete ? <ConfirmActionDialog title={text("remove")} description={text("deleteHelp")} confirmLabel={text("remove")} cancelLabel={text("cancel")} loading={busy} error={error} onConfirm={() => void remove()} onCancel={() => setPendingDelete(null)} /> : null}
     {verificationDialog}
   </div>;
