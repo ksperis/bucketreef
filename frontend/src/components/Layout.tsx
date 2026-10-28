@@ -48,7 +48,6 @@ type LayoutProps = {
   hideSidebar?: boolean;
   mainClassName?: string;
   disableMainScroll?: boolean;
-  fullHeight?: boolean;
   children?: ReactNode;
 };
 
@@ -77,7 +76,6 @@ export default function Layout({
   hideSidebar = false,
   mainClassName,
   disableMainScroll = false,
-  fullHeight = false,
   children,
 }: LayoutProps) {
   const location = useLocation();
@@ -106,7 +104,6 @@ export default function Layout({
   const mainClasses = `shell-page flex min-h-0 min-w-0 flex-1 flex-col ${mainOverflowClass} px-4 pb-8 pt-4 sm:px-8${
     mainClassName ? ` ${mainClassName}` : ""
   }`;
-  const rootHeightClass = "h-[100dvh]";
   const documentationUrl = resolveDocumentationUrl(location.pathname, {
     language: locale,
     baseUrl: generalSettings.documentation_base_url,
@@ -150,7 +147,7 @@ export default function Layout({
   };
 
   return (
-    <div className={`shell-page flex ${rootHeightClass} overflow-hidden`}>
+    <div className="shell-page flex h-[100dvh] overflow-hidden">
       {shouldShowSidebar && (
         <Sidebar
           title={sidebarTitle}

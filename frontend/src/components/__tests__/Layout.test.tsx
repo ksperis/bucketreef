@@ -135,6 +135,12 @@ describe("Layout", () => {
     expect(within(desktopSidebar).queryByRole("separator", { name: "Resize sidebar" })).not.toBeInTheDocument();
   });
 
+  it("uses the dynamic viewport height for the shared workspace shell", () => {
+    const { container } = renderLayout();
+
+    expect(container.firstElementChild).toHaveClass("h-[100dvh]");
+  });
+
   it("exposes documentation for the active workspace context", () => {
     renderWorkspaceLayout("/manager/browser");
 
