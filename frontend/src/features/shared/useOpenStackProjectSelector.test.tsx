@@ -100,8 +100,61 @@ describe("useOpenStackProjectSelector", () => {
       "ACCESS-1",
     );
     expect(refreshContexts).toHaveBeenCalledTimes(1);
+    expect(refreshContexts).toHaveBeenCalledWith("os-existing");
     expect(refreshContexts.mock.invocationCallOrder[0]).toBeLessThan(onActivated.mock.invocationCallOrder[0]);
     expect(result.current.candidateCount).toBe(0);
+  });
+
+  it("keeps the activated OpenStack project selected when switching regions", async () => {
+    const regionB = {
+      ...projectAccess.targets[0],
+      target_id: "catalog-s3-region-b",
+      region_id: "region-b",
+      endpoint_url: "https://s3-b.example.test",
+    };
+    apiMocks.getOpenStackProjectAccess.mockResolvedValue({
+      ...projectAccess,
+      targets: [projectAccess.targets[0], regionB],
+    });
+    apiMocks.activateOpenStackContext.mockResolvedValue("os-region-b");
+    const activeContext = {
+      id: "os-region-a",
+      kind: "openstack_project",
+      endpoint_url: "https://s3.example.test",
+      openstack: {
+        connection_id: "conn-1",
+        cloud_name: "Cloud A",
+        identity_name: "Person",
+        project_id: "project-a",
+        project_name: "Project A",
+        region_id: "region-a",
+      },
+    } as ExecutionContext;
+    const nextContext = {
+      ...activeContext,
+      id: "os-region-b",
+      endpoint_url: "https://s3-b.example.test",
+      openstack: {
+        ...activeContext.openstack!,
+        region_id: "region-b",
+      },
+    } as ExecutionContext;
+    const refreshContexts = vi.fn(async () => [nextContext]);
+    const onActivated = vi.fn();
+
+    const { result } = renderHook(() => useOpenStackProjectSelector({
+      enabled: true,
+      activeContext,
+      refreshContexts,
+      onActivated,
+    }));
+
+    await waitFor(() => expect(result.current.region.loading).toBe(false));
+    act(() => result.current.region.onChange("catalog-s3-region-b"));
+
+    await waitFor(() => expect(onActivated).toHaveBeenCalledWith("os-region-b"));
+    expect(refreshContexts).toHaveBeenCalledWith("os-region-b");
+    expect(refreshContexts.mock.invocationCallOrder[0]).toBeLessThan(onActivated.mock.invocationCallOrder[0]);
   });
 
   it("exposes Keystone regions for the active OpenStack context", async () => {

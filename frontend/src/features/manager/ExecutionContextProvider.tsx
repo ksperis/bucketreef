@@ -16,7 +16,7 @@ type ExecutionContextState = {
   namingValidationProfile: NamingValidationProfile | null;
   contexts: ExecutionContext[];
   contextsLoaded: boolean;
-  refreshContexts: () => Promise<ExecutionContext[]>;
+  refreshContexts: (preferredContextId?: string) => Promise<ExecutionContext[]>;
   selectedContextId: string | null;
   requiresContextSelection: boolean;
   hasExecutionContext: boolean;
