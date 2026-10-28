@@ -30,6 +30,7 @@ const messages = {
   connected: m("Connected", "Connecté", "Verbunden", "已连接"),
   disconnected: m("Reconnect required", "Reconnexion nécessaire", "Erneute Verbindung erforderlich", "需要重新连接"),
   identity: m("Identity", "Identité", "Identität", "身份"),
+  actions: m("Actions", "Actions", "Aktionen", "操作"),
   endpoint: m("Region", "Région", "Region", "区域"),
   key: m("EC2 access key", "Clé d’accès EC2", "EC2-Zugriffsschlüssel", "EC2 访问密钥"),
   noKeys: m("No EC2 key for this project. Provision one in OpenStack, then retry.", "Aucune clé EC2 pour ce projet. Provisionnez-en une dans OpenStack, puis réessayez.", "Kein EC2-Schlüssel für dieses Projekt. In OpenStack erstellen und erneut versuchen.", "此项目没有 EC2 密钥。请在 OpenStack 中创建后重试。"),

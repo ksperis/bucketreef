@@ -57,7 +57,6 @@ export default function AccountProfilePage() {
   const [pendingTab, setPendingTab] = useState<AccountTab | null>(null);
   const workspace = resolveWorkspaceIdFromPath(location.pathname);
   const profilePath = location.pathname === "/profile" ? "/profile" : workspaceProfilePath(workspace);
-  const [connectionActionsTarget, setConnectionActionsTarget] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!requestedTab || requestedTab === activeTab) return;
@@ -93,7 +92,6 @@ export default function AccountProfilePage() {
   return (
     <PageShell
       className="account-profile"
-      rightContent={workspace !== "browser" && activeTab === "connections" ? <div ref={setConnectionActionsTarget} /> : undefined}
       title={text("title")}
       breadcrumbLabel={text("breadcrumb")}
       description={text(isS3Session ? "temporary" : "intro")}
@@ -107,14 +105,13 @@ export default function AccountProfilePage() {
         ariaLabel={text("sections")}
         idPrefix="account-profile"
       />
-      <PageTabPanel idPrefix="account-profile" tabId={activeTab}>
+      <PageTabPanel idPrefix="account-profile" tabId={activeTab} className="settings-compact">
         {activeTab === "openstack" ? <OpenStackConnectionsPage /> : null}
         {activeTab === "profile" ? (
           <ProfilePage profilePath={profilePath} showSettingsCards showConnectionsSection={false} onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "connections" ? (
           <ProfilePage profilePath={profilePath} showSettingsCards={false} showConnectionsSection
-            listPresentation={workspace !== "browser"} headerActionsTarget={connectionActionsTarget}
             onUnsavedChangesChange={setHasUnsavedChanges} />
         ) : null}
         {activeTab === "security" ? <SecurityPage onUnsavedChangesChange={setHasUnsavedChanges} /> : null}

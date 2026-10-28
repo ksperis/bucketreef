@@ -8,7 +8,7 @@ import { SettingsDialog, useSettingsCloseGuard } from "../../components/settings
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import ModalActions from "../../components/ModalActions";
 import ModalOptions from "../../components/ModalOptions";
-import { ListActionButton } from "../../components/list/ListControls";
+import { ListActionButton, ListSelectionBar } from "../../components/list/ListControls";
 import UiActionMenu, { type UiActionMenuSection } from "../../components/ui/UiActionMenu";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
@@ -216,8 +216,8 @@ export default function BucketSelectionActionsBar({
   const tagOptions = tagMode === "add" ? availableUiTags : selectedUiTagSuggestions;
 
   return (
-    <div className="ui-list-selection-bar">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <ListSelectionBar>
+      <div className="flex w-full flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <p className="ui-list-selection-summary">
             {surfaceText(
@@ -421,6 +421,6 @@ export default function BucketSelectionActionsBar({
           </div>
         </SettingsDialog>
       )}
-    </div>
+    </ListSelectionBar>
   );
 }
