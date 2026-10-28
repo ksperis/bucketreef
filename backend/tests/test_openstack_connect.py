@@ -16,8 +16,10 @@ from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProje
 from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite
 from app.services.auth_session_service import AuthSessionService
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
+from app.services.effective_access_service import EffectiveAccessService
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
 from app.services.openstack_service import OpenStackService
+from app.services.user_associations_service import UserAssociationsService
 from app.services.s3_execution_client import s3_execution_cache_key
 from app.services.browser.sts import browser_sts_enabled
 from app.utils.time import utcnow
@@ -30,8 +32,9 @@ def setup_cloud(db_session, monkeypatch):
     db_session.add(user); db_session.commit()
     cloud = OpenStackService(db_session).save_cloud(OpenStackCloudWrite(
         name="Cloud A", auth_url="https://identity.example.test/v3", enabled=True,
-        default_domain="People", user_ids=[user.id],
+        default_domain="People",
     ))
+    UserAssociationsService(db_session).set_openstack_cloud_links(user, [cloud.id])
     db_session.commit()
     target = {
         "target_id": "catalog-s3-region-a",
@@ -388,7 +391,7 @@ def test_cloud_configuration_change_during_authentication_cannot_restore_token(d
     user, _, cloud = setup_cloud
     auth, _ = authenticated(db_session, user)
     def authenticate(*args):
-        OpenStackService(db_session).save_cloud(OpenStackCloudWrite(name=cloud.name, auth_url=cloud.auth_url, enabled=True, user_ids=[user.id]), cloud.id)
+        OpenStackService(db_session).save_cloud(OpenStackCloudWrite(name=cloud.name, auth_url=cloud.auth_url, enabled=True), cloud.id)
         db_session.commit()
         return KeystoneIdentity("late-token", "ks-user", "Name", utcnow() + timedelta(minutes=10))
     monkeypatch.setattr(KeystoneClient, "authenticate", authenticate)
@@ -396,6 +399,63 @@ def test_cloud_configuration_change_during_authentication_cannot_restore_token(d
         OpenStackService(db_session).authenticate(user, auth.id, OpenStackAuthenticate(cloud_id=cloud.id, method="token", token="supplied"))
     assert caught.value.code == "configuration_changed"
     assert db_session.scalar(select(OpenStackSession.id)) is None
+
+
+def test_openstack_all_users_group_grants_implicit_access(db_session):
+    cloud = OpenStackService(db_session).save_cloud(OpenStackCloudWrite(
+        name="Global Cloud",
+        auth_url="https://global-identity.example.test/v3",
+        enabled=True,
+    ))
+    group = UiGroup(name="All users", system_key="all_users")
+    eligible = User(
+        email="implicit@example.test",
+        hashed_password="x",
+        role="ui_user",
+        is_active=True,
+    )
+    inactive = User(
+        email="inactive@example.test",
+        hashed_password="x",
+        role="ui_user",
+        is_active=False,
+    )
+    ui_none = User(
+        email="none@example.test",
+        hashed_password="x",
+        role="ui_none",
+        is_active=True,
+    )
+    db_session.add_all([group, eligible, inactive, ui_none])
+    db_session.flush()
+    from app.db.openstack import cloud_groups
+
+    db_session.execute(cloud_groups.insert().values(cloud_id=cloud.id, group_id=group.id))
+    db_session.commit()
+
+    service = EffectiveAccessService(db_session)
+    assert service.can_connect_openstack_cloud(eligible, cloud) is True
+    assert service.can_connect_openstack_cloud(inactive, cloud) is False
+    assert service.can_connect_openstack_cloud(ui_none, cloud) is False
+    assert db_session.scalar(
+        select(UserUiGroup.id).where(
+            UserUiGroup.user_id == eligible.id,
+            UserUiGroup.group_id == group.id,
+        )
+    ) is None
+    assert group.id in service.resolve_user(eligible).group_ids
+
+
+def test_removing_direct_openstack_access_invalidates_session(db_session, setup_cloud):
+    service, user, _, _, _ = connect(db_session, setup_cloud)
+    session = db_session.scalar(select(OpenStackSession))
+    assert session is not None and session.token is not None
+
+    UserAssociationsService(db_session).set_openstack_cloud_links(user, [])
+    db_session.commit()
+    db_session.refresh(session)
+
+    assert session.token is None
 
 
 def test_catalog_target_change_requires_explicit_reactivation(db_session, setup_cloud, monkeypatch):

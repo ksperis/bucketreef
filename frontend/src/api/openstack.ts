@@ -3,7 +3,7 @@ import client from "./client";
 
 export type OpenStackCloudWrite = {
   name: string; auth_url: string; enabled: boolean; allow_password: boolean; allow_token: boolean;
-  managed_endpoints_only: boolean; default_domain: string | null; all_users: boolean; user_ids: number[]; group_ids: number[];
+  managed_endpoints_only: boolean; default_domain: string | null;
 };
 export type OpenStackCloud = OpenStackCloudWrite & { id: number };
 export type OpenStackPublicCloud = {

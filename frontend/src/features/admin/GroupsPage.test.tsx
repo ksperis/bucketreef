@@ -17,6 +17,7 @@ const listMinimalUsersMock = vi.fn();
 const listMinimalS3AccountsMock = vi.fn();
 const listMinimalS3UsersMock = vi.fn();
 const listMinimalS3ConnectionsMock = vi.fn();
+const listAdminOpenStackCloudsMock = vi.fn();
 
 function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
   return {
@@ -59,6 +60,7 @@ function canonicalGroup(input: Pick<UiGroup, "id" | "name"> & Partial<UiGroup>):
   return {
     id: input.id,
     name: input.name,
+    system_key: input.system_key ?? null,
     description: input.description ?? null,
     avatar: {
       source: input.avatar?.source ?? "initials",
@@ -100,6 +102,7 @@ function canonicalGroup(input: Pick<UiGroup, "id" | "name"> & Partial<UiGroup>):
     s3_user_links: input.s3_user_links ?? [],
     s3_user_details: input.s3_user_details ?? [],
     s3_connection_details: input.s3_connection_details ?? [],
+    openstack_cloud_details: input.openstack_cloud_details ?? [],
     created_at: input.created_at ?? null,
     updated_at: input.updated_at ?? null,
   };
@@ -168,6 +171,10 @@ vi.mock("../../api/s3ConnectionsAdmin", () => ({
   listMinimalS3Connections: () => listMinimalS3ConnectionsMock(),
 }));
 
+vi.mock("../../api/openstack", () => ({
+  listAdminOpenStackClouds: () => listAdminOpenStackCloudsMock(),
+}));
+
 function renderPage() {
   return render(<MemoryRouter><GroupsPage /></MemoryRouter>);
 }
@@ -195,6 +202,7 @@ describe("GroupsPage", () => {
     ]);
     listMinimalS3UsersMock.mockResolvedValue([canonicalS3UserSummary(11, "s3-user-1")]);
     listMinimalS3ConnectionsMock.mockResolvedValue([canonicalS3ConnectionSummary(21, "shared-conn")]);
+    listAdminOpenStackCloudsMock.mockResolvedValue([]);
     createGroupMock.mockResolvedValue({ id: 50, name: "ops-group" });
     updateGroupMock.mockResolvedValue({ id: 50, name: "ops-group-updated" });
     deleteGroupMock.mockResolvedValue(undefined);
@@ -598,6 +606,7 @@ describe("GroupsPage", () => {
         allow_manager_browser_data_access: false,
       }],
       s3_connection_ids: [21],
+      openstack_cloud_ids: [],
     });
   }, 15_000);
 
@@ -755,6 +764,35 @@ describe("GroupsPage", () => {
     await waitFor(() => {
       expect(deleteGroupMock).toHaveBeenCalledWith(50);
     });
+  });
+
+  it("keeps the All users system group immutable while allowing association edits", async () => {
+    listGroupsMock.mockResolvedValue({
+      items: [{
+        id: 60,
+        name: "All users",
+        system_key: "all_users",
+        description: "Built-in group containing every active BucketReef UI user.",
+        account_links: [],
+      }],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+    expect(await screen.findByText("All users")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const form = await screen.findByRole("form", { name: "Edit UI group" });
+    expect(within(form).getByLabelText("Name")).toBeDisabled();
+    expect(within(form).queryByRole("tab", { name: "Members" })).not.toBeInTheDocument();
+    expect(within(form).getByText(
+      "All active UI users are implicit members of this system group, including users created later. Membership cannot be edited.",
+    )).toBeInTheDocument();
+    expect(within(form).getByRole("tab", { name: "Associations" })).toBeInTheDocument();
   });
   it.each([false, true])("freezes the group draft during save and retains it after failure (edit=%s)", async (editing) => {
     listGroupsMock.mockResolvedValue({ items: [{ id: 50, name: "original-group", account_links: [] }], total: 1, page: 1, page_size: 25 });

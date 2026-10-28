@@ -112,6 +112,7 @@ export function createDemoUser(input: Pick<DemoUser, "id" | "email"> & Partial<D
     s3_user_links: input.s3_user_links ?? [],
     s3_user_details: input.s3_user_details ?? [],
     s3_connection_details: input.s3_connection_details ?? [],
+    openstack_cloud_details: input.openstack_cloud_details ?? [],
     last_login_at: input.last_login_at ?? null,
   };
 }
@@ -145,6 +146,7 @@ export function createDemoGroup(input: Pick<UiGroup, "id" | "name"> & Partial<Ui
   return {
     id: input.id,
     name: input.name,
+    system_key: input.system_key ?? null,
     description: input.description ?? null,
     avatar: input.avatar ?? {
       source: "initials",
@@ -171,6 +173,7 @@ export function createDemoGroup(input: Pick<UiGroup, "id" | "name"> & Partial<Ui
     s3_user_links: input.s3_user_links ?? [],
     s3_user_details: input.s3_user_details ?? [],
     s3_connection_details: input.s3_connection_details ?? [],
+    openstack_cloud_details: input.openstack_cloud_details ?? [],
     created_at: input.created_at ?? null,
     updated_at: input.updated_at ?? null,
   };

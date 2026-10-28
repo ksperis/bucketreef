@@ -37,9 +37,10 @@ def ui_session(request: Request, response: Response, db: Session = Depends(get_d
 
 
 def cloud_read(row: OpenStackCloud) -> dict:
-    return {**{key: getattr(row, key) for key in OpenStackCloudWrite.model_fields if key not in {"user_ids", "group_ids"}},
-            "id": row.id,
-            "user_ids": [item.id for item in row.users], "group_ids": [item.id for item in row.groups]}
+    return {
+        **{key: getattr(row, key) for key in OpenStackCloudWrite.model_fields},
+        "id": row.id,
+    }
 
 
 def _record_action(db, user, action, entity, entity_id):

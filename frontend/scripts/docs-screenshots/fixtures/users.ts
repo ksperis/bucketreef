@@ -96,6 +96,7 @@ function fixtureUser(input: Pick<AuthUser, "id" | "email" | "role"> & Partial<Au
     s3_user_links: input.s3_user_links ?? [],
     s3_user_details: input.s3_user_details ?? [],
     s3_connection_details: input.s3_connection_details ?? [],
+    openstack_cloud_details: input.openstack_cloud_details ?? [],
     effective_access: input.effective_access ?? effectiveAccess(),
     last_login_at: input.last_login_at ?? null,
   };

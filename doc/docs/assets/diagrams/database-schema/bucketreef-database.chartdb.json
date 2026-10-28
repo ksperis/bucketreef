@@ -7516,27 +7516,6 @@
           "check": null
         },
         {
-          "id": "field:openstack_clouds.all_users",
-          "name": "all_users",
-          "type": {
-            "id": "boolean",
-            "name": "boolean"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": "0",
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:openstack_clouds.created_at",
           "name": "created_at",
           "type": {
@@ -10461,6 +10440,27 @@
           "check": null
         },
         {
+          "id": "field:ui_groups.system_key",
+          "name": "system_key",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": true,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:ui_groups.description",
           "name": "description",
           "type": {
@@ -10879,6 +10879,17 @@
           "unique": true,
           "fieldIds": [
             "field:ui_groups.name"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        },
+        {
+          "id": "unique:ui_groups:uq_ui_groups_system_key",
+          "name": "uq_ui_groups_system_key",
+          "unique": true,
+          "fieldIds": [
+            "field:ui_groups.system_key"
           ],
           "createdAt": 0,
           "isPrimaryKey": false,

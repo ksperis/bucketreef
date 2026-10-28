@@ -41,7 +41,6 @@ class OpenStackCloud(Base):
     allow_token = Column(Boolean, nullable=False, default=True, server_default="1")
     managed_endpoints_only = Column(Boolean, nullable=False, default=False, server_default="0")
     default_domain = Column(String, nullable=True)
-    all_users = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     users = relationship("User", secondary=cloud_users)
     groups = relationship("UiGroup", secondary=cloud_groups)

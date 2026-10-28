@@ -13,6 +13,7 @@ type AssociationEditorSeed = {
   selectedS3Accounts?: AccountSelection[];
   selectedS3Users?: S3UserMembership[];
   selectedS3Connections?: number[];
+  selectedOpenStackClouds?: number[];
   selectedGroups?: number[];
   associationsTab?: AssociationTab;
 };
@@ -21,6 +22,7 @@ export default function useAdminUserAssociationEditorState() {
   const [selectedS3Accounts, setSelectedS3Accounts] = useState<AccountSelection[]>([]);
   const [selectedS3Users, setSelectedS3Users] = useState<S3UserMembership[]>([]);
   const [selectedS3Connections, setSelectedS3Connections] = useState<number[]>([]);
+  const [selectedOpenStackClouds, setSelectedOpenStackClouds] = useState<number[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
   const [accountAccessChoice, setAccountAccessChoice] = useState<
     Record<number, AccountAccessGrant>
@@ -29,28 +31,32 @@ export default function useAdminUserAssociationEditorState() {
   const accountPicker = useAdminAssociationPickerState();
   const s3UserPicker = useAdminAssociationPickerState();
   const connectionPicker = useAdminAssociationPickerState();
+  const openStackPicker = useAdminAssociationPickerState();
   const groupPicker = useAdminAssociationPickerState();
 
   const clearPendingSelections = useCallback(() => {
     accountPicker.setSelections([]);
     s3UserPicker.setSelections([]);
     connectionPicker.setSelections([]);
+    openStackPicker.setSelections([]);
     groupPicker.setSelections([]);
     setAccountAccessChoice({});
-  }, [accountPicker, connectionPicker, groupPicker, s3UserPicker]);
+  }, [accountPicker, connectionPicker, groupPicker, openStackPicker, s3UserPicker]);
 
   const reset = useCallback((seed: AssociationEditorSeed = {}) => {
     setSelectedS3Accounts(seed.selectedS3Accounts ?? []);
     setSelectedS3Users(seed.selectedS3Users ?? []);
     setSelectedS3Connections(seed.selectedS3Connections ?? []);
+    setSelectedOpenStackClouds(seed.selectedOpenStackClouds ?? []);
     setSelectedGroups(seed.selectedGroups ?? []);
     setAccountAccessChoice({});
     setAssociationsTab(seed.associationsTab ?? "accounts");
     accountPicker.reset();
     s3UserPicker.reset();
     connectionPicker.reset();
+    openStackPicker.reset();
     groupPicker.reset();
-  }, [accountPicker, connectionPicker, groupPicker, s3UserPicker]);
+  }, [accountPicker, connectionPicker, groupPicker, openStackPicker, s3UserPicker]);
 
   return {
     selectedS3Accounts,
@@ -59,6 +65,8 @@ export default function useAdminUserAssociationEditorState() {
     setSelectedS3Users,
     selectedS3Connections,
     setSelectedS3Connections,
+    selectedOpenStackClouds,
+    setSelectedOpenStackClouds,
     selectedGroups,
     setSelectedGroups,
     accountAccessChoice,
@@ -69,6 +77,8 @@ export default function useAdminUserAssociationEditorState() {
     setS3Search: s3UserPicker.setSearch,
     connectionSearch: connectionPicker.search,
     setConnectionSearch: connectionPicker.setSearch,
+    openStackSearch: openStackPicker.search,
+    setOpenStackSearch: openStackPicker.setSearch,
     groupSearch: groupPicker.search,
     setGroupSearch: groupPicker.setSearch,
     associationsTab,
@@ -85,6 +95,10 @@ export default function useAdminUserAssociationEditorState() {
     setShowConnectionPanel: connectionPicker.setOpen,
     connectionSelections: connectionPicker.selections,
     setConnectionSelections: connectionPicker.setSelections,
+    showOpenStackPanel: openStackPicker.open,
+    setShowOpenStackPanel: openStackPicker.setOpen,
+    openStackSelections: openStackPicker.selections,
+    setOpenStackSelections: openStackPicker.setSelections,
     showGroupPanel: groupPicker.open,
     setShowGroupPanel: groupPicker.setOpen,
     groupSelections: groupPicker.selections,
@@ -94,5 +108,6 @@ export default function useAdminUserAssociationEditorState() {
     toggleAccountSelection: accountPicker.toggleSelection,
     toggleS3UserSelection: s3UserPicker.toggleSelection,
     toggleConnectionSelection: connectionPicker.toggleSelection,
+    toggleOpenStackSelection: openStackPicker.toggleSelection,
   };
 }

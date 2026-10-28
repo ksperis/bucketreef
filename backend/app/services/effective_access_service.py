@@ -10,7 +10,7 @@ from app.services import app_settings_service
 from dataclasses import dataclass, field
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import (
@@ -29,6 +29,7 @@ from app.db import (
     UserUiGroup,
     is_admin_ui_role,
 )
+from app.db.ui_group import ALL_USERS_SYSTEM_KEY
 from app.models.user import (
     EffectiveAccountGroupSource,
     EffectiveAccountMembership,
@@ -207,13 +208,27 @@ class EffectiveAccessService:
         from app.db.openstack import cloud_users, cloud_groups
         if not user.is_active or user.role not in {"ui_user", "ui_admin", "ui_superadmin"} or not cloud.enabled:
             return False
-        if cloud.all_users:
-            return True
         if self.db.scalar(select(cloud_users.c.user_id).where(cloud_users.c.cloud_id == cloud.id, cloud_users.c.user_id == user.id)) is not None:
             return True
-        return self.db.scalar(select(cloud_groups.c.group_id).join(
-            UserUiGroup, UserUiGroup.group_id == cloud_groups.c.group_id,
-        ).where(cloud_groups.c.cloud_id == cloud.id, UserUiGroup.user_id == user.id)) is not None
+        return self.db.scalar(
+            select(cloud_groups.c.group_id)
+            .join(UiGroup, UiGroup.id == cloud_groups.c.group_id)
+            .outerjoin(
+                UserUiGroup,
+                and_(
+                    UserUiGroup.group_id == cloud_groups.c.group_id,
+                    UserUiGroup.user_id == user.id,
+                ),
+            )
+            .where(
+                cloud_groups.c.cloud_id == cloud.id,
+                or_(
+                    UiGroup.system_key == ALL_USERS_SYSTEM_KEY,
+                    UserUiGroup.user_id == user.id,
+                ),
+            )
+            .limit(1)
+        ) is not None
 
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -261,7 +276,8 @@ class EffectiveAccessService:
         )
         return cls._ordered_sources(sources)
 
-    def _load_group_memberships(self, user_ids: list[int]) -> _GroupMembershipIndex:
+    def _load_group_memberships(self, users: list[User]) -> _GroupMembershipIndex:
+        user_ids = [int(user.id) for user in users]
         groups_by_user: dict[int, list[UiGroup]] = {user_id: [] for user_id in user_ids}
         user_ids_by_group: dict[int, list[int]] = {}
         group_names: dict[int, str] = {}
@@ -277,6 +293,23 @@ class EffectiveAccessService:
             groups_by_user[user_id].append(group)
             user_ids_by_group.setdefault(group_id, []).append(user_id)
             group_names[group_id] = str(group.name)
+        all_users_group = self.db.scalar(
+            select(UiGroup).where(UiGroup.system_key == ALL_USERS_SYSTEM_KEY).limit(1)
+        )
+        if all_users_group is not None:
+            group_id = int(all_users_group.id)
+            eligible_user_ids = [
+                int(user.id)
+                for user in users
+                if user.is_active
+                and user.role in {"ui_user", "ui_admin", "ui_superadmin"}
+            ]
+            for user_id in eligible_user_ids:
+                if all(int(group.id) != group_id for group in groups_by_user[user_id]):
+                    groups_by_user[user_id].append(all_users_group)
+            if eligible_user_ids:
+                user_ids_by_group[group_id] = eligible_user_ids
+                group_names[group_id] = str(all_users_group.name)
         return _GroupMembershipIndex(
             groups_by_user=groups_by_user,
             user_ids_by_group=user_ids_by_group,
@@ -508,7 +541,7 @@ class EffectiveAccessService:
         if not user_ids:
             return {}
 
-        groups = self._load_group_memberships(user_ids)
+        groups = self._load_group_memberships(list(user_by_id.values()))
         account_accumulators = self._load_account_roles(user_ids, groups)
         s3_user_grants = self._load_s3_user_grants(user_ids, groups)
         connection_grants = self._load_shared_connection_grants(user_ids, groups)

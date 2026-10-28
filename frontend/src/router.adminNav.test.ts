@@ -116,8 +116,8 @@ describe("buildAdminNav", () => {
 
     expect(settingsSection?.links.map((link) => link.label)).toEqual([
       "General",
-      "OpenStack",
       "Authentication",
+      "OpenStack",
       "Manager",
       "Browser",
       "Portal",

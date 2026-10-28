@@ -13,7 +13,7 @@ import UserAccountAssociationsPanel, {
 } from "./UserAccountAssociationsPanel";
 import { useUserI18n } from "./userMessage";
 
-export type AssociationTab = "accounts" | "s3_users" | "connections";
+export type AssociationTab = "accounts" | "s3_users" | "connections" | "openstack";
 
 type AssociationOption = {
   id: number;
@@ -52,6 +52,8 @@ type ConnectionAssociationsState = {
   toggleSelection: (id: number) => void;
 };
 
+type OpenStackAssociationsState = ConnectionAssociationsState;
+
 type UserAssociationsTabsProps = {
   activeTab: AssociationTab;
   onTabChange: (tab: AssociationTab) => void;
@@ -60,6 +62,7 @@ type UserAssociationsTabsProps = {
   accounts: UserAccountAssociationsState;
   s3Users: S3UserAssociationsState;
   connections: ConnectionAssociationsState;
+  openstack: OpenStackAssociationsState;
 };
 
 export default function UserAssociationsTabs({
@@ -70,6 +73,7 @@ export default function UserAssociationsTabs({
   accounts,
   s3Users,
   connections,
+  openstack,
 }: UserAssociationsTabsProps) {
   const { text } = useUserI18n();
   return (
@@ -291,11 +295,104 @@ export default function UserAssociationsTabs({
             </div>
           ),
         },
+        {
+          id: "openstack",
+          label: text("openStack"),
+          count: openstack.selected.length,
+          actionLabel: text(openstack.showPanel ? "close" : "addOpenStackClouds"),
+          onAction: () => openstack.setShowPanel((current) => !current),
+          content: (
+            <div className="space-y-3">
+              <div className={adminAssociationTableContainerClass}>
+                <table className="ui-data-table">
+                  <thead>
+                    <tr>
+                      <th className="text-left">{text("cloud")}</th>
+                      <th className="w-px whitespace-nowrap text-right">{text("actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openstack.selected.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} className="ui-table-secondary">
+                          {text("noLinkedOpenStackCloud")}
+                        </td>
+                      </tr>
+                    ) : (
+                      openstack.selected.map((id) => (
+                        <tr key={id}>
+                          <td className="ui-table-primary">
+                            {openstack.labelById.get(id) ?? text("cloudById", { id })}
+                          </td>
+                          <td className="ui-table-actions-cell w-px text-right">
+                            <ListActionButton
+                              type="button"
+                              variant="danger"
+                              onClick={() =>
+                                openstack.setSelected((current) =>
+                                  current.filter((cloudId) => cloudId !== id),
+                                )
+                              }
+                            >
+                              {text("remove")}
+                            </ListActionButton>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {openstack.showPanel ? (
+                <AdminAssociationPickerPanel
+                  title={text("addOpenStackClouds")}
+                  hint={text("searchByName")}
+                  search={openstack.search}
+                  onSearchChange={openstack.setSearch}
+                  loading={openstack.loading}
+                  availableCount={openstack.available.length}
+                  maxVisibleOptions={maxVisibleOptions}
+                  selectedCount={openstack.selections.length}
+                  loadingLabel={text("loadingOpenStackClouds")}
+                  addDisabled={openstack.selections.length === 0}
+                  onCancel={() => {
+                    openstack.setShowPanel(false);
+                    openstack.setSelections([]);
+                    openstack.setSearch("");
+                  }}
+                  onAdd={() => {
+                    if (openstack.selections.length === 0) return;
+                    openstack.setSelected((current) => [
+                      ...current,
+                      ...openstack.selections,
+                    ]);
+                    openstack.setSelections([]);
+                    openstack.setSearch("");
+                    openstack.setShowPanel(false);
+                  }}
+                >
+                  <AdminAssociationCheckboxOptions
+                    options={openstack.visible}
+                    selectedIds={openstack.selections}
+                    onToggle={openstack.toggleSelection}
+                    getLabel={(option) => option.label}
+                  />
+                </AdminAssociationPickerPanel>
+              ) : null}
+            </div>
+          ),
+        },
       ]}
       activeTab={activeTab}
       onChange={(id) =>
         onTabChange(
-          id === "s3_users" ? "s3_users" : id === "connections" ? "connections" : "accounts",
+          id === "s3_users"
+            ? "s3_users"
+            : id === "connections"
+              ? "connections"
+              : id === "openstack"
+                ? "openstack"
+                : "accounts",
         )
       }
     />

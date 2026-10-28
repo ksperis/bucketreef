@@ -18,9 +18,6 @@ class OpenStackCloudWrite(ApiModel):
     allow_token: bool = True
     managed_endpoints_only: bool = False
     default_domain: str | None = Field(default=None, max_length=255)
-    all_users: bool = False
-    user_ids: list[int] = Field(default_factory=list, max_length=10000)
-    group_ids: list[int] = Field(default_factory=list, max_length=10000)
 
     @field_validator("auth_url")
     @classmethod
@@ -50,6 +47,11 @@ class OpenStackCloudPublic(ApiModel):
     allow_password: bool
     allow_token: bool
     default_domain: str | None
+
+
+class LinkedOpenStackCloud(ApiModel):
+    id: int
+    name: str
 
 
 class OpenStackAuthenticate(ApiModel):

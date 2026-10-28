@@ -63,6 +63,20 @@ def test_empty_database_uses_metadata_bootstrap_then_regular_upgrade(
         table_names = set(sa.inspect(connection).get_table_names())
         assert set(Base.metadata.tables).issubset(table_names)
         assert _database_revision(connection) == _alembic_head()
+        all_users = connection.execute(
+            sa.text(
+                """
+                SELECT name, system_key, description
+                FROM ui_groups
+                WHERE system_key = 'all_users'
+                """
+            )
+        ).mappings().one()
+        assert all_users == {
+            "name": "All users",
+            "system_key": "all_users",
+            "description": "Built-in group containing every active BucketReef UI user.",
+        }
         context = MigrationContext.configure(connection, opts={"compare_type": True})
         assert compare_metadata(context, Base.metadata) == []
 
