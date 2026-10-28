@@ -1,5 +1,13 @@
 # Operations: Upgrade and Compatibility Notes
 
+## OpenStack project connections
+
+Migration `0194_openstack_connect` adds optional clouds and session-bound
+credentials, plus the initiating-session reference on migrations. Deploy backend
+and frontend together for the new context types. No cloud or additional access
+is enabled automatically. Configure outbound policy and explicit grants before
+use; see [OpenStack connections](../storage/backends/openstack.md).
+
 ## 2026-10 Ceph Admin multisite diagnostics
 
 Multisite topology and diagnostic endpoint selection are discovered live from

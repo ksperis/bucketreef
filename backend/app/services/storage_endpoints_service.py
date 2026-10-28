@@ -6,7 +6,7 @@ from typing import Optional
 
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core.config import get_settings
 from app.core.domain_errors import StorageEndpointNotFoundError
@@ -155,12 +155,23 @@ class StorageEndpointsService:
         config: NormalizedEndpointState,
     ) -> None:
         old_target = cls._endpoint_target(endpoint) if endpoint.provider else None
+        old_trust = cls._openstack_endpoint_trust(endpoint) if endpoint.provider else None
         cls._apply_endpoint_fields(endpoint, config)
         if config.provider == StorageProvider.CEPH:
             cls._apply_ceph_service_identities(endpoint, config)
         endpoint.features_config = config.features_config
         if old_target != cls._endpoint_target(endpoint):
             cls._invalidate_external_service_identities(endpoint)
+        if old_trust is not None and old_trust != cls._openstack_endpoint_trust(endpoint):
+            db = object_session(endpoint)
+            if db is not None:
+                from app.services.openstack_service import OpenStackService
+                OpenStackService(db).invalidate_endpoint_trust(endpoint.id)
+
+    @staticmethod
+    def _openstack_endpoint_trust(endpoint: StorageEndpoint) -> tuple:
+        return (endpoint.endpoint_url, endpoint.region, endpoint.provider,
+                endpoint.verify_tls, endpoint.force_path_style, endpoint.features_config)
 
     @staticmethod
     def _endpoint_target(endpoint: StorageEndpoint) -> tuple[str, str, str | None]:

@@ -167,11 +167,12 @@ class BrowserContextMixin:
             client_options["allow_rgw_qualified_bucket_names"] = True
         if request_profile != "interactive":
             client_options["request_profile"] = request_profile
-        return get_s3_client(
+        from app.services.openstack_execution_guard import guard_openstack_client
+        return guard_openstack_client(context, get_s3_client(
             access_key,
             secret_key,
             **client_options,
-        )
+        ))
 
     def _bucket_client(
         self,

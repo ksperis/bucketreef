@@ -7,8 +7,9 @@ import { createMemoryRouter, Link, MemoryRouter, Route, RouterProvider, Routes, 
 import AccountProfilePage from "./AccountProfilePage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
+const runtimeSurfaces = vi.hoisted(() => ({ browser: true, manager: true }));
 vi.mock("../../components/GeneralSettingsContext", () => ({
-  useGeneralSettings: () => ({ generalSettings: {} }),
+  useGeneralSettings: () => ({ generalSettings: {}, runtimeSurfaces }),
 }));
 
 vi.mock("./ProfilePage", () => ({
@@ -50,6 +51,8 @@ function renderPage(initialEntry = "/profile") {
 
 describe("AccountProfilePage", () => {
   beforeEach(() => {
+    runtimeSurfaces.browser = true;
+    runtimeSurfaces.manager = true;
     // Node fetch requires its own AbortSignal rather than the JSDOM implementation.
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     setSessionUserCache({
@@ -82,6 +85,23 @@ describe("AccountProfilePage", () => {
     await user.click(screen.getByRole("tab", { name: "Private S3 connections" }));
     expect(screen.getByText("Connections content")).toBeInTheDocument();
     expect(screen.getByText("/profile?tab=connections")).toBeInTheDocument();
+  });
+
+  it("offers OpenStack independently of manual S3 connection rights", () => {
+    setSessionUserCache({ role: "ui_user", authType: "password", effective_access: {
+      can_create_manual_private_connections: false, can_provision_managed_private_connections: false, has_owned_private_connections: false,
+    } });
+    renderPage();
+    expect(screen.getByRole("tab", { name: "OpenStack" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Private S3 connections" })).not.toBeInTheDocument();
+  });
+
+  it("hides OpenStack when neither Browser nor Manager is deployed", () => {
+    runtimeSurfaces.browser = false;
+    runtimeSurfaces.manager = false;
+    renderPage("/profile?tab=openstack");
+    expect(screen.queryByRole("tab", { name: "OpenStack" })).not.toBeInTheDocument();
+    expect(screen.getByText("Profile content")).toBeInTheDocument();
   });
 
   it.each([

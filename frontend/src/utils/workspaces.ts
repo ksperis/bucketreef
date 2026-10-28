@@ -361,5 +361,5 @@ export function resolvePostLoginPathWithWorkspaceAccess(
   const backendDefault = access.default_workspace
     ? available.find((workspace) => workspace.id === access.default_workspace)
     : null;
-  return backendDefault?.path ?? "/unauthorized";
+  return backendDefault?.path ?? (access.openstack_connect_available ? "/profile?tab=openstack" : "/unauthorized");
 }

@@ -255,6 +255,9 @@ class Settings(BaseSettings):
         ),
     )
     require_registered_s3_login_endpoints: bool = False
+    openstack_allowed_hosts: list[str] = Field(default_factory=list)
+    openstack_allow_private_targets: bool = False
+    openstack_ca_file: Optional[str] = None
     webauthn_rp_id: str = "localhost"
     webauthn_rp_name: str = "BucketReef"
     webauthn_origin: str = "http://localhost:5173"
@@ -582,6 +585,7 @@ class Settings(BaseSettings):
     @field_validator(
         "webhook_allowed_hosts",
         "user_supplied_s3_endpoint_allowed_hosts",
+        "openstack_allowed_hosts",
         mode="before",
     )
     @classmethod

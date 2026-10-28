@@ -37,7 +37,8 @@ _DEFAULT_WORKSPACE_ORDER = (
 class ExecutionContextCatalogService:
     """Build execution-context catalogues and workspace availability."""
 
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: Session, auth_session_id: str | None = None) -> None:
+        self.auth_session_id = auth_session_id
         self.db = db
         self.access_service = EffectiveAccessService(db)
         self.tags_service = TagsService(db)
@@ -143,6 +144,8 @@ class ExecutionContextCatalogService:
                 workspace=workspace,
             )
         )
+        from app.services.openstack_service import OpenStackService
+        results.extend(OpenStackService(self.db).catalogue(user, self.auth_session_id))
         return results
 
     def _workspace_context_counts(self, user: User, effective) -> dict[str, int]:
@@ -179,8 +182,14 @@ class ExecutionContextCatalogService:
                 resolved=effective,
             )
         )
+        from app.services.openstack_service import OpenStackService
+        external_count = len(OpenStackService(self.db).catalogue(user, self.auth_session_id))
+        storage_ops_count = manager_count
+        manager_count += external_count
+        browser_count += external_count
         return {
             "manager": manager_count,
+            "storage-ops": storage_ops_count,
             "browser": browser_count,
             "portal": portal_count,
         }
@@ -218,7 +227,7 @@ class ExecutionContextCatalogService:
             runtime_surface_enabled(runtime, "storage_ops")
             and settings.storage_ops_enabled
             and effective.can_access_storage_ops
-            and manager_count
+            and counts["storage-ops"]
         )
         manager_available = bool(
             runtime_surface_enabled(runtime, "manager")
@@ -250,7 +259,9 @@ class ExecutionContextCatalogService:
         counts = self._workspace_context_counts(user, effective)
         availability = self._workspace_availability(user, effective, counts)
 
+        from app.services.openstack_service import OpenStackService
         return WorkspaceAccess(
+            openstack_connect_available=bool(OpenStackService(self.db).allowed_clouds(user)),
             admin=WorkspaceAvailability(
                 available=availability["admin"],
                 context_count=1 if availability["admin"] else 0,
@@ -261,7 +272,7 @@ class ExecutionContextCatalogService:
             ),
             storage_ops=WorkspaceAvailability(
                 available=availability["storage-ops"],
-                context_count=counts["manager"] if availability["storage-ops"] else 0,
+                context_count=counts["storage-ops"] if availability["storage-ops"] else 0,
             ),
             manager=WorkspaceAvailability(
                 available=availability["manager"],

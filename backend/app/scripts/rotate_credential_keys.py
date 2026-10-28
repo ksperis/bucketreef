@@ -16,6 +16,7 @@ from app.core.security import (
     encrypt_secret,
     set_credential_keys_override,
 )
+from app.db.openstack import OpenStackSession, OpenStackProjectCredential
 from app.db.ldap import LdapProvider
 from app.db.oidc import OidcProvider
 from app.db.s3_account import AccountIAMUser, S3Account
@@ -78,6 +79,8 @@ def rotate_credentials(*, new_key: str) -> int:
         updated += _rotate_encrypted_fields(session, S3Connection, ["secret_access_key", "session_token"])
         updated += _rotate_encrypted_fields(session, LdapProvider, ["bind_password"])
         updated += _rotate_encrypted_fields(session, OidcProvider, ["client_secret"])
+        updated += _rotate_encrypted_fields(session, OpenStackSession, ["token"])
+        updated += _rotate_encrypted_fields(session, OpenStackProjectCredential, ["secret_key"])
         updated += _rotate_session_fields(session)
         session.commit()
         return updated

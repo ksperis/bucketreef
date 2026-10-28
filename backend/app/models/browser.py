@@ -102,7 +102,7 @@ class PaginatedBrowserBucketsResponse(ApiModel):
 
 class BrowserUsageSummary(ApiModel):
     available: bool
-    source: Optional[Literal["account", "s3_user", "portal", "connection"]]
+    source: Optional[Literal["account", "s3_user", "portal", "connection", "openstack_project"]]
     label: Optional[str]
     used_bytes: Optional[int]
     object_count: Optional[int]

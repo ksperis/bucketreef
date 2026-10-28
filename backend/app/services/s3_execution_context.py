@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional, Protocol, TypeGuard
+from datetime import datetime
+from typing import Any, Callable, Literal, Optional, Protocol, TypeGuard
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint
 from app.models.account_capabilities import AccountCapabilities
@@ -18,6 +19,7 @@ class CephAdminS3ContextSource(Protocol):
 
 
 S3ExecutionContextKind = Literal[
+    "openstack_project",
     "account",
     "connection",
     "s3_user",
@@ -34,8 +36,12 @@ class S3ExecutionContext:
     context_id: str
     context_kind: S3ExecutionContextKind
     name: str
-    access_key: Optional[str]
-    secret_key: Optional[str]
+    access_key: Optional[str] = field(repr=False)
+    secret_key: Optional[str] = field(repr=False)
+    execution_auth_session_id: Optional[str] = None
+    openstack_session_id: Optional[str] = None
+    credential_expires_at: Optional[datetime] = None
+    access_validator: Optional[Callable[[], None]] = field(default=None, repr=False, compare=False)
     id: Optional[int] = None
     rgw_account_id: Optional[str] = None
     email: Optional[str] = None

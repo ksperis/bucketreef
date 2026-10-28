@@ -462,6 +462,18 @@ def resolve_s3_execution_context(
     workspace: Optional[str] = None,
 ) -> S3ExecutionContext:
     """Share exact-context authorization with read-only transfer-policy resolution."""
+    if isinstance(context_ref, str) and context_ref.startswith("os-"):
+        from app.services.openstack_service import OpenStackService
+        from app.services.auth_session_guards import current_auth_session
+        if not isinstance(actor, User) or not request or request.headers.get("authorization"):
+            raise HTTPException(403, "OpenStack contexts require an interactive UI session")
+        surface = resolve_workspace_surface(request)
+        restricted_namespace = any(path_matches_prefix(str(request.url.path), f"{settings.api_prefix}/{prefix}")
+                                   for prefix in ("storage-ops", "ceph-admin", "portal", "admin"))
+        if restricted_namespace or workspace == "portal" or surface not in {"browser", "manager", "manager-browser"} or is_portal_browser_request(request, surface):
+            raise HTTPException(403, "OpenStack context is not available in this workspace")
+        auth = current_auth_session(request, db)
+        return OpenStackService(db).resolve(actor, auth.id, context_ref, metadata_only=metadata_only)
     account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_execution_context_selector(context_ref)
     surface = (
         "manager-browser" if workspace == "manager" else "browser"

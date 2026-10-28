@@ -50,3 +50,20 @@ def refresh_connection_detected_capabilities(connection: S3Connection) -> None:
         connection.capabilities_json,
         can_manage_iam=probe_connection_can_manage_iam(connection),
     )
+
+
+def probe_execution_can_manage_iam(context) -> bool:
+    """Use the same read-only IAM probe for a session-resolved S3 executor."""
+    from app.utils.s3_endpoint import resolve_s3_client_options
+    endpoint = context.storage_endpoint
+    iam_endpoint = resolve_iam_endpoint(endpoint) if endpoint else None
+    if not iam_endpoint or not context.access_key or not context.secret_key:
+        return False
+    _, _, _, verify_tls = resolve_s3_client_options(context)
+    try:
+        get_iam_client(access_key=context.access_key, secret_key=context.secret_key,
+                       endpoint=iam_endpoint, region=resolve_iam_signing_region(endpoint),
+                       verify_tls=verify_tls).list_users(MaxItems=1)
+        return True
+    except (ClientError, BotoCoreError, RuntimeError):
+        return False

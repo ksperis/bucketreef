@@ -68,4 +68,5 @@ class AccountAccess:
 class BucketMigrationAccessScope:
     user: User
     allowed_context_ids: set[str]
+    auth_session_id: str | None = None
     admin_account_context_ids: set[str] = field(default_factory=set)

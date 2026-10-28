@@ -34,8 +34,11 @@ class BucketMigrationService(
         *,
         authorized_context_ids: Optional[set[str]] = None,
         admin_account_context_ids: Optional[set[str]] = None,
+        execution_auth_session_id: Optional[str] = None,
     ) -> None:
         self.db = db
+        self._request_auth_session_id = execution_auth_session_id
+        self._execution_auth_session_id = execution_auth_session_id
         self._buckets = BucketsService()
         self._configuration = BucketConfigurationService()
         self._inspector = BucketMigrationInspector(self)
