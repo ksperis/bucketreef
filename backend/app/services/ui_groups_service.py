@@ -138,7 +138,8 @@ class UiGroupsService:
         self._set_account_links(group, payload.account_links)
         self._set_s3_user_links(group, payload.s3_user_links)
         self._set_s3_connection_links(group, payload.s3_connection_ids)
-        self._set_openstack_cloud_links(group, payload.openstack_cloud_ids)
+        if payload.openstack_cloud_ids:
+            self._set_openstack_cloud_links(group, payload.openstack_cloud_ids)
         self.db.flush()
         self._commit_portal_role_changes(
             before=portal_roles_before,
@@ -619,6 +620,10 @@ class UiGroupsService:
             self.db.add(UiGroupS3Connection(group_id=group.id, s3_connection_id=connection_id))
 
     def _set_openstack_cloud_links(self, group: UiGroup, target_ids: list[int]) -> None:
+        from app.services.openstack_service import OpenStackService
+
+        service = OpenStackService(self.db)
+        service.require_enabled()
         cleaned_ids = set(self._clean_ids(target_ids))
         ensure_association_ids_exist(
             self.db,
@@ -649,9 +654,6 @@ class UiGroupsService:
                 cloud_groups.insert().values(cloud_id=cloud_id, group_id=group.id)
             )
 
-        from app.services.openstack_service import OpenStackService
-
-        service = OpenStackService(self.db)
         if group.system_key == ALL_USERS_SYSTEM_KEY:
             service.invalidate_cloud_access(changed_ids)
             return

@@ -73,6 +73,7 @@ class GeneralSettings(ApiModel):
     allow_managed_rgw_tenant_creation: bool = False
     documentation_base_url: str = DEFAULT_DOCUMENTATION_BASE_URL
     manager_enabled: bool = True
+    openstack_enabled: bool = False
     ceph_admin_enabled: bool = False
     storage_ops_enabled: bool = False
     browser_enabled: bool = True
@@ -140,6 +141,7 @@ class GeneralFeatureLock(ApiModel):
 
 class GeneralFeatureLocks(ApiModel):
     manager_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
+    openstack_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     ceph_admin_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     storage_ops_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     browser_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)

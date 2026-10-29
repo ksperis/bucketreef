@@ -199,6 +199,10 @@ class UserAssociationsService:
         user: User,
         target_ids: list[int],
     ) -> None:
+        from app.services.openstack_service import OpenStackService
+
+        openstack = OpenStackService(self.db)
+        openstack.require_enabled()
         cleaned_ids = {
             int(cloud_id)
             for cloud_id in target_ids
@@ -232,9 +236,7 @@ class UserAssociationsService:
             self.db.execute(
                 cloud_users.insert().values(cloud_id=cloud_id, user_id=user.id)
             )
-        from app.services.openstack_service import OpenStackService
-
-        OpenStackService(self.db).invalidate_user_access({int(user.id)}, changed_ids)
+        openstack.invalidate_user_access({int(user.id)}, changed_ids)
 
     def set_group_links(self, user: User, target_ids: list[int]) -> None:
         cleaned_ids = {

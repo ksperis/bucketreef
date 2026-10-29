@@ -29,6 +29,7 @@ import {
 import { useBrowserI18n } from "./browserI18n";
 import { useOpenStackProjectSelector } from "../shared/useOpenStackProjectSelector";
 import OpenStackRegionControl, { OpenStackRegionIcon } from "../shared/OpenStackRegionControl";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
 export type BrowserSidebarBodyRenderer = (args: SidebarBodyRenderArgs) => ReactNode;
 
@@ -50,6 +51,7 @@ export function useBrowserSidebarSlot(): BrowserSidebarSlotContextValue {
 
 function BrowserShell() {
   const { text } = useBrowserI18n();
+  const { generalSettings } = useGeneralSettings();
   const location = useLocation();
   const {
     contexts,
@@ -133,7 +135,7 @@ function BrowserShell() {
     setSearchParams(nextParams, { replace: true });
   };
   const openStackSelector = useOpenStackProjectSelector({
-    enabled: requiresContextSelection && isBrowserExplorerRoute,
+    enabled: requiresContextSelection && isBrowserExplorerRoute && generalSettings.openstack_enabled,
     activeContext: selected,
     refreshContexts,
     onActivated: handleS3AccountChange,

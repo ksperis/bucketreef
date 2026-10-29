@@ -21,6 +21,7 @@ def _runtime_settings(**overrides):
     defaults = {
         "app_settings_path": None,
         "feature_manager_enabled": None,
+        "feature_openstack_enabled": None,
         "feature_browser_enabled": None,
         "feature_portal_enabled": None,
         "feature_ceph_admin_enabled": None,
@@ -64,6 +65,11 @@ def test_managed_rgw_tenant_creation_defaults_off_and_round_trips():
         .general.allow_managed_rgw_tenant_creation
         is True
     )
+
+
+def test_openstack_connector_defaults_off_and_round_trips():
+    assert AppSettings().general.openstack_enabled is False
+    assert AppSettings(general={"openstack_enabled": True}).general.openstack_enabled is True
 
 
 def test_browser_upload_modes_default_on_and_require_one_enabled():
@@ -131,6 +137,7 @@ def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, 
         "get_settings",
         lambda: _runtime_settings(
             feature_manager_enabled=True,
+            feature_openstack_enabled=True,
             feature_browser_enabled=False,
             feature_portal_enabled=True,
         ),
@@ -138,6 +145,7 @@ def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, 
 
     effective = app_settings_service.load_app_settings()
     assert effective.general.manager_enabled is True
+    assert effective.general.openstack_enabled is True
     assert effective.general.browser_enabled is False
     assert effective.general.portal_enabled is True
     # Not forced: persisted value is preserved.
@@ -280,6 +288,7 @@ def test_general_feature_locks_only_use_dedicated_feature_sources(monkeypatch):
         "get_settings",
         lambda: _runtime_settings(
             feature_manager_enabled=False,
+            feature_openstack_enabled=False,
             feature_portal_enabled=True,
             feature_cost_enabled=None,
             feature_endpoint_status_enabled=None,
@@ -290,6 +299,10 @@ def test_general_feature_locks_only_use_dedicated_feature_sources(monkeypatch):
     assert locks.manager_enabled.forced is True
     assert locks.manager_enabled.value is False
     assert locks.manager_enabled.source == "FEATURE_MANAGER_ENABLED"
+
+    assert locks.openstack_enabled.forced is True
+    assert locks.openstack_enabled.value is False
+    assert locks.openstack_enabled.source == "FEATURE_OPENSTACK_ENABLED"
 
     assert locks.portal_enabled.forced is True
     assert locks.portal_enabled.value is True

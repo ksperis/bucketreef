@@ -58,6 +58,7 @@ const generalSettingsState = {
     managed_private_connection_provisioning: "targeted" as const,
   },
   manager_enabled: true,
+  openstack_enabled: true,
   ceph_admin_enabled: false,
   storage_ops_enabled: false,
   browser_enabled: true,

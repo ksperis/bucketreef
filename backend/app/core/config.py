@@ -387,6 +387,10 @@ class Settings(BaseSettings):
         None,
         description="Force Manager feature on/off (FEATURE_MANAGER_ENABLED)",
     )
+    feature_openstack_enabled: Optional[bool] = Field(
+        None,
+        description="Force OpenStack connector on/off (FEATURE_OPENSTACK_ENABLED)",
+    )
     feature_browser_enabled: Optional[bool] = Field(
         None,
         description="Force Browser feature on/off (FEATURE_BROWSER_ENABLED)",

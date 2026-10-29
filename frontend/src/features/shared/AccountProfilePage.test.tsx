@@ -8,8 +8,9 @@ import AccountProfilePage from "./AccountProfilePage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
 const runtimeSurfaces = vi.hoisted(() => ({ browser: true, manager: true }));
+const generalSettings = vi.hoisted(() => ({ openstack_enabled: true }));
 vi.mock("../../components/GeneralSettingsContext", () => ({
-  useGeneralSettings: () => ({ generalSettings: {}, runtimeSurfaces }),
+  useGeneralSettings: () => ({ generalSettings, runtimeSurfaces }),
 }));
 
 vi.mock("./ProfilePage", () => ({
@@ -53,6 +54,7 @@ describe("AccountProfilePage", () => {
   beforeEach(() => {
     runtimeSurfaces.browser = true;
     runtimeSurfaces.manager = true;
+    generalSettings.openstack_enabled = true;
     // Node fetch requires its own AbortSignal rather than the JSDOM implementation.
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     setSessionUserCache({
@@ -106,6 +108,13 @@ describe("AccountProfilePage", () => {
   it("hides OpenStack when neither Browser nor Manager is deployed", () => {
     runtimeSurfaces.browser = false;
     runtimeSurfaces.manager = false;
+    renderPage("/profile?tab=openstack");
+    expect(screen.queryByRole("tab", { name: "OpenStack" })).not.toBeInTheDocument();
+    expect(screen.getByText("Profile content")).toBeInTheDocument();
+  });
+
+  it("hides OpenStack when the feature kill switch is disabled", () => {
+    generalSettings.openstack_enabled = false;
     renderPage("/profile?tab=openstack");
     expect(screen.queryByRole("tab", { name: "OpenStack" })).not.toBeInTheDocument();
     expect(screen.getByText("Profile content")).toBeInTheDocument();

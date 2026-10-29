@@ -31,13 +31,24 @@ class OpenStackService:
     def __init__(self, db: Session):
         self.db = db
 
+    def enabled(self) -> bool:
+        from app.services.app_settings_service import load_app_settings_for_db_readonly
+        return load_app_settings_for_db_readonly(self.db).general.openstack_enabled
+
+    def require_enabled(self) -> None:
+        if not self.enabled():
+            raise OpenStackError("feature_disabled", "OpenStack feature is disabled", 403)
+
     def allowed_clouds(self, user: User) -> list[OpenStackCloud]:
+        if not self.enabled():
+            return []
         from app.services.effective_access_service import EffectiveAccessService
         access = EffectiveAccessService(self.db)
         return [cloud for cloud in self.db.scalars(select(OpenStackCloud).order_by(OpenStackCloud.name)).all()
                 if access.can_connect_openstack_cloud(user, cloud)]
 
     def cloud(self, user: User, cloud_id: int) -> OpenStackCloud:
+        self.require_enabled()
         from app.services.effective_access_service import EffectiveAccessService
         cloud = self.db.get(OpenStackCloud, cloud_id, populate_existing=True)
         if cloud is None or not EffectiveAccessService(self.db).can_connect_openstack_cloud(user, cloud):
@@ -45,6 +56,7 @@ class OpenStackService:
         return cloud
 
     def save_cloud(self, payload: OpenStackCloudWrite, cloud_id: int | None = None) -> OpenStackCloud:
+        self.require_enabled()
         cloud = self.db.scalar(select(OpenStackCloud).where(OpenStackCloud.id == cloud_id).with_for_update().execution_options(populate_existing=True)) if cloud_id is not None else OpenStackCloud()
         if cloud is None:
             raise OpenStackError("cloud_not_found", "OpenStack cloud not found", 404)
@@ -87,6 +99,7 @@ class OpenStackService:
             self._erase_connection(connection)
 
     def delete_cloud(self, cloud_id: int) -> None:
+        self.require_enabled()
         cloud = self.db.get(OpenStackCloud, cloud_id)
         if cloud is None:
             raise OpenStackError("cloud_not_found", "OpenStack cloud not found", 404)
@@ -385,6 +398,7 @@ class OpenStackService:
         )
 
     def resolve(self, user: User, auth_id: str, context_ref: str, *, metadata_only: bool = False, attach_guard: bool = True) -> S3ExecutionContext:
+        self.require_enabled()
         try:
             context_id = str(UUID(context_ref.removeprefix("os-")))
         except ValueError:
@@ -445,7 +459,7 @@ class OpenStackService:
         return result
 
     def catalogue(self, user: User, auth_id: str | None) -> list[ExecutionContext]:
-        if not auth_id:
+        if not auth_id or not self.enabled():
             return []
         contexts = self.db.scalars(select(OpenStackProjectContext).join(OpenStackConnection).where(OpenStackConnection.user_id == user.id)).all()
         result = []
@@ -519,6 +533,7 @@ class OpenStackService:
             row.token = None
 
     def disconnect(self, user: User, auth_id: str, connection_id: str, *, forget: bool = False) -> None:
+        self.require_enabled()
         self._auth(user, auth_id, lock=True)
         connection = self.owned(user, connection_id)
         self._erase_connection(connection, None if forget else auth_id)

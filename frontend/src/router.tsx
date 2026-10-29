@@ -159,6 +159,13 @@ function AdminPortalSettingsRoute() {
   }} />;
 }
 
+function AdminOpenStackRoute() {
+  const { generalSettings } = useGeneralSettings();
+  return generalSettings.openstack_enabled
+    ? <OpenStackCloudsPage />
+    : <FeatureDisabledPage feature="OpenStack" />;
+}
+
 function AdminEndpointStatusRoute() {
   const { generalSettings } = useGeneralSettings();
   return generalSettings.endpoint_status_enabled
@@ -219,7 +226,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route path="production-readiness" element={<ProductionReadinessPage />} />
                   <Route path="general-settings" element={<GeneralSettingsPage />} />
                   <Route path="cost-settings" element={<CostSettingsPage />} />
-                  <Route path="openstack" element={<OpenStackCloudsPage />} />
+                  <Route path="openstack" element={<AdminOpenStackRoute />} />
                   <Route path="authentication-settings" element={<AuthenticationSettingsPage />} />
                   <Route path="authentication-settings/oidc/new" element={<AuthProviderPage kind="oidc" />} />
                   <Route path="authentication-settings/oidc/providers/:providerId" element={<AuthProviderPage kind="oidc" />} />

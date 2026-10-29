@@ -111,6 +111,7 @@ from app.routers.dependencies import (
     require_ceph_admin_enabled,
     require_manager_context_enabled,
     require_manager_enabled,
+    require_openstack_enabled,
     require_portal_enabled,
     require_storage_ops_enabled,
 )
@@ -273,7 +274,11 @@ if any(
 ):
     app.include_router(execution_contexts.router, prefix=settings.api_prefix)
     app.include_router(user_connections.router, prefix=settings.api_prefix)
-    app.include_router(openstack.router, prefix=settings.api_prefix)
+    app.include_router(
+        openstack.router,
+        prefix=settings.api_prefix,
+        dependencies=[Depends(require_openstack_enabled)],
+    )
 if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_access_audit.router, prefix=settings.api_prefix)
     app.include_router(admin_s3_accounts.router, prefix=settings.api_prefix)
@@ -289,7 +294,11 @@ if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_groups.router, prefix=settings.api_prefix)
     app.include_router(admin_storage_endpoints.router, prefix=settings.api_prefix)
     app.include_router(admin_settings.router, prefix=settings.api_prefix)
-    app.include_router(admin_openstack.router, prefix=settings.api_prefix)
+    app.include_router(
+        admin_openstack.router,
+        prefix=settings.api_prefix,
+        dependencies=[Depends(require_openstack_enabled)],
+    )
     app.include_router(admin_key_rotation.router, prefix=settings.api_prefix)
     app.include_router(admin_onboarding.router, prefix=settings.api_prefix)
     app.include_router(admin_healthchecks.router, prefix=settings.api_prefix)

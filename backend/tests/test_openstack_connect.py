@@ -15,6 +15,7 @@ from app.db import AuthSession, StorageEndpoint, UiGroup, User, UserUiGroup
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
 from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite
 from app.services.auth_session_service import AuthSessionService
+from app.services import app_settings_service
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
@@ -24,6 +25,13 @@ from app.services.s3_execution_client import s3_execution_cache_key
 from app.services.browser.sts import browser_sts_enabled
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
+
+
+@pytest.fixture(autouse=True)
+def enable_openstack_feature(db_session):
+    settings = app_settings_service.load_app_settings_for_db(db_session)
+    settings.general.openstack_enabled = True
+    app_settings_service.save_app_settings_for_db(db_session, settings)
 
 
 @pytest.fixture
@@ -514,6 +522,47 @@ def test_long_running_guard_stops_after_logout_and_migration_resolves_same_sessi
     with pytest.raises(OpenStackError): execution.access_validator()
     with pytest.raises(OpenStackError): migration._context_to_execution_target(ctx)
     assert ctx not in EffectiveAccessService(db_session).build_bucket_migration_scope(user, auth_session_id=auth.id).allowed_context_ids
+
+
+def test_kill_switch_blocks_routes_catalogues_and_running_executors_without_deleting_configuration(
+    client,
+    db_session,
+    setup_cloud,
+):
+    service, user, auth, _, ctx = connect(db_session, setup_cloud)
+    execution = service.resolve(user, auth.id, ctx)
+    execution.access_validator()
+
+    settings = app_settings_service.load_app_settings_for_db(db_session)
+    settings.general.openstack_enabled = False
+    app_settings_service.save_app_settings_for_db(db_session, settings)
+
+    assert service.allowed_clouds(user) == []
+    assert service.catalogue(user, auth.id) == []
+    access = ExecutionContextCatalogService(db_session, auth.id).workspace_access(user)
+    assert access.openstack_connect_available is False
+    assert access.manager.context_count == 0
+    assert access.browser.context_count == 0
+    with pytest.raises(OpenStackError) as caught:
+        service.resolve(user, auth.id, ctx)
+    assert caught.value.code == "feature_disabled"
+    with pytest.raises(OpenStackError) as caught:
+        execution.access_validator()
+    assert caught.value.code == "feature_disabled"
+    with pytest.raises(OpenStackError) as caught:
+        UserAssociationsService(db_session).set_openstack_cloud_links(user, [])
+    assert caught.value.code == "feature_disabled"
+    with pytest.raises(OpenStackError) as caught:
+        service.save_cloud(OpenStackCloudWrite(name="Blocked", auth_url="https://blocked.example.test/v3"))
+    assert caught.value.code == "feature_disabled"
+
+    authenticate_ui_client(client, db_session, user)
+    assert client.get("/api/me/openstack/clouds").status_code == 403
+    assert client.get("/api/manager/context", params={"context_id": ctx}).status_code == 403
+
+    assert db_session.scalar(select(OpenStackCloud.id)) is not None
+    assert db_session.scalar(select(OpenStackSession.token)) is not None
+    assert db_session.scalar(select(OpenStackProjectCredential.id)) is not None
 
 
 @pytest.mark.parametrize("change", ["reconnect", "region"])

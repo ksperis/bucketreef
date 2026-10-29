@@ -105,8 +105,10 @@ export function canAccessPrivateConnectionsSection(user: PrivateConnectionAccess
 export function canAccessOpenStackProfileSection(
   user: Pick<SessionUser, "role" | "authType"> | null,
   runtimeSurfaces: Pick<RuntimeSurfaces, "browser" | "manager"> = DEFAULT_RUNTIME_SURFACES,
+  openStackEnabled = false,
 ): boolean {
-  return user?.authType !== "s3_session"
+  return openStackEnabled
+    && user?.authType !== "s3_session"
     && (user?.role === "ui_user" || user?.role === "ui_admin" || user?.role === "ui_superadmin")
     && (runtimeSurfaces.browser || runtimeSurfaces.manager);
 }

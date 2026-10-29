@@ -18,6 +18,7 @@ DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "data" / "app_sett
 APP_SETTINGS_DB_KEY = "default"
 _GENERAL_FEATURE_FIELDS = (
     "manager_enabled",
+    "openstack_enabled",
     "ceph_admin_enabled",
     "storage_ops_enabled",
     "browser_enabled",
@@ -102,6 +103,7 @@ def get_general_feature_locks() -> GeneralFeatureLocks:
 
     dedicated_sources = {
         "manager_enabled": ("feature_manager_enabled", "FEATURE_MANAGER_ENABLED"),
+        "openstack_enabled": ("feature_openstack_enabled", "FEATURE_OPENSTACK_ENABLED"),
         "ceph_admin_enabled": ("feature_ceph_admin_enabled", "FEATURE_CEPH_ADMIN_ENABLED"),
         "storage_ops_enabled": ("feature_storage_ops_enabled", "FEATURE_STORAGE_OPS_ENABLED"),
         "browser_enabled": ("feature_browser_enabled", "FEATURE_BROWSER_ENABLED"),
