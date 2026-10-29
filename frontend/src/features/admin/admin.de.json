@@ -921,6 +921,7 @@
   "Only the selected session will be revoked.": "Nur die ausgewählte Sitzung wird widerrufen.",
   "Open Endpoint Status": "Status der Endpunkte",
   "Open endpoints": "Endpunkte",
+  "OpenStack Clouds": "OpenStack-Clouds",
   "Operations automation": "Automatisierung von Operationen",
   "Optional for the enabled features. Ceph Admin uses its own credentials.": "Optional für die aktivierten Funktionen. Ceph Admin verwendet eigene Anmeldedaten.",
   "Optional geographic coordinates for the endpoint map.": "Optionale geografische Koordinaten für die Endpunktkarte.",

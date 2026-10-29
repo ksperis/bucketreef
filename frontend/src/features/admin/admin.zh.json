@@ -967,6 +967,7 @@
   "Open": "打开",
   "Open Endpoint Status": "打开端点状态",
   "Open endpoints": "打开端点设置",
+  "OpenStack Clouds": "OpenStack 云",
   "Operations": "运维",
   "Operations automation": "运维自动化",
   "Optional for the enabled features. Ceph Admin uses its own credentials.": "对已启用能力为可选项。Ceph Admin 使用独立凭据。",
