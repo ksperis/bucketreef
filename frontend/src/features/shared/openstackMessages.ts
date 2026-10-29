@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback } from "react";
-import { useI18n } from "../../i18n";
+import { interpolateText, useI18n } from "../../i18n";
 import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
 const m = (en: string, fr: string, de: string, zh: string) => ({ en, fr, de, zh });
 const messages = {
@@ -35,6 +35,11 @@ const messages = {
   domainLabel: m("Domain", "Domaine", "Domäne", "域"),
   viewProjects: m("Projects", "Projets", "Projekte", "项目"),
   noProjects: m("No OpenStack project is available for this identity.", "Aucun projet OpenStack n’est disponible pour cette identité.", "Für diese Identität ist kein OpenStack-Projekt verfügbar.", "此身份没有可用的 OpenStack 项目。"),
+  noProjectsMatch: m("No OpenStack project matches this search.", "Aucun projet OpenStack ne correspond à cette recherche.", "Kein OpenStack-Projekt entspricht dieser Suche.", "没有符合此搜索条件的 OpenStack 项目。"),
+  searchProjects: m("Search projects", "Rechercher des projets", "Projekte durchsuchen", "搜索项目"),
+  searchProjectsPlaceholder: m("Name, project ID, domain...", "Nom, ID du projet, domaine...", "Name, Projekt-ID, Domäne...", "名称、项目 ID、域..."),
+  projectsCount: m("{count} projects shown", "{count} projets affichés", "{count} Projekte angezeigt", "显示 {count} 个项目"),
+  projectsCountFiltered: m("{count} projects shown of {total}", "{count} projets affichés sur {total}", "{count} von {total} Projekten angezeigt", "显示 {count} 个项目，共 {total} 个"),
   projectListHelp: m("Select a project to import one of its existing EC2 credentials as a permanent private S3 connection.", "Sélectionnez un projet pour importer l’un de ses identifiants EC2 existants comme connexion S3 privée permanente.", "Projekt auswählen, um vorhandene EC2-Zugangsdaten als dauerhafte private S3-Verbindung zu importieren.", "选择一个项目，将其现有 EC2 凭据导入为永久私有 S3 连接。"),
   actions: m("Actions", "Actions", "Aktionen", "操作"),
   endpoint: m("Region", "Région", "Region", "区域"),
@@ -99,7 +104,11 @@ const messages = {
 };
 export function useOpenStackI18n() {
   const { t } = useI18n();
-  const text = useCallback((key: keyof typeof messages) => t(messages[key]), [t]);
+  const text = useCallback(
+    (key: keyof typeof messages, values?: Record<string, string | number>) =>
+      interpolateText(t(messages[key]), values),
+    [t],
+  );
   const errorText = useCallback((failure: unknown) => {
     switch (extractApiErrorCode(failure)) {
       case "reauthentication_required": return text("reauth");
