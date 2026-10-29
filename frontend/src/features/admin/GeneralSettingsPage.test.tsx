@@ -306,6 +306,19 @@ describe("GeneralSettingsPage branding", () => {
     expect(within(costRow as HTMLElement).getByText("Experimental")).toBeInTheDocument();
   });
 
+  it("places OpenStack after Storage Ops in available workspaces", async () => {
+    renderPage();
+
+    const storageOpsToggle = await screen.findByLabelText("Storage Ops feature");
+    const openStackToggle = screen.getByLabelText("OpenStack feature");
+    const storageOpsRow = storageOpsToggle.closest(".settings-item-compact");
+    const openStackRow = openStackToggle.closest(".settings-item-compact");
+
+    expect(storageOpsRow).not.toBeNull();
+    expect(openStackRow).not.toBeNull();
+    expect(storageOpsRow?.nextElementSibling).toBe(openStackRow);
+  });
+
   it("sends a quota SMTP test email with current quota notification settings", async () => {
     const user = userEvent.setup();
     renderPage();
