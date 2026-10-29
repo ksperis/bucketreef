@@ -84,6 +84,9 @@ class StorageEndpointMetadata(ApiModel):
     name: str
     endpoint_url: str
     region: Optional[str] = None
+    realm_id: Optional[str] = None
+    zonegroup_id: Optional[str] = None
+    zone_id: Optional[str] = None
     force_path_style: bool = False
     verify_tls: bool = True
     provider: StorageProvider = Field(default=StorageProvider.CEPH)
@@ -92,7 +95,9 @@ class StorageEndpointMetadata(ApiModel):
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)
 
-    normalize_string_fields = field_validator("name", "endpoint_url", "region", mode="before")(
+    normalize_string_fields = field_validator(
+        "name", "endpoint_url", "region", "realm_id", "zonegroup_id", "zone_id", mode="before"
+    )(
         normalize_optional_string_field
     )
 
@@ -130,6 +135,9 @@ class StorageEndpointUpdate(ApiModel):
     name: Optional[str] = None
     endpoint_url: Optional[str] = None
     region: Optional[str] = None
+    realm_id: Optional[str] = None
+    zonegroup_id: Optional[str] = None
+    zone_id: Optional[str] = None
     force_path_style: Optional[bool] = None
     verify_tls: Optional[bool] = None
     provider: Optional[StorageProvider] = None
@@ -147,7 +155,9 @@ class StorageEndpointUpdate(ApiModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
-    normalize_string_fields = field_validator("name", "endpoint_url", "region", mode="before")(
+    normalize_string_fields = field_validator(
+        "name", "endpoint_url", "region", "realm_id", "zonegroup_id", "zone_id", mode="before"
+    )(
         normalize_optional_string_field
     )
 

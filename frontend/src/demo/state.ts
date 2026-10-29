@@ -101,6 +101,7 @@ export function createDemoUser(input: Pick<DemoUser, "id" | "email"> & Partial<D
     can_access_storage_ops: input.can_access_storage_ops ?? false,
     can_create_manual_private_connections: input.can_create_manual_private_connections ?? false,
     can_provision_managed_private_connections: input.can_provision_managed_private_connections ?? false,
+    allow_multisite_endpoint_switching: input.allow_multisite_endpoint_switching ?? false,
     manager_tool_access: input.manager_tool_access ?? { ...tools },
     browser_advanced_features_enabled: input.browser_advanced_features_enabled ?? false,
     ui_language: input.ui_language ?? "en",
@@ -159,6 +160,7 @@ export function createDemoGroup(input: Pick<UiGroup, "id" | "name"> & Partial<Ui
     can_access_storage_ops: input.can_access_storage_ops ?? false,
     can_create_manual_private_connections: input.can_create_manual_private_connections ?? false,
     can_provision_managed_private_connections: input.can_provision_managed_private_connections ?? false,
+    allow_multisite_endpoint_switching: input.allow_multisite_endpoint_switching ?? false,
     manager_tool_access: input.manager_tool_access ?? {
       bucket_compare: false,
       bucket_migration: false,
@@ -265,6 +267,7 @@ export function createSeed(): DemoState {
   const endpoints: StorageEndpoint[] = ["Paris · Production", "Lyon · Archive"].map((name, i) => ({
     id: 11 + i, name, endpoint_url: `https://ceph-${i ? "lyon" : "paris"}.demo.invalid`, provider: "ceph",
     region: i ? "eu-lyon-1" : "eu-paris-1", force_path_style: true, verify_tls: true,
+    realm_id: "demo-realm", zonegroup_id: "demo-zonegroup", zone_id: i ? "demo-lyon" : "demo-paris",
     latitude: i ? 45.764 : 48.8566, longitude: i ? 4.8357 : 2.3522,
     has_admin_secret: true,
     admin_access_key: "DEMO_NOT_A_REAL_KEY",

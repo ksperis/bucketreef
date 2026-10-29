@@ -14,6 +14,19 @@ export type ExecutionContextCapabilities = {
   admin_api_capable: boolean;
 };
 
+export type ExecutionDestination = {
+  endpoint_id: number;
+  name: string;
+  endpoint_url: string;
+  provider: "ceph" | "aws" | "other";
+  region: string | null;
+  realm_id: string | null;
+  zonegroup_id: string | null;
+  zone_id: string | null;
+  is_default: boolean;
+  storage_endpoint_capabilities: Record<string, boolean>;
+};
+
 export type ExecutionContext = {
   kind: ExecutionContextKind;
   id: string;
@@ -30,6 +43,8 @@ export type ExecutionContext = {
   endpoint_provider: "ceph" | "aws" | "other" | null;
   endpoint_url: string;
   storage_endpoint_capabilities: Record<string, boolean>;
+  destination_switching_allowed: boolean;
+  execution_destinations: ExecutionDestination[];
   capabilities: ExecutionContextCapabilities;
   openstack?: {
     connection_id: string;

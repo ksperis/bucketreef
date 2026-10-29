@@ -97,6 +97,7 @@ function effectiveAccess(
     can_access_storage_ops: canAccessStorageOps,
     can_create_manual_private_connections: false,
     can_provision_managed_private_connections: false,
+    allow_multisite_endpoint_switching: false,
     group_can_provision_managed_private_connections: false,
     has_owned_private_connections: false,
     manager_tool_access: {

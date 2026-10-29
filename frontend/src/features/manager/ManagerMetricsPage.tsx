@@ -60,6 +60,7 @@ export default function ManagerMetricsPage() {
     requiresContextSelection,
     contextIdForApi,
     accessMode,
+    selectedStorageEndpointCapabilities,
     managerStatsEnabled,
     managerStatsMessage,
     managerFeatureStates,
@@ -70,7 +71,7 @@ export default function ManagerMetricsPage() {
     [contexts, selectedContextId]
   );
   const hasContext = hasExecutionContext;
-  const endpointCaps = selected?.storage_endpoint_capabilities ?? null;
+  const endpointCaps = selectedStorageEndpointCapabilities ?? selected?.storage_endpoint_capabilities ?? null;
   const usageFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.metrics !== false : true);
   const metricsFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.usage !== false : true);
   const canLoadUsageStatsAggregate =

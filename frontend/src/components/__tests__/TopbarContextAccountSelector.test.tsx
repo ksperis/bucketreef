@@ -27,6 +27,8 @@ function makeContext(overrides: Partial<ExecutionContext>): ExecutionContext {
     endpoint_provider: null,
     endpoint_url: "https://s3.example.test",
     storage_endpoint_capabilities: {},
+    destination_switching_allowed: false,
+    execution_destinations: [],
     capabilities: baseCapabilities,
     ...overrides,
   };

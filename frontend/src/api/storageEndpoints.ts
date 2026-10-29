@@ -48,6 +48,9 @@ export type StorageEndpoint = {
   name: string;
   endpoint_url: string;
   region: string | null;
+  realm_id: string | null;
+  zonegroup_id: string | null;
+  zone_id: string | null;
   force_path_style: boolean;
   latitude: number | null;
   longitude: number | null;
@@ -91,6 +94,9 @@ export type StorageEndpointPayload = {
   name: string;
   endpoint_url: string;
   region?: string | null;
+  realm_id?: string | null;
+  zonegroup_id?: string | null;
+  zone_id?: string | null;
   force_path_style?: boolean;
   latitude?: number | null;
   longitude?: number | null;

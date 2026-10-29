@@ -644,6 +644,7 @@ export default function ManagerDashboard() {
     requiresContextSelection,
     contextIdForApi,
     accessMode,
+    selectedStorageEndpointCapabilities,
     managerStatsEnabled,
     managerStatsMessage,
     managerFeatureStates,
@@ -674,7 +675,7 @@ export default function ManagerDashboard() {
     [contexts, selectedContextId]
   );
   const hasContext = hasExecutionContext;
-  const endpointCaps = selected?.storage_endpoint_capabilities ?? null;
+  const endpointCaps = selectedStorageEndpointCapabilities ?? selected?.storage_endpoint_capabilities ?? null;
   const iamFeatureEnabled = endpointCaps ? endpointCaps.iam !== false : true;
   const contextCanManageIam = selected?.capabilities?.can_manage_iam !== false;
   const usageFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.metrics !== false : true);

@@ -157,6 +157,17 @@ service configuration and probe settings. Required-field errors open the relevan
 tab and focus the first invalid field. Enter submits the form. Cancel, navigation
 and browser history protect unsaved changes; controls remain locked during saving.
 
+Ceph endpoints can also declare their RGW multisite topology in **Connection**.
+Set both **Realm ID** and **Zonegroup ID** to associate endpoints that represent
+different zones of the same RGW zonegroup. **Zone ID** is optional descriptive
+metadata. Realm and zonegroup must be configured together; BucketReef never
+groups an endpoint from another provider, realm, or zonegroup.
+
+This association is deliberately declarative. BucketReef does not use RGW
+multisite system/synchronization credentials, `zone=read`, or `metadata=read` to
+discover the topology. Administrators are responsible for entering the IDs that
+match the deployed RGW configuration.
+
 Existing secret values stay hidden. A blank secret during editing retains the
 stored value, and credential-check failures remain advisory. AWS addresses are
 derived from the region. Read-only configuration remains selectable, while
@@ -232,6 +243,13 @@ permissions and Browser options in the **Workspaces** tab. The three sections
 share the principal's existing draft and **Save** action. UI User controls
 describe direct access; UI Group controls describe permissions inherited by
 eligible members.
+
+**Allow RGW multisite endpoint switching** is a Manager permission available to
+eligible UI users and UI groups. Direct and inherited grants combine through the
+normal effective-access model. The permission only allows the user to choose an
+alternate compatible execution endpoint for an already authorized RGW Account
+or RGW User context; it does not grant Manager access to a context and does not
+add S3, IAM, or RGW Admin Ops permissions.
 
 In the UI user and UI group editors, association tabs first list the currently
 linked resources. Use **Add…** to open a searchable picker, confirm the pending

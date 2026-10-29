@@ -157,6 +157,7 @@ export default function UsersPage() {
     can_access_storage_ops: false,
     can_create_manual_private_connections: false,
     can_provision_managed_private_connections: false,
+    allow_multisite_endpoint_switching: false,
     manager_tool_access: { ...DEFAULT_MANAGER_TOOL_ACCESS },
     browser_advanced_features_enabled: false,
   });
@@ -656,6 +657,9 @@ export default function UsersPage() {
       can_provision_managed_private_connections: createTargetSupportsManagerTools
         ? Boolean(form.can_provision_managed_private_connections)
         : false,
+      allow_multisite_endpoint_switching: createTargetSupportsManagerTools
+        ? Boolean(form.allow_multisite_endpoint_switching)
+        : false,
       manager_tool_access: createTargetSupportsManagerTools
         ? normalizeManagerToolAccess(form.manager_tool_access)
         : { ...DEFAULT_MANAGER_TOOL_ACCESS },
@@ -731,6 +735,10 @@ export default function UsersPage() {
       can_provision_managed_private_connections:
         roleSupportsOperationalAccess(role)
           ? Boolean(user.can_provision_managed_private_connections)
+          : false,
+      allow_multisite_endpoint_switching:
+        roleSupportsOperationalAccess(role)
+          ? Boolean(user.allow_multisite_endpoint_switching)
           : false,
       manager_tool_access: normalizeManagerToolAccess(user.manager_tool_access),
       browser_advanced_features_enabled: Boolean(user.browser_advanced_features_enabled),
@@ -859,6 +867,12 @@ export default function UsersPage() {
               editingUser.can_provision_managed_private_connections
           )
         : false;
+      payload.allow_multisite_endpoint_switching = nextRoleSupportsConnectionPermissions
+        ? Boolean(
+            editForm.allow_multisite_endpoint_switching ??
+              editingUser.allow_multisite_endpoint_switching
+          )
+        : false;
       payload.manager_tool_access =
         roleSupportsOperationalAccess(nextRole)
           ? normalizeManagerToolAccess(editForm.manager_tool_access ?? editingUser.manager_tool_access)
@@ -892,6 +906,7 @@ export default function UsersPage() {
         can_access_storage_ops: Boolean(updatedUser.can_access_storage_ops),
         can_create_manual_private_connections: Boolean(updatedUser.can_create_manual_private_connections),
         can_provision_managed_private_connections: Boolean(updatedUser.can_provision_managed_private_connections),
+        allow_multisite_endpoint_switching: Boolean(updatedUser.allow_multisite_endpoint_switching),
         manager_tool_access: normalizeManagerToolAccess(updatedUser.manager_tool_access),
         browser_advanced_features_enabled: Boolean(updatedUser.browser_advanced_features_enabled),
       };
@@ -1298,6 +1313,10 @@ export default function UsersPage() {
                 inheritedManagedProvisioning={Boolean(
                   editingUser.effective_access
                     ?.group_can_provision_managed_private_connections,
+                )}
+                inheritedMultisiteSwitching={Boolean(
+                  editingUser.effective_access?.allow_multisite_endpoint_switching
+                  && !editingUser.allow_multisite_endpoint_switching
                 )}
                 text={text}
                 onChange={(patch) =>

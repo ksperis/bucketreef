@@ -43,6 +43,7 @@ export type UiGroup = {
   can_access_storage_ops: boolean;
   can_create_manual_private_connections: boolean;
   can_provision_managed_private_connections: boolean;
+  allow_multisite_endpoint_switching: boolean;
   manager_tool_access: ManagerToolAccess;
   browser_advanced_features_enabled: boolean;
   user_details: UiGroupUserDetail[];
@@ -71,6 +72,7 @@ export type UiGroupPayload = {
   can_access_storage_ops?: boolean;
   can_create_manual_private_connections?: boolean;
   can_provision_managed_private_connections?: boolean;
+  allow_multisite_endpoint_switching?: boolean;
   manager_tool_access?: ManagerToolAccess | null;
   browser_advanced_features_enabled?: boolean;
   user_ids?: number[];

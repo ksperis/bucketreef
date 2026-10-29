@@ -20,10 +20,18 @@ export default function ManagerTopicWorkspacePage() {
   const { topicName } = useParams<{ topicName: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { contexts, contextIdForApi, requiresContextSelection, accessMode } = useExecutionContext();
+  const {
+    contexts,
+    contextIdForApi,
+    requiresContextSelection,
+    accessMode,
+    selectedStorageEndpointCapabilities,
+  } = useExecutionContext();
   const needsSelection = requiresContextSelection && !contextIdForApi;
   const selectedContext = contexts.find(context => context.id === contextIdForApi);
-  const snsFeatureEnabled = selectedContext?.storage_endpoint_capabilities?.sns !== false;
+  const snsFeatureEnabled = (
+    selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities
+  )?.sns !== false;
   const name = useMemo(() => {
     if (!topicName) return "";
     try { return decodeURIComponent(topicName); } catch { return topicName; }

@@ -7,6 +7,7 @@ import { deferRecoveryAuthRedirect } from "../auth/recoveryCodeHandoff";
 import { broadcastSessionEnded } from "../auth/sessionEvents";
 import { readStoredUser, setSessionUserCache } from "../utils/workspaces";
 import { coordinateAuthRefresh } from "./authRefreshCoordinator";
+import { getExecutionDestinationForContext } from "./executionDestinationState";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 type ApiRequestProfile = "interactive" | "long_running";
@@ -67,6 +68,35 @@ export function buildApiUrl(path: string, params?: Record<string, unknown> | URL
     }
   });
   return url.toString();
+}
+
+function withManagerExecutionDestination(
+  params?: Record<string, unknown> | URLSearchParams,
+): Record<string, unknown> | URLSearchParams | undefined {
+  if (
+    typeof window === "undefined"
+    || !window.location.pathname.startsWith("/manager")
+    || params == null
+  ) {
+    return params;
+  }
+  const contextId = params instanceof URLSearchParams
+    ? params.get("context_id")
+    : params.context_id == null
+      ? null
+      : String(params.context_id);
+  if (!contextId) return params;
+  const endpointId = getExecutionDestinationForContext(contextId);
+  if (endpointId == null) return params;
+
+  if (params instanceof URLSearchParams) {
+    if (params.has("execution_endpoint_id")) return params;
+    const next = new URLSearchParams(params);
+    next.set("execution_endpoint_id", String(endpointId));
+    return next;
+  }
+  if (params.execution_endpoint_id != null) return params;
+  return { ...params, execution_endpoint_id: endpointId };
 }
 
 function readCookie(name: string): string | null {
@@ -186,7 +216,7 @@ async function refreshCookies(): Promise<void> {
 }
 
 async function request<T>(method: string, path: string, data?: unknown, config: ApiRequestConfig = {}): Promise<ApiResponse<T>> {
-  const url = buildApiUrl(path, config.params);
+  const url = buildApiUrl(path, withManagerExecutionDestination(config.params));
   const headers = buildApiRequestHeaders(method, config.headers);
   const combined = combineSignal(config.signal, config.timeout ?? API_REQUEST_TIMEOUT_MS);
   try {

@@ -564,6 +564,7 @@ describe("GroupsPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow manual private connection creation" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow managed private connection provisioning" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Allow RGW multisite endpoint switching" }));
     expect(screen.getByRole("switch", { name: "Bucket compare" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Bucket integrity check" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Bucket migration" })).not.toBeChecked();
@@ -587,6 +588,7 @@ describe("GroupsPage", () => {
       can_access_storage_ops: false,
       can_create_manual_private_connections: true,
       can_provision_managed_private_connections: true,
+      allow_multisite_endpoint_switching: true,
       browser_advanced_features_enabled: true,
       manager_tool_access: {
         bucket_compare: true,

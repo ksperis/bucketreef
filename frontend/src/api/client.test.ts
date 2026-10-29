@@ -14,9 +14,14 @@ import client, {
 } from "./client";
 import { CLIENT_STORAGE_KEYS } from "../utils/clientStorage";
 import { readStoredUser, setSessionUserCache } from "../utils/workspaces";
+import {
+  clearExecutionDestinationState,
+  setExecutionDestinationForContext,
+} from "./executionDestinationState";
 
 beforeEach(() => {
   localStorage.clear();
+  clearExecutionDestinationState();
   setSessionUserCache(null);
   document.cookie = "csrf_token=; Max-Age=0; path=/";
   vi.restoreAllMocks();
@@ -73,6 +78,32 @@ describe("API request profiles", () => {
     expect(url.pathname).toBe("/api/browser/buckets/data/download");
     expect(url.searchParams.get("key")).toBe("a/b");
     expect(url.searchParams.has("empty")).toBe(false);
+  });
+
+  it("injects the selected execution endpoint only for Manager requests with a context", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    setExecutionDestinationForContext("account-1", 42);
+
+    window.history.replaceState({}, "", "/manager/browser");
+    await client.get("/browser/buckets", { params: { context_id: "account-1" } });
+    let url = new URL(String(fetchMock.mock.calls.at(-1)?.[0]));
+    expect(url.searchParams.get("execution_endpoint_id")).toBe("42");
+
+    await client.get("/manager/context", {
+      params: { context_id: "account-1", execution_endpoint_id: 77 },
+    });
+    url = new URL(String(fetchMock.mock.calls.at(-1)?.[0]));
+    expect(url.searchParams.get("execution_endpoint_id")).toBe("77");
+
+    window.history.replaceState({}, "", "/browser");
+    await client.get("/browser/buckets", { params: { context_id: "account-1" } });
+    url = new URL(String(fetchMock.mock.calls.at(-1)?.[0]));
+    expect(url.searchParams.has("execution_endpoint_id")).toBe(false);
   });
 });
 

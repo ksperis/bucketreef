@@ -60,6 +60,23 @@ export default function StorageEndpointConnectionFields({
           <UiInput label={text("optionalRegion")} value={form.region} readOnly={readOnly} placeholder="us-east-1"
             onChange={event => onRegionChange(event.target.value)} />
         </div>
+        {form.provider === "ceph" && (
+          <SettingsSection title={text("rgwMultisite")} description={text("rgwMultisiteDescription")} presentation="compact">
+            <div className="settings-fields sm:grid-cols-2">
+              <UiInput label={text("realmId")} value={form.realm_id} readOnly={readOnly} error={errors.realm_id}
+                placeholder={text("realmIdPlaceholder")}
+                onChange={event => setForm(previous => ({ ...previous, realm_id: event.target.value }))} />
+              <UiInput label={text("zonegroupId")} value={form.zonegroup_id} readOnly={readOnly} error={errors.zonegroup_id}
+                placeholder={text("zonegroupIdPlaceholder")}
+                onChange={event => setForm(previous => ({ ...previous, zonegroup_id: event.target.value }))} />
+              <UiInput label={text("zoneId")} value={form.zone_id} readOnly={readOnly}
+                placeholder={text("zoneIdPlaceholder")}
+                hint={text("zoneIdHint")}
+                onChange={event => setForm(previous => ({ ...previous, zone_id: event.target.value }))} />
+            </div>
+            <UiInlineMessage tone="info">{text("rgwMultisiteDeclarativeHint")}</UiInlineMessage>
+          </SettingsSection>
+        )}
         {validationStatus ? <div className="flex flex-wrap items-center gap-2">{validationStatus}</div> : null}
         <SettingsItem title={text("forcePathStyle")} compact action={<SettingsSwitch ariaLabel={text("forcePathStyle")}
           checked={form.force_path_style} disabled={readOnly}

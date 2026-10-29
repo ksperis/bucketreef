@@ -29,6 +29,7 @@ function hasFeatureGrant(
     | "can_access_storage_ops"
     | "can_create_manual_private_connections"
     | "can_provision_managed_private_connections"
+    | "allow_multisite_endpoint_switching"
     | "browser_advanced_features_enabled"
   >,
 ): boolean {
@@ -150,6 +151,8 @@ function demoEffectiveAccess(state: DemoState, user: DemoUser): EffectiveUserAcc
     can_create_manual_private_connections: roleSupportsTools
       && hasFeatureGrant(user, groups, "can_create_manual_private_connections"),
     can_provision_managed_private_connections: managedProvisioningEnabled,
+    allow_multisite_endpoint_switching: roleSupportsTools
+      && hasFeatureGrant(user, groups, "allow_multisite_endpoint_switching"),
     group_can_provision_managed_private_connections: managedProvisioningEnabled && groupManagedProvisioning,
     has_owned_private_connections: state.connections.some(connection =>
       !connection.is_shared && connection.created_by_user_id === user.id),

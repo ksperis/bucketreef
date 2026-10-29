@@ -4,6 +4,10 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-rou
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ExecutionContext } from "../../api/executionContexts";
+import {
+  clearExecutionDestinationState,
+  getExecutionDestinationForContext,
+} from "../../api/executionDestinationState";
 import { fetchManagerContext } from "../../api/managerContext";
 import { EXECUTION_CONTEXTS_REFRESH_EVENT } from "../../utils/executionContextRefresh";
 import { ExecutionContextProvider, useExecutionContext } from "./ExecutionContextProvider";
@@ -47,7 +51,14 @@ const CONTEXTS: ExecutionContext[] = [
 ];
 
 function Probe() {
-  const { selectedContextId, selectedContextKind, namingValidationProfile } = useExecutionContext();
+  const {
+    selectedContextId,
+    selectedContextKind,
+    namingValidationProfile,
+    selectedExecutionEndpointId,
+    selectedStorageEndpointCapabilities,
+    setExecutionEndpointId,
+  } = useExecutionContext();
   const location = useLocation();
   const navigate = useNavigate();
   return (
@@ -56,6 +67,13 @@ function Probe() {
       <div data-testid="naming-profile">{namingValidationProfile ?? "pending"}</div>
       <button type="button" onClick={() => navigate("/manager?ctx=s3u-2")}>Switch context</button>
       <div data-testid="selected-type">{selectedContextKind ?? "null"}</div>
+      <div data-testid="selected-endpoint">{selectedExecutionEndpointId ?? "null"}</div>
+      <div data-testid="selected-endpoint-iam">
+        {selectedStorageEndpointCapabilities?.iam == null
+          ? "null"
+          : String(selectedStorageEndpointCapabilities.iam)}
+      </div>
+      <button type="button" onClick={() => setExecutionEndpointId(11)}>Switch endpoint</button>
       <div data-testid="location">{`${location.pathname}${location.search}`}</div>
       <button type="button" onClick={() => navigate("/manager/next")}>Navigate without context</button>
     </>
@@ -82,6 +100,7 @@ function renderProvider(initialEntry: string) {
 describe("ExecutionContextProvider", () => {
   beforeEach(() => {
     localStorage.clear();
+    clearExecutionDestinationState();
     listExecutionContextsMock.mockReset();
     fetchManagerContextMock.mockReset();
     listExecutionContextsMock.mockResolvedValue(CONTEXTS);
@@ -143,6 +162,64 @@ describe("ExecutionContextProvider", () => {
 
     await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("conn-misleading"));
     expect(screen.getByTestId("selected-type")).toHaveTextContent("s3_user");
+  });
+
+  it("registers and updates the selected RGW multisite execution destination", async () => {
+    const user = userEvent.setup();
+    listExecutionContextsMock.mockResolvedValue([
+      {
+        kind: "account",
+        id: "1",
+        display_name: "Multisite account",
+        endpoint_id: 10,
+        endpoint_name: "Zone A",
+        endpoint_url: "https://zone-a.example.test",
+        endpoint_is_default: true,
+        endpoint_provider: "ceph",
+        storage_endpoint_capabilities: { iam: true, metrics: true },
+        destination_switching_allowed: true,
+        execution_destinations: [
+          {
+            endpoint_id: 10,
+            name: "Zone A",
+            endpoint_url: "https://zone-a.example.test",
+            provider: "ceph",
+            region: null,
+            realm_id: "realm-a",
+            zonegroup_id: "zonegroup-a",
+            zone_id: "zone-a",
+            is_default: true,
+            storage_endpoint_capabilities: { iam: true, metrics: true },
+          },
+          {
+            endpoint_id: 11,
+            name: "Zone B",
+            endpoint_url: "https://zone-b.example.test",
+            provider: "ceph",
+            region: null,
+            realm_id: "realm-a",
+            zonegroup_id: "zonegroup-a",
+            zone_id: "zone-b",
+            is_default: false,
+            storage_endpoint_capabilities: { iam: false, metrics: false },
+          },
+        ],
+        capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
+      },
+    ]);
+
+    renderProvider("/manager?ctx=1");
+
+    await waitFor(() => expect(screen.getByTestId("selected-endpoint")).toHaveTextContent("10"));
+    expect(screen.getByTestId("selected-endpoint-iam")).toHaveTextContent("true");
+    expect(getExecutionDestinationForContext("1")).toBe(10);
+
+    await user.click(screen.getByRole("button", { name: "Switch endpoint" }));
+
+    await waitFor(() => expect(screen.getByTestId("selected-endpoint")).toHaveTextContent("11"));
+    expect(screen.getByTestId("selected-endpoint-iam")).toHaveTextContent("false");
+    expect(getExecutionDestinationForContext("1")).toBe(11);
+    expect(fetchManagerContextMock).toHaveBeenCalledWith("1");
   });
 
   it("prefers ctx query param over the Manager-specific preference", async () => {

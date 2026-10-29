@@ -320,6 +320,48 @@ def test_create_update_and_serialize_endpoint_force_path_style(db_session):
     assert persisted.force_path_style is False
 
 
+def test_update_and_serialize_ceph_multisite_topology(db_session):
+    service = StorageEndpointsService(db_session)
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-multisite")
+
+    updated = service.update_endpoint(
+        endpoint.id,
+        StorageEndpointUpdate(
+            realm_id="  realm-a  ",
+            zonegroup_id="  zonegroup-a  ",
+            zone_id="  zone-a  ",
+        ),
+    )
+
+    assert updated.realm_id == "realm-a"
+    assert updated.zonegroup_id == "zonegroup-a"
+    assert updated.zone_id == "zone-a"
+    db_session.refresh(endpoint)
+    assert endpoint.realm_id == "realm-a"
+    assert endpoint.zonegroup_id == "zonegroup-a"
+    assert endpoint.zone_id == "zone-a"
+
+
+def test_ceph_multisite_topology_requires_realm_and_zonegroup_together(db_session):
+    service = StorageEndpointsService(db_session)
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-invalid-multisite")
+
+    with pytest.raises(ValueError, match="Realm ID and zonegroup ID must be configured together"):
+        service.update_endpoint(
+            endpoint.id,
+            StorageEndpointUpdate(realm_id="realm-a"),
+        )
+
+    endpoint.realm_id = "realm-a"
+    endpoint.zonegroup_id = "zonegroup-a"
+    db_session.commit()
+    with pytest.raises(ValueError, match="Realm ID and zonegroup ID must be configured together"):
+        service.update_endpoint(
+            endpoint.id,
+            StorageEndpointUpdate(zonegroup_id=None),
+        )
+
+
 def test_create_update_and_serialize_endpoint_coordinates(db_session):
     service = StorageEndpointsService(db_session)
 

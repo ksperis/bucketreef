@@ -44,6 +44,7 @@ class UiGroupCreate(ApiModel):
     can_access_storage_ops: bool = False
     can_create_manual_private_connections: bool = False
     can_provision_managed_private_connections: bool = False
+    allow_multisite_endpoint_switching: bool = False
     manager_tool_access: Optional[ManagerToolAccess] = None
     browser_advanced_features_enabled: bool = False
     user_ids: list[int] = Field(default_factory=list)
@@ -62,6 +63,7 @@ class UiGroupUpdate(ApiModel):
     can_access_storage_ops: Optional[bool] = None
     can_create_manual_private_connections: Optional[bool] = None
     can_provision_managed_private_connections: Optional[bool] = None
+    allow_multisite_endpoint_switching: Optional[bool] = None
     manager_tool_access: Optional[ManagerToolAccess] = None
     browser_advanced_features_enabled: Optional[bool] = None
     user_ids: Optional[list[int]] = None
@@ -88,6 +90,7 @@ class UiGroupOut(ApiModel):
     can_access_storage_ops: bool
     can_create_manual_private_connections: bool
     can_provision_managed_private_connections: bool
+    allow_multisite_endpoint_switching: bool
     manager_tool_access: ManagerToolAccess
     browser_advanced_features_enabled: bool
     user_details: list[UserSummary]

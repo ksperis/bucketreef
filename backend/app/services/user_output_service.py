@@ -285,6 +285,9 @@ class UserOutputService:
             can_provision_managed_private_connections=bool(
                 user.can_provision_managed_private_connections
             ),
+            allow_multisite_endpoint_switching=bool(
+                user.allow_multisite_endpoint_switching
+            ),
             manager_tool_access=read_manager_tool_access(user),
             browser_advanced_features_enabled=bool(
                 user.browser_advanced_features_enabled

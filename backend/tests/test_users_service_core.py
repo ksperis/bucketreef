@@ -132,6 +132,7 @@ def test_create_user_and_authenticate(db_session):
             can_access_storage_ops=True,
             can_create_manual_private_connections=True,
             can_provision_managed_private_connections=True,
+            allow_multisite_endpoint_switching=True,
             manager_tool_access={
                 "bucket_compare": True,
                 "bucket_integrity_check": True,
@@ -151,6 +152,7 @@ def test_create_user_and_authenticate(db_session):
     assert created.can_access_manager_bucket_purge is True
     assert created.can_create_manual_private_connections is True
     assert created.can_provision_managed_private_connections is True
+    assert created.allow_multisite_endpoint_switching is True
 
     assert service.authenticate("ui-admin@example.com", "wrong-password") is None
     authenticated = service.authenticate("ui-admin@example.com", "verylongpass123")
@@ -192,6 +194,7 @@ def test_update_user_and_link_validations(db_session):
             can_access_storage_ops=True,
             can_create_manual_private_connections=True,
             can_provision_managed_private_connections=True,
+            allow_multisite_endpoint_switching=True,
             manager_tool_access={
                 "bucket_compare": True,
                 "bucket_integrity_check": False,
@@ -213,6 +216,7 @@ def test_update_user_and_link_validations(db_session):
     assert updated.can_access_manager_feature_rules is True
     assert updated.can_create_manual_private_connections is True
     assert updated.can_provision_managed_private_connections is True
+    assert updated.allow_multisite_endpoint_switching is True
     assert updated.quota_alerts_global_watch is False
     assert updated.is_active is False
 

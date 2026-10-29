@@ -67,6 +67,7 @@ describe("Topbar account menu", () => {
         can_access_storage_ops: false,
         can_create_manual_private_connections: true,
         can_provision_managed_private_connections: false,
+        allow_multisite_endpoint_switching: false,
         group_can_provision_managed_private_connections: false,
         has_owned_private_connections: false,
         manager_tool_access: {

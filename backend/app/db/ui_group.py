@@ -38,6 +38,7 @@ class UiGroup(Base):
     can_access_manager_bucket_purge = Column(Boolean, default=False, nullable=False, server_default="0")
     can_create_manual_private_connections = Column(Boolean, default=False, nullable=False, server_default="0")
     can_provision_managed_private_connections = Column(Boolean, default=False, nullable=False, server_default="0")
+    allow_multisite_endpoint_switching = Column(Boolean, default=False, nullable=False, server_default="0")
     browser_advanced_features_enabled = Column(Boolean, default=False, nullable=False, server_default="0")
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
