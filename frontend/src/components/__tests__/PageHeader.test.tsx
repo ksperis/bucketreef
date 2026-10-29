@@ -44,6 +44,24 @@ describe("PageHeader", () => {
     expect(screen.getByRole("button", { name: "Export" }).parentElement).not.toHaveClass("sm:pt-6");
   });
 
+  it("renders page inventory actions with compact listing controls", () => {
+    render(
+      <MemoryRouter>
+        <PageHeader
+          title="OpenStack"
+          actionPresentation="listing"
+          actions={[{ label: "Add cloud", onClick: () => undefined }]}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("button", { name: "Add cloud" })).toHaveClass(
+      "ui-list-action",
+      "ui-list-action-primary"
+    );
+    expect(screen.getByRole("button", { name: "Add cloud" })).not.toHaveClass("ui-button-base");
+  });
+
   it("passes a11y checks with breadcrumb links and actions [a11y]", async () => {
     const { container } = render(
       <MemoryRouter>

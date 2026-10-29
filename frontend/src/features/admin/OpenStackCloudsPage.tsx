@@ -127,7 +127,7 @@ export default function OpenStackCloudsPage() {
     </>;
   }
   return <div className="space-y-4">
-    <PageHeader title={text("title")} breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: text("title") }]} actions={[{ label: text("add"), onClick: () => edit() }]} />
+    <PageHeader actionPresentation="listing" title={text("title")} breadcrumbs={[{ label: "Admin", to: "/admin" }, { label: text("title") }]} actions={[{ label: text("add"), onClick: () => edit() }]} />
     {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
     <ListPageSection variant="page" title={text("title")}>
       <DataTableShell rows={clouds} columns={columns} rowKey={(row) => row.id} responsiveCards status={loading ? "loading" : error ? "error" : clouds.length ? "ready" : "empty"} loadingMessage={text("loading")} errorMessage={error ?? text("error")} emptyMessage={text("noClouds")} />
