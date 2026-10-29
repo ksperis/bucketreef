@@ -453,12 +453,6 @@ export default function GeneralSettingsPage() {
           "Storage administration workspace.",
         )}
         {feature(
-          "openstack_enabled",
-          "OpenStack",
-          "Connect authorized users to OpenStack projects and their S3 regions.",
-          true,
-        )}
-        {feature(
           "browser_enabled",
           "Browser",
           "Object and bucket exploration.",
@@ -478,6 +472,12 @@ export default function GeneralSettingsPage() {
           "storage_ops_enabled",
           "Storage Ops",
           "Cross-account and cross-connection bucket operations.",
+        )}
+        {feature(
+          "openstack_enabled",
+          "OpenStack",
+          "Connect authorized users to OpenStack projects and their S3 regions.",
+          true,
         )}
       </SettingsSection>
       <SettingsSection
