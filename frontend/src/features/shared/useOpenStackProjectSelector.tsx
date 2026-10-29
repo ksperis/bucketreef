@@ -40,6 +40,12 @@ type ActivationState = {
   accessKey: string;
 };
 
+type PendingProjectState = {
+  selection: ProjectSelection;
+  access: OpenStackProjectAccess | null;
+  targetId: string;
+};
+
 function selectionFromOption(option: OpenStackProjectOption): ProjectSelection {
   return {
     connectionId: option.connection_id,
@@ -71,6 +77,7 @@ export function useOpenStackProjectSelector({
   const { text, errorText } = useOpenStackI18n();
   const [options, setOptions] = useState<OpenStackProjectOption[]>([]);
   const [candidatesLoaded, setCandidatesLoaded] = useState(false);
+  const [pendingProject, setPendingProject] = useState<PendingProjectState | null>(null);
   const [activation, setActivation] = useState<ActivationState | null>(null);
   const [activationLoading, setActivationLoading] = useState(false);
   const [activeAccess, setActiveAccess] = useState<OpenStackProjectAccess | null>(null);
@@ -148,6 +155,7 @@ export function useOpenStackProjectSelector({
       if (selection.candidateValue) {
         setOptions((current) => current.filter((item) => openStackProjectOptionValue(item) !== selection.candidateValue));
       }
+      setPendingProject(null);
       setActivation(null);
       onActivated(contextId);
     } catch (failure) {
@@ -160,23 +168,31 @@ export function useOpenStackProjectSelector({
   const beginSelection = useCallback(async (option: OpenStackProjectOption) => {
     const selection = selectionFromOption(option);
     setActivationLoading(true);
+    setPendingProject({ selection, access: null, targetId: "" });
+    setActivation(null);
     setError(null);
     try {
       const access = await getOpenStackProjectAccess(selection.connectionId, selection.projectId);
       const allowedTargets = access.targets.filter((target) => target.allowed);
       const targetId = allowedTargets.length === 1 ? allowedTargets[0].target_id : "";
       const accessKey = access.access_keys.length === 1 ? access.access_keys[0] : "";
-      setActivation({ selection, access, targetId, accessKey });
-      if (targetId && accessKey) {
+      setPendingProject({ selection, access, targetId });
+      if (access.access_keys.length === 0) {
+        setError(text("noKeys"));
+      } else if (allowedTargets.length === 0) {
+        setError(text("noRegions"));
+      } else if (targetId && accessKey) {
         await activate(selection, targetId, accessKey);
+      } else if (targetId && access.access_keys.length > 1) {
+        setActivation({ selection, access, targetId, accessKey: "" });
       }
     } catch (failure) {
       setError(errorText(failure));
-      setActivation({ selection, access: { targets: [], access_keys: [] }, targetId: "", accessKey: "" });
+      setPendingProject(null);
     } finally {
       setActivationLoading(false);
     }
-  }, [activate, errorText]);
+  }, [activate, errorText, text]);
 
   const optionByValue = useMemo(
     () => new Map(options.map((option) => [openStackProjectOptionValue(option), option])),
@@ -204,6 +220,9 @@ export function useOpenStackProjectSelector({
   const handleContextChange = useCallback((value: string, fallback: (value: string) => void) => {
     const option = optionByValue.get(value);
     if (!option) {
+      setPendingProject(null);
+      setActivation(null);
+      setError(null);
       fallback(value);
       return;
     }
@@ -218,8 +237,17 @@ export function useOpenStackProjectSelector({
     )) ?? activeAccess.targets.find((target) => target.region_id === activeContext.openstack?.region_id) ?? null;
   }, [activeAccess, activeContext]);
 
+  const pendingTarget = useMemo(() => {
+    if (!pendingProject?.access || !pendingProject.targetId) return null;
+    return pendingProject.access.targets.find((target) => target.target_id === pendingProject.targetId) ?? null;
+  }, [pendingProject]);
+
+  const regionAccess = pendingProject?.access ?? activeAccess;
+  const regionSelection = pendingProject?.selection ?? activeSelection;
+  const regionTarget = pendingProject ? pendingTarget : activeTarget;
+
   const regionOptions = useMemo<TopbarDropdownOption[]>(() => (
-    activeAccess?.targets.map((target) => ({
+    regionAccess?.targets.map((target) => ({
       value: target.target_id,
       label: target.region_id,
       description: [target.storage_endpoint_name || target.service_name || target.service_type, target.interface, target.endpoint_url].filter(Boolean).join(" · "),
@@ -227,20 +255,27 @@ export function useOpenStackProjectSelector({
       title: target.allowed ? undefined : text("unmanagedRegion"),
       searchText: `${target.region_id} ${target.service_name ?? ""} ${target.service_type} ${target.interface} ${target.endpoint_url}`,
     })) ?? []
-  ), [activeAccess, text]);
+  ), [regionAccess, text]);
 
   const handleRegionChange = useCallback((targetId: string) => {
-    if (!activeSelection || !activeAccess || targetId === activeTarget?.target_id) return;
-    const target = activeAccess.targets.find((item) => item.target_id === targetId);
+    if (!regionSelection || !regionAccess || targetId === regionTarget?.target_id) return;
+    const target = regionAccess.targets.find((item) => item.target_id === targetId);
     if (!target || !target.allowed) return;
-    const accessKey = activeAccess.access_keys.length === 1 ? activeAccess.access_keys[0] : "";
+    if (pendingProject) {
+      setPendingProject((current) => current ? { ...current, targetId: target.target_id } : current);
+    }
+    if (regionAccess.access_keys.length === 0) {
+      setError(text("noKeys"));
+      return;
+    }
+    const accessKey = regionAccess.access_keys.length === 1 ? regionAccess.access_keys[0] : "";
     if (accessKey) {
-      void activate(activeSelection, target.target_id, accessKey);
+      void activate(regionSelection, target.target_id, accessKey);
       return;
     }
     setError(null);
-    setActivation({ selection: activeSelection, access: activeAccess, targetId: target.target_id, accessKey: "" });
-  }, [activate, activeAccess, activeSelection, activeTarget]);
+    setActivation({ selection: regionSelection, access: regionAccess, targetId: target.target_id, accessKey: "" });
+  }, [activate, pendingProject, regionAccess, regionSelection, regionTarget, text]);
 
   const confirmActivation = useCallback(() => {
     if (!activation?.targetId || !activation.accessKey) return;
@@ -254,47 +289,26 @@ export function useOpenStackProjectSelector({
       closeDisabled={busy}
     >
       <div className="space-y-4">
-        <p className="ui-body text-[var(--ui-text-muted)]">{text("projectContextHelp")}</p>
         <div className="ui-caption text-[var(--ui-text-muted)]">
           {activation.selection.cloudName} · {activation.selection.identityName}
         </div>
         {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
-        {activationLoading ? <p role="status" className="ui-caption text-[var(--ui-text-muted)]">{text("loading")}</p> : null}
-        {!activationLoading && activation.access.targets.length === 0 && !error ? <UiInlineMessage tone="warning">{text("noRegions")}</UiInlineMessage> : null}
-        {!activationLoading && activation.access.access_keys.length === 0 && !error ? <UiInlineMessage tone="warning">{text("noKeys")}</UiInlineMessage> : null}
         <div className="grid gap-3">
-          {activation.access.targets.length > 0 ? (
-            <UiSelect
-              label={text("endpoint")}
-              value={activation.targetId}
-              disabled={busy || activation.access.targets.length <= 1}
-              onChange={(event) => setActivation((current) => current ? { ...current, targetId: event.target.value } : current)}
-            >
-              {activation.access.targets.length > 1 || !activation.targetId ? <option value="">{text("choose")}</option> : null}
-              {activation.access.targets.map((target) => (
-                <option key={target.target_id} value={target.target_id} disabled={!target.allowed}>
-                  {target.region_id}{target.service_name ? ` · ${target.service_name}` : ""}{target.interface !== "public" ? ` · ${target.interface}` : ""}
-                </option>
-              ))}
-            </UiSelect>
-          ) : null}
-          {activation.access.access_keys.length > 1 ? (
-            <UiSelect
-              label={text("key")}
-              value={activation.accessKey}
-              disabled={busy}
-              onChange={(event) => setActivation((current) => current ? { ...current, accessKey: event.target.value } : current)}
-            >
-              <option value="">{text("choose")}</option>
-              {activation.access.access_keys.map((key) => <option key={key} value={key}>{key}</option>)}
-            </UiSelect>
-          ) : null}
+          <UiSelect
+            label={text("key")}
+            value={activation.accessKey}
+            disabled={busy}
+            onChange={(event) => setActivation((current) => current ? { ...current, accessKey: event.target.value } : current)}
+          >
+            <option value="">{text("choose")}</option>
+            {activation.access.access_keys.map((key) => <option key={key} value={key}>{key}</option>)}
+          </UiSelect>
         </div>
         <div className="flex justify-end gap-2">
           <UiButton variant="secondary" disabled={busy} onClick={() => setActivation(null)}>{text("cancel")}</UiButton>
           <UiButton
             loading={busy}
-            disabled={activationLoading || !activation.targetId || !activation.accessKey}
+            disabled={!activation.targetId || !activation.accessKey}
             onClick={confirmActivation}
           >
             {text("useProject")}
@@ -310,13 +324,14 @@ export function useOpenStackProjectSelector({
     selectorOptions,
     handleContextChange,
     dialog,
+    error,
     reloadOptions,
     region: {
-      visible: Boolean(activeSelection && activeContext?.openstack),
-      currentRegion: activeContext?.openstack?.region_id ?? null,
-      currentTargetId: activeTarget?.target_id ?? "",
+      visible: Boolean(pendingProject || (activeSelection && activeContext?.openstack)),
+      currentRegion: regionTarget?.region_id ?? (pendingProject ? null : activeContext?.openstack?.region_id ?? null),
+      currentTargetId: regionTarget?.target_id ?? "",
       options: regionOptions,
-      loading: activeAccessLoading,
+      loading: pendingProject ? activationLoading : activeAccessLoading,
       onChange: handleRegionChange,
     },
   };

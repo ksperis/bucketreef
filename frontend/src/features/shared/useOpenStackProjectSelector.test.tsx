@@ -105,6 +105,90 @@ describe("useOpenStackProjectSelector", () => {
     expect(result.current.candidateCount).toBe(0);
   });
 
+  it("uses the topbar region selector before activating a project with multiple regions", async () => {
+    const regionB = {
+      ...projectAccess.targets[0],
+      target_id: "catalog-s3-region-b",
+      region_id: "region-b",
+      endpoint_url: "https://s3-b.example.test",
+    };
+    apiMocks.getOpenStackProjectAccess.mockResolvedValue({
+      ...projectAccess,
+      targets: [projectAccess.targets[0], regionB],
+    });
+    apiMocks.activateOpenStackContext.mockResolvedValue("os-region-b");
+    const nextContext = {
+      id: "os-region-b",
+      kind: "openstack_project",
+    } as ExecutionContext;
+    const refreshContexts = vi.fn(async () => [nextContext]);
+    const onActivated = vi.fn();
+    const fallback = vi.fn();
+
+    const { result } = renderHook(() => useOpenStackProjectSelector({
+      enabled: true,
+      refreshContexts,
+      onActivated,
+    }));
+
+    await waitFor(() => expect(result.current.candidateCount).toBe(1));
+    act(() => {
+      result.current.handleContextChange(
+        "openstack-project-option:conn-1:project-a",
+        fallback,
+      );
+    });
+
+    await waitFor(() => expect(result.current.region.loading).toBe(false));
+    expect(result.current.dialog).toBeNull();
+    expect(result.current.region.visible).toBe(true);
+    expect(result.current.region.currentRegion).toBeNull();
+    expect(result.current.region.options).toEqual([
+      expect.objectContaining({ value: "catalog-s3-region-a", label: "region-a" }),
+      expect.objectContaining({ value: "catalog-s3-region-b", label: "region-b" }),
+    ]);
+    expect(apiMocks.activateOpenStackContext).not.toHaveBeenCalled();
+
+    act(() => result.current.region.onChange("catalog-s3-region-b"));
+
+    await waitFor(() => expect(onActivated).toHaveBeenCalledWith("os-region-b"));
+    expect(apiMocks.activateOpenStackContext).toHaveBeenCalledWith(
+      "conn-1",
+      "project-a",
+      "catalog-s3-region-b",
+      "ACCESS-1",
+    );
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing EC2 credential without opening the activation dialog", async () => {
+    apiMocks.getOpenStackProjectAccess.mockResolvedValue({
+      ...projectAccess,
+      access_keys: [],
+    });
+    const fallback = vi.fn();
+
+    const { result } = renderHook(() => useOpenStackProjectSelector({
+      enabled: true,
+      refreshContexts: vi.fn(async () => []),
+      onActivated: vi.fn(),
+    }));
+
+    await waitFor(() => expect(result.current.candidateCount).toBe(1));
+    act(() => {
+      result.current.handleContextChange(
+        "openstack-project-option:conn-1:project-a",
+        fallback,
+      );
+    });
+
+    await waitFor(() => expect(result.current.error).toBe("noKeys"));
+    expect(result.current.dialog).toBeNull();
+    expect(result.current.region.visible).toBe(true);
+    expect(result.current.region.currentRegion).toBe("region-a");
+    expect(apiMocks.activateOpenStackContext).not.toHaveBeenCalled();
+  });
+
   it("keeps the activated OpenStack project selected when switching regions", async () => {
     const regionB = {
       ...projectAccess.targets[0],
