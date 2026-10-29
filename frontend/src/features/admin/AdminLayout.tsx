@@ -42,6 +42,7 @@ const identityText: AdminNavText = interpolateText;
 export const buildAdminNav = (
   portalEnabled: boolean,
   browserEnabled: boolean,
+  openStackEnabled: boolean,
   costEnabled: boolean,
   usageHistoryEnabled: boolean,
   endpointStatusEnabled: boolean,
@@ -141,10 +142,12 @@ export const buildAdminNav = (
       label: text("Connections"),
       links: [
         pageLink(ADMIN_PAGE_CONTRACTS["shared-connections"], text),
-        {
-          ...pageLink(ADMIN_PAGE_CONTRACTS.openstack, text),
-          iconName: "openstack" as const,
-        },
+        ...(openStackEnabled
+          ? [{
+              ...pageLink(ADMIN_PAGE_CONTRACTS.openstack, text),
+              iconName: "openstack" as const,
+            }]
+          : []),
       ],
     },
     {
@@ -219,6 +222,7 @@ export default function AdminLayout() {
   const adminNav = buildAdminNav(
     generalSettings.portal_enabled,
     generalSettings.browser_enabled,
+    generalSettings.openstack_enabled,
     generalSettings.cost_enabled,
     generalSettings.usage_history_enabled,
     generalSettings.endpoint_status_enabled,

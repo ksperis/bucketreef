@@ -2,6 +2,7 @@
 
 An administrator can configure OpenStack clouds that provide S3 access through
 your own project credentials. Your BucketReef login method can be independent.
+The experimental OpenStack connector must also be enabled in General settings.
 Cloud admission is granted through your UI user or UI group associations. An
 administrator may also grant a cloud to the built-in **All users** group, whose
 membership automatically includes every current and future active UI user.

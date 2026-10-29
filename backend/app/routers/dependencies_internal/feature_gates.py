@@ -354,6 +354,12 @@ def require_manager_enabled(db: Session = Depends(get_db)) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager feature is disabled")
 
 
+def require_openstack_enabled(db: Session = Depends(get_db)) -> None:
+    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    if not settings.general.openstack_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="OpenStack feature is disabled")
+
+
 def require_ceph_admin_enabled(db: Session = Depends(get_db)) -> None:
     settings = app_settings_service.load_app_settings_for_db_readonly(db)
     if not settings.general.ceph_admin_enabled:

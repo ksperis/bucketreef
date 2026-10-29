@@ -15,6 +15,7 @@ export function createAppSettings(
       allow_user_profile_name_edit: false,
       allow_user_external_identity_unlink: false,
       manager_enabled: true,
+      openstack_enabled: false,
       ceph_admin_enabled: false,
       storage_ops_enabled: false,
       browser_enabled: true,

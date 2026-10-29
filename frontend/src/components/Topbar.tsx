@@ -77,14 +77,18 @@ export default function Topbar({
   profilePath = "/",
 }: TopbarProps) {
   const { text } = useShellI18n();
-  const { runtimeSurfaces } = useGeneralSettings();
+  const { generalSettings, runtimeSurfaces } = useGeneralSettings();
   const [storedUser, setStoredUser] = useState<StoredTopbarUser | null>(
     () => readStoredUser() as StoredTopbarUser | null,
   );
   const isS3Session = storedUser?.authType === "s3_session";
   const canAccessPrivateConnections =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);
-  const canAccessOpenStack = canAccessOpenStackProfileSection(storedUser, runtimeSurfaces);
+  const canAccessOpenStack = canAccessOpenStackProfileSection(
+    storedUser,
+    runtimeSurfaces,
+    generalSettings.openstack_enabled,
+  );
   const uiRoleLabel = useMemo(() => resolveUiRoleLabel(storedUser, text), [storedUser, text]);
 
   const isMobileViewport = useMediaQuery("(max-width: 767px)");

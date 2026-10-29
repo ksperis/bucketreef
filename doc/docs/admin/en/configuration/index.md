@@ -71,7 +71,7 @@ Key areas:
   signing, retries, and runtime configuration.
 - Database: `DATABASE_URL` (SQLite defaults to `backend/app.db`; relative SQLite paths are normalized against `backend/`). Multi-backend deployments require PostgreSQL.
 - CORS: `CORS_ORIGINS`.
-- Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_COST_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
+- Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_OPENSTACK_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_COST_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
 - Runtime job ownership: `SCHEDULED_JOBS_ENABLED`. A split deployment enables it
   only on the `admin` instance. A dedicated Ceph Admin instance disables it.
 - Internal scheduler auth: `INTERNAL_CRON_TOKEN`.

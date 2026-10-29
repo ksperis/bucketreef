@@ -148,7 +148,7 @@ function ManagerShell() {
     navigate({ pathname: "/manager", search: nextParams.toString() ? `?${nextParams.toString()}` : "" });
   };
   const openStackSelector = useOpenStackProjectSelector({
-    enabled: requiresContextSelection,
+    enabled: requiresContextSelection && generalSettings.openstack_enabled,
     activeContext: selected,
     refreshContexts,
     onActivated: handleS3AccountChange,

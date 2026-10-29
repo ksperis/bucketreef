@@ -31,13 +31,17 @@ type AccountTab = "profile" | "security" | "connections" | "api-tokens" | "opens
 
 export default function AccountProfilePage() {
   const { text } = useProfileI18n();
-  const { runtimeSurfaces } = useGeneralSettings();
+  const { generalSettings, runtimeSurfaces } = useGeneralSettings();
   const hasDataRouter = Boolean(useContext(UNSAFE_DataRouterContext));
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const storedUser = useMemo(() => readStoredUser(), []);
   const isS3Session = storedUser?.authType === "s3_session";
-  const canAccessOpenStack = canAccessOpenStackProfileSection(storedUser, runtimeSurfaces);
+  const canAccessOpenStack = canAccessOpenStackProfileSection(
+    storedUser,
+    runtimeSurfaces,
+    generalSettings.openstack_enabled,
+  );
   const canAccessApiTokens = !isS3Session && isSuperAdminRole(storedUser?.role);
   const canAccessPrivateConnections =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);

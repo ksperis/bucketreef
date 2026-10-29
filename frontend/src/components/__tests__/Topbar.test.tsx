@@ -21,6 +21,7 @@ vi.mock("../ThemeToggle", () => ({
 vi.mock("../GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     generalSettings: {
+      openstack_enabled: true,
     },
     runtimeSurfaces: {
       admin: true,

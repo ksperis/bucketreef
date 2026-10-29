@@ -8,7 +8,16 @@ Keystone and the storage service retain authorization authority.
 
 ## Configure a cloud
 
-As a Superadmin, open **Settings > OpenStack > Add cloud**. Enter the final HTTPS
+OpenStack is experimental and disabled by default. A Superadmin must first enable
+**Settings > General > Available workspaces > OpenStack**. The deployment can
+force the connector on or off with `FEATURE_OPENSTACK_ENABLED`; when this variable
+is set, the Admin switch is read-only. Set the same value on every backend replica
+and split deployment profile. Setting it to `false` is an immediate kill
+switch: OpenStack routes, project catalogues and existing `os-*` execution contexts
+are refused, while saved clouds, associations and connections remain available for
+a later reactivation.
+
+Then open **Connections > OpenStack Clouds > Add cloud**. Enter the final HTTPS
 Keystone URL ending in `/v3`. S3 regions and endpoint URLs are discovered
 automatically from each project's scoped Keystone service catalog. When a
 discovered S3 URL exactly matches a BucketReef Storage Endpoint URL, the

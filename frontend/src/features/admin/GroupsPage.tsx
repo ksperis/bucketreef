@@ -157,6 +157,7 @@ export default function GroupsPage() {
       label: index === 0 ? text("admin") : index === 1 ? text("uiGroups") : breadcrumb.label,
     }));
   const { generalSettings } = useGeneralSettings();
+  const openStackEnabled = generalSettings.openstack_enabled;
   const stepUpLabels = useMemo(() => ({
     title: text("verifyWithPasskey"),
     description: text("verificationDescription"),
@@ -345,7 +346,7 @@ export default function GroupsPage() {
         listMinimalS3Accounts(),
         listMinimalS3Users(),
         listMinimalS3Connections(),
-        listAdminOpenStackClouds(),
+        openStackEnabled ? listAdminOpenStackClouds() : Promise.resolve([]),
       ]);
       setUsers(nextUsers);
       setAccounts(nextAccounts);
@@ -357,7 +358,7 @@ export default function GroupsPage() {
     } finally {
       setAuxLoading(false);
     }
-  }, []);
+  }, [openStackEnabled]);
 
   useEffect(() => {
     fetchGroups();
@@ -488,7 +489,7 @@ export default function GroupsPage() {
         })) ?? [],
       s3_user_links: form.s3_user_links ?? [],
       s3_connection_ids: form.s3_connection_ids ?? [],
-      openstack_cloud_ids: form.openstack_cloud_ids ?? [],
+      ...(openStackEnabled ? { openstack_cloud_ids: form.openstack_cloud_ids ?? [] } : {}),
     };
     savingRef.current = true;
     setSaving(true);
@@ -1022,7 +1023,7 @@ export default function GroupsPage() {
             />
           ),
         },
-        {
+        ...(openStackEnabled ? [{
           id: "openstack",
           label: text("openStack"),
           count: selectedOpenStackCloudIds.size,
@@ -1107,7 +1108,7 @@ export default function GroupsPage() {
               }
             />
           ),
-        },
+        }] : []),
       ]}
       activeTab={associationTab}
       onChange={(id) => {

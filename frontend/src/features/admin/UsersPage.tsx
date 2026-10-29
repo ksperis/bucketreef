@@ -117,6 +117,7 @@ export default function UsersPage() {
   const currentIsAdminLike = isAdminLikeRole(currentUser?.role);
   const currentIsSuperAdmin = isSuperAdminRole(currentUser?.role);
   const cephAdminFeatureEnabled = generalSettings.ceph_admin_enabled;
+  const openStackEnabled = generalSettings.openstack_enabled;
   const showPortalRole = Boolean(generalSettings.portal_enabled);
   const principalEditRequest = useMemo(
     () => readAdminPrincipalEditRequest(typeof window === "undefined" ? "" : window.location.search),
@@ -660,7 +661,7 @@ export default function UsersPage() {
         : { ...DEFAULT_MANAGER_TOOL_ACCESS },
       browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
       group_ids: createSelectedGroups,
-      openstack_cloud_ids: createSelectedOpenStackClouds,
+      ...(openStackEnabled ? { openstack_cloud_ids: createSelectedOpenStackClouds } : {}),
     };
     savingRef.current = true;
     setCreating(true);
@@ -874,7 +875,7 @@ export default function UsersPage() {
       payload.group_ids = editSelectedGroups;
       payload.s3_user_links = editSelectedS3Users;
       payload.s3_connection_ids = editSelectedS3Connections;
-      payload.openstack_cloud_ids = editSelectedOpenStackClouds;
+      if (openStackEnabled) payload.openstack_cloud_ids = editSelectedOpenStackClouds;
       const updatedUser = await runWithStepUp(() => updateUser(editingUser.id, payload));
       if (currentUserId !== null && currentUserId === editingUser.id && typeof window !== "undefined") {
         setSessionUserCache({ ...(readStoredUser() ?? {}), ...updatedUser });
@@ -1108,7 +1109,7 @@ export default function UsersPage() {
                   setSelections: setCreateConnectionSelections,
                   toggleSelection: toggleCreateConnectionSelection,
                 }}
-                openstack={{
+                openstack={openStackEnabled ? {
                   selected: createSelectedOpenStackClouds,
                   setSelected: setCreateSelectedOpenStackClouds,
                   labelById: openStackLabelById,
@@ -1122,7 +1123,7 @@ export default function UsersPage() {
                   selections: createOpenStackSelections,
                   setSelections: setCreateOpenStackSelections,
                   toggleSelection: toggleCreateOpenStackSelection,
-                }}
+                } : undefined}
               />
             )}
 
@@ -1368,7 +1369,7 @@ export default function UsersPage() {
                   setSelections: setEditConnectionSelections,
                   toggleSelection: toggleEditConnectionSelection,
                 }}
-                openstack={{
+                openstack={openStackEnabled ? {
                   selected: editSelectedOpenStackClouds,
                   setSelected: setEditSelectedOpenStackClouds,
                   labelById: openStackLabelById,
@@ -1382,7 +1383,7 @@ export default function UsersPage() {
                   selections: editOpenStackSelections,
                   setSelections: setEditOpenStackSelections,
                   toggleSelection: toggleEditOpenStackSelection,
-                }}
+                } : undefined}
               />
             )}
 

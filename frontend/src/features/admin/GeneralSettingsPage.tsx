@@ -40,6 +40,7 @@ import { useAdminI18n } from "./adminI18n";
 
 const featureFields = [
   "manager_enabled",
+  "openstack_enabled",
   "browser_enabled",
   "portal_enabled",
   "ceph_admin_enabled",
@@ -450,6 +451,12 @@ export default function GeneralSettingsPage() {
           "manager_enabled",
           "Manager",
           "Storage administration workspace.",
+        )}
+        {feature(
+          "openstack_enabled",
+          "OpenStack",
+          "Connect authorized users to OpenStack projects and their S3 regions.",
+          true,
         )}
         {feature(
           "browser_enabled",

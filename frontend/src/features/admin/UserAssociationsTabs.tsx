@@ -63,7 +63,7 @@ type UserAssociationsTabsProps = {
   accounts: UserAccountAssociationsState;
   s3Users: S3UserAssociationsState;
   connections: ConnectionAssociationsState;
-  openstack: OpenStackAssociationsState;
+  openstack?: OpenStackAssociationsState;
 };
 
 export default function UserAssociationsTabs({
@@ -167,15 +167,17 @@ export default function UserAssociationsTabs({
         current.filter((connectionId) => connectionId !== id),
       ),
   );
-  const openStackColumns = simpleAssociationColumns(
-    text("cloud"),
-    openstack.labelById,
-    (id) => text("cloudById", { id }),
-    (id) =>
-      openstack.setSelected((current) =>
-        current.filter((cloudId) => cloudId !== id),
-      ),
-  );
+  const openStackColumns = openstack
+    ? simpleAssociationColumns(
+        text("cloud"),
+        openstack.labelById,
+        (id) => text("cloudById", { id }),
+        (id) =>
+          openstack.setSelected((current) =>
+            current.filter((cloudId) => cloudId !== id),
+          ),
+      )
+    : [];
   return (
     <AdminAssociationTabs
       tabs={[
@@ -313,7 +315,7 @@ export default function UserAssociationsTabs({
             </div>
           ),
         },
-        {
+        ...(openstack ? [{
           id: "openstack",
           label: text("openStack"),
           count: openstack.selected.length,
@@ -370,7 +372,7 @@ export default function UserAssociationsTabs({
               ) : null}
             </div>
           ),
-        },
+        }] : []),
       ]}
       activeTab={activeTab}
       onChange={(id) =>
