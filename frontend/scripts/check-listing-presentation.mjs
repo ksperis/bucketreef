@@ -32,11 +32,14 @@ function inspect(file) {
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const relative = path.relative(root, file);
   let rawTables = 0;
+  let hasPageInventory = false;
+  const headerActions = [];
   const report = (node, message) => violations.push(`${relative}:${ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1}: ${message}`);
   if (/\b(?:manager-table|compact-table)\b/.test(source)) report(ast, "Use the shared ui-data-table foundation.");
   const visit = (node) => {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const tag = node.tagName.getText(ast);
+      const attributes = node.attributes.properties.filter(ts.isJsxAttribute);
       let inRow = false;
       for (let parent = node.parent; parent; parent = parent.parent) {
         if (ts.isJsxElement(parent) && parent.openingElement.tagName.getText(ast) === "td") inRow = true;
@@ -47,13 +50,21 @@ function inspect(file) {
         if (/rounded|uiButtonBaseClass|formInlineActionClasses/.test(cls)) report(node, "Use ListActionButton/Link for row actions; retain native controls only for identity, selection or specialized menus.");
       }
       if (["ListToolbar", "ListPageSection"].includes(tag)) {
-        const attributes = node.attributes.properties.filter(ts.isJsxAttribute);
         if (attributes.some(prop => ["showHeading", "stackControlsOnMobile"].includes(prop.name.getText(ast)))) {
           report(node, "Use the explicit page/section variant and shared responsive layout.");
         }
         if (!attributes.some(prop => prop.name.getText(ast) === "variant") && !node.attributes.properties.some(ts.isJsxSpreadAttribute)) {
           report(node, "Choose a page or section list header variant explicitly.");
         }
+      }
+      if (tag === "ListPageSection" && attributes.some(prop => prop.name.getText(ast) === "variant" && prop.initializer?.getText(ast) === '"page"')) {
+        hasPageInventory = true;
+      }
+      if (["PageHeader", "PageShell"].includes(tag) && attributes.some(prop => prop.name.getText(ast) === "actions")) {
+        headerActions.push({
+          node,
+          listing: attributes.some(prop => prop.name.getText(ast) === "actionPresentation" && prop.initializer?.getText(ast) === '"listing"'),
+        });
       }
       if (tag === "table" || tag === "DataTableShell") tables += 1;
       if (tag === "table") rawTables += 1;
@@ -76,6 +87,11 @@ function inspect(file) {
     ts.forEachChild(node, visit);
   };
   visit(ast);
+  if (hasPageInventory) {
+    for (const action of headerActions) {
+      if (!action.listing) report(action.node, 'Page inventories with header actions must set actionPresentation="listing".');
+    }
+  }
   const allowedManualTables = manualTableAllowlist.get(relative) ?? 0;
   if (rawTables !== allowedManualTables) {
     report(
