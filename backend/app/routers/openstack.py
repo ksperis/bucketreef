@@ -101,6 +101,7 @@ def project_access(connection_id: str, project_id: str, db: Session = Depends(ge
     return {
         "targets": access["targets"],
         "access_keys": [key["access"] for key in access["credentials"]],
+        "selected_access_key": access["selected_access_key"],
     }
 
 

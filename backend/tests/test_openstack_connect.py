@@ -131,6 +131,7 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
     project_access = service.project_access(user, auth.id, connection.id, "project-a")
     assert project_access["targets"][0]["allowed"] is True
     assert project_access["targets"][0]["storage_endpoint_id"] is None
+    assert project_access["selected_access_key"] == "EC2-ACCESS"
 
     service.authenticate(
         user,
@@ -762,6 +763,7 @@ def test_routes_return_metadata_only_and_resolve_both_workspaces(client, db_sess
             "allowed": True,
         }],
         "access_keys": ["EC2-ACCESS"],
+        "selected_access_key": None,
     }
     activation = client.post(f"/api/me/openstack/connections/{connection_id}/contexts", json={"project_id": "project-a", "target_id": target["target_id"]}, headers=headers)
     assert activation.status_code == 200, activation.text

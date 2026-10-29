@@ -53,6 +53,7 @@ export type OpenStackTarget = {
 export type OpenStackProjectAccess = {
   targets: OpenStackTarget[];
   access_keys: string[];
+  selected_access_key: string | null;
 };
 export type OpenStackPrivateConnectionCreate = {
   connection_name: string;

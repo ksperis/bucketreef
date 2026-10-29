@@ -217,10 +217,28 @@ class OpenStackService:
             raise OpenStackError("project_not_allowed", "OpenStack project is not available", 403)
         access = client.project_access(self._identity(connection, session), project_id)
         self._session(user, auth_id, connection, expected_id=session_id)
+        available_access_keys = {credential["access"] for credential in access["credentials"]}
+        selected_credential = self.db.scalar(
+            select(OpenStackProjectCredential)
+            .join(OpenStackProjectContext, OpenStackProjectCredential.context_id == OpenStackProjectContext.id)
+            .where(
+                OpenStackProjectCredential.session_id == session_id,
+                OpenStackProjectCredential.secret_key.is_not(None),
+                OpenStackProjectCredential.expires_at > utcnow(),
+                OpenStackProjectContext.connection_id == connection.id,
+                OpenStackProjectContext.project_id == project_id,
+            )
+            .order_by(OpenStackProjectCredential.validated_at.desc(), OpenStackProjectCredential.id.desc())
+        )
         return {
             "project": project,
             "targets": self._annotate_targets(connection.cloud, access["targets"]),
             "credentials": access["credentials"],
+            "selected_access_key": (
+                selected_credential.access_key
+                if selected_credential is not None and selected_credential.access_key in available_access_keys
+                else None
+            ),
         }
 
     def projects(self, user: User, auth_id: str, connection_id: str) -> list[dict]:

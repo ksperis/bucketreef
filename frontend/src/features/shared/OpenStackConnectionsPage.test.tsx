@@ -24,6 +24,7 @@ const projectAccess = {
     allowed: true,
   }],
   access_keys: ["EC2-ACCESS"],
+  selected_access_key: null,
 };
 function renderPage() { return render(<OpenStackConnectionsPage />); }
 
