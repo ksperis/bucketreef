@@ -63,6 +63,41 @@ describe("OpenStack connections", () => {
     expect(api.getOpenStackProjectAccess).not.toHaveBeenCalled();
   });
 
+  it("paginates and searches large project lists with the shared list controls", async () => {
+    vi.mocked(api.listOpenStackConnections).mockResolvedValue([connection]);
+    vi.mocked(api.listOpenStackProjects).mockResolvedValue(
+      Array.from({ length: 30 }, (_, index) => ({
+        project_id: `project-${String(index + 1).padStart(2, "0")}`,
+        project_name: `Project ${String(index + 1).padStart(2, "0")}`,
+        project_domain_id: index === 29 ? "research-domain" : "default-domain",
+      })),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Projects" }));
+    expect(await screen.findByText("Project 01")).toBeInTheDocument();
+    expect(screen.getByText("Project 25")).toBeInTheDocument();
+    expect(screen.queryByText("Project 26")).not.toBeInTheDocument();
+    expect(screen.getByText("30 projects shown")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("Project 26")).toBeInTheDocument();
+    expect(screen.getByText("Project 30")).toBeInTheDocument();
+    expect(screen.queryByText("Project 01")).not.toBeInTheDocument();
+
+    const search = screen.getByRole("searchbox", { name: "Search projects" });
+    await user.clear(search);
+    await user.type(search, "research-domain");
+    expect(await screen.findByText("Project 30")).toBeInTheDocument();
+    expect(screen.queryByText("Project 29")).not.toBeInTheDocument();
+    expect(screen.getByText("1 projects shown of 30")).toBeInTheDocument();
+
+    await user.clear(search);
+    await user.type(search, "missing-project");
+    expect(await screen.findByText("No OpenStack project matches this search.")).toBeInTheDocument();
+  });
+
   it("imports an existing project credential without exposing a secret field", async () => {
     vi.mocked(api.listOpenStackConnections).mockResolvedValue([connection]);
     vi.mocked(api.listOpenStackProjects).mockResolvedValue([project]);

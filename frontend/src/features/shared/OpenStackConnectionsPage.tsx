@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   connectOpenStack,
   createOpenStackPrivateConnection,
@@ -28,6 +28,7 @@ import {
 } from "../../components/settings/SettingsControls";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
 import { canCreateManualPrivateConnections, readStoredUser } from "../../utils/workspaces";
 import { ProfileButton, ProfileDialog } from "./ProfileControls";
@@ -57,6 +58,9 @@ export default function OpenStackConnectionsPage() {
   const [projects, setProjects] = useState<OpenStackProject[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [projectFilter, setProjectFilter] = useState("");
+  const [projectPage, setProjectPage] = useState(1);
+  const [projectPageSize, setProjectPageSize] = useState(25);
   const [importProject, setImportProject] = useState<OpenStackProject | null>(null);
   const [projectAccess, setProjectAccess] = useState<OpenStackProjectAccess | null>(null);
   const [importLoading, setImportLoading] = useState(false);
@@ -76,6 +80,20 @@ export default function OpenStackConnectionsPage() {
     error,
     rowCount: connections.length,
   });
+  const filteredProjects = useMemo(() => {
+    const query = projectFilter.trim().toLocaleLowerCase();
+    if (!query) return projects;
+    return projects.filter((project) =>
+      [project.project_name, project.project_id, project.project_domain_id]
+        .some((value) => value?.toLocaleLowerCase().includes(query)),
+    );
+  }, [projectFilter, projects]);
+  const projectTotalPages = Math.max(1, Math.ceil(filteredProjects.length / projectPageSize));
+  const safeProjectPage = Math.min(projectPage, projectTotalPages);
+  const pagedProjects = useMemo(() => {
+    const start = (safeProjectPage - 1) * projectPageSize;
+    return filteredProjects.slice(start, start + projectPageSize);
+  }, [filteredProjects, projectPageSize, safeProjectPage]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,6 +115,10 @@ export default function OpenStackConnectionsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (projectPage !== safeProjectPage) setProjectPage(safeProjectPage);
+  }, [projectPage, safeProjectPage]);
 
   const chooseCloud = (id: string) => {
     const next = clouds.find((item) => item.id === Number(id));
@@ -188,6 +210,8 @@ export default function OpenStackConnectionsPage() {
         setSelectedConnectionId(null);
         setProjects([]);
         setProjectsError(null);
+        setProjectFilter("");
+        setProjectPage(1);
       }
       notifyExecutionContextsRefresh();
       await load();
@@ -196,6 +220,10 @@ export default function OpenStackConnectionsPage() {
 
   const selectConnection = (connection: OpenStackConnection) => {
     if (!connection.connected || projectsLoading) return;
+    if (selectedConnectionId !== connection.id) {
+      setProjectFilter("");
+      setProjectPage(1);
+    }
     setSelectedConnectionId(connection.id);
     setProjects([]);
     setProjectsError(null);
@@ -205,6 +233,11 @@ export default function OpenStackConnectionsPage() {
       .then(setProjects)
       .catch((failure) => setProjectsError(errorText(failure)))
       .finally(() => setProjectsLoading(false));
+  };
+
+  const handleProjectFilterChange = (value: string) => {
+    setProjectFilter(value);
+    setProjectPage(1);
   };
 
   const closeImportDialog = () => {
@@ -402,6 +435,18 @@ export default function OpenStackConnectionsPage() {
           variant="section"
           title={`${text("projects")} — ${selectedConnection.cloud_name} / ${selectedConnection.display_name}`}
           description={text("projectListHelp")}
+          countLabel={text(
+            filteredProjects.length === projects.length ? "projectsCount" : "projectsCountFiltered",
+            { count: filteredProjects.length, total: projects.length },
+          )}
+          search={(
+            <ToolbarSearchInput
+              value={projectFilter}
+              onChange={handleProjectFilterChange}
+              placeholder={text("searchProjectsPlaceholder")}
+              label={text("searchProjects")}
+            />
+          )}
           actions={
             <ListActionButton
               onClick={() => selectConnection(selectedConnection)}
@@ -416,18 +461,29 @@ export default function OpenStackConnectionsPage() {
             <UiInlineMessage tone="info">{text("privateConnectionPermission")}</UiInlineMessage>
           ) : null}
           <DataTableShell
-            rows={projects}
+            rows={projectsLoading ? [] : pagedProjects}
             columns={projectColumns}
             rowKey={(row) => row.project_id}
             responsiveCards
             status={resolveListTableStatus({
               loading: projectsLoading,
               error: projectsError,
-              rowCount: projects.length,
+              rowCount: filteredProjects.length,
             })}
             loadingMessage={text("loading")}
             errorMessage={projectsError ?? text("error")}
-            emptyMessage={text("noProjects")}
+            emptyMessage={text(projectFilter.trim() ? "noProjectsMatch" : "noProjects")}
+            pagination={!projectsLoading && filteredProjects.length > 0 ? {
+              page: safeProjectPage,
+              pageSize: projectPageSize,
+              total: filteredProjects.length,
+              onPageChange: (page) => setProjectPage(Math.max(1, page)),
+              onPageSizeChange: (size) => {
+                setProjectPageSize(size);
+                setProjectPage(1);
+              },
+              pageSizeOptions: [10, 25, 50, 100],
+            } : undefined}
           />
         </ListPageSection>
       ) : null}
