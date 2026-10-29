@@ -148,7 +148,7 @@ export function useOpenStackProjectSelector({
   const activate = useCallback(async (
     selection: ProjectSelection,
     targetId: string,
-    accessKey: string,
+    accessKey?: string,
   ) => {
     if (activationInFlightRef.current) return;
     activationInFlightRef.current = true;
@@ -192,7 +192,7 @@ export function useOpenStackProjectSelector({
       if (requestId !== selectionRequestRef.current) return;
       const allowedTargets = access.targets.filter((target) => target.allowed);
       const targetId = allowedTargets.length === 1 ? allowedTargets[0].target_id : "";
-      const accessKey = access.access_keys.length === 1 ? access.access_keys[0] : "";
+      const accessKey = access.selected_access_key ?? (access.access_keys.length === 1 ? access.access_keys[0] : "");
       setPendingProject({ selection, access, targetId });
       if (access.access_keys.length === 0) {
         setError(text("noKeys"));
@@ -288,7 +288,7 @@ export function useOpenStackProjectSelector({
       setError(text("noKeys"));
       return;
     }
-    const accessKey = regionAccess.access_keys.length === 1 ? regionAccess.access_keys[0] : "";
+    const accessKey = regionAccess.selected_access_key ?? (regionAccess.access_keys.length === 1 ? regionAccess.access_keys[0] : "");
     if (accessKey) {
       void activate(regionSelection, target.target_id, accessKey);
       return;
@@ -311,6 +311,9 @@ export function useOpenStackProjectSelector({
       <div className="space-y-4">
         <div className="ui-caption text-[var(--ui-text-muted)]">
           {activation.selection.cloudName} · {activation.selection.identityName}
+        </div>
+        <div className="ui-caption text-[var(--ui-text-muted)]">
+          {text("projectContextHelp")}
         </div>
         {error ? <UiInlineMessage tone="error">{error}</UiInlineMessage> : null}
         <div className="grid gap-3">
@@ -348,7 +351,13 @@ export function useOpenStackProjectSelector({
     busy: busy || activationLoading,
     reloadOptions,
     region: {
-      visible: Boolean(pendingProject || (activeSelection && activeContext?.openstack)),
+      visible: pendingProject
+        ? Boolean(
+          pendingProject.access
+          && pendingProject.access.access_keys.length > 0
+          && pendingProject.access.targets.some((target) => target.allowed)
+        )
+        : Boolean(activeSelection && activeContext?.openstack),
       currentRegion: regionTarget?.region_id ?? (pendingProject ? null : activeContext?.openstack?.region_id ?? null),
       currentTargetId: regionTarget?.target_id ?? "",
       options: regionOptions,

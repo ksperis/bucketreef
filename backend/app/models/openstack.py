@@ -127,6 +127,7 @@ class OpenStackTargetRead(ApiModel):
 class OpenStackProjectAccessRead(ApiModel):
     targets: list[OpenStackTargetRead]
     access_keys: list[str]
+    selected_access_key: str | None = None
 
 
 class OpenStackActivate(ApiModel):

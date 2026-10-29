@@ -50,6 +50,7 @@ const projectAccess = {
     allowed: true,
   }],
   access_keys: ["ACCESS-1"],
+  selected_access_key: null,
 };
 
 describe("useOpenStackProjectSelector", () => {
@@ -299,8 +300,7 @@ describe("useOpenStackProjectSelector", () => {
 
     await waitFor(() => expect(result.current.error).toBe("noKeys"));
     expect(result.current.dialog).toBeNull();
-    expect(result.current.region.visible).toBe(true);
-    expect(result.current.region.currentRegion).toBe("region-a");
+    expect(result.current.region.visible).toBe(false);
     expect(apiMocks.activateOpenStackContext).not.toHaveBeenCalled();
   });
 
@@ -314,6 +314,8 @@ describe("useOpenStackProjectSelector", () => {
     apiMocks.getOpenStackProjectAccess.mockResolvedValue({
       ...projectAccess,
       targets: [projectAccess.targets[0], regionB],
+      access_keys: ["ACCESS-1", "ACCESS-2"],
+      selected_access_key: "ACCESS-2",
     });
     apiMocks.activateOpenStackContext.mockResolvedValue("os-region-b");
     const activeContext = {
@@ -352,6 +354,13 @@ describe("useOpenStackProjectSelector", () => {
     act(() => result.current.region.onChange("catalog-s3-region-b"));
 
     await waitFor(() => expect(onActivated).toHaveBeenCalledWith("os-region-b"));
+    expect(result.current.dialog).toBeNull();
+    expect(apiMocks.activateOpenStackContext).toHaveBeenCalledWith(
+      "conn-1",
+      "project-a",
+      "catalog-s3-region-b",
+      "ACCESS-2",
+    );
     expect(refreshContexts).toHaveBeenCalledWith();
     expect(refreshContexts.mock.invocationCallOrder[0]).toBeLessThan(onActivated.mock.invocationCallOrder[0]);
   });
