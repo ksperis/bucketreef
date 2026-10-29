@@ -2,15 +2,23 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import {
   connectOpenStack,
+  createOpenStackPrivateConnection,
   disconnectOpenStack,
+  getOpenStackProjectAccess,
   listOpenStackClouds,
   listOpenStackConnections,
+  listOpenStackProjects,
   type OpenStackConnection,
+  type OpenStackProject,
+  type OpenStackProjectAccess,
   type OpenStackPublicCloud,
 } from "../../api/openstack";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import ModalActions from "../../components/ModalActions";
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import DataTableShell, {
+  dataTableDefaultActionProps,
+  type DataTableColumn,
+} from "../../components/list/DataTableShell";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import ListPageSection from "../../components/list/ListPageSection";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
@@ -21,7 +29,9 @@ import {
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
+import { canCreateManualPrivateConnections, readStoredUser } from "../../utils/workspaces";
 import { ProfileButton, ProfileDialog } from "./ProfileControls";
+import S3ConnectionAccessFields from "./S3ConnectionAccessFields";
 import { useOpenStackI18n } from "./openstackMessages";
 
 export default function OpenStackConnectionsPage() {
@@ -43,7 +53,24 @@ export default function OpenStackConnectionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingForget, setPendingForget] = useState<OpenStackConnection | null>(null);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<OpenStackProject[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
+  const [importProject, setImportProject] = useState<OpenStackProject | null>(null);
+  const [projectAccess, setProjectAccess] = useState<OpenStackProjectAccess | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [connectionName, setConnectionName] = useState("");
+  const [targetId, setTargetId] = useState("");
+  const [accessKey, setAccessKey] = useState("");
+  const [accessManager, setAccessManager] = useState(false);
+  const [accessBrowser, setAccessBrowser] = useState(true);
   const cloud = clouds.find((item) => item.id === Number(cloudId));
+  const selectedConnection = connections.find((item) => item.id === selectedConnectionId) ?? null;
+  const canCreatePrivateConnection = canCreateManualPrivateConnections(readStoredUser());
   const tableStatus = resolveListTableStatus({
     loading,
     error,
@@ -157,10 +184,83 @@ export default function OpenStackConnectionsPage() {
   const disconnect = (connection: OpenStackConnection, forget = false) =>
     void run(async () => {
       await disconnectOpenStack(connection.id, forget);
+      if (selectedConnectionId === connection.id) {
+        setSelectedConnectionId(null);
+        setProjects([]);
+        setProjectsError(null);
+      }
       notifyExecutionContextsRefresh();
       await load();
       setPendingForget(null);
     });
+
+  const selectConnection = (connection: OpenStackConnection) => {
+    if (!connection.connected || projectsLoading) return;
+    setSelectedConnectionId(connection.id);
+    setProjects([]);
+    setProjectsError(null);
+    setImportSuccess(null);
+    setProjectsLoading(true);
+    void listOpenStackProjects(connection.id)
+      .then(setProjects)
+      .catch((failure) => setProjectsError(errorText(failure)))
+      .finally(() => setProjectsLoading(false));
+  };
+
+  const closeImportDialog = () => {
+    if (importBusy) return;
+    setImportProject(null);
+    setProjectAccess(null);
+    setImportError(null);
+  };
+
+  const openImportDialog = (project: OpenStackProject) => {
+    if (!selectedConnection || !canCreatePrivateConnection || importLoading) return;
+    setImportProject(project);
+    setProjectAccess(null);
+    setImportError(null);
+    setConnectionName(project.project_name);
+    setTargetId("");
+    setAccessKey("");
+    setAccessManager(false);
+    setAccessBrowser(true);
+    setImportLoading(true);
+    void getOpenStackProjectAccess(selectedConnection.id, project.project_id)
+      .then((access) => {
+        setProjectAccess(access);
+        const allowedTargets = access.targets.filter((target) => target.allowed);
+        setTargetId(allowedTargets.length === 1 ? allowedTargets[0].target_id : "");
+        setAccessKey(access.access_keys.length === 1 ? access.access_keys[0] : "");
+      })
+      .catch((failure) => setImportError(errorText(failure)))
+      .finally(() => setImportLoading(false));
+  };
+
+  const createPrivateConnection = (event: FormEvent) => {
+    event.preventDefault();
+    if (!selectedConnection || !importProject || importBusy || !targetId || !connectionName.trim()) return;
+    if (!accessManager && !accessBrowser) {
+      setImportError(text("workspaceAccessRequired"));
+      return;
+    }
+    setImportBusy(true);
+    setImportError(null);
+    void createOpenStackPrivateConnection(selectedConnection.id, importProject.project_id, {
+      connection_name: connectionName.trim(),
+      target_id: targetId,
+      ...(accessKey ? { access_key: accessKey } : {}),
+      access_manager: accessManager,
+      access_browser: accessBrowser,
+    })
+      .then(() => {
+        setImportProject(null);
+        setProjectAccess(null);
+        setImportSuccess(text("privateConnectionCreated"));
+        notifyExecutionContextsRefresh();
+      })
+      .catch((failure) => setImportError(errorText(failure)))
+      .finally(() => setImportBusy(false));
+  };
 
   const columns: DataTableColumn<OpenStackConnection>[] = [
     {
@@ -195,15 +295,55 @@ export default function OpenStackConnectionsPage() {
             </ListActionButton>
           ) : null}
           {row.connected ? (
-            <ListActionButton disabled={busy || connectBusy} onClick={() => disconnect(row)}>
-              {text("disconnect")}
-            </ListActionButton>
+            <>
+              <ListActionButton
+                {...dataTableDefaultActionProps}
+                disabled={busy || connectBusy || projectsLoading}
+                onClick={() => selectConnection(row)}
+              >
+                {text("viewProjects")}
+              </ListActionButton>
+              <ListActionButton disabled={busy || connectBusy} onClick={() => disconnect(row)}>
+                {text("disconnect")}
+              </ListActionButton>
+            </>
           ) : null}
           <ListActionButton
             disabled={busy || connectBusy}
             onClick={() => setPendingForget(row)}
           >
             {text("forget")}
+          </ListActionButton>
+        </ListActions>
+      ),
+    },
+  ];
+
+  const projectColumns: DataTableColumn<OpenStackProject>[] = [
+    {
+      id: "project",
+      label: text("project"),
+      primary: true,
+      render: (row) => row.project_name,
+    },
+    {
+      id: "domain",
+      label: text("domainLabel"),
+      render: (row) => row.project_domain_id || "—",
+    },
+    {
+      id: "actions",
+      label: text("actions"),
+      align: "right",
+      mobileRole: "actions",
+      render: (row) => (
+        <ListActions>
+          <ListActionButton
+            disabled={!canCreatePrivateConnection || importLoading || importBusy}
+            title={!canCreatePrivateConnection ? text("privateConnectionPermission") : undefined}
+            onClick={() => openImportDialog(row)}
+          >
+            {text("addPrivateConnection")}
           </ListActionButton>
         </ListActions>
       ),
@@ -245,6 +385,10 @@ export default function OpenStackConnectionsPage() {
           rows={connections}
           columns={columns}
           rowKey={(row) => row.id}
+          rowClassName="ui-current-item"
+          rowAttributes={(row) => ({
+            "data-viewed": selectedConnectionId === row.id || undefined,
+          })}
           responsiveCards
           status={tableStatus}
           loadingMessage={text("loading")}
@@ -252,6 +396,41 @@ export default function OpenStackConnectionsPage() {
           emptyMessage={text("noConnections")}
         />
       </ListPageSection>
+
+      {selectedConnection ? (
+        <ListPageSection
+          variant="section"
+          title={`${text("projects")} — ${selectedConnection.cloud_name} / ${selectedConnection.display_name}`}
+          description={text("projectListHelp")}
+          actions={
+            <ListActionButton
+              onClick={() => selectConnection(selectedConnection)}
+              loading={projectsLoading}
+            >
+              {text("refresh")}
+            </ListActionButton>
+          }
+        >
+          {importSuccess ? <UiInlineMessage tone="success">{importSuccess}</UiInlineMessage> : null}
+          {!canCreatePrivateConnection ? (
+            <UiInlineMessage tone="info">{text("privateConnectionPermission")}</UiInlineMessage>
+          ) : null}
+          <DataTableShell
+            rows={projects}
+            columns={projectColumns}
+            rowKey={(row) => row.project_id}
+            responsiveCards
+            status={resolveListTableStatus({
+              loading: projectsLoading,
+              error: projectsError,
+              rowCount: projects.length,
+            })}
+            loadingMessage={text("loading")}
+            errorMessage={projectsError ?? text("error")}
+            emptyMessage={text("noProjects")}
+          />
+        </ListPageSection>
+      ) : null}
 
       <p className="settings-description">{text("sessionHelp")}</p>
 
@@ -370,6 +549,113 @@ export default function OpenStackConnectionsPage() {
               </ProfileButton>
               <ProfileButton type="submit" disabled={connectBusy || !cloud}>
                 {text(connectBusy ? "connecting" : "connect")}
+              </ProfileButton>
+            </ModalActions>
+          </form>
+        </ProfileDialog>
+      ) : null}
+
+      {importProject && selectedConnection ? (
+        <ProfileDialog
+          title={text("privateConnectionTitle")}
+          onClose={closeImportDialog}
+          closeDisabled={importBusy}
+          closeOnBackdropClick={!importBusy}
+          closeOnEscape={!importBusy}
+          maxWidthClass="max-w-xl"
+        >
+          <form
+            aria-label={text("privateConnectionTitle")}
+            className="settings-form settings-stack"
+            onSubmit={createPrivateConnection}
+          >
+            <p className="settings-description">{text("privateConnectionHelp")}</p>
+            {importError ? <UiInlineMessage tone="error">{importError}</UiInlineMessage> : null}
+            {importLoading ? <UiInlineMessage tone="info">{text("loading")}</UiInlineMessage> : null}
+            {!importLoading && projectAccess?.targets.length === 0 ? (
+              <UiInlineMessage tone="info">{text("noRegions")}</UiInlineMessage>
+            ) : null}
+            {!importLoading && projectAccess?.access_keys.length === 0 ? (
+              <UiInlineMessage tone="info">{text("noKeys")}</UiInlineMessage>
+            ) : null}
+            <fieldset disabled={importBusy || importLoading} className="settings-fields">
+              <SettingsInput
+                label={text("connectionName")}
+                required
+                value={connectionName}
+                onChange={(event) => {
+                  setConnectionName(event.target.value);
+                  setImportError(null);
+                }}
+              />
+              <SettingsSelect
+                label={text("endpoint")}
+                required
+                value={targetId}
+                onChange={(event) => {
+                  setTargetId(event.target.value);
+                  setImportError(null);
+                }}
+              >
+                <option value="">{text("choose")}</option>
+                {projectAccess?.targets.map((target) => (
+                  <option key={target.target_id} value={target.target_id} disabled={!target.allowed}>
+                    {target.region_id}{target.allowed ? "" : ` — ${text("unmanagedRegion")}`}
+                  </option>
+                ))}
+              </SettingsSelect>
+              <SettingsSelect
+                label={text("key")}
+                required={Boolean(projectAccess && projectAccess.access_keys.length > 1)}
+                value={accessKey}
+                onChange={(event) => {
+                  setAccessKey(event.target.value);
+                  setImportError(null);
+                }}
+              >
+                <option value="">{text("choose")}</option>
+                {projectAccess?.access_keys.map((key) => (
+                  <option key={key} value={key}>{key}</option>
+                ))}
+              </SettingsSelect>
+              <S3ConnectionAccessFields
+                accessManager={accessManager}
+                accessBrowser={accessBrowser}
+                onAccessManagerChange={(checked) => {
+                  setAccessManager(checked);
+                  setImportError(null);
+                }}
+                onAccessBrowserChange={(checked) => {
+                  setAccessBrowser(checked);
+                  setImportError(null);
+                }}
+                title={text("workspaceAccess")}
+                hint={text("workspaceAccessHelp")}
+                error={!accessManager && !accessBrowser ? text("workspaceAccessRequired") : undefined}
+              />
+            </fieldset>
+            <ModalActions>
+              <ProfileButton
+                type="button"
+                variant="secondary"
+                disabled={importBusy}
+                onClick={closeImportDialog}
+              >
+                {text("cancel")}
+              </ProfileButton>
+              <ProfileButton
+                type="submit"
+                disabled={
+                  importBusy
+                  || importLoading
+                  || !connectionName.trim()
+                  || !targetId
+                  || !projectAccess?.access_keys.length
+                  || (!accessKey && projectAccess.access_keys.length > 1)
+                  || (!accessManager && !accessBrowser)
+                }
+              >
+                {text(importBusy ? "creatingPrivateConnection" : "addPrivateConnection")}
               </ProfileButton>
             </ModalActions>
           </form>

@@ -17,8 +17,10 @@ from app.models.execution_context import (
     ExecutionContextCapabilities,
     OpenStackExecutionContextMetadata,
 )
-from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite
+from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite, OpenStackPrivateConnectionCreate
+from app.models.s3_connection import S3Connection, S3ConnectionCreate
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
+from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoints_service import StorageEndpointsService
 from app.services.tags_service import TagsService
@@ -220,6 +222,90 @@ class OpenStackService:
             "targets": self._annotate_targets(connection.cloud, access["targets"]),
             "credentials": access["credentials"],
         }
+
+    def projects(self, user: User, auth_id: str, connection_id: str) -> list[dict]:
+        """Return every Keystone project currently available to one connected identity."""
+        connection = self.owned(user, connection_id)
+        session = self._session(user, auth_id, connection)
+        projects = KeystoneClient(connection.cloud.auth_url).projects(session.token)
+        self._session(user, auth_id, connection, expected_id=session.id)
+        return [
+            {
+                "project_id": project["id"],
+                "project_name": project["name"],
+                "project_domain_id": project.get("domain_id"),
+            }
+            for project in sorted(projects, key=lambda item: (item["name"].casefold(), item["id"]))
+        ]
+
+    def create_private_connection(
+        self,
+        user: User,
+        auth_id: str,
+        connection_id: str,
+        project_id: str,
+        payload: OpenStackPrivateConnectionCreate,
+    ) -> S3Connection:
+        """Copy one current project EC2 credential into a durable private S3 connection."""
+        connection = self.owned(user, connection_id)
+        cloud = self.cloud(user, connection.cloud_id)
+        session = self._session(user, auth_id, connection)
+        session_id = session.id
+        access = self.project_access(user, auth_id, connection_id, project_id)
+        target = next(
+            (item for item in access["targets"] if item["target_id"] == payload.target_id),
+            None,
+        )
+        if target is None or not target["allowed"]:
+            raise OpenStackError(
+                "endpoint_not_allowed",
+                "S3 region is not available for this project",
+                403,
+            )
+        keys = access["credentials"]
+        if not keys:
+            raise OpenStackError(
+                "no_ec2_credentials",
+                "Create an EC2 credential for this project in OpenStack",
+            )
+        if payload.access_key is None and len(keys) != 1:
+            raise OpenStackError(
+                "credential_selection_required",
+                "Select an EC2 credential",
+            )
+        key = (
+            next((item for item in keys if item["access"] == payload.access_key), None)
+            if payload.access_key
+            else keys[0]
+        )
+        if key is None:
+            raise OpenStackError(
+                "credential_not_allowed",
+                "EC2 credential is not available for this project",
+                403,
+            )
+
+        self._auth(user, auth_id, lock=True)
+        self.db.scalar(
+            select(OpenStackCloud)
+            .where(OpenStackCloud.id == cloud.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        self._session(user, auth_id, connection, expected_id=session_id)
+
+        return S3ConnectionsService(self.db).create_from_validated_endpoint(
+            user.id,
+            S3ConnectionCreate(
+                name=payload.connection_name,
+                endpoint_url=target["endpoint_url"],
+                region=target["region_id"],
+                access_key_id=key["access"],
+                secret_access_key=key["secret"],
+                access_manager=payload.access_manager,
+                access_browser=payload.access_browser,
+            ),
+        )
 
     @staticmethod
     def _is_catalog_context(context: OpenStackProjectContext) -> bool:

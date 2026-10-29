@@ -94,6 +94,12 @@ class OpenStackProjectOptionRead(ApiModel):
     project_domain_id: str | None = None
 
 
+class OpenStackProjectRead(ApiModel):
+    project_id: str
+    project_name: str
+    project_domain_id: str | None = None
+
+
 class OpenStackTargetRead(ApiModel):
     target_id: str
     region_id: str
@@ -115,6 +121,14 @@ class OpenStackActivate(ApiModel):
     project_id: str = Field(min_length=1, max_length=255)
     target_id: str = Field(min_length=1, max_length=1024)
     access_key: str | None = Field(default=None, max_length=1024)
+
+
+class OpenStackPrivateConnectionCreate(ApiModel):
+    connection_name: str = Field(min_length=1, max_length=255)
+    target_id: str = Field(min_length=1, max_length=1024)
+    access_key: str | None = Field(default=None, max_length=1024)
+    access_manager: bool = False
+    access_browser: bool = True
 
 
 class OpenStackContextRead(ApiModel):
