@@ -13,7 +13,8 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import get_settings
 from app.db import AuthSession, StorageEndpoint, UiGroup, User, UserUiGroup
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
-from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite
+from app.db.s3_connection import S3Connection as DBS3Connection
+from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite, OpenStackPrivateConnectionCreate
 from app.services.auth_session_service import AuthSessionService
 from app.services import app_settings_service
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
@@ -108,6 +109,11 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
 
     first_context = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
     assert service.project_options(user, auth.id) == []
+    assert service.projects(user, auth.id, connection.id) == [{
+        "project_id": "project-a",
+        "project_name": "Project A",
+        "project_domain_id": "domain-a",
+    }]
     catalogue = service.catalogue(user, auth.id)
     assert [row.id for row in catalogue] == [first_context]
     assert catalogue[0].display_name == "Project A"
@@ -214,6 +220,18 @@ def test_managed_endpoints_only_keeps_unmanaged_target_visible_but_rejects_activ
     assert access["targets"][0]["storage_endpoint_id"] is None
     with pytest.raises(OpenStackError) as caught:
         service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
+    assert caught.value.code == "endpoint_not_allowed"
+    with pytest.raises(OpenStackError) as caught:
+        service.create_private_connection(
+            user,
+            auth.id,
+            connection.id,
+            "project-a",
+            OpenStackPrivateConnectionCreate(
+                connection_name="Project A",
+                target_id=target["target_id"],
+            ),
+        )
     assert caught.value.code == "endpoint_not_allowed"
 
 
@@ -695,6 +713,94 @@ def test_routes_return_metadata_only_and_resolve_both_workspaces(client, db_sess
     assert list_buckets.call_args.kwargs["secret_key"] == "PRIVATE-EC2-SECRET"
     assert list_buckets.call_args.kwargs["endpoint"] == target["endpoint_url"]
     assert list_buckets.call_args.kwargs["region"] == target["region_id"]
+
+
+def test_private_connection_import_is_durable_encrypted_and_metadata_only(client, db_session, setup_cloud, monkeypatch):
+    user, target, cloud = setup_cloud
+    user.can_create_manual_private_connections = True
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.services.s3_connections_service.S3ConnectionsService._refresh_detected_capabilities",
+        lambda *args: None,
+    )
+    credentials = authenticate_ui_client(client, db_session, user)
+    headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
+    response = client.post(
+        "/api/me/openstack/connections",
+        json={"cloud_id": cloud.id, "method": "password", "username": "p", "password": "secret"},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    connection_id = response.json()["id"]
+
+    projects = client.get(f"/api/me/openstack/connections/{connection_id}/projects")
+    assert projects.status_code == 200, projects.text
+    assert projects.json() == [{
+        "project_id": "project-a",
+        "project_name": "Project A",
+        "project_domain_id": "domain-a",
+    }]
+
+    created = client.post(
+        f"/api/me/openstack/connections/{connection_id}/projects/project-a/private-connections",
+        json={
+            "connection_name": "Project A durable",
+            "target_id": target["target_id"],
+            "access_browser": True,
+            "access_manager": False,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    assert "PRIVATE-EC2-SECRET" not in created.text
+    assert created.json()["name"] == "Project A durable"
+    assert created.json()["region"] == "region-a"
+    assert created.json()["endpoint_url"] == "https://s3.example.test"
+    connection = db_session.scalar(select(DBS3Connection).where(DBS3Connection.id == created.json()["id"]))
+    assert connection is not None
+    assert connection.access_key_id == "EC2-ACCESS"
+    assert connection.secret_access_key == "PRIVATE-EC2-SECRET"
+    raw_secret = db_session.execute(
+        text("select secret_access_key from s3_connections where id = :id"),
+        {"id": connection.id},
+    ).scalar_one()
+    assert "PRIVATE-EC2-SECRET" not in raw_secret
+
+    disconnected = client.delete(
+        f"/api/me/openstack/connections/{connection_id}/session",
+        headers=headers,
+    )
+    assert disconnected.status_code == 204, disconnected.text
+    assert db_session.get(DBS3Connection, connection.id) is not None
+    private_connections = client.get("/api/connections")
+    assert private_connections.status_code == 200, private_connections.text
+    assert [item["id"] for item in private_connections.json()] == [connection.id]
+
+
+def test_private_connection_import_requires_manual_creation_permission(client, db_session, setup_cloud):
+    user, target, cloud = setup_cloud
+    credentials = authenticate_ui_client(client, db_session, user)
+    headers = trusted_origin_headers(csrf_token=credentials.csrf_token)
+    response = client.post(
+        "/api/me/openstack/connections",
+        json={"cloud_id": cloud.id, "method": "password", "username": "p", "password": "secret"},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+    connection_id = response.json()["id"]
+
+    created = client.post(
+        f"/api/me/openstack/connections/{connection_id}/projects/project-a/private-connections",
+        json={
+            "connection_name": "Denied",
+            "target_id": target["target_id"],
+            "access_browser": True,
+            "access_manager": False,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 403, created.text
+    assert db_session.scalar(select(DBS3Connection.id)) is None
 
 
 class FakeResponse:

@@ -75,6 +75,14 @@ credentials are available, choose them explicitly. The active OpenStack region
 is visible in the workspace topbar and can be changed there. Multiple clouds and
 identities are supported.
 
+The same profile page can also list every project for one selected OpenStack
+identity. Users allowed to create manual private S3 connections can choose a
+project and explicitly import one of its existing EC2 credentials as a durable
+private S3 connection. Region and access key are selected when several are
+available. BucketReef fetches the secret again on the backend and writes it
+directly to encrypted S3 Connection storage; the browser receives only access
+key identifiers and never receives the EC2 secret.
+
 BucketReef never stores the supplied password or automatically forwards its own
 LDAP login credentials. User-token authentication requires a primary user token
 authorized to discover projects and read its owner's EC2 credentials. Application
@@ -93,6 +101,15 @@ Logout, revocation, expiration and OpenStack disconnect erase them. Forgetting
 a connection also removes its local project references and sessions, preserving
 remote resources. A fresh UI session requires OpenStack authentication again.
 
+An explicitly imported private S3 connection is intentionally durable. It
+remains available after OpenStack disconnect, BucketReef logout or OpenStack
+session expiration because the selected EC2 credential has been copied into the
+normal encrypted private S3 Connection store. The remote credential remains
+owned by OpenStack. BucketReef does not rotate or revoke it automatically;
+revoking or rotating that EC2 credential in OpenStack makes the imported S3
+connection fail until its stored credentials are updated or the connection is
+removed.
+
 Cloud access expires no later than the original Keystone authentication or UI
 session. Local grants are checked on every request. Project and key authorization
 is revalidated at most every 60 seconds; unavailable Keystone fails closed after
@@ -105,8 +122,10 @@ metadata and S3-side capabilities such as BucketReef usage collection without
 substituting endpoint service identities for the user's OpenStack credentials.
 RGW account/user administrative metrics and quotas still require a resolvable
 RGW principal and are not inferred from the OpenStack project alone. Managed
-personal access provisioning, STS and credential export are unavailable. No
-Portal project or RGW Account is created.
+personal access provisioning, STS and generic credential export are unavailable.
+The explicit private-connection import described above is the only durable copy
+flow and never returns the secret to the browser. No Portal project or RGW
+Account is created.
 
 Transfers follow the existing Browser policy. Presigned URLs are bounded by the
 current access deadline; already issued URLs remain usable until their own

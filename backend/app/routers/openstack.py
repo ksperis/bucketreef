@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,12 +14,14 @@ from app.db.openstack import OpenStackCloud, OpenStackConnection
 from app.models.openstack import (
     OpenStackActivate, OpenStackAuthenticate, OpenStackCloudPublic,
     OpenStackCloudWrite, OpenStackConnectionRead, OpenStackContextRead, OpenStackProjectAccessRead,
-    OpenStackProjectOptionRead,
+    OpenStackPrivateConnectionCreate, OpenStackProjectOptionRead, OpenStackProjectRead,
 )
+from app.models.s3_connection import S3Connection
 from app.routers.dependencies import get_current_account_user
 from app.services.audit_service import AuditService
 from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
 from app.services.auth_session_guards import current_auth_session
+from app.services.effective_access_service import EffectiveAccessService
 from app.services.openstack_service import OpenStackService
 from app.services.keystone_client import OpenStackError
 
@@ -88,6 +90,11 @@ def project_options(db: Session = Depends(get_db), user: User = Depends(get_curr
     return OpenStackService(db).project_options(user, session.id)
 
 
+@router.get("/connections/{connection_id}/projects", response_model=list[OpenStackProjectRead])
+def projects(connection_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
+    return OpenStackService(db).projects(user, session.id, connection_id)
+
+
 @router.get("/connections/{connection_id}/projects/{project_id}/access", response_model=OpenStackProjectAccessRead)
 def project_access(connection_id: str, project_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
     access = OpenStackService(db).project_access(user, session.id, connection_id, project_id)
@@ -95,6 +102,53 @@ def project_access(connection_id: str, project_id: str, db: Session = Depends(ge
         "targets": access["targets"],
         "access_keys": [key["access"] for key in access["credentials"]],
     }
+
+
+@router.post(
+    "/connections/{connection_id}/projects/{project_id}/private-connections",
+    response_model=S3Connection,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_private_connection(
+    connection_id: str,
+    project_id: str,
+    payload: OpenStackPrivateConnectionCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_account_user),
+    session=Depends(ui_session),
+):
+    if not EffectiveAccessService(db).resolve_user(user).can_create_manual_private_connections:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Manual private S3 connection creation is not allowed for this user",
+        )
+    try:
+        created = OpenStackService(db).create_private_connection(
+            user,
+            session.id,
+            connection_id,
+            project_id,
+            payload,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    AuditService(db).record_action(
+        user=user,
+        scope="auth",
+        action="connection.create.openstack",
+        entity_type="S3Connection",
+        entity_id=str(created.id),
+        metadata={
+            "openstack_connection_id": connection_id,
+            "project_id": project_id,
+            "target_id": payload.target_id,
+            "region": created.region,
+            "access_key_id": payload.access_key,
+            "access_manager": created.access_manager,
+            "access_browser": created.access_browser,
+        },
+    )
+    return created
 
 @router.post("/connections/{connection_id}/contexts", response_model=OpenStackContextRead)
 def activate(connection_id: str, payload: OpenStackActivate, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
