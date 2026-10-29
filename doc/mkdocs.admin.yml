@@ -42,6 +42,7 @@ nav:
       - Backends:
           - Compatibility: storage/backends/compatibility.md
           - Ceph RGW: storage/backends/ceph-rgw.md
+          - OpenStack: storage/backends/openstack.md
           - Other S3 implementations: storage/backends/other-s3.md
       - Ceph Admin:
           - Overview: storage/ceph-admin/index.md

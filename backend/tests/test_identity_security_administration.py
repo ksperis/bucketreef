@@ -779,8 +779,9 @@ def test_authentication_setting_change_is_guarded_before_side_effects(auth_clien
     (UserRole.UI_SUPERADMIN.value, True, 200),
 ])
 @pytest.mark.parametrize("initial", [False, True])
-def test_ceph_admin_global_toggle_requires_superadmin_and_recent_mfa(
-    auth_client, db_session, monkeypatch, role, verified, expected, initial,
+@pytest.mark.parametrize("feature_field", ["ceph_admin_enabled", "openstack_enabled"])
+def test_sensitive_global_toggle_requires_superadmin_and_recent_mfa(
+    auth_client, db_session, monkeypatch, role, verified, expected, initial, feature_field,
 ):
     @contextmanager
     def settings_session():
@@ -789,7 +790,7 @@ def test_ceph_admin_global_toggle_requires_superadmin_and_recent_mfa(
     monkeypatch.setattr(app_settings_service, "_open_settings_session", settings_session)
     _set_admin_passkey_policy(db_session, True)
     current = load_app_settings_for_db(db_session)
-    current.general.ceph_admin_enabled = initial
+    setattr(current.general, feature_field, initial)
     app_settings_service.save_app_settings_for_db(db_session, current)
     actor = _user(db_session, email="ceph-settings-guard@example.com", role=role)
     credentials = authenticate_ui_client(auth_client, db_session, actor, mfa_verified=verified)
@@ -799,13 +800,13 @@ def test_ceph_admin_global_toggle_requires_superadmin_and_recent_mfa(
 
     monkeypatch.setattr("app.services.rgw_admin.get_rgw_admin_client", unexpected_rgw)
     requested = current.model_copy(deep=True)
-    requested.general.ceph_admin_enabled = not initial
+    setattr(requested.general, feature_field, not initial)
     response = auth_client.put(
         "/api/admin/settings", json=requested.model_dump(mode="json"),
         headers=trusted_origin_headers(csrf_token=credentials.csrf_token),
     )
     assert response.status_code == expected
-    assert load_app_settings_for_db(db_session).general.ceph_admin_enabled is (not initial if expected == 200 else initial)
+    assert getattr(load_app_settings_for_db(db_session).general, feature_field) is (not initial if expected == 200 else initial)
 
 
 def test_ceph_admin_activation_route_is_removed(auth_client):

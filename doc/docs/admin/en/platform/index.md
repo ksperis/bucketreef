@@ -212,7 +212,8 @@ page. Emails remain searchable even though they are no longer printed in each
 row.
 
 The **UI Users** and **UI Groups** lists summarize storage associations with
-three count badges: RGW accounts, RGW users, and shared S3 connections. Their
+count badges for RGW accounts, RGW users, shared S3 connections, and OpenStack
+clouds. Their
 hover/focus panel exposes the complete bounded list and its roles. **UI Groups**
 also shows up to five member avatars before a `+N` indicator; the same panel
 still exposes up to 20 members.
@@ -235,7 +236,14 @@ eligible members.
 In the UI user and UI group editors, association tabs first list the currently
 linked resources. Use **Add…** to open a searchable picker, confirm the pending
 selection with **Add selected**, and use **Remove** on an existing row to
-unlink it before saving. Each RGW account association has two independent
+unlink it before saving. OpenStack cloud admission is managed here using the
+same association workflow. The built-in **All users** group has implicit
+membership covering every current and future active UI user; its name,
+membership, and deletion are locked, while its resource associations remain
+editable. Associate an OpenStack cloud with this group to grant that cloud to
+all users.
+
+Each RGW account association has two independent
 access controls, also available when linking users or groups from RGW Accounts:
 
 - **Manager**: **No Manager access** or **Account administrator**.

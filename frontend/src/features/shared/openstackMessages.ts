@@ -1,0 +1,123 @@
+/* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import { useCallback } from "react";
+import { interpolateText, useI18n } from "../../i18n";
+import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
+const m = (en: string, fr: string, de: string, zh: string) => ({ en, fr, de, zh });
+const messages = {
+  title: m("OpenStack", "OpenStack", "OpenStack", "OpenStack"),
+  intro: m("Connect your cloud identity. Its OpenStack projects then appear in the Manager and Browser context selector.", "Connectez votre identité cloud. Ses projets OpenStack apparaissent ensuite dans le sélecteur de contexte de Manager et Browser.", "Cloud-Identität verbinden. Die zugehörigen OpenStack-Projekte erscheinen anschließend in der Kontextauswahl von Manager und Browser.", "连接云身份。其 OpenStack 项目随后会显示在 Manager 和 Browser 的上下文选择器中。"),
+  sessionHelp: m("Access lasts for this BucketReef session. Existing EC2 keys remain in OpenStack.", "L’accès est limité à cette session BucketReef. Les clés EC2 existantes restent dans OpenStack.", "Zugriff gilt für diese BucketReef-Sitzung. Bestehende EC2-Schlüssel bleiben in OpenStack.", "访问仅限当前 BucketReef 会话。现有 EC2 密钥仍保留在 OpenStack。"),
+  connections: m("OpenStack connections", "Connexions OpenStack", "OpenStack-Verbindungen", "OpenStack 连接"),
+  connectionSingular: m("connection", "connexion", "Verbindung", "个连接"),
+  connectionPlural: m("connections", "connexions", "Verbindungen", "个连接"),
+  noConnections: m("No OpenStack connection yet.", "Aucune connexion OpenStack pour le moment.", "Noch keine OpenStack-Verbindung.", "尚无 OpenStack 连接。"),
+  connectCloud: m("Connect cloud", "Connecter un cloud", "Cloud verbinden", "连接云"),
+  connectTitle: m("Connect OpenStack cloud", "Connecter un cloud OpenStack", "OpenStack-Cloud verbinden", "连接 OpenStack 云"),
+  connecting: m("Connecting…", "Connexion…", "Verbindung wird hergestellt…", "正在连接…"),
+  cloud: m("Cloud", "Cloud", "Cloud", "云"),
+  choose: m("Select…", "Sélectionner…", "Auswählen…", "选择…"),
+  method: m("Authentication", "Authentification", "Authentifizierung", "认证"),
+  password: m("Password", "Mot de passe", "Passwort", "密码"),
+  token: m("User token", "Token utilisateur", "Benutzertoken", "用户令牌"),
+  username: m("User name", "Identifiant", "Benutzername", "用户名"),
+  userId: m("Use user UUID", "Utiliser l’UUID utilisateur", "Benutzer-UUID verwenden", "使用用户 UUID"),
+  domain: m("User domain", "Domaine utilisateur", "Benutzerdomäne", "用户域"),
+  domainId: m("Domain is a UUID", "Le domaine est un UUID", "Domäne ist eine UUID", "域为 UUID"),
+  connect: m("Connect", "Connecter", "Verbinden", "连接"),
+  reconnect: m("Reconnect", "Reconnecter", "Erneut verbinden", "重新连接"),
+  disconnect: m("Disconnect", "Déconnecter", "Trennen", "断开连接"),
+  forget: m("Forget connection", "Oublier la connexion", "Verbindung entfernen", "移除连接"),
+  connected: m("Connected", "Connecté", "Verbunden", "已连接"),
+  disconnected: m("Reconnect required", "Reconnexion nécessaire", "Erneute Verbindung erforderlich", "需要重新连接"),
+  identity: m("Identity", "Identité", "Identität", "身份"),
+  projects: m("Projects", "Projets", "Projekte", "项目"),
+  project: m("Project", "Projet", "Projekt", "项目"),
+  domainLabel: m("Domain", "Domaine", "Domäne", "域"),
+  viewProjects: m("Projects", "Projets", "Projekte", "项目"),
+  noProjects: m("No OpenStack project is available for this identity.", "Aucun projet OpenStack n’est disponible pour cette identité.", "Für diese Identität ist kein OpenStack-Projekt verfügbar.", "此身份没有可用的 OpenStack 项目。"),
+  noProjectsMatch: m("No OpenStack project matches this search.", "Aucun projet OpenStack ne correspond à cette recherche.", "Kein OpenStack-Projekt entspricht dieser Suche.", "没有符合此搜索条件的 OpenStack 项目。"),
+  searchProjects: m("Search projects", "Rechercher des projets", "Projekte durchsuchen", "搜索项目"),
+  searchProjectsPlaceholder: m("Name, project ID, domain...", "Nom, ID du projet, domaine...", "Name, Projekt-ID, Domäne...", "名称、项目 ID、域..."),
+  projectsCount: m("{count} projects shown", "{count} projets affichés", "{count} Projekte angezeigt", "显示 {count} 个项目"),
+  projectsCountFiltered: m("{count} projects shown of {total}", "{count} projets affichés sur {total}", "{count} von {total} Projekten angezeigt", "显示 {count} 个项目，共 {total} 个"),
+  projectListHelp: m("Select a project to import one of its existing EC2 credentials as a permanent private S3 connection.", "Sélectionnez un projet pour importer l’un de ses identifiants EC2 existants comme connexion S3 privée permanente.", "Projekt auswählen, um vorhandene EC2-Zugangsdaten als dauerhafte private S3-Verbindung zu importieren.", "选择一个项目，将其现有 EC2 凭据导入为永久私有 S3 连接。"),
+  actions: m("Actions", "Actions", "Aktionen", "操作"),
+  endpoint: m("Region", "Région", "Region", "区域"),
+  key: m("EC2 access key", "Clé d’accès EC2", "EC2-Zugriffsschlüssel", "EC2 访问密钥"),
+  noKeys: m("No EC2 key for this project. Provision one in OpenStack, then retry.", "Aucune clé EC2 pour ce projet. Provisionnez-en une dans OpenStack, puis réessayez.", "Kein EC2-Schlüssel für dieses Projekt. In OpenStack erstellen und erneut versuchen.", "此项目没有 EC2 密钥。请在 OpenStack 中创建后重试。"),
+  partialProjectDiscovery: m("Some OpenStack connections could not be queried. Projects from available connections are still shown.", "Certaines connexions OpenStack n’ont pas pu être interrogées. Les projets des connexions disponibles restent affichés.", "Einige OpenStack-Verbindungen konnten nicht abgefragt werden. Projekte aus verfügbaren Verbindungen werden weiterhin angezeigt.", "部分 OpenStack 连接无法查询。仍会显示可用连接中的项目。"),
+  useProject: m("Use project", "Utiliser le projet", "Projekt verwenden", "使用项目"),
+  projectContextHelp: m("Choose the EC2 credential for this project. It will be reused across regions for the current session.", "Choisissez l’identifiant EC2 pour ce projet. Il sera réutilisé entre les régions pendant la session en cours.", "Wählen Sie die EC2-Zugangsdaten für dieses Projekt. Sie werden während der aktuellen Sitzung regionsübergreifend wiederverwendet.", "选择此项目的 EC2 凭据。当前会话中切换区域时将重复使用该凭据。"),
+  addPrivateConnection: m("Add private S3 connection", "Ajouter une connexion S3 privée", "Private S3-Verbindung hinzufügen", "添加私有 S3 连接"),
+  privateConnectionTitle: m("Add private S3 connection", "Ajouter une connexion S3 privée", "Private S3-Verbindung hinzufügen", "添加私有 S3 连接"),
+  privateConnectionHelp: m("BucketReef copies the selected OpenStack EC2 credential into an encrypted private S3 connection. The secret never passes through the browser.", "BucketReef copie l’identifiant EC2 OpenStack sélectionné dans une connexion S3 privée chiffrée. Le secret ne transite jamais par le navigateur.", "BucketReef kopiert die ausgewählten OpenStack-EC2-Zugangsdaten in eine verschlüsselte private S3-Verbindung. Das Geheimnis wird nie an den Browser übertragen.", "BucketReef 会将所选 OpenStack EC2 凭据复制到加密的私有 S3 连接中。密钥绝不会经过浏览器。"),
+  connectionName: m("Connection name", "Nom de la connexion", "Verbindungsname", "连接名称"),
+  workspaceAccess: m("Workspace access", "Accès aux espaces", "Workspace-Zugriff", "工作区访问"),
+  workspaceAccessHelp: m("Enable at least one workspace for this private connection.", "Activez au moins un espace pour cette connexion privée.", "Mindestens einen Workspace für diese private Verbindung aktivieren.", "请至少为此私有连接启用一个工作区。"),
+  workspaceAccessRequired: m("Enable Manager or Browser access.", "Activez l’accès Manager ou Browser.", "Manager- oder Browser-Zugriff aktivieren.", "请启用 Manager 或 Browser 访问。"),
+  creatingPrivateConnection: m("Creating…", "Création…", "Wird erstellt…", "正在创建…"),
+  privateConnectionCreated: m("Private S3 connection created.", "Connexion S3 privée créée.", "Private S3-Verbindung erstellt.", "私有 S3 连接已创建。"),
+  privateConnectionPermission: m("You are not allowed to create private S3 connections.", "Vous n’êtes pas autorisé à créer des connexions S3 privées.", "Sie dürfen keine privaten S3-Verbindungen erstellen.", "你无权创建私有 S3 连接。"),
+  noRegions: m("No S3-compatible region is advertised by Keystone for this project.", "Keystone n’annonce aucune région compatible S3 pour ce projet.", "Keystone stellt für dieses Projekt keine S3-kompatible Region bereit.", "Keystone 未为此项目提供兼容 S3 的区域。"),
+  unmanagedRegion: m("This region is not managed by BucketReef and is disabled by the cloud policy.", "Cette région n’est pas gérée par BucketReef et est désactivée par la politique du cloud.", "Diese Region wird nicht von BucketReef verwaltet und ist durch die Cloud-Richtlinie deaktiviert.", "此区域未由 BucketReef 管理，并已被云策略禁用。"),
+  noClouds: m("No OpenStack cloud is available for your account.", "Aucun cloud OpenStack n’est disponible pour votre compte.", "Für Ihr Konto ist keine OpenStack-Cloud verfügbar.", "你的账户没有可用的 OpenStack 云。"),
+  loading: m("Loading…", "Chargement…", "Wird geladen…", "加载中…"),
+  error: m("OpenStack request failed.", "La demande OpenStack a échoué.", "OpenStack-Anfrage fehlgeschlagen.", "OpenStack 请求失败。"),
+  denied: m("Keystone denied this operation.", "Keystone a refusé cette opération.", "Keystone hat diesen Vorgang abgelehnt.", "Keystone 拒绝了此操作。"),
+  reauth: m("Reconnect to OpenStack to continue.", "Reconnectez-vous à OpenStack pour continuer.", "Zum Fortfahren erneut mit OpenStack verbinden.", "请重新连接 OpenStack 后继续。"),
+  unavailable: m("The cloud is unavailable. Retry later.", "Le cloud est indisponible. Réessayez plus tard.", "Die Cloud ist nicht verfügbar. Später erneut versuchen.", "云不可用。请稍后重试。"),
+  retry: m("Retry", "Réessayer", "Erneut versuchen", "重试"),
+  refresh: m("Refresh", "Actualiser", "Aktualisieren", "刷新"),
+  name: m("Name", "Nom", "Name", "名称"),
+  url: m("Keystone v3 URL", "URL Keystone v3", "Keystone-v3-URL", "Keystone v3 URL"),
+  enabled: m("Enabled", "Activé", "Aktiviert", "已启用"),
+  disabled: m("Disabled", "Désactivé", "Deaktiviert", "已停用"),
+  users: m("Allowed users", "Utilisateurs autorisés", "Berechtigte Benutzer", "获授权用户"),
+  groups: m("Allowed groups", "Groupes autorisés", "Berechtigte Gruppen", "获授权组"),
+  add: m("Add cloud", "Ajouter un cloud", "Cloud hinzufügen", "添加云"),
+  addTitle: m("Add OpenStack cloud", "Ajouter un cloud OpenStack", "OpenStack-Cloud hinzufügen", "添加 OpenStack 云"),
+  edit: m("Edit", "Modifier", "Bearbeiten", "编辑"),
+  editTitle: m("Edit OpenStack cloud", "Modifier le cloud OpenStack", "OpenStack-Cloud bearbeiten", "编辑 OpenStack 云"),
+  remove: m("Delete", "Supprimer", "Löschen", "删除"),
+  save: m("Save", "Enregistrer", "Speichern", "保存"),
+  saving: m("Saving…", "Enregistrement…", "Wird gespeichert…", "正在保存…"),
+  cancel: m("Cancel", "Annuler", "Abbrechen", "取消"),
+  confirm: m("Confirm", "Confirmer", "Bestätigen", "确认"),
+  backToClouds: m("Back to OpenStack", "Retour à OpenStack", "Zurück zu OpenStack", "返回 OpenStack"),
+  configurationLabel: m("OpenStack cloud configuration", "Configuration du cloud OpenStack", "OpenStack-Cloud-Konfiguration", "OpenStack 云配置"),
+  configurationIntro: m("Configure Keystone authentication and S3 endpoint policy. User and group grants are managed from their association settings.", "Configurez l’authentification Keystone et la politique des endpoints S3. Les autorisations utilisateurs et groupes sont gérées dans leurs associations.", "Keystone-Authentifizierung und S3-Endpunktrichtlinie konfigurieren. Benutzer- und Gruppenzuweisungen werden in deren Zuordnungen verwaltet.", "配置 Keystone 身份验证和 S3 端点策略。用户和组授权在其关联设置中管理。"),
+  generalSection: m("General", "Général", "Allgemein", "常规"),
+  generalDescription: m("Identify the cloud and its Keystone v3 endpoint.", "Identifiez le cloud et son endpoint Keystone v3.", "Cloud und Keystone-v3-Endpunkt festlegen.", "设置云及其 Keystone v3 端点。"),
+  authenticationSection: m("Authentication", "Authentification", "Authentifizierung", "身份验证"),
+  authenticationDescription: m("Choose the user authentication methods exposed by BucketReef.", "Choisissez les méthodes d’authentification utilisateur proposées par BucketReef.", "Die von BucketReef angebotenen Benutzerauthentifizierungsmethoden auswählen.", "选择 BucketReef 提供的用户身份验证方式。"),
+  enabledDescription: m("Allow authorized users to connect this cloud.", "Autoriser les utilisateurs habilités à connecter ce cloud.", "Berechtigten Benutzern die Verbindung mit dieser Cloud erlauben.", "允许获授权用户连接此云。"),
+  passwordDescription: m("Allow Keystone user name and password authentication.", "Autoriser l’authentification Keystone par identifiant et mot de passe.", "Keystone-Anmeldung mit Benutzername und Passwort erlauben.", "允许使用 Keystone 用户名和密码进行身份验证。"),
+  tokenDescription: m("Allow authentication with an existing Keystone user token.", "Autoriser l’authentification avec un token utilisateur Keystone existant.", "Anmeldung mit einem vorhandenen Keystone-Benutzertoken erlauben.", "允许使用现有 Keystone 用户令牌进行身份验证。"),
+  authenticationRequired: m("Enable at least one authentication method.", "Activez au moins une méthode d’authentification.", "Mindestens eine Authentifizierungsmethode aktivieren.", "请至少启用一种身份验证方式。"),
+  accessSection: m("Access", "Accès", "Zugriff", "访问"),
+  accessDescription: m("Control how Keystone-advertised S3 endpoints may be used.", "Contrôlez l’utilisation des endpoints S3 annoncés par Keystone.", "Steuern, wie von Keystone bereitgestellte S3-Endpunkte verwendet werden dürfen.", "控制 Keystone 发布的 S3 端点如何使用。"),
+  authorizationManagedElsewhere: m("Grant this cloud from Admin > Users or Admin > Groups. Use the built-in All users group for global access.", "Accordez ce cloud depuis Admin > Utilisateurs ou Admin > Groupes. Utilisez le groupe système Tous les utilisateurs pour un accès global.", "Diese Cloud unter Admin > Benutzer oder Admin > Gruppen zuweisen. Für globalen Zugriff die integrierte Gruppe Alle Benutzer verwenden.", "请从“管理员 > 用户”或“管理员 > 组”授予此云。全局访问请使用内置的“所有用户”组。"),
+  managedEndpointsOnly: m("Only allow BucketReef-managed S3 endpoints", "Autoriser uniquement les endpoints S3 gérés par BucketReef", "Nur von BucketReef verwaltete S3-Endpunkte zulassen", "仅允许 BucketReef 管理的 S3 端点"),
+  managedEndpointsOnlyDescription: m("When enabled, Keystone regions remain visible but can only be selected when their S3 URL exactly matches a BucketReef storage endpoint. The default allows every S3 endpoint advertised by Keystone.", "Lorsque cette option est activée, les régions Keystone restent visibles mais ne peuvent être sélectionnées que si leur URL S3 correspond exactement à un endpoint de stockage BucketReef. Par défaut, tous les endpoints S3 annoncés par Keystone sont autorisés.", "Wenn aktiviert, bleiben Keystone-Regionen sichtbar, können aber nur ausgewählt werden, wenn ihre S3-URL exakt einem BucketReef-Speicherendpunkt entspricht. Standardmäßig sind alle von Keystone bereitgestellten S3-Endpunkte zulässig.", "启用后，Keystone 区域仍会显示，但只有其 S3 URL 与 BucketReef 存储端点完全匹配时才能选择。默认允许 Keystone 发布的所有 S3 端点。"),
+  endpointsDescription: m("S3 regions and endpoint URLs are discovered automatically from the scoped Keystone service catalog. Matching URLs are associated with BucketReef storage endpoints so endpoint capabilities and metadata can be reused.", "Les régions S3 et leurs URL sont découvertes automatiquement dans le catalogue de services Keystone scoped. Les URL correspondantes sont associées aux endpoints de stockage BucketReef afin de réutiliser leurs capacités et métadonnées.", "S3-Regionen und Endpunkt-URLs werden automatisch aus dem projektbezogenen Keystone-Servicekatalog erkannt. Übereinstimmende URLs werden BucketReef-Speicherendpunkten zugeordnet, damit deren Funktionen und Metadaten wiederverwendet werden können.", "S3 区域和端点 URL 会自动从项目范围的 Keystone 服务目录中发现。匹配的 URL 会关联到 BucketReef 存储端点，以复用端点能力和元数据。"),
+  deleteHelp: m("Local connections and active sessions will be removed. OpenStack resources are preserved.", "Les connexions locales et sessions actives seront supprimées. Les ressources OpenStack sont conservées.", "Lokale Verbindungen und aktive Sitzungen werden entfernt. OpenStack-Ressourcen bleiben erhalten.", "将移除本地连接和活动会话。OpenStack 资源将保留。"),
+  trustHelp: m("Saving invalidates this cloud’s active connections. Outbound hosts and private CAs are configured by the deployment operator.", "L’enregistrement invalide les connexions actives de ce cloud. L’opérateur configure les hôtes sortants et les CA privées.", "Speichern beendet aktive Cloud-Verbindungen. Ausgehende Hosts und private CAs konfiguriert der Betreiber.", "保存将使此云的活动连接失效。出站主机和私有 CA 由部署运维人员配置。"),
+};
+export function useOpenStackI18n() {
+  const { t } = useI18n();
+  const text = useCallback(
+    (key: keyof typeof messages, values?: Record<string, string | number>) =>
+      interpolateText(t(messages[key]), values),
+    [t],
+  );
+  const errorText = useCallback((failure: unknown) => {
+    switch (extractApiErrorCode(failure)) {
+      case "reauthentication_required": return text("reauth");
+      case "access_denied": case "project_not_allowed": case "credential_not_allowed": return text("denied");
+      case "provider_unavailable": return text("unavailable");
+      case "no_ec2_credentials": return text("noKeys");
+      default: return extractApiError(failure, text("error"));
+    }
+  }, [text]);
+  return { text, errorText };
+}

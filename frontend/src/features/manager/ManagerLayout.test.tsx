@@ -19,6 +19,7 @@ import type { EffectiveUserAccess, ManagerToolAccess } from "../../api/users";
 
 const useExecutionContextMock = vi.fn();
 const useGeneralSettingsMock = vi.fn();
+const useOpenStackProjectSelectorMock = vi.fn();
 
 let capturedNavSections: SidebarSection[] = [];
 let capturedTopbarControlDescriptors: Array<{
@@ -32,6 +33,7 @@ let capturedAccountSelectorProps: {
   triggerMode?: string;
   widthClassName?: string;
   showTriggerTags?: boolean;
+  additionalOptions?: Array<{ value: string; label: string }>;
 } | null = null;
 
 vi.mock("./ExecutionContextProvider", () => ({
@@ -41,6 +43,10 @@ vi.mock("./ExecutionContextProvider", () => ({
 
 vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => useGeneralSettingsMock(),
+}));
+
+vi.mock("../shared/useOpenStackProjectSelector", () => ({
+  useOpenStackProjectSelector: (options: unknown) => useOpenStackProjectSelectorMock(options),
 }));
 
 vi.mock("../../components/Layout", () => ({
@@ -78,6 +84,7 @@ vi.mock("../../components/TopbarContextAccountSelector", () => ({
     triggerMode?: string;
     widthClassName?: string;
     showTriggerTags?: boolean;
+    additionalOptions?: Array<{ value: string; label: string }>;
     onContextChange: (id: string) => void;
   }) => {
     capturedAccountSelectorProps = props;
@@ -100,6 +107,7 @@ function buildContext(overrides?: Record<string, unknown>) {
       },
     ],
     selectedContextId: "s3u-1",
+    refreshContexts: vi.fn(async () => []),
     setSelectedS3AccountId: vi.fn(),
     requiresContextSelection: true,
     sessionAccountName: null,
@@ -182,6 +190,23 @@ describe("ManagerLayout", () => {
     capturedAccountSelectorProps = null;
     useExecutionContextMock.mockReset();
     useGeneralSettingsMock.mockReset();
+    useOpenStackProjectSelectorMock.mockReset();
+    useOpenStackProjectSelectorMock.mockImplementation(() => ({
+      candidateCount: 0,
+      candidatesLoaded: true,
+      selectorOptions: [],
+      handleContextChange: (value: string, fallback: (selected: string) => void) => fallback(value),
+      dialog: null,
+      reloadOptions: vi.fn(),
+      region: {
+        visible: false,
+        currentRegion: null,
+        currentTargetId: "",
+        options: [],
+        loading: false,
+        onChange: vi.fn(),
+      },
+    }));
     localStorage.clear();
   });
 
@@ -692,6 +717,41 @@ describe("ManagerLayout", () => {
       })
     );
     expect(capturedAccountSelectorProps?.widthClassName).toBe(TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS);
+  });
+
+  it("keeps discovered OpenStack projects selectable alongside an existing context", () => {
+    const selectorOptions = [{
+      value: "openstack-project-option:conn-1:project-a",
+      label: "Project A · OpenStack",
+    }];
+    useOpenStackProjectSelectorMock.mockReturnValue({
+      candidateCount: 1,
+      candidatesLoaded: true,
+      selectorOptions,
+      handleContextChange: (value: string, fallback: (selected: string) => void) => fallback(value),
+      dialog: null,
+      reloadOptions: vi.fn(),
+      region: {
+        visible: false,
+        currentRegion: null,
+        currentTargetId: "",
+        options: [],
+        loading: false,
+        onChange: vi.fn(),
+      },
+    });
+    useExecutionContextMock.mockReturnValue(buildContext({
+      contexts: [{ id: "ctx-1", display_name: "Primary", storage_endpoint_capabilities: {} }],
+      selectedContextId: "ctx-1",
+      selectedContextKind: "connection",
+      accessMode: "connection",
+    }));
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(<MemoryRouter initialEntries={["/manager"]}><ManagerLayout /></MemoryRouter>);
+
+    expect(screen.getByRole("button", { name: "Manager account selector" })).toBeInTheDocument();
+    expect(capturedAccountSelectorProps?.additionalOptions).toEqual(selectorOptions);
   });
 });
 

@@ -13,6 +13,7 @@ const EXECUTION_CONTEXT_STORAGE_KEY = CLIENT_STORAGE_KEYS.selectedBrowserExecuti
 type BrowserContextState = {
   contexts: ExecutionContext[];
   contextsLoaded: boolean;
+  refreshContexts: (preferredContextId?: string) => Promise<ExecutionContext[]>;
   selectedContextId: string | null;
   selectedContext: ExecutionContext | null;
   requiresContextSelection: boolean;
@@ -26,6 +27,7 @@ type BrowserContextState = {
 const Ctx = createContext<BrowserContextState>({
   contexts: [],
   contextsLoaded: false,
+  refreshContexts: async () => [],
   selectedContextId: null,
   selectedContext: null,
   requiresContextSelection: true,
@@ -40,6 +42,7 @@ export function BrowserContextProvider({ children }: { children: ReactNode }) {
   const {
     contexts,
     contextsLoaded,
+    refreshContexts,
     selectedContextId,
     selectedContext,
     requiresSelection: requiresContextSelection,
@@ -59,6 +62,7 @@ export function BrowserContextProvider({ children }: { children: ReactNode }) {
       value={{
         contexts,
         contextsLoaded,
+        refreshContexts,
         selectedContextId,
         selectedContext,
         requiresContextSelection,

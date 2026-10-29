@@ -161,7 +161,6 @@ class StorageEndpointsService:
         endpoint.features_config = config.features_config
         if old_target != cls._endpoint_target(endpoint):
             cls._invalidate_external_service_identities(endpoint)
-
     @staticmethod
     def _endpoint_target(endpoint: StorageEndpoint) -> tuple[str, str, str | None]:
         return (

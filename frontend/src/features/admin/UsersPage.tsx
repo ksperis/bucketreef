@@ -117,6 +117,7 @@ export default function UsersPage() {
   const currentIsAdminLike = isAdminLikeRole(currentUser?.role);
   const currentIsSuperAdmin = isSuperAdminRole(currentUser?.role);
   const cephAdminFeatureEnabled = generalSettings.ceph_admin_enabled;
+  const openStackEnabled = generalSettings.openstack_enabled;
   const showPortalRole = Boolean(generalSettings.portal_enabled);
   const principalEditRequest = useMemo(
     () => readAdminPrincipalEditRequest(typeof window === "undefined" ? "" : window.location.search),
@@ -139,6 +140,8 @@ export default function UsersPage() {
     groupsLoaded,
     groupsLoading,
     ensureGroups,
+    openStackClouds,
+    openStackCloudsLoading,
     ensureAssociationOptionsForTab,
   } = useAdminUserAssociationOptions();
   const [loading, setLoading] = useState(true);
@@ -169,6 +172,8 @@ export default function UsersPage() {
     setSelectedS3Users: setCreateSelectedS3Users,
     selectedS3Connections: createSelectedS3Connections,
     setSelectedS3Connections: setCreateSelectedS3Connections,
+    selectedOpenStackClouds: createSelectedOpenStackClouds,
+    setSelectedOpenStackClouds: setCreateSelectedOpenStackClouds,
     selectedGroups: createSelectedGroups,
     setSelectedGroups: setCreateSelectedGroups,
     accountAccessChoice: createAccountAccessChoice,
@@ -179,6 +184,8 @@ export default function UsersPage() {
     setS3Search: setCreateS3Search,
     connectionSearch: createConnectionSearch,
     setConnectionSearch: setCreateConnectionSearch,
+    openStackSearch: createOpenStackSearch,
+    setOpenStackSearch: setCreateOpenStackSearch,
     groupSearch: createGroupSearch,
     setGroupSearch: setCreateGroupSearch,
     associationsTab: createAssociationsTab,
@@ -195,6 +202,10 @@ export default function UsersPage() {
     setShowConnectionPanel: setShowCreateConnectionPanel,
     connectionSelections: createConnectionSelections,
     setConnectionSelections: setCreateConnectionSelections,
+    showOpenStackPanel: showCreateOpenStackPanel,
+    setShowOpenStackPanel: setShowCreateOpenStackPanel,
+    openStackSelections: createOpenStackSelections,
+    setOpenStackSelections: setCreateOpenStackSelections,
     showGroupPanel: showCreateGroupPanel,
     setShowGroupPanel: setShowCreateGroupPanel,
     groupSelections: createGroupSelections,
@@ -203,6 +214,7 @@ export default function UsersPage() {
     toggleAccountSelection: toggleCreateAccountSelection,
     toggleS3UserSelection: toggleCreateS3UserSelection,
     toggleConnectionSelection: toggleCreateConnectionSelection,
+    toggleOpenStackSelection: toggleCreateOpenStackSelection,
   } = useAdminUserAssociationEditorState();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<UpdateUserPayload>({});
@@ -217,6 +229,8 @@ export default function UsersPage() {
     setSelectedS3Users: setEditSelectedS3Users,
     selectedS3Connections: editSelectedS3Connections,
     setSelectedS3Connections: setEditSelectedS3Connections,
+    selectedOpenStackClouds: editSelectedOpenStackClouds,
+    setSelectedOpenStackClouds: setEditSelectedOpenStackClouds,
     selectedGroups: editSelectedGroups,
     setSelectedGroups: setEditSelectedGroups,
     accountAccessChoice: editAccountAccessChoice,
@@ -227,6 +241,8 @@ export default function UsersPage() {
     setS3Search: setEditS3Search,
     connectionSearch: editConnectionSearch,
     setConnectionSearch: setEditConnectionSearch,
+    openStackSearch: editOpenStackSearch,
+    setOpenStackSearch: setEditOpenStackSearch,
     groupSearch: editGroupSearch,
     setGroupSearch: setEditGroupSearch,
     associationsTab: editAssociationsTab,
@@ -243,6 +259,10 @@ export default function UsersPage() {
     setShowConnectionPanel: setShowEditConnectionPanel,
     connectionSelections: editConnectionSelections,
     setConnectionSelections: setEditConnectionSelections,
+    showOpenStackPanel: showEditOpenStackPanel,
+    setShowOpenStackPanel: setShowEditOpenStackPanel,
+    openStackSelections: editOpenStackSelections,
+    setOpenStackSelections: setEditOpenStackSelections,
     showGroupPanel: showEditGroupPanel,
     setShowGroupPanel: setShowEditGroupPanel,
     groupSelections: editGroupSelections,
@@ -252,6 +272,7 @@ export default function UsersPage() {
     toggleAccountSelection: toggleEditAccountSelection,
     toggleS3UserSelection: toggleEditS3UserSelection,
     toggleConnectionSelection: toggleEditConnectionSelection,
+    toggleOpenStackSelection: toggleEditOpenStackSelection,
   } = useAdminUserAssociationEditorState();
   const [busyId, setBusyId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
@@ -296,6 +317,14 @@ export default function UsersPage() {
     s3Connections.forEach((conn) => map.set(conn.id, conn.name));
     return map;
   }, [s3Connections]);
+  const openStackOptions = useMemo(
+    () => openStackClouds.map((cloud) => ({ id: cloud.id, label: cloud.name })),
+    [openStackClouds],
+  );
+  const openStackLabelById = useMemo(
+    () => new Map(openStackClouds.map((cloud) => [cloud.id, cloud.name] as const)),
+    [openStackClouds],
+  );
   const availableCreateS3Accounts = useMemo(() => {
     const query = createS3AccountSearch.trim().toLowerCase();
     const selectedIds = new Set(createSelectedS3Accounts.map((a) => Number(a.id)));
@@ -337,16 +366,38 @@ export default function UsersPage() {
         (!query || opt.label.toLowerCase().includes(query))
     );
   }, [s3SharedConnectionOptions, editSelectedS3Connections, editConnectionSearch]);
+  const availableCreateOpenStackClouds = useMemo(() => {
+    const query = createOpenStackSearch.trim().toLowerCase();
+    return openStackOptions.filter(
+      (option) =>
+        !createSelectedOpenStackClouds.includes(option.id) &&
+        (!query || option.label.toLowerCase().includes(query)),
+    );
+  }, [createOpenStackSearch, createSelectedOpenStackClouds, openStackOptions]);
+  const availableEditOpenStackClouds = useMemo(() => {
+    const query = editOpenStackSearch.trim().toLowerCase();
+    return openStackOptions.filter(
+      (option) =>
+        !editSelectedOpenStackClouds.includes(option.id) &&
+        (!query || option.label.toLowerCase().includes(query)),
+    );
+  }, [editOpenStackSearch, editSelectedOpenStackClouds, openStackOptions]);
   const visibleCreateGroups = useMemo(() => {
     const query = createGroupSearch.trim().toLowerCase();
     return groups.filter(
-      (group) => !createSelectedGroups.includes(group.id) && (!query || group.name.toLowerCase().includes(query))
+      (group) =>
+        !group.system_key &&
+        !createSelectedGroups.includes(group.id) &&
+        (!query || group.name.toLowerCase().includes(query))
     );
   }, [createGroupSearch, createSelectedGroups, groups]);
   const visibleEditGroups = useMemo(() => {
     const query = editGroupSearch.trim().toLowerCase();
     return groups.filter(
-      (group) => !editSelectedGroups.includes(group.id) && (!query || group.name.toLowerCase().includes(query))
+      (group) =>
+        !group.system_key &&
+        !editSelectedGroups.includes(group.id) &&
+        (!query || group.name.toLowerCase().includes(query))
     );
   }, [editGroupSearch, editSelectedGroups, groups]);
   const limitedOptions = <T,>(options: T[]) => options.slice(0, MAX_VISIBLE_OPTIONS);
@@ -356,6 +407,8 @@ export default function UsersPage() {
   const visibleCreateS3Connections = limitedOptions(availableCreateS3Connections);
   const visibleEditS3Users = limitedOptions(availableEditS3Users);
   const visibleEditS3Connections = limitedOptions(availableEditS3Connections);
+  const visibleCreateOpenStackClouds = limitedOptions(availableCreateOpenStackClouds);
+  const visibleEditOpenStackClouds = limitedOptions(availableEditOpenStackClouds);
   const displayUiRole = (role: UiRole) => {
     if (role === "ui_superadmin") return text("superadmin");
     if (role === "ui_admin") return text("admin");
@@ -445,10 +498,12 @@ export default function UsersPage() {
         selectedAccounts: createSelectedS3Accounts,
         selectedS3Users: createSelectedS3Users,
         selectedS3Connections: createSelectedS3Connections,
+        selectedOpenStackClouds: createSelectedOpenStackClouds,
         selectedGroups: createSelectedGroups,
         pendingAccountSelections: createAccountSelections,
         pendingS3UserSelections: createS3UserSelections,
         pendingConnectionSelections: createConnectionSelections,
+        pendingOpenStackSelections: createOpenStackSelections,
         pendingGroupSelections: createGroupSelections,
         accountAccessChoice: createAccountAccessChoice,
       }),
@@ -456,10 +511,12 @@ export default function UsersPage() {
       createAccountAccessChoice,
       createAccountSelections,
       createConnectionSelections,
+      createOpenStackSelections,
       createGroupSelections,
       createS3UserSelections,
       createSelectedS3Accounts,
       createSelectedS3Connections,
+      createSelectedOpenStackClouds,
       createSelectedGroups,
       createSelectedS3Users,
       form,
@@ -488,10 +545,12 @@ export default function UsersPage() {
         selectedAccounts: editSelectedS3Accounts,
         selectedS3Users: editSelectedS3Users,
         selectedS3Connections: editSelectedS3Connections,
+        selectedOpenStackClouds: editSelectedOpenStackClouds,
         selectedGroups: editSelectedGroups,
         pendingAccountSelections: editAccountSelections,
         pendingS3UserSelections: editS3UserSelections,
         pendingConnectionSelections: editConnectionSelections,
+        pendingOpenStackSelections: editOpenStackSelections,
         pendingGroupSelections: editGroupSelections,
         accountAccessChoice: editAccountAccessChoice,
       }),
@@ -499,11 +558,13 @@ export default function UsersPage() {
       editAccountAccessChoice,
       editAccountSelections,
       editConnectionSelections,
+      editOpenStackSelections,
       editGroupSelections,
       editForm,
       editS3UserSelections,
       editSelectedS3Accounts,
       editSelectedS3Connections,
+      editSelectedOpenStackClouds,
       editSelectedGroups,
       editSelectedS3Users,
     ]
@@ -600,6 +661,7 @@ export default function UsersPage() {
         : { ...DEFAULT_MANAGER_TOOL_ACCESS },
       browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
       group_ids: createSelectedGroups,
+      ...(openStackEnabled ? { openstack_cloud_ids: createSelectedOpenStackClouds } : {}),
     };
     savingRef.current = true;
     setCreating(true);
@@ -687,21 +749,26 @@ export default function UsersPage() {
       allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     }));
     const nextSelectedS3Connections = (user.s3_connection_details ?? []).map((connection) => Number(connection.id));
+    const nextSelectedOpenStackClouds = (user.openstack_cloud_details ?? []).map((cloud) => Number(cloud.id));
     const nextSelectedGroups = (user.group_details ?? []).map((group) => Number(group.id));
     const hasAccounts = selectedAccounts.length > 0;
     const hasS3Users = nextSelectedS3Users.length > 0;
     const hasConnections = nextSelectedS3Connections.length > 0;
+    const hasOpenStack = nextSelectedOpenStackClouds.length > 0;
     const initialAssociationsTab: AssociationTab = hasAccounts
       ? "accounts"
       : hasS3Users
         ? "s3_users"
         : hasConnections
           ? "connections"
+          : hasOpenStack
+            ? "openstack"
           : "accounts";
     resetEditAssociations({
       selectedS3Accounts: selectedAccounts,
       selectedS3Users: nextSelectedS3Users,
       selectedS3Connections: nextSelectedS3Connections,
+      selectedOpenStackClouds: nextSelectedOpenStackClouds,
       selectedGroups: nextSelectedGroups,
       associationsTab: initialAssociationsTab,
     });
@@ -711,10 +778,12 @@ export default function UsersPage() {
         selectedAccounts,
         selectedS3Users: nextSelectedS3Users,
         selectedS3Connections: nextSelectedS3Connections,
+        selectedOpenStackClouds: nextSelectedOpenStackClouds,
         selectedGroups: nextSelectedGroups,
         pendingAccountSelections: [],
         pendingS3UserSelections: [],
         pendingConnectionSelections: [],
+        pendingOpenStackSelections: [],
         pendingGroupSelections: [],
         accountAccessChoice: {},
       })
@@ -806,6 +875,7 @@ export default function UsersPage() {
       payload.group_ids = editSelectedGroups;
       payload.s3_user_links = editSelectedS3Users;
       payload.s3_connection_ids = editSelectedS3Connections;
+      if (openStackEnabled) payload.openstack_cloud_ids = editSelectedOpenStackClouds;
       const updatedUser = await runWithStepUp(() => updateUser(editingUser.id, payload));
       if (currentUserId !== null && currentUserId === editingUser.id && typeof window !== "undefined") {
         setSessionUserCache({ ...(readStoredUser() ?? {}), ...updatedUser });
@@ -833,10 +903,12 @@ export default function UsersPage() {
         selectedAccounts: editSelectedS3Accounts,
         selectedS3Users: editSelectedS3Users,
         selectedS3Connections: editSelectedS3Connections,
+        selectedOpenStackClouds: editSelectedOpenStackClouds,
         selectedGroups: editSelectedGroups,
         pendingAccountSelections: [],
         pendingS3UserSelections: [],
         pendingConnectionSelections: [],
+        pendingOpenStackSelections: [],
         pendingGroupSelections: [],
         accountAccessChoice: {},
       }));
@@ -983,6 +1055,7 @@ export default function UsersPage() {
                   setShowCreateAccountPanel(false);
                   setShowCreateS3UserPanel(false);
                   setShowCreateConnectionPanel(false);
+                  setShowCreateOpenStackPanel(false);
                   if (tabChanged) {
                     void ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
                   }
@@ -1036,6 +1109,21 @@ export default function UsersPage() {
                   setSelections: setCreateConnectionSelections,
                   toggleSelection: toggleCreateConnectionSelection,
                 }}
+                openstack={openStackEnabled ? {
+                  selected: createSelectedOpenStackClouds,
+                  setSelected: setCreateSelectedOpenStackClouds,
+                  labelById: openStackLabelById,
+                  available: availableCreateOpenStackClouds,
+                  visible: visibleCreateOpenStackClouds,
+                  search: createOpenStackSearch,
+                  setSearch: setCreateOpenStackSearch,
+                  loading: openStackCloudsLoading,
+                  showPanel: showCreateOpenStackPanel,
+                  setShowPanel: setShowCreateOpenStackPanel,
+                  selections: createOpenStackSelections,
+                  setSelections: setCreateOpenStackSelections,
+                  toggleSelection: toggleCreateOpenStackSelection,
+                } : undefined}
               />
             )}
 
@@ -1227,6 +1315,7 @@ export default function UsersPage() {
                   setShowEditAccountPanel(false);
                   setShowEditS3UserPanel(false);
                   setShowEditConnectionPanel(false);
+                  setShowEditOpenStackPanel(false);
                   if (tabChanged) {
                     void ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
                   }
@@ -1280,6 +1369,21 @@ export default function UsersPage() {
                   setSelections: setEditConnectionSelections,
                   toggleSelection: toggleEditConnectionSelection,
                 }}
+                openstack={openStackEnabled ? {
+                  selected: editSelectedOpenStackClouds,
+                  setSelected: setEditSelectedOpenStackClouds,
+                  labelById: openStackLabelById,
+                  available: availableEditOpenStackClouds,
+                  visible: visibleEditOpenStackClouds,
+                  search: editOpenStackSearch,
+                  setSearch: setEditOpenStackSearch,
+                  loading: openStackCloudsLoading,
+                  showPanel: showEditOpenStackPanel,
+                  setShowPanel: setShowEditOpenStackPanel,
+                  selections: editOpenStackSelections,
+                  setSelections: setEditOpenStackSelections,
+                  toggleSelection: toggleEditOpenStackSelection,
+                } : undefined}
               />
             )}
 

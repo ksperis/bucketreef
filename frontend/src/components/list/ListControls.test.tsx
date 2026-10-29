@@ -8,6 +8,7 @@ import {
   ListActionLink,
   ListActions,
   ListBadge,
+  ListSelectionBar,
   ListSelectionCheckbox,
 } from "./ListControls";
 
@@ -98,5 +99,15 @@ describe("listing actions", () => {
     await user.click(checkbox);
     expect(click).toHaveBeenCalledTimes(1);
     expect(change).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the shared selection bar presentation", () => {
+    render(<ListSelectionBar data-testid="selection-bar">2 selected</ListSelectionBar>);
+    expect(screen.getByTestId("selection-bar")).toHaveClass(
+      "ui-list-selection-bar",
+      "flex",
+      "items-center",
+      "justify-between",
+    );
   });
 });

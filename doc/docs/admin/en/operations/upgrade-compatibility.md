@@ -1,5 +1,35 @@
 # Operations: Upgrade and Compatibility Notes
 
+## OpenStack project connections
+
+Migration `0194_openstack_connect` adds optional clouds and session-bound
+credentials, plus the initiating-session reference on migrations. Deploy backend
+and frontend together for the new context types. No cloud or additional access
+is enabled automatically. Configure outbound policy and explicit grants before
+use; see [OpenStack connections](../storage/backends/openstack.md).
+
+Migration `0195_openstack_catalog_targets` moves OpenStack S3 execution targets
+from manually associated BucketReef Storage Endpoints to the scoped Keystone
+service catalog. Existing project contexts are retained only as legacy markers
+and require explicit project reactivation before they can execute. The obsolete
+`openstack_cloud_endpoints` association is removed. Deploy backend and frontend
+together because project activation now exchanges a Keystone `target_id`, and
+the selected region/URL are part of the session-bound execution context. The
+migration also adds `openstack_clouds.managed_endpoints_only`, defaulting to
+false. Catalog targets whose canonical S3 URL matches a current Storage Endpoint
+are associated dynamically; enabling the policy restricts activation to those
+managed matches while keeping other Keystone regions visible as disabled choices.
+
+Migration `0196_openstack_all_users_group` moves OpenStack cloud admission into
+the standard UI User/UI Group association model. The previous per-cloud global
+`all_users` flag is represented by a built-in **All users** UI group whose
+membership is implicit for every active UI user, including users created later.
+Existing direct user and group cloud links are preserved. If an existing custom
+group already uses the reserved **All users** name, the migration preserves it
+under a deterministic **All users (custom)** name before creating the system
+group. Deploy backend and frontend together because cloud create/update payloads
+no longer carry user, group, or global-access fields.
+
 ## 2026-10 Ceph Admin multisite diagnostics
 
 Multisite topology and diagnostic endpoint selection are discovered live from

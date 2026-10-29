@@ -58,6 +58,8 @@ def _require_supervision_access(
     disabled_detail: str,
     required_feature: Literal["metrics", "usage"],
 ) -> ManagerActor:
+    if isinstance(context, S3ExecutionContext) and context.context_kind == "openstack_project":
+        raise HTTPException(403, "RGW administrative metrics are unavailable for OpenStack contexts")
     caps = require_manager_capabilities(context)
     _require_usage_metrics_policy(context, db)
     _require_supervision_actor_capabilities(actor, caps)
@@ -231,11 +233,14 @@ def ensure_manager_tool_allowed(user: User, tool: ManagerToolKey, db: Session) -
 
 
 def get_current_bucket_migration_scope(
+    request: Request = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> BucketMigrationAccessScope:
     effective = ensure_manager_tool_allowed(user, "bucket_migration", db=db)
-    return EffectiveAccessService(db).build_bucket_migration_scope(user, resolved=effective)
+    from app.services.auth_session_guards import current_auth_session
+    auth_id = current_auth_session(request, db).id if request and request.cookies and not request.headers.get("authorization") else None
+    return EffectiveAccessService(db).build_bucket_migration_scope(user, resolved=effective, auth_session_id=auth_id)
 
 
 def require_bucket_compare_enabled(user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
@@ -347,6 +352,12 @@ def require_manager_enabled(db: Session = Depends(get_db)) -> None:
     settings = app_settings_service.load_app_settings_for_db_readonly(db)
     if not settings.general.manager_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager feature is disabled")
+
+
+def require_openstack_enabled(db: Session = Depends(get_db)) -> None:
+    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    if not settings.general.openstack_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="OpenStack feature is disabled")
 
 
 def require_ceph_admin_enabled(db: Session = Depends(get_db)) -> None:

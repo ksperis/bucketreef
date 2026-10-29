@@ -20,6 +20,9 @@ from app.db import (
     User,
     UserUiGroup,
 )
+from app.db.openstack import OpenStackCloud, cloud_groups
+from app.db.ui_group import ALL_USERS_SYSTEM_KEY
+from app.models.openstack import LinkedOpenStackCloud
 from app.models.ui_group import LinkedS3Account, UiGroupCreate, UiGroupOut, UiGroupSummary, UiGroupUpdate
 from app.models.user import (
     AccountMembership,
@@ -60,9 +63,11 @@ class _UiGroupOutputPreload:
     account_links: list[UiGroupS3Account]
     s3_user_links: list[UiGroupS3User]
     s3_connection_ids: list[int]
+    openstack_cloud_ids: list[int]
     account_names: dict[int, tuple[str, str]]
     s3_user_names: dict[int, str]
     s3_connection_names: dict[int, str]
+    openstack_cloud_names: dict[int, str]
 
 
 class UiGroupsService:
@@ -133,6 +138,8 @@ class UiGroupsService:
         self._set_account_links(group, payload.account_links)
         self._set_s3_user_links(group, payload.s3_user_links)
         self._set_s3_connection_links(group, payload.s3_connection_ids)
+        if payload.openstack_cloud_ids:
+            self._set_openstack_cloud_links(group, payload.openstack_cloud_ids)
         self.db.flush()
         self._commit_portal_role_changes(
             before=portal_roles_before,
@@ -180,6 +187,8 @@ class UiGroupsService:
 
     def _apply_group_update(self, group: UiGroup, payload: UiGroupUpdate) -> None:
         if payload.name is not None:
+            if group.system_key and payload.name.strip() != group.name:
+                raise ValueError("System groups cannot be renamed")
             group.name = self._available_name(payload.name, exclude_id=group.id)
         if payload.description is not None:
             group.description = normalize_optional_string(payload.description)
@@ -193,6 +202,8 @@ class UiGroupsService:
             for column, value in manager_tool_column_values(payload.manager_tool_access).items():
                 setattr(group, column, value)
         if payload.user_ids is not None:
+            if group.system_key:
+                raise ValueError("System groups use implicit membership")
             self._set_user_links(group, payload.user_ids)
         if payload.account_links is not None:
             self._set_account_links(group, payload.account_links)
@@ -200,11 +211,15 @@ class UiGroupsService:
             self._set_s3_user_links(group, payload.s3_user_links)
         if payload.s3_connection_ids is not None:
             self._set_s3_connection_links(group, payload.s3_connection_ids)
+        if payload.openstack_cloud_ids is not None:
+            self._set_openstack_cloud_links(group, payload.openstack_cloud_ids)
 
     def delete_group(self, group_id: int) -> None:
         group = self.db.get(UiGroup, group_id)
         if not group:
             raise UiGroupNotFoundError("UI group not found")
+        if group.system_key:
+            raise ValueError("System groups cannot be deleted")
         affected_user_ids, affected_account_ids = self._existing_portal_scope(group.id)
         portal_roles_before = capture_effective_portal_roles(
             self.db,
@@ -226,7 +241,15 @@ class UiGroupsService:
     def list_groups_minimal(self) -> list[UiGroupSummary]:
         rows = self.db.scalars(select(UiGroup).order_by(*name_order_by(UiGroup))).all()
         avatar_service = UiGroupAvatarService(self.db)
-        return [UiGroupSummary(id=row.id, name=row.name, avatar=avatar_service.descriptor(row)) for row in rows]
+        return [
+            UiGroupSummary(
+                id=row.id,
+                name=row.name,
+                system_key=row.system_key,
+                avatar=avatar_service.descriptor(row),
+            )
+            for row in rows
+        ]
 
     @staticmethod
     def _apply_group_search(statement, search_value: str):
@@ -236,6 +259,7 @@ class UiGroupsService:
         account = aliased(S3Account)
         s3_user = aliased(S3User)
         connection = aliased(S3Connection)
+        openstack_cloud = aliased(OpenStackCloud)
         pattern = f"%{search_value}%"
         return (
             statement.outerjoin(UserUiGroup, UiGroup.id == UserUiGroup.group_id)
@@ -252,6 +276,8 @@ class UiGroupsService:
                     connection.is_shared.is_(True),
                 ),
             )
+            .outerjoin(cloud_groups, UiGroup.id == cloud_groups.c.group_id)
+            .outerjoin(openstack_cloud, cloud_groups.c.cloud_id == openstack_cloud.id)
             .where(
                 or_(
                     UiGroup.name.ilike(pattern),
@@ -262,6 +288,7 @@ class UiGroupsService:
                     func.coalesce(s3_user.name, "").ilike(pattern),
                     func.coalesce(s3_user.rgw_user_uid, "").ilike(pattern),
                     func.coalesce(connection.name, "").ilike(pattern),
+                    func.coalesce(openstack_cloud.name, "").ilike(pattern),
                 )
             )
             .distinct()
@@ -328,20 +355,32 @@ class UiGroupsService:
                 S3Connection.is_shared.is_(True),
             )
         ).all()
+        openstack_rows = self.db.execute(
+            select(OpenStackCloud.id, OpenStackCloud.name)
+            .join(cloud_groups, cloud_groups.c.cloud_id == OpenStackCloud.id)
+            .where(cloud_groups.c.group_id == group_id)
+            .order_by(OpenStackCloud.name.asc(), OpenStackCloud.id.asc())
+        ).all()
         s3_user_ids = sorted(row.s3_user_id for row in s3_user_rows)
         s3_connection_ids = sorted(s3_connection_ids)
+        openstack_cloud_ids = [int(cloud_id) for cloud_id, _ in openstack_rows]
         account_ids = sorted(link.account_id for link in account_rows)
         return _UiGroupOutputPreload(
             users=user_rows,
             account_links=account_rows,
             s3_user_links=s3_user_rows,
             s3_connection_ids=s3_connection_ids,
+            openstack_cloud_ids=openstack_cloud_ids,
             account_names=self._load_account_names(account_ids),
             s3_user_names=load_s3_user_names(self.db, s3_user_ids),
             s3_connection_names=load_shared_s3_connection_names(
                 self.db,
                 s3_connection_ids,
             ),
+            openstack_cloud_names={
+                int(cloud_id): str(cloud_name)
+                for cloud_id, cloud_name in openstack_rows
+            },
         )
 
     def _group_user_details(self, users: list[User]) -> list[UserSummary]:
@@ -422,6 +461,7 @@ class UiGroupsService:
         return UiGroupOut(
             id=group.id,
             name=group.name,
+            system_key=group.system_key,
             description=group.description,
             avatar=UiGroupAvatarService(self.db).descriptor(group),
             can_access_ceph_admin=bool(group.can_access_ceph_admin),
@@ -439,6 +479,13 @@ class UiGroupsService:
                 preload.s3_connection_ids,
                 preload.s3_connection_names,
             ),
+            openstack_cloud_details=[
+                LinkedOpenStackCloud(
+                    id=cloud_id,
+                    name=preload.openstack_cloud_names[cloud_id],
+                )
+                for cloud_id in preload.openstack_cloud_ids
+            ],
             created_at=group.created_at,
             updated_at=group.updated_at,
         )
@@ -456,9 +503,25 @@ class UiGroupsService:
         ).all()
         existing_ids = {link.user_id for link in existing}
         desired_ids = set(cleaned_ids)
+        changed_user_ids = existing_ids ^ desired_ids
+        affected_cloud_ids = {
+            int(cloud_id)
+            for cloud_id in self.db.scalars(
+                select(cloud_groups.c.cloud_id).where(
+                    cloud_groups.c.group_id == group.id
+                )
+            ).all()
+        }
         self._delete_removed_user_links(group.id, existing_ids - desired_ids)
         for user_id in desired_ids - existing_ids:
             self.db.add(UserUiGroup(user_id=user_id, group_id=group.id))
+        if changed_user_ids and affected_cloud_ids:
+            from app.services.openstack_service import OpenStackService
+
+            OpenStackService(self.db).invalidate_user_access(
+                {int(user_id) for user_id in changed_user_ids},
+                affected_cloud_ids,
+            )
 
     def _set_account_links(self, group: UiGroup, links: list[AccountMembership]) -> None:
         cleaned = {int(link.account_id): link for link in links}
@@ -555,6 +618,52 @@ class UiGroupsService:
             )
         for connection_id in desired_ids - existing_ids:
             self.db.add(UiGroupS3Connection(group_id=group.id, s3_connection_id=connection_id))
+
+    def _set_openstack_cloud_links(self, group: UiGroup, target_ids: list[int]) -> None:
+        from app.services.openstack_service import OpenStackService
+
+        service = OpenStackService(self.db)
+        service.require_enabled()
+        cleaned_ids = set(self._clean_ids(target_ids))
+        ensure_association_ids_exist(
+            self.db,
+            OpenStackCloud.id,
+            cleaned_ids,
+            entity_label="OpenStack clouds",
+        )
+        existing_ids = {
+            int(cloud_id)
+            for cloud_id in self.db.scalars(
+                select(cloud_groups.c.cloud_id).where(cloud_groups.c.group_id == group.id)
+            ).all()
+        }
+        changed_ids = existing_ids ^ cleaned_ids
+        if not changed_ids:
+            return
+        to_remove = existing_ids - cleaned_ids
+        to_add = cleaned_ids - existing_ids
+        if to_remove:
+            self.db.execute(
+                delete(cloud_groups).where(
+                    cloud_groups.c.group_id == group.id,
+                    cloud_groups.c.cloud_id.in_(to_remove),
+                )
+            )
+        for cloud_id in to_add:
+            self.db.execute(
+                cloud_groups.insert().values(cloud_id=cloud_id, group_id=group.id)
+            )
+
+        if group.system_key == ALL_USERS_SYSTEM_KEY:
+            service.invalidate_cloud_access(changed_ids)
+            return
+        user_ids = {
+            int(user_id)
+            for user_id in self.db.scalars(
+                select(UserUiGroup.user_id).where(UserUiGroup.group_id == group.id)
+            ).all()
+        }
+        service.invalidate_user_access(user_ids, changed_ids)
 
     def _clean_ids(self, ids: list[int]) -> list[int]:
         return sorted({int(item) for item in ids if item is not None})

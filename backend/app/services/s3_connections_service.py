@@ -275,11 +275,41 @@ class S3ConnectionsService:
         return row
 
     def create(self, user_id: int, payload: S3ConnectionCreate, *, commit: bool = True) -> S3Connection:
+        return self._create(
+            user_id,
+            payload,
+            commit=commit,
+            enforce_manual_endpoint_policy=True,
+        )
+
+    def create_from_validated_endpoint(
+        self,
+        user_id: int,
+        payload: S3ConnectionCreate,
+        *,
+        commit: bool = True,
+    ) -> S3Connection:
+        """Create a private connection from an endpoint validated by a trusted provider flow."""
+        return self._create(
+            user_id,
+            payload,
+            commit=commit,
+            enforce_manual_endpoint_policy=False,
+        )
+
+    def _create(
+        self,
+        user_id: int,
+        payload: S3ConnectionCreate,
+        *,
+        commit: bool,
+        enforce_manual_endpoint_policy: bool,
+    ) -> S3Connection:
         storage_endpoint_id, custom_endpoint_config = (
             self.endpoint_planner.plan(
                 None,
                 payload,
-                enforce_manual_endpoint_policy=True,
+                enforce_manual_endpoint_policy=enforce_manual_endpoint_policy,
             )
         )
         access_manager, access_browser = self._resolve_access_flags(

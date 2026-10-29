@@ -16,6 +16,7 @@ from app.db import (
     UserS3User,
     UserUiGroup,
 )
+from app.db.openstack import OpenStackCloud, cloud_groups, cloud_users
 from app.models.user import AccountMembership, S3UserMembership, UserUpdate
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.utils.time import utcnow
@@ -193,6 +194,50 @@ class UserAssociationsService:
                 )
             )
 
+    def set_openstack_cloud_links(
+        self,
+        user: User,
+        target_ids: list[int],
+    ) -> None:
+        from app.services.openstack_service import OpenStackService
+
+        openstack = OpenStackService(self.db)
+        openstack.require_enabled()
+        cleaned_ids = {
+            int(cloud_id)
+            for cloud_id in target_ids
+            if cloud_id is not None
+        }
+        ensure_association_ids_exist(
+            self.db,
+            OpenStackCloud.id,
+            cleaned_ids,
+            entity_label="OpenStack clouds",
+        )
+        existing_ids = {
+            int(cloud_id)
+            for cloud_id in self.db.scalars(
+                select(cloud_users.c.cloud_id).where(cloud_users.c.user_id == user.id)
+            ).all()
+        }
+        changed_ids = existing_ids ^ cleaned_ids
+        if not changed_ids:
+            return
+        to_remove = existing_ids - cleaned_ids
+        to_add = cleaned_ids - existing_ids
+        if to_remove:
+            self.db.execute(
+                delete(cloud_users).where(
+                    cloud_users.c.user_id == user.id,
+                    cloud_users.c.cloud_id.in_(to_remove),
+                )
+            )
+        for cloud_id in to_add:
+            self.db.execute(
+                cloud_users.insert().values(cloud_id=cloud_id, user_id=user.id)
+            )
+        openstack.invalidate_user_access({int(user.id)}, changed_ids)
+
     def set_group_links(self, user: User, target_ids: list[int]) -> None:
         cleaned_ids = {
             int(group_id)
@@ -209,8 +254,26 @@ class UserAssociationsService:
             cleaned_ids,
             entity_label="UI groups",
         )
+        if cleaned_ids:
+            system_group_id = self.db.scalar(
+                select(UiGroup.id).where(
+                    UiGroup.id.in_(cleaned_ids),
+                    UiGroup.system_key.is_not(None),
+                ).limit(1)
+            )
+            if system_group_id is not None:
+                raise ValueError("System groups use implicit membership")
         to_remove = existing_ids - cleaned_ids
         to_add = cleaned_ids - existing_ids
+        changed_group_ids = to_remove | to_add
+        affected_cloud_ids = {
+            int(cloud_id)
+            for cloud_id in self.db.scalars(
+                select(cloud_groups.c.cloud_id).where(
+                    cloud_groups.c.group_id.in_(changed_group_ids)
+                )
+            ).all()
+        } if changed_group_ids else set()
         if to_remove:
             self.db.execute(
                 delete(UserUiGroup)
@@ -222,6 +285,13 @@ class UserAssociationsService:
             )
         for group_id in to_add:
             self.db.add(UserUiGroup(user_id=user.id, group_id=group_id))
+        if affected_cloud_ids:
+            from app.services.openstack_service import OpenStackService
+
+            OpenStackService(self.db).invalidate_user_access(
+                {int(user.id)},
+                affected_cloud_ids,
+            )
 
     def groups_grant_ceph_admin(
         self,

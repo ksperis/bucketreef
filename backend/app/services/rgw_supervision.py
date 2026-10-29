@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.db import StorageEndpoint
 from app.services.rgw_admin import RGWAdminClient, get_rgw_admin_client
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
 
@@ -22,6 +22,8 @@ def _supervision_credentials_from_endpoint(endpoint: StorageEndpoint | None) -> 
 
 
 def get_supervision_credentials(execution_context: S3ExecutionTarget) -> tuple[str, str] | None:
+    if isinstance(execution_context, S3ExecutionContext) and execution_context.context_kind == "openstack_project":
+        return None
     return _supervision_credentials_from_endpoint(execution_context.storage_endpoint)
 
 

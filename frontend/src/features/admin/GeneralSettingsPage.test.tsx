@@ -55,6 +55,7 @@ function buildSettings(): AppSettings { return createAppSettings(); }
 function unlockedFeatureLocks(): GeneralFeatureLocks {
   return {
     manager_enabled: { forced: false, value: null, source: null },
+    openstack_enabled: { forced: false, value: null, source: null },
     ceph_admin_enabled: { forced: false, value: null, source: null },
     storage_ops_enabled: { forced: false, value: null, source: null },
     browser_enabled: { forced: false, value: null, source: null },
@@ -287,18 +288,35 @@ describe("GeneralSettingsPage branding", () => {
     expect(screen.queryByLabelText("Bucket compare tool")).not.toBeInTheDocument();
   });
 
-  it("shows Experimental badges on portal and cost feature toggles", async () => {
+  it("shows Experimental badges on OpenStack, Portal, and Cost feature toggles", async () => {
     renderPage();
 
+    const openStackToggle = await screen.findByLabelText("OpenStack feature");
     const portalToggle = await screen.findByLabelText("Portal feature");
     const costToggle = screen.getByLabelText("Cost feature");
+    const openStackRow = openStackToggle.closest(".settings-item-compact");
     const portalRow = portalToggle.closest(".settings-item-compact");
     const costRow = costToggle.closest(".settings-item-compact");
 
+    expect(openStackRow).not.toBeNull();
     expect(portalRow).not.toBeNull();
     expect(costRow).not.toBeNull();
+    expect(within(openStackRow as HTMLElement).getByText("Experimental")).toBeInTheDocument();
     expect(within(portalRow as HTMLElement).getByText("Experimental")).toBeInTheDocument();
     expect(within(costRow as HTMLElement).getByText("Experimental")).toBeInTheDocument();
+  });
+
+  it("places OpenStack after Storage Ops in available workspaces", async () => {
+    renderPage();
+
+    const storageOpsToggle = await screen.findByLabelText("Storage Ops feature");
+    const openStackToggle = screen.getByLabelText("OpenStack feature");
+    const storageOpsRow = storageOpsToggle.closest(".settings-item-compact");
+    const openStackRow = openStackToggle.closest(".settings-item-compact");
+
+    expect(storageOpsRow).not.toBeNull();
+    expect(openStackRow).not.toBeNull();
+    expect(storageOpsRow?.nextElementSibling).toBe(openStackRow);
   });
 
   it("sends a quota SMTP test email with current quota notification settings", async () => {

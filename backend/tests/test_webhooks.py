@@ -229,6 +229,22 @@ def test_literal_persisted_audit_actions_are_present_in_webhook_catalog():
     assert missing == []
 
 
+def test_openstack_audit_actions_are_present_in_webhook_catalog():
+    expected = {
+        "audit.admin.openstack.cloud.create",
+        "audit.admin.openstack.cloud.delete",
+        "audit.admin.openstack.cloud.update",
+        "audit.auth.connection.create.openstack",
+        "audit.auth.openstack.connect",
+        "audit.auth.openstack.connect.failure",
+        "audit.auth.openstack.connection.forget",
+        "audit.auth.openstack.context.activate",
+        "audit.auth.openstack.disconnect",
+    }
+
+    assert expected <= KNOWN_WEBHOOK_EVENT_TYPES
+
+
 def test_transactional_webhook_failure_rolls_back_only_webhook_savepoint(db_session, monkeypatch):
     endpoint = _create_endpoint(db_session, monkeypatch, name="savepoint", event_types=["*"])
     business_user = User(

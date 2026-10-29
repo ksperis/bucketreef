@@ -21,6 +21,15 @@ vi.mock("../ThemeToggle", () => ({
 vi.mock("../GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     generalSettings: {
+      openstack_enabled: true,
+    },
+    runtimeSurfaces: {
+      admin: true,
+      ceph_admin: true,
+      storage_ops: true,
+      manager: true,
+      portal: true,
+      browser: true,
     },
   }),
 }));
@@ -191,7 +200,7 @@ describe("Topbar account menu", () => {
     expect(screen.queryByRole("menuitem", { name: /api tokens/i })).not.toBeInTheDocument();
   });
 
-  it("links profile and private connections to the shared profile page", async () => {
+  it("links profile, private connections, and OpenStack to the shared profile page", async () => {
     const user = userEvent.setup();
     renderTopbar(<Topbar userEmail="admin@example.com" profilePath="/admin/profile" />);
 
@@ -200,6 +209,10 @@ describe("Topbar account menu", () => {
     expect(screen.getByRole("menuitem", { name: /private s3 connections/i })).toHaveAttribute(
       "href",
       "/admin/profile?tab=connections"
+    );
+    expect(screen.getByRole("menuitem", { name: /openstack/i })).toHaveAttribute(
+      "href",
+      "/admin/profile?tab=openstack"
     );
     expect(screen.queryByRole("dialog", { name: /user profile|private s3 connections/i })).not.toBeInTheDocument();
   });

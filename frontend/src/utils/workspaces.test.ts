@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DEFAULT_RUNTIME_SURFACES, type GeneralSettings } from "../api/appSettings";
 import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
 import type { EffectiveUserAccess } from "../api/users";
+import type { WorkspaceAccess } from "../api/executionContexts";
 import type { SessionUser } from "./workspaces";
-import { resolveAvailableWorkspacesWithFlags, resolvePostLoginPath } from "./workspaces";
+import { resolveAvailableWorkspacesWithFlags, resolvePostLoginPath, resolvePostLoginPathWithWorkspaceAccess } from "./workspaces";
 
 const NO_MANAGER_TOOLS = {
   bucket_compare: false,
@@ -59,6 +60,7 @@ const baseSettings: GeneralSettings = {
   allow_managed_rgw_tenant_creation: false,
   documentation_base_url: "https://docs.bucketreef.ksperis.com",
   manager_enabled: true,
+  openstack_enabled: false,
   ceph_admin_enabled: true,
   storage_ops_enabled: false,
   browser_enabled: true,
@@ -462,5 +464,16 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
     };
 
     expect(resolvePostLoginPath(user, { ...baseSettings, portal_enabled: true })).toBe("/portal");
+  });
+
+  it.each([true, false])("routes a contextless user according to OpenStack cloud admission (%s)", (allowed) => {
+    const user: SessionUser = { id: 13, email: "cloud-only@example.test", role: "ui_user", effective_access: effectiveAccess() };
+    const unavailable = { available: false, context_count: 0 };
+    const access: WorkspaceAccess = {
+      admin: unavailable, ceph_admin: unavailable, storage_ops: unavailable,
+      manager: unavailable, browser: unavailable, portal: unavailable,
+      default_workspace: null, openstack_connect_available: allowed,
+    };
+    expect(resolvePostLoginPathWithWorkspaceAccess(user, baseSettings, access)).toBe(allowed ? "/profile?tab=openstack" : "/unauthorized");
   });
 });

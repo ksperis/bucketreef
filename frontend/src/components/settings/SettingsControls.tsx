@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { type ComponentProps, type ReactNode, useId } from "react";
+import { forwardRef, type ComponentProps, type ReactNode, useId } from "react";
 import Modal from "../Modal";
 import UiButton from "../ui/UiButton";
 import UiInput from "../ui/UiInput";
@@ -11,33 +11,31 @@ function settingsLabelClass(className?: string) {
   return className ? `settings-label ${className}` : "settings-label";
 }
 
-export function SettingsInput({
-  className = "",
-  labelClassName,
-  ...props
-}: ComponentProps<typeof UiInput>) {
-  return (
-    <UiInput
-      {...props}
-      className={`settings-control ${className}`}
-      labelClassName={settingsLabelClass(labelClassName)}
-    />
-  );
-}
+export const SettingsInput = forwardRef<HTMLInputElement, ComponentProps<typeof UiInput>>(
+  function SettingsInput({ className = "", labelClassName, ...props }, ref) {
+    return (
+      <UiInput
+        {...props}
+        ref={ref}
+        className={`settings-control ${className}`}
+        labelClassName={settingsLabelClass(labelClassName)}
+      />
+    );
+  },
+);
 
-export function SettingsSelect({
-  className = "",
-  labelClassName,
-  ...props
-}: ComponentProps<typeof UiSelect>) {
-  return (
-    <UiSelect
-      {...props}
-      className={`settings-control ${className}`}
-      labelClassName={settingsLabelClass(labelClassName)}
-    />
-  );
-}
+export const SettingsSelect = forwardRef<HTMLSelectElement, ComponentProps<typeof UiSelect>>(
+  function SettingsSelect({ className = "", labelClassName, ...props }, ref) {
+    return (
+      <UiSelect
+        {...props}
+        ref={ref}
+        className={`settings-control ${className}`}
+        labelClassName={settingsLabelClass(labelClassName)}
+      />
+    );
+  },
+);
 
 export function SettingsButton({
   className = "",

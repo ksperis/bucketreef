@@ -1,16 +1,16 @@
 flowchart LR
     %% Generated from backend/app/db SQLAlchemy models via app.db.Base.metadata.
     identity_ui_access["Identity and UI access<br/>21 tables"]
-    storage_s3_execution["Storage and S3 execution<br/>15 tables"]
+    storage_s3_execution["Storage and S3 execution<br/>22 tables"]
     tags_classification["Tags and classification<br/>6 tables"]
     portal["Portal<br/>6 tables"]
     operations_audit["Operations and audit<br/>11 tables"]
     observability_quota_cost["Observability quota and cost<br/>11 tables"]
     observability_quota_cost -->|"20 FK"| storage_s3_execution
-    operations_audit -->|"4 FK"| identity_ui_access
+    operations_audit -->|"5 FK"| identity_ui_access
     operations_audit -->|"3 FK"| storage_s3_execution
     portal -->|"8 FK"| identity_ui_access
     portal -->|"4 FK"| storage_s3_execution
-    storage_s3_execution -->|"9 FK"| identity_ui_access
+    storage_s3_execution -->|"13 FK"| identity_ui_access
     tags_classification -->|"1 FK"| identity_ui_access
     tags_classification -->|"5 FK"| storage_s3_execution

@@ -69,6 +69,7 @@ export type GeneralConfiguration = {
   allow_managed_rgw_tenant_creation: boolean;
   documentation_base_url: string;
   manager_enabled: boolean;
+  openstack_enabled: boolean;
   ceph_admin_enabled: boolean;
   storage_ops_enabled: boolean;
   browser_enabled: boolean;
@@ -120,6 +121,7 @@ export type GeneralFeatureLock = {
 
 export type GeneralFeatureLocks = {
   manager_enabled: GeneralFeatureLock;
+  openstack_enabled: GeneralFeatureLock;
   ceph_admin_enabled: GeneralFeatureLock;
   storage_ops_enabled: GeneralFeatureLock;
   browser_enabled: GeneralFeatureLock;

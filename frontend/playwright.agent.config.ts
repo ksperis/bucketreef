@@ -25,6 +25,12 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "agent-openstack",
+      dependencies: ["setup"],
+      testMatch: "agent-ui/openstack.spec.ts",
+      use: { browserName: "chromium", storageState: E2E_ADMIN_STORAGE_STATE_PATH, video: "off" },
+    },
+    {
       name: "setup",
       testMatch: "setup/**/*.setup.ts",
     },

@@ -46,6 +46,19 @@ export function LinkIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+export function OpenStackIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={1.7}
+        d="M5.7 15.5h8.1a3.2 3.2 0 0 0 .5-6.4A4.7 4.7 0 0 0 5.4 8a3.8 3.8 0 0 0 .3 7.5Z"
+      />
+    </svg>
+  );
+}
+
 export function BellIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>

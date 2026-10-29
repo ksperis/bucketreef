@@ -5,6 +5,7 @@ import logging
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.s3_execution_context import (
+    S3ExecutionContext,
     S3ExecutionTarget,
     is_ceph_admin_execution_context,
 )
@@ -56,6 +57,8 @@ logger = logging.getLogger(__name__)
 
 class BucketConfigurationService:
     def _rgw_bucket_quota_admin_for_context(self, execution_context: S3ExecutionTarget):
+        if isinstance(execution_context, S3ExecutionContext) and execution_context.context_kind == "openstack_project":
+            raise RuntimeError("Admin Ops are not available for OpenStack project contexts")
         endpoint = execution_context.storage_endpoint
         if endpoint is None:
             raise RuntimeError("Storage endpoint is not configured for this context")

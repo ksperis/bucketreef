@@ -6,7 +6,7 @@ import client, { timeoutForRequestProfile } from "./client";
 import type { ManagerAccountRole, PortalAccountRole } from "./accountAccess";
 import type { TagDefinitionSummary } from "./tags";
 
-export type ExecutionContextKind = "account" | "connection" | "s3_user" | "portal_account";
+export type ExecutionContextKind = "account" | "connection" | "s3_user" | "portal_account" | "openstack_project";
 
 export type ExecutionContextCapabilities = {
   can_manage_iam: boolean;
@@ -31,6 +31,14 @@ export type ExecutionContext = {
   endpoint_url: string;
   storage_endpoint_capabilities: Record<string, boolean>;
   capabilities: ExecutionContextCapabilities;
+  openstack?: {
+    connection_id: string;
+    cloud_name: string;
+    identity_name: string;
+    project_id: string;
+    project_name: string;
+    region_id: string;
+  } | null;
 };
 
 type ExecutionWorkspace = "manager" | "browser";
@@ -48,6 +56,7 @@ export async function listExecutionContexts(
 }
 
 export type WorkspaceAccess = {
+  openstack_connect_available?: boolean;
   admin: { available: boolean; context_count: number };
   ceph_admin: { available: boolean; context_count: number };
   storage_ops: { available: boolean; context_count: number };

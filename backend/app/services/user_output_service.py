@@ -16,6 +16,8 @@ from app.db import (
     UserUiGroup,
     is_admin_ui_role,
 )
+from app.db.openstack import OpenStackCloud, cloud_users
+from app.models.openstack import LinkedOpenStackCloud
 from app.models.user import (
     AccountMembership,
     LinkedS3Connection,
@@ -40,6 +42,8 @@ class UserOutputPreload:
     s3_user_names: dict[int, str]
     connection_ids_by_user: dict[int, list[int]]
     connection_names: dict[int, str]
+    openstack_cloud_ids_by_user: dict[int, list[int]]
+    openstack_cloud_names: dict[int, str]
 
 
 class UserOutputService:
@@ -58,6 +62,8 @@ class UserOutputService:
             s3_user_names={},
             connection_ids_by_user={user_id: [] for user_id in user_ids},
             connection_names={},
+            openstack_cloud_ids_by_user={user_id: [] for user_id in user_ids},
+            openstack_cloud_names={},
         )
 
     def _load_account_links(
@@ -153,6 +159,29 @@ class UserOutputService:
             connection_names[connection_id] = connection_name
         return ids_by_user, connection_names
 
+    def _load_openstack_cloud_links(
+        self,
+        user_ids: list[int],
+    ) -> tuple[dict[int, list[int]], dict[int, str]]:
+        ids_by_user = {user_id: [] for user_id in user_ids}
+        rows = self.db.execute(
+            select(
+                cloud_users.c.user_id,
+                OpenStackCloud.id,
+                OpenStackCloud.name,
+            )
+            .join(OpenStackCloud, OpenStackCloud.id == cloud_users.c.cloud_id)
+            .where(cloud_users.c.user_id.in_(user_ids))
+            .order_by(OpenStackCloud.name.asc(), OpenStackCloud.id.asc())
+        ).all()
+        names: dict[int, str] = {}
+        for user_id_raw, cloud_id_raw, cloud_name in rows:
+            user_id = int(user_id_raw)
+            cloud_id = int(cloud_id_raw)
+            ids_by_user[user_id].append(cloud_id)
+            names[cloud_id] = str(cloud_name)
+        return ids_by_user, names
+
     def preload(self, users: list[User]) -> UserOutputPreload:
         user_ids = [int(user.id) for user in users]
         if not user_ids:
@@ -162,6 +191,7 @@ class UserOutputService:
         group_ids_by_user, group_names = self._load_group_links(user_ids)
         s3_user_links_by_user, s3_user_ids = self._load_s3_user_links(user_ids)
         connection_ids_by_user, connection_names = self._load_connection_links(user_ids)
+        openstack_cloud_ids_by_user, openstack_cloud_names = self._load_openstack_cloud_links(user_ids)
 
         return UserOutputPreload(
             account_links_by_user=account_links_by_user,
@@ -171,6 +201,8 @@ class UserOutputService:
             s3_user_names=load_s3_user_names(self.db, sorted(s3_user_ids)),
             connection_ids_by_user=connection_ids_by_user,
             connection_names=connection_names,
+            openstack_cloud_ids_by_user=openstack_cloud_ids_by_user,
+            openstack_cloud_names=openstack_cloud_names,
         )
 
     @staticmethod
@@ -198,6 +230,17 @@ class UserOutputService:
         ]
 
     @staticmethod
+    def _openstack_cloud_details(
+        cloud_ids: list[int],
+        names: dict[int, str],
+    ) -> list[LinkedOpenStackCloud]:
+        return [
+            LinkedOpenStackCloud(id=cloud_id, name=names[cloud_id])
+            for cloud_id in cloud_ids
+            if cloud_id in names
+        ]
+
+    @staticmethod
     def _group_details(
         group_ids: list[int],
         names: dict[int, str],
@@ -222,6 +265,7 @@ class UserOutputService:
         group_ids = projection.group_ids_by_user.get(user_id, [])
         s3_user_links = projection.s3_user_links_by_user.get(user_id, [])
         s3_connection_ids = projection.connection_ids_by_user.get(user_id, [])
+        openstack_cloud_ids = projection.openstack_cloud_ids_by_user.get(user_id, [])
 
         return UserOut(
             id=user.id,
@@ -258,6 +302,10 @@ class UserOutputService:
             s3_connection_details=self._connection_details(
                 s3_connection_ids,
                 projection.connection_names,
+            ),
+            openstack_cloud_details=self._openstack_cloud_details(
+                openstack_cloud_ids,
+                projection.openstack_cloud_names,
             ),
             effective_access=EffectiveAccessService(
                 self.db

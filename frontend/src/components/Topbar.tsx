@@ -6,6 +6,7 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { EffectiveUserAccess, UiRole, UserAvatarDescriptor } from "../api/users";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import {
+  canAccessOpenStackProfileSection,
   canAccessPrivateConnectionsSection,
   readStoredUser,
   SESSION_USER_UPDATED_EVENT,
@@ -18,6 +19,7 @@ import TopbarWorkspaceSelector from "./TopbarWorkspaceSelector";
 import { HamburgerIcon } from "./topbarIcons";
 import type { TopbarControlDescriptor } from "./topbarControlsLayout";
 import { useShellI18n, type ShellText } from "./shellMessages";
+import { useGeneralSettings } from "./GeneralSettingsContext";
 
 type TopbarProps = {
   projectName?: string;
@@ -75,12 +77,18 @@ export default function Topbar({
   profilePath = "/",
 }: TopbarProps) {
   const { text } = useShellI18n();
+  const { generalSettings, runtimeSurfaces } = useGeneralSettings();
   const [storedUser, setStoredUser] = useState<StoredTopbarUser | null>(
     () => readStoredUser() as StoredTopbarUser | null,
   );
   const isS3Session = storedUser?.authType === "s3_session";
   const canAccessPrivateConnections =
     !isS3Session && canAccessPrivateConnectionsSection(storedUser);
+  const canAccessOpenStack = canAccessOpenStackProfileSection(
+    storedUser,
+    runtimeSurfaces,
+    generalSettings.openstack_enabled,
+  );
   const uiRoleLabel = useMemo(() => resolveUiRoleLabel(storedUser, text), [storedUser, text]);
 
   const isMobileViewport = useMediaQuery("(max-width: 767px)");
@@ -219,6 +227,7 @@ export default function Topbar({
               name={accountName}
               roleLabel={uiRoleLabel}
               canAccessPrivateConnections={canAccessPrivateConnections}
+              canAccessOpenStack={canAccessOpenStack}
               profilePath={profilePath}
               onLogout={onLogout}
             />

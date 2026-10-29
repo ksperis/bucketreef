@@ -8,13 +8,21 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 
+ALL_USERS_SYSTEM_KEY = "all_users"
+ALL_USERS_NAME = "All users"
+ALL_USERS_DESCRIPTION = "Built-in group containing every active BucketReef UI user."
+
 
 class UiGroup(Base):
     __tablename__ = "ui_groups"
-    __table_args__ = (UniqueConstraint("name", name="uq_ui_groups_name"),)
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_ui_groups_name"),
+        UniqueConstraint("system_key", name="uq_ui_groups_system_key"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
+    system_key = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     avatar_source = Column(String, nullable=False, default="initials", server_default="initials")
     avatar_icon = Column(String, nullable=True)

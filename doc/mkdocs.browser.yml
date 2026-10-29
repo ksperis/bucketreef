@@ -27,6 +27,7 @@ nav:
       - Feature availability: help/feature-availability.md
       - Troubleshooting: help/troubleshooting.md
   - Profile: profile.md
+  - OpenStack: openstack.md
   - Reference:
       - Safe operations: reference/safe-operations.md
       - Glossary: reference/glossary.md

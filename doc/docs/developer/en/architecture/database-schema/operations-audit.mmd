@@ -70,6 +70,7 @@ erDiagram
         datetime delivered_at
     }
     bucket_migrations {
+        varchar execution_auth_session_id FK
         integer id PK "NN"
         integer created_by_user_id FK
         varchar source_context_id "NN"
@@ -194,6 +195,9 @@ erDiagram
         datetime created_at "NN"
         datetime updated_at "NN"
     }
+    auth_sessions {
+        varchar id PK "external reference"
+    }
     s3_accounts {
         integer id PK "external reference"
     }
@@ -213,6 +217,7 @@ erDiagram
     user_notifications }o--o| s3_users : "s3_user_id to id"
     webhook_endpoint_subscriptions }o--|| webhook_endpoints : "endpoint_id to id; ON DELETE CASCADE"
     webhook_deliveries }o--|| webhook_endpoints : "endpoint_id to id; ON DELETE CASCADE"
+    bucket_migrations }o--o| auth_sessions : "execution_auth_session_id to id; ON DELETE SET NULL"
     bucket_migrations }o--o| users : "created_by_user_id to id"
     bucket_migrations }o--o| users : "maintenance_requested_by_user_id to id"
     bucket_migration_items }o--|| bucket_migrations : "migration_id to id"

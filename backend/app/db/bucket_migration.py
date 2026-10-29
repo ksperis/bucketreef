@@ -21,6 +21,7 @@ from .base import Base
 
 
 class BucketMigration(Base):
+    execution_auth_session_id = Column(String, ForeignKey("auth_sessions.id", ondelete="SET NULL"), nullable=True)
     __tablename__ = "bucket_migrations"
     __table_args__ = (
         Index("ix_bucket_migrations_status_created", "status", "created_at"),

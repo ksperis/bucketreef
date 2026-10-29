@@ -76,6 +76,34 @@ describe("TopbarDropdownSelect", () => {
     expect(screen.getByRole("listbox", { name: "Select workspace" })).toBeInTheDocument();
   });
 
+  it("renders disabled options and skips them for click and keyboard activation", () => {
+    const onChange = vi.fn();
+    render(
+      <TopbarDropdownSelect
+        value="admin"
+        options={[
+          { value: "admin", label: "Admin" },
+          { value: "blocked", label: "Blocked", disabled: true, title: "Unavailable" },
+          { value: "portal", label: "Portal" },
+        ]}
+        onChange={onChange}
+        ariaLabel="Select workspace"
+        openInPortal={false}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Select workspace" }));
+    const blocked = screen.getByRole("option", { name: "Blocked" });
+    expect(blocked).toBeDisabled();
+    expect(blocked).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(blocked);
+    expect(onChange).not.toHaveBeenCalled();
+
+    const listbox = screen.getByRole("listbox", { name: "Select workspace" });
+    fireEvent.keyDown(listbox, { key: "ArrowDown" });
+    fireEvent.keyDown(listbox, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith("portal");
+  });
+
   it("renders the menu in document.body by default", () => {
     const { container } = render(
       <TopbarDropdownSelect value="manager" options={options} onChange={() => undefined} ariaLabel="Select workspace" />

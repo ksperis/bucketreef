@@ -4,7 +4,7 @@
  */
 import type { ReactNode } from "react";
 
-type TopbarControlId = "workspace" | "account" | "endpoint";
+type TopbarControlId = "workspace" | "account" | "endpoint" | "region";
 
 export type TopbarControlRenderMode = "icon" | "icon_label";
 

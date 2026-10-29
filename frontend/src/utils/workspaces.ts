@@ -102,6 +102,17 @@ export function canAccessPrivateConnectionsSection(user: PrivateConnectionAccess
   return canCreateManualPrivateConnections(user) || hasOwnedPrivateConnections(user);
 }
 
+export function canAccessOpenStackProfileSection(
+  user: Pick<SessionUser, "role" | "authType"> | null,
+  runtimeSurfaces: Pick<RuntimeSurfaces, "browser" | "manager"> = DEFAULT_RUNTIME_SURFACES,
+  openStackEnabled = false,
+): boolean {
+  return openStackEnabled
+    && user?.authType !== "s3_session"
+    && (user?.role === "ui_user" || user?.role === "ui_admin" || user?.role === "ui_superadmin")
+    && (runtimeSurfaces.browser || runtimeSurfaces.manager);
+}
+
 export function readStoredUser(): SessionUser | null {
   return sessionUserCache;
 }
@@ -361,5 +372,5 @@ export function resolvePostLoginPathWithWorkspaceAccess(
   const backendDefault = access.default_workspace
     ? available.find((workspace) => workspace.id === access.default_workspace)
     : null;
-  return backendDefault?.path ?? "/unauthorized";
+  return backendDefault?.path ?? (access.openstack_connect_available ? "/profile?tab=openstack" : "/unauthorized");
 }

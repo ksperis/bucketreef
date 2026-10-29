@@ -37,6 +37,7 @@ from app.routers.dependencies_internal.feature_gates import (
     require_manager_rgw_access_key_management,
     require_manager_context_enabled,
     require_manager_enabled,
+    require_openstack_enabled,
     require_manager_feature_rules_enabled,
     require_usage_logs_capable_manager,
     require_portal_enabled,

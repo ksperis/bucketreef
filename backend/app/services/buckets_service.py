@@ -3,7 +3,7 @@
 import logging
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services import bucket_feature_enrichment
@@ -27,6 +27,8 @@ class BucketsService:
         self.configuration = configuration or BucketConfigurationService()
 
     def _rgw_runtime_for_context(self, execution_context: S3ExecutionTarget):
+        if isinstance(execution_context, S3ExecutionContext) and execution_context.context_kind == "openstack_project":
+            raise RuntimeError("Runtime Read Ops are not available for OpenStack project contexts")
         endpoint = execution_context.storage_endpoint
         if endpoint is None:
             raise RuntimeError("Runtime Read Ops credentials are not configured for this endpoint")
