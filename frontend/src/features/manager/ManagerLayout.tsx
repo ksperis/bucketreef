@@ -5,6 +5,7 @@
 import { Outlet, useNavigate, useSearchParams } from "react-router-dom";
 import AccountControlIcon from "../../components/AccountControlIcon";
 import Layout from "../../components/Layout";
+import PageBanner from "../../components/PageBanner";
 import TopbarContextAccountSelector, {
   getContextAccessModeVisual,
 } from "../../components/TopbarContextAccountSelector";
@@ -194,18 +195,18 @@ function ManagerShell() {
         ),
     },
   ];
-  if (openStackSelector.region.visible && openStackSelector.region.currentRegion) {
+  if (openStackSelector.region.visible) {
     topbarControlDescriptors.push({
       id: "region",
       icon: <OpenStackRegionIcon className="h-4 w-4" />,
-      selectedLabel: openStackSelector.region.currentRegion,
+      selectedLabel: openStackSelector.region.currentRegion ?? shellText("selectRegion"),
       priority: 20,
       estimatedIconWidth: 36,
       estimatedLabelWidth: 176,
       renderControl: (mode) => (
         <OpenStackRegionControl
           mode={mode}
-          currentRegion={openStackSelector.region.currentRegion!}
+          currentRegion={openStackSelector.region.currentRegion}
           currentTargetId={openStackSelector.region.currentTargetId}
           options={openStackSelector.region.options}
           loading={openStackSelector.region.loading}
@@ -310,6 +311,9 @@ function ManagerShell() {
               {text("Access denied for /manager. Check your account permissions or contact an administrator.")}
             </div>
           )}
+          {openStackSelector.error ? (
+            <PageBanner tone="warning" className="mb-4">{openStackSelector.error}</PageBanner>
+          ) : null}
           <Outlet key={`${selectedContextId ?? "session"}:${accessMode ?? "default"}`} />
         </>
       </Layout>

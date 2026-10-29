@@ -13,6 +13,7 @@ import TopbarContextAccountSelector, {
   type ContextAccessMode,
 } from "../../components/TopbarContextAccountSelector";
 import TopbarStaticAccountControl from "../../components/TopbarStaticAccountControl";
+import { useShellI18n } from "../../components/shellMessages";
 import { BrowserContextProvider, useBrowserContext } from "./BrowserContext";
 import { fetchManagerContext } from "../../api/managerContext";
 import { formatAccountLabel } from "../shared/storageEndpointLabel";
@@ -51,6 +52,7 @@ export function useBrowserSidebarSlot(): BrowserSidebarSlotContextValue {
 
 function BrowserShell() {
   const { text } = useBrowserI18n();
+  const { text: shellText } = useShellI18n();
   const { generalSettings } = useGeneralSettings();
   const location = useLocation();
   const {
@@ -184,18 +186,18 @@ function BrowserShell() {
         ),
     },
   ];
-  if (openStackSelector.region.visible && openStackSelector.region.currentRegion) {
+  if (openStackSelector.region.visible) {
     topbarControlDescriptors.push({
       id: "region",
       icon: <OpenStackRegionIcon className="h-4 w-4" />,
-      selectedLabel: openStackSelector.region.currentRegion,
+      selectedLabel: openStackSelector.region.currentRegion ?? shellText("selectRegion"),
       priority: 20,
       estimatedIconWidth: 36,
       estimatedLabelWidth: 176,
       renderControl: (mode) => (
         <OpenStackRegionControl
           mode={mode}
-          currentRegion={openStackSelector.region.currentRegion!}
+          currentRegion={openStackSelector.region.currentRegion}
           currentTargetId={openStackSelector.region.currentTargetId}
           options={openStackSelector.region.options}
           loading={openStackSelector.region.loading}
@@ -219,6 +221,9 @@ function BrowserShell() {
         disableMainScroll={isBrowserExplorerRoute}
       >
         {isBrowserExplorerRoute && accessError ? <PageBanner tone="warning">{accessError}</PageBanner> : null}
+        {isBrowserExplorerRoute && openStackSelector.error ? (
+          <PageBanner tone="warning" className="mb-3">{openStackSelector.error}</PageBanner>
+        ) : null}
         {isBrowserExplorerRoute && requiresContextSelection && contextsLoaded && openStackSelector.candidatesLoaded && !selectedContextId ? (
           <>
             <h1 className="sr-only">{text("Browser")}</h1>

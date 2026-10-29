@@ -15,7 +15,7 @@ export function OpenStackRegionIcon({ className = "" }: { className?: string }) 
 
 type OpenStackRegionControlProps = {
   mode: TopbarControlRenderMode;
-  currentRegion: string;
+  currentRegion: string | null;
   currentTargetId: string;
   options: TopbarDropdownOption[];
   loading: boolean;
@@ -32,6 +32,7 @@ export default function OpenStackRegionControl({
 }: OpenStackRegionControlProps) {
   const { text } = useShellI18n();
   const icon = <OpenStackRegionIcon className="h-4 w-4" />;
+  const regionLabel = currentRegion ?? text("selectRegion");
 
   if (!loading && options.length > 1) {
     return (
@@ -41,9 +42,9 @@ export default function OpenStackRegionControl({
         onChange={onChange}
         ariaLabel={text("selectRegion")}
         triggerLabel={text("region")}
-        placeholder={currentRegion}
-        triggerValue={currentRegion}
-        title={currentRegion}
+        placeholder={regionLabel}
+        triggerValue={regionLabel}
+        title={regionLabel}
         widthClassName={mode === "icon" ? TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS : "w-44 max-w-[35vw] min-w-[10rem]"}
         menuMinWidthClassName="min-w-[22rem]"
         icon={icon}
@@ -55,8 +56,8 @@ export default function OpenStackRegionControl({
   if (mode === "icon") {
     return (
       <div
-        title={`${text("region")}: ${currentRegion}`}
-        aria-label={`${text("region")}: ${currentRegion}`}
+        title={`${text("region")}: ${regionLabel}`}
+        aria-label={`${text("region")}: ${regionLabel}`}
         className={`shell-control-static inline-flex h-9 ${TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS} items-center justify-center rounded-lg border`}
       >
         {icon}
@@ -66,14 +67,14 @@ export default function OpenStackRegionControl({
 
   return (
     <div
-      title={`${text("region")}: ${currentRegion}`}
+      title={`${text("region")}: ${regionLabel}`}
       className="shell-control-static inline-flex h-10 w-44 max-w-[35vw] min-w-[10rem] items-center gap-2.5 rounded-lg border px-3 text-left"
     >
       <span className="shell-icon-muted shrink-0">{icon}</span>
       <span className="min-w-0 flex-1 leading-tight">
         <span className="shell-muted-text block truncate text-[10px] font-medium">{text("region")}</span>
         <span className="mt-0.5 block truncate text-[12px] font-semibold leading-4 text-[var(--shell-text)]">
-          {currentRegion}
+          {regionLabel}
         </span>
       </span>
     </div>
