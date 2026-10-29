@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ExecutionContext } from "../../api/executionContexts";
 import {
@@ -84,6 +84,10 @@ export function useOpenStackProjectSelector({
   const [activeAccessLoading, setActiveAccessLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasDiscoveryWarning, setHasDiscoveryWarning] = useState(false);
+  const optionsRequestRef = useRef(0);
+  const selectionRequestRef = useRef(0);
+  const activationInFlightRef = useRef(false);
 
   const activeSelection = useMemo(
     () => activeContext ? selectionFromContext(activeContext) : null,
@@ -91,21 +95,28 @@ export function useOpenStackProjectSelector({
   );
 
   const reloadOptions = useCallback(async () => {
+    const requestId = ++optionsRequestRef.current;
     if (!enabled) {
       setOptions([]);
+      setHasDiscoveryWarning(false);
       setCandidatesLoaded(true);
       return [];
     }
     setCandidatesLoaded(false);
     try {
-      const next = await listOpenStackProjectOptions();
-      setOptions(next);
-      return next;
+      const response = await listOpenStackProjectOptions();
+      if (requestId !== optionsRequestRef.current) return [];
+      setOptions(response.options);
+      setHasDiscoveryWarning(response.warnings.length > 0);
+      return response.options;
     } catch {
-      setOptions([]);
+      if (requestId === optionsRequestRef.current) {
+        setOptions([]);
+        setHasDiscoveryWarning(false);
+      }
       return [];
     } finally {
-      setCandidatesLoaded(true);
+      if (requestId === optionsRequestRef.current) setCandidatesLoaded(true);
     }
   }, [enabled]);
 
@@ -139,6 +150,8 @@ export function useOpenStackProjectSelector({
     targetId: string,
     accessKey: string,
   ) => {
+    if (activationInFlightRef.current) return;
+    activationInFlightRef.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -148,7 +161,7 @@ export function useOpenStackProjectSelector({
         targetId,
         accessKey,
       );
-      const refreshed = await refreshContexts(contextId);
+      const refreshed = await refreshContexts();
       if (!refreshed.some((context) => context.id === contextId)) {
         throw new Error("The activated OpenStack context is not available.");
       }
@@ -161,11 +174,14 @@ export function useOpenStackProjectSelector({
     } catch (failure) {
       setError(errorText(failure));
     } finally {
+      activationInFlightRef.current = false;
       setBusy(false);
     }
   }, [errorText, onActivated, refreshContexts]);
 
   const beginSelection = useCallback(async (option: OpenStackProjectOption) => {
+    if (activationInFlightRef.current) return;
+    const requestId = ++selectionRequestRef.current;
     const selection = selectionFromOption(option);
     setActivationLoading(true);
     setPendingProject({ selection, access: null, targetId: "" });
@@ -173,6 +189,7 @@ export function useOpenStackProjectSelector({
     setError(null);
     try {
       const access = await getOpenStackProjectAccess(selection.connectionId, selection.projectId);
+      if (requestId !== selectionRequestRef.current) return;
       const allowedTargets = access.targets.filter((target) => target.allowed);
       const targetId = allowedTargets.length === 1 ? allowedTargets[0].target_id : "";
       const accessKey = access.access_keys.length === 1 ? access.access_keys[0] : "";
@@ -187,10 +204,11 @@ export function useOpenStackProjectSelector({
         setActivation({ selection, access, targetId, accessKey: "" });
       }
     } catch (failure) {
+      if (requestId !== selectionRequestRef.current) return;
       setError(errorText(failure));
       setPendingProject(null);
     } finally {
-      setActivationLoading(false);
+      if (requestId === selectionRequestRef.current) setActivationLoading(false);
     }
   }, [activate, errorText, text]);
 
@@ -218,8 +236,10 @@ export function useOpenStackProjectSelector({
   );
 
   const handleContextChange = useCallback((value: string, fallback: (value: string) => void) => {
+    if (activationInFlightRef.current) return;
     const option = optionByValue.get(value);
     if (!option) {
+      selectionRequestRef.current += 1;
       setPendingProject(null);
       setActivation(null);
       setError(null);
@@ -258,7 +278,7 @@ export function useOpenStackProjectSelector({
   ), [regionAccess, text]);
 
   const handleRegionChange = useCallback((targetId: string) => {
-    if (!regionSelection || !regionAccess || targetId === regionTarget?.target_id) return;
+    if (activationInFlightRef.current || activationLoading || !regionSelection || !regionAccess || targetId === regionTarget?.target_id) return;
     const target = regionAccess.targets.find((item) => item.target_id === targetId);
     if (!target || !target.allowed) return;
     if (pendingProject) {
@@ -275,10 +295,10 @@ export function useOpenStackProjectSelector({
     }
     setError(null);
     setActivation({ selection: regionSelection, access: regionAccess, targetId: target.target_id, accessKey: "" });
-  }, [activate, pendingProject, regionAccess, regionSelection, regionTarget, text]);
+  }, [activate, activationLoading, pendingProject, regionAccess, regionSelection, regionTarget, text]);
 
   const confirmActivation = useCallback(() => {
-    if (!activation?.targetId || !activation.accessKey) return;
+    if (activationInFlightRef.current || !activation?.targetId || !activation.accessKey) return;
     void activate(activation.selection, activation.targetId, activation.accessKey);
   }, [activate, activation]);
 
@@ -324,14 +344,15 @@ export function useOpenStackProjectSelector({
     selectorOptions,
     handleContextChange,
     dialog,
-    error,
+    error: error ?? (hasDiscoveryWarning ? text("partialProjectDiscovery") : null),
+    busy: busy || activationLoading,
     reloadOptions,
     region: {
       visible: Boolean(pendingProject || (activeSelection && activeContext?.openstack)),
       currentRegion: regionTarget?.region_id ?? (pendingProject ? null : activeContext?.openstack?.region_id ?? null),
       currentTargetId: regionTarget?.target_id ?? "",
       options: regionOptions,
-      loading: pendingProject ? activationLoading : activeAccessLoading,
+      loading: busy || (pendingProject ? activationLoading : activeAccessLoading),
       onChange: handleRegionChange,
     },
   };

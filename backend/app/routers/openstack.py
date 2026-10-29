@@ -14,7 +14,7 @@ from app.db.openstack import OpenStackCloud, OpenStackConnection
 from app.models.openstack import (
     OpenStackActivate, OpenStackAuthenticate, OpenStackCloudPublic,
     OpenStackCloudWrite, OpenStackConnectionRead, OpenStackContextRead, OpenStackProjectAccessRead,
-    OpenStackPrivateConnectionCreate, OpenStackProjectOptionRead, OpenStackProjectRead,
+    OpenStackPrivateConnectionCreate, OpenStackProjectOptionsRead, OpenStackProjectRead,
 )
 from app.models.s3_connection import S3Connection
 from app.routers.dependencies import get_current_account_user
@@ -85,7 +85,7 @@ def connect(payload: OpenStackAuthenticate, request: Request, db: Session = Depe
     return service.connection_read(connection, user, session.id)
 
 
-@router.get("/project-options", response_model=list[OpenStackProjectOptionRead])
+@router.get("/project-options", response_model=OpenStackProjectOptionsRead)
 def project_options(db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
     return OpenStackService(db).project_options(user, session.id)
 

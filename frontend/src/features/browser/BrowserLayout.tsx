@@ -174,6 +174,7 @@ function BrowserShell() {
             widthClassName={mode === "icon" ? TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS : TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS}
             icon={<AccountControlIcon className="h-4 w-4" />}
             triggerMode={mode}
+            disabled={openStackSelector.busy}
           />
         ) : (
           <TopbarStaticAccountControl

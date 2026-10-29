@@ -94,6 +94,18 @@ class OpenStackProjectOptionRead(ApiModel):
     project_domain_id: str | None = None
 
 
+class OpenStackProjectOptionWarning(ApiModel):
+    connection_id: str
+    cloud_name: str
+    identity_name: str
+    code: str
+
+
+class OpenStackProjectOptionsRead(ApiModel):
+    options: list[OpenStackProjectOptionRead]
+    warnings: list[OpenStackProjectOptionWarning] = Field(default_factory=list)
+
+
 class OpenStackProjectRead(ApiModel):
     project_id: str
     project_name: str
