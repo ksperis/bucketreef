@@ -24,13 +24,13 @@ export type OpenStackProjectOption = {
   project_name: string;
   project_domain_id: string | null;
 };
-export type OpenStackProjectOptionWarning = {
+type OpenStackProjectOptionWarning = {
   connection_id: string;
   cloud_name: string;
   identity_name: string;
   code: string;
 };
-export type OpenStackProjectOptions = {
+type OpenStackProjectOptions = {
   options: OpenStackProjectOption[];
   warnings: OpenStackProjectOptionWarning[];
 };
@@ -55,7 +55,7 @@ export type OpenStackProjectAccess = {
   access_keys: string[];
   selected_access_key: string | null;
 };
-export type OpenStackPrivateConnectionCreate = {
+type OpenStackPrivateConnectionCreate = {
   connection_name: string;
   target_id: string;
   access_key?: string;

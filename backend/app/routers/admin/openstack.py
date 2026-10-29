@@ -25,7 +25,7 @@ def list_clouds(db: Session = Depends(get_db), user: User = Depends(get_current_
 def create_cloud(payload: OpenStackCloudWrite, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_ui_superadmin), session=Depends(ui_session)):
     require_admin_sensitive_action(request, db, user)
     cloud = OpenStackService(db).save_cloud(payload)
-    _record_action(db, user, "openstack.cloud.create", "OpenStackCloud", cloud.id)
+    _record_action(db, user, "admin", "openstack.cloud.create", "OpenStackCloud", cloud.id)
     return cloud_read(cloud)
 
 
@@ -33,7 +33,7 @@ def create_cloud(payload: OpenStackCloudWrite, request: Request, db: Session = D
 def update_cloud(cloud_id: int, payload: OpenStackCloudWrite, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_ui_superadmin), session=Depends(ui_session)):
     require_admin_sensitive_action(request, db, user)
     cloud = OpenStackService(db).save_cloud(payload, cloud_id)
-    _record_action(db, user, "openstack.cloud.update", "OpenStackCloud", cloud.id)
+    _record_action(db, user, "admin", "openstack.cloud.update", "OpenStackCloud", cloud.id)
     return cloud_read(cloud)
 
 
@@ -41,4 +41,4 @@ def update_cloud(cloud_id: int, payload: OpenStackCloudWrite, request: Request, 
 def delete_cloud(cloud_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_ui_superadmin), session=Depends(ui_session)):
     require_admin_sensitive_action(request, db, user)
     OpenStackService(db).delete_cloud(cloud_id)
-    _record_action(db, user, "openstack.cloud.delete", "OpenStackCloud", cloud_id)
+    _record_action(db, user, "admin", "openstack.cloud.delete", "OpenStackCloud", cloud_id)
