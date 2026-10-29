@@ -67,6 +67,18 @@ def downgrade():
         sa.Column("cloud_id", sa.Integer(), sa.ForeignKey("openstack_clouds.id", ondelete="CASCADE"), primary_key=True),
         sa.Column("endpoint_id", sa.Integer(), sa.ForeignKey("storage_endpoints.id", ondelete="CASCADE"), primary_key=True),
     )
+    bind = op.get_bind()
+    # Catalog-native contexts cannot be represented by the 0194 schema, where
+    # every context must reference a managed storage endpoint. They are
+    # session-derived and can be recreated after reconnecting if 0195 is
+    # applied again, so remove them before restoring the NOT NULL constraint.
+    bind.execute(sa.text("""
+        DELETE FROM openstack_project_credentials
+        WHERE context_id IN (
+            SELECT id FROM openstack_project_contexts WHERE endpoint_id IS NULL
+        )
+    """))
+    bind.execute(sa.text("DELETE FROM openstack_project_contexts WHERE endpoint_id IS NULL"))
     with op.batch_alter_table("openstack_project_contexts") as batch:
         batch.drop_constraint("uq_openstack_project_target", type_="unique")
         batch.alter_column("endpoint_id", existing_type=sa.Integer(), nullable=False)

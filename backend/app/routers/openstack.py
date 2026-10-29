@@ -24,6 +24,7 @@ from app.services.auth_session_guards import current_auth_session
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.openstack_service import OpenStackService
 from app.services.keystone_client import OpenStackError
+from app.utils.http_errors import raise_bad_request_from_value_error
 
 router = APIRouter(prefix="/me/openstack", tags=["openstack"])
 
@@ -45,9 +46,14 @@ def cloud_read(row: OpenStackCloud) -> dict:
     }
 
 
-def _record_action(db, user, action, entity, entity_id):
-    AuditService(db).record_action(user=user, scope="admin" if entity == "OpenStackCloud" else "auth",
-                                  action=action, entity_type=entity, entity_id=str(entity_id))
+def _record_action(db, user, scope, action, entity, entity_id):
+    AuditService(db).record_action(
+        user=user,
+        scope=scope,
+        action=action,
+        entity_type=entity,
+        entity_id=str(entity_id),
+    )
 
 
 @router.get("/clouds", response_model=list[OpenStackCloudPublic])
@@ -78,10 +84,10 @@ def connect(payload: OpenStackAuthenticate, request: Request, db: Session = Depe
     except OpenStackError as exc:
         if exc.code in {"reauthentication_required", "access_denied", "unsupported_token"}:
             limiter.record_failure(account=account, ip_address=ip)
-            _record_action(db, user, "openstack.connect.failure", "OpenStackCloud", payload.cloud_id)
+            _record_action(db, user, "auth", "openstack.connect.failure", "OpenStackCloud", payload.cloud_id)
         raise
     limiter.clear_account(account=account, ip_address=ip)
-    _record_action(db, user, "openstack.connect", "OpenStackConnection", connection.id)
+    _record_action(db, user, "auth", "openstack.connect", "OpenStackConnection", connection.id)
     return service.connection_read(connection, user, session.id)
 
 
@@ -132,7 +138,7 @@ def create_private_connection(
             payload,
         )
     except ValueError as exc:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+        raise_bad_request_from_value_error(exc)
     AuditService(db).record_action(
         user=user,
         scope="auth",
@@ -154,17 +160,17 @@ def create_private_connection(
 @router.post("/connections/{connection_id}/contexts", response_model=OpenStackContextRead)
 def activate(connection_id: str, payload: OpenStackActivate, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
     context_id = OpenStackService(db).activate(user, session.id, connection_id, payload.project_id, payload.target_id, payload.access_key)
-    _record_action(db, user, "openstack.context.activate", "OpenStackProjectContext", context_id)
+    _record_action(db, user, "auth", "openstack.context.activate", "OpenStackProjectContext", context_id)
     return {"context_id": context_id}
 
 
 @router.delete("/connections/{connection_id}/session", status_code=204)
 def disconnect(connection_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
     OpenStackService(db).disconnect(user, session.id, connection_id)
-    _record_action(db, user, "openstack.disconnect", "OpenStackConnection", connection_id)
+    _record_action(db, user, "auth", "openstack.disconnect", "OpenStackConnection", connection_id)
 
 
 @router.delete("/connections/{connection_id}", status_code=204)
 def forget(connection_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
     OpenStackService(db).disconnect(user, session.id, connection_id, forget=True)
-    _record_action(db, user, "openstack.connection.forget", "OpenStackConnection", connection_id)
+    _record_action(db, user, "auth", "openstack.connection.forget", "OpenStackConnection", connection_id)
