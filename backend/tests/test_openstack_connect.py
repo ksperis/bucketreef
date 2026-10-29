@@ -93,7 +93,8 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
 
     assert service.catalogue(user, auth.id) == []
     options = service.project_options(user, auth.id)
-    assert options == [{
+    assert options["warnings"] == []
+    assert options["options"] == [{
         "connection_id": connection.id,
         "cloud_id": cloud.id,
         "cloud_name": "Cloud A",
@@ -108,7 +109,7 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
     assert access.browser.available and access.browser.context_count == 1
 
     first_context = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
-    assert service.project_options(user, auth.id) == []
+    assert service.project_options(user, auth.id) == {"options": [], "warnings": []}
     assert service.projects(user, auth.id, connection.id) == [{
         "project_id": "project-a",
         "project_name": "Project A",
@@ -137,10 +138,57 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
         OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"),
     )
     assert service.catalogue(user, auth.id) == []
-    assert [item["project_id"] for item in service.project_options(user, auth.id)] == ["project-a"]
+    assert [item["project_id"] for item in service.project_options(user, auth.id)["options"]] == ["project-a"]
     second_context = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
     assert second_context == first_context
     assert db_session.query(OpenStackProjectContext).count() == 1
+
+
+def test_project_options_keep_healthy_connections_when_one_keystone_is_unavailable(db_session, setup_cloud, monkeypatch):
+    user, _, cloud = setup_cloud
+    auth, _ = authenticated(db_session, user)
+    service = OpenStackService(db_session)
+    cloud_b = service.save_cloud(OpenStackCloudWrite(
+        name="Cloud B", auth_url="https://identity-b.example.test/v3", enabled=True,
+        default_domain="People",
+    ))
+    UserAssociationsService(db_session).set_openstack_cloud_links(user, [cloud.id, cloud_b.id])
+    db_session.commit()
+    connection_a = service.authenticate(
+        user,
+        auth.id,
+        OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"),
+    )
+    connection_b = service.authenticate(
+        user,
+        auth.id,
+        OpenStackAuthenticate(cloud_id=cloud_b.id, method="password", username="person", password="PRIVATE-PASSWORD"),
+    )
+
+    def projects(client, token):
+        if client.auth_url == cloud.auth_url:
+            raise OpenStackError("provider_unavailable", "Unavailable", 502)
+        return [{"id": "project-b", "name": "Project B", "domain_id": "domain-b"}]
+
+    monkeypatch.setattr(KeystoneClient, "projects", projects)
+    result = service.project_options(user, auth.id)
+
+    assert result["warnings"] == [{
+        "connection_id": connection_a.id,
+        "cloud_name": "Cloud A",
+        "identity_name": "Person",
+        "code": "provider_unavailable",
+    }]
+    assert result["options"] == [{
+        "connection_id": connection_b.id,
+        "cloud_id": cloud_b.id,
+        "cloud_name": "Cloud B",
+        "identity_name": "Person",
+        "keystone_user_id": "keystone-user",
+        "project_id": "project-b",
+        "project_name": "Project B",
+        "project_domain_id": "domain-b",
+    }]
 
 
 def test_managed_endpoint_is_associated_by_catalog_url_and_reused_by_execution(db_session, setup_cloud):
@@ -583,37 +631,48 @@ def test_kill_switch_blocks_routes_catalogues_and_running_executors_without_dele
     assert db_session.scalar(select(OpenStackProjectCredential.id)) is not None
 
 
-@pytest.mark.parametrize("change", ["reconnect", "region"])
-def test_running_executor_cannot_follow_reauthentication_or_region_changes(db_session, setup_cloud, monkeypatch, change):
+def test_running_executor_is_invalidated_after_reauthentication(db_session, setup_cloud):
     service, user, auth, connection, ctx = connect(db_session, setup_cloud)
     original = service.resolve(user, auth.id, ctx)
     original_fingerprint = s3_execution_cache_key(original)
     original.access_validator()
-    if change == "reconnect":
-        service.disconnect(user, auth.id, connection.id)
-        connection = service.authenticate(user, auth.id, OpenStackAuthenticate(
-            cloud_id=setup_cloud[2].id, method="token", token="new-authentication",
-        ))
-        next_ctx = service.activate(user, auth.id, connection.id, "project-a", setup_cloud[1]["target_id"], None)
-        assert next_ctx == ctx
-    else:
-        region_b = {
-            **setup_cloud[1],
-            "target_id": "catalog-s3-region-b",
-            "region_id": "region-b",
-            "endpoint_url": "https://s3-b.example.test",
-        }
-        monkeypatch.setattr(KeystoneClient, "project_access", lambda self, identity, project: {
-            "targets": [setup_cloud[1].copy(), region_b],
-            "credentials": [{
-                "access": "EC2-ACCESS", "secret": "PRIVATE-EC2-SECRET", "expires_at": identity.expires_at,
-            }],
-        })
-        next_ctx = service.activate(user, auth.id, connection.id, "project-a", region_b["target_id"], None)
-        assert next_ctx != ctx
+    service.disconnect(user, auth.id, connection.id)
+    connection = service.authenticate(user, auth.id, OpenStackAuthenticate(
+        cloud_id=setup_cloud[2].id, method="token", token="new-authentication",
+    ))
+    next_ctx = service.activate(user, auth.id, connection.id, "project-a", setup_cloud[1]["target_id"], None)
+    assert next_ctx == ctx
     assert s3_execution_cache_key(service.resolve(user, auth.id, next_ctx)) != original_fingerprint
     with pytest.raises(OpenStackError, match="restart"):
         original.access_validator()
+
+
+def test_region_activation_preserves_existing_context_until_navigation(db_session, setup_cloud, monkeypatch):
+    service, user, auth, connection, ctx = connect(db_session, setup_cloud)
+    original = service.resolve(user, auth.id, ctx)
+    original_fingerprint = s3_execution_cache_key(original)
+    original.access_validator()
+    region_b = {
+        **setup_cloud[1],
+        "target_id": "catalog-s3-region-b",
+        "region_id": "region-b",
+        "endpoint_url": "https://s3-b.example.test",
+    }
+    monkeypatch.setattr(KeystoneClient, "project_access", lambda self, identity, project: {
+        "targets": [setup_cloud[1].copy(), region_b],
+        "credentials": [{
+            "access": "EC2-ACCESS", "secret": "PRIVATE-EC2-SECRET", "expires_at": identity.expires_at,
+        }],
+    })
+
+    next_ctx = service.activate(user, auth.id, connection.id, "project-a", region_b["target_id"], None)
+
+    assert next_ctx != ctx
+    assert s3_execution_cache_key(service.resolve(user, auth.id, next_ctx)) != original_fingerprint
+    assert s3_execution_cache_key(service.resolve(user, auth.id, ctx)) == original_fingerprint
+    credentials = db_session.scalars(select(OpenStackProjectCredential)).all()
+    assert len(credentials) == 2
+    original.access_validator()
 
 
 def test_cloud_expiration_erases_secrets_on_access(db_session, setup_cloud):
@@ -678,6 +737,21 @@ def test_routes_return_metadata_only_and_resolve_both_workspaces(client, db_sess
     assert response.status_code == 200, response.text
     connection_id = response.json()["id"]
     assert "PRIVATE-" not in response.text
+    project_options = client.get("/api/me/openstack/project-options")
+    assert project_options.status_code == 200, project_options.text
+    assert project_options.json() == {
+        "options": [{
+            "connection_id": connection_id,
+            "cloud_id": cloud.id,
+            "cloud_name": "Cloud A",
+            "identity_name": "Person",
+            "keystone_user_id": "keystone-user",
+            "project_id": "project-a",
+            "project_name": "Project A",
+            "project_domain_id": "domain-a",
+        }],
+        "warnings": [],
+    }
     access = client.get(f"/api/me/openstack/connections/{connection_id}/projects/project-a/access")
     assert access.status_code == 200, access.text
     assert access.json() == {

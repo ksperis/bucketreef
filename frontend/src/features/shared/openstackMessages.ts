@@ -45,6 +45,7 @@ const messages = {
   endpoint: m("Region", "Région", "Region", "区域"),
   key: m("EC2 access key", "Clé d’accès EC2", "EC2-Zugriffsschlüssel", "EC2 访问密钥"),
   noKeys: m("No EC2 key for this project. Provision one in OpenStack, then retry.", "Aucune clé EC2 pour ce projet. Provisionnez-en une dans OpenStack, puis réessayez.", "Kein EC2-Schlüssel für dieses Projekt. In OpenStack erstellen und erneut versuchen.", "此项目没有 EC2 密钥。请在 OpenStack 中创建后重试。"),
+  partialProjectDiscovery: m("Some OpenStack connections could not be queried. Projects from available connections are still shown.", "Certaines connexions OpenStack n’ont pas pu être interrogées. Les projets des connexions disponibles restent affichés.", "Einige OpenStack-Verbindungen konnten nicht abgefragt werden. Projekte aus verfügbaren Verbindungen werden weiterhin angezeigt.", "部分 OpenStack 连接无法查询。仍会显示可用连接中的项目。"),
   useProject: m("Use project", "Utiliser le projet", "Projekt verwenden", "使用项目"),
   projectContextHelp: m("Choose the OpenStack region and EC2 credential to use for this project.", "Choisissez la région OpenStack et l’identifiant EC2 à utiliser pour ce projet.", "OpenStack-Region und EC2-Zugangsdaten für dieses Projekt auswählen.", "选择用于此项目的 OpenStack 区域和 EC2 凭据。"),
   addPrivateConnection: m("Add private S3 connection", "Ajouter une connexion S3 privée", "Private S3-Verbindung hinzufügen", "添加私有 S3 连接"),

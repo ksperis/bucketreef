@@ -89,6 +89,7 @@ type TopbarContextAccountSelectorProps = {
   icon?: ReactNode;
   triggerMode?: "icon" | "icon_label";
   showTriggerTags?: boolean;
+  disabled?: boolean;
 };
 
 export default function TopbarContextAccountSelector({
@@ -104,6 +105,7 @@ export default function TopbarContextAccountSelector({
   icon,
   triggerMode = "icon_label",
   showTriggerTags = true,
+  disabled = false,
 }: TopbarContextAccountSelectorProps) {
   const { text } = useShellI18n();
   const showSelectorTags = useSelectorTagsPreference();
@@ -266,6 +268,7 @@ export default function TopbarContextAccountSelector({
       icon={icon}
       openInPortal={openInPortal}
       triggerMode={triggerMode}
+      disabled={disabled}
     />
   );
 }

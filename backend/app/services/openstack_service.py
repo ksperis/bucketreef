@@ -363,15 +363,25 @@ class OpenStackService:
                 pending += 1
         return pending
 
-    def project_options(self, user: User, auth_id: str) -> list[dict]:
+    def project_options(self, user: User, auth_id: str) -> dict:
         """Return Keystone projects that still need a session-bound S3 context."""
         result: list[dict] = []
+        warnings: list[dict] = []
         now = utcnow()
         for session in self._active_sessions(user, auth_id):
             connection = session.connection
             cloud = self.cloud(user, connection.cloud_id)
-            projects = KeystoneClient(cloud.auth_url).projects(session.token)
-            self._session(user, auth_id, connection, expected_id=session.id)
+            try:
+                projects = KeystoneClient(cloud.auth_url).projects(session.token)
+                self._session(user, auth_id, connection, expected_id=session.id)
+            except OpenStackError as exc:
+                warnings.append({
+                    "connection_id": connection.id,
+                    "cloud_name": cloud.name,
+                    "identity_name": connection.display_name,
+                    "code": exc.code,
+                })
+                continue
             active_project_ids = {
                 credential.context.project_id
                 for credential in session.credentials
@@ -392,7 +402,7 @@ class OpenStackService:
                     "project_name": project["name"],
                     "project_domain_id": project.get("domain_id"),
                 })
-        return result
+        return {"options": result, "warnings": warnings}
 
     def activate(self, user: User, auth_id: str, connection_id: str, project_id: str, target_id: str, access_key: str | None) -> str:
         connection = self.owned(user, connection_id)
@@ -444,13 +454,9 @@ class OpenStackService:
             context.endpoint_interface = target["interface"]
             context.service_type = target["service_type"]
             context.service_name = target["service_name"]
-        sibling_context_ids = select(OpenStackProjectContext.id).where(
-            OpenStackProjectContext.connection_id == connection.id,
-            OpenStackProjectContext.project_id == project_id,
-        )
         self.db.execute(delete(OpenStackProjectCredential).where(
             OpenStackProjectCredential.session_id == session.id,
-            OpenStackProjectCredential.context_id.in_(sibling_context_ids),
+            OpenStackProjectCredential.context_id == context.id,
         ))
         credential = OpenStackProjectCredential(session_id=session.id, context_id=context.id, access_key=key["access"], secret_key=key["secret"],
                                               expires_at=min(key["expires_at"], session.expires_at), validated_at=utcnow())

@@ -179,6 +179,7 @@ function ManagerShell() {
             icon={<AccountControlIcon className="h-4 w-4" />}
             triggerMode={mode}
             showTriggerTags={mode !== "icon"}
+            disabled={openStackSelector.busy}
           />
         ) : (
           <TopbarStaticAccountControl
