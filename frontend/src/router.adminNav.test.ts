@@ -12,6 +12,11 @@ function getAuditReportingLink(label: string, options: Parameters<typeof buildAd
   return auditReportingSection?.links.find((link) => link.label === label);
 }
 
+function getConnectionsLink(label: string, options: Parameters<typeof buildAdminNav>) {
+  const connectionsSection = buildAdminNav(...options).find((section) => section.label === "Connections");
+  return connectionsSection?.links.find((link) => link.label === label);
+}
+
 describe("buildAdminNav", () => {
   it("exposes Production readiness in Settings only to superadmins", () => {
     const superadminNav = buildAdminNav(true, true, false, false, false, true);
@@ -95,11 +100,13 @@ describe("buildAdminNav", () => {
     expect(authenticationLink?.iconName).toBe("shield");
   });
 
-  it("uses a dedicated icon for OpenStack settings", () => {
-    const openStackLink = getSettingsLink("OpenStack", [true, true, false, false, false, true]);
+  it("places OpenStack clouds in Connections with a dedicated icon", () => {
+    const options: Parameters<typeof buildAdminNav> = [true, true, false, false, false, true];
+    const openStackLink = getConnectionsLink("OpenStack Clouds", options);
 
     expect(openStackLink?.to).toBe("/admin/openstack");
     expect(openStackLink?.iconName).toBe("openstack");
+    expect(getSettingsLink("OpenStack Clouds", options)).toBeUndefined();
   });
 
   it("uses the Manager tools icon in settings navigation", () => {
@@ -117,7 +124,6 @@ describe("buildAdminNav", () => {
     expect(settingsSection?.links.map((link) => link.label)).toEqual([
       "General",
       "Authentication",
-      "OpenStack",
       "Manager",
       "Browser",
       "Portal",
@@ -125,6 +131,17 @@ describe("buildAdminNav", () => {
       "Webhooks",
       "Production readiness",
       "Key Rotation",
+    ]);
+  });
+
+  it("groups external connection inventories together", () => {
+    const connectionsSection = buildAdminNav(true, true, false, false, false, true).find(
+      (section) => section.label === "Connections",
+    );
+
+    expect(connectionsSection?.links.map((link) => link.label)).toEqual([
+      "S3 Connections",
+      "OpenStack Clouds",
     ]);
   });
 

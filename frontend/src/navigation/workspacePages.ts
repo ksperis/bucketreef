@@ -66,7 +66,7 @@ export const ADMIN_PAGE_CONTRACTS = {
   audit: { label: "Audit trail", path: "/admin/audit" },
   "general-settings": { label: "General", path: "/admin/general-settings" },
   "cost-settings": { label: "Cost", path: "/admin/cost-settings" },
-  openstack: { label: "OpenStack", path: "/admin/openstack" },
+  openstack: { label: "OpenStack Clouds", path: "/admin/openstack" },
   "authentication-settings": { label: "Authentication", path: "/admin/authentication-settings" },
   "manager-settings": { label: "Manager", path: "/admin/manager-settings" },
   "browser-settings": { label: "Browser", path: "/admin/browser-settings" },

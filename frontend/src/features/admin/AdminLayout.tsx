@@ -60,10 +60,6 @@ export const buildAdminNav = (
       iconName: "shield" as const,
     },
     {
-      ...pageLink(ADMIN_PAGE_CONTRACTS.openstack, text),
-      iconName: "openstack" as const,
-    },
-    {
       ...pageLink(ADMIN_PAGE_CONTRACTS["manager-settings"], text),
       iconName: "tools" as const,
     },
@@ -143,7 +139,13 @@ export const buildAdminNav = (
     },
     {
       label: text("Connections"),
-      links: [pageLink(ADMIN_PAGE_CONTRACTS["shared-connections"], text)],
+      links: [
+        pageLink(ADMIN_PAGE_CONTRACTS["shared-connections"], text),
+        {
+          ...pageLink(ADMIN_PAGE_CONTRACTS.openstack, text),
+          iconName: "openstack" as const,
+        },
+      ],
     },
     {
       label: text("Storage Backends"),
