@@ -18,9 +18,11 @@ from app.services.effective_access_service import EffectiveAccessService
 from app.services.mappers.execution_context import (
     account_execution_context_from_db,
     connection_execution_context_from_db,
+    execution_destination_from_db,
     portal_account_execution_context_from_db,
     s3_user_execution_context_from_db,
 )
+from app.services.rgw_multisite_endpoints import list_compatible_rgw_execution_endpoints
 from app.services.tags_service import TagsService
 
 
@@ -42,6 +44,15 @@ class ExecutionContextCatalogService:
         self.db = db
         self.access_service = EffectiveAccessService(db)
         self.tags_service = TagsService(db)
+
+    def _execution_destinations(self, endpoint, effective, *, workspace: str | None):
+        if workspace != "manager" or not effective.allow_multisite_endpoint_switching:
+            return [], False
+        destinations = [
+            execution_destination_from_db(candidate)
+            for candidate in list_compatible_rgw_execution_endpoints(self.db, endpoint)
+        ]
+        return destinations, len(destinations) > 1
 
     def _browser_account_contexts(self, user: User, effective) -> list[ExecutionContext]:
         results: list[ExecutionContext] = []
@@ -79,31 +90,50 @@ class ExecutionContextCatalogService:
             ]
 
         account_by_id = {account.id: account for account in accounts}
-        return [
-            account_execution_context_from_db(
-                account_by_id[link.account_id],
-                tags_service=self.tags_service,
-                manager_role=link.manager_role,
+        results: list[ExecutionContext] = []
+        for link in effective.account_links:
+            if not self.access_service.manager_account_allowed(link) or link.account_id not in account_by_id:
+                continue
+            account = account_by_id[link.account_id]
+            destinations, allowed = self._execution_destinations(
+                account.storage_endpoint,
+                effective,
+                workspace=workspace,
             )
-            for link in effective.account_links
-            if self.access_service.manager_account_allowed(link)
-            and link.account_id in account_by_id
-        ]
+            results.append(
+                account_execution_context_from_db(
+                    account,
+                    tags_service=self.tags_service,
+                    manager_role=link.manager_role,
+                    execution_destinations=destinations,
+                    destination_switching_allowed=allowed,
+                )
+            )
+        return results
 
-    def _s3_user_contexts(self, effective) -> list[ExecutionContext]:
+    def _s3_user_contexts(self, effective, *, workspace: str | None) -> list[ExecutionContext]:
         s3_user_ids = set(effective.s3_user_ids)
         s3_users = (
             self.db.scalars(select(S3User).where(S3User.id.in_(s3_user_ids))).all()
             if s3_user_ids
             else []
         )
-        return [
-            s3_user_execution_context_from_db(
-                s3_user,
-                tags_service=self.tags_service,
+        results: list[ExecutionContext] = []
+        for s3_user in s3_users:
+            destinations, allowed = self._execution_destinations(
+                s3_user.storage_endpoint,
+                effective,
+                workspace=workspace,
             )
-            for s3_user in s3_users
-        ]
+            results.append(
+                s3_user_execution_context_from_db(
+                    s3_user,
+                    tags_service=self.tags_service,
+                    execution_destinations=destinations,
+                    destination_switching_allowed=allowed,
+                )
+            )
+        return results
 
     def _connection_contexts(
         self,
@@ -136,7 +166,7 @@ class ExecutionContextCatalogService:
             results = self._browser_account_contexts(user, effective)
         else:
             results = self._account_contexts(effective, workspace=workspace)
-            results.extend(self._s3_user_contexts(effective))
+            results.extend(self._s3_user_contexts(effective, workspace=workspace))
         results.extend(
             self._connection_contexts(
                 user,

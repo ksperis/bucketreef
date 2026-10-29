@@ -71,6 +71,7 @@ export type EffectiveUserAccess = {
   can_access_storage_ops: boolean;
   can_create_manual_private_connections: boolean;
   can_provision_managed_private_connections: boolean;
+  allow_multisite_endpoint_switching: boolean;
   group_can_provision_managed_private_connections: boolean;
   has_owned_private_connections: boolean;
   manager_tool_access: ManagerToolAccess;
@@ -98,6 +99,7 @@ export type User = {
   can_access_storage_ops: boolean;
   can_create_manual_private_connections: boolean;
   can_provision_managed_private_connections: boolean;
+  allow_multisite_endpoint_switching: boolean;
   manager_tool_access: ManagerToolAccess;
   browser_advanced_features_enabled: boolean;
   ui_language: "en" | "fr" | "de" | "zh" | null;
@@ -137,6 +139,7 @@ export type CreateUserPayload = {
   can_access_storage_ops?: boolean;
   can_create_manual_private_connections?: boolean;
   can_provision_managed_private_connections?: boolean;
+  allow_multisite_endpoint_switching?: boolean;
   manager_tool_access?: ManagerToolAccess | null;
   browser_advanced_features_enabled?: boolean;
   group_ids?: number[] | null;
@@ -156,6 +159,7 @@ export type UpdateUserPayload = {
   can_access_storage_ops?: boolean;
   can_create_manual_private_connections?: boolean;
   can_provision_managed_private_connections?: boolean;
+  allow_multisite_endpoint_switching?: boolean;
   manager_tool_access?: ManagerToolAccess | null;
   browser_advanced_features_enabled?: boolean;
   is_active?: boolean;

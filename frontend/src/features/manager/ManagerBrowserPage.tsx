@@ -21,6 +21,7 @@ export default function ManagerBrowserPage() {
     hasExecutionContext,
     contextIdForApi,
     selectedContextKind,
+    selectedStorageEndpointCapabilities,
     accessError,
     iamIdentity,
     accessMode,
@@ -113,7 +114,9 @@ export default function ManagerBrowserPage() {
                   canRestoreObjects: true,
                   canCreatePublicLinks: false,
                 }}
-                storageEndpointCapabilities={selectedContext?.storage_endpoint_capabilities ?? null}
+                storageEndpointCapabilities={
+                  selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities ?? null
+                }
                 onSelectedBucketNameChange={setSelectedBrowserBucketName}
               />
             </div>

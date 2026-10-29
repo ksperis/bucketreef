@@ -53,6 +53,7 @@ _BOOLEAN_GROUP_FIELDS = (
     "can_access_storage_ops",
     "can_create_manual_private_connections",
     "can_provision_managed_private_connections",
+    "allow_multisite_endpoint_switching",
     "browser_advanced_features_enabled",
 )
 
@@ -468,6 +469,7 @@ class UiGroupsService:
             can_access_storage_ops=bool(group.can_access_storage_ops),
             can_create_manual_private_connections=bool(group.can_create_manual_private_connections),
             can_provision_managed_private_connections=bool(group.can_provision_managed_private_connections),
+            allow_multisite_endpoint_switching=bool(group.allow_multisite_endpoint_switching),
             manager_tool_access=read_manager_tool_access(group),
             browser_advanced_features_enabled=bool(group.browser_advanced_features_enabled),
             user_details=self._group_user_details(preload.users),

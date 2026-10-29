@@ -177,6 +177,9 @@ class StorageEndpointsService:
         endpoint.name = config.name
         endpoint.endpoint_url = config.endpoint_url
         endpoint.region = config.region
+        endpoint.realm_id = config.realm_id
+        endpoint.zonegroup_id = config.zonegroup_id
+        endpoint.zone_id = config.zone_id
         endpoint.force_path_style = config.force_path_style
         endpoint.verify_tls = config.verify_tls
         endpoint.latitude = config.latitude

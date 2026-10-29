@@ -21,6 +21,7 @@ type PlatformAccessValue = Pick<
   | "can_access_storage_ops"
   | "can_create_manual_private_connections"
   | "can_provision_managed_private_connections"
+  | "allow_multisite_endpoint_switching"
   | "manager_tool_access"
   | "browser_advanced_features_enabled"
 >;
@@ -33,6 +34,7 @@ type AdminUserPlatformAccessPanelProps = {
   managerFeaturePolicies: ManagerFeaturePolicies;
   inheritedManagerToolAccess?: ManagerToolAccess | null;
   inheritedManagedProvisioning?: boolean;
+  inheritedMultisiteSwitching?: boolean;
   text: UsersText;
   onChange: (patch: PlatformAccessValue) => void;
 };
@@ -45,6 +47,7 @@ export default function AdminUserPlatformAccessPanel({
   managerFeaturePolicies,
   inheritedManagerToolAccess,
   inheritedManagedProvisioning = false,
+  inheritedMultisiteSwitching = false,
   text,
   onChange,
 }: AdminUserPlatformAccessPanelProps) {
@@ -97,6 +100,15 @@ export default function AdminUserPlatformAccessPanel({
             onChange: (enabled) =>
               onChange({ can_provision_managed_private_connections: enabled }),
             ariaLabel: text("allowProvisionConnections"),
+          },
+          {
+            title: text("switchRgwMultisiteEndpoints"),
+            description: text("switchRgwMultisiteEndpointsDescription"),
+            checked: supportsManagerTools && Boolean(value.allow_multisite_endpoint_switching),
+            inherited: inheritedMultisiteSwitching,
+            disabled: !supportsManagerTools,
+            onChange: (enabled) => onChange({ allow_multisite_endpoint_switching: enabled }),
+            ariaLabel: text("allowRgwMultisiteEndpointSwitching"),
           },
         ]}
         description={text("managerPermissions")}

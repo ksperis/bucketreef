@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional, Literal
 
+from pydantic import Field
+
 from app.models.base import ApiModel
 from app.models.feature_policy import FeatureState
 from app.models.tagging import TagDefinitionSummary
@@ -26,6 +28,19 @@ class OpenStackExecutionContextMetadata(ApiModel):
     region_id: str
 
 
+class ExecutionDestination(ApiModel):
+    endpoint_id: int
+    name: str
+    endpoint_url: str
+    provider: Literal["ceph", "aws", "other"]
+    region: Optional[str] = None
+    realm_id: Optional[str] = None
+    zonegroup_id: Optional[str] = None
+    zone_id: Optional[str] = None
+    is_default: bool = False
+    storage_endpoint_capabilities: dict[str, bool]
+
+
 class ExecutionContext(ApiModel):
     kind: Literal["account", "connection", "s3_user", "portal_account", "openstack_project"]
     id: str
@@ -40,6 +55,8 @@ class ExecutionContext(ApiModel):
     endpoint_provider: Optional[Literal["ceph", "aws", "other"]]
     endpoint_url: str
     storage_endpoint_capabilities: dict[str, bool]
+    destination_switching_allowed: bool = False
+    execution_destinations: list[ExecutionDestination] = Field(default_factory=list)
     tags: list[TagDefinitionSummary]
     endpoint_tags: list[TagDefinitionSummary]
     capabilities: ExecutionContextCapabilities

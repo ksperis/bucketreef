@@ -34,6 +34,7 @@ import {
 import { useManagerI18n } from "./managerI18n";
 import { useOpenStackProjectSelector } from "../shared/useOpenStackProjectSelector";
 import OpenStackRegionControl, { OpenStackRegionIcon } from "../shared/OpenStackRegionControl";
+import ExecutionDestinationControl from "../shared/ExecutionDestinationControl";
 
 type SessionCapabilities = {
   can_manage_iam?: boolean;
@@ -54,6 +55,9 @@ function ManagerShell() {
     requiresContextSelection,
     sessionAccountName,
     selectedContextKind,
+    selectedExecutionEndpointId,
+    selectedStorageEndpointCapabilities,
+    setExecutionEndpointId,
     accessError,
     iamIdentity,
     accessMode,
@@ -99,7 +103,14 @@ function ManagerShell() {
   const canShowBucketCompare = canAccessBucketCompare && canAccessBucketCompareForUser;
   const canShowBucketIntegrity = canAccessBucketIntegrity && canAccessBucketIntegrityForUser;
   const canShowBucketPurge = canAccessBucketPurge && canAccessBucketPurgeForUser;
-  const endpointCaps = selected?.storage_endpoint_capabilities ?? null;
+  const executionDestinations = selected?.execution_destinations ?? [];
+  const activeDestination = executionDestinations.find(
+    (destination) => destination.endpoint_id === selectedExecutionEndpointId,
+  );
+  const endpointCaps = selectedStorageEndpointCapabilities
+    ?? activeDestination?.storage_endpoint_capabilities
+    ?? selected?.storage_endpoint_capabilities
+    ?? null;
   const iamFeatureEnabled = endpointCaps ? endpointCaps.iam !== false : true;
   const canManageIam = !isS3User && capabilities.can_manage_iam !== false && iamFeatureEnabled;
   const usageFeatureEnabled = endpointCaps ? endpointCaps.metrics !== false : true;
@@ -212,6 +223,47 @@ function ManagerShell() {
           options={openStackSelector.region.options}
           loading={openStackSelector.region.loading}
           onChange={openStackSelector.region.onChange}
+        />
+      ),
+    });
+  } else if (
+    selected
+    && (selected.kind === "account" || selected.kind === "s3_user")
+    && Boolean(selected.destination_switching_allowed)
+    && executionDestinations.length > 1
+    && selectedExecutionEndpointId != null
+  ) {
+    const activeExecutionDestination = executionDestinations.find(
+      (destination) => destination.endpoint_id === selectedExecutionEndpointId,
+    ) ?? executionDestinations.find(
+      (destination) => destination.endpoint_id === selected.endpoint_id,
+    ) ?? executionDestinations[0];
+    const destinationOptions = executionDestinations.map((destination) => ({
+      value: String(destination.endpoint_id),
+      label: destination.name,
+      description: [
+        destination.zone_id ? `${shellText("rgwZone")}: ${destination.zone_id}` : null,
+        destination.region,
+        destination.endpoint_url,
+      ].filter(Boolean).join(" · "),
+      searchText: [destination.name, destination.zone_id, destination.region, destination.endpoint_url]
+        .filter(Boolean)
+        .join(" "),
+    }));
+    topbarControlDescriptors.push({
+      id: "destination",
+      icon: <OpenStackRegionIcon className="h-4 w-4" />,
+      selectedLabel: activeExecutionDestination.name,
+      priority: 20,
+      estimatedIconWidth: 36,
+      estimatedLabelWidth: 208,
+      renderControl: (mode) => (
+        <ExecutionDestinationControl
+          mode={mode}
+          currentLabel={activeExecutionDestination.name}
+          currentTargetId={String(activeExecutionDestination.endpoint_id)}
+          options={destinationOptions}
+          onChange={(value) => setExecutionEndpointId(Number(value))}
         />
       ),
     });

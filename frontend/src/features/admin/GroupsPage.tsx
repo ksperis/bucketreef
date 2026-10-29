@@ -107,6 +107,7 @@ function emptyGroupForm(): UiGroupPayload {
     can_access_storage_ops: false,
     can_create_manual_private_connections: false,
     can_provision_managed_private_connections: false,
+    allow_multisite_endpoint_switching: false,
     browser_advanced_features_enabled: false,
     manager_tool_access: { ...DEFAULT_MANAGER_TOOL_ACCESS },
     user_ids: [],
@@ -127,6 +128,7 @@ function groupFormFromGroup(group: UiGroup): UiGroupPayload {
     can_access_storage_ops: group.can_access_storage_ops,
     can_create_manual_private_connections: group.can_create_manual_private_connections,
     can_provision_managed_private_connections: group.can_provision_managed_private_connections,
+    allow_multisite_endpoint_switching: group.allow_multisite_endpoint_switching,
     browser_advanced_features_enabled: group.browser_advanced_features_enabled,
     manager_tool_access: group.manager_tool_access,
     user_ids: group.user_details.map((user) => Number(user.id)),
@@ -477,6 +479,7 @@ export default function GroupsPage() {
       can_access_storage_ops: Boolean(form.can_access_storage_ops),
       can_create_manual_private_connections: Boolean(form.can_create_manual_private_connections),
       can_provision_managed_private_connections: Boolean(form.can_provision_managed_private_connections),
+      allow_multisite_endpoint_switching: Boolean(form.allow_multisite_endpoint_switching),
       browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
       manager_tool_access: normalizeManagerToolAccess(form.manager_tool_access),
       ...(editingGroup?.system_key ? {} : { user_ids: form.user_ids ?? [] }),
@@ -1306,6 +1309,17 @@ export default function GroupsPage() {
                           can_provision_managed_private_connections: value,
                         })),
                       ariaLabel: text("allowManagedProvisioning"),
+                    },
+                    {
+                      title: text("switchRgwMultisiteEndpoints"),
+                      description: text("switchRgwMultisiteEndpointsDescription"),
+                      checked: Boolean(form.allow_multisite_endpoint_switching),
+                      onChange: (value) =>
+                        setForm((current) => ({
+                          ...current,
+                          allow_multisite_endpoint_switching: value,
+                        })),
+                      ariaLabel: text("allowRgwMultisiteEndpointSwitching"),
                     },
                   ]}
                   description={text("managerAccessDescription")}

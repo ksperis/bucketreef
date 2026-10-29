@@ -719,6 +719,71 @@ describe("ManagerLayout", () => {
     expect(capturedAccountSelectorProps?.widthClassName).toBe(TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS);
   });
 
+  it("shows the RGW destination selector and uses the selected destination capabilities", () => {
+    setStoredManagerUser();
+    useExecutionContextMock.mockReturnValue(
+      buildContext({
+        contexts: [
+          {
+            id: "account-1",
+            kind: "account",
+            display_name: "Multisite account",
+            endpoint_id: 10,
+            endpoint_name: "Zone A",
+            endpoint_url: "https://zone-a.example.test",
+            storage_endpoint_capabilities: { iam: true, usage: true, metrics: true, sns: true },
+            destination_switching_allowed: true,
+            execution_destinations: [
+              {
+                endpoint_id: 10,
+                name: "Zone A",
+                endpoint_url: "https://zone-a.example.test",
+                provider: "ceph",
+                region: null,
+                realm_id: "realm-a",
+                zonegroup_id: "zonegroup-a",
+                zone_id: "zone-a",
+                is_default: true,
+                storage_endpoint_capabilities: { iam: true, usage: true, metrics: true, sns: true },
+              },
+              {
+                endpoint_id: 11,
+                name: "Zone B",
+                endpoint_url: "https://zone-b.example.test",
+                provider: "ceph",
+                region: null,
+                realm_id: "realm-a",
+                zonegroup_id: "zonegroup-a",
+                zone_id: "zone-b",
+                is_default: false,
+                storage_endpoint_capabilities: { iam: false, usage: false, metrics: false, sns: false },
+              },
+            ],
+          },
+        ],
+        selectedContextId: "account-1",
+        selectedContextKind: "account",
+        selectedExecutionEndpointId: 11,
+        setExecutionEndpointId: vi.fn(),
+        accessMode: "admin",
+        managerStatsEnabled: true,
+        managerFeatureStates: {},
+      })
+    );
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(<MemoryRouter initialEntries={["/manager"]}><ManagerLayout /></MemoryRouter>);
+
+    expect(capturedTopbarControlDescriptors.map((descriptor) => descriptor.id)).toEqual(["account", "destination"]);
+    expect(screen.getByRole("button", { name: "Select S3 endpoint" })).toHaveTextContent("Zone B");
+    expect(capturedNavSections.find((section) => section.label === "IAM")).toBeUndefined();
+    const metricsLink = capturedNavSections
+      .find((section) => section.label === "Monitoring")
+      ?.links.find((link) => link.label === "Usage & Metrics");
+    expect(metricsLink?.disabled).toBe(true);
+    expect(metricsLink?.disabledHint).toBe("Metrics are unavailable for this endpoint capabilities.");
+  });
+
   it("keeps discovered OpenStack projects selectable alongside an existing context", () => {
     const selectorOptions = [{
       value: "openstack-project-option:conn-1:project-a",

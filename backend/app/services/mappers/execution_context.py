@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import TypedDict
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint
-from app.models.execution_context import ExecutionContext, ExecutionContextCapabilities
+from app.models.execution_context import (
+    ExecutionContext,
+    ExecutionContextCapabilities,
+    ExecutionDestination,
+)
 from app.services.tags_service import TagsService
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
@@ -43,11 +47,31 @@ def _storage_endpoint_projection(
     }
 
 
+def execution_destination_from_db(endpoint: StorageEndpoint) -> ExecutionDestination:
+    capabilities = features_to_capabilities(
+        normalize_features_config(endpoint.provider, endpoint.features_config)
+    )
+    return ExecutionDestination(
+        endpoint_id=endpoint.id,
+        name=endpoint.name,
+        endpoint_url=endpoint.endpoint_url,
+        provider=endpoint.provider,
+        region=endpoint.region,
+        realm_id=endpoint.realm_id,
+        zonegroup_id=endpoint.zonegroup_id,
+        zone_id=endpoint.zone_id,
+        is_default=bool(endpoint.is_default),
+        storage_endpoint_capabilities=capabilities,
+    )
+
+
 def account_execution_context_from_db(
     account: S3Account,
     *,
     tags_service: TagsService,
     manager_role: ManagerAccountRoleValue | None = None,
+    execution_destinations: list[ExecutionDestination] | None = None,
+    destination_switching_allowed: bool = False,
 ) -> ExecutionContext:
     endpoint = account.storage_endpoint
     endpoint_projection = _storage_endpoint_projection(endpoint)
@@ -60,6 +84,8 @@ def account_execution_context_from_db(
         portal_role=None,
         rgw_account_id=account.rgw_account_id,
         **endpoint_projection,
+        destination_switching_allowed=destination_switching_allowed,
+        execution_destinations=execution_destinations or [],
         tags=tags_service.filter_selector_visible(tags_service.get_account_tags(account)),
         endpoint_tags=tags_service.filter_selector_visible(tags_service.get_storage_endpoint_tags(endpoint)),
         capabilities=ExecutionContextCapabilities(
@@ -101,6 +127,8 @@ def s3_user_execution_context_from_db(
     s3_user: S3User,
     *,
     tags_service: TagsService,
+    execution_destinations: list[ExecutionDestination] | None = None,
+    destination_switching_allowed: bool = False,
 ) -> ExecutionContext:
     endpoint = s3_user.storage_endpoint
     return ExecutionContext(
@@ -112,6 +140,8 @@ def s3_user_execution_context_from_db(
         portal_role=None,
         rgw_account_id=None,
         **_storage_endpoint_projection(endpoint),
+        destination_switching_allowed=destination_switching_allowed,
+        execution_destinations=execution_destinations or [],
         tags=tags_service.filter_selector_visible(tags_service.get_s3_user_tags(s3_user)),
         endpoint_tags=tags_service.filter_selector_visible(tags_service.get_storage_endpoint_tags(endpoint)),
         capabilities=ExecutionContextCapabilities(

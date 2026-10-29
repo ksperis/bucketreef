@@ -165,11 +165,22 @@ def _create_s3_user(db_session, *, name: str, uid: str) -> S3User:
     return s3_user
 
 
-def _create_endpoint(db_session, *, name: str) -> StorageEndpoint:
+def _create_endpoint(
+    db_session,
+    *,
+    name: str,
+    provider: str = "ceph",
+    realm_id: str | None = None,
+    zonegroup_id: str | None = None,
+    zone_id: str | None = None,
+) -> StorageEndpoint:
     endpoint = StorageEndpoint(
         name=name,
         endpoint_url=f"https://{name}.example.test",
-        provider="ceph",
+        provider=provider,
+        realm_id=realm_id,
+        zonegroup_id=zonegroup_id,
+        zone_id=zone_id,
         features_config=(
             "features:\n"
             "  iam:\n"
@@ -611,6 +622,93 @@ def test_connection_context_includes_endpoint_capabilities_when_bound_to_endpoin
     assert connection_context.storage_endpoint_capabilities.get("metrics") is True
     assert connection_context.storage_endpoint_capabilities.get("usage") is True
     assert connection_context.storage_endpoint_capabilities.get("iam") is True
+
+
+def test_manager_catalog_exposes_only_compatible_multisite_execution_destinations(db_session):
+    user = _create_user(db_session)
+    user.allow_multisite_endpoint_switching = True
+    origin = _create_endpoint(
+        db_session,
+        name="multisite-zone-a",
+        realm_id="realm-a",
+        zonegroup_id="zonegroup-a",
+        zone_id="zone-a",
+    )
+    destination = _create_endpoint(
+        db_session,
+        name="multisite-zone-b",
+        realm_id="realm-a",
+        zonegroup_id="zonegroup-a",
+        zone_id="zone-b",
+    )
+    _create_endpoint(
+        db_session,
+        name="other-zonegroup",
+        realm_id="realm-a",
+        zonegroup_id="zonegroup-b",
+        zone_id="zone-c",
+    )
+    _create_endpoint(
+        db_session,
+        name="other-provider",
+        provider="aws",
+        realm_id="realm-a",
+        zonegroup_id="zonegroup-a",
+    )
+    account = _create_account(
+        db_session,
+        name="multisite-account",
+        rgw_account_id="RGWMULTISITE0001",
+        storage_endpoint=origin,
+    )
+    s3_user = S3User(
+        name="multisite-user",
+        rgw_user_uid="multisite-user",
+        rgw_access_key="MULTISITE-AK",
+        rgw_secret_key="MULTISITE-SK",
+        storage_endpoint_id=origin.id,
+    )
+    db_session.add(s3_user)
+    db_session.flush()
+    connection = _create_connection(
+        db_session,
+        created_by_user_id=user.id,
+        name="multisite-connection",
+        can_manage_iam=True,
+        access_manager=True,
+        storage_endpoint=origin,
+    )
+    db_session.add_all(
+        [
+            UserS3Account(
+                user_id=user.id,
+                account_id=account.id,
+                manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+                portal_role=None,
+            ),
+            UserS3User(user_id=user.id, s3_user_id=s3_user.id),
+        ]
+    )
+    db_session.commit()
+
+    contexts = execution_contexts.list_execution_contexts(workspace="manager", user=user, db=db_session)
+    compatible_ids = [origin.id, destination.id]
+    for context_id in (str(account.id), f"s3u-{s3_user.id}"):
+        context = next(item for item in contexts if item.id == context_id)
+        assert context.destination_switching_allowed is True
+        assert [item.endpoint_id for item in context.execution_destinations] == compatible_ids
+        assert [item.zone_id for item in context.execution_destinations] == ["zone-a", "zone-b"]
+
+    connection_context = next(item for item in contexts if item.id == f"conn-{connection.id}")
+    assert connection_context.destination_switching_allowed is False
+    assert connection_context.execution_destinations == []
+
+    user.allow_multisite_endpoint_switching = False
+    db_session.commit()
+    contexts = execution_contexts.list_execution_contexts(workspace="manager", user=user, db=db_session)
+    account_context = next(item for item in contexts if item.id == str(account.id))
+    assert account_context.destination_switching_allowed is False
+    assert account_context.execution_destinations == []
 
 
 def test_execution_contexts_exclude_inactive_connections(db_session):

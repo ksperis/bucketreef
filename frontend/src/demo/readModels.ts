@@ -112,6 +112,7 @@ export function readModels(c: DemoRequest): Response | undefined {
       connection_scope: null, tags: a.tags, endpoint_tags: [], manager_role: browser ? null : "account_administrator", portal_role: browser ? accountGrant(c, a).portal_role : null,
       rgw_account_id: a.rgw_account_id, endpoint_id: a.storage_endpoint_id, endpoint_name: a.storage_endpoint_name, endpoint_url: a.storage_endpoint_url,
       endpoint_provider: "ceph", endpoint_is_default: a.storage_endpoint_is_default, storage_endpoint_capabilities: a.storage_endpoint_capabilities,
+      destination_switching_allowed: false, execution_destinations: [],
       capabilities: { can_manage_iam: !browser, sts_capable: false, admin_api_capable: !browser },
     } satisfies ExecutionContext)));
   }

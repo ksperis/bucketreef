@@ -17,6 +17,13 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
   const endpoint = aws ? awsS3EndpointForRegion(region) : form.endpoint_url.trim();
   if (!form.name.trim()) errors.name = "Endpoint name is required.";
   if (!endpoint) errors.endpoint_url = "Endpoint URL is required.";
+  const realmId = form.provider === "ceph" ? form.realm_id.trim() : "";
+  const zonegroupId = form.provider === "ceph" ? form.zonegroup_id.trim() : "";
+  const zoneId = form.provider === "ceph" ? form.zone_id.trim() : "";
+  if (Boolean(realmId) !== Boolean(zonegroupId)) {
+    if (!realmId) errors.realm_id = "Realm ID is required when a zonegroup ID is configured.";
+    if (!zonegroupId) errors.zonegroup_id = "Zonegroup ID is required when a realm ID is configured.";
+  }
   let latitude: number | null = null;
   let longitude: number | null = null;
   for (const [field, label, min, max] of [["latitude", "Latitude", -90, 90], ["longitude", "Longitude", -180, 180]] as const) {
@@ -46,6 +53,7 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
   } : constrainedFeatures;
   const payload: StorageEndpointPayload = {
     name: form.name.trim(), endpoint_url: endpoint, region: region || null,
+    realm_id: realmId || null, zonegroup_id: zonegroupId || null, zone_id: zoneId || null,
     force_path_style: Boolean(form.force_path_style), verify_tls: Boolean(form.verify_tls),
     latitude, longitude, provider: form.provider, features_config: buildFeaturesYaml(features),
   };

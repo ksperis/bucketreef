@@ -215,6 +215,7 @@ function BucketDetailPageContent({
     managerStatsEnabled,
     managerStatsMessage,
     managerBrowserEnabled,
+    selectedStorageEndpointCapabilities,
   } = executionContext;
   const { selectedEndpointId, selectedEndpoint } = cephAdminEndpoint;
   const [pendingConfigurationDelete, setPendingConfigurationDelete] = useState<BucketConfigurationDeleteKind | null>(null);
@@ -397,8 +398,8 @@ function BucketDetailPageContent({
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.static_website === true;
     }
-    return selectedContext?.storage_endpoint_capabilities?.static_website === true;
-  }, [isCephAdmin, selectedContext, selectedEndpoint]);
+    return (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.static_website === true;
+  }, [isCephAdmin, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
   const websiteController = useBucketWebsiteController({
     contextId,
     bucketName,
@@ -418,8 +419,8 @@ function BucketDetailPageContent({
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.sse === true;
     }
-    return selectedContext?.storage_endpoint_capabilities?.sse === true;
-  }, [isCephAdmin, selectedContext, selectedEndpoint]);
+    return (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.sse === true;
+  }, [isCephAdmin, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
   const encryptionController = useBucketEncryptionController({
     contextId,
     bucketName,
@@ -487,15 +488,15 @@ function BucketDetailPageContent({
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.sns === true;
     }
-    return selectedContext?.storage_endpoint_capabilities?.sns !== false;
-  }, [isCephAdmin, selectedContext, selectedEndpoint]);
+    return (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.sns !== false;
+  }, [isCephAdmin, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
   const replicationFeatureEnabled = useMemo(() => {
     if (!isCephEndpoint) return false;
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.replication === true;
     }
-    return selectedContext?.storage_endpoint_capabilities?.replication === true;
-  }, [isCephAdmin, isCephEndpoint, selectedContext, selectedEndpoint]);
+    return (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.replication === true;
+  }, [isCephAdmin, isCephEndpoint, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
   const replicationController = useBucketReplicationController({
     contextId,
     bucketName,
@@ -515,8 +516,10 @@ function BucketDetailPageContent({
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.metrics ?? true;
     }
-    return Boolean(managerStatsEnabled) && (selectedContext?.storage_endpoint_capabilities?.metrics ?? true);
-  }, [isCephAdmin, managerStatsEnabled, selectedContext, selectedEndpoint]);
+    return Boolean(managerStatsEnabled) && (
+      (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.metrics ?? true
+    );
+  }, [isCephAdmin, managerStatsEnabled, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
   const canViewLiveBucketMetrics = Boolean(isCephEndpoint && usageFeatureEnabled);
   const userRole = getUserRole();
   const isAdmin = isAdminLikeRole(userRole);

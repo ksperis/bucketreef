@@ -128,6 +128,7 @@ class _ResolvedFeatureAccess:
     can_access_storage_ops: bool
     can_create_manual_private_connections: bool
     can_provision_managed_private_connections: bool
+    allow_multisite_endpoint_switching: bool
     manager_tool_access: ManagerToolAccess
     browser_advanced_features_enabled: bool
 
@@ -178,6 +179,7 @@ class ResolvedUserAccess:
     can_access_storage_ops: bool
     can_create_manual_private_connections: bool
     can_provision_managed_private_connections: bool
+    allow_multisite_endpoint_switching: bool
     has_owned_private_connections: bool
     manager_tool_access: ManagerToolAccess
     browser_advanced_features_enabled: bool
@@ -505,6 +507,10 @@ class EffectiveAccessService:
                 features.can_provision_managed_private_connections,
                 "can_provision_managed_private_connections",
             ),
+            "multisite_endpoint_switching": (
+                features.allow_multisite_endpoint_switching,
+                "allow_multisite_endpoint_switching",
+            ),
             "browser_advanced_features": (
                 features.browser_advanced_features_enabled,
                 "browser_advanced_features_enabled",
@@ -574,6 +580,7 @@ class EffectiveAccessService:
                 can_access_storage_ops=features.can_access_storage_ops,
                 can_create_manual_private_connections=features.can_create_manual_private_connections,
                 can_provision_managed_private_connections=features.can_provision_managed_private_connections,
+                allow_multisite_endpoint_switching=features.allow_multisite_endpoint_switching,
                 has_owned_private_connections=user_id in owned_private_user_ids,
                 manager_tool_access=features.manager_tool_access,
                 browser_advanced_features_enabled=features.browser_advanced_features_enabled,
@@ -632,6 +639,11 @@ class EffectiveAccessService:
                 True if self._user_or_group_flag(user, groups, "can_provision_managed_private_connections") else None,
             ).enabled
         )
+        allow_multisite_endpoint_switching = role_supports_tools and self._user_or_group_flag(
+            user,
+            groups,
+            "allow_multisite_endpoint_switching",
+        )
         return _ResolvedFeatureAccess(
             can_access_ceph_admin=can_access_ceph_admin,
             can_access_storage_ops=can_access_storage_ops,
@@ -641,6 +653,7 @@ class EffectiveAccessService:
             can_provision_managed_private_connections=(
                 can_provision_managed_private_connections
             ),
+            allow_multisite_endpoint_switching=allow_multisite_endpoint_switching,
             manager_tool_access=manager_tool_access,
             browser_advanced_features_enabled=browser_advanced,
         )
@@ -832,6 +845,7 @@ class EffectiveAccessService:
             can_access_storage_ops=resolved.can_access_storage_ops,
             can_create_manual_private_connections=resolved.can_create_manual_private_connections,
             can_provision_managed_private_connections=resolved.can_provision_managed_private_connections,
+            allow_multisite_endpoint_switching=resolved.allow_multisite_endpoint_switching,
             group_can_provision_managed_private_connections=any(
                 source.kind == "group"
                 for source in resolved.feature_sources.get(

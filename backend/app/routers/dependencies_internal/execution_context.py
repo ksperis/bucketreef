@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ from app.services.effective_access_service import EffectiveAccessService
 from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
+from app.services.rgw_multisite_endpoints import rgw_multisite_endpoints_compatible
 from app.services.s3_users_service import get_s3_users_service
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
@@ -37,6 +38,24 @@ from .workspace_context import resolve_account_by_id, resolve_user_account_link,
 
 
 settings = get_settings()
+
+
+def _parse_execution_endpoint_id(value: object) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        endpoint_id = int(value)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid execution endpoint identifier",
+        )
+    if endpoint_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid execution endpoint identifier",
+        )
+    return endpoint_id
 
 def _parse_execution_context_selector(
     context_ref: Optional[str],
@@ -415,6 +434,60 @@ def _resolve_user_execution_context(
     )
 
 
+def _apply_user_execution_destination(
+    db: Session,
+    user: User,
+    execution_context: S3ExecutionContext,
+    execution_endpoint_id: int,
+    *,
+    surface: str,
+    portal_browser: bool,
+    is_storage_ops_surface: bool,
+) -> S3ExecutionContext:
+    if (
+        surface not in {"manager", "manager-browser"}
+        or portal_browser
+        or is_storage_ops_surface
+        or execution_context.context_kind not in {"account", "s3_user"}
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Execution endpoint override is not available for this context",
+        )
+
+    origin = execution_context.storage_endpoint
+    if origin is None or execution_context.storage_endpoint_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Selected context has no configured storage endpoint",
+        )
+    if execution_endpoint_id == origin.id:
+        return execution_context
+
+    effective = EffectiveAccessService(db).resolve_user(user)
+    if not effective.allow_multisite_endpoint_switching:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="RGW multisite endpoint switching is not allowed for this user",
+        )
+
+    destination = db.get(StorageEndpoint, execution_endpoint_id)
+    if destination is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Execution endpoint not found",
+        )
+    if not rgw_multisite_endpoints_compatible(origin, destination):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Execution endpoint is not in the same RGW realm and zonegroup",
+        )
+
+    execution_context.storage_endpoint_id = destination.id
+    execution_context.storage_endpoint = destination
+    return execution_context
+
+
 def _resolve_manager_session_execution_context(
     db: Session,
     actor: ManagerSessionPrincipal,
@@ -446,10 +519,17 @@ def _resolve_manager_session_execution_context(
 def get_s3_execution_context(
     request: Request,
     context_ref: Optional[str] = Query(default=None, alias="context_id"),
+    execution_endpoint_id: Annotated[Optional[int], Query(gt=0)] = None,
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
 ) -> S3ExecutionContext:
-    return resolve_s3_execution_context(request, context_ref, actor, db)
+    return resolve_s3_execution_context(
+        request,
+        context_ref,
+        actor,
+        db,
+        execution_endpoint_id=execution_endpoint_id,
+    )
 
 
 def resolve_s3_execution_context(
@@ -460,9 +540,18 @@ def resolve_s3_execution_context(
     *,
     metadata_only: bool = False,
     workspace: Optional[str] = None,
+    execution_endpoint_id: Optional[int] = None,
 ) -> S3ExecutionContext:
     """Share exact-context authorization with read-only transfer-policy resolution."""
+    request_query_params = getattr(request, "query_params", None) if request else None
+    requested_execution_endpoint_id = _parse_execution_endpoint_id(
+        execution_endpoint_id
+        if execution_endpoint_id is not None
+        else request_query_params.get("execution_endpoint_id") if request_query_params is not None else None
+    )
     if isinstance(context_ref, str) and context_ref.startswith("os-"):
+        if requested_execution_endpoint_id is not None:
+            raise HTTPException(403, "Execution endpoint override is not available for OpenStack contexts")
         from app.services.openstack_service import OpenStackService
         from app.services.auth_session_guards import current_auth_session
         if not isinstance(actor, User) or not request or request.headers.get("authorization"):
@@ -481,6 +570,11 @@ def resolve_s3_execution_context(
     portal_browser = workspace == "portal" if workspace is not None else is_portal_browser_request(request, surface)
     requested_endpoint = normalize_s3_endpoint(request.headers.get("X-S3-Endpoint")) if request else None
     if isinstance(actor, ManagerSessionPrincipal):
+        if requested_execution_endpoint_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Execution endpoint override is not available for S3 sessions",
+            )
         requested_endpoint = _resolve_requested_session_endpoint(db, actor, requested_endpoint)
     else:
         # UI users are bound to the endpoint configured on the selected account.
@@ -490,7 +584,7 @@ def resolve_s3_execution_context(
         and path_matches_prefix(str(request.url.path), f"{settings.api_prefix}/storage-ops")
     )
     if isinstance(actor, User):
-        return _resolve_user_execution_context(
+        execution_context = _resolve_user_execution_context(
             db,
             actor,
             request=request,
@@ -501,6 +595,17 @@ def resolve_s3_execution_context(
             surface=surface,
             portal_browser=portal_browser,
             metadata_only=metadata_only,
+            is_storage_ops_surface=is_storage_ops_surface,
+        )
+        if requested_execution_endpoint_id is None:
+            return execution_context
+        return _apply_user_execution_destination(
+            db,
+            actor,
+            execution_context,
+            requested_execution_endpoint_id,
+            surface=surface,
+            portal_browser=portal_browser,
             is_storage_ops_surface=is_storage_ops_surface,
         )
     return _resolve_manager_session_execution_context(

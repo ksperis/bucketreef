@@ -391,6 +391,7 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
             "browser_advanced_features_enabled": True,
             "can_create_manual_private_connections": True,
             "can_provision_managed_private_connections": True,
+            "allow_multisite_endpoint_switching": True,
             "manager_tool_access": {
                 "bucket_compare": True,
                 "bucket_integrity_check": False,
@@ -417,12 +418,14 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
     assert out.browser_advanced_features_enabled is False
     assert out.can_create_manual_private_connections is False
     assert out.can_provision_managed_private_connections is False
+    assert out.allow_multisite_endpoint_switching is False
     assert out.manager_tool_access.bucket_compare is False
     assert out.effective_access is not None
     assert out.effective_access.can_access_storage_ops is True
     assert out.effective_access.browser_advanced_features_enabled is True
     assert out.effective_access.can_create_manual_private_connections is True
     assert out.effective_access.can_provision_managed_private_connections is True
+    assert out.effective_access.allow_multisite_endpoint_switching is True
     assert out.effective_access.group_can_provision_managed_private_connections is True
     assert out.effective_access.manager_tool_access.bucket_compare is True
     assert out.effective_access.manager_tool_access.bucket_migration is True

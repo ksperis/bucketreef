@@ -2,8 +2,12 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
 import type { ExecutionContext } from "../../api/executionContexts";
+import {
+  clearExecutionDestinationForContext,
+  setExecutionDestinationForContext,
+} from "../../api/executionDestinationState";
 import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerContext";
 import type { FeatureState } from "../../api/featurePolicies";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
@@ -24,6 +28,9 @@ type ExecutionContextState = {
   sessionAccountName: string | null;
   selectedContextName: string | null;
   selectedContextKind: ExecutionContext["kind"] | null;
+  selectedExecutionEndpointId: number | null;
+  selectedStorageEndpointCapabilities: Record<string, boolean> | null;
+  setExecutionEndpointId: (endpointId: number) => void;
   accessError?: string | null;
   iamIdentity: string | null;
   accessMode: ManagerAccessMode | null;
@@ -51,6 +58,9 @@ const defaultExecutionContextState: ExecutionContextState = {
   sessionAccountName: null,
   selectedContextName: null,
   selectedContextKind: null,
+  selectedExecutionEndpointId: null,
+  selectedStorageEndpointCapabilities: null,
+  setExecutionEndpointId: () => undefined,
   accessError: null,
   iamIdentity: null,
   accessMode: null,
@@ -114,6 +124,57 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
   const contextIdForApi = requiresContextSelection ? selectedContextId : null;
   const selectedContextName = selectedContext?.display_name ?? sessionAccountName;
   const selectedContextKind = selectedContext?.kind ?? null;
+  const [selectedExecutionEndpointId, setSelectedExecutionEndpointId] = useState<number | null>(null);
+  const previousExecutionContextIdRef = useRef<string | null>(null);
+  const executionDestinationIds = useMemo(
+    () => selectedContext?.execution_destinations?.map((item) => item.endpoint_id) ?? [],
+    [selectedContext?.execution_destinations],
+  );
+  const destinationSwitchingAvailable = Boolean(
+    selectedContext?.destination_switching_allowed && executionDestinationIds.length > 0,
+  );
+  const selectedExecutionDestination = selectedContext?.execution_destinations?.find(
+    (destination) => destination.endpoint_id === selectedExecutionEndpointId,
+  ) ?? null;
+  const selectedStorageEndpointCapabilities = selectedExecutionDestination?.storage_endpoint_capabilities
+    ?? selectedContext?.storage_endpoint_capabilities
+    ?? null;
+
+  useEffect(() => {
+    const contextChanged = previousExecutionContextIdRef.current !== selectedContextId;
+    const originEndpointId = selectedContext?.endpoint_id ?? null;
+    setSelectedExecutionEndpointId((current) => {
+      if (!destinationSwitchingAvailable || originEndpointId == null) return null;
+      if (contextChanged || current == null || !executionDestinationIds.includes(current)) {
+        return originEndpointId;
+      }
+      return current;
+    });
+    previousExecutionContextIdRef.current = selectedContextId;
+  }, [
+    destinationSwitchingAvailable,
+    executionDestinationIds,
+    selectedContext?.endpoint_id,
+    selectedContextId,
+  ]);
+
+  useEffect(() => {
+    if (!selectedContextId) return;
+    if (destinationSwitchingAvailable && selectedExecutionEndpointId != null) {
+      setExecutionDestinationForContext(selectedContextId, selectedExecutionEndpointId);
+    } else {
+      clearExecutionDestinationForContext(selectedContextId);
+    }
+    return () => clearExecutionDestinationForContext(selectedContextId);
+  }, [destinationSwitchingAvailable, selectedContextId, selectedExecutionEndpointId]);
+
+  const setExecutionEndpointId = (endpointId: number) => {
+    if (!destinationSwitchingAvailable || !executionDestinationIds.includes(endpointId)) return;
+    if (selectedContextId) {
+      setExecutionDestinationForContext(selectedContextId, endpointId);
+    }
+    setSelectedExecutionEndpointId(endpointId);
+  };
 
   const namingValidationProfile = hasExecutionContext && namingProfileState?.contextId === contextIdForApi
     ? namingProfileState.profile : null;
@@ -181,7 +242,7 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
     return () => {
       isMounted = false;
     };
-  }, [contextIdForApi, hasExecutionContext]);
+  }, [contextIdForApi, hasExecutionContext, selectedExecutionEndpointId]);
 
   return (
     <ExecutionContextStateContext.Provider
@@ -197,6 +258,9 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
         sessionAccountName,
         selectedContextName,
         selectedContextKind,
+        selectedExecutionEndpointId,
+        selectedStorageEndpointCapabilities,
+        setExecutionEndpointId,
         accessError,
         iamIdentity,
         accessMode,

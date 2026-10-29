@@ -69,6 +69,7 @@ MANAGER_ROLE_SCOPED_FIELDS = (
     "can_access_storage_ops",
     "can_create_manual_private_connections",
     "can_provision_managed_private_connections",
+    "allow_multisite_endpoint_switching",
 )
 
 
@@ -166,6 +167,9 @@ class UsersService:
             ),
             can_provision_managed_private_connections=(
                 bool(payload.can_provision_managed_private_connections) if manager_tools_supported else False
+            ),
+            allow_multisite_endpoint_switching=(
+                bool(payload.allow_multisite_endpoint_switching) if manager_tools_supported else False
             ),
             browser_advanced_features_enabled=bool(payload.browser_advanced_features_enabled),
             **manager_tool_column_values(manager_tool_access, enabled=manager_tools_supported),

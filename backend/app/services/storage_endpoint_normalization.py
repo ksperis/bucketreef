@@ -53,6 +53,9 @@ class EnvStorageEndpoint(ApiModel):
     name: str
     endpoint_url: str
     region: Optional[str] = None
+    realm_id: Optional[str] = None
+    zonegroup_id: Optional[str] = None
+    zone_id: Optional[str] = None
     force_path_style: bool = False
     verify_tls: bool = True
     provider: StorageProvider = StorageProvider.CEPH
@@ -78,7 +81,9 @@ class EnvStorageEndpoint(ApiModel):
             raise ValueError("Ceph ENV endpoints must explicitly declare service_identity_mode.")
         return self
 
-    normalize_string_fields = field_validator("name", "endpoint_url", "region", mode="before")(
+    normalize_string_fields = field_validator(
+        "name", "endpoint_url", "region", "realm_id", "zonegroup_id", "zone_id", mode="before"
+    )(
         normalize_optional_string_field
     )
 
@@ -97,6 +102,9 @@ class NormalizedEndpointState:
     name: str
     endpoint_url: str
     region: Optional[str]
+    realm_id: Optional[str]
+    zonegroup_id: Optional[str]
+    zone_id: Optional[str]
     force_path_style: bool
     verify_tls: bool
     latitude: Optional[float]
@@ -295,6 +303,11 @@ def normalize_storage_endpoint_state(
         raise ValueError("Endpoint URL is required.")
     provider = normalize_storage_provider(payload.provider)
     region = _normalize_region(provider, payload.region)
+    realm_id = normalize_optional_string(payload.realm_id) if provider == StorageProvider.CEPH else None
+    zonegroup_id = normalize_optional_string(payload.zonegroup_id) if provider == StorageProvider.CEPH else None
+    zone_id = normalize_optional_string(payload.zone_id) if provider == StorageProvider.CEPH else None
+    if bool(realm_id) != bool(zonegroup_id):
+        raise ValueError("Realm ID and zonegroup ID must be configured together.")
     features = normalize_features_config(
         provider,
         payload.features_config,
@@ -330,6 +343,9 @@ def normalize_storage_endpoint_state(
         name=name,
         endpoint_url=endpoint_url,
         region=region,
+        realm_id=realm_id,
+        zonegroup_id=zonegroup_id,
+        zone_id=zone_id,
         force_path_style=bool(payload.force_path_style),
         verify_tls=bool(payload.verify_tls),
         latitude=payload.latitude,
@@ -415,6 +431,9 @@ def _storage_endpoint_update_base(
         name=endpoint.name,
         endpoint_url=endpoint.endpoint_url,
         region=endpoint.region,
+        realm_id=endpoint.realm_id,
+        zonegroup_id=endpoint.zonegroup_id,
+        zone_id=endpoint.zone_id,
         force_path_style=endpoint.force_path_style,
         verify_tls=endpoint.verify_tls,
         provider=StorageProvider(endpoint.provider),

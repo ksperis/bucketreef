@@ -35,6 +35,9 @@ export type FormState = {
   name: string;
   endpoint_url: string;
   region: string;
+  realm_id: string;
+  zonegroup_id: string;
+  zone_id: string;
   force_path_style: boolean;
   verify_tls: boolean;
   latitude: string;
@@ -309,6 +312,9 @@ export function createEmptyForm(): FormState {
     name: "",
     endpoint_url: "",
     region: "",
+    realm_id: "",
+    zonegroup_id: "",
+    zone_id: "",
     force_path_style: false,
     verify_tls: true,
     latitude: "",
@@ -396,6 +402,9 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     name: endpoint.name ?? "",
     endpoint_url: endpoint.endpoint_url ?? "",
     region: endpoint.region ?? "",
+    realm_id: endpoint.realm_id ?? "",
+    zonegroup_id: endpoint.zonegroup_id ?? "",
+    zone_id: endpoint.zone_id ?? "",
     force_path_style: Boolean(endpoint.force_path_style),
     verify_tls: endpoint.verify_tls !== false,
     latitude: formatCoordinateInput(endpoint.latitude),

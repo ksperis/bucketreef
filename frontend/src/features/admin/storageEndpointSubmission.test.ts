@@ -127,4 +127,52 @@ describe("feature-dependent Ceph service credentials", () => {
     expect(buildStorageEndpointSubmission(form, true).errors).toHaveProperty("ceph_admin_access_key");
   });
 
+  it("requires Realm ID and Zonegroup ID together for Ceph endpoints", () => {
+    const form = createEmptyForm();
+    Object.assign(form, {
+      name: "Ceph multisite",
+      endpoint_url: "https://ceph-multisite.example.test",
+      service_identity_mode: "external",
+      realm_id: "realm-a",
+    });
+    form.features.metrics.enabled = false;
+    form.features.usage.enabled = false;
+    form.features.healthcheck.enabled = false;
+
+    const missingZonegroup = buildStorageEndpointSubmission(form, false);
+    expect(missingZonegroup.errors).toHaveProperty("zonegroup_id");
+
+    form.realm_id = "";
+    form.zonegroup_id = "zonegroup-a";
+    const missingRealm = buildStorageEndpointSubmission(form, false);
+    expect(missingRealm.errors).toHaveProperty("realm_id");
+  });
+
+  it("normalizes Ceph multisite topology and clears it for non-Ceph providers", () => {
+    const form = createEmptyForm();
+    Object.assign(form, {
+      name: "Ceph multisite",
+      endpoint_url: "https://ceph-multisite.example.test",
+      service_identity_mode: "external",
+      realm_id: "  realm-a  ",
+      zonegroup_id: "  zonegroup-a  ",
+      zone_id: "  zone-a  ",
+    });
+    form.features.metrics.enabled = false;
+    form.features.usage.enabled = false;
+    form.features.healthcheck.enabled = false;
+
+    const ceph = buildStorageEndpointSubmission(form, false);
+    expect(ceph.errors).toBeUndefined();
+    expect(ceph.payload).toMatchObject({
+      realm_id: "realm-a",
+      zonegroup_id: "zonegroup-a",
+      zone_id: "zone-a",
+    });
+
+    form.provider = "other";
+    const other = buildStorageEndpointSubmission(form, false);
+    expect(other.payload).toMatchObject({ realm_id: null, zonegroup_id: null, zone_id: null });
+  });
+
 });

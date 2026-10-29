@@ -14,6 +14,15 @@ Ceph RGW is a primary target, especially when RGW Accounts are available.
 
 - Validate feature support per Ceph release.
 - Consider multisite implications in production.
+- For Manager multisite endpoint switching, declare the same **Realm ID** and
+  **Zonegroup ID** on each Ceph endpoint that represents a zone in that
+  zonegroup. **Zone ID** is optional and is shown as descriptive destination
+  metadata. BucketReef uses only this declared topology; it does not read raw
+  realm/zone configuration with RGW synchronization credentials.
+- A switched Manager context keeps the RGW Account or RGW User identity and its
+  credentials while changing the S3 execution endpoint. This relies on Ceph
+  multisite metadata for that identity being available in the destination zone;
+  keep metadata synchronization healthy and consistent across the zonegroup.
 - Document cluster-specific limits for your organization.
 - Separate Admin Ops (bootstrap and mutations), Runtime Read Ops (Manager/Portal live
   reads), and Supervision Ops (monitoring and collection). Runtime has
