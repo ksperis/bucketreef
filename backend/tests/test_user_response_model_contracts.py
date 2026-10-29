@@ -124,6 +124,7 @@ def test_user_output_requires_complete_canonical_payload() -> None:
         "s3_user_links",
         "s3_user_details",
         "s3_connection_details",
+        "openstack_cloud_details",
         "effective_access",
         "last_login_at",
     }
@@ -133,6 +134,7 @@ def test_ui_group_output_requires_complete_canonical_payload() -> None:
     assert set(UiGroupOut.model_json_schema()["required"]) == {
         "id",
         "name",
+        "system_key",
         "description",
         "avatar",
         "can_access_ceph_admin",
@@ -147,6 +149,7 @@ def test_ui_group_output_requires_complete_canonical_payload() -> None:
         "s3_user_links",
         "s3_user_details",
         "s3_connection_details",
+        "openstack_cloud_details",
         "created_at",
         "updated_at",
     }

@@ -5,7 +5,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { UserAvatarDescriptor } from "../api/users";
-import { ChevronDownIcon, LinkIcon, LogoutIcon, UserIcon } from "./topbarIcons";
+import { ChevronDownIcon, LinkIcon, LogoutIcon, OpenStackIcon, UserIcon } from "./topbarIcons";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
 import UserAvatar from "./UserAvatar";
@@ -18,6 +18,7 @@ type TopbarAccountMenuProps = {
   name: string;
   roleLabel: string;
   canAccessPrivateConnections: boolean;
+  canAccessOpenStack: boolean;
   profilePath: string;
   onLogout?: () => void;
 };
@@ -28,6 +29,7 @@ export default function TopbarAccountMenu({
   name,
   roleLabel,
   canAccessPrivateConnections,
+  canAccessOpenStack,
   profilePath,
   onLogout,
 }: TopbarAccountMenuProps) {
@@ -200,6 +202,22 @@ export default function TopbarAccountMenu({
                     {text("privateS3Connections")}
                   </span>
                   <span className="shell-muted-text block ui-caption">{text("manageEndpointsCredentials")}</span>
+                </span>
+              </Link>
+            )}
+
+            {canAccessOpenStack && (
+              <Link
+                to={`${profilePath}?tab=openstack`}
+                role="menuitem"
+                data-account-menu-item="true"
+                onClick={() => setOpen(false)}
+                className="shell-menu-item flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left transition"
+              >
+                <OpenStackIcon className="shell-icon-muted mt-0.5 h-4 w-4" />
+                <span>
+                  <span className="block ui-caption font-semibold text-[var(--shell-text)]">{text("openStack")}</span>
+                  <span className="shell-muted-text block ui-caption">{text("manageOpenStackConnections")}</span>
                 </span>
               </Link>
             )}

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db import S3Connection, WebhookEndpoint
+from app.db.openstack import OpenStackCloud
 from app.services.webhook_service import webhook_dispatcher_enabled, webhook_runtime_config
 from app.utils.network_targets import host_matches_allowlist
 from app.utils.s3_connection_endpoint import parse_custom_endpoint_config
@@ -28,6 +29,10 @@ def _hostname(url: str) -> str:
 
 def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[UncoveredTarget]:
     uncovered: set[UncoveredTarget] = set()
+    for url in db.scalars(select(OpenStackCloud.auth_url).where(OpenStackCloud.enabled.is_(True))).all():
+        hostname = _hostname(url)
+        if not host_matches_allowlist(hostname, settings.openstack_allowed_hosts):
+            uncovered.add(UncoveredTarget("openstack", hostname or "<invalid>"))
     connections = db.scalars(
         select(S3Connection).where(
             S3Connection.is_shared.is_(False),

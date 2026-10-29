@@ -118,6 +118,8 @@ const CephAdminBrowserPage = lazy(() => import("./features/cephAdmin/CephAdminBr
 const StorageOpsLayout = lazy(() => import("./features/storageOps/StorageOpsLayout"));
 const StorageOpsDashboard = lazy(() => import("./features/storageOps/StorageOpsDashboard"));
 const StorageOpsBucketsPage = lazy(() => import("./features/storageOps/StorageOpsBucketsPage"));
+const OpenStackCloudsPage = lazy(() => import("./features/admin/OpenStackCloudsPage"));
+const StandaloneProfilePage = lazy(() => import("./features/shared/StandaloneProfilePage"));
 const AccountProfilePage = lazy(() => import("./features/shared/AccountProfilePage"));
 const AdminLayout = lazy(() => import("./features/admin/AdminLayout"));
 
@@ -157,6 +159,13 @@ function AdminPortalSettingsRoute() {
   }} />;
 }
 
+function AdminOpenStackRoute() {
+  const { generalSettings } = useGeneralSettings();
+  return generalSettings.openstack_enabled
+    ? <OpenStackCloudsPage />
+    : <FeatureDisabledPage feature="OpenStack" />;
+}
+
 function AdminEndpointStatusRoute() {
   const { generalSettings } = useGeneralSettings();
   return generalSettings.endpoint_status_enabled
@@ -186,6 +195,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
     <Route element={<Outlet />} errorElement={<RouteErrorPage />}>
       <Route element={<RequireAuth />}>
         <Route index element={<RoleRedirect />} />
+        <Route path="/profile" element={<StandaloneProfilePage />} />
 
         {runtimeSurfaces.admin ? (
           <Route element={<RequireRole roles={[SUPERADMIN_ROLE, ADMIN_ROLE]} />}>
@@ -216,6 +226,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route path="production-readiness" element={<ProductionReadinessPage />} />
                   <Route path="general-settings" element={<GeneralSettingsPage />} />
                   <Route path="cost-settings" element={<CostSettingsPage />} />
+                  <Route path="openstack" element={<AdminOpenStackRoute />} />
                   <Route path="authentication-settings" element={<AuthenticationSettingsPage />} />
                   <Route path="authentication-settings/oidc/new" element={<AuthProviderPage kind="oidc" />} />
                   <Route path="authentication-settings/oidc/providers/:providerId" element={<AuthProviderPage kind="oidc" />} />

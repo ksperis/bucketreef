@@ -34,7 +34,7 @@ export type FeatureKey =
 export type FeatureFilterState = "any" | "enabled" | "disabled" | "suspended" | "disabled_or_suspended";
 export type TextMatchMode = "contains" | "exact";
 export type BooleanFilterState = "any" | "true" | "false";
-type StorageOpsContextFilterKind = "any" | "account" | "connection" | "s3_user";
+type StorageOpsContextFilterKind = "any" | "account" | "connection" | "s3_user" | "openstack_project";
 export type AdvancedNumericField =
   | "minUsedBytes"
   | "maxUsedBytes"

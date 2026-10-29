@@ -13,6 +13,7 @@ import TopbarContextAccountSelector, {
   type ContextAccessMode,
 } from "../../components/TopbarContextAccountSelector";
 import TopbarStaticAccountControl from "../../components/TopbarStaticAccountControl";
+import { useShellI18n } from "../../components/shellMessages";
 import { BrowserContextProvider, useBrowserContext } from "./BrowserContext";
 import { fetchManagerContext } from "../../api/managerContext";
 import { formatAccountLabel } from "../shared/storageEndpointLabel";
@@ -27,6 +28,9 @@ import {
   readStoredUser,
 } from "../../utils/workspaces";
 import { useBrowserI18n } from "./browserI18n";
+import { useOpenStackProjectSelector } from "../shared/useOpenStackProjectSelector";
+import OpenStackRegionControl, { OpenStackRegionIcon } from "../shared/OpenStackRegionControl";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
 export type BrowserSidebarBodyRenderer = (args: SidebarBodyRenderArgs) => ReactNode;
 
@@ -48,10 +52,13 @@ export function useBrowserSidebarSlot(): BrowserSidebarSlotContextValue {
 
 function BrowserShell() {
   const { text } = useBrowserI18n();
+  const { text: shellText } = useShellI18n();
+  const { generalSettings } = useGeneralSettings();
   const location = useLocation();
   const {
     contexts,
     contextsLoaded,
+    refreshContexts,
     selectedContextId,
     requiresContextSelection,
     sessionAccountName,
@@ -70,7 +77,6 @@ function BrowserShell() {
   const canLoadManagerIdentity = !(
     selected?.kind === "connection" && selected.capabilities?.can_manage_iam === false
   );
-  const showSelector = requiresContextSelection && contexts.length > 1;
   const identityLabel = iamIdentity
     ? identityAccessMode === "connection"
       ? text("S3 Identity: {identity}", { identity: iamIdentity })
@@ -130,6 +136,16 @@ function BrowserShell() {
     // Keep the mounted draft and executor until route guards accept the change.
     setSearchParams(nextParams, { replace: true });
   };
+  const openStackSelector = useOpenStackProjectSelector({
+    enabled: requiresContextSelection && isBrowserExplorerRoute && generalSettings.openstack_enabled,
+    activeContext: selected,
+    refreshContexts,
+    onActivated: handleS3AccountChange,
+  });
+  const showSelector = requiresContextSelection && (
+    contexts.length > 1 || openStackSelector.candidateCount > 0
+  );
+  const hasSelectableContext = contexts.length > 0 || openStackSelector.candidateCount > 0;
   const setSidebarBody = useCallback((renderer: BrowserSidebarBodyRenderer | null) => {
     setSidebarBodyState(() => renderer);
   }, []);
@@ -150,13 +166,15 @@ function BrowserShell() {
         showSelector ? (
           <TopbarContextAccountSelector
             contexts={contexts}
+            additionalOptions={openStackSelector.selectorOptions}
             selectedContextId={selectedContextId}
-            onContextChange={handleS3AccountChange}
+            onContextChange={(value) => openStackSelector.handleContextChange(value, handleS3AccountChange)}
             selectedLabel={selectedLabel}
             identityLabel={identityLabel}
             widthClassName={mode === "icon" ? TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS : TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS}
             icon={<AccountControlIcon className="h-4 w-4" />}
             triggerMode={mode}
+            disabled={openStackSelector.busy}
           />
         ) : (
           <TopbarStaticAccountControl
@@ -169,6 +187,26 @@ function BrowserShell() {
         ),
     },
   ];
+  if (openStackSelector.region.visible) {
+    topbarControlDescriptors.push({
+      id: "region",
+      icon: <OpenStackRegionIcon className="h-4 w-4" />,
+      selectedLabel: openStackSelector.region.currentRegion ?? shellText("selectRegion"),
+      priority: 20,
+      estimatedIconWidth: 36,
+      estimatedLabelWidth: 176,
+      renderControl: (mode) => (
+        <OpenStackRegionControl
+          mode={mode}
+          currentRegion={openStackSelector.region.currentRegion}
+          currentTargetId={openStackSelector.region.currentTargetId}
+          options={openStackSelector.region.options}
+          loading={openStackSelector.region.loading}
+          onChange={openStackSelector.region.onChange}
+        />
+      ),
+    });
+  }
 
   return (
     <BrowserSidebarSlotContext.Provider value={sidebarSlotValue}>
@@ -184,14 +222,17 @@ function BrowserShell() {
         disableMainScroll={isBrowserExplorerRoute}
       >
         {isBrowserExplorerRoute && accessError ? <PageBanner tone="warning">{accessError}</PageBanner> : null}
-        {isBrowserExplorerRoute && requiresContextSelection && contextsLoaded && !selectedContextId ? (
+        {isBrowserExplorerRoute && openStackSelector.error ? (
+          <PageBanner tone="warning" className="mb-3">{openStackSelector.error}</PageBanner>
+        ) : null}
+        {isBrowserExplorerRoute && requiresContextSelection && contextsLoaded && openStackSelector.candidatesLoaded && !selectedContextId ? (
           <>
             <h1 className="sr-only">{text("Browser")}</h1>
             <PageEmptyState
-              title={contexts.length > 0 ? text("Select a private Browser connection") : text("No private Browser connection")}
+              title={hasSelectableContext ? text("Select a Browser context") : text("No private Browser connection")}
               description={
-                contexts.length > 0
-                  ? text("Choose a private connection explicitly to start browsing.")
+                hasSelectableContext
+                  ? text("Choose a Browser context explicitly to start browsing.")
                   : canManagePrivateConnections
                     ? text("Accounts, RGW users and Admin S3 connections are unavailable in Browser. Create a private connection with a dedicated access key.")
                     : text("Accounts, RGW users and Admin S3 connections are unavailable in Browser. Ask your administrator to allow manual private connections before adding a dedicated access key.")
@@ -208,6 +249,7 @@ function BrowserShell() {
           <Outlet key={`${selectedContextId ?? "session"}`} />
         )}
       </Layout>
+      {openStackSelector.dialog}
     </BrowserSidebarSlotContext.Provider>
   );
 }

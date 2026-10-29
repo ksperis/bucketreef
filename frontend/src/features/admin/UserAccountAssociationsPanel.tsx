@@ -2,7 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton } from "../../components/list/ListControls";
+import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import type { Dispatch, SetStateAction } from "react";
 import {
   defaultAccountAccessGrant,
@@ -65,123 +66,148 @@ export default function UserAccountAssociationsPanel({
       !hasAccountAccessRole(accounts.accountAccessChoice[accountId] ?? defaultAccess),
   );
   const showPortalColumn = showPortalRole;
-
-  return (
-    <div className="space-y-3">
-      <div className={adminAssociationTableContainerClass}>
-        <table className="ui-data-table">
-          <thead>
-            <tr>
-              <th className="text-left">{text("account")}</th>
-              <th className="text-left">{text("managerRole")}</th>
-              {showPortalColumn ? (
-                <th className="text-left">
-                  {text("portalRole")}
-                </th>
-              ) : null}
-              <th className="w-px whitespace-nowrap text-right">{text("actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.selected.length === 0 ? (
-              <tr>
-                <td colSpan={3 + Number(showPortalColumn)} className="ui-table-secondary">
-                  {text("noLinkedAccount")}
-                </td>
-              </tr>
-            ) : (
-              accounts.selected.map((entry) => {
-                const label =
-                  accounts.optionsById.get(Number(entry.id))?.name ??
-                  text("accountById", { id: entry.id });
-                const accessErrorId = `user-account-access-${entry.id}-error`;
-                const invalid = !hasAccountAccessRole(entry);
-                const updateAccess = (value: AccountAccessGrant) =>
+  const columns: DataTableColumn<AccountSelection>[] = [
+    {
+      id: "account",
+      label: text("account"),
+      primary: true,
+      render: (entry) => {
+        const label =
+          accounts.optionsById.get(Number(entry.id))?.name ??
+          text("accountById", { id: entry.id });
+        const accessErrorId = `user-account-access-${entry.id}-error`;
+        return (
+          <>
+            {label}
+            <AccountAccessRoleValidationMessage
+              id={accessErrorId}
+              value={entry}
+              portalEnabled={showPortalRole}
+            />
+          </>
+        );
+      },
+    },
+    {
+      id: "manager-role",
+      label: text("managerRole"),
+      render: (entry) => {
+        const label =
+          accounts.optionsById.get(Number(entry.id))?.name ??
+          text("accountById", { id: entry.id });
+        const accessErrorId = `user-account-access-${entry.id}-error`;
+        const invalid = !hasAccountAccessRole(entry);
+        return (
+          <ManagerAccountRoleSelect
+            label={label}
+            portalEnabled={showPortalRole}
+            value={entry}
+            onChange={(value) =>
+              accounts.setSelected((current) =>
+                current.map((item) =>
+                  item.id === entry.id ? { ...item, ...value } : item,
+                ),
+              )
+            }
+            showLabel={false}
+            invalid={invalid}
+            describedBy={invalid ? accessErrorId : undefined}
+          />
+        );
+      },
+    },
+    ...(showPortalColumn
+      ? [{
+          id: "portal-role",
+          label: text("portalRole"),
+          render: (entry: AccountSelection) => {
+            const label =
+              accounts.optionsById.get(Number(entry.id))?.name ??
+              text("accountById", { id: entry.id });
+            const accessErrorId = `user-account-access-${entry.id}-error`;
+            const invalid = !hasAccountAccessRole(entry);
+            return (
+              <PortalAccountRoleSelect
+                label={label}
+                portalEnabled={showPortalRole}
+                value={entry}
+                onChange={(value) =>
+                  accounts.setSelected((current) =>
+                    current.map((item) =>
+                      item.id === entry.id ? { ...item, ...value } : item,
+                    ),
+                  )
+                }
+                showLabel={false}
+                invalid={invalid}
+                describedBy={invalid ? accessErrorId : undefined}
+              />
+            );
+          },
+        } satisfies DataTableColumn<AccountSelection>]
+      : []),
+    {
+      id: "actions",
+      label: text("actions"),
+      align: "right",
+      mobileRole: "actions",
+      render: (entry) => {
+        const label =
+          accounts.optionsById.get(Number(entry.id))?.name ??
+          text("accountById", { id: entry.id });
+        return (
+          <ListActions>
+            {entry.manager_role ? (
+              <AdminAssociationAdvancedSettings
+                targetLabel={label}
+                associationKind="account"
+                allowManagerBrowserDataAccess={Boolean(
+                  entry.allow_manager_browser_data_access,
+                )}
+                onApply={(allowed) =>
                   accounts.setSelected((current) =>
                     current.map((item) =>
                       item.id === entry.id
                         ? {
                             ...item,
-                            ...value,
+                            allow_manager_browser_data_access: allowed,
                           }
                         : item,
                     ),
-                  );
-                return (
-                  <tr key={entry.id}>
-                    <td className="ui-table-primary">
-                      {label}
-                      <AccountAccessRoleValidationMessage
-                        id={accessErrorId}
-                        value={entry}
-                        portalEnabled={showPortalRole}
-                      />
-                    </td>
-                    <td>
-                      <ManagerAccountRoleSelect
-                        label={label}
-                        portalEnabled={showPortalRole}
-                        value={entry}
-                        onChange={updateAccess}
-                        showLabel={false}
-                        invalid={invalid}
-                        describedBy={invalid ? accessErrorId : undefined}
-                      />
-                    </td>
-                    {showPortalColumn ? (
-                      <td>
-                        <PortalAccountRoleSelect
-                          label={label}
-                          portalEnabled={showPortalRole}
-                          value={entry}
-                          onChange={updateAccess}
-                          showLabel={false}
-                          invalid={invalid}
-                          describedBy={invalid ? accessErrorId : undefined}
-                        />
-                      </td>
-                    ) : null}
-                    <td className="ui-table-actions-cell w-px text-right">
-                      {entry.manager_role ? (
-                        <AdminAssociationAdvancedSettings
-                          targetLabel={label}
-                          associationKind="account"
-                          allowManagerBrowserDataAccess={Boolean(
-                            entry.allow_manager_browser_data_access,
-                          )}
-                          onApply={(allowed) =>
-                            accounts.setSelected((current) =>
-                              current.map((item) =>
-                                item.id === entry.id
-                                  ? {
-                                      ...item,
-                                      allow_manager_browser_data_access: allowed,
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
-                        />
-                      ) : null}
-                      <ListActionButton
-                        type="button"
-                        onClick={() =>
-                          accounts.setSelected((current) =>
-                            current.filter((account) => account.id !== entry.id),
-                          )
-                        }
-                         variant="danger"
-                      >
-                        {text("remove")}
-                      </ListActionButton>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                  )
+                }
+              />
+            ) : null}
+            <ListActionButton
+              type="button"
+              onClick={() =>
+                accounts.setSelected((current) =>
+                  current.filter((account) => account.id !== entry.id),
+                )
+              }
+              variant="danger"
+            >
+              {text("remove")}
+            </ListActionButton>
+          </ListActions>
+        );
+      },
+    },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <DataTableShell
+        columns={columns}
+        rows={accounts.selected}
+        rowKey={(entry) => entry.id}
+        status={accounts.selected.length ? "ready" : "empty"}
+        loadingMessage={text("loadingAccounts")}
+        errorMessage={text("noLinkedAccount")}
+        emptyMessage={text("noLinkedAccount")}
+        containerClassName={adminAssociationTableContainerClass}
+        responsiveCards
+      />
       {accounts.showPanel ? (
         <AdminAssociationPickerPanel
           title={text("addAccounts")}

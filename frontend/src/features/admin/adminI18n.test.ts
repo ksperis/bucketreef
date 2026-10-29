@@ -41,6 +41,7 @@ const TECHNICAL_IDENTICAL_KEYS = new Set([
   "TiB",
   "UID",
   "OIDC",
+  "OpenStack",
   "Passkey",
   "Portal",
   "RGW",

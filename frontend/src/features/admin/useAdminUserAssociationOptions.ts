@@ -4,6 +4,7 @@ import { listMinimalS3Accounts, type S3AccountSummary } from "../../api/accounts
 import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { listMinimalS3Connections, type S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
 import { listMinimalS3Users, type S3UserSummary } from "../../api/s3Users";
+import { listAdminOpenStackClouds, type OpenStackCloud } from "../../api/openstack";
 import type { AssociationTab } from "./UserAssociationsTabs";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
@@ -47,10 +48,12 @@ export default function useAdminUserAssociationOptions() {
   const s3UsersLoader = useLazyOptionsLoader<S3UserSummary>(listMinimalS3Users);
   const s3ConnectionsLoader = useLazyOptionsLoader<S3ConnectionSummary>(listMinimalS3Connections);
   const groupsLoader = useLazyOptionsLoader<UiGroupSummary>(listMinimalGroups);
+  const openStackLoader = useLazyOptionsLoader<OpenStackCloud>(listAdminOpenStackClouds);
 
   const { ensure: ensureS3Accounts } = accountsLoader;
   const { ensure: ensureS3Users } = s3UsersLoader;
   const { ensure: ensureS3Connections } = s3ConnectionsLoader;
+  const { ensure: ensureOpenStackClouds } = openStackLoader;
   useEffect(() => {
     void ensureS3Accounts();
   }, [ensureS3Accounts]);
@@ -65,9 +68,13 @@ export default function useAdminUserAssociationOptions() {
         await ensureS3Users(options);
         return;
       }
+      if (tab === "openstack") {
+        await ensureOpenStackClouds(options);
+        return;
+      }
       await ensureS3Connections(options);
     },
-    [ensureS3Accounts, ensureS3Connections, ensureS3Users],
+    [ensureOpenStackClouds, ensureS3Accounts, ensureS3Connections, ensureS3Users],
   );
 
   return {
@@ -84,6 +91,8 @@ export default function useAdminUserAssociationOptions() {
     groupsLoaded: groupsLoader.loaded,
     groupsLoading: groupsLoader.loading,
     ensureGroups: groupsLoader.ensure,
+    openStackClouds: openStackLoader.items,
+    openStackCloudsLoading: openStackLoader.loading,
     ensureAssociationOptionsForTab,
   };
 }

@@ -59,6 +59,7 @@ export default function ManagerMigrationsListPage() {
 
   return (
     <PageShell
+      actionPresentation="listing"
       title={text("Bucket Migration")}
       description={text("Track migrations and open an operational view for each run.")}
       breadcrumbs={managerPageBreadcrumbs(text, "migration")}

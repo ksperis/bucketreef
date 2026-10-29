@@ -5,6 +5,7 @@
 import { Outlet, useNavigate, useSearchParams } from "react-router-dom";
 import AccountControlIcon from "../../components/AccountControlIcon";
 import Layout from "../../components/Layout";
+import PageBanner from "../../components/PageBanner";
 import TopbarContextAccountSelector, {
   getContextAccessModeVisual,
 } from "../../components/TopbarContextAccountSelector";
@@ -31,6 +32,8 @@ import {
   workspacePageLink,
 } from "../../navigation/workspacePages";
 import { useManagerI18n } from "./managerI18n";
+import { useOpenStackProjectSelector } from "../shared/useOpenStackProjectSelector";
+import OpenStackRegionControl, { OpenStackRegionIcon } from "../shared/OpenStackRegionControl";
 
 type SessionCapabilities = {
   can_manage_iam?: boolean;
@@ -46,6 +49,7 @@ function ManagerShell() {
   });
   const {
     contexts,
+    refreshContexts,
     selectedContextId,
     requiresContextSelection,
     sessionAccountName,
@@ -65,7 +69,6 @@ function ManagerShell() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selected = contexts.find((a) => a.id === selectedContextId);
-  const showSelector = requiresContextSelection && contexts.length > 1;
   const storedUser = readStoredUser();
   const userCapabilities = (storedUser?.capabilities as SessionCapabilities | undefined) ?? null;
   const contextCapabilities = (selected?.capabilities as Partial<SessionCapabilities> | undefined) ?? null;
@@ -145,6 +148,15 @@ function ManagerShell() {
     }
     navigate({ pathname: "/manager", search: nextParams.toString() ? `?${nextParams.toString()}` : "" });
   };
+  const openStackSelector = useOpenStackProjectSelector({
+    enabled: requiresContextSelection && generalSettings.openstack_enabled,
+    activeContext: selected,
+    refreshContexts,
+    onActivated: handleS3AccountChange,
+  });
+  const showSelector = requiresContextSelection && (
+    contexts.length > 1 || openStackSelector.candidateCount > 0
+  );
 
   const topbarControlDescriptors: TopbarControlDescriptor[] = [
     {
@@ -158,14 +170,16 @@ function ManagerShell() {
         requiresContextSelection && showSelector ? (
           <TopbarContextAccountSelector
             contexts={contexts}
+            additionalOptions={openStackSelector.selectorOptions}
             selectedContextId={selectedContextId}
-            onContextChange={handleS3AccountChange}
+            onContextChange={(value) => openStackSelector.handleContextChange(value, handleS3AccountChange)}
             selectedLabel={selectedLabel}
             identityLabel={identityLabel}
             widthClassName={mode === "icon" ? TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS : TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS}
             icon={<AccountControlIcon className="h-4 w-4" />}
             triggerMode={mode}
             showTriggerTags={mode !== "icon"}
+            disabled={openStackSelector.busy}
           />
         ) : (
           <TopbarStaticAccountControl
@@ -182,6 +196,26 @@ function ManagerShell() {
         ),
     },
   ];
+  if (openStackSelector.region.visible) {
+    topbarControlDescriptors.push({
+      id: "region",
+      icon: <OpenStackRegionIcon className="h-4 w-4" />,
+      selectedLabel: openStackSelector.region.currentRegion ?? shellText("selectRegion"),
+      priority: 20,
+      estimatedIconWidth: 36,
+      estimatedLabelWidth: 176,
+      renderControl: (mode) => (
+        <OpenStackRegionControl
+          mode={mode}
+          currentRegion={openStackSelector.region.currentRegion}
+          currentTargetId={openStackSelector.region.currentTargetId}
+          options={openStackSelector.region.options}
+          loading={openStackSelector.region.loading}
+          onChange={openStackSelector.region.onChange}
+        />
+      ),
+    });
+  }
 
   const navSections: SidebarSection[] = [
     {
@@ -264,22 +298,28 @@ function ManagerShell() {
   });
 
   return (
-    <Layout
-      navSections={navSections}
-      headerTitle="Manager"
-      hideHeader
-      sidebarTitle="MANAGER"
-      topbarControlDescriptors={topbarControlDescriptors}
-    >
-      <>
-        {accessError && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 ui-body text-amber-800 shadow-sm dark:border-amber-900/40 dark:bg-amber-900/30 dark:text-amber-100">
-            {text("Access denied for /manager. Check your account permissions or contact an administrator.")}
-          </div>
-        )}
-        <Outlet key={`${selectedContextId ?? "session"}:${accessMode ?? "default"}`} />
-      </>
-    </Layout>
+    <>
+      <Layout
+        navSections={navSections}
+        headerTitle="Manager"
+        hideHeader
+        sidebarTitle="MANAGER"
+        topbarControlDescriptors={topbarControlDescriptors}
+      >
+        <>
+          {accessError && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 ui-body text-amber-800 shadow-sm dark:border-amber-900/40 dark:bg-amber-900/30 dark:text-amber-100">
+              {text("Access denied for /manager. Check your account permissions or contact an administrator.")}
+            </div>
+          )}
+          {openStackSelector.error ? (
+            <PageBanner tone="warning" className="mb-4">{openStackSelector.error}</PageBanner>
+          ) : null}
+          <Outlet key={`${selectedContextId ?? "session"}:${accessMode ?? "default"}`} />
+        </>
+      </Layout>
+      {openStackSelector.dialog}
+    </>
   );
 }
 

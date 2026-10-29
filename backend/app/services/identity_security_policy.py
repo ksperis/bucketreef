@@ -173,13 +173,14 @@ def admin_user_update_requires_step_up(user: User, payload: UserUpdate) -> bool:
             _account_links_changed(user, payload),
             _s3_user_links_changed(user, payload),
             _admin_user_memberships_changed(user, payload),
+            payload.openstack_cloud_ids is not None,
         )
     )
 
 
 def admin_group_create_requires_step_up(payload: UiGroupCreate) -> bool:
     """Return whether group creation introduces access-bearing state."""
-    if payload.user_ids or payload.account_links or payload.s3_user_links or payload.s3_connection_ids:
+    if payload.user_ids or payload.account_links or payload.s3_user_links or payload.s3_connection_ids or payload.openstack_cloud_ids:
         return True
     if any(bool(getattr(payload, field)) for field in _GROUP_DIRECT_ACCESS_FIELDS):
         return True
@@ -236,6 +237,8 @@ def admin_group_update_requires_step_up(group: UiGroup, payload: UiGroupUpdate) 
     ):
         return True
     if _group_account_links_changed(group, payload) or _group_s3_user_links_changed(group, payload):
+        return True
+    if payload.openstack_cloud_ids is not None:
         return True
     return _requested_ids_changed(
         payload.s3_connection_ids,

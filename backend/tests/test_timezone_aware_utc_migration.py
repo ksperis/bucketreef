@@ -33,6 +33,10 @@ def _load_migration() -> ModuleType:
 MIGRATION = _load_migration()
 
 POST_MIGRATION_UTC_COLUMNS = {
+    "openstack_clouds": ("created_at",),
+    "openstack_connections": ("created_at",),
+    "openstack_sessions": ("expires_at",),
+    "openstack_project_credentials": ("validated_at", "expires_at"),
     "browser_favorites": ("created_at", "updated_at"),
     "bucket_ui_tag_assignments": ("created_at", "updated_at"),
     "oidc_authorization_codes": ("created_at", "expires_at"),

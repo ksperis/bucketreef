@@ -21,11 +21,12 @@ settings = get_settings()
 
 class BucketMigrationExecutionContextMixin:
     def _context_client(self, ctx: _ResolvedContext):
+        from app.services.openstack_execution_guard import guard_openstack_client
         access_key, secret_key = ctx.execution_context.effective_rgw_credentials()
         if not access_key or not secret_key:
             raise RuntimeError(f"Context '{ctx.context_id}' has no credentials")
         token = ctx.execution_context.session_token()
-        return get_s3_client(
+        return guard_openstack_client(ctx.execution_context, get_s3_client(
             access_key=access_key,
             secret_key=secret_key,
             endpoint=ctx.endpoint,
@@ -35,7 +36,7 @@ class BucketMigrationExecutionContextMixin:
             verify_tls=ctx.verify_tls,
             user_agent_extra=_MIGRATION_USER_AGENT_MARKER,
             request_profile="long_running",
-        )
+        ))
 
     def _load_runtime_limits(self) -> _MigrationRuntimeLimits:
         env_parallelism_max = max(1, min(int(settings.bucket_migration_parallelism_max or 1), 128))
@@ -86,6 +87,15 @@ class BucketMigrationExecutionContextMixin:
 
     def _context_to_execution_target(self, context_id: str) -> S3ExecutionTarget:
         value = (context_id or "").strip()
+        if value.startswith("os-"):
+            from app.db import AuthSession, User
+            from app.services.openstack_service import OpenStackService
+            auth_id = self._execution_auth_session_id
+            auth = self.db.get(AuthSession, auth_id) if auth_id else None
+            user = self.db.get(User, auth.user_id) if auth else None
+            if user is None:
+                raise PermissionError("OpenStack migration requires its initiating UI session")
+            return OpenStackService(self.db).resolve(user, auth_id, value)
         if not value:
             raise ValueError("Invalid context id")
 

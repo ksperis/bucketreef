@@ -204,6 +204,10 @@ export default function AdminGroupsList({
                 text("connectionNumber", { id: connectionId }),
             };
           });
+          const openStackItems = (group.openstack_cloud_details ?? []).map((cloud) => ({
+            id: cloud.id,
+            label: cloud.name,
+          }));
           const categories: CompactAssociationCategory[] = [
             {
               id: "accounts",
@@ -227,6 +231,12 @@ export default function AdminGroupsList({
               itemLabel: text("s3Connection"),
               items: connectionItems,
             },
+            {
+              id: "openstack",
+              label: text("openStack"),
+              itemLabel: text("cloud"),
+              items: openStackItems,
+            },
           ];
           return <CompactAssociationSummary categories={categories} />;
         },
@@ -249,14 +259,16 @@ export default function AdminGroupsList({
             <ListActionLink to={buildAccessAuditHref({ groupId: group.id })}>
               {text("reviewAccess")}
             </ListActionLink>
-            <ListActionButton
-              type="button"
-              onClick={() => onDelete(group)}
-              disabled={busyId === group.id}
-              variant="danger"
-            >
-              {busyId === group.id ? text("deleting") : text("delete")}
-            </ListActionButton>
+            {!group.system_key && (
+              <ListActionButton
+                type="button"
+                onClick={() => onDelete(group)}
+                disabled={busyId === group.id}
+                variant="danger"
+              >
+                {busyId === group.id ? text("deleting") : text("delete")}
+              </ListActionButton>
+            )}
           </ListActions>
         ),
       },

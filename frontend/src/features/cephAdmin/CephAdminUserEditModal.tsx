@@ -4,7 +4,9 @@
  */
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { cx, uiDataTableClass, uiPanelMutedClass, uiTableContainerClass } from "../../components/ui/styles";
+import DataTableShell from "../../components/list/DataTableShell";
+import { resolveListTableStatus } from "../../components/list/listTableStatus";
+import { cx, uiPanelMutedClass } from "../../components/ui/styles";
 import {
   CephAdminRgwUserDetail,
   UpdateCephAdminUserPayload,
@@ -590,73 +592,77 @@ export default function CephAdminUserEditModal({
         </UiButton>
       </div>
 
-      <div className={uiTableContainerClass}>
-        <table className={uiDataTableClass}>
-          <thead className="bg-slate-50 dark:bg-slate-900/50">
-            <tr>
-              <th className="text-left">
-                {surfaceText("Access key")}</th>
-              <th className="text-left">
-                {surfaceText("Status")}</th>
-              <th className="text-left">
-                {surfaceText("Created")}</th>
-              <th className="text-right">
-                {surfaceText("Actions")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-            {keys.length === 0 && (
-              <tr>
-                <td colSpan={4} className="ui-table-secondary">
-                  {surfaceText("No access keys for this user.")}</td>
-              </tr>
-            )}
-            {keys.map((key) => {
+      <DataTableShell
+        columns={[
+          {
+            id: "access-key",
+            label: surfaceText("Access key"),
+            primary: true,
+            cellClassName: "font-mono",
+            render: (key) => (
+              <div className="flex flex-wrap items-center gap-2">
+                <span>{key.access_key}</span>
+                {key.is_private_access_managed && (
+                  <ListBadge tone="neutral" title={surfaceText("Managed private access key")}>
+                    {surfaceText("Private access")}
+                  </ListBadge>
+                )}
+              </div>
+            ),
+          },
+          {
+            id: "status",
+            label: surfaceText("Status"),
+            render: (key) => key.status ?? (keyActive(key) ? "enabled" : "disabled"),
+          },
+          {
+            id: "created",
+            label: surfaceText("Created"),
+            render: (key) => formatDate(key.created_at),
+          },
+          {
+            id: "actions",
+            label: surfaceText("Actions"),
+            align: "right",
+            mobileRole: "actions",
+            actionWidth: "wide",
+            render: (key) => {
               const active = keyActive(key);
               const managedPrivate = key.is_private_access_managed;
               const toggleBusy = keysBusy === `toggle:${key.access_key}`;
               const deleteBusy = keysBusy === `delete:${key.access_key}`;
               return (
-                <tr key={key.access_key}>
-                  <td className="font-mono ui-table-primary">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span>{key.access_key}</span>
-                      {managedPrivate && (
-                        <ListBadge tone="neutral" title={surfaceText("Managed private access key")}>
-                          {surfaceText("Private access")}</ListBadge>
-                      )}
-                    </div>
-                  </td>
-                  <td className="ui-table-secondary">{key.status ?? (active ? "enabled" : "disabled")}</td>
-                  <td className="ui-table-secondary">{formatDate(key.created_at)}</td>
-                  <td className="text-right">
-                    <ListActions>
-                      <ListActionButton
-                        type="button"
-                        onClick={() => handleToggleKey(key, !active)}
-                        disabled={toggleBusy || deleteBusy || managedPrivate}
-                        title={managedPrivate ? surfaceText("Update the linked private connection instead") : undefined}
-
-                      >
-                        {toggleBusy ? surfaceText("Saving...") : active ? surfaceText("Disable") : surfaceText("Enable")}
-                      </ListActionButton>
-                      <ListActionButton
-                        type="button"
-                        onClick={() => handleDeleteKey(key)}
-                        disabled={toggleBusy || deleteBusy || managedPrivate}
-                        title={managedPrivate ? surfaceText("Delete the linked private connection instead") : undefined}
-                         variant="danger"
-                      >
-                        {deleteBusy ? surfaceText("Deleting...") : surfaceText("Delete")}
-                      </ListActionButton>
-                    </ListActions>
-                  </td>
-                </tr>
+                <ListActions>
+                  <ListActionButton
+                    type="button"
+                    onClick={() => handleToggleKey(key, !active)}
+                    disabled={toggleBusy || deleteBusy || managedPrivate}
+                    title={managedPrivate ? surfaceText("Update the linked private connection instead") : undefined}
+                  >
+                    {toggleBusy ? surfaceText("Saving...") : active ? surfaceText("Disable") : surfaceText("Enable")}
+                  </ListActionButton>
+                  <ListActionButton
+                    type="button"
+                    onClick={() => handleDeleteKey(key)}
+                    disabled={toggleBusy || deleteBusy || managedPrivate}
+                    title={managedPrivate ? surfaceText("Delete the linked private connection instead") : undefined}
+                    variant="danger"
+                  >
+                    {deleteBusy ? surfaceText("Deleting...") : surfaceText("Delete")}
+                  </ListActionButton>
+                </ListActions>
               );
-            })}
-          </tbody>
-        </table>
-      </div>
+            },
+          },
+        ]}
+        rows={keys}
+        rowKey={(key) => key.access_key}
+        status={resolveListTableStatus({ loading: keysLoading, error: keysError, rowCount: keys.length })}
+        loadingMessage={surfaceText("Loading access keys...")}
+        errorMessage={keysError ?? surfaceText("Unable to load access keys.")}
+        emptyMessage={surfaceText("No access keys for this user.")}
+        primaryColumnId="access-key"
+      />
     </section>
   );
 
@@ -693,39 +699,36 @@ export default function CephAdminUserEditModal({
                 {surfaceText(metrics.bucket_count === 1 ? "{count} bucket" : "{count} buckets", { count: metrics.bucket_count })}
               </p>
             </div>
-            <div className="mt-3 overflow-x-auto">
-              <table className={uiDataTableClass}>
-                <thead className="bg-slate-100/80 dark:bg-slate-900/60">
-                  <tr>
-                    <th className="text-left">
-                      {surfaceText("Bucket")}</th>
-                    <th className="text-right">
-                      {surfaceText("Used")}</th>
-                    <th className="text-right">
-                      {surfaceText("Objects")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {metrics.bucket_usage.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="ui-table-secondary">
-                        {surfaceText("No bucket usage data available.")}</td>
-                    </tr>
-                  )}
-                  {metrics.bucket_usage.slice(0, 50).map((entry) => (
-                    <tr key={entry.name}>
-                      <td className="ui-table-primary">{entry.name}</td>
-                      <td className="text-right ui-table-secondary">
-                        {formatBytes(entry.used_bytes)}
-                      </td>
-                      <td className="text-right ui-table-secondary">
-                        {formatNumber(entry.object_count)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTableShell
+              columns={[
+                {
+                  id: "bucket",
+                  label: surfaceText("Bucket"),
+                  primary: true,
+                  render: (entry) => entry.name,
+                },
+                {
+                  id: "used",
+                  label: surfaceText("Used"),
+                  align: "right",
+                  render: (entry) => formatBytes(entry.used_bytes),
+                },
+                {
+                  id: "objects",
+                  label: surfaceText("Objects"),
+                  align: "right",
+                  render: (entry) => formatNumber(entry.object_count),
+                },
+              ]}
+              rows={metrics.bucket_usage.slice(0, 50)}
+              rowKey={(entry) => entry.name}
+              status={metrics.bucket_usage.length > 0 ? "ready" : "empty"}
+              loadingMessage={surfaceText("Loading bucket usage...")}
+              errorMessage={surfaceText("Unable to load bucket usage.")}
+              emptyMessage={surfaceText("No bucket usage data available.")}
+              primaryColumnId="bucket"
+              containerClassName="mt-3"
+            />
           </div>
         </>
       )}

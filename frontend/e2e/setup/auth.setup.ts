@@ -235,6 +235,7 @@ setup("bootstrap reusable admin and browser auth", async ({ browser, page }) => 
   await assertOk(settingsResponse, "Unable to load application settings");
   const appSettings = await settingsResponse.json();
   appSettings.general.require_passkey_for_admins = true;
+  appSettings.general.openstack_enabled = true;
   await assertOk(
     await page.request.put("/api/admin/settings", {
       headers: await csrfHeaders(page),

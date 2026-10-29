@@ -112,6 +112,7 @@ export function createDemoUser(input: Pick<DemoUser, "id" | "email"> & Partial<D
     s3_user_links: input.s3_user_links ?? [],
     s3_user_details: input.s3_user_details ?? [],
     s3_connection_details: input.s3_connection_details ?? [],
+    openstack_cloud_details: input.openstack_cloud_details ?? [],
     last_login_at: input.last_login_at ?? null,
   };
 }
@@ -145,6 +146,7 @@ export function createDemoGroup(input: Pick<UiGroup, "id" | "name"> & Partial<Ui
   return {
     id: input.id,
     name: input.name,
+    system_key: input.system_key ?? null,
     description: input.description ?? null,
     avatar: input.avatar ?? {
       source: "initials",
@@ -171,6 +173,7 @@ export function createDemoGroup(input: Pick<UiGroup, "id" | "name"> & Partial<Ui
     s3_user_links: input.s3_user_links ?? [],
     s3_user_details: input.s3_user_details ?? [],
     s3_connection_details: input.s3_connection_details ?? [],
+    openstack_cloud_details: input.openstack_cloud_details ?? [],
     created_at: input.created_at ?? null,
     updated_at: input.updated_at ?? null,
   };
@@ -193,7 +196,7 @@ export const settings: AppSettings = {
     rgw_account_id_prefix: "80",
     allow_managed_rgw_tenant_creation: false,
     documentation_base_url: "https://docs.bucketreef.ksperis.com",
-    manager_enabled: true, ceph_admin_enabled: true, storage_ops_enabled: false,
+    manager_enabled: true, openstack_enabled: true, ceph_admin_enabled: true, storage_ops_enabled: false,
     browser_enabled: true, browser_root_enabled: true, browser_manager_enabled: true,
     browser_portal_enabled: true, browser_ceph_admin_enabled: true, portal_enabled: true,
     cost_enabled: true, endpoint_status_enabled: true, quota_alerts_enabled: true,

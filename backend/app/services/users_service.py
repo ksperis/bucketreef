@@ -173,10 +173,12 @@ class UsersService:
         self.db.add(user)
         self.db.flush()
         if payload.group_ids is not None:
-            UserAssociationsService(self.db).set_group_links(
-                user,
-                payload.group_ids,
-            )
+            associations = UserAssociationsService(self.db)
+            associations.set_group_links(user, payload.group_ids)
+        else:
+            associations = UserAssociationsService(self.db)
+        if payload.openstack_cloud_ids is not None:
+            associations.set_openstack_cloud_links(user, payload.openstack_cloud_ids)
         self.db.commit()
         self.db.refresh(user)
         logger.debug("Created user id=%s email=%s role=%s", user.id, user.email, role)
@@ -250,6 +252,8 @@ class UsersService:
             associations.set_s3_connection_links(user, payload.s3_connection_ids)
         if payload.group_ids is not None:
             associations.set_group_links(user, payload.group_ids)
+        if payload.openstack_cloud_ids is not None:
+            associations.set_openstack_cloud_links(user, payload.openstack_cloud_ids)
 
     def _revoke_portal_iam_for_deactivated_user(
         self,

@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useState } from "react";
+import DataTableShell from "../../../components/list/DataTableShell";
 import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { isApiFeatureNotImplemented } from "../../../utils/apiError";
@@ -136,38 +137,39 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
                 {acl?.owner ?? text("Unknown")}
               </span>
             </p>
-            {(acl?.grants?.length ?? 0) > 0 ? (
-              <div className="overflow-x-auto rounded-md border border-[color:var(--ui-border-soft)]">
-                <table className="ui-data-table min-w-full divide-y divide-slate-200 ui-body dark:divide-slate-800">
-                  <thead>
-                    <tr>
-                      <th className="text-left">{text("Grantee")}</th>
-                      <th className="text-left">{text("Type")}</th>
-                      <th className="text-left">{text("Permission")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {acl?.grants.map((grant, index) => {
-                      const { grantee } = grant;
-                      const label =
-                        grantee.display_name ||
-                        grantee.id ||
-                        (grantee.uri ? grantee.uri.split("/").pop() : null) ||
-                        grantee.type;
-                      return (
-                        <tr key={`${grantee.type}-${grantee.id ?? grantee.uri ?? index}`}>
-                          <td>{label}</td>
-                          <td className="ui-table-secondary">{grantee.type}</td>
-                          <td className="ui-table-primary">{grant.permission}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="ui-body text-slate-600 dark:text-slate-300">{text("No explicit ACL grants on this bucket.")}</p>
-            )}
+            <DataTableShell
+              columns={[
+                {
+                  id: "grantee",
+                  label: text("Grantee"),
+                  primary: true,
+                  render: (grant) => {
+                    const { grantee } = grant;
+                    return grantee.display_name
+                      || grantee.id
+                      || (grantee.uri ? grantee.uri.split("/").pop() : null)
+                      || grantee.type;
+                  },
+                },
+                {
+                  id: "type",
+                  label: text("Type"),
+                  render: (grant) => grant.grantee.type,
+                },
+                {
+                  id: "permission",
+                  label: text("Permission"),
+                  render: (grant) => grant.permission,
+                },
+              ]}
+              rows={acl?.grants ?? []}
+              rowKey={(grant) => `${grant.grantee.type}-${grant.grantee.id ?? grant.grantee.uri ?? "unknown"}-${grant.permission}`}
+              status={(acl?.grants?.length ?? 0) > 0 ? "ready" : "empty"}
+              loadingMessage={text("Loading ACL grants...")}
+              errorMessage={text("Unable to load ACL grants.")}
+              emptyMessage={text("No explicit ACL grants on this bucket.")}
+              primaryColumnId="grantee"
+            />
           </div>
         </BucketFeatureSettingsDialog>
       ) : null}

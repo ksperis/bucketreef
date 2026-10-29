@@ -1,81 +1,76 @@
 # Table and listing presentation inventory
 
-The September 2026 convergence preserves columns, content, rights and behavior.
-The inventory is based on rendered JSX sites, so files containing both a main
-inventory and secondary tables appear once with both counts. It replaces the
-preliminary import-based count: **55 components, 68 table render sites**,
-including `DataTableShell` itself. The raw-table sites include help tables,
-association editors, operation results and dialogs, not just routed inventories.
+The October 28, 2026 audit covers every rendered non-test table site under
+`frontend/src`. The current inventory contains **77 components and 87 table
+render sites**: **72 `DataTableShell` sites** and **15 reviewed raw-table sites**.
+The static `listings:check` guard owns this count and rejects any new raw table
+unless its file and expected site count are explicitly reviewed.
 
-All entries consume `components/list/listPresentation.css`. Use `ListActionButton`,
-`ListActionLink`, `ListActions` and `ListBadge` for actions and badges. Native
-summary/menu triggers keep their HTML semantics with the same `ui-list-action`
-or `ui-list-menu-item` styles. The role/link callbacks and storage engines remain
-owned by their existing feature components.
+The presentation contract is defined in `doc/docs/developer/en/frontend/product-design.md`:
+page inventories use `ListPageSection` around `DataTableShell`; embedded
+association/configuration tables stay flat in their owning surface; specialized
+operational grids may retain task-specific geometry while consuming the shared
+typography, separators, states, density and action controls.
 
-## Component, route and validation map
+All listing actions and badges use `ListActionButton`, `ListActionLink`,
+`ListActions` and `ListBadge`. Native summary/menu triggers keep their HTML
+semantics with the same shared list styles. Feature components continue to own
+business behavior, permissions and storage operations.
 
-Unit coverage is named explicitly; absence of a dedicated component suite is
-not proof of its full interaction flow. The full frontend suite additionally
-covers shared sort, pagination, selection, row-click isolation, protected forms,
-menus, association popovers, expansion and Browser column resizing.
+## October 2026 audit result
 
-| Component under `frontend/src` | Route / secondary surface | Primitive and sites | Validation |
-| --- | --- | --- | --- |
-| `components/list/DataTableShell.tsx` | Shared foundation for all consumers below | ui-data-table × 1 | `components/__tests__/DataTableShell.test.tsx` |
-| `features/admin/AccountsPage.tsx` | /admin/s3-accounts; linked users/groups in account editor | DataTableShell × 1; ui-data-table × 2 | `AccountsPage.modalTabs.test.tsx`; Authenticated Admin (including empty listing) |
-| `features/admin/AdminAssociationPicker.tsx` | /admin/users, /admin/groups, /admin/s3-accounts, /admin/s3-users, /admin/s3-connections; association tables | ui-data-table × 1 | `AdminAssociationPicker.test.tsx` |
-| `features/admin/AdminPortalRequestsPage.tsx` | /admin/portal-requests | DataTableShell × 1 | `AdminPortalRequestsPage.test.tsx` |
-| `features/admin/ApiTokensPage.tsx` | /admin/profile?tab=api-tokens | DataTableShell × 1 | `ApiTokensPage.listState.test.tsx` |
-| `features/admin/AuditLogsPage.tsx` | /admin/audit | DataTableShell × 1 | `AuditLogsPage.test.tsx` |
-| `features/admin/CostPage.tsx` | /admin/cost | DataTableShell × 1 subjects plus subject detail | `CostPage.test.tsx`; consultation visual QA |
-| `features/admin/EndpointStatusDetailPage.tsx` | /admin/endpoint-status/:endpointId; timeline and recent checks | DataTableShell × 2 | `EndpointStatusDetailPage.test.tsx` |
-| `features/admin/EndpointStatusPage.tsx` | /admin/endpoint-status | DataTableShell × 1 | `EndpointStatusPage.test.tsx` |
-| `features/admin/GroupsPage.tsx` | /admin/groups | DataTableShell × 1 | `GroupsPage.test.tsx` |
-| `features/admin/IdentitySecurityPage.tsx` | /admin/identity-security; identities and link requests | DataTableShell × 2 | `IdentitySecurityPage.test.tsx` |
-| `features/admin/KeyRotationPage.tsx` | /admin/key-rotation; endpoint results | DataTableShell × 1 | `KeyRotationPage.test.tsx` |
-| `features/admin/S3ConnectionsPage.tsx` | /admin/s3-connections; inventory and linked users/groups | DataTableShell × 1; ui-data-table × 2 | `S3ConnectionsPage.modalTabs.test.tsx`, `S3ConnectionsPage.validation.test.tsx`; Authenticated Admin (including empty listing) |
-| `features/admin/S3UserKeysPage.tsx` | /admin/s3-users/:userId/keys | DataTableShell × 1 | Shared primitive tests; no dedicated component suite |
-| `features/admin/S3UsersPage.tsx` | /admin/s3-users; inventory and linked users/groups | DataTableShell × 1; ui-data-table × 2 | `S3UsersPage.modalTabs.test.tsx` |
-| `features/admin/StorageEndpointList.tsx` | /admin/storage-endpoints | DataTableShell × 1 | `StorageEndpointsPage.tags.test.tsx`; V1; authenticated Admin |
-| `features/admin/UsageHistoryPage.tsx` | /admin/usage-history | DataTableShell × 1 | `UsageHistoryPage.test.tsx` |
-| `features/admin/UserAccountAssociationsPanel.tsx` | /admin/users, /admin/groups; account associations | ui-data-table × 1 | Shared primitive tests; no dedicated component suite |
-| `features/admin/UserAssociationsTabs.tsx` | /admin/users, /admin/groups; RGW user and S3 connection associations | ui-data-table × 2 | Shared primitive tests; no dedicated component suite |
-| `features/admin/UsersPage.tsx` | /admin/users; inventory and role-access help table | DataTableShell × 1; ui-data-table × 1 | `UsersPage.modalTabs.test.tsx`; V2; authenticated Admin |
-| `features/browser/BrowserMultipartUploadsModal.tsx` | /browser, /manager/browser, /ceph-admin/browser; multipart uploads dialog | DataTableShell × 1 | `BrowserMultipartUploadsModal.test.tsx` |
-| `features/browser/BrowserObjectTableScaffold.tsx` | /browser, /manager/browser, /ceph-admin/browser, /portal/storage-spaces/:spaceId; object table | ui-data-table × 1 | `BrowserObjectTableScaffold.test.tsx`; V9; authenticated Browser/Moto |
-| `features/cephAdmin/CephAdminAccountEditModal.tsx` | /ceph-admin/accounts; quota/usage table | ui-data-table × 1 | Shared primitive tests; no dedicated component suite |
-| `features/cephAdmin/CephAdminAccountsPage.tsx` | /ceph-admin/accounts | DataTableShell × 1 | `CephAdminAccountsPage.test.tsx` |
-| `features/cephAdmin/CephAdminBucketIndexCheckPage.tsx` | /ceph-admin/buckets; index-check workflow | ui-data-table × 1 | `CephAdminBucketIndexCheckPage.test.tsx` |
-| `features/cephAdmin/CephAdminUserEditModal.tsx` | /ceph-admin/users; keys and usage tables | ui-data-table × 2 | Shared primitive tests; no dedicated component suite |
-| `features/cephAdmin/CephAdminUsersPage.tsx` | /ceph-admin/users | DataTableShell × 1 | `CephAdminUsersPage.listState.test.tsx` |
-| `features/manager/BucketDetailPage.tsx` | /manager/buckets/:bucketName; objects, lifecycle rules and ACL grants | ui-data-table × 3 | `__tests__/BucketDetailPage.replication.test.tsx` (replication flow); shared table tests |
-| `features/manager/BucketsPage.tsx` | /manager/buckets | DataTableShell × 1 | Shared primitive tests; no dedicated component suite; V4 |
-| `features/manager/FeatureRulesTable.tsx` | /manager/feature-rules; grouped rules and expanded details | ui-data-table × 1 | `ManagerFeatureRulesPage.test.tsx` |
-| `features/manager/ManagerBucketSelectionPanel.tsx` | /manager/bucket-compare, /manager/bucket-integrity, /manager/bucket-purge; bucket picker | DataTableShell × 1 | `ManagerBucketSelectionPanel.test.tsx` |
-| `features/manager/ManagerCephKeysPage.tsx` | /manager/ceph/keys | DataTableShell × 1 | `ManagerCephKeysPage.test.tsx` |
-| `features/manager/ManagerEntityPoliciesPage.tsx` | /manager/users/:userName/policies, /manager/groups/:groupName/policies, /manager/roles/:roleName/policies | DataTableShell × 1 | `ManagerEntityPoliciesPages.inlinePolicies.test.tsx` |
-| `features/manager/ManagerGroupUsersPage.tsx` | /manager/groups/:groupName/members | DataTableShell × 1 | `ManagerGroupUsersPage.test.tsx` |
-| `features/manager/ManagerGroupsPage.tsx` | /manager/groups | DataTableShell × 1 | Shared primitive tests; no dedicated component suite |
-| `features/manager/ManagerRolesPage.tsx` | /manager/roles | DataTableShell × 1 | Shared primitive tests; no dedicated component suite |
-| `features/manager/ManagerUserKeysPage.tsx` | /manager/users/:userName/keys | DataTableShell × 1 | `ManagerUserKeysPage.test.tsx` |
-| `features/manager/ManagerUsersPage.tsx` | /manager/users | DataTableShell × 1 | `ManagerUsersPage.test.tsx`; V3 |
-| `features/manager/PoliciesPage.tsx` | /manager/iam/policies | DataTableShell × 1 | Shared primitive tests; no dedicated component suite |
-| `features/manager/TopicsPage.tsx` | /manager/topics | DataTableShell × 1 | `TopicsPage.test.tsx` |
-| `features/portal/PortalAccessKeysPage.tsx` | /portal/access-keys | DataTableShell × 1 | `PortalAccessKeysPage.test.tsx`; V6 |
-| `features/portal/PortalActivityPanel.tsx` | /portal, /portal/history, /portal/storage-spaces/:spaceId; activity table | DataTableShell × 1 | `PortalActivityPanel.test.tsx` |
-| `features/portal/PortalCollaboratorAccessPage.tsx` | /portal/shares/:userId | DataTableShell × 1 | `PortalCollaboratorAccessPage.test.tsx` |
-| `features/portal/PortalHistoryPage.tsx` | /portal/history | DataTableShell × 1 | `PortalHistoryPage.test.tsx` |
-| `features/portal/PortalPublicLinksTable.tsx` | /portal/shares, /portal/storage-spaces/:spaceId; public links | DataTableShell × 1 | `PortalPublicLinksTable.test.tsx` |
-| `features/portal/PortalRequestsPage.tsx` | /portal/requests | DataTableShell × 1 | `PortalRequestsPage.test.tsx` |
-| `features/portal/PortalSharesPage.tsx` | /portal/shares | DataTableShell × 1 | `PortalSharesPage.test.tsx` |
-| `features/portal/PortalStorageSpacesPage.tsx` | /portal/storage-spaces | DataTableShell × 1 | `PortalStorageSpacesPage.test.tsx`; V5 |
-| `features/shared/BucketOperationResult.tsx` | /manager/bucket-integrity, /manager/bucket-purge, /manager/buckets and workflows from /ceph-admin/buckets, /storage-ops/buckets; shared keyboard-scrollable failure samples | ui-data-table × 1 | `BucketIntegrityCheckModal.test.tsx`, `BucketPurgeRunModal.test.tsx` |
-| `features/shared/BucketOpsBulkTransferFields.tsx` | /ceph-admin/buckets, /storage-ops/buckets; transfer selection dialog | ui-data-table × 1 | `BucketOpsBulkTransferFields.test.tsx` |
-| `features/shared/BucketOpsTable.tsx` | /ceph-admin/buckets, /storage-ops/buckets; specialized inventory | ui-data-table × 1 | `BucketOpsTable.test.tsx`, `BucketOpsTableCells.test.tsx`; V7/V8 |
-| `features/shared/BucketUsageStatsRunModal.tsx` | Manager, Ceph Admin and Storage Ops usage workflows; result breakdown | ui-data-table × 1 | `BucketUsageStatsRunModal.test.tsx` |
-| `features/shared/ProfilePage.tsx` | /{admin,manager,portal,browser,ceph-admin,storage-ops}/profile; private S3 connections | ui-data-table × 1 | `ProfilePage.validation.test.tsx` |
-| `features/shared/bucketCompareShared.tsx` | /manager/bucket-compare and compare dialogs in Ceph Admin/Storage Ops; manual mappings | ui-data-table × 1 | `bucketCompareShared.test.ts` |
+The full render-site scan found no unreviewed table geometry. Ordinary tables
+that previously remained page-specific were normalized during this audit:
+
+- Admin shared S3 connection and RGW user association tables now use the shared
+  `AdminAssociationLinkedTable` wrapper.
+- Ceph Admin access-key and top-bucket usage tables now use `DataTableShell`.
+- Manager bucket ACL grants now use `DataTableShell`.
+- The Admin OpenStack cloud inventory now uses the page inventory boundary
+  (`ListPageSection` + `DataTableShell`).
+- Profile Private S3 connections, OpenStack connections and API tokens already
+  use the same page/section inventory structure established by the preceding
+  normalization pass.
+
+The remaining raw `<table>` sites are deliberate exceptions. They are kept in
+`frontend/scripts/check-listing-presentation.mjs`; changing or adding one
+requires a new UX review.
+
+| Raw table site | Sites | Reason for exception |
+| --- | ---: | --- |
+| `components/list/DataTableShell.tsx` | 1 | Shared primitive implementation. |
+| `demo/toolbar.tsx` | 1 | Isolated presentation demo, not an application inventory. |
+| `features/admin/AdminAssociationPicker.tsx` | 2 | Shared lightweight association wrappers with caller-owned editable/composed rows. |
+| `features/admin/AdminDashboard.tsx` | 1 | Small metric-coverage matrix embedded in dashboard help content. |
+| `features/browser/BrowserObjectTableScaffold.tsx` | 1 | Operational object grid with fixed/sticky headers, selection and column resizing. |
+| `features/cephAdmin/CephAdminBucketIndexCheckPage.tsx` | 1 | Diagnostic result grid with fixed task-specific geometry. |
+| `features/manager/BucketDetailPage.tsx` | 1 | Embedded object preview inside the bucket detail split workflow. |
+| `features/manager/FeatureRulesTable.tsx` | 1 | Grouped rules with expansion and specialized row geometry. |
+| `features/shared/BucketOperationResult.tsx` | 1 | Bounded, keyboard-scrollable failure detail table inside operation results. |
+| `features/shared/BucketOpsBulkTransferFields.tsx` | 1 | Editable source/destination mapping inside a bulk-transfer workflow. |
+| `features/shared/BucketOpsTable.tsx` | 1 | Operational bucket workbench with selection, pinned columns and advanced filtering. |
+| `features/shared/BucketUsageStatsRunModal.tsx` | 1 | Bounded operation-result breakdown in a run workflow. |
+| `features/shared/ObjectTextPreview.tsx` | 1 | CSV content preview whose columns are data-driven. |
+| `features/shared/bucketCompareShared.tsx` | 1 | Editable source/target mapping with raw-mapping overrides. |
+
+These exceptions still use `ui-data-table`; they do not authorize local row
+height, typography, badge or action geometry. The shared checker also rejects
+legacy table classes and locally styled list actions.
+
+## Standard table families
+
+The remaining 72 sites use `DataTableShell` and fall into the approved families:
+
+| Family | Representative surfaces | Required structure |
+| --- | --- | --- |
+| Page inventory | Admin accounts/users/groups/endpoints/audit/cost/status, Manager users/groups/roles/buckets/topics, Portal storage/access/history, Ceph Admin accounts/users/multisite, shared Profile/OpenStack | `PageHeader` owns the page title and main create action; `ListPageSection` owns list controls and the table; pagination is used when the dataset is pageable. |
+| Embedded association/configuration | Admin account/user/group associations, Ceph account/user drawer details, Manager bucket ACL/CORS/lifecycle/notification/policy/replication sections | Flat table in the owning editor/tab/section with only useful local state and actions; no repeated card/title/toolbar. |
+| Embedded workflow/detail | Endpoint detail, key rotation results, Browser multipart/version dialogs, Manager migration detail/wizard, Portal public links, selection panels | `DataTableShell` without a page inventory wrapper when the table is subordinate to the workflow or detail surface. |
+
+Numeric columns are right-aligned, identity is the first meaningful column,
+actions are right-aligned, headers use the shared muted treatment, and ordinary
+rows use the shared density. One functional block should have one visual
+boundary; nested decorative table cards are not part of the standard pattern.
 
 ## Header variant inventory (outside Browser)
 

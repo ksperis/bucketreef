@@ -14,6 +14,7 @@ import {
   ListBadge,
   ListActionButton,
   ListActionLink,
+  ListSelectionBar,
   ListSelectionCheckbox,
 } from "../../components/list/ListControls";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -332,8 +333,8 @@ export default function AdminS3ConnectionsList({
       }
     >
       {selectedIds.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50">
-          <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
+        <ListSelectionBar>
+          <span className="ui-list-selection-summary">
             {selectedIds.length} {adminText("selected")}
             {hiddenSelectedCount > 0 ? ` (${hiddenSelectedCount} not visible)` : ""}
           </span>
@@ -348,7 +349,7 @@ export default function AdminS3ConnectionsList({
               {adminText("Delete selected")}
             </ListActionButton>
           </ListActions>
-        </div>
+        </ListSelectionBar>
       )}
       <DataTableShell
         columns={columns}

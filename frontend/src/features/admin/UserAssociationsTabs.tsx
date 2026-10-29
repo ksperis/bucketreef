@@ -2,7 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton } from "../../components/list/ListControls";
+import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import type { Dispatch, SetStateAction } from "react";
 import type { S3UserMembership } from "../../api/users";
 
@@ -13,7 +14,7 @@ import UserAccountAssociationsPanel, {
 } from "./UserAccountAssociationsPanel";
 import { useUserI18n } from "./userMessage";
 
-export type AssociationTab = "accounts" | "s3_users" | "connections";
+export type AssociationTab = "accounts" | "s3_users" | "connections" | "openstack";
 
 type AssociationOption = {
   id: number;
@@ -52,6 +53,8 @@ type ConnectionAssociationsState = {
   toggleSelection: (id: number) => void;
 };
 
+type OpenStackAssociationsState = ConnectionAssociationsState;
+
 type UserAssociationsTabsProps = {
   activeTab: AssociationTab;
   onTabChange: (tab: AssociationTab) => void;
@@ -60,6 +63,7 @@ type UserAssociationsTabsProps = {
   accounts: UserAccountAssociationsState;
   s3Users: S3UserAssociationsState;
   connections: ConnectionAssociationsState;
+  openstack?: OpenStackAssociationsState;
 };
 
 export default function UserAssociationsTabs({
@@ -70,8 +74,110 @@ export default function UserAssociationsTabs({
   accounts,
   s3Users,
   connections,
+  openstack,
 }: UserAssociationsTabsProps) {
   const { text } = useUserI18n();
+  const s3UserColumns: DataTableColumn<S3UserMembership>[] = [
+    {
+      id: "user",
+      label: text("user"),
+      primary: true,
+      render: (entry) =>
+        s3Users.labelById.get(entry.s3_user_id) ??
+        text("userById", { id: entry.s3_user_id }),
+    },
+    {
+      id: "actions",
+      label: text("actions"),
+      align: "right",
+      mobileRole: "actions",
+      render: (entry) => {
+        const label =
+          s3Users.labelById.get(entry.s3_user_id) ??
+          text("userById", { id: entry.s3_user_id });
+        return (
+          <ListActions>
+            <AdminAssociationAdvancedSettings
+              targetLabel={label}
+              associationKind="rgw_user"
+              allowManagerBrowserDataAccess={Boolean(
+                entry.allow_manager_browser_data_access,
+              )}
+              onApply={(allowed) =>
+                s3Users.setSelected((current) =>
+                  current.map((item) =>
+                    item.s3_user_id === entry.s3_user_id
+                      ? {
+                          ...item,
+                          allow_manager_browser_data_access: allowed,
+                        }
+                      : item,
+                  ),
+                )
+              }
+            />
+            <ListActionButton
+              type="button"
+              onClick={() =>
+                s3Users.setSelected((current) =>
+                  current.filter((item) => item.s3_user_id !== entry.s3_user_id),
+                )
+              }
+              variant="danger"
+            >
+              {text("remove")}
+            </ListActionButton>
+          </ListActions>
+        );
+      },
+    },
+  ];
+  const simpleAssociationColumns = (
+    primaryLabel: string,
+    labelById: Map<number, string>,
+    fallbackLabel: (id: number) => string,
+    onRemove: (id: number) => void,
+  ): DataTableColumn<number>[] => [
+    {
+      id: "principal",
+      label: primaryLabel,
+      primary: true,
+      render: (id) => labelById.get(id) ?? fallbackLabel(id),
+    },
+    {
+      id: "actions",
+      label: text("actions"),
+      align: "right",
+      mobileRole: "actions",
+      render: (id) => (
+        <ListActions>
+          <ListActionButton type="button" variant="danger" onClick={() => onRemove(id)}>
+            {text("remove")}
+          </ListActionButton>
+        </ListActions>
+      ),
+    },
+  ];
+  const connectionColumns = simpleAssociationColumns(
+    text("connection"),
+    connections.labelById,
+    (id) => text("connectionById", { id }),
+    (id) =>
+      connections.setSelected((current) =>
+        current.filter((connectionId) => connectionId !== id),
+      ),
+  );
+  const openStackColumns = openstack
+    ? simpleAssociationColumns(
+        text("cloud"),
+        openstack.labelById,
+        (id) => text("cloudById", { id }),
+        (id) =>
+          openstack.setSelected((current) =>
+            current.filter((cloudId) => cloudId !== id),
+          ),
+      )
+    : [];
   return (
     <AdminAssociationTabs
       tabs={[
@@ -97,70 +203,17 @@ export default function UserAssociationsTabs({
           onAction: () => s3Users.setShowPanel((current) => !current),
           content: (
             <div className="space-y-3">
-              <div className={adminAssociationTableContainerClass}>
-                <table className="ui-data-table">
-                  <thead>
-                    <tr>
-                      <th className="text-left">{text("user")}</th>
-                      <th className="w-px whitespace-nowrap text-right">{text("actions")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {s3Users.selected.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} className="ui-table-secondary">
-                          {text("noLinkedUser")}
-                        </td>
-                      </tr>
-                    ) : (
-                      s3Users.selected.map((entry) => {
-                        const label =
-                          s3Users.labelById.get(entry.s3_user_id) ??
-                          text("userById", { id: entry.s3_user_id });
-                        return (
-                          <tr key={entry.s3_user_id}>
-                            <td className="ui-table-primary">{label}</td>
-                            <td className="ui-table-actions-cell w-px text-right">
-                              <AdminAssociationAdvancedSettings
-                                targetLabel={label}
-                                associationKind="rgw_user"
-                                allowManagerBrowserDataAccess={Boolean(
-                                  entry.allow_manager_browser_data_access,
-                                )}
-                                onApply={(allowed) =>
-                                  s3Users.setSelected((current) =>
-                                    current.map((item) =>
-                                      item.s3_user_id === entry.s3_user_id
-                                        ? {
-                                            ...item,
-                                            allow_manager_browser_data_access: allowed,
-                                          }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              />
-                              <ListActionButton
-                                type="button"
-                                onClick={() =>
-                                  s3Users.setSelected((current) =>
-                                    current.filter(
-                                      (item) => item.s3_user_id !== entry.s3_user_id,
-                                    ),
-                                  )
-                                }
-                                 variant="danger"
-                              >
-                                {text("remove")}
-                              </ListActionButton>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTableShell
+                columns={s3UserColumns}
+                rows={s3Users.selected}
+                rowKey={(entry) => entry.s3_user_id}
+                status={s3Users.selected.length ? "ready" : "empty"}
+                loadingMessage={text("loadingUsers")}
+                errorMessage={text("noLinkedUser")}
+                emptyMessage={text("noLinkedUser")}
+                containerClassName={adminAssociationTableContainerClass}
+                responsiveCards
+              />
               {s3Users.showPanel ? (
                 <AdminAssociationPickerPanel
                   title={text("addUsers")}
@@ -212,46 +265,17 @@ export default function UserAssociationsTabs({
           hint: text("sharedConnectionsOnly"),
           content: (
             <div className="space-y-3">
-              <div className={adminAssociationTableContainerClass}>
-                <table className="ui-data-table">
-                  <thead>
-                    <tr>
-                      <th className="text-left">{text("connection")}</th>
-                      <th className="w-px whitespace-nowrap text-right">{text("actions")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {connections.selected.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} className="ui-table-secondary">
-                          {text("noLinkedConnection")}
-                        </td>
-                      </tr>
-                    ) : (
-                      connections.selected.map((id) => (
-                        <tr key={id}>
-                          <td className="ui-table-primary">
-                            {connections.labelById.get(id) ?? text("connectionById", { id })}
-                          </td>
-                          <td className="ui-table-actions-cell w-px text-right">
-                            <ListActionButton
-                              type="button"
-                              onClick={() =>
-                                connections.setSelected((current) =>
-                                  current.filter((connectionId) => connectionId !== id),
-                                )
-                              }
-                               variant="danger"
-                            >
-                              {text("remove")}
-                            </ListActionButton>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <DataTableShell
+                columns={connectionColumns}
+                rows={connections.selected}
+                rowKey={(id) => id}
+                status={connections.selected.length ? "ready" : "empty"}
+                loadingMessage={text("loadingConnections")}
+                errorMessage={text("noLinkedConnection")}
+                emptyMessage={text("noLinkedConnection")}
+                containerClassName={adminAssociationTableContainerClass}
+                responsiveCards
+              />
               {connections.showPanel ? (
                 <AdminAssociationPickerPanel
                   title={text("addConnections")}
@@ -291,11 +315,75 @@ export default function UserAssociationsTabs({
             </div>
           ),
         },
+        ...(openstack ? [{
+          id: "openstack",
+          label: text("openStack"),
+          count: openstack.selected.length,
+          actionLabel: text(openstack.showPanel ? "close" : "addOpenStackClouds"),
+          onAction: () => openstack.setShowPanel((current) => !current),
+          content: (
+            <div className="space-y-3">
+              <DataTableShell
+                columns={openStackColumns}
+                rows={openstack.selected}
+                rowKey={(id) => id}
+                status={openstack.selected.length ? "ready" : "empty"}
+                loadingMessage={text("loadingOpenStackClouds")}
+                errorMessage={text("noLinkedOpenStackCloud")}
+                emptyMessage={text("noLinkedOpenStackCloud")}
+                containerClassName={adminAssociationTableContainerClass}
+                responsiveCards
+              />
+              {openstack.showPanel ? (
+                <AdminAssociationPickerPanel
+                  title={text("addOpenStackClouds")}
+                  hint={text("searchByName")}
+                  search={openstack.search}
+                  onSearchChange={openstack.setSearch}
+                  loading={openstack.loading}
+                  availableCount={openstack.available.length}
+                  maxVisibleOptions={maxVisibleOptions}
+                  selectedCount={openstack.selections.length}
+                  loadingLabel={text("loadingOpenStackClouds")}
+                  addDisabled={openstack.selections.length === 0}
+                  onCancel={() => {
+                    openstack.setShowPanel(false);
+                    openstack.setSelections([]);
+                    openstack.setSearch("");
+                  }}
+                  onAdd={() => {
+                    if (openstack.selections.length === 0) return;
+                    openstack.setSelected((current) => [
+                      ...current,
+                      ...openstack.selections,
+                    ]);
+                    openstack.setSelections([]);
+                    openstack.setSearch("");
+                    openstack.setShowPanel(false);
+                  }}
+                >
+                  <AdminAssociationCheckboxOptions
+                    options={openstack.visible}
+                    selectedIds={openstack.selections}
+                    onToggle={openstack.toggleSelection}
+                    getLabel={(option) => option.label}
+                  />
+                </AdminAssociationPickerPanel>
+              ) : null}
+            </div>
+          ),
+        }] : []),
       ]}
       activeTab={activeTab}
       onChange={(id) =>
         onTabChange(
-          id === "s3_users" ? "s3_users" : id === "connections" ? "connections" : "accounts",
+          id === "s3_users"
+            ? "s3_users"
+            : id === "connections"
+              ? "connections"
+              : id === "openstack"
+                ? "openstack"
+                : "accounts",
         )
       }
     />

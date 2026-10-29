@@ -56,6 +56,7 @@ router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 
 _SENSITIVE_GENERAL_SETTINGS = (
     "ceph_admin_enabled",
+    "openstack_enabled",
     "allow_login_access_keys",
     "allow_login_endpoint_list",
     "allow_login_custom_endpoint",

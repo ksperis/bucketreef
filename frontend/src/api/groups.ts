@@ -21,6 +21,7 @@ export type UiGroupAvatarDescriptor = {
 export type UiGroupSummary = {
   id: number;
   name: string;
+  system_key: string | null;
   avatar: UiGroupAvatarDescriptor;
 };
 
@@ -35,6 +36,7 @@ export type UiGroupUserDetail = {
 export type UiGroup = {
   id: number;
   name: string;
+  system_key: string | null;
   description: string | null;
   avatar: UiGroupAvatarDescriptor;
   can_access_ceph_admin: boolean;
@@ -49,6 +51,10 @@ export type UiGroup = {
   s3_user_links: S3UserMembership[];
   s3_user_details: { id: number; name: string }[];
   s3_connection_details: {
+    id: number;
+    name: string;
+  }[];
+  openstack_cloud_details: {
     id: number;
     name: string;
   }[];
@@ -71,6 +77,7 @@ export type UiGroupPayload = {
   account_links?: AccountMembership[];
   s3_user_links?: S3UserMembership[];
   s3_connection_ids?: number[];
+  openstack_cloud_ids?: number[];
 };
 
 type PaginatedUiGroupsResponse = PaginatedResponse<UiGroup>;

@@ -42,7 +42,7 @@ export type CompactAssociationItem = {
 };
 
 export type CompactAssociationCategory = {
-  id: "accounts" | "s3_users" | "connections";
+  id: "accounts" | "s3_users" | "connections" | "openstack";
   label: string;
   itemLabel: string;
   items: CompactAssociationItem[];

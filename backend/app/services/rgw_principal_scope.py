@@ -21,6 +21,8 @@ def resolve_target_admin_uid(target: S3Account | S3ExecutionContext) -> str | No
     """
     if isinstance(target, S3Account):
         return target.rgw_user_uid
+    if isinstance(target, S3ExecutionContext) and target.context_kind == "openstack_project":
+        return None
     if target.rgw_user_uid:
         uid = target.rgw_user_uid.strip()
         return uid or None

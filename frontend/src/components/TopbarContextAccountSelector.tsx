@@ -24,6 +24,7 @@ export type ContextAccessMode =
   | "session"
   | "s3_user"
   | "connection"
+  | "openstack_project"
   | null;
 
 const defaultShellText: ShellText = (key, values) =>
@@ -41,6 +42,9 @@ export function getContextAccessModeVisual(mode: ContextAccessMode, text: ShellT
       classes:
         "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100",
     };
+  }
+  if (mode === "openstack_project") {
+    return { label: "OpenStack", shortLabel: "OpenStack", classes: "text-[var(--ui-text)]" };
   }
   if (mode === "connection") {
     return {
@@ -74,6 +78,7 @@ function contextKindRank(kind: ExecutionContext["kind"]): number {
 
 type TopbarContextAccountSelectorProps = {
   contexts: ExecutionContext[];
+  additionalOptions?: TopbarDropdownOption[];
   selectedContextId: string | null;
   onContextChange: (selectedValue: string) => void;
   selectedLabel: string;
@@ -84,10 +89,12 @@ type TopbarContextAccountSelectorProps = {
   icon?: ReactNode;
   triggerMode?: "icon" | "icon_label";
   showTriggerTags?: boolean;
+  disabled?: boolean;
 };
 
 export default function TopbarContextAccountSelector({
   contexts,
+  additionalOptions = [],
   selectedContextId,
   onContextChange,
   selectedLabel,
@@ -98,12 +105,17 @@ export default function TopbarContextAccountSelector({
   icon,
   triggerMode = "icon_label",
   showTriggerTags = true,
+  disabled = false,
 }: TopbarContextAccountSelectorProps) {
   const { text } = useShellI18n();
   const showSelectorTags = useSelectorTagsPreference();
+  const selectedContext = contexts.find((context) => context.id === selectedContextId) ?? null;
+  const selectedOpenStack = selectedContext?.kind === "openstack_project"
+    ? selectedContext.openstack ?? null
+    : null;
   const options = useMemo<TopbarDropdownOption[]>(
-    () =>
-      contexts
+    () => {
+      const contextOptions = contexts
         .map((context) => {
           const label = formatAccountLabel(context);
           const description =
@@ -111,6 +123,10 @@ export default function TopbarContextAccountSelector({
               ? context.connection_scope === "shared"
                 ? text("sharedConnection")
                 : text("privateConnection")
+              : context.kind === "openstack_project"
+                ? context.openstack
+                  ? `OpenStack · ${context.openstack.cloud_name} · ${context.openstack.identity_name}`
+                  : "OpenStack"
               : context.kind === "s3_user"
                 ? text("s3UserIdentity")
                 : text("rgwAccount");
@@ -123,11 +139,17 @@ export default function TopbarContextAccountSelector({
             selectorEndpointTags,
           );
           const displayName = context.display_name.trim();
-          const optionDescription = context.endpoint_url
-            ? `${description} · ${context.endpoint_url}`
-            : description;
+          const optionDescription = context.kind === "openstack_project"
+            ? description
+            : context.endpoint_url
+              ? `${description} · ${context.endpoint_url}`
+              : description;
           const searchText = [
             context.display_name,
+            context.openstack?.project_id,
+            context.openstack?.project_name,
+            context.openstack?.cloud_name,
+            context.openstack?.identity_name,
             context.endpoint_name,
             context.endpoint_url,
             ...extractUiTagLabels(selectorEntityTags),
@@ -181,8 +203,11 @@ export default function TopbarContextAccountSelector({
           return a.value.localeCompare(b.value, undefined, {
             sensitivity: "base",
           });
-        }),
+        });
+      return [...contextOptions, ...additionalOptions];
+    },
     [
+      additionalOptions,
       contexts,
       showSelectorTags,
       showTriggerTags,
@@ -200,17 +225,39 @@ export default function TopbarContextAccountSelector({
       triggerLabel={text("account")}
       placeholder={selectedLabel}
       triggerValue={selectedLabel}
-      title={identityLabel ?? undefined}
+      title={selectedOpenStack
+        ? `${selectedOpenStack.project_name} · ${selectedOpenStack.cloud_name} · ${selectedOpenStack.identity_name}`
+        : identityLabel ?? undefined}
       widthClassName={widthClassName}
       menuHeader={
-        <div className="shell-menu-muted rounded-md border px-2.5 py-2">
-          <p className="shell-muted-text ui-caption uppercase">
-            {text("currentIamIdentity")}
-          </p>
-          <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">
-            {identityLabel ?? text("unavailableForContext")}
-          </p>
-        </div>
+        selectedOpenStack && selectedContext ? (
+          <div className="shell-menu-muted rounded-md border px-2.5 py-2">
+            <p className="shell-muted-text ui-caption uppercase">{text("currentContext")}</p>
+            <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 ui-caption">
+              {[
+                [text("project"), selectedOpenStack.project_name],
+                [text("identity"), selectedOpenStack.identity_name],
+                [text("cloud"), selectedOpenStack.cloud_name],
+                [text("region"), selectedOpenStack.region_id],
+                [text("s3Endpoint"), selectedContext.endpoint_url || selectedContext.endpoint_name],
+              ].map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="shell-muted-text">{label}</dt>
+                  <dd className="truncate font-semibold text-[var(--shell-text)]" title={value}>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : (
+          <div className="shell-menu-muted rounded-md border px-2.5 py-2">
+            <p className="shell-muted-text ui-caption uppercase">
+              {text("currentIamIdentity")}
+            </p>
+            <p className="truncate ui-caption font-semibold text-[var(--shell-text)]">
+              {identityLabel ?? text("unavailableForContext")}
+            </p>
+          </div>
+        )
       }
       search={{
         threshold: searchThreshold,
@@ -221,6 +268,7 @@ export default function TopbarContextAccountSelector({
       icon={icon}
       openInPortal={openInPortal}
       triggerMode={triggerMode}
+      disabled={disabled}
     />
   );
 }

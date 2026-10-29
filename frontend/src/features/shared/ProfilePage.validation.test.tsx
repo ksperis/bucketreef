@@ -195,19 +195,15 @@ describe("ProfilePage live validation", () => {
     localStorage.clear();
   });
 
-  it("opts non-Browser connection lists into the common header and keeps creation in the page header", async () => {
-    const target = document.createElement("header");
-    document.body.append(target);
-    const { unmount } = render(<ProfilePage showSettingsCards={false}
-      showConnectionsSection listPresentation headerActionsTarget={target} />);
+  it("uses the standard listing surface and keeps creation in the section header", async () => {
+    render(<ProfilePage showSettingsCards={false} showConnectionsSection />);
     await waitFor(() => expect(listConnectionsMock).toHaveBeenCalled());
-    expect(screen.getByRole("region", { name: "Private S3 connections" })).toHaveAttribute("data-list-variant", "page");
+    const toolbar = screen.getByRole("region", { name: "Private S3 connections" });
+    expect(toolbar).toHaveAttribute("data-list-variant", "section");
+    expect(toolbar.closest("section")).toHaveClass("ui-listing", "ui-surface-card");
     expect(screen.getByRole("searchbox", { name: "Search connections" })).toBeInTheDocument();
-    fireEvent.click(within(target).getByRole("button", { name: "Add connection" }));
-    expect(screen.getByRole("heading", { name: "Add private S3 connection" })).toBeInTheDocument();
-    unmount();
-    expect(target).toBeEmptyDOMElement();
-    target.remove();
+    expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
+    expect(within(toolbar).getByRole("button", { name: "Add connection" })).toBeInTheDocument();
   });
 
   it("uses the shared search control in the compact private connections presentation", async () => {
@@ -609,7 +605,7 @@ describe("ProfilePage live validation", () => {
 
   it("clears private connection selection when changing page", async () => {
     listConnectionsMock.mockResolvedValue(
-      Array.from({ length: 12 }, (_, index) =>
+      Array.from({ length: 30 }, (_, index) =>
         makeConnection({
           id: 200 + index,
           name: `page-connection-${index + 1}`,

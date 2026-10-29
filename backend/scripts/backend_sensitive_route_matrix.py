@@ -25,6 +25,7 @@ def _entries(file_name: str, guard: str, *functions: str) -> dict[tuple[str, str
 # mutation must be reviewed and added here. CI rejects missing/stale entries and
 # any drift between the expected guard and the route implementation.
 EXPECTED_GUARDS: dict[tuple[str, str], str] = {
+    **_entries("openstack.py", RECENT_WEBAUTHN, "create_cloud", "update_cloud", "delete_cloud"),
     **_entries(
         "cost.py",
         ADMIN_AUTH,

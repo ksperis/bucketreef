@@ -13,7 +13,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_users_service import S3UsersService
 from app.utils.size_units import size_to_bytes
 
-BrowserUsageSource = Literal["account", "s3_user", "portal", "connection"]
+BrowserUsageSource = Literal["account", "s3_user", "portal", "connection", "openstack_project"]
 
 
 class BrowserUsageSummaryService:
@@ -22,6 +22,8 @@ class BrowserUsageSummaryService:
 
     @staticmethod
     def _source(context: S3ExecutionContext) -> tuple[BrowserUsageSource, str]:
+        if context.context_kind == "openstack_project":
+            return "openstack_project", "OpenStack"
         if context.portal_browser_role:
             return "portal", "Storage Spaces"
         if context.s3_connection_id is not None:
@@ -122,6 +124,8 @@ class BrowserUsageSummaryService:
         )
 
     def build(self, context: S3ExecutionContext) -> BrowserUsageSummary:
+        if context.context_kind == "openstack_project":
+            return self._unavailable(source="openstack_project", label="OpenStack")
         source, label = self._source(context)
         if source == "connection":
             return self._unavailable(source=source, label=label)

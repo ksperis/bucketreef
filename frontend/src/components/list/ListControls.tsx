@@ -75,6 +75,15 @@ export function ListActions({ className, ...props }: HTMLAttributes<HTMLDivEleme
   return <div {...props} className={cx("ui-list-actions", className)} />;
 }
 
+export function ListSelectionBar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      {...props}
+      className={cx("ui-list-selection-bar flex flex-wrap items-center justify-between gap-2", className)}
+    />
+  );
+}
+
 type ListSelectionCheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
   labelClassName?: string;
   labelProps?: Omit<LabelHTMLAttributes<HTMLLabelElement>, "children" | "className">;

@@ -88,6 +88,18 @@ def validate_custom_login_s3_endpoint(value: str) -> str:
     return validate_user_supplied_s3_endpoint(value, field_name="Custom endpoint URL")
 
 
+def validate_openstack_catalog_s3_endpoint(
+    value: str,
+    *,
+    field_name: str = "OpenStack S3 endpoint URL",
+) -> str:
+    """Validate an S3 target supplied by an administrator-configured Keystone catalog."""
+    normalized = normalize_s3_endpoint(value)
+    if not normalized:
+        raise ValueError(f"{field_name} is required")
+    return _canonical_https_s3_endpoint(normalized, field_name=field_name)
+
+
 def configured_s3_endpoint() -> Optional[str]:
     if "seed_s3_endpoint" not in settings.model_fields_set:
         return None

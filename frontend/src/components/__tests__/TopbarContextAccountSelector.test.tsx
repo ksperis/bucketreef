@@ -115,6 +115,43 @@ describe("TopbarContextAccountSelector", () => {
     expect(within(listbox).getByRole("option", { name: /Team storage.*S3 connection/ })).toBeInTheDocument();
   });
 
+  it("labels an activated OpenStack project as OpenStack", async () => {
+    const user = userEvent.setup();
+    renderSelector({
+      contexts: [
+        makeContext({
+          id: "os-project-a",
+          kind: "openstack_project",
+          display_name: "Project A",
+          endpoint_name: "INRAE-TLS-PPROD",
+          endpoint_is_default: false,
+          endpoint_url: "https://s3-tls-pprod.stockage.inra.fr",
+          openstack: {
+            connection_id: "connection-a",
+            cloud_name: "INRAE-OPENSTACK-PPROD",
+            identity_name: "labarbe",
+            project_id: "project-a",
+            project_name: "Project A",
+            region_id: "INRAE-TLS-PPROD",
+          },
+        }),
+      ],
+    });
+
+    const listbox = await openMenu(user);
+    const option = within(listbox).getByRole("option", { name: /Project A.*OpenStack.*INRAE-OPENSTACK-PPROD.*labarbe/ });
+    expect(option).toBeInTheDocument();
+    expect(option).not.toHaveTextContent("s3-tls-pprod.stockage.inra.fr");
+    expect(screen.getByText("Current context")).toBeInTheDocument();
+    expect(screen.getByText("Project", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("Identity", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("Cloud", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("Region", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("S3 endpoint", { selector: "dt" })).toBeInTheDocument();
+    expect(screen.getByText("INRAE-TLS-PPROD", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("https://s3-tls-pprod.stockage.inra.fr", { selector: "dd" })).toBeInTheDocument();
+  });
+
   it("uses id as deterministic tie-breaker when type, name and label are identical", async () => {
     const user = userEvent.setup();
     const onContextChange = vi.fn();

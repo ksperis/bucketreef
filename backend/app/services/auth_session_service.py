@@ -2,13 +2,15 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from app.services.openstack_sessions import erase_openstack_sessions
+
 import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -282,6 +284,9 @@ class AuthSessionService:
         now = utcnow()
         session.revoked_at = session.revoked_at or now
         session.revoke_reason = session.revoke_reason or reason
+        self.db.add(session)
+        self.db.flush()
+        erase_openstack_sessions(self.db, [session.id])
         self.db.execute(
             update(RefreshToken)
             .where(
@@ -318,6 +323,10 @@ class AuthSessionService:
                 session.revoke_reason = session.revoke_reason or reason
                 if session.s3_session_id:
                     self._erase_s3_session(session.s3_session_id, reason, now)
+        # Flush the revocation before scanning OpenStack secrets. A concurrent
+        # authentication locks this same AuthSession before storing its token.
+        self.db.flush()
+        erase_openstack_sessions(self.db, session_ids)
         self.db.commit()
 
     def revoke_by_refresh_token(
@@ -358,6 +367,8 @@ class AuthSessionService:
             row.revoke_reason = reason
             self.db.add(row)
         session_ids = [row.id for row in rows]
+        self.db.flush()
+        erase_openstack_sessions(self.db, session_ids)
         if session_ids:
             self.db.execute(
                 update(RefreshToken)
@@ -437,6 +448,14 @@ class AuthSessionService:
             row.revoked_at = now
             row.revoke_reason = "expired"
             self.db.add(row)
+        self.db.flush()
+        erase_openstack_sessions(self.db, auth_ids)
+        from app.db.openstack import OpenStackSession, OpenStackProjectCredential
+        stale = select(OpenStackSession.id).where(OpenStackSession.expires_at <= now)
+        self.db.execute(delete(OpenStackProjectCredential).where(or_(
+            OpenStackProjectCredential.session_id.in_(stale), OpenStackProjectCredential.expires_at <= now,
+        )))
+        self.db.execute(update(OpenStackSession).where(OpenStackSession.expires_at <= now).values(token=None))
         if auth_ids:
             self.db.execute(
                 update(RefreshToken)

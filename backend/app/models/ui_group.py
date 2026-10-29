@@ -15,6 +15,7 @@ from app.models.user import (
     S3UserMembership,
     UserSummary,
 )
+from app.models.openstack import LinkedOpenStackCloud
 
 UiGroupAvatarSource = Literal["initials", "preset", "uploaded"]
 UiGroupAvatarIcon = Literal["users", "building", "shield", "briefcase", "academic"]
@@ -49,6 +50,7 @@ class UiGroupCreate(ApiModel):
     account_links: list[AccountMembership] = Field(default_factory=list)
     s3_user_links: list[S3UserMembership] = Field(default_factory=list)
     s3_connection_ids: list[int] = Field(default_factory=list)
+    openstack_cloud_ids: list[int] = Field(default_factory=list)
 
 
 class UiGroupUpdate(ApiModel):
@@ -66,17 +68,20 @@ class UiGroupUpdate(ApiModel):
     account_links: Optional[list[AccountMembership]] = None
     s3_user_links: Optional[list[S3UserMembership]] = None
     s3_connection_ids: Optional[list[int]] = None
+    openstack_cloud_ids: Optional[list[int]] = None
 
 
 class UiGroupSummary(ApiModel):
     id: int
     name: str
+    system_key: Optional[str] = None
     avatar: UiGroupAvatar
 
 
 class UiGroupOut(ApiModel):
     id: int
     name: str
+    system_key: Optional[str]
     description: Optional[str]
     avatar: UiGroupAvatar
     can_access_ceph_admin: bool
@@ -91,6 +96,7 @@ class UiGroupOut(ApiModel):
     s3_user_links: list[S3UserMembership]
     s3_user_details: list[LinkedS3User]
     s3_connection_details: list[LinkedS3Connection]
+    openstack_cloud_details: list[LinkedOpenStackCloud]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 

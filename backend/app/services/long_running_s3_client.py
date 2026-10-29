@@ -63,7 +63,8 @@ class LongRunningS3ClientMixin:
         *,
         bucket_name: str | None = None,
     ) -> s3_client.LoggedS3Client:
-        return s3_client.get_s3_client(
+        from app.services.openstack_execution_guard import guard_openstack_client
+        return guard_openstack_client(execution_context, s3_client.get_s3_client(
             request_profile="long_running",
             **self._client_kwargs(execution_context, bucket_name=bucket_name),
-        )
+        ))

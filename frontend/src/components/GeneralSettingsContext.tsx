@@ -22,6 +22,7 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   allow_managed_rgw_tenant_creation: false,
   documentation_base_url: "https://docs.bucketreef.ksperis.com",
   manager_enabled: true,
+  openstack_enabled: false,
   ceph_admin_enabled: false,
   storage_ops_enabled: false,
   browser_enabled: true,

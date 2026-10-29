@@ -13,6 +13,7 @@ const fixtures = vi.hoisted(() => ({
   group: {
     id: 50,
     name: "ops-group",
+    system_key: null,
     description: null,
     avatar: { source: "initials", initials: "OG", icon: null, url: null, updated_at: null },
     can_access_ceph_admin: false,
@@ -33,6 +34,7 @@ const fixtures = vi.hoisted(() => ({
     s3_user_links: [],
     s3_user_details: [],
     s3_connection_details: [],
+    openstack_cloud_details: [],
     created_at: null,
     updated_at: null,
   } satisfies UiGroup,
@@ -64,6 +66,7 @@ vi.mock("../../api/groups", () => ({
 vi.mock("../../api/accounts", () => ({ listMinimalS3Accounts: async () => [] }));
 vi.mock("../../api/s3Users", () => ({ listMinimalS3Users: async () => [] }));
 vi.mock("../../api/s3ConnectionsAdmin", () => ({ listMinimalS3Connections: async () => [] }));
+vi.mock("../../api/openstack", () => ({ listAdminOpenStackClouds: async () => [] }));
 vi.mock("../../api/security", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getAdminUserSecurity: async () => ({

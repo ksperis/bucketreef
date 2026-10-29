@@ -7,13 +7,15 @@ import { createMemoryRouter, Link, MemoryRouter, Route, RouterProvider, Routes, 
 import AccountProfilePage from "./AccountProfilePage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
+const runtimeSurfaces = vi.hoisted(() => ({ browser: true, manager: true }));
+const generalSettings = vi.hoisted(() => ({ openstack_enabled: true }));
 vi.mock("../../components/GeneralSettingsContext", () => ({
-  useGeneralSettings: () => ({ generalSettings: {} }),
+  useGeneralSettings: () => ({ generalSettings, runtimeSurfaces }),
 }));
 
 vi.mock("./ProfilePage", () => ({
-  default: ({ profilePath, showConnectionsSection, listPresentation, onUnsavedChangesChange }: { profilePath?: string; showConnectionsSection?: boolean; listPresentation?: boolean; onUnsavedChangesChange?: (dirty: boolean) => void }) => (
-    <div data-testid="profile-content" data-profile-path={profilePath} data-list-presentation={String(listPresentation ?? false)}>
+  default: ({ profilePath, showConnectionsSection, onUnsavedChangesChange }: { profilePath?: string; showConnectionsSection?: boolean; onUnsavedChangesChange?: (dirty: boolean) => void }) => (
+    <div data-testid="profile-content" data-profile-path={profilePath}>
       {showConnectionsSection ? "Connections content" : "Profile content"}
       <button type="button" onClick={() => onUnsavedChangesChange?.(true)}>Make dirty</button>
     </div>
@@ -50,6 +52,9 @@ function renderPage(initialEntry = "/profile") {
 
 describe("AccountProfilePage", () => {
   beforeEach(() => {
+    runtimeSurfaces.browser = true;
+    runtimeSurfaces.manager = true;
+    generalSettings.openstack_enabled = true;
     // Node fetch requires its own AbortSignal rather than the JSDOM implementation.
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     setSessionUserCache({
@@ -77,11 +82,42 @@ describe("AccountProfilePage", () => {
     expect(screen.getByRole("tab", { name: "Private S3 connections" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Security" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "API tokens" })).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Profile and preferences",
+      "Security",
+      "Private S3 connections",
+      "OpenStack",
+      "API tokens",
+    ]);
     expect(screen.getByText("Your details, preferences, and sign-in security.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Private S3 connections" }));
     expect(screen.getByText("Connections content")).toBeInTheDocument();
     expect(screen.getByText("/profile?tab=connections")).toBeInTheDocument();
+  });
+
+  it("offers OpenStack independently of manual S3 connection rights", () => {
+    setSessionUserCache({ role: "ui_user", authType: "password", effective_access: {
+      can_create_manual_private_connections: false, can_provision_managed_private_connections: false, has_owned_private_connections: false,
+    } });
+    renderPage();
+    expect(screen.getByRole("tab", { name: "OpenStack" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Private S3 connections" })).not.toBeInTheDocument();
+  });
+
+  it("hides OpenStack when neither Browser nor Manager is deployed", () => {
+    runtimeSurfaces.browser = false;
+    runtimeSurfaces.manager = false;
+    renderPage("/profile?tab=openstack");
+    expect(screen.queryByRole("tab", { name: "OpenStack" })).not.toBeInTheDocument();
+    expect(screen.getByText("Profile content")).toBeInTheDocument();
+  });
+
+  it("hides OpenStack when the feature kill switch is disabled", () => {
+    generalSettings.openstack_enabled = false;
+    renderPage("/profile?tab=openstack");
+    expect(screen.queryByRole("tab", { name: "OpenStack" })).not.toBeInTheDocument();
+    expect(screen.getByText("Profile content")).toBeInTheDocument();
   });
 
   it.each([
@@ -163,9 +199,9 @@ describe("AccountProfilePage", () => {
     expect(screen.getByText("/profile?tab=profile")).toBeInTheDocument();
   });
 
-  it.each(["admin", "browser", "manager", "portal", "ceph-admin", "storage-ops"])("limits the common connection header to non-Browser uses under /%s", workspace => {
+  it.each(["admin", "browser", "manager", "portal", "ceph-admin", "storage-ops"])("uses the shared profile content width under /%s", workspace => {
     renderPage(`/${workspace}/profile?tab=connections`);
-    expect(screen.getByTestId("profile-content")).toHaveAttribute("data-list-presentation", String(workspace !== "browser"));
+    expect(screen.getByRole("tabpanel")).toHaveClass("settings-compact");
     expect(screen.getByTestId("profile-content")).toHaveAttribute("data-profile-path", `/${workspace}/profile`);
   });
 
