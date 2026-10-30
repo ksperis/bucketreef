@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 import json
 from types import SimpleNamespace
 from uuid import uuid4
@@ -257,12 +258,10 @@ def test_preview_blocks_locked_ceph_account_when_credentials_and_features_are_mi
     user = actor(db_session)
     ep = endpoint(
         db_session,
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n    enabled: false\n"
             "  account:\n    enabled: false\n"
-            "  iam:\n    enabled: false\n"
-        ),
+            "  iam:\n    enabled: false\n"),
     )
     ep.is_editable = False
     db_session.commit()
@@ -378,7 +377,7 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     user = actor(db_session)
     ep = endpoint(
         db_session,
-        features_config=account_feature_config(iam=True),
+        features=parse_features_config(account_feature_config(iam=True)),
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
     monkeypatch.setattr(users_module, "sync_portal_role_downgrades", lambda *_args, **_kwargs: None)
@@ -448,7 +447,7 @@ def test_onboarding_rejects_admin_ops_without_required_provisioning_caps(
         db_session,
         admin_access_key="admin-ak",
         admin_secret_key="admin-sk",
-        features_config=account_feature_config(iam=True),
+        features=parse_features_config(account_feature_config(iam=True)),
     )
     monkeypatch.setattr(
         guided.endpoints,
@@ -493,7 +492,7 @@ def test_manager_and_portal_role_axes_remain_independent(
         db_session,
         admin_access_key="admin-ak",
         admin_secret_key="admin-sk",
-        features_config=account_feature_config(iam=True),
+        features=parse_features_config(account_feature_config(iam=True)),
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
     monkeypatch.setattr(users_module, "sync_portal_role_downgrades", lambda *_args, **_kwargs: None)
@@ -854,7 +853,7 @@ def test_external_onboarding_reuses_stored_pairs_on_env_endpoint_already_supervi
     user = actor(db_session)
     ep = endpoint(db_session, admin_access_key="admin-ak", admin_secret_key="admin-sk",
                   service_identities=[service_identity("runtime", "runtime-ak", "runtime-sk"), service_identity("supervision", "supervision-ak", "supervision-sk")],
-                  features_config=f"features:\n  metrics:\n    enabled: true\n  usage:\n    enabled: {str(usage).lower()}\n")
+                  features=parse_features_config(f"features:\n  metrics:\n    enabled: true\n  usage:\n    enabled: {str(usage).lower()}\n"))
     ep.is_editable = False
     db_session.commit()
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_: detection())

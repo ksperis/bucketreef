@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 from datetime import date, datetime, timezone
 from typing import Optional
@@ -336,12 +337,10 @@ def _seed_ceph_endpoint(db_session, *, metrics_enabled: bool = False) -> Storage
         provider=StorageProvider.CEPH.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             "    enabled: true\n"
-            f"{metrics_config}"
-        ),
+            f"{metrics_config}"),
         is_default=True,
         is_editable=True,
     )

@@ -51,7 +51,6 @@ def storage_endpoint_from_db(
         updated_at=endpoint.updated_at,
         tags=tags or [],
         has_admin_secret=bool(endpoint.admin_secret_key),
-        features_config=endpoint.features_config,
         features=features,
     )
 

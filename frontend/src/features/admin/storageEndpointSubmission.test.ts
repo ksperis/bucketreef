@@ -37,7 +37,7 @@ describe("feature-dependent Ceph service credentials", () => {
     const result = buildStorageEndpointSubmission(form, false);
 
     expect(result.errors).toBeUndefined();
-    expect(result.payload?.features_config).toContain("healthcheck:\n    enabled: true\n    mode: s3");
+    expect(result.payload?.features?.healthcheck).toMatchObject({ enabled: true, mode: "s3" });
   });
 
   it("keeps the signed S3 healthcheck enabled when editing with stored external Supervision credentials", () => {
@@ -55,7 +55,7 @@ describe("feature-dependent Ceph service credentials", () => {
     const result = buildStorageEndpointSubmission(form, true);
 
     expect(result.errors).toBeUndefined();
-    expect(result.payload?.features_config).toContain("healthcheck:\n    enabled: true\n    mode: s3");
+    expect(result.payload?.features?.healthcheck).toMatchObject({ enabled: true, mode: "s3" });
   });
 
   it.each(["managed", "external"] as const)("saves Ceph Admin alone in %s mode", mode => {

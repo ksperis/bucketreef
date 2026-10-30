@@ -334,7 +334,7 @@ class OnboardingService:
                 endpoint.force_path_style,
                 endpoint.verify_tls,
                 endpoint.is_editable,
-                endpoint.features_config,
+                endpoint.features,
                 credential_digest,
             )
         return (draft.model_dump(), actor_state, endpoint_state)

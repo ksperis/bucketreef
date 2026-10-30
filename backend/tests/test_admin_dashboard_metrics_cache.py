@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -178,9 +179,12 @@ def test_database_scope_changes_invalidate_without_secrets(db_session, monkeypat
     elif change == "rotate_access": identity.access_key = "new-sensitive-access"
     elif change == "rotate_secret": identity.secret_key = "new-sensitive-secret"
     elif change == "missing_credentials": identity.secret_key = None
-    elif change == "metrics_disabled": one.features_config = "features:\n  metrics:\n    enabled: false\n  usage:\n    enabled: true\n"
-    elif change == "usage_disabled": one.features_config = "features:\n  metrics:\n    enabled: true\n  usage:\n    enabled: false\n"
-    elif change == "rgw_configuration": one.features_config += "  admin:\n    endpoint: https://new-rgw.test\n"
+    elif change == "metrics_disabled": one.features = parse_features_config("features:\n  metrics:\n    enabled: false\n  usage:\n    enabled: true\n")
+    elif change == "usage_disabled": one.features = parse_features_config("features:\n  metrics:\n    enabled: true\n  usage:\n    enabled: false\n")
+    elif change == "rgw_configuration":
+        features = deepcopy(one.features)
+        features.setdefault("admin", {})["endpoint"] = "https://new-rgw.test"
+        one.features = features
     elif change == "endpoint_url": one.endpoint_url = "https://new-endpoint.test"
     elif change == "tls": one.verify_tls = False
     elif change == "region": one.region = "new-region"

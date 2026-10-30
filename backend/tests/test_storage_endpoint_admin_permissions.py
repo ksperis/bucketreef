@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 import pytest
 
 from app.db import StorageEndpoint, StorageProvider
@@ -19,7 +20,7 @@ def _endpoint(**overrides) -> StorageEndpoint:
         "admin_secret_key": "SECRET-ADMIN",
         "region": "us-east-1",
         "verify_tls": False,
-        "features_config": "features:\n  admin:\n    enabled: true\n",
+        'features': parse_features_config("features:\n  admin:\n    enabled: true\n"),
     }
     values.update(overrides)
     return StorageEndpoint(**values)

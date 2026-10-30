@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from datetime import datetime, timedelta, timezone
 from threading import Lock
 
@@ -41,10 +42,8 @@ def endpoint(
     row = StorageEndpoint(
         name=name, endpoint_url=f"https://{name}.test", provider=provider, is_default=default,
         service_identities=[service_identity("supervision", f"supervision-{name}", secret, mode=mode, status=status)],
-        features_config=(
-            f"features:\n{admin_config}  metrics:\n    enabled: {str(metrics).lower()}\n"
-            f"  usage:\n    enabled: {str(usage).lower()}\n"
-        ),
+        features=parse_features_config(f"features:\n{admin_config}  metrics:\n    enabled: {str(metrics).lower()}\n"
+            f"  usage:\n    enabled: {str(usage).lower()}\n"),
         admin_access_key="must-not-be-used", admin_secret_key="must-not-be-used",
     )
     db.add(row)
@@ -320,7 +319,7 @@ def test_endpoint_feature_change_during_collection_is_reported(db_session, monke
     row = endpoint(db_session, "changed")
     service = dashboard.AdminDashboardMetricsService(db_session)
     target = service._target(row)
-    row.features_config = "features:\n  metrics:\n    enabled: false\n  usage:\n    enabled: false\n"
+    row.features = parse_features_config("features:\n  metrics:\n    enabled: false\n  usage:\n    enabled: false\n")
     db_session.commit()
     monkeypatch.setattr(dashboard, "get_supervision_rgw_client", lambda endpoint: pytest.fail("Disabled endpoint must not call RGW"))
     result = service._collect_endpoint(target, "storage", datetime.now(timezone.utc))

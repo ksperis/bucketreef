@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import pytest
 from fastapi import HTTPException
@@ -18,13 +19,11 @@ def _ceph_endpoint(name: str) -> StorageEndpoint:
         endpoint_url=f"https://{name}.example.test",
         provider="ceph",
         service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  metrics:\n"
             "    enabled: true\n"
             "  usage:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
     )
 
 

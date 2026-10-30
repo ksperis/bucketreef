@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from itertools import product
 from types import SimpleNamespace
 
@@ -40,7 +41,7 @@ def _endpoint(present):
         region="test-region",
         verify_tls=False,
         force_path_style=True,
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         admin_access_key="ADMIN-AK" if admin_access else None,
         admin_secret_key="ADMIN-SK" if admin_secret else None,
         service_identities=[
@@ -204,7 +205,7 @@ def test_readers_do_not_retry_with_admin_after_service_identity_denial(
 @pytest.mark.parametrize("supervision", [(False, False), (True, False), (False, True)])
 def test_metrics_still_require_complete_supervision_credentials(monkeypatch, supervision):
     endpoint = _endpoint((*supervision, True, True))
-    endpoint.features_config = "features:\n  metrics:\n    enabled: true\n"
+    endpoint.features = parse_features_config("features:\n  metrics:\n    enabled: true\n")
 
     def unexpected_client(**kwargs):
         pytest.fail("Metrics must not use administrator credentials")

@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import json
 from types import SimpleNamespace
@@ -59,15 +60,13 @@ def _ceph_metrics_endpoint(*, name: str, provider: str = "ceph") -> StorageEndpo
             if provider == "ceph"
             else []
         ),
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             f"    enabled: {'true' if provider == 'ceph' else 'false'}\n"
             "  metrics:\n"
             f"    enabled: {'true' if metrics_enabled else 'false'}\n"
             "  usage:\n"
-            f"    enabled: {'true' if usage_enabled else 'false'}\n"
-        ),
+            f"    enabled: {'true' if usage_enabled else 'false'}\n"),
     )
 
     return endpoint
@@ -87,11 +86,9 @@ def _ceph_s3_user_management_endpoint(
         provider=provider,
         admin_access_key=admin_access_key,
         admin_secret_key=admin_secret_key,
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
-            f"    enabled: {'true' if admin_enabled else 'false'}\n"
-        ),
+            f"    enabled: {'true' if admin_enabled else 'false'}\n"),
     )
 
 
@@ -194,7 +191,7 @@ def test_portal_browser_context_uses_portal_credentials_without_manager_admin(db
         name="portal-browser-ceph",
         endpoint_url="https://portal-browser.example.com",
         provider="ceph",
-        features_config="features:\n  iam:\n    enabled: true\n",
+        features=parse_features_config("features:\n  iam:\n    enabled: true\n"),
     )
     user = User(
         email="portal-browser-user@example.com",
@@ -266,7 +263,7 @@ def test_portal_browser_context_rejects_unavailable_storage_space_bucket(db_sess
         name="portal-browser-archive",
         endpoint_url="https://portal-browser-archive.example.com",
         provider="ceph",
-        features_config="features:\n  iam:\n    enabled: true\n",
+        features=parse_features_config("features:\n  iam:\n    enabled: true\n"),
     )
     user = User(
         email="portal-browser-archive@example.com",
@@ -1190,7 +1187,7 @@ def test_browser_workspace_accepts_ceph_admin_selector_for_authorized_user(db_se
         provider="ceph",
         ceph_admin_allowed=True,
         service_identities=[service_identity("ceph_admin", "AK-CEPH-ADMIN", "SK-CEPH-ADMIN")],
-        features_config="features:\n  admin:\n    enabled: false\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: false\n"),
     )
     db_session.add_all([user, endpoint])
     db_session.commit()
@@ -1233,7 +1230,7 @@ def test_browser_workspace_rejects_ceph_admin_selector_for_invalid_ceph_admin_id
         provider="ceph",
         ceph_admin_allowed=True,
         service_identities=[service_identity("ceph_admin", "AK-CEPH-INVALID", "SK-CEPH-INVALID")],
-        features_config="features:\n  admin:\n    enabled: false\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: false\n"),
     )
     db_session.add_all([user, endpoint])
     db_session.commit()
@@ -1276,7 +1273,7 @@ def test_browser_workspace_rejects_ceph_admin_selector_for_non_admin_user(db_ses
         endpoint_url="https://rgw-b.example.com",
         provider="ceph",
         service_identities=[service_identity("ceph_admin", "AK-CEPH-ADMIN-B", "SK-CEPH-ADMIN-B")],
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
     )
     db_session.add_all([user, endpoint])
     db_session.commit()

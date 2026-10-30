@@ -83,7 +83,7 @@ def test_storage_endpoint_response_requires_complete_canonical_payload() -> None
         "verify_tls",
         "provider",
         "ceph_admin_allowed",
-        "features_config",
+        "features",
         "latitude",
         "longitude",
         "id",

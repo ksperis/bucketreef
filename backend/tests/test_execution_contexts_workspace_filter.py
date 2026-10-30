@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import json
 from datetime import timedelta
@@ -170,8 +171,7 @@ def _create_endpoint(
         realm_id=realm_id,
         zonegroup_id=zonegroup_id,
         zone_id=zone_id,
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  iam:\n"
             "    enabled: true\n"
             "  admin:\n"
@@ -179,8 +179,7 @@ def _create_endpoint(
             "  metrics:\n"
             "    enabled: true\n"
             "  usage:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
     )
     db_session.add(endpoint)
     db_session.commit()

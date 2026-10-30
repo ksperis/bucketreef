@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from app.db import (
     ManagerAccountRole,
     S3Account,
@@ -19,7 +20,7 @@ def test_list_accounts_exposes_user_email_in_user_links(db_session):
         name="ceph-links",
         endpoint_url="https://ceph-links.example.test",
         provider=StorageProvider.CEPH.value,
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )
@@ -72,7 +73,7 @@ def test_accounts_expose_direct_group_links(db_session):
         name="ceph-group-links",
         endpoint_url="https://ceph-group-links.example.test",
         provider=StorageProvider.CEPH.value,
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )

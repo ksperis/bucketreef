@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 import json
 from datetime import UTC, date, datetime
 
@@ -62,7 +63,7 @@ def _create_ceph_endpoint(db_session, name: str = "ceph-main") -> StorageEndpoin
         provider=StorageProvider.CEPH.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )
@@ -83,15 +84,13 @@ def _create_ceph_endpoint_with_full_credentials(db_session, name: str = "ceph-fu
             service_identity("runtime", "AKIA-RUNTIME", "SECRET-RUNTIME"),
             service_identity("supervision", "AKIA-SUPERVISION", "SECRET-SUPERVISION"),
         ],
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             "  usage:\n"
             "    enabled: true\n"
             "  metrics:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )
@@ -476,12 +475,10 @@ def test_external_supervision_credentials_enable_signed_s3_healthcheck(db_sessio
             runtime_secret_key="RUNTIME-SECRET",
             supervision_access_key="SUPERVISION",
             supervision_secret_key="SUPERVISION-SECRET",
-            features_config=(
-                "features:\n"
+            features=parse_features_config("features:\n"
                 "  healthcheck:\n"
                 "    enabled: false\n"
-                "    mode: http\n"
-            ),
+                "    mode: http\n"),
         )
     )
 
@@ -491,12 +488,10 @@ def test_external_supervision_credentials_enable_signed_s3_healthcheck(db_sessio
     updated = service.update_endpoint(
         created.id,
         StorageEndpointUpdate(
-            features_config=(
-                "features:\n"
+            features=parse_features_config("features:\n"
                 "  healthcheck:\n"
                 "    enabled: false\n"
-                "    mode: http\n"
-            )
+                "    mode: http\n")
         ),
     )
 
@@ -690,7 +685,7 @@ def test_sync_env_endpoints_skips_admin_ops_permissions_resolution(db_session, m
                     "force_path_style": True,
                     "admin_access_key": "AKIA-ADMIN",
                     "admin_secret_key": "SECRET-ADMIN",
-                    "features_config": "features:\n  admin:\n    enabled: true\n",
+                    'features': parse_features_config("features:\n  admin:\n    enabled: true\n"),
                     "latitude": 43.6047,
                     "longitude": 1.4442,
                     "is_default": True,
@@ -845,6 +840,35 @@ def test_environment_storage_endpoint_rejects_noncanonical_features(
         StorageEndpointsService(db_session).sync_env_endpoints()
 
 
+def test_environment_storage_endpoint_converts_boundary_healthcheck_url(
+    db_session,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        json.dumps(
+            [
+                {
+                    "name": "ceph-env",
+                    "endpoint_url": "https://ceph-env.example.test",
+                    "features": {
+                        "healthcheck": {
+                            "enabled": True,
+                            "healthcheck_url": "https://health.example.test/",
+                        }
+                    },
+                    "service_identity_mode": "managed",
+                }
+            ]
+        ),
+        raising=False,
+    )
+
+    [endpoint] = StorageEndpointsService(db_session).sync_env_endpoints()
+
+    assert endpoint.features.healthcheck.url == "https://health.example.test"
+
+
 def test_sync_env_endpoints_retries_after_concurrent_unique_conflict(db_session, monkeypatch):
     monkeypatch.setattr(
         "app.services.storage_endpoints_service.settings.env_storage_endpoints",
@@ -855,7 +879,7 @@ def test_sync_env_endpoints_retries_after_concurrent_unique_conflict(db_session,
                     "endpoint_url": "https://ceph-env.example.test",
                     "provider": "ceph",
                     "service_identity_mode": "managed",
-                    "features_config": "features:\n  admin:\n    enabled: false\n",
+                    'features': parse_features_config("features:\n  admin:\n    enabled: false\n"),
                     "is_default": True,
                 }
             ]
@@ -911,7 +935,7 @@ def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, 
                     "service_identity_mode": "managed",
                     "force_path_style": True,
                     "verify_tls": False,
-                    "features_config": "features:\n  admin:\n    enabled: false\n",
+                    'features': parse_features_config("features:\n  admin:\n    enabled: false\n"),
                 },
                 {
                     "name": "env-b",
@@ -987,15 +1011,13 @@ def test_update_endpoint_clearing_admin_access_key_also_clears_secret(db_session
         endpoint.id,
         StorageEndpointUpdate(
             admin_access_key=None,
-            features_config=(
-                "features:\n"
+            features=parse_features_config("features:\n"
                 "  admin:\n"
                 "    enabled: false\n"
                 "  usage:\n"
                 "    enabled: false\n"
                 "  metrics:\n"
-                "    enabled: false\n"
-            ),
+                "    enabled: false\n"),
         ),
     )
 
@@ -1027,7 +1049,7 @@ def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_sess
             name="ceph-renamed",
             force_path_style=None,
             verify_tls=None,
-            features_config=None,
+            features=None,
         ),
     )
 
@@ -1035,6 +1057,9 @@ def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_sess
     assert updated.force_path_style is True
     assert updated.verify_tls is False
     assert updated.admin_access_key == "AKIA-ADMIN"
+    assert updated.features.admin.enabled is True
+    assert updated.features.usage.enabled is True
+    assert updated.features.metrics.enabled is True
     persisted = db_session.get(StorageEndpoint, endpoint.id)
     assert persisted is not None
     assert persisted.admin_secret_key == "SECRET-ADMIN"
@@ -1948,7 +1973,7 @@ def test_env_validates_entire_inventory_before_writes(db_session, monkeypatch, i
 def test_external_supervision_is_required_for_monitoring_before_any_write(db_session, monkeypatch, mode, pair):
     service = StorageEndpointsService(db_session)
     entry = dict(name="ceph", endpoint_url="https://ceph.example.test", provider="ceph", service_identity_mode="external",
-                 features_config="features:\n  metrics:\n    enabled: true\n", **pair)
+                 features=parse_features_config("features:\n  metrics:\n    enabled: true\n"), **pair)
     with pytest.raises(ValueError, match="require Supervision"):
         if mode == "api":
             service.create_endpoint(StorageEndpointCreate(**entry))

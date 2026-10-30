@@ -37,8 +37,7 @@ from app.services.storage_endpoint_admin_permissions import (
 from app.services.users_service import get_users_service
 from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.storage_endpoint_features import (
-    dump_features_config,
-    normalize_features_config,
+    normalize_features,
     resolve_feature_flags,
 )
 from app.utils.time import utcnow
@@ -302,14 +301,18 @@ class OnboardingSetupService:
         requirements: _EndpointRequirements,
         detection,
     ) -> StorageEndpointFeatures:
-        features = StorageEndpointFeatures()
-        features.admin.enabled = requirements.account_api
-        features.account.enabled = requirements.account_api
-        features.usage.enabled = bool(
-            draft.supervision and detection and detection.usage
+        return StorageEndpointFeatures.model_validate(
+            {
+                "admin": {"enabled": requirements.account_api},
+                "account": {"enabled": requirements.account_api},
+                "usage": {
+                    "enabled": bool(
+                        draft.supervision and detection and detection.usage
+                    )
+                },
+                "metrics": {"enabled": draft.supervision},
+            }
         )
-        features.metrics.enabled = draft.supervision
-        return features
 
     @classmethod
     def _new_endpoint_payload(
@@ -340,7 +343,7 @@ class OnboardingSetupService:
             ceph_admin_secret_key=credentials.ceph_admin[1] or None,
             supervision_access_key=credentials.supervision[0] or None,
             supervision_secret_key=credentials.supervision[1] or None,
-            features_config=dump_features_config(features.model_dump()),
+            features=features,
         )
 
     def _create_endpoint(
@@ -444,14 +447,14 @@ class OnboardingSetupService:
     ) -> None:
         if not feature_fields:
             return
-        features = normalize_features_config(
+        features = normalize_features(
             endpoint.provider,
-            endpoint.features_config,
+            endpoint.features,
             endpoint.region,
         )
         for field in feature_fields:
             features[field]["enabled"] = True
-        update["features_config"] = dump_features_config(features)
+        update["features"] = features
 
     def _update_endpoint(
         self,
@@ -630,14 +633,14 @@ class OnboardingSetupService:
         return endpoint
 
     def _enable_endpoint_features(self, endpoint, *fields):
-        features = normalize_features_config(
-            endpoint.provider, endpoint.features_config, endpoint.region
+        features = normalize_features(
+            endpoint.provider, endpoint.features, endpoint.region
         )
         for field in fields:
             features[field]["enabled"] = True
         self.endpoints.update_endpoint(
             endpoint.id,
-            StorageEndpointUpdate(features_config=dump_features_config(features)),
+            StorageEndpointUpdate(features=features),
         )
 
     def _unique_endpoint_name(self, endpoint_url):

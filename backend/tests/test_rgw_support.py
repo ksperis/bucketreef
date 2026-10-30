@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 import pytest
 
 from app.db import StorageEndpoint, StorageProvider
@@ -143,7 +144,7 @@ def test_get_supervision_rgw_client_uses_endpoint_url_when_admin_feature_disable
         provider=StorageProvider.CEPH.value,
         verify_tls=False,
         service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
-        features_config="features:\n  admin:\n    enabled: false\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: false\n"),
     )
 
     client = get_supervision_rgw_client(endpoint)
@@ -173,12 +174,10 @@ def test_get_endpoint_admin_rgw_client_uses_canonical_endpoint_fields(monkeypatc
         verify_tls=False,
         admin_access_key="ADMIN-AK",
         admin_secret_key="ADMIN-SK",
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             "    enabled: true\n"
-            "    endpoint: https://admin.example.test/\n"
-        ),
+            "    endpoint: https://admin.example.test/\n"),
     )
 
     client = get_endpoint_admin_rgw_client(endpoint)
@@ -210,7 +209,7 @@ def test_get_endpoint_admin_rgw_client_accepts_explicit_identity_credentials(mon
         provider=StorageProvider.CEPH.value,
         admin_access_key="ADMIN-AK",
         admin_secret_key="ADMIN-SK",
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
     )
 
     client = get_endpoint_admin_rgw_client(

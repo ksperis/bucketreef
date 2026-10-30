@@ -5,7 +5,7 @@ import {
   awsIamEndpointForRegion,
   awsS3EndpointForRegion,
   awsStsEndpointForRegion,
-  buildFeaturesYaml,
+  buildFeaturesPayload,
   createEmptyForm,
   defaultFeaturesForProvider,
   normalizeAwsRegion,
@@ -55,21 +55,25 @@ describe("storage endpoint form model", () => {
     expect(source.healthcheck.mode).toBe("s3");
   });
 
-  it("serializes enabled endpoint overrides and healthcheck settings", () => {
+  it("builds structured endpoint overrides and healthcheck settings", () => {
     const features = defaultFeaturesForProvider("aws", "eu-west-3");
     features.healthcheck.endpoint = " https://health.example.test/status ";
 
-    const yaml = buildFeaturesYaml(features);
+    const payload = buildFeaturesPayload(features);
 
-    expect(yaml).toContain(
-      "sts:\n    enabled: true\n    endpoint: https://sts.eu-west-3.amazonaws.com",
-    );
-    expect(yaml).toContain(
-      "iam:\n    enabled: true\n    endpoint: https://iam.amazonaws.com",
-    );
-    expect(yaml).toContain(
-      "healthcheck:\n    enabled: true\n    mode: http\n    healthcheck_url: https://health.example.test/status",
-    );
+    expect(payload.sts).toEqual({
+      enabled: true,
+      endpoint: "https://sts.eu-west-3.amazonaws.com",
+    });
+    expect(payload.iam).toEqual({
+      enabled: true,
+      endpoint: "https://iam.amazonaws.com",
+    });
+    expect(payload.healthcheck).toEqual({
+      enabled: true,
+      mode: "http",
+      url: "https://health.example.test/status",
+    });
   });
 
   it("validates optional coordinate inputs", () => {

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { transferableAbortController } from "node:util";
 import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { StorageEndpointPayload } from "../../api/storageEndpoints";
 import StorageEndpointsPage from "./StorageEndpointsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
@@ -1153,10 +1154,10 @@ describe("StorageEndpointsPage tags", () => {
     await waitFor(() => expect(updateButton).toBeEnabled());
     fireEvent.click(updateButton);
     await waitFor(() => expect(updateStorageEndpointMock).toHaveBeenCalledOnce());
-    const payload = updateStorageEndpointMock.mock.calls[0]?.[1] as { features_config?: string };
-    expect(payload.features_config).toContain("account:\n    enabled: false");
-    expect(payload.features_config).toContain("usage:\n    enabled: false");
-    expect(payload.features_config).toContain("metrics:\n    enabled: false");
+    const payload = updateStorageEndpointMock.mock.calls[0]?.[1] as StorageEndpointPayload;
+    expect(payload.features?.account.enabled).toBe(false);
+    expect(payload.features?.usage.enabled).toBe(false);
+    expect(payload.features?.metrics.enabled).toBe(false);
   });
 
   it("preserves disabled Ceph service choices when detection reports them available", async () => {
@@ -1312,8 +1313,8 @@ describe("StorageEndpointsPage tags", () => {
         })
       );
     });
-    const payload = createStorageEndpointMock.mock.calls[0][0] as { features_config?: string };
-    expect(payload.features_config).toContain("replication:\n    enabled: true");
+    const payload = createStorageEndpointMock.mock.calls[0][0] as StorageEndpointPayload;
+    expect(payload.features?.replication.enabled).toBe(true);
   });
 
   it("preconfigures AWS endpoint defaults and submits AWS features", async () => {
@@ -1348,13 +1349,13 @@ describe("StorageEndpointsPage tags", () => {
         })
       );
     });
-    const payload = createStorageEndpointMock.mock.calls[0][0] as { features_config?: string };
-    expect(payload.features_config).toContain("sts:\n    enabled: true\n    endpoint: https://sts.us-east-1.amazonaws.com");
-    expect(payload.features_config).toContain("iam:\n    enabled: true\n    endpoint: https://iam.amazonaws.com");
-    expect(payload.features_config).toContain("static_website:\n    enabled: true");
-    expect(payload.features_config).toContain("sse:\n    enabled: true");
-    expect(payload.features_config).toContain("sns:\n    enabled: false");
-    expect(payload.features_config).toContain("replication:\n    enabled: false");
+    const payload = createStorageEndpointMock.mock.calls[0][0] as StorageEndpointPayload;
+    expect(payload.features?.sts).toEqual({ enabled: true, endpoint: "https://sts.us-east-1.amazonaws.com" });
+    expect(payload.features?.iam).toEqual({ enabled: true, endpoint: "https://iam.amazonaws.com" });
+    expect(payload.features?.static_website.enabled).toBe(true);
+    expect(payload.features?.sse.enabled).toBe(true);
+    expect(payload.features?.sns.enabled).toBe(false);
+    expect(payload.features?.replication.enabled).toBe(false);
   });
 
   it("syncs AWS generated endpoints when the region changes", async () => {
@@ -1421,9 +1422,9 @@ describe("StorageEndpointsPage tags", () => {
         })
       );
     });
-    const payload = createStorageEndpointMock.mock.calls[0][0] as { features_config?: string };
-    expect(payload.features_config).toContain("endpoint: https://sts.eu-west-3.amazonaws.com");
-    expect(payload.features_config).toContain("endpoint: https://iam.amazonaws.com");
+    const payload = createStorageEndpointMock.mock.calls[0][0] as StorageEndpointPayload;
+    expect(payload.features?.sts.endpoint).toBe("https://sts.eu-west-3.amazonaws.com");
+    expect(payload.features?.iam.endpoint).toBe("https://iam.amazonaws.com");
   });
 
   it("clears AWS coordinates when the region is unknown", async () => {

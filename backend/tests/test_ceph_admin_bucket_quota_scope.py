@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 from app.models.bucket import BucketQuotaUpdate
@@ -26,7 +27,7 @@ def _build_ctx(bucket_info: dict) -> SimpleNamespace:
     endpoint = SimpleNamespace(
         id=1,
         provider="ceph",
-        features_config="features:\n  usage:\n    enabled: true\n",
+        features=parse_features_config("features:\n  usage:\n    enabled: true\n"),
     )
     return SimpleNamespace(
         endpoint=endpoint,

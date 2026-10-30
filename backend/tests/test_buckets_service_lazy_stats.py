@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from app.db import S3Account, StorageEndpoint
 from app.models.bucket import BucketNotificationConfiguration, BucketProperties, BucketQuotaUpdate
 from app.services import s3_client
@@ -49,11 +50,9 @@ def test_live_stats_client_uses_admin_ops_without_monitoring_feature(monkeypatch
         provider="ceph",
         admin_access_key="ADMIN-AK",
         admin_secret_key="ADMIN-SK",
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
     )
     account.storage_endpoint = endpoint
     expected_client = object()
@@ -397,7 +396,7 @@ def test_list_buckets_notifications_unavailable_when_sns_disabled(monkeypatch):
         endpoint_url="http://127.0.0.1:9000",
         provider="ceph",
         region=None,
-        features_config="features:\n  sns:\n    enabled: false\n",
+        features=parse_features_config("features:\n  sns:\n    enabled: false\n"),
     )
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
     monkeypatch.setattr(service, "_admin_bucket_list", lambda *args, **kwargs: [])
@@ -499,7 +498,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
         admin_access_key="endpoint-admin-ak",
         admin_secret_key="endpoint-admin-sk",
         service_identities=[service_identity("ceph_admin", "ceph-admin-ak", "ceph-admin-sk")],
-        features_config='{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}',
+        features=parse_features_config('{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}'),
     )
     captured: dict = {}
 

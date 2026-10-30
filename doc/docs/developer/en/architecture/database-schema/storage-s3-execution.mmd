@@ -15,7 +15,7 @@ erDiagram
         varchar admin_secret_key
         varchar_32 identity_namespace UK "NN"
         boolean ceph_admin_allowed "NN; default=0"
-        text features_config
+        json features "NN"
         float latitude
         float longitude
         boolean force_path_style "NN; default=0"

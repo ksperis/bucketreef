@@ -68,7 +68,7 @@ from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
-    normalize_features_config,
+    normalize_features,
     resolve_admin_endpoint,
     resolve_feature_flags,
 )
@@ -150,7 +150,7 @@ class S3AccountsService:
             raise ValueError(error_message)
 
     def _endpoint_capabilities(self, endpoint: StorageEndpoint) -> dict[str, bool]:
-        features = normalize_features_config(endpoint.provider, endpoint.features_config)
+        features = normalize_features(endpoint.provider, endpoint.features)
         return features_to_capabilities(features)
 
     def _resolve_storage_endpoint(self, storage_endpoint_id: int, require_ceph: bool = False) -> StorageEndpoint:

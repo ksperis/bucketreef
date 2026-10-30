@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import json
 from datetime import timedelta
@@ -198,7 +199,7 @@ def test_managed_endpoint_is_associated_by_catalog_url_and_reused_by_execution(d
         endpoint_url="https://s3.example.test",
         region="managed-region",
         provider="ceph",
-        features_config="features:\n  usage:\n    enabled: true\n  metrics:\n    enabled: true\n",
+        features=parse_features_config("features:\n  usage:\n    enabled: true\n  metrics:\n    enabled: true\n"),
     )
     db_session.add(endpoint)
     db_session.commit()

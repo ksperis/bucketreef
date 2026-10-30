@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import json
 from types import SimpleNamespace
@@ -113,7 +114,7 @@ def _storage_endpoint(endpoint_id: int, **overrides) -> SimpleNamespace:
         "force_path_style": False,
         "verify_tls": True,
         "provider": "ceph",
-        "features_config": "",
+        'features': parse_features_config(""),
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -1749,7 +1750,7 @@ def test_storage_ops_bucket_listing_does_not_expose_quota_write_availability(cli
                 1,
                 admin_access_key="admin-ak",
                 admin_secret_key="admin-sk",
-                features_config='{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}',
+                features=parse_features_config('{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}'),
             ),
         )
 

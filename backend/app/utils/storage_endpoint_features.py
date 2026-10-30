@@ -90,41 +90,41 @@ AWS_STS_ENDPOINT = aws_sts_endpoint_for_region(AWS_DEFAULT_REGION)
 DEFAULT_FEATURES: dict[StorageProvider, dict[str, dict[str, Any]]] = {
     StorageProvider.CEPH: {
         "admin": {"enabled": False, "endpoint": None},
-        "account": {"enabled": False, "endpoint": None},
+        "account": {"enabled": False},
         "sts": {"enabled": False, "endpoint": None},
-        "usage": {"enabled": False, "endpoint": None},
-        "metrics": {"enabled": False, "endpoint": None},
-        "static_website": {"enabled": False, "endpoint": None},
+        "usage": {"enabled": False},
+        "metrics": {"enabled": False},
+        "static_website": {"enabled": False},
         "iam": {"enabled": False, "endpoint": None},
-        "sns": {"enabled": False, "endpoint": None},
-        "sse": {"enabled": False, "endpoint": None},
-        "replication": {"enabled": False, "endpoint": None},
+        "sns": {"enabled": False},
+        "sse": {"enabled": False},
+        "replication": {"enabled": False},
         "healthcheck": {"enabled": True, "mode": "http", "url": None},
     },
     StorageProvider.AWS: {
         "admin": {"enabled": False, "endpoint": None},
-        "account": {"enabled": False, "endpoint": None},
+        "account": {"enabled": False},
         "sts": {"enabled": True, "endpoint": AWS_STS_ENDPOINT},
-        "usage": {"enabled": False, "endpoint": None},
-        "metrics": {"enabled": False, "endpoint": None},
-        "static_website": {"enabled": True, "endpoint": None},
+        "usage": {"enabled": False},
+        "metrics": {"enabled": False},
+        "static_website": {"enabled": True},
         "iam": {"enabled": True, "endpoint": AWS_IAM_ENDPOINT},
-        "sns": {"enabled": False, "endpoint": None},
-        "sse": {"enabled": True, "endpoint": None},
-        "replication": {"enabled": False, "endpoint": None},
+        "sns": {"enabled": False},
+        "sse": {"enabled": True},
+        "replication": {"enabled": False},
         "healthcheck": {"enabled": True, "mode": "http", "url": None},
     },
     StorageProvider.OTHER: {
         "admin": {"enabled": False, "endpoint": None},
-        "account": {"enabled": False, "endpoint": None},
+        "account": {"enabled": False},
         "sts": {"enabled": False, "endpoint": None},
-        "usage": {"enabled": False, "endpoint": None},
-        "metrics": {"enabled": False, "endpoint": None},
-        "static_website": {"enabled": False, "endpoint": None},
+        "usage": {"enabled": False},
+        "metrics": {"enabled": False},
+        "static_website": {"enabled": False},
         "iam": {"enabled": False, "endpoint": None},
-        "sns": {"enabled": False, "endpoint": None},
-        "sse": {"enabled": False, "endpoint": None},
-        "replication": {"enabled": False, "endpoint": None},
+        "sns": {"enabled": False},
+        "sse": {"enabled": False},
+        "replication": {"enabled": False},
         "healthcheck": {"enabled": True, "mode": "http", "url": None},
     },
 }
@@ -157,6 +157,37 @@ def _normalize_url(value: Optional[str]) -> Optional[str]:
     return normalized or None
 
 
+def parse_features_mapping(features: object) -> dict[str, Any]:
+    """Validate a documented configuration-boundary feature mapping."""
+    if not isinstance(features, dict):
+        raise ValueError("Endpoint features must be a mapping.")
+    _validate_feature_names(features)
+    normalized: dict[str, Any] = {}
+    for key, value in features.items():
+        if not isinstance(value, dict):
+            raise ValueError(f"Feature '{key}' must be a mapping.")
+        allowed_fields = {"enabled"}
+        if key in _ENDPOINT_FEATURE_KEYS:
+            allowed_fields.add("endpoint")
+        if key == "healthcheck":
+            allowed_fields.update({"healthcheck_url", "mode"})
+        unknown_fields = set(value).difference(allowed_fields)
+        if unknown_fields:
+            labels = ", ".join(sorted(str(field) for field in unknown_fields))
+            raise ValueError(f"Unknown field(s) for feature '{key}': {labels}.")
+        entry = dict(value)
+        if key == "healthcheck" and "healthcheck_url" in entry:
+            if entry["healthcheck_url"] is not None and not isinstance(
+                entry["healthcheck_url"], str
+            ):
+                raise ValueError(
+                    "Feature 'healthcheck.healthcheck_url' must be a string."
+                )
+            entry["url"] = entry.pop("healthcheck_url")
+        normalized[key] = entry
+    return normalized
+
+
 def parse_features_config(raw: Optional[str]) -> dict[str, Any]:
     if not raw or not raw.strip():
         return {}
@@ -170,10 +201,7 @@ def parse_features_config(raw: Optional[str]) -> dict[str, Any]:
         raise ValueError(
             "Endpoint features YAML must contain only the top-level 'features' mapping."
         )
-    features = data["features"]
-    if not isinstance(features, dict):
-        raise ValueError("Endpoint features must be a mapping.")
-    return features
+    return parse_features_mapping(data["features"])
 
 
 def _default_features(
@@ -202,7 +230,7 @@ def _allowed_feature_fields(key: str) -> set[str]:
     if key in _ENDPOINT_FEATURE_KEYS:
         allowed_fields.add("endpoint")
     if key == "healthcheck":
-        allowed_fields.update({"healthcheck_url", "mode"})
+        allowed_fields.update({"url", "mode"})
     return allowed_fields
 
 
@@ -242,10 +270,10 @@ def _healthcheck_overrides(value: dict[str, Any]) -> dict[str, Any]:
         if normalized_mode not in {"http", "s3"}:
             raise ValueError("Feature 'healthcheck.mode' must be 'http' or 's3'.")
         overrides["mode"] = normalized_mode
-    if "healthcheck_url" in value:
-        url = value.get("healthcheck_url")
+    if "url" in value:
+        url = value.get("url")
         if url is not None and not isinstance(url, str):
-            raise ValueError("Feature 'healthcheck.healthcheck_url' must be a string.")
+            raise ValueError("Feature 'healthcheck.url' must be a string.")
         overrides["url"] = _normalize_url(url)
     return overrides
 
@@ -272,19 +300,31 @@ def _validate_provider_features(
             raise ValueError(f"Feature '{key}' is only available for Ceph endpoints.")
 
 
-def normalize_features_config(
+def normalize_features(
     provider: object,
-    raw: Optional[str],
+    raw_features: Optional[dict[str, Any]],
     region: Optional[object] = None,
 ) -> dict[str, dict[str, Any]]:
     normalized_provider = normalize_storage_provider(provider)
     features = _default_features(normalized_provider, region)
-    raw_features = parse_features_config(raw)
+    raw_features = raw_features or {}
+    if not isinstance(raw_features, dict):
+        raise ValueError("Endpoint features must be a mapping.")
     _validate_feature_names(raw_features)
     for key, value in raw_features.items():
         features[key].update(_normalize_feature_overrides(key, value))
     _validate_provider_features(normalized_provider, features)
     return features
+
+
+def normalize_features_config(
+    provider: object,
+    raw: Optional[str],
+    region: Optional[object] = None,
+) -> dict[str, dict[str, Any]]:
+    """Parse the documented YAML/JSON boundary used by ENV and seed settings."""
+    raw_features = parse_features_config(raw)
+    return normalize_features(provider, raw_features, region)
 
 
 def required_service_identity_kinds(features: dict[str, dict[str, Any]]) -> set[str]:
@@ -299,28 +339,10 @@ def required_service_identity_kinds(features: dict[str, dict[str, Any]]) -> set[
     return required
 
 
-def dump_features_config(features: dict[str, dict[str, Any]]) -> str:
-    payload: dict[str, dict[str, dict[str, Any]]] = {"features": {}}
-    for key in FEATURE_KEYS:
-        entry: dict[str, Any] = {"enabled": bool(features.get(key, {}).get("enabled"))}
-        endpoint = features.get(key, {}).get("endpoint")
-        if key in {"admin", "sts", "iam"} and endpoint:
-            entry["endpoint"] = endpoint
-        if key == "healthcheck":
-            mode = str(features.get(key, {}).get("mode") or "http").strip().lower()
-            entry["mode"] = "s3" if mode == "s3" else "http"
-            url = features.get(key, {}).get("url")
-            if url:
-                entry["healthcheck_url"] = url
-        payload["features"][key] = entry
-    dumped = yaml.safe_dump(payload, sort_keys=False, default_flow_style=False)
-    return dumped.strip()
-
-
 def resolve_feature_flags(endpoint: StorageEndpoint) -> EndpointFeatureFlags:
-    features = normalize_features_config(
+    features = normalize_features(
         endpoint.provider,
-        endpoint.features_config,
+        endpoint.features,
         endpoint.region,
     )
     return EndpointFeatureFlags(

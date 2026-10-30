@@ -25,7 +25,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoints_service import StorageEndpointsService
 from app.services.tags_service import TagsService
 from app.utils.s3_endpoint import validate_openstack_catalog_s3_endpoint
-from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features_config
+from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features
 from app.utils.time import utcnow
 
 
@@ -579,7 +579,7 @@ class OpenStackService:
             endpoint = execution.storage_endpoint
             if endpoint is not None:
                 caps = features_to_capabilities(
-                    normalize_features_config(endpoint.provider, endpoint.features_config, endpoint.region)
+                    normalize_features(endpoint.provider, endpoint.features, endpoint.region)
                 )
                 caps.update({
                     "admin": False,

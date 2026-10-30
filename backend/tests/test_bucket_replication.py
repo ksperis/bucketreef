@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 import pytest
@@ -25,11 +26,9 @@ def _build_endpoint(endpoint_id: int = 1, *, replication_enabled: bool = True) -
         name="endpoint",
         endpoint_url="https://ceph.example.test",
         provider="ceph",
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  replication:\n"
-            f"    enabled: {'true' if replication_enabled else 'false'}\n"
-        ),
+            f"    enabled: {'true' if replication_enabled else 'false'}\n"),
     )
     endpoint.id = endpoint_id
     return endpoint

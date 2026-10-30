@@ -1,5 +1,24 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured Storage Endpoint features
+
+Migration `0200_structure_storage_endpoint_features` replaces the persisted
+`storage_endpoints.features_config` YAML text with a non-null structured JSON
+`features` column. Existing feature documents are validated and normalized
+during the migration; invalid persisted values stop the upgrade explicitly
+instead of being carried forward through a runtime compatibility path.
+
+The bundled backend API and frontend now exchange the structured `features`
+object directly. Deploy them together. Text parsing remains only at explicit
+configuration boundaries: `SEED_S3_ENDPOINT_FEATURES` accepts the documented
+YAML/JSON document, and `ENV_STORAGE_ENDPOINTS[].features` accepts its documented
+JSON mapping. The configuration-facing health-check URL key remains
+`healthcheck_url`; the persisted/API field is `url`.
+
+The undocumented `ENV_STORAGE_ENDPOINTS[].features_config` compatibility field
+has been removed. The downgrade recreates the former YAML column from the
+structured values.
+
 ## OpenStack project connections
 
 Migration `0194_openstack_connect` adds optional clouds and session-bound

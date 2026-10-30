@@ -61,20 +61,6 @@ export type FormState = {
   features: FeaturesState;
 };
 
-const FEATURE_KEYS: FeatureKey[] = [
-  "admin",
-  "account",
-  "sts",
-  "usage",
-  "metrics",
-  "static_website",
-  "iam",
-  "sns",
-  "sse",
-  "replication",
-  "healthcheck",
-];
-
 export const AWS_DEFAULT_REGION = "us-east-1";
 
 const AWS_IAM_ENDPOINT = "https://iam.amazonaws.com";
@@ -283,27 +269,36 @@ export function applyFeatureConstraints(
   return next;
 }
 
-export function buildFeaturesYaml(features: FeaturesState): string {
-  const lines: string[] = ["features:"];
-  FEATURE_KEYS.forEach((key) => {
+export function buildFeaturesPayload(features: FeaturesState): StorageEndpoint["features"] {
+  const endpointFeature = (key: "admin" | "sts" | "iam") => {
     const entry = features[key];
-    lines.push(`  ${key}:`);
-    lines.push(`    enabled: ${entry.enabled ? "true" : "false"}`);
-    if (
-      (key === "admin" || key === "sts" || key === "iam") &&
-      entry.enabled &&
-      entry.endpoint.trim()
-    ) {
-      lines.push(`    endpoint: ${entry.endpoint.trim()}`);
-    }
-    if (key === "healthcheck") {
-      lines.push(`    mode: ${entry.mode === "s3" ? "s3" : "http"}`);
-      if (entry.endpoint.trim()) {
-        lines.push(`    healthcheck_url: ${entry.endpoint.trim()}`);
-      }
-    }
+    const endpoint = entry.endpoint.trim();
+    return {
+      enabled: entry.enabled,
+      ...(entry.enabled && endpoint ? { endpoint } : {}),
+    };
+  };
+  const enabledFeature = (key: Exclude<FeatureKey, "admin" | "sts" | "iam" | "healthcheck">) => ({
+    enabled: features[key].enabled,
   });
-  return lines.join("\n");
+  const healthcheckUrl = features.healthcheck.endpoint.trim();
+  return {
+    admin: endpointFeature("admin"),
+    account: enabledFeature("account"),
+    sts: endpointFeature("sts"),
+    usage: enabledFeature("usage"),
+    metrics: enabledFeature("metrics"),
+    static_website: enabledFeature("static_website"),
+    iam: endpointFeature("iam"),
+    sns: enabledFeature("sns"),
+    sse: enabledFeature("sse"),
+    replication: enabledFeature("replication"),
+    healthcheck: {
+      enabled: features.healthcheck.enabled,
+      mode: features.healthcheck.mode === "s3" ? "s3" : "http",
+      ...(healthcheckUrl ? { url: healthcheckUrl } : {}),
+    },
+  };
 }
 
 export function createEmptyForm(): FormState {

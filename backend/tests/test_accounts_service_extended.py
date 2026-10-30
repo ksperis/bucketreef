@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import pytest
 from sqlalchemy import select
@@ -82,12 +83,10 @@ def _seed_endpoint(
         provider=provider.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             f"  admin:\n    enabled: {'true' if admin_enabled else 'false'}\n"
             f"  account:\n    enabled: {'true' if account_enabled else 'false'}\n"
-            f"  iam:\n    enabled: {'true' if iam_enabled else 'false'}\n"
-        ),
+            f"  iam:\n    enabled: {'true' if iam_enabled else 'false'}\n"),
         is_default=is_default,
         is_editable=True,
     )

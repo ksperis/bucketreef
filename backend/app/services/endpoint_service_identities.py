@@ -24,7 +24,7 @@ from app.services.rgw_endpoint_clients import get_endpoint_bootstrap_rgw_client
 from app.services.storage_endpoint_admin_permissions import admin_ops_permissions_from_caps
 from app.utils.rgw_caps import parse_rgw_caps_permissions
 from app.utils.time import utcnow
-from app.utils.storage_endpoint_features import normalize_features_config, required_service_identity_kinds
+from app.utils.storage_endpoint_features import normalize_features, required_service_identity_kinds
 
 SERVICE_CAPS = {
     "runtime": "accounts=read;user-info-without-keys=read;buckets=read",
@@ -587,8 +587,8 @@ class EndpointServiceIdentityService:
         endpoint: StorageEndpoint,
     ) -> list[ManagedServiceIdentityKind]:
         """Keep configured/in-flight identities, skip unused empty placeholders."""
-        required = required_service_identity_kinds(normalize_features_config(
-            endpoint.provider, endpoint.features_config, endpoint.region,
+        required = required_service_identity_kinds(normalize_features(
+            endpoint.provider, endpoint.features, endpoint.region,
         ))
         desired: list[ManagedServiceIdentityKind] = []
         for kind in ("runtime", "supervision"):
