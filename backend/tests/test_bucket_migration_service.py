@@ -552,7 +552,7 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
         user,
     )
     created.precheck_status = "failed"
-    created.precheck_report_json = '{"status":"failed"}'
+    created.precheck_report = '{"status":"failed"}'
     created.precheck_checked_at = created.created_at
     first_item = created.items[0]
     first_item.status = "failed"
@@ -591,7 +591,7 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert updated.auto_grant_source_read_for_copy is False
     assert updated.status == "draft"
     assert updated.precheck_status == "pending"
-    assert updated.precheck_report_json is None
+    assert updated.precheck_report is None
     assert updated.precheck_checked_at is None
     assert updated.total_items == 2
     assert updated.completed_items == 0
@@ -608,8 +608,8 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert all(item.objects_copied == 0 for item in by_source.values())
     assert all(item.objects_deleted == 0 for item in by_source.values())
     assert all(item.error_message is None for item in by_source.values())
-    assert all(item.source_snapshot_json is None for item in by_source.values())
-    assert all(item.target_snapshot_json is None for item in by_source.values())
+    assert all(item.source_snapshot is None for item in by_source.values())
+    assert all(item.target_snapshot is None for item in by_source.values())
     assert all(item.execution_strategy is None for item in by_source.values())
     assert any(event.message == "Migration configuration updated." for event in updated.events)
 
@@ -987,7 +987,7 @@ def test_apply_read_only_policy_uses_supported_actions(db_session):
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
 
-    item = SimpleNamespace(source_policy_backup_json=None, read_only_applied=False)
+    item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
     service._apply_read_only_policy(source, "bucket-a", item)
 
     statement = (captured["policy"] or {}).get("Statement", [])[0]
@@ -1043,7 +1043,7 @@ def test_apply_target_write_lock_policy_uses_migration_user_agent_condition(db_s
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
 
-    item = SimpleNamespace(target_policy_backup_json=None, target_lock_applied=False)
+    item = SimpleNamespace(target_policy_backup=None, target_lock_applied=False)
     service._apply_target_write_lock_policy(
         SimpleNamespace(execution_context=target),
         "bucket-a",
@@ -1529,7 +1529,7 @@ def test_apply_read_only_policy_returns_clear_message_on_access_denied(db_sessio
 
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
-    item = SimpleNamespace(source_policy_backup_json=None, read_only_applied=False)
+    item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
 
     try:
         service._apply_read_only_policy(source, "bucket-a", item)
@@ -1596,7 +1596,7 @@ def test_run_precheck_interruption_persists_canonical_report(db_session):
     checked = service.run_precheck(migration.id, active_checks=True)
 
     assert checked.precheck_status == "failed"
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     assert report["status"] == "failed"
     assert report["items"] == []
     assert report["errors"] == 1
@@ -1652,7 +1652,7 @@ def test_run_precheck_passed_then_start_allowed(db_session):
 
     assert migration.precheck_status == "passed"
     assert migration.items[0].source_count == 12
-    report = json.loads(migration.precheck_report_json or "{}")
+    report = migration.precheck_report or {}
     assert report.get("errors") == 0
     assert "report_version" not in report
     assert report.get("status") == "passed"
@@ -1703,7 +1703,7 @@ def test_run_precheck_failed_blocks_start(db_session):
 
     migration = service.run_precheck(migration.id, active_checks=True)
     assert migration.precheck_status == "failed"
-    report = json.loads(migration.precheck_report_json or "{}")
+    report = migration.precheck_report or {}
     assert int(report.get("errors") or 0) > 0
 
     try:
@@ -1743,7 +1743,7 @@ def test_run_precheck_skips_same_endpoint_copy_source_access_when_option_disable
 
     migration = service.run_precheck(migration.id, active_checks=True)
     assert migration.precheck_status == "passed"
-    report = json.loads(migration.precheck_report_json or "{}")
+    report = migration.precheck_report or {}
     item_checks = report.get("items", [])[0].get("checks", [])
     assert not any(
         "x-amz-copy-source" in str(message.get("message", ""))
@@ -1782,7 +1782,7 @@ def test_run_precheck_fails_when_same_endpoint_copy_source_access_is_missing(db_
 
     migration = service.run_precheck(migration.id, active_checks=True)
     assert migration.precheck_status == "failed"
-    report = json.loads(migration.precheck_report_json or "{}")
+    report = migration.precheck_report or {}
     item_checks = report.get("items", [])[0].get("checks", [])
     assert any(
         "Same-endpoint x-amz-copy-source precheck failed" in str(message.get("message", ""))
@@ -1834,7 +1834,7 @@ def test_run_precheck_skips_disabled_endpoint_website_probe_when_copy_bucket_set
 
     assert checked.precheck_status == "passed"
     assert website_calls["count"] == 0
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
     assert not any(
         str(message.get("code", "")) == "source_profile_inspection_failed"
@@ -1902,7 +1902,7 @@ def test_run_precheck_skips_non_required_bucket_setting_probes_when_copy_bucket_
     assert checked.precheck_status == "passed"
     assert website_calls["count"] == 0
     assert policy_calls["count"] == 0
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
     assert any(
         str(message.get("code", "")) == "source_feature_skipped_not_required"
@@ -1969,7 +1969,7 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
 
     assert checked.precheck_status == "failed"
     assert website_calls["count"] == 1
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
     assert not any(
         str(message.get("code", "")) == "source_profile_inspection_failed"
@@ -2000,7 +2000,7 @@ def test_start_migration_requires_execution_plan_when_precheck_is_legacy(db_sess
         user,
     )
     migration.precheck_status = "passed"
-    migration.precheck_report_json = json.dumps({"status": "passed", "errors": 0})
+    migration.precheck_report = {"status": "passed", "errors": 0}
     db_session.commit()
 
     try:
@@ -2050,7 +2050,7 @@ def test_run_precheck_passes_when_source_bucket_requires_version_aware_strategy(
     checked = service.run_precheck(migration.id, active_checks=True)
 
     assert checked.precheck_status == "passed"
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     item_report = report.get("items", [])[0]
     assert item_report.get("strategy") == "version_aware"
     assert item_report.get("blocking") is False
@@ -2110,7 +2110,7 @@ def test_run_precheck_fails_when_source_bucket_uses_unsupported_default_encrypti
     checked = service.run_precheck(migration.id, active_checks=True)
 
     assert checked.precheck_status == "failed"
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
     assert any(
         str(message.get("code", "")) == "unsupported_default_encryption"
@@ -2159,7 +2159,7 @@ def test_run_precheck_fails_when_copy_bucket_settings_hits_unsupported_source_se
     checked = service.run_precheck(migration.id, active_checks=True)
 
     assert checked.precheck_status == "failed"
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
     assert any(
         str(message.get("code", "")) == "unsupported_bucket_settings_configured"
@@ -2193,7 +2193,7 @@ def test_sync_bucket_uses_stream_copy_when_same_endpoint_copy_option_is_disabled
         objects_copied=0,
         objects_deleted=0,
         execution_strategy=_current_only_execution_strategy(),
-        replication_state_json=None,
+        replication_state=None,
         updated_at=None,
     )
 
@@ -2269,7 +2269,7 @@ def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session
         objects_copied=0,
         objects_deleted=0,
         execution_strategy=_current_only_execution_strategy(),
-        replication_state_json=None,
+        replication_state=None,
         updated_at=None,
     )
     entries = [
@@ -2398,8 +2398,8 @@ def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_ma
     )
     item = SimpleNamespace(
         execution_strategy=_version_aware_execution_strategy(),
-        source_snapshot_json=json.dumps({"versioning": {"status": "Enabled"}}),
-        replication_state_json=None,
+        source_snapshot={"versioning": {"status": "Enabled"}},
+        replication_state=None,
         objects_copied=0,
         objects_deleted=0,
         updated_at=None,
@@ -2659,8 +2659,8 @@ def test_sync_bucket_version_aware_same_endpoint_uses_copy_source_version_id(db_
     )
     item = SimpleNamespace(
         execution_strategy=_version_aware_execution_strategy(),
-        source_snapshot_json=json.dumps({"versioning": {"status": "Enabled"}}),
-        replication_state_json=None,
+        source_snapshot={"versioning": {"status": "Enabled"}},
+        replication_state=None,
         objects_copied=0,
         objects_deleted=0,
         updated_at=None,
@@ -2761,8 +2761,8 @@ def test_sync_bucket_version_aware_presync_stores_watermark_and_cutover_replays_
     )
     item = SimpleNamespace(
         execution_strategy=_version_aware_execution_strategy(),
-        source_snapshot_json=json.dumps({"versioning": {"status": "Enabled"}}),
-        replication_state_json=None,
+        source_snapshot={"versioning": {"status": "Enabled"}},
+        replication_state=None,
         objects_copied=0,
         objects_deleted=0,
         updated_at=None,
@@ -2871,7 +2871,7 @@ def test_sync_bucket_version_aware_presync_stores_watermark_and_cutover_replays_
     )
 
     assert copied_pre == 2
-    watermark = json.loads(item.replication_state_json or "{}").get("pre_sync_watermark")
+    watermark = (item.replication_state or {}).get("pre_sync_watermark")
     assert watermark is not None
     item.pre_sync_done = True
     item.read_only_applied = True
@@ -2902,19 +2902,17 @@ def test_sync_bucket_version_aware_cutover_fallbacks_purge_before_full_replay(
     cases = [
         (None, "cutover_full_missing_watermark"),
         (
-            json.dumps(
-                {
-                    "cutover_attempted": True,
-                    "pre_sync_watermark": {
-                        "last_modified": "2026-01-01T10:00:00Z"
-                    },
+            {
+                "cutover_attempted": True,
+                "pre_sync_watermark": {
+                    "last_modified": "2026-01-01T10:00:00Z"
                 }
-            ),
+            },
             "cutover_full_retry",
         ),
     ]
 
-    for replication_state_json, expected_replay_mode in cases:
+    for replication_state, expected_replay_mode in cases:
         service = BucketMigrationService(db_session)
         source_ctx = SimpleNamespace(
             context_id="src",
@@ -2935,8 +2933,8 @@ def test_sync_bucket_version_aware_cutover_fallbacks_purge_before_full_replay(
         )
         item = SimpleNamespace(
             execution_strategy=_version_aware_execution_strategy(),
-            source_snapshot_json=json.dumps({"versioning": {"status": "Enabled"}}),
-            replication_state_json=replication_state_json,
+            source_snapshot={"versioning": {"status": "Enabled"}},
+            replication_state=replication_state,
             objects_copied=0,
             objects_deleted=0,
             updated_at=None,
@@ -3278,8 +3276,8 @@ def test_finalize_target_versioning_state_suspends_target_for_version_aware_copy
     migration = SimpleNamespace(copy_bucket_settings=True)
     item = SimpleNamespace(
         execution_strategy=_version_aware_execution_strategy(),
-        source_snapshot_json=json.dumps({"versioning": {"status": "Suspended"}}),
-        replication_state_json=None,
+        source_snapshot={"versioning": {"status": "Suspended"}},
+        replication_state=None,
     )
     set_versioning_calls: list[bool] = []
     service._configuration = SimpleNamespace(set_versioning=lambda *_args, **kwargs: set_versioning_calls.append(bool(kwargs.get("enabled"))))  # type: ignore[assignment]
@@ -3288,7 +3286,7 @@ def test_finalize_target_versioning_state_suspends_target_for_version_aware_copy
     service._finalize_target_versioning_state(SimpleNamespace(), "bucket-b", migration, item)
 
     assert set_versioning_calls == [False]
-    replication_state = json.loads(item.replication_state_json or "{}")
+    replication_state = item.replication_state or {}
     assert replication_state.get("target_versioning_finalized") == "suspended"
 
 
@@ -3311,7 +3309,7 @@ def test_finalize_releases_target_lock_policy(db_session):
     item.status = "completed"
     item.step = "completed"
     item.target_lock_applied = True
-    item.target_policy_backup_json = "{}"
+    item.target_policy_backup = "{}"
     db_session.commit()
 
     restored: list[str] = []
@@ -3329,7 +3327,7 @@ def test_finalize_releases_target_lock_policy(db_session):
     assert migration.status == "completed"
     assert restored == ["bucket-a-dst"]
     assert item.target_lock_applied is False
-    assert item.target_policy_backup_json is None
+    assert item.target_policy_backup is None
 
 
 def test_stop_migration_restores_source_and_target_policies(db_session):
@@ -3349,9 +3347,9 @@ def test_stop_migration_restores_source_and_target_policies(db_session):
     migration.status = "paused"
     item = migration.items[0]
     item.read_only_applied = True
-    item.source_policy_backup_json = "{}"
+    item.source_policy_backup = "{}"
     item.target_lock_applied = True
-    item.target_policy_backup_json = "{}"
+    item.target_policy_backup = "{}"
     db_session.commit()
 
     restored_source: list[str] = []
@@ -3375,9 +3373,9 @@ def test_stop_migration_restores_source_and_target_policies(db_session):
     assert restored_source == ["bucket-a"]
     assert restored_target == ["bucket-a-dst"]
     assert item.read_only_applied is False
-    assert item.source_policy_backup_json is None
+    assert item.source_policy_backup is None
     assert item.target_lock_applied is False
-    assert item.target_policy_backup_json is None
+    assert item.target_policy_backup is None
 
 
 
@@ -3517,7 +3515,7 @@ def test_add_event_sanitizes_exception_text_before_persistence(db_session):
 
     event = db_session.scalar(sa.select(BucketMigrationEvent).order_by(BucketMigrationEvent.id.desc()))
     assert event is not None
-    persisted = f"{event.message} {event.metadata_json}"
+    persisted = f"{event.message} {event.event_metadata}"
     assert "migration-secret" not in persisted
     assert "metadata-secret" not in persisted
     assert "AKIA1234567890ABCDEF" not in persisted
@@ -3815,7 +3813,7 @@ def test_run_precheck_fails_when_target_lock_probe_fails_in_fail_closed_mode(db_
 
     checked = service.run_precheck(migration.id, active_checks=True)
     assert checked.precheck_status == "failed"
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     assert int(report.get("errors") or 0) >= 1
     checks = report.get("items", [])[0].get("checks", [])
     assert any(
@@ -3856,7 +3854,7 @@ def test_run_precheck_fails_when_target_lock_probe_cleanup_fails_in_fail_closed_
 
     checked = service.run_precheck(migration.id, active_checks=True)
     assert checked.precheck_status == "failed"
-    report = json.loads(checked.precheck_report_json or "{}")
+    report = checked.precheck_report or {}
     assert int(report.get("errors") or 0) >= 1
     checks = report.get("items", [])[0].get("checks", [])
     assert any(
@@ -3973,7 +3971,7 @@ def test_apply_target_lock_sanitizes_apply_and_restore_failures(db_session):
         user,
     )
     item = migration.items[0]
-    item.target_policy_backup_json = "{}"
+    item.target_policy_backup = "{}"
     db_session.commit()
 
     service._apply_target_write_lock_policy = Mock(

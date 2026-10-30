@@ -85,7 +85,7 @@ erDiagram
         varchar worker_lease_owner
         datetime worker_lease_until
         varchar precheck_status "NN; default=pending"
-        text precheck_report_json
+        json precheck_report
         datetime precheck_checked_at
         integer workflow_version "NN; default=2"
         integer configuration_revision "NN; default=1"
@@ -122,10 +122,10 @@ erDiagram
         boolean read_only_applied "NN; default=0"
         boolean target_lock_applied "NN; default=0"
         boolean target_created_by_migration "NN; default=0"
-        text preparation_effects_json
+        json preparation_effects
         boolean source_deleted "NN; default=0"
         text cleanup_error
-        text cleanup_verification_json
+        json cleanup_verification
         integer objects_copied "NN; default=0"
         integer objects_deleted "NN; default=0"
         integer source_count
@@ -134,13 +134,13 @@ erDiagram
         integer different_count
         integer only_source_count
         integer only_target_count
-        text diff_sample_json
-        text source_snapshot_json
-        text target_snapshot_json
+        json diff_sample
+        json source_snapshot
+        json target_snapshot
         varchar execution_strategy
-        text replication_state_json
-        text source_policy_backup_json
-        text target_policy_backup_json
+        json replication_state
+        json source_policy_backup
+        json target_policy_backup
         varchar error_message
         datetime started_at
         datetime finished_at
@@ -153,7 +153,7 @@ erDiagram
         integer item_id FK
         varchar level "NN; default=info"
         text message "NN"
-        text metadata_json
+        json metadata
         datetime created_at "NN"
     }
     bucket_usage_stats_snapshots {

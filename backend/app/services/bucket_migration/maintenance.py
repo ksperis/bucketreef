@@ -21,7 +21,6 @@ from app.services.storage_ops_bucket_listing_service import (
 from ._shared import (
     _BucketVersionEntry,
     _json_dumps,
-    _json_loads,
     _WorkerLeaseLostError,
     _MIGRATION_USER_AGENT_MARKER,
 )
@@ -82,7 +81,7 @@ class BucketMigrationMaintenanceMixin:
         )
         for item in migration.items:
             if not item.source_deleted:
-                item.cleanup_verification_json = None
+                item.cleanup_verification = None
             elif not item.target_lock_applied:
                 # Deletion succeeded; only restoration had failed. A successful
                 # recovery resolves that separate outcome.
@@ -104,7 +103,7 @@ class BucketMigrationMaintenanceMixin:
             self._precheck_version_aware_source_access(
                 source,
                 item.source_bucket,
-                _json_loads(item.source_snapshot_json),
+                item.source_snapshot,
             )
         if not item.target_lock_applied:
             self._apply_target_write_lock_policy(target, item.target_bucket, item)
@@ -116,8 +115,8 @@ class BucketMigrationMaintenanceMixin:
         self._remove_deleted_bucket_ui_tags(target, item.target_bucket)
         item.target_created_by_migration = False
         item.target_lock_applied = False
-        item.target_policy_backup_json = None
-        item.replication_state_json = None
+        item.target_policy_backup = None
+        item.replication_state = None
         item.pre_sync_done = False
         item.step = "create_bucket"
 
@@ -338,7 +337,7 @@ class BucketMigrationMaintenanceMixin:
         # transfer only needed current objects. Newly enabled versioning cannot
         # hide extra source versions from the cleanup check.
         strategy = "version_aware"
-        receipt = _json_loads(item.cleanup_verification_json)
+        receipt = item.cleanup_verification
         # Reapply both protections on every attempt, preserving their original backups.
         if not item.target_lock_applied:
             self._apply_target_write_lock_policy(target, item.target_bucket, item)
@@ -347,7 +346,7 @@ class BucketMigrationMaintenanceMixin:
                 item.target_bucket,
                 target.execution_context,
                 self._build_target_write_lock_policy(
-                    item.target_bucket, _json_loads(item.target_policy_backup_json)
+                    item.target_bucket, item.target_policy_backup
                 ),
             )
         target_hash = self._cleanup_fingerprint(
@@ -368,9 +367,10 @@ class BucketMigrationMaintenanceMixin:
                 raise RuntimeError(
                     "Fresh SHA-256 verification found different contents, tags or version history. The source is retained."
                 )
-            item.cleanup_verification_json = _json_dumps(
-                {"target_sha256": target_hash, "verified_at": utcnow().isoformat()}
-            )
+            item.cleanup_verification = {
+                "target_sha256": target_hash,
+                "verified_at": utcnow().isoformat(),
+            }
             self._commit()
         check()
         source_exists = self._precheck_bucket_exists(source, item.source_bucket)
@@ -378,7 +378,7 @@ class BucketMigrationMaintenanceMixin:
             raise RuntimeError("Source existence could not be verified")
         if source_exists:
             policy = self._build_read_only_policy(
-                item.source_bucket, _json_loads(item.source_policy_backup_json)
+                item.source_bucket, item.source_policy_backup
             )
             deny = policy["Statement"][-1]
             deletes = [
@@ -415,12 +415,12 @@ class BucketMigrationMaintenanceMixin:
         self._remove_deleted_bucket_ui_tags(source, item.source_bucket)
         item.source_deleted = True
         item.read_only_applied = False
-        item.source_policy_backup_json = None
+        item.source_policy_backup = None
         self._commit()
         self._restore_checked_policy(
             target.execution_context,
             item.target_bucket,
-            _json_loads(item.target_policy_backup_json),
+            item.target_policy_backup,
         )
         item.target_lock_applied = False
-        item.target_policy_backup_json = None
+        item.target_policy_backup = None

@@ -171,12 +171,6 @@ def _json_dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=True, sort_keys=True, default=str)
 
 
-def _json_loads(value: Optional[str]) -> Any:
-    if value is None:
-        return None
-    return json.loads(value)
-
-
 def _truncate_db_text(value: Any, *, max_chars: int) -> str:
     if max_chars <= 0:
         return ""
@@ -227,15 +221,16 @@ def _sanitize_event_metadata(value: Any, *, depth: int = 0) -> Any:
     return _truncate_db_text(value, max_chars=_DB_EVENT_MESSAGE_MAX_CHARS)
 
 
-def _serialize_event_metadata(metadata: Optional[dict[str, Any]]) -> Optional[str]:
+def _bounded_event_metadata(
+    metadata: Optional[dict[str, Any]],
+) -> Optional[dict[str, Any]]:
     if metadata is None:
         return None
     serialized = _json_dumps(metadata)
     if len(serialized) <= _DB_EVENT_METADATA_MAX_CHARS:
-        return serialized
-    fallback_payload = {
+        return metadata
+    return {
         "truncated": True,
         "original_length": len(serialized),
         "preview": _truncate_db_text(serialized, max_chars=1024),
     }
-    return _json_dumps(fallback_payload)

@@ -19,8 +19,6 @@ from ._shared import (
     _SOURCE_COPY_GRANT_POLICY_SID,
     _TARGET_WRITE_LOCK_POLICY_SID,
     _ResolvedContext,
-    _json_dumps,
-    _json_loads,
 )
 
 logger = logging.getLogger(__name__)
@@ -505,9 +503,7 @@ class BucketMigrationPolicyGrantsMixin:
             source_bucket,
             source_execution_context,
         )
-        item.source_policy_backup_json = (
-            _json_dumps(existing_policy) if isinstance(existing_policy, dict) else None
-        )
+        item.source_policy_backup = existing_policy if isinstance(existing_policy, dict) else None
         item.read_only_applied = True
         self._commit()
         policy_doc = self._build_read_only_policy(
@@ -533,9 +529,7 @@ class BucketMigrationPolicyGrantsMixin:
         if item.target_lock_applied:
             return
         existing_policy = self._configuration.get_policy(target_bucket, target_ctx.execution_context)
-        item.target_policy_backup_json = (
-            _json_dumps(existing_policy) if isinstance(existing_policy, dict) else None
-        )
+        item.target_policy_backup = existing_policy if isinstance(existing_policy, dict) else None
         item.target_lock_applied = True
         self._commit()
         lock_policy_doc = self._build_target_write_lock_policy(
@@ -559,7 +553,7 @@ class BucketMigrationPolicyGrantsMixin:
         item: BucketMigrationItem,
     ) -> None:
         self._assert_workflow_lease()
-        backup = _json_loads(item.target_policy_backup_json)
+        backup = item.target_policy_backup
         if isinstance(backup, dict):
             self._configuration.put_policy(
                 target_bucket,

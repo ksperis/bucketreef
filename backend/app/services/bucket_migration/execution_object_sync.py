@@ -23,7 +23,6 @@ from ._shared import (
     _SyncDiff,
     _VersionReplayWatermarkBuilder,
     _WorkerLeaseLostError,
-    _json_loads,
 )
 
 
@@ -218,7 +217,7 @@ class BucketMigrationObjectSyncMixin:
             ) from exc
 
     def _source_versioning_status_from_item(self, item: BucketMigrationItem) -> Optional[str]:
-        source_snapshot = _json_loads(item.source_snapshot_json)
+        source_snapshot = item.source_snapshot
         if not isinstance(source_snapshot, dict):
             return None
         versioning = source_snapshot.get("versioning")
@@ -382,7 +381,7 @@ class _VersionAwareObjectSyncRunner:
             self.progress.record(deleted_inc=self.deleted, force=True)
 
     def _replay_versions(self) -> tuple[int, Optional[dict[str, Any]]]:
-        source_profile = _json_loads(self.item.source_snapshot_json)
+        source_profile = self.item.source_snapshot
         with ExitStack() as copy_grant_stack:
             if (
                 self.same_endpoint_copy

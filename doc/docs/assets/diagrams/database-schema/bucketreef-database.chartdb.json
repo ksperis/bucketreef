@@ -18965,11 +18965,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migrations.precheck_report_json",
-          "name": "precheck_report_json",
+          "id": "field:bucket_migrations.precheck_report",
+          "name": "precheck_report",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -19889,11 +19889,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.preparation_effects_json",
-          "name": "preparation_effects_json",
+          "id": "field:bucket_migration_items.preparation_effects",
+          "name": "preparation_effects",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -19952,11 +19952,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.cleanup_verification_json",
-          "name": "cleanup_verification_json",
+          "id": "field:bucket_migration_items.cleanup_verification",
+          "name": "cleanup_verification",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -20141,11 +20141,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.diff_sample_json",
-          "name": "diff_sample_json",
+          "id": "field:bucket_migration_items.diff_sample",
+          "name": "diff_sample",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -20162,11 +20162,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.source_snapshot_json",
-          "name": "source_snapshot_json",
+          "id": "field:bucket_migration_items.source_snapshot",
+          "name": "source_snapshot",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -20183,11 +20183,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.target_snapshot_json",
-          "name": "target_snapshot_json",
+          "id": "field:bucket_migration_items.target_snapshot",
+          "name": "target_snapshot",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -20225,11 +20225,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.replication_state_json",
-          "name": "replication_state_json",
+          "id": "field:bucket_migration_items.replication_state",
+          "name": "replication_state",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -20246,11 +20246,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.source_policy_backup_json",
-          "name": "source_policy_backup_json",
+          "id": "field:bucket_migration_items.source_policy_backup",
+          "name": "source_policy_backup",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -20267,11 +20267,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.target_policy_backup_json",
-          "name": "target_policy_backup_json",
+          "id": "field:bucket_migration_items.target_policy_backup",
+          "name": "target_policy_backup",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -20609,11 +20609,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_events.metadata_json",
-          "name": "metadata_json",
+          "id": "field:bucket_migration_events.metadata",
+          "name": "metadata",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import timedelta
-import json
 from unittest.mock import patch
 
 import pytest
@@ -236,7 +235,7 @@ def test_migration_worker_revalidates_and_records_revocation(db_session, princip
         sa.select(BucketMigrationEvent).where(BucketMigrationEvent.migration_id == migration.id)
     ).one()
     assert event.level == "error"
-    assert json.loads(event.metadata_json) == {"revoked_context_ids": [f"conn-{connection.id}"]}
+    assert event.event_metadata == {"revoked_context_ids": [f"conn-{connection.id}"]}
 
 
 def test_migration_api_resolves_group_grants_and_observes_revocation(client, db_session, principal, monkeypatch):
