@@ -31,18 +31,14 @@ from app.db import (
 )
 from app.db.ui_group import ALL_USERS_SYSTEM_KEY
 from app.models.user import (
-    EffectiveAccountGroupSource,
-    EffectiveAccountMembership,
-    EffectiveAccountRoleProvenance,
     EffectiveUserAccess,
-    LinkedS3Connection,
-    LinkedS3User,
     LinkedUiGroup,
     ManagerToolAccess,
 )
 from app.models.access_context import BucketMigrationAccessScope, EffectiveAccountGroupRole, EffectiveAccountLink
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
 from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS, MANAGER_TOOL_ROLES
+from app.services.mappers.effective_access import effective_user_access_from_resolved
 from app.utils.account_roles import (
     ManagerAccountRoleValue,
     PortalAccountRoleValue,
@@ -840,84 +836,8 @@ class EffectiveAccessService:
         resolved = self.resolve_user(user)
         s3_user_names = load_s3_user_names(self.db, resolved.s3_user_ids)
         shared_connection_names = load_shared_s3_connection_names(self.db, resolved.s3_connection_ids)
-        return EffectiveUserAccess(
-            can_access_ceph_admin=resolved.can_access_ceph_admin,
-            can_access_storage_ops=resolved.can_access_storage_ops,
-            can_create_manual_private_connections=resolved.can_create_manual_private_connections,
-            can_provision_managed_private_connections=resolved.can_provision_managed_private_connections,
-            allow_multisite_endpoint_switching=resolved.allow_multisite_endpoint_switching,
-            group_can_provision_managed_private_connections=any(
-                source.kind == "group"
-                for source in resolved.feature_sources.get(
-                    "managed_private_connection_provision",
-                    (),
-                )
-            ),
-            has_owned_private_connections=resolved.has_owned_private_connections,
-            manager_tool_access=resolved.manager_tool_access,
-            group_manager_tool_access=ManagerToolAccess(
-                **{
-                    tool: any(
-                        source.kind == "group"
-                        for source in resolved.feature_sources.get(
-                            f"manager_{tool}",
-                            (),
-                        )
-                    )
-                    for tool in MANAGER_TOOL_COLUMNS
-                }
-            ),
-            browser_advanced_features_enabled=resolved.browser_advanced_features_enabled,
-            account_links=[
-                EffectiveAccountMembership(
-                    account_id=link.account_id,
-                    manager_role=link.manager_role,
-                    portal_role=link.portal_role,
-                    allow_manager_browser_data_access=link.manager_browser_allowed,
-                    provenance=EffectiveAccountRoleProvenance(
-                        direct_manager_role=link.direct_manager_role,
-                        direct_portal_role=link.direct_portal_role,
-                        direct_determines_effective_manager_role=(
-                            link.direct_determines_effective_manager_role
-                        ),
-                        direct_determines_effective_portal_role=(
-                            link.direct_determines_effective_portal_role
-                        ),
-                        direct_allow_manager_browser_data_access=(
-                            link.direct_allow_manager_browser_data_access
-                        ),
-                        groups=[
-                            EffectiveAccountGroupSource(
-                                group_id=source.group_id,
-                                group_name=source.group_name,
-                                manager_role=source.manager_role,
-                                portal_role=source.portal_role,
-                                determines_effective_manager_role=(
-                                    source.determines_effective_manager_role
-                                ),
-                                determines_effective_portal_role=(
-                                    source.determines_effective_portal_role
-                                ),
-                                allow_manager_browser_data_access=(
-                                    source.allow_manager_browser_data_access
-                                ),
-                            )
-                            for source in link.group_sources
-                        ],
-                    ),
-                )
-                for link in resolved.account_links
-            ],
-            s3_user_details=[
-                LinkedS3User(id=s3_id, name=s3_user_names.get(s3_id) or f"S3 User #{s3_id}")
-                for s3_id in resolved.s3_user_ids
-            ],
-            s3_connection_details=[
-                LinkedS3Connection(
-                    id=conn_id,
-                    name=(details if details else f"Connection #{conn_id}"),
-                )
-                for conn_id in resolved.s3_connection_ids
-                for details in [shared_connection_names.get(conn_id)]
-            ],
+        return effective_user_access_from_resolved(
+            resolved,
+            s3_user_names=s3_user_names,
+            shared_connection_names=shared_connection_names,
         )
