@@ -64,6 +64,7 @@ class S3Account(Base):
     allow_cost_estimation = Column(Boolean, default=None, nullable=True)
     allow_bucket_usage_stats = Column(Boolean, default=None, nullable=True)
     allow_bucket_usage_stats_collection = Column(Boolean, default=None, nullable=True)
+    allow_multisite_endpoint_switching = Column(Boolean, default=None, nullable=True)
 
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
 

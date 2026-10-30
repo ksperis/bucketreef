@@ -12,10 +12,12 @@ from app.core.database import get_db
 from app.core.domain_errors import S3ConnectionNotFoundError, S3UserNotFoundError
 from app.models.access_context import EffectiveAccountLink, ManagerActor
 from app.models.account_capabilities import AccountCapabilities
-from app.db import S3Connection, S3User, StorageEndpoint, User, UserS3Account
+from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account
 from app.models.session import ManagerSessionPrincipal
 from app.services import effective_access_service
+from app.services import app_settings_service
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.feature_policy_service import multisite_endpoint_switching_allowed
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.rgw_multisite_endpoints import rgw_multisite_endpoints_compatible
@@ -362,10 +364,26 @@ def _apply_user_execution_destination(
             )
 
     effective = EffectiveAccessService(db).resolve_user(user)
-    if not effective.allow_multisite_endpoint_switching:
+    resource = None
+    if execution_context.context_kind == "account":
+        resource = execution_context.source_account
+        if resource is None and isinstance(execution_context.id, int):
+            resource = db.get(S3Account, execution_context.id)
+    elif execution_context.context_kind == "s3_user":
+        resource = execution_context.source_s3_user
+        if resource is None and execution_context.s3_user_id is not None:
+            resource = db.get(S3User, execution_context.s3_user_id)
+    policies = app_settings_service.load_app_settings_for_db_readonly(
+        db
+    ).manager.feature_policies
+    if not multisite_endpoint_switching_allowed(
+        policies,
+        resource,
+        principal_allowed=effective.allow_multisite_endpoint_switching,
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="RGW multisite endpoint switching is not allowed for this user",
+            detail="RGW multisite endpoint switching is not allowed for this user or context",
         )
 
     destination = db.get(StorageEndpoint, execution_endpoint_id)

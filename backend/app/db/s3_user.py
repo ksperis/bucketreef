@@ -40,6 +40,7 @@ class S3User(Base):
     allow_cost_estimation = Column(Boolean, default=None, nullable=True)
     allow_bucket_usage_stats = Column(Boolean, default=None, nullable=True)
     allow_bucket_usage_stats_collection = Column(Boolean, default=None, nullable=True)
+    allow_multisite_endpoint_switching = Column(Boolean, default=None, nullable=True)
     allow_managed_private_connection_provisioning = Column(
         Boolean,
         default=None,

@@ -270,6 +270,13 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                   description={adminText("Shows account-scoped Manager control and configuration actions. It does not include S3 object access logs.")}
                   onChange={value => update("allow_activity_history", value)} />
               </SettingsSection>
+              <SettingsSection presentation="compact" title={adminText("RGW multisite")}>
+                <FeatureOverrideField title={adminText("Endpoint switching")} value={form.draft.allow_multisite_endpoint_switching}
+                  policy={generalSettings.manager_feature_policies.rgw_multisite_endpoint_switching} disabled={controller.locked}
+                  triState
+                  help={adminText("Grants endpoint switching for this RGW Account when the destination is in the same realm and zonegroup. UI User and UI Group grants remain additive.")}
+                  onChange={value => update("allow_multisite_endpoint_switching", value)} />
+              </SettingsSection>
               <SettingsSection presentation="compact" title={adminText("Privileged Ceph operations")}>
                 <FeatureOverrideField title={adminText("Bucket quota management")} value={form.draft.allow_bucket_quota_management}
                   policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={controller.locked}

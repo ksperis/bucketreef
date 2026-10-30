@@ -31,6 +31,7 @@ class ManagerFeaturePolicies(FeaturePolicies):
     access_key_metadata: FeaturePolicy = FeaturePolicy.TARGETED
     access_key_expiration: FeaturePolicy = FeaturePolicy.TARGETED
     managed_private_connection_provisioning: FeaturePolicy = FeaturePolicy.DISABLED
+    rgw_multisite_endpoint_switching: FeaturePolicy = FeaturePolicy.TARGETED
 
 
 class ProjectFeaturePolicies(FeaturePolicies):

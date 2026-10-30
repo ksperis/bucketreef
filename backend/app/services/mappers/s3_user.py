@@ -49,6 +49,7 @@ def s3_user_from_db(
         allow_cost_estimation=s3_user.allow_cost_estimation,
         allow_bucket_usage_stats=s3_user.allow_bucket_usage_stats,
         allow_bucket_usage_stats_collection=s3_user.allow_bucket_usage_stats_collection,
+        allow_multisite_endpoint_switching=s3_user.allow_multisite_endpoint_switching,
         allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
         tags=tags or [],
     )
@@ -77,6 +78,7 @@ def s3_user_summary_from_db(
         allow_cost_estimation=s3_user.allow_cost_estimation,
         allow_bucket_usage_stats=s3_user.allow_bucket_usage_stats,
         allow_bucket_usage_stats_collection=s3_user.allow_bucket_usage_stats_collection,
+        allow_multisite_endpoint_switching=s3_user.allow_multisite_endpoint_switching,
         allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
         tags=tags or [],
     )

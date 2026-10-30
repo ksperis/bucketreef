@@ -69,6 +69,7 @@ class S3User(ApiModel):
     allow_cost_estimation: Optional[bool]
     allow_bucket_usage_stats: Optional[bool]
     allow_bucket_usage_stats_collection: Optional[bool]
+    allow_multisite_endpoint_switching: Optional[bool]
     allow_managed_private_connection_provisioning: Optional[bool]
     tags: list[TagDefinitionSummary]
 
@@ -122,6 +123,7 @@ class S3UserUpdate(ApiModel):
     allow_cost_estimation: Optional[bool] = None
     allow_bucket_usage_stats: Optional[bool] = None
     allow_bucket_usage_stats_collection: Optional[bool] = None
+    allow_multisite_endpoint_switching: Optional[bool] = None
     allow_managed_private_connection_provisioning: Optional[bool] = None
 
 class S3UserAccessKey(AccessKeyMetadata):
@@ -161,6 +163,7 @@ class S3UserSummary(ApiModel):
     allow_cost_estimation: Optional[bool]
     allow_bucket_usage_stats: Optional[bool]
     allow_bucket_usage_stats_collection: Optional[bool]
+    allow_multisite_endpoint_switching: Optional[bool]
     allow_managed_private_connection_provisioning: Optional[bool]
     tags: list[TagDefinitionSummary]
 

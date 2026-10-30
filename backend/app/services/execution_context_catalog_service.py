@@ -15,6 +15,7 @@ from app.models.execution_context import (
 )
 from app.services import app_settings_service
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.feature_policy_service import multisite_endpoint_switching_allowed
 from app.services.mappers.execution_context import (
     account_execution_context_from_db,
     connection_execution_context_from_db,
@@ -45,11 +46,25 @@ class ExecutionContextCatalogService:
         self.access_service = EffectiveAccessService(db)
         self.tags_service = TagsService(db)
 
-    def _execution_destinations(self, endpoint, effective, *, workspace: str | None):
+    def _execution_destinations(
+        self,
+        endpoint,
+        effective,
+        *,
+        workspace: str | None,
+        resource: S3Account | S3User | None = None,
+    ):
+        policies = app_settings_service.load_app_settings_for_db_readonly(
+            self.db
+        ).manager.feature_policies
         if (
             workspace not in {"manager", "browser"}
             or endpoint is None
-            or not effective.allow_multisite_endpoint_switching
+            or not multisite_endpoint_switching_allowed(
+                policies,
+                resource,
+                principal_allowed=effective.allow_multisite_endpoint_switching,
+            )
         ):
             return [], False
         destinations = [
@@ -103,6 +118,7 @@ class ExecutionContextCatalogService:
                 account.storage_endpoint,
                 effective,
                 workspace=workspace,
+                resource=account,
             )
             results.append(
                 account_execution_context_from_db(
@@ -128,6 +144,7 @@ class ExecutionContextCatalogService:
                 s3_user.storage_endpoint,
                 effective,
                 workspace=workspace,
+                resource=s3_user,
             )
             results.append(
                 s3_user_execution_context_from_db(

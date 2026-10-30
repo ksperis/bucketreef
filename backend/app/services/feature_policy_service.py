@@ -97,6 +97,63 @@ def apply_resource_feature_overrides(
     for field in RESOURCE_FEATURE_OVERRIDE_FIELDS:
         if field in payload.model_fields_set:
             setattr(resource, field, getattr(payload, field))
+    if "allow_multisite_endpoint_switching" in payload.model_fields_set:
+        setattr(
+            resource,
+            "allow_multisite_endpoint_switching",
+            getattr(payload, "allow_multisite_endpoint_switching"),
+        )
+
+
+def validate_multisite_endpoint_switching_override(
+    payload: ApiModel,
+    policies: ManagerFeaturePolicies,
+    current: S3Account | S3User,
+) -> None:
+    if "allow_multisite_endpoint_switching" not in payload.model_fields_set:
+        return
+    value = getattr(payload, "allow_multisite_endpoint_switching")
+    policy = policies.rgw_multisite_endpoint_switching
+    if (
+        value is True
+        and policy == FeaturePolicy.DISABLED
+        and current.allow_multisite_endpoint_switching is not True
+    ):
+        raise ValueError("RGW multisite endpoint switching is disabled by the platform")
+
+
+def multisite_endpoint_switching_resource_state(
+    policies: ManagerFeaturePolicies,
+    resource: S3Account | S3User | None,
+) -> FeatureState:
+    if isinstance(resource, S3Account):
+        return resolve_feature_policy(
+            policies.rgw_multisite_endpoint_switching,
+            resource.allow_multisite_endpoint_switching,
+        )
+    if isinstance(resource, S3User):
+        return resolve_feature_policy(
+            policies.rgw_multisite_endpoint_switching,
+            resource.allow_multisite_endpoint_switching,
+        )
+    return FeatureState(
+        enabled=False,
+        source="platform",
+        blocked_reason="unsupported_context",
+    )
+
+
+def multisite_endpoint_switching_allowed(
+    policies: ManagerFeaturePolicies,
+    resource: S3Account | S3User | None,
+    *,
+    principal_allowed: bool,
+) -> bool:
+    """Resolve the additive principal OR Account/User multisite grant."""
+    return principal_allowed or multisite_endpoint_switching_resource_state(
+        policies,
+        resource,
+    ).enabled
 
 
 def validate_manager_overrides(

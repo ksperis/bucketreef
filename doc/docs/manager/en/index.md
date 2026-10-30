@@ -20,7 +20,10 @@ features according to the backend capabilities and your assigned access.
 For a managed RGW Account, RGW User, or eligible S3 Connection, BucketReef can
 expose an additional S3 endpoint selector when all of the following are true:
 
-- your effective UI user or group access allows RGW multisite endpoint switching;
+- the current context is allowed to switch endpoints: RGW Accounts and RGW Users
+  may receive that grant from either the effective UI user/group permission or
+  their resource policy and override; S3 Connections use only the effective UI
+  user/group permission;
 - the current context uses a Ceph endpoint with a declared Realm ID and
   Zonegroup ID;
 - at least one other Ceph endpoint declares the same Realm ID and Zonegroup ID.

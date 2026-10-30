@@ -34,6 +34,7 @@ export type S3User = {
   allow_cost_estimation: boolean | null;
   allow_bucket_usage_stats: boolean | null;
   allow_bucket_usage_stats_collection: boolean | null;
+  allow_multisite_endpoint_switching: boolean | null;
   allow_managed_private_connection_provisioning: boolean | null;
 };
 
@@ -80,6 +81,7 @@ export type S3UserSummary = {
   allow_cost_estimation: boolean | null;
   allow_bucket_usage_stats: boolean | null;
   allow_bucket_usage_stats_collection: boolean | null;
+  allow_multisite_endpoint_switching: boolean | null;
   allow_managed_private_connection_provisioning: boolean | null;
 };
 
@@ -129,6 +131,7 @@ export type UpdateS3UserPayload = {
   allow_cost_estimation?: boolean | null;
   allow_bucket_usage_stats?: boolean | null;
   allow_bucket_usage_stats_collection?: boolean | null;
+  allow_multisite_endpoint_switching?: boolean | null;
   allow_managed_private_connection_provisioning?: boolean | null;
 };
 

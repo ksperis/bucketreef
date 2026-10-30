@@ -3,6 +3,7 @@
 from app.services.feature_policy_service import (
     apply_resource_feature_overrides,
     validate_manager_overrides,
+    validate_multisite_endpoint_switching_override,
     validate_project_collection_overrides,
     validate_project_overrides,
 )
@@ -903,6 +904,11 @@ class S3AccountsService:
     def _apply_account_update_fields(self, account: S3Account, payload: S3AccountUpdate) -> None:
         app_settings = load_app_settings_for_db_readonly(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies, account)
+        validate_multisite_endpoint_switching_override(
+            payload,
+            app_settings.manager.feature_policies,
+            account,
+        )
         validate_project_overrides(payload, app_settings.general.project_feature_policies, account)
         validate_project_collection_overrides(payload, app_settings.general.project_collection_policies, account)
         target_endpoint_id = account.storage_endpoint_id

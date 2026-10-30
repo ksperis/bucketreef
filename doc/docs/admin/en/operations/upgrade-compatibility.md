@@ -177,6 +177,16 @@ transfer policies, and requests now carry the destination metadata and optional
 This topology is administrator-declared metadata. It does not use RGW multisite
 system keys or add `zone=read`/`metadata=read` to the Runtime identity.
 
+Migration `0209_rgw_multisite_resource_switching` adds nullable
+`allow_multisite_endpoint_switching` overrides to RGW Accounts and RGW Users.
+The shared `manager.feature_policies.rgw_multisite_endpoint_switching` policy
+defaults to `targeted`, so existing resources do not gain endpoint-switching
+rights automatically. An Account or RGW User can opt in explicitly, while an
+existing UI User/UI Group grant remains an independent additive grant. Setting
+the shared platform policy to `disabled` blocks only the Account/User resource
+grant; it does not revoke an effective UI User/UI Group grant. S3 Connections
+continue to use only the UI User/UI Group permission.
+
 ## 2026-10 Ceph Admin multisite diagnostics
 
 Multisite topology and diagnostic endpoint selection are discovered live from

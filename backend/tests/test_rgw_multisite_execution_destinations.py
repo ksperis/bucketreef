@@ -5,8 +5,20 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.db import ManagerAccountRole, S3Connection, StorageEndpoint, User, UserRole, UserS3Account
+from app.db import (
+    ManagerAccountRole,
+    S3Connection,
+    S3User,
+    StorageEndpoint,
+    User,
+    UserRole,
+    UserS3Account,
+    UserS3User,
+)
+from app.models.app_settings import AppSettings
 from app.routers.dependencies_internal.execution_context import resolve_s3_execution_context
+from app.services.app_settings_service import save_app_settings_for_db
+from app.services.execution_context_catalog_service import ExecutionContextCatalogService
 from app.services.rgw_multisite_endpoints import (
     list_compatible_rgw_execution_endpoints,
     rgw_multisite_endpoints_compatible,
@@ -312,3 +324,165 @@ def test_destination_override_enforces_permission_topology_and_surface(db_sessio
             execution_endpoint_id=compatible.id,
         )
     assert standard_browser.value.status_code == 403
+
+
+def test_account_resource_grant_enables_catalogue_and_execution_without_principal_grant(db_session):
+    origin = _endpoint("account-resource-origin", zone_id="zone-a")
+    destination = _endpoint("account-resource-destination", zone_id="zone-b")
+    db_session.add_all([origin, destination])
+    db_session.flush()
+    user = User(
+        email="multisite-account-resource@example.test",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+        allow_multisite_endpoint_switching=False,
+    )
+    account = make_s3_account(
+        db_session,
+        name="multisite-resource-account",
+        rgw_account_id="RGWMULTISITE0004",
+        rgw_access_key="RESOURCE-AK",
+        rgw_secret_key="RESOURCE-SK",
+        storage_endpoint=origin,
+        storage_endpoint_id=origin.id,
+        allow_multisite_endpoint_switching=True,
+    )
+    db_session.add_all([user, account])
+    db_session.flush()
+    db_session.add(
+        UserS3Account(
+            user_id=user.id,
+            account_id=account.id,
+            manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+            portal_role=None,
+            allow_manager_browser_data_access=True,
+        )
+    )
+    db_session.commit()
+
+    contexts = ExecutionContextCatalogService(db_session).list_contexts(
+        user,
+        workspace="manager",
+    )
+    context = next(item for item in contexts if item.id == str(account.id))
+    assert context.destination_switching_allowed is True
+    assert {item.endpoint_id for item in context.execution_destinations} == {origin.id, destination.id}
+
+    resolved = resolve_s3_execution_context(
+        _request(),
+        str(account.id),
+        user,
+        db_session,
+        execution_endpoint_id=destination.id,
+    )
+    assert resolved.storage_endpoint_id == destination.id
+
+
+def test_disabled_account_resource_policy_masks_override_but_not_principal_grant(db_session):
+    origin = _endpoint("account-disabled-origin", zone_id="zone-a")
+    destination = _endpoint("account-disabled-destination", zone_id="zone-b")
+    db_session.add_all([origin, destination])
+    db_session.flush()
+    user = User(
+        email="multisite-account-disabled@example.test",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+        allow_multisite_endpoint_switching=False,
+    )
+    account = make_s3_account(
+        db_session,
+        name="multisite-disabled-account",
+        rgw_account_id="RGWMULTISITE0005",
+        rgw_access_key="DISABLED-AK",
+        rgw_secret_key="DISABLED-SK",
+        storage_endpoint=origin,
+        storage_endpoint_id=origin.id,
+        allow_multisite_endpoint_switching=True,
+    )
+    db_session.add_all([user, account])
+    db_session.flush()
+    db_session.add(
+        UserS3Account(
+            user_id=user.id,
+            account_id=account.id,
+            manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+            portal_role=None,
+            allow_manager_browser_data_access=True,
+        )
+    )
+    settings = AppSettings()
+    settings.manager.feature_policies.rgw_multisite_endpoint_switching = "disabled"
+    save_app_settings_for_db(db_session, settings)
+
+    with pytest.raises(HTTPException) as denied:
+        resolve_s3_execution_context(
+            _request(),
+            str(account.id),
+            user,
+            db_session,
+            execution_endpoint_id=destination.id,
+        )
+    assert denied.value.status_code == 403
+
+    user.allow_multisite_endpoint_switching = True
+    db_session.commit()
+    resolved = resolve_s3_execution_context(
+        _request(),
+        str(account.id),
+        user,
+        db_session,
+        execution_endpoint_id=destination.id,
+    )
+    assert resolved.storage_endpoint_id == destination.id
+
+
+def test_s3_user_resource_grant_enables_execution_without_principal_grant(db_session):
+    origin = _endpoint("user-resource-origin", zone_id="zone-a")
+    destination = _endpoint("user-resource-destination", zone_id="zone-b")
+    db_session.add_all([origin, destination])
+    db_session.flush()
+    user = User(
+        email="multisite-s3-user-resource@example.test",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+        allow_multisite_endpoint_switching=False,
+    )
+    s3_user = S3User(
+        name="multisite-resource-user",
+        rgw_user_uid="multisite-resource-user",
+        rgw_tenant="",
+        rgw_access_key="USER-AK",
+        rgw_secret_key="USER-SK",
+        storage_endpoint=origin,
+        storage_endpoint_id=origin.id,
+        allow_multisite_endpoint_switching=True,
+    )
+    db_session.add_all([user, s3_user])
+    db_session.flush()
+    db_session.add(
+        UserS3User(
+            user_id=user.id,
+            s3_user_id=s3_user.id,
+            allow_manager_browser_data_access=True,
+        )
+    )
+    db_session.commit()
+
+    contexts = ExecutionContextCatalogService(db_session).list_contexts(
+        user,
+        workspace="manager",
+    )
+    context = next(item for item in contexts if item.id == f"s3u-{s3_user.id}")
+    assert context.destination_switching_allowed is True
+
+    resolved = resolve_s3_execution_context(
+        _request(),
+        f"s3u-{s3_user.id}",
+        user,
+        db_session,
+        execution_endpoint_id=destination.id,
+    )
+    assert resolved.storage_endpoint_id == destination.id
