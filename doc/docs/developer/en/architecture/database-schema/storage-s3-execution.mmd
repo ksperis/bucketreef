@@ -98,6 +98,7 @@ erDiagram
         boolean allow_cost_estimation
         boolean allow_bucket_usage_stats
         boolean allow_bucket_usage_stats_collection
+        boolean allow_multisite_endpoint_switching
     }
     user_s3_accounts {
         integer id PK "NN"
@@ -139,6 +140,7 @@ erDiagram
         boolean allow_cost_estimation
         boolean allow_bucket_usage_stats
         boolean allow_bucket_usage_stats_collection
+        boolean allow_multisite_endpoint_switching
         boolean allow_managed_private_connection_provisioning
     }
     user_s3_users {
@@ -196,9 +198,9 @@ erDiagram
         integer s3_connection_id FK, UK
         varchar state "NN; default=provisioning"
         text cleanup_error
-        text iam_groups_json "NN; default=[]"
-        text iam_managed_policies_json "NN; default=[]"
-        text iam_inline_policy_names_json "NN; default=[]"
+        json iam_groups "NN; default=[]"
+        json iam_managed_policies "NN; default=[]"
+        json iam_inline_policy_names "NN; default=[]"
         boolean created_remote_principal "NN; default=0"
         boolean created_access_key "NN; default=0"
         datetime created_at "NN"

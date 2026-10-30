@@ -8,7 +8,7 @@ from app.db.utc_datetime import UTCDateTime
 from app.utils.s3_connection_capabilities import DEFAULT_S3_CONNECTION_CAPABILITIES_JSON
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 
 from app.core.security import EncryptedString
@@ -191,9 +191,9 @@ class ManagedPrivateAccess(Base):
     )
     state = Column(String, nullable=False, default="provisioning", server_default="provisioning")
     cleanup_error = Column(Text, nullable=True)
-    iam_groups_json = Column(Text, nullable=False, default="[]", server_default="[]")
-    iam_managed_policies_json = Column(Text, nullable=False, default="[]", server_default="[]")
-    iam_inline_policy_names_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    iam_groups = Column(JSON, nullable=False, default=list, server_default="[]")
+    iam_managed_policies = Column(JSON, nullable=False, default=list, server_default="[]")
+    iam_inline_policy_names = Column(JSON, nullable=False, default=list, server_default="[]")
     created_remote_principal = Column(Boolean, nullable=False, default=False, server_default="0")
     created_access_key = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)

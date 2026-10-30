@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from app.models.feature_policy import FeaturePolicy
 
-import json
 from typing import Callable
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -201,15 +200,15 @@ class ManagedPrivateAccessService:
 
         for group_name in payload.groups:
             iam.add_user_to_group(group_name, username)
-            self._append_json_value(provisioning, "iam_groups_json", group_name)
+            self._append_list_value(provisioning, "iam_groups", group_name)
             self._checkpoint(provisioning)
         for policy_arn in payload.managed_policies:
             iam.attach_user_policy(username, policy_arn)
-            self._append_json_value(provisioning, "iam_managed_policies_json", policy_arn)
+            self._append_list_value(provisioning, "iam_managed_policies", policy_arn)
             self._checkpoint(provisioning)
         for inline in payload.inline_policies:
             iam.put_user_inline_policy(username, inline.name, inline.document)
-            self._append_json_value(provisioning, "iam_inline_policy_names_json", inline.name)
+            self._append_list_value(provisioning, "iam_inline_policy_names", inline.name)
             self._checkpoint(provisioning)
 
         key = iam.create_access_key(username)
@@ -485,9 +484,9 @@ class ManagedPrivateAccessService:
                 and bool(connection.access_manager) == bool(payload.access_manager)
             )
             if isinstance(payload, ManagedIAMPrivateAccessRequest):
-                same_request = same_request and self._json_list(provisioning.iam_groups_json) == payload.groups
-                same_request = same_request and self._json_list(provisioning.iam_managed_policies_json) == payload.managed_policies
-                same_request = same_request and self._json_list(provisioning.iam_inline_policy_names_json) == [
+                same_request = same_request and self._string_list(provisioning.iam_groups) == payload.groups
+                same_request = same_request and self._string_list(provisioning.iam_managed_policies) == payload.managed_policies
+                same_request = same_request and self._string_list(provisioning.iam_inline_policy_names) == [
                     policy.name for policy in payload.inline_policies
                 ]
             if same_request:
@@ -687,20 +686,20 @@ class ManagedPrivateAccessService:
                 lambda: iam.delete_access_key(username, provisioning.access_key_id or ""),
                 lambda: setattr(provisioning, "created_access_key", False),
             )
-        for name in reversed(self._json_list(provisioning.iam_inline_policy_names_json)):
+        for name in reversed(self._string_list(provisioning.iam_inline_policy_names)):
             attempt(
                 lambda name=name: iam.delete_user_inline_policy(username, name),
-                lambda name=name: self._remove_json_value(provisioning, "iam_inline_policy_names_json", name),
+                lambda name=name: self._remove_list_value(provisioning, "iam_inline_policy_names", name),
             )
-        for arn in reversed(self._json_list(provisioning.iam_managed_policies_json)):
+        for arn in reversed(self._string_list(provisioning.iam_managed_policies)):
             attempt(
                 lambda arn=arn: iam.detach_user_policy(username, arn),
-                lambda arn=arn: self._remove_json_value(provisioning, "iam_managed_policies_json", arn),
+                lambda arn=arn: self._remove_list_value(provisioning, "iam_managed_policies", arn),
             )
-        for group in reversed(self._json_list(provisioning.iam_groups_json)):
+        for group in reversed(self._string_list(provisioning.iam_groups)):
             attempt(
                 lambda group=group: iam.remove_user_from_group(group, username),
-                lambda group=group: self._remove_json_value(provisioning, "iam_groups_json", group),
+                lambda group=group: self._remove_list_value(provisioning, "iam_groups", group),
             )
         if provisioning.created_remote_principal:
             attempt(
@@ -859,20 +858,19 @@ class ManagedPrivateAccessService:
         return None
 
     @staticmethod
-    def _json_list(value: str) -> list[str]:
-        parsed = json.loads(value)
-        if not isinstance(parsed, list):
+    def _string_list(value: object) -> list[str]:
+        if not isinstance(value, list):
             raise ValueError("Managed private access IAM state must be a JSON list")
-        if any(not isinstance(item, str) or not item for item in parsed):
+        if any(not isinstance(item, str) or not item for item in value):
             raise ValueError("Managed private access IAM state must contain non-empty strings")
-        return parsed
+        return value
 
-    def _append_json_value(self, provisioning, field_name: str, value: str) -> None:
-        values = self._json_list(getattr(provisioning, field_name))
+    def _append_list_value(self, provisioning, field_name: str, value: str) -> None:
+        values = list(self._string_list(getattr(provisioning, field_name)))
         if value not in values:
             values.append(value)
-        setattr(provisioning, field_name, json.dumps(values))
+        setattr(provisioning, field_name, values)
 
-    def _remove_json_value(self, provisioning, field_name: str, value: str) -> None:
-        values = [item for item in self._json_list(getattr(provisioning, field_name)) if item != value]
-        setattr(provisioning, field_name, json.dumps(values))
+    def _remove_list_value(self, provisioning, field_name: str, value: str) -> None:
+        values = [item for item in self._string_list(getattr(provisioning, field_name)) if item != value]
+        setattr(provisioning, field_name, values)
