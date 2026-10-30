@@ -8,26 +8,33 @@ from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.security import decode_typed_token
 from app.db import AuthSession
+from app.services.auth_session_service import AuthSessionError, AuthSessionService
 from app.services.webauthn_service import WebAuthnService
 from app.utils.time import utcnow
 
 
 _settings = get_settings()
+_REQUEST_AUTH_SESSION_ATTR = "bucketreef_auth_session"
+
+
+def cache_auth_session(request: Request, session: AuthSession) -> None:
+    setattr(request.state, _REQUEST_AUTH_SESSION_ATTR, session)
 
 
 def current_auth_session(request: Request, db: Session) -> AuthSession:
+    cached = getattr(request.state, _REQUEST_AUTH_SESSION_ATTR, None)
+    if isinstance(cached, AuthSession):
+        return cached
     token = request.cookies.get(_settings.access_token_cookie_name)
-    claims = decode_typed_token(token or "", expected_type="ui_access")
-    if claims is None:
-        claims = decode_typed_token(token or "", expected_type="s3_access")
-    if claims is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UI session required")
-    session_id = claims.get("sid")
-    row = db.get(AuthSession, session_id) if session_id else None
-    if not row or row.revoked_at is not None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="UI session required")
+    try:
+        row, _, _ = AuthSessionService(db).validate_access_token(token or "")
+    except AuthSessionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="UI session required",
+        ) from exc
+    cache_auth_session(request, row)
     return row
 
 

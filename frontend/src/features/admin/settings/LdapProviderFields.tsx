@@ -18,6 +18,9 @@ export default function LdapProviderFields({ form, update, provider, readOnly, e
 }) {
   const { text: adminText } = useAdminI18n();
   const state = authProviderFieldState(provider, readOnly);
+  const linkingPolicyHelp = form.linking_policy === "manual"
+    ? adminText("An administrator must approve the link in Identity Security.")
+    : adminText("The user must sign in to the existing BucketReef account before the identity is linked.");
   return <div className="settings-stack">
     <AuthProviderIdentityFields form={form} errors={errors} state={state} prefix="LDAP "
       onIdChange={value => update("provider_id", value)} onNameChange={value => update("display_name", value)}
@@ -57,13 +60,13 @@ export default function LdapProviderFields({ form, update, provider, readOnly, e
           hint={state.hint("subject_attribute")} error={errors.subject_attribute} onChange={event => update("subject_attribute", event.target.value)} />
       </div>
     </SettingsSection>
-    <SettingsSection title={adminText("Identity linking")} description={adminText("Choose how a validated LDAP identity may link to an existing BucketReef account with the same email.")} presentation="compact">
+    <SettingsSection title={adminText("Account linking")} description={adminText("Choose what happens when a sign-in email already belongs to a BucketReef account.")} presentation="compact">
       <div className="settings-fields">
-        <UiSelect label={adminText("Identity linking policy")} value={form.linking_policy} disabled={state.locked("linking_policy")}
-          hint={state.hint("linking_policy", "LDAP credentials validate the incoming directory identity. Reauthentication additionally requires proof of an existing sign-in method on the BucketReef account before linking.")}
+        <UiSelect label={adminText("When an account already exists")} value={form.linking_policy} disabled={state.locked("linking_policy")}
+          hint={state.hint("linking_policy", linkingPolicyHelp)}
           error={errors.linking_policy} onChange={event => update("linking_policy", event.target.value as "manual" | "reauthenticate")}>
-          <option value="reauthenticate">{adminText("Reauthenticate existing account")}</option>
-          <option value="manual">{adminText("Manual approval")}</option>
+          <option value="reauthenticate">{adminText("Ask the user to verify the existing account (recommended)")}</option>
+          <option value="manual">{adminText("Require administrator approval")}</option>
         </UiSelect>
       </div>
     </SettingsSection>

@@ -18,6 +18,11 @@ export default function OidcProviderFields({ form, update, provider, readOnly, e
 }) {
   const { text: adminText } = useAdminI18n();
   const state = authProviderFieldState(provider, readOnly);
+  const linkingPolicyHelp = form.linking_policy === "manual"
+    ? adminText("An administrator must approve the link in Identity Security.")
+    : form.linking_policy === "trusted_email"
+      ? adminText("BucketReef links only verified email addresses from trusted domains. Use this only when the provider reliably controls those addresses.")
+      : adminText("The user must sign in to the existing BucketReef account before the identity is linked.");
   return <div className="settings-stack">
     <AuthProviderIdentityFields form={form} errors={errors} state={state}
       onIdChange={value => update("provider_id", value)} onNameChange={value => update("display_name", value)}
@@ -56,19 +61,21 @@ export default function OidcProviderFields({ form, update, provider, readOnly, e
       <AuthProviderToggle label={adminText("Use PKCE")} field="use_pkce" checked={form.use_pkce} state={state} onChange={value => update("use_pkce", value)} />
       <AuthProviderToggle label={adminText("Use nonce")} field="use_nonce" checked={form.use_nonce} state={state} onChange={value => update("use_nonce", value)} />
     </SettingsSection>
-    <SettingsSection title={adminText("Identity linking")} description={adminText("Choose how new external identities may link to existing local accounts.")} presentation="compact">
+    <SettingsSection title={adminText("Account linking")} description={adminText("Choose what happens when a sign-in email already belongs to a BucketReef account.")} presentation="compact">
       <div className="settings-fields">
-        <UiSelect label={adminText("Identity linking policy")} value={form.linking_policy} disabled={state.locked("linking_policy")}
-          hint={state.hint("linking_policy", "Trusted verified email is an advanced automatic-linking policy. Enable it only for domains whose IdP fully controls and reliably verifies email ownership. It remains limited to active standard local-password accounts without any prior external identity.")}
+        <UiSelect label={adminText("When an account already exists")} value={form.linking_policy} disabled={state.locked("linking_policy")}
+          hint={state.hint("linking_policy", linkingPolicyHelp)}
           error={errors.linking_policy} onChange={event => update("linking_policy", event.target.value as "manual" | "reauthenticate" | "trusted_email")}>
-          <option value="reauthenticate">{adminText("Reauthenticate existing account")}</option>
-          <option value="manual">{adminText("Manual approval")}</option>
-          <option value="trusted_email">{adminText("Trusted verified email (advanced)")}</option>
+          <option value="reauthenticate">{adminText("Ask the user to verify the existing account (recommended)")}</option>
+          <option value="manual">{adminText("Require administrator approval")}</option>
+          <option value="trusted_email">{adminText("Automatically link trusted verified email (advanced)")}</option>
         </UiSelect>
-        <UiTextarea label={adminText("Trusted email domains")} value={form.trustedEmailDomainsText} rows={3}
-          disabled={state.locked("trusted_email_domains") || form.linking_policy !== "trusted_email"}
-          hint={state.hint("trusted_email_domains", "Enter exact domains, one per line. Subdomains are not matched implicitly.")}
-          error={errors.trustedEmailDomainsText} onChange={event => update("trustedEmailDomainsText", event.target.value)} />
+        {form.linking_policy === "trusted_email" && (
+          <UiTextarea label={adminText("Trusted email domains")} value={form.trustedEmailDomainsText} rows={3}
+            disabled={state.locked("trusted_email_domains")}
+            hint={state.hint("trusted_email_domains", adminText("Enter exact domains, one per line. Subdomains are not matched implicitly."))}
+            error={errors.trustedEmailDomainsText} onChange={event => update("trustedEmailDomainsText", event.target.value)} />
+        )}
       </div>
     </SettingsSection>
   </div>;

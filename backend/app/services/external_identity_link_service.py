@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import select, update
@@ -103,7 +103,7 @@ class ExternalIdentityLinkService:
         issuer: str,
         browser_secret_hash: str,
         auth_session_id: str,
-        mfa_verified: bool,
+        mfa_verified_at: Optional[datetime],
     ) -> ExternalIdentityLinkAttempt:
         if not browser_secret_hash:
             raise ExternalIdentityLinkError("External identity browser binding is required")
@@ -119,7 +119,7 @@ class ExternalIdentityLinkService:
             initiating_auth_session_id=auth_session_id,
             proof_method="session_step_up",
             proof_verified_at=now,
-            mfa_verified_at=now if mfa_verified else None,
+            mfa_verified_at=mfa_verified_at,
             status="pending",
             created_at=now,
             expires_at=now + timedelta(seconds=self.settings.oidc_link_attempt_ttl_seconds),
@@ -515,9 +515,17 @@ class ExternalIdentityLinkService:
             return "proof"
         webauthn = WebAuthnService(self.db, self.settings)
         has_passkey = webauthn.has_credentials(user.id)
-        if (has_passkey or passkey_required_for_role(self.db, user.role)) and attempt.mfa_verified_at is None:
+        if (has_passkey or passkey_required_for_role(self.db, user.role)) and not self._has_recent_mfa(
+            attempt.mfa_verified_at
+        ):
             return "mfa" if has_passkey else "mfa_enrollment"
         return "confirm"
+
+    def _has_recent_mfa(self, verified_at: Optional[datetime]) -> bool:
+        return bool(
+            verified_at
+            and verified_at >= utcnow() - timedelta(minutes=self.settings.mfa_recent_minutes)
+        )
 
     def _proof_methods(self, user: User) -> list[ExternalIdentityLinkProofMethod]:
         methods: list[ExternalIdentityLinkProofMethod] = []

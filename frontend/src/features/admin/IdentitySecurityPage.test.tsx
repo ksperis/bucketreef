@@ -91,12 +91,13 @@ describe("IdentitySecurityPage", () => {
     expect(screen.queryByText("1 pending request")).not.toBeInTheDocument();
     expect(within(requestsPanel).getByRole("region", { name: "External identity link requests" })).toBeInTheDocument();
     expect(within(requestsPanel).getAllByText("candidate@example.com")).toHaveLength(2);
-    expect(within(requestsPanel).getAllByText("OIDC")).toHaveLength(2);
+    expect(within(requestsPanel).getByText("OIDC")).toBeInTheDocument();
+    expect(within(requestsPanel).getByText("company")).toBeInTheDocument();
     expect(within(requestsPanel).getByText("User")).toBeInTheDocument();
-    expect(within(requestsPanel).getByText("https://issuer.example.test")).toBeInTheDocument();
-    expect(within(requestsPanel).getByText("immutable-subject-123")).toBeInTheDocument();
-    expect(within(requestsPanel).getByText("Sign-in collision")).toBeInTheDocument();
-    expect(within(requestsPanel).getByText(/Email verified:/)).toHaveTextContent("Yes");
+    expect(within(requestsPanel).getByText("Verified email")).toBeInTheDocument();
+    expect(within(requestsPanel).getByText("Requested during sign-in")).toBeInTheDocument();
+    expect(within(requestsPanel).queryByText("https://issuer.example.test")).not.toBeInTheDocument();
+    expect(within(requestsPanel).queryByText("immutable-subject-123")).not.toBeInTheDocument();
     expect(within(requestsPanel).getByRole("table")).toHaveClass("responsive-data-table", "ui-data-table");
     expect(screen.queryByText("ui_user")).not.toBeInTheDocument();
     expect(screen.queryByText("Candidate User")).not.toBeInTheDocument();
@@ -117,10 +118,17 @@ describe("IdentitySecurityPage", () => {
     await user.click(await screen.findByRole("button", { name: "Approve" }));
     const linkDialog = screen.getByRole("dialog", { name: "Approve identity link" });
     expect(mocks.decideExternalLinkRequest).not.toHaveBeenCalled();
-    expect(within(linkDialog).getByText("oidc:company")).toBeInTheDocument();
-    expect(within(linkDialog).getByText("https://issuer.example.test")).toBeInTheDocument();
-    expect(within(linkDialog).getByText("immutable-subject-123")).toBeInTheDocument();
-    expect(within(linkDialog).getByText("Sign-in collision")).toBeInTheDocument();
+    expect(within(linkDialog).getByText("OIDC · company")).toBeInTheDocument();
+    expect(within(linkDialog).getByText(/Approving this link signs the user out/)).toBeInTheDocument();
+    const technicalDetails = within(linkDialog).getByText("Technical details").closest("details");
+    expect(technicalDetails).not.toHaveAttribute("open");
+    expect(within(linkDialog).getByText("https://issuer.example.test")).not.toBeVisible();
+    expect(within(linkDialog).getByText("immutable-subject-123")).not.toBeVisible();
+    await user.click(within(linkDialog).getByText("Technical details"));
+    expect(technicalDetails).toHaveAttribute("open");
+    expect(within(linkDialog).getByText("https://issuer.example.test")).toBeVisible();
+    expect(within(linkDialog).getByText("immutable-subject-123")).toBeVisible();
+    expect(within(linkDialog).getByText("Requested during sign-in")).toBeVisible();
     await user.click(within(linkDialog).getByRole("button", { name: "Approve link" }));
     await waitFor(() => expect(mocks.decideExternalLinkRequest).toHaveBeenCalledWith("request-1", true));
 
@@ -156,10 +164,48 @@ describe("IdentitySecurityPage", () => {
     render(<IdentitySecurityPage />);
 
     await user.click(await screen.findByRole("button", { name: "Reject" }));
-    await user.click(within(screen.getByRole("dialog", { name: "Reject identity link request" })).getByRole("button", { name: "Reject request" }));
+    const dialog = screen.getByRole("dialog", { name: "Reject identity link request" });
+    expect(within(dialog).queryByText(/signs the user out/i)).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Reject request" }));
 
     await waitFor(() => expect(mocks.decideExternalLinkRequest).toHaveBeenCalledWith("request-1", false));
     expect(mocks.beginRecentWebAuthnVerification).not.toHaveBeenCalled();
+  });
+
+  it("keeps LDAP link requests focused on user-facing identity details", async () => {
+    const user = userEvent.setup();
+    mocks.listExternalLinkRequests.mockResolvedValueOnce([
+      {
+        id: "request-ldap",
+        user_id: 2,
+        user_email: "candidate@example.com",
+        user_role: "ui_user",
+        provider_type: "ldap",
+        provider_id: "corp",
+        issuer: null,
+        subject: "uid=candidate,ou=people,dc=example,dc=test",
+        email: "candidate@example.com",
+        email_verified: false,
+        request_source: "login_collision",
+        status: "pending",
+        created_at: "2026-08-14T10:00:00Z",
+        expires_at: "2026-08-15T10:00:00Z",
+      },
+    ]);
+
+    render(<IdentitySecurityPage />);
+
+    const requestsPanel = await screen.findByRole("tabpanel", { name: /Link requests/ });
+    expect(within(requestsPanel).getByText("LDAP")).toBeInTheDocument();
+    expect(within(requestsPanel).queryByText("Verified email")).not.toBeInTheDocument();
+    expect(within(requestsPanel).queryByText("Not applicable")).not.toBeInTheDocument();
+
+    await user.click(within(requestsPanel).getByRole("button", { name: "Approve" }));
+    const dialog = screen.getByRole("dialog", { name: "Approve identity link" });
+    await user.click(within(dialog).getByText("Technical details"));
+    expect(within(dialog).queryByText("Issuer")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Email verified")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("uid=candidate,ou=people,dc=example,dc=test")).toBeVisible();
   });
 
   it("keeps inventories hidden after a load error and offers a retry", async () => {

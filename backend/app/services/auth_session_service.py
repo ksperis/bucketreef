@@ -18,11 +18,14 @@ from app.core.security import (
     create_refresh_token,
     create_s3_access_token,
     create_ui_access_token,
+    decode_typed_token,
     hash_refresh_token,
 )
-from app.db import ApiToken, AuthSession, RefreshToken, S3Session, User, is_superadmin_ui_role
-from app.services.identity_security_policy import STANDARD_UI_ROLES
+from app.db import ApiToken, AuthSession, RefreshToken, S3Session, User, UserRole, is_superadmin_ui_role
 from app.utils.time import utcnow
+
+
+_STANDARD_UI_ROLES = {UserRole.UI_USER.value, UserRole.UI_NONE.value}
 
 
 class AuthSessionError(ValueError):
@@ -259,6 +262,27 @@ class AuthSessionService:
         self.db.add_all([session, principal])
         self.db.commit()
         return session, principal
+
+    def validate_access_token(
+        self,
+        raw_token: str,
+    ) -> tuple[AuthSession, User | S3Session, str]:
+        """Validate an access cookie together with its persisted session state."""
+        claims = decode_typed_token(raw_token or "", expected_type="ui_access")
+        token_type = "ui_access"
+        if claims is None:
+            claims = decode_typed_token(raw_token or "", expected_type="s3_access")
+            token_type = "s3_access"
+        if claims is None or not claims.get("sid"):
+            raise AuthSessionError("Session expired or invalid")
+
+        session, principal = self.validate_access(
+            str(claims["sid"]),
+            expected_type=token_type,
+        )
+        if claims.get("auth_version") != session.auth_version:
+            raise AuthSessionError("Session authentication version changed")
+        return session, principal, token_type
 
     def validate_csrf(self, session: AuthSession, token: Optional[str]) -> bool:
         return bool(token) and secrets.compare_digest(hash_refresh_token(token), session.csrf_token_hash)
@@ -576,7 +600,7 @@ class AuthSessionService:
         if not include_revoked:
             filters.append(AuthSession.revoked_at.is_(None))
         if not is_superadmin_ui_role(actor.role):
-            standard_user_ids = select(User.id).where(User.role.in_(STANDARD_UI_ROLES))
+            standard_user_ids = select(User.id).where(User.role.in_(_STANDARD_UI_ROLES))
             filters.append(AuthSession.user_id.in_(standard_user_ids))
         return filters
 

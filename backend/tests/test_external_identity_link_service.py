@@ -84,6 +84,53 @@ def test_link_attempt_is_browser_bound_and_expires(db_session):
         service.status(attempt.id, BROWSER_HASH)
 
 
+def test_profile_link_preserves_mfa_time_and_requires_fresh_step_up(db_session, monkeypatch):
+    user = _user(db_session, email="profile-link@example.test")
+    service = ExternalIdentityLinkService(db_session)
+    verified_at = utcnow() - timedelta(minutes=service.settings.mfa_recent_minutes - 1)
+    attempt = service.create_profile_attempt(
+        user=user,
+        provider_id="company",
+        issuer=OIDC_ISSUER,
+        browser_secret_hash=BROWSER_HASH,
+        auth_session_id="profile-session",
+        mfa_verified_at=verified_at,
+    )
+    monkeypatch.setattr(
+        "app.services.external_identity_link_service.WebAuthnService.has_credentials",
+        lambda _service, _user_id: True,
+    )
+
+    status = service.record_oidc_identity(
+        attempt_id=attempt.id,
+        browser_secret_hash=BROWSER_HASH,
+        provider_id="company",
+        issuer=OIDC_ISSUER,
+        subject="profile-subject",
+        email=user.email,
+        full_name=user.full_name,
+        picture_url=None,
+        email_verified=True,
+    )
+
+    db_session.refresh(attempt)
+    assert attempt.mfa_verified_at == verified_at
+    assert status.stage == "confirm"
+
+    attempt.mfa_verified_at = utcnow() - timedelta(minutes=service.settings.mfa_recent_minutes + 1)
+    db_session.add(attempt)
+    db_session.commit()
+
+    assert service.status(attempt.id, BROWSER_HASH).stage == "mfa"
+    with pytest.raises(ExternalIdentityLinkError, match="not ready for confirmation"):
+        service.confirm(
+            attempt.id,
+            BROWSER_HASH,
+            ip_address="127.0.0.1",
+            user_agent="pytest",
+        )
+
+
 def test_password_and_linked_ldap_can_prove_target_account(db_session, monkeypatch):
     user = _user(db_session, email="proof@example.test")
     db_session.add(

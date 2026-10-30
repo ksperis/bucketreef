@@ -7,6 +7,7 @@ from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from jose import jwt
 from pwdlib import PasswordHash
@@ -32,6 +33,7 @@ from app.routers import auth_oidc as auth_router
 from app.services.api_token_service import ApiTokenService
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.auth_session_service import AuthSessionError, AuthSessionService, RefreshReplayError
+from app.services.auth_session_guards import current_auth_session
 from app.core.domain_errors import ExternalIdentityNotFoundError
 from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError, ExternalIdentityUserService
 from app.services.oidc_service import OIDCStateError
@@ -122,6 +124,93 @@ def test_ui_jwt_is_strictly_typed_and_rejects_wrong_type_audience_and_legacy_tok
         headers={"kid": kid},
     )
     assert decode_typed_token(legacy, expected_type="ui_access") is None
+
+
+def test_current_auth_session_rejects_idle_expired_cookie_session(db_session):
+    settings = get_settings()
+    user = _user(db_session, email="expired-cookie-session@example.com")
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=False,
+    )
+    credentials.session.idle_expires_at = utcnow() - timedelta(seconds=1)
+    db_session.add(credentials.session)
+    db_session.commit()
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/auth/session",
+            "query_string": b"",
+            "headers": [
+                (
+                    b"cookie",
+                    f"{settings.access_token_cookie_name}={credentials.access_token}".encode(),
+                )
+            ],
+            "client": ("127.0.0.1", 1234),
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        current_auth_session(request, db_session)
+
+    assert exc_info.value.status_code == 401
+    db_session.refresh(credentials.session)
+    assert credentials.session.revoked_at is not None
+
+
+def test_successful_oidc_starts_do_not_consume_failed_login_budget(
+    auth_client,
+    db_session,
+    monkeypatch,
+):
+    class FakeOidcService:
+        db = db_session
+
+        def start_login(
+            self,
+            provider_id,
+            redirect_path,
+            *,
+            request_origin,
+            browser_secret_hash,
+        ):
+            assert provider_id == "company"
+            assert request_origin
+            assert browser_secret_hash
+            return {
+                "provider": "company",
+                "authorization_url": "https://issuer.example.test/authorize",
+                "state": "state-value",
+            }
+
+    previous = app.dependency_overrides.get(auth_router.get_oidc_service_dependency)
+    app.dependency_overrides[auth_router.get_oidc_service_dependency] = lambda: FakeOidcService()
+    monkeypatch.setattr(auth_router.settings, "login_rate_limit_max_attempts", 1)
+    monkeypatch.setattr(auth_router.settings, "login_rate_limit_window_seconds", 3600)
+    try:
+        first = auth_client.post(
+            "/api/auth/oidc/company/start",
+            json={},
+            headers=trusted_origin_headers(),
+        )
+        second = auth_client.post(
+            "/api/auth/oidc/company/start",
+            json={},
+            headers=trusted_origin_headers(),
+        )
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(auth_router.get_oidc_service_dependency, None)
+        else:
+            app.dependency_overrides[auth_router.get_oidc_service_dependency] = previous
+
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
 
 
 def test_login_returns_only_cookie_session_and_auth_endpoints_are_no_store(auth_client, db_session):

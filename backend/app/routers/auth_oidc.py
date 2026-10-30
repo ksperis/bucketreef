@@ -88,7 +88,6 @@ def start_oidc_login(
             request_origin=request_origin,
             browser_secret_hash=browser_secret_hash,
         )
-        limiter.record_failure(account=account_key, ip_address=ip_address)
         return OIDCStartResponse.model_validate(result)
     except OIDCProviderNotFoundError as exc:
         limiter.record_failure(account=account_key, ip_address=ip_address)

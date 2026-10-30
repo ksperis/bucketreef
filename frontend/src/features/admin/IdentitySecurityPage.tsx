@@ -23,6 +23,7 @@ import PageShell from "../../components/PageShell";
 import PageTabs from "../../components/PageTabs";
 import UiBadge from "../../components/ui/UiBadge";
 import UiButton from "../../components/ui/UiButton";
+import UiDetails from "../../components/ui/UiDetails";
 import { cx, type UiTone, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
@@ -163,51 +164,31 @@ export default function IdentitySecurityPage() {
         ),
       },
       {
-        id: "provider",
-        label: text("provider"),
+        id: "external-sign-in",
+        label: text("externalSignIn"),
         render: (request) => (
           <div className="min-w-0 space-y-1">
-            <UiBadge tone="info">{providerLabel(request.provider_type, text)}</UiBadge>
+            <div className="flex flex-wrap items-center gap-2">
+              <UiBadge tone="info">{providerLabel(request.provider_type, text)}</UiBadge>
+              {request.provider_type === "oidc" && request.email_verified
+                ? <UiBadge tone="success">{text("verifiedEmail")}</UiBadge>
+                : null}
+            </div>
             <p className={cx("break-all ui-caption", uiMutedTextClass)}>{request.provider_id}</p>
+            <p className="break-all">{request.email}</p>
           </div>
         ),
-      },
-      {
-        id: "claimed-email",
-        label: text("claimedEmail"),
-        render: (request) => (
-          <div className="min-w-0 space-y-1">
-            <span className="break-all">{request.email}</span>
-            <UiBadge tone={request.email_verified ? "success" : "warning"}>
-              {text("emailVerified")}: {text(request.email_verified ? "yes" : "no")}
-            </UiBadge>
-          </div>
-        ),
-      },
-      {
-        id: "oidc-evidence",
-        label: text("oidc"),
-        render: (request) => request.provider_type === "oidc" ? (
-          <div className="min-w-0 space-y-1 ui-caption">
-            <p className="break-all"><span className="font-semibold">{text("issuer")}:</span> <code className="select-all">{request.issuer ?? text("unknown")}</code></p>
-            <p className="break-all"><span className="font-semibold">{text("subject")}:</span> <code className="select-all">{request.subject}</code></p>
-          </div>
-        ) : <span className={uiMutedTextClass}>{text("notApplicable")}</span>,
       },
       {
         id: "request-context",
-        label: text("requested"),
+        label: text("request"),
         render: (request) => (
           <div className="space-y-1 ui-caption">
             <p>{requestSourceLabel(request.request_source, text)}</p>
             <time dateTime={request.created_at}>{formatDate(request.created_at, locale)}</time>
+            <p className={uiMutedTextClass}>{text("expiresOn", { date: formatDate(request.expires_at, locale) })}</p>
           </div>
         ),
-      },
-      {
-        id: "expires",
-        label: text("expires"),
-        render: (request) => <time dateTime={request.expires_at}>{formatDate(request.expires_at, locale)}</time>,
       },
       {
         id: "actions",
@@ -412,15 +393,46 @@ export default function IdentitySecurityPage() {
           loading={busy === pendingLinkDecision.request.id}
           details={[
             { label: text("localAccount"), value: pendingLinkDecision.request.user_email },
-            { label: text("provider"), value: `${pendingLinkDecision.request.provider_type}:${pendingLinkDecision.request.provider_id}` },
-            { label: text("claimedEmail"), value: pendingLinkDecision.request.email },
-            { label: text("emailVerified"), value: text(pendingLinkDecision.request.email_verified ? "yes" : "no") },
-            { label: text("issuer"), value: pendingLinkDecision.request.issuer ?? text("unknown") },
-            { label: text("subject"), value: pendingLinkDecision.request.subject },
-            { label: text("requestSource"), value: requestSourceLabel(pendingLinkDecision.request.request_source, text) },
-            { label: text("requested"), value: formatDate(pendingLinkDecision.request.created_at, locale) },
-            { label: text("expires"), value: formatDate(pendingLinkDecision.request.expires_at, locale) },
+            { label: text("externalSignIn"), value: pendingLinkDecision.request.email },
+            { label: text("provider"), value: `${providerLabel(pendingLinkDecision.request.provider_type, text)} · ${pendingLinkDecision.request.provider_id}` },
           ]}
+          warning={pendingLinkDecision.approve ? text("approvalSignsOutUser") : undefined}
+          warningTone="warning"
+          secondaryContent={(
+            <UiDetails className="rounded-lg border border-[var(--ui-border-soft)] px-3 py-2">
+              <summary className="cursor-pointer settings-label">{text("technicalDetails")}</summary>
+              <dl className="mt-3 grid gap-2">
+                {pendingLinkDecision.request.provider_type === "oidc" ? (
+                  <>
+                    <div className="grid min-w-0 gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                      <dt className="settings-label">{text("issuer")}</dt>
+                      <dd className="settings-body min-w-0 break-all font-mono">{pendingLinkDecision.request.issuer ?? text("unknown")}</dd>
+                    </div>
+                    <div className="grid min-w-0 gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                      <dt className="settings-label">{text("emailVerified")}</dt>
+                      <dd className="settings-body">{text(pendingLinkDecision.request.email_verified ? "yes" : "no")}</dd>
+                    </div>
+                  </>
+                ) : null}
+                <div className="grid min-w-0 gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                  <dt className="settings-label">{text("subject")}</dt>
+                  <dd className="settings-body min-w-0 break-all font-mono">{pendingLinkDecision.request.subject}</dd>
+                </div>
+                <div className="grid min-w-0 gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                  <dt className="settings-label">{text("requestSource")}</dt>
+                  <dd className="settings-body">{requestSourceLabel(pendingLinkDecision.request.request_source, text)}</dd>
+                </div>
+                <div className="grid min-w-0 gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                  <dt className="settings-label">{text("requested")}</dt>
+                  <dd className="settings-body">{formatDate(pendingLinkDecision.request.created_at, locale)}</dd>
+                </div>
+                <div className="grid min-w-0 gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-3">
+                  <dt className="settings-label">{text("expires")}</dt>
+                  <dd className="settings-body">{formatDate(pendingLinkDecision.request.expires_at, locale)}</dd>
+                </div>
+              </dl>
+            </UiDetails>
+          )}
           onCancel={() => setPendingLinkDecision(null)}
           onConfirm={() => void decide()}
         />
