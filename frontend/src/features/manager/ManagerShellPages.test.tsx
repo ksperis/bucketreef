@@ -121,8 +121,11 @@ vi.mock("../../api/bucketDetails", async () => {
   );
   return {
     ...actual,
-    getBucketProperties: (...args: unknown[]) =>
-      getBucketPropertiesMock(...args),
+    managerBucketDetails: {
+      ...actual.managerBucketDetails,
+      getBucketProperties: (...args: unknown[]) =>
+        getBucketPropertiesMock(...args),
+    },
   };
 });
 

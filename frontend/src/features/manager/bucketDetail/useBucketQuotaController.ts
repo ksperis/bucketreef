@@ -4,10 +4,12 @@
  */
 import { useEffect, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
-import { updateBucketQuota } from "../../../api/bucketDetails";
+import { managerBucketDetails } from "../../../api/bucketDetails";
 import type { BucketQuotaUpdate } from "../../../api/bucketContracts";
 import { updateCephAdminBucketQuota } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
+
+const { updateBucketQuota } = managerBucketDetails;
 
 export type BucketQuotaUnit = "MiB" | "GiB" | "TiB";
 

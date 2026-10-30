@@ -11,10 +11,7 @@ vi.mock("./client", () => ({ default: clientMock }));
 
 import {
   browserBucketDetails,
-  deleteBucketPolicy,
-  getBucketStats,
-  putBucketPolicy,
-  updateBucketQuota,
+  managerBucketDetails,
 } from "./bucketDetails";
 
 describe("bucket details api", () => {
@@ -29,7 +26,7 @@ describe("bucket details api", () => {
   });
 
   it("keeps named detail operations on the manager route", async () => {
-    await getBucketStats("account-a", "reports/2026", {
+    await managerBucketDetails.getBucketStats("account-a", "reports/2026", {
       with_stats: true,
     });
 
@@ -94,8 +91,8 @@ describe("bucket details api", () => {
   it("keeps manager writes and deletes on their detail resource", async () => {
     const policy = { Version: "2012-10-17", Statement: [] };
 
-    await putBucketPolicy("account-7", "reports/2026", policy);
-    await deleteBucketPolicy("account-7", "reports/2026");
+    await managerBucketDetails.putBucketPolicy("account-7", "reports/2026", policy);
+    await managerBucketDetails.deleteBucketPolicy("account-7", "reports/2026");
 
     expect(clientMock.put).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/policy",
@@ -109,7 +106,7 @@ describe("bucket details api", () => {
   });
 
   it("patches sparse manager bucket quota updates", async () => {
-    await updateBucketQuota("account-7", "reports/2026", { max_objects: 100 });
+    await managerBucketDetails.updateBucketQuota("account-7", "reports/2026", { max_objects: 100 });
 
     expect(clientMock.patch).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/quota",

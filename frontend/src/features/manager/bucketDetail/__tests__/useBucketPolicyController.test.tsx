@@ -12,9 +12,11 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  deleteBucketPolicy: (...args: unknown[]) => apiMocks.deleteBucketPolicy(...args),
-  getBucketPolicy: (...args: unknown[]) => apiMocks.getBucketPolicy(...args),
-  putBucketPolicy: (...args: unknown[]) => apiMocks.putBucketPolicy(...args),
+  managerBucketDetails: {
+    deleteBucketPolicy: (...args: unknown[]) => apiMocks.deleteBucketPolicy(...args),
+    getBucketPolicy: (...args: unknown[]) => apiMocks.getBucketPolicy(...args),
+    putBucketPolicy: (...args: unknown[]) => apiMocks.putBucketPolicy(...args),
+  },
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({

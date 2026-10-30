@@ -12,12 +12,14 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  deleteBucketEncryption: (...args: unknown[]) =>
-    apiMocks.deleteBucketEncryption(...args),
-  getBucketEncryption: (...args: unknown[]) =>
-    apiMocks.getBucketEncryption(...args),
-  putBucketEncryption: (...args: unknown[]) =>
-    apiMocks.putBucketEncryption(...args),
+  managerBucketDetails: {
+    deleteBucketEncryption: (...args: unknown[]) =>
+      apiMocks.deleteBucketEncryption(...args),
+    getBucketEncryption: (...args: unknown[]) =>
+      apiMocks.getBucketEncryption(...args),
+    putBucketEncryption: (...args: unknown[]) =>
+      apiMocks.putBucketEncryption(...args),
+  },
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({

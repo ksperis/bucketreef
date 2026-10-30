@@ -8,8 +8,10 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  updateBucketQuota: (...args: unknown[]) =>
-    apiMocks.updateBucketQuota(...args),
+  managerBucketDetails: {
+    updateBucketQuota: (...args: unknown[]) =>
+      apiMocks.updateBucketQuota(...args),
+  },
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({
