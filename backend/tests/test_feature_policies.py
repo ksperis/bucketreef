@@ -1,7 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import json
-
 import pytest
 
 from app.db import AppSetting, S3Connection, S3User, User
@@ -128,7 +126,7 @@ def test_cost_estimation_targeted_overrides_resolve_for_manager_and_portal(db_se
         db_session,
         name="Cost opt in",
         allow_cost_estimation=True,
-        portal_settings_override=json.dumps({"cost_estimation_enabled": True}),
+        portal_settings_override={"cost_estimation_enabled": True},
     )
     db_session.add(account)
     db_session.commit()
@@ -210,7 +208,11 @@ def test_portal_lock_masks_preserved_override_and_rejects_new_activation(db_sess
     settings = AppSettings()
     settings.portal.feature_policies.user_external_sharing = FeaturePolicy.DISABLED
     monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: settings)
-    account = make_s3_account(db_session, name="Policies", portal_settings_override=json.dumps({"allow_portal_user_external_sharing": True}))
+    account = make_s3_account(
+        db_session,
+        name="Policies",
+        portal_settings_override={"allow_portal_user_external_sharing": True},
+    )
     db_session.add(account)
     db_session.commit()
     service = PortalService(db_session)

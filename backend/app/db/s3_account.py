@@ -4,7 +4,17 @@ from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from app.core.security import EncryptedString
@@ -42,7 +52,7 @@ class S3Account(Base):
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
     storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False)
-    portal_settings_override = Column(Text, nullable=True)
+    portal_settings_override = Column(JSON(none_as_null=True), nullable=True)
     portal_settings_delegated = Column(Boolean, default=False, nullable=False, server_default="0")
     portal_collaborator_role_management_delegated = Column(
         Boolean,

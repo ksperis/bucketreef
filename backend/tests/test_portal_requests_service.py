@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 from sqlalchemy import func, select
 
@@ -963,9 +961,7 @@ def test_approve_setting_change_preserves_concurrent_project_overrides(db_sessio
     from app.models.app_settings import AppSettings
     monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: AppSettings())
     account = _seed_account(db_session)
-    account.portal_settings_override = json.dumps(
-        {"allow_portal_named_bucket_create": True}
-    )
+    account.portal_settings_override = {"allow_portal_named_bucket_create": True}
     db_session.add(account)
     db_session.commit()
     requester = _seed_user(db_session, email="manager@example.org")
@@ -986,19 +982,17 @@ def test_approve_setting_change_preserves_concurrent_project_overrides(db_sessio
             reason="Browser needed for the project",
         ),
     )
-    account.portal_settings_override = json.dumps(
-        {
-            "allow_portal_named_bucket_create": True,
-            "allow_private_storage_space_create": False,
-        }
-    )
+    account.portal_settings_override = {
+        "allow_portal_named_bucket_create": True,
+        "allow_private_storage_space_create": False,
+    }
     db_session.add(account)
     db_session.commit()
 
     approved = service.approve_request(created.id, admin)
 
     db_session.refresh(account)
-    stored = json.loads(account.portal_settings_override)
+    stored = account.portal_settings_override
     assert stored == {
         "allow_portal_named_bucket_create": True,
         "allow_private_storage_space_create": False,
@@ -1015,12 +1009,10 @@ def test_approve_setting_change_preserves_concurrent_project_overrides(db_sessio
 
 def test_approve_setting_change_inherit_removes_only_requested_nested_override(db_session):
     account = _seed_account(db_session)
-    account.portal_settings_override = json.dumps(
-        {
-            "browser_access_enabled": True,
-            "bucket_defaults": {"versioning": False, "enable_cors": False},
-        }
-    )
+    account.portal_settings_override = {
+        "browser_access_enabled": True,
+        "bucket_defaults": {"versioning": False, "enable_cors": False},
+    }
     db_session.add(account)
     db_session.commit()
     requester = _seed_user(db_session, email="manager@example.org")
@@ -1043,7 +1035,7 @@ def test_approve_setting_change_inherit_removes_only_requested_nested_override(d
     service.approve_request(created.id, admin)
 
     db_session.refresh(account)
-    stored = json.loads(account.portal_settings_override)
+    stored = account.portal_settings_override
     assert stored == {
         "browser_access_enabled": True,
         "bucket_defaults": {"enable_cors": False},

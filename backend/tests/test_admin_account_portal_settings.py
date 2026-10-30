@@ -1,7 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import json
-
 from app.db import S3Account
 from app.main import app
 from app.models.app_settings import AppSettings
@@ -25,7 +23,7 @@ def _seed_account(db_session, *, overrides: dict | None = None) -> S3Account:
         rgw_account_id="RGW-PORTAL-ADMIN",
         rgw_access_key="AK",
         rgw_secret_key="SK",
-        portal_settings_override=json.dumps(overrides) if overrides else None,
+        portal_settings_override=overrides or None,
     )
     db_session.add(account)
     db_session.commit()
@@ -90,7 +88,7 @@ def test_admin_patch_account_portal_settings_replaces_override_and_audits(client
     assert "override_policy" not in body
 
     db_session.refresh(account)
-    stored = json.loads(account.portal_settings_override)
+    stored = account.portal_settings_override
     assert stored["browser_access_enabled"] is True
     assert stored["allow_private_storage_space_create"] is False
     assert stored["allow_portal_user_external_sharing"] is True

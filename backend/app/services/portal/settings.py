@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Optional
 
 from app.db import S3Account
@@ -31,10 +30,9 @@ class PortalSettingsMixin:
         raw = account.portal_settings_override
         if raw is None:
             return PortalSettingsOverride()
-        payload = json.loads(raw)
-        if not isinstance(payload, dict):
+        if not isinstance(raw, dict):
             raise ValueError("Persisted Portal settings override must be a JSON object")
-        return PortalSettingsOverride.model_validate(payload, strict=True)
+        return PortalSettingsOverride.model_validate(raw, strict=True)
 
     def _persist_portal_settings_override(
         self,
@@ -46,11 +44,7 @@ class PortalSettingsMixin:
         portal_collaborator_addition_delegated: Optional[bool] = None,
     ) -> None:
         payload = override.model_dump(exclude_unset=True, exclude_none=True)
-        account.portal_settings_override = (
-            json.dumps(payload, separators=(",", ":"), sort_keys=True)
-            if payload
-            else None
-        )
+        account.portal_settings_override = payload or None
         if delegated_to_portal_managers is not None:
             account.portal_settings_delegated = bool(delegated_to_portal_managers)
         if portal_collaborator_role_management_delegated is not None:
