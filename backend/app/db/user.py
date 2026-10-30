@@ -3,7 +3,7 @@
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Integer, LargeBinary, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Column, Integer, JSON, LargeBinary, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -54,7 +54,7 @@ class User(Base):
     ui_language = Column(String, nullable=True)
     quota_alerts_enabled = Column(Boolean, default=True, nullable=False, server_default="1")
     quota_alerts_global_watch = Column(Boolean, default=False, nullable=False, server_default="0")
-    ui_preferences_json = Column(Text, nullable=False, default="{}", server_default="{}")
+    ui_preferences = Column(JSON, nullable=False, default=dict, server_default="{}")
 
     browser_favorites = relationship("BrowserFavorite", back_populates="user", cascade="all, delete-orphan")
 

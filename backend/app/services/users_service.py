@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import json
 import logging
 from typing import Any, Optional
 
@@ -72,14 +71,6 @@ MANAGER_ROLE_SCOPED_FIELDS = (
     "can_provision_managed_private_connections",
     "allow_multisite_endpoint_switching",
 )
-
-
-def _dump_ui_preferences(preferences: UiPreferences) -> str:
-    return json.dumps(
-        preferences.model_dump(exclude_none=True),
-        ensure_ascii=True,
-        sort_keys=True,
-    )
 
 
 class UsersService:
@@ -367,7 +358,9 @@ class UsersService:
             user.full_name = normalized_name or None
         self._apply_profile_preferences(user, payload)
         if "ui_preferences" in update_fields:
-            user.ui_preferences_json = _dump_ui_preferences(payload.ui_preferences or UiPreferences())
+            user.ui_preferences = (payload.ui_preferences or UiPreferences()).model_dump(
+                exclude_none=True
+            )
 
         password_changed = self._apply_current_user_password(user, payload)
 

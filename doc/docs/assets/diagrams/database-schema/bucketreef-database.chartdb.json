@@ -3385,11 +3385,11 @@
           "check": null
         },
         {
-          "id": "field:users.ui_preferences_json",
-          "name": "ui_preferences_json",
+          "id": "field:users.ui_preferences",
+          "name": "ui_preferences",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
