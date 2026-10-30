@@ -12,7 +12,11 @@ import {
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
-import { jsonTextSignature, stableBucketJsonSignature } from "./bucketFeatureState";
+import {
+  cloneBucketJsonValue,
+  jsonTextSignature,
+  stableBucketJsonSignature,
+} from "./bucketFeatureState";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   createVisualLifecycleRule,
@@ -48,10 +52,6 @@ function normalizeRules(value: unknown): LifecycleRuleRecord[] {
     (rule): rule is LifecycleRuleRecord =>
       rule !== null && typeof rule === "object" && !Array.isArray(rule),
   );
-}
-
-function cloneRules(rules: LifecycleRuleRecord[]): LifecycleRuleRecord[] {
-  return JSON.parse(JSON.stringify(rules)) as LifecycleRuleRecord[];
 }
 
 function rulesText(rules: LifecycleRuleRecord[]): string {
@@ -133,20 +133,20 @@ export function useBucketLifecycleController({
   }, []);
 
   const openEditor = useCallback(() => {
-    openEditorDraft(cloneRules(rules), "visual", null);
+    openEditorDraft(cloneBucketJsonValue(rules), "visual", null);
   }, [openEditorDraft, rules]);
 
   const openEditorFor = useCallback((index: number) => {
-    openEditorDraft(cloneRules(rules), "visual", index);
+    openEditorDraft(cloneBucketJsonValue(rules), "visual", index);
   }, [openEditorDraft, rules]);
 
   const openJsonEditor = useCallback(() => {
-    openEditorDraft(cloneRules(rules), "json", null);
+    openEditorDraft(cloneBucketJsonValue(rules), "json", null);
   }, [openEditorDraft, rules]);
 
   const openEditorWithNew = useCallback(() => {
     const nextDraft = [
-      ...cloneRules(rules),
+      ...cloneBucketJsonValue(rules),
       createVisualLifecycleRule(createRuleId()),
     ];
     openEditorDraft(nextDraft, "visual", nextDraft.length - 1);
@@ -196,7 +196,7 @@ export function useBucketLifecycleController({
   const removeDraftRule = useCallback((index: number) => {
     const removedRule = draftRules[index];
     if (!removedRule) return;
-    setLastRemovedRule({ index, rule: cloneRules([removedRule])[0] });
+    setLastRemovedRule({ index, rule: cloneBucketJsonValue([removedRule])[0] });
     setDraftRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
     setEditorError(null);
   }, [draftRules]);
@@ -301,7 +301,7 @@ export function useBucketLifecycleController({
       const savedRules = await persistRules(nextRules);
       if (savedRules === null) return;
       applyBaseline(savedRules);
-      setDraftRules(cloneRules(savedRules));
+      setDraftRules(cloneBucketJsonValue(savedRules));
       setJsonText(rulesText(savedRules));
       setStatus(savedRules.length === 0 ? "Lifecycle deleted" : "Lifecycle updated");
       setLastRemovedRule(null);

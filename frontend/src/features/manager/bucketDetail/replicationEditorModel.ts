@@ -8,6 +8,7 @@ import {
   type GraphicalReplicationRule,
   type ReplicationRuleStatus,
 } from "../bucketReplication";
+import { cloneBucketJsonValue } from "./bucketFeatureState";
 
 type ReplicationRuleRecord = Record<string, unknown>;
 export type ReplicationVisualRulePatch = Partial<GraphicalReplicationRule>;
@@ -51,7 +52,7 @@ function isPriority(value: unknown): boolean {
 export function cloneReplicationConfiguration(
   configuration: Record<string, unknown>,
 ): Record<string, unknown> {
-  return JSON.parse(JSON.stringify(configuration)) as Record<string, unknown>;
+  return cloneBucketJsonValue(configuration);
 }
 
 export function normalizeReplicationEditorConfiguration(

@@ -40,6 +40,10 @@ function normalizeBucketJsonValue(value: unknown): unknown {
   return value;
 }
 
+export function cloneBucketJsonValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 export function stableBucketJsonSignature(value: unknown): string {
   return JSON.stringify(normalizeBucketJsonValue(value));
 }

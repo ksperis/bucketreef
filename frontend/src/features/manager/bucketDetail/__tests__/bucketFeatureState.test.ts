@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cloneBucketJsonValue,
   jsonTextSignature,
   normalizeNotificationConfiguration,
   resolveFeatureVisualState,
@@ -8,6 +9,16 @@ import {
 } from "../bucketFeatureState";
 
 describe("bucketFeatureState helpers", () => {
+  it("clones nested JSON values without sharing mutable references", () => {
+    const source = { rules: [{ id: "rule-1", enabled: true }] };
+    const clone = cloneBucketJsonValue(source);
+
+    clone.rules[0].enabled = false;
+
+    expect(clone).toEqual({ rules: [{ id: "rule-1", enabled: false }] });
+    expect(source).toEqual({ rules: [{ id: "rule-1", enabled: true }] });
+  });
+
   it("produces stable signatures regardless of object key order", () => {
     const first = stableBucketJsonSignature({
       b: 1,

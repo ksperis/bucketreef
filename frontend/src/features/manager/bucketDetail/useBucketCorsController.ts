@@ -11,7 +11,11 @@ import {
   putCephAdminBucketCors,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
-import { jsonTextSignature, stableBucketJsonSignature } from "./bucketFeatureState";
+import {
+  cloneBucketJsonValue,
+  jsonTextSignature,
+  stableBucketJsonSignature,
+} from "./bucketFeatureState";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   createVisualCorsRule,
@@ -37,10 +41,6 @@ function normalizeRules(value: unknown): CorsRuleRecord[] {
     (rule): rule is CorsRuleRecord =>
       rule !== null && typeof rule === "object" && !Array.isArray(rule),
   );
-}
-
-function cloneRules(rules: CorsRuleRecord[]): CorsRuleRecord[] {
-  return JSON.parse(JSON.stringify(rules)) as CorsRuleRecord[];
 }
 
 function rulesText(rules: CorsRuleRecord[]): string {
@@ -119,19 +119,19 @@ export function useBucketCorsController({
   }, []);
 
   const openEditor = useCallback(() => {
-    openEditorDraft(cloneRules(rules), "visual", null);
+    openEditorDraft(cloneBucketJsonValue(rules), "visual", null);
   }, [openEditorDraft, rules]);
 
   const openEditorFor = useCallback((index: number) => {
-    openEditorDraft(cloneRules(rules), "visual", index);
+    openEditorDraft(cloneBucketJsonValue(rules), "visual", index);
   }, [openEditorDraft, rules]);
 
   const openJsonEditor = useCallback(() => {
-    openEditorDraft(cloneRules(rules), "json", null);
+    openEditorDraft(cloneBucketJsonValue(rules), "json", null);
   }, [openEditorDraft, rules]);
 
   const openEditorWithNew = useCallback(() => {
-    const nextDraft = [...cloneRules(rules), createVisualCorsRule()];
+    const nextDraft = [...cloneBucketJsonValue(rules), createVisualCorsRule()];
     openEditorDraft(nextDraft, "visual", nextDraft.length - 1);
   }, [openEditorDraft, rules]);
 
@@ -249,7 +249,7 @@ export function useBucketCorsController({
       const savedRules = await persistRules(nextRules);
       if (savedRules === null) return;
       applyBaseline(savedRules);
-      setDraftRules(cloneRules(savedRules));
+      setDraftRules(cloneBucketJsonValue(savedRules));
       setJsonText(rulesText(savedRules));
       setStatus(savedRules.length === 0 ? "CORS configuration deleted" : "CORS configuration updated");
       setEditorTargetIndex(null);

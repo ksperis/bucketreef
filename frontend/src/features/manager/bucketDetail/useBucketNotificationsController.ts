@@ -13,6 +13,7 @@ import {
 import { extractApiError } from "../../../utils/apiError";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
+  cloneBucketJsonValue,
   jsonTextSignature,
   normalizeNotificationConfiguration,
   stableBucketJsonSignature,
@@ -56,12 +57,6 @@ function asConfiguration(value: unknown): NotificationConfigurationRecord {
   return value as NotificationConfigurationRecord;
 }
 
-function cloneConfiguration(
-  configuration: NotificationConfigurationRecord,
-): NotificationConfigurationRecord {
-  return JSON.parse(JSON.stringify(configuration)) as NotificationConfigurationRecord;
-}
-
 function configurationText(configuration: NotificationConfigurationRecord): string {
   return JSON.stringify(configuration, null, 2);
 }
@@ -92,7 +87,7 @@ export function useBucketNotificationsController({
   const [saving, setSaving] = useState(false);
 
   const applyBaseline = useCallback((value: unknown) => {
-    setConfiguration(cloneConfiguration(asConfiguration(value)));
+    setConfiguration(cloneBucketJsonValue(asConfiguration(value)));
   }, []);
 
   const load = useCallback(async () => {
@@ -137,20 +132,20 @@ export function useBucketNotificationsController({
   }, []);
 
   const openEditor = useCallback(() => {
-    openEditorDraft(cloneConfiguration(configuration), "visual", null);
+    openEditorDraft(cloneBucketJsonValue(configuration), "visual", null);
   }, [configuration, openEditorDraft]);
 
   const openEditorFor = useCallback((index: number) => {
-    openEditorDraft(cloneConfiguration(configuration), "visual", index);
+    openEditorDraft(cloneBucketJsonValue(configuration), "visual", index);
   }, [configuration, openEditorDraft]);
 
   const openJsonEditor = useCallback(() => {
-    openEditorDraft(cloneConfiguration(configuration), "json", null);
+    openEditorDraft(cloneBucketJsonValue(configuration), "json", null);
   }, [configuration, openEditorDraft]);
 
   const openEditorWithNew = useCallback(() => {
     const nextDraft = addNotificationTopic(
-      cloneConfiguration(configuration),
+      cloneBucketJsonValue(configuration),
       createVisualNotificationTopic(createNotificationId()),
     );
     const nextTopics = notificationTopicConfigurations(nextDraft);
@@ -228,7 +223,7 @@ export function useBucketNotificationsController({
     const saved = cephAdmin
       ? await putCephAdminBucketNotifications(endpointId as number, bucketName, nextConfiguration, cephAdminTenant)
       : await bucketDetailsApi.putBucketNotifications(contextId, bucketName, nextConfiguration);
-    return cloneConfiguration(asConfiguration(saved.configuration ?? nextConfiguration));
+    return cloneBucketJsonValue(asConfiguration(saved.configuration ?? nextConfiguration));
   }, [bucketDetailsApi, contextId, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
   const removeTopicDirect = useCallback(async (index: number) => {
@@ -238,7 +233,7 @@ export function useBucketNotificationsController({
     setStatus(null);
     try {
       const nextConfiguration = removeNotificationTopicAt(
-        cloneConfiguration(configuration),
+        cloneBucketJsonValue(configuration),
         index,
       );
       const savedConfiguration = await persistConfiguration(nextConfiguration);
