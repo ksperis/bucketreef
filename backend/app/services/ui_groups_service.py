@@ -41,6 +41,7 @@ from app.services.portal_role_sync import (
     sync_portal_role_downgrades,
     sync_portal_role_promotions,
 )
+from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
 from app.utils.name_ordering import name_order_by
@@ -322,15 +323,13 @@ class UiGroupsService:
     ) -> tuple[list[UiGroupOut], int]:
         search_value = search.strip() if isinstance(search, str) else ""
         statement = self._apply_group_search(select(UiGroup), search_value)
-        total = self.db.scalar(
-            select(func.count()).select_from(statement.order_by(None).subquery())
-        ) or 0
-        offset = max(page - 1, 0) * page_size
-        rows = self.db.scalars(
-            statement.order_by(*self._group_order_columns(sort_field, sort_direction))
-            .offset(offset)
-            .limit(page_size)
-        ).all()
+        rows, total = paginate_scalars(
+            self.db,
+            statement,
+            order_by=self._group_order_columns(sort_field, sort_direction),
+            page=page,
+            page_size=page_size,
+        )
         return [self.group_to_out(group) for group in rows], total
 
     def _preload_group_output(self, group_id: int) -> _UiGroupOutputPreload:

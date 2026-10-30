@@ -58,6 +58,7 @@ from app.services.portal_role_sync import (
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_avatar_service import UserAvatarService
 from app.services.user_output_service import UserOutputService
+from app.services.sqlalchemy_pagination import paginate_scalars
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 from app.utils.time import utcnow
 from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS
@@ -630,16 +631,14 @@ class UsersService:
     ) -> tuple[list[UserOut], int]:
         search_value = search.strip() if isinstance(search, str) else ""
         statement = self._apply_user_search(select(User), search_value)
-        total = self.db.scalar(
-            select(func.count()).select_from(statement.order_by(None).subquery())
-        ) or 0
-        offset = max(page - 1, 0) * page_size
-        rows = self.db.scalars(
-            statement.order_by(*self._user_order_columns(sort_field, sort_direction))
-            .offset(offset)
-            .limit(page_size)
+        rows, total = paginate_scalars(
+            self.db,
+            statement,
+            order_by=self._user_order_columns(sort_field, sort_direction),
+            page=page,
+            page_size=page_size,
+            unique=True,
         )
-        rows = rows.unique().all()
         output_service = UserOutputService(self.db)
         preloaded = output_service.preload(rows)
         outputs = [

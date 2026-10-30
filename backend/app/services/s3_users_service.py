@@ -34,6 +34,7 @@ from app.services.resource_deletion_purge_service import ResourceDeletionPurgeSe
 from app.services.managed_resource_naming import managed_s3_user_uid
 from app.services.mappers.s3_user import s3_user_from_db, s3_user_summary_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
+from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
 from app.utils.storage_endpoint_features import resolve_admin_endpoint, resolve_feature_flags
@@ -390,15 +391,13 @@ class S3UsersService:
     ) -> tuple[list[S3UserSchema], int]:
         search_value = search.strip() if isinstance(search, str) else ""
         query = self._apply_user_search(select(S3UserModel), search_value)
-        total = self.db.execute(
-            select(func.count()).select_from(query.order_by(None).subquery())
-        ).scalar_one()
-        offset = max(page - 1, 0) * page_size
-        rows = self.db.scalars(
-            query.order_by(*self._user_order_columns(sort_field, sort_direction))
-            .offset(offset)
-            .limit(page_size)
-        ).all()
+        rows, total = paginate_scalars(
+            self.db,
+            query,
+            order_by=self._user_order_columns(sort_field, sort_direction),
+            page=page,
+            page_size=page_size,
+        )
         s3_user_ids = [row.id for row in rows]
         user_links_map, group_links_map = self.associations.load_links(s3_user_ids)
         return [
