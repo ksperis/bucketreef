@@ -37,7 +37,7 @@ export { RequireManagerFeatureRulesTool, RequirePortalAccess } from "./routerGua
 const LoginPage = lazy(() => import("./features/auth/LoginPage"));
 const FirstAdminSetupPage = lazy(() => import("./features/auth/FirstAdminSetupPage"));
 const OidcCallbackPage = lazy(() => import("./features/auth/OidcCallbackPage"));
-const OidcLinkPage = lazy(() => import("./features/auth/OidcLinkPage"));
+const ExternalIdentityLinkPage = lazy(() => import("./features/auth/ExternalIdentityLinkPage"));
 const NotFoundPage = lazy(() => import("./features/auth/NotFoundPage"));
 const S3AccountsPage = lazy(() => import("./features/admin/AccountsPage"));
 const AccessAuditPage = lazy(() => import("./features/admin/AccessAuditPage"));
@@ -389,7 +389,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
       <Route path="/login" element={<LoginPage />} />
       <Route path="/setup/first-admin" element={<FirstAdminSetupPage />} />
       <Route path="/oidc/:provider/callback" element={<OidcCallbackPage />} />
-      <Route path="/oidc/link/:attemptId" element={<OidcLinkPage />} />
+      <Route path="/identity/link/:attemptId" element={<ExternalIdentityLinkPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
       <Route path="/session-expired" element={<ErrorState kind="session_expired" presentation="full" />} />
       <Route path="*" element={<NotFoundPage />} />

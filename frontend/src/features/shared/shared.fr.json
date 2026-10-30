@@ -1040,7 +1040,7 @@
   "Link {provider} to {email}. Existing sessions and personal API tokens will be revoked.": "Associer {provider} à {email}. Les sessions existantes et les jetons API personnels seront révoqués.",
   "Link account": "Associer le compte",
   "The link request was sent to a superadministrator for approval.": "La demande d’association a été envoyée à un superadministrateur pour approbation.",
-  "The OIDC account is linked. Redirecting…": "Le compte OIDC est associé. Redirection…",
+  "The sign-in account is linked. Redirecting…": "Le compte de connexion est associé. Redirection…",
   "This account-linking request is unavailable or has expired.": "Cette demande d’association de compte est indisponible ou a expiré.",
   "Unable to continue account linking. Check the entered credentials and try again.": "Impossible de poursuivre l’association du compte. Vérifiez les identifiants saisis et réessayez.",
   "The link request is waiting for administrator approval. This page updates automatically.": "La demande d’association attend l’approbation d’un administrateur. Cette page se met à jour automatiquement.",

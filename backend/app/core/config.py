@@ -107,6 +107,7 @@ class LDAPProviderSettings(BaseModel):
     timeout_seconds: float = Field(5.0, gt=0, le=60)
     enabled: bool = True
     allow_insecure: bool = False
+    linking_policy: Literal["manual", "reauthenticate"] = "manual"
 
     normalize_required_strings = field_validator(
         "display_name",

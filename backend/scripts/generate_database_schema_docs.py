@@ -64,7 +64,7 @@ DOMAINS = (
             "refresh_tokens",
             "external_identities",
             "external_identity_link_requests",
-            "oidc_link_attempts",
+            "external_identity_link_attempts",
             "webauthn_credentials",
             "auth_challenges",
             "recovery_codes",

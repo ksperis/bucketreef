@@ -183,8 +183,10 @@ or with nested environment variables:
   linking policy remains `manual` unless `LINKING_POLICY` is configured.
 - `OIDC_STATE_TTL_SECONDS` remains a backend runtime setting and is not editable
   from the UI.
-- `OIDC_LINK_ATTEMPT_TTL_SECONDS` controls the short-lived browser-bound account
-  linking transaction and defaults to 600 seconds (accepted range: 60–1800).
+- `OIDC_LINK_ATTEMPT_TTL_SECONDS` controls the short-lived browser-bound external
+  identity linking transaction and defaults to 600 seconds (accepted range:
+  60–1800). The historical setting name now applies to both OIDC and LDAP link
+  attempts.
 
 Common environment fields:
 
@@ -207,10 +209,12 @@ or with nested environment variables:
 
 - UI-managed LDAP providers are persisted in the `ldap_providers` database
   table. Their `bind_password` value is encrypted with the credential key and
-  is write-only: read APIs return only `has_bind_password`.
+  is write-only: read APIs return only `has_bind_password`. New providers
+  created from the UI default to `linking_policy=reauthenticate`.
 - Environment-managed providers use `LDAP_PROVIDERS__<key>__...` variables.
   They take priority over any UI provider with the same `provider_id` and appear
-  locked/read-only in Admin **Settings > Authentication**.
+  locked/read-only in Admin **Settings > Authentication**. Their default
+  linking policy remains `manual` unless `LINKING_POLICY` is configured.
 
 Common environment fields:
 
@@ -222,6 +226,13 @@ Common environment fields:
 - `LDAP_PROVIDERS__<key>__USER_BASE_DN`
 - `LDAP_PROVIDERS__<key>__USER_FILTER` containing `{username}`
 - optional attributes: `EMAIL_ATTRIBUTE`, `NAME_ATTRIBUTE`, `SUBJECT_ATTRIBUTE`
+- identity linking: `LINKING_POLICY`, accepting `reauthenticate` or `manual`.
+  `reauthenticate` verifies the incoming LDAP credentials, then requires proof
+  of an already-authorized sign-in method on the existing BucketReef account
+  before explicit confirmation. `manual` verifies the incoming LDAP identity
+  and sends the browser-bound transaction directly to administrator approval.
+  The LDAP password used for the incoming authentication is never stored or
+  reused as proof of the existing BucketReef account.
 - TLS and safety knobs: `START_TLS`, `TLS_VERIFY`, `TLS_CA_FILE`,
   `ALLOW_LEGACY_TLS`, `ALLOW_INSECURE`.
   `ALLOW_LEGACY_TLS=true` enables the OpenSSL `DEFAULT` cipher set for a

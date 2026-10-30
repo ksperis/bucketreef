@@ -1039,7 +1039,7 @@
   "Link {provider} to {email}. Existing sessions and personal API tokens will be revoked.": "{provider} mit {email} verknüpfen. Bestehende Sitzungen und persönliche API-Tokens werden widerrufen.",
   "Link account": "Konto verknüpfen",
   "The link request was sent to a superadministrator for approval.": "Die Verknüpfungsanfrage wurde einem Superadministrator zur Genehmigung gesendet.",
-  "The OIDC account is linked. Redirecting…": "Das OIDC-Konto ist verknüpft. Weiterleitung…",
+  "The sign-in account is linked. Redirecting…": "Das Anmeldekonto ist verknüpft. Weiterleitung…",
   "This account-linking request is unavailable or has expired.": "Diese Kontoverknüpfungsanfrage ist nicht verfügbar oder abgelaufen.",
   "Unable to continue account linking. Check the entered credentials and try again.": "Die Kontoverknüpfung konnte nicht fortgesetzt werden. Prüfen Sie die eingegebenen Zugangsdaten und versuchen Sie es erneut.",
   "The link request is waiting for administrator approval. This page updates automatically.": "Die Verknüpfungsanfrage wartet auf die Genehmigung durch einen Administrator. Diese Seite wird automatisch aktualisiert.",

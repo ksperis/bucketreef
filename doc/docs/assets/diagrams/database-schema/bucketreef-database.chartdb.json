@@ -3463,7 +3463,7 @@
       "name": "browser_favorites",
       "schema": null,
       "x": 1320,
-      "y": 1934,
+      "y": 1964,
       "fields": [
         {
           "id": "field:browser_favorites.id",
@@ -3738,7 +3738,7 @@
       "name": "audit_logs",
       "schema": null,
       "x": 900,
-      "y": 8176,
+      "y": 8236,
       "fields": [
         {
           "id": "field:audit_logs.id",
@@ -4236,7 +4236,7 @@
       "name": "s3_sessions",
       "schema": null,
       "x": 60,
-      "y": 2806,
+      "y": 2836,
       "fields": [
         {
           "id": "field:s3_sessions.id",
@@ -6225,11 +6225,571 @@
       "parentAreaId": "area:identity-ui-access"
     },
     {
+      "id": "table:external_identity_link_attempts",
+      "name": "external_identity_link_attempts",
+      "schema": null,
+      "x": 60,
+      "y": 1168,
+      "fields": [
+        {
+          "id": "field:external_identity_link_attempts.id",
+          "name": "id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.user_id",
+          "name": "user_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.provider_type",
+          "name": "provider_type",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.provider_id",
+          "name": "provider_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.issuer",
+          "name": "issuer",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.subject",
+          "name": "subject",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.email",
+          "name": "email",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.email_verified",
+          "name": "email_verified",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.display_name",
+          "name": "display_name",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.picture_url",
+          "name": "picture_url",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.source",
+          "name": "source",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.browser_secret_hash",
+          "name": "browser_secret_hash",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.initiating_auth_session_id",
+          "name": "initiating_auth_session_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.existing_identity_id",
+          "name": "existing_identity_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.proof_method",
+          "name": "proof_method",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.proof_verified_at",
+          "name": "proof_verified_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.mfa_verified_at",
+          "name": "mfa_verified_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.status",
+          "name": "status",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "pending",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.redirect_path",
+          "name": "redirect_path",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.created_at",
+          "name": "created_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.expires_at",
+          "name": "expires_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_attempts.consumed_at",
+          "name": "consumed_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:external_identity_link_attempts:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:external_identity_link_attempts.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        },
+        {
+          "id": "index:external_identity_link_attempts:ix_external_identity_link_attempts_consumed_at",
+          "name": "ix_external_identity_link_attempts_consumed_at",
+          "unique": false,
+          "fieldIds": [
+            "field:external_identity_link_attempts.consumed_at"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:external_identity_link_attempts:ix_external_identity_link_attempts_existing_identity_id",
+          "name": "ix_external_identity_link_attempts_existing_identity_id",
+          "unique": false,
+          "fieldIds": [
+            "field:external_identity_link_attempts.existing_identity_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:external_identity_link_attempts:ix_external_identity_link_attempts_expires_at",
+          "name": "ix_external_identity_link_attempts_expires_at",
+          "unique": false,
+          "fieldIds": [
+            "field:external_identity_link_attempts.expires_at"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:external_identity_link_attempts:ix_external_identity_link_attempts_initiating_auth_session_id",
+          "name": "ix_external_identity_link_attempts_initiating_auth_session_id",
+          "unique": false,
+          "fieldIds": [
+            "field:external_identity_link_attempts.initiating_auth_session_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:external_identity_link_attempts:ix_external_identity_link_attempts_status",
+          "name": "ix_external_identity_link_attempts_status",
+          "unique": false,
+          "fieldIds": [
+            "field:external_identity_link_attempts.status"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:external_identity_link_attempts:ix_external_identity_link_attempts_user_id",
+          "name": "ix_external_identity_link_attempts_user_id",
+          "unique": false,
+          "fieldIds": [
+            "field:external_identity_link_attempts.user_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#4F46E5",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 15,
+      "expanded": true,
+      "parentAreaId": "area:identity-ui-access"
+    },
+    {
       "id": "table:webauthn_credentials",
       "name": "webauthn_credentials",
       "schema": null,
       "x": 480,
-      "y": 2806,
+      "y": 2836,
       "fields": [
         {
           "id": "field:webauthn_credentials.id",
@@ -6495,7 +7055,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 15,
+      "order": 16,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -6504,7 +7064,7 @@
       "name": "auth_challenges",
       "schema": null,
       "x": 900,
-      "y": 1934,
+      "y": 1964,
       "fields": [
         {
           "id": "field:auth_challenges.id",
@@ -6771,7 +7331,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 16,
+      "order": 17,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -6780,7 +7340,7 @@
       "name": "recovery_codes",
       "schema": null,
       "x": 1320,
-      "y": 2400,
+      "y": 2430,
       "fields": [
         {
           "id": "field:recovery_codes.id",
@@ -6941,7 +7501,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 17,
+      "order": 18,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -6950,7 +7510,7 @@
       "name": "auth_rate_limits",
       "schema": null,
       "x": 900,
-      "y": 2806,
+      "y": 2836,
       "fields": [
         {
           "id": "field:auth_rate_limits.id",
@@ -7101,7 +7661,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 18,
+      "order": 19,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -7110,7 +7670,7 @@
       "name": "api_tokens",
       "schema": null,
       "x": 480,
-      "y": 1934,
+      "y": 1964,
       "fields": [
         {
           "id": "field:api_tokens.id",
@@ -7419,7 +7979,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 19,
+      "order": 20,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -7494,7 +8054,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 20,
+      "order": 21,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -7569,7 +8129,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 21,
+      "order": 22,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -7822,7 +8382,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 22,
+      "order": 23,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -8015,7 +8575,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 23,
+      "order": 24,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -8207,7 +8767,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 24,
+      "order": 25,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -8494,7 +9054,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 25,
+      "order": 26,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -8728,7 +9288,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 26,
+      "order": 27,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -9242,7 +9802,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 27,
+      "order": 28,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -9393,7 +9953,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 28,
+      "order": 29,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -10075,7 +10635,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 29,
+      "order": 30,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -10247,7 +10807,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 30,
+      "order": 31,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -10730,7 +11290,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 31,
+      "order": 32,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -11268,7 +11828,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 32,
+      "order": 33,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -11277,7 +11837,7 @@
       "name": "user_ui_groups",
       "schema": null,
       "x": 60,
-      "y": 1934,
+      "y": 1964,
       "fields": [
         {
           "id": "field:user_ui_groups.id",
@@ -11419,7 +11979,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 33,
+      "order": 34,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -11675,7 +12235,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 34,
+      "order": 35,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -11826,7 +12386,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 35,
+      "order": 36,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -11998,7 +12558,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 36,
+      "order": 37,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -12007,7 +12567,7 @@
       "name": "tag_definitions",
       "schema": null,
       "x": 60,
-      "y": 4620,
+      "y": 4680,
       "fields": [
         {
           "id": "field:tag_definitions.id",
@@ -12267,7 +12827,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 37,
+      "order": 38,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -12276,7 +12836,7 @@
       "name": "bucket_ui_tag_assignments",
       "schema": null,
       "x": 480,
-      "y": 4620,
+      "y": 4680,
       "fields": [
         {
           "id": "field:bucket_ui_tag_assignments.id",
@@ -12506,7 +13066,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 38,
+      "order": 39,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -12515,7 +13075,7 @@
       "name": "storage_endpoint_tags",
       "schema": null,
       "x": 480,
-      "y": 5342,
+      "y": 5402,
       "fields": [
         {
           "id": "field:storage_endpoint_tags.id",
@@ -12699,7 +13259,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 39,
+      "order": 40,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -12708,7 +13268,7 @@
       "name": "s3_account_tags",
       "schema": null,
       "x": 60,
-      "y": 5026,
+      "y": 5086,
       "fields": [
         {
           "id": "field:s3_account_tags.id",
@@ -12892,7 +13452,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 40,
+      "order": 41,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -12901,7 +13461,7 @@
       "name": "s3_user_tags",
       "schema": null,
       "x": 60,
-      "y": 5342,
+      "y": 5402,
       "fields": [
         {
           "id": "field:s3_user_tags.id",
@@ -13085,7 +13645,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 41,
+      "order": 42,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -13094,7 +13654,7 @@
       "name": "s3_connection_tags",
       "schema": null,
       "x": 480,
-      "y": 5026,
+      "y": 5086,
       "fields": [
         {
           "id": "field:s3_connection_tags.id",
@@ -13278,7 +13838,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 42,
+      "order": 43,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -13287,7 +13847,7 @@
       "name": "ldap_providers",
       "schema": null,
       "x": 1320,
-      "y": 2806,
+      "y": 2836,
       "fields": [
         {
           "id": "field:ldap_providers.id",
@@ -13668,6 +14228,27 @@
           "check": null
         },
         {
+          "id": "field:ldap_providers.linking_policy",
+          "name": "linking_policy",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "manual",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:ldap_providers.created_at",
           "name": "created_at",
           "type": {
@@ -13752,7 +14333,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 43,
+      "order": 44,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -14144,7 +14725,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 44,
+      "order": 45,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -14153,7 +14734,7 @@
       "name": "oidc_authorization_codes",
       "schema": null,
       "x": 60,
-      "y": 3542,
+      "y": 3602,
       "fields": [
         {
           "id": "field:oidc_authorization_codes.id",
@@ -14314,7 +14895,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 45,
+      "order": 46,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -14323,7 +14904,7 @@
       "name": "oidc_providers",
       "schema": null,
       "x": 900,
-      "y": 3542,
+      "y": 3602,
       "fields": [
         {
           "id": "field:oidc_providers.id",
@@ -14725,7 +15306,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 46,
+      "order": 47,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -14734,7 +15315,7 @@
       "name": "oidc_provider_issuer_pins",
       "schema": null,
       "x": 480,
-      "y": 3542,
+      "y": 3602,
       "fields": [
         {
           "id": "field:oidc_provider_issuer_pins.provider_id",
@@ -14852,545 +15433,6 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 47,
-      "expanded": true,
-      "parentAreaId": "area:identity-ui-access"
-    },
-    {
-      "id": "table:oidc_link_attempts",
-      "name": "oidc_link_attempts",
-      "schema": null,
-      "x": 60,
-      "y": 1168,
-      "fields": [
-        {
-          "id": "field:oidc_link_attempts.id",
-          "name": "id",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": true,
-          "unique": true,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.user_id",
-          "name": "user_id",
-          "type": {
-            "id": "integer",
-            "name": "integer"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.provider_id",
-          "name": "provider_id",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.issuer",
-          "name": "issuer",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.subject",
-          "name": "subject",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.email",
-          "name": "email",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.email_verified",
-          "name": "email_verified",
-          "type": {
-            "id": "boolean",
-            "name": "boolean"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": "0",
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.display_name",
-          "name": "display_name",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.picture_url",
-          "name": "picture_url",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.source",
-          "name": "source",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.browser_secret_hash",
-          "name": "browser_secret_hash",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.initiating_auth_session_id",
-          "name": "initiating_auth_session_id",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.existing_identity_id",
-          "name": "existing_identity_id",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.proof_method",
-          "name": "proof_method",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.proof_verified_at",
-          "name": "proof_verified_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.mfa_verified_at",
-          "name": "mfa_verified_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.status",
-          "name": "status",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": "pending",
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.redirect_path",
-          "name": "redirect_path",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.created_at",
-          "name": "created_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.expires_at",
-          "name": "expires_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:oidc_link_attempts.consumed_at",
-          "name": "consumed_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        }
-      ],
-      "indexes": [
-        {
-          "id": "index:oidc_link_attempts:primary-key",
-          "name": "",
-          "unique": true,
-          "fieldIds": [
-            "field:oidc_link_attempts.id"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": true,
-          "comments": null
-        },
-        {
-          "id": "index:oidc_link_attempts:ix_oidc_link_attempts_consumed_at",
-          "name": "ix_oidc_link_attempts_consumed_at",
-          "unique": false,
-          "fieldIds": [
-            "field:oidc_link_attempts.consumed_at"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        },
-        {
-          "id": "index:oidc_link_attempts:ix_oidc_link_attempts_existing_identity_id",
-          "name": "ix_oidc_link_attempts_existing_identity_id",
-          "unique": false,
-          "fieldIds": [
-            "field:oidc_link_attempts.existing_identity_id"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        },
-        {
-          "id": "index:oidc_link_attempts:ix_oidc_link_attempts_expires_at",
-          "name": "ix_oidc_link_attempts_expires_at",
-          "unique": false,
-          "fieldIds": [
-            "field:oidc_link_attempts.expires_at"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        },
-        {
-          "id": "index:oidc_link_attempts:ix_oidc_link_attempts_initiating_auth_session_id",
-          "name": "ix_oidc_link_attempts_initiating_auth_session_id",
-          "unique": false,
-          "fieldIds": [
-            "field:oidc_link_attempts.initiating_auth_session_id"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        },
-        {
-          "id": "index:oidc_link_attempts:ix_oidc_link_attempts_status",
-          "name": "ix_oidc_link_attempts_status",
-          "unique": false,
-          "fieldIds": [
-            "field:oidc_link_attempts.status"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        },
-        {
-          "id": "index:oidc_link_attempts:ix_oidc_link_attempts_user_id",
-          "name": "ix_oidc_link_attempts_user_id",
-          "unique": false,
-          "fieldIds": [
-            "field:oidc_link_attempts.user_id"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        }
-      ],
-      "checkConstraints": [],
-      "color": "#4F46E5",
-      "isView": false,
-      "isMaterializedView": false,
-      "createdAt": 0,
-      "width": 360,
-      "comments": null,
       "order": 48,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
@@ -15400,7 +15442,7 @@
       "name": "cost_usage_daily",
       "schema": null,
       "x": 2520,
-      "y": 6840,
+      "y": 6900,
       "fields": [
         {
           "id": "field:cost_usage_daily.id",
@@ -15787,7 +15829,7 @@
       "name": "cost_storage_daily",
       "schema": null,
       "x": 2100,
-      "y": 6840,
+      "y": 6900,
       "fields": [
         {
           "id": "field:cost_storage_daily.id",
@@ -16153,7 +16195,7 @@
       "name": "cost_models",
       "schema": null,
       "x": 2520,
-      "y": 8418,
+      "y": 8478,
       "fields": [
         {
           "id": "field:cost_models.id",
@@ -16379,7 +16421,7 @@
       "name": "cost_endpoint_overrides",
       "schema": null,
       "x": 2940,
-      "y": 7306,
+      "y": 7366,
       "fields": [
         {
           "id": "field:cost_endpoint_overrides.id",
@@ -16633,7 +16675,7 @@
       "name": "quota_usage_hourly",
       "schema": null,
       "x": 2520,
-      "y": 7306,
+      "y": 7366,
       "fields": [
         {
           "id": "field:quota_usage_hourly.id",
@@ -17030,7 +17072,7 @@
       "name": "quota_usage_daily",
       "schema": null,
       "x": 2100,
-      "y": 7306,
+      "y": 7366,
       "fields": [
         {
           "id": "field:quota_usage_daily.id",
@@ -17406,7 +17448,7 @@
       "name": "quota_alert_states",
       "schema": null,
       "x": 2940,
-      "y": 6840,
+      "y": 6900,
       "fields": [
         {
           "id": "field:quota_alert_states.id",
@@ -17683,7 +17725,7 @@
       "name": "user_notifications",
       "schema": null,
       "x": 480,
-      "y": 6840,
+      "y": 6900,
       "fields": [
         {
           "id": "field:user_notifications.id",
@@ -18146,7 +18188,7 @@
       "name": "endpoint_health_checks",
       "schema": null,
       "x": 2100,
-      "y": 7802,
+      "y": 7862,
       "fields": [
         {
           "id": "field:endpoint_health_checks.id",
@@ -18392,7 +18434,7 @@
       "name": "endpoint_health_latest",
       "schema": null,
       "x": 2520,
-      "y": 7802,
+      "y": 7862,
       "fields": [
         {
           "id": "field:endpoint_health_latest.id",
@@ -18832,7 +18874,7 @@
       "name": "endpoint_health_status_segments",
       "schema": null,
       "x": 2100,
-      "y": 8418,
+      "y": 8478,
       "fields": [
         {
           "id": "field:endpoint_health_status_segments.id",
@@ -19231,7 +19273,7 @@
       "name": "endpoint_health_rollups",
       "schema": null,
       "x": 2940,
-      "y": 7802,
+      "y": 7862,
       "fields": [
         {
           "id": "field:endpoint_health_rollups.id",
@@ -19653,7 +19695,7 @@
       "name": "bucket_migrations",
       "schema": null,
       "x": 60,
-      "y": 6840,
+      "y": 6900,
       "fields": [
         {
           "id": "field:bucket_migrations.execution_auth_session_id",
@@ -20682,7 +20724,7 @@
       "name": "bucket_migration_items",
       "schema": null,
       "x": 60,
-      "y": 8176,
+      "y": 8236,
       "fields": [
         {
           "id": "field:bucket_migration_items.id",
@@ -21507,7 +21549,7 @@
       "name": "bucket_migration_events",
       "schema": null,
       "x": 900,
-      "y": 6840,
+      "y": 6900,
       "fields": [
         {
           "id": "field:bucket_migration_events.id",
@@ -21754,7 +21796,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 9918,
+      "y": 9978,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -22338,7 +22380,7 @@
       "name": "portal_storage_space_metadata",
       "schema": null,
       "x": 2520,
-      "y": 4620,
+      "y": 4680,
       "fields": [
         {
           "id": "field:portal_storage_space_metadata.id",
@@ -22882,7 +22924,7 @@
       "name": "portal_storage_space_grants",
       "schema": null,
       "x": 2520,
-      "y": 5386,
+      "y": 5446,
       "fields": [
         {
           "id": "field:portal_storage_space_grants.id",
@@ -23112,7 +23154,7 @@
       "name": "portal_public_links",
       "schema": null,
       "x": 2520,
-      "y": 5942,
+      "y": 6002,
       "fields": [
         {
           "id": "field:portal_public_links.id",
@@ -23420,7 +23462,7 @@
       "name": "portal_external_access_credentials",
       "schema": null,
       "x": 2100,
-      "y": 5386,
+      "y": 5446,
       "fields": [
         {
           "id": "field:portal_external_access_credentials.id",
@@ -23834,7 +23876,7 @@
       "name": "portal_admin_requests",
       "schema": null,
       "x": 2100,
-      "y": 4620,
+      "y": 4680,
       "fields": [
         {
           "id": "field:portal_admin_requests.id",
@@ -24219,7 +24261,7 @@
       "name": "portal_admin_request_messages",
       "schema": null,
       "x": 2100,
-      "y": 5942,
+      "y": 6002,
       "fields": [
         {
           "id": "field:portal_admin_request_messages.id",
@@ -24433,7 +24475,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 9918,
+      "y": 9978,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -24581,7 +24623,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9332,
+      "y": 9392,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -24697,7 +24739,7 @@
       "name": "first_admin_bootstrap",
       "schema": null,
       "x": 60,
-      "y": 2400,
+      "y": 2430,
       "fields": [
         {
           "id": "field:first_admin_bootstrap.id",
@@ -24840,7 +24882,7 @@
       "name": "onboarding_preferences",
       "schema": null,
       "x": 900,
-      "y": 2400,
+      "y": 2430,
       "fields": [
         {
           "id": "field:onboarding_preferences.user_id",
@@ -24956,7 +24998,7 @@
       "name": "onboarding_journeys",
       "schema": null,
       "x": 480,
-      "y": 2400,
+      "y": 2430,
       "fields": [
         {
           "id": "field:onboarding_journeys.id",
@@ -25188,7 +25230,7 @@
       "name": "webhook_endpoints",
       "schema": null,
       "x": 480,
-      "y": 8176,
+      "y": 8236,
       "fields": [
         {
           "id": "field:webhook_endpoints.id",
@@ -25401,7 +25443,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9332,
+      "y": 9392,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -25542,7 +25584,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9332,
+      "y": 9392,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -26260,6 +26302,45 @@
       "createdAt": 0
     },
     {
+      "id": "relationship:external_identity_link_attempts.user_id->users.id",
+      "name": "fk_external_identity_link_attempts_user_id_users_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:external_identity_link_attempts",
+      "targetSchema": null,
+      "targetTableId": "table:users",
+      "sourceFieldId": "field:external_identity_link_attempts.user_id",
+      "targetFieldId": "field:users.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:external_identity_link_attempts.initiating_auth_session_id->auth_sessions.id",
+      "name": "fk_external_identity_link_attempts_initiating_auth_session_id_auth_sessions_id [ON DELETE SET NULL]",
+      "sourceSchema": null,
+      "sourceTableId": "table:external_identity_link_attempts",
+      "targetSchema": null,
+      "targetTableId": "table:auth_sessions",
+      "sourceFieldId": "field:external_identity_link_attempts.initiating_auth_session_id",
+      "targetFieldId": "field:auth_sessions.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:external_identity_link_attempts.existing_identity_id->external_identities.id",
+      "name": "fk_external_identity_link_attempts_existing_identity_id_external_identities_id [ON DELETE SET NULL]",
+      "sourceSchema": null,
+      "sourceTableId": "table:external_identity_link_attempts",
+      "targetSchema": null,
+      "targetTableId": "table:external_identities",
+      "sourceFieldId": "field:external_identity_link_attempts.existing_identity_id",
+      "targetFieldId": "field:external_identities.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
       "id": "relationship:webauthn_credentials.user_id->users.id",
       "name": "fk_webauthn_credentials_user_id_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
@@ -26832,14 +26913,14 @@
       "createdAt": 0
     },
     {
-      "id": "relationship:oidc_login_states.link_attempt_id->oidc_link_attempts.id",
-      "name": "fk_oidc_login_states_link_attempt_id_oidc_link_attempts_id [ON DELETE CASCADE]",
+      "id": "relationship:oidc_login_states.link_attempt_id->external_identity_link_attempts.id",
+      "name": "fk_oidc_login_states_link_attempt_id_external_identity_link_attempts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:oidc_login_states",
       "targetSchema": null,
-      "targetTableId": "table:oidc_link_attempts",
+      "targetTableId": "table:external_identity_link_attempts",
       "sourceFieldId": "field:oidc_login_states.link_attempt_id",
-      "targetFieldId": "field:oidc_link_attempts.id",
+      "targetFieldId": "field:external_identity_link_attempts.id",
       "sourceCardinality": "many",
       "targetCardinality": "one",
       "createdAt": 0
@@ -26853,45 +26934,6 @@
       "targetTableId": "table:auth_sessions",
       "sourceFieldId": "field:oidc_login_states.auth_session_id",
       "targetFieldId": "field:auth_sessions.id",
-      "sourceCardinality": "many",
-      "targetCardinality": "one",
-      "createdAt": 0
-    },
-    {
-      "id": "relationship:oidc_link_attempts.user_id->users.id",
-      "name": "fk_oidc_link_attempts_user_id_users_id [ON DELETE CASCADE]",
-      "sourceSchema": null,
-      "sourceTableId": "table:oidc_link_attempts",
-      "targetSchema": null,
-      "targetTableId": "table:users",
-      "sourceFieldId": "field:oidc_link_attempts.user_id",
-      "targetFieldId": "field:users.id",
-      "sourceCardinality": "many",
-      "targetCardinality": "one",
-      "createdAt": 0
-    },
-    {
-      "id": "relationship:oidc_link_attempts.initiating_auth_session_id->auth_sessions.id",
-      "name": "fk_oidc_link_attempts_initiating_auth_session_id_auth_sessions_id [ON DELETE SET NULL]",
-      "sourceSchema": null,
-      "sourceTableId": "table:oidc_link_attempts",
-      "targetSchema": null,
-      "targetTableId": "table:auth_sessions",
-      "sourceFieldId": "field:oidc_link_attempts.initiating_auth_session_id",
-      "targetFieldId": "field:auth_sessions.id",
-      "sourceCardinality": "many",
-      "targetCardinality": "one",
-      "createdAt": 0
-    },
-    {
-      "id": "relationship:oidc_link_attempts.existing_identity_id->external_identities.id",
-      "name": "fk_oidc_link_attempts_existing_identity_id_external_identities_id [ON DELETE SET NULL]",
-      "sourceSchema": null,
-      "sourceTableId": "table:oidc_link_attempts",
-      "targetSchema": null,
-      "targetTableId": "table:external_identities",
-      "sourceFieldId": "field:oidc_link_attempts.existing_identity_id",
-      "targetFieldId": "field:external_identities.id",
       "sourceCardinality": "many",
       "targetCardinality": "one",
       "createdAt": 0
@@ -27555,7 +27597,7 @@
       "x": 0,
       "y": 0,
       "width": 1740,
-      "height": 4188,
+      "height": 4248,
       "color": "#4F46E5",
       "order": 0
     },
@@ -27573,7 +27615,7 @@
       "id": "area:tags-classification",
       "name": "Tags and classification",
       "x": 0,
-      "y": 4488,
+      "y": 4548,
       "width": 900,
       "height": 1170,
       "color": "#7C3AED",
@@ -27583,7 +27625,7 @@
       "id": "area:portal",
       "name": "Portal",
       "x": 2040,
-      "y": 4488,
+      "y": 4548,
       "width": 900,
       "height": 1920,
       "color": "#2563EB",
@@ -27593,7 +27635,7 @@
       "id": "area:operations-audit",
       "name": "Operations and audit",
       "x": 0,
-      "y": 6708,
+      "y": 6768,
       "width": 1320,
       "height": 4066,
       "color": "#D97706",
@@ -27603,7 +27645,7 @@
       "id": "area:observability-quota-cost",
       "name": "Observability quota and cost",
       "x": 2040,
-      "y": 6708,
+      "y": 6768,
       "width": 1320,
       "height": 2236,
       "color": "#059669",

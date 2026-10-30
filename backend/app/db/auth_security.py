@@ -137,6 +137,43 @@ class ExternalIdentityLinkRequest(Base):
     decision_source = Column(String, nullable=True)
 
 
+class ExternalIdentityLinkAttempt(Base):
+    __tablename__ = "external_identity_link_attempts"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider_type = Column(String, nullable=False)
+    provider_id = Column(String, nullable=False)
+    issuer = Column(String, nullable=True)
+    subject = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    email_verified = Column(Boolean, nullable=False, default=False, server_default="0")
+    display_name = Column(String, nullable=True)
+    picture_url = Column(String, nullable=True)
+    source = Column(String, nullable=False)
+    browser_secret_hash = Column(String, nullable=False)
+    initiating_auth_session_id = Column(
+        String,
+        ForeignKey("auth_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    existing_identity_id = Column(
+        String,
+        ForeignKey("external_identities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    proof_method = Column(String, nullable=True)
+    proof_verified_at = Column(UTCDateTime(), nullable=True)
+    mfa_verified_at = Column(UTCDateTime(), nullable=True)
+    status = Column(String, nullable=False, default="pending", server_default="pending", index=True)
+    redirect_path = Column(String, nullable=True)
+    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+    expires_at = Column(UTCDateTime(), nullable=False, index=True)
+    consumed_at = Column(UTCDateTime(), nullable=True, index=True)
+
+
 class WebAuthnCredential(Base):
     __tablename__ = "webauthn_credentials"
 

@@ -75,7 +75,7 @@ export default function OidcCallbackPage() {
           return;
         }
         if (res.status === "link_reauthentication_required" && res.link_attempt_id) {
-          navigate(`/oidc/link/${encodeURIComponent(res.link_attempt_id)}`, { replace: true });
+          navigate(`/identity/link/${encodeURIComponent(res.link_attempt_id)}`, { replace: true });
           return;
         }
         if (!res.user) throw new Error(translate(authMessages.oidcSessionMissingUser));

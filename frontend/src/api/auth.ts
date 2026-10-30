@@ -146,24 +146,25 @@ type OidcStartResponse = {
   state: string;
 };
 
-export type OidcLinkProofMethod = {
+export type ExternalIdentityLinkProofMethod = {
   type: "password" | "ldap" | "oidc";
   provider_id: string | null;
   display_name: string | null;
 };
 
-export type OidcLinkStatus = {
+export type ExternalIdentityLinkStatus = {
   attempt_id: string;
   target_email: string;
+  provider_type: "oidc" | "ldap";
   provider_id: string;
   source: "login_collision" | "profile";
-  stage: "oidc" | "proof" | "mfa" | "mfa_enrollment" | "confirm" | "admin_requested" | "admin_approved" | "admin_rejected" | "completed";
-  proof_methods: OidcLinkProofMethod[];
+  stage: "identity" | "proof" | "mfa" | "mfa_enrollment" | "confirm" | "admin_requested" | "admin_approved" | "admin_rejected" | "completed";
+  proof_methods: ExternalIdentityLinkProofMethod[];
   expires_at: string;
 };
 
-type OidcLinkMfaRegistrationResult = {
-  status: OidcLinkStatus;
+type ExternalIdentityLinkMfaRegistrationResult = {
+  status: ExternalIdentityLinkStatus;
   recovery_codes: string[];
 };
 
@@ -191,91 +192,91 @@ export async function completeOidcLogin(
   return data;
 }
 
-export async function fetchOidcLinkStatus(attemptId: string): Promise<OidcLinkStatus> {
-  const { data } = await client.get<OidcLinkStatus>(`/auth/oidc/link/${encodeURIComponent(attemptId)}`);
+export async function fetchExternalIdentityLinkStatus(attemptId: string): Promise<ExternalIdentityLinkStatus> {
+  const { data } = await client.get<ExternalIdentityLinkStatus>(`/auth/identity/link/${encodeURIComponent(attemptId)}`);
   return data;
 }
 
-export async function verifyOidcLinkPassword(attemptId: string, password: string): Promise<OidcLinkStatus> {
-  const { data } = await client.post<OidcLinkStatus>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/proof/password`,
+export async function verifyExternalIdentityLinkPassword(attemptId: string, password: string): Promise<ExternalIdentityLinkStatus> {
+  const { data } = await client.post<ExternalIdentityLinkStatus>(
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/proof/password`,
     { password },
   );
   return data;
 }
 
-export async function verifyOidcLinkLdap(
+export async function verifyExternalIdentityLinkLdap(
   attemptId: string,
   providerId: string,
   username: string,
   password: string,
-): Promise<OidcLinkStatus> {
-  const { data } = await client.post<OidcLinkStatus>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/proof/ldap`,
+): Promise<ExternalIdentityLinkStatus> {
+  const { data } = await client.post<ExternalIdentityLinkStatus>(
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/proof/ldap`,
     { provider_id: providerId, username, password },
   );
   return data;
 }
 
-export async function startOidcLinkProof(attemptId: string, providerId: string): Promise<OidcStartResponse> {
+export async function startExternalIdentityLinkOidcProof(attemptId: string, providerId: string): Promise<OidcStartResponse> {
   const { data } = await client.post<OidcStartResponse>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/proof/oidc/${encodeURIComponent(providerId)}/start`,
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/proof/oidc/${encodeURIComponent(providerId)}/start`,
   );
   return data;
 }
 
-export async function beginOidcLinkWebAuthnAuthentication(attemptId: string): Promise<Record<string, unknown> & { challenge: string }> {
+export async function beginExternalIdentityLinkWebAuthnAuthentication(attemptId: string): Promise<Record<string, unknown> & { challenge: string }> {
   const { data } = await client.post<Record<string, unknown> & { challenge: string }>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/authentication/options`,
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/webauthn/authentication/options`,
   );
   return data;
 }
 
-export async function finishOidcLinkWebAuthnAuthentication(attemptId: string, credential: unknown): Promise<OidcLinkStatus> {
-  const { data } = await client.post<OidcLinkStatus>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/authentication/verify`,
+export async function finishExternalIdentityLinkWebAuthnAuthentication(attemptId: string, credential: unknown): Promise<ExternalIdentityLinkStatus> {
+  const { data } = await client.post<ExternalIdentityLinkStatus>(
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/webauthn/authentication/verify`,
     { credential },
   );
   return data;
 }
 
-export async function verifyOidcLinkRecoveryCode(attemptId: string, code: string): Promise<OidcLinkStatus> {
-  const { data } = await client.post<OidcLinkStatus>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/recovery/verify`,
+export async function verifyExternalIdentityLinkRecoveryCode(attemptId: string, code: string): Promise<ExternalIdentityLinkStatus> {
+  const { data } = await client.post<ExternalIdentityLinkStatus>(
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/recovery/verify`,
     { code },
   );
   return data;
 }
 
-export async function beginOidcLinkWebAuthnRegistration(attemptId: string): Promise<Record<string, unknown> & { challenge: string }> {
+export async function beginExternalIdentityLinkWebAuthnRegistration(attemptId: string): Promise<Record<string, unknown> & { challenge: string }> {
   const { data } = await client.post<Record<string, unknown> & { challenge: string }>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/registration/options`,
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/webauthn/registration/options`,
   );
   return data;
 }
 
-export async function finishOidcLinkWebAuthnRegistration(
+export async function finishExternalIdentityLinkWebAuthnRegistration(
   attemptId: string,
   credential: unknown,
   name = "Passkey",
-): Promise<OidcLinkMfaRegistrationResult> {
-  const { data } = await client.post<OidcLinkMfaRegistrationResult>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/registration/verify`,
+): Promise<ExternalIdentityLinkMfaRegistrationResult> {
+  const { data } = await client.post<ExternalIdentityLinkMfaRegistrationResult>(
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/webauthn/registration/verify`,
     { credential, name },
   );
   return data;
 }
 
-export async function requestOidcLinkAdminApproval(attemptId: string): Promise<OidcLinkStatus> {
-  const { data } = await client.post<OidcLinkStatus>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/request-admin`,
+export async function requestExternalIdentityLinkAdminApproval(attemptId: string): Promise<ExternalIdentityLinkStatus> {
+  const { data } = await client.post<ExternalIdentityLinkStatus>(
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/request-admin`,
   );
   return data;
 }
 
-export async function confirmOidcLink(attemptId: string): Promise<OidcLinkStatus> {
-  const { data } = await client.post<OidcLinkStatus>(
-    `/auth/oidc/link/${encodeURIComponent(attemptId)}/confirm`,
+export async function confirmExternalIdentityLink(attemptId: string): Promise<ExternalIdentityLinkStatus> {
+  const { data } = await client.post<ExternalIdentityLinkStatus>(
+    `/auth/identity/link/${encodeURIComponent(attemptId)}/confirm`,
   );
   return data;
 }

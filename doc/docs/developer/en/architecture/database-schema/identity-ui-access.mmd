@@ -143,11 +143,12 @@ erDiagram
         varchar decision_reason
         varchar decision_source
     }
-    oidc_link_attempts {
+    external_identity_link_attempts {
         varchar id PK "NN"
         integer user_id FK "NN"
+        varchar provider_type "NN"
         varchar provider_id "NN"
-        varchar issuer "NN"
+        varchar issuer
         varchar subject
         varchar email
         boolean email_verified "NN; default=0"
@@ -295,6 +296,7 @@ erDiagram
         float timeout_seconds "NN"
         boolean enabled "NN"
         boolean allow_insecure "NN"
+        varchar linking_policy "NN; default=manual"
         datetime created_at "NN"
         datetime updated_at "NN"
     }
@@ -339,15 +341,15 @@ erDiagram
     external_identities }o--|| users : "user_id to id; ON DELETE CASCADE"
     external_identity_link_requests }o--|| users : "user_id to id; ON DELETE CASCADE"
     external_identity_link_requests }o--o| users : "decided_by_user_id to id; ON DELETE SET NULL"
-    oidc_link_attempts }o--|| users : "user_id to id; ON DELETE CASCADE"
-    oidc_link_attempts }o--o| auth_sessions : "initiating_auth_session_id to id; ON DELETE SET NULL"
-    oidc_link_attempts }o--o| external_identities : "existing_identity_id to id; ON DELETE SET NULL"
+    external_identity_link_attempts }o--|| users : "user_id to id; ON DELETE CASCADE"
+    external_identity_link_attempts }o--o| auth_sessions : "initiating_auth_session_id to id; ON DELETE SET NULL"
+    external_identity_link_attempts }o--o| external_identities : "existing_identity_id to id; ON DELETE SET NULL"
     webauthn_credentials }o--|| users : "user_id to id; ON DELETE CASCADE"
     auth_challenges }o--|| users : "user_id to id; ON DELETE CASCADE"
     recovery_codes }o--|| users : "user_id to id; ON DELETE CASCADE"
     first_admin_bootstrap }o--o| users : "created_user_id to id; ON DELETE SET NULL"
     oidc_login_states }o--o| users : "target_user_id to id; ON DELETE CASCADE"
-    oidc_login_states }o--o| oidc_link_attempts : "link_attempt_id to id; ON DELETE CASCADE"
+    oidc_login_states }o--o| external_identity_link_attempts : "link_attempt_id to id; ON DELETE CASCADE"
     oidc_login_states }o--o| auth_sessions : "auth_session_id to id; ON DELETE SET NULL"
     browser_favorites }o--|| users : "user_id to id; ON DELETE CASCADE"
     onboarding_preferences o|--|| users : "user_id to id; ON DELETE CASCADE"

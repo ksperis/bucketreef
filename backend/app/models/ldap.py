@@ -32,6 +32,7 @@ LDAP_PROVIDER_CONFIG_FIELDS = (
     "timeout_seconds",
     "enabled",
     "allow_insecure",
+    "linking_policy",
 )
 
 
@@ -77,6 +78,7 @@ class LDAPProviderAdminItem(ApiModel):
     timeout_seconds: float
     enabled: bool
     allow_insecure: bool
+    linking_policy: Literal["manual", "reauthenticate"] = "manual"
     source: Literal["environment", "ui"]
     editable: bool
     field_locks: dict[str, LDAPProviderFieldLock]
@@ -101,6 +103,7 @@ class LDAPProviderAdminPayload(ApiModel):
     timeout_seconds: float = Field(..., gt=0, le=60)
     enabled: bool
     allow_insecure: bool
+    linking_policy: Literal["manual", "reauthenticate"] = "manual"
     clear_bind_password: bool = False
 
     normalize_provider_id = field_validator("provider_id", mode="before")(normalize_identity_provider_id)

@@ -35,8 +35,8 @@ describe("SessionProvider OIDC bootstrap", () => {
   it("recognizes only provider callback paths", () => {
     expect(shouldBootstrapSession("/oidc/google/callback")).toBe(false);
     expect(shouldBootstrapSession("/oidc/google/callback/")).toBe(false);
-    expect(shouldBootstrapSession("/oidc/link/attempt-1")).toBe(false);
-    expect(shouldBootstrapSession("/oidc/link/attempt-1/")).toBe(false);
+    expect(shouldBootstrapSession("/identity/link/attempt-1")).toBe(false);
+    expect(shouldBootstrapSession("/identity/link/attempt-1/")).toBe(false);
     expect(shouldBootstrapSession("/setup/first-admin")).toBe(false);
     expect(shouldBootstrapSession("/oidc/google/start")).toBe(true);
     expect(shouldBootstrapSession("/login")).toBe(true);

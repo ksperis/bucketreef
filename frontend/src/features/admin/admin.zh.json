@@ -303,6 +303,7 @@
   "Checking endpoint permissions...": "正在检查端点权限...",
   "Checking endpoint…": "正在检查端点…",
   "Checks in range": "范围内检查次数",
+  "Choose how a validated LDAP identity may link to an existing BucketReef account with the same email.": "选择已验证的 LDAP 身份如何关联到使用相同电子邮件地址的现有 BucketReef 账户。",
   "Choose how new external identities may link to existing local accounts.": "选择新的外部身份如何关联到现有本地账户。",
   "Choose how the endpoint is monitored.": "选择监控此端点的方式。",
   "Choose the provider and how BucketReef reaches it.": "选择提供方以及 BucketReef 访问它的方式。",

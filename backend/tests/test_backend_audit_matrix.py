@@ -135,15 +135,15 @@ def test_backend_audit_matrix_tracks_auth_attempt_delegation():
     rows = {
         (row.file.name, row.function): row
         for row in collect_rows(backend_root)
-        if row.file.name in {"auth_local.py", "auth_ldap.py", "auth_oidc.py", "auth_oidc_link.py", "auth_s3.py"}
+        if row.file.name in {"auth_local.py", "auth_ldap.py", "auth_oidc.py", "auth_identity_link.py", "auth_s3.py"}
     }
 
     for key in (
         ("auth_local.py", "login"),
         ("auth_ldap.py", "login_with_ldap"),
         ("auth_oidc.py", "complete_oidc_login"),
-        ("auth_oidc_link.py", "oidc_link_password_proof"),
-        ("auth_oidc_link.py", "oidc_link_ldap_proof"),
+        ("auth_identity_link.py", "external_identity_link_password_proof"),
+        ("auth_identity_link.py", "external_identity_link_ldap_proof"),
         ("auth_s3.py", "login_with_s3_keys"),
     ):
         assert rows[key].signals["delegated_auth_attempt_audit"]

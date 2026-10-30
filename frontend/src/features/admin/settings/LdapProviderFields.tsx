@@ -2,6 +2,7 @@
 import type { LdapProviderAdminItem } from "../../../api/authSettings";
 import { SettingsSection } from "../../../components/settings/SettingsLayout";
 import UiInput from "../../../components/ui/UiInput";
+import UiSelect from "../../../components/ui/UiSelect";
 import UiTextarea from "../../../components/ui/UiTextarea";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { AuthProviderIdentityFields, AuthProviderSecretField, AuthProviderToggle, authProviderFieldState } from "./AuthProviderFields";
@@ -54,6 +55,16 @@ export default function LdapProviderFields({ form, update, provider, readOnly, e
           hint={state.hint("name_attribute")} error={errors.name_attribute} onChange={event => update("name_attribute", event.target.value)} />
         <UiInput label={adminText("Subject attribute")} aria-label={adminText("LDAP Subject attribute")} value={form.subject_attribute} disabled={state.locked("subject_attribute")}
           hint={state.hint("subject_attribute")} error={errors.subject_attribute} onChange={event => update("subject_attribute", event.target.value)} />
+      </div>
+    </SettingsSection>
+    <SettingsSection title={adminText("Identity linking")} description={adminText("Choose how a validated LDAP identity may link to an existing BucketReef account with the same email.")} presentation="compact">
+      <div className="settings-fields">
+        <UiSelect label={adminText("Identity linking policy")} value={form.linking_policy} disabled={state.locked("linking_policy")}
+          hint={state.hint("linking_policy", "LDAP credentials validate the incoming directory identity. Reauthentication additionally requires proof of an existing sign-in method on the BucketReef account before linking.")}
+          error={errors.linking_policy} onChange={event => update("linking_policy", event.target.value as "manual" | "reauthenticate")}>
+          <option value="reauthenticate">{adminText("Reauthenticate existing account")}</option>
+          <option value="manual">{adminText("Manual approval")}</option>
+        </UiSelect>
       </div>
     </SettingsSection>
     <SettingsSection title={adminText("Transport security")} description={adminText("Configure TLS and explicit compatibility exceptions for this directory.")} presentation="compact">

@@ -10,12 +10,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.security import get_password_hash
-from app.db import ExternalIdentity, OidcLinkAttempt, User, UserNotification, UserRole
+from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, User, UserNotification, UserRole
 from app.services.api_token_service import ApiTokenService
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPIdentity
 from app.services.external_identity_user_service import ExternalIdentityUserService
-from app.services.oidc_link_service import OidcLinkError, OidcLinkService
+from app.services.external_identity_link_service import ExternalIdentityLinkError, ExternalIdentityLinkService
 from app.utils.time import utcnow
 
 
@@ -37,9 +37,10 @@ def _user(db_session, *, email: str, role: str = UserRole.UI_USER.value) -> User
     return row
 
 
-def _attempt(db_session, user: User, *, subject: str = "new-subject") -> OidcLinkAttempt:
-    return OidcLinkService(db_session).create_login_collision_attempt(
+def _attempt(db_session, user: User, *, subject: str = "new-subject") -> ExternalIdentityLinkAttempt:
+    return ExternalIdentityLinkService(db_session).create_login_collision_attempt(
         user=user,
+        provider_type="oidc",
         provider_id="company",
         issuer=OIDC_ISSUER,
         subject=subject,
@@ -52,18 +53,34 @@ def _attempt(db_session, user: User, *, subject: str = "new-subject") -> OidcLin
     )
 
 
+def _ldap_attempt(db_session, user: User, *, subject: str = "ldap-new-subject") -> ExternalIdentityLinkAttempt:
+    return ExternalIdentityLinkService(db_session).create_login_collision_attempt(
+        user=user,
+        provider_type="ldap",
+        provider_id="corp",
+        issuer=None,
+        subject=subject,
+        email=user.email,
+        email_verified=False,
+        display_name=user.full_name,
+        picture_url=None,
+        browser_secret_hash=BROWSER_HASH,
+        redirect_path="/",
+    )
+
+
 def test_link_attempt_is_browser_bound_and_expires(db_session):
     user = _user(db_session, email="browser-bound@example.test")
     attempt = _attempt(db_session, user)
-    service = OidcLinkService(db_session)
+    service = ExternalIdentityLinkService(db_session)
 
-    with pytest.raises(OidcLinkError, match="browser binding mismatch"):
+    with pytest.raises(ExternalIdentityLinkError, match="browser binding mismatch"):
         service.status(attempt.id, "wrong-browser")
 
     attempt.expires_at = utcnow() - timedelta(seconds=1)
     db_session.add(attempt)
     db_session.commit()
-    with pytest.raises(OidcLinkError, match="expired"):
+    with pytest.raises(ExternalIdentityLinkError, match="expired"):
         service.status(attempt.id, BROWSER_HASH)
 
 
@@ -81,10 +98,10 @@ def test_password_and_linked_ldap_can_prove_target_account(db_session, monkeypat
         )
     )
     db_session.commit()
-    service = OidcLinkService(db_session)
+    service = ExternalIdentityLinkService(db_session)
 
     password_attempt = _attempt(db_session, user, subject="password-target")
-    with pytest.raises(OidcLinkError, match="Invalid account password"):
+    with pytest.raises(ExternalIdentityLinkError, match="Invalid account password"):
         service.verify_password(password_attempt.id, BROWSER_HASH, "wrong-password")
     status = service.verify_password(
         password_attempt.id,
@@ -105,7 +122,7 @@ def test_password_and_linked_ldap_can_prove_target_account(db_session, monkeypat
                 dn="uid=proof,dc=example,dc=test",
             )
 
-    monkeypatch.setattr("app.services.oidc_link_service.LDAPAuthService", FakeLdapService)
+    monkeypatch.setattr("app.services.external_identity_link_service.LDAPAuthService", FakeLdapService)
     ldap_attempt = _attempt(db_session, user, subject="ldap-target")
     status = service.verify_ldap(
         ldap_attempt.id,
@@ -121,7 +138,7 @@ def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
     user = _user(db_session, email="fallback@example.test")
     attempt = _attempt(db_session, user)
     initial_expiry = attempt.expires_at
-    service = OidcLinkService(db_session)
+    service = ExternalIdentityLinkService(db_session)
 
     request = service.request_admin_approval(attempt.id, BROWSER_HASH)
 
@@ -167,7 +184,7 @@ def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
 def test_admin_fallback_rejection_reaches_terminal_link_state(db_session):
     user = _user(db_session, email="fallback-rejected@example.test")
     attempt = _attempt(db_session, user, subject="rejected-subject")
-    service = OidcLinkService(db_session)
+    service = ExternalIdentityLinkService(db_session)
     request = service.request_admin_approval(attempt.id, BROWSER_HASH)
     superadmin = _user(
         db_session,
@@ -213,7 +230,7 @@ def test_confirm_revokes_existing_credentials_and_creates_replacement_session(db
     db_session.add(attempt)
     db_session.commit()
 
-    completion = OidcLinkService(db_session).confirm(
+    completion = ExternalIdentityLinkService(db_session).confirm(
         attempt.id,
         BROWSER_HASH,
         ip_address="127.0.0.1",
@@ -239,6 +256,76 @@ def test_confirm_revokes_existing_credentials_and_creates_replacement_session(db
     ) is not None
 
 
+def test_ldap_link_can_be_confirmed_after_proving_target_local_password(db_session):
+    user = _user(db_session, email="ldap-confirm@example.test")
+    attempt = _ldap_attempt(db_session, user)
+    service = ExternalIdentityLinkService(db_session)
+
+    status = service.verify_password(
+        attempt.id,
+        BROWSER_HASH,
+        "correct horse battery staple",
+    )
+    assert status.provider_type == "ldap"
+    assert status.stage == "confirm"
+
+    completion = service.confirm(
+        attempt.id,
+        BROWSER_HASH,
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+    )
+
+    assert completion.identity.provider_type == "ldap"
+    assert completion.identity.provider_id == "corp"
+    assert completion.identity.issuer is None
+    assert completion.identity.subject == "ldap-new-subject"
+    assert completion.identity.link_source == "reauthenticated"
+    assert completion.credentials.session.auth_type == "ldap-link"
+
+
+@pytest.mark.parametrize(
+    ("approve", "expected_stage", "expected_identity_count"),
+    [
+        (True, "admin_approved", 1),
+        (False, "admin_rejected", 0),
+    ],
+)
+def test_ldap_admin_fallback_updates_bound_attempt(
+    db_session,
+    approve,
+    expected_stage,
+    expected_identity_count,
+):
+    user = _user(db_session, email=f"ldap-admin-{approve}@example.test")
+    attempt = _ldap_attempt(db_session, user, subject=f"ldap-admin-subject-{approve}")
+    service = ExternalIdentityLinkService(db_session)
+    request = service.request_admin_approval(attempt.id, BROWSER_HASH)
+    assert request.provider_type == "ldap"
+    assert request.issuer is None
+    assert service.status(attempt.id, BROWSER_HASH).stage == "admin_requested"
+    superadmin = _user(
+        db_session,
+        email=f"ldap-admin-reviewer-{approve}@example.test",
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+
+    ExternalIdentityUserService(db_session).decide_link_request(
+        request.id,
+        superadmin=superadmin,
+        approve=approve,
+    )
+
+    assert service.status(attempt.id, BROWSER_HASH).stage == expected_stage
+    identities = db_session.scalars(
+        select(ExternalIdentity).where(
+            ExternalIdentity.user_id == user.id,
+            ExternalIdentity.provider_type == "ldap",
+        )
+    ).all()
+    assert len(identities) == expected_identity_count
+
+
 def test_legacy_oidc_identity_is_revalidated_in_place(db_session):
     user = _user(db_session, email="legacy@example.test")
     legacy = ExternalIdentity(
@@ -257,7 +344,7 @@ def test_legacy_oidc_identity_is_revalidated_in_place(db_session):
     attempt = _attempt(db_session, user, subject="legacy-subject")
     assert attempt.existing_identity_id == legacy.id
 
-    service = OidcLinkService(db_session)
+    service = ExternalIdentityLinkService(db_session)
     service.verify_password(attempt.id, BROWSER_HASH, "correct horse battery staple")
     completion = service.confirm(
         attempt.id,

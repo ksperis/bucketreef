@@ -24,6 +24,7 @@ from .auth_security import (
     AuthRateLimit,
     AuthSession,
     ExternalIdentity,
+    ExternalIdentityLinkAttempt,
     ExternalIdentityLinkRequest,
     RecoveryCode,
     RefreshToken,
@@ -45,7 +46,6 @@ from .tag_definition import (
 from .ldap import LdapProvider
 from .oidc import (
     OidcAuthorizationCode,
-    OidcLinkAttempt,
     OidcLoginState,
     OidcProvider,
     OidcProviderIssuerPin,
@@ -96,6 +96,7 @@ __all__ = [
     "RefreshToken",
     "AuthSession",
     "ExternalIdentity",
+    "ExternalIdentityLinkAttempt",
     "ExternalIdentityLinkRequest",
     "WebAuthnCredential",
     "AuthChallenge",
@@ -121,7 +122,6 @@ __all__ = [
     "LdapProvider",
     "OidcLoginState",
     "OidcAuthorizationCode",
-    "OidcLinkAttempt",
     "OidcProvider",
     "OidcProviderIssuerPin",
     "CostEndpointOverride",

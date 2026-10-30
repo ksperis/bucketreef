@@ -294,6 +294,7 @@
   "Checking endpoint permissions...": "Endpunkt Berechtigungen werden geprüft...",
   "Checking endpoint…": "Endpunkt wird geprüft…",
   "Checks in range": "Prüfungen im Bereich",
+  "Choose how a validated LDAP identity may link to an existing BucketReef account with the same email.": "Wählen Sie aus, wie eine validierte LDAP-Identität mit einem bestehenden BucketReef-Konto mit derselben E-Mail-Adresse verknüpft werden darf.",
   "Choose how new external identities may link to existing local accounts.": "Wählen Sie aus, wie neue externe Identitäten mit bestehenden lokalen Accounts verknüpft werden dürfen.",
   "Choose how the endpoint is monitored.": "Wählen Sie, wie der Endpunkt überwacht wird.",
   "Choose the provider and how BucketReef reaches it.": "Wählen Sie den Anbieter und den Zugriffsweg von BucketReef.",

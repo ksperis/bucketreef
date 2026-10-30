@@ -41,7 +41,7 @@ POST_MIGRATION_UTC_COLUMNS = {
     "bucket_ui_tag_assignments": ("created_at", "updated_at"),
     "oidc_authorization_codes": ("created_at", "expires_at"),
     "oidc_provider_issuer_pins": ("created_at", "last_verified_at"),
-    "oidc_link_attempts": (
+    "external_identity_link_attempts": (
         "proof_verified_at",
         "mfa_verified_at",
         "created_at",

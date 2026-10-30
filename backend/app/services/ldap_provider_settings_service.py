@@ -148,6 +148,7 @@ def _apply_payload(provider: LdapProvider, payload: LDAPProviderAdminPayload, *,
         timeout_seconds=payload.timeout_seconds,
         enabled=payload.enabled,
         allow_insecure=payload.allow_insecure,
+        linking_policy=payload.linking_policy,
     )
 
     provider.provider_id = normalize_ldap_provider_id(payload.provider_id)
@@ -166,6 +167,7 @@ def _apply_payload(provider: LdapProvider, payload: LDAPProviderAdminPayload, *,
     provider.timeout_seconds = float(payload.timeout_seconds)
     provider.enabled = bool(payload.enabled)
     provider.allow_insecure = bool(payload.allow_insecure)
+    provider.linking_policy = payload.linking_policy
     if replace_secret or payload.bind_password is not None or payload.bind_dn is None or payload.clear_bind_password:
         provider.bind_password = candidate_secret
 
@@ -188,6 +190,7 @@ def _ui_provider_to_settings(provider: LdapProvider) -> LDAPProviderSettings:
         timeout_seconds=provider.timeout_seconds,
         enabled=bool(provider.enabled),
         allow_insecure=bool(provider.allow_insecure),
+        linking_policy=provider.linking_policy or "manual",
     )
 
 
@@ -223,6 +226,7 @@ def _provider_item(
         timeout_seconds=provider.timeout_seconds,
         enabled=bool(provider.enabled),
         allow_insecure=bool(provider.allow_insecure),
+        linking_policy=provider.linking_policy,
         source=source,
         editable=source == "ui",
         field_locks=field_locks or {},

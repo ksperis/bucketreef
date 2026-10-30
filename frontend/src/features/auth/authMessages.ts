@@ -248,7 +248,7 @@ export const authMessages = {
   oidcLinkAdminRejected: m("The identity link request was rejected. No account link was created.", "身份关联请求已被拒绝。未创建账户关联。"),
   oidcLinkSignInAgain: m("Sign in again", "重新登录"),
   oidcLinkRecoveryHelp: m("You can use a single-use recovery code instead of a passkey.", "你也可以使用一次性恢复码代替通行密钥。"),
-  oidcLinkCompleted: m("The OIDC account is linked. Redirecting…", "OIDC 账户已关联。正在跳转…"),
+    oidcLinkCompleted: m("The sign-in account is linked. Redirecting…", "登录账户已关联。正在跳转…"),
   oidcLinkUnavailable: m("This account-linking request is unavailable or has expired.", "此账户关联请求不可用或已过期。"),
   oidcLinkActionFailed: m("Unable to continue account linking. Check the entered credentials and try again.", "无法继续账户关联。请检查输入的凭据后重试。"),
 } as const;
