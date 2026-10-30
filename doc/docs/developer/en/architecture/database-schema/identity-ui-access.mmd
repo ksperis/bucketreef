@@ -208,14 +208,14 @@ erDiagram
         varchar client_id "NN"
         varchar client_secret
         varchar redirect_uri "NN"
-        text scopes_json "NN; default=['openid','email','profile']"
+        json scopes "NN; default=['openid','email','profile']"
         varchar prompt
         boolean enabled "NN"
         varchar icon_url
         boolean use_pkce "NN"
         boolean use_nonce "NN"
         varchar linking_policy "NN; default=manual"
-        text trusted_email_domains_json "NN; default=[]"
+        json trusted_email_domains "NN; default=[]"
         datetime created_at "NN"
         datetime updated_at "NN"
     }

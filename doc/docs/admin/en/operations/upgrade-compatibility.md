@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured OIDC provider lists
+
+Migration `0203_structure_oidc_provider_lists` replaces the UI-managed OIDC
+`scopes_json` and `trusted_email_domains_json` text columns with structured
+JSON `scopes` and `trusted_email_domains` lists. Existing scopes must be a
+non-empty array of non-empty strings, and trusted domains must be an array of
+strings; invalid persisted values stop the upgrade explicitly.
+
+OIDC provider configuration now reads and writes both lists directly. Runtime
+validation still rejects structurally corrupted persisted values. The downgrade
+recreates the former text columns from the structured lists.
+
 ## 2026-10 structured API token scopes
 
 Migration `0202_structure_api_token_scopes` replaces
@@ -1489,6 +1501,8 @@ Deploy the migration and backend together. OIDC provider loading now rejects
 any remaining malformed, empty, or non-string scope set instead of repairing it
 at runtime. The ORM and database defaults are also aligned. Data cleanup is not
 reversed on downgrade.
+Migration `0203_structure_oidc_provider_lists` later replaces this canonical
+text representation with structured JSON.
 
 ## 2026-08 canonical persisted application settings
 

@@ -3,7 +3,7 @@
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, Column, Integer, String, Text
+from sqlalchemy import Boolean, Column, Integer, JSON, String, Text
 
 from app.core.security import EncryptedString
 from .base import Base
@@ -43,10 +43,10 @@ class OidcProvider(Base):
     client_id = Column(String, nullable=False)
     client_secret = Column(EncryptedString, nullable=True)
     redirect_uri = Column(String, nullable=False)
-    scopes_json = Column(
-        Text,
+    scopes = Column(
+        JSON,
         nullable=False,
-        default='["openid","email","profile"]',
+        default=lambda: ["openid", "email", "profile"],
         server_default='["openid","email","profile"]',
     )
     prompt = Column(String, nullable=True)
@@ -55,6 +55,6 @@ class OidcProvider(Base):
     use_pkce = Column(Boolean, nullable=False, default=True)
     use_nonce = Column(Boolean, nullable=False, default=True)
     linking_policy = Column(String, nullable=False, default="manual", server_default="manual")
-    trusted_email_domains_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    trusted_email_domains = Column(JSON, nullable=False, default=list, server_default="[]")
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
