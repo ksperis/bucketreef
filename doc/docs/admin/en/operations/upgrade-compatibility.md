@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured webhook delivery payloads
+
+Migration `0216_structure_webhook_delivery_payloads` replaces
+`webhook_deliveries.payload_json` text with structured JSON stored in the
+`payload` column. Existing values must decode to JSON objects; malformed JSON,
+`null`, or values with another shape stop the upgrade explicitly.
+
+Webhook event producers now persist the structured envelope directly. Delivery
+still serializes that object with the existing canonical JSON format before
+signing and sending it, so the documented raw-body HMAC contract and wire bytes
+remain stable for payloads created by prior BucketReef versions. The downgrade
+recreates canonical JSON text from the structured objects.
+
 ## 2026-10 structured audit metadata
 
 Migration `0215_structure_audit_metadata` replaces `audit_logs.metadata_json`

@@ -19,7 +19,11 @@ from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import WebhookDelivery, WebhookEndpoint
 from app.services.operation_lease_service import OperationLeaseService, generate_operation_owner
-from app.services.webhook_service import validate_webhook_target_url, webhook_runtime_config
+from app.services.webhook_service import (
+    serialize_webhook_payload,
+    validate_webhook_target_url,
+    webhook_runtime_config,
+)
 from app.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
@@ -127,7 +131,7 @@ class WebhookDeliveryWorker:
         delivery: WebhookDelivery,
         endpoint: WebhookEndpoint,
     ) -> tuple[bytes, dict[str, str]]:
-        body = delivery.payload_json.encode("utf-8")
+        body = serialize_webhook_payload(delivery.payload)
         timestamp = str(int(utcnow().timestamp()))
         signature = hmac.new(
             endpoint.signing_secret.encode("utf-8"),
