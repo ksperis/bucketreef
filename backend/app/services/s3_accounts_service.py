@@ -53,6 +53,10 @@ from app.services.rgw_account_topics_resolver import (
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
 from app.services.rgw_iam import RGWIAMService, get_iam_service
+from app.services.rgw_quota_update import (
+    prepare_rgw_quota_update,
+    validate_rgw_quota_update_response,
+)
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.tags_service import TagsService
 from app.utils.s3_endpoint import resolve_iam_client_options
@@ -71,7 +75,6 @@ from app.utils.rgw_payloads import (
 )
 from app.utils.usage_stats import aggregate_bucket_usage
 from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
-from app.utils.size_units import size_to_bytes
 from app.utils.name_ordering import name_order_by
 
 
@@ -211,24 +214,21 @@ class S3AccountsService:
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
         require_endpoint_permissions(account.storage_endpoint, "accounts_write")
         admin = self._admin_for_account(account)
-        try:
-            max_size_bytes = size_to_bytes(max_size_gb, max_size_unit)
-        except ValueError as exc:
-            raise ValueError(sanitized_error_log_detail(exc)) from exc
-        enabled = max_size_bytes is not None or max_objects is not None
+        quota = prepare_rgw_quota_update(max_size_gb, max_objects, max_size_unit)
         try:
             response = admin.set_account_quota(
                 account_id=account.rgw_account_id,
-                max_size_bytes=max_size_bytes,
-                max_objects=max_objects,
-                enabled=enabled,
+                max_size_bytes=quota.max_size_bytes,
+                max_objects=quota.max_objects,
+                enabled=quota.enabled,
             )
         except RGWAdminError as exc:
             raise ValueError(f"RGW account quota update failed: {exc}") from exc
-        if response.get("not_found"):
-            raise ValueError(f"RGW account not found for quota update: {account.rgw_account_id}")
-        if response.get("not_implemented"):
-            raise ValueError("RGW account quota update is not supported on this cluster.")
+        validate_rgw_quota_update_response(
+            response,
+            subject="account",
+            identifier=account.rgw_account_id,
+        )
 
     def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
         admin = self._runtime_for_account(account, allow_missing=True)
