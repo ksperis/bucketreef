@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-import json
 
 import pytest
 import sqlalchemy as sa
@@ -199,7 +198,7 @@ def test_endpoint_health_notifications_follow_transitions_and_admin_scope(
     ).all()
     assert len(deliveries) == 4
     assert {delivery.event_type for delivery in deliveries} == {ENDPOINT_HEALTH_EVENT_TYPE}
-    webhook_payload = json.loads(deliveries[0].payload_json)
+    webhook_payload = deliveries[0].payload
     assert webhook_payload["data"]["current_status"] == "degraded"
     assert webhook_payload["data"]["error_message"] == "access_key=<redacted> timed out"
 

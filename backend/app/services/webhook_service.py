@@ -121,27 +121,31 @@ def _new_signing_secret() -> str:
     return secrets.token_urlsafe(32)
 
 
-def _event_payload_json(
+def _event_payload(
     *,
     event_id: str,
     event_type: str,
     occurred_at: datetime,
     data: dict[str, Any],
-) -> str:
+) -> dict[str, Any]:
     safe_data = sanitize_audit_metadata(data)
+    return {
+        "id": event_id,
+        "type": event_type,
+        "version": 1,
+        "occurred_at": occurred_at.isoformat(),
+        "data": safe_data,
+    }
+
+
+def serialize_webhook_payload(payload: dict[str, Any]) -> bytes:
     return json.dumps(
-        {
-            "id": event_id,
-            "type": event_type,
-            "version": 1,
-            "occurred_at": occurred_at.isoformat(),
-            "data": safe_data,
-        },
+        payload,
         ensure_ascii=True,
         sort_keys=True,
         separators=(",", ":"),
         default=str,
-    )
+    ).encode("utf-8")
 
 
 class WebhookService:
@@ -405,7 +409,7 @@ class WebhookEventPublisher:
     ) -> list[str]:
         occurred_at = occurred_at or utcnow()
         event_id = str(uuid.uuid4())
-        payload_json = _event_payload_json(
+        payload = _event_payload(
             event_id=event_id,
             event_type=event_type,
             occurred_at=occurred_at,
@@ -445,7 +449,7 @@ class WebhookEventPublisher:
                     event_id=event_id,
                     endpoint_id=int(endpoint.id),
                     event_type=event_type,
-                    payload_json=payload_json,
+                    payload=payload,
                     is_test=bool(is_test),
                     status="pending",
                     attempt_count=0,

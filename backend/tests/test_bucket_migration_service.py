@@ -5,7 +5,6 @@ from app.utils.storage_endpoint_features import parse_features_config
 
 from datetime import datetime, timedelta, timezone
 import io
-import json
 import time
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -4056,7 +4055,7 @@ def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkey
         sa.select(WebhookDelivery).where(WebhookDelivery.endpoint_id == webhook.id)
     ).one()
     assert delivery.event_type == MIGRATION_EVENT_TYPE
-    webhook_migration = json.loads(delivery.payload_json)["data"]["migration"]
+    webhook_migration = delivery.payload["data"]["migration"]
     assert webhook_migration["id"] == migration.id
     assert "delete_source" not in webhook_migration
 

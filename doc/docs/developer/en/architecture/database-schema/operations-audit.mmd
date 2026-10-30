@@ -58,7 +58,7 @@ erDiagram
         varchar event_id "NN"
         integer endpoint_id FK "NN"
         varchar event_type "NN"
-        text payload_json "NN"
+        json payload "NN"
         boolean is_test "NN; default=0"
         varchar status "NN; default=pending"
         integer attempt_count "NN; default=0"

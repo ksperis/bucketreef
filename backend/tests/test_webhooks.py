@@ -32,6 +32,7 @@ from app.services.webhook_catalog import (
 from app.services.webhook_service import (
     WebhookEventPublisher,
     WebhookService,
+    serialize_webhook_payload,
     validate_webhook_target_url,
     webhook_dispatcher_enabled,
     webhook_runtime_config,
@@ -265,7 +266,7 @@ def test_transactional_webhook_failure_rolls_back_only_webhook_savepoint(db_sess
                 event_id="savepoint-rollback-event",
                 endpoint_id=endpoint.id,
                 event_type="system.endpoint_health.changed",
-                payload_json="{}",
+                payload={},
                 is_test=False,
                 status="pending",
                 attempt_count=0,
@@ -371,6 +372,22 @@ def test_webhook_schema_compiles_for_postgresql_with_timezone_and_cascade():
     assert "SERIAL" in delivery_sql
 
 
+def test_webhook_wire_serializer_preserves_canonical_body_contract():
+    payload = {
+        "version": 1,
+        "type": "audit.admin.update_ui_user",
+        "occurred_at": "2026-10-30T12:34:56+00:00",
+        "id": "event-1",
+        "data": {"value": "é", "count": 2},
+    }
+
+    assert serialize_webhook_payload(payload) == (
+        b'{"data":{"count":2,"value":"\\u00e9"},"id":"event-1",'
+        b'"occurred_at":"2026-10-30T12:34:56+00:00",'
+        b'"type":"audit.admin.update_ui_user","version":1}'
+    )
+
+
 def test_worker_signs_exact_body_and_marks_success(db_session, monkeypatch):
     created = _create_endpoint(
         db_session,
@@ -398,6 +415,7 @@ def test_worker_signs_exact_body_and_marks_success(db_session, monkeypatch):
     _args, kwargs = post.call_args
     body = kwargs["data"]
     headers = kwargs["headers"]
+    assert body == serialize_webhook_payload(delivery.payload)
     expected = hmac.new(
         created.signing_secret.encode("utf-8"),
         headers["X-BucketReef-Timestamp"].encode("ascii") + b"." + body,
@@ -546,7 +564,7 @@ def test_worker_retention_purges_terminal_deliveries_only(db_session, monkeypatc
             event_id="event-terminal-old",
             endpoint_id=endpoint.id,
             event_type="audit.admin.update_ui_user",
-            payload_json="{}",
+            payload={},
             is_test=False,
             status="delivered",
             attempt_count=1,
@@ -560,7 +578,7 @@ def test_worker_retention_purges_terminal_deliveries_only(db_session, monkeypatc
             event_id="event-pending-old",
             endpoint_id=endpoint.id,
             event_type="audit.admin.update_ui_user",
-            payload_json="{}",
+            payload={},
             is_test=False,
             status="pending",
             attempt_count=0,

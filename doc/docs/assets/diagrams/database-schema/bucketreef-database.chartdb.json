@@ -24644,11 +24644,11 @@
           "check": null
         },
         {
-          "id": "field:webhook_deliveries.payload_json",
-          "name": "payload_json",
+          "id": "field:webhook_deliveries.payload",
+          "name": "payload",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

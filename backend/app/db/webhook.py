@@ -5,7 +5,17 @@ from __future__ import annotations
 from app.core.security import EncryptedString
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
-from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -68,7 +78,7 @@ class WebhookDelivery(Base):
     event_id = Column(String, nullable=False, index=True)
     endpoint_id = Column(Integer, ForeignKey("webhook_endpoints.id", ondelete="CASCADE"), nullable=False, index=True)
     event_type = Column(String, nullable=False, index=True)
-    payload_json = Column(Text, nullable=False)
+    payload = Column(JSON, nullable=False)
     is_test = Column(Boolean, nullable=False, default=False, server_default="0")
     status = Column(String, nullable=False, default="pending", server_default="pending", index=True)
     attempt_count = Column(Integer, nullable=False, default=0, server_default="0")
