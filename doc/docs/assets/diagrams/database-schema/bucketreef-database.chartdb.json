@@ -14091,11 +14091,11 @@
           "check": null
         },
         {
-          "id": "field:oidc_providers.scopes_json",
-          "name": "scopes_json",
+          "id": "field:oidc_providers.scopes",
+          "name": "scopes",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -14238,11 +14238,11 @@
           "check": null
         },
         {
-          "id": "field:oidc_providers.trusted_email_domains_json",
-          "name": "trusted_email_domains_json",
+          "id": "field:oidc_providers.trusted_email_domains",
+          "name": "trusted_email_domains",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

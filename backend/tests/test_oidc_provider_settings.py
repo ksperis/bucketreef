@@ -19,8 +19,8 @@ from app.main import app
 from app.models.oidc import OIDCProviderAdminPayload
 from app.routers import dependencies
 from app.services.oidc_provider_settings_service import (
-    _load_scopes,
-    _load_string_list,
+    _stored_scopes,
+    _stored_string_list,
     list_effective_oidc_providers,
     resolve_oidc_provider_map,
 )
@@ -161,7 +161,7 @@ def _ui_provider(provider_id: str, *, enabled: bool = True, display_name: str | 
         client_id=f"{provider_id}-client",
         client_secret=f"{provider_id}-secret",
         redirect_uri=f"https://app.example.test/auth/{provider_id}/callback",
-        scopes_json='["openid","email"]',
+        scopes=["openid", "email"],
         enabled=enabled,
         use_pkce=True,
         use_nonce=True,
@@ -187,17 +187,17 @@ def _authenticate_superadmin(client, db_session) -> None:
 
 
 def test_ui_provider_scopes_require_a_non_empty_string_list():
-    assert _load_scopes('["openid","email"]') == ["openid", "email"]
-    for raw in ("{", "{}", "[]", '["openid",""]', '["openid",42]'):
+    assert _stored_scopes(["openid", "email"]) == ["openid", "email"]
+    for raw in ("invalid", {}, [], ["openid", ""], ["openid", 42]):
         with pytest.raises(ValueError):
-            _load_scopes(raw)
+            _stored_scopes(raw)
 
 
 def test_ui_provider_domains_require_canonical_persisted_json():
-    assert _load_string_list('["example.com"]') == ["example.com"]
-    for raw in ("", "{", "{}", '["example.com",42]'):
-        with pytest.raises((ValueError, TypeError)):
-            _load_string_list(raw)
+    assert _stored_string_list(["example.com"]) == ["example.com"]
+    for raw in ("", {}, ["example.com", 42]):
+        with pytest.raises(ValueError):
+            _stored_string_list(raw)
 
 
 class _FakeUsersService:
@@ -348,7 +348,7 @@ def test_admin_oidc_api_never_returns_secret_and_preserves_replaces_clears_it(cl
         select(OidcProvider).where(OidcProvider.provider_id == "ui")
     ).one()
     assert provider.linking_policy == "trusted_email"
-    assert provider.trusted_email_domains_json == '["example.com"]'
+    assert provider.trusted_email_domains == ["example.com"]
 
     listed = client.get("/api/admin/settings/oidc/providers")
     assert listed.status_code == 200, listed.text

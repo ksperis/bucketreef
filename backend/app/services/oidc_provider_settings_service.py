@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 from typing import Literal, Optional
 from urllib.parse import urlparse
 
@@ -12,7 +11,6 @@ from app.core.config import OIDCProviderSettings, Settings, get_settings
 from app.db import OidcProvider
 from app.models.oidc import (
     OIDC_PROVIDER_CONFIG_FIELDS,
-    OIDC_PROVIDER_DEFAULT_SCOPES,
     OIDCProviderAdminItem,
     OIDCProviderAdminPayload,
     OIDCProviderFieldLock,
@@ -135,14 +133,14 @@ def _apply_payload(provider: OidcProvider, payload: OIDCProviderAdminPayload, *,
     provider.discovery_url = payload.discovery_url
     provider.client_id = payload.client_id
     provider.redirect_uri = payload.redirect_uri
-    provider.scopes_json = _dump_scopes(payload.scopes)
+    provider.scopes = list(payload.scopes)
     provider.prompt = payload.prompt
     provider.enabled = bool(payload.enabled)
     provider.icon_url = payload.icon_url
     provider.use_pkce = bool(payload.use_pkce)
     provider.use_nonce = bool(payload.use_nonce)
     provider.linking_policy = payload.linking_policy
-    provider.trusted_email_domains_json = _dump_string_list(payload.trusted_email_domains)
+    provider.trusted_email_domains = list(payload.trusted_email_domains)
     if payload.clear_client_secret:
         provider.client_secret = None
     elif replace_secret or payload.client_secret is not None:
@@ -156,14 +154,14 @@ def _ui_provider_to_settings(provider: OidcProvider) -> OIDCProviderSettings:
         client_id=provider.client_id,
         client_secret=provider.client_secret,
         redirect_uri=provider.redirect_uri,
-        scopes=_load_scopes(provider.scopes_json),
+        scopes=_stored_scopes(provider.scopes),
         prompt=provider.prompt,
         enabled=bool(provider.enabled),
         icon_url=provider.icon_url,
         use_pkce=bool(provider.use_pkce),
         use_nonce=bool(provider.use_nonce),
         linking_policy=provider.linking_policy,
-        trusted_email_domains=_load_string_list(provider.trusted_email_domains_json),
+        trusted_email_domains=_stored_string_list(provider.trusted_email_domains),
     )
 
 
@@ -218,26 +216,15 @@ def _environment_provider_item(provider_id: str, provider: OIDCProviderSettings)
     )
 
 
-def _load_scopes(raw: str) -> list[str]:
-    parsed = json.loads(raw)
-    if not isinstance(parsed, list) or not parsed:
-        raise ValueError("OIDC provider scopes must be a non-empty JSON list")
-    if any(not isinstance(item, str) or not item.strip() for item in parsed):
+def _stored_scopes(value: object) -> list[str]:
+    if not isinstance(value, list) or not value:
+        raise ValueError("OIDC provider scopes must be a non-empty list")
+    if any(not isinstance(item, str) or not item.strip() for item in value):
         raise ValueError("OIDC provider scopes must contain non-empty strings")
-    return [item.strip() for item in parsed]
+    return [item.strip() for item in value]
 
 
-def _dump_scopes(scopes: list[str]) -> str:
-    normalized = [item.strip() for item in scopes if isinstance(item, str) and item.strip()]
-    return json.dumps(normalized or list(OIDC_PROVIDER_DEFAULT_SCOPES), separators=(",", ":"))
-
-
-def _load_string_list(raw: str) -> list[str]:
-    parsed = json.loads(raw)
-    if not isinstance(parsed, list) or any(not isinstance(item, str) for item in parsed):
-        raise ValueError("OIDC provider domains must be a JSON list of strings")
-    return [item for item in parsed if item]
-
-
-def _dump_string_list(values: list[str]) -> str:
-    return json.dumps(list(values or []), separators=(",", ":"))
+def _stored_string_list(value: object) -> list[str]:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError("OIDC provider domains must be a list of strings")
+    return [item for item in value if item]
