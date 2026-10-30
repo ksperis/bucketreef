@@ -100,8 +100,10 @@ class OnboardingService:
 
     @staticmethod
     def draft(row) -> OnboardingDraft:
-        data = json.loads(row.draft_json)
-        resources = json.loads(row.resources_json)
+        if not isinstance(row.draft, dict) or not isinstance(row.resources, dict):
+            raise ValueError("Onboarding journey payload is invalid")
+        data = dict(row.draft)
+        resources = row.resources
         if resources.get("endpoint_id"):
             data["endpoint_id"] = resources["endpoint_id"]
             data["endpoint_url"] = ""
@@ -134,7 +136,7 @@ class OnboardingService:
             existing = self.get(actor, journey_id)
             if self.draft(existing) == draft:
                 return self.preview(actor, existing)
-        row = OnboardingJourney(draft_json=draft.model_dump_json(), resources_json="{}")
+        row = OnboardingJourney(draft=draft.model_dump(mode="json"), resources={})
         return self.preview(actor, row)
 
     def _required_feature_fields(self, draft: OnboardingDraft) -> tuple[str, ...]:
@@ -278,7 +280,7 @@ class OnboardingService:
         result: OnboardingPreview,
     ) -> None:
         if draft.manager or draft.portal:
-            resources = json.loads(row.resources_json)
+            resources = row.resources
             result.changes.append(
                 "resume_sample_account"
                 if resources.get("rgw_account_id")
@@ -340,7 +342,7 @@ class OnboardingService:
         return (draft.model_dump(), actor_state, endpoint_state)
 
     def _links(self, row, draft: OnboardingDraft) -> dict[str, str]:
-        resources = json.loads(row.resources_json)
+        resources = row.resources
         links: dict[str, str] = {}
         account_id = resources.get("account_id")
         connection_id = resources.get("connection_id")
@@ -362,7 +364,7 @@ class OnboardingService:
             id=row.id,
             revision=row.revision,
             draft=draft,
-            resources=json.loads(row.resources_json),
+            resources=row.resources,
             configured=bool(row.configured_at),
             preview=self.preview(actor, row) if not row.configured_at else OnboardingPreview(),
             links=self._links(row, draft),
@@ -416,7 +418,7 @@ class OnboardingService:
                 row = OnboardingJourney(
                     id=identifier,
                     user_id=actor.id,
-                    draft_json=payload.draft.model_dump_json(),
+                    draft=payload.draft.model_dump(mode="json"),
                 )
                 self.db.add(row)
             else:
@@ -427,24 +429,24 @@ class OnboardingService:
                     raise OnboardingError("stale_revision", 409)
                 if row.configured_at:
                     raise OnboardingError("configured_journey_immutable", 409)
-                resources = json.loads(row.resources_json)
+                resources = row.resources
                 if row.pending_step or any(
                     resources.get(key)
                     for key in ("endpoint_id", "account_id", "connection_id", "rgw_account_id")
                 ):
                     raise OnboardingError("configuration_reconciliation_required", 409)
-                row.draft_json = payload.draft.model_dump_json()
+                row.draft = payload.draft.model_dump(mode="json")
                 row.revision += 1
-                row.resources_json = "{}"
+                row.resources = {}
             row.updated_at = utcnow()
             self.db.commit()
             self.audit(actor, "save", row.id)
             return self.output(actor, row)
 
     def checkpoint(self, row, **resources):
-        current = json.loads(row.resources_json)
-        current.update(resources)
-        row.resources_json = json.dumps(current)
+        if not isinstance(row.resources, dict):
+            raise ValueError("Onboarding journey resources are invalid")
+        row.resources = {**row.resources, **resources}
         row.pending_step = None
         row.updated_at = utcnow()
         self.db.commit()

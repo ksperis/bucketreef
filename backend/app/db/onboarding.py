@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, JSON, String
 
 from app.db.base import Base
 from app.db.utc_datetime import UTCDateTime
@@ -24,8 +24,8 @@ class OnboardingJourney(Base):
     id = Column(String(36), primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     revision = Column(Integer, nullable=False, default=1)
-    draft_json = Column(Text, nullable=False)
-    resources_json = Column(Text, nullable=False, default="{}")
+    draft = Column(JSON, nullable=False)
+    resources = Column(JSON, nullable=False, default=dict, server_default="{}")
     pending_step = Column(String(40), nullable=True)
     configured_at = Column(UTCDateTime(), nullable=True)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)

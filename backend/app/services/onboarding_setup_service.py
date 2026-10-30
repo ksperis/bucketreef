@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 """Setup orchestration for the guided administrator onboarding."""
-import json
 from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlsplit
@@ -560,7 +559,7 @@ class OnboardingSetupService:
                 )
 
     def _prepare_endpoint(self, actor, row, draft, payload):
-        resources = json.loads(row.resources_json)
+        resources = row.resources
         endpoint_id = resources.get("endpoint_id") or draft.endpoint_id
         endpoint = self.db.get(StorageEndpoint, endpoint_id) if endpoint_id else None
         if endpoint_id and endpoint is None:
@@ -670,7 +669,7 @@ class OnboardingSetupService:
         return candidate
 
     def _account(self, actor, row, endpoint):
-        resources = json.loads(row.resources_json)
+        resources = row.resources
         if resources.get("account_id"):
             account = self.db.get(S3Account, resources["account_id"])
             if account is None:
@@ -682,7 +681,7 @@ class OnboardingSetupService:
             prefix = load_app_settings_for_db(self.db).general.rgw_account_id_prefix
             identifier = generate_rgw_account_id(prefix)
             self.progress.checkpoint(row, rgw_account_id=identifier)
-            resources = json.loads(row.resources_json)
+            resources = row.resources
 
         account_name = resources.get("account_name")
         if not account_name:
@@ -777,7 +776,7 @@ class OnboardingSetupService:
         return candidate
 
     def _private_connection(self, actor, row, endpoint, payload):
-        resources = json.loads(row.resources_json)
+        resources = row.resources
         if resources.get("connection_id"):
             if self.db.get(S3Connection, resources["connection_id"]) is None:
                 raise OnboardingError("connection_unavailable")

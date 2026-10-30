@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured onboarding journey state
+
+Migration `0206_structure_onboarding_journey_payloads` replaces
+`onboarding_journeys.draft_json` and `resources_json` text with non-null
+structured JSON `draft` and `resources` objects. Every existing value must
+decode to a JSON object; malformed, null, array, or scalar values stop the
+upgrade explicitly.
+
+Guided onboarding now reads and writes both objects directly. Resource
+checkpoints replace the JSON object on each update so SQLAlchemy persists nested
+changes reliably. The downgrade recreates the former text columns from the
+structured objects.
+
 ## 2026-10 structured application settings payloads
 
 Migration `0205_structure_app_settings_payloads` replaces
