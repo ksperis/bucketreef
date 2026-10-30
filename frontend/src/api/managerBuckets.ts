@@ -6,6 +6,11 @@ import client, { timeoutForRequestProfile } from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
 import { withS3ContextParam } from "./accountParams";
 import type { Bucket } from "./bucketContracts";
+import type {
+  BucketCompareConfigDiff,
+  BucketCompareConfigFeature,
+  BucketCompareContentDiff,
+} from "./bucketCompareContracts";
 
 const MANAGER_BUCKETS_PATH = "/manager/buckets";
 
@@ -81,77 +86,14 @@ export async function deleteBucket(name: string, contextId: S3ExecutionContextSe
   });
 }
 
-export type ManagerBucketCompareConfigFeature =
-  | "versioning_status"
-  | "object_lock"
-  | "public_access_block"
-  | "lifecycle_rules"
-  | "cors_rules"
-  | "bucket_policy"
-  | "access_logging"
-  | "tags";
-
 type ManagerBucketCompareRequest = {
   target_context_id: string;
   source_bucket: string;
   target_bucket: string;
   include_content?: boolean;
   include_config?: boolean;
-  config_features?: ManagerBucketCompareConfigFeature[];
+  config_features?: BucketCompareConfigFeature[];
   ignore_modified_after?: string | null;
-};
-
-export type ManagerBucketObjectDetail = {
-  key: string;
-  size: number | null;
-  etag: string | null;
-  last_modified: string | null;
-  storage_class: string | null;
-};
-
-type ManagerBucketObjectDiffEntry = {
-  key: string;
-  source_size: number | null;
-  target_size: number | null;
-  source_etag: string | null;
-  target_etag: string | null;
-  source_last_modified: string | null;
-  target_last_modified: string | null;
-  source_storage_class: string | null;
-  target_storage_class: string | null;
-  compare_by: "md5" | "size";
-};
-
-export type ManagerBucketContentDiff = {
-  source_count: number;
-  target_count: number;
-  matched_count: number;
-  different_count: number;
-  only_source_count: number;
-  only_target_count: number;
-  ignored_after_cutoff_count: number;
-  display_limit: number;
-  only_source_hidden_count: number;
-  only_target_hidden_count: number;
-  different_hidden_count: number;
-  only_source_sample: string[];
-  only_target_sample: string[];
-  only_source_details: ManagerBucketObjectDetail[];
-  only_target_details: ManagerBucketObjectDetail[];
-  different_sample: ManagerBucketObjectDiffEntry[];
-};
-
-type ManagerBucketConfigDiffSection = {
-  key: string;
-  label: string;
-  source: unknown;
-  target: unknown;
-  changed: boolean;
-};
-
-export type ManagerBucketConfigDiff = {
-  changed: boolean;
-  sections: ManagerBucketConfigDiffSection[];
 };
 
 export type ManagerBucketCompareResult = {
@@ -160,8 +102,8 @@ export type ManagerBucketCompareResult = {
   source_bucket: string;
   target_bucket: string;
   has_differences: boolean;
-  content_diff: ManagerBucketContentDiff | null;
-  config_diff: ManagerBucketConfigDiff | null;
+  content_diff: BucketCompareContentDiff | null;
+  config_diff: BucketCompareConfigDiff | null;
 };
 
 export type ManagerBucketCompareAction = "sync_source_only" | "sync_different" | "delete_target_only";
