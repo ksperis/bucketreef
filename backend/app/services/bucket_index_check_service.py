@@ -7,7 +7,7 @@ from time import monotonic
 from typing import Callable
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.models.ceph_admin import (
+from app.models.ceph_admin_bucket_index import (
     CephAdminBucketIndexCheckBatchBucketResult,
     CephAdminBucketIndexCheckBatchProgress,
     CephAdminBucketIndexCheckBatchResult,
