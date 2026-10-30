@@ -91,8 +91,7 @@ import BrowserObjectDetailsDrawer from "./BrowserObjectDetailsDrawer";
 import { resolveStorageSpaceObjectDetailsView } from "../shared/objectDetailsContract";
 import BrowserPathDetailsDrawer from "./BrowserPathDetailsDrawer";
 import BrowserStorageSpaceObjectDetailsDrawer from "./BrowserStorageSpaceObjectDetailsDrawer";
-import BrowserOperationsModal from "./BrowserOperationsModal";
-import BrowserOperationsPanel from "./BrowserOperationsPanel";
+import BrowserOperationsSurface from "./BrowserOperationsSurface";
 import BrowserMultipartUploadsModal from "./BrowserMultipartUploadsModal";
 import BrowserMobileSelectionActions from "./BrowserMobileSelectionActions";
 import BrowserPrefixVersionsModal from "./BrowserPrefixVersionsModal";
@@ -521,51 +520,7 @@ export default function BrowserPage({
     startOperation: startRegisteredOperation,
     updateOperation,
   } = useBrowserOperationRegistry();
-  const {
-    activeOperationsCount,
-    allOtherOperations,
-    clearFinishedOperations,
-    closeOperationsDetailsModal,
-    completedOperationsCount,
-    copyGroups,
-    deleteGroups,
-    dismissOperationsPanel,
-    downloadGroups,
-    downloadOperationDetails,
-    failedOperationsCount,
-    filtersAllInactive,
-    getSectionVisibleCount,
-    hasFinishedOperations,
-    hasOperationsPanelContent,
-    hasPendingOperations,
-    isGroupExpanded,
-    openOperationsDetailsModal,
-    operationsPanelOpen,
-    operationsPanelTotalCount,
-    operationSortFallback,
-    operationSortIndexById,
-    queuedOperationsCount,
-    recordCompletedActivity,
-    showActiveOperations,
-    showCompletedOperations,
-    showFailedOperations,
-    showMoreSection,
-    showOperationsBar,
-    showOperationsDetailsModal,
-    showOperationsPanel,
-    showQueuedOperations,
-    startOperation,
-    toggleGroupExpanded,
-    toggleOperationFilter,
-    toggleOperationsPanel,
-    uploadGroups,
-    uploadGroupSortIndexById,
-    visibleCopyGroups,
-    visibleDeleteGroups,
-    visibleDownloadGroups,
-    visibleOtherOperations,
-    visibleUploadGroups,
-  } = useBrowserOperationOverview({
+  const operationOverview = useBrowserOperationOverview({
     operations,
     setOperations,
     uploadQueue,
@@ -579,6 +534,16 @@ export default function BrowserPage({
     recordCompletedActivity: recordRegisteredActivity,
     setStatusMessage,
   });
+  const {
+    hasOperationsPanelContent,
+    hasPendingOperations,
+    openOperationsDetailsModal,
+    operationsPanelTotalCount,
+    recordCompletedActivity,
+    showOperationsBar,
+    showOperationsDetailsModal,
+    startOperation,
+  } = operationOverview;
   const objectsListViewportRef = useRef<HTMLDivElement | null>(null);
   const effectiveCaps =
     storageEndpointCapabilities === undefined
@@ -2295,70 +2260,13 @@ export default function BrowserPage({
           onClose={closeCopyDialog}
         />
       )}
-      {showOperationsPanel && (
-        <BrowserOperationsPanel
-          open={operationsPanelOpen}
-          totalOperationsCount={operationsPanelTotalCount}
-          activeOperationsCount={activeOperationsCount}
-          queuedOperationsCount={queuedOperationsCount}
-          completedOperationsCount={completedOperationsCount}
-          failedOperationsCount={failedOperationsCount}
-          downloadGroups={downloadGroups}
-          deleteGroups={deleteGroups}
-          copyGroups={copyGroups}
-          uploadGroups={uploadGroups}
-          otherOperations={allOtherOperations}
-          operationSortIndexById={operationSortIndexById}
-          uploadGroupSortIndexById={uploadGroupSortIndexById}
-          operationSortFallback={operationSortFallback}
-          cancelOperation={cancelOperation}
-          cancelUploadGroup={cancelUploadGroup}
-          hasFinishedOperations={hasFinishedOperations}
-          canDismiss={!hasPendingOperations}
-          onClearFinishedOperations={clearFinishedOperations}
-          onDismiss={dismissOperationsPanel}
-          onOpenDetails={openOperationsDetailsModal}
-          onToggleOpen={toggleOperationsPanel}
-        />
-      )}
-      {showOperationsDetailsModal && hasOperationsPanelContent && (
-        <BrowserOperationsModal
-          totalOperationsCount={operationsPanelTotalCount}
-          activeOperationsCount={activeOperationsCount}
-          queuedOperationsCount={queuedOperationsCount}
-          completedOperationsCount={completedOperationsCount}
-          failedOperationsCount={failedOperationsCount}
-          showActiveOperations={showActiveOperations}
-          showQueuedOperations={showQueuedOperations}
-          showCompletedOperations={showCompletedOperations}
-          showFailedOperations={showFailedOperations}
-          filtersAllInactive={filtersAllInactive}
-          onToggleActive={() => toggleOperationFilter("active")}
-          onToggleQueued={() => toggleOperationFilter("queued")}
-          onToggleCompleted={() => toggleOperationFilter("completed")}
-          onToggleFailed={() => toggleOperationFilter("failed")}
-          visibleDownloadGroups={visibleDownloadGroups}
-          visibleDeleteGroups={visibleDeleteGroups}
-          visibleCopyGroups={visibleCopyGroups}
-          visibleUploadGroups={visibleUploadGroups}
-          visibleOtherOperations={visibleOtherOperations}
-          operationSortIndexById={operationSortIndexById}
-          uploadGroupSortIndexById={uploadGroupSortIndexById}
-          operationSortFallback={operationSortFallback}
-          isGroupExpanded={isGroupExpanded}
-          toggleGroupExpanded={toggleGroupExpanded}
-          getSectionVisibleCount={getSectionVisibleCount}
-          showMoreSection={showMoreSection}
-          cancelOperation={cancelOperation}
-          cancelUploadGroup={cancelUploadGroup}
-          cancelUploadOperation={cancelOperationController}
-          removeQueuedUpload={removeQueuedUpload}
-          onDownloadOperationDetails={downloadOperationDetails}
-          hasFinishedOperations={hasFinishedOperations}
-          onClearFinishedOperations={clearFinishedOperations}
-          onClose={closeOperationsDetailsModal}
-        />
-      )}
+      <BrowserOperationsSurface
+        overview={operationOverview}
+        cancelOperation={cancelOperation}
+        cancelUploadGroup={cancelUploadGroup}
+        cancelUploadOperation={cancelOperationController}
+        removeQueuedUpload={removeQueuedUpload}
+      />
     </div>
   );
 }
