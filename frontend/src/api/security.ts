@@ -28,7 +28,11 @@ export type ExternalLinkRequest = {
   user_role: string;
   provider_type: string;
   provider_id: string;
+  issuer: string | null;
+  subject: string;
   email: string;
+  email_verified: boolean;
+  request_source: string | null;
   status: string;
   created_at: string;
   expires_at: string;

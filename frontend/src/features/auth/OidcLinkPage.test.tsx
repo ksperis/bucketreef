@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   startOidcProof: vi.fn(),
   verifyLdap: vi.fn(),
   verifyPassword: vi.fn(),
+  verifyRecoveryCode: vi.fn(),
   authenticatePasskey: vi.fn(),
   createPasskey: vi.fn(),
 }));
@@ -37,6 +38,7 @@ vi.mock("../../api/auth", () => ({
   startOidcLinkProof: mocks.startOidcProof,
   verifyOidcLinkLdap: mocks.verifyLdap,
   verifyOidcLinkPassword: mocks.verifyPassword,
+  verifyOidcLinkRecoveryCode: mocks.verifyRecoveryCode,
 }));
 
 vi.mock("../../auth/webauthn", () => ({
@@ -144,7 +146,41 @@ describe("OidcLinkPage", () => {
     await user.click(await screen.findByRole("button", { name: "Request administrator approval" }));
 
     expect(mocks.requestAdmin).toHaveBeenCalledWith("attempt-123");
-    expect(await screen.findByText(/sent to a superadministrator for approval/i)).toBeInTheDocument();
+    expect(await screen.findByText(/waiting for administrator approval/i)).toBeInTheDocument();
+  });
+
+  it("polls an administrator request until it reaches an approved terminal state", async () => {
+    let poll: TimerHandler | null = null;
+    const interval = vi.spyOn(window, "setInterval").mockImplementation((handler: TimerHandler) => {
+      poll = handler;
+      return 17;
+    });
+    mocks.fetchStatus
+      .mockResolvedValueOnce(status("admin_requested"))
+      .mockResolvedValueOnce(status("admin_approved"));
+
+    renderPage();
+    expect(await screen.findByText(/waiting for administrator approval/i)).toBeInTheDocument();
+    expect(poll).not.toBeNull();
+
+    await act(async () => {
+      if (typeof poll === "function") poll();
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText(/identity link was approved/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in again" })).toBeInTheDocument();
+    expect(mocks.fetchStatus).toHaveBeenCalledTimes(2);
+    interval.mockRestore();
+  });
+
+  it("shows a rejected administrator request as a terminal state", async () => {
+    mocks.fetchStatus.mockResolvedValue(status("admin_rejected"));
+
+    renderPage();
+
+    expect(await screen.findByText(/identity link request was rejected/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Return to sign in" })).toBeInTheDocument();
   });
 
   it("completes an existing-passkey MFA step before confirmation", async () => {
@@ -161,6 +197,20 @@ describe("OidcLinkPage", () => {
     expect(mocks.beginAuthentication).toHaveBeenCalledWith("attempt-123");
     expect(mocks.authenticatePasskey).toHaveBeenCalledWith({ challenge: "challenge" });
     expect(mocks.finishAuthentication).toHaveBeenCalledWith("attempt-123", { id: "credential" });
+    expect(await screen.findByRole("heading", { name: "Confirm account link" })).toBeInTheDocument();
+  });
+
+  it("accepts a recovery code instead of a passkey for an existing MFA enrollment", async () => {
+    const user = userEvent.setup();
+    mocks.fetchStatus.mockResolvedValue(status("mfa"));
+    mocks.verifyRecoveryCode.mockResolvedValue(status("confirm"));
+
+    renderPage();
+
+    await user.type(await screen.findByLabelText("Recovery code"), "recovery-123");
+    await user.click(screen.getByRole("button", { name: "Use recovery code" }));
+
+    expect(mocks.verifyRecoveryCode).toHaveBeenCalledWith("attempt-123", "recovery-123");
     expect(await screen.findByRole("heading", { name: "Confirm account link" })).toBeInTheDocument();
   });
 

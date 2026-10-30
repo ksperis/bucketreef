@@ -131,6 +131,8 @@ erDiagram
         varchar issuer
         varchar subject "NN"
         varchar email "NN"
+        boolean email_verified "NN; default=0"
+        varchar request_source
         varchar display_name
         varchar picture_url
         varchar status "NN; default=pending"

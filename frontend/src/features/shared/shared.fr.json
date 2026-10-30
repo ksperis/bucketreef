@@ -1042,5 +1042,10 @@
   "The link request was sent to a superadministrator for approval.": "La demande d’association a été envoyée à un superadministrateur pour approbation.",
   "The OIDC account is linked. Redirecting…": "Le compte OIDC est associé. Redirection…",
   "This account-linking request is unavailable or has expired.": "Cette demande d’association de compte est indisponible ou a expiré.",
-  "Unable to continue account linking. Check the entered credentials and try again.": "Impossible de poursuivre l’association du compte. Vérifiez les identifiants saisis et réessayez."
+  "Unable to continue account linking. Check the entered credentials and try again.": "Impossible de poursuivre l’association du compte. Vérifiez les identifiants saisis et réessayez.",
+  "The link request is waiting for administrator approval. This page updates automatically.": "La demande d’association attend l’approbation d’un administrateur. Cette page se met à jour automatiquement.",
+  "The identity link was approved. Sign in again to start a fresh session with the linked identity.": "L’association d’identité a été approuvée. Reconnectez-vous pour démarrer une nouvelle session avec l’identité associée.",
+  "The identity link request was rejected. No account link was created.": "La demande d’association d’identité a été rejetée. Aucune association de compte n’a été créée.",
+  "Sign in again": "Se reconnecter",
+  "You can use a single-use recovery code instead of a passkey.": "Vous pouvez utiliser un code de récupération à usage unique à la place d’une passkey."
 }

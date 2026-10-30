@@ -81,7 +81,11 @@ class ExternalIdentityLinkRequestInfo(ApiModel):
     user_role: UiRole
     provider_type: str
     provider_id: str
+    issuer: Optional[str]
+    subject: str
     email: str
+    email_verified: bool
+    request_source: Optional[str]
     status: str
     created_at: datetime
     expires_at: datetime

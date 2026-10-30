@@ -260,8 +260,11 @@ def test_admin_link_request_queue_is_filtered_by_role_hierarchy(auth_client, db_
                 user_id=standard.id,
                 provider_type="oidc",
                 provider_id="company",
+                issuer="https://issuer.example.com",
                 subject="standard-sensitive-subject",
                 email=standard.email,
+                email_verified=True,
+                request_source="login_collision",
                 status="pending",
                 created_at=now,
                 expires_at=now + timedelta(hours=1),
@@ -271,8 +274,11 @@ def test_admin_link_request_queue_is_filtered_by_role_hierarchy(auth_client, db_
                 user_id=privileged.id,
                 provider_type="oidc",
                 provider_id="company",
+                issuer="https://issuer.example.com",
                 subject="privileged-sensitive-subject",
                 email=privileged.email,
+                email_verified=False,
+                request_source="profile",
                 status="pending",
                 created_at=now,
                 expires_at=now + timedelta(hours=1),
@@ -297,7 +303,11 @@ def test_admin_link_request_queue_is_filtered_by_role_hierarchy(auth_client, db_
 
     assert inventory.status_code == 200
     assert [row["id"] for row in inventory.json()] == ["standard-link-request"]
-    assert "subject" not in inventory.text
+    assert inventory.json()[0]["issuer"] == "https://issuer.example.com"
+    assert inventory.json()[0]["subject"] == "standard-sensitive-subject"
+    assert inventory.json()[0]["email_verified"] is True
+    assert inventory.json()[0]["request_source"] == "login_collision"
+    assert "privileged-sensitive-subject" not in inventory.text
     assert privileged_decision.status_code == 403
     assert standard_decision.status_code == 200
     assert db_session.scalar(

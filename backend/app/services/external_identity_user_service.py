@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import ExternalIdentityNotFoundError
-from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User, UserRole
+from app.db import ExternalIdentity, ExternalIdentityLinkRequest, OidcLinkAttempt, User, UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.audit_service import AuditService
 from app.services.user_notifications_service import UserNotificationsService
@@ -126,6 +126,9 @@ class ExternalIdentityUserService:
         request.decided_at = now
         request.decided_by_user_id = superadmin.id
         request.decision_reason = (reason or "").strip() or None
+        user = self.db.get(User, request.user_id)
+        if not user:
+            raise ValueError("Target user no longer exists")
         if approve:
             if self._find_mapping(
                 request.provider_type,
@@ -143,17 +146,50 @@ class ExternalIdentityUserService:
                 issuer=request.issuer,
                 subject=request.subject,
                 email=request.email,
-                email_verified=request.provider_type == "oidc",
+                email_verified=bool(request.email_verified),
                 created_at=now,
                 link_source="manual_approval",
             )
-            user = self.db.get(User, request.user_id)
-            if not user:
-                raise ValueError("Target user no longer exists")
             user.auth_version += 1
             self.db.add_all([identity, user])
+        link_attempts = self.db.scalars(
+            select(OidcLinkAttempt).where(
+                OidcLinkAttempt.user_id == request.user_id,
+                OidcLinkAttempt.provider_id == request.provider_id,
+                OidcLinkAttempt.issuer == request.issuer,
+                OidcLinkAttempt.subject == request.subject,
+                OidcLinkAttempt.status == "admin_requested",
+            )
+        ).all() if request.provider_type == "oidc" and request.issuer else []
+        for attempt in link_attempts:
+            attempt.status = "admin_approved" if approve else "admin_rejected"
+            self.db.add(attempt)
         self.db.add(request)
         request.decision_source = "administrator"
+        UserNotificationsService(self.db).create_notifications(
+            user_ids=[user.id],
+            notification_type="identity_changed",
+            severity="info" if approve else "warning",
+            title=(
+                "External identity link approved"
+                if approve
+                else "External identity link rejected"
+            ),
+            message=(
+                f"Your identity link request for {request.provider_id} was approved. Sign in again to use it."
+                if approve
+                else f"Your identity link request for {request.provider_id} was rejected."
+            ),
+            subject_type=None,
+            event_key=f"external_identity_link_decision:{request.id}:{request.status}:{now.isoformat()}",
+            payload={
+                "request_id": request.id,
+                "provider_type": request.provider_type,
+                "provider_id": request.provider_id,
+                "status": request.status,
+            },
+            created_at=now,
+        )
         self.db.commit()
         if approve:
             AuthSessionService(self.db).revoke_all_for_user(
@@ -443,12 +479,11 @@ class ExternalIdentityUserService:
             )
             return existing
 
-        if provider_type == "oidc" and linking_policy == "reauthenticate":
-            if not issuer or not browser_secret_hash:
-                raise ValueError("OIDC account linking browser binding is unavailable")
+        if provider_type == "oidc" and issuer and browser_secret_hash:
             from app.services.oidc_link_service import OidcLinkService
 
-            attempt = OidcLinkService(self.db).create_login_collision_attempt(
+            link_service = OidcLinkService(self.db)
+            attempt = link_service.create_login_collision_attempt(
                 user=existing,
                 provider_id=provider_id,
                 issuer=issuer,
@@ -460,7 +495,12 @@ class ExternalIdentityUserService:
                 browser_secret_hash=browser_secret_hash,
                 redirect_path=redirect_path,
             )
+            if linking_policy != "reauthenticate":
+                link_service.request_admin_approval(attempt.id, browser_secret_hash)
             raise ExternalIdentityReauthenticationRequiredError(attempt.id)
+
+        if provider_type == "oidc" and linking_policy == "reauthenticate":
+            raise ValueError("OIDC account linking browser binding is unavailable")
 
         request = self._create_link_request(
             user=existing,
@@ -469,6 +509,8 @@ class ExternalIdentityUserService:
             issuer=issuer,
             subject=subject,
             email=email,
+            email_verified=email_verified,
+            request_source="login_collision",
             full_name=full_name,
             picture_url=picture_url,
         )
@@ -524,6 +566,8 @@ class ExternalIdentityUserService:
         issuer: Optional[str],
         subject: str,
         email: str,
+        email_verified: bool,
+        request_source: Optional[str],
         full_name: Optional[str],
         picture_url: Optional[str],
     ) -> ExternalIdentityLinkRequest:
@@ -539,6 +583,16 @@ class ExternalIdentityUserService:
         now = utcnow()
         if existing:
             if existing.status == "pending" and existing.expires_at > now:
+                if existing.user_id == user.id and existing.provider_id == provider_id:
+                    existing.issuer = issuer
+                    existing.email = email
+                    existing.email_verified = bool(email_verified)
+                    existing.request_source = request_source
+                    existing.display_name = full_name
+                    existing.picture_url = picture_url
+                    self.db.add(existing)
+                    self.db.commit()
+                    self.db.refresh(existing)
                 return existing
             existing.status = "pending"
             existing.created_at = now
@@ -547,6 +601,14 @@ class ExternalIdentityUserService:
             existing.decided_by_user_id = None
             existing.decision_reason = None
             existing.decision_source = None
+            existing.user_id = user.id
+            existing.provider_id = provider_id
+            existing.issuer = issuer
+            existing.email = email
+            existing.email_verified = bool(email_verified)
+            existing.request_source = request_source
+            existing.display_name = full_name
+            existing.picture_url = picture_url
             request = existing
         else:
             request = ExternalIdentityLinkRequest(
@@ -557,6 +619,8 @@ class ExternalIdentityUserService:
                 issuer=issuer,
                 subject=subject,
                 email=email,
+                email_verified=bool(email_verified),
+                request_source=request_source,
                 display_name=full_name,
                 picture_url=picture_url,
                 status="pending",
@@ -579,6 +643,8 @@ class ExternalIdentityUserService:
         issuer: Optional[str],
         subject: str,
         email: str,
+        email_verified: bool = False,
+        request_source: Optional[str] = None,
         full_name: Optional[str],
         picture_url: Optional[str],
     ) -> ExternalIdentityLinkRequest:
@@ -589,6 +655,8 @@ class ExternalIdentityUserService:
             issuer=issuer,
             subject=subject,
             email=email,
+            email_verified=email_verified,
+            request_source=request_source,
             full_name=full_name,
             picture_url=picture_url,
         )

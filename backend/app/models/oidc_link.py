@@ -28,6 +28,8 @@ class OidcLinkStatus(ApiModel):
         "mfa_enrollment",
         "confirm",
         "admin_requested",
+        "admin_approved",
+        "admin_rejected",
         "completed",
     ]
     proof_methods: list[OidcLinkProofMethod]

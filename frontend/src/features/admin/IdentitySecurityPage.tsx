@@ -71,6 +71,12 @@ function providerLabel(providerType: string, text: IdentitySecurityText): string
   return providerType.toUpperCase();
 }
 
+function requestSourceLabel(source: string | null, text: IdentitySecurityText): string {
+  if (source === "login_collision") return text("signInCollision");
+  if (source === "profile") return text("profile");
+  return source ?? text("unknown");
+}
+
 function sessionPrincipalLabel(session: AdminSecuritySession, text: IdentitySecurityText): string {
   if (session.user_full_name) return session.user_full_name;
   if (session.user_email) return session.user_email;
@@ -169,7 +175,34 @@ export default function IdentitySecurityPage() {
       {
         id: "claimed-email",
         label: text("claimedEmail"),
-        render: (request) => <span className="break-all">{request.email}</span>,
+        render: (request) => (
+          <div className="min-w-0 space-y-1">
+            <span className="break-all">{request.email}</span>
+            <UiBadge tone={request.email_verified ? "success" : "warning"}>
+              {text("emailVerified")}: {text(request.email_verified ? "yes" : "no")}
+            </UiBadge>
+          </div>
+        ),
+      },
+      {
+        id: "oidc-evidence",
+        label: text("oidc"),
+        render: (request) => request.provider_type === "oidc" ? (
+          <div className="min-w-0 space-y-1 ui-caption">
+            <p className="break-all"><span className="font-semibold">{text("issuer")}:</span> <code className="select-all">{request.issuer ?? text("unknown")}</code></p>
+            <p className="break-all"><span className="font-semibold">{text("subject")}:</span> <code className="select-all">{request.subject}</code></p>
+          </div>
+        ) : <span className={uiMutedTextClass}>{text("notApplicable")}</span>,
+      },
+      {
+        id: "request-context",
+        label: text("requested"),
+        render: (request) => (
+          <div className="space-y-1 ui-caption">
+            <p>{requestSourceLabel(request.request_source, text)}</p>
+            <time dateTime={request.created_at}>{formatDate(request.created_at, locale)}</time>
+          </div>
+        ),
       },
       {
         id: "expires",
@@ -381,6 +414,12 @@ export default function IdentitySecurityPage() {
             { label: text("localAccount"), value: pendingLinkDecision.request.user_email },
             { label: text("provider"), value: `${pendingLinkDecision.request.provider_type}:${pendingLinkDecision.request.provider_id}` },
             { label: text("claimedEmail"), value: pendingLinkDecision.request.email },
+            { label: text("emailVerified"), value: text(pendingLinkDecision.request.email_verified ? "yes" : "no") },
+            { label: text("issuer"), value: pendingLinkDecision.request.issuer ?? text("unknown") },
+            { label: text("subject"), value: pendingLinkDecision.request.subject },
+            { label: text("requestSource"), value: requestSourceLabel(pendingLinkDecision.request.request_source, text) },
+            { label: text("requested"), value: formatDate(pendingLinkDecision.request.created_at, locale) },
+            { label: text("expires"), value: formatDate(pendingLinkDecision.request.expires_at, locale) },
           ]}
           onCancel={() => setPendingLinkDecision(null)}
           onConfirm={() => void decide()}

@@ -1854,5 +1854,13 @@
   "Warning": "Warnung",
   "Issuer is required for OIDC identities.": "Für OIDC-Identitäten ist ein Aussteller erforderlich.",
   "Issuer": "Aussteller",
-  "Revalidation required": "Erneute Validierung erforderlich"
+  "Revalidation required": "Erneute Validierung erforderlich",
+  "Email verified": "E-Mail verifiziert",
+  "Yes": "Ja",
+  "Request source": "Anfragequelle",
+  "Sign-in collision": "Anmeldekonflikt",
+  "Requested": "Angefordert",
+  "Review the immutable OIDC evidence and local target account before deciding. Approvals link the shown issuer and subject exactly as received.": "Prüfen Sie vor der Entscheidung die unveränderlichen OIDC-Nachweise und das lokale Zielkonto. Eine Genehmigung verknüpft den angezeigten Issuer und Subject exakt so, wie sie empfangen wurden.",
+  "Trusted verified email (advanced)": "Vertrauenswürdige verifizierte E-Mail (erweitert)",
+  "Trusted verified email is an advanced automatic-linking policy. Enable it only for domains whose IdP fully controls and reliably verifies email ownership. It remains limited to active standard local-password accounts without any prior external identity.": "Vertrauenswürdige verifizierte E-Mail ist eine erweiterte Richtlinie zur automatischen Verknüpfung. Aktivieren Sie sie nur für Domains, deren IdP E-Mail-Adressen vollständig kontrolliert und deren Besitz zuverlässig verifiziert. Sie bleibt auf aktive Standardkonten mit lokalem Passwort ohne frühere externe Identität beschränkt."
 }

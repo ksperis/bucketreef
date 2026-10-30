@@ -283,12 +283,16 @@ class OidcLinkService:
             issuer=attempt.issuer,
             subject=attempt.subject,
             email=attempt.email or user.email,
+            email_verified=bool(attempt.email_verified),
+            request_source=attempt.source,
             full_name=attempt.display_name,
             picture_url=attempt.picture_url,
         )
         attempt = self.db.get(OidcLinkAttempt, attempt.id)
         if attempt:
             attempt.status = "admin_requested"
+            if request.expires_at > attempt.expires_at:
+                attempt.expires_at = request.expires_at
             self.db.add(attempt)
             self.db.commit()
         return request
@@ -481,6 +485,10 @@ class OidcLinkService:
             return "completed"
         if attempt.status == "admin_requested":
             return "admin_requested"
+        if attempt.status == "admin_approved":
+            return "admin_approved"
+        if attempt.status == "admin_rejected":
+            return "admin_rejected"
         if not attempt.subject:
             return "oidc"
         if attempt.proof_verified_at is None:

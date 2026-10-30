@@ -14,6 +14,7 @@ from app.db import ExternalIdentity, OidcLinkAttempt, User, UserNotification, Us
 from app.services.api_token_service import ApiTokenService
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPIdentity
+from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.oidc_link_service import OidcLinkError, OidcLinkService
 from app.utils.time import utcnow
 
@@ -119,6 +120,7 @@ def test_password_and_linked_ldap_can_prove_target_account(db_session, monkeypat
 def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
     user = _user(db_session, email="fallback@example.test")
     attempt = _attempt(db_session, user)
+    initial_expiry = attempt.expires_at
     service = OidcLinkService(db_session)
 
     request = service.request_admin_approval(attempt.id, BROWSER_HASH)
@@ -127,7 +129,66 @@ def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
     assert request.provider_type == "oidc"
     assert request.issuer == OIDC_ISSUER
     assert request.subject == "new-subject"
+    assert request.email_verified is True
+    assert request.request_source == "login_collision"
+    db_session.refresh(attempt)
+    assert attempt.expires_at == request.expires_at
+    assert attempt.expires_at > initial_expiry
     assert service.status(attempt.id, BROWSER_HASH).stage == "admin_requested"
+
+    superadmin = _user(
+        db_session,
+        email="fallback-superadmin@example.test",
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+    ExternalIdentityUserService(db_session).decide_link_request(
+        request.id,
+        superadmin=superadmin,
+        approve=True,
+    )
+    assert service.status(attempt.id, BROWSER_HASH).stage == "admin_approved"
+    identity = db_session.scalars(
+        select(ExternalIdentity).where(
+            ExternalIdentity.user_id == user.id,
+            ExternalIdentity.provider_type == "oidc",
+        )
+    ).one()
+    assert identity.email_verified is True
+    notification = db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.user_id == user.id,
+            UserNotification.notification_type == "identity_changed",
+        )
+    ).one()
+    assert notification.payload["status"] == "approved"
+    assert "subject" not in notification.payload
+
+
+def test_admin_fallback_rejection_reaches_terminal_link_state(db_session):
+    user = _user(db_session, email="fallback-rejected@example.test")
+    attempt = _attempt(db_session, user, subject="rejected-subject")
+    service = OidcLinkService(db_session)
+    request = service.request_admin_approval(attempt.id, BROWSER_HASH)
+    superadmin = _user(
+        db_session,
+        email="fallback-reject-superadmin@example.test",
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+
+    ExternalIdentityUserService(db_session).decide_link_request(
+        request.id,
+        superadmin=superadmin,
+        approve=False,
+    )
+
+    assert service.status(attempt.id, BROWSER_HASH).stage == "admin_rejected"
+    notification = db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.user_id == user.id,
+            UserNotification.notification_type == "identity_changed",
+        )
+    ).one()
+    assert notification.payload["status"] == "rejected"
 
 
 def test_confirm_revokes_existing_credentials_and_creates_replacement_session(db_session):

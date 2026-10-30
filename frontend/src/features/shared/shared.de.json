@@ -1041,5 +1041,10 @@
   "The link request was sent to a superadministrator for approval.": "Die Verknüpfungsanfrage wurde einem Superadministrator zur Genehmigung gesendet.",
   "The OIDC account is linked. Redirecting…": "Das OIDC-Konto ist verknüpft. Weiterleitung…",
   "This account-linking request is unavailable or has expired.": "Diese Kontoverknüpfungsanfrage ist nicht verfügbar oder abgelaufen.",
-  "Unable to continue account linking. Check the entered credentials and try again.": "Die Kontoverknüpfung konnte nicht fortgesetzt werden. Prüfen Sie die eingegebenen Zugangsdaten und versuchen Sie es erneut."
+  "Unable to continue account linking. Check the entered credentials and try again.": "Die Kontoverknüpfung konnte nicht fortgesetzt werden. Prüfen Sie die eingegebenen Zugangsdaten und versuchen Sie es erneut.",
+  "The link request is waiting for administrator approval. This page updates automatically.": "Die Verknüpfungsanfrage wartet auf die Genehmigung durch einen Administrator. Diese Seite wird automatisch aktualisiert.",
+  "The identity link was approved. Sign in again to start a fresh session with the linked identity.": "Die Identitätsverknüpfung wurde genehmigt. Melden Sie sich erneut an, um eine neue Sitzung mit der verknüpften Identität zu starten.",
+  "The identity link request was rejected. No account link was created.": "Die Anfrage zur Identitätsverknüpfung wurde abgelehnt. Es wurde keine Kontoverknüpfung erstellt.",
+  "Sign in again": "Erneut anmelden",
+  "You can use a single-use recovery code instead of a passkey.": "Sie können anstelle eines Passkeys einen einmaligen Wiederherstellungscode verwenden."
 }

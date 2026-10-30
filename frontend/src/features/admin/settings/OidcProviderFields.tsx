@@ -59,11 +59,11 @@ export default function OidcProviderFields({ form, update, provider, readOnly, e
     <SettingsSection title={adminText("Identity linking")} description={adminText("Choose how new external identities may link to existing local accounts.")} presentation="compact">
       <div className="settings-fields">
         <UiSelect label={adminText("Identity linking policy")} value={form.linking_policy} disabled={state.locked("linking_policy")}
-          hint={state.hint("linking_policy", "Trusted email linking applies only to active standard local-password accounts without any prior external identity.")}
+          hint={state.hint("linking_policy", "Trusted verified email is an advanced automatic-linking policy. Enable it only for domains whose IdP fully controls and reliably verifies email ownership. It remains limited to active standard local-password accounts without any prior external identity.")}
           error={errors.linking_policy} onChange={event => update("linking_policy", event.target.value as "manual" | "reauthenticate" | "trusted_email")}>
           <option value="reauthenticate">{adminText("Reauthenticate existing account")}</option>
           <option value="manual">{adminText("Manual approval")}</option>
-          <option value="trusted_email">{adminText("Trusted verified email")}</option>
+          <option value="trusted_email">{adminText("Trusted verified email (advanced)")}</option>
         </UiSelect>
         <UiTextarea label={adminText("Trusted email domains")} value={form.trustedEmailDomainsText} rows={3}
           disabled={state.locked("trusted_email_domains") || form.linking_policy !== "trusted_email"}

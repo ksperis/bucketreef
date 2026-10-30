@@ -1854,5 +1854,13 @@
   "Warning": "Avertissement",
   "Issuer is required for OIDC identities.": "L’émetteur est obligatoire pour les identités OIDC.",
   "Issuer": "Émetteur",
-  "Revalidation required": "Revalidation requise"
+  "Revalidation required": "Revalidation requise",
+  "Email verified": "E-mail vérifié",
+  "Yes": "Oui",
+  "Request source": "Origine de la demande",
+  "Sign-in collision": "Conflit de connexion",
+  "Requested": "Demandée le",
+  "Review the immutable OIDC evidence and local target account before deciding. Approvals link the shown issuer and subject exactly as received.": "Examinez les preuves OIDC immuables et le compte local cible avant de décider. Une approbation associe exactement l’issuer et le subject affichés tels qu’ils ont été reçus.",
+  "Trusted verified email (advanced)": "E-mail vérifié de confiance (avancé)",
+  "Trusted verified email is an advanced automatic-linking policy. Enable it only for domains whose IdP fully controls and reliably verifies email ownership. It remains limited to active standard local-password accounts without any prior external identity.": "L’e-mail vérifié de confiance est une politique avancée d’association automatique. Activez-la uniquement pour les domaines dont l’IdP contrôle entièrement et vérifie de manière fiable la propriété des adresses e-mail. Elle reste limitée aux comptes locaux standard actifs avec mot de passe et sans identité externe antérieure."
 }
