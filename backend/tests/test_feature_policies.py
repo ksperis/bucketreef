@@ -14,8 +14,11 @@ from app.services.feature_policy_service import (
     apply_resource_feature_overrides,
     bucket_usage_stats_collection_state,
     bucket_usage_stats_state,
+    multisite_endpoint_switching_allowed,
+    multisite_endpoint_switching_resource_state,
     manager_resource_states,
     manager_rgw_usage_metrics_state,
+    validate_multisite_endpoint_switching_override,
 )
 from app.models.s3_account import S3AccountUpdate
 from app.models.s3_user import S3UserUpdate
@@ -44,6 +47,79 @@ def test_cost_estimation_policies_default_to_targeted():
 
     assert settings.manager.feature_policies.cost_estimation == FeaturePolicy.TARGETED
     assert settings.portal.feature_policies.cost_estimation == FeaturePolicy.TARGETED
+
+
+def test_rgw_multisite_resource_policies_default_to_targeted():
+    policies = AppSettings().manager.feature_policies
+
+    assert policies.rgw_multisite_endpoint_switching == FeaturePolicy.TARGETED
+
+
+@pytest.mark.parametrize(
+    "policy,override,principal_allowed,expected",
+    [
+        (FeaturePolicy.TARGETED, None, False, False),
+        (FeaturePolicy.TARGETED, True, False, True),
+        (FeaturePolicy.DEFAULT_ON, None, False, True),
+        (FeaturePolicy.DEFAULT_ON, False, False, False),
+        (FeaturePolicy.DISABLED, True, False, False),
+        (FeaturePolicy.DISABLED, True, True, True),
+        (FeaturePolicy.TARGETED, False, True, True),
+    ],
+)
+def test_rgw_multisite_account_policy_is_additive_with_principal_grant(
+    db_session,
+    policy,
+    override,
+    principal_allowed,
+    expected,
+):
+    settings = AppSettings()
+    settings.manager.feature_policies.rgw_multisite_endpoint_switching = policy
+    account = make_s3_account(
+        db_session,
+        name=f"Multisite {policy.value} {override}",
+        allow_multisite_endpoint_switching=override,
+    )
+
+    state = multisite_endpoint_switching_resource_state(
+        settings.manager.feature_policies,
+        account,
+    )
+    allowed = multisite_endpoint_switching_allowed(
+        settings.manager.feature_policies,
+        account,
+        principal_allowed=principal_allowed,
+    )
+
+    assert state.enabled is (False if policy == FeaturePolicy.DISABLED else (override if override is not None else policy == FeaturePolicy.DEFAULT_ON))
+    assert allowed is expected
+
+
+@pytest.mark.parametrize("resource_kind", ["account", "s3_user"])
+def test_rgw_multisite_resource_override_cannot_enable_disabled_platform_policy(
+    db_session,
+    resource_kind,
+):
+    policies = AppSettings().manager.feature_policies
+    policies.rgw_multisite_endpoint_switching = FeaturePolicy.DISABLED
+    resource = (
+        make_s3_account(db_session, name="Disabled multisite override")
+        if resource_kind == "account"
+        else S3User(
+            name="Disabled multisite override",
+            rgw_user_uid="disabled-multisite-override",
+            storage_endpoint_id=1,
+        )
+    )
+    payload = (
+        S3AccountUpdate(allow_multisite_endpoint_switching=True)
+        if resource_kind == "account"
+        else S3UserUpdate(allow_multisite_endpoint_switching=True)
+    )
+
+    with pytest.raises(ValueError, match="disabled by the platform"):
+        validate_multisite_endpoint_switching_override(payload, policies, resource)
 
 
 def test_cost_estimation_targeted_overrides_resolve_for_manager_and_portal(db_session, monkeypatch):
@@ -170,11 +246,13 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
         allow_access_key_metadata=False,
         allow_rgw_usage_metrics=True,
         allow_cost_estimation=False,
+        allow_multisite_endpoint_switching=False,
     )
     account_payload = S3AccountUpdate(
         allow_access_key_metadata=None,
         allow_bucket_usage_stats=False,
         allow_cost_estimation=True,
+        allow_multisite_endpoint_switching=True,
     )
     apply_resource_feature_overrides(account_payload, account)
 
@@ -182,6 +260,7 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
     assert account.allow_bucket_usage_stats is False
     assert account.allow_rgw_usage_metrics is True
     assert account.allow_cost_estimation is True
+    assert account.allow_multisite_endpoint_switching is True
 
     s3_user = S3User(
         name="Policy user",
@@ -193,6 +272,7 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
         allow_cost_estimation=False,
         allow_bucket_usage_stats=False,
         allow_bucket_usage_stats_collection=False,
+        allow_multisite_endpoint_switching=False,
     )
     user_payload = S3UserUpdate(
         allow_activity_history=None,
@@ -200,6 +280,7 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
         allow_cost_estimation=True,
         allow_bucket_usage_stats=True,
         allow_bucket_usage_stats_collection=True,
+        allow_multisite_endpoint_switching=None,
     )
     apply_resource_feature_overrides(user_payload, s3_user)
 
@@ -209,6 +290,7 @@ def test_resource_feature_override_application_preserves_patch_semantics(db_sess
     assert s3_user.allow_cost_estimation is True
     assert s3_user.allow_bucket_usage_stats is True
     assert s3_user.allow_bucket_usage_stats_collection is True
+    assert s3_user.allow_multisite_endpoint_switching is None
 
 
 @pytest.mark.parametrize(

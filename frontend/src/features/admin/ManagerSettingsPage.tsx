@@ -49,6 +49,7 @@ const paths = [
   "manager.feature_policies.access_key_metadata",
   "manager.feature_policies.access_key_expiration",
   "manager.feature_policies.managed_private_connection_provisioning",
+  "manager.feature_policies.rgw_multisite_endpoint_switching",
   "manager.feature_policies.bucket_migration",
   "manager.feature_policies.bucket_compare",
   "manager.feature_policies.bucket_integrity_check",
@@ -197,6 +198,18 @@ export default function ManagerSettingsPage() {
           title={text("Provision managed private connections")}
           description={text("Provision credentials for eligible users without revealing generated secrets.")}
           experimental
+        />
+      </SettingsSection>
+      <SettingsSection
+        presentation="compact"
+        title={text("RGW multisite")}
+        description={text("Control endpoint-switching grants supplied by RGW Accounts and RGW Users. UI User and UI Group grants remain additive.")}
+      >
+        <AppSettingsPolicy
+          form={form}
+          field="manager.feature_policies.rgw_multisite_endpoint_switching"
+          title={text("RGW Account and User endpoint switching")}
+          description={text("Set the default endpoint-switching policy for compatible RGW Accounts and RGW Users. Each resource can inherit, explicitly grant, or explicitly disable it.")}
         />
       </SettingsSection>
       <SettingsSection

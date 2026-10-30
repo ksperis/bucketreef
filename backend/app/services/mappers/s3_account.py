@@ -62,6 +62,7 @@ def s3_account_from_db(
         allow_cost_estimation=account.allow_cost_estimation,
         allow_bucket_usage_stats=account.allow_bucket_usage_stats,
         allow_bucket_usage_stats_collection=account.allow_bucket_usage_stats_collection,
+        allow_multisite_endpoint_switching=account.allow_multisite_endpoint_switching,
         tags=tags or [],
     )
 
@@ -95,5 +96,6 @@ def s3_account_summary_from_db(
         allow_cost_estimation=account.allow_cost_estimation,
         allow_bucket_usage_stats=account.allow_bucket_usage_stats,
         allow_bucket_usage_stats_collection=account.allow_bucket_usage_stats_collection,
+        allow_multisite_endpoint_switching=account.allow_multisite_endpoint_switching,
         tags=tags or [],
     )

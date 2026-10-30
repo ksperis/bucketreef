@@ -293,6 +293,13 @@ Managed from Admin UI:
   names and notes (`manager.feature_policies.access_key_metadata`), optional
   access-key expiration (`manager.feature_policies.access_key_expiration`), and
   migration parallelism.
+  RGW multisite endpoint switching for RGW Accounts and RGW Users uses one shared
+  `manager.feature_policies.rgw_multisite_endpoint_switching` policy, which defaults
+  to `targeted`. Each RGW Account or RGW User has an independent nullable
+  `allow_multisite_endpoint_switching` override. The effective resource grant is
+  resolved from that shared policy and the selected resource override, then combined
+  additively with the UI User/UI Group multisite grant. S3 Connections do not use
+  the resource policy and remain governed by the UI User/UI Group grant only.
   Cost estimation defaults to `targeted` and requires `allow_cost_estimation=true`
   on an eligible persisted RGW Account or RGW User before Manager shows the
   **Costs** tab in **Usage & Metrics**. S3 Connection contexts are not Cost

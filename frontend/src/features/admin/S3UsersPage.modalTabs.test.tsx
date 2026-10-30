@@ -55,6 +55,7 @@ function makeS3User(overrides: Partial<S3User> = {}): S3User {
     allow_cost_estimation: null,
     allow_bucket_usage_stats: null,
     allow_bucket_usage_stats_collection: null,
+    allow_multisite_endpoint_switching: null,
     allow_managed_private_connection_provisioning: null,
     ...overrides,
   };
@@ -512,6 +513,7 @@ describe("S3UsersPage modal tabs", () => {
 
     const usageSection = screen.getByRole("region", { name: "Usage and metrics" });
     const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
+    const multisiteSection = screen.getByRole("region", { name: "RGW multisite" });
     const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
     expect(within(usageSection).getByRole("radiogroup", { name: "RGW traffic and usage metrics" })).toBeInTheDocument();
     expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key names and notes" })).toBeInTheDocument();
@@ -520,6 +522,7 @@ describe("S3UsersPage modal tabs", () => {
     expect(within(privilegedSection).getByRole("radiogroup", { name: "Bucket quota management" })).toBeInTheDocument();
     expect(within(privilegedSection).getByRole("radiogroup", { name: "Ceph S3 User keys" })).toBeInTheDocument();
     expect(within(privilegedSection).getByRole("radiogroup", { name: "Managed private connection provisioning" })).toBeInTheDocument();
+    expect(within(multisiteSection).getByRole("radiogroup", { name: "Endpoint switching" })).toBeInTheDocument();
     expect(within(privilegedSection).queryByRole("radiogroup", { name: "Access-key names and notes" })).not.toBeInTheDocument();
     expect(screen.getByText("Manages RGW User keys in Manager; storage and endpoint permissions remain required.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Ceph S3 User keys: information" })).not.toBeInTheDocument();
@@ -529,10 +532,12 @@ describe("S3UsersPage modal tabs", () => {
     expectInheritedFeatureOverride("Bucket quota management");
     expectInheritedFeatureOverride("Ceph S3 User keys");
     expectInheritedFeatureOverride("Managed private connection provisioning");
+    expectInheritedFeatureOverride("Endpoint switching");
     selectFeatureOverride("RGW traffic and usage metrics", "Enabled");
     selectFeatureOverride("Bucket quota management", "Enabled");
     selectFeatureOverride("Ceph S3 User keys", "Enabled");
     selectFeatureOverride("Managed private connection provisioning", "Enabled");
+    selectFeatureOverride("Endpoint switching", "Enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
@@ -546,6 +551,7 @@ describe("S3UsersPage modal tabs", () => {
         allow_bucket_quota_management: true,
         allow_access_key_management: true,
         allow_managed_private_connection_provisioning: true,
+        allow_multisite_endpoint_switching: true,
       })
     );
   });
@@ -579,7 +585,7 @@ describe("S3UsersPage modal tabs", () => {
     await screen.findByText("rgw-user-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
-    for (const name of ["RGW traffic and usage metrics", "Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning"])
+    for (const name of ["RGW traffic and usage metrics", "Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning", "Endpoint switching"])
       expectInheritedFeatureOverride(name);
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Display name", exact: true }), { target: { value: "renamed-user" } });
@@ -588,6 +594,7 @@ describe("S3UsersPage modal tabs", () => {
     expect(updateS3UserMock.mock.calls.at(-1)?.[1]).toEqual(expect.objectContaining({
       allow_bucket_quota_management: null, allow_access_key_management: null, allow_access_key_metadata: null,
       allow_access_key_expiration: null, allow_rgw_usage_metrics: null, allow_managed_private_connection_provisioning: null,
+      allow_multisite_endpoint_switching: null,
     }));
   });
 

@@ -75,6 +75,7 @@ class S3Account(ApiModel):
     allow_cost_estimation: Optional[bool]
     allow_bucket_usage_stats: Optional[bool]
     allow_bucket_usage_stats_collection: Optional[bool]
+    allow_multisite_endpoint_switching: Optional[bool]
     tags: list[TagDefinitionSummary]
 
 
@@ -142,6 +143,7 @@ class S3AccountUpdate(ApiModel):
     allow_cost_estimation: Optional[bool] = None
     allow_bucket_usage_stats: Optional[bool] = None
     allow_bucket_usage_stats_collection: Optional[bool] = None
+    allow_multisite_endpoint_switching: Optional[bool] = None
 
     @field_validator("storage_endpoint_id", mode="before")
     @classmethod
@@ -178,6 +180,7 @@ class S3AccountSummary(ApiModel):
     allow_cost_estimation: Optional[bool]
     allow_bucket_usage_stats: Optional[bool]
     allow_bucket_usage_stats_collection: Optional[bool]
+    allow_multisite_endpoint_switching: Optional[bool]
     tags: list[TagDefinitionSummary]
 
 

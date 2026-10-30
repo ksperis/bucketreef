@@ -202,6 +202,10 @@ operations** contains grants such as bucket quota management that require
 delegated Ceph/RGW administrative capabilities.
 RGW Users use the same grouping; their privileged operations also include Ceph
 S3 User key management and managed private connection provisioning.
+**RGW multisite** contains the per-resource **Endpoint switching** override for
+RGW Accounts and RGW Users. Both resource types inherit the same platform
+policy, while each Account or RGW User can still explicitly enable or disable
+its own resource grant.
 **Portal settings**, when available, has its own save action: saving either
 form preserves unsaved changes in the other. While either save is running,
 fields, tabs and return controls are locked. A failed save keeps the draft for
@@ -246,12 +250,14 @@ eligible members.
 
 **Allow RGW multisite endpoint switching** is an RGW multisite permission
 available to eligible UI users and UI groups. Direct and inherited grants combine
-through the normal effective-access model. The permission allows the user to
-choose an alternate compatible execution endpoint for an already authorized RGW
-Account, RGW User, or endpoint-backed S3 Connection context in Manager or
-standalone Browser where that context is otherwise available; it does not grant
-workspace access to a context and does not add S3, IAM, or RGW Admin Ops
-permissions. Custom-URL S3 Connections and S3 Connections using temporary
+through the normal effective-access model. For RGW Account and RGW User contexts,
+this principal grant is additive with the resource grant resolved from the shared
+platform multisite policy and that resource's override. For S3 Connections, the
+principal grant remains the only multisite grant source. The permission allows the
+user to choose an alternate compatible execution endpoint for an already authorized
+context in Manager or standalone Browser where that context is otherwise available;
+it does not grant workspace access to a context and does not add S3, IAM, or RGW
+Admin Ops permissions. Custom-URL S3 Connections and S3 Connections using temporary
 session credentials remain pinned to their original endpoint.
 
 In the UI user and UI group editors, association tabs first list the currently

@@ -18,6 +18,7 @@ export function adminAccountForm(account: S3Account) {
     allow_cost_estimation: account.allow_cost_estimation,
     allow_bucket_usage_stats: account.allow_bucket_usage_stats,
     allow_bucket_usage_stats_collection: account.allow_bucket_usage_stats_collection,
+    allow_multisite_endpoint_switching: account.allow_multisite_endpoint_switching,
     user_links: account.user_links.map<AccountUserLink>(link => ({ ...link })),
     group_links: account.group_links.map<AccountGroupLink>(link => ({ ...link })),
   };
@@ -66,6 +67,7 @@ export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAcco
       allow_activity_history: draft.allow_activity_history,
       allow_rgw_usage_metrics: draft.allow_rgw_usage_metrics,
       allow_cost_estimation: draft.allow_cost_estimation,
+      allow_multisite_endpoint_switching: draft.allow_multisite_endpoint_switching,
     } : {}),
     ...(allowQuotaUpdates && accountQuotaChanged(draft, baseline) ? {
       quota_max_size_gb: draft.quota_max_size_gb !== "" ? Number(draft.quota_max_size_gb) : null,

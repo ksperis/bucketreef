@@ -74,6 +74,21 @@ describe("ManagerSettingsPage", () => {
     expectPolicy(toggle, "Targeted activation");
   });
 
+  it("renders and saves the shared RGW multisite resource policy", async () => {
+    const user = userEvent.setup();
+    render(<ManagerSettingsPage />);
+
+    const policy = await policyGroup("RGW Account and User endpoint switching");
+    expectPolicy(policy, "Targeted activation");
+
+    await user.click(within(policy).getByRole("radio", { name: "Enabled by default" }));
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
+    const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
+    expect(payload.manager.feature_policies.rgw_multisite_endpoint_switching).toBe("default_on");
+  });
+
   it("saves managed private connection provisioning from an experimental default-off toggle", async () => {
     const user = userEvent.setup();
     render(<ManagerSettingsPage />);
@@ -291,6 +306,6 @@ describe("ManagerSettingsPage", () => {
     expect(screen.getAllByRole("radiogroup").map(group => group.getAttribute("aria-label"))).toEqual(
       expect.arrayContaining(["RGW traffic and usage metrics"]),
     );
-    expect(screen.getAllByRole("radiogroup")).toHaveLength(13);
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(14);
   });
 });

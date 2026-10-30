@@ -148,6 +148,7 @@ export default function S3UsersPage() {
     allow_cost_estimation: null as boolean | null,
     allow_bucket_usage_stats: null as boolean | null,
     allow_bucket_usage_stats_collection: null as boolean | null,
+    allow_multisite_endpoint_switching: null as boolean | null,
     allow_managed_private_connection_provisioning: null as boolean | null,
   });
   const [editInitialSignature, setEditInitialSignature] = useState("");
@@ -438,6 +439,7 @@ export default function S3UsersPage() {
       allow_cost_estimation: user.allow_cost_estimation,
       allow_bucket_usage_stats: user.allow_bucket_usage_stats,
       allow_bucket_usage_stats_collection: user.allow_bucket_usage_stats_collection,
+      allow_multisite_endpoint_switching: user.allow_multisite_endpoint_switching,
       allow_managed_private_connection_provisioning: user.allow_managed_private_connection_provisioning,
     };
     setEditingUser(user);
@@ -479,6 +481,7 @@ export default function S3UsersPage() {
         payload.allow_activity_history = editForm.allow_activity_history;
         payload.allow_rgw_usage_metrics = editForm.allow_rgw_usage_metrics;
         payload.allow_cost_estimation = editForm.allow_cost_estimation;
+        payload.allow_multisite_endpoint_switching = editForm.allow_multisite_endpoint_switching;
         payload.allow_managed_private_connection_provisioning =
           editForm.allow_managed_private_connection_provisioning;
       }
@@ -516,6 +519,7 @@ export default function S3UsersPage() {
         allow_cost_estimation: updatedUser.allow_cost_estimation,
         allow_bucket_usage_stats: updatedUser.allow_bucket_usage_stats,
         allow_bucket_usage_stats_collection: updatedUser.allow_bucket_usage_stats_collection,
+        allow_multisite_endpoint_switching: updatedUser.allow_multisite_endpoint_switching,
         allow_managed_private_connection_provisioning: updatedUser.allow_managed_private_connection_provisioning,
       };
       setEditingUser(updatedUser);
@@ -1192,6 +1196,13 @@ export default function S3UsersPage() {
                     triState
                     description={adminText("Shows RGW User Manager control and configuration actions. It does not include S3 object access logs.")}
                     onChange={value => setEditForm(prev => ({ ...prev, allow_activity_history: value }))} />
+                </SettingsSection>
+                <SettingsSection presentation="compact" title={adminText("RGW multisite")}>
+                  <FeatureOverrideField title={adminText("Endpoint switching")} value={editForm.allow_multisite_endpoint_switching}
+                    policy={generalSettings.manager_feature_policies.rgw_multisite_endpoint_switching} disabled={editBusy}
+                    triState
+                    help={adminText("Grants endpoint switching for this RGW User when the destination is in the same realm and zonegroup. UI User and UI Group grants remain additive.")}
+                    onChange={value => setEditForm(prev => ({ ...prev, allow_multisite_endpoint_switching: value }))} />
                 </SettingsSection>
                 <SettingsSection presentation="compact" title={adminText("Privileged Ceph operations")}>
                   <FeatureOverrideField title={adminText("Bucket quota management")} value={editForm.allow_bucket_quota_management}

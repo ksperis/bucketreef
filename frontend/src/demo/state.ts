@@ -297,7 +297,7 @@ export function createSeed(): DemoState {
     storage_endpoint_capabilities: endpoints[i % 2].capabilities!, allow_bucket_quota_management: true,
     allow_access_key_metadata: null, allow_access_key_expiration: null, allow_activity_history: null,
     allow_rgw_usage_metrics: null, allow_cost_estimation: null, allow_bucket_usage_stats: null,
-    allow_bucket_usage_stats_collection: null,
+    allow_bucket_usage_stats_collection: null, allow_multisite_endpoint_switching: null,
   }));
   const first = ["Alex", "Sam", "Jordan", "Morgan", "Taylor", "Casey", "Robin", "Avery", "Jamie", "Riley", "Cameron", "Drew"];
   const last = ["Martin", "Chen", "Patel", "Garcia", "Kim"];

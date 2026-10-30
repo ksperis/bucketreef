@@ -17,6 +17,7 @@ export type ManagerFeaturePolicies = {
   access_key_metadata: FeaturePolicy;
   access_key_expiration: FeaturePolicy;
   managed_private_connection_provisioning: FeaturePolicy;
+  rgw_multisite_endpoint_switching: FeaturePolicy;
 };
 export const DEFAULT_MANAGER_FEATURE_POLICIES: ManagerFeaturePolicies = {
   rgw_usage_metrics: "default_on",
@@ -32,6 +33,7 @@ export const DEFAULT_MANAGER_FEATURE_POLICIES: ManagerFeaturePolicies = {
   access_key_metadata: "targeted",
   access_key_expiration: "targeted",
   managed_private_connection_provisioning: "disabled",
+  rgw_multisite_endpoint_switching: "targeted",
 };
 
 export type ProjectFeaturePolicies = {
