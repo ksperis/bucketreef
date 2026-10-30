@@ -1275,11 +1275,11 @@ def _seed_account_derived_rows(db_session, *, endpoint: StorageEndpoint, account
                 scope_id=str(account.id),
                 scope_name=account.name,
                 bucket_name="account-bucket",
-                data_type_distribution_json="[]",
-                storage_class_distribution_json="[]",
-                size_distribution_json="[]",
-                age_distribution_json="[]",
-                current_noncurrent_distribution_json="[]",
+                data_type_distribution=[],
+                storage_class_distribution=[],
+                size_distribution=[],
+                age_distribution=[],
+                current_noncurrent_distribution=[],
             ),
         ]
     )

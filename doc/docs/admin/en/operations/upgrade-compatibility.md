@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured bucket usage statistics payloads
+
+Migration `0207_structure_bucket_usage_stats_payloads` replaces the five
+`bucket_usage_stats_snapshots.*_distribution_json` text columns with non-null
+structured JSON distribution lists and replaces `warnings_json` with the
+nullable structured JSON `warnings` list. Existing distribution values must
+decode to JSON arrays of objects, and warnings must decode to an array of
+strings when present. Malformed JSON or values with the wrong shape stop the
+upgrade explicitly.
+
+Bucket usage collection and reads now store and consume the structured values
+directly instead of serializing and parsing JSON text at runtime. The downgrade
+recreates the former text JSON columns from the structured values.
+
 ## 2026-10 structured onboarding journey state
 
 Migration `0206_structure_onboarding_journey_payloads` replaces
