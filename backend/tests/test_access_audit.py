@@ -29,6 +29,7 @@ from app.models.access_audit import (
 )
 from app.services.access_audit_service import AccessAuditFilters, AccessAuditService
 from tests.s3_account_factory import make_s3_account
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def test_access_audit_models_require_complete_canonical_payloads() -> None:
@@ -99,13 +100,7 @@ def _seed_access_graph(db_session):
         access_manager=True,
         access_key_id="shared-ak",
         secret_access_key="shared-sk",
-        custom_endpoint_config=json.dumps({
-            "endpoint_url": "https://s3.example.test",
-            "region": None,
-            "provider": None,
-            "force_path_style": False,
-            "verify_tls": True,
-        }),
+        **custom_endpoint_fields("https://s3.example.test"),
     )
     private = S3Connection(
         created_by_user_id=user.id,
@@ -114,13 +109,7 @@ def _seed_access_graph(db_session):
         access_manager=True,
         access_key_id="private-ak",
         secret_access_key="private-sk",
-        custom_endpoint_config=json.dumps({
-            "endpoint_url": "https://private.example.test",
-            "region": None,
-            "provider": None,
-            "force_path_style": False,
-            "verify_tls": True,
-        }),
+        **custom_endpoint_fields("https://private.example.test"),
     )
     db_session.add_all([rgw_user, shared, private])
     db_session.flush()

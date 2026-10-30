@@ -32,6 +32,7 @@ from app.models.s3_connection import (
 )
 from app.models.s3_connection_admin import S3ConnectionAdminCreate, S3ConnectionAdminUpdate
 from app.services.s3_connections_service import S3ConnectionsService
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def _user(db_session, email: str) -> User:
@@ -59,11 +60,20 @@ def _endpoint(db_session) -> StorageEndpoint:
 
 
 def _create_row(db_session, **kwargs) -> S3Connection:
-    custom_endpoint_config = kwargs.get("custom_endpoint_config")
-    if custom_endpoint_config is None and kwargs.get("storage_endpoint_id") is None:
-        custom_endpoint_config = (
-            '{"endpoint_url":"https://existing.example.test","force_path_style":false,"provider":null,"region":"eu-west-1","verify_tls":true}'
-        )
+    endpoint_fields = (
+        custom_endpoint_fields("https://existing.example.test", region="eu-west-1")
+        if kwargs.get("storage_endpoint_id") is None
+        else {}
+    )
+    for field in (
+        "custom_endpoint_url",
+        "custom_region",
+        "custom_force_path_style",
+        "custom_verify_tls",
+        "custom_provider",
+    ):
+        if field in kwargs:
+            endpoint_fields[field] = kwargs[field]
     row = S3Connection(
         created_by_user_id=kwargs["created_by_user_id"],
         name=kwargs.get("name", "conn"),
@@ -72,7 +82,7 @@ def _create_row(db_session, **kwargs) -> S3Connection:
         access_manager=kwargs.get("access_manager", False),
         access_browser=kwargs.get("access_browser", True),
         storage_endpoint_id=kwargs.get("storage_endpoint_id"),
-        custom_endpoint_config=custom_endpoint_config,
+        **endpoint_fields,
         access_key_id=kwargs.get("access_key_id", "AKIA-CONN-001"),
         secret_access_key=kwargs.get("secret_access_key", "SECRET-CONN-001"),
         rgw_user_uid=kwargs.get("rgw_user_uid"),
@@ -483,7 +493,8 @@ def test_update_connection_updates_private_connection(db_session, monkeypatch):
         db_session,
         created_by_user_id=owner.id,
         name="private-conn",
-        custom_endpoint_config='{"endpoint_url":"https://old.example.test","force_path_style":false,"provider":null,"region":"eu-west-3","verify_tls":true}',
+        custom_endpoint_url="https://old.example.test",
+        custom_region="eu-west-3",
         access_manager=False,
         access_browser=True,
     )
@@ -650,7 +661,9 @@ def test_update_connection_rejects_existing_manual_endpoint_without_tls_verifica
         db_session,
         created_by_user_id=owner.id,
         name="existing-no-tls",
-        custom_endpoint_config='{"endpoint_url":"https://old.example.test","force_path_style":false,"provider":null,"region":"eu-west-3","verify_tls":false}',
+        custom_endpoint_url="https://old.example.test",
+        custom_region="eu-west-3",
+        custom_verify_tls=False,
         access_manager=False,
         access_browser=True,
     )

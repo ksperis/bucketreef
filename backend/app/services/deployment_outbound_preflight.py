@@ -14,7 +14,6 @@ from app.db import S3Connection, WebhookEndpoint
 from app.db.openstack import OpenStackCloud
 from app.services.webhook_service import webhook_dispatcher_enabled, webhook_runtime_config
 from app.utils.network_targets import host_matches_allowlist
-from app.utils.s3_connection_endpoint import parse_custom_endpoint_config
 
 
 @dataclass(frozen=True, order=True)
@@ -38,14 +37,11 @@ def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[Unc
             S3Connection.is_shared.is_(False),
             S3Connection.server_managed.is_(False),
             S3Connection.storage_endpoint_id.is_(None),
-            S3Connection.custom_endpoint_config.is_not(None),
+            S3Connection.custom_endpoint_url.is_not(None),
         )
     ).all()
     for connection in connections:
-        try:
-            hostname = _hostname(parse_custom_endpoint_config(connection.custom_endpoint_config).endpoint_url or "")
-        except (TypeError, ValueError):
-            hostname = "<invalid>"
+        hostname = _hostname(connection.custom_endpoint_url or "") or "<invalid>"
         if not host_matches_allowlist(hostname, settings.user_supplied_s3_endpoint_allowed_hosts):
             uncovered.add(UncoveredTarget("user-s3-endpoint", hostname or "<invalid>"))
 

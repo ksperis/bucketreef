@@ -13,6 +13,7 @@ from app.routers import dependencies
 from app.routers.manager import buckets as manager_buckets_router
 from app.services import app_settings_service
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 @pytest.fixture(autouse=True)
@@ -189,10 +190,7 @@ def test_embedded_browser_private_connection_cannot_forge_manager_quota_update(c
         secret_access_key="SK",
         is_shared=False,
         access_browser=True,
-        custom_endpoint_config=(
-            '{"endpoint_url":"https://private.example.test",'
-            '"force_path_style":true,"provider":null,"region":null,"verify_tls":true}'
-        ),
+        **custom_endpoint_fields("https://private.example.test", force_path_style=True),
     )
     context = S3ExecutionContext.from_connection(connection)
     app.dependency_overrides[dependencies.get_current_user] = lambda: user

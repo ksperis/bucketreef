@@ -23,7 +23,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.db import S3Connection, StorageEndpoint
 from app.utils.resource_names import validate_iam_name, validate_inline_policy_name, validate_s3_bucket_name, validate_topic_name
 from app.utils.rgw_identifiers import validate_rgw_user_uid
-from app.utils.s3_connection_endpoint import build_custom_endpoint_config
+from tests.s3_connection_factory import custom_endpoint_fields
 
 VECTORS = json.loads((Path(__file__).parent / "fixtures/resource_names.json").read_text())
 
@@ -109,7 +109,11 @@ def test_profile_uses_execution_context_provider_including_manual_connections():
     assert naming_validation_profile(context(endpoint=StorageEndpoint(provider="ceph"))) == "ceph"
     connection = S3Connection(
         storage_endpoint=None,
-        custom_endpoint_config=build_custom_endpoint_config("https://ceph.test", None, True, True, "ceph"),
+        **custom_endpoint_fields(
+            "https://ceph.test",
+            force_path_style=True,
+            provider="ceph",
+        ),
     )
     assert naming_validation_profile(context(source_connection=connection)) == "ceph"
     for provider in [None, "aws", "other"]:

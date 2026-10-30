@@ -34,6 +34,7 @@ from app.services.bucket_migration_service import BucketMigrationService
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
 from tests.s3_account_factory import make_s3_account
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 _TOOL_GATES = [
@@ -129,10 +130,7 @@ def _connection(db_session, user, *, name="connection", **values):
         access_manager=True,
         access_key_id="test-access-key",
         secret_access_key="test-secret-key",
-        custom_endpoint_config=json.dumps({
-            "endpoint_url": "https://s3.example.test", "region": None,
-            "provider": None, "force_path_style": False, "verify_tls": True,
-        }),
+        **custom_endpoint_fields("https://s3.example.test"),
         **values,
     )
     db_session.add(connection)

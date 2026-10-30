@@ -32,6 +32,7 @@ from app.routers.dependencies_internal.workspace_context import resolve_workspac
 from app.routers.manager import context as manager_context_router
 from app.services import app_settings_service
 from tests.s3_account_factory import make_s3_account
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def _request(path: str, *, workspace: str = "manager-browser", method: str = "GET"):
@@ -220,15 +221,7 @@ def test_private_connection_requires_both_flags_and_shared_is_always_denied(db_s
         access_browser=True,
         access_key_id="PRIVATE-AK",
         secret_access_key="PRIVATE-SK",
-        custom_endpoint_config=json.dumps(
-            {
-                "endpoint_url": "https://93.184.216.34/private",
-                "region": None,
-                "force_path_style": False,
-                "verify_tls": True,
-                "provider": None,
-            }
-        ),
+        **custom_endpoint_fields("https://93.184.216.34/private"),
     )
     shared = S3Connection(
         created_by=user,
@@ -238,15 +231,7 @@ def test_private_connection_requires_both_flags_and_shared_is_always_denied(db_s
         access_browser=True,
         access_key_id="SHARED-AK",
         secret_access_key="SHARED-SK",
-        custom_endpoint_config=json.dumps(
-            {
-                "endpoint_url": "https://shared.example.test",
-                "region": None,
-                "force_path_style": False,
-                "verify_tls": True,
-                "provider": None,
-            }
-        ),
+        **custom_endpoint_fields("https://shared.example.test"),
     )
     db_session.add_all([user, private, shared])
     db_session.commit()

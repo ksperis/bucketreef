@@ -10,6 +10,7 @@ from app.routers import dependencies
 from app.services.tags_service import TagsService
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED, TAG_DOMAIN_ENDPOINT, TAG_DOMAIN_PRIVATE_CONNECTION_USER
 from fastapi.testclient import TestClient
+from tests.s3_connection_factory import custom_endpoint_fields
 from tests.service_identity_helpers import service_identity
 
 
@@ -75,6 +76,7 @@ def _private_connection(db_session, owner_user_id: int, name: str) -> S3Connecti
         is_active=True,
         access_manager=False,
         access_browser=True,
+        **custom_endpoint_fields(f"https://{name}.example.test"),
         access_key_id=f"AK-{name.upper()}",
         secret_access_key=f"SK-{name.upper()}",
         capabilities_json='{"can_manage_iam": false}',

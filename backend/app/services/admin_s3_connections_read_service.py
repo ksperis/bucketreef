@@ -177,7 +177,7 @@ class AdminS3ConnectionsReadService:
         return statement.where(
             (S3Connection.name.ilike(term))
             | (StorageEndpoint.endpoint_url.ilike(term))
-            | (S3Connection.custom_endpoint_config.ilike(term))
+            | (S3Connection.custom_endpoint_url.ilike(term))
             | (User.email.ilike(term))
             | (linked_user.email.ilike(term))
             | (linked_user.full_name.ilike(term))

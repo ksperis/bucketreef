@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from dataclasses import dataclass
 from typing import Optional
 
 from sqlalchemy import select
@@ -18,10 +19,7 @@ from app.models.s3_connection_admin import (
     S3ConnectionAdminCreate,
     S3ConnectionAdminUpdate,
 )
-from app.utils.s3_connection_endpoint import (
-    build_custom_endpoint_config,
-    custom_endpoint_update_base,
-)
+from app.utils.s3_connection_endpoint import ConnectionEndpointDetails, resolve_connection_details
 from app.utils.s3_endpoint import validate_user_supplied_s3_endpoint
 
 
@@ -31,6 +29,58 @@ S3ConnectionEndpointPayload = (
     | S3ConnectionAdminCreate
     | S3ConnectionAdminUpdate
 )
+
+
+@dataclass(frozen=True)
+class S3ConnectionEndpointPlan:
+    storage_endpoint_id: int | None
+    custom_endpoint_url: str | None
+    custom_region: str | None
+    custom_force_path_style: bool | None
+    custom_verify_tls: bool | None
+    custom_provider: str | None
+
+    @classmethod
+    def managed(cls, endpoint_id: int) -> "S3ConnectionEndpointPlan":
+        return cls(endpoint_id, None, None, None, None, None)
+
+    @classmethod
+    def custom(
+        cls,
+        endpoint_url: str,
+        region: str | None,
+        force_path_style: bool,
+        verify_tls: bool,
+        provider: str | None,
+    ) -> "S3ConnectionEndpointPlan":
+        return cls(
+            None,
+            endpoint_url,
+            region,
+            force_path_style,
+            verify_tls,
+            provider,
+        )
+
+    def persistence_values(self) -> dict[str, object]:
+        return {
+            "storage_endpoint_id": self.storage_endpoint_id,
+            "custom_endpoint_url": self.custom_endpoint_url,
+            "custom_region": self.custom_region,
+            "custom_force_path_style": self.custom_force_path_style,
+            "custom_verify_tls": self.custom_verify_tls,
+            "custom_provider": self.custom_provider,
+        }
+
+    def matches(self, row: DBS3Connection) -> bool:
+        return all(
+            getattr(row, field) == value
+            for field, value in self.persistence_values().items()
+        )
+
+    def apply(self, row: DBS3Connection) -> None:
+        for field, value in self.persistence_values().items():
+            setattr(row, field, value)
 
 
 class S3ConnectionEndpointPlanner:
@@ -45,7 +95,7 @@ class S3ConnectionEndpointPlanner:
         payload: S3ConnectionEndpointPayload,
         *,
         enforce_manual_endpoint_policy: bool,
-    ) -> tuple[Optional[int], Optional[str]]:
+    ) -> S3ConnectionEndpointPlan:
         fields_set = payload.model_fields_set
         desired_endpoint_id = self._desired_endpoint_id(row, payload)
         custom_fields = S3_CONNECTION_CUSTOM_ENDPOINT_FIELDS & fields_set
@@ -63,13 +113,13 @@ class S3ConnectionEndpointPlanner:
         payload: S3ConnectionEndpointPayload,
         *,
         enforce_manual_endpoint_policy: bool,
-    ) -> tuple[None, str]:
+    ) -> S3ConnectionEndpointPlan:
         fields_set = payload.model_fields_set
 
-        current = custom_endpoint_update_base(
-            row.custom_endpoint_config
+        current = (
+            resolve_connection_details(row)
             if row is not None and row.storage_endpoint_id is None
-            else None
+            else ConnectionEndpointDetails(None, None, False, True, None, None)
         )
         endpoint_url = (
             payload.endpoint_url
@@ -96,18 +146,20 @@ class S3ConnectionEndpointPlanner:
             raise ValueError(
                 "force_path_style and verify_tls cannot be null for a custom endpoint"
             )
-        normalized_endpoint_url = endpoint_url or ""
+        normalized_endpoint_url = (endpoint_url or "").strip().rstrip("/")
+        if not normalized_endpoint_url:
+            raise ValueError("Endpoint URL is required for manual connections")
         if enforce_manual_endpoint_policy:
             normalized_endpoint_url = self._validate_manual_endpoint(
                 normalized_endpoint_url,
                 verify_tls,
             )
-        return None, build_custom_endpoint_config(
+        return S3ConnectionEndpointPlan.custom(
             normalized_endpoint_url,
-            region,
-            force_path_style,
-            verify_tls,
-            provider,
+            region.strip() if region and region.strip() else None,
+            bool(force_path_style),
+            bool(verify_tls),
+            provider.strip() if provider and provider.strip() else None,
         )
 
     @staticmethod
@@ -123,7 +175,7 @@ class S3ConnectionEndpointPlanner:
         self,
         endpoint_id: int,
         custom_fields: set[str],
-    ) -> tuple[int, None]:
+    ) -> S3ConnectionEndpointPlan:
         if custom_fields:
             raise ValueError(
                 "Custom endpoint fields cannot be combined with a managed storage endpoint"
@@ -135,7 +187,7 @@ class S3ConnectionEndpointPlanner:
         )
         if endpoint is None:
             raise StorageEndpointNotFoundError("Storage endpoint not found")
-        return endpoint_id, None
+        return S3ConnectionEndpointPlan.managed(endpoint_id)
 
     @staticmethod
     def _validate_manual_endpoint(

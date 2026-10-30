@@ -25,7 +25,10 @@ from app.services.s3_connection_associations_service import (
     S3ConnectionAssociationsService,
 )
 from app.services.s3_connection_capabilities_service import refresh_connection_detected_capabilities
-from app.services.s3_connection_endpoint_planner import S3ConnectionEndpointPlanner
+from app.services.s3_connection_endpoint_planner import (
+    S3ConnectionEndpointPlan,
+    S3ConnectionEndpointPlanner,
+)
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.feature_policy_service import validate_manager_overrides
 from app.services.tags_service import TagsService
@@ -130,12 +133,10 @@ class S3ConnectionsService:
         created_by_user_id: int,
         payload: S3ConnectionAdminCreate,
     ) -> DBS3Connection:
-        storage_endpoint_id, custom_endpoint_config = (
-            self.endpoint_planner.plan(
-                None,
-                payload,
-                enforce_manual_endpoint_policy=False,
-            )
+        endpoint_plan = self.endpoint_planner.plan(
+            None,
+            payload,
+            enforce_manual_endpoint_policy=False,
         )
         rgw_user_uid, rgw_tenant, rgw_account_id = normalize_connection_rgw_identity(
             payload.rgw_user_uid,
@@ -145,8 +146,7 @@ class S3ConnectionsService:
         row = DBS3Connection(
             created_by_user_id=created_by_user_id,
             name=payload.name,
-            storage_endpoint_id=storage_endpoint_id,
-            custom_endpoint_config=custom_endpoint_config,
+            **endpoint_plan.persistence_values(),
             is_shared=True,
             is_active=True,
             access_manager=True,
@@ -213,18 +213,15 @@ class S3ConnectionsService:
         payload: S3ConnectionAdminUpdate,
         *,
         fields_set: set[str],
-        endpoint_plan: Optional[tuple[Optional[int], Optional[str]]],
+        endpoint_plan: Optional[S3ConnectionEndpointPlan],
     ) -> bool:
-        endpoint_changed = endpoint_plan is not None and endpoint_plan != (
-            row.storage_endpoint_id,
-            row.custom_endpoint_config,
-        )
+        endpoint_changed = endpoint_plan is not None and not endpoint_plan.matches(row)
         if payload.name is not None:
             row.name = payload.name
         if "is_active" in fields_set:
             row.is_active = bool(payload.is_active)
         if endpoint_plan is not None:
-            row.storage_endpoint_id, row.custom_endpoint_config = endpoint_plan
+            endpoint_plan.apply(row)
         row.access_browser = False
         if payload.remediation_action == "activate_manager":
             row.access_manager = True
@@ -305,12 +302,10 @@ class S3ConnectionsService:
         commit: bool,
         enforce_manual_endpoint_policy: bool,
     ) -> S3Connection:
-        storage_endpoint_id, custom_endpoint_config = (
-            self.endpoint_planner.plan(
-                None,
-                payload,
-                enforce_manual_endpoint_policy=enforce_manual_endpoint_policy,
-            )
+        endpoint_plan = self.endpoint_planner.plan(
+            None,
+            payload,
+            enforce_manual_endpoint_policy=enforce_manual_endpoint_policy,
         )
         access_manager, access_browser = self._resolve_access_flags(
             access_manager=payload.access_manager,
@@ -324,8 +319,7 @@ class S3ConnectionsService:
         row = DBS3Connection(
             created_by_user_id=user_id,
             name=payload.name,
-            storage_endpoint_id=storage_endpoint_id,
-            custom_endpoint_config=custom_endpoint_config,
+            **endpoint_plan.persistence_values(),
             is_shared=False,
             is_active=True,
             access_manager=access_manager,
@@ -403,7 +397,7 @@ class S3ConnectionsService:
         row: DBS3Connection,
         payload: S3ConnectionUpdate,
         payload_data: dict[str, Any],
-    ) -> Optional[tuple[Optional[int], Optional[str]]]:
+    ) -> Optional[S3ConnectionEndpointPlan]:
         should_validate_existing_manual_endpoint = (
             not row.server_managed and row.storage_endpoint_id is None
         )
@@ -424,7 +418,7 @@ class S3ConnectionsService:
         payload: S3ConnectionUpdate,
         payload_data: dict[str, Any],
         *,
-        endpoint_plan: Optional[tuple[Optional[int], Optional[str]]],
+        endpoint_plan: Optional[S3ConnectionEndpointPlan],
     ) -> bool:
         if payload.name is not None:
             row.name = payload.name
@@ -454,15 +448,12 @@ class S3ConnectionsService:
         payload: S3ConnectionUpdate,
         payload_data: dict[str, Any],
         *,
-        endpoint_plan: Optional[tuple[Optional[int], Optional[str]]],
+        endpoint_plan: Optional[S3ConnectionEndpointPlan],
     ) -> tuple[bool, bool, bool]:
-        endpoint_changed = endpoint_plan is not None and endpoint_plan != (
-            row.storage_endpoint_id,
-            row.custom_endpoint_config,
-        )
+        endpoint_changed = endpoint_plan is not None and not endpoint_plan.matches(row)
         should_probe_iam = False
         if endpoint_plan is not None:
-            row.storage_endpoint_id, row.custom_endpoint_config = endpoint_plan
+            endpoint_plan.apply(row)
             should_probe_iam = bool(_CAPABILITY_PROBE_FIELDS & payload_data.keys())
         access_key_changed = (
             payload.access_key_id is not None
@@ -521,7 +512,7 @@ class S3ConnectionsService:
         *,
         update_credentials: bool,
     ) -> tuple[
-        Optional[tuple[Optional[int], Optional[str]]],
+        Optional[S3ConnectionEndpointPlan],
         Optional[list[int]],
         Optional[list[int]],
     ]:
