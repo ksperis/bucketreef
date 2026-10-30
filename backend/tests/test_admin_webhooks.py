@@ -127,11 +127,13 @@ def test_webhook_admin_api_lifecycle_keeps_secret_one_shot_and_audit_safe(webhoo
             AuditLog.entity_id == str(endpoint_id),
         )
     ).one()
-    metadata = json.loads(create_audit.metadata_json)
+    metadata = create_audit.audit_metadata
+    assert metadata is not None
     assert metadata["host"] == "hooks.example.test"
-    assert target_url not in create_audit.metadata_json
-    assert "do-not-audit-this" not in create_audit.metadata_json
-    assert initial_secret not in create_audit.metadata_json
+    serialized_metadata = json.dumps(metadata)
+    assert target_url not in serialized_metadata
+    assert "do-not-audit-this" not in serialized_metadata
+    assert initial_secret not in serialized_metadata
 
     deleted = webhook_client.delete(f"/api/admin/settings/webhooks/{endpoint_id}", headers=headers)
     assert deleted.status_code == 204, deleted.text

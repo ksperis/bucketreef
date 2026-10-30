@@ -115,14 +115,14 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
             [
                 audit.user_email,
                 audit.message,
-                audit.metadata_json,
+                str(audit.audit_metadata or {}),
                 audit.request_id,
                 audit.ip_address,
                 audit.user_agent,
             ],
         )
     )
-    assert json.loads(audit.metadata_json)["passkey_enrollment_required"] is False
+    assert audit.audit_metadata["passkey_enrollment_required"] is False
 
     with pytest.raises(FirstAdminBootstrapUnavailableError):
         service.create_with_token(

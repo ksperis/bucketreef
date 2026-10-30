@@ -50,7 +50,7 @@ def test_manual_validation_is_independent_of_admin_ops_and_global_flag(identitie
     response = StorageEndpointsService(db_session).get_endpoint(endpoint.id).model_dump_json()
     assert "CEPH-SK" not in response and "CEPH-AK" not in response
     audits = db_session.scalars(sa.select(AuditLog)).all()
-    assert all("CEPH-SK" not in str(row.metadata_json) for row in audits)
+    assert all("CEPH-SK" not in str(row.audit_metadata) for row in audits)
 
 
 @pytest.mark.parametrize("admin,system", [(False, False), (True, True), (False, True)])

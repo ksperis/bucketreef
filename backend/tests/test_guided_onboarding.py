@@ -355,7 +355,10 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
             result.model_dump_json(),
             json.dumps(progress.draft, sort_keys=True),
             json.dumps(progress.resources, sort_keys=True),
-            *[row.metadata_json or "" for row in db_session.scalars(sa.select(AuditLog)).all()],
+            *[
+                str(row.audit_metadata or {})
+                for row in db_session.scalars(sa.select(AuditLog)).all()
+            ],
         ]
     )
     for secret in ("private-ak", "private-sk"):

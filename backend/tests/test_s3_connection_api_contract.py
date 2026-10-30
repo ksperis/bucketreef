@@ -241,10 +241,10 @@ def test_admin_connections_api_updates_metadata_and_credentials_atomically(
         )
         .order_by(AuditLog.id.desc())
     ).one()
-    audit_metadata = json.loads(audit_log.metadata_json or "{}")
+    audit_metadata = audit_log.audit_metadata or {}
     assert audit_metadata["credentials_updated"] is True
     assert audit_metadata["access_key_id"] == "AKIA***CNEW"
-    assert "SECRETADMINATOMICNEW" not in (audit_log.metadata_json or "")
+    assert "SECRETADMINATOMICNEW" not in str(audit_log.audit_metadata or {})
 
     incomplete_credentials = client.patch(
         f"/api/admin/s3-connections/{connection_id}",
@@ -527,7 +527,7 @@ def test_admin_connection_update_applies_remediation_action(contract_client):
             AuditLog.entity_id == str(connection.id),
         )
     ).one()
-    assert json.loads(audit_log.metadata_json or "{}") == {
+    assert (audit_log.audit_metadata or {}) == {
         "remediation_action": "activate_manager"
     }
     assert client.post(

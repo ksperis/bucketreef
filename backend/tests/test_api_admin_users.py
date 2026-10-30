@@ -569,7 +569,7 @@ def test_admin_updates_account_preferences_without_changing_access_or_session_ve
         )
         .order_by(AuditLog.id.desc())
     ).first()
-    assert json.loads(audit.metadata_json) == {"ui_language": None}
+    assert audit.audit_metadata == {"ui_language": None}
 
 
 @pytest.mark.parametrize("payload,status_code", [
@@ -617,7 +617,10 @@ def test_admin_avatar_upload_and_removal_reuse_validation_and_audit_the_target(c
         )
     ).one()
     assert audit.user_email == "admin@example.com"
-    assert json.loads(audit.metadata_json) == {"content_type": "image/png", "size_bytes": len(PROFILE_PNG)}
+    assert audit.audit_metadata == {
+        "content_type": "image/png",
+        "size_bytes": len(PROFILE_PNG),
+    }
     removed = client.delete(f"/api/admin/users/{user.id}/avatar")
     assert removed.status_code == 200, removed.text
     assert removed.json()["avatar"]["source"] != "uploaded"

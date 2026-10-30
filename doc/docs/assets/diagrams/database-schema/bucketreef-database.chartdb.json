@@ -4035,11 +4035,11 @@
           "check": null
         },
         {
-          "id": "field:audit_logs.metadata_json",
-          "name": "metadata_json",
+          "id": "field:audit_logs.metadata",
+          "name": "metadata",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

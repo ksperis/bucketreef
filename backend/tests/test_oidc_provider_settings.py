@@ -379,7 +379,8 @@ def test_admin_oidc_api_never_returns_secret_and_preserves_replaces_clears_it(cl
     ).one().client_secret is None
 
     audit_payload = "\n".join(
-        log.metadata_json or "" for log in db_session.scalars(select(AuditLog)).all()
+        str(log.audit_metadata or {})
+        for log in db_session.scalars(select(AuditLog)).all()
     )
     assert "first-secret" not in audit_payload
     assert "second-secret" not in audit_payload

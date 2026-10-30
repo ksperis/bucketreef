@@ -667,7 +667,7 @@ def test_collaborator_addition_delegation_combinations(
                 AuditLog.action == "execute_delegated_portal_request"
             )
         ).one()
-        assert json.loads(delegated_audit.metadata_json)["execution"] == "delegated"
+        assert delegated_audit.audit_metadata["execution"] == "delegated"
 
 
 def test_delegated_execution_failure_is_sanitized_and_audited(db_session, monkeypatch):
@@ -700,7 +700,8 @@ def test_delegated_execution_failure_is_sanitized_and_audited(db_session, monkey
     ).one()
     assert audit.scope == "portal"
     assert audit.status == "failure"
-    metadata = json.loads(audit.metadata_json)
+    metadata = audit.audit_metadata
+    assert metadata is not None
     assert metadata["execution"] == "delegated"
     assert metadata["error"] == expected_detail
     assert db_session.scalar(

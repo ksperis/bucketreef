@@ -296,7 +296,7 @@ def test_operator_reset_is_restricted_to_exact_sole_superadmin_and_revokes_every
     audit = db_session.scalars(
         select(AuditLog).where(AuditLog.action == "operator_reset_last_superadmin_mfa")
     ).one()
-    assert user.email not in (audit.metadata_json or "")
+    assert user.email not in str(audit.audit_metadata or {})
 
 
 def test_operator_reset_cli_prints_after_session_close(monkeypatch, db_session, capsys):

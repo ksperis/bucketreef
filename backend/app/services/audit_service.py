@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any, Literal, Optional, Protocol
 
-from sqlalchemy import or_, select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -26,30 +26,30 @@ class AuditAccountSource(Protocol):
     name: str
 
 
-def parse_audit_metadata(metadata_json: Optional[str]) -> Optional[dict[str, Any]]:
-    if metadata_json is None:
+def audit_metadata_object(value: object) -> Optional[dict[str, Any]]:
+    if value is None:
         return None
-    value = json.loads(metadata_json)
     if not isinstance(value, dict):
         raise ValueError("Persisted audit metadata must be a JSON object")
     return value
 
 
-def _truncate_audit_metadata(serialized: str) -> str:
+def _truncate_audit_metadata(serialized: str) -> dict[str, Any]:
     lower = 0
     upper = len(serialized)
-    best = ""
+    best: dict[str, Any] = {
+        "truncated": True,
+        "original_length": len(serialized),
+        "preview": "",
+    }
     while lower <= upper:
         preview_length = (lower + upper) // 2
-        candidate = json.dumps(
-            {
-                "truncated": True,
-                "original_length": len(serialized),
-                "preview": serialized[:preview_length],
-            },
-            separators=(",", ":"),
-        )
-        if len(candidate) <= MAX_AUDIT_METADATA_LENGTH:
+        candidate = {
+            "truncated": True,
+            "original_length": len(serialized),
+            "preview": serialized[:preview_length],
+        }
+        if len(json.dumps(candidate)) <= MAX_AUDIT_METADATA_LENGTH:
             best = candidate
             lower = preview_length + 1
         else:
@@ -144,7 +144,7 @@ class AuditService:
             context_name=context_name,
             status=status,
             message=message,
-            metadata_json=self._serialize_metadata(metadata),
+            audit_metadata=self._prepare_metadata(metadata),
             request_id=request_id,
             ip_address=ip_address,
             user_agent=user_agent,
@@ -169,7 +169,7 @@ class AuditService:
                 account_name=resolved_account_name,
                 status=status,
                 message=message,
-                metadata=parse_audit_metadata(payload.metadata_json),
+                metadata=audit_metadata_object(payload.audit_metadata),
                 occurred_at=payload.created_at,
                 commit=True,
             )
@@ -231,7 +231,7 @@ class AuditService:
                             AuditLog.context_name.ilike(pattern),
                             AuditLog.status.ilike(pattern),
                             AuditLog.message.ilike(pattern),
-                            AuditLog.metadata_json.ilike(pattern),
+                            cast(AuditLog.audit_metadata, String).ilike(pattern),
                         )
                     )
         sliced_limit = min(max(limit, 1), 500)
@@ -254,10 +254,13 @@ class AuditService:
             "context_name": log.context_name,
             "status": log.status,
             "message": log.message,
-            "metadata": parse_audit_metadata(log.metadata_json),
+            "metadata": audit_metadata_object(log.audit_metadata),
         }
 
-    def _serialize_metadata(self, metadata: Optional[dict[str, Any]]) -> Optional[str]:
+    def _prepare_metadata(
+        self,
+        metadata: Optional[dict[str, Any]],
+    ) -> Optional[dict[str, Any]]:
         if not metadata:
             return None
         sanitized_metadata = sanitize_audit_metadata(metadata)
@@ -267,7 +270,10 @@ class AuditService:
             serialized = json.dumps({"raw": sanitize_audit_metadata(str(metadata))})
         if len(serialized) > MAX_AUDIT_METADATA_LENGTH:
             return _truncate_audit_metadata(serialized)
-        return serialized
+        value = json.loads(serialized)
+        if not isinstance(value, dict):
+            raise ValueError("Audit metadata must be a JSON object")
+        return value
 
     @staticmethod
     def _fallback_encoder(value: Any) -> str:
