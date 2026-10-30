@@ -329,7 +329,6 @@ class OpenStackService:
     def _is_catalog_context(context: OpenStackProjectContext) -> bool:
         return bool(
             context.target_id
-            and not context.target_id.startswith("legacy-storage-endpoint:")
             and context.region_id
             and context.endpoint_url
             and context.endpoint_interface in {"public", "internal"}
@@ -452,7 +451,6 @@ class OpenStackService:
                 connection_id=connection.id,
                 project_id=project_id,
                 project_name=project["name"],
-                endpoint_id=None,
                 target_id=target["target_id"],
                 region_id=target["region_id"],
                 endpoint_url=target["endpoint_url"],
@@ -465,7 +463,6 @@ class OpenStackService:
             self.db.flush()
         else:
             context.project_name = project["name"]
-            context.endpoint_id = None
             context.region_id = target["region_id"]
             context.endpoint_url = target["endpoint_url"]
             context.endpoint_name = target["service_name"] or target["region_id"]

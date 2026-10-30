@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0196_openstack_all_users_group"
+_EXPECTED_ALEMBIC_HEAD = "0198_remove_openstack_legacy_contexts"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):
@@ -122,7 +122,7 @@ def test_alembic_head_matches_sqlalchemy_metadata(tmp_path, monkeypatch):
         get_settings.cache_clear()
 
 
-def test_openstack_catalog_target_migration_marks_existing_context_for_reactivation(
+def test_openstack_catalog_cutover_purges_pre_catalog_contexts(
     tmp_path,
     monkeypatch,
 ):
@@ -167,20 +167,12 @@ def test_openstack_catalog_target_migration_marks_existing_context_for_reactivat
         command.upgrade(config, "head")
 
         with engine.connect() as connection:
-            row = connection.execute(sa.text(
-                "SELECT endpoint_id, target_id, region_id, endpoint_url, endpoint_name, "
-                "endpoint_interface, service_type, service_name "
-                "FROM openstack_project_contexts WHERE id = 'ctx-legacy'"
-            )).mappings().one()
-            assert row == {
-                "endpoint_id": 91,
-                "target_id": "legacy-storage-endpoint:91",
-                "region_id": "legacy-region",
-                "endpoint_url": "https://legacy-s3.example.test",
-                "endpoint_name": "Legacy S3",
-                "endpoint_interface": "legacy",
-                "service_type": "s3",
-                "service_name": "Legacy S3",
+            assert connection.execute(sa.text(
+                "SELECT count(*) FROM openstack_project_contexts WHERE id = 'ctx-legacy'"
+            )).scalar_one() == 0
+            assert "endpoint_id" not in {
+                column["name"]
+                for column in sa.inspect(connection).get_columns("openstack_project_contexts")
             }
             assert "openstack_cloud_endpoints" not in sa.inspect(connection).get_table_names()
     finally:

@@ -95,6 +95,69 @@
           "check": null
         },
         {
+          "id": "field:storage_endpoints.realm_id",
+          "name": "realm_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:storage_endpoints.zonegroup_id",
+          "name": "zonegroup_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:storage_endpoints.zone_id",
+          "name": "zone_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:storage_endpoints.provider",
           "name": "provider",
           "type": {
@@ -473,7 +536,7 @@
       "name": "endpoint_service_identities",
       "schema": null,
       "x": 2100,
-      "y": 2912,
+      "y": 2942,
       "fields": [
         {
           "id": "field:endpoint_service_identities.id",
@@ -822,7 +885,7 @@
       "name": "key_rotation_intents",
       "schema": null,
       "x": 2520,
-      "y": 2912,
+      "y": 2942,
       "fields": [
         {
           "id": "field:key_rotation_intents.id",
@@ -1224,8 +1287,8 @@
       "id": "table:manager_access_key_metadata",
       "name": "manager_access_key_metadata",
       "schema": null,
-      "x": 2940,
-      "y": 1484,
+      "x": 2520,
+      "y": 1424,
       "fields": [
         {
           "id": "field:manager_access_key_metadata.id",
@@ -2187,7 +2250,7 @@
       "name": "user_s3_accounts",
       "schema": null,
       "x": 2520,
-      "y": 2536,
+      "y": 2566,
       "fields": [
         {
           "id": "field:user_s3_accounts.id",
@@ -2442,8 +2505,8 @@
       "id": "table:account_iam_users",
       "name": "account_iam_users",
       "schema": null,
-      "x": 2100,
-      "y": 1484,
+      "x": 3360,
+      "y": 988,
       "fields": [
         {
           "id": "field:account_iam_users.id",
@@ -3133,6 +3196,27 @@
           "check": null
         },
         {
+          "id": "field:users.allow_multisite_endpoint_switching",
+          "name": "allow_multisite_endpoint_switching",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:users.browser_advanced_features_enabled",
           "name": "browser_advanced_features_enabled",
           "type": {
@@ -3358,7 +3442,7 @@
       "name": "browser_favorites",
       "schema": null,
       "x": 60,
-      "y": 1724,
+      "y": 1754,
       "fields": [
         {
           "id": "field:browser_favorites.id",
@@ -3633,7 +3717,7 @@
       "name": "audit_logs",
       "schema": null,
       "x": 900,
-      "y": 8176,
+      "y": 8206,
       "fields": [
         {
           "id": "field:audit_logs.id",
@@ -4131,7 +4215,7 @@
       "name": "s3_sessions",
       "schema": null,
       "x": 900,
-      "y": 2190,
+      "y": 2220,
       "fields": [
         {
           "id": "field:s3_sessions.id",
@@ -5284,7 +5368,7 @@
       "name": "external_identities",
       "schema": null,
       "x": 480,
-      "y": 1724,
+      "y": 1754,
       "fields": [
         {
           "id": "field:external_identities.id",
@@ -5593,7 +5677,7 @@
       "name": "external_identity_link_requests",
       "schema": null,
       "x": 60,
-      "y": 1138,
+      "y": 1168,
       "fields": [
         {
           "id": "field:external_identity_link_requests.id",
@@ -5975,7 +6059,7 @@
       "name": "webauthn_credentials",
       "schema": null,
       "x": 1320,
-      "y": 2190,
+      "y": 2220,
       "fields": [
         {
           "id": "field:webauthn_credentials.id",
@@ -6250,7 +6334,7 @@
       "name": "auth_challenges",
       "schema": null,
       "x": 1320,
-      "y": 1138,
+      "y": 1168,
       "fields": [
         {
           "id": "field:auth_challenges.id",
@@ -6526,7 +6610,7 @@
       "name": "recovery_codes",
       "schema": null,
       "x": 480,
-      "y": 2190,
+      "y": 2220,
       "fields": [
         {
           "id": "field:recovery_codes.id",
@@ -6696,7 +6780,7 @@
       "name": "auth_rate_limits",
       "schema": null,
       "x": 60,
-      "y": 2806,
+      "y": 2836,
       "fields": [
         {
           "id": "field:auth_rate_limits.id",
@@ -6856,7 +6940,7 @@
       "name": "api_tokens",
       "schema": null,
       "x": 900,
-      "y": 1138,
+      "y": 1168,
       "fields": [
         {
           "id": "field:api_tokens.id",
@@ -7173,8 +7257,8 @@
       "id": "table:openstack_cloud_users",
       "name": "openstack_cloud_users",
       "schema": null,
-      "x": 2100,
-      "y": 2160,
+      "x": 3360,
+      "y": 1424,
       "fields": [
         {
           "id": "field:openstack_cloud_users.cloud_id",
@@ -7248,8 +7332,8 @@
       "id": "table:openstack_cloud_groups",
       "name": "openstack_cloud_groups",
       "schema": null,
-      "x": 3360,
-      "y": 1484,
+      "x": 2940,
+      "y": 1424,
       "fields": [
         {
           "id": "field:openstack_cloud_groups.cloud_id",
@@ -7769,7 +7853,7 @@
       "id": "table:openstack_sessions",
       "name": "openstack_sessions",
       "schema": null,
-      "x": 3360,
+      "x": 2940,
       "y": 988,
       "fields": [
         {
@@ -7961,8 +8045,8 @@
       "id": "table:openstack_project_contexts",
       "name": "openstack_project_contexts",
       "schema": null,
-      "x": 2940,
-      "y": 988,
+      "x": 2100,
+      "y": 2100,
       "fields": [
         {
           "id": "field:openstack_project_contexts.id",
@@ -8037,27 +8121,6 @@
           "primaryKey": false,
           "unique": false,
           "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:openstack_project_contexts.endpoint_id",
-          "name": "endpoint_id",
-          "type": {
-            "id": "integer",
-            "name": "integer"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
           "increment": null,
           "isArray": false,
           "createdAt": 0,
@@ -8270,7 +8333,7 @@
       "name": "openstack_project_credentials",
       "schema": null,
       "x": 2520,
-      "y": 2160,
+      "y": 2100,
       "fields": [
         {
           "id": "field:openstack_project_credentials.id",
@@ -8997,7 +9060,7 @@
       "name": "user_s3_users",
       "schema": null,
       "x": 3360,
-      "y": 2536,
+      "y": 2566,
       "fields": [
         {
           "id": "field:user_s3_users.id",
@@ -9740,7 +9803,7 @@
       "name": "user_s3_connections",
       "schema": null,
       "x": 2940,
-      "y": 2536,
+      "y": 2566,
       "fields": [
         {
           "id": "field:user_s3_connections.id",
@@ -9911,8 +9974,8 @@
       "id": "table:managed_private_accesses",
       "name": "managed_private_accesses",
       "schema": null,
-      "x": 2520,
-      "y": 1484,
+      "x": 2100,
+      "y": 1424,
       "fields": [
         {
           "id": "field:managed_private_accesses.id",
@@ -10776,6 +10839,27 @@
           "check": null
         },
         {
+          "id": "field:ui_groups.allow_multisite_endpoint_switching",
+          "name": "allow_multisite_endpoint_switching",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:ui_groups.browser_advanced_features_enabled",
           "name": "browser_advanced_features_enabled",
           "type": {
@@ -10912,7 +10996,7 @@
       "name": "user_ui_groups",
       "schema": null,
       "x": 480,
-      "y": 1138,
+      "y": 1168,
       "fields": [
         {
           "id": "field:user_ui_groups.id",
@@ -11063,7 +11147,7 @@
       "name": "ui_group_s3_accounts",
       "schema": null,
       "x": 2940,
-      "y": 2160,
+      "y": 2100,
       "fields": [
         {
           "id": "field:ui_group_s3_accounts.id",
@@ -11319,7 +11403,7 @@
       "name": "ui_group_s3_users",
       "schema": null,
       "x": 2100,
-      "y": 2536,
+      "y": 2566,
       "fields": [
         {
           "id": "field:ui_group_s3_users.id",
@@ -11470,7 +11554,7 @@
       "name": "ui_group_s3_connections",
       "schema": null,
       "x": 3360,
-      "y": 2160,
+      "y": 2100,
       "fields": [
         {
           "id": "field:ui_group_s3_connections.id",
@@ -11642,7 +11726,7 @@
       "name": "tag_definitions",
       "schema": null,
       "x": 60,
-      "y": 4620,
+      "y": 4650,
       "fields": [
         {
           "id": "field:tag_definitions.id",
@@ -11911,7 +11995,7 @@
       "name": "bucket_ui_tag_assignments",
       "schema": null,
       "x": 480,
-      "y": 4620,
+      "y": 4650,
       "fields": [
         {
           "id": "field:bucket_ui_tag_assignments.id",
@@ -12150,7 +12234,7 @@
       "name": "storage_endpoint_tags",
       "schema": null,
       "x": 480,
-      "y": 5342,
+      "y": 5372,
       "fields": [
         {
           "id": "field:storage_endpoint_tags.id",
@@ -12343,7 +12427,7 @@
       "name": "s3_account_tags",
       "schema": null,
       "x": 60,
-      "y": 5026,
+      "y": 5056,
       "fields": [
         {
           "id": "field:s3_account_tags.id",
@@ -12536,7 +12620,7 @@
       "name": "s3_user_tags",
       "schema": null,
       "x": 60,
-      "y": 5342,
+      "y": 5372,
       "fields": [
         {
           "id": "field:s3_user_tags.id",
@@ -12729,7 +12813,7 @@
       "name": "s3_connection_tags",
       "schema": null,
       "x": 480,
-      "y": 5026,
+      "y": 5056,
       "fields": [
         {
           "id": "field:s3_connection_tags.id",
@@ -12922,7 +13006,7 @@
       "name": "ldap_providers",
       "schema": null,
       "x": 480,
-      "y": 2806,
+      "y": 2836,
       "fields": [
         {
           "id": "field:ldap_providers.id",
@@ -13396,7 +13480,7 @@
       "name": "oidc_login_states",
       "schema": null,
       "x": 1320,
-      "y": 2806,
+      "y": 2836,
       "fields": [
         {
           "id": "field:oidc_login_states.state",
@@ -13597,7 +13681,7 @@
       "name": "oidc_authorization_codes",
       "schema": null,
       "x": 900,
-      "y": 2806,
+      "y": 2836,
       "fields": [
         {
           "id": "field:oidc_authorization_codes.id",
@@ -13767,7 +13851,7 @@
       "name": "oidc_providers",
       "schema": null,
       "x": 60,
-      "y": 3542,
+      "y": 3572,
       "fields": [
         {
           "id": "field:oidc_providers.id",
@@ -14178,7 +14262,7 @@
       "name": "cost_usage_daily",
       "schema": null,
       "x": 2520,
-      "y": 6840,
+      "y": 6870,
       "fields": [
         {
           "id": "field:cost_usage_daily.id",
@@ -14565,7 +14649,7 @@
       "name": "cost_storage_daily",
       "schema": null,
       "x": 2100,
-      "y": 6840,
+      "y": 6870,
       "fields": [
         {
           "id": "field:cost_storage_daily.id",
@@ -14931,7 +15015,7 @@
       "name": "cost_models",
       "schema": null,
       "x": 2520,
-      "y": 8418,
+      "y": 8448,
       "fields": [
         {
           "id": "field:cost_models.id",
@@ -15157,7 +15241,7 @@
       "name": "cost_endpoint_overrides",
       "schema": null,
       "x": 2940,
-      "y": 7306,
+      "y": 7336,
       "fields": [
         {
           "id": "field:cost_endpoint_overrides.id",
@@ -15411,7 +15495,7 @@
       "name": "quota_usage_hourly",
       "schema": null,
       "x": 2520,
-      "y": 7306,
+      "y": 7336,
       "fields": [
         {
           "id": "field:quota_usage_hourly.id",
@@ -15808,7 +15892,7 @@
       "name": "quota_usage_daily",
       "schema": null,
       "x": 2100,
-      "y": 7306,
+      "y": 7336,
       "fields": [
         {
           "id": "field:quota_usage_daily.id",
@@ -16184,7 +16268,7 @@
       "name": "quota_alert_states",
       "schema": null,
       "x": 2940,
-      "y": 6840,
+      "y": 6870,
       "fields": [
         {
           "id": "field:quota_alert_states.id",
@@ -16461,7 +16545,7 @@
       "name": "user_notifications",
       "schema": null,
       "x": 480,
-      "y": 6840,
+      "y": 6870,
       "fields": [
         {
           "id": "field:user_notifications.id",
@@ -16924,7 +17008,7 @@
       "name": "endpoint_health_checks",
       "schema": null,
       "x": 2100,
-      "y": 7802,
+      "y": 7832,
       "fields": [
         {
           "id": "field:endpoint_health_checks.id",
@@ -17170,7 +17254,7 @@
       "name": "endpoint_health_latest",
       "schema": null,
       "x": 2520,
-      "y": 7802,
+      "y": 7832,
       "fields": [
         {
           "id": "field:endpoint_health_latest.id",
@@ -17610,7 +17694,7 @@
       "name": "endpoint_health_status_segments",
       "schema": null,
       "x": 2100,
-      "y": 8418,
+      "y": 8448,
       "fields": [
         {
           "id": "field:endpoint_health_status_segments.id",
@@ -18009,7 +18093,7 @@
       "name": "endpoint_health_rollups",
       "schema": null,
       "x": 2940,
-      "y": 7802,
+      "y": 7832,
       "fields": [
         {
           "id": "field:endpoint_health_rollups.id",
@@ -18431,7 +18515,7 @@
       "name": "bucket_migrations",
       "schema": null,
       "x": 60,
-      "y": 6840,
+      "y": 6870,
       "fields": [
         {
           "id": "field:bucket_migrations.execution_auth_session_id",
@@ -19460,7 +19544,7 @@
       "name": "bucket_migration_items",
       "schema": null,
       "x": 60,
-      "y": 8176,
+      "y": 8206,
       "fields": [
         {
           "id": "field:bucket_migration_items.id",
@@ -20285,7 +20369,7 @@
       "name": "bucket_migration_events",
       "schema": null,
       "x": 900,
-      "y": 6840,
+      "y": 6870,
       "fields": [
         {
           "id": "field:bucket_migration_events.id",
@@ -20532,7 +20616,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 9918,
+      "y": 9948,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -21116,7 +21200,7 @@
       "name": "portal_storage_space_metadata",
       "schema": null,
       "x": 2520,
-      "y": 4620,
+      "y": 4650,
       "fields": [
         {
           "id": "field:portal_storage_space_metadata.id",
@@ -21660,7 +21744,7 @@
       "name": "portal_storage_space_grants",
       "schema": null,
       "x": 2520,
-      "y": 5386,
+      "y": 5416,
       "fields": [
         {
           "id": "field:portal_storage_space_grants.id",
@@ -21890,7 +21974,7 @@
       "name": "portal_public_links",
       "schema": null,
       "x": 2520,
-      "y": 5942,
+      "y": 5972,
       "fields": [
         {
           "id": "field:portal_public_links.id",
@@ -22198,7 +22282,7 @@
       "name": "portal_external_access_credentials",
       "schema": null,
       "x": 2100,
-      "y": 5386,
+      "y": 5416,
       "fields": [
         {
           "id": "field:portal_external_access_credentials.id",
@@ -22612,7 +22696,7 @@
       "name": "portal_admin_requests",
       "schema": null,
       "x": 2100,
-      "y": 4620,
+      "y": 4650,
       "fields": [
         {
           "id": "field:portal_admin_requests.id",
@@ -22997,7 +23081,7 @@
       "name": "portal_admin_request_messages",
       "schema": null,
       "x": 2100,
-      "y": 5942,
+      "y": 5972,
       "fields": [
         {
           "id": "field:portal_admin_request_messages.id",
@@ -23211,7 +23295,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 9918,
+      "y": 9948,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -23359,7 +23443,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9332,
+      "y": 9362,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -23475,7 +23559,7 @@
       "name": "first_admin_bootstrap",
       "schema": null,
       "x": 900,
-      "y": 1724,
+      "y": 1754,
       "fields": [
         {
           "id": "field:first_admin_bootstrap.id",
@@ -23618,7 +23702,7 @@
       "name": "onboarding_preferences",
       "schema": null,
       "x": 60,
-      "y": 2190,
+      "y": 2220,
       "fields": [
         {
           "id": "field:onboarding_preferences.user_id",
@@ -23734,7 +23818,7 @@
       "name": "onboarding_journeys",
       "schema": null,
       "x": 1320,
-      "y": 1724,
+      "y": 1754,
       "fields": [
         {
           "id": "field:onboarding_journeys.id",
@@ -23966,7 +24050,7 @@
       "name": "webhook_endpoints",
       "schema": null,
       "x": 480,
-      "y": 8176,
+      "y": 8206,
       "fields": [
         {
           "id": "field:webhook_endpoints.id",
@@ -24179,7 +24263,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9332,
+      "y": 9362,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -24320,7 +24404,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9332,
+      "y": 9362,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -25202,19 +25286,6 @@
       "targetTableId": "table:openstack_connections",
       "sourceFieldId": "field:openstack_project_contexts.connection_id",
       "targetFieldId": "field:openstack_connections.id",
-      "sourceCardinality": "many",
-      "targetCardinality": "one",
-      "createdAt": 0
-    },
-    {
-      "id": "relationship:openstack_project_contexts.endpoint_id->storage_endpoints.id",
-      "name": "fk_openstack_project_contexts_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
-      "sourceSchema": null,
-      "sourceTableId": "table:openstack_project_contexts",
-      "targetSchema": null,
-      "targetTableId": "table:storage_endpoints",
-      "sourceFieldId": "field:openstack_project_contexts.endpoint_id",
-      "targetFieldId": "field:storage_endpoints.id",
       "sourceCardinality": "many",
       "targetCardinality": "one",
       "createdAt": 0
@@ -26268,7 +26339,7 @@
       "x": 0,
       "y": 0,
       "width": 1740,
-      "height": 4188,
+      "height": 4218,
       "color": "#4F46E5",
       "order": 0
     },
@@ -26278,7 +26349,7 @@
       "x": 2040,
       "y": 0,
       "width": 1740,
-      "height": 3528,
+      "height": 3558,
       "color": "#0F766E",
       "order": 1
     },
@@ -26286,7 +26357,7 @@
       "id": "area:tags-classification",
       "name": "Tags and classification",
       "x": 0,
-      "y": 4488,
+      "y": 4518,
       "width": 900,
       "height": 1170,
       "color": "#7C3AED",
@@ -26296,7 +26367,7 @@
       "id": "area:portal",
       "name": "Portal",
       "x": 2040,
-      "y": 4488,
+      "y": 4518,
       "width": 900,
       "height": 1920,
       "color": "#2563EB",
@@ -26306,7 +26377,7 @@
       "id": "area:operations-audit",
       "name": "Operations and audit",
       "x": 0,
-      "y": 6708,
+      "y": 6738,
       "width": 1320,
       "height": 4066,
       "color": "#D97706",
@@ -26316,7 +26387,7 @@
       "id": "area:observability-quota-cost",
       "name": "Observability quota and cost",
       "x": 2040,
-      "y": 6708,
+      "y": 6738,
       "width": 1320,
       "height": 2236,
       "color": "#059669",
