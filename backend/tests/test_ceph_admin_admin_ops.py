@@ -13,10 +13,10 @@ from app.main import app
 from app.models.ceph_admin import (
     CephAdminAdminOpsConfirmation,
     CephAdminBucketDeleteRequest,
-    CephAdminBucketIndexCheckRequest,
     CephAdminBucketLinkRequest,
     CephAdminUserDeleteRequest,
 )
+from app.models.ceph_admin_bucket_index import CephAdminBucketIndexCheckRequest
 from app.routers.ceph_admin import admin_ops, bucket_admin_ops, bucket_index_ops, identity_admin_ops
 from app.services.rgw_admin import RGWAdminError, RGWAdminOperationResponse
 from router_test_utils import effective_routes

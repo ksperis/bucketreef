@@ -8,7 +8,10 @@ from typing import Callable
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 
-from app.models.ceph_admin import CephAdminBucketIndexCheckBatchProgress, CephAdminBucketIndexCheckBatchResult
+from app.models.ceph_admin_bucket_index import (
+    CephAdminBucketIndexCheckBatchProgress,
+    CephAdminBucketIndexCheckBatchResult,
+)
 from app.routers.sse_worker import stream_status_operation
 from app.services.bucket_index_check_service import BucketIndexCheckCancelled
 

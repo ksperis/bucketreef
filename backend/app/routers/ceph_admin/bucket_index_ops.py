@@ -10,6 +10,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.models.ceph_admin import (
     CephAdminAdminOpsResult,
+)
+from app.models.ceph_admin_bucket_index import (
     CephAdminBucketIndexCheckBatchRequest,
     CephAdminBucketIndexCheckRequest,
 )

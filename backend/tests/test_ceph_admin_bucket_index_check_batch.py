@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.main import app
-from app.models.ceph_admin import (
+from app.models.ceph_admin_bucket_index import (
     CephAdminBucketIndexCheckBatchBucketResult,
     CephAdminBucketIndexCheckBatchProgress,
     CephAdminBucketIndexCheckBatchRequest,
