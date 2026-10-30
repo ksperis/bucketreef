@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured account Portal settings overrides
+
+Migration `0217_structure_portal_settings_override` replaces the
+`s3_accounts.portal_settings_override` text representation with a structured
+JSON column. Existing non-null values must decode to JSON objects; malformed
+JSON, `null`, or values with another shape stop the upgrade explicitly.
+
+Portal settings services now read and write override objects directly and keep
+SQL `NULL` as the canonical representation when no account override exists.
+The downgrade recreates canonical JSON text from the structured object.
+
 ## 2026-10 structured webhook delivery payloads
 
 Migration `0216_structure_webhook_delivery_payloads` replaces

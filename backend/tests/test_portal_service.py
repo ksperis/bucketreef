@@ -3623,11 +3623,7 @@ def test_portal_account_override_uses_canonical_payload(monkeypatch, db_session)
         name="portal-storage-override",
         rgw_access_key="ROOT-AK",
         rgw_secret_key="ROOT-SK",
-        portal_settings_override=json.dumps(
-            {
-                "allow_private_storage_space_create": False,
-            }
-        ),
+        portal_settings_override={"allow_private_storage_space_create": False},
     )
     db_session.add(account)
     db_session.commit()
@@ -3667,7 +3663,7 @@ def test_portal_account_override_uses_canonical_payload(monkeypatch, db_session)
         ),
     )
     db_session.refresh(account)
-    stored = json.loads(account.portal_settings_override)
+    stored = account.portal_settings_override
     assert stored == {
         "allow_private_storage_space_create": True,
         "server_access_logging_enabled": False,

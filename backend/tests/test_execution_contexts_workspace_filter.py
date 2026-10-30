@@ -499,9 +499,7 @@ def test_browser_workspace_applies_effective_project_override(
         storage_endpoint=endpoint,
     )
     if account_override is not None:
-        account.portal_settings_override = json.dumps(
-            {"browser_access_enabled": account_override}
-        )
+        account.portal_settings_override = {"browser_access_enabled": account_override}
     db_session.add(
         UserS3Account(
             user_id=user.id,
