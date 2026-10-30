@@ -5,10 +5,12 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from app.models.ceph_admin import (
-    CephAdminAccountFilterQuery,
-    CephAdminAccountFilterRule,
     CephAdminRgwAccountSummary,
     PaginatedCephAdminAccountsResponse,
+)
+from app.models.ceph_admin_identity_filters import (
+    CephAdminAccountFilterQuery,
+    CephAdminAccountFilterRule,
 )
 from app.services.ceph_admin_account_payloads import (
     extract_bucket_count,
@@ -88,17 +90,6 @@ def _match_account_field_rule(
     if field in {"account_id", "account_name", "email"}:
         return match_text_rule(value, op, rule.value)
     return match_numeric_rule(value, op, rule.value, coerce=coerce_number)
-
-
-def _match_account_rules(
-    account: CephAdminRgwAccountSummary,
-    rules: list[CephAdminAccountFilterRule],
-    match: str,
-) -> bool:
-    if not rules:
-        return True
-    results = [_match_account_field_rule(account, rule) for rule in rules]
-    return all(results) if match == "all" else any(results)
 
 
 def _includes_for_account_fields(fields: set[str]) -> set[str]:
@@ -309,7 +300,7 @@ class _AccountListingPipeline:
         results = apply_advanced_filter(
             results,
             self.parsed_filter,
-            _match_account_rules,
+                _match_account_field_rule,
         )
         invoke_cancel_check(self.cancel_check)
         results.sort(
