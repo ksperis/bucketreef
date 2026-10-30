@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured Portal request payloads
+
+Migration `0208_structure_portal_request_payloads` replaces
+`portal_admin_requests.payload_json` and `result_json` text with structured JSON
+`payload` and `result` objects. Existing payloads must decode to JSON objects;
+results may be null, but any present result must also be an object. Malformed
+JSON or values with the wrong shape stop the upgrade explicitly.
+
+Portal request creation, execution, and response serialization now use the
+structured objects directly. Admin free-text search keeps matching request
+payload content by casting the JSON object to text only for the search query.
+The downgrade recreates the former text JSON columns from the structured
+objects.
+
 ## 2026-10 structured bucket usage statistics payloads
 
 Migration `0207_structure_bucket_usage_stats_payloads` replaces the five

@@ -3,11 +3,10 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any, NoReturn, Optional
 
-from sqlalchemy import or_, select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -124,7 +123,7 @@ class PortalRequestsService:
             requester_email=actor.email,
             request_type=request_type,
             status="pending",
-            payload_json=self._encode_json(payload_data),
+            payload=dict(payload_data),
             created_at=utcnow(),
             updated_at=utcnow(),
         )
@@ -271,7 +270,7 @@ class PortalRequestsService:
                     .where(
                         or_(
                             PortalAdminRequest.requester_email.ilike(pattern),
-                            PortalAdminRequest.payload_json.ilike(pattern),
+                            cast(PortalAdminRequest.payload, String).ilike(pattern),
                             S3Account.name.ilike(pattern),
                         )
                     )
@@ -430,7 +429,7 @@ class PortalRequestsService:
         row = self._load_request(request_id)
         now = utcnow()
         row.status = "approved"
-        row.result_json = self._encode_json(result)
+        row.result = dict(result)
         row.error_message = None
         row.decided_by_user_id = int(actor.id)
         row.decided_by_email = actor.email
@@ -450,8 +449,8 @@ class PortalRequestsService:
             account_name=row.account.name if row.account else None,
             request_type=row.request_type,
             status=row.status,
-            payload=self._decode_json(row.payload_json),
-            result=self._decode_json(row.result_json) if row.result_json else None,
+            payload=self._require_object(row.payload),
+            result=self._require_object(row.result) if row.result is not None else None,
             error_message=row.error_message,
             requester_user_id=row.requester_user_id,
             requester_email=row.requester_email,
@@ -477,12 +476,12 @@ class PortalRequestsService:
         if row.request_type == "portal_user_access":
             return self.collaborator_requests.execute_user_access(
                 row,
-                self._decode_json(row.payload_json),
+                self._require_object(row.payload),
             )
         if row.request_type == "portal_user_removal":
             return self.collaborator_requests.execute_user_removal(
                 row,
-                self._decode_json(row.payload_json),
+                self._require_object(row.payload),
             )
         if row.request_type == "account_quota_change":
             return self._execute_quota_change(row)
@@ -494,7 +493,7 @@ class PortalRequestsService:
         payload = PortalAccountQuotaChangeRequestCreate.model_validate(
             {
                 "request_type": "account_quota_change",
-                **self._decode_json(row.payload_json),
+                **self._require_object(row.payload),
             },
             strict=True,
         )
@@ -529,7 +528,7 @@ class PortalRequestsService:
         payload = PortalSettingChangeRequestCreate.model_validate(
             {
                 "request_type": "portal_setting_change",
-                **self._decode_json(row.payload_json),
+                **self._require_object(row.payload),
             },
             strict=True,
         )
@@ -641,15 +640,10 @@ class PortalRequestsService:
         raise ValueError("Unsupported Portal request payload")
 
     @staticmethod
-    def _encode_json(payload: dict[str, Any]) -> str:
-        return json.dumps(payload, ensure_ascii=True, sort_keys=True)
-
-    @staticmethod
-    def _decode_json(raw: str) -> dict[str, Any]:
-        parsed = json.loads(raw)
-        if not isinstance(parsed, dict):
-            raise ValueError("Portal request JSON must be an object")
-        return parsed
+    def _require_object(value: object) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            raise ValueError("Portal request payload must be a JSON object")
+        return value
 
 
 def get_portal_requests_service(db: Session) -> PortalRequestsService:

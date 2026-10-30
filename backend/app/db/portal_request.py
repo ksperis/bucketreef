@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, JSON, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -33,8 +33,8 @@ class PortalAdminRequest(Base):
     requester_email = Column(String, nullable=False)
     request_type = Column(String, nullable=False)
     status = Column(String, nullable=False, default="pending", server_default="pending")
-    payload_json = Column(Text, nullable=False)
-    result_json = Column(Text, nullable=True)
+    payload = Column(JSON, nullable=False)
+    result = Column(JSON, nullable=True)
     error_message = Column(Text, nullable=True)
     decided_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     decided_by_email = Column(String, nullable=True)

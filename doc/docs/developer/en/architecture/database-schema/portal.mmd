@@ -70,8 +70,8 @@ erDiagram
         varchar requester_email "NN"
         varchar request_type "NN"
         varchar status "NN; default=pending"
-        text payload_json "NN"
-        text result_json
+        json payload "NN"
+        json result
         text error_message
         integer decided_by_user_id FK
         varchar decided_by_email
