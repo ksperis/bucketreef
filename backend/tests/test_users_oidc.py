@@ -123,7 +123,10 @@ def test_identity_link_request_notifies_authorized_admins_once_per_episode(
     assert {row.notification_type for row in rows} == {"identity_link_request"}
     assert {row.subject_type for row in rows} == {"identity_request"}
     assert {row.severity for row in rows} == {"warning"}
-    assert all("identity-notification-subject" not in row.payload_json for row in rows)
+    assert all(
+        "identity-notification-subject" not in json.dumps(row.payload, sort_keys=True)
+        for row in rows
+    )
 
     link_request = db_session.scalars(select(ExternalIdentityLinkRequest)).one()
     link_request.expires_at = utcnow() - timedelta(seconds=1)

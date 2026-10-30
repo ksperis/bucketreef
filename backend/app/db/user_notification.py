@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -32,7 +32,7 @@ class UserNotification(Base):
     s3_account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True, index=True)
     s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
     event_key = Column(String, nullable=False)
-    payload_json = Column(Text, nullable=False, default="{}", server_default="{}")
+    payload = Column(JSON, nullable=False, default=dict, server_default="{}")
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow, index=True)
     read_at = Column(UTCDateTime(), nullable=True)
 

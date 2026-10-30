@@ -16869,11 +16869,11 @@
           "check": null
         },
         {
-          "id": "field:user_notifications.payload_json",
-          "name": "payload_json",
+          "id": "field:user_notifications.payload",
+          "name": "payload",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

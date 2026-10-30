@@ -187,7 +187,7 @@ def test_endpoint_health_notifications_follow_transitions_and_admin_scope(
         "warning",
         "info",
     ]
-    degraded_payload = json.loads(rows[0].payload_json)
+    degraded_payload = rows[0].payload
     assert degraded_payload["current_status"] == "degraded"
     assert degraded_payload["error_message"] == "access_key=<redacted> timed out"
     assert "AKIA1234567890123456" not in rows[0].message

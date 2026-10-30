@@ -34,7 +34,7 @@ erDiagram
         integer s3_account_id FK
         integer s3_user_id FK
         varchar event_key "NN"
-        text payload_json "NN; default={}"
+        json payload "NN; default={}"
         datetime created_at "NN"
         datetime read_at
     }
