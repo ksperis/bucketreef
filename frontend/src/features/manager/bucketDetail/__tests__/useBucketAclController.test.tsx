@@ -10,8 +10,10 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  getBucketAcl: (...args: unknown[]) => apiMocks.getBucketAcl(...args),
-  updateBucketAcl: (...args: unknown[]) => apiMocks.updateBucketAcl(...args),
+  managerBucketDetails: {
+    getBucketAcl: (...args: unknown[]) => apiMocks.getBucketAcl(...args),
+    updateBucketAcl: (...args: unknown[]) => apiMocks.updateBucketAcl(...args),
+  },
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({

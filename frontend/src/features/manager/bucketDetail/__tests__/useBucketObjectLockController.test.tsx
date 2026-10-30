@@ -12,12 +12,14 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  getBucketObjectLock: (...args: unknown[]) =>
-    apiMocks.getBucketObjectLock(...args),
-  setBucketVersioning: (...args: unknown[]) =>
-    apiMocks.setBucketVersioning(...args),
-  updateBucketObjectLock: (...args: unknown[]) =>
-    apiMocks.updateBucketObjectLock(...args),
+  managerBucketDetails: {
+    getBucketObjectLock: (...args: unknown[]) =>
+      apiMocks.getBucketObjectLock(...args),
+    setBucketVersioning: (...args: unknown[]) =>
+      apiMocks.setBucketVersioning(...args),
+    updateBucketObjectLock: (...args: unknown[]) =>
+      apiMocks.updateBucketObjectLock(...args),
+  },
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({

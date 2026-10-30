@@ -10,10 +10,12 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  getBucketPublicAccessBlock: (...args: unknown[]) =>
-    apiMocks.getBucketPublicAccessBlock(...args),
-  updateBucketPublicAccessBlock: (...args: unknown[]) =>
-    apiMocks.updateBucketPublicAccessBlock(...args),
+  managerBucketDetails: {
+    getBucketPublicAccessBlock: (...args: unknown[]) =>
+      apiMocks.getBucketPublicAccessBlock(...args),
+    updateBucketPublicAccessBlock: (...args: unknown[]) =>
+      apiMocks.updateBucketPublicAccessBlock(...args),
+  },
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({

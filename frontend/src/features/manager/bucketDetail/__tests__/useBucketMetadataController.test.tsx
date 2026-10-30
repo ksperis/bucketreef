@@ -8,7 +8,9 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  getBucketStats: (...args: unknown[]) => apiMocks.getBucketStats(...args),
+  managerBucketDetails: {
+    getBucketStats: (...args: unknown[]) => apiMocks.getBucketStats(...args),
+  },
 }));
 
 vi.mock("../../../../api/cephAdminBuckets", () => ({

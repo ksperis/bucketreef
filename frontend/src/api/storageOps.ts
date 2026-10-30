@@ -3,7 +3,22 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import {
+import { managerBucketDetails } from "./bucketDetails";
+import type {
+  BucketCors,
+  BucketEncryptionConfiguration,
+  BucketLifecycleConfig,
+  BucketLoggingConfiguration,
+  BucketNotificationConfiguration,
+  BucketObjectLockConfiguration,
+  BucketPolicy,
+  BucketProperties,
+  BucketPublicAccessBlock,
+  BucketPublicAccessBlockUpdate,
+  BucketWebsiteConfiguration,
+} from "./bucketContracts";
+
+const {
   deleteBucketCors,
   deleteBucketLifecycle,
   deleteBucketLogging,
@@ -26,20 +41,7 @@ import {
   setBucketVersioning,
   updateBucketObjectLock,
   updateBucketPublicAccessBlock,
-} from "./bucketDetails";
-import type {
-  BucketCors,
-  BucketEncryptionConfiguration,
-  BucketLifecycleConfig,
-  BucketLoggingConfiguration,
-  BucketNotificationConfiguration,
-  BucketObjectLockConfiguration,
-  BucketPolicy,
-  BucketProperties,
-  BucketPublicAccessBlock,
-  BucketPublicAccessBlockUpdate,
-  BucketWebsiteConfiguration,
-} from "./bucketContracts";
+} = managerBucketDetails;
 import type {
   CephAdminBucket,
   CephAdminBucketsStreamProgress,

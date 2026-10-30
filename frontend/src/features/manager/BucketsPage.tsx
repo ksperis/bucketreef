@@ -16,14 +16,7 @@ import {
   deleteBucket,
   listBuckets,
 } from "../../api/managerBuckets";
-import {
-  getBucketCors,
-  getBucketLogging,
-  getBucketNotifications,
-  getBucketPolicy,
-  getBucketProperties,
-  getBucketWebsite,
-} from "../../api/bucketDetails";
+import { managerBucketDetails } from "../../api/bucketDetails";
 import type {
   Bucket,
   BucketFeatureStatus,
@@ -72,6 +65,15 @@ import {
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import BucketCreateWorkflow from "./BucketCreateWorkflow";
 import { useManagerI18n } from "./managerI18n";
+
+const {
+  getBucketCors,
+  getBucketLogging,
+  getBucketNotifications,
+  getBucketPolicy,
+  getBucketProperties,
+  getBucketWebsite,
+} = managerBucketDetails;
 
 function QuotaBar({ usedBytes, quotaBytes }: { usedBytes?: number | null; quotaBytes?: number | null }) {
   const { text } = useManagerI18n();

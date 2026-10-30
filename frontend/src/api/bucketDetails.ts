@@ -314,48 +314,7 @@ function createBucketDetailsApi(basePath: string) {
   };
 }
 
-const managerBucketDetails = createBucketDetailsApi(MANAGER_BUCKETS_PATH);
-
-export const {
-  deleteBucketCors,
-  deleteBucketEncryption,
-  deleteBucketLifecycle,
-  deleteBucketLogging,
-  deleteBucketNotifications,
-  deleteBucketPolicy,
-  deleteBucketReplication,
-  deleteBucketTags,
-  deleteBucketWebsite,
-  getBucketAcl,
-  getBucketCors,
-  getBucketEncryption,
-  getBucketLifecycle,
-  getBucketLogging,
-  getBucketNotifications,
-  getBucketObjectLock,
-  getBucketPolicy,
-  getBucketProperties,
-  getBucketPublicAccessBlock,
-  getBucketReplication,
-  getBucketStats,
-  getBucketTags,
-  getBucketVersioning,
-  getBucketWebsite,
-  putBucketCors,
-  putBucketEncryption,
-  putBucketLifecycle,
-  putBucketLogging,
-  putBucketNotifications,
-  putBucketPolicy,
-  putBucketReplication,
-  putBucketTags,
-  putBucketWebsite,
-  setBucketVersioning,
-  updateBucketAcl,
-  updateBucketObjectLock,
-  updateBucketPublicAccessBlock,
-  updateBucketQuota,
-} = managerBucketDetails;
+export const managerBucketDetails = createBucketDetailsApi(MANAGER_BUCKETS_PATH);
 
 // RGW quotas are Manager/Ceph Admin operations, outside Browser S3 settings.
 const { updateBucketQuota: _unsupportedBrowserQuota, ...browserBucketDetails } =

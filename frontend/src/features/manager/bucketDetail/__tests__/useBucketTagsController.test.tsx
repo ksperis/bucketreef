@@ -12,9 +12,11 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../api/bucketDetails", () => ({
-  deleteBucketTags: (...args: unknown[]) => apiMocks.deleteBucketTags(...args),
-  getBucketTags: (...args: unknown[]) => apiMocks.getBucketTags(...args),
-  putBucketTags: (...args: unknown[]) => apiMocks.putBucketTags(...args),
+  managerBucketDetails: {
+    deleteBucketTags: (...args: unknown[]) => apiMocks.deleteBucketTags(...args),
+    getBucketTags: (...args: unknown[]) => apiMocks.getBucketTags(...args),
+    putBucketTags: (...args: unknown[]) => apiMocks.putBucketTags(...args),
+  },
 }));
 
 vi.mock("../../../../api/cephAdminBucketDetails", () => ({
