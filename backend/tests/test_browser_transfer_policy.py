@@ -52,7 +52,7 @@ def enabled(monkeypatch):
 
 def policy(db, actor, workspace, selector=None, policy_id=None):
     return route.get_direct_transfer_policy(
-        Request({"type": "http", "method": "GET", "path": "/api/browser/direct-transfer-policy", "headers": []}),
+        Request({"type": "http", "method": "GET", "path": "/api/browser/direct-transfer-policy", "query_string": b"", "headers": []}),
         Response(), workspace=workspace, context_id=selector, policy_id=policy_id, actor=actor, db=db,
     )
 

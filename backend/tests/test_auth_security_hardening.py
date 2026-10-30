@@ -876,7 +876,7 @@ def _request(*, direct: str, forwarded: str | None = None) -> Request:
     headers = []
     if forwarded is not None:
         headers.append((b"x-forwarded-for", forwarded.encode()))
-    return Request({"type": "http", "method": "GET", "path": "/", "headers": headers, "client": (direct, 1234)})
+    return Request({"type": "http", "method": "GET", "path": "/", "query_string": b"", "headers": headers, "client": (direct, 1234)})
 
 
 def test_forwarded_for_is_ignored_unless_peer_is_trusted_and_trusted_hops_are_removed():
