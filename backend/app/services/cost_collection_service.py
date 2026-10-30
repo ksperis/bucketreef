@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -400,13 +399,13 @@ class CostCollector:
             s3_account_id=s3_account_id,
             s3_user_id=s3_user_id,
         )
-        payload = json.dumps(ops_breakdown) if ops_breakdown else None
+        stored_breakdown = ops_breakdown or None
         now = utcnow()
         if existing:
             existing.bytes_in = bytes_in
             existing.bytes_out = bytes_out
             existing.ops_total = ops_total
-            existing.ops_breakdown = payload
+            existing.ops_breakdown = stored_breakdown
             existing.collected_at = now
         else:
             row = CostUsageDaily(
@@ -417,7 +416,7 @@ class CostCollector:
                 bytes_in=bytes_in,
                 bytes_out=bytes_out,
                 ops_total=ops_total,
-                ops_breakdown=payload,
+                ops_breakdown=stored_breakdown,
                 source="rgw_admin_usage",
                 collected_at=now,
             )
@@ -437,7 +436,7 @@ class CostCollector:
                 existing.bytes_in = bytes_in
                 existing.bytes_out = bytes_out
                 existing.ops_total = ops_total
-                existing.ops_breakdown = payload
+                existing.ops_breakdown = stored_breakdown
                 existing.collected_at = now
         self.db.commit()
 
@@ -458,12 +457,12 @@ class CostCollector:
             s3_account_id=s3_account_id,
             s3_user_id=s3_user_id,
         )
-        payload = json.dumps(by_bucket) if by_bucket else None
+        stored_by_bucket = by_bucket or None
         now = utcnow()
         if existing:
             existing.total_bytes = total_bytes
             existing.total_objects = total_objects
-            existing.by_bucket = payload
+            existing.by_bucket = stored_by_bucket
             existing.collected_at = now
         else:
             row = CostStorageDaily(
@@ -473,7 +472,7 @@ class CostCollector:
                 s3_user_id=s3_user_id,
                 total_bytes=total_bytes,
                 total_objects=total_objects,
-                by_bucket=payload,
+                by_bucket=stored_by_bucket,
                 source="rgw_admin_bucket_stats",
                 collected_at=now,
             )
@@ -492,7 +491,7 @@ class CostCollector:
                     raise
                 existing.total_bytes = total_bytes
                 existing.total_objects = total_objects
-                existing.by_bucket = payload
+                existing.by_bucket = stored_by_bucket
                 existing.collected_at = now
         self.db.commit()
 

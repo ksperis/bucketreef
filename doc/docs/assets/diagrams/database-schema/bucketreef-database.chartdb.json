@@ -14568,8 +14568,8 @@
           "id": "field:cost_usage_daily.ops_breakdown",
           "name": "ops_breakdown",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -14934,8 +14934,8 @@
           "id": "field:cost_storage_daily.by_bucket",
           "name": "by_bucket",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

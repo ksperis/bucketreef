@@ -1,5 +1,20 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured Cost measurement breakdowns
+
+Migration `0218_structure_cost_measurement_breakdowns` replaces the text JSON
+representations in `cost_usage_daily.ops_breakdown` and
+`cost_storage_daily.by_bucket` with structured JSON columns. Existing non-null
+operation breakdowns must map operation names to integer counts. Existing
+per-bucket breakdowns must map bucket names to objects containing integer
+`used_bytes` and `object_count` values. Malformed JSON or values with another
+shape stop the upgrade explicitly.
+
+Cost collection now stores both breakdowns directly as structured values, and
+cost aggregation no longer reparses persisted JSON text. Empty breakdowns and
+disabled per-bucket collection use SQL `NULL` as the canonical representation.
+The downgrade recreates canonical JSON text from the structured objects.
+
 ## 2026-10 structured account Portal settings overrides
 
 Migration `0217_structure_portal_settings_override` replaces the

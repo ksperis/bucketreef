@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -94,18 +93,17 @@ def bytes_to_gb(value: Optional[int]) -> Optional[float]:
     return float(value) / (1024**3)
 
 
-def parse_ops_breakdown(raw: str) -> dict[str, int]:
-    payload = json.loads(raw)
-    if not isinstance(payload, dict):
+def validate_ops_breakdown(value: object) -> dict[str, int]:
+    if not isinstance(value, dict):
         raise ValueError("Cost operation breakdown must be a JSON object")
     if any(
         not isinstance(key, str)
-        or not isinstance(value, int)
-        or isinstance(value, bool)
-        for key, value in payload.items()
+        or not isinstance(count, int)
+        or isinstance(count, bool)
+        for key, count in value.items()
     ):
         raise ValueError("Cost operation breakdown must map strings to integers")
-    return payload
+    return value
 
 
 def merge_ops_breakdown(rows: Iterable[CostUsageDaily]) -> dict[str, int]:
@@ -113,7 +111,7 @@ def merge_ops_breakdown(rows: Iterable[CostUsageDaily]) -> dict[str, int]:
     for row in rows:
         if not row.ops_breakdown:
             continue
-        for key, value in parse_ops_breakdown(row.ops_breakdown).items():
+        for key, value in validate_ops_breakdown(row.ops_breakdown).items():
             merged[key] += value
     return dict(merged)
 
