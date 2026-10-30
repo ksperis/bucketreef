@@ -81,8 +81,6 @@ class OpenStackProjectContext(Base):
     connection_id = Column(String, ForeignKey("openstack_connections.id", ondelete="CASCADE"), nullable=False, index=True)
     project_id = Column(String, nullable=False)
     project_name = Column(String, nullable=False)
-    # Kept only to migrate contexts created before Keystone catalog discovery.
-    endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id", ondelete="CASCADE"), nullable=True)
     target_id = Column(String, nullable=False)
     region_id = Column(String, nullable=False)
     endpoint_url = Column(String, nullable=False)

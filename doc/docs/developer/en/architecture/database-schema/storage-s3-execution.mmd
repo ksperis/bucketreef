@@ -7,6 +7,9 @@ erDiagram
         varchar name UK "NN"
         varchar endpoint_url UK "NN"
         varchar region
+        varchar realm_id
+        varchar zonegroup_id
+        varchar zone_id
         varchar provider "NN"
         varchar admin_access_key
         varchar admin_secret_key
@@ -238,7 +241,6 @@ erDiagram
         varchar connection_id FK "NN"
         varchar project_id "NN"
         varchar project_name "NN"
-        integer endpoint_id FK
         varchar target_id "NN"
         varchar region_id "NN"
         varchar endpoint_url "NN"
@@ -316,7 +318,6 @@ erDiagram
     openstack_sessions }o--|| openstack_connections : "connection_id to id; ON DELETE CASCADE"
     openstack_sessions }o--|| auth_sessions : "auth_session_id to id; ON DELETE CASCADE"
     openstack_project_contexts }o--|| openstack_connections : "connection_id to id; ON DELETE CASCADE"
-    openstack_project_contexts }o--o| storage_endpoints : "endpoint_id to id; ON DELETE CASCADE"
     openstack_project_credentials }o--|| openstack_sessions : "session_id to id; ON DELETE CASCADE"
     openstack_project_credentials }o--|| openstack_project_contexts : "context_id to id; ON DELETE CASCADE"
     ui_group_s3_accounts }o--|| ui_groups : "group_id to id"
