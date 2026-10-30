@@ -58,6 +58,7 @@ from app.utils.time import utcnow
 
 ACTIVE_STATES = ("provisioning", "active", "deleting", "cleanup_pending")
 AMAZON_S3_FULL_ACCESS_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+ManagedPrivateAccessRequest = ManagedIAMPrivateAccessRequest | ManagedRGWUserPrivateAccessRequest
 
 
 class ManagedPrivateAccessService:
@@ -83,17 +84,11 @@ class ManagedPrivateAccessService:
         destination = self.sources.derive_destination(source)
         iam = self._iam_service_for_context(context)
         self._validate_iam_provisioning_request(iam, payload)
-        existing = self._active_for_source(user.id, source)
-        if existing is not None:
-            return self._resolve_idempotent_existing(existing, payload)
+        existing_result = self._existing_result_for_source(user, source, payload)
+        if existing_result is not None:
+            return existing_result
 
-        provisioning = self._claim(user, source)
-        self._record(
-            user,
-            provisioning,
-            "managed_private_access.provision.start",
-            status="success",
-        )
+        provisioning = self._start_provisioning(user, source)
         try:
             access_key_id, secret_access_key = self._provision_iam_credentials(
                 provisioning,
@@ -101,19 +96,14 @@ class ManagedPrivateAccessService:
                 payload,
                 username=source.iam_username or "",
             )
-
-            result = self._create_connection(
+            return self._activate_connection(
                 user=user,
                 provisioning=provisioning,
                 destination=destination,
-                connection_name=payload.connection_name,
+                payload=payload,
                 access_key_id=access_key_id,
                 secret_access_key=secret_access_key,
-                access_browser=payload.access_browser,
-                access_manager=payload.access_manager,
             )
-            self._record(user, provisioning, "managed_private_access.provision.success")
-            return result
         except ManagedPrivateAccessConflict:
             self._record(
                 user,
@@ -147,30 +137,25 @@ class ManagedPrivateAccessService:
         self._ensure_managed_private_connection_provisioning_allowed(user)
         source = self.sources.resolve_rgw_user_source(user, context)
         destination = self.sources.derive_destination(source)
-        existing = self._active_for_source(user.id, source)
-        if existing is not None:
-            return self._resolve_idempotent_existing(existing, payload)
+        existing_result = self._existing_result_for_source(user, source, payload)
+        if existing_result is not None:
+            return existing_result
 
-        provisioning = self._claim(user, source)
-        self._record(user, provisioning, "managed_private_access.provision.start")
+        provisioning = self._start_provisioning(user, source)
         users = S3UsersService(self.db)
         try:
             key = users.create_access_key_entry(source.identifier)
             provisioning.access_key_id = key.access_key_id
             provisioning.created_access_key = True
             self._checkpoint(provisioning)
-            result = self._create_connection(
+            return self._activate_connection(
                 user=user,
                 provisioning=provisioning,
                 destination=destination,
-                connection_name=payload.connection_name,
+                payload=payload,
                 access_key_id=key.access_key_id,
                 secret_access_key=key.secret_access_key,
-                access_browser=payload.access_browser,
-                access_manager=payload.access_manager,
             )
-            self._record(user, provisioning, "managed_private_access.provision.success")
-            return result
         except Exception as exc:
             self._handle_provisioning_failure(
                 user=user,
@@ -476,7 +461,22 @@ class ManagedPrivateAccessService:
             .limit(1)
         )
 
-    def _resolve_idempotent_existing(self, provisioning, payload) -> ManagedPrivateAccessResult:
+    def _existing_result_for_source(
+        self,
+        user: User,
+        source: ManagedPrivateAccessSource,
+        payload: ManagedPrivateAccessRequest,
+    ) -> ManagedPrivateAccessResult | None:
+        existing = self._active_for_source(user.id, source)
+        if existing is None:
+            return None
+        return self._resolve_idempotent_existing(existing, payload)
+
+    def _resolve_idempotent_existing(
+        self,
+        provisioning: ManagedPrivateAccess,
+        payload: ManagedPrivateAccessRequest,
+    ) -> ManagedPrivateAccessResult:
         connection = provisioning.connection
         if provisioning.state == "active" and connection is not None:
             same_request = (
@@ -499,6 +499,15 @@ class ManagedPrivateAccessService:
         raise ManagedPrivateAccessConflict(
             "A managed private access already exists or requires cleanup for this execution context"
         )
+
+    def _start_provisioning(
+        self,
+        user: User,
+        source: ManagedPrivateAccessSource,
+    ) -> ManagedPrivateAccess:
+        provisioning = self._claim(user, source)
+        self._record(user, provisioning, "managed_private_access.provision.start")
+        return provisioning
 
     def _claim(
         self,
@@ -572,6 +581,29 @@ class ManagedPrivateAccessService:
             status="active",
             connection=self.connections.serialize(connection),
         )
+
+    def _activate_connection(
+        self,
+        *,
+        user: User,
+        provisioning: ManagedPrivateAccess,
+        destination: ManagedPrivateAccessDestination,
+        payload: ManagedPrivateAccessRequest,
+        access_key_id: str,
+        secret_access_key: str,
+    ) -> ManagedPrivateAccessResult:
+        result = self._create_connection(
+            user=user,
+            provisioning=provisioning,
+            destination=destination,
+            connection_name=payload.connection_name,
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            access_browser=payload.access_browser,
+            access_manager=payload.access_manager,
+        )
+        self._record(user, provisioning, "managed_private_access.provision.success")
+        return result
 
     def _managed_connection_rgw_identity(
         self,
