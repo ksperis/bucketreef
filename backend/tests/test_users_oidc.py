@@ -278,9 +278,9 @@ def test_trusted_email_policy_links_an_eligible_local_account(db_session):
     audit = db_session.scalars(
         select(AuditLog).where(AuditLog.action == "external_identity_trusted_email_linked")
     ).one()
-    metadata = json.loads(audit.metadata_json or "{}")
+    metadata = audit.audit_metadata or {}
     assert metadata == {"provider_id": "company", "provider_type": "oidc"}
-    assert "secret-provider-subject" not in (audit.metadata_json or "")
+    assert "secret-provider-subject" not in str(audit.audit_metadata or {})
 
 
 @pytest.mark.parametrize(

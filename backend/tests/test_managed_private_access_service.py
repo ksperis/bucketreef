@@ -231,8 +231,8 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     assert connection.rgw_account_id == account.rgw_account_id
     audits = db_session.scalars(sa.select(AuditLog)).all()
     assert audits
-    assert all("NEVER-IN-RESPONSE" not in (audit.metadata_json or "") for audit in audits)
-    assert all("AK-MANAGED" not in (audit.metadata_json or "") for audit in audits)
+    assert all("NEVER-IN-RESPONSE" not in str(audit.audit_metadata or {}) for audit in audits)
+    assert all("AK-MANAGED" not in str(audit.audit_metadata or {}) for audit in audits)
     assert all(audit.context_kind == "account" for audit in audits)
     assert all(audit.context_id == str(account.id) for audit in audits)
     assert all(audit.context_name == account.name for audit in audits)
@@ -598,7 +598,7 @@ def test_failed_local_creation_compensates_remote_resources(db_session, monkeypa
     assert "managed_private_access.provision.failure" in actions
     assert "managed_private_access.compensation.success" in actions
     assert all(
-        "LEAK-ME" not in f"{row.message or ''}{row.metadata_json or ''}"
+        "LEAK-ME" not in f"{row.message or ''}{row.audit_metadata or {}}"
         for row in db_session.scalars(sa.select(AuditLog)).all()
     )
 

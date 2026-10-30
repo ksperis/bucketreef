@@ -309,7 +309,7 @@ def test_admin_link_request_queue_is_filtered_by_role_hierarchy(auth_client, db_
     audit = db_session.scalars(
         select(AuditLog).where(AuditLog.action == "external_identity_link_decision")
     ).one()
-    assert "standard-sensitive-subject" not in (audit.metadata_json or "")
+    assert "standard-sensitive-subject" not in str(audit.audit_metadata or {})
 
 
 def test_only_superadmin_can_manage_privileged_users_and_self_protection_applies(auth_client, db_session):

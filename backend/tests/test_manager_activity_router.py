@@ -85,7 +85,7 @@ def _audit_log(
         context_id=context.context_id,
         context_name=context.name,
         status=status,
-        metadata_json='{"secret":"hidden"}',
+        audit_metadata={"secret": "hidden"},
         request_id="req-hidden",
         ip_address="192.0.2.10",
         user_agent="hidden-agent",

@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured audit metadata
+
+Migration `0215_structure_audit_metadata` replaces `audit_logs.metadata_json`
+text with structured JSON stored in the `metadata` column. Existing non-null
+values must decode to JSON objects; malformed JSON or values with another shape
+stop the upgrade explicitly.
+
+Audit producers now persist sanitized metadata objects directly. Metadata size
+limits and secret redaction remain unchanged, and free-text audit search casts
+the structured JSON to text only for matching. The downgrade recreates the
+former text column from the structured objects.
+
 ## 2026-10 structured WebAuthn credential transports
 
 Migration `0214_structure_webauthn_transports` replaces

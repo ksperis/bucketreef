@@ -334,7 +334,7 @@ def test_bucket_ui_tag_routes_persist_ceph_visibility_and_reject_forged_storage_
         sa.select(AuditLog).where(AuditLog.action == "bucket_ui_tags.update_shared")
     ).all()
     assert len(shared_logs) == 1
-    assert json.loads(shared_logs[0].metadata_json or "{}") == {
+    assert (shared_logs[0].audit_metadata or {}) == {
         "endpoint_id": endpoint.id,
         "endpoint_name": endpoint.name,
         "target_count": 1,
@@ -499,7 +499,7 @@ def test_bucket_ui_tag_definition_routes_update_settings_and_enforce_visibility(
     audit = db_session.scalars(
         sa.select(AuditLog).where(AuditLog.action == "bucket_ui_tags.update_definition")
     ).one()
-    assert json.loads(audit.metadata_json or "{}") == {
+    assert (audit.audit_metadata or {}) == {
         "changed_fields": ["visibility"],
         "endpoint_id": endpoint.id,
         "endpoint_name": endpoint.name,

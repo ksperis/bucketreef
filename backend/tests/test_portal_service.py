@@ -5962,7 +5962,7 @@ def test_portal_governance_activity_is_filtered_by_visible_storage_spaces(monkey
                 context_id=str(account.id),
                 context_name=account.name,
                 status="success",
-                metadata_json=json.dumps({"storage_space_id": "research-data"}),
+                audit_metadata={"storage_space_id": "research-data"},
                 ip_address="192.0.2.10",
             ),
             AuditLog(
@@ -5977,7 +5977,7 @@ def test_portal_governance_activity_is_filtered_by_visible_storage_spaces(monkey
                 context_id=str(account.id),
                 context_name=account.name,
                 status="success",
-                metadata_json=json.dumps({"storage_space_id": "hidden-data"}),
+                audit_metadata={"storage_space_id": "hidden-data"},
             ),
         ]
     )
@@ -6034,7 +6034,7 @@ def test_portal_user_governance_activity_uses_visible_space_access(db_session):
                 context_id=str(account.id),
                 context_name=account.name,
                 status="success",
-                metadata_json=json.dumps({"storage_space_id": "visible-data", "target_user_id": 42}),
+                audit_metadata={"storage_space_id": "visible-data", "target_user_id": 42},
             ),
             AuditLog(
                 user_id=hidden_owner.id,
@@ -6048,7 +6048,7 @@ def test_portal_user_governance_activity_uses_visible_space_access(db_session):
                 context_id=str(account.id),
                 context_name=account.name,
                 status="success",
-                metadata_json=json.dumps({"storage_space_id": "hidden-data", "target_user_id": 99}),
+                audit_metadata={"storage_space_id": "hidden-data", "target_user_id": 99},
             ),
         ]
     )

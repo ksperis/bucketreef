@@ -16,7 +16,7 @@ from app.services.audit_policy import (
 from app.services.audit_service import (
     MAX_AUDIT_METADATA_LENGTH,
     AuditService,
-    parse_audit_metadata,
+    audit_metadata_object,
 )
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.s3_account_factory import make_s3_account
@@ -151,6 +151,22 @@ def test_serialize_log_matches_the_public_audit_contract(db_session) -> None:
     assert AuditLogEntry(**payload).user_email == user.email
 
 
+def test_list_logs_searches_structured_metadata(db_session) -> None:
+    user = _create_user(db_session)
+    service = AuditService(db_session)
+    service.record_action(
+        user=user,
+        scope="admin",
+        action="create_iam_user",
+        metadata={"project": "structured-search-marker"},
+    )
+
+    rows = service.list_logs(search="structured-search-marker")
+
+    assert len(rows) == 1
+    assert rows[0].audit_metadata == {"project": "structured-search-marker"}
+
+
 def test_audit_response_models_require_complete_canonical_payloads() -> None:
     assert set(AuditLogEntry.model_json_schema()["required"]) == {
         "id",
@@ -200,7 +216,7 @@ def test_record_action_sanitizes_sensitive_metadata_before_persisting(db_session
     )
 
     log = db_session.scalars(select(AuditLog)).one()
-    metadata = json.loads(log.metadata_json or "{}")
+    metadata = log.audit_metadata or {}
     assert metadata["endpoint_url"] == "https://s3.example.test/bucket"
     assert metadata["access_key_id"] == "AKIA1234567890ABCDEF"
     assert metadata["secret_access_key"] == "<redacted>"
@@ -212,10 +228,11 @@ def test_record_action_sanitizes_sensitive_metadata_before_persisting(db_session
     assert "X-Amz-Signature=<redacted>" in metadata["nested"]["note"]
     assert "https://rgw.internal/object" in metadata["nested"]["note"]
     assert metadata["items"][0]["password"] == "<redacted>"
-    assert "secret-value" not in log.metadata_json
-    assert "oauth-secret" not in log.metadata_json
-    assert "session-token-value" not in log.metadata_json
-    assert "plain-password" not in log.metadata_json
+    serialized_metadata = json.dumps(log.audit_metadata or {})
+    assert "secret-value" not in serialized_metadata
+    assert "oauth-secret" not in serialized_metadata
+    assert "session-token-value" not in serialized_metadata
+    assert "plain-password" not in serialized_metadata
 
 
 def test_audit_metadata_truncation_remains_valid_json(db_session) -> None:
@@ -229,22 +246,22 @@ def test_audit_metadata_truncation_remains_valid_json(db_session) -> None:
     )
 
     log = db_session.scalars(select(AuditLog)).one()
-    assert log.metadata_json is not None
-    assert len(log.metadata_json) <= MAX_AUDIT_METADATA_LENGTH
-    metadata = parse_audit_metadata(log.metadata_json)
+    assert log.audit_metadata is not None
+    assert len(json.dumps(log.audit_metadata)) <= MAX_AUDIT_METADATA_LENGTH
+    metadata = audit_metadata_object(log.audit_metadata)
     assert metadata is not None
     assert metadata["truncated"] is True
     assert metadata["original_length"] > MAX_AUDIT_METADATA_LENGTH
     assert metadata["preview"].startswith('{"details":')
 
 
-def test_audit_metadata_parser_rejects_noncanonical_storage() -> None:
-    assert parse_audit_metadata(None) is None
-    assert parse_audit_metadata('{"key": "value"}') == {"key": "value"}
+def test_audit_metadata_object_rejects_noncanonical_storage() -> None:
+    assert audit_metadata_object(None) is None
+    assert audit_metadata_object({"key": "value"}) == {"key": "value"}
 
-    for raw in ("{", "[]", '"value"'):
+    for raw in ("value", [], ["value"]):
         with pytest.raises(ValueError):
-            parse_audit_metadata(raw)
+            audit_metadata_object(raw)
 
 
 @pytest.mark.parametrize(

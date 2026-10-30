@@ -526,8 +526,9 @@ def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(id
         )
     ).all()
     assert len(audits) == 1
-    assert "UNEXPECTED" not in serialized + (audits[0].metadata_json or "")
-    assert identity.secret_key not in serialized + (audits[0].metadata_json or "")
+    audit_metadata = str(audits[0].audit_metadata or {})
+    assert "UNEXPECTED" not in serialized + audit_metadata
+    assert identity.secret_key not in serialized + audit_metadata
 
 
 @pytest.mark.parametrize("users_write", [True, False])

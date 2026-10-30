@@ -165,7 +165,7 @@ def test_login_s3_records_custom_endpoint_audit_event(monkeypatch, client, db_se
     assert event is not None
     assert event.ip_address == "testclient"
     assert event.user_agent == "pytest-agent"
-    assert "https://s3.example.test" in (event.metadata_json or "")
+    assert "https://s3.example.test" in str(event.audit_metadata or {})
 
 
 def _setup_account(db_session) -> S3Account:

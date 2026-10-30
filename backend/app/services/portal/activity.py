@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.db import AuditLog, PortalAccountRole, PortalPublicLink as DBPortalPublicLink, User
 from app.models.portal_monitoring import PortalActivityItem, PortalAlert
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
-from app.services.audit_service import parse_audit_metadata
+from app.services.audit_service import audit_metadata_object
 from app.services.audit_policy import NON_PERSISTED_AUDIT_ACTIONS
 from app.services.portal.exceptions import PortalNotFoundError
 from app.utils.time import utcnow
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 class PortalActivityMixin:
     def _audit_metadata(self, log: AuditLog) -> dict[str, Any]:
-        return parse_audit_metadata(log.metadata_json) or {}
+        return audit_metadata_object(log.audit_metadata) or {}
 
     def _visible_storage_space_lookup(
         self,

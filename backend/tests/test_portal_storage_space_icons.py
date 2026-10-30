@@ -94,7 +94,7 @@ def test_portal_manager_can_choose_icon_and_action_is_audited(client: TestClient
     ).one()
     assert audit.scope == "portal"
     assert audit.entity_id == "research-data"
-    assert "database" in (audit.metadata_json or "")
+    assert "database" in str(audit.audit_metadata or {})
 
 
 def test_uploaded_icon_is_validated_served_with_versioned_private_cache_and_audited(

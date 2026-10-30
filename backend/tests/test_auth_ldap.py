@@ -113,5 +113,5 @@ def test_ldap_configuration_error_hides_detail_from_client_but_audits_it(client,
     )
     assert audit is not None
     assert audit.message == "LDAP provider configuration error"
-    metadata = json.loads(audit.metadata_json or "{}")
+    metadata = audit.audit_metadata or {}
     assert metadata == {"provider": "corp"}

@@ -107,7 +107,8 @@ def test_put_admin_settings_persists_branding_color(client, monkeypatch, tmp_pat
     assert audit.entity_type == "app_settings"
     assert audit.entity_id == "global"
     assert audit.user_email == "superadmin@example.com"
-    metadata = json.loads(audit.metadata_json or "{}")
+    metadata = audit.audit_metadata or {}
     assert "branding" in metadata["sections"]
-    assert "#0057b8" not in audit.metadata_json
-    assert "logo.svg" not in audit.metadata_json
+    serialized_metadata = json.dumps(audit.audit_metadata or {})
+    assert "#0057b8" not in serialized_metadata
+    assert "logo.svg" not in serialized_metadata

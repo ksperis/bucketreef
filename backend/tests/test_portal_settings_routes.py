@@ -182,4 +182,4 @@ def test_storage_space_settings_routes_return_capability_and_audit_updates(
         sa.select(AuditLog).where(AuditLog.action == "update_storage_space_settings")
     ).one()
     assert audit.entity_id == "research-data"
-    assert "version_history_retention_days" in (audit.metadata_json or "")
+    assert "version_history_retention_days" in str(audit.audit_metadata or {})

@@ -913,7 +913,7 @@ def test_oidc_callback_failure_is_generic_audited_and_never_persists_code_or_sta
     audit = db_session.scalars(
         select(AuditLog).where(AuditLog.action == "login_oidc_failure")
     ).one()
-    persisted = f"{audit.message or ''} {audit.metadata_json or ''}"
+    persisted = f"{audit.message or ''} {audit.audit_metadata or {}}"
     assert "secret-code" not in persisted
     assert "secret-state" not in persisted
 
