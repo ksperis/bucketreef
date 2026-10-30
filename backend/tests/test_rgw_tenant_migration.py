@@ -11,8 +11,28 @@ import pytest
 import sqlalchemy as sa
 
 from app.core.config import get_settings
-from app.db import StorageEndpoint
-from sqlalchemy.orm import Session
+
+
+def _insert_historical_storage_endpoint(
+    conn: sa.Connection,
+    *,
+    endpoint_id: int,
+    name: str,
+    endpoint_url: str,
+) -> None:
+    conn.execute(
+        sa.text(
+            "INSERT INTO storage_endpoints "
+            "(id, name, endpoint_url, provider, identity_namespace, created_at, updated_at) "
+            "VALUES (:id, :name, :endpoint_url, 'ceph', :identity_namespace, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        ),
+        {
+            "id": endpoint_id,
+            "name": name,
+            "endpoint_url": endpoint_url,
+            "identity_namespace": f"migration-test-{endpoint_id}",
+        },
+    )
 
 
 def test_postgresql_tenant_migration_emits_composite_identity_constraints(monkeypatch):
@@ -41,10 +61,13 @@ def test_tenant_migration_backfills_default_scope_and_enforces_uniqueness(tmp_pa
     engine = sa.create_engine(url)
     try:
         command.upgrade(config, "0151_project_usage_feature_overrides")
-        with Session(engine) as session:
-            session.add(StorageEndpoint(id=1, name="test", endpoint_url="https://rgw.invalid", provider="ceph"))
-            session.commit()
         with engine.begin() as conn:
+            _insert_historical_storage_endpoint(
+                conn,
+                endpoint_id=1,
+                name="test",
+                endpoint_url="https://rgw.invalid",
+            )
             conn.execute(sa.text("INSERT INTO s3_users (name, rgw_user_uid, rgw_access_key, rgw_secret_key, storage_endpoint_id, created_at, updated_at) VALUES ('Legacy', 'analyst', 'KEY', 'SECRET', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
             conn.execute(sa.text("INSERT INTO s3_accounts (name, rgw_account_id, rgw_user_uid, storage_endpoint_id, created_at, updated_at) VALUES ('Legacy account', 'RGW12345678901234567', 'account-root', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
         command.upgrade(config, "head")
@@ -81,10 +104,13 @@ def test_compat_migration_repairs_databases_that_already_ran_original_0152(tmp_p
     engine = sa.create_engine(url)
     try:
         command.upgrade(config, "0151_project_usage_feature_overrides")
-        with Session(engine) as session:
-            session.add(StorageEndpoint(id=1, name="test", endpoint_url="https://rgw.invalid", provider="ceph"))
-            session.commit()
         with engine.begin() as conn:
+            _insert_historical_storage_endpoint(
+                conn,
+                endpoint_id=1,
+                name="test",
+                endpoint_url="https://rgw.invalid",
+            )
             conn.execute(sa.text("INSERT INTO s3_users (name, rgw_user_uid, rgw_access_key, rgw_secret_key, storage_endpoint_id, created_at, updated_at) VALUES ('Legacy', 'analyst', 'KEY', 'SECRET', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
             conn.execute(sa.text("INSERT INTO s3_accounts (name, rgw_account_id, rgw_user_uid, storage_endpoint_id, created_at, updated_at) VALUES ('Legacy account', 'RGW12345678901234567', 'account-root', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
         command.upgrade(config, "0152_rgw_principal_tenants")
@@ -132,25 +158,19 @@ def test_account_name_scope_migration_replaces_global_uniqueness(tmp_path, monke
     engine = sa.create_engine(url)
     try:
         command.upgrade(config, "0164_billing_statement_automation")
-        with Session(engine) as session:
-            session.add_all(
-                [
-                    StorageEndpoint(
-                        id=1,
-                        name="scope-a",
-                        endpoint_url="https://scope-a.invalid",
-                        provider="ceph",
-                    ),
-                    StorageEndpoint(
-                        id=2,
-                        name="scope-b",
-                        endpoint_url="https://scope-b.invalid",
-                        provider="ceph",
-                    ),
-                ]
-            )
-            session.commit()
         with engine.begin() as conn:
+            _insert_historical_storage_endpoint(
+                conn,
+                endpoint_id=1,
+                name="scope-a",
+                endpoint_url="https://scope-a.invalid",
+            )
+            _insert_historical_storage_endpoint(
+                conn,
+                endpoint_id=2,
+                name="scope-b",
+                endpoint_url="https://scope-b.invalid",
+            )
             conn.execute(
                 sa.text(
                     "INSERT INTO s3_accounts "
