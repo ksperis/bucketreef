@@ -341,8 +341,10 @@ describe("S3ConnectionsPage live validation", () => {
       tags: [{ id: 702, label: "production", color_key: "slate", scope: "standard" }],
     });
 
-    listAdminS3ConnectionsMock.mockImplementation((params?: { search?: string; page?: number; page_size?: number }) => {
-      const items = params?.search === "prod" ? [exactConnection, containsConnection] : [exactConnection, containsConnection];
+    listAdminS3ConnectionsMock.mockImplementation((params?: { search?: string; search_exact?: boolean; page?: number; page_size?: number }) => {
+      const items = params?.search === "prod" && params?.search_exact
+        ? [exactConnection]
+        : [exactConnection, containsConnection];
       return Promise.resolve({
         items,
         total: items.length,
@@ -370,8 +372,9 @@ describe("S3ConnectionsPage live validation", () => {
     });
     expect(listAdminS3ConnectionsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        page_size: 200,
+        page_size: 25,
         search: "prod",
+        search_exact: true,
       })
     );
 

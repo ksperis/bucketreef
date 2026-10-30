@@ -143,6 +143,21 @@ def test_admin_s3_users_search_matches_tag_labels(client, db_session):
     assert [item["name"] for item in payload["items"]] == ["tagged-user"]
 
 
+def test_admin_s3_users_exact_search_is_server_side_and_case_insensitive(client, db_session):
+    exact = _seed_s3_user(db_session, name="exact-user", uid="uid-exact")
+    contains = _seed_s3_user(db_session, name="contains-user", uid="uid-contains")
+    TagsService(db_session).replace_s3_user_tags(exact, [{"label": "prod", "color_key": "emerald"}])
+    TagsService(db_session).replace_s3_user_tags(contains, [{"label": "production", "color_key": "slate"}])
+    db_session.commit()
+
+    response = client.get(
+        "/api/admin/s3-users",
+        params={"search": " PROD ", "search_exact": True},
+    )
+    assert response.status_code == 200, response.text
+    assert [item["name"] for item in response.json()["items"]] == ["exact-user"]
+
+
 def test_admin_s3_users_search_and_detail_include_direct_group_links(client, db_session):
     linked = _seed_s3_user(db_session, name="group-linked-user", uid="uid-group-linked")
     _seed_s3_user(db_session, name="plain-user", uid="uid-group-plain")
@@ -177,6 +192,7 @@ def test_admin_s3_users_search_matches_linked_ui_user_email(client, db_session):
     linked = _seed_s3_user(db_session, name="email-linked-user", uid="uid-email-linked")
     user = User(
         email="linked.search@example.test",
+        full_name="Linked Search Person",
         hashed_password="x",
         role=UserRole.UI_USER.value,
         is_active=True,
@@ -194,7 +210,14 @@ def test_admin_s3_users_search_matches_linked_ui_user_email(client, db_session):
     assert "user_details" not in items[0]
     assert items[0]["user_links"][0]["user_id"] == user.id
     assert items[0]["user_links"][0]["user_email"] == "linked.search@example.test"
-    assert items[0]["user_links"][0]["user_avatar"]["initials"] == "LS"
+    assert items[0]["user_links"][0]["user_avatar"]["initials"] == "LP"
+
+    full_name_response = client.get(
+        "/api/admin/s3-users",
+        params={"search": " linked search person ", "search_exact": True},
+    )
+    assert full_name_response.status_code == 200, full_name_response.text
+    assert [item["name"] for item in full_name_response.json()["items"]] == ["email-linked-user"]
 
 
 def test_admin_s3_users_update_replaces_direct_group_links(client, db_session):

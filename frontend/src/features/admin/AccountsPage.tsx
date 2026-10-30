@@ -49,10 +49,10 @@ import AdminAccountEditor from "./AdminAccountEditor";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
-import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
-import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
+import { type TextMatchMode } from "../../utils/textMatch";
+import { pageCount } from "../../utils/pagination";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { buildUiTagItems, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
 import { useAdminI18n } from "./adminI18n";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
@@ -168,55 +168,23 @@ export default function S3AccountsPage() {
     setError(null);
     try {
       const quick = filter.trim();
-      if (quick && quickFilterMode === "exact") {
-        const allMatches = await collectPaginatedItems((nextPage) =>
-          listS3Accounts({
-            page: nextPage,
-            page_size: 200,
-            search: quick,
-            sort_by: sort.field,
-            sort_dir: sort.direction,
-            include_quota: false,
-            include_rgw_details: false,
-          }),
-        );
-
-        const exactMatches = allMatches.filter((account) => {
-          const candidates = [
-            account.name,
-            account.rgw_account_id,
-            ...account.user_links.flatMap((link) => [link.user_email, link.user_full_name]),
-            ...account.group_links.map((link) => link.group_name),
-            ...extractUiTagLabels(account.tags),
-          ];
-          return matchesExactTextCandidate(candidates, quick);
-        });
-        const totalExact = exactMatches.length;
-        const totalPages = pageCount(totalExact, pageSize);
-        if (totalExact > 0 && page > totalPages) {
-          setPage(totalPages);
-          return;
-        }
-        setS3Accounts(slicePage(exactMatches, page, pageSize));
-        setTotalAccounts(totalExact);
-      } else {
-        const response = await listS3Accounts({
-          page,
-          page_size: pageSize,
-          search: quick || undefined,
-          sort_by: sort.field,
-          sort_dir: sort.direction,
-          include_quota: false,
-          include_rgw_details: false,
-        });
-        const totalPages = pageCount(response.total || 0, pageSize);
-        if (response.total > 0 && page > totalPages) {
-          setPage(totalPages);
-          return;
-        }
-        setS3Accounts(response.items);
-        setTotalAccounts(response.total);
+      const response = await listS3Accounts({
+        page,
+        page_size: pageSize,
+        search: quick || undefined,
+        search_exact: quickFilterMode === "exact",
+        sort_by: sort.field,
+        sort_dir: sort.direction,
+        include_quota: false,
+        include_rgw_details: false,
+      });
+      const totalPages = pageCount(response.total || 0, pageSize);
+      if (response.total > 0 && page > totalPages) {
+        setPage(totalPages);
+        return;
       }
+      setS3Accounts(response.items);
+      setTotalAccounts(response.total);
     } catch (err) {
       console.error(err);
       const msg = extractError(err);

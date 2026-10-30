@@ -154,6 +154,7 @@ type ListS3UsersParams = {
   page?: number;
   page_size?: number;
   search?: string;
+  search_exact?: boolean;
   sort_by?: string;
   sort_dir?: "asc" | "desc";
   include_quota?: boolean;

@@ -705,7 +705,7 @@ describe("S3UsersPage modal tabs", () => {
   });
 
   it("keeps tagged users visible with exact quick filter mode", async () => {
-    listS3UsersMock.mockImplementation((params?: { search?: string }) => {
+    listS3UsersMock.mockImplementation((params?: { search?: string; search_exact?: boolean }) => {
       const taggedUser = makeS3User({
         tags: [makeTag(601, "legacy")],
         email: "rgw-user-1@example.com",
@@ -754,6 +754,8 @@ describe("S3UsersPage modal tabs", () => {
       expect(listS3UsersMock).toHaveBeenLastCalledWith(
         expect.objectContaining({
           search: "legacy",
+          search_exact: true,
+          page_size: 25,
           sort_by: "name",
           sort_dir: "asc",
         })

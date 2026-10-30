@@ -69,6 +69,7 @@ type ListS3ConnectionsParams = {
   page?: number;
   page_size?: number;
   search?: string;
+  search_exact?: boolean;
   sort_by?: string;
   sort_dir?: "asc" | "desc";
 };

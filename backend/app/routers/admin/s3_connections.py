@@ -66,6 +66,7 @@ def list_s3_connections(
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     search: Optional[str] = Query(None),
+    search_exact: bool = Query(False),
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
     db: Session = Depends(get_db),
@@ -76,6 +77,7 @@ def list_s3_connections(
         page=page,
         page_size=page_size,
         search=search,
+        search_exact=search_exact,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )

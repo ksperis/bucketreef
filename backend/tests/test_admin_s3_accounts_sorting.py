@@ -150,6 +150,21 @@ def test_admin_accounts_search_matches_tag_labels(client, db_session):
     assert [item["name"] for item in payload["items"]] == ["finance-account"]
 
 
+def test_admin_accounts_exact_search_is_server_side_and_case_insensitive(client, db_session):
+    exact = _seed_account(db_session, name="exact-account", rgw_account_id="RGW-EXACT-ACCOUNT")
+    contains = _seed_account(db_session, name="contains-account", rgw_account_id="RGW-CONTAINS-ACCOUNT")
+    TagsService(db_session).replace_account_tags(exact, [{"label": "prod", "color_key": "emerald"}])
+    TagsService(db_session).replace_account_tags(contains, [{"label": "production", "color_key": "slate"}])
+    db_session.commit()
+
+    response = client.get(
+        "/api/admin/accounts",
+        params={"search": " PROD ", "search_exact": True},
+    )
+    assert response.status_code == 200, response.text
+    assert [item["name"] for item in response.json()["items"]] == ["exact-account"]
+
+
 def test_admin_accounts_search_matches_direct_group_links(client, db_session):
     linked = _seed_account(db_session, name="group-linked-account", rgw_account_id="RGW-GROUP-LINKED")
     _seed_account(db_session, name="plain-account", rgw_account_id="RGW-GROUP-PLAIN")

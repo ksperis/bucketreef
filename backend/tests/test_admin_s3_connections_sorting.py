@@ -139,6 +139,21 @@ def test_admin_s3_connections_search_matches_tag_labels(client, db_session):
     assert [item["name"] for item in payload["items"]] == ["tagged-connection"]
 
 
+def test_admin_s3_connections_exact_search_is_server_side_and_case_insensitive(client, db_session):
+    exact = _seed_connection(db_session, name="exact-connection", is_shared=True)
+    contains = _seed_connection(db_session, name="contains-connection", is_shared=True)
+    TagsService(db_session).replace_connection_tags(exact, [{"label": "prod", "color_key": "emerald"}])
+    TagsService(db_session).replace_connection_tags(contains, [{"label": "production", "color_key": "slate"}])
+    db_session.commit()
+
+    response = client.get(
+        "/api/admin/s3-connections",
+        params={"search": " PROD ", "search_exact": True},
+    )
+    assert response.status_code == 200, response.text
+    assert [item["name"] for item in response.json()["items"]] == ["exact-connection"]
+
+
 def test_admin_s3_connections_search_matches_direct_group_links(client, db_session):
     linked = _seed_connection(db_session, name="group-linked-connection", is_shared=True)
     _seed_connection(db_session, name="plain-connection", is_shared=True)
