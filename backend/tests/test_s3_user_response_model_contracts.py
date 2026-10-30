@@ -48,6 +48,7 @@ def test_s3_user_responses_require_complete_canonical_payloads() -> None:
         "allow_cost_estimation",
         "allow_bucket_usage_stats",
         "allow_bucket_usage_stats_collection",
+        "allow_multisite_endpoint_switching",
         "allow_managed_private_connection_provisioning",
         "tags",
     }
@@ -68,6 +69,7 @@ def test_s3_user_responses_require_complete_canonical_payloads() -> None:
         "allow_cost_estimation",
         "allow_bucket_usage_stats",
         "allow_bucket_usage_stats_collection",
+        "allow_multisite_endpoint_switching",
         "allow_managed_private_connection_provisioning",
         "tags",
     }

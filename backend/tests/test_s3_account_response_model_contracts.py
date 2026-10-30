@@ -58,6 +58,7 @@ def test_s3_account_responses_require_complete_canonical_payloads() -> None:
         "allow_cost_estimation",
         "allow_bucket_usage_stats",
         "allow_bucket_usage_stats_collection",
+        "allow_multisite_endpoint_switching",
         "tags",
     }
     assert set(S3AccountSummary.model_json_schema()["required"]) == {
@@ -80,6 +81,7 @@ def test_s3_account_responses_require_complete_canonical_payloads() -> None:
         "allow_cost_estimation",
         "allow_bucket_usage_stats",
         "allow_bucket_usage_stats_collection",
+        "allow_multisite_endpoint_switching",
         "tags",
     }
 
