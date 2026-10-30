@@ -3,7 +3,6 @@
 
 from app.models.ceph_admin import (
     CephAdminAdminOpsResult,
-    CephAdminBucketCompareResult,
     CephAdminBucketUsagePoint,
     CephAdminClusterOwnerUsagePoint,
     CephAdminClusterStorageMetrics,
@@ -16,6 +15,7 @@ from app.models.ceph_admin import (
     CephAdminRgwUserCreateResponse,
     CephAdminRgwUserDetail,
 )
+from app.models.ceph_admin_bucket_compare import CephAdminBucketCompareResult
 
 
 def test_ceph_admin_core_responses_require_complete_canonical_payloads() -> None:
