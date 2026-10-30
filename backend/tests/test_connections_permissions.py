@@ -294,7 +294,7 @@ def test_manual_connection_creation_supports_direct_free_url_and_group_registere
 ):
     monkeypatch.setattr(
         "app.services.s3_connections_service.S3ConnectionsService._refresh_detected_capabilities",
-        lambda _service, row: setattr(row, "capabilities_json", '{"can_manage_iam":false}'),
+        lambda _service, row: setattr(row, "capabilities", {"can_manage_iam": False}),
     )
     monkeypatch.setattr(
         "app.services.s3_connection_endpoint_planner.validate_user_supplied_s3_endpoint",

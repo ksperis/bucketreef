@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 
 import pytest
 from sqlalchemy import func, select
@@ -88,7 +87,7 @@ def _create_row(db_session, **kwargs) -> S3Connection:
         rgw_user_uid=kwargs.get("rgw_user_uid"),
         rgw_tenant=kwargs.get("rgw_tenant"),
         rgw_account_id=kwargs.get("rgw_account_id"),
-        capabilities_json=kwargs.get("capabilities_json", '{"can_manage_iam": false}'),
+        capabilities=kwargs.get("capabilities", {"can_manage_iam": False}),
     )
     db_session.add(row)
     db_session.commit()
@@ -167,7 +166,7 @@ def test_create_connection_custom_endpoint_and_storage_endpoint_paths(db_session
     monkeypatch.setattr(
         service,
         "_refresh_detected_capabilities",
-        lambda row: setattr(row, "capabilities_json", '{"can_manage_iam": true}'),
+        lambda row: setattr(row, "capabilities", {"can_manage_iam": True}),
     )
 
     custom = service.create(
@@ -414,7 +413,7 @@ def test_create_and_update_connection_normalize_tags(db_session, monkeypatch):
     monkeypatch.setattr(
         service,
         "_refresh_detected_capabilities",
-        lambda row: setattr(row, "capabilities_json", '{"can_manage_iam": false}'),
+        lambda row: setattr(row, "capabilities", {"can_manage_iam": False}),
     )
 
     created = service.create(

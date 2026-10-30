@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import base64
 from datetime import datetime, timezone
 
@@ -121,7 +120,7 @@ def _connection(
         access_manager=access_manager,
         access_browser=True,
         **custom_endpoint_fields(f"https://{name}.example.test"),
-        capabilities_json=json.dumps({"can_manage_iam": True}),
+        capabilities={"can_manage_iam": True},
         access_key_id=f"AK-{name}",
         secret_access_key=f"SK-{name}",
     )

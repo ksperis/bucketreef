@@ -174,7 +174,7 @@ erDiagram
         varchar secret_access_key "NN"
         varchar session_token
         datetime expires_at
-        text capabilities_json "NN; default={'can_manage_iam':false}"
+        json capabilities "NN; default={'can_manage_iam':false}"
         datetime created_at "NN"
         datetime updated_at "NN"
         datetime last_used_at

@@ -102,7 +102,7 @@ def _build_s3_connection_context(
 
 
 def _connection_iam_capable(conn: S3Connection) -> bool:
-    return s3_connection_can_manage_iam(conn.capabilities_json)
+    return s3_connection_can_manage_iam(conn.capabilities)
 
 
 def _build_s3_user_context(

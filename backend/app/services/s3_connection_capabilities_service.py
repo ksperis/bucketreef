@@ -7,7 +7,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import S3Connection
 from app.services.rgw_iam import get_iam_client
-from app.utils.s3_connection_capabilities import dump_s3_connection_capabilities
+from app.utils.s3_connection_capabilities import with_s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import resolve_connection_details
 from app.utils.storage_endpoint_features import (
     aws_iam_client_options_for_region,
@@ -46,8 +46,8 @@ def probe_connection_can_manage_iam(connection: S3Connection) -> bool:
 
 
 def refresh_connection_detected_capabilities(connection: S3Connection) -> None:
-    connection.capabilities_json = dump_s3_connection_capabilities(
-        connection.capabilities_json,
+    connection.capabilities = with_s3_connection_can_manage_iam(
+        connection.capabilities,
         can_manage_iam=probe_connection_can_manage_iam(connection),
     )
 

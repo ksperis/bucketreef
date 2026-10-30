@@ -3,7 +3,7 @@
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Column, String, Text
+from sqlalchemy import Column, JSON, String
 
 from .base import Base
 from .enums import UserRole
@@ -21,7 +21,7 @@ class S3Session(Base):
     account_id = Column(String, nullable=True)
     account_name = Column(String, nullable=True)
     user_uid = Column(String, nullable=True)
-    capabilities = Column(Text, nullable=False)
+    capabilities = Column(JSON(none_as_null=True), nullable=False)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     last_used_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     idle_expires_at = Column(UTCDateTime(), nullable=False)

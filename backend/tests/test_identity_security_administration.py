@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 from contextlib import contextmanager
 from datetime import timedelta
 
@@ -227,7 +226,7 @@ def test_superadmin_session_summary_groups_ui_and_s3_sessions(auth_client, db_se
         access_key_hash="summary-hash",
         actor_type="s3_account",
         role=UserRole.UI_USER.value,
-        capabilities=json.dumps({"access_browser": True}),
+        capabilities={"access_browser": True},
         created_at=now,
         last_used_at=now,
         idle_expires_at=now + timedelta(minutes=30),

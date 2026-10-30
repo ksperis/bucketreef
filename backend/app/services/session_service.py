@@ -58,7 +58,7 @@ class SessionService:
             account_id=account_id,
             account_name=account_name,
             user_uid=user_uid,
-            capabilities=capabilities.model_dump_json(),
+            capabilities=capabilities.model_dump(mode="json"),
             created_at=now,
             last_used_at=now,
             idle_expires_at=min(
@@ -189,7 +189,7 @@ class SessionService:
         )
 
     def _capabilities_from_row(self, session: S3Session) -> SessionCapabilities:
-        return SessionCapabilities.model_validate_json(session.capabilities)
+        return SessionCapabilities.model_validate(session.capabilities)
 
     def _hash_key(self, access_key: str) -> str:
         return hashlib.sha256(access_key.encode()).hexdigest()

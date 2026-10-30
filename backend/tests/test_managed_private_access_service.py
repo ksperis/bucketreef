@@ -4,7 +4,6 @@
 from __future__ import annotations
 from app.utils.storage_endpoint_features import parse_features_config
 
-import json
 from types import SimpleNamespace
 
 import pytest
@@ -197,7 +196,7 @@ def test_managed_access_iam_state_requires_string_lists():
 def _disable_capability_probe(monkeypatch):
     monkeypatch.setattr(
         "app.services.managed_private_access_service.refresh_connection_detected_capabilities",
-        lambda row: setattr(row, "capabilities_json", '{"can_manage_iam": false}'),
+        lambda row: setattr(row, "capabilities", {"can_manage_iam": False}),
     )
 
 
@@ -309,7 +308,7 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
         ),
         access_key_id="SOURCE-AK",
         secret_access_key="SOURCE-SECRET",
-        capabilities_json='{"can_manage_iam": true}',
+        capabilities={"can_manage_iam": True},
     )
     db_session.add(source)
     db_session.flush()
@@ -378,7 +377,7 @@ def test_iam_connection_source_requires_assignment_manager_execution_and_iam_cap
         **custom_endpoint_fields("https://custom.example.test"),
         access_key_id="SOURCE-AK",
         secret_access_key="SOURCE-SK",
-        capabilities_json=json.dumps({"can_manage_iam": iam_capable}),
+        capabilities={"can_manage_iam": iam_capable},
     )
     db_session.add(source)
     db_session.flush()
@@ -491,7 +490,7 @@ def test_custom_connection_destination_must_pass_private_tls_rules(db_session, m
         **custom_endpoint_fields("https://custom.example.test", verify_tls=False),
         access_key_id="SOURCE-AK",
         secret_access_key="SOURCE-SK",
-        capabilities_json='{"can_manage_iam":true}',
+        capabilities={"can_manage_iam": True},
     )
     db_session.add(source)
     db_session.commit()
@@ -823,7 +822,7 @@ def test_server_managed_connection_generic_updates_protect_provenance_and_creden
         **custom_endpoint_fields("https://managed.example.test"),
         access_key_id="MANAGED-AK",
         secret_access_key="MANAGED-SK",
-        capabilities_json='{"can_manage_iam":false}',
+        capabilities={"can_manage_iam": False},
     )
     db_session.add(connection)
     db_session.commit()

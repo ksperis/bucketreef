@@ -3,7 +3,6 @@
 from __future__ import annotations
 from app.utils.storage_endpoint_features import parse_features_config
 
-import json
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
@@ -239,7 +238,7 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
         storage_endpoint=endpoint,
         rgw_user_uid="reporting",
         rgw_tenant="rgw_account",
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN-STATS",
         secret_access_key="SK-CONN-STATS",
     )
@@ -315,7 +314,7 @@ def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_sessi
         storage_endpoint=endpoint,
         rgw_user_uid="traffic",
         rgw_tenant="rgw_account",
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN-TRAFFIC",
         secret_access_key="SK-CONN-TRAFFIC",
     )
@@ -417,7 +416,7 @@ def test_manager_stats_dependency_rejects_connection_without_resolved_identity(d
         access_manager=True,
         access_browser=True,
         storage_endpoint=endpoint,
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN-NOID",
         secret_access_key="SK-CONN-NOID",
     )

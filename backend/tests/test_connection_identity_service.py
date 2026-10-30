@@ -3,7 +3,6 @@
 from __future__ import annotations
 from app.utils.storage_endpoint_features import parse_features_config
 
-import json
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import UTC, datetime
 from threading import Event
@@ -72,7 +71,7 @@ def _connection(
         rgw_user_uid=rgw_user_uid,
         rgw_tenant=rgw_tenant,
         rgw_account_id=rgw_account_id,
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
     )
 
 

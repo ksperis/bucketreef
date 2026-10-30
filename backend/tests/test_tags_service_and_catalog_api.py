@@ -79,7 +79,7 @@ def _private_connection(db_session, owner_user_id: int, name: str) -> S3Connecti
         **custom_endpoint_fields(f"https://{name}.example.test"),
         access_key_id=f"AK-{name.upper()}",
         secret_access_key=f"SK-{name.upper()}",
-        capabilities_json='{"can_manage_iam": false}',
+        capabilities={"can_manage_iam": False},
     )
     db_session.add(row)
     db_session.commit()
