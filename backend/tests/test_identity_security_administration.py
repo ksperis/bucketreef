@@ -100,7 +100,7 @@ def test_common_mfa_reset_removes_all_factors_sessions_and_tokens(db_session):
                 binding_sid="pre-auth",
                 purpose="authentication",
                 challenge_hash="reset-challenge-hash",
-                payload_json="{}",
+                payload={},
                 expires_at=utcnow() + timedelta(minutes=5),
             ),
         ]

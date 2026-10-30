@@ -6442,11 +6442,11 @@
           "check": null
         },
         {
-          "id": "field:auth_challenges.payload_json",
-          "name": "payload_json",
+          "id": "field:auth_challenges.payload",
+          "name": "payload",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

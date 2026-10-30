@@ -294,7 +294,7 @@ class WebAuthnService:
                 binding_sid=binding_sid,
                 purpose=purpose,
                 challenge_hash=hash_refresh_token(encoded),
-                payload_json=json.dumps({"challenge": encoded}),
+                payload={"challenge": encoded},
                 created_at=now,
                 expires_at=now + timedelta(minutes=5),
             )
@@ -336,7 +336,10 @@ class WebAuthnService:
             self.db.rollback()
             raise WebAuthnSecurityError("WebAuthn challenge has already been consumed")
         self.db.commit()
-        encoded = json.loads(row.payload_json)["challenge"]
+        payload = row.payload
+        encoded = payload.get("challenge") if isinstance(payload, dict) else None
+        if not isinstance(encoded, str):
+            raise WebAuthnSecurityError("WebAuthn challenge payload is invalid")
         if hash_refresh_token(encoded) != row.challenge_hash:
             raise WebAuthnSecurityError("WebAuthn challenge integrity check failed")
         return base64url_to_bytes(encoded)

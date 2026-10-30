@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0203_structure_oidc_provider_lists"
+_EXPECTED_ALEMBIC_HEAD = "0204_structure_auth_challenge_payloads"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):

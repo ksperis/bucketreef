@@ -156,7 +156,7 @@ erDiagram
         varchar binding_sid
         varchar purpose "NN"
         varchar challenge_hash UK "NN"
-        text payload_json "NN; default={}"
+        json payload "NN; default={}"
         datetime created_at "NN"
         datetime expires_at "NN"
         datetime consumed_at
