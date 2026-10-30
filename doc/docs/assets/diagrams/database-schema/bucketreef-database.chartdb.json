@@ -7048,11 +7048,11 @@
           "check": null
         },
         {
-          "id": "field:api_tokens.scopes_json",
-          "name": "scopes_json",
+          "id": "field:api_tokens.scopes",
+          "name": "scopes",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

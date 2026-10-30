@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0201_structure_user_notification_payloads"
+_EXPECTED_ALEMBIC_HEAD = "0202_structure_api_token_scopes"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):

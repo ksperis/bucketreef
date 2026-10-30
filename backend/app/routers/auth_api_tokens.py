@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
-
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
@@ -31,7 +29,7 @@ def _to_api_token_info(row: ApiToken) -> ApiTokenInfo:
         last_used_at=row.last_used_at,
         expires_at=row.expires_at,
         revoked_at=row.revoked_at,
-        scopes=json.loads(row.scopes_json),
+        scopes=list(row.scopes),
     )
 
 

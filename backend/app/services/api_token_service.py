@@ -5,7 +5,6 @@ from __future__ import annotations
 from app.utils.time import utcnow
 
 import uuid
-import json
 from datetime import timedelta
 from typing import Optional
 
@@ -73,7 +72,7 @@ class ApiTokenService:
             token_hash=hash_refresh_token(token),
             user_id=user.id,
             name=token_name,
-            scopes_json=json.dumps(normalized_scopes, separators=(",", ":")),
+            scopes=normalized_scopes,
             auth_version=user.auth_version,
             created_at=now,
             expires_at=expires_at,
@@ -167,10 +166,11 @@ class ApiTokenService:
             return False
         if claims.get("sid") != row.id or claims.get("auth_version") != row.auth_version:
             return False
-        try:
-            db_scopes = sorted(json.loads(row.scopes_json))
-        except (TypeError, ValueError, json.JSONDecodeError):
+        if not isinstance(row.scopes, list) or any(
+            not isinstance(scope, str) for scope in row.scopes
+        ):
             return False
+        db_scopes = sorted(row.scopes)
         claim_scopes = sorted(claims.get("scopes") or [])
         if db_scopes != claim_scopes:
             return False
