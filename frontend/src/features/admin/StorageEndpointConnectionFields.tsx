@@ -86,7 +86,6 @@ export default function StorageEndpointConnectionFields({
             hint={text("zoneIdHint")}
             onChange={event => setForm(previous => ({ ...previous, zone_id: event.target.value }))} />
         </div>
-        <UiInlineMessage tone="info">{text("rgwMultisiteDeclarativeHint")}</UiInlineMessage>
       </SettingsSection>
     )}
     <SettingsSection title={text("locationSection")} description={text("locationDescription")} presentation="compact">
