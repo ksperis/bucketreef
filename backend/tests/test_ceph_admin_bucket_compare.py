@@ -11,7 +11,7 @@ from app.models.bucket_compare import (
     BucketConfigDiff,
     BucketContentDiff,
 )
-from app.models.ceph_admin import CephAdminBucketCompareRequest
+from app.models.ceph_admin_bucket_compare import CephAdminBucketCompareRequest
 from app.models.bucket_operation import RgwBucketReference
 from app.routers.ceph_admin import bucket_tools as buckets_router
 from app.services.bucket_comparison_service import BucketComparisonService

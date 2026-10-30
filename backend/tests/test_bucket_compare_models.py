@@ -5,7 +5,7 @@ import re
 import pytest
 from pydantic import ValidationError
 
-from app.models.ceph_admin import CephAdminBucketCompareRequest
+from app.models.ceph_admin_bucket_compare import CephAdminBucketCompareRequest
 from app.models.manager_bucket_compare import ManagerBucketCompareRequest
 
 
