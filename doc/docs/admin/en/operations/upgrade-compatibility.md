@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured authentication challenge payloads
+
+Migration `0204_structure_auth_challenge_payloads` replaces
+`auth_challenges.payload_json` text with a non-null structured JSON `payload`
+column. Every existing value must decode to a JSON object; malformed, null,
+array, or scalar payloads stop the upgrade explicitly.
+
+WebAuthn challenge creation and consumption now use the structured object
+directly while retaining the existing challenge integrity check. The downgrade
+recreates the former text column from the structured payloads.
+
 ## 2026-10 structured OIDC provider lists
 
 Migration `0203_structure_oidc_provider_lists` replaces the UI-managed OIDC

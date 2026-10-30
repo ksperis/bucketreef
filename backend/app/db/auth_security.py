@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -128,7 +128,7 @@ class AuthChallenge(Base):
     binding_sid = Column(String, nullable=True, index=True)
     purpose = Column(String, nullable=False, index=True)
     challenge_hash = Column(String, nullable=False, unique=True)
-    payload_json = Column(Text, nullable=False, default="{}", server_default="{}")
+    payload = Column(JSON, nullable=False, default=dict, server_default="{}")
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     expires_at = Column(UTCDateTime(), nullable=False, index=True)
     consumed_at = Column(UTCDateTime(), nullable=True)
