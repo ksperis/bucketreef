@@ -6,9 +6,11 @@ from typing import Any, Callable
 
 from app.models.ceph_admin import (
     CephAdminRgwUserSummary,
+    PaginatedCephAdminUsersResponse,
+)
+from app.models.ceph_admin_identity_filters import (
     CephAdminUserFilterQuery,
     CephAdminUserFilterRule,
-    PaginatedCephAdminUsersResponse,
 )
 from app.services.ceph_admin_identity_listing_cache import (
     EndpointListCacheKey,
@@ -111,17 +113,6 @@ def _match_user_field_rule(
     }:
         return match_text_rule(value, op, rule.value)
     return match_numeric_rule(value, op, rule.value, coerce=coerce_number)
-
-
-def _match_user_rules(
-    user: CephAdminRgwUserSummary,
-    rules: list[CephAdminUserFilterRule],
-    match: str,
-) -> bool:
-    if not rules:
-        return True
-    results = [_match_user_field_rule(user, rule) for rule in rules]
-    return all(results) if match == "all" else any(results)
 
 
 def _includes_for_user_fields(fields: set[str]) -> set[str]:
@@ -318,7 +309,7 @@ class _UserListingPipeline:
                 message="Applying advanced filters",
                 force=True,
             )
-        results = apply_advanced_filter(results, self.parsed_filter, _match_user_rules)
+            results = apply_advanced_filter(results, self.parsed_filter, _match_user_field_rule)
         invoke_cancel_check(self.cancel_check)
         results.sort(
             key=lambda user: _user_sort_key(user, self.sort_by),

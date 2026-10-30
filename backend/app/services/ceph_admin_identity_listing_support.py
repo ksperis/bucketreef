@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Callable, Protocol, TypeVar
 
-from app.models.ceph_admin import CephAdminFilterMatch
+from app.models.ceph_admin_identity_filters import CephAdminFilterMatch
 from app.services.listing_progress import ListingProgressEmitter, invoke_cancel_check
 
 
@@ -53,14 +53,19 @@ def collect_filter_fields(parsed_filter: _FilterQuery[_FieldRule] | None) -> set
 def apply_advanced_filter(
     items: list[_T],
     parsed_filter: _FilterQuery[_R] | None,
-    matcher: Callable[[_T, list[_R], CephAdminFilterMatch], bool],
+    rule_matcher: Callable[[_T, _R], bool],
 ) -> list[_T]:
     if parsed_filter is None or not parsed_filter.rules:
         return items
+    match_all = parsed_filter.match == "all"
     return [
         item
         for item in items
-        if matcher(item, parsed_filter.rules, parsed_filter.match)
+        if (
+            all(rule_matcher(item, rule) for rule in parsed_filter.rules)
+            if match_all
+            else any(rule_matcher(item, rule) for rule in parsed_filter.rules)
+        )
     ]
 
 
