@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured backend operation lease context
+
+Migration `0211_structure_operation_lease_context` replaces
+`backend_operation_leases.metadata_json` text with the structured JSON
+`lease_context` object. Existing non-null values must decode to JSON objects;
+malformed JSON or values with another shape stop the upgrade explicitly.
+
+Operation lease acquisition and renewal now persist the context object directly
+instead of serializing JSON text at runtime. The downgrade recreates the former
+text column from the structured object.
+
 ## 2026-10 structured managed private access IAM state
 
 Migration `0210_structure_managed_access_iam_lists` replaces the

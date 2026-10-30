@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 import logging
 import os
 import socket
@@ -93,12 +92,12 @@ class OperationLeaseService:
         now = utcnow()
         ttl = max(15, int(ttl_seconds))
         lease_until = now + timedelta(seconds=ttl)
-        metadata_json = json.dumps(lease_context, ensure_ascii=True, sort_keys=True) if lease_context else None
+        stored_context = lease_context or None
         values = {
             BackendOperationLease.lease_owner: lease_owner,
             BackendOperationLease.lease_until: lease_until,
             BackendOperationLease.updated_at: now,
-            BackendOperationLease.metadata_json: metadata_json,
+            BackendOperationLease.lease_context: stored_context,
         }
 
         updated = self.db.execute(
@@ -123,7 +122,7 @@ class OperationLeaseService:
             lease_owner=lease_owner,
             lease_until=lease_until,
             updated_at=now,
-            metadata_json=metadata_json,
+            lease_context=stored_context,
         )
         self.db.add(row)
         try:
