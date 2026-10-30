@@ -33,7 +33,7 @@ from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.feature_policy_service import validate_manager_overrides
 from app.services.tags_service import TagsService
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
-from app.utils.s3_connection_capabilities import parse_s3_connection_capabilities
+from app.utils.s3_connection_capabilities import validate_s3_connection_capabilities
 from app.utils.name_ordering import name_order_by
 from app.utils.time import utcnow
 
@@ -580,7 +580,7 @@ class S3ConnectionsService:
         row.rgw_account_id = account_id
 
     def _capabilities(self, row: DBS3Connection) -> dict[str, Any]:
-        return parse_s3_connection_capabilities(row.capabilities_json)
+        return validate_s3_connection_capabilities(row.capabilities)
 
     def _to_model(self, row: DBS3Connection) -> S3Connection:
         return s3_connection_from_db(

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -777,7 +776,7 @@ def test_expired_s3_auth_session_erases_persisted_credentials(db_session):
         access_key_hash="hash",
         actor_type="s3_account",
         role=UserRole.UI_USER.value,
-        capabilities=json.dumps({"access_browser": True}),
+        capabilities={"access_browser": True},
         created_at=now,
         last_used_at=now,
         idle_expires_at=now + timedelta(minutes=30),
@@ -812,7 +811,7 @@ def test_expired_s3_credentials_are_erased_by_startup_cleanup(db_session):
         access_key_hash="cleanup-hash",
         actor_type="s3_account",
         role=UserRole.UI_USER.value,
-        capabilities=json.dumps({"access_browser": True}),
+        capabilities={"access_browser": True},
         created_at=now - timedelta(hours=9),
         last_used_at=now - timedelta(hours=9),
         idle_expires_at=now - timedelta(minutes=1),

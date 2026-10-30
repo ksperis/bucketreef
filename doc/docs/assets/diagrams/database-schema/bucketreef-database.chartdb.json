@@ -4431,8 +4431,8 @@
           "id": "field:s3_sessions.capabilities",
           "name": "capabilities",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -9760,11 +9760,11 @@
           "check": null
         },
         {
-          "id": "field:s3_connections.capabilities_json",
-          "name": "capabilities_json",
+          "id": "field:s3_connections.capabilities",
+          "name": "capabilities",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

@@ -29,7 +29,7 @@ from app.services.tags_service import TagsService
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
 from app.utils.name_ordering import name_order_by
-from app.utils.s3_connection_capabilities import parse_s3_connection_capabilities
+from app.utils.s3_connection_capabilities import validate_s3_connection_capabilities
 from app.utils.s3_connection_endpoint import resolve_connection_details
 from app.utils.sql_search import text_search_predicate
 
@@ -109,7 +109,7 @@ class AdminS3ConnectionsReadService:
         group_details: list[S3ConnectionGroupDetail],
     ) -> S3ConnectionAdminItem:
         details = resolve_connection_details(conn)
-        capabilities = parse_s3_connection_capabilities(conn.capabilities_json)
+        capabilities = validate_s3_connection_capabilities(conn.capabilities)
         return S3ConnectionAdminItem(
             id=conn.id,
             name=conn.name,

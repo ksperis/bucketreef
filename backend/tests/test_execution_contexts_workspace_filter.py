@@ -4,7 +4,6 @@
 from __future__ import annotations
 from app.utils.storage_endpoint_features import parse_features_config
 
-import json
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -130,7 +129,7 @@ def _create_connection(
         storage_endpoint=storage_endpoint,
         storage_endpoint_id=storage_endpoint.id if storage_endpoint else None,
         **({} if storage_endpoint else custom_endpoint_fields(f"https://{name}.example.test")),
-        capabilities_json=json.dumps({"can_manage_iam": bool(can_manage_iam)}),
+        capabilities={"can_manage_iam": bool(can_manage_iam)},
         access_key_id=f"CONN-AK-{name}",
         secret_access_key=f"CONN-SK-{name}",
     )

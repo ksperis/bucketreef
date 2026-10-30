@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured S3 capability state
+
+Migration `0219_structure_s3_capabilities` replaces the text JSON capability
+snapshots in `s3_connections.capabilities_json` and `s3_sessions.capabilities`
+with structured JSON. The connection column is renamed to
+`s3_connections.capabilities` so its storage name matches the application
+model. Existing connection profiles must contain a boolean `can_manage_iam`;
+session snapshots must match the canonical session capability shape established
+by earlier migrations. Malformed JSON or invalid shapes stop the upgrade.
+
+Connection probes and S3 session creation now read and write dictionaries
+directly without serializing or parsing JSON text at runtime. The downgrade
+restores canonical compact JSON text and the legacy connection column name.
+
 ## 2026-10 structured Cost measurement breakdowns
 
 Migration `0218_structure_cost_measurement_breakdowns` replaces the text JSON

@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 
 import pytest
 import sqlalchemy as sa
@@ -677,7 +676,7 @@ def test_execution_contexts_api_exposes_can_manage_iam_key(contract_client):
         access_browser=True,
         access_key_id="AK-CONN-CTX",
         secret_access_key="SK-CONN-CTX",
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
     )
     db_session.add(connection)
     db_session.flush()

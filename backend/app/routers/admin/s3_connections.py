@@ -142,7 +142,7 @@ def create_s3_connection(
                 "created_by_user_id": conn.created_by_user_id,
                 "access_manager": bool(conn.access_manager),
                 "access_browser": bool(conn.access_browser),
-                "can_manage_iam": s3_connection_can_manage_iam(conn.capabilities_json),
+                "can_manage_iam": s3_connection_can_manage_iam(conn.capabilities),
                 "access_key_id": mask_access_key_id(conn.access_key_id),
                 "tags": serialize_tag_summaries(tags_service.get_connection_tags(conn)),
             },

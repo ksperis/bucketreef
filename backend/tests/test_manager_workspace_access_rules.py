@@ -4,7 +4,6 @@
 from __future__ import annotations
 from app.utils.storage_endpoint_features import parse_features_config
 
-import json
 from types import SimpleNamespace
 
 import pytest
@@ -443,7 +442,7 @@ def test_manager_workspace_accepts_non_iam_connection_when_access_manager_enable
         access_manager=True,
         access_browser=True,
         **_custom_endpoint("non-iam-connection"),
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN",
         secret_access_key="SK-CONN",
     )
@@ -480,7 +479,7 @@ def test_manager_workspace_touch_connection_last_used_timestamp(db_session, publ
         access_manager=True,
         access_browser=True,
         **_custom_endpoint("touch-connection"),
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-TOUCH",
         secret_access_key="SK-TOUCH",
     )
@@ -513,7 +512,7 @@ def test_storage_ops_workspace_does_not_touch_connection_last_used_timestamp(db_
         access_manager=True,
         access_browser=True,
         **_custom_endpoint("no-touch-connection"),
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-NO-TOUCH",
         secret_access_key="SK-NO-TOUCH",
     )
@@ -546,7 +545,7 @@ def test_manager_workspace_rejects_connection_without_manager_access(db_session)
         access_manager=False,
         access_browser=True,
         **_custom_endpoint("manager-disabled-connection"),
-        capabilities_json=json.dumps({"can_manage_iam": True}),
+        capabilities={"can_manage_iam": True},
         access_key_id="AK-CONN2",
         secret_access_key="SK-CONN2",
     )
@@ -581,7 +580,7 @@ def test_manager_and_browser_workspace_reject_inactive_connection(db_session, pa
         access_manager=True,
         access_browser=True,
         **_custom_endpoint("inactive-connection"),
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-INACTIVE",
         secret_access_key="SK-INACTIVE",
     )
@@ -660,7 +659,7 @@ def test_manager_context_exposes_browser_access_flag_for_connection(db_session, 
         access_manager=True,
         access_browser=False,
         **_custom_endpoint("manager-connection-browser-disabled"),
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN3",
         secret_access_key="SK-CONN3",
     )
@@ -697,7 +696,7 @@ def test_manager_context_connection_exposes_detected_identity_and_stats_enabled(
         storage_endpoint=endpoint,
         rgw_user_uid="analytics-user",
         rgw_tenant="rgw_account",
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN-IDENTITY",
         secret_access_key="SK-CONN-IDENTITY",
     )
@@ -739,7 +738,7 @@ def test_manager_context_reports_global_rgw_metrics_disablement(db_session, monk
         storage_endpoint=endpoint,
         rgw_user_uid="analytics-disabled",
         rgw_tenant="rgw_account",
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN-RGW-METRICS-DISABLED",
         secret_access_key="SK-CONN-RGW-METRICS-DISABLED",
     )
@@ -775,7 +774,7 @@ def test_manager_context_connection_reports_reason_when_identity_cannot_be_resol
         access_manager=True,
         access_browser=True,
         storage_endpoint=endpoint,
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN-IDENTITY-KO",
         secret_access_key="SK-CONN-IDENTITY-KO",
     )
@@ -826,7 +825,7 @@ def test_manager_context_connection_reports_reason_for_non_ceph_endpoint(db_sess
         storage_endpoint=endpoint,
         rgw_user_uid="reporter",
         rgw_tenant="rgw_account",
-        capabilities_json=json.dumps({"can_manage_iam": False}),
+        capabilities={"can_manage_iam": False},
         access_key_id="AK-CONN-NON-CEPH",
         secret_access_key="SK-CONN-NON-CEPH",
     )

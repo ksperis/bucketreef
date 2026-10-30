@@ -160,7 +160,7 @@ def connection_execution_context_from_db(
     destination_switching_allowed: bool = False,
 ) -> ExecutionContext:
     details = resolve_connection_details(connection)
-    can_manage_iam = s3_connection_can_manage_iam(connection.capabilities_json)
+    can_manage_iam = s3_connection_can_manage_iam(connection.capabilities)
     endpoint = connection.storage_endpoint
     if endpoint:
         endpoint_projection = _storage_endpoint_projection(

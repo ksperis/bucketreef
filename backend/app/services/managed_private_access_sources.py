@@ -105,7 +105,7 @@ class ManagedPrivateAccessSourceResolver:
                 workspace="manager",
                 resolved=effective,
             )
-            or not s3_connection_can_manage_iam(connection.capabilities_json)
+            or not s3_connection_can_manage_iam(connection.capabilities)
         ):
             raise ManagedPrivateAccessForbidden(
                 "IAM provisioning is not allowed for this connection"
