@@ -45,7 +45,7 @@ from tests.test_endpoint_service_identities import FakeRGW, SERVICE_CAPS
 
 @pytest.fixture
 def guided(db_session, monkeypatch):
-    db_session.add(AppSetting(key="default", payload_json=AppSettings().model_dump_json()))
+    db_session.add(AppSetting(key="default", payload=AppSettings().model_dump(mode="json")))
     db_session.commit()
     monkeypatch.setattr(
         settings_service,
@@ -370,7 +370,7 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     db_session.execute(
         sa.update(AppSetting)
         .where(AppSetting.key == "default")
-        .values(payload_json=settings.model_dump_json())
+        .values(payload=settings.model_dump(mode="json"))
     )
     db_session.commit()
     monkeypatch.setattr("app.utils.rgw_identifiers.secrets.randbelow", lambda _limit: 42)

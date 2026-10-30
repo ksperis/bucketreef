@@ -69,9 +69,9 @@ def _set_admin_passkey_policy(db_session, required: bool) -> None:
     row = db_session.scalars(
         select(AppSetting).where(AppSetting.key == "default")
     ).one()
-    settings = AppSettings.model_validate_json(row.payload_json)
+    settings = AppSettings.model_validate(row.payload)
     settings.general.require_passkey_for_admins = required
-    row.payload_json = settings.model_dump_json(indent=2)
+    row.payload = settings.model_dump(mode="json")
     db_session.add(row)
     db_session.commit()
 

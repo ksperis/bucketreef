@@ -61,7 +61,7 @@ def _seed_access_graph(db_session):
     from app.db import AppSetting
     settings = AppSettings()
     settings.manager.feature_policies.bucket_migration = "targeted"
-    db_session.add(AppSetting(key="default", payload_json=settings.model_dump_json()))
+    db_session.add(AppSetting(key="default", payload=settings.model_dump(mode="json")))
 
     user = User(
         email="alice@example.test",

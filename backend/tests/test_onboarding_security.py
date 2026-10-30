@@ -27,7 +27,7 @@ def test_apply_requires_authorized_recent_interactive_session(db_session, client
     user = User(email="onboarding-security@example.test", hashed_password="test-only", role=role, is_active=True)
     settings = AppSettings()
     settings.general.require_passkey_for_admins = True
-    db_session.add_all([user, AppSetting(key="default", payload_json=settings.model_dump_json())])
+    db_session.add_all([user, AppSetting(key="default", payload=settings.model_dump(mode="json"))])
     db_session.commit()
     headers = {}
     if mode == "api_token":

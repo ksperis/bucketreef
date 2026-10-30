@@ -73,9 +73,9 @@ def _set_general_setting(db_session, field: str, value: bool) -> None:
     row = db_session.scalars(
         select(AppSetting).where(AppSetting.key == "default")
     ).one()
-    settings = AppSettings.model_validate_json(row.payload_json)
+    settings = AppSettings.model_validate(row.payload)
     setattr(settings.general, field, value)
-    row.payload_json = settings.model_dump_json(indent=2)
+    row.payload = settings.model_dump(mode="json")
     db_session.add(row)
     db_session.commit()
 

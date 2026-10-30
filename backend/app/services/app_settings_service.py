@@ -48,12 +48,12 @@ def _open_settings_session():
     return SessionLocal()
 
 
-def _parse_settings_payload(payload: str) -> AppSettings:
-    return AppSettings.model_validate_json(payload)
+def _parse_settings_payload(payload: object) -> AppSettings:
+    return AppSettings.model_validate(payload)
 
 
-def _settings_to_json(settings: AppSettings) -> str:
-    return settings.model_dump_json(indent=2)
+def _settings_to_payload(settings: AppSettings) -> dict:
+    return settings.model_dump(mode="json")
 
 
 def _get_persisted_settings_row(db) -> AppSetting | None:
@@ -64,12 +64,12 @@ def _get_persisted_settings_row(db) -> AppSetting | None:
 
 def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
     now = utcnow()
-    payload_json = _settings_to_json(settings)
+    payload = _settings_to_payload(settings)
     row = _get_persisted_settings_row(db)
     if row is None:
         row = AppSetting(
             key=APP_SETTINGS_DB_KEY,
-            payload_json=payload_json,
+            payload=payload,
             created_at=now,
             updated_at=now,
         )
@@ -82,7 +82,7 @@ def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
             row = _get_persisted_settings_row(db)
             if row is None:
                 raise
-    row.payload_json = payload_json
+    row.payload = payload
     row.updated_at = now
     db.commit()
 
@@ -90,7 +90,7 @@ def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
 def _load_persisted_settings_from_db(db) -> AppSettings:
     row = _get_persisted_settings_row(db)
     if row is not None:
-        return _parse_settings_payload(row.payload_json)
+        return _parse_settings_payload(row.payload)
 
     imported = _load_persisted_settings_from_disk(_settings_path())
     _save_persisted_settings_to_db(db, imported)
@@ -142,7 +142,7 @@ def load_app_settings_for_db_readonly(db) -> AppSettings:
     """Load effective settings without importing defaults into the database."""
     row = _get_persisted_settings_row(db)
     persisted = (
-        _parse_settings_payload(row.payload_json)
+        _parse_settings_payload(row.payload)
         if row is not None
         else _load_persisted_settings_from_disk(_settings_path())
     )
@@ -194,8 +194,8 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
             .where(AppSetting.key == APP_SETTINGS_DB_KEY)
             .execution_options(populate_existing=True)
         ).scalar_one()
-        previous = row.payload_json
-        settings = _parse_settings_payload(previous)
+        previous_updated_at = row.updated_at
+        settings = _parse_settings_payload(row.payload)
         changed = []
         for field in fields:
             lock = getattr(locks, field, None)
@@ -210,10 +210,10 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
             update(AppSetting)
             .where(
                 AppSetting.key == APP_SETTINGS_DB_KEY,
-                AppSetting.payload_json == previous,
+                AppSetting.updated_at == previous_updated_at,
             )
             .values(
-                payload_json=_settings_to_json(settings),
+                payload=_settings_to_payload(settings),
                 updated_at=utcnow(),
             )
             .execution_options(synchronize_session=False)

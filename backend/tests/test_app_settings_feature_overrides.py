@@ -44,7 +44,7 @@ def _use_settings_db(monkeypatch, db_session) -> None:
 def _raw_db_settings(db_session) -> dict:
     row = db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY)
     assert row is not None
-    return json.loads(row.payload_json)
+    return row.payload
 
 
 def test_rgw_account_id_prefix_defaults_to_80_and_requires_one_to_three_digits():
@@ -236,8 +236,8 @@ def test_app_settings_db_payload_is_parsed_strictly():
 @pytest.mark.parametrize(
     "payload",
     [
-        '{"general":{"bucket_usage_stats_enabled":false}}',
-        '{"manager":{"manager_rgw_usage_metrics_enabled":false}}',
+        {"general": {"bucket_usage_stats_enabled": False}},
+        {"manager": {"manager_rgw_usage_metrics_enabled": False}},
     ],
 )
 def test_app_settings_db_payload_rejects_legacy_usage_flags(payload):
@@ -376,7 +376,7 @@ def test_fresh_app_settings_defaults_admin_passkeys_to_optional():
 
 def test_persisted_app_settings_without_admin_passkey_policy_uses_current_default():
     settings = app_settings_service._parse_settings_payload(
-        json.dumps({"general": {"manager_enabled": False}})
+        {"general": {"manager_enabled": False}}
     )
 
     assert settings.general.require_passkey_for_admins is False
@@ -388,7 +388,7 @@ def test_persisted_app_settings_without_admin_passkey_policy_uses_current_defaul
 @pytest.mark.parametrize("required", [True, False])
 def test_persisted_admin_passkey_policy_preserves_explicit_value(required):
     settings = app_settings_service._parse_settings_payload(
-        json.dumps({"general": {"require_passkey_for_admins": required}})
+        {"general": {"require_passkey_for_admins": required}}
     )
 
     assert settings.general.require_passkey_for_admins is required

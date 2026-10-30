@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0204_structure_auth_challenge_payloads"
+_EXPECTED_ALEMBIC_HEAD = "0205_structure_app_settings_payloads"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):
@@ -412,7 +412,7 @@ def test_billing_0216_restore_preserves_history_and_resets_v2_configuration(
             app_settings = json.loads(
                 connection.scalar(
                     sa.text(
-                        "SELECT payload_json FROM app_settings WHERE key = 'default'"
+                        "SELECT payload FROM app_settings WHERE key = 'default'"
                     )
                 )
             )
@@ -475,7 +475,7 @@ def test_billing_0216_followup_removes_retired_settings_from_existing_0167_datab
             payload = json.loads(
                 connection.scalar(
                     sa.text(
-                        "SELECT payload_json FROM app_settings WHERE key = 'default'"
+                        "SELECT payload FROM app_settings WHERE key = 'default'"
                     )
                 )
             )

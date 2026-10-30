@@ -27,7 +27,7 @@ def _admin(db_session) -> User:
 
 def test_status_and_dismiss_api_do_not_set_global_completion(db_session, client):
     user = _admin(db_session)
-    db_session.add(AppSetting(key="default", payload_json=AppSettings().model_dump_json()))
+    db_session.add(AppSetting(key="default", payload=AppSettings().model_dump(mode="json")))
     db_session.commit()
     app.dependency_overrides[get_current_super_admin] = lambda: user
     initial = client.get("/api/admin/onboarding")
@@ -36,7 +36,7 @@ def test_status_and_dismiss_api_do_not_set_global_completion(db_session, client)
     assert initial.json()["journeys"] == []
     dismissed = client.post("/api/admin/onboarding/dismiss")
     assert dismissed.status_code == 200 and dismissed.json()["dismissed"]
-    assert not AppSettings.model_validate_json(db_session.get(AppSetting, "default").payload_json).onboarding.dismissed
+    assert not AppSettings.model_validate(db_session.get(AppSetting, "default").payload).onboarding.dismissed
     assert client.post("/api/admin/onboarding/resume").json()["dismissed"] is False
 
 

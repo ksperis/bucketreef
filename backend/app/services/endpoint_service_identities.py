@@ -3,7 +3,6 @@
 """Provision, validate and revoke endpoint identities with durable ownership proof."""
 from __future__ import annotations
 
-import json
 import secrets
 from collections.abc import Callable
 from typing import Literal
@@ -62,14 +61,14 @@ class EndpointServiceIdentityService:
     def _installation_id(self) -> str:
         row = self.db.get(AppSetting, INSTALLATION_KEY)
         if row is None:
-            row = AppSetting(key=INSTALLATION_KEY, payload_json=json.dumps(uuid4().hex))
+            row = AppSetting(key=INSTALLATION_KEY, payload=uuid4().hex)
             try:
                 with self.db.begin_nested():
                     self.db.add(row)
                     self.db.flush()
             except IntegrityError:
                 row = self.db.get(AppSetting, INSTALLATION_KEY)
-        installation_id = json.loads(row.payload_json)
+        installation_id = row.payload
         if not isinstance(installation_id, str):
             raise ValueError("Service identity installation id is invalid.")
         return installation_id

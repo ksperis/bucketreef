@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured application settings payloads
+
+Migration `0205_structure_app_settings_payloads` replaces
+`app_settings.payload_json` text with a non-null structured JSON `payload`
+column. Existing values may contain any valid JSON type because the table stores
+both the application settings object and internal scalar settings; malformed
+JSON stops the upgrade explicitly.
+
+Application settings and the endpoint service-identity installation ID now use
+structured values directly. The settings optimistic concurrency check uses the
+row `updated_at` value instead of comparing serialized JSON text. The downgrade
+recreates the former text column from the structured payloads.
+
 ## 2026-10 structured authentication challenge payloads
 
 Migration `0204_structure_auth_challenge_payloads` replaces

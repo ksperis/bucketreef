@@ -36,7 +36,7 @@ def _use_settings_db(monkeypatch, db_session) -> None:
 def _raw_db_settings(db_session) -> dict:
     row = db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY)
     assert row is not None
-    return json.loads(row.payload_json)
+    return row.payload
 
 
 def test_get_public_branding_settings_preserves_legacy_color_without_auth(client, monkeypatch, tmp_path, db_session):

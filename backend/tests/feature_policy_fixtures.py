@@ -14,9 +14,9 @@ def enable_manager_features(db_session):
         setattr(settings.manager.feature_policies, name, FeaturePolicy.TARGETED)
     row = db_session.scalar(sa.select(AppSetting).where(AppSetting.key == "default"))
     if row is None:
-        db_session.add(AppSetting(key="default", payload_json=settings.model_dump_json()))
+        db_session.add(AppSetting(key="default", payload=settings.model_dump(mode="json")))
     else:
-        row.payload_json = settings.model_dump_json()
+        row.payload = settings.model_dump(mode="json")
     db_session.commit()
     return settings
 
