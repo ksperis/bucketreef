@@ -16,6 +16,7 @@ from app.models.access_context import ManagerActor
 from app.models.session import ManagerSessionPrincipal
 from app.services import effective_access_service
 from app.services.api_token_service import ApiTokenService
+from app.services.auth_session_guards import cache_auth_session
 from app.services.auth_session_service import AuthSessionError, AuthSessionService
 from app.services.session_service import SessionService
 from app.utils.request_paths import path_matches_prefix
@@ -65,22 +66,11 @@ def _resolve_bearer(db: Session, token: str, request: Request) -> User:
 
 
 def _resolve_cookie(db: Session, token: str, request: Request) -> ManagerActor:
-    claims = decode_typed_token(token, expected_type="ui_access")
-    token_type = "ui_access"
-    if claims is None:
-        claims = decode_typed_token(token, expected_type="s3_access")
-        token_type = "s3_access"
-    if claims is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid UI session")
     try:
-        auth_session, principal = AuthSessionService(db).validate_access(
-            str(claims["sid"]),
-            expected_type=token_type,
-        )
+        auth_session, principal, token_type = AuthSessionService(db).validate_access_token(token)
     except AuthSessionError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired or invalid") from exc
-    if claims.get("auth_version") != auth_session.auth_version:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session authentication version changed")
+    cache_auth_session(request, auth_session)
     if request.method in _UNSAFE_METHODS:
         require_trusted_origin(request)
         submitted = request.headers.get("x-csrf-token")

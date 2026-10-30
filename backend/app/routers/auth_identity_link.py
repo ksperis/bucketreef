@@ -478,7 +478,7 @@ def profile_oidc_link_start(
             issuer=issuer,
             browser_secret_hash=browser_hash,
             auth_session_id=current_session.id,
-            mfa_verified=current_session.mfa_verified_at is not None,
+            mfa_verified_at=current_session.mfa_verified_at,
         )
         result = oidc.start_login(
             provider_id,

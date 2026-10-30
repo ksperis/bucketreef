@@ -31,6 +31,7 @@ type ConfirmActionDialogProps = {
   impacts?: ReactNode[];
   warning?: ReactNode;
   warningTone?: "neutral" | "warning";
+  secondaryContent?: ReactNode;
   options?: ReactNode;
   error?: ReactNode;
   maxWidthClass?: string;
@@ -54,6 +55,7 @@ export default function ConfirmActionDialog({
   impacts = [],
   warning,
   warningTone = "neutral",
+  secondaryContent,
   options,
   error,
   maxWidthClass = "max-w-xl",
@@ -100,6 +102,7 @@ export default function ConfirmActionDialog({
         )}
 
         {warning && <UiInlineMessage tone={warningTone} className="[overflow-wrap:anywhere]">{warning}</UiInlineMessage>}
+        {secondaryContent}
         {options && (
           <fieldset disabled={loading} className="min-w-0">
             <ModalOptions>{options}</ModalOptions>

@@ -428,9 +428,15 @@ describe("AuthenticationSettingsPage", () => {
     await user.type(screen.getByLabelText("Client ID"), "client-id");
     await user.type(screen.getByLabelText("Redirect URI"), "https://app.example.test/auth/callback");
     await user.type(screen.getByLabelText("Client secret"), "super-secret");
-    expect(screen.getByRole("option", { name: "Trusted verified email (advanced)" })).toBeInTheDocument();
-    expect(screen.getByText(/advanced automatic-linking policy/i)).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText("Identity linking policy"), "trusted_email");
+    const linkingPolicy = screen.getByLabelText("When an account already exists");
+    expect(screen.getByRole("option", { name: "Ask the user to verify the existing account (recommended)" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Require administrator approval" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Automatically link trusted verified email (advanced)" })).toBeInTheDocument();
+    expect(linkingPolicy).toHaveAccessibleDescription(/must sign in to the existing BucketReef account/i);
+    expect(screen.queryByLabelText("Trusted email domains")).not.toBeInTheDocument();
+    await user.selectOptions(linkingPolicy, "trusted_email");
+    expect(linkingPolicy).toHaveAccessibleDescription(/links only verified email addresses from trusted domains/i);
+    expect(screen.getByLabelText("Trusted email domains")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Trusted email domains"), "Example.COM\ncorp.example.com");
     await user.click(screen.getByRole("button", { name: "Save OIDC provider" }));
 
@@ -549,6 +555,12 @@ describe("AuthenticationSettingsPage", () => {
     await user.type(screen.getByLabelText("LDAP Bind DN"), "cn=bucketreef,ou=svc,dc=example,dc=test");
     await user.type(screen.getByLabelText("LDAP Bind password"), "ldap-secret");
     await user.type(screen.getByLabelText("LDAP User base DN"), "ou=people,dc=example,dc=test");
+    const linkingPolicy = screen.getByLabelText("When an account already exists");
+    expect(screen.getByRole("option", { name: "Ask the user to verify the existing account (recommended)" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Require administrator approval" })).toBeInTheDocument();
+    expect(linkingPolicy).toHaveAccessibleDescription(/must sign in to the existing BucketReef account/i);
+    await user.selectOptions(linkingPolicy, "manual");
+    expect(linkingPolicy).toHaveAccessibleDescription(/administrator must approve the link in Identity Security/i);
     await user.click(screen.getByRole("button", { name: "Save LDAP provider" }));
 
     await waitFor(() => {
