@@ -252,6 +252,50 @@ def test_managed_endpoint_association_is_dynamic_for_existing_openstack_context(
     assert service.catalogue(user, auth.id)[0].endpoint_id == endpoint.id
 
 
+def test_private_connection_import_preserves_managed_endpoint_association(db_session, setup_cloud, monkeypatch):
+    endpoint = StorageEndpoint(
+        name="Managed S3",
+        endpoint_url="https://s3.example.test",
+        region="region-a",
+        provider="ceph",
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.services.s3_connections_service.S3ConnectionsService._refresh_detected_capabilities",
+        lambda *args: None,
+    )
+
+    user, target, cloud = setup_cloud
+    auth, _ = authenticated(db_session, user)
+    service = OpenStackService(db_session)
+    connection = service.authenticate(
+        user,
+        auth.id,
+        OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"),
+    )
+
+    created = service.create_private_connection(
+        user,
+        auth.id,
+        connection.id,
+        "project-a",
+        OpenStackPrivateConnectionCreate(
+            connection_name="Project A durable",
+            target_id=target["target_id"],
+        ),
+    )
+
+    assert created.storage_endpoint_id == endpoint.id
+    assert created.endpoint_url == endpoint.endpoint_url
+    assert created.region == endpoint.region
+    row = db_session.get(DBS3Connection, created.id)
+    assert row is not None
+    assert row.storage_endpoint_id == endpoint.id
+    assert row.custom_endpoint_url is None
+    assert row.custom_region is None
+
+
 def test_managed_endpoints_only_keeps_unmanaged_target_visible_but_rejects_activation(db_session, setup_cloud):
     user, target, cloud = setup_cloud
     cloud.managed_endpoints_only = True

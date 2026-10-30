@@ -312,12 +312,19 @@ class OpenStackService:
         )
         self._session(user, auth_id, connection, expected_id=session_id)
 
+        endpoint_fields = (
+            {"storage_endpoint_id": target["storage_endpoint_id"]}
+            if target["storage_endpoint_id"] is not None
+            else {
+                "endpoint_url": target["endpoint_url"],
+                "region": target["region_id"],
+            }
+        )
         return S3ConnectionsService(self.db).create_from_validated_endpoint(
             user.id,
             S3ConnectionCreate(
                 name=payload.connection_name,
-                endpoint_url=target["endpoint_url"],
-                region=target["region_id"],
+                **endpoint_fields,
                 access_key_id=key["access"],
                 secret_access_key=key["secret"],
                 access_manager=payload.access_manager,
