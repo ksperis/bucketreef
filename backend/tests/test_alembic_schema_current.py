@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0213_structure_bucket_migration_json"
+_EXPECTED_ALEMBIC_HEAD = "0214_structure_webauthn_transports"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):

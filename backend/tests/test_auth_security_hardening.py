@@ -255,7 +255,7 @@ def test_enrolled_passkey_requires_mfa_even_when_role_policy_is_optional(
             credential_id="passkey-user-credential-id",
             public_key="public-key",
             sign_count=0,
-            transports_json="[]",
+            transports=[],
             name="Passkey",
         )
     )
@@ -322,7 +322,7 @@ def test_profile_webauthn_step_up_renews_current_session_without_issuing_tokens(
             credential_id=credential_id,
             public_key=bytes_to_base64url(b"step-up-public-key"),
             sign_count=0,
-            transports_json="[]",
+            transports=[],
             name="Step-up passkey",
         )
     )
@@ -409,7 +409,7 @@ def test_profile_webauthn_step_up_rejects_missing_csrf_wrong_session_and_replay(
             credential_id=credential_id,
             public_key=bytes_to_base64url(b"step-up-binding-public-key"),
             sign_count=0,
-            transports_json="[]",
+            transports=[],
             name="Binding passkey",
         )
     )
@@ -482,7 +482,7 @@ def test_profile_passkey_inventory_excludes_revoked_credentials(auth_client, db_
         credential_id="active-passkey-id",
         public_key="public-key",
         sign_count=0,
-        transports_json="[]",
+        transports=[],
         name="Active passkey",
         created_at=now,
     )
@@ -492,7 +492,7 @@ def test_profile_passkey_inventory_excludes_revoked_credentials(auth_client, db_
         credential_id="revoked-passkey-id",
         public_key="public-key",
         sign_count=0,
-        transports_json="[]",
+        transports=[],
         name="Revoked passkey",
         created_at=now + timedelta(seconds=1),
         revoked_at=now + timedelta(seconds=2),
@@ -515,7 +515,7 @@ def test_profile_cannot_revoke_the_last_passkey_required_by_role(auth_client, db
         credential_id="last-required-passkey-id",
         public_key="public-key",
         sign_count=0,
-        transports_json="[]",
+        transports=[],
         name="Passkey",
     )
     db_session.add(credential)
@@ -595,7 +595,7 @@ def test_external_identity_cannot_remove_the_last_primary_sign_in_method(auth_cl
                 credential_id="last-primary-passkey-id",
                 public_key="public-key",
                 sign_count=0,
-                transports_json="[]",
+                transports=[],
                 name="Passkey",
             ),
         ]

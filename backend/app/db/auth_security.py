@@ -110,7 +110,7 @@ class WebAuthnCredential(Base):
     credential_id = Column(String, nullable=False, unique=True, index=True)
     public_key = Column(Text, nullable=False)
     sign_count = Column(Integer, nullable=False, default=0, server_default="0")
-    transports_json = Column(Text, nullable=False, default="[]", server_default="[]")
+    transports = Column(JSON, nullable=False, default=list, server_default="[]")
     name = Column(String, nullable=False)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     last_used_at = Column(UTCDateTime(), nullable=True)

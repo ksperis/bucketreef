@@ -144,7 +144,7 @@ erDiagram
         varchar credential_id UK "NN"
         text public_key "NN"
         integer sign_count "NN; default=0"
-        text transports_json "NN; default=[]"
+        json transports "NN; default=[]"
         varchar name "NN"
         datetime created_at "NN"
         datetime last_used_at

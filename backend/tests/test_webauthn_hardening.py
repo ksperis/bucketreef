@@ -55,7 +55,7 @@ def _credential(user: User, credential_id: str) -> WebAuthnCredential:
         credential_id=f"{credential_id}-raw",
         public_key="public-key",
         sign_count=0,
-        transports_json="[]",
+        transports=[],
         name="Passkey",
     )
 
@@ -136,9 +136,33 @@ def test_registration_verification_uses_exact_origin_rp_and_user_verification(db
     )
 
     assert row.name == "Platform passkey"
+    assert row.transports == ["internal"]
     assert captured["expected_rp_id"] == get_settings().webauthn_rp_id
     assert captured["expected_origin"] == get_settings().effective_webauthn_origins()
     assert captured["require_user_verification"] is True
+
+
+def test_registration_rejects_invalid_transport_structure(db_session, monkeypatch):
+    user = _user(db_session, email="registration-transports@example.com")
+    service = WebAuthnService(db_session)
+    service.begin_registration(user, binding_sid="session-transports")
+
+    monkeypatch.setattr(
+        "app.services.webauthn_service.verify_registration_response",
+        lambda **_kwargs: SimpleNamespace(
+            credential_id=b"invalid-transports-credential",
+            credential_public_key=b"public-key",
+            sign_count=0,
+        ),
+    )
+
+    with pytest.raises(WebAuthnSecurityError, match="transport list"):
+        service.finish_registration(
+            user,
+            credential={"response": {"transports": ["internal", 1]}},
+            name="Invalid transports",
+            binding_sid="session-transports",
+        )
 
 
 def test_authentication_updates_counter_and_rejects_counter_replay(db_session, monkeypatch):
@@ -150,7 +174,7 @@ def test_authentication_updates_counter_and_rejects_counter_replay(db_session, m
         credential_id=credential_id,
         public_key=bytes_to_base64url(b"public-key"),
         sign_count=1,
-        transports_json="[]",
+        transports=[],
         name="Security key",
     )
     db_session.add(row)
@@ -242,7 +266,7 @@ def test_operator_reset_is_restricted_to_exact_sole_superadmin_and_revokes_every
         credential_id=bytes_to_base64url(b"operator-credential"),
         public_key=bytes_to_base64url(b"public-key"),
         sign_count=0,
-        transports_json="[]",
+        transports=[],
         name="Operator key",
     )
     db_session.add(credential)

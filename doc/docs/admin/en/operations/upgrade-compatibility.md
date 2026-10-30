@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured WebAuthn credential transports
+
+Migration `0214_structure_webauthn_transports` replaces
+`webauthn_credentials.transports_json` text with the structured JSON
+`transports` list. Existing values must decode to JSON arrays containing only
+strings; malformed JSON or values with another shape stop the upgrade
+explicitly.
+
+WebAuthn registration now stores transport hints directly as structured values.
+The downgrade recreates the former text column from the structured list.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration
