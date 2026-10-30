@@ -26,10 +26,12 @@ import {
   ManagerBucketCompareAction,
   ManagerBucketCompareActionResult,
   ManagerBucketCompareResult,
-  ManagerBucketObjectDetail,
   runManagerBucketCompareAction,
-  type ManagerBucketCompareConfigFeature,
 } from "../../api/managerBuckets";
+import type {
+  BucketCompareConfigFeature,
+  BucketCompareObjectDetail,
+} from "../../api/bucketCompareContracts";
 import type { ExecutionContext } from "../../api/executionContexts";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
@@ -78,7 +80,7 @@ type CompareRunOptionsSnapshot = {
   targetContextId: string;
   includeContent: boolean;
   includeConfig: boolean;
-  configFeatures: ManagerBucketCompareConfigFeature[];
+  configFeatures: BucketCompareConfigFeature[];
   ignoreModifiedAfterIso: string | null;
 };
 
@@ -198,7 +200,7 @@ export default function ManagerBucketCompareModal({
     copyFeedback,
     copyVisibleKeys,
   } = useBucketCompareWorkflowState<
-    ManagerBucketCompareConfigFeature,
+    BucketCompareConfigFeature,
     ManagerBucketCompareResult,
     CompareRunItem
   >({
@@ -987,7 +989,7 @@ export default function ManagerBucketCompareModal({
                               bucket: string,
                               includeRemediation: boolean,
                               remediationVariant: "secondary" | "danger"
-                            ) => (detail: ManagerBucketObjectDetail, closeMetadata: () => void) => {
+                            ) => (detail: BucketCompareObjectDetail, closeMetadata: () => void) => {
                               const downloadId = `${contextId}:${bucket}:${detail.key}`;
                               const downloadDisabled =
                                 Boolean(managerBrowserDisabledReason) || Boolean(downloadInFlight) || running;

@@ -22,8 +22,8 @@ import {
   CephAdminBucketCompareResult,
   compareCephAdminBucketPair,
   listCephAdminBuckets,
-  type CephAdminBucketCompareConfigFeature,
 } from "../../api/cephAdminBuckets";
+import type { BucketCompareConfigFeature } from "../../api/bucketCompareContracts";
 import type { CephAdminEndpoint } from "../../api/cephAdminEndpoints";
 import type { RgwBucketReference } from "../../api/bucketOperation";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
@@ -165,7 +165,7 @@ export default function CephAdminBucketCompareModal({
     copyFeedback,
     copyVisibleKeys,
   } = useBucketCompareWorkflowState<
-    CephAdminBucketCompareConfigFeature,
+    BucketCompareConfigFeature,
     CephAdminBucketCompareResult,
     CompareRunItem
   >({

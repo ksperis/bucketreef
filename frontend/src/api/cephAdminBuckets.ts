@@ -14,6 +14,11 @@ import {
 import { resolveApiBaseUrl, streamBucketsWithSse } from "./sseBucketsStream";
 import type { CephAdminListingStreamProgress } from "./cephAdminEntityListing";
 import type { RgwBucketReference } from "./bucketOperation";
+import type {
+  BucketCompareConfigDiff,
+  BucketCompareConfigFeature,
+  BucketCompareContentDiff,
+} from "./bucketCompareContracts";
 
 export type CephAdminBucket = {
   name: string;
@@ -171,71 +176,8 @@ type CephAdminBucketCompareRequest = {
   target: RgwBucketReference;
   include_content?: boolean;
   include_config?: boolean;
-  config_features?: CephAdminBucketCompareConfigFeature[];
+  config_features?: BucketCompareConfigFeature[];
   ignore_modified_after?: string | null;
-};
-
-export type CephAdminBucketCompareConfigFeature =
-  | "versioning_status"
-  | "object_lock"
-  | "public_access_block"
-  | "lifecycle_rules"
-  | "cors_rules"
-  | "bucket_policy"
-  | "access_logging"
-  | "tags";
-
-type CephAdminBucketObjectDetail = {
-  key: string;
-  size: number | null;
-  etag: string | null;
-  last_modified: string | null;
-  storage_class: string | null;
-};
-
-type CephAdminBucketObjectDiffEntry = {
-  key: string;
-  source_size: number | null;
-  target_size: number | null;
-  source_etag: string | null;
-  target_etag: string | null;
-  source_last_modified: string | null;
-  target_last_modified: string | null;
-  source_storage_class: string | null;
-  target_storage_class: string | null;
-  compare_by: "md5" | "size";
-};
-
-export type CephAdminBucketContentDiff = {
-  source_count: number;
-  target_count: number;
-  matched_count: number;
-  different_count: number;
-  only_source_count: number;
-  only_target_count: number;
-  ignored_after_cutoff_count: number;
-  display_limit: number;
-  only_source_hidden_count: number;
-  only_target_hidden_count: number;
-  different_hidden_count: number;
-  only_source_sample: string[];
-  only_target_sample: string[];
-  only_source_details: CephAdminBucketObjectDetail[];
-  only_target_details: CephAdminBucketObjectDetail[];
-  different_sample: CephAdminBucketObjectDiffEntry[];
-};
-
-type CephAdminBucketConfigDiffSection = {
-  key: string;
-  label: string;
-  source: unknown;
-  target: unknown;
-  changed: boolean;
-};
-
-export type CephAdminBucketConfigDiff = {
-  changed: boolean;
-  sections: CephAdminBucketConfigDiffSection[];
 };
 
 export type CephAdminBucketCompareResult = {
@@ -246,8 +188,8 @@ export type CephAdminBucketCompareResult = {
   source_tenant: string;
   target_tenant: string;
   has_differences: boolean;
-  content_diff: CephAdminBucketContentDiff | null;
-  config_diff: CephAdminBucketConfigDiff | null;
+  content_diff: BucketCompareContentDiff | null;
+  config_diff: BucketCompareConfigDiff | null;
 };
 
 export async function compareCephAdminBucketPair(
