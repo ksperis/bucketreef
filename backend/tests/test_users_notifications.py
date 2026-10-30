@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-import json
 
 import pytest
 from sqlalchemy import select
@@ -26,7 +25,6 @@ from app.db import (
 )
 from app.main import app
 from app.routers import dependencies
-from app.services.user_notifications_service import _parse_notification_payload
 
 
 def _seed_endpoint(db_session) -> StorageEndpoint:
@@ -103,30 +101,19 @@ def _seed_notification(
         s3_account_id=account.id if account is not None else None,
         s3_user_id=s3_user.id if s3_user is not None else None,
         event_key=event_key,
-        payload_json=json.dumps(
-            {
-                "alert_level": "threshold",
-                "subject_name": account.name if account is not None else s3_user.name if s3_user is not None else "n/a",
-                "endpoint_name": endpoint.name,
-                "usage_ratio_pct": 90,
-                "checked_at": "2026-01-11T09:00:00",
-            },
-            sort_keys=True,
-        ),
+        payload={
+            "alert_level": "threshold",
+            "subject_name": account.name if account is not None else s3_user.name if s3_user is not None else "n/a",
+            "endpoint_name": endpoint.name,
+            "usage_ratio_pct": 90,
+            "checked_at": "2026-01-11T09:00:00",
+        },
         created_at=datetime(2026, 1, 11, 9, 0, 0, tzinfo=UTC),
     )
     db_session.add(notification)
     db_session.commit()
     db_session.refresh(notification)
     return notification
-
-
-def test_notification_payload_requires_a_json_object():
-    assert _parse_notification_payload('{"ratio":90}') == {"ratio": 90}
-    with pytest.raises(ValueError):
-        _parse_notification_payload("[]")
-    with pytest.raises(json.JSONDecodeError):
-        _parse_notification_payload("{")
 
 
 def test_list_notifications_filters_by_current_account_access(client, db_session):

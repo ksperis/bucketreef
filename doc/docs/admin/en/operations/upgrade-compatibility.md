@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured user notification payloads
+
+Migration `0201_structure_user_notification_payloads` replaces
+`user_notifications.payload_json` text with a non-null structured JSON
+`payload` column. Every existing value must decode to a JSON object; malformed,
+null, array, or scalar payloads stop the upgrade explicitly instead of being
+accepted through a runtime compatibility parser.
+
+Notification producers and API serialization now use the structured object
+directly. The downgrade recreates the former text column from the structured
+payloads.
+
 ## 2026-10 structured Storage Endpoint features
 
 Migration `0200_structure_storage_endpoint_features` replaces the persisted
@@ -1497,6 +1509,8 @@ payloads as JSON objects, replaces null or malformed values with `{}`, and makes
 Deploy the migration and backend together. Notification serialization now
 rejects non-object or malformed payloads instead of silently returning an empty
 object. Downgrade makes the column nullable again but keeps canonicalized data.
+Migration `0201_structure_user_notification_payloads` later replaces this text
+column with the structured JSON `payload` column.
 
 ## 2026-08 canonical user UI preferences
 

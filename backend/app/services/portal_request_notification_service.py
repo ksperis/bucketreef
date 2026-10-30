@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from sqlalchemy import select
@@ -95,7 +94,7 @@ class PortalRequestNotificationService:
                 message=message,
                 subject_type=None,
                 event_key=event_key,
-                payload_json=json.dumps(payload, ensure_ascii=True, sort_keys=True),
+                payload=payload,
                 created_at=utcnow(),
             )
         )

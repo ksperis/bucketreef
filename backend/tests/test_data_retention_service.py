@@ -259,7 +259,7 @@ def test_purge_user_notifications_removes_read_and_unread_rows_after_cutoff(
                 title="Old unread",
                 message="Old unread notification",
                 event_key="retention:old-unread",
-                payload_json="{}",
+                payload={},
                 created_at=now - timedelta(days=91),
             ),
             UserNotification(
@@ -269,7 +269,7 @@ def test_purge_user_notifications_removes_read_and_unread_rows_after_cutoff(
                 title="Old read",
                 message="Old read notification",
                 event_key="retention:old-read",
-                payload_json="{}",
+                payload={},
                 created_at=now - timedelta(days=91),
                 read_at=now - timedelta(days=90),
             ),
@@ -280,7 +280,7 @@ def test_purge_user_notifications_removes_read_and_unread_rows_after_cutoff(
                 title="Recent",
                 message="Recent notification",
                 event_key="retention:recent",
-                payload_json="{}",
+                payload={},
                 created_at=now - timedelta(days=89),
             ),
         ]
@@ -319,7 +319,7 @@ def test_purge_user_notifications_zero_retention_preserves_rows(db_session):
             title="Preserved",
             message="Preserved notification",
             event_key="retention:disabled",
-            payload_json="{}",
+            payload={},
             created_at=utcnow() - timedelta(days=500),
         )
     )

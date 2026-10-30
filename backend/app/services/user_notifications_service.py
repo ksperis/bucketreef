@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-import json
 from typing import Any, Iterable, Optional
 
 from sqlalchemy import delete, func, or_, select
@@ -20,13 +19,6 @@ from app.db import (
 from app.models.user_notification import UserNotificationOut, UserNotificationsResponse
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
-
-
-def _parse_notification_payload(raw: str) -> dict[str, Any]:
-    payload = json.loads(raw)
-    if not isinstance(payload, dict):
-        raise ValueError("User notification payload must be a JSON object")
-    return payload
 
 
 class UserNotificationsService:
@@ -66,7 +58,6 @@ class UserNotificationsService:
                 )
             ).all()
         }
-        payload_json = json.dumps(payload, ensure_ascii=True, sort_keys=True)
         for user_id in clean_user_ids:
             if user_id in existing_user_ids:
                 continue
@@ -81,7 +72,7 @@ class UserNotificationsService:
                 s3_account_id=s3_account_id,
                 s3_user_id=s3_user_id,
                 event_key=event_key,
-                payload_json=payload_json,
+                payload=payload,
                 created_at=created_at,
             )
             try:
@@ -256,7 +247,7 @@ class UserNotificationsService:
             storage_endpoint_id=row.storage_endpoint_id,
             s3_account_id=row.s3_account_id,
             s3_user_id=row.s3_user_id,
-            payload=_parse_notification_payload(row.payload_json),
+            payload=dict(row.payload),
             created_at=row.created_at,
             read_at=row.read_at,
         )
