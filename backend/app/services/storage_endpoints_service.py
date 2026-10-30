@@ -686,9 +686,7 @@ class StorageEndpointsService:
 
     def update_endpoint(self, endpoint_id: int, payload: StorageEndpointUpdate) -> StorageEndpointSchema:
         self._ensure_env_editable()
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.get_endpoint_record(endpoint_id)
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be edited.")
         state = normalize_storage_endpoint_update(endpoint, payload)
@@ -722,9 +720,7 @@ class StorageEndpointsService:
 
     def reconcile_identities(self, endpoint_id: int) -> StorageEndpointSchema:
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if endpoint is None:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.get_endpoint_record(endpoint_id)
         EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(
             endpoint,
             provision_unprovisioned=True,
@@ -733,9 +729,7 @@ class StorageEndpointsService:
 
     def delete_endpoint(self, endpoint_id: int) -> None:
         self._ensure_env_editable()
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.get_endpoint_record(endpoint_id)
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be deleted.")
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
@@ -774,9 +768,7 @@ class StorageEndpointsService:
 
     def set_default_endpoint(self, endpoint_id: int) -> StorageEndpointSchema:
         self._ensure_env_editable()
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.get_endpoint_record(endpoint_id)
         if endpoint.is_default:
             return self._serialize(endpoint)
         self.db.execute(
