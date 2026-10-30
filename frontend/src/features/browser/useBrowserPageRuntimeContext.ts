@@ -104,6 +104,7 @@ export const useBrowserPageRuntimeContext = ({
   return {
     ...workspaceContext,
     selectedContext,
+    selectedStorageEndpointCapabilities: browserContext.selectedStorageEndpointCapabilities,
     browserContexts: browserContext.contexts,
     storedUser,
     workspaceSurface,

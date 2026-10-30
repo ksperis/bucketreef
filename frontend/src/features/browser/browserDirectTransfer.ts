@@ -3,6 +3,7 @@ import workerUrl from "./browserDirectTransfer.worker.ts?worker&url";
 import { getBrowserTransferPolicy, type BrowserTransferScope, type BrowserTransferPolicy } from "../../api/browserTransferPolicy";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
+import { getExecutionDestinationForContext } from "../../api/executionDestinationState";
 import { SESSION_ENDED_EVENT, isSessionEndedStorageEvent } from "../../auth/sessionEvents";
 import { isAllowedTransferUrl, type DirectTransferRequest, type DirectTransferResponse } from "./browserDirectTransferProtocol";
 
@@ -39,7 +40,11 @@ class BrowserDirectTransferResponse extends Response {
 }
 
 export function browserTransferScope(contextId: S3ExecutionContextSelector, options?: BrowserRequestOptions): BrowserTransferScope {
-  return { contextId, workspace: options?.workspaceSurface ?? (contextId?.startsWith("ceph-admin-") ? "ceph-admin" : "browser") };
+  const workspace = options?.workspaceSurface ?? (contextId?.startsWith("ceph-admin-") ? "ceph-admin" : "browser");
+  const executionEndpointId = contextId != null && (workspace === "browser" || workspace === "manager")
+    ? getExecutionDestinationForContext(contextId)
+    : null;
+  return { contextId, workspace, executionEndpointId };
 }
 
 function browserTransferWorkerUrl(): URL {
@@ -79,12 +84,20 @@ async function acquire(scope: BrowserTransferScope): Promise<Entry> {
   // Refresh per logical transfer. Multipart parts share the resulting entry.
   for (let attempt = 0; attempt < 2; attempt++) {
     const policy = await getBrowserTransferPolicy(scope);
-    const key = JSON.stringify([scope.workspace, scope.contextId ?? null, policy.policy_id]);
+    const key = JSON.stringify([
+      scope.workspace,
+      scope.contextId ?? null,
+      scope.executionEndpointId ?? null,
+      policy.policy_id,
+    ]);
     let entry = workers.get(key);
     if (!entry || entry.closed) {
       const url = browserTransferWorkerUrl();
       url.searchParams.set("workspace", scope.workspace);
       if (scope.contextId != null) url.searchParams.set("context_id", String(scope.contextId));
+      if (scope.executionEndpointId != null) {
+        url.searchParams.set("execution_endpoint_id", String(scope.executionEndpointId));
+      }
       url.searchParams.set("policy_id", policy.policy_id);
       const worker = new Worker(url, { type: "module", credentials: "same-origin" });
       let resolveReady: () => void;

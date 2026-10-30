@@ -6,6 +6,7 @@ import client from "./client";
 export type BrowserTransferScope = {
   contextId: S3ExecutionContextSelector;
   workspace: BrowserWorkspaceSurface;
+  executionEndpointId?: number | null;
 };
 
 export type BrowserTransferPolicy = {
@@ -17,7 +18,11 @@ export type BrowserTransferPolicy = {
 
 export async function getBrowserTransferPolicy(scope: BrowserTransferScope): Promise<BrowserTransferPolicy> {
   const { data } = await client.get<BrowserTransferPolicy>("/browser/direct-transfer-policy", {
-    params: { workspace: scope.workspace, context_id: scope.contextId },
+    params: {
+      workspace: scope.workspace,
+      context_id: scope.contextId,
+      execution_endpoint_id: scope.executionEndpointId,
+    },
   });
   return data;
 }

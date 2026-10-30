@@ -101,15 +101,6 @@ export default function AdminUserPlatformAccessPanel({
               onChange({ can_provision_managed_private_connections: enabled }),
             ariaLabel: text("allowProvisionConnections"),
           },
-          {
-            title: text("switchRgwMultisiteEndpoints"),
-            description: text("switchRgwMultisiteEndpointsDescription"),
-            checked: supportsManagerTools && Boolean(value.allow_multisite_endpoint_switching),
-            inherited: inheritedMultisiteSwitching,
-            disabled: !supportsManagerTools,
-            onChange: (enabled) => onChange({ allow_multisite_endpoint_switching: enabled }),
-            ariaLabel: text("allowRgwMultisiteEndpointSwitching"),
-          },
         ]}
         description={text("managerPermissions")}
         tools={managerTools}
@@ -123,6 +114,21 @@ export default function AdminUserPlatformAccessPanel({
             },
           })
         }
+      />
+      <AdminAccessToggleSection
+        title={text("rgwMultisite")}
+        description={text("rgwMultisitePermissions")}
+        items={[
+          {
+            title: text("switchRgwMultisiteEndpoints"),
+            description: text("switchRgwMultisiteEndpointsDescription"),
+            checked: supportsManagerTools && Boolean(value.allow_multisite_endpoint_switching),
+            inherited: inheritedMultisiteSwitching,
+            disabled: !supportsManagerTools,
+            onChange: (enabled) => onChange({ allow_multisite_endpoint_switching: enabled }),
+            ariaLabel: text("allowRgwMultisiteEndpointSwitching"),
+          },
+        ]}
       />
       <BrowserAccessSection
         description={text("browserOptions")}

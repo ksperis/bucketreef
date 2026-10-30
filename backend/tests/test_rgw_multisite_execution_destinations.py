@@ -5,12 +5,13 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.db import ManagerAccountRole, StorageEndpoint, User, UserRole, UserS3Account
+from app.db import ManagerAccountRole, S3Connection, StorageEndpoint, User, UserRole, UserS3Account
 from app.routers.dependencies_internal.execution_context import resolve_s3_execution_context
 from app.services.rgw_multisite_endpoints import (
     list_compatible_rgw_execution_endpoints,
     rgw_multisite_endpoints_compatible,
 )
+from app.utils.s3_endpoint import resolve_s3_client_options
 from tests.s3_account_factory import make_s3_account
 
 
@@ -21,6 +22,9 @@ def _endpoint(
     realm_id: str | None = "realm-a",
     zonegroup_id: str | None = "zonegroup-a",
     zone_id: str | None = None,
+    region: str | None = None,
+    force_path_style: bool = False,
+    verify_tls: bool = True,
 ) -> StorageEndpoint:
     return StorageEndpoint(
         name=name,
@@ -29,6 +33,31 @@ def _endpoint(
         realm_id=realm_id,
         zonegroup_id=zonegroup_id,
         zone_id=zone_id,
+        region=region,
+        force_path_style=force_path_style,
+        verify_tls=verify_tls,
+    )
+
+
+def _connection(
+    user: User,
+    endpoint: StorageEndpoint,
+    *,
+    name: str,
+    session_token: str | None = None,
+) -> S3Connection:
+    return S3Connection(
+        created_by_user_id=user.id,
+        name=name,
+        is_shared=False,
+        is_active=True,
+        access_manager=True,
+        access_browser=True,
+        storage_endpoint=endpoint,
+        storage_endpoint_id=endpoint.id,
+        access_key_id=f"AK-{name}",
+        secret_access_key=f"SK-{name}",
+        session_token=session_token,
     )
 
 
@@ -128,6 +157,93 @@ def test_destination_override_preserves_account_identity_and_credentials(db_sess
     )
     assert browser_context.storage_endpoint_id == destination.id
     assert browser_context.effective_rgw_credentials() == ("ROOT-AK", "ROOT-SK")
+
+
+def test_connection_destination_override_preserves_credentials_and_uses_destination_options(db_session):
+    origin = _endpoint(
+        "connection-origin",
+        zone_id="zone-a",
+        region="region-a",
+        force_path_style=False,
+        verify_tls=True,
+    )
+    destination = _endpoint(
+        "connection-destination",
+        zone_id="zone-b",
+        region="region-b",
+        force_path_style=True,
+        verify_tls=False,
+    )
+    db_session.add_all([origin, destination])
+    db_session.flush()
+    user = User(
+        email="multisite-connection@example.test",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+        allow_multisite_endpoint_switching=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+    connection = _connection(user, origin, name="browser-connection")
+    db_session.add(connection)
+    db_session.commit()
+
+    context = resolve_s3_execution_context(
+        _request("/api/browser/buckets/search", workspace="browser"),
+        f"conn-{connection.id}",
+        user,
+        db_session,
+        execution_endpoint_id=destination.id,
+    )
+
+    assert context.storage_endpoint_id == destination.id
+    assert context.storage_endpoint is destination
+    assert context.source_connection is connection
+    assert context.effective_rgw_credentials() == ("AK-browser-connection", "SK-browser-connection")
+    assert resolve_s3_client_options(context) == (
+        destination.endpoint_url,
+        "region-b",
+        True,
+        False,
+    )
+
+
+def test_temporary_connection_destination_override_is_rejected_in_full_and_metadata_contexts(db_session):
+    origin = _endpoint("temporary-origin", zone_id="zone-a")
+    destination = _endpoint("temporary-destination", zone_id="zone-b")
+    db_session.add_all([origin, destination])
+    db_session.flush()
+    user = User(
+        email="multisite-temporary@example.test",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+        allow_multisite_endpoint_switching=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+    connection = _connection(
+        user,
+        origin,
+        name="temporary-connection",
+        session_token="temporary-token",
+    )
+    db_session.add(connection)
+    db_session.commit()
+
+    for metadata_only in (False, True):
+        with pytest.raises(HTTPException) as denied:
+            resolve_s3_execution_context(
+                _request("/api/browser/direct-transfer-policy", workspace="browser"),
+                f"conn-{connection.id}",
+                user,
+                db_session,
+                execution_endpoint_id=destination.id,
+                metadata_only=metadata_only,
+            )
+        assert denied.value.status_code == 403
+        assert "temporary connection credentials" in denied.value.detail
 
 
 def test_destination_override_enforces_permission_topology_and_surface(db_session):

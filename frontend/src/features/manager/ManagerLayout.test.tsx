@@ -784,6 +784,65 @@ describe("ManagerLayout", () => {
     expect(metricsLink?.disabledHint).toBe("Metrics are unavailable for this endpoint capabilities.");
   });
 
+  it("shows the RGW destination selector for an endpoint-backed S3 Connection", () => {
+    setStoredManagerUser();
+    useExecutionContextMock.mockReturnValue(
+      buildContext({
+        contexts: [
+          {
+            id: "conn-1",
+            kind: "connection",
+            display_name: "Shared multisite connection",
+            endpoint_id: 10,
+            endpoint_name: "Zone A",
+            endpoint_url: "https://zone-a.example.test",
+            storage_endpoint_capabilities: {},
+            destination_switching_allowed: true,
+            execution_destinations: [
+              {
+                endpoint_id: 10,
+                name: "Zone A",
+                endpoint_url: "https://zone-a.example.test",
+                provider: "ceph",
+                region: null,
+                realm_id: "realm-a",
+                zonegroup_id: "zonegroup-a",
+                zone_id: "zone-a",
+                is_default: true,
+                storage_endpoint_capabilities: {},
+              },
+              {
+                endpoint_id: 11,
+                name: "Zone B",
+                endpoint_url: "https://zone-b.example.test",
+                provider: "ceph",
+                region: null,
+                realm_id: "realm-a",
+                zonegroup_id: "zonegroup-a",
+                zone_id: "zone-b",
+                is_default: false,
+                storage_endpoint_capabilities: {},
+              },
+            ],
+          },
+        ],
+        selectedContextId: "conn-1",
+        selectedContextKind: "connection",
+        selectedExecutionEndpointId: 11,
+        setExecutionEndpointId: vi.fn(),
+        accessMode: "connection",
+        managerStatsEnabled: true,
+        managerFeatureStates: {},
+      })
+    );
+    useGeneralSettingsMock.mockReturnValue({ generalSettings: buildGeneralSettings() });
+
+    render(<MemoryRouter initialEntries={["/manager"]}><ManagerLayout /></MemoryRouter>);
+
+    expect(capturedTopbarControlDescriptors.map((descriptor) => descriptor.id)).toEqual(["account", "destination"]);
+    expect(screen.getByRole("button", { name: "Select S3 endpoint" })).toHaveTextContent("Zone B");
+  });
+
   it("keeps discovered OpenStack projects selectable alongside an existing context", () => {
     const selectorOptions = [{
       value: "openstack-project-option:conn-1:project-a",

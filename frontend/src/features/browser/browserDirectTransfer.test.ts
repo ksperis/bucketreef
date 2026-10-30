@@ -43,7 +43,7 @@ class FakeWorker {
     };
   }
 }
-const scope = { contextId: "conn-1", workspace: "browser" as const };
+const scope = { contextId: "conn-1", workspace: "browser" as const, executionEndpointId: 42 };
 
 describe("context-bound direct transfer workers", () => {
   beforeEach(() => {
@@ -64,6 +64,8 @@ describe("context-bound direct transfer workers", () => {
     expect(await response.text()).toBe("streamed bytes");
     expect(FakeWorker.instances[0].reads).toBe(2);
     expect(FakeWorker.instances[0].url.searchParams.get("context_id")).toBe("conn-1");
+    expect(FakeWorker.instances[0].url.searchParams.get("execution_endpoint_id")).toBe("42");
+    expect(policy.get).toHaveBeenCalledWith(scope);
   });
 
   it("keeps one policy and worker for concurrent multipart requests", async () => {

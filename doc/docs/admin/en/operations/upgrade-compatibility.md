@@ -155,7 +155,7 @@ under a deterministic **All users (custom)** name before creating the system
 group. Deploy backend and frontend together because cloud create/update payloads
 no longer carry user, group, or global-access fields.
 
-## 2026-10 Manager RGW multisite execution destinations
+## 2026-10 RGW multisite execution destinations
 
 Migration `0197_rgw_multisite_execution_destinations` adds optional `realm_id`,
 `zonegroup_id`, and `zone_id` metadata to Storage Endpoints plus the
@@ -163,12 +163,16 @@ Migration `0197_rgw_multisite_execution_destinations` adds optional `realm_id`,
 records remain disabled and unassociated by default.
 
 For Ceph endpoints, Realm ID and Zonegroup ID must be configured together.
-Manager exposes alternate destinations only to effectively authorized users and
-only between Ceph endpoints whose declared Realm ID and Zonegroup ID both match.
-The selected RGW Account or RGW User remains the execution identity; the
-destination endpoint and its capabilities change. Deploy backend and frontend
-together because execution-context responses and Manager requests now carry the
-destination metadata and optional `execution_endpoint_id` parameter.
+Manager and standalone Browser expose alternate destinations only to effectively
+authorized users and only between Ceph endpoints whose declared Realm ID and
+Zonegroup ID both match. Manager supports RGW Account, RGW User, and
+endpoint-backed S3 Connection contexts; standalone Browser supports its
+endpoint-backed private S3 Connections. Custom-URL and temporary-credential
+connections remain pinned. The selected logical context and its credentials stay
+unchanged while the destination endpoint and its capabilities change. Deploy
+backend and frontend together because execution-context responses, Browser
+transfer policies, and requests now carry the destination metadata and optional
+`execution_endpoint_id` parameter.
 
 This topology is administrator-declared metadata. It does not use RGW multisite
 system keys or add `zone=read`/`metadata=read` to the Runtime identity.
@@ -178,7 +182,7 @@ system keys or add `zone=read`/`metadata=read` to the Runtime identity.
 Multisite topology and diagnostic endpoint selection are discovered live from
 the configured Ceph Admin endpoints. The diagnostic topology remains live and
 is not persisted as a Ceph Admin association. The optional Storage Endpoint
-Realm/Zonegroup/Zone metadata used by Manager execution switching is a separate
+Realm/Zonegroup/Zone metadata used by RGW execution switching is a separate
 declarative configuration and is not used as a substitute for Ceph Admin
 diagnostic discovery. The diagnostics feature itself requires no database migration.
 Deploy the bundled backend and frontend together for the new diagnostic DTOs

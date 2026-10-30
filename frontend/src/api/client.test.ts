@@ -80,7 +80,7 @@ describe("API request profiles", () => {
     expect(url.searchParams.has("empty")).toBe(false);
   });
 
-  it("injects the selected execution endpoint only for Manager requests with a context", async () => {
+  it("injects the selected execution endpoint for Manager and standalone Browser requests with a context", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -101,6 +101,11 @@ describe("API request profiles", () => {
     expect(url.searchParams.get("execution_endpoint_id")).toBe("77");
 
     window.history.replaceState({}, "", "/browser");
+    await client.get("/browser/buckets", { params: { context_id: "account-1" } });
+    url = new URL(String(fetchMock.mock.calls.at(-1)?.[0]));
+    expect(url.searchParams.get("execution_endpoint_id")).toBe("42");
+
+    window.history.replaceState({}, "", "/portal");
     await client.get("/browser/buckets", { params: { context_id: "account-1" } });
     url = new URL(String(fetchMock.mock.calls.at(-1)?.[0]));
     expect(url.searchParams.has("execution_endpoint_id")).toBe(false);

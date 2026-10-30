@@ -4,6 +4,10 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-rou
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ExecutionContext } from "../../api/executionContexts";
+import {
+  clearExecutionDestinationState,
+  getExecutionDestinationForContext,
+} from "../../api/executionDestinationState";
 import { EXECUTION_CONTEXTS_REFRESH_EVENT } from "../../utils/executionContextRefresh";
 import { BrowserContextProvider, useBrowserContext } from "./BrowserContext";
 
@@ -19,9 +23,37 @@ const CONTEXTS: ExecutionContext[] = [
     id: "conn-1",
     display_name: "Connection 1",
     endpoint_name: "Connection endpoint",
+    endpoint_id: 10,
     endpoint_is_default: false,
     endpoint_url: "https://connection.example.test",
-    storage_endpoint_capabilities: {},
+    storage_endpoint_capabilities: { metrics: true },
+    destination_switching_allowed: true,
+    execution_destinations: [
+      {
+        endpoint_id: 10,
+        name: "Zone A",
+        endpoint_url: "https://connection.example.test",
+        provider: "ceph",
+        region: null,
+        realm_id: "realm-a",
+        zonegroup_id: "zonegroup-a",
+        zone_id: "zone-a",
+        is_default: true,
+        storage_endpoint_capabilities: { metrics: true },
+      },
+      {
+        endpoint_id: 11,
+        name: "Zone B",
+        endpoint_url: "https://connection-zone-b.example.test",
+        provider: "ceph",
+        region: null,
+        realm_id: "realm-a",
+        zonegroup_id: "zonegroup-a",
+        zone_id: "zone-b",
+        is_default: false,
+        storage_endpoint_capabilities: { metrics: false },
+      },
+    ],
     capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
   },
   {
@@ -37,14 +69,23 @@ const CONTEXTS: ExecutionContext[] = [
 ];
 
 function Probe() {
-  const { selectedContextId, accessError } = useBrowserContext();
+  const {
+    selectedContextId,
+    selectedExecutionEndpointId,
+    selectedStorageEndpointCapabilities,
+    setExecutionEndpointId,
+    accessError,
+  } = useBrowserContext();
   const location = useLocation();
   const navigate = useNavigate();
   return (
     <>
       <div data-testid="selected">{selectedContextId ?? "null"}</div>
+      <div data-testid="selected-endpoint">{selectedExecutionEndpointId ?? "null"}</div>
+      <div data-testid="selected-metrics">{String(selectedStorageEndpointCapabilities?.metrics ?? "none")}</div>
       <div data-testid="location">{`${location.pathname}${location.search}`}</div>
       <div data-testid="access-error">{accessError ?? "none"}</div>
+      <button type="button" onClick={() => setExecutionEndpointId(11)}>Use Zone B</button>
       <button type="button" onClick={() => navigate("/browser/next")}>Navigate without context</button>
     </>
   );
@@ -70,6 +111,7 @@ function renderProvider(initialEntry: string) {
 describe("BrowserContextProvider", () => {
   beforeEach(() => {
     localStorage.clear();
+    clearExecutionDestinationState();
     listExecutionContextsMock.mockReset();
     listExecutionContextsMock.mockResolvedValue(CONTEXTS);
   });
@@ -95,6 +137,25 @@ describe("BrowserContextProvider", () => {
     renderProvider("/browser");
 
     await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("s3u-2"));
+  });
+
+  it("tracks and registers the selected multisite destination for an eligible connection", async () => {
+    const user = userEvent.setup();
+    renderProvider("/browser?ctx=conn-1");
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-endpoint")).toHaveTextContent("10");
+      expect(getExecutionDestinationForContext("conn-1")).toBe(10);
+    });
+    expect(screen.getByTestId("selected-metrics")).toHaveTextContent("true");
+
+    await user.click(screen.getByRole("button", { name: "Use Zone B" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("selected-endpoint")).toHaveTextContent("11");
+      expect(getExecutionDestinationForContext("conn-1")).toBe(11);
+    });
+    expect(screen.getByTestId("selected-metrics")).toHaveTextContent("false");
   });
 
   it("prefers ctx query param over the Browser-specific preference", async () => {

@@ -156,6 +156,8 @@ def connection_execution_context_from_db(
     connection: S3Connection,
     *,
     tags_service: TagsService,
+    execution_destinations: list[ExecutionDestination] | None = None,
+    destination_switching_allowed: bool = False,
 ) -> ExecutionContext:
     details = resolve_connection_details(connection)
     can_manage_iam = s3_connection_can_manage_iam(connection.capabilities_json)
@@ -197,6 +199,8 @@ def connection_execution_context_from_db(
         portal_role=None,
         rgw_account_id=None,
         **endpoint_projection,
+        destination_switching_allowed=destination_switching_allowed,
+        execution_destinations=execution_destinations or [],
         tags=tags_service.filter_selector_visible(tags_service.get_connection_tags(connection)),
         endpoint_tags=endpoint_tags,
         capabilities=ExecutionContextCapabilities(
