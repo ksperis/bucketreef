@@ -78,6 +78,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_ids,
     extract_rgw_account_tenant,
 )
+from app.utils.sql_search import text_search_predicate
 from app.utils.usage_stats import aggregate_bucket_usage
 from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
 from app.utils.name_ordering import name_order_by
@@ -450,16 +451,14 @@ class S3AccountsService:
         return results
 
     @staticmethod
-    def _apply_account_search(query, search_value: str):
+    def _apply_account_search(query, search_value: str, *, exact: bool):
         if not search_value:
             return query
-        escaped = search_value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        pattern = f"%{escaped}%"
         tag_match = (
             exists()
             .where(S3AccountTag.account_id == S3Account.id)
             .where(TagDefinition.id == S3AccountTag.tag_definition_id)
-            .where(TagDefinition.label.ilike(pattern, escape="\\"))
+            .where(text_search_predicate(TagDefinition.label, search_value, exact=exact))
         )
         user_match = (
             exists()
@@ -467,8 +466,8 @@ class S3AccountsService:
             .where(User.id == UserS3Account.user_id)
             .where(
                 or_(
-                    User.email.ilike(pattern, escape="\\"),
-                    func.coalesce(User.full_name, "").ilike(pattern, escape="\\"),
+                    text_search_predicate(User.email, search_value, exact=exact),
+                    text_search_predicate(User.full_name, search_value, exact=exact),
                 )
             )
         )
@@ -476,12 +475,12 @@ class S3AccountsService:
             exists()
             .where(UiGroupS3Account.account_id == S3Account.id)
             .where(UiGroup.id == UiGroupS3Account.group_id)
-            .where(UiGroup.name.ilike(pattern, escape="\\"))
+            .where(text_search_predicate(UiGroup.name, search_value, exact=exact))
         )
         return query.where(
             or_(
-                S3Account.name.ilike(pattern, escape="\\"),
-                S3Account.rgw_account_id.ilike(pattern, escape="\\"),
+                text_search_predicate(S3Account.name, search_value, exact=exact),
+                text_search_predicate(S3Account.rgw_account_id, search_value, exact=exact),
                 tag_match,
                 user_match,
                 group_match,
@@ -515,9 +514,10 @@ class S3AccountsService:
         sort_dir: str,
         include_quota: bool,
         include_rgw_details: bool,
+        search_exact: bool = False,
     ) -> PaginatedS3AccountsResponse:
         search_value = search.strip() if isinstance(search, str) else ""
-        query = self._apply_account_search(select(S3Account), search_value)
+        query = self._apply_account_search(select(S3Account), search_value, exact=search_exact)
         db_accounts, total = paginate_scalars(
             self.db,
             query,

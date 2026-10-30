@@ -64,6 +64,7 @@ from app.utils.rgw_payloads import (
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.quota_stats import bytes_to_gb, extract_quota_limits, parse_positive_limit
 from app.utils.name_ordering import name_order_by
+from app.utils.sql_search import text_search_predicate
 from app.utils.usage_stats import aggregate_bucket_usage
 
 logger = logging.getLogger(__name__)
@@ -335,15 +336,14 @@ class S3UsersService:
         return summaries
 
     @staticmethod
-    def _apply_user_search(query, search_value: str):
+    def _apply_user_search(query, search_value: str, *, exact: bool):
         if not search_value:
             return query
-        pattern = f"%{search_value}%"
         tag_match = (
             exists()
             .where(S3UserTag.s3_user_id == S3UserModel.id)
             .where(TagDefinition.id == S3UserTag.tag_definition_id)
-            .where(TagDefinition.label.ilike(pattern))
+            .where(text_search_predicate(TagDefinition.label, search_value, exact=exact))
         )
         return (
             query.outerjoin(UserS3UserModel, S3UserModel.id == UserS3UserModel.s3_user_id)
@@ -352,11 +352,12 @@ class S3UsersService:
             .outerjoin(UiGroup, UiGroupS3User.group_id == UiGroup.id)
             .where(
                 or_(
-                    S3UserModel.name.ilike(pattern),
-                    S3UserModel.rgw_user_uid.ilike(pattern),
-                    func.coalesce(S3UserModel.email, "").ilike(pattern),
-                    func.coalesce(User.email, "").ilike(pattern),
-                    func.coalesce(UiGroup.name, "").ilike(pattern),
+                    text_search_predicate(S3UserModel.name, search_value, exact=exact),
+                    text_search_predicate(S3UserModel.rgw_user_uid, search_value, exact=exact),
+                    text_search_predicate(S3UserModel.email, search_value, exact=exact),
+                    text_search_predicate(User.email, search_value, exact=exact),
+                    text_search_predicate(User.full_name, search_value, exact=exact),
+                    text_search_predicate(UiGroup.name, search_value, exact=exact),
                     tag_match,
                 )
             )
@@ -394,9 +395,10 @@ class S3UsersService:
         sort_field: str = "name",
         sort_direction: str = "asc",
         include_quota: bool = False,
+        search_exact: bool = False,
     ) -> tuple[list[S3UserSchema], int]:
         search_value = search.strip() if isinstance(search, str) else ""
-        query = self._apply_user_search(select(S3UserModel), search_value)
+        query = self._apply_user_search(select(S3UserModel), search_value, exact=search_exact)
         rows, total = paginate_scalars(
             self.db,
             query,

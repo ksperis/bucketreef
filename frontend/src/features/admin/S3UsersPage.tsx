@@ -51,9 +51,9 @@ import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
-import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
-import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
-import { extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { type TextMatchMode } from "../../utils/textMatch";
+import { pageCount } from "../../utils/pagination";
+import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
@@ -66,20 +66,6 @@ import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 
 type EditTab = "general" | "users" | "groups" | "manager";
-
-function getS3UserSearchCandidates(user: S3User): Array<string | number | null | undefined> {
-  return [
-    user.name,
-    user.rgw_user_uid,
-    user.email,
-    ...user.user_links.flatMap((link) => [
-      link.user_email,
-      link.user_full_name,
-    ]),
-    ...user.group_links.map((link) => link.group_name),
-    ...extractUiTagLabels(user.tags),
-  ];
-}
 
 export default function S3UsersPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
@@ -224,46 +210,22 @@ export default function S3UsersPage() {
     setError(null);
     try {
       const quick = filter.trim();
-      if (quick && quickFilterMode === "exact") {
-        const allMatches = await collectPaginatedItems((nextPage) =>
-          listS3Users({
-            page: nextPage,
-            page_size: 200,
-            search: quick,
-            sort_by: sort.field,
-            sort_dir: sort.direction,
-            include_quota: false,
-          }),
-        );
-
-        const exactMatches = allMatches.filter((user) => {
-          return matchesExactTextCandidate(getS3UserSearchCandidates(user), quick);
-        });
-        const totalExact = exactMatches.length;
-        const totalPages = pageCount(totalExact, pageSize);
-        if (totalExact > 0 && page > totalPages) {
-          setPage(totalPages);
-          return;
-        }
-        setUsers(slicePage(exactMatches, page, pageSize));
-        setTotalUsers(totalExact);
-      } else {
-        const response = await listS3Users({
-          page,
-          page_size: pageSize,
-          search: quick || undefined,
-          sort_by: sort.field,
-          sort_dir: sort.direction,
-          include_quota: false,
-        });
-        const totalPages = pageCount(response.total || 0, pageSize);
-        if (response.total > 0 && page > totalPages) {
-          setPage(totalPages);
-          return;
-        }
-        setUsers(response.items);
-        setTotalUsers(response.total);
+      const response = await listS3Users({
+        page,
+        page_size: pageSize,
+        search: quick || undefined,
+        search_exact: quickFilterMode === "exact",
+        sort_by: sort.field,
+        sort_dir: sort.direction,
+        include_quota: false,
+      });
+      const totalPages = pageCount(response.total || 0, pageSize);
+      if (response.total > 0 && page > totalPages) {
+        setPage(totalPages);
+        return;
       }
+      setUsers(response.items);
+      setTotalUsers(response.total);
     } catch (err) {
       setError(extractApiError(err, adminText("Unexpected error")));
     } finally {

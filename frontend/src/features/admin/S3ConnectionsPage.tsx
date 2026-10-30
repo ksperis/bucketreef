@@ -30,9 +30,9 @@ import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { listMinimalUsers, type UserSummary } from "../../api/users";
 import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import { extractApiError } from "../../utils/apiError";
-import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
-import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
-import { extractUiTagLabels, normalizeUiTags } from "../../utils/uiTags";
+import { type TextMatchMode } from "../../utils/textMatch";
+import { collectPaginatedItems, pageCount } from "../../utils/pagination";
+import { normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationPanelClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
@@ -63,17 +63,6 @@ import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
 
 type EditTab = "general" | "users" | "groups";
-
-function getConnectionSearchCandidates(connection: S3ConnectionAdminItem): Array<string | number | null | undefined> {
-  return [
-    connection.name,
-    connection.endpoint_url,
-    connection.created_by_email,
-    ...connection.user_details.flatMap((user) => [user.email, user.full_name]),
-    ...connection.group_details.map((group) => group.name),
-    ...extractUiTagLabels(connection.tags),
-  ];
-}
 
 export default function S3ConnectionsPage() {
   const { text: adminText } = useAdminI18n();
@@ -234,40 +223,19 @@ export default function S3ConnectionsPage() {
     setError(null);
     try {
       const quick = filter.trim();
-      if (quick && quickFilterMode === "exact") {
-        const allMatches = await collectPaginatedItems((nextPage) =>
-          listAdminS3Connections({
-            page: nextPage,
-            page_size: 200,
-            search: quick,
-          }),
-        );
-
-        const exactMatches = allMatches.filter((connection) =>
-          matchesExactTextCandidate(getConnectionSearchCandidates(connection), quick)
-        );
-        const totalExact = exactMatches.length;
-        const totalPages = pageCount(totalExact, pageSize);
-        if (totalExact > 0 && page > totalPages) {
-          setPage(totalPages);
-          return;
-        }
-        setItems(slicePage(exactMatches, page, pageSize));
-        setTotal(totalExact);
-      } else {
-        const response = await listAdminS3Connections({
-          page,
-          page_size: pageSize,
-          search: quick || undefined,
-        });
-        const totalPages = pageCount(response.total || 0, pageSize);
-        if (response.total > 0 && page > totalPages) {
-          setPage(totalPages);
-          return;
-        }
-        setItems(response.items);
-        setTotal(response.total);
+      const response = await listAdminS3Connections({
+        page,
+        page_size: pageSize,
+        search: quick || undefined,
+        search_exact: quickFilterMode === "exact",
+      });
+      const totalPages = pageCount(response.total || 0, pageSize);
+      if (response.total > 0 && page > totalPages) {
+        setPage(totalPages);
+        return;
       }
+      setItems(response.items);
+      setTotal(response.total);
       setAllFilteredSelectableIds(null);
       setAllFilteredSelectableIdsKey(null);
     } catch (err) {
@@ -453,14 +421,10 @@ export default function S3ConnectionsPage() {
         page: nextPage,
         page_size: 200,
         search: filter.trim() || undefined,
+        search_exact: quickFilterMode === "exact",
       }),
     );
-    const ids = new Set<number>();
-    allItems.forEach((item) => {
-      if (!filter.trim() || quickFilterMode === "contains" || matchesExactTextCandidate(getConnectionSearchCandidates(item), filter)) {
-        ids.add(item.id);
-      }
-    });
+    const ids = new Set(allItems.map((item) => item.id));
     const resolved = Array.from(ids.values());
     setAllFilteredSelectableIds(resolved);
     setAllFilteredSelectableIdsKey(selectionQueryKey);

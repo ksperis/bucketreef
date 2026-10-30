@@ -31,6 +31,7 @@ from app.services.user_avatar_service import UserAvatarService
 from app.utils.name_ordering import name_order_by
 from app.utils.s3_connection_capabilities import parse_s3_connection_capabilities
 from app.utils.s3_connection_endpoint import resolve_connection_details
+from app.utils.sql_search import text_search_predicate
 
 
 class AdminS3ConnectionsReadService:
@@ -143,7 +144,7 @@ class AdminS3ConnectionsReadService:
             capabilities=capabilities,
         )
 
-    def _select(self, *, search: Optional[str]):
+    def _select(self, *, search: Optional[str], search_exact: bool):
         linked_user = aliased(User)
         statement = (
             select(
@@ -161,26 +162,26 @@ class AdminS3ConnectionsReadService:
         if not search:
             return statement
 
-        term = f"%{search.strip()}%"
+        search_value = search.strip()
         tag_match = (
             exists()
             .where(S3ConnectionTag.s3_connection_id == S3Connection.id)
             .where(TagDefinition.id == S3ConnectionTag.tag_definition_id)
-            .where(TagDefinition.label.ilike(term))
+            .where(text_search_predicate(TagDefinition.label, search_value, exact=search_exact))
         )
         group_match = (
             exists()
             .where(UiGroupS3Connection.s3_connection_id == S3Connection.id)
             .where(UiGroup.id == UiGroupS3Connection.group_id)
-            .where(UiGroup.name.ilike(term))
+            .where(text_search_predicate(UiGroup.name, search_value, exact=search_exact))
         )
         return statement.where(
-            (S3Connection.name.ilike(term))
-            | (StorageEndpoint.endpoint_url.ilike(term))
-            | (S3Connection.custom_endpoint_url.ilike(term))
-            | (User.email.ilike(term))
-            | (linked_user.email.ilike(term))
-            | (linked_user.full_name.ilike(term))
+            text_search_predicate(S3Connection.name, search_value, exact=search_exact)
+            | text_search_predicate(StorageEndpoint.endpoint_url, search_value, exact=search_exact)
+            | text_search_predicate(S3Connection.custom_endpoint_url, search_value, exact=search_exact)
+            | text_search_predicate(User.email, search_value, exact=search_exact)
+            | text_search_predicate(linked_user.email, search_value, exact=search_exact)
+            | text_search_predicate(linked_user.full_name, search_value, exact=search_exact)
             | group_match
             | tag_match
         )
@@ -245,9 +246,10 @@ class AdminS3ConnectionsReadService:
         search: Optional[str],
         sort_by: str,
         sort_dir: str,
+        search_exact: bool = False,
     ) -> PaginatedS3ConnectionsResponse:
         statement = self._order(
-            self._select(search=search),
+            self._select(search=search, search_exact=search_exact),
             sort_by=sort_by,
             sort_dir=sort_dir,
         )

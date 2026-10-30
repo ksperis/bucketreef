@@ -1119,7 +1119,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("keeps tagged accounts visible with exact quick filter mode", async () => {
-    listS3AccountsMock.mockImplementation((params?: { search?: string }) => {
+    listS3AccountsMock.mockImplementation((params?: { search?: string; search_exact?: boolean }) => {
       const taggedAccount = {
         id: 1,
         name: "acc-1",
@@ -1170,6 +1170,8 @@ describe("AccountsPage modal tabs", () => {
       expect(listS3AccountsMock).toHaveBeenLastCalledWith(
         expect.objectContaining({
           search: "gold",
+          search_exact: true,
+          page_size: 25,
         })
       );
     });
