@@ -3,6 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+import { cloneBucketJsonValue } from "./bucketFeatureState";
+
 export type PolicyDocumentRecord = Record<string, unknown>;
 export type PolicyStatementRecord = Record<string, unknown>;
 type PolicyEffect = "" | "Allow" | "Deny";
@@ -54,10 +56,6 @@ const supportedStatementKeys = new Set([
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
-}
-
-function cloneRecord<T extends Record<string, unknown>>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 function isStringListValue(value: unknown): boolean {
@@ -113,7 +111,7 @@ export function withPolicyStatements(
   policy: PolicyDocumentRecord,
   statements: PolicyStatementRecord[],
 ): PolicyDocumentRecord {
-  const next = cloneRecord(policy);
+  const next = cloneBucketJsonValue(policy);
   if (!Object.prototype.hasOwnProperty.call(next, "Version") && statements.length > 0) {
     next.Version = "2012-10-17";
   }
@@ -245,7 +243,7 @@ export function updatePolicyVisualStatement(
   patch: PolicyVisualStatementPatch,
 ): PolicyStatementRecord {
   if (!isPolicyStatementVisuallyEditable(statement)) return statement;
-  const next = cloneRecord(statement);
+  const next = cloneBucketJsonValue(statement);
   const current = readPolicyVisualStatement(statement);
 
   if (patch.sid !== undefined) {
@@ -280,7 +278,7 @@ export function setPolicyConditionValue(
   values: string[],
 ): PolicyStatementRecord {
   if (!isPolicyStatementVisuallyEditable(statement) || !operator || !key) return statement;
-  const next = cloneRecord(statement);
+  const next = cloneBucketJsonValue(statement);
   const condition = asRecord(next.Condition) ?? {};
   const operatorValue = asRecord(condition[operator]) ?? {};
   const previousValue = operatorValue[key];
@@ -296,7 +294,7 @@ export function removePolicyCondition(
   key: string,
 ): PolicyStatementRecord {
   if (!isPolicyStatementVisuallyEditable(statement)) return statement;
-  const next = cloneRecord(statement);
+  const next = cloneBucketJsonValue(statement);
   const condition = asRecord(next.Condition);
   if (!condition) return next;
   const operatorValue = asRecord(condition[operator]);

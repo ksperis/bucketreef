@@ -13,6 +13,7 @@ import {
 import { extractApiError } from "../../../utils/apiError";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
+  cloneBucketJsonValue,
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
@@ -40,10 +41,6 @@ function normalizeRules(value: unknown): EncryptionRuleRecord[] {
     (rule): rule is EncryptionRuleRecord =>
       rule !== null && typeof rule === "object" && !Array.isArray(rule),
   );
-}
-
-function cloneRules(rules: EncryptionRuleRecord[]): EncryptionRuleRecord[] {
-  return JSON.parse(JSON.stringify(rules)) as EncryptionRuleRecord[];
 }
 
 function rulesText(rules: EncryptionRuleRecord[]): string {
@@ -112,7 +109,7 @@ export function useBucketEncryptionController({
 
   const openEditor = useCallback(() => {
     if (!enabled) return;
-    const nextDraft = cloneRules(rules);
+    const nextDraft = cloneBucketJsonValue(rules);
     setDraftRules(nextDraft);
     setJsonText(rulesText(nextDraft));
     setEditorMode("visual");
@@ -219,7 +216,7 @@ export function useBucketEncryptionController({
         }
         const savedRules = normalizeRules(saved.rules ?? nextRules);
         applyBaseline(savedRules);
-        setDraftRules(cloneRules(savedRules));
+        setDraftRules(cloneBucketJsonValue(savedRules));
         setJsonText(rulesText(savedRules));
         setStatus("Bucket encryption updated.");
       }

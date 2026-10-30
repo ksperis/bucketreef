@@ -13,6 +13,7 @@ import {
 import { extractApiError } from "../../../utils/apiError";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
+  cloneBucketJsonValue,
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
@@ -38,10 +39,6 @@ type UseBucketPolicyControllerOptions = {
   enabled: boolean;
   endpointId?: number | null;
 };
-
-function clonePolicy(policy: PolicyDocumentRecord): PolicyDocumentRecord {
-  return JSON.parse(JSON.stringify(policy)) as PolicyDocumentRecord;
-}
 
 function normalizePolicy(value: unknown): PolicyDocumentRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -87,7 +84,7 @@ export function useBucketPolicyController({
   const [deleting, setDeleting] = useState(false);
 
   const applyBaseline = useCallback((next: unknown) => {
-    setPolicy(clonePolicy(normalizePolicy(next)));
+    setPolicy(cloneBucketJsonValue(normalizePolicy(next)));
   }, []);
 
   const load = useCallback(async () => {
@@ -130,19 +127,19 @@ export function useBucketPolicyController({
   }, []);
 
   const openEditor = useCallback(() => {
-    openEditorDraft(clonePolicy(policy), "visual", null);
+    openEditorDraft(cloneBucketJsonValue(policy), "visual", null);
   }, [openEditorDraft, policy]);
 
   const openEditorFor = useCallback((index: number) => {
-    openEditorDraft(clonePolicy(policy), "visual", index);
+    openEditorDraft(cloneBucketJsonValue(policy), "visual", index);
   }, [openEditorDraft, policy]);
 
   const openJsonEditor = useCallback(() => {
-    openEditorDraft(clonePolicy(policy), "json", null);
+    openEditorDraft(cloneBucketJsonValue(policy), "json", null);
   }, [openEditorDraft, policy]);
 
   const openEditorWithNew = useCallback(() => {
-    const nextDraft = clonePolicy(policy);
+    const nextDraft = cloneBucketJsonValue(policy);
     const statements = policyStatements(nextDraft);
     const withNewStatement = withPolicyStatements(
       nextDraft,
@@ -175,7 +172,7 @@ export function useBucketPolicyController({
       setEditorError(parsed.error);
       return;
     }
-    setDraftPolicy(clonePolicy(parsed.policy));
+    setDraftPolicy(cloneBucketJsonValue(parsed.policy));
     setEditorMode("visual");
   }, [draftPolicy, editorMode, jsonText]);
 
@@ -270,7 +267,7 @@ export function useBucketPolicyController({
     setStatus(null);
     try {
       const nextPolicy = withPolicyStatements(
-        clonePolicy(policy),
+        cloneBucketJsonValue(policy),
         policyStatements(policy).filter((_, statementIndex) => statementIndex !== index),
       );
       const savedPolicy = await persistPolicy(nextPolicy);
@@ -294,7 +291,7 @@ export function useBucketPolicyController({
         return;
       }
       nextPolicy = parsed.policy;
-      setDraftPolicy(clonePolicy(parsed.policy));
+      setDraftPolicy(cloneBucketJsonValue(parsed.policy));
     } else {
       const validationError = validateVisualPolicy(nextPolicy);
       if (validationError) {
@@ -310,7 +307,7 @@ export function useBucketPolicyController({
       const savedPolicy = await persistPolicy(nextPolicy);
       if (savedPolicy === null) return;
       applyBaseline(savedPolicy);
-      setDraftPolicy(clonePolicy(savedPolicy));
+      setDraftPolicy(cloneBucketJsonValue(savedPolicy));
       setJsonText(policyText(savedPolicy));
       setStatus(isPolicyConfigurationEmpty(savedPolicy) ? "Bucket policy deleted" : "Bucket policy updated");
       setEditorTargetIndex(null);
