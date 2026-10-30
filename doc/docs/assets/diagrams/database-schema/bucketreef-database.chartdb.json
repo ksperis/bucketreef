@@ -23514,11 +23514,11 @@
           "check": null
         },
         {
-          "id": "field:backend_operation_leases.metadata_json",
-          "name": "metadata_json",
+          "id": "field:backend_operation_leases.lease_context",
+          "name": "lease_context",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

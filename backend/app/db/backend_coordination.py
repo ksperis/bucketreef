@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Column, JSON, String, Text
+from sqlalchemy import Column, JSON, String
 
 from .base import Base
 
@@ -17,7 +17,7 @@ class BackendOperationLease(Base):
     lease_owner = Column(String, nullable=False)
     lease_until = Column(UTCDateTime(), nullable=False, index=True)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
-    metadata_json = Column(Text, nullable=True)
+    lease_context = Column(JSON, nullable=True)
 
 
 class AppSetting(Base):

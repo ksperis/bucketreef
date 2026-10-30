@@ -42,6 +42,22 @@ def test_operation_lease_same_owner_renews(db_session):
     assert db_session.scalar(sa.select(sa.func.count()).select_from(BackendOperationLease)) == 1
 
 
+def test_operation_lease_persists_structured_context(db_session):
+    service = OperationLeaseService(db_session)
+
+    handle = service.acquire(
+        "bucket-usage-stats:collect",
+        ttl_seconds=60,
+        owner="backend-a",
+        lease_context={"scope": "account:42", "bucket_count": 3},
+    )
+
+    assert handle is not None
+    row = db_session.get(BackendOperationLease, "bucket-usage-stats:collect")
+    assert row is not None
+    assert row.lease_context == {"scope": "account:42", "bucket_count": 3}
+
+
 def test_operation_lease_expired_row_can_be_taken(db_session):
     expired = BackendOperationLease(
         operation_name="cost:daily:2026-07-03",
