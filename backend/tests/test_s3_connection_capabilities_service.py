@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 from types import SimpleNamespace
 
@@ -75,7 +76,7 @@ def test_probe_connection_can_manage_iam_uses_aws_iam_endpoint(monkeypatch):
             force_path_style=False,
             verify_tls=True,
             name="AWS",
-            features_config=None,
+            features=parse_features_config(None),
         )
     )
 
@@ -101,7 +102,7 @@ def test_probe_connection_can_manage_iam_signs_commercial_aws_iam_with_us_east_1
             force_path_style=False,
             verify_tls=True,
             name="AWS Europe",
-            features_config=None,
+            features=parse_features_config(None),
         )
     )
 
@@ -146,7 +147,7 @@ def test_probe_connection_can_manage_iam_respects_disabled_endpoint_iam(monkeypa
             force_path_style=False,
             verify_tls=True,
             name="AWS disabled IAM",
-            features_config="features:\n  iam:\n    enabled: false\n",
+            features=parse_features_config("features:\n  iam:\n    enabled: false\n"),
         )
     )
 

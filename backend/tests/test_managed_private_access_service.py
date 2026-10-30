@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import json
 from types import SimpleNamespace
@@ -139,7 +140,7 @@ def _endpoint(db_session, *, iam=True, admin=False):
         provider=StorageProvider.CEPH.value,
         admin_access_key="ADMIN-AK" if admin else None,
         admin_secret_key="ADMIN-SK" if admin else None,
-        features_config="\n".join(features) + "\n",
+        features=parse_features_config("\n".join(features) + "\n"),
         force_path_style=True,
         verify_tls=True,
     )

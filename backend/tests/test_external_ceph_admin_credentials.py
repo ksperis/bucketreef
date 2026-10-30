@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from copy import deepcopy
 import json
 
@@ -100,7 +101,7 @@ def test_manual_pair_replacement_and_empty_update_preservation(identities, db_se
 def test_ceph_admin_rotation_uses_admin_ops_and_updates_external_pair(identities, db_session, monkeypatch):
     service, endpoint, rgw = identities
     configure(db_session, endpoint, rgw)
-    endpoint.features_config = "features:\n  admin:\n    enabled: false\n"
+    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: false\n")
     db_session.commit()
     service.validate_ceph_admin(endpoint)
     monkeypatch.setattr(
@@ -217,7 +218,7 @@ def test_external_credentials_remain_required_by_enabled_features(db_session, fe
     payload = StorageEndpointCreate(
         name="Required credentials", endpoint_url="https://required.example.test", provider="ceph",
         service_identity_mode="external", admin_access_key="ADMIN", admin_secret_key="ADMIN-SK",
-        features_config=json.dumps({"features": {feature: feature_config}}),
+        features=parse_features_config(json.dumps({"features": {feature: feature_config}})),
     )
     with pytest.raises(ValueError, match=kind.title()):
         StorageEndpointsService(db_session).create_endpoint(payload)

@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 import logging
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -21,11 +22,9 @@ def _account_with_sts_endpoint() -> S3ExecutionContext:
         region="us-east-1",
         force_path_style=False,
         verify_tls=True,
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  sts:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
     )
     account = S3Account(id=1, name="sts-account", rgw_access_key="root", rgw_secret_key="secret")
     account.storage_endpoint = endpoint
@@ -249,8 +248,8 @@ def test_browser_sts_cache_follows_the_resolved_sts_endpoint(monkeypatch):
 
     monkeypatch.setattr(browser_sts, "get_session_token", fake_get_session_token)
     browser_sts.request_browser_sts_session(account)
-    account.storage_endpoint.features_config = (
-        'features:\n  sts:\n    enabled: true\n    endpoint: https://other-sts.example.test\n'
+    account.storage_endpoint.features = (
+        parse_features_config('features:\n  sts:\n    enabled: true\n    endpoint: https://other-sts.example.test\n')
     )
     browser_sts.request_browser_sts_session(account)
 

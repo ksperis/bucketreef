@@ -353,7 +353,7 @@ class ConnectionIdentityService:
                 endpoint.endpoint_url,
                 endpoint.region,
                 endpoint.verify_tls,
-                endpoint.features_config,
+                endpoint.features,
                 supervision.access_key if supervision else None,
                 supervision.secret_key if supervision else None,
                 supervision.status if supervision else None,

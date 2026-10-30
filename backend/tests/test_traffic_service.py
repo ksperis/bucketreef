@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from datetime import datetime, timezone
 
 import pytest
@@ -262,13 +263,11 @@ def test_usage_client_uses_supervision_endpoint_when_admin_is_disabled(monkeypat
         endpoint_url="https://rgw.example.test",
         provider="ceph",
         service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             "    enabled: false\n"
             "  usage:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
     )
     account.storage_endpoint = endpoint
     expected_client = FakeRGWClient([])

@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 from typing import Optional
 
@@ -160,7 +161,7 @@ def _seed_endpoint(db_session, *, name: str) -> StorageEndpoint:
             service_identity("supervision", "SUP-OLD", "SUP-OLD-SEC"),
             service_identity("ceph_admin", "CADM-OLD", "CADM-OLD-SEC"),
         ],
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )
@@ -176,7 +177,7 @@ def test_endpoint_resource_listing_is_scoped_to_persisted_endpoint(db_session):
         name="ceph-secondary-listing",
         endpoint_url="https://ceph-secondary-listing.example.test",
         provider=StorageProvider.CEPH.value,
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         is_default=False,
         is_editable=True,
     )
@@ -360,7 +361,7 @@ def test_rotate_keys_reports_error_for_non_ceph_endpoint(db_session):
         name="other-main",
         endpoint_url="https://other-main.example.test",
         provider=StorageProvider.OTHER.value,
-        features_config="features:\n  admin:\n    enabled: false\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: false\n"),
         is_default=True,
         is_editable=True,
     )
@@ -569,7 +570,7 @@ def test_rotate_supervision_skips_without_admin_ops_key(db_session):
         admin_access_key=None,
         admin_secret_key=None,
         service_identities=[service_identity("supervision", "SUP-OLD", "SUP-OLD-SEC")],
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )

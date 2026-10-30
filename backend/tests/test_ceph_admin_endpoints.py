@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 import pytest
@@ -69,7 +70,7 @@ def _build_endpoint(
         region="",
         verify_tls=True,
         is_default=False,
-        features_config=features_yaml,
+        features=parse_features_config(features_yaml),
         ceph_admin_allowed=True,
         service_identity=lambda kind: ceph_admin if kind == "ceph_admin" else supervision,
         tag_links=[

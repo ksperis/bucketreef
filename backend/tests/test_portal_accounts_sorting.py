@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 from app.db import PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
 from app.main import app
@@ -14,13 +15,11 @@ def _seed_endpoint(db_session) -> StorageEndpoint:
         provider=StorageProvider.CEPH.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             "  iam:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )

@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 import pytest
@@ -50,12 +51,12 @@ def test_probe_ceph_admin_service_identity_classifies_unavailable(monkeypatch):
         provider=StorageProvider.CEPH,
         region=None,
         verify_tls=True,
-        features_config="""
+        features=parse_features_config("""
 features:
   admin:
     enabled: true
     endpoint: https://rgw-admin.example.test
-""",
+"""),
         endpoint_url="https://s3.example.test",
     )
 
@@ -85,7 +86,7 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
         provider=StorageProvider.CEPH,
         region=None,
         verify_tls=True,
-        features_config="features:\n  admin:\n    endpoint: https://rgw-admin.example.test\n",
+        features=parse_features_config("features:\n  admin:\n    endpoint: https://rgw-admin.example.test\n"),
         endpoint_url="https://s3.example.test",
     )
 
@@ -117,7 +118,7 @@ def test_probe_ceph_admin_service_identity_classifies_redirect_as_misconfigured(
         provider=StorageProvider.CEPH,
         region=None,
         verify_tls=True,
-        features_config="features:\n  admin:\n    endpoint: http://rgw-admin.example.test\n",
+        features=parse_features_config("features:\n  admin:\n    endpoint: http://rgw-admin.example.test\n"),
         endpoint_url="http://s3.example.test",
     )
     message = (
@@ -152,11 +153,11 @@ def test_validate_ceph_admin_service_identity_checks_flags_when_admin_ops_disabl
         id=2,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH,
-        features_config="""
+        features=parse_features_config("""
 features:
   admin:
     enabled: false
-""",
+"""),
         endpoint_url="https://s3.example.test",
         region="us-east-1",
         verify_tls=True,
@@ -190,11 +191,11 @@ def test_resolve_ceph_admin_workspace_endpoint_does_not_require_admin_feature_en
         id=9,
         name="Ceph",
         provider=StorageProvider.CEPH.value,
-        features_config="""
+        features=parse_features_config("""
 features:
   admin:
     enabled: false
-""",
+"""),
     )
 
     resolved = deps._resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=9)
@@ -247,12 +248,12 @@ def test_get_ceph_admin_context_uses_rgw_admin_endpoint_when_admin_feature_disab
         id=10,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH.value,
-        features_config="""
+        features=parse_features_config("""
 features:
   admin:
     enabled: false
     endpoint: https://rgw-admin.example.test
-""",
+"""),
         endpoint_url="https://s3.example.test",
         region="us-east-1",
         verify_tls=True,
@@ -291,12 +292,12 @@ def test_build_ceph_admin_endpoint_payload_exposes_admin_endpoint_when_admin_fea
         id=11,
         name="Ceph endpoint",
         provider=StorageProvider.CEPH.value,
-        features_config="""
+        features=parse_features_config("""
 features:
   admin:
     enabled: false
     endpoint: https://rgw-admin.example.test
-""",
+"""),
         endpoint_url="https://s3.example.test",
         region="us-east-1",
         is_default=False,

@@ -2,7 +2,7 @@
 import type { StorageEndpoint, StorageEndpointPayload } from "../../api/storageEndpoints";
 import {
   applyFeatureConstraints, awsIamEndpointForRegion, awsS3EndpointForRegion,
-  awsStsEndpointForRegion, buildFeaturesYaml, normalizeAwsRegion, parseCoordinateInput,
+  awsStsEndpointForRegion, buildFeaturesPayload, normalizeAwsRegion, parseCoordinateInput,
   serviceIdentityRequirements, type FormState,
 } from "./storageEndpointFormModel";
 
@@ -55,7 +55,7 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
     name: form.name.trim(), endpoint_url: endpoint, region: region || null,
     realm_id: realmId || null, zonegroup_id: zonegroupId || null, zone_id: zoneId || null,
     force_path_style: Boolean(form.force_path_style), verify_tls: Boolean(form.verify_tls),
-    latitude, longitude, provider: form.provider, features_config: buildFeaturesYaml(features),
+    latitude, longitude, provider: form.provider, features: buildFeaturesPayload(features),
   };
   if (form.provider === "ceph") {
     payload.service_identity_mode = form.service_identity_mode;

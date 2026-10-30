@@ -26,7 +26,7 @@ from app.services.portal_service import PortalService
 from app.utils.http_errors import raise_bad_gateway_from_runtime
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
-    normalize_features_config,
+    normalize_features,
 )
 
 router = APIRouter()
@@ -58,9 +58,9 @@ def list_portal_accounts(
             storage_endpoint_url=account.storage_endpoint.endpoint_url,
             storage_endpoint_is_default=bool(account.storage_endpoint.is_default),
             storage_endpoint_capabilities=features_to_capabilities(
-                normalize_features_config(
+                normalize_features(
                     account.storage_endpoint.provider,
-                    account.storage_endpoint.features_config,
+                    account.storage_endpoint.features,
                 )
             ),
         )

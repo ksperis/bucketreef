@@ -9,6 +9,9 @@ export type StorageProvider = "ceph" | "aws" | "other";
 
 type StorageEndpointFeature = {
   enabled: boolean;
+};
+
+type StorageEndpointAddressableFeature = StorageEndpointFeature & {
   endpoint?: string | null;
 };
 
@@ -19,13 +22,13 @@ type StorageEndpointHealthcheckFeature = {
 };
 
 export type StorageEndpointFeatures = {
-  admin: StorageEndpointFeature;
+  admin: StorageEndpointAddressableFeature;
   account: StorageEndpointFeature;
-  sts: StorageEndpointFeature;
+  sts: StorageEndpointAddressableFeature;
   usage: StorageEndpointFeature;
   metrics: StorageEndpointFeature;
   static_website: StorageEndpointFeature;
-  iam: StorageEndpointFeature;
+  iam: StorageEndpointAddressableFeature;
   sns: StorageEndpointFeature;
   sse: StorageEndpointFeature;
   replication: StorageEndpointFeature;
@@ -73,7 +76,6 @@ export type StorageEndpoint = {
   ceph_admin_allowed: boolean;
   capabilities: Record<string, boolean>;
   admin_ops_permissions: StorageEndpointAdminOpsPermissions;
-  features_config: string | null;
   features: StorageEndpointFeatures;
   is_default: boolean;
   is_editable: boolean;
@@ -113,7 +115,7 @@ export type StorageEndpointPayload = {
   ceph_admin_secret_key?: string | null;
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
-  features_config?: string | null;
+  features?: StorageEndpointFeatures | null;
 };
 
 export type StorageEndpointFeatureDetectionPayload = {

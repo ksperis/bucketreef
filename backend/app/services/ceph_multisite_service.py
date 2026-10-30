@@ -84,7 +84,7 @@ class CephMultisiteService:
         identity = endpoint.service_identity("ceph_admin")
         fingerprint = sha256(repr((
             identity.access_key, identity.secret_key, endpoint.endpoint_url,
-            endpoint.features_config, endpoint.region, endpoint.verify_tls,
+            endpoint.features, endpoint.region, endpoint.verify_tls,
         )).encode()).hexdigest()
         return self.actor_id, endpoint.id, fingerprint, operation, scope
 

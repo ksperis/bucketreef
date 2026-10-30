@@ -14,7 +14,7 @@ from app.services.rgw_admin_identity import (
 )
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
-    normalize_features_config,
+    normalize_features,
     resolve_rgw_admin_api_endpoint,
 )
 
@@ -97,7 +97,7 @@ def validate_ceph_admin_service_configuration(endpoint: StorageEndpoint) -> Opti
 
 
 def build_ceph_admin_endpoint_payload(endpoint: StorageEndpoint) -> dict:
-    features = normalize_features_config(endpoint.provider, endpoint.features_config)
+    features = normalize_features(endpoint.provider, endpoint.features)
     return {
         "id": endpoint.id,
         "name": endpoint.name,

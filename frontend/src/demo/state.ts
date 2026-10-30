@@ -273,7 +273,6 @@ export function createSeed(): DemoState {
     admin_access_key: "DEMO_NOT_A_REAL_KEY",
     ceph_admin_allowed: false,
     ceph_admin_active: false,
-    features_config: null,
     service_identities: [
       { kind: "runtime", mode: "managed", status: "ready", rgw_uid: null, credentials_configured: true,
         rotation_pending: false, rotation_phase: null, last_error: null, last_reconciled_at: null },

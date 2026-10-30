@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from app.utils.storage_endpoint_features import parse_features_config
 from typing import Any
 
 import sqlalchemy as sa
@@ -29,13 +30,11 @@ def make_s3_account(db: Session, **values: Any) -> S3Account:
                 provider=StorageProvider.CEPH.value,
                 admin_access_key="TEST-ADMIN-AK",
                 admin_secret_key="TEST-ADMIN-SK",
-                features_config=(
-                    "features:\n"
+                features=parse_features_config("features:\n"
                     "  admin:\n    enabled: true\n"
                     "  account:\n    enabled: true\n"
                     "  usage:\n    enabled: true\n"
-                    "  metrics:\n    enabled: true\n"
-                ),
+                    "  metrics:\n    enabled: true\n"),
                 is_default=True,
                 is_editable=True,
             )

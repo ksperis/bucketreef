@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 from typing import Optional
@@ -51,14 +52,12 @@ def _seed_ceph_endpoint(
         provider=StorageProvider.CEPH.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             "  account:\n"
             f"    enabled: {'true' if account_enabled else 'false'}\n"
-            f"{metrics_config}"
-        ),
+            f"{metrics_config}"),
         is_default=is_default,
         is_editable=True,
     )

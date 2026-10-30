@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 from fastapi import HTTPException
@@ -240,7 +241,7 @@ def test_cost_collection_returns_structured_errors_without_exception_detail(db_s
         name="cost-error-endpoint",
         endpoint_url="https://cost-error.example.test",
         provider="ceph",
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         is_default=False,
     )
     db_session.add(endpoint)

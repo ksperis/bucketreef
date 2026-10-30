@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import pytest
 from fastapi import HTTPException
@@ -140,11 +141,9 @@ def test_storage_reports_missing_supervision_credentials_as_bad_request(db_sessi
         name="metrics-without-supervision",
         endpoint_url="https://metrics-without-supervision.test",
         provider=StorageProvider.CEPH.value,
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  metrics:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
     )
     db_session.add(endpoint)
     db_session.commit()

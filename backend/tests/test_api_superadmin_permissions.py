@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 from app.db import StorageEndpoint, StorageProvider, User, UserRole
@@ -46,7 +47,7 @@ def test_admin_has_read_only_access_to_storage_endpoints(client: TestClient):
             "name": "Endpoint A",
             "endpoint_url": "https://s3.example.test",
             "provider": "ceph",
-            "features_config": "features:\n  admin:\n    enabled: false\n",
+            'features': parse_features_config("features:\n  admin:\n    enabled: false\n"),
         },
     )
     assert create_resp.status_code == 403, create_resp.text

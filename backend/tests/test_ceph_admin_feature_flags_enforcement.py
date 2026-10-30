@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 import pytest
@@ -49,7 +50,7 @@ def _build_endpoint(*, endpoint_id: int = 1, metrics_enabled: bool = True, sse_e
         id=endpoint_id,
         provider="ceph",
         region=None,
-        features_config=features_yaml,
+        features=parse_features_config(features_yaml),
     )
 
 

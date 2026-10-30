@@ -4,13 +4,13 @@ import json
 from dataclasses import dataclass, replace
 from typing import Literal, Optional
 
-import yaml
 from pydantic import SecretStr, ValidationError, field_validator, model_validator
 
 from app.db import StorageEndpoint, StorageProvider
 from app.models.base import ApiModel
 from app.models.storage_endpoint import (
     StorageEndpointCreate,
+    StorageEndpointFeatures,
     StorageEndpointMetadata,
     StorageEndpointUpdate,
 )
@@ -22,8 +22,8 @@ from app.utils.normalize import (
 from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.storage_endpoint_features import (
     AWS_DEFAULT_REGION,
-    dump_features_config,
-    normalize_features_config,
+    normalize_features,
+    parse_features_mapping,
     required_service_identity_kinds,
 )
 
@@ -41,7 +41,7 @@ _CREDENTIAL_FIELD_PAIRS = (
 )
 _PRESERVE_EXISTING_ON_NULL_UPDATE_FIELDS = frozenset(
     {
-        "features_config",
+        "features",
         "force_path_style",
         "name",
         "verify_tls",
@@ -69,7 +69,6 @@ class EnvStorageEndpoint(ApiModel):
     ceph_admin_allowed: bool = False
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
-    features_config: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     features: Optional[dict[str, dict[str, object]]] = None
@@ -120,7 +119,7 @@ class NormalizedEndpointState:
     ceph_admin_allowed: bool | None
     supervision_access_key: Optional[str]
     supervision_secret_key: Optional[str]
-    features_config: str
+    features: dict[str, dict[str, object]]
     is_default: bool = False
 
 
@@ -308,9 +307,14 @@ def normalize_storage_endpoint_state(
     zone_id = normalize_optional_string(payload.zone_id) if provider == StorageProvider.CEPH else None
     if bool(realm_id) != bool(zonegroup_id):
         raise ValueError("Realm ID and zonegroup ID must be configured together.")
-    features = normalize_features_config(
+    feature_overrides = (
+        payload.features.model_dump(exclude_unset=True)
+        if payload.features is not None
+        else None
+    )
+    features = normalize_features(
         provider,
-        payload.features_config,
+        feature_overrides,
         region,
     )
     supervision_access_input, supervision_secret_input = _normalized_credential_pair(
@@ -325,7 +329,6 @@ def normalize_storage_endpoint_state(
     ):
         features["healthcheck"]["enabled"] = True
         features["healthcheck"]["mode"] = "s3"
-    features_config = dump_features_config(features)
     admin_enabled = bool(features.get("admin", {}).get("enabled")) or bool(
         features.get("account", {}).get("enabled")
     )
@@ -361,7 +364,7 @@ def normalize_storage_endpoint_state(
         ceph_admin_allowed=payload.ceph_admin_allowed if provider == StorageProvider.CEPH else False,
         supervision_access_key=credentials["supervision_access_key"],
         supervision_secret_key=credentials["supervision_secret_key"],
-        features_config=features_config,
+        features=features,
     )
 
 
@@ -447,7 +450,11 @@ def _storage_endpoint_update_base(
         ceph_admin_allowed=endpoint.ceph_admin_allowed,
         supervision_access_key=supervision.access_key if supervision is not None else None,
         supervision_secret_key=supervision.secret_key if supervision is not None else None,
-        features_config=endpoint.features_config,
+        features=normalize_features(
+            endpoint.provider,
+            endpoint.features,
+            endpoint.region,
+        ),
         latitude=endpoint.latitude,
         longitude=endpoint.longitude,
     ).model_dump()
@@ -479,9 +486,13 @@ def _validate_external_identity_replacements(
     supervision,
 ) -> None:
     required = required_service_identity_kinds(
-        normalize_features_config(
+        normalize_features(
             merged["provider"],
-            merged["features_config"],
+            (
+                merged["features"].model_dump(exclude_unset=True)
+                if isinstance(merged["features"], StorageEndpointFeatures)
+                else merged["features"]
+            ),
             merged["region"],
         )
     )
@@ -593,14 +604,10 @@ def normalize_env_storage_endpoint_states(
     states: list[NormalizedEndpointState] = []
     for identity in _env_endpoint_identities(env_endpoints):
         entry = identity.entry
-        raw_features = (
-            yaml.safe_dump(
-                {"features": entry.features},
-                sort_keys=False,
-                default_flow_style=False,
-            ).strip()
+        features = (
+            parse_features_mapping(entry.features)
             if entry.features is not None
-            else entry.features_config
+            else None
         )
         state = normalize_storage_endpoint_state(
             StorageEndpointCreate(
@@ -620,7 +627,7 @@ def normalize_env_storage_endpoint_states(
                 ceph_admin_allowed=entry.ceph_admin_allowed,
                 supervision_access_key=entry.supervision_access_key,
                 supervision_secret_key=entry.supervision_secret_key,
-                features_config=raw_features,
+                features=features,
                 latitude=entry.latitude,
                 longitude=entry.longitude,
             ),

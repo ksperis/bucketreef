@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import pytest
 
@@ -32,7 +33,7 @@ def _endpoint(*, name: str = "ceph-manager", admin_enabled: bool = True) -> Stor
         provider="ceph",
         admin_access_key="ADMIN-AK",
         admin_secret_key="ADMIN-SK",
-        features_config=f"features:\n  admin:\n    enabled: {'true' if admin_enabled else 'false'}\n",
+        features=parse_features_config(f"features:\n  admin:\n    enabled: {'true' if admin_enabled else 'false'}\n"),
     )
 
 
@@ -226,7 +227,7 @@ def test_policy_applies_global_kill_switches(db_session, monkeypatch, operation,
     ("endpoint_field", "endpoint_value"),
         [
             ("provider", "other"),
-            ("features_config", "features:\n  admin:\n    enabled: false\n"),
+            ("features", parse_features_config("features:\n  admin:\n    enabled: false\n")),
             ("admin_access_key", None),
             ("admin_secret_key", None),
     ],
@@ -241,7 +242,7 @@ def test_policy_rejects_each_missing_ceph_admin_capability(
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: _settings_with_manager_bucket_quota())
     user = _user(db_session, f"no-admin-{operation}@example.test")
     endpoint = _endpoint(name=f"no-admin-{operation}", admin_enabled=False)
-    endpoint.features_config = "features:\n  admin:\n    enabled: true\n"
+    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: true\n")
     setattr(endpoint, endpoint_field, endpoint_value)
     s3_user = S3User(
         name=f"no-admin-{operation}",

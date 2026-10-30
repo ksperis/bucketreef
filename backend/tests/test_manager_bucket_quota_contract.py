@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import pytest
 
@@ -44,7 +45,7 @@ def _quota_account(db_session, *, allow_target: bool = True) -> S3Account:
         provider="ceph",
         admin_access_key="endpoint-admin-ak",
         admin_secret_key="endpoint-admin-sk",
-        features_config='{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}',
+        features=parse_features_config('{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}'),
     )
     account = S3Account(
         name="quota-account",

@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0199_normalize_s3_connection_custom_endpoints"
+_EXPECTED_ALEMBIC_HEAD = "0200_structure_storage_endpoint_features"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):

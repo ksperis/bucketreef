@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import json
 from datetime import UTC, date, datetime
@@ -39,15 +40,13 @@ def _ceph_endpoint(name: str) -> StorageEndpoint:
             service_identity("runtime", "RUNTIME-AK", "RUNTIME-SK"),
             service_identity("supervision", "SUP-AK", "SUP-SK"),
         ],
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             "  metrics:\n"
             "    enabled: true\n"
             "  usage:\n"
-            "    enabled: true\n"
-        ),
+            "    enabled: true\n"),
     )
 
     return endpoint

@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 import json
 import time
 import asyncio
@@ -97,9 +98,9 @@ def _ceph_admin_context(
     endpoint_id: int,
     rgw_admin,
     *,
-    features_config: str | None = None,
+    features: dict | None = None,
 ) -> CephAdminContext:
-    resolved_features_config = features_config or (
+    resolved_features = features or parse_features_config(
         "features:\n"
         "  account:\n"
         "    enabled: true\n"
@@ -112,7 +113,7 @@ def _ceph_admin_context(
         endpoint_url=f"https://s3-{endpoint_id}.example.test",
         provider="ceph",
         region=None,
-        features_config=resolved_features_config,
+        features=resolved_features,
     )
     return CephAdminContext(
         endpoint=endpoint,
@@ -1372,7 +1373,7 @@ def test_ceph_admin_bucket_listing_owner_name_skips_account_lookup_when_feature_
     ctx = _ceph_admin_context(
         174,
         rgw_admin,
-        features_config="features:\n  account:\n    enabled: false\n",
+        features=parse_features_config("features:\n  account:\n    enabled: false\n"),
     )
 
     response = buckets_router.list_buckets(

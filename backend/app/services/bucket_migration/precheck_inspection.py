@@ -19,7 +19,7 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
 )
 from app.utils.aws_errors import aws_error_code
-from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features_config
+from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features
 
 from ._shared import _ResolvedContext
 
@@ -363,7 +363,7 @@ class BucketMigrationInspector:
         if endpoint is None:
             return {}
         try:
-            features = normalize_features_config(endpoint.provider, endpoint.features_config)
+            features = normalize_features(endpoint.provider, endpoint.features)
         except Exception:  # noqa: BLE001
             return {}
         raw = features_to_capabilities(features)

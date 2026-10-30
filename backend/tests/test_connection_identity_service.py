@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 import json
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -43,13 +44,11 @@ def _ceph_endpoint(
             service_identity("runtime", "RUNTIME-AK", "RUNTIME-SK"),
             service_identity("supervision", "SUP-AK", "SUP-SK"),
         ],
-        features_config=(
-            "features:\n"
+        features=parse_features_config("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             f"  metrics:\n    enabled: {'true' if metrics_enabled else 'false'}\n"
-            f"  usage:\n    enabled: {'true' if usage_enabled else 'false'}\n"
-        ),
+            f"  usage:\n    enabled: {'true' if usage_enabled else 'false'}\n"),
     )
     return endpoint
 

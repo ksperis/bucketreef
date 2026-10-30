@@ -55,6 +55,7 @@ from app.utils.s3_endpoint import configured_s3_endpoint
 from app.utils.name_ordering import name_order_by
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
+    normalize_features,
     normalize_features_config,
     required_service_identity_kinds,
     resolve_rgw_admin_api_endpoint,
@@ -84,9 +85,9 @@ class StorageEndpointsService:
         include_admin_ops_permissions: bool = True,
     ) -> StorageEndpointSchema:
         provider = StorageProvider(endpoint.provider)
-        features = normalize_features_config(
+        features = normalize_features(
             provider,
-            endpoint.features_config,
+            endpoint.features,
             endpoint.region,
         )
         capabilities = features_to_capabilities(features)
@@ -167,7 +168,7 @@ class StorageEndpointsService:
         cls._apply_endpoint_fields(endpoint, config)
         if config.provider == StorageProvider.CEPH:
             cls._apply_ceph_service_identities(endpoint, config)
-        endpoint.features_config = config.features_config
+        endpoint.features = config.features
         if old_target != cls._endpoint_target(endpoint):
             cls._invalidate_external_service_identities(endpoint)
     @staticmethod
@@ -306,9 +307,9 @@ class StorageEndpointsService:
         lease, handle = identities._lease(endpoint) if endpoint.id is not None else (None, None)
         try:
             required = required_service_identity_kinds(
-                normalize_features_config(
+                normalize_features(
                     config.provider,
-                    config.features_config,
+                    config.features,
                     config.region,
                 )
             )
@@ -823,7 +824,15 @@ class StorageEndpointsService:
                 runtime_secret_key=settings.seed_runtime_secret_key,
                 supervision_access_key=supervision_access,
                 supervision_secret_key=supervision_secret,
-                features_config=settings.seed_s3_endpoint_features,
+                features=(
+                    normalize_features_config(
+                        provider,
+                        settings.seed_s3_endpoint_features,
+                        settings.seed_s3_region,
+                    )
+                    if settings.seed_s3_endpoint_features
+                    else None
+                ),
             )
         )
         entry = StorageEndpoint(

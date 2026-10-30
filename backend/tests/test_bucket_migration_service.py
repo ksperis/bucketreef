@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+from app.utils.storage_endpoint_features import parse_features_config
 
 from datetime import datetime, timedelta, timezone
 import io
@@ -1794,8 +1795,8 @@ def test_run_precheck_skips_disabled_endpoint_website_probe_when_copy_bucket_set
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    source.storage_endpoint.features_config = "features:\n  static_website:\n    enabled: false\n  sse:\n    enabled: true\n"
-    target.storage_endpoint.features_config = "features:\n  static_website:\n    enabled: false\n  sse:\n    enabled: true\n"
+    source.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: false\n  sse:\n    enabled: true\n")
+    target.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: false\n  sse:\n    enabled: true\n")
     db_session.commit()
 
     service = BucketMigrationService(db_session)
@@ -1852,8 +1853,8 @@ def test_run_precheck_skips_non_required_bucket_setting_probes_when_copy_bucket_
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    source.storage_endpoint.features_config = "features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n"
-    target.storage_endpoint.features_config = "features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n"
+    source.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
+    target.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
     db_session.commit()
 
     service = BucketMigrationService(db_session)
@@ -1921,8 +1922,8 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    source.storage_endpoint.features_config = "features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n"
-    target.storage_endpoint.features_config = "features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n"
+    source.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
+    target.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
     db_session.commit()
 
     service = BucketMigrationService(db_session)

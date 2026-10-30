@@ -13,6 +13,9 @@ from app.utils.normalize import normalize_optional_string_field
 
 class StorageEndpointFeature(ApiModel):
     enabled: bool = False
+
+
+class StorageEndpointAddressableFeature(StorageEndpointFeature):
     endpoint: Optional[str] = None
 
 
@@ -23,13 +26,13 @@ class StorageEndpointHealthcheckFeature(ApiModel):
 
 
 class StorageEndpointFeatures(ApiModel):
-    admin: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
+    admin: StorageEndpointAddressableFeature = Field(default_factory=StorageEndpointAddressableFeature)
     account: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
-    sts: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
+    sts: StorageEndpointAddressableFeature = Field(default_factory=StorageEndpointAddressableFeature)
     usage: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
     metrics: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
     static_website: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
-    iam: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
+    iam: StorageEndpointAddressableFeature = Field(default_factory=StorageEndpointAddressableFeature)
     sns: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
     sse: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
     replication: StorageEndpointFeature = Field(default_factory=StorageEndpointFeature)
@@ -91,7 +94,6 @@ class StorageEndpointMetadata(ApiModel):
     verify_tls: bool = True
     provider: StorageProvider = Field(default=StorageProvider.CEPH)
     ceph_admin_allowed: bool = False
-    features_config: Optional[str] = None
     latitude: Optional[float] = Field(default=None)
     longitude: Optional[float] = Field(default=None)
 
@@ -120,6 +122,7 @@ class StorageEndpointMetadata(ApiModel):
         return value
 
 class StorageEndpointCreate(StorageEndpointMetadata):
+    features: Optional[StorageEndpointFeatures] = None
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[SecretStr] = None
     service_identity_mode: Literal["managed", "external"] = "managed"
@@ -151,7 +154,7 @@ class StorageEndpointUpdate(ApiModel):
     ceph_admin_secret_key: Optional[SecretStr] = None
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[SecretStr] = None
-    features_config: Optional[str] = None
+    features: Optional[StorageEndpointFeatures] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
@@ -184,7 +187,6 @@ class StorageEndpoint(StorageEndpointMetadata):
     verify_tls: bool
     provider: StorageProvider
     ceph_admin_allowed: bool
-    features_config: Optional[str]
     latitude: Optional[float]
     longitude: Optional[float]
     is_default: bool

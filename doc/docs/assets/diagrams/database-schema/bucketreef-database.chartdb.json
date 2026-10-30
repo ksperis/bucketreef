@@ -263,15 +263,15 @@
           "check": null
         },
         {
-          "id": "field:storage_endpoints.features_config",
-          "name": "features_config",
+          "id": "field:storage_endpoints.features",
+          "name": "features",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
-          "nullable": true,
+          "nullable": false,
           "increment": null,
           "isArray": false,
           "createdAt": 0,

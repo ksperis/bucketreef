@@ -1,5 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -38,7 +39,7 @@ def _build_endpoint(*, usage_enabled: bool = True, metrics_enabled: bool = True)
         "  metrics:\n"
         f"    enabled: {'true' if metrics_enabled else 'false'}\n"
     )
-    endpoint = SimpleNamespace(provider="ceph", region=None, features_config=features_yaml)
+    endpoint = SimpleNamespace(provider="ceph", region=None, features=parse_features_config(features_yaml))
     return endpoint
 
 

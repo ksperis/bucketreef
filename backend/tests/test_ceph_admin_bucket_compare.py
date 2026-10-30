@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from app.utils.storage_endpoint_features import parse_features_config
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -32,7 +33,7 @@ def _build_ctx(endpoint_id: int = 1):
         provider="ceph",
         endpoint_url="https://source.example.test",
         region="",
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
     )
     return SimpleNamespace(
         endpoint=endpoint,
@@ -57,7 +58,7 @@ def _build_target_endpoint(endpoint_id: int = 2):
         provider="ceph",
         endpoint_url="https://target.example.test",
         region="",
-        features_config="features:\n  admin:\n    enabled: true\n",
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
     )
 
 

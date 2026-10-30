@@ -10,8 +10,8 @@ from sqlalchemy import (
     Column,
     Float,
     Integer,
+    JSON,
     String,
-    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -51,7 +51,7 @@ class StorageEndpoint(Base):
     ceph_admin_allowed = Column(Boolean, nullable=False, default=False, server_default="0")
     service_identities = relationship("EndpointServiceIdentity", back_populates="endpoint", cascade="all, delete-orphan", lazy="selectin")
     key_rotation_intents = relationship("KeyRotationIntent", back_populates="endpoint", cascade="all, delete-orphan", lazy="selectin")
-    features_config = Column(Text, nullable=True)
+    features = Column(JSON, nullable=False, default=dict)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     force_path_style = Column(Boolean, default=False, nullable=False, server_default="0")
