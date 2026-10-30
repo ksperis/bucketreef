@@ -9,9 +9,9 @@ from app.services.feature_policy_service import (
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from dataclasses import dataclass
 import logging
-from typing import Any, Iterator, Optional
+from typing import Any, Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFoundError
@@ -19,9 +19,13 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     AccountIAMUser,
     S3Account,
+    S3AccountTag,
     StorageEndpoint,
     StorageProvider,
+    TagDefinition,
+    UiGroup,
     UiGroupS3Account,
+    User,
     UserS3Account,
 )
 from app.models.s3_account import (
@@ -58,6 +62,7 @@ from app.services.rgw_quota_update import (
     validate_rgw_quota_update_response,
 )
 from app.services.s3_account_associations_service import S3AccountAssociationsService
+from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
@@ -79,23 +84,6 @@ from app.utils.name_ordering import name_order_by
 
 
 logger = logging.getLogger(__name__)
-
-
-def _account_search_values(account: S3AccountSchema) -> Iterator[Optional[str]]:
-    yield account.name
-    yield account.rgw_account_id
-    yield from (tag.label for tag in account.tags or [])
-    for link in account.user_links or []:
-        yield link.user_email
-        yield link.user_full_name
-    yield from (link.group_name for link in account.group_links or [])
-
-
-def _account_matches_search(account: S3AccountSchema, search_value: str) -> bool:
-    return any(
-        search_value in (candidate or "").lower()
-        for candidate in _account_search_values(account)
-    )
 
 
 @dataclass(frozen=True)
@@ -387,6 +375,21 @@ class S3AccountsService:
         db_accounts = self.db.scalars(
             select(S3Account).order_by(*name_order_by(S3Account))
         ).all()
+        return self._serialize_accounts(
+            db_accounts,
+            include_usage_stats=include_usage_stats,
+            include_quota=include_quota,
+            include_rgw_details=include_rgw_details,
+        )
+
+    def _serialize_accounts(
+        self,
+        db_accounts: list[S3Account],
+        *,
+        include_usage_stats: bool,
+        include_quota: bool,
+        include_rgw_details: bool,
+    ) -> list[S3AccountSchema]:
         account_ids = [account.id for account in db_accounts]
         user_links_by_account = self.associations.load_user_links(account_ids)
         group_links_by_account = self.associations.load_group_links(account_ids)
@@ -446,6 +449,62 @@ class S3AccountsService:
             )
         return results
 
+    @staticmethod
+    def _apply_account_search(query, search_value: str):
+        if not search_value:
+            return query
+        escaped = search_value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        tag_match = (
+            exists()
+            .where(S3AccountTag.account_id == S3Account.id)
+            .where(TagDefinition.id == S3AccountTag.tag_definition_id)
+            .where(TagDefinition.label.ilike(pattern, escape="\\"))
+        )
+        user_match = (
+            exists()
+            .where(UserS3Account.account_id == S3Account.id)
+            .where(User.id == UserS3Account.user_id)
+            .where(
+                or_(
+                    User.email.ilike(pattern, escape="\\"),
+                    func.coalesce(User.full_name, "").ilike(pattern, escape="\\"),
+                )
+            )
+        )
+        group_match = (
+            exists()
+            .where(UiGroupS3Account.account_id == S3Account.id)
+            .where(UiGroup.id == UiGroupS3Account.group_id)
+            .where(UiGroup.name.ilike(pattern, escape="\\"))
+        )
+        return query.where(
+            or_(
+                S3Account.name.ilike(pattern, escape="\\"),
+                S3Account.rgw_account_id.ilike(pattern, escape="\\"),
+                tag_match,
+                user_match,
+                group_match,
+            )
+        )
+
+    @staticmethod
+    def _account_order_columns(sort_by: str, sort_dir: str) -> list[Any]:
+        descending = sort_dir.lower() == "desc"
+        if sort_by == "rgw_account_id":
+            account_id_order = func.lower(S3Account.rgw_account_id)
+            return [
+                account_id_order.desc() if descending else account_id_order.asc(),
+                S3Account.id.desc() if descending else S3Account.id.asc(),
+            ]
+        if descending:
+            return [
+                func.lower(S3Account.name).desc(),
+                S3Account.name.desc(),
+                S3Account.id.desc(),
+            ]
+        return list(name_order_by(S3Account))
+
     def list_accounts_page(
         self,
         *,
@@ -457,40 +516,27 @@ class S3AccountsService:
         include_quota: bool,
         include_rgw_details: bool,
     ) -> PaginatedS3AccountsResponse:
-        accounts = self.list_accounts(
+        search_value = search.strip() if isinstance(search, str) else ""
+        query = self._apply_account_search(select(S3Account), search_value)
+        db_accounts, total = paginate_scalars(
+            self.db,
+            query,
+            order_by=self._account_order_columns(sort_by, sort_dir),
+            page=page,
+            page_size=page_size,
+        )
+        accounts = self._serialize_accounts(
+            db_accounts,
             include_usage_stats=False,
             include_quota=include_quota,
             include_rgw_details=include_rgw_details,
         )
-        search_value = search.strip().lower() if isinstance(search, str) else ""
-        if search_value:
-            accounts = [
-                account
-                for account in accounts
-                if _account_matches_search(account, search_value)
-            ]
-
-        descending = sort_dir.lower() == "desc"
-        if sort_by == "rgw_account_id":
-            accounts.sort(
-                key=lambda account: (account.rgw_account_id.lower(), account.id),
-                reverse=descending,
-            )
-        else:
-            accounts.sort(
-                key=lambda account: (account.name.lower(), account.name, account.id),
-                reverse=descending,
-            )
-
-        total = len(accounts)
-        start = (page - 1) * page_size
-        end = start + page_size
         return PaginatedS3AccountsResponse(
-            items=accounts[start:end],
+            items=accounts,
             total=total,
             page=page,
             page_size=page_size,
-            has_next=end < total,
+            has_next=page * page_size < total,
         )
 
     def list_accounts_minimal(self) -> list[S3AccountSummary]:

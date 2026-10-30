@@ -2,11 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import pytest
 import sqlalchemy as sa
 
 from app.db import ManagerAccountRole, PortalAccountRole, S3Account, UiGroup, UiGroupS3Account, User, UserRole, UserS3Account
 from app.main import app
 from app.routers.admin import s3_accounts as s3_accounts_router
+from app.services.s3_accounts_service import S3AccountsService
 from app.services.tags_service import TagsService
 from tests.s3_account_factory import make_s3_account
 
@@ -96,6 +98,32 @@ def test_admin_accounts_non_name_sort_keeps_behavior_with_stable_id_tiebreak(cli
     assert ids.index(case_2.id) < ids.index(case_1.id)
 
 
+def test_admin_accounts_page_enriches_only_selected_rows(client, db_session, monkeypatch):
+    _seed_account(db_session, name="page-a", rgw_account_id="RGW-PAGE-A")
+    _seed_account(db_session, name="page-b", rgw_account_id="RGW-PAGE-B")
+    _seed_account(db_session, name="page-c", rgw_account_id="RGW-PAGE-C")
+    enriched_account_ids: list[int] = []
+
+    def fake_admin_for_account(self, account, allow_missing=False):
+        enriched_account_ids.append(account.id)
+        return object()
+
+    monkeypatch.setattr(S3AccountsService, "_admin_for_account", fake_admin_for_account)
+    monkeypatch.setattr(
+        S3AccountsService,
+        "get_account_quota",
+        lambda self, account, admin=None: (None, None),
+    )
+
+    response = client.get(
+        "/api/admin/accounts",
+        params={"page_size": 1, "include_quota": True},
+    )
+    assert response.status_code == 200, response.text
+    assert len(response.json()["items"]) == 1
+    assert len(enriched_account_ids) == 1
+
+
 def test_admin_accounts_minimal_is_sorted_case_insensitive(client, db_session):
     _seed_account(db_session, name="Zulu", rgw_account_id="RGW-MIN-A")
     _seed_account(db_session, name="alpha", rgw_account_id="RGW-MIN-B")
@@ -181,6 +209,46 @@ def test_admin_accounts_search_matches_linked_user_email_and_exposes_avatar(clie
     assert user_link["user_email"] == user.email
     assert user_link["user_full_name"] == "Specific Member"
     assert user_link["user_avatar"]["initials"] == "SM"
+
+    full_name_response = client.get(
+        "/api/admin/accounts",
+        params={"search": "specific member"},
+    )
+    assert full_name_response.status_code == 200, full_name_response.text
+    assert [item["name"] for item in full_name_response.json()["items"]] == [
+        "user-linked-account"
+    ]
+
+
+@pytest.mark.parametrize("search", ["research", "rgw-search-id"])
+def test_admin_accounts_search_matches_account_identity(client, db_session, search):
+    _seed_account(
+        db_session,
+        name="Research Archive",
+        rgw_account_id="RGW-SEARCH-ID",
+    )
+    _seed_account(
+        db_session,
+        name="Unrelated Account",
+        rgw_account_id="RGW-OTHER-ID",
+    )
+
+    response = client.get("/api/admin/accounts", params={"search": search})
+    assert response.status_code == 200, response.text
+    assert [item["name"] for item in response.json()["items"]] == [
+        "Research Archive"
+    ]
+
+
+def test_admin_accounts_search_treats_sql_wildcards_as_literal_text(client, db_session):
+    _seed_account(db_session, name="percent%account", rgw_account_id="RGW-PERCENT")
+    _seed_account(db_session, name="plain-account", rgw_account_id="RGW-PLAIN")
+
+    response = client.get("/api/admin/accounts", params={"search": "%"})
+    assert response.status_code == 200, response.text
+    assert [item["name"] for item in response.json()["items"]] == [
+        "percent%account"
+    ]
 
 
 def test_admin_accounts_update_replaces_direct_group_links(client, db_session):
