@@ -63,6 +63,7 @@ import { adminUserEditorSignature, emptyAdminUserEditorSignature } from "./admin
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
+import useAdminPaginatedListState from "./useAdminPaginatedListState";
 
 type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
 
@@ -289,13 +290,20 @@ export default function UsersPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [createRoleHelpOpen, setCreateRoleHelpOpen] = useState(false);
   const [editRoleHelpOpen, setEditRoleHelpOpen] = useState(false);
-  const [filter, setFilter] = useState(principalEditRequest?.search ?? "");
-  const [sort, setSort] = useState<{ field: AdminUsersSortField; direction: "asc" | "desc" }>({
-    field: "name",
-    direction: "asc",
+  const {
+    filter,
+    sort,
+    page,
+    pageSize,
+    setPage,
+    handleFilterChange,
+    handleSort: toggleSort,
+    handlePageChange,
+    handlePageSizeChange,
+  } = useAdminPaginatedListState<AdminUsersSortField>({
+    initialFilter: principalEditRequest?.search ?? "",
+    initialSort: { field: "name", direction: "asc" },
   });
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalUsers, setTotalUsers] = useState(0);
   const accountOptions = useMemo(() => accounts.map((a) => ({ id: a.id, label: a.name })), [accounts]);
   const accountOptionsById = useMemo(
@@ -429,31 +437,6 @@ export default function UsersPage() {
   const editCanGrantCephAdmin = currentIsSuperAdmin && editTargetSupportsCephAdmin;
   const editCanGrantStorageOps = currentIsAdminLike && editTargetSupportsStorageOps;
 
-  const toggleSort = (field: AdminUsersSortField) => {
-    setSort((prev) => {
-      if (prev.field === field) {
-        return { field, direction: prev.direction === "asc" ? "desc" : "asc" };
-      }
-      return { field, direction: "desc" };
-    });
-    setPage(1);
-  };
-
-  const handleFilterChange = (value: string) => {
-    setFilter(value);
-    setPage(1);
-  };
-
-  const handlePageChange = (nextPage: number) => {
-    if (nextPage === page) return;
-    setPage(Math.max(1, nextPage));
-  };
-
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setPage(1);
-  };
-
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -478,7 +461,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, page, pageSize, sort.direction, sort.field]);
+  }, [filter, page, pageSize, setPage, sort.direction, sort.field]);
 
   useEffect(() => {
     fetchUsers();

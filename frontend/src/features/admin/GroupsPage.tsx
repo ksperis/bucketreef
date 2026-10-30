@@ -73,7 +73,6 @@ import { stableSignature } from "../../utils/stableSignature";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import { extractApiError } from "../../utils/apiError";
-import { nextSortState } from "../../utils/sortValues";
 import { pageCount } from "../../utils/pagination";
 import {
   clearAdminPrincipalEditRequest,
@@ -82,6 +81,7 @@ import {
 import { useGroupsI18n, type GroupsMessageKey } from "./groupsMessage";
 import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
+import useAdminPaginatedListState from "./useAdminPaginatedListState";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 type AssociationTab = "accounts" | "s3_users" | "connections" | "openstack";
@@ -187,13 +187,20 @@ export default function GroupsPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [filter, setFilter] = useState(principalEditRequest?.search ?? "");
-  const [sort, setSort] = useState<{ field: GroupSortField; direction: "asc" | "desc" }>({
-    field: "name",
-    direction: "asc",
+  const {
+    filter,
+    sort,
+    page,
+    pageSize,
+    setPage,
+    handleFilterChange,
+    handleSort: toggleSort,
+    handlePageChange,
+    handlePageSizeChange,
+  } = useAdminPaginatedListState<GroupSortField>({
+    initialFilter: principalEditRequest?.search ?? "",
+    initialSort: { field: "name", direction: "asc" },
   });
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [totalGroups, setTotalGroups] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<UiGroup | null>(null);
@@ -338,7 +345,7 @@ export default function GroupsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, page, pageSize, sort.direction, sort.field]);
+  }, [filter, page, pageSize, setPage, sort.direction, sort.field]);
 
   const loadAuxiliaryData = useCallback(async () => {
     setAuxLoading(true);
@@ -365,11 +372,6 @@ export default function GroupsPage() {
   useEffect(() => {
     fetchGroups();
   }, [fetchGroups]);
-
-  const toggleSort = (field: GroupSortField) => {
-    setSort((current) => nextSortState(current, field, "desc"));
-    setPage(1);
-  };
 
   const resetForm = () => {
     const draft = emptyGroupForm();
@@ -1154,16 +1156,10 @@ export default function GroupsPage() {
         accountOptionsById={accountOptionsById}
         s3UserLabelById={s3UserLabelById}
         connectionLabelById={connectionLabelById}
-        onFilterChange={(value) => {
-          setFilter(value);
-          setPage(1);
-        }}
+        onFilterChange={handleFilterChange}
         onSort={toggleSort}
-        onPageChange={(nextPage) => setPage(Math.max(1, nextPage))}
-        onPageSizeChange={(nextSize) => {
-          setPageSize(nextSize);
-          setPage(1);
-        }}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
         onEdit={openEditModal}
         onDelete={setPendingDeleteGroup}
       />
