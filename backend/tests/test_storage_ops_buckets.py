@@ -28,6 +28,7 @@ from app.services.listing_progress import ListingProgressSnapshot
 from app.services.s3_execution_context import S3ExecutionContext
 from app.main import app
 from tests.execution_context_factory import make_execution_context
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def test_storage_ops_bucket_list_response_requires_complete_canonical_payload():
@@ -211,6 +212,7 @@ def test_storage_ops_summary_counts_authorized_accounts_connections_and_endpoint
                 id=2,
                 created_by_user_id=101,
                 name="Shared connection",
+                **custom_endpoint_fields("https://shared-connection.example.test"),
                 is_shared=True,
                 access_manager=True,
                 access_key_id="ak-shared",
@@ -220,6 +222,7 @@ def test_storage_ops_summary_counts_authorized_accounts_connections_and_endpoint
                 id=3,
                 created_by_user_id=101,
                 name="Private connection",
+                **custom_endpoint_fields("https://private-connection.example.test"),
                 is_shared=False,
                 access_manager=True,
                 access_key_id="ak-private",

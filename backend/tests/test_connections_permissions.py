@@ -14,7 +14,7 @@ from app.routers import dependencies
 from app.routers.connections import _ensure_manual_private_connection_creation_allowed
 from app.routers.dependencies_internal.execution_context import _resolve_connection_context
 from app.services.effective_access_service import EffectiveAccessService
-from app.utils.s3_connection_endpoint import build_custom_endpoint_config
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def _user(db_session, role: str = UserRole.UI_USER.value, **permissions) -> User:
@@ -233,11 +233,9 @@ def test_existing_private_manual_connection_is_revalidated_before_use(db_session
         is_active=True,
         access_manager=True,
         access_browser=True,
-        custom_endpoint_config=build_custom_endpoint_config(
+        **custom_endpoint_fields(
             "https://blocked.example.test",
-            "eu-west-3",
-            False,
-            True,
+            region="eu-west-3",
         ),
         access_key_id="PERSISTED-AK",
         secret_access_key="PERSISTED-SK",

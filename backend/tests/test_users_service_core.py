@@ -35,6 +35,7 @@ from app.models.user import (
 from app.services.user_output_service import UserOutputService
 from app.services.users_service import UsersService
 from tests.s3_account_factory import make_s3_account
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def _seed_account(db_session, name: str, rgw_id: str) -> S3Account:
@@ -96,6 +97,7 @@ def _seed_connection(db_session, *, created_by_user_id: int, name: str, is_share
         created_by_user_id=created_by_user_id,
         name=name,
         is_shared=is_shared,
+        **custom_endpoint_fields(f"https://{name}.example.test"),
         access_key_id=f"AK-{name}",
         secret_access_key=f"SK-{name}",
     )

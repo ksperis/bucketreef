@@ -34,6 +34,7 @@ from app.services.ui_groups_service import UiGroupsService
 from app.services.users_service import UsersService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 from tests.s3_account_factory import make_s3_account
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 PNG_1X1 = base64.b64decode(
@@ -119,15 +120,7 @@ def _connection(
         is_active=True,
         access_manager=access_manager,
         access_browser=True,
-        custom_endpoint_config=json.dumps(
-            {
-                "endpoint_url": f"https://{name}.example.test",
-                "force_path_style": False,
-                "provider": None,
-                "region": None,
-                "verify_tls": True,
-            }
-        ),
+        **custom_endpoint_fields(f"https://{name}.example.test"),
         capabilities_json=json.dumps({"can_manage_iam": True}),
         access_key_id=f"AK-{name}",
         secret_access_key=f"SK-{name}",

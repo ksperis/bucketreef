@@ -30,6 +30,7 @@ from app.services.s3_connections_service import (
 )
 from app.services.tags_service import TagsService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 @pytest.fixture
@@ -367,6 +368,7 @@ def test_admin_connections_api_returns_404_for_non_shared_targets(contract_clien
     private_conn = S3Connection(
         created_by_user_id=user.id,
         name="contract-admin-private-hidden",
+        **custom_endpoint_fields("https://private-hidden.example.test"),
         is_shared=False,
         access_manager=True,
         access_browser=True,
@@ -376,6 +378,7 @@ def test_admin_connections_api_returns_404_for_non_shared_targets(contract_clien
     another_private_conn = S3Connection(
         created_by_user_id=user.id,
         name="contract-admin-another-private-hidden",
+        **custom_endpoint_fields("https://another-private-hidden.example.test"),
         is_shared=False,
         access_manager=True,
         access_browser=True,
@@ -422,11 +425,7 @@ def test_admin_connection_update_replaces_user_links_atomically(contract_client)
         access_browser=False,
         access_key_id="AKIASHAREDUSERLINKS",
         secret_access_key="SECRETSHAREDUSERLINKS",
-        custom_endpoint_config=(
-            '{"endpoint_url":"https://user-links.example.test",'
-            '"force_path_style":false,"provider":null,"region":null,'
-            '"verify_tls":true}'
-        ),
+        **custom_endpoint_fields("https://user-links.example.test"),
     )
     db_session.add_all([*targets, shared_connection])
     db_session.commit()
@@ -501,11 +500,7 @@ def test_admin_connection_update_applies_remediation_action(contract_client):
         remediation_reason="Manager access requires explicit activation",
         access_key_id="AKIASHAREDREMEDIATION",
         secret_access_key="SECRETSHAREDREMEDIATION",
-        custom_endpoint_config=(
-            '{"endpoint_url":"https://remediation.example.test",'
-            '"force_path_style":false,"provider":null,"region":null,'
-            '"verify_tls":true}'
-        ),
+        **custom_endpoint_fields("https://remediation.example.test"),
     )
     db_session.add(connection)
     db_session.commit()
@@ -552,7 +547,7 @@ def test_admin_cannot_mutate_or_delete_a_connection_used_as_managed_access_sourc
         access_browser=False,
         access_key_id="SOURCE-AK",
         secret_access_key="SOURCE-SK",
-        custom_endpoint_config='{"endpoint_url":"https://source.example.test","force_path_style":false,"provider":null,"region":null,"verify_tls":true}',
+        **custom_endpoint_fields("https://source.example.test"),
     )
     db_session.add(source)
     db_session.flush()
@@ -608,7 +603,7 @@ def test_admin_connection_update_classifies_conflicts_by_type(
         access_browser=False,
         access_key_id="TYPED-CONFLICT-AK",
         secret_access_key="TYPED-CONFLICT-SK",
-        custom_endpoint_config='{"endpoint_url":"https://typed-conflict.example.test","force_path_style":false,"provider":null,"region":null,"verify_tls":true}',
+        **custom_endpoint_fields("https://typed-conflict.example.test"),
     )
     db_session.add(connection)
     db_session.commit()

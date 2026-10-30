@@ -4,7 +4,7 @@ from app.core.config import Settings
 from app.db import S3Connection, User, UserRole, WebhookEndpoint
 from app.scripts.preflight_outbound_targets import run_preflight
 from app.services.deployment_outbound_preflight import find_uncovered_outbound_targets
-from app.utils.s3_connection_endpoint import build_custom_endpoint_config
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def _persist_targets(db_session):
@@ -22,11 +22,8 @@ def _persist_targets(db_session):
             name="manual target",
             is_shared=False,
             server_managed=False,
-            custom_endpoint_config=build_custom_endpoint_config(
+            **custom_endpoint_fields(
                 "https://s3.uncovered.example.test/private/path",
-                None,
-                False,
-                True,
             ),
             access_key_id="AKIA-PREFLIGHT-MUST-NOT-APPEAR",
             secret_access_key="preflight-secret-must-not-appear",

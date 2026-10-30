@@ -32,6 +32,7 @@ from app.services.portal import settings as portal_settings_module
 from app.services.portal_service import PortalService
 from app.utils.time import utcnow
 from tests.s3_account_factory import make_s3_account
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def test_execution_context_api_models_require_complete_payloads() -> None:
@@ -127,19 +128,7 @@ def _create_connection(
         expires_at=expires_at,
         storage_endpoint=storage_endpoint,
         storage_endpoint_id=storage_endpoint.id if storage_endpoint else None,
-        custom_endpoint_config=(
-            None
-            if storage_endpoint
-            else json.dumps(
-                {
-                    "endpoint_url": f"https://{name}.example.test",
-                    "force_path_style": False,
-                    "provider": None,
-                    "region": None,
-                    "verify_tls": True,
-                }
-            )
-        ),
+        **({} if storage_endpoint else custom_endpoint_fields(f"https://{name}.example.test")),
         capabilities_json=json.dumps({"can_manage_iam": bool(can_manage_iam)}),
         access_key_id=f"CONN-AK-{name}",
         secret_access_key=f"CONN-SK-{name}",

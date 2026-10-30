@@ -31,7 +31,11 @@ def _conn(**kwargs):
         "access_key_id": "AKIA-CONN",
         "secret_access_key": "SECRET-CONN",
         "capabilities_json": '{"can_manage_iam":false}',
-        "custom_endpoint_config": '{"endpoint_url":"https://s3.example.test","force_path_style":false,"provider":null,"region":"eu-west-1","verify_tls":true}',
+        "custom_endpoint_url": "https://s3.example.test",
+        "custom_region": "eu-west-1",
+        "custom_force_path_style": False,
+        "custom_verify_tls": True,
+        "custom_provider": None,
         "storage_endpoint": None,
     }
     base.update(kwargs)
@@ -43,12 +47,7 @@ def test_probe_connection_can_manage_iam_false_when_missing_required_fields():
     assert svc.probe_connection_can_manage_iam(_conn(secret_access_key="")) is False
     with pytest.raises(ValueError, match="endpoint URL"):
         svc.probe_connection_can_manage_iam(
-            _conn(
-                custom_endpoint_config=(
-                    '{"endpoint_url":null,"force_path_style":false,'
-                    '"provider":null,"region":null,"verify_tls":true}'
-                )
-            )
+            _conn(custom_endpoint_url=None)
         )
 
 
@@ -121,11 +120,9 @@ def test_probe_connection_can_manage_iam_signs_custom_aws_connection_with_us_eas
 
     monkeypatch.setattr(svc, "get_iam_client", fake_get_iam_client)
     connection = _conn(
-        custom_endpoint_config=(
-            '{"endpoint_url":"https://s3.eu-west-1.amazonaws.com",'
-            '"force_path_style":false,"provider":"aws",'
-            '"region":"eu-west-1","verify_tls":true}'
-        )
+        custom_endpoint_url="https://s3.eu-west-1.amazonaws.com",
+        custom_provider="aws",
+        custom_region="eu-west-1",
     )
 
     assert svc.probe_connection_can_manage_iam(connection) is True

@@ -163,7 +163,11 @@ erDiagram
         varchar rgw_tenant
         varchar rgw_account_id
         integer storage_endpoint_id FK
-        text custom_endpoint_config
+        varchar custom_endpoint_url
+        varchar custom_region
+        boolean custom_force_path_style
+        boolean custom_verify_tls
+        varchar custom_provider
         varchar access_key_id "NN"
         varchar secret_access_key "NN"
         varchar session_token

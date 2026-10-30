@@ -43,6 +43,7 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessNotFound,
 )
 from app.services.managed_private_access_service import ManagedPrivateAccessService
+from tests.s3_connection_factory import custom_endpoint_fields
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services import app_settings_service
 from app.services.s3_connections_service import S3ConnectionsService
@@ -299,14 +300,11 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
         is_active=True,
         access_manager=True,
         access_browser=not shared,
-        custom_endpoint_config=json.dumps(
-            {
-                "endpoint_url": "https://custom.example.test",
-                "region": "eu-west-3",
-                "provider": "other",
-                "force_path_style": True,
-                "verify_tls": True,
-            }
+        **custom_endpoint_fields(
+            "https://custom.example.test",
+            region="eu-west-3",
+            provider="other",
+            force_path_style=True,
         ),
         access_key_id="SOURCE-AK",
         secret_access_key="SOURCE-SECRET",
@@ -335,7 +333,19 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
     assert created.is_shared is False
     assert created.access_key_id == "AK-MANAGED"
     assert created.access_key_id != source.access_key_id
-    assert json.loads(created.custom_endpoint_config) == json.loads(source.custom_endpoint_config)
+    assert (
+        created.custom_endpoint_url,
+        created.custom_region,
+        created.custom_force_path_style,
+        created.custom_verify_tls,
+        created.custom_provider,
+    ) == (
+        source.custom_endpoint_url,
+        source.custom_region,
+        source.custom_force_path_style,
+        source.custom_verify_tls,
+        source.custom_provider,
+    )
     audits = db_session.scalars(
         sa.select(AuditLog).where(AuditLog.action.like("managed_private_access.%"))
     ).all()
@@ -364,7 +374,7 @@ def test_iam_connection_source_requires_assignment_manager_execution_and_iam_cap
         is_active=True,
         access_manager=access_manager,
         access_browser=False,
-        custom_endpoint_config='{"endpoint_url":"https://custom.example.test","force_path_style":false,"provider":null,"region":null,"verify_tls":true}',
+        **custom_endpoint_fields("https://custom.example.test"),
         access_key_id="SOURCE-AK",
         secret_access_key="SOURCE-SK",
         capabilities_json=json.dumps({"can_manage_iam": iam_capable}),
@@ -477,7 +487,7 @@ def test_custom_connection_destination_must_pass_private_tls_rules(db_session, m
         is_active=True,
         access_manager=True,
         access_browser=False,
-        custom_endpoint_config='{"endpoint_url":"https://custom.example.test","force_path_style":false,"provider":null,"region":null,"verify_tls":false}',
+        **custom_endpoint_fields("https://custom.example.test", verify_tls=False),
         access_key_id="SOURCE-AK",
         secret_access_key="SOURCE-SK",
         capabilities_json='{"can_manage_iam":true}',
@@ -809,7 +819,7 @@ def test_server_managed_connection_generic_updates_protect_provenance_and_creden
         access_browser=True,
         access_manager=False,
         server_managed=True,
-        custom_endpoint_config='{"endpoint_url":"https://managed.example.test","force_path_style":false,"provider":null,"region":null,"verify_tls":true}',
+        **custom_endpoint_fields("https://managed.example.test"),
         access_key_id="MANAGED-AK",
         secret_access_key="MANAGED-SK",
         capabilities_json='{"can_manage_iam":false}',

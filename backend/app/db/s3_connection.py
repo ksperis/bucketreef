@@ -33,6 +33,22 @@ class S3Connection(Base):
             sqlite_where=text("is_shared = 1"),
             postgresql_where=text("is_shared = true"),
         ),
+        CheckConstraint(
+            (
+                "(storage_endpoint_id IS NOT NULL "
+                "AND custom_endpoint_url IS NULL "
+                "AND custom_region IS NULL "
+                "AND custom_force_path_style IS NULL "
+                "AND custom_verify_tls IS NULL "
+                "AND custom_provider IS NULL) "
+                "OR "
+                "(storage_endpoint_id IS NULL "
+                "AND custom_endpoint_url IS NOT NULL "
+                "AND custom_force_path_style IS NOT NULL "
+                "AND custom_verify_tls IS NOT NULL)"
+            ),
+            name="ck_s3_connections_endpoint_source",
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -58,7 +74,11 @@ class S3Connection(Base):
 
     # S3 target
     storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=True, index=True)
-    custom_endpoint_config = Column(Text, nullable=True)
+    custom_endpoint_url = Column(String, nullable=True)
+    custom_region = Column(String, nullable=True)
+    custom_force_path_style = Column(Boolean, nullable=True)
+    custom_verify_tls = Column(Boolean, nullable=True)
+    custom_provider = Column(String, nullable=True)
 
     # Credentials (session_token/expires_at support expiring STS credentials)
     access_key_id = Column(String, nullable=False)

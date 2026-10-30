@@ -536,7 +536,7 @@
       "name": "endpoint_service_identities",
       "schema": null,
       "x": 2100,
-      "y": 2942,
+      "y": 3062,
       "fields": [
         {
           "id": "field:endpoint_service_identities.id",
@@ -885,7 +885,7 @@
       "name": "key_rotation_intents",
       "schema": null,
       "x": 2520,
-      "y": 2942,
+      "y": 3062,
       "fields": [
         {
           "id": "field:key_rotation_intents.id",
@@ -1288,7 +1288,7 @@
       "name": "manager_access_key_metadata",
       "schema": null,
       "x": 2520,
-      "y": 1424,
+      "y": 1544,
       "fields": [
         {
           "id": "field:manager_access_key_metadata.id",
@@ -2250,7 +2250,7 @@
       "name": "user_s3_accounts",
       "schema": null,
       "x": 2520,
-      "y": 2566,
+      "y": 2686,
       "fields": [
         {
           "id": "field:user_s3_accounts.id",
@@ -2506,7 +2506,7 @@
       "name": "account_iam_users",
       "schema": null,
       "x": 3360,
-      "y": 988,
+      "y": 1108,
       "fields": [
         {
           "id": "field:account_iam_users.id",
@@ -7258,7 +7258,7 @@
       "name": "openstack_cloud_users",
       "schema": null,
       "x": 3360,
-      "y": 1424,
+      "y": 1544,
       "fields": [
         {
           "id": "field:openstack_cloud_users.cloud_id",
@@ -7333,7 +7333,7 @@
       "name": "openstack_cloud_groups",
       "schema": null,
       "x": 2940,
-      "y": 1424,
+      "y": 1544,
       "fields": [
         {
           "id": "field:openstack_cloud_groups.cloud_id",
@@ -7408,7 +7408,7 @@
       "name": "openstack_clouds",
       "schema": null,
       "x": 2520,
-      "y": 988,
+      "y": 1108,
       "fields": [
         {
           "id": "field:openstack_clouds.id",
@@ -7661,7 +7661,7 @@
       "name": "openstack_connections",
       "schema": null,
       "x": 2100,
-      "y": 988,
+      "y": 1108,
       "fields": [
         {
           "id": "field:openstack_connections.id",
@@ -7854,7 +7854,7 @@
       "name": "openstack_sessions",
       "schema": null,
       "x": 2940,
-      "y": 988,
+      "y": 1108,
       "fields": [
         {
           "id": "field:openstack_sessions.id",
@@ -8046,7 +8046,7 @@
       "name": "openstack_project_contexts",
       "schema": null,
       "x": 2100,
-      "y": 2100,
+      "y": 2220,
       "fields": [
         {
           "id": "field:openstack_project_contexts.id",
@@ -8333,7 +8333,7 @@
       "name": "openstack_project_credentials",
       "schema": null,
       "x": 2520,
-      "y": 2100,
+      "y": 2220,
       "fields": [
         {
           "id": "field:openstack_project_credentials.id",
@@ -9060,7 +9060,7 @@
       "name": "user_s3_users",
       "schema": null,
       "x": 3360,
-      "y": 2566,
+      "y": 2686,
       "fields": [
         {
           "id": "field:user_s3_users.id",
@@ -9529,11 +9529,95 @@
           "check": null
         },
         {
-          "id": "field:s3_connections.custom_endpoint_config",
-          "name": "custom_endpoint_config",
+          "id": "field:s3_connections.custom_endpoint_url",
+          "name": "custom_endpoint_url",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_connections.custom_region",
+          "name": "custom_region",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_connections.custom_force_path_style",
+          "name": "custom_force_path_style",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_connections.custom_verify_tls",
+          "name": "custom_verify_tls",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_connections.custom_provider",
+          "name": "custom_provider",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
           },
           "primaryKey": false,
           "unique": false,
@@ -9787,7 +9871,13 @@
           "comments": null
         }
       ],
-      "checkConstraints": [],
+      "checkConstraints": [
+        {
+          "id": "check:s3_connections:ck_s3_connections_endpoint_source",
+          "expression": "(storage_endpoint_id IS NOT NULL AND custom_endpoint_url IS NULL AND custom_region IS NULL AND custom_force_path_style IS NULL AND custom_verify_tls IS NULL AND custom_provider IS NULL) OR (storage_endpoint_id IS NULL AND custom_endpoint_url IS NOT NULL AND custom_force_path_style IS NOT NULL AND custom_verify_tls IS NOT NULL)",
+          "createdAt": 0
+        }
+      ],
       "color": "#0F766E",
       "isView": false,
       "isMaterializedView": false,
@@ -9803,7 +9893,7 @@
       "name": "user_s3_connections",
       "schema": null,
       "x": 2940,
-      "y": 2566,
+      "y": 2686,
       "fields": [
         {
           "id": "field:user_s3_connections.id",
@@ -9975,7 +10065,7 @@
       "name": "managed_private_accesses",
       "schema": null,
       "x": 2100,
-      "y": 1424,
+      "y": 1544,
       "fields": [
         {
           "id": "field:managed_private_accesses.id",
@@ -11147,7 +11237,7 @@
       "name": "ui_group_s3_accounts",
       "schema": null,
       "x": 2940,
-      "y": 2100,
+      "y": 2220,
       "fields": [
         {
           "id": "field:ui_group_s3_accounts.id",
@@ -11403,7 +11493,7 @@
       "name": "ui_group_s3_users",
       "schema": null,
       "x": 2100,
-      "y": 2566,
+      "y": 2686,
       "fields": [
         {
           "id": "field:ui_group_s3_users.id",
@@ -11554,7 +11644,7 @@
       "name": "ui_group_s3_connections",
       "schema": null,
       "x": 3360,
-      "y": 2100,
+      "y": 2220,
       "fields": [
         {
           "id": "field:ui_group_s3_connections.id",
@@ -26349,7 +26439,7 @@
       "x": 2040,
       "y": 0,
       "width": 1740,
-      "height": 3558,
+      "height": 3678,
       "color": "#0F766E",
       "order": 1
     },

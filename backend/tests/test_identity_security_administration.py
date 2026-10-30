@@ -36,6 +36,7 @@ from app.services.auth_session_service import AuthSessionService
 from app.services.mfa_reset_service import MfaResetService
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 @pytest.fixture
@@ -605,11 +606,7 @@ def test_shared_connection_expansion_requires_recent_webauthn_but_revocation_doe
         access_browser=False,
         access_key_id="GUARDED-AK",
         secret_access_key="GUARDED-SK",
-        custom_endpoint_config=(
-            '{"endpoint_url":"https://guarded-shared.example.test",'
-            '"force_path_style":false,"provider":null,"region":null,'
-            '"verify_tls":true}'
-        ),
+        **custom_endpoint_fields("https://guarded-shared.example.test"),
     )
     removable = S3Connection(
         created_by_user_id=admin.id,
@@ -620,11 +617,7 @@ def test_shared_connection_expansion_requires_recent_webauthn_but_revocation_doe
         access_browser=False,
         access_key_id="REMOVABLE-AK",
         secret_access_key="REMOVABLE-SK",
-        custom_endpoint_config=(
-            '{"endpoint_url":"https://guarded-removable.example.test",'
-            '"force_path_style":false,"provider":null,"region":null,'
-            '"verify_tls":true}'
-        ),
+        **custom_endpoint_fields("https://guarded-removable.example.test"),
     )
     db_session.add_all([connection, removable])
     db_session.commit()

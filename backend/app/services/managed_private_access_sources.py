@@ -26,10 +26,8 @@ from app.services.rgw_admin import RGWAdminError
 from app.utils.rgw_payloads import rgw_qualified_uid
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
-from app.utils.s3_connection_endpoint import (
-    build_custom_endpoint_config,
-    resolve_connection_details,
-)
+from app.services.s3_connection_endpoint_planner import S3ConnectionEndpointPlan
+from app.utils.s3_connection_endpoint import resolve_connection_details
 from app.utils.s3_endpoint import validate_user_supplied_s3_endpoint
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -45,10 +43,7 @@ class ManagedPrivateAccessSource:
     iam_username: str | None
 
 
-@dataclass(frozen=True)
-class ManagedPrivateAccessDestination:
-    storage_endpoint_id: int | None
-    custom_endpoint_config: str | None
+ManagedPrivateAccessDestination = S3ConnectionEndpointPlan
 
 
 def _source_ids(context: S3ExecutionTarget) -> tuple[int | None, int | None, int | None]:
@@ -249,7 +244,7 @@ class ManagedPrivateAccessSourceResolver:
         endpoint_id = row.storage_endpoint_id if row is not None else None
         if endpoint_id is None or row is None or row.storage_endpoint is None:
             raise ManagedPrivateAccessError(error_message)
-        return ManagedPrivateAccessDestination(endpoint_id, None)
+        return ManagedPrivateAccessDestination.managed(endpoint_id)
 
     def _connection_destination(self, connection_id: int) -> ManagedPrivateAccessDestination:
         connection = self.db.execute(
@@ -262,10 +257,7 @@ class ManagedPrivateAccessSourceResolver:
                 raise ManagedPrivateAccessError(
                     "The source connection endpoint is unavailable"
                 )
-            return ManagedPrivateAccessDestination(
-                connection.storage_endpoint_id,
-                None,
-            )
+            return ManagedPrivateAccessDestination.managed(connection.storage_endpoint_id)
         details = resolve_connection_details(connection)
         try:
             endpoint_url = validate_user_supplied_s3_endpoint(
@@ -280,15 +272,12 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessError(
                 "Managed private access requires TLS verification"
             )
-        return ManagedPrivateAccessDestination(
-            None,
-            build_custom_endpoint_config(
-                endpoint_url,
-                details.region,
-                details.force_path_style,
-                details.verify_tls,
-                details.provider,
-            ),
+        return ManagedPrivateAccessDestination.custom(
+            endpoint_url,
+            details.region,
+            details.force_path_style,
+            details.verify_tls,
+            details.provider,
         )
 
     @staticmethod

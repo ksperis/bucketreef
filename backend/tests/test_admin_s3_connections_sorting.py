@@ -10,6 +10,7 @@ import sqlalchemy as sa
 from app.db import S3Connection, UiGroup, UiGroupS3Connection, User, UserRole, UserS3Connection
 from app.services.tags_service import TagsService
 from tests.auth_test_utils import authenticate_ui_client
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def _seed_connection(
@@ -37,15 +38,7 @@ def _seed_connection(
         is_shared=is_shared,
         access_manager=True,
         access_browser=True,
-        custom_endpoint_config=json.dumps(
-            {
-                "endpoint_url": f"https://{name}.example.test",
-                "force_path_style": False,
-                "provider": None,
-                "region": None,
-                "verify_tls": True,
-            }
-        ),
+        **custom_endpoint_fields(f"https://{name}.example.test"),
         access_key_id=f"AK-{name}-{creator_id}",
         secret_access_key="SECRET",
         created_at=created_at,

@@ -19,6 +19,7 @@ from app.db import (
 )
 from app.services.users_service import UsersService
 from app.db.tag_definition import TagDefinition
+from tests.s3_connection_factory import custom_endpoint_fields
 
 
 def test_delete_user_cleans_owned_connections_tokens_and_sessions(db_session):
@@ -31,12 +32,14 @@ def test_delete_user_cleans_owned_connections_tokens_and_sessions(db_session):
     owned_connection = S3Connection(
         created_by_user_id=owner.id,
         name="owned-private",
+        **custom_endpoint_fields("https://owned-private.example.test"),
         access_key_id="AKIA-OWNED",
         secret_access_key="SECRET-OWNED",
     )
     shared_connection = S3Connection(
         created_by_user_id=other.id,
         name="other-private",
+        **custom_endpoint_fields("https://other-private.example.test"),
         access_key_id="AKIA-OTHER",
         secret_access_key="SECRET-OTHER",
     )
