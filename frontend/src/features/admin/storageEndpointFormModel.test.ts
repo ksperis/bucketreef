@@ -7,10 +7,12 @@ import {
   awsStsEndpointForRegion,
   buildFeaturesPayload,
   createEmptyForm,
+  createFormFromEndpoint,
   defaultFeaturesForProvider,
   normalizeAwsRegion,
   parseCoordinateInput,
 } from "./storageEndpointFormModel";
+import type { StorageEndpoint } from "../../api/storageEndpoints";
 
 describe("storage endpoint form model", () => {
   it("normalizes AWS regions and resolves partition endpoints", () => {
@@ -93,7 +95,45 @@ describe("storage endpoint form model", () => {
     first.features.iam.enabled = false;
 
     expect(first.provider).toBe("ceph");
+    expect(first.multisite_enabled).toBe(false);
     expect(first.verify_tls).toBe(true);
     expect(second.features.iam.enabled).toBe(true);
+  });
+
+  it("derives the multisite switch from persisted Ceph topology metadata", () => {
+    const features = buildFeaturesPayload(defaultFeaturesForProvider("ceph"));
+    const endpoint = {
+      id: 1,
+      name: "Ceph multisite",
+      endpoint_url: "https://ceph.example.test",
+      region: null,
+      realm_id: "realm-a",
+      zonegroup_id: "zonegroup-a",
+      zone_id: "zone-a",
+      force_path_style: false,
+      latitude: null,
+      longitude: null,
+      verify_tls: true,
+      provider: "ceph",
+      admin_access_key: null,
+      has_admin_secret: false,
+      ceph_admin_active: false,
+      service_identities: [],
+      ceph_admin_allowed: false,
+      capabilities: {},
+      admin_ops_permissions: {
+        users_read: false, users_write: false, buckets_read: false, buckets_write: false,
+        accounts_read: false, accounts_write: false, usage_read: false, usage_write: false,
+      },
+      features,
+      is_default: false,
+      is_editable: true,
+      tags: [],
+      created_at: "2026-10-30T00:00:00Z",
+      updated_at: "2026-10-30T00:00:00Z",
+    } satisfies StorageEndpoint;
+
+    expect(createFormFromEndpoint(endpoint).multisite_enabled).toBe(true);
+    expect(createFormFromEndpoint({ ...endpoint, realm_id: null, zonegroup_id: null, zone_id: null }).multisite_enabled).toBe(false);
   });
 });

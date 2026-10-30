@@ -17,12 +17,14 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
   const endpoint = aws ? awsS3EndpointForRegion(region) : form.endpoint_url.trim();
   if (!form.name.trim()) errors.name = "Endpoint name is required.";
   if (!endpoint) errors.endpoint_url = "Endpoint URL is required.";
-  const realmId = form.provider === "ceph" ? form.realm_id.trim() : "";
-  const zonegroupId = form.provider === "ceph" ? form.zonegroup_id.trim() : "";
-  const zoneId = form.provider === "ceph" ? form.zone_id.trim() : "";
-  if (Boolean(realmId) !== Boolean(zonegroupId)) {
-    if (!realmId) errors.realm_id = "Realm ID is required when a zonegroup ID is configured.";
-    if (!zonegroupId) errors.zonegroup_id = "Zonegroup ID is required when a realm ID is configured.";
+  const multisiteEnabled = form.provider === "ceph" && form.multisite_enabled;
+  const realmId = multisiteEnabled ? form.realm_id.trim() : "";
+  const zonegroupId = multisiteEnabled ? form.zonegroup_id.trim() : "";
+  const zoneId = multisiteEnabled ? form.zone_id.trim() : "";
+  if (multisiteEnabled) {
+    if (!realmId) errors.realm_id = "Realm ID is required when RGW multisite is enabled.";
+    if (!zonegroupId) errors.zonegroup_id = "Zonegroup ID is required when RGW multisite is enabled.";
+    if (!zoneId) errors.zone_id = "Zone ID is required when RGW multisite is enabled.";
   }
   let latitude: number | null = null;
   let longitude: number | null = null;

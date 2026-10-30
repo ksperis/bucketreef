@@ -35,6 +35,7 @@ export type FormState = {
   name: string;
   endpoint_url: string;
   region: string;
+  multisite_enabled: boolean;
   realm_id: string;
   zonegroup_id: string;
   zone_id: string;
@@ -307,6 +308,7 @@ export function createEmptyForm(): FormState {
     name: "",
     endpoint_url: "",
     region: "",
+    multisite_enabled: false,
     realm_id: "",
     zonegroup_id: "",
     zone_id: "",
@@ -397,6 +399,9 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     name: endpoint.name ?? "",
     endpoint_url: endpoint.endpoint_url ?? "",
     region: endpoint.region ?? "",
+    multisite_enabled: endpoint.provider === "ceph" && Boolean(
+      endpoint.realm_id || endpoint.zonegroup_id || endpoint.zone_id,
+    ),
     realm_id: endpoint.realm_id ?? "",
     zonegroup_id: endpoint.zonegroup_id ?? "",
     zone_id: endpoint.zone_id ?? "",
