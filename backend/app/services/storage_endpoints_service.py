@@ -7,6 +7,7 @@ from typing import Optional
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.config import get_settings
 from app.core.domain_errors import StorageEndpointNotFoundError
@@ -112,18 +113,26 @@ class StorageEndpointsService:
         from app.services.app_settings_service import load_app_settings_for_db_readonly
         return load_app_settings_for_db_readonly(self.db).general.ceph_admin_enabled
 
-    def _ensure_unique_name(self, name: str, exclude_id: Optional[int] = None) -> None:
-        statement = select(StorageEndpoint.id).where(StorageEndpoint.name == name)
+    def _endpoint_exists(
+        self,
+        criterion: ColumnElement[bool],
+        *,
+        exclude_id: Optional[int] = None,
+    ) -> bool:
+        statement = select(StorageEndpoint.id).where(criterion)
         if exclude_id:
             statement = statement.where(StorageEndpoint.id != exclude_id)
-        if self.db.scalar(statement.limit(1)) is not None:
+        return self.db.scalar(statement.limit(1)) is not None
+
+    def _ensure_unique_name(self, name: str, exclude_id: Optional[int] = None) -> None:
+        if self._endpoint_exists(StorageEndpoint.name == name, exclude_id=exclude_id):
             raise ValueError("An endpoint with this name already exists.")
 
     def _ensure_unique_endpoint(self, endpoint_url: str, exclude_id: Optional[int] = None) -> None:
-        statement = select(StorageEndpoint.id).where(StorageEndpoint.endpoint_url == endpoint_url)
-        if exclude_id:
-            statement = statement.where(StorageEndpoint.id != exclude_id)
-        if self.db.scalar(statement.limit(1)) is not None:
+        if self._endpoint_exists(
+            StorageEndpoint.endpoint_url == endpoint_url,
+            exclude_id=exclude_id,
+        ):
             raise ValueError("An endpoint with this URL already exists.")
 
     def detect_features(
