@@ -295,9 +295,7 @@ class UserOutputService:
             ui_language=user.ui_language,
             quota_alerts_enabled=bool(user.quota_alerts_enabled),
             quota_alerts_global_watch=bool(user.quota_alerts_global_watch),
-            ui_preferences=UiPreferences.model_validate_json(
-                user.ui_preferences_json
-            ),
+            ui_preferences=UiPreferences.model_validate(user.ui_preferences),
             account_links=account_links,
             group_details=self._group_details(group_ids, projection.group_names),
             s3_user_links=s3_user_links,

@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0211_structure_operation_lease_context"
+_EXPECTED_ALEMBIC_HEAD = "0212_structure_user_ui_preferences"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):

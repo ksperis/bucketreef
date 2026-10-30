@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured user UI preferences
+
+Migration `0212_structure_user_ui_preferences` replaces
+`users.ui_preferences_json` text with the structured JSON `ui_preferences`
+object. Existing values must decode to JSON objects; malformed JSON or values
+with another shape stop the upgrade explicitly.
+
+Profile updates and user responses now persist and validate the preferences
+object directly instead of serializing JSON text at runtime. The downgrade
+recreates the former text column from the structured object.
+
 ## 2026-10 structured backend operation lease context
 
 Migration `0211_structure_operation_lease_context` replaces
