@@ -2,14 +2,14 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from sqlalchemy import select
 
 from app.db import BucketMigration, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
-from ._shared import _json_dumps, _WorkerLeaseLostError
+from ._shared import _WorkerLeaseLostError
 
 
 class BucketMigrationPersistenceMixin:
@@ -34,11 +34,6 @@ class BucketMigrationPersistenceMixin:
 
     def _commit(self) -> None:
         self.db.commit()
-
-    def _json_dumps_safe(self, value: Any) -> Optional[str]:
-        if value is None:
-            return None
-        return _json_dumps(value)
 
     def _is_context_authorized(self, context_id: str) -> bool:
         if self._authorized_context_ids is None:

@@ -36,7 +36,7 @@ class _WorkflowFacts:
                 or migration.preparation_status == "checking"
                 or migration.maintenance_status in {"queued", "running"}
             ),
-            recovery=any(item.preparation_effects_json for item in items),
+            recovery=any(item.preparation_effects for item in items),
             modern=migration.workflow_version == 2,
             draft=migration.status == "draft",
             results=migration.status

@@ -25,8 +25,6 @@ from app.utils.time import utcnow
 from ._shared import (
     _FINAL_MIGRATION_STATUSES,
     _RUNNABLE_MIGRATION_STATUSES,
-    _json_dumps,
-    _json_loads,
 )
 
 logger = logging.getLogger(__name__)
@@ -203,10 +201,10 @@ class BucketMigrationPlanningMixin:
             target_bucket=target_bucket,
             status="pending",
             step="create_bucket",
-            source_snapshot_json=None,
-            target_snapshot_json=None,
+            source_snapshot=None,
+            target_snapshot=None,
             execution_strategy=None,
-            replication_state_json=None,
+            replication_state=None,
             created_at=timestamp,
             updated_at=timestamp,
         )
@@ -232,13 +230,13 @@ class BucketMigrationPlanningMixin:
         item.different_count = None
         item.only_source_count = None
         item.only_target_count = None
-        item.diff_sample_json = None
-        item.source_snapshot_json = None
-        item.target_snapshot_json = None
+        item.diff_sample = None
+        item.source_snapshot = None
+        item.target_snapshot = None
         item.execution_strategy = None
-        item.replication_state_json = None
-        item.source_policy_backup_json = None
-        item.target_policy_backup_json = None
+        item.replication_state = None
+        item.source_policy_backup = None
+        item.target_policy_backup = None
         item.error_message = None
         item.started_at = None
         item.finished_at = None
@@ -288,7 +286,7 @@ class BucketMigrationPlanningMixin:
             auto_grant_source_read_for_copy=configuration.auto_grant_source_read_for_copy,
             status="draft",
             precheck_status="pending",
-            precheck_report_json=None,
+            precheck_report=None,
             precheck_checked_at=None,
             parallelism_max=configuration.parallelism,
             total_items=len(configuration.mappings),
@@ -359,7 +357,7 @@ class BucketMigrationPlanningMixin:
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.precheck_status = "pending"
-        migration.precheck_report_json = None
+        migration.precheck_report = None
         migration.precheck_checked_at = None
         migration.error_message = None
         migration.started_at = None
@@ -494,7 +492,7 @@ class BucketMigrationPlanningMixin:
         migration.preparation_status = "stale"
         migration.checked_revision = None
         migration.precheck_status = "failed"
-        report = _json_loads(migration.precheck_report_json) or {}
+        report = dict(migration.precheck_report or {})
         report["checks"] = [
             _check_entry(
                 code="start_precondition_changed",
@@ -506,7 +504,7 @@ class BucketMigrationPlanningMixin:
         ]
         report["errors"] = max(1, report.get("errors", 0))
         report["status"] = "failed"
-        migration.precheck_report_json = _json_dumps(report)
+        migration.precheck_report = report
         self._commit()
 
     def _revalidate_start_preconditions(self, migration: BucketMigration) -> None:

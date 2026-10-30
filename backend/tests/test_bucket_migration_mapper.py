@@ -3,13 +3,14 @@
 
 import pytest
 
-from app.services.mappers.bucket_migration import load_migration_json
+from app.services.mappers.bucket_migration import load_migration_object
 
 
 def test_bucket_migration_mapper_requires_canonical_objects() -> None:
-    assert load_migration_json(None) is None
-    assert load_migration_json('{"status":"passed"}') == {"status": "passed"}
+    payload = {"status": "passed"}
+    assert load_migration_object(None) is None
+    assert load_migration_object(payload) is payload
 
-    for raw in ("{", "[]", '"legacy"'):
+    for raw in ('{"status":"passed"}', "{", "[]", '"legacy"'):
         with pytest.raises(ValueError):
-            load_migration_json(raw)
+            load_migration_object(raw)

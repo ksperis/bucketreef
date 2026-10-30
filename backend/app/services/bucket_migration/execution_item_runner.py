@@ -15,8 +15,6 @@ from app.utils.time import utcnow
 from ._shared import (
     _ResolvedContext,
     _WorkerLeaseLostError,
-    _json_dumps,
-    _json_loads,
 )
 from .execution_item_loop import _MigrationItemExecutionLoop
 from .execution_settings_copy import _BucketSettingsCopyRunner
@@ -33,11 +31,11 @@ class BucketMigrationItemRunnerMixin:
         return strategy
 
     def _load_item_replication_state(self, item: BucketMigrationItem) -> dict[str, Any]:
-        parsed = _json_loads(item.replication_state_json)
+        parsed = item.replication_state
         return parsed if isinstance(parsed, dict) else {}
 
     def _store_item_replication_state(self, item: BucketMigrationItem, state: dict[str, Any]) -> None:
-        item.replication_state_json = self._json_dumps_safe(state)
+        item.replication_state = dict(state)
 
     def _assert_item_execution_strategy_supported(self, item: BucketMigrationItem) -> None:
         strategy = self._item_execution_strategy(item)
@@ -70,7 +68,7 @@ class BucketMigrationItemRunnerMixin:
         item.different_count = diff.different_count
         item.only_source_count = diff.only_source_count
         item.only_target_count = diff.only_target_count
-        item.diff_sample_json = _json_dumps(diff.sample)
+        item.diff_sample = diff.sample
 
     def _run_verify_step(
         self,
@@ -288,7 +286,7 @@ class BucketMigrationItemRunnerMixin:
         except Exception as exc:  # noqa: BLE001
             lock_error = sanitized_error_log_detail(exc)
             try:
-                if item.target_policy_backup_json:
+                if item.target_policy_backup is not None:
                     self._restore_target_write_lock_policy(
                         target_ctx.execution_context,
                         item.target_bucket,
@@ -302,7 +300,7 @@ class BucketMigrationItemRunnerMixin:
                 self._verify_restored_bucket_policy(
                     target_ctx.execution_context,
                     item.target_bucket,
-                    _json_loads(item.target_policy_backup_json),
+                    item.target_policy_backup,
                 )
             except Exception as restore_exc:
                 lock_error = (
@@ -311,7 +309,7 @@ class BucketMigrationItemRunnerMixin:
                 )
             else:
                 item.target_lock_applied = False
-                item.target_policy_backup_json = None
+                item.target_policy_backup = None
                 self._commit()
             raise RuntimeError(f"Target write-lock policy could not be applied: {lock_error}") from exc
 

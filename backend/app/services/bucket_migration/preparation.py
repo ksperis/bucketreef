@@ -14,7 +14,7 @@ from app.services.managed_resource_naming import (
     migration_probe_bucket_name,
 )
 from app.utils.time import utcnow
-from ._shared import _json_dumps, _json_loads, _WorkerLeaseLostError
+from ._shared import _WorkerLeaseLostError
 from .precheck import new_precheck_report
 from .workflow import require_action
 
@@ -30,7 +30,7 @@ class BucketMigrationPreparationMixin:
         migration.preparation_requested_at = utcnow()
         migration.checked_revision = None
         migration.precheck_status = "pending"
-        migration.precheck_report_json = None
+        migration.precheck_report = None
         migration.precheck_checked_at = None
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
@@ -120,7 +120,7 @@ class BucketMigrationPreparationMixin:
                 )
             self._assert_migration_creator_access(migration)
             if report is not None:
-                migration.precheck_report_json = _json_dumps(report)
+                migration.precheck_report = dict(report)
                 migration.preparation_completed_items = len(report.get("items", []))
             migration.updated_at = utcnow()
             self._commit()
@@ -133,7 +133,7 @@ class BucketMigrationPreparationMixin:
                 migration, checked_at=checked_at, on_progress=checkpoint
             )
             checkpoint()
-            if any(item.preparation_effects_json for item in migration.items):
+            if any(item.preparation_effects for item in migration.items):
                 raise RuntimeError(
                     "Temporary changes could not be restored. Restore access before checking again."
                 )
@@ -179,7 +179,7 @@ class BucketMigrationPreparationMixin:
             if report.get("errors")
             else "passed" if active_checks else "pending"
         )
-        migration.precheck_report_json = _json_dumps(report)
+        migration.precheck_report = dict(report)
         migration.precheck_status = report["status"]
         migration.preparation_status = (
             "blocked"
@@ -218,8 +218,8 @@ class BucketMigrationPreparationMixin:
         migration.precheck_status = "failed"
         migration.checked_revision = None
         migration.error_message = sanitized_error_log_detail(exc)
-        report = _json_loads(migration.precheck_report_json) or new_precheck_report(
-            checked_at=checked_at
+        report = dict(
+            migration.precheck_report or new_precheck_report(checked_at=checked_at)
         )
         report.update(
             status="failed",
@@ -241,7 +241,7 @@ class BucketMigrationPreparationMixin:
                 "details": None,
             }
         ]
-        migration.precheck_report_json = _json_dumps(report)
+        migration.precheck_report = report
         return migration
 
     def _journal_preparation_effect(self, item, name: str, payload: dict) -> None:
@@ -249,27 +249,27 @@ class BucketMigrationPreparationMixin:
         checkpoint = self._preparation_checkpoint
         if checkpoint:
             checkpoint()
-        effects = _json_loads(item.preparation_effects_json) or {}
+        effects = dict(item.preparation_effects or {})
         if name in effects:
             raise RuntimeError(
                 "An earlier temporary change needs restoration before another test"
             )
         effects[name] = payload
-        item.preparation_effects_json = _json_dumps(effects)
+        item.preparation_effects = effects
         item.updated_at = utcnow()
         self._commit()
 
     def _clear_preparation_effect(self, item, name: str) -> None:
         self._assert_workflow_lease()
-        effects = _json_loads(item.preparation_effects_json) or {}
+        effects = dict(item.preparation_effects or {})
         effects.pop(name, None)
-        item.preparation_effects_json = _json_dumps(effects) if effects else None
+        item.preparation_effects = effects or None
         item.updated_at = utcnow()
         self._commit()
 
     def _recover_preparation_effects(self, migration) -> None:
         for item in migration.items:
-            effects = _json_loads(item.preparation_effects_json) or {}
+            effects = dict(item.preparation_effects or {})
             for name, effect in effects.items():
                 self._assert_workflow_lease()
                 context = self._resolve_context(effect["context_id"])
@@ -525,7 +525,7 @@ class BucketMigrationPreparationMixin:
         for item in items if items is not None else migration.items:
             if item.status == "completed":
                 continue
-            if item.preparation_effects_json:
+            if item.preparation_effects:
                 raise ValueError("Restore temporary changes before continuing")
             self._revalidate_source_transfer_preconditions(migration, source, item)
             self._revalidate_destination_transfer_preconditions(target, item)
@@ -541,7 +541,7 @@ class BucketMigrationPreparationMixin:
                 ),
                 scan_versions=False,
             )
-            previous = _json_loads(item.source_snapshot_json) or {}
+            previous = dict(item.source_snapshot or {})
             for feature in ("versioning", "object_lock", "encryption"):
                 if previous.get(feature) != current.get(feature):
                     raise ValueError(

@@ -66,7 +66,7 @@ class ResourceDeletionPurgeService:
                 .where(
                     BucketMigrationItem.migration_id == migration.id,
                     or_(
-                        BucketMigrationItem.preparation_effects_json.is_not(None),
+                        BucketMigrationItem.preparation_effects.is_not(None),
                         BucketMigrationItem.read_only_applied.is_(True),
                         BucketMigrationItem.target_lock_applied.is_(True),
                     ),

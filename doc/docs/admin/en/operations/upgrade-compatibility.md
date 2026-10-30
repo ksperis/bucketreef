@@ -1,5 +1,20 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured bucket migration workflow state
+
+Migration `0213_structure_bucket_migration_json` replaces the bucket migration
+workflow's persisted JSON text columns with structured JSON columns, including
+precheck reports, preparation and cleanup recovery state, object-diff samples,
+source and target snapshots, replication state, policy backups, and event
+metadata. Existing non-null values must decode to JSON objects; malformed JSON
+or values with another shape stop the upgrade explicitly instead of being
+discarded.
+
+Bucket migration services now read and write native structured values directly
+while preserving the existing workflow, recovery checkpoints, and transaction
+boundaries. The downgrade recreates the former text columns from the structured
+objects.
+
 ## 2026-10 structured user UI preferences
 
 Migration `0212_structure_user_ui_preferences` replaces

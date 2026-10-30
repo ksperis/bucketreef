@@ -176,7 +176,7 @@ def test_start_persists_sanitized_precondition_errors(prepared):
     with pytest.raises(ValueError, match="TOPSECRET"):
         service.start_migration(migration.id, configuration_revision=1)
 
-    report = json.loads(migration.precheck_report_json)
+    report = migration.precheck_report
     assert report["checks"][0]["code"] == "start_precondition_changed"
     assert report["checks"][0]["message"] == (
         "secret_key=<redacted> endpoint=<redacted-url>"
@@ -203,7 +203,7 @@ def test_existing_destination_blocks_instead_of_skipping(prepared):
     service._precheck_bucket_exists.return_value = True
     service.run_precheck(migration.id, active_checks=True)
     assert migration.preparation_status == "blocked"
-    report = json.loads(migration.precheck_report_json)
+    report = migration.precheck_report
     check = next(
         entry
         for entry in report["items"][0]["checks"]
@@ -236,7 +236,7 @@ def test_same_endpoint_copy_aggregates_success(prepared):
     service._is_same_endpoint = Mock(return_value=True)
     service._precheck_same_endpoint_copy_source_access = Mock(return_value="validated")
     service.run_precheck(migration.id, active_checks=True)
-    report = json.loads(migration.precheck_report_json)
+    report = migration.precheck_report
     assert any(
         check["code"] == "same_endpoint_copy_validated"
         for check in report["items"][0]["checks"]
@@ -321,9 +321,9 @@ def test_policy_intent_precedes_mutation_and_survives_interruption(
 
     def interrupted(*args):
         durable = db_session.scalar(
-            sa.select(BucketMigrationItem.preparation_effects_json).where(BucketMigrationItem.id == item.id)
+            sa.select(BucketMigrationItem.preparation_effects).where(BucketMigrationItem.id == item.id)
         )
-        assert json.loads(durable)["source_policy"]["policy"] == policy
+        assert durable["source_policy"]["policy"] == policy
         raise KeyboardInterrupt("process interrupted")
 
     configuration.put_policy.side_effect = interrupted
@@ -332,10 +332,10 @@ def test_policy_intent_precedes_mutation_and_survives_interruption(
         BucketMigrationService._precheck_policy_roundtrip(
             service, object(), item.source_bucket
         )
-    assert item.preparation_effects_json
+    assert item.preparation_effects
     configuration.put_policy.side_effect = None
     service._recover_preparation_effects(migration)
-    assert item.preparation_effects_json is None
+    assert item.preparation_effects is None
     configuration.put_policy.assert_called_with(
         item.source_bucket,
         service._resolve_context(migration.source_context_id).execution_context,
@@ -346,15 +346,13 @@ def test_policy_intent_precedes_mutation_and_survives_interruption(
 def test_failed_restoration_blocks_checks_edits_and_start(prepared):
     service, migration, payload = prepared
     item = migration.items[0]
-    item.preparation_effects_json = json.dumps(
-        {
-            "source_policy": {
-                "bucket": item.source_bucket,
-                "context_id": migration.source_context_id,
-                "policy": None,
-            }
+    item.preparation_effects = {
+        "source_policy": {
+            "bucket": item.source_bucket,
+            "context_id": migration.source_context_id,
+            "policy": None,
         }
-    )
+    }
     service._configuration.delete_policy = Mock(
         side_effect=RuntimeError("AccessDenied token=do-not-leak")
     )
@@ -370,12 +368,12 @@ def test_failed_restoration_blocks_checks_edits_and_start(prepared):
         )
     with pytest.raises(ValueError):
         service.start_migration(migration.id, configuration_revision=1)
-    assert item.preparation_effects_json
+    assert item.preparation_effects
 
 
 def test_available_actions_combine_item_cleanup_and_access_state():
     item = SimpleNamespace(
-        preparation_effects_json=None,
+        preparation_effects=None,
         source_deleted=False,
         status="failed",
         read_only_applied=True,
@@ -575,7 +573,7 @@ def test_empty_source_does_not_claim_content_and_tag_checks_passed(prepared):
     service._precheck_can_list_bucket.return_value = False
     service._count_bucket_objects.return_value = 0
     service.run_precheck(migration.id, active_checks=False)
-    checks = json.loads(migration.precheck_report_json)["items"][0]["checks"]
+    checks = migration.precheck_report["items"][0]["checks"]
     diagnostic = next(
         check for check in checks if check["code"] == "source_object_reads_not_tested"
     )
@@ -716,7 +714,8 @@ def test_partial_retry_does_not_reset_successful_items(prepared):
     service, migration, _ = prepared
     service.run_precheck(migration.id, active_checks=True)
     migration.status = "completed_with_errors"
-    migration.items[0].status = "failed"
+    failed = migration.items[0]
+    failed.status = "failed"
     complete = BucketMigrationItem(
         source_bucket="done",
         target_bucket="done-copy",
@@ -729,7 +728,7 @@ def test_partial_retry_does_not_reset_successful_items(prepared):
     service.retry_failed_items(migration.id)
     assert complete.status == "completed"
     assert complete.objects_copied == 42
-    assert migration.items[0].status == "pending"
+    assert failed.status == "pending"
 
 
 def test_cutover_is_explicit_and_keeps_source(prepared):
@@ -747,9 +746,7 @@ def test_cutover_is_explicit_and_keeps_source(prepared):
 
 def test_maintenance_result_and_actions_are_exposed_without_policy_backups(prepared):
     service, migration, _ = prepared
-    migration.items[0].preparation_effects_json = (
-        '{"internal": {"policy": "not-public"}}'
-    )
+    migration.items[0].preparation_effects = {"internal": {"policy": "not-public"}}
     detail = bucket_migration_to_detail(
         migration, items=migration.items, recent_events=[]
     ).model_dump_json()
@@ -779,7 +776,7 @@ def test_diagnostics_identify_permission_identity_and_remediation(prepared):
         RuntimeError("token=secret-value"),
     )
     service.run_precheck(migration.id)
-    check = json.loads(migration.precheck_report_json)["items"][0]["checks"][0]
+    check = migration.precheck_report["items"][0]["checks"][0]
     assert check["permission"] == "s3:GetObjectTagging"
     assert check["context_id"] == migration.source_context_id
     assert check["bucket"] == "source-bucket"
@@ -839,14 +836,14 @@ def test_active_destination_probe_exercises_multipart_tags_and_cleanup(prepared)
     service._context_client = Mock(return_value=client)
     service._precheck_bucket_exists = Mock(side_effect=[True, False])
     service._buckets.create_bucket = Mock(
-        side_effect=lambda *args, **kwargs: item.preparation_effects_json
+        side_effect=lambda *args, **kwargs: item.preparation_effects
         or pytest.fail("Intent was not saved")
     )
     service._buckets.delete_bucket = Mock()
     BucketMigrationService._precheck_destination(
         service, migration, item, source, target, strategy="current_only"
     )
-    assert item.preparation_effects_json is None
+    assert item.preparation_effects is None
     assert client.put_object.call_args.kwargs["Key"] == MIGRATION_PROBE_OBJECT_KEY
     client.put_object_tagging.assert_called_once()
     client.get_object_tagging.assert_called_once()
@@ -863,7 +860,7 @@ def test_same_endpoint_probe_uses_in_memory_source_profile(prepared):
     source_client = Mock()
     source_client.list_objects_v2.return_value = {"Contents": []}
     target_client = Mock()
-    item.source_snapshot_json = None
+    item.source_snapshot = None
 
     service._context_client = Mock(return_value=source_client)
     service._probe_same_endpoint_copy(
@@ -905,30 +902,28 @@ def test_probe_interruption_leaves_durable_cleanup_intent(prepared):
         BucketMigrationService._precheck_destination(
             service, migration, item, source, target, strategy="current_only"
         )
-    effect = json.loads(item.preparation_effects_json)["probe_bucket"]
+    effect = item.preparation_effects["probe_bucket"]
     assert effect["bucket"].startswith("bkr-mig-precheck-")
     service._precheck_bucket_exists = Mock(side_effect=[True, False])
     service._buckets.delete_bucket = Mock()
     service._recover_preparation_effects(migration)
-    assert item.preparation_effects_json is None
+    assert item.preparation_effects is None
 
 
 def test_probe_cleanup_unknown_state_keeps_recovery_record(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
-    item.preparation_effects_json = json.dumps(
-        {
-            "probe_bucket": {
-                "context_id": migration.target_context_id,
-                "bucket": "temporary-bucket",
-            }
+    item.preparation_effects = {
+        "probe_bucket": {
+            "context_id": migration.target_context_id,
+            "bucket": "temporary-bucket",
         }
-    )
+    }
     service._precheck_bucket_exists = Mock(side_effect=[True, True])
     service._buckets.delete_bucket = Mock()
     with pytest.raises(RuntimeError, match="removal could not be verified"):
         service._recover_preparation_effects(migration)
-    assert item.preparation_effects_json is not None
+    assert item.preparation_effects is not None
 
 
 def test_finished_cutover_does_not_wait_for_another_cutover(prepared):
@@ -945,7 +940,7 @@ def test_finalize_sanitizes_target_lock_release_errors(prepared):
     migration.status = "running"
     item.status = "completed"
     item.target_lock_applied = True
-    item.target_policy_backup_json = "{}"
+    item.target_policy_backup = {}
     service._commit()
     service._restore_target_write_lock_policy = Mock(
         side_effect=RuntimeError(
@@ -1044,7 +1039,7 @@ def test_verified_source_cleanup_keeps_receipt_before_destructive_call(prepared)
 
     def delete(context, bucket, check):
         assert (
-            json.loads(item.cleanup_verification_json)["target_sha256"]
+            item.cleanup_verification["target_sha256"]
             == "verified-sha256"
         )
         policy = service._configuration.put_policy.call_args.args[2]
@@ -1073,7 +1068,7 @@ def test_partial_source_cleanup_blocks_when_protection_was_changed(prepared):
     item = migration.items[0]
     migration.status = item.status = "completed"
     item.read_only_applied = item.target_created_by_migration = True
-    item.cleanup_verification_json = json.dumps({"target_sha256": "verified"})
+    item.cleanup_verification = {"target_sha256": "verified"}
     service._apply_target_write_lock_policy = Mock()
     service._cleanup_fingerprint = Mock(return_value="verified")
     service._precheck_bucket_exists = Mock(return_value=True)
@@ -1154,9 +1149,7 @@ def test_precheck_api_returns_202_and_result_survives_reopen(
             == "checking"
         )
         service.run_precheck(migration.id)
-        persisted_report = json.loads(
-            service.get_migration(migration.id).precheck_report_json or "{}"
-        )
+        persisted_report = service.get_migration(migration.id).precheck_report or {}
         reopened = client.get(f"/api/manager/migrations/{migration.id}").json()
         assert reopened["status"] == "draft"
         assert reopened["preparation_status"] == "unverified"

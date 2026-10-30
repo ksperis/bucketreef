@@ -16,15 +16,14 @@ from app.services.webhook_service import WebhookEventPublisher
 from app.utils.time import utcnow
 
 from ._shared import (
+    _bounded_event_metadata,
     _DB_ERROR_MESSAGE_MAX_CHARS,
     _DB_EVENT_MESSAGE_MAX_CHARS,
     _FINAL_MIGRATION_STATUSES,
     _RUNNABLE_MIGRATION_STATUSES,
     _ResolvedContext,
     _json_dumps,
-    _json_loads,
     _sanitize_event_metadata,
-    _serialize_event_metadata,
     _truncate_db_text,
     _truncate_optional_db_text,
 )
@@ -191,7 +190,10 @@ class BucketMigrationProgressMixin:
         verify_restored: bool = False,
         preserve_awaiting: bool = False,
     ) -> list[str]:
-        if not any(item.target_lock_applied or item.target_policy_backup_json for item in migration.items):
+        if not any(
+            item.target_lock_applied or item.target_policy_backup is not None
+            for item in migration.items
+        ):
             return []
         if target_ctx is None:
             return ["target context is not available"]
@@ -200,12 +202,14 @@ class BucketMigrationProgressMixin:
         for item in migration.items:
             if preserve_awaiting and item.status == "awaiting_cutover":
                 continue
-            if not (item.target_lock_applied or item.target_policy_backup_json):
+            if not (
+                item.target_lock_applied or item.target_policy_backup is not None
+            ):
                 continue
             try:
                 self._assert_workflow_lease()
-                expected_policy = _json_loads(item.target_policy_backup_json)
-                if item.target_policy_backup_json:
+                expected_policy = item.target_policy_backup
+                if item.target_policy_backup is not None:
                     self._restore_target_write_lock_policy(target_ctx.execution_context, item.target_bucket, item)
                 else:
                     self._remove_managed_target_write_lock_statement(item.target_bucket, target_ctx.execution_context)
@@ -216,7 +220,7 @@ class BucketMigrationProgressMixin:
                         expected_policy,
                     )
                 item.target_lock_applied = False
-                item.target_policy_backup_json = None
+                item.target_policy_backup = None
                 item.updated_at = utcnow()
                 self._add_event(
                     migration,
@@ -243,18 +247,21 @@ class BucketMigrationProgressMixin:
         *,
         verify_restored: bool = False,
     ) -> list[str]:
-        if not any(item.read_only_applied or item.source_policy_backup_json for item in migration.items):
+        if not any(
+            item.read_only_applied or item.source_policy_backup is not None
+            for item in migration.items
+        ):
             return []
         if source_ctx is None:
             return ["source context is not available"]
 
         errors: list[str] = []
         for item in migration.items:
-            if not (item.read_only_applied or item.source_policy_backup_json):
+            if not (item.read_only_applied or item.source_policy_backup is not None):
                 continue
             try:
                 self._assert_workflow_lease()
-                expected_policy = _json_loads(item.source_policy_backup_json)
+                expected_policy = item.source_policy_backup
                 self._restore_checked_policy(source_ctx.execution_context, item.source_bucket, expected_policy)
                 if verify_restored:
                     self._verify_restored_bucket_policy(
@@ -263,7 +270,7 @@ class BucketMigrationProgressMixin:
                         expected_policy,
                     )
                 item.read_only_applied = False
-                item.source_policy_backup_json = None
+                item.source_policy_backup = None
                 item.updated_at = utcnow()
                 self._add_event(
                     migration,
@@ -459,7 +466,7 @@ class BucketMigrationProgressMixin:
             item_id=item.id if item else None,
             level=level,
             message=safe_message,
-            metadata_json=_serialize_event_metadata(safe_metadata),
+            event_metadata=_bounded_event_metadata(safe_metadata),
             created_at=created_at,
         )
         self.db.add(entry)
@@ -495,7 +502,7 @@ class BucketMigrationProgressMixin:
     ) -> dict[str, Any]:
         safe_metadata: Optional[dict[str, Any]] = None
         if metadata is not None:
-            normalized_metadata = _json_loads(_json_dumps(metadata))
+            normalized_metadata = _sanitize_event_metadata(metadata)
             if isinstance(normalized_metadata, dict):
                 safe_metadata = normalized_metadata
             else:

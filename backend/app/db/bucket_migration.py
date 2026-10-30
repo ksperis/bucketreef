@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -46,7 +47,7 @@ class BucketMigration(Base):
     worker_lease_owner = Column(String, nullable=True, index=True)
     worker_lease_until = Column(UTCDateTime(), nullable=True, index=True)
     precheck_status = Column(String, nullable=False, default="pending", server_default="pending", index=True)
-    precheck_report_json = Column(Text, nullable=True)
+    precheck_report = Column(JSON(none_as_null=True), nullable=True)
     precheck_checked_at = Column(UTCDateTime(), nullable=True)
     workflow_version = Column(Integer, nullable=False, default=2, server_default="2")
     configuration_revision = Column(Integer, nullable=False, default=1, server_default="1")
@@ -102,10 +103,10 @@ class BucketMigrationItem(Base):
     read_only_applied = Column(Boolean, nullable=False, default=False, server_default="0")
     target_lock_applied = Column(Boolean, nullable=False, default=False, server_default="0")
     target_created_by_migration = Column(Boolean, nullable=False, default=False, server_default="0")
-    preparation_effects_json = Column(Text, nullable=True)
+    preparation_effects = Column(JSON(none_as_null=True), nullable=True)
     source_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
     cleanup_error = Column(Text, nullable=True)
-    cleanup_verification_json = Column(Text, nullable=True)
+    cleanup_verification = Column(JSON(none_as_null=True), nullable=True)
 
     objects_copied = Column(Integer, nullable=False, default=0, server_default="0")
     objects_deleted = Column(Integer, nullable=False, default=0, server_default="0")
@@ -116,15 +117,15 @@ class BucketMigrationItem(Base):
     different_count = Column(Integer, nullable=True)
     only_source_count = Column(Integer, nullable=True)
     only_target_count = Column(Integer, nullable=True)
-    diff_sample_json = Column(Text, nullable=True)
+    diff_sample = Column(JSON(none_as_null=True), nullable=True)
 
-    source_snapshot_json = Column(Text, nullable=True)
-    target_snapshot_json = Column(Text, nullable=True)
+    source_snapshot = Column(JSON(none_as_null=True), nullable=True)
+    target_snapshot = Column(JSON(none_as_null=True), nullable=True)
     execution_strategy = Column(String, nullable=True)
-    replication_state_json = Column(Text, nullable=True)
+    replication_state = Column(JSON(none_as_null=True), nullable=True)
 
-    source_policy_backup_json = Column(Text, nullable=True)
-    target_policy_backup_json = Column(Text, nullable=True)
+    source_policy_backup = Column(JSON(none_as_null=True), nullable=True)
+    target_policy_backup = Column(JSON(none_as_null=True), nullable=True)
     error_message = Column(String, nullable=True)
 
     started_at = Column(UTCDateTime(), nullable=True)
@@ -149,7 +150,7 @@ class BucketMigrationEvent(Base):
 
     level = Column(String, nullable=False, default="info", server_default="info")
     message = Column(Text, nullable=False)
-    metadata_json = Column(Text, nullable=True)
+    event_metadata = Column("metadata", JSON(none_as_null=True), nullable=True)
 
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
 

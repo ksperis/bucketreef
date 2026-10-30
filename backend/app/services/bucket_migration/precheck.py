@@ -753,8 +753,8 @@ class BucketMigrationPrecheckPlanner:
         target_profile: dict[str, Any] | None,
         strategy: str,
     ) -> None:
-        item.source_snapshot_json = self._service._json_dumps_safe(source_profile)
-        item.target_snapshot_json = self._service._json_dumps_safe(target_profile)
+        item.source_snapshot = source_profile
+        item.target_snapshot = target_profile
         item.execution_strategy = strategy
         item.updated_at = checked_at
 

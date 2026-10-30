@@ -2,8 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
-from typing import Optional
+from typing import Any, Optional
 
 from app.services.bucket_migration.workflow import available_actions, preparation_state
 
@@ -19,19 +18,18 @@ from app.models.bucket_migration import (
 )
 
 
-def load_migration_json(value: Optional[str]) -> Optional[dict]:
+def load_migration_object(value: Any) -> Optional[dict[str, Any]]:
     if value is None:
         return None
-    parsed = json.loads(value)
-    if not isinstance(parsed, dict):
+    if not isinstance(value, dict):
         raise ValueError("Persisted bucket migration JSON must be an object")
-    return parsed
+    return value
 
 
 def migration_precheck_report_to_view(
-    value: Optional[str],
+    value: Any,
 ) -> Optional[BucketMigrationPrecheckReportView]:
-    report = load_migration_json(value)
+    report = load_migration_object(value)
     if report is None:
         return None
     raw_items = report.get("items")
@@ -73,14 +71,14 @@ def bucket_migration_item_to_view(item: BucketMigrationItem) -> BucketMigrationI
         read_only_applied=bool(item.read_only_applied),
         target_lock_applied=bool(item.target_lock_applied),
         target_created_by_migration=bool(item.target_created_by_migration),
-        recovery_required=bool(item.preparation_effects_json),
+        recovery_required=bool(item.preparation_effects),
         source_deleted=bool(item.source_deleted),
         cleanup_error=item.cleanup_error,
         objects_copied=int(item.objects_copied or 0),
         different_count=item.different_count,
         only_source_count=item.only_source_count,
         only_target_count=item.only_target_count,
-        diff_sample=load_migration_json(item.diff_sample_json),
+        diff_sample=load_migration_object(item.diff_sample),
         error_message=item.error_message,
     )
 
@@ -105,7 +103,7 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         auto_grant_source_read_for_copy=bool(migration.auto_grant_source_read_for_copy),
         status=migration.status,
         precheck_status=migration.precheck_status,
-        precheck_report=migration_precheck_report_to_view(migration.precheck_report_json),
+        precheck_report=migration_precheck_report_to_view(migration.precheck_report),
         precheck_checked_at=migration.precheck_checked_at,
         configuration_revision=migration.configuration_revision,
         preparation_status=preparation_state(migration),
