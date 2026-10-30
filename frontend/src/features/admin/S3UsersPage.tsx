@@ -51,7 +51,6 @@ import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
-import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
 import { extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
@@ -63,6 +62,7 @@ import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
 import { useAdminI18n } from "./adminI18n";
 import AdminS3UsersList, { type AdminS3UsersSortField } from "./AdminS3UsersList";
+import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 
 type EditTab = "general" | "users" | "groups" | "manager";
@@ -94,15 +94,22 @@ export default function S3UsersPage() {
   const [uiGroupsLoading, setUiGroupsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [filter, setFilter] = useState("");
-  const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
-  const [sort, setSort] = useState<{ field: AdminS3UsersSortField; direction: "asc" | "desc" }>({
-    field: "name",
-    direction: "asc",
+  const {
+    filter,
+    sort,
+    page,
+    pageSize,
+    setPage,
+    handleFilterChange,
+    handleSort: toggleSort,
+    handlePageChange,
+    handlePageSizeChange,
+    resetPage,
+  } = useAdminPaginatedListState<AdminS3UsersSortField>({
+    initialSort: { field: "name", direction: "asc" },
   });
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
   const MAX_LINK_OPTIONS = 10;
   const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
   const [loadingEndpoints, setLoadingEndpoints] = useState(false);
@@ -181,19 +188,6 @@ export default function S3UsersPage() {
     reset: resetEditGroupPicker,
     toggleSelection: toggleEditGroupSelection,
   } = useAdminAssociationPickerState();
-  const toggleSort = (field: AdminS3UsersSortField) => {
-    setSort((current) => nextSortState(current, field, "desc"));
-    setPage(1);
-  };
-  const handlePageChange = (nextPage: number) => {
-    if (nextPage === page) return;
-    setPage(Math.max(1, nextPage));
-  };
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setPage(1);
-  };
-
   const [deleteBusyId, setDeleteBusyId] = useState<number | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -275,7 +269,7 @@ export default function S3UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [adminText, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
+  }, [adminText, filter, quickFilterMode, page, pageSize, setPage, sort.direction, sort.field]);
 
   useEffect(() => {
     fetchUsers();
@@ -793,13 +787,10 @@ export default function S3UsersPage() {
         pageSize={pageSize}
         total={totalUsers}
         deleteBusyId={deleteBusyId}
-        onFilterChange={(value) => {
-          setFilter(value);
-          setPage(1);
-        }}
+        onFilterChange={handleFilterChange}
         onQuickFilterModeChange={(mode) => {
           setQuickFilterMode(mode);
-          setPage(1);
+          resetPage();
         }}
         onSort={toggleSort}
         onPageChange={handlePageChange}

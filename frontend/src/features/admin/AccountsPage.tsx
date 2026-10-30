@@ -49,13 +49,13 @@ import AdminAccountEditor from "./AdminAccountEditor";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
-import { nextSortState } from "../../utils/sortValues";
 import { matchesExactTextCandidate, type TextMatchMode } from "../../utils/textMatch";
 import { collectPaginatedItems, pageCount, slicePage } from "../../utils/pagination";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { buildUiTagItems, extractUiTagLabels, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
 import { useAdminI18n } from "./adminI18n";
+import useAdminPaginatedListState from "./useAdminPaginatedListState";
 
 type SortField = "name" | "rgw_account_id";
 export default function S3AccountsPage() {
@@ -77,14 +77,21 @@ export default function S3AccountsPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importBusy, setImportBusy] = useState(false);
-  const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>({
-    field: "name",
-    direction: "asc",
+  const {
+    filter,
+    sort,
+    page,
+    pageSize,
+    setPage,
+    handleFilterChange,
+    handleSort: toggleSort,
+    handlePageChange,
+    handlePageSizeChange,
+    resetPage,
+  } = useAdminPaginatedListState<SortField>({
+    initialSort: { field: "name", direction: "asc" },
   });
-  const [filter, setFilter] = useState("");
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [form, setForm] = useState({
     name: "",
     rgw_tenant: "",
@@ -221,37 +228,17 @@ export default function S3AccountsPage() {
     } finally {
       setLoading(false);
     }
-  }, [adminText, extractError, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
+  }, [adminText, extractError, filter, quickFilterMode, page, pageSize, setPage, sort.direction, sort.field]);
 
-  const toggleSort = (field: SortField) => {
-    setSort((current) => nextSortState(current, field, "desc"));
-    setPage(1);
-  };
-
-  const handleFilterChange = (value: string) => {
-    setFilter(value);
-    setPage(1);
-  };
   const clearAllFilters = () => {
-    setFilter("");
+    handleFilterChange("");
     setQuickFilterMode("contains");
-    setPage(1);
   };
   const toggleQuickFilterMode = () => {
     setQuickFilterMode((prev) => (prev === "contains" ? "exact" : "contains"));
-    setPage(1);
+    resetPage();
   };
   const quickFilterActive = filter.trim().length > 0;
-
-  const handlePageChange = (nextPage: number) => {
-    if (nextPage === page) return;
-    setPage(Math.max(1, nextPage));
-  };
-
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setPage(1);
-  };
 
   const loadEndpointsIfNeeded = useCallback(async () => {
     if (endpointsLoaded || loadingEndpoints) return;
