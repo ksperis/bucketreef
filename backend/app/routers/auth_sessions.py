@@ -260,10 +260,12 @@ def list_external_identities(
             id=row.id,
             provider_type=row.provider_type,
             provider_id=row.provider_id,
+            issuer=row.issuer,
             email=row.email,
             email_verified=row.email_verified,
             created_at=row.created_at,
             last_login_at=row.last_login_at,
+            revalidation_required=bool(row.revalidation_required),
         )
         for row in rows
     ]

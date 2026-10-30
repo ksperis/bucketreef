@@ -23,11 +23,12 @@ export type AuthSessionDescriptor = {
 };
 
 export type AuthenticationResponse = {
-  status: "authenticated" | "mfa_required" | "mfa_enrollment_required" | "link_approval_required";
+  status: "authenticated" | "mfa_required" | "mfa_enrollment_required" | "link_approval_required" | "link_reauthentication_required";
   user: AuthUser | null;
   session: AuthSessionDescriptor | null;
   redirect_path: string | null;
   recovery_codes: string[] | null;
+  link_attempt_id?: string | null;
 };
 
 type FirstAdminBootstrapStatus = {
@@ -145,6 +146,27 @@ type OidcStartResponse = {
   state: string;
 };
 
+export type OidcLinkProofMethod = {
+  type: "password" | "ldap" | "oidc";
+  provider_id: string | null;
+  display_name: string | null;
+};
+
+export type OidcLinkStatus = {
+  attempt_id: string;
+  target_email: string;
+  provider_id: string;
+  source: "login_collision" | "profile";
+  stage: "oidc" | "proof" | "mfa" | "mfa_enrollment" | "confirm" | "admin_requested" | "completed";
+  proof_methods: OidcLinkProofMethod[];
+  expires_at: string;
+};
+
+type OidcLinkMfaRegistrationResult = {
+  status: OidcLinkStatus;
+  recovery_codes: string[];
+};
+
 export async function fetchOidcProviders(): Promise<OidcProviderInfo[]> {
   const { data } = await client.get<OidcProviderInfo[]>("/auth/oidc/providers");
   return data;
@@ -166,6 +188,94 @@ export async function completeOidcLogin(
     code,
     state,
   });
+  return data;
+}
+
+export async function fetchOidcLinkStatus(attemptId: string): Promise<OidcLinkStatus> {
+  const { data } = await client.get<OidcLinkStatus>(`/auth/oidc/link/${encodeURIComponent(attemptId)}`);
+  return data;
+}
+
+export async function verifyOidcLinkPassword(attemptId: string, password: string): Promise<OidcLinkStatus> {
+  const { data } = await client.post<OidcLinkStatus>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/proof/password`,
+    { password },
+  );
+  return data;
+}
+
+export async function verifyOidcLinkLdap(
+  attemptId: string,
+  providerId: string,
+  username: string,
+  password: string,
+): Promise<OidcLinkStatus> {
+  const { data } = await client.post<OidcLinkStatus>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/proof/ldap`,
+    { provider_id: providerId, username, password },
+  );
+  return data;
+}
+
+export async function startOidcLinkProof(attemptId: string, providerId: string): Promise<OidcStartResponse> {
+  const { data } = await client.post<OidcStartResponse>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/proof/oidc/${encodeURIComponent(providerId)}/start`,
+  );
+  return data;
+}
+
+export async function beginOidcLinkWebAuthnAuthentication(attemptId: string): Promise<Record<string, unknown> & { challenge: string }> {
+  const { data } = await client.post<Record<string, unknown> & { challenge: string }>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/authentication/options`,
+  );
+  return data;
+}
+
+export async function finishOidcLinkWebAuthnAuthentication(attemptId: string, credential: unknown): Promise<OidcLinkStatus> {
+  const { data } = await client.post<OidcLinkStatus>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/authentication/verify`,
+    { credential },
+  );
+  return data;
+}
+
+export async function beginOidcLinkWebAuthnRegistration(attemptId: string): Promise<Record<string, unknown> & { challenge: string }> {
+  const { data } = await client.post<Record<string, unknown> & { challenge: string }>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/registration/options`,
+  );
+  return data;
+}
+
+export async function finishOidcLinkWebAuthnRegistration(
+  attemptId: string,
+  credential: unknown,
+  name = "Passkey",
+): Promise<OidcLinkMfaRegistrationResult> {
+  const { data } = await client.post<OidcLinkMfaRegistrationResult>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/registration/verify`,
+    { credential, name },
+  );
+  return data;
+}
+
+export async function requestOidcLinkAdminApproval(attemptId: string): Promise<OidcLinkStatus> {
+  const { data } = await client.post<OidcLinkStatus>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/request-admin`,
+  );
+  return data;
+}
+
+export async function confirmOidcLink(attemptId: string): Promise<OidcLinkStatus> {
+  const { data } = await client.post<OidcLinkStatus>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/confirm`,
+  );
+  return data;
+}
+
+export async function startProfileOidcLink(providerId: string): Promise<OidcStartResponse> {
+  const { data } = await client.post<OidcStartResponse>(
+    `/auth/security/oidc/${encodeURIComponent(providerId)}/start-link`,
+  );
   return data;
 }
 

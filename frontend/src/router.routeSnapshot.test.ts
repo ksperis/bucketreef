@@ -132,6 +132,7 @@ describe("route snapshot", () => {
       "/login",
       "/setup/first-admin",
       "/oidc/:provider/callback",
+      "/oidc/link/:attemptId",
       "/unauthorized",
       "/session-expired",
       "/*",

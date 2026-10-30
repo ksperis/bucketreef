@@ -22,7 +22,7 @@ from app.core.security import (
     get_password_hash,
     verify_password,
 )
-from app.db import AppSetting, AuthChallenge, AuthSession, ExternalIdentity, RefreshToken, S3Session, User, UserRole, WebAuthnCredential
+from app.db import AppSetting, AuthChallenge, AuthSession, ExternalIdentity, RefreshToken, S3Session, User, UserNotification, UserRole, WebAuthnCredential
 from app.db import AuditLog
 from app.main import app
 from app.models.app_settings import AppSettings
@@ -570,6 +570,16 @@ def test_external_identity_inventory_and_revocation_require_a_recent_passkey(aut
     db_session.refresh(credentials.session)
     assert identity.revoked_at is not None
     assert credentials.session.revoked_at is not None
+    notification = db_session.scalars(
+        select(UserNotification).where(UserNotification.user_id == user.id)
+    ).one()
+    assert notification.notification_type == "identity_changed"
+    assert notification.title == "External identity removed"
+    assert notification.payload == {
+        "identity_id": identity.id,
+        "provider_type": "oidc",
+        "provider_id": "company",
+    }
 
 
 def test_external_identity_cannot_remove_the_last_primary_sign_in_method(auth_client, db_session):
@@ -898,7 +908,15 @@ def test_oidc_callback_failure_is_generic_audited_and_never_persists_code_or_sta
     class FailingOidcService:
         db = db_session
 
-        def complete_login(self, provider_id, code, state, *, request_origin=None):
+        def complete_login(
+            self,
+            provider_id,
+            code,
+            state,
+            *,
+            request_origin=None,
+            browser_secret_hash=None,
+        ):
             raise OIDCStateError(f"replayed state={state} code={code}")
 
     monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: FailingOidcService())
@@ -921,7 +939,15 @@ def test_oidc_email_collision_creates_an_audited_manual_link_response(auth_clien
     class LinkingOidcService:
         db = db_session
 
-        def complete_login(self, provider_id, code, state, *, request_origin=None):
+        def complete_login(
+            self,
+            provider_id,
+            code,
+            state,
+            *,
+            request_origin=None,
+            browser_secret_hash=None,
+        ):
             raise ExternalIdentityLinkRequiredError("link-request-1")
 
     monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: LinkingOidcService())
@@ -937,6 +963,7 @@ def test_oidc_email_collision_creates_an_audited_manual_link_response(auth_clien
         "session": None,
         "redirect_path": None,
         "recovery_codes": None,
+        "link_attempt_id": None,
     }
     audit = db_session.scalars(
         select(AuditLog).where(AuditLog.action == "external_identity_link_requested")

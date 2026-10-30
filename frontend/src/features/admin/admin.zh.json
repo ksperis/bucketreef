@@ -831,6 +831,7 @@
   "Manager · Integrity check": "Manager · 完整性检查",
   "Manages RGW User keys in Manager; storage and endpoint permissions remain required.": "在 Manager 中管理 RGW 用户密钥；仍需要存储和端点权限。",
   "Manual approval": "手动审批",
+  "Reauthenticate existing account": "重新验证现有账户",
   "Manual daily collection": "手动每日采集",
   "Manually provisioned keys may also be used outside BucketReef.": "手动预配的密钥也可能在 BucketReef 之外使用。",
   "Assign this shared connection to UI users or groups to make it available as a Manager execution context.": "将此共享连接分配给 UI 用户或组，使其可作为 Manager 执行上下文使用。",
@@ -1824,5 +1825,8 @@
   "Unable to load subjects.": "无法加载对象。",
   "subject": "对象",
   "subjects": "对象",
-  "{delta} vs {month}": "{delta}，对比 {month}"
+  "{delta} vs {month}": "{delta}，对比 {month}",
+  "Issuer is required for OIDC identities.": "OIDC 身份必须填写签发者。",
+  "Issuer": "签发者",
+  "Revalidation required": "需要重新验证"
 }

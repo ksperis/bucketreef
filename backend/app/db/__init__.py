@@ -43,7 +43,13 @@ from .tag_definition import (
     TagDefinition,
 )
 from .ldap import LdapProvider
-from .oidc import OidcAuthorizationCode, OidcLoginState, OidcProvider
+from .oidc import (
+    OidcAuthorizationCode,
+    OidcLinkAttempt,
+    OidcLoginState,
+    OidcProvider,
+    OidcProviderIssuerPin,
+)
 from .cost import (
     CostEndpointOverride,
     CostModel,
@@ -115,7 +121,9 @@ __all__ = [
     "LdapProvider",
     "OidcLoginState",
     "OidcAuthorizationCode",
+    "OidcLinkAttempt",
     "OidcProvider",
+    "OidcProviderIssuerPin",
     "CostEndpointOverride",
     "CostModel",
     "CostStorageDaily",

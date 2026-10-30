@@ -14,10 +14,12 @@ export type ExternalIdentity = {
   id: string;
   provider_type: string;
   provider_id: string;
+  issuer: string | null;
   email: string | null;
   email_verified: boolean;
   created_at: string;
   last_login_at: string | null;
+  revalidation_required: boolean;
 };
 export type ExternalLinkRequest = {
   id: string;
@@ -121,6 +123,7 @@ export async function addAdminExternalIdentity(
   payload: {
     provider_type: "oidc" | "ldap";
     provider_id: string;
+    issuer?: string | null;
     subject: string;
     email?: string | null;
     email_verified?: boolean;

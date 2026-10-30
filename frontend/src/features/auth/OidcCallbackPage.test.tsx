@@ -75,4 +75,31 @@ describe("OIDC callback localization", () => {
     finishSettings({});
     expect(await screen.findByText("Browser destination")).toBeInTheDocument();
   });
+
+  it("continues an email-collision login through the account-link flow without accepting a session", async () => {
+    mocks.completeLogin.mockResolvedValue({
+      status: "link_reauthentication_required",
+      user: null,
+      session: null,
+      redirect_path: null,
+      recovery_codes: null,
+      link_attempt_id: "attempt-123",
+    } satisfies AuthenticationResponse);
+
+    render(
+      <LanguageProvider>
+        <MemoryRouter initialEntries={["/auth/oidc/example/callback?code=test-code&state=link-state"]}>
+          <Routes>
+            <Route path="/auth/oidc/:provider/callback" element={<OidcCallbackPage />} />
+            <Route path="/oidc/link/:attemptId" element={<p>Account link continuation</p>} />
+          </Routes>
+        </MemoryRouter>
+      </LanguageProvider>,
+    );
+
+    expect(await screen.findByText("Account link continuation")).toBeInTheDocument();
+    expect(mocks.acceptAuthentication).not.toHaveBeenCalled();
+    expect(mocks.fetchSettings).not.toHaveBeenCalled();
+    expect(mocks.workspaceAccess).not.toHaveBeenCalled();
+  });
 });

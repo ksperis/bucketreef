@@ -74,6 +74,35 @@ class AuthSessionService:
         )
         return self._persist_new_session(row, user=user)
 
+    def create_for_user_in_transaction(
+        self,
+        user: User,
+        *,
+        auth_type: str,
+        ip_address: Optional[str],
+        user_agent: Optional[str],
+        mfa_verified: bool,
+    ) -> SessionCredentials:
+        """Create UI session rows without committing the surrounding transaction."""
+        now = utcnow()
+        absolute = now + timedelta(minutes=self.settings.ui_session_absolute_minutes)
+        row = AuthSession(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            principal_type="user",
+            auth_type=auth_type,
+            auth_version=user.auth_version,
+            created_at=now,
+            last_activity_at=now,
+            idle_expires_at=min(now + timedelta(minutes=self.settings.ui_session_idle_minutes), absolute),
+            absolute_expires_at=absolute,
+            mfa_verified_at=now if mfa_verified else None,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            csrf_token_hash="",
+        )
+        return self._persist_new_session(row, user=user, commit=False)
+
     def create_for_s3_session(
         self,
         s3_session: S3Session,
@@ -352,6 +381,21 @@ class AuthSessionService:
         return session.id
 
     def revoke_all_for_user(self, user: User, reason: str, *, increment_version: bool = True) -> None:
+        self.revoke_all_for_user_in_transaction(
+            user,
+            reason,
+            increment_version=increment_version,
+        )
+        self.db.commit()
+
+    def revoke_all_for_user_in_transaction(
+        self,
+        user: User,
+        reason: str,
+        *,
+        increment_version: bool = True,
+    ) -> None:
+        """Revoke user sessions/tokens without committing the surrounding transaction."""
         now = utcnow()
         if increment_version:
             user.auth_version += 1
@@ -388,7 +432,6 @@ class AuthSessionService:
             .values(revoked_at=now)
             .execution_options(synchronize_session=False)
         )
-        self.db.commit()
 
     def list_for_user(self, user_id: int) -> list[AuthSession]:
         return list(
@@ -481,6 +524,7 @@ class AuthSessionService:
         *,
         user: Optional[User] = None,
         s3_session: Optional[S3Session] = None,
+        commit: bool = True,
     ) -> SessionCredentials:
         raw_refresh = create_refresh_token()
         csrf = secrets.token_urlsafe(32)
@@ -494,8 +538,11 @@ class AuthSessionService:
             expires_at=session.absolute_expires_at,
         )
         self.db.add_all([session, refresh])
-        self.db.commit()
-        self.db.refresh(session)
+        if commit:
+            self.db.commit()
+            self.db.refresh(session)
+        else:
+            self.db.flush()
         return SessionCredentials(
             access_token=self._access_token(session, user=user, s3_session=s3_session),
             refresh_token=raw_refresh,

@@ -18,6 +18,7 @@ from app.routers.auth_common import (
     external_identity_link_response,
     settings,
 )
+from app.routers.auth_cookies import ensure_oidc_browser_binding, oidc_browser_binding_hash
 from app.routers.auth_request_context import request_context
 from app.routers.dependencies import (
     get_audit_service,
@@ -25,12 +26,16 @@ from app.routers.dependencies import (
 )
 from app.services.audit_service import AuditService
 from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
-from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
+from app.services.external_identity_user_service import (
+    ExternalIdentityLinkRequiredError,
+    ExternalIdentityReauthenticationRequiredError,
+)
 from app.services.oidc_service import (
     OIDCAuthenticationError,
     OIDCConfigurationError,
     OIDCProviderNotFoundError,
     OIDCStateError,
+    OIDCLinkContinuationRequiredError,
     OidcService,
     get_oidc_service,
 )
@@ -58,6 +63,7 @@ def list_oidc_providers(
 @router.post("/oidc/{provider_id}/start", response_model=OIDCStartResponse)
 def start_oidc_login(
     request: Request,
+    response: Response,
     provider_id: str,
     payload: Optional[OIDCStartRequest] = None,
     oidc_service: OidcService = Depends(get_oidc_service_dependency),
@@ -75,10 +81,12 @@ def start_oidc_login(
             headers={"Retry-After": str(exc.retry_after)},
         ) from exc
     try:
+        _, browser_secret_hash = ensure_oidc_browser_binding(request, response)
         result = oidc_service.start_login(
             provider_id,
             payload.redirect_path if payload else None,
             request_origin=request_origin,
+            browser_secret_hash=browser_secret_hash,
         )
         limiter.record_failure(account=account_key, ip_address=ip_address)
         return OIDCStartResponse.model_validate(result)
@@ -123,6 +131,27 @@ def complete_oidc_login(
             payload.code,
             payload.state,
             request_origin=request_origin,
+            browser_secret_hash=oidc_browser_binding_hash(request),
+        )
+    except ExternalIdentityReauthenticationRequiredError as exc:
+        attempt.clear_rate_limit()
+        return AuthenticationResponse(
+            status="link_reauthentication_required",
+            user=None,
+            session=None,
+            redirect_path=None,
+            recovery_codes=None,
+            link_attempt_id=exc.attempt_id,
+        )
+    except OIDCLinkContinuationRequiredError as exc:
+        attempt.clear_rate_limit()
+        return AuthenticationResponse(
+            status="link_reauthentication_required",
+            user=None,
+            session=None,
+            redirect_path=None,
+            recovery_codes=None,
+            link_attempt_id=exc.attempt_id,
         )
     except ExternalIdentityLinkRequiredError as exc:
         return external_identity_link_response(

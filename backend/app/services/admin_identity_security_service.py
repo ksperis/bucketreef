@@ -67,6 +67,7 @@ class AdminIdentitySecurityService:
             id=row.id,
             provider_type=row.provider_type,
             provider_id=row.provider_id,
+            issuer=row.issuer,
             subject=row.subject,
             email=row.email,
             email_verified=bool(row.email_verified),
@@ -74,6 +75,7 @@ class AdminIdentitySecurityService:
             created_at=row.created_at,
             last_login_at=row.last_login_at,
             revoked_at=row.revoked_at,
+            revalidation_required=bool(row.revalidation_required),
         )
 
     def managed_user(

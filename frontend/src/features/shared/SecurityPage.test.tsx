@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   finishRecentWebAuthnVerification: vi.fn(),
   authenticatePasskey: vi.fn(),
   createPasskey: vi.fn(),
+  fetchOidcProviders: vi.fn(),
   listExternalIdentities: vi.fn(),
   listSecurityCredentials: vi.fn(),
   listSecuritySessions: vi.fn(),
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   revokeExternalIdentity: vi.fn(),
   revokeSecurityCredential: vi.fn(),
   revokeSecuritySession: vi.fn(),
+  startProfileOidcLink: vi.fn(),
 }));
 const policyState = vi.hoisted(() => ({
   require_passkey_for_admins: true,
@@ -36,6 +38,11 @@ const storedUserState = vi.hoisted(() => ({
 }));
 
 vi.mock("../../api/users", () => ({ updateCurrentUser: vi.fn() }));
+
+vi.mock("../../api/auth", () => ({
+  fetchOidcProviders: mocks.fetchOidcProviders,
+  startProfileOidcLink: mocks.startProfileOidcLink,
+}));
 
 vi.mock("../../auth/SessionProvider", () => ({
   useSession: () => ({ user: { id: 1, role: "ui_superadmin" }, clear: mocks.clear }),
@@ -90,6 +97,7 @@ describe("SecurityPage", () => {
     mocks.createPasskey.mockResolvedValue({ id: "created-key" });
     mocks.beginSecurityPasskey.mockResolvedValue({ challenge: "registration" });
     mocks.finishSecurityPasskey.mockResolvedValue(undefined);
+    mocks.fetchOidcProviders.mockResolvedValue([]);
     mocks.listSecurityCredentials.mockResolvedValue([]);
     mocks.listSecuritySessions.mockResolvedValue([
       {
@@ -108,9 +116,12 @@ describe("SecurityPage", () => {
         id: "identity-1",
         provider_type: "oidc",
         provider_id: "company",
+        issuer: "https://issuer.example.test",
         email: "admin@example.com",
         email_verified: true,
         created_at: "2026-08-14T10:00:00Z",
+        last_login_at: null,
+        revalidation_required: false,
       },
     ]);
     mocks.revokeSecurityCredential.mockResolvedValue(undefined);
@@ -139,6 +150,28 @@ describe("SecurityPage", () => {
     expect(screen.getByText("This session")).toBeInTheDocument();
     expect(screen.queryByText("External identity link requests")).not.toBeInTheDocument();
     expect(screen.queryByText("Platform sessions")).not.toBeInTheDocument();
+  });
+
+  it("shows legacy OIDC identities that must be revalidated", async () => {
+    const user = userEvent.setup();
+    mocks.listExternalIdentities.mockResolvedValueOnce([
+      {
+        id: "identity-legacy",
+        provider_type: "oidc",
+        provider_id: "company",
+        issuer: null,
+        email: "admin@example.com",
+        email_verified: true,
+        created_at: "2026-08-14T10:00:00Z",
+        last_login_at: null,
+        revalidation_required: true,
+      },
+    ]);
+
+    render(<SecurityPage />);
+    await user.click(await screen.findByRole("button", { name: "View accounts" }));
+    expect(screen.getByText("Revalidation required")).toBeInTheDocument();
+    expect(screen.getByText(/cannot be used to sign in until it is revalidated/i)).toBeInTheDocument();
   });
 
   it("keeps successful sections visible when one security resource fails and retries only that section", async () => {

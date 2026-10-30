@@ -74,6 +74,10 @@ export default function OidcCallbackPage() {
           setProcessing(false);
           return;
         }
+        if (res.status === "link_reauthentication_required" && res.link_attempt_id) {
+          navigate(`/oidc/link/${encodeURIComponent(res.link_attempt_id)}`, { replace: true });
+          return;
+        }
         if (!res.user) throw new Error(translate(authMessages.oidcSessionMissingUser));
         acceptAuthentication(res, "oidc");
         const sessionUser: SessionUser = { ...res.user, authType: "oidc" };

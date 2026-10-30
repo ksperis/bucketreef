@@ -78,6 +78,10 @@ ALLOWLISTED_UNAUDITED_ROUTES: dict[tuple[str, str, str, str], str] = {
     ("POST", "app/routers/admin/settings.py", "send_quota_notifications_test_email", "/quota-notifications/test-email"): "notification delivery probe",
     ("POST", "app/routers/admin/usage_history.py", "collect_usage_history", "/collect"): "operational collection excluded by audit policy",
     ("POST", "app/routers/auth_oidc.py", "start_oidc_login", "/oidc/{provider_id}/start"): "short-lived authentication operation excluded by audit policy",
+    ("POST", "app/routers/auth_oidc_link.py", "oidc_link_oidc_proof_start", "/oidc/link/{attempt_id}/proof/oidc/{provider_id}/start"): "short-lived account proof authentication operation",
+    ("POST", "app/routers/auth_oidc_link.py", "oidc_link_webauthn_authentication_options", "/oidc/link/{attempt_id}/webauthn/authentication/options"): "short-lived authentication challenge",
+    ("POST", "app/routers/auth_oidc_link.py", "oidc_link_webauthn_registration_options", "/oidc/link/{attempt_id}/webauthn/registration/options"): "short-lived authentication challenge",
+    ("POST", "app/routers/auth_oidc_link.py", "profile_oidc_link_start", "/security/oidc/{provider_id}/start-link"): "short-lived account-link authentication operation",
     ("POST", "app/routers/auth_sessions.py", "refresh_access_token", "/refresh"): "short-lived authentication operation excluded by audit policy",
     ("POST", "app/routers/auth_mfa.py", "webauthn_registration_options", "/webauthn/registration/options"): "short-lived authentication challenge",
     ("POST", "app/routers/auth_mfa.py", "webauthn_authentication_options", "/webauthn/authentication/options"): "short-lived authentication challenge",
@@ -222,14 +226,28 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
                 and call.func.value.func.id == "OnboardingService"
                 for call in ast.walk(node)
             )
-            signals["delegated_auth_attempt_audit"] = signals[
-                "delegated_auth_attempt_audit"
-            ] and any(
+            auth_attempt_names = {
+                target.id
+                for assignment in ast.walk(node)
+                if isinstance(assignment, (ast.Assign, ast.AnnAssign))
+                for target in (
+                    assignment.targets
+                    if isinstance(assignment, ast.Assign)
+                    else [assignment.target]
+                )
+                if isinstance(target, ast.Name)
+                and isinstance(assignment.value, ast.Call)
+                and isinstance(assignment.value.func, ast.Attribute)
+                and assignment.value.func.attr == "from_request"
+                and isinstance(assignment.value.func.value, ast.Name)
+                and assignment.value.func.value.id == "AuthAttemptContext"
+            }
+            signals["delegated_auth_attempt_audit"] = bool(auth_attempt_names) and any(
                 isinstance(call, ast.Call)
                 and isinstance(call.func, ast.Attribute)
                 and call.func.attr == "audit"
                 and isinstance(call.func.value, ast.Name)
-                and call.func.value.id == "attempt"
+                and call.func.value.id in auth_attempt_names
                 for call in ast.walk(node)
             )
             signals["delegated_manager_iam_role_update_audit"] = any(

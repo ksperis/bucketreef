@@ -38,7 +38,7 @@ class OIDCProviderSettings(BaseModel):
     icon_url: Optional[str] = None
     use_pkce: bool = True
     use_nonce: bool = True
-    linking_policy: Literal["manual", "trusted_email"] = "manual"
+    linking_policy: Literal["manual", "reauthenticate", "trusted_email"] = "manual"
     trusted_email_domains: list[str] = Field(default_factory=list)
     allowed_algorithms: list[str] = Field(default_factory=lambda: ["RS256"])
     allowed_hosts: list[str] = Field(default_factory=list)
@@ -370,6 +370,16 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     oidc_providers: dict[str, OIDCProviderSettings] = Field(default_factory=dict)
     oidc_state_ttl_seconds: int = Field(600, description="Validity of OIDC login state (seconds)")
+    oidc_link_attempt_ttl_seconds: int = Field(
+        600,
+        ge=60,
+        le=1800,
+        description="Validity of an OIDC account-linking transaction (seconds)",
+    )
+    oidc_browser_cookie_name: str = Field(
+        "oidc_browser_binding",
+        description="HttpOnly cookie binding OIDC and account-linking transactions to a browser",
+    )
     ldap_providers: dict[str, LDAPProviderSettings] = Field(default_factory=dict)
     scheduled_jobs_enabled: bool = Field(
         True,

@@ -803,6 +803,7 @@
   "Manager · Integrity check": "Manager · Contrôle d'intégrité",
   "Manages RGW User keys in Manager; storage and endpoint permissions remain required.": "Gère les clés des utilisateurs RGW dans Manager ; les permissions de stockage et d’endpoint restent requises.",
   "Manual approval": "Approbation manuelle",
+  "Reauthenticate existing account": "Réauthentifier le compte existant",
   "Manual daily collection": "Rassemblement quotidien manuel",
   "Manually provisioned keys may also be used outside BucketReef.": "Les clés provisionnées manuellement peuvent aussi être utilisées hors BucketReef.",
   "Assign this shared connection to UI users or groups to make it available as a Manager execution context.": "Attribuez cette connexion partagée à des utilisateurs ou groupes UI pour la rendre disponible comme contexte d’exécution dans Manager.",
@@ -1850,5 +1851,8 @@
   "The five readiness levels used by startup diagnostics, the CLI and this page.": "Les cinq niveaux d’aptitude utilisés par les diagnostics de démarrage, la CLI et cette page.",
   "This report evaluates the production target for this backend instance. Findings marked as startup-blocking can prevent backend startup; critical findings remain operational so they can be corrected before publication.": "Ce rapport évalue l’aptitude à la production de cette instance backend. Les constats marqués comme bloquant le démarrage peuvent empêcher le backend de démarrer ; les constats critiques restent non bloquants afin de pouvoir être corrigés avant la mise en production.",
   "Unable to evaluate production readiness.": "Impossible d’évaluer l’aptitude à la production.",
-  "Warning": "Avertissement"
+  "Warning": "Avertissement",
+  "Issuer is required for OIDC identities.": "L’émetteur est obligatoire pour les identités OIDC.",
+  "Issuer": "Émetteur",
+  "Revalidation required": "Revalidation requise"
 }

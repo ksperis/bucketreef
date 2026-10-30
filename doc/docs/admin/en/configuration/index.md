@@ -175,12 +175,16 @@ or with nested environment variables:
 
 - UI-managed OIDC providers are persisted in the `oidc_providers` database
   table. Their `client_secret` value is encrypted with the credential key and
-  is write-only: read APIs return only `has_client_secret`.
+  is write-only: read APIs return only `has_client_secret`. New providers
+  created from the UI default to `linking_policy=reauthenticate`.
 - Environment-managed providers use `OIDC_PROVIDERS__<key>__...` variables.
   They take priority over any UI provider with the same `provider_id` and appear
-  locked/read-only in Admin **Settings > Authentication**.
+  locked/read-only in Admin **Settings > Authentication**. Their default
+  linking policy remains `manual` unless `LINKING_POLICY` is configured.
 - `OIDC_STATE_TTL_SECONDS` remains a backend runtime setting and is not editable
   from the UI.
+- `OIDC_LINK_ATTEMPT_TTL_SECONDS` controls the short-lived browser-bound account
+  linking transaction and defaults to 600 seconds (accepted range: 60–1800).
 
 Common environment fields:
 
@@ -192,8 +196,11 @@ Common environment fields:
 - `OIDC_PROVIDERS__<key>__SCOPES`
 - optional behavior fields: `PROMPT`, `ENABLED`, `ICON_URL`, `USE_PKCE`,
   `USE_NONCE`, `ALLOWED_ALGORITHMS`, `ALLOWED_HOSTS`, `LINKING_POLICY`, and
-  `TRUSTED_EMAIL_DOMAINS`. `trusted_email` is OIDC-only and requires exact,
-  normalized domains plus the verified-email eligibility rules.
+  `TRUSTED_EMAIL_DOMAINS`. `LINKING_POLICY` accepts `reauthenticate`, `manual`,
+  or `trusted_email`. `reauthenticate` requires the user to prove the existing
+  BucketReef account and satisfy its MFA policy before explicitly confirming
+  the link. `trusted_email` is OIDC-only and requires exact, normalized domains
+  plus the verified-email eligibility rules.
 
 LDAP providers can be configured either from Admin **Settings > Authentication**
 or with nested environment variables:

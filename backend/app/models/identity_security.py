@@ -30,6 +30,7 @@ class AdminExternalIdentityInfo(ApiModel):
     id: str
     provider_type: Literal["oidc", "ldap"]
     provider_id: str
+    issuer: Optional[str]
     subject: str
     email: Optional[str]
     email_verified: bool
@@ -37,6 +38,7 @@ class AdminExternalIdentityInfo(ApiModel):
     created_at: datetime
     last_login_at: Optional[datetime]
     revoked_at: Optional[datetime]
+    revalidation_required: bool
 
 
 class AdminUserSecurity(ApiModel):
@@ -57,6 +59,7 @@ class AdminSetPasswordRequest(ApiModel):
 class AdminExternalIdentityRequest(ApiModel):
     provider_type: Literal["oidc", "ldap"]
     provider_id: str = Field(min_length=1, max_length=255)
+    issuer: Optional[str] = Field(default=None, min_length=1, max_length=2048)
     subject: str = Field(min_length=1, max_length=2048)
     email: Optional[EmailStr] = None
     email_verified: bool = False

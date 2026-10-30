@@ -19,12 +19,15 @@ from app.services.external_identity_user_service import ExternalIdentityLinkRequ
 from app.services.users_service import UsersService
 from app.utils.time import utcnow
 
+OIDC_ISSUER = "https://issuer.example.test"
+
 
 def test_get_or_create_oidc_user_creates_new_user(db_session):
     service = UsersService(db_session)
 
     user, created = service.get_or_create_oidc_user(
         provider="Google",
+        issuer=OIDC_ISSUER,
         subject="sub-123",
         email="oidc@example.com",
         full_name="OIDC User",
@@ -37,6 +40,7 @@ def test_get_or_create_oidc_user_creates_new_user(db_session):
     assert identity.user_id == user.id
     assert identity.provider_type == "oidc"
     assert identity.provider_id == "google"
+    assert identity.issuer == OIDC_ISSUER
     assert identity.subject == "sub-123"
     assert identity.email_verified is True
     assert user.full_name == "OIDC User"
@@ -58,6 +62,7 @@ def test_get_or_create_oidc_user_requires_approval_for_existing_email(db_session
     with pytest.raises(ExternalIdentityLinkRequiredError):
         service.get_or_create_oidc_user(
             provider="google",
+            issuer=OIDC_ISSUER,
             subject="sub-456",
             email="existing@example.com",
             full_name="Existing Linked",
@@ -107,6 +112,7 @@ def test_identity_link_request_notifies_authorized_admins_once_per_episode(
         with pytest.raises(ExternalIdentityLinkRequiredError):
             service.get_or_create_oidc_user(
                 provider="google",
+                issuer=OIDC_ISSUER,
                 subject="identity-notification-subject",
                 email=existing.email,
                 full_name="Identity Target",
@@ -164,6 +170,7 @@ def test_privileged_identity_link_request_notifies_superadmins_only(db_session):
     with pytest.raises(ExternalIdentityLinkRequiredError):
         UsersService(db_session).get_or_create_oidc_user(
             provider="google",
+            issuer=OIDC_ISSUER,
             subject="privileged-notification-subject",
             email=target.email,
             full_name="Privileged Target",
@@ -202,6 +209,7 @@ def test_get_or_create_oidc_user_rejects_email_bound_to_another_identity(
     with pytest.raises(ExternalIdentityLinkRequiredError):
         service.get_or_create_oidc_user(
             provider="google",
+            issuer=OIDC_ISSUER,
             subject="oidc-subject",
             email="EXTERNAL@example.com",
             full_name="External User",
@@ -225,6 +233,7 @@ def test_get_or_create_oidc_user_reuses_existing_mapping(db_session):
             user_id=mapped.id,
             provider_type="oidc",
             provider_id="google",
+            issuer=OIDC_ISSUER,
             subject="sub-999",
             email=mapped.email,
             email_verified=True,
@@ -235,6 +244,7 @@ def test_get_or_create_oidc_user_reuses_existing_mapping(db_session):
     service = UsersService(db_session)
     user, created = service.get_or_create_oidc_user(
         provider="google",
+        issuer=OIDC_ISSUER,
         subject="sub-999",
         email="mapped@example.com",
         full_name="Updated Name",
@@ -258,6 +268,7 @@ def test_trusted_email_policy_links_an_eligible_local_account(db_session):
 
     user, created = UsersService(db_session).get_or_create_oidc_user(
         provider="company",
+        issuer=OIDC_ISSUER,
         subject="secret-provider-subject",
         email="EMPLOYEE@example.com",
         full_name="Employee",
@@ -313,6 +324,7 @@ def test_trusted_email_policy_falls_back_to_manual_review(
     with pytest.raises(ExternalIdentityLinkRequiredError):
         UsersService(db_session).get_or_create_oidc_user(
             provider="company",
+            issuer=OIDC_ISSUER,
             subject=f"manual-{role}-{is_active}-{email_verified}-{domains[0]}",
             email=existing.email,
             full_name=None,
@@ -353,6 +365,7 @@ def test_trusted_email_policy_rejects_accounts_with_revoked_identity_history(db_
     with pytest.raises(ExternalIdentityLinkRequiredError):
         UsersService(db_session).get_or_create_oidc_user(
             provider="company",
+            issuer=OIDC_ISSUER,
             subject="new-subject",
             email=existing.email,
             full_name=None,

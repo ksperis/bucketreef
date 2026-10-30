@@ -18,11 +18,13 @@ class AuthenticationResponse(ApiModel):
         "mfa_required",
         "mfa_enrollment_required",
         "link_approval_required",
+        "link_reauthentication_required",
     ]
     user: Optional[UserOut]
     session: Optional[SessionDescriptor]
     redirect_path: Optional[str]
     recovery_codes: Optional[list[str]]
+    link_attempt_id: Optional[str] = None
 
 
 class RefreshResponse(ApiModel):
@@ -97,7 +99,9 @@ class ExternalIdentityInfo(ApiModel):
     id: str
     provider_type: str
     provider_id: str
+    issuer: Optional[str]
     email: Optional[str]
     email_verified: bool
     created_at: datetime
     last_login_at: Optional[datetime]
+    revalidation_required: bool
