@@ -186,12 +186,12 @@ def _payload(name="Private account access"):
 
 
 def test_managed_access_iam_state_requires_string_lists():
-    assert ManagedPrivateAccessService._json_list('["operators"]') == [
+    assert ManagedPrivateAccessService._string_list(["operators"]) == [
         "operators"
     ]
-    for raw in ("{", "{}", '"operators"', '["operators",42]', '[""]'):
+    for raw in ("{}", {}, "operators", ["operators", 42], [""]):
         with pytest.raises(ValueError):
-            ManagedPrivateAccessService._json_list(raw)
+            ManagedPrivateAccessService._string_list(raw)
 
 
 def _disable_capability_probe(monkeypatch):

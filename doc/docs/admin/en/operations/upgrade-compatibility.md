@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured managed private access IAM state
+
+Migration `0210_structure_managed_access_iam_lists` replaces the
+`managed_private_accesses.iam_groups_json`, `iam_managed_policies_json`, and
+`iam_inline_policy_names_json` text columns with structured JSON
+`iam_groups`, `iam_managed_policies`, and `iam_inline_policy_names` lists.
+Existing values must decode to arrays containing only non-empty strings;
+malformed JSON or values with the wrong shape stop the upgrade explicitly.
+
+Managed private access provisioning, retry detection, and compensation now use
+the structured lists directly instead of serializing and parsing JSON text at
+runtime. The downgrade recreates the former text JSON columns from the
+structured lists.
+
 ## 2026-10 structured Portal request payloads
 
 Migration `0208_structure_portal_request_payloads` replaces

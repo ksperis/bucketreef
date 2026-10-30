@@ -2162,6 +2162,27 @@
           "collation": null,
           "comments": null,
           "check": null
+        },
+        {
+          "id": "field:s3_accounts.allow_multisite_endpoint_switching",
+          "name": "allow_multisite_endpoint_switching",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
         }
       ],
       "indexes": [
@@ -8969,6 +8990,27 @@
           "check": null
         },
         {
+          "id": "field:s3_users.allow_multisite_endpoint_switching",
+          "name": "allow_multisite_endpoint_switching",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:s3_users.allow_managed_private_connection_provisioning",
           "name": "allow_managed_private_connection_provisioning",
           "type": {
@@ -10299,11 +10341,11 @@
           "check": null
         },
         {
-          "id": "field:managed_private_accesses.iam_groups_json",
-          "name": "iam_groups_json",
+          "id": "field:managed_private_accesses.iam_groups",
+          "name": "iam_groups",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -10320,11 +10362,11 @@
           "check": null
         },
         {
-          "id": "field:managed_private_accesses.iam_managed_policies_json",
-          "name": "iam_managed_policies_json",
+          "id": "field:managed_private_accesses.iam_managed_policies",
+          "name": "iam_managed_policies",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -10341,11 +10383,11 @@
           "check": null
         },
         {
-          "id": "field:managed_private_accesses.iam_inline_policy_names_json",
-          "name": "iam_inline_policy_names_json",
+          "id": "field:managed_private_accesses.iam_inline_policy_names",
+          "name": "iam_inline_policy_names",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
