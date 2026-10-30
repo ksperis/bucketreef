@@ -126,6 +126,10 @@ export const downloadBrowserTransferStream = async (
   } = params;
   if (mode === "proxy") {
     const query = withS3ContextParam({ key, version_id: params.versionId }, selector);
+    const transferScope = browserTransferScope(selector, options);
+    if (query && transferScope.executionEndpointId != null) {
+      query.execution_endpoint_id = transferScope.executionEndpointId;
+    }
     const url = buildApiUrl(
       `/browser/buckets/${encodeURIComponent(bucket)}/download`,
       query ?? undefined,

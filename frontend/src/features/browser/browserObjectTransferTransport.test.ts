@@ -4,6 +4,10 @@ import {
   downloadBrowserTransferStream,
   uploadBrowserTransferBlob,
 } from "./browserObjectTransferTransport";
+import {
+  clearExecutionDestinationState,
+  setExecutionDestinationForContext,
+} from "../../api/executionDestinationState";
 
 const apiMocks = vi.hoisted(() => ({
   presignObject: vi.fn(),
@@ -28,6 +32,7 @@ const fetchMock = vi.fn();
 describe("browser object transfer transport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearExecutionDestinationState();
     vi.stubGlobal("fetch", fetchMock);
     apiMocks.proxyUpload.mockResolvedValue(undefined);
   });
@@ -95,6 +100,7 @@ describe("browser object transfer transport", () => {
   it("streams proxy downloads through an authenticated Browser request", async () => {
     const signal = new AbortController().signal;
     fetchMock.mockResolvedValue(new Response("stream", { status: 200 }));
+    setExecutionDestinationForContext("acc-3", 44);
 
     const stream = await downloadBrowserTransferStream({
       selector: "acc-3",
@@ -113,6 +119,7 @@ describe("browser object transfer transport", () => {
     expect(parsedUrl.pathname).toBe("/api/browser/buckets/bucket%20name/download");
     expect(parsedUrl.searchParams.get("key")).toBe("folder/report.csv");
     expect(parsedUrl.searchParams.get("context_id")).toBe("acc-3");
+    expect(parsedUrl.searchParams.get("execution_endpoint_id")).toBe("44");
     expect(request).toMatchObject({
       credentials: "include",
       signal,

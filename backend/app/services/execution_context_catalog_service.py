@@ -46,7 +46,11 @@ class ExecutionContextCatalogService:
         self.tags_service = TagsService(db)
 
     def _execution_destinations(self, endpoint, effective, *, workspace: str | None):
-        if workspace != "manager" or not effective.allow_multisite_endpoint_switching:
+        if (
+            workspace not in {"manager", "browser"}
+            or endpoint is None
+            or not effective.allow_multisite_endpoint_switching
+        ):
             return [], False
         destinations = [
             execution_destination_from_db(candidate)
@@ -143,17 +147,31 @@ class ExecutionContextCatalogService:
         workspace: str | None,
     ) -> list[ExecutionContext]:
         connection_workspace = workspace or "manager"
-        return [
-            connection_execution_context_from_db(
-                connection,
-                tags_service=self.tags_service,
+        results: list[ExecutionContext] = []
+        for connection in self.access_service.list_workspace_connections(
+            user,
+            workspace=connection_workspace,
+            resolved=effective,
+        ):
+            # Session credentials can carry endpoint-scoped authorization. Keep
+            # those connections pinned to the endpoint that issued the token.
+            if connection.session_token is None:
+                destinations, allowed = self._execution_destinations(
+                    connection.storage_endpoint,
+                    effective,
+                    workspace=workspace,
+                )
+            else:
+                destinations, allowed = [], False
+            results.append(
+                connection_execution_context_from_db(
+                    connection,
+                    tags_service=self.tags_service,
+                    execution_destinations=destinations,
+                    destination_switching_allowed=allowed,
+                )
             )
-            for connection in self.access_service.list_workspace_connections(
-                user,
-                workspace=connection_workspace,
-                resolved=effective,
-            )
-        ]
+        return results
 
     def list_contexts(
         self,

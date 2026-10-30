@@ -228,7 +228,7 @@ function ManagerShell() {
     });
   } else if (
     selected
-    && (selected.kind === "account" || selected.kind === "s3_user")
+    && (selected.kind === "account" || selected.kind === "s3_user" || selected.kind === "connection")
     && Boolean(selected.destination_switching_allowed)
     && executionDestinations.length > 1
     && selectedExecutionEndpointId != null

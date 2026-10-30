@@ -103,6 +103,8 @@ function buildBrowserContext(overrides?: Record<string, unknown>) {
     setSelectedContextId: vi.fn(),
     requiresContextSelection: true,
     contextsLoaded: true,
+    selectedExecutionEndpointId: null,
+    setExecutionEndpointId: vi.fn(),
     sessionAccountName: null,
     accessError: null,
     ...overrides,
@@ -281,6 +283,59 @@ describe("BrowserLayout", () => {
       expect(screen.getByText("Private Browser connection")).toBeInTheDocument();
     });
     expect(fetchManagerContextMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the RGW destination selector for an eligible Browser connection", () => {
+    const setExecutionEndpointId = vi.fn();
+    useBrowserContextMock.mockReturnValue(buildBrowserContext({
+      contexts: [{
+        id: "conn-1",
+        kind: "connection",
+        display_name: "Multisite Browser connection",
+        endpoint_id: 10,
+        capabilities: {
+          can_manage_iam: false,
+          sts_capable: false,
+          admin_api_capable: false,
+        },
+        destination_switching_allowed: true,
+        execution_destinations: [
+          {
+            endpoint_id: 10,
+            name: "Zone A",
+            endpoint_url: "https://zone-a.example.test",
+            region: null,
+            zone_id: "zone-a",
+          },
+          {
+            endpoint_id: 11,
+            name: "Zone B",
+            endpoint_url: "https://zone-b.example.test",
+            region: null,
+            zone_id: "zone-b",
+          },
+        ],
+      }],
+      selectedContextId: "conn-1",
+      selectedExecutionEndpointId: 11,
+      setExecutionEndpointId,
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/browser"]}>
+        <Routes>
+          <Route path="/browser" element={<BrowserLayout />}>
+            <Route index element={<BrowserSidebarSlotConsumer />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(capturedLayoutProps.topbarControlDescriptors?.map((descriptor) => descriptor.id)).toEqual([
+      "account",
+      "destination",
+    ]);
+    expect(screen.getByRole("button", { name: "Select S3 endpoint" })).toHaveTextContent("Zone B");
   });
 
   it("keeps a single page-level Browser heading when no context is available", () => {

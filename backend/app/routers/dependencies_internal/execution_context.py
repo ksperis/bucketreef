@@ -202,7 +202,7 @@ def _resolve_connection_context(
             access_key=None, secret_key=None, storage_endpoint=conn.storage_endpoint,
             storage_endpoint_id=conn.storage_endpoint_id, session_endpoint=details.endpoint_url,
             session_region=details.region, session_force_path_style=details.force_path_style,
-            session_verify_tls=details.verify_tls,
+            session_verify_tls=details.verify_tls, s3_connection_id=conn.id,
         )
     if touch_usage:
         connections.touch_usage_best_effort(conn)
@@ -330,10 +330,10 @@ def _apply_user_execution_destination(
     is_storage_ops_surface: bool,
 ) -> S3ExecutionContext:
     if (
-        surface not in {"manager", "manager-browser"}
+        surface not in {"manager", "manager-browser", "browser"}
         or portal_browser
         or is_storage_ops_surface
-        or execution_context.context_kind not in {"account", "s3_user"}
+        or execution_context.context_kind not in {"account", "s3_user", "connection"}
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -348,6 +348,18 @@ def _apply_user_execution_destination(
         )
     if execution_endpoint_id == origin.id:
         return execution_context
+
+    if execution_context.context_kind == "connection":
+        source_connection = execution_context.source_connection
+        if source_connection is None and execution_context.s3_connection_id is not None:
+            source_connection = db.get(S3Connection, execution_context.s3_connection_id)
+        if execution_context.session_token_value is not None or (
+            source_connection is not None and source_connection.session_token is not None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="RGW multisite endpoint switching is not available for temporary connection credentials",
+            )
 
     effective = EffectiveAccessService(db).resolve_user(user)
     if not effective.allow_multisite_endpoint_switching:
@@ -370,6 +382,14 @@ def _apply_user_execution_destination(
 
     execution_context.storage_endpoint_id = destination.id
     execution_context.storage_endpoint = destination
+    if execution_context.context_kind == "connection":
+        # Connections cache their resolved target in session_* fields. Update
+        # those options as well so S3 clients actually execute on the selected
+        # multisite destination while preserving the connection credentials.
+        execution_context.session_endpoint = destination.endpoint_url
+        execution_context.session_region = destination.region
+        execution_context.session_force_path_style = bool(destination.force_path_style)
+        execution_context.session_verify_tls = bool(destination.verify_tls)
     return execution_context
 
 

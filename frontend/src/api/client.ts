@@ -70,12 +70,15 @@ export function buildApiUrl(path: string, params?: Record<string, unknown> | URL
   return url.toString();
 }
 
-function withManagerExecutionDestination(
+function withWorkspaceExecutionDestination(
   params?: Record<string, unknown> | URLSearchParams,
 ): Record<string, unknown> | URLSearchParams | undefined {
   if (
     typeof window === "undefined"
-    || !window.location.pathname.startsWith("/manager")
+    || !(
+      window.location.pathname.startsWith("/manager")
+      || window.location.pathname.startsWith("/browser")
+    )
     || params == null
   ) {
     return params;
@@ -216,7 +219,7 @@ async function refreshCookies(): Promise<void> {
 }
 
 async function request<T>(method: string, path: string, data?: unknown, config: ApiRequestConfig = {}): Promise<ApiResponse<T>> {
-  const url = buildApiUrl(path, withManagerExecutionDestination(config.params));
+  const url = buildApiUrl(path, withWorkspaceExecutionDestination(config.params));
   const headers = buildApiRequestHeaders(method, config.headers);
   const combined = combineSignal(config.signal, config.timeout ?? API_REQUEST_TIMEOUT_MS);
   try {

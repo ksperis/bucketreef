@@ -1306,17 +1306,6 @@ export default function GroupsPage() {
                         })),
                       ariaLabel: text("allowManagedProvisioning"),
                     },
-                    {
-                      title: text("switchRgwMultisiteEndpoints"),
-                      description: text("switchRgwMultisiteEndpointsDescription"),
-                      checked: Boolean(form.allow_multisite_endpoint_switching),
-                      onChange: (value) =>
-                        setForm((current) => ({
-                          ...current,
-                          allow_multisite_endpoint_switching: value,
-                        })),
-                      ariaLabel: text("allowRgwMultisiteEndpointSwitching"),
-                    },
                   ]}
                   description={text("managerAccessDescription")}
                   tools={managerToolDefinitions}
@@ -1330,6 +1319,23 @@ export default function GroupsPage() {
                       },
                     }))
                   }
+                />
+                <AdminAccessToggleSection
+                  title={text("rgwMultisite")}
+                  description={text("rgwMultisiteAccessDescription")}
+                  items={[
+                    {
+                      title: text("switchRgwMultisiteEndpoints"),
+                      description: text("switchRgwMultisiteEndpointsDescription"),
+                      checked: Boolean(form.allow_multisite_endpoint_switching),
+                      onChange: (value) =>
+                        setForm((current) => ({
+                          ...current,
+                          allow_multisite_endpoint_switching: value,
+                        })),
+                      ariaLabel: text("allowRgwMultisiteEndpointSwitching"),
+                    },
+                  ]}
                 />
                 <BrowserAccessSection
                   description={text("browserAccessDescription")}

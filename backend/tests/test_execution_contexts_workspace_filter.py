@@ -666,6 +666,16 @@ def test_manager_catalog_exposes_only_compatible_multisite_execution_destination
         access_manager=True,
         storage_endpoint=origin,
     )
+    shared_connection = _create_connection(
+        db_session,
+        created_by_user_id=user.id,
+        name="multisite-shared-connection",
+        can_manage_iam=True,
+        access_manager=True,
+        access_browser=False,
+        is_shared=True,
+        storage_endpoint=origin,
+    )
     db_session.add_all(
         [
             UserS3Account(
@@ -675,6 +685,7 @@ def test_manager_catalog_exposes_only_compatible_multisite_execution_destination
                 portal_role=None,
             ),
             UserS3User(user_id=user.id, s3_user_id=s3_user.id),
+            UserS3Connection(user_id=user.id, s3_connection_id=shared_connection.id),
         ]
     )
     db_session.commit()
@@ -688,8 +699,11 @@ def test_manager_catalog_exposes_only_compatible_multisite_execution_destination
         assert [item.zone_id for item in context.execution_destinations] == ["zone-a", "zone-b"]
 
     connection_context = next(item for item in contexts if item.id == f"conn-{connection.id}")
-    assert connection_context.destination_switching_allowed is False
-    assert connection_context.execution_destinations == []
+    assert connection_context.destination_switching_allowed is True
+    assert [item.endpoint_id for item in connection_context.execution_destinations] == compatible_ids
+    shared_context = next(item for item in contexts if item.id == f"conn-{shared_connection.id}")
+    assert shared_context.destination_switching_allowed is True
+    assert [item.endpoint_id for item in shared_context.execution_destinations] == compatible_ids
 
     user.allow_multisite_endpoint_switching = False
     db_session.commit()
@@ -697,6 +711,59 @@ def test_manager_catalog_exposes_only_compatible_multisite_execution_destination
     account_context = next(item for item in contexts if item.id == str(account.id))
     assert account_context.destination_switching_allowed is False
     assert account_context.execution_destinations == []
+
+
+def test_browser_catalog_exposes_multisite_destinations_for_endpoint_backed_connections(db_session):
+    user = _create_user(db_session)
+    user.allow_multisite_endpoint_switching = True
+    origin = _create_endpoint(
+        db_session,
+        name="browser-multisite-zone-a",
+        realm_id="realm-browser",
+        zonegroup_id="zonegroup-browser",
+        zone_id="zone-a",
+    )
+    destination = _create_endpoint(
+        db_session,
+        name="browser-multisite-zone-b",
+        realm_id="realm-browser",
+        zonegroup_id="zonegroup-browser",
+        zone_id="zone-b",
+    )
+    connection = _create_connection(
+        db_session,
+        created_by_user_id=user.id,
+        name="browser-multisite-connection",
+        can_manage_iam=False,
+        access_manager=False,
+        access_browser=True,
+        storage_endpoint=origin,
+    )
+
+    contexts = execution_contexts.list_execution_contexts(workspace="browser", user=user, db=db_session)
+    context = next(item for item in contexts if item.id == f"conn-{connection.id}")
+
+    assert context.destination_switching_allowed is True
+    assert [item.endpoint_id for item in context.execution_destinations] == [origin.id, destination.id]
+
+
+def test_browser_catalog_does_not_offer_multisite_destinations_for_custom_connections(db_session):
+    user = _create_user(db_session)
+    user.allow_multisite_endpoint_switching = True
+    connection = _create_connection(
+        db_session,
+        created_by_user_id=user.id,
+        name="browser-custom-connection",
+        can_manage_iam=False,
+        access_manager=False,
+        access_browser=True,
+    )
+
+    contexts = execution_contexts.list_execution_contexts(workspace="browser", user=user, db=db_session)
+    context = next(item for item in contexts if item.id == f"conn-{connection.id}")
+
+    assert context.destination_switching_allowed is False
+    assert context.execution_destinations == []
 
 
 def test_execution_contexts_exclude_inactive_connections(db_session):

@@ -168,6 +168,7 @@ export default function BrowserPage({
     resolvedLockedBucketName,
     showWorkspaceSidebar,
     selectedContext,
+    selectedStorageEndpointCapabilities,
     browserContexts,
     storedUser,
     workspaceSurface,
@@ -547,7 +548,7 @@ export default function BrowserPage({
   const objectsListViewportRef = useRef<HTMLDivElement | null>(null);
   const effectiveCaps =
     storageEndpointCapabilities === undefined
-      ? (selectedContext?.storage_endpoint_capabilities ?? null)
+      ? (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities ?? null)
       : storageEndpointCapabilities;
   const bucketManagementEnabled =
     normalizedPath.endsWith("/browser") &&

@@ -244,12 +244,15 @@ share the principal's existing draft and **Save** action. UI User controls
 describe direct access; UI Group controls describe permissions inherited by
 eligible members.
 
-**Allow RGW multisite endpoint switching** is a Manager permission available to
-eligible UI users and UI groups. Direct and inherited grants combine through the
-normal effective-access model. The permission only allows the user to choose an
-alternate compatible execution endpoint for an already authorized RGW Account
-or RGW User context; it does not grant Manager access to a context and does not
-add S3, IAM, or RGW Admin Ops permissions.
+**Allow RGW multisite endpoint switching** is an RGW multisite permission
+available to eligible UI users and UI groups. Direct and inherited grants combine
+through the normal effective-access model. The permission allows the user to
+choose an alternate compatible execution endpoint for an already authorized RGW
+Account, RGW User, or endpoint-backed S3 Connection context in Manager or
+standalone Browser where that context is otherwise available; it does not grant
+workspace access to a context and does not add S3, IAM, or RGW Admin Ops
+permissions. Custom-URL S3 Connections and S3 Connections using temporary
+session credentials remain pinned to their original endpoint.
 
 In the UI user and UI group editors, association tabs first list the currently
 linked resources. Use **Add…** to open a searchable picker, confirm the pending

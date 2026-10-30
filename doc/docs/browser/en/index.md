@@ -23,6 +23,20 @@ The standalone Browser may expose Standard or Advanced capabilities according
 to platform settings. Embedded Browser experiences are documented by their host
 workspace because their identity and available actions differ.
 
+## RGW multisite destinations
+
+When a private S3 Connection is bound to a configured Ceph Storage Endpoint,
+the Browser can expose an S3 endpoint selector if your effective access allows
+RGW multisite endpoint switching and another configured endpoint declares the
+same Realm ID and Zonegroup ID. The connection credentials stay unchanged while
+requests, transfers, and endpoint-dependent capabilities follow the selected
+destination.
+
+Connections configured with a custom URL cannot be matched reliably to the
+declared topology and do not expose the selector. Connections that use temporary
+session credentials also remain pinned to the endpoint that issued those
+credentials. OpenStack project contexts keep their Region selector instead.
+
 ## Next pages
 
 - [Getting started](getting-started/index.md)

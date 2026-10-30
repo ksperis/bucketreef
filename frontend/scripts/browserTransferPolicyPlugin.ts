@@ -35,7 +35,7 @@ export function browserTransferPolicyPlugin(apiTarget: string, apiPrefix: string
         response.setHeader("Cache-Control", "no-store, private");
         try {
           const policyUrl = new URL(`${apiPrefix.replace(/\/$/, "")}/browser/direct-transfer-policy`, apiTarget);
-          for (const key of ["workspace", "context_id", "policy_id"]) {
+          for (const key of ["workspace", "context_id", "execution_endpoint_id", "policy_id"]) {
             const value = url.searchParams.get(key);
             if (value != null) policyUrl.searchParams.set(key, value);
           }
