@@ -73,6 +73,7 @@ export type LdapProviderAdminItem = {
   timeout_seconds: number;
   enabled: boolean;
   allow_insecure: boolean;
+  linking_policy: "manual" | "reauthenticate";
   source: LdapProviderSource;
   editable: boolean;
   field_locks: Record<string, LdapProviderFieldLock>;
@@ -97,6 +98,7 @@ export type LdapProviderAdminPayload = {
   timeout_seconds: number;
   enabled: boolean;
   allow_insecure: boolean;
+  linking_policy: "manual" | "reauthenticate";
   clear_bind_password?: boolean;
 };
 

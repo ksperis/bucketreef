@@ -30,5 +30,6 @@ class LdapProvider(Base):
     timeout_seconds = Column(Float, nullable=False, default=5.0)
     enabled = Column(Boolean, nullable=False, default=True)
     allow_insecure = Column(Boolean, nullable=False, default=False)
+    linking_policy = Column(String, nullable=False, default="manual", server_default="manual")
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)

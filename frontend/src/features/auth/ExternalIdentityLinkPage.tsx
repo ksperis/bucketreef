@@ -6,19 +6,19 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import {
-  beginOidcLinkWebAuthnAuthentication,
-  beginOidcLinkWebAuthnRegistration,
-  confirmOidcLink,
-  fetchOidcLinkStatus,
-  finishOidcLinkWebAuthnAuthentication,
-  finishOidcLinkWebAuthnRegistration,
-  requestOidcLinkAdminApproval,
-  startOidcLinkProof,
-  verifyOidcLinkLdap,
-  verifyOidcLinkPassword,
-  verifyOidcLinkRecoveryCode,
-  type OidcLinkProofMethod,
-  type OidcLinkStatus,
+  beginExternalIdentityLinkWebAuthnAuthentication,
+  beginExternalIdentityLinkWebAuthnRegistration,
+  confirmExternalIdentityLink,
+  fetchExternalIdentityLinkStatus,
+  finishExternalIdentityLinkWebAuthnAuthentication,
+  finishExternalIdentityLinkWebAuthnRegistration,
+  requestExternalIdentityLinkAdminApproval,
+  startExternalIdentityLinkOidcProof,
+  verifyExternalIdentityLinkLdap,
+  verifyExternalIdentityLinkPassword,
+  verifyExternalIdentityLinkRecoveryCode,
+  type ExternalIdentityLinkProofMethod,
+  type ExternalIdentityLinkStatus,
 } from "../../api/auth";
 import { authenticatePasskey, createPasskey } from "../../auth/webauthn";
 import BrandMark from "../../components/BrandMark";
@@ -28,19 +28,19 @@ import { AuthButton, AuthInput, AuthPasswordInput, AuthSelect } from "./AuthForm
 import { AuthCard, AuthCenteredPage } from "./AuthSurface";
 import { useAuthI18n } from "./authMessages";
 
-function proofLabel(method: OidcLinkProofMethod, text: ReturnType<typeof useAuthI18n>["text"]): string {
+function proofLabel(method: ExternalIdentityLinkProofMethod, text: ReturnType<typeof useAuthI18n>["text"]): string {
   if (method.type === "password") return text("oidcLinkLocalPassword");
   return method.display_name || method.provider_id || text(method.type === "ldap" ? "directory" : "oidcLinkExistingOidc");
 }
 
-export function oidcLinkCompletionPath(status: OidcLinkStatus): string {
+export function externalIdentityLinkCompletionPath(status: ExternalIdentityLinkStatus): string {
   return status.source === "profile" ? "/profile" : "/";
 }
 
-export default function OidcLinkPage() {
+export default function ExternalIdentityLinkPage() {
   const { attemptId } = useParams<{ attemptId: string }>();
   const { text } = useAuthI18n();
-  const [status, setStatus] = useState<OidcLinkStatus | null>(null);
+  const [status, setStatus] = useState<ExternalIdentityLinkStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export default function OidcLinkPage() {
       return;
     }
     let active = true;
-    fetchOidcLinkStatus(attemptId)
+    fetchExternalIdentityLinkStatus(attemptId)
       .then((next) => {
         if (!active) return;
         setStatus(next);
@@ -88,7 +88,7 @@ export default function OidcLinkPage() {
     if (!attemptId || status?.stage !== "admin_requested") return;
     let active = true;
     const timer = window.setInterval(() => {
-      fetchOidcLinkStatus(attemptId)
+      fetchExternalIdentityLinkStatus(attemptId)
         .then((next) => { if (active) setStatus(next); })
         .catch((failure) => console.error(failure));
     }, 3000);
@@ -98,7 +98,7 @@ export default function OidcLinkPage() {
     };
   }, [attemptId, status?.stage]);
 
-  const run = async (action: () => Promise<OidcLinkStatus>) => {
+  const run = async (action: () => Promise<ExternalIdentityLinkStatus>) => {
     setBusy(true);
     setError(null);
     try {
@@ -117,14 +117,14 @@ export default function OidcLinkPage() {
   const submitPassword = async (event: FormEvent) => {
     event.preventDefault();
     if (!attemptId || !password) return;
-    const next = await run(() => verifyOidcLinkPassword(attemptId, password));
+    const next = await run(() => verifyExternalIdentityLinkPassword(attemptId, password));
     if (next) setPassword("");
   };
 
   const submitLdap = async (event: FormEvent) => {
     event.preventDefault();
     if (!attemptId || !ldapProvider || !ldapUsername.trim() || !ldapPassword) return;
-    const next = await run(() => verifyOidcLinkLdap(attemptId, ldapProvider, ldapUsername.trim(), ldapPassword));
+    const next = await run(() => verifyExternalIdentityLinkLdap(attemptId, ldapProvider, ldapUsername.trim(), ldapPassword));
     if (next) setLdapPassword("");
   };
 
@@ -133,7 +133,7 @@ export default function OidcLinkPage() {
     setBusy(true);
     setError(null);
     try {
-      const started = await startOidcLinkProof(attemptId, providerId);
+      const started = await startExternalIdentityLinkOidcProof(attemptId, providerId);
       window.location.assign(started.authorization_url);
     } catch (failure) {
       console.error(failure);
@@ -148,16 +148,16 @@ export default function OidcLinkPage() {
     setError(null);
     try {
       if (status.stage === "mfa_enrollment") {
-        const options = await beginOidcLinkWebAuthnRegistration(attemptId);
+        const options = await beginExternalIdentityLinkWebAuthnRegistration(attemptId);
         const credential = await createPasskey(options);
-        const result = await finishOidcLinkWebAuthnRegistration(attemptId, credential);
+        const result = await finishExternalIdentityLinkWebAuthnRegistration(attemptId, credential);
         setRecoveryCodes(result.recovery_codes);
         setStatus(result.status);
         setRecoveryCodesSaved(result.recovery_codes.length === 0);
       } else {
-        const options = await beginOidcLinkWebAuthnAuthentication(attemptId);
+        const options = await beginExternalIdentityLinkWebAuthnAuthentication(attemptId);
         const credential = await authenticatePasskey(options);
-        setStatus(await finishOidcLinkWebAuthnAuthentication(attemptId, credential));
+        setStatus(await finishExternalIdentityLinkWebAuthnAuthentication(attemptId, credential));
       }
     } catch (failure) {
       console.error(failure);
@@ -169,21 +169,21 @@ export default function OidcLinkPage() {
 
   const requestAdmin = async () => {
     if (!attemptId) return;
-    await run(() => requestOidcLinkAdminApproval(attemptId));
+    await run(() => requestExternalIdentityLinkAdminApproval(attemptId));
   };
 
   const submitRecoveryCode = async (event: FormEvent) => {
     event.preventDefault();
     if (!attemptId || !recoveryCode.trim()) return;
-    const next = await run(() => verifyOidcLinkRecoveryCode(attemptId, recoveryCode.trim()));
+    const next = await run(() => verifyExternalIdentityLinkRecoveryCode(attemptId, recoveryCode.trim()));
     if (next) setRecoveryCode("");
   };
 
   const confirm = async () => {
     if (!attemptId || (recoveryCodes.length > 0 && !recoveryCodesSaved)) return;
-    const next = await run(() => confirmOidcLink(attemptId));
+    const next = await run(() => confirmExternalIdentityLink(attemptId));
     if (next?.stage === "completed") {
-      window.location.replace(oidcLinkCompletionPath(next));
+      window.location.replace(externalIdentityLinkCompletionPath(next));
     }
   };
 
@@ -204,7 +204,7 @@ export default function OidcLinkPage() {
               <div className="mt-1"><span className="font-semibold">{text("oidcLinkProvider")}:</span> {status.provider_id}</div>
             </div>
 
-            {status.stage === "oidc" && (
+            {status.stage === "identity" && (
               <UiInlineMessage tone="info">{text("oidcLinkFinishProvider")}</UiInlineMessage>
             )}
 

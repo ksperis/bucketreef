@@ -91,7 +91,7 @@ describe("OIDC callback localization", () => {
         <MemoryRouter initialEntries={["/auth/oidc/example/callback?code=test-code&state=link-state"]}>
           <Routes>
             <Route path="/auth/oidc/:provider/callback" element={<OidcCallbackPage />} />
-            <Route path="/oidc/link/:attemptId" element={<p>Account link continuation</p>} />
+            <Route path="/identity/link/:attemptId" element={<p>Account link continuation</p>} />
           </Routes>
         </MemoryRouter>
       </LanguageProvider>,

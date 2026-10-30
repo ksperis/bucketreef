@@ -42,6 +42,7 @@ export type LdapProviderFormState = {
   timeout_seconds: string;
   enabled: boolean;
   allow_insecure: boolean;
+  linking_policy: "manual" | "reauthenticate";
 };
 
 const LDAP_DEFAULT_USER_FILTER =
@@ -137,6 +138,7 @@ export function emptyLdapForm(): LdapProviderFormState {
     timeout_seconds: "5",
     enabled: true,
     allow_insecure: false,
+    linking_policy: "reauthenticate",
   };
 }
 
@@ -161,6 +163,7 @@ export function ldapProviderToForm(
     timeout_seconds: String(provider.timeout_seconds),
     enabled: provider.enabled,
     allow_insecure: provider.allow_insecure,
+    linking_policy: provider.linking_policy ?? "manual",
   };
 }
 
@@ -188,6 +191,7 @@ export function ldapPayloadFromForm(
     timeout_seconds: Number.isFinite(timeoutSeconds) ? timeoutSeconds : 5,
     enabled: form.enabled,
     allow_insecure: form.allow_insecure,
+    linking_policy: form.linking_policy,
     clear_bind_password: !bindDn,
   };
 }

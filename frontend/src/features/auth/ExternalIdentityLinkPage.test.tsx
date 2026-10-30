@@ -7,9 +7,9 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { OidcLinkStatus } from "../../api/auth";
+import type { ExternalIdentityLinkStatus } from "../../api/auth";
 import { LanguageProvider } from "../../components/language";
-import OidcLinkPage, { oidcLinkCompletionPath } from "./OidcLinkPage";
+import ExternalIdentityLinkPage, { externalIdentityLinkCompletionPath } from "./ExternalIdentityLinkPage";
 
 const mocks = vi.hoisted(() => ({
   beginAuthentication: vi.fn(),
@@ -28,17 +28,17 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../api/auth", () => ({
-  beginOidcLinkWebAuthnAuthentication: mocks.beginAuthentication,
-  beginOidcLinkWebAuthnRegistration: mocks.beginRegistration,
-  confirmOidcLink: mocks.confirm,
-  fetchOidcLinkStatus: mocks.fetchStatus,
-  finishOidcLinkWebAuthnAuthentication: mocks.finishAuthentication,
-  finishOidcLinkWebAuthnRegistration: mocks.finishRegistration,
-  requestOidcLinkAdminApproval: mocks.requestAdmin,
-  startOidcLinkProof: mocks.startOidcProof,
-  verifyOidcLinkLdap: mocks.verifyLdap,
-  verifyOidcLinkPassword: mocks.verifyPassword,
-  verifyOidcLinkRecoveryCode: mocks.verifyRecoveryCode,
+  beginExternalIdentityLinkWebAuthnAuthentication: mocks.beginAuthentication,
+  beginExternalIdentityLinkWebAuthnRegistration: mocks.beginRegistration,
+  confirmExternalIdentityLink: mocks.confirm,
+  fetchExternalIdentityLinkStatus: mocks.fetchStatus,
+  finishExternalIdentityLinkWebAuthnAuthentication: mocks.finishAuthentication,
+  finishExternalIdentityLinkWebAuthnRegistration: mocks.finishRegistration,
+  requestExternalIdentityLinkAdminApproval: mocks.requestAdmin,
+  startExternalIdentityLinkOidcProof: mocks.startOidcProof,
+  verifyExternalIdentityLinkLdap: mocks.verifyLdap,
+  verifyExternalIdentityLinkPassword: mocks.verifyPassword,
+  verifyExternalIdentityLinkRecoveryCode: mocks.verifyRecoveryCode,
 }));
 
 vi.mock("../../auth/webauthn", () => ({
@@ -47,12 +47,13 @@ vi.mock("../../auth/webauthn", () => ({
 }));
 
 function status(
-  stage: OidcLinkStatus["stage"],
-  overrides: Partial<OidcLinkStatus> = {},
-): OidcLinkStatus {
+  stage: ExternalIdentityLinkStatus["stage"],
+  overrides: Partial<ExternalIdentityLinkStatus> = {},
+): ExternalIdentityLinkStatus {
   return {
     attempt_id: "attempt-123",
     target_email: "existing@example.com",
+    provider_type: "oidc",
     provider_id: "company",
     source: "login_collision",
     stage,
@@ -65,16 +66,16 @@ function status(
 function renderPage() {
   return render(
     <LanguageProvider>
-      <MemoryRouter initialEntries={["/oidc/link/attempt-123"]}>
+      <MemoryRouter initialEntries={["/identity/link/attempt-123"]}>
         <Routes>
-          <Route path="/oidc/link/:attemptId" element={<OidcLinkPage />} />
+          <Route path="/identity/link/:attemptId" element={<ExternalIdentityLinkPage />} />
         </Routes>
       </MemoryRouter>
     </LanguageProvider>,
   );
 }
 
-describe("OidcLinkPage", () => {
+describe("ExternalIdentityLinkPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -247,7 +248,7 @@ describe("OidcLinkPage", () => {
   });
 
   it("returns profile links to profile and login-collision links to the app root", () => {
-    expect(oidcLinkCompletionPath(status("completed", { source: "profile" }))).toBe("/profile");
-    expect(oidcLinkCompletionPath(status("completed", { source: "login_collision" }))).toBe("/");
+    expect(externalIdentityLinkCompletionPath(status("completed", { source: "profile" }))).toBe("/profile");
+    expect(externalIdentityLinkCompletionPath(status("completed", { source: "login_collision" }))).toBe("/");
   });
 });

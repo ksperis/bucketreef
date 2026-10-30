@@ -8,7 +8,7 @@ from app.routers import (
     auth_local,
     auth_mfa,
     auth_oidc,
-    auth_oidc_link,
+    auth_identity_link,
     auth_s3,
     auth_sessions,
 )
@@ -20,7 +20,7 @@ def test_auth_router_aggregates_each_authentication_domain() -> None:
         auth_ldap.router,
         auth_s3.router,
         auth_oidc.router,
-        auth_oidc_link.router,
+        auth_identity_link.router,
         auth_mfa.router,
         auth_sessions.router,
     )

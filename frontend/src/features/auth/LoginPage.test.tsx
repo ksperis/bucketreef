@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../api/client";
 import { LanguageProvider } from "../../components/language";
@@ -253,6 +253,41 @@ describe("LoginPage", () => {
       expect(mocks.loginWithLdap).toHaveBeenCalledWith("corp", "jane", "secret-password");
       expect(mocks.getWorkspaceAccess).toHaveBeenCalledOnce();
     });
+    expect(window.localStorage.getItem("token")).toBeNull();
+    expect(window.localStorage.getItem("user")).toBeNull();
+  });
+
+  it("continues an LDAP email collision through the external identity link flow", async () => {
+    const user = userEvent.setup();
+    mocks.loginWithLdap.mockResolvedValueOnce({
+      status: "link_reauthentication_required",
+      user: null,
+      session: null,
+      redirect_path: null,
+      recovery_codes: null,
+      link_attempt_id: "ldap-attempt-123",
+    });
+
+    render(
+      <LanguageProvider>
+        <ThemeProvider>
+          <MemoryRouter initialEntries={["/login"]}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/identity/link/:attemptId" element={<p>Identity link continuation</p>} />
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>
+      </LanguageProvider>,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Directory" }));
+    await user.type(screen.getByLabelText("Username"), "jane");
+    await user.type(screen.getByLabelText("Password"), "secret-password");
+    await user.click(screen.getByRole("button", { name: "Sign in with directory" }));
+
+    expect(await screen.findByText("Identity link continuation")).toBeInTheDocument();
+    expect(mocks.getWorkspaceAccess).not.toHaveBeenCalled();
     expect(window.localStorage.getItem("token")).toBeNull();
     expect(window.localStorage.getItem("user")).toBeNull();
   });

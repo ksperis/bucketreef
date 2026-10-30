@@ -10,19 +10,20 @@ from pydantic import Field
 from app.models.base import ApiModel
 
 
-class OidcLinkProofMethod(ApiModel):
+class ExternalIdentityLinkProofMethod(ApiModel):
     type: Literal["password", "ldap", "oidc"]
     provider_id: Optional[str] = None
     display_name: Optional[str] = None
 
 
-class OidcLinkStatus(ApiModel):
+class ExternalIdentityLinkStatus(ApiModel):
     attempt_id: str
     target_email: str
+    provider_type: Literal["oidc", "ldap"]
     provider_id: str
     source: Literal["login_collision", "profile"]
     stage: Literal[
-        "oidc",
+        "identity",
         "proof",
         "mfa",
         "mfa_enrollment",
@@ -32,20 +33,20 @@ class OidcLinkStatus(ApiModel):
         "admin_rejected",
         "completed",
     ]
-    proof_methods: list[OidcLinkProofMethod]
+    proof_methods: list[ExternalIdentityLinkProofMethod]
     expires_at: datetime
 
 
-class OidcLinkPasswordProof(ApiModel):
+class ExternalIdentityLinkPasswordProof(ApiModel):
     password: str = Field(min_length=1, max_length=4096)
 
 
-class OidcLinkLdapProof(ApiModel):
+class ExternalIdentityLinkLdapProof(ApiModel):
     provider_id: str = Field(min_length=1, max_length=128)
     username: str = Field(min_length=1, max_length=512)
     password: str = Field(min_length=1, max_length=4096)
 
 
-class OidcLinkMfaRegistrationResult(ApiModel):
-    status: OidcLinkStatus
+class ExternalIdentityLinkMfaRegistrationResult(ApiModel):
+    status: ExternalIdentityLinkStatus
     recovery_codes: list[str]

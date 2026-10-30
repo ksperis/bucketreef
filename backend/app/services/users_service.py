@@ -775,12 +775,18 @@ class UsersService:
         subject: str,
         email: Optional[str],
         full_name: Optional[str],
+        linking_policy: str = "manual",
+        browser_secret_hash: Optional[str] = None,
+        redirect_path: Optional[str] = None,
     ) -> tuple[User, bool]:
         return ExternalIdentityUserService(self.db).get_or_create_ldap_user(
             provider=provider,
             subject=subject,
             email=email,
             full_name=full_name,
+            linking_policy=linking_policy,
+            browser_secret_hash=browser_secret_hash,
+            redirect_path=redirect_path,
         )
 
 

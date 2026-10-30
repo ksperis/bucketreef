@@ -10,8 +10,17 @@ from sqlalchemy import func, select
 
 from app.core.config import LDAPProviderSettings, Settings
 from app.models.ldap import LDAPLoginRequest
-from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User, UserRole
-from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
+from app.db import (
+    ExternalIdentity,
+    ExternalIdentityLinkAttempt,
+    ExternalIdentityLinkRequest,
+    User,
+    UserRole,
+)
+from app.services.external_identity_user_service import (
+    ExternalIdentityLinkRequiredError,
+    ExternalIdentityReauthenticationRequiredError,
+)
 from app.services.ldap_service import (
     LDAPAuthenticationError,
     LDAPAuthService,
@@ -355,3 +364,109 @@ def test_authenticate_never_links_existing_email_automatically(db_session, monke
     assert db_session.scalar(
         select(func.count()).select_from(ExternalIdentityLinkRequest)
     ) == 1
+
+
+@pytest.mark.parametrize(
+    ("linking_policy", "expected_stage", "expected_requests"),
+    [
+        ("reauthenticate", "proof", 0),
+        ("manual", "admin_requested", 1),
+    ],
+)
+def test_authenticate_email_collision_uses_browser_bound_link_attempt(
+    db_session,
+    monkeypatch,
+    linking_policy,
+    expected_stage,
+    expected_requests,
+):
+    existing = User(
+        email="bound-jane@example.test",
+        hashed_password="hash",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add(existing)
+    db_session.commit()
+    service = _service(db_session, _provider(linking_policy=linking_policy))
+    monkeypatch.setattr(
+        service,
+        "_authenticate_directory",
+        lambda *args, **kwargs: LDAPIdentity(
+            provider="corp",
+            subject="uuid-bound-123",
+            dn="uid=jane,ou=people,dc=example,dc=test",
+            email=existing.email,
+            full_name="Jane Doe",
+        ),
+    )
+
+    with pytest.raises(ExternalIdentityReauthenticationRequiredError) as error:
+        service.authenticate(
+            "corp",
+            "jane",
+            "incoming-ldap-secret",
+            browser_secret_hash="browser-binding-hash",
+            redirect_path="/manager",
+        )
+
+    attempt = db_session.get(ExternalIdentityLinkAttempt, error.value.attempt_id)
+    assert attempt is not None
+    assert attempt.user_id == existing.id
+    assert attempt.provider_type == "ldap"
+    assert attempt.provider_id == "corp"
+    assert attempt.issuer is None
+    assert attempt.subject == "uuid-bound-123"
+    assert attempt.browser_secret_hash == "browser-binding-hash"
+    assert attempt.redirect_path == "/manager"
+    assert attempt.status == ("pending" if expected_stage == "proof" else "admin_requested")
+    assert db_session.scalar(select(func.count()).select_from(ExternalIdentity)) == 0
+    assert db_session.scalar(select(func.count()).select_from(ExternalIdentityLinkRequest)) == expected_requests
+    assert "incoming-ldap-secret" not in repr(attempt.__dict__)
+
+
+def test_authenticate_reuses_existing_linked_ldap_identity(db_session, monkeypatch):
+    existing = User(
+        email="linked-jane@example.test",
+        hashed_password=None,
+        is_active=True,
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add(existing)
+    db_session.flush()
+    db_session.add(
+        ExternalIdentity(
+            id="linked-ldap-identity",
+            user_id=existing.id,
+            provider_type="ldap",
+            provider_id="corp",
+            subject="uuid-linked-123",
+            email=existing.email,
+            email_verified=False,
+        )
+    )
+    db_session.commit()
+    service = _service(db_session, _provider(linking_policy="reauthenticate"))
+    monkeypatch.setattr(
+        service,
+        "_authenticate_directory",
+        lambda *args, **kwargs: LDAPIdentity(
+            provider="corp",
+            subject="uuid-linked-123",
+            dn="uid=jane,ou=people,dc=example,dc=test",
+            email=existing.email,
+            full_name="Jane Doe",
+        ),
+    )
+
+    user, created = service.authenticate(
+        "corp",
+        "jane",
+        "incoming-ldap-secret",
+        browser_secret_hash="browser-binding-hash",
+    )
+
+    assert created is False
+    assert user.id == existing.id
+    assert user.last_login_at is not None
+    assert db_session.scalar(select(func.count()).select_from(ExternalIdentityLinkAttempt)) == 0

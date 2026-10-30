@@ -267,6 +267,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await loginWithLdap(providerId, ldapUsername.trim(), ldapPassword);
+      if (res.status === "link_reauthentication_required" && res.link_attempt_id) {
+        navigate(`/identity/link/${encodeURIComponent(res.link_attempt_id)}`, { replace: true });
+        return;
+      }
       await finishLogin(res, "ldap");
     } catch (err) {
       console.error(err);

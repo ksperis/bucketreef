@@ -47,6 +47,19 @@ def ensure_oidc_browser_binding(request: Request, response: Response) -> tuple[s
     return raw_secret, _oidc_browser_binding_hash(raw_secret)
 
 
+def external_identity_browser_binding_hash(request: Request) -> str | None:
+    """Return the browser binding used by all external-identity link attempts.
+
+    The cookie setting keeps its historical OIDC name for configuration
+    compatibility, while the binding itself is provider-neutral.
+    """
+    return oidc_browser_binding_hash(request)
+
+
+def ensure_external_identity_browser_binding(request: Request, response: Response) -> tuple[str, str]:
+    return ensure_oidc_browser_binding(request, response)
+
+
 def set_auth_cookies(response: Response, credentials: SessionCredentials) -> None:
     common = {
         "secure": _settings.refresh_token_cookie_secure,

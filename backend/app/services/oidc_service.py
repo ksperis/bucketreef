@@ -210,9 +210,9 @@ class OidcService:
         if login_state.purpose != "login":
             if not login_state.link_attempt_id:
                 raise OIDCStateError("OIDC link state is incomplete")
-            from app.services.oidc_link_service import OidcLinkService
+            from app.services.external_identity_link_service import ExternalIdentityLinkService
 
-            link_service = OidcLinkService(self.db, settings=self.settings)
+            link_service = ExternalIdentityLinkService(self.db, settings=self.settings)
             if login_state.purpose == "link_identity":
                 link_service.record_oidc_identity(
                     attempt_id=login_state.link_attempt_id,

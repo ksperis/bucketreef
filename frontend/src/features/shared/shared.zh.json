@@ -743,7 +743,7 @@
   "Link {provider} to {email}. Existing sessions and personal API tokens will be revoked.": "将 {provider} 关联到 {email}。现有会话和个人 API 令牌将被撤销。",
   "Link account": "关联账户",
   "The link request was sent to a superadministrator for approval.": "关联请求已发送给超级管理员审批。",
-  "The OIDC account is linked. Redirecting…": "OIDC 账户已关联。正在跳转…",
+  "The sign-in account is linked. Redirecting…": "登录账户已关联。正在跳转…",
   "This account-linking request is unavailable or has expired.": "此账户关联请求不可用或已过期。",
   "Unable to continue account linking. Check the entered credentials and try again.": "无法继续账户关联。请检查输入的凭据后重试。"
 }

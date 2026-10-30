@@ -10,7 +10,7 @@ from app.routers import (
     auth_local,
     auth_mfa,
     auth_oidc,
-    auth_oidc_link,
+    auth_identity_link,
     auth_s3,
     auth_sessions,
 )
@@ -20,6 +20,6 @@ router.include_router(auth_local.router)
 router.include_router(auth_ldap.router)
 router.include_router(auth_s3.router)
 router.include_router(auth_oidc.router)
-router.include_router(auth_oidc_link.router)
+router.include_router(auth_identity_link.router)
 router.include_router(auth_mfa.router)
 router.include_router(auth_sessions.router)

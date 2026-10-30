@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import ExternalIdentityNotFoundError
-from app.db import ExternalIdentity, ExternalIdentityLinkRequest, OidcLinkAttempt, User, UserRole
+from app.db import ExternalIdentity, ExternalIdentityLinkRequest, ExternalIdentityLinkAttempt, User, UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.audit_service import AuditService
 from app.services.user_notifications_service import UserNotificationsService
@@ -73,6 +73,9 @@ class ExternalIdentityUserService:
         subject: str,
         email: Optional[str],
         full_name: Optional[str],
+        linking_policy: str = "manual",
+        browser_secret_hash: Optional[str] = None,
+        redirect_path: Optional[str] = None,
     ) -> tuple[User, bool]:
         return self._get_or_create(
             provider_type="ldap",
@@ -83,10 +86,10 @@ class ExternalIdentityUserService:
             email_verified=False,
             full_name=full_name,
             picture_url=None,
-            linking_policy="manual",
+            linking_policy=linking_policy,
             trusted_email_domains=[],
-            browser_secret_hash=None,
-            redirect_path=None,
+            browser_secret_hash=browser_secret_hash,
+            redirect_path=redirect_path,
         )
 
     def list_link_requests(self, *, include_decided: bool = False) -> list[ExternalIdentityLinkRequest]:
@@ -152,15 +155,18 @@ class ExternalIdentityUserService:
             )
             user.auth_version += 1
             self.db.add_all([identity, user])
+        attempt_conditions = [
+            ExternalIdentityLinkAttempt.user_id == request.user_id,
+            ExternalIdentityLinkAttempt.provider_type == request.provider_type,
+            ExternalIdentityLinkAttempt.provider_id == request.provider_id,
+            ExternalIdentityLinkAttempt.subject == request.subject,
+            ExternalIdentityLinkAttempt.status == "admin_requested",
+        ]
+        if request.provider_type == "oidc":
+            attempt_conditions.append(ExternalIdentityLinkAttempt.issuer == request.issuer)
         link_attempts = self.db.scalars(
-            select(OidcLinkAttempt).where(
-                OidcLinkAttempt.user_id == request.user_id,
-                OidcLinkAttempt.provider_id == request.provider_id,
-                OidcLinkAttempt.issuer == request.issuer,
-                OidcLinkAttempt.subject == request.subject,
-                OidcLinkAttempt.status == "admin_requested",
-            )
-        ).all() if request.provider_type == "oidc" and request.issuer else []
+            select(ExternalIdentityLinkAttempt).where(*attempt_conditions)
+        ).all()
         for attempt in link_attempts:
             attempt.status = "admin_approved" if approve else "admin_rejected"
             self.db.add(attempt)
@@ -452,7 +458,7 @@ class ExternalIdentityUserService:
             return None
 
         existing = candidates[0]
-        if self._can_trust_email_link(
+        if provider_type == "oidc" and self._can_trust_email_link(
             existing,
             email,
             email_verified=email_verified,
@@ -479,12 +485,16 @@ class ExternalIdentityUserService:
             )
             return existing
 
-        if provider_type == "oidc" and issuer and browser_secret_hash:
-            from app.services.oidc_link_service import OidcLinkService
+        can_create_bound_attempt = bool(browser_secret_hash) and (
+            provider_type == "ldap" or bool(issuer)
+        )
+        if can_create_bound_attempt:
+            from app.services.external_identity_link_service import ExternalIdentityLinkService
 
-            link_service = OidcLinkService(self.db)
+            link_service = ExternalIdentityLinkService(self.db)
             attempt = link_service.create_login_collision_attempt(
                 user=existing,
+                provider_type=provider_type,
                 provider_id=provider_id,
                 issuer=issuer,
                 subject=subject,
@@ -499,8 +509,8 @@ class ExternalIdentityUserService:
                 link_service.request_admin_approval(attempt.id, browser_secret_hash)
             raise ExternalIdentityReauthenticationRequiredError(attempt.id)
 
-        if provider_type == "oidc" and linking_policy == "reauthenticate":
-            raise ValueError("OIDC account linking browser binding is unavailable")
+        if linking_policy == "reauthenticate":
+            raise ValueError("External identity account linking browser binding is unavailable")
 
         request = self._create_link_request(
             user=existing,

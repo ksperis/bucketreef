@@ -21,7 +21,10 @@ from app.core.config import LDAPProviderSettings, Settings, get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import User
 from app.models.ldap import LDAPProviderInfo
-from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
+from app.services.external_identity_user_service import (
+    ExternalIdentityLinkRequiredError,
+    ExternalIdentityReauthenticationRequiredError,
+)
 from app.services.ldap_provider_settings_service import resolve_ldap_provider_map
 from app.services.users_service import UsersService, get_users_service
 
@@ -77,7 +80,15 @@ class LDAPAuthService:
                 providers.append(LDAPProviderInfo(id=key, display_name=provider.display_name))
         return providers
 
-    def authenticate(self, provider_id: str, username: str, password: str) -> tuple[User, bool]:
+    def authenticate(
+        self,
+        provider_id: str,
+        username: str,
+        password: str,
+        *,
+        browser_secret_hash: Optional[str] = None,
+        redirect_path: Optional[str] = None,
+    ) -> tuple[User, bool]:
         normalized_username = str(username or "").strip()
         if not normalized_username or not password:
             raise LDAPAuthenticationError("Invalid credentials")
@@ -89,8 +100,11 @@ class LDAPAuthService:
                 subject=identity.subject,
                 email=identity.email,
                 full_name=identity.full_name,
+                linking_policy=provider.linking_policy,
+                browser_secret_hash=browser_secret_hash,
+                redirect_path=redirect_path,
             )
-        except ExternalIdentityLinkRequiredError:
+        except (ExternalIdentityLinkRequiredError, ExternalIdentityReauthenticationRequiredError):
             raise
         except ValueError as exc:
             raise LDAPUserConflictError(sanitized_error_log_detail(exc)) from exc

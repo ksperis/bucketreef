@@ -29,7 +29,7 @@ const SessionContext = createContext<SessionContextValue | null>(null);
 export function shouldBootstrapSession(pathname: string): boolean {
   return pathname !== "/setup/first-admin" &&
     !/^\/oidc\/[^/]+\/callback\/?$/.test(pathname) &&
-    !/^\/oidc\/link\/[^/]+\/?$/.test(pathname);
+    !/^\/identity\/link\/[^/]+\/?$/.test(pathname);
 }
 
 function sessionUserFromResponse(response: CurrentSessionResponse): SessionUser | null {

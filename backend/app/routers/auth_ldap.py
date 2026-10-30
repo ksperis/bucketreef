@@ -15,12 +15,16 @@ from app.routers.auth_common import (
     _finish_user_primary_auth,
     external_identity_link_response,
 )
+from app.routers.auth_cookies import ensure_external_identity_browser_binding
 from app.routers.dependencies import (
     get_audit_service,
     get_users_service_dependency,
 )
 from app.services.audit_service import AuditService
-from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
+from app.services.external_identity_user_service import (
+    ExternalIdentityLinkRequiredError,
+    ExternalIdentityReauthenticationRequiredError,
+)
 from app.services.ldap_service import (
     LDAPAuthenticationError,
     LDAPAuthService,
@@ -76,8 +80,20 @@ def login_with_ldap(
         audit_message="LDAP login rate limit exceeded",
         public_detail="Too many failed login attempts",
     )
+    _, browser_secret_hash = ensure_external_identity_browser_binding(request, response)
     try:
-        user, created = ldap_service.authenticate(provider, username, payload.password)
+        user, created = ldap_service.authenticate(
+            provider,
+            username,
+            payload.password,
+            browser_secret_hash=browser_secret_hash,
+        )
+    except ExternalIdentityReauthenticationRequiredError as exc:
+        attempt.clear_rate_limit()
+        return AuthenticationResponse(
+            status="link_reauthentication_required",
+            link_attempt_id=exc.attempt_id,
+        )
     except ExternalIdentityLinkRequiredError as exc:
         return external_identity_link_response(
             attempt=attempt,
