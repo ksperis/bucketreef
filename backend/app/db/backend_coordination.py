@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Column, String, Text
+from sqlalchemy import Column, JSON, String, Text
 
 from .base import Base
 
@@ -24,6 +24,6 @@ class AppSetting(Base):
     __tablename__ = "app_settings"
 
     key = Column(String, primary_key=True)
-    payload_json = Column(Text, nullable=False)
+    payload = Column(JSON, nullable=False)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)

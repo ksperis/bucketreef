@@ -297,7 +297,7 @@ def test_bootstrap_api_authenticates_admin_without_passkey_by_default(client, db
 def test_bootstrap_api_requires_passkey_when_admin_policy_is_enabled(client, db_session):
     settings = AppSettings()
     settings.general.require_passkey_for_admins = True
-    db_session.add(AppSetting(key="default", payload_json=settings.model_dump_json()))
+    db_session.add(AppSetting(key="default", payload=settings.model_dump(mode="json")))
     db_session.commit()
     runtime = get_settings()
     issued = FirstAdminBootstrapService(db_session).issue_token()

@@ -110,7 +110,7 @@ def test_project_usage_capabilities_share_account_override_precedence(
 def test_platform_tool_grant_uses_existing_role_boundary_and_provenance(db_session):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_compare = FeaturePolicy.DEFAULT_ON
-    row = AppSetting(key="default", payload_json=settings.model_dump_json())
+    row = AppSetting(key="default", payload=settings.model_dump(mode="json"))
     db_session.add(row)
     user = User(email="policies@example.test", full_name="Policies", hashed_password="x", role=UserRole.UI_USER.value)
     db_session.add(user)
@@ -125,7 +125,7 @@ def test_platform_tool_grant_uses_existing_role_boundary_and_provenance(db_sessi
     user.role = UserRole.UI_USER.value
     user.can_access_manager_bucket_compare = True
     settings.manager.feature_policies.bucket_compare = FeaturePolicy.DISABLED
-    row.payload_json = settings.model_dump_json()
+    row.payload = settings.model_dump(mode="json")
     db_session.commit()
     assert EffectiveAccessService(db_session).resolve_user(user).manager_tool_access.bucket_compare is False
 

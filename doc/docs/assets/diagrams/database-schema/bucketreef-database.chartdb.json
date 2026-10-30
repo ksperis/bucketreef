@@ -23557,11 +23557,11 @@
           "check": null
         },
         {
-          "id": "field:app_settings.payload_json",
-          "name": "payload_json",
+          "id": "field:app_settings.payload",
+          "name": "payload",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

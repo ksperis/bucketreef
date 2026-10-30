@@ -122,12 +122,16 @@ def test_versioned_database_upgrades_from_0118_and_preserves_data(sqlite_databas
     now = utcnow()
     with sqlite_database.begin() as connection:
         connection.execute(
-            AppSetting.__table__.insert().values(
-                key="bootstrap-test",
-                payload_json='{"preserved":true}',
-                created_at=now,
-                updated_at=now,
-            )
+            sa.text(
+                "INSERT INTO app_settings (key, payload_json, created_at, updated_at) "
+                "VALUES (:key, :payload_json, :created_at, :updated_at)"
+            ),
+            {
+                "key": "bootstrap-test",
+                "payload_json": '{"preserved":true}',
+                "created_at": now,
+                "updated_at": now,
+            },
         )
 
     database_initialization._initialize_or_upgrade_schema(sqlite_database)
@@ -135,9 +139,9 @@ def test_versioned_database_upgrades_from_0118_and_preserves_data(sqlite_databas
     with sqlite_database.connect() as connection:
         assert _database_revision(connection) == _alembic_head()
         assert "first_admin_bootstrap" in sa.inspect(connection).get_table_names()
-        payload = json.loads(connection.scalar(
-            sa.select(AppSetting.payload_json).where(AppSetting.key == "bootstrap-test")
-        ))
+        payload = connection.scalar(
+            sa.select(AppSetting.payload).where(AppSetting.key == "bootstrap-test")
+        )
         assert payload["preserved"] is True
         assert payload["general"]["require_passkey_for_admins"] is True
 
