@@ -305,8 +305,9 @@ def normalize_storage_endpoint_state(
     realm_id = normalize_optional_string(payload.realm_id) if provider == StorageProvider.CEPH else None
     zonegroup_id = normalize_optional_string(payload.zonegroup_id) if provider == StorageProvider.CEPH else None
     zone_id = normalize_optional_string(payload.zone_id) if provider == StorageProvider.CEPH else None
-    if bool(realm_id) != bool(zonegroup_id):
-        raise ValueError("Realm ID and zonegroup ID must be configured together.")
+    multisite_ids = (realm_id, zonegroup_id, zone_id)
+    if any(multisite_ids) and not all(multisite_ids):
+        raise ValueError("Realm ID, zonegroup ID, and zone ID must be configured together.")
     feature_overrides = (
         payload.features.model_dump(exclude_unset=True)
         if payload.features is not None

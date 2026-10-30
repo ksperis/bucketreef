@@ -74,17 +74,22 @@ export default function StorageEndpointConnectionFields({
     </SettingsSection>
     {form.provider === "ceph" && (
       <SettingsSection title={text("rgwMultisite")} description={text("rgwMultisiteDescription")} presentation="compact">
-        <div className="settings-fields sm:grid-cols-2">
-          <UiInput label={text("realmId")} value={form.realm_id} readOnly={readOnly} error={errors.realm_id}
-            placeholder={text("realmIdPlaceholder")}
-            onChange={event => setForm(previous => ({ ...previous, realm_id: event.target.value }))} />
-          <UiInput label={text("zonegroupId")} value={form.zonegroup_id} readOnly={readOnly} error={errors.zonegroup_id}
-            placeholder={text("zonegroupIdPlaceholder")}
-            onChange={event => setForm(previous => ({ ...previous, zonegroup_id: event.target.value }))} />
-          <UiInput label={text("zoneId")} value={form.zone_id} readOnly={readOnly}
-            placeholder={text("zoneIdPlaceholder")}
-            hint={text("zoneIdHint")}
-            onChange={event => setForm(previous => ({ ...previous, zone_id: event.target.value }))} />
+        <div className="settings-fields">
+          <SettingsItem title={text("enableRgwMultisiteEndpointSwitching")} compact action={<SettingsSwitch
+            ariaLabel={text("enableRgwMultisiteEndpointSwitching")} checked={form.multisite_enabled} disabled={readOnly}
+            onChange={value => setForm(previous => ({ ...previous, multisite_enabled: value }))} />} />
+          {form.multisite_enabled && <div className="settings-fields sm:grid-cols-2">
+            <UiInput label={text("realmId")} value={form.realm_id} readOnly={readOnly} required error={errors.realm_id}
+              placeholder={text("realmIdPlaceholder")}
+              onChange={event => setForm(previous => ({ ...previous, realm_id: event.target.value }))} />
+            <UiInput label={text("zonegroupId")} value={form.zonegroup_id} readOnly={readOnly} required error={errors.zonegroup_id}
+              placeholder={text("zonegroupIdPlaceholder")}
+              onChange={event => setForm(previous => ({ ...previous, zonegroup_id: event.target.value }))} />
+            <UiInput label={text("zoneId")} value={form.zone_id} readOnly={readOnly} required error={errors.zone_id}
+              placeholder={text("zoneIdPlaceholder")}
+              hint={text("zoneIdHint")}
+              onChange={event => setForm(previous => ({ ...previous, zone_id: event.target.value }))} />
+          </div>}
         </div>
       </SettingsSection>
     )}
