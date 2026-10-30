@@ -107,7 +107,7 @@ erDiagram
         bigint bytes_in "NN; default=0"
         bigint bytes_out "NN; default=0"
         bigint ops_total "NN; default=0"
-        text ops_breakdown
+        json ops_breakdown
         varchar source "NN"
         datetime collected_at "NN"
     }
@@ -119,7 +119,7 @@ erDiagram
         integer s3_user_id FK
         bigint total_bytes "NN; default=0"
         bigint total_objects "NN; default=0"
-        text by_bucket
+        json by_bucket
         varchar source "NN"
         datetime collected_at "NN"
     }

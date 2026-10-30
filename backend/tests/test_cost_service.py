@@ -22,7 +22,7 @@ from app.routers.portal_cost import portal_cost_me
 from app.services import admin_cost_service
 from app.services.admin_cost_service import AdminCostService
 from app.services.cost_collection_service import CostCollector
-from app.services.cost_calculations import parse_cost_month, parse_ops_breakdown
+from app.services.cost_calculations import parse_cost_month, validate_ops_breakdown
 from app.services.cost_service import CostService
 from app.services.s3_execution_context import S3ExecutionContext
 
@@ -353,13 +353,13 @@ def test_cost_bucket_stats_reject_incomplete_measurement(db_session, monkeypatch
 
 
 def test_cost_ops_breakdown_requires_integer_values():
-    assert parse_ops_breakdown('{"get":12,"put":3}') == {
+    assert validate_ops_breakdown({"get": 12, "put": 3}) == {
         "get": 12,
         "put": 3,
     }
-    for raw in ("{", "[]", '{"get":"12"}', '{"get":true}'):
+    for value in ('{"get":12}', [], {"get": "12"}, {"get": True}):
         with pytest.raises(ValueError):
-            parse_ops_breakdown(raw)
+            validate_ops_breakdown(value)
 
 
 def test_cost_summary_and_cost(db_session):
@@ -606,7 +606,7 @@ def test_admin_cost_subject_detail_includes_scoped_twelve_month_history(db_sessi
                 bytes_in=0,
                 bytes_out=0,
                 ops_total=1000,
-                ops_breakdown='{"get":700,"put":300}',
+                ops_breakdown={"get": 700, "put": 300},
                 source="rgw_admin_usage",
                 collected_at=utcnow(),
             ),
@@ -617,7 +617,7 @@ def test_admin_cost_subject_detail_includes_scoped_twelve_month_history(db_sessi
                 bytes_in=0,
                 bytes_out=0,
                 ops_total=2000,
-                ops_breakdown='{"get":1500,"put":500}',
+                ops_breakdown={"get": 1500, "put": 500},
                 source="rgw_admin_usage",
                 collected_at=utcnow(),
             ),

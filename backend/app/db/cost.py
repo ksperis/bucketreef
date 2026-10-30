@@ -13,9 +13,9 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     Numeric,
     String,
-    Text,
     UniqueConstraint,
     text,
 )
@@ -77,7 +77,7 @@ class CostUsageDaily(Base):
     bytes_in = Column(BigInteger, nullable=False, default=0, server_default="0")
     bytes_out = Column(BigInteger, nullable=False, default=0, server_default="0")
     ops_total = Column(BigInteger, nullable=False, default=0, server_default="0")
-    ops_breakdown = Column(Text, nullable=True)
+    ops_breakdown = Column(JSON(none_as_null=True), nullable=True)
     source = Column(String, nullable=False, default="rgw_admin_usage")
     collected_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
@@ -138,7 +138,7 @@ class CostStorageDaily(Base):
     s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
     total_bytes = Column(BigInteger, nullable=False, default=0, server_default="0")
     total_objects = Column(BigInteger, nullable=False, default=0, server_default="0")
-    by_bucket = Column(Text, nullable=True)
+    by_bucket = Column(JSON(none_as_null=True), nullable=True)
     source = Column(String, nullable=False, default="rgw_admin_bucket_stats")
     collected_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 
