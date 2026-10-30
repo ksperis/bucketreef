@@ -113,13 +113,20 @@ class WebAuthnService:
             )
         except (InvalidRegistrationResponse, ValueError) as exc:
             raise WebAuthnSecurityError("Invalid WebAuthn registration response") from exc
+        transports = credential.get("response", {}).get("transports")
+        if transports is None:
+            transports = []
+        if not isinstance(transports, list) or any(
+            not isinstance(transport, str) for transport in transports
+        ):
+            raise WebAuthnSecurityError("Invalid WebAuthn transport list")
         row = WebAuthnCredential(
             id=str(uuid.uuid4()),
             user_id=user.id,
             credential_id=bytes_to_base64url(verified.credential_id),
             public_key=bytes_to_base64url(verified.credential_public_key),
             sign_count=verified.sign_count,
-            transports_json=json.dumps(credential.get("response", {}).get("transports") or []),
+            transports=list(transports),
             name=(name or "Passkey").strip()[:128] or "Passkey",
             created_at=utcnow(),
         )

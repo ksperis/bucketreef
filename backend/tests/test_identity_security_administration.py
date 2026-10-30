@@ -86,7 +86,7 @@ def test_common_mfa_reset_removes_all_factors_sessions_and_tokens(db_session):
                 credential_id="reset-passkey-credential",
                 public_key="public-key",
                 sign_count=0,
-                transports_json="[]",
+                transports=[],
                 name="Passkey",
             ),
             RecoveryCode(

@@ -6188,11 +6188,11 @@
           "check": null
         },
         {
-          "id": "field:webauthn_credentials.transports_json",
-          "name": "transports_json",
+          "id": "field:webauthn_credentials.transports",
+          "name": "transports",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
