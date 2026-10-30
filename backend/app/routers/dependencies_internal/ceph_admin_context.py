@@ -16,7 +16,6 @@ from app.services.ceph_admin_endpoint_service import (
 )
 from app.services.ceph_admin_service_identity import validate_ceph_admin_service_identity
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.storage_endpoints_service import get_storage_endpoints_service
 
 
 def _build_ceph_admin_browser_context(endpoint: StorageEndpoint) -> S3ExecutionContext:
@@ -76,14 +75,3 @@ def resolve_ceph_admin_browser_context(
     if identity_validation_error:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=identity_validation_error)
     return _build_ceph_admin_browser_context(endpoint)
-
-def resolve_default_endpoint(db: Session) -> StorageEndpoint:
-    service = get_storage_endpoints_service(db)
-    service.ensure_default_endpoint()
-    endpoint = service.get_default_endpoint_record()
-    if not endpoint:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Default storage endpoint is not configured",
-        )
-    return endpoint

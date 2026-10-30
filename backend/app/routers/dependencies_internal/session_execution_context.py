@@ -16,8 +16,19 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_endpoint
 
-from .ceph_admin_context import resolve_default_endpoint
 from .workspace_context import resolve_account_by_id
+
+
+def _resolve_default_endpoint(db: Session) -> StorageEndpoint:
+    service = get_storage_endpoints_service(db)
+    service.ensure_default_endpoint()
+    endpoint = service.get_default_endpoint_record()
+    if endpoint is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Default storage endpoint is not configured",
+        )
+    return endpoint
 
 
 def _resolve_session_account_record(
@@ -52,7 +63,7 @@ def _resolve_session_storage_endpoint(
         endpoint = (
             get_storage_endpoints_service(db).get_default_endpoint_record()
             if metadata_only
-            else resolve_default_endpoint(db)
+            else _resolve_default_endpoint(db)
         )
         if endpoint is None:
             raise HTTPException(
