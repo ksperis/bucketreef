@@ -23974,11 +23974,11 @@
           "check": null
         },
         {
-          "id": "field:onboarding_journeys.draft_json",
-          "name": "draft_json",
+          "id": "field:onboarding_journeys.draft",
+          "name": "draft",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -23995,11 +23995,11 @@
           "check": null
         },
         {
-          "id": "field:onboarding_journeys.resources_json",
-          "name": "resources_json",
+          "id": "field:onboarding_journeys.resources",
+          "name": "resources",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -24010,7 +24010,7 @@
           "characterMaximumLength": null,
           "precision": null,
           "scale": null,
-          "default": null,
+          "default": "{}",
           "collation": null,
           "comments": null,
           "check": null

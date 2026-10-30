@@ -353,8 +353,8 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
     serialized = " ".join(
         [
             result.model_dump_json(),
-            progress.draft_json,
-            progress.resources_json,
+            json.dumps(progress.draft, sort_keys=True),
+            json.dumps(progress.resources, sort_keys=True),
             *[row.metadata_json or "" for row in db_session.scalars(sa.select(AuditLog)).all()],
         ]
     )

@@ -280,8 +280,8 @@ erDiagram
         varchar_36 id PK "NN"
         integer user_id FK "NN"
         integer revision "NN"
-        text draft_json "NN"
-        text resources_json "NN"
+        json draft "NN"
+        json resources "NN; default={}"
         varchar_40 pending_step
         datetime configured_at
         datetime created_at "NN"
