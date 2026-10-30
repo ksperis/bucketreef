@@ -56,14 +56,12 @@ def test_portal_request_optional_text_is_normalized() -> None:
     assert PortalAdminRequestDecision(message="   ").message is None
 
 
-def test_portal_request_json_requires_an_object():
-    assert PortalRequestsService._decode_json('{"status":"ok"}') == {
+def test_portal_request_payload_requires_an_object():
+    assert PortalRequestsService._require_object({"status": "ok"}) == {
         "status": "ok"
     }
     with pytest.raises(ValueError):
-        PortalRequestsService._decode_json("[]")
-    with pytest.raises(ValueError):
-        PortalRequestsService._decode_json("{")
+        PortalRequestsService._require_object([])
 
 
 def _seed_account(db_session, *, name="Research Account") -> S3Account:
@@ -157,6 +155,17 @@ def test_portal_request_creation_lists_only_requester_and_notifies_admin(db_sess
     assert audit.scope == "portal"
     assert audit.context_kind == "portal_account"
     assert audit.context_id == str(account.id)
+
+
+def test_admin_search_matches_structured_request_payload(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    created = _create_user_request(service, account, requester)
+
+    rows = service.list_for_admin(search="jane.viewer@example.org")
+
+    assert [row.id for row in rows] == [created.id]
 
 
 def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
@@ -280,10 +289,10 @@ def test_approve_user_access_rejects_noncanonical_missing_intent(db_session):
     created = _create_user_request(service, account, requester)
     row = db_session.get(PortalAdminRequest, created.id)
     assert row is not None
-    payload = json.loads(row.payload_json)
+    payload = dict(row.payload)
     payload.pop("portal_role")
     payload.pop("intent", None)
-    row.payload_json = json.dumps(payload)
+    row.payload = payload
     db_session.add(row)
     db_session.commit()
 
@@ -312,9 +321,9 @@ def test_approve_user_access_rejects_noncanonical_persisted_values(
     created = _create_user_request(service, account, requester)
     row = db_session.get(PortalAdminRequest, created.id)
     assert row is not None
-    payload = json.loads(row.payload_json)
+    payload = dict(row.payload)
     payload[field] = value
-    row.payload_json = json.dumps(payload)
+    row.payload = payload
     db_session.add(row)
     db_session.commit()
 
@@ -528,9 +537,9 @@ def test_role_change_execution_rejects_noncanonical_persisted_values(
     )
     row = db_session.get(PortalAdminRequest, created.id)
     assert row is not None
-    payload = json.loads(row.payload_json)
+    payload = dict(row.payload)
     payload[field] = value
-    row.payload_json = json.dumps(payload)
+    row.payload = payload
     db_session.add(row)
     db_session.commit()
 

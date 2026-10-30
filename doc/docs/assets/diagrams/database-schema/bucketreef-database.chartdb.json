@@ -22915,11 +22915,11 @@
           "check": null
         },
         {
-          "id": "field:portal_admin_requests.payload_json",
-          "name": "payload_json",
+          "id": "field:portal_admin_requests.payload",
+          "name": "payload",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -22936,11 +22936,11 @@
           "check": null
         },
         {
-          "id": "field:portal_admin_requests.result_json",
-          "name": "result_json",
+          "id": "field:portal_admin_requests.result",
+          "name": "result",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
