@@ -48,7 +48,11 @@ describe("IdentitySecurityPage", () => {
         user_role: "ui_user",
         provider_type: "oidc",
         provider_id: "company",
+        issuer: "https://issuer.example.test",
+        subject: "immutable-subject-123",
         email: "candidate@example.com",
+        email_verified: true,
+        request_source: "login_collision",
         status: "pending",
         created_at: "2026-08-14T10:00:00Z",
         expires_at: "2026-08-15T10:00:00Z",
@@ -87,8 +91,12 @@ describe("IdentitySecurityPage", () => {
     expect(screen.queryByText("1 pending request")).not.toBeInTheDocument();
     expect(within(requestsPanel).getByRole("region", { name: "External identity link requests" })).toBeInTheDocument();
     expect(within(requestsPanel).getAllByText("candidate@example.com")).toHaveLength(2);
-    expect(within(requestsPanel).getByText("OIDC")).toBeInTheDocument();
+    expect(within(requestsPanel).getAllByText("OIDC")).toHaveLength(2);
     expect(within(requestsPanel).getByText("User")).toBeInTheDocument();
+    expect(within(requestsPanel).getByText("https://issuer.example.test")).toBeInTheDocument();
+    expect(within(requestsPanel).getByText("immutable-subject-123")).toBeInTheDocument();
+    expect(within(requestsPanel).getByText("Sign-in collision")).toBeInTheDocument();
+    expect(within(requestsPanel).getByText(/Email verified:/)).toHaveTextContent("Yes");
     expect(within(requestsPanel).getByRole("table")).toHaveClass("responsive-data-table", "ui-data-table");
     expect(screen.queryByText("ui_user")).not.toBeInTheDocument();
     expect(screen.queryByText("Candidate User")).not.toBeInTheDocument();
@@ -110,6 +118,9 @@ describe("IdentitySecurityPage", () => {
     const linkDialog = screen.getByRole("dialog", { name: "Approve identity link" });
     expect(mocks.decideExternalLinkRequest).not.toHaveBeenCalled();
     expect(within(linkDialog).getByText("oidc:company")).toBeInTheDocument();
+    expect(within(linkDialog).getByText("https://issuer.example.test")).toBeInTheDocument();
+    expect(within(linkDialog).getByText("immutable-subject-123")).toBeInTheDocument();
+    expect(within(linkDialog).getByText("Sign-in collision")).toBeInTheDocument();
     await user.click(within(linkDialog).getByRole("button", { name: "Approve link" }));
     await waitFor(() => expect(mocks.decideExternalLinkRequest).toHaveBeenCalledWith("request-1", true));
 

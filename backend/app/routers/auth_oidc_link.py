@@ -11,7 +11,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.sensitive_data import sanitize_error_detail
 from app.db import User
-from app.models.auth import WebAuthnAuthenticationRequest, WebAuthnCredentialRequest
+from app.models.auth import RecoveryCodeRequest, WebAuthnAuthenticationRequest, WebAuthnCredentialRequest
 from app.models.oidc import OIDCStartResponse
 from app.models.oidc_link import (
     OidcLinkLdapProof,
@@ -274,6 +274,42 @@ def oidc_link_webauthn_authentication_verify(
         user=user,
         scope="security",
         action="webauthn_step_up_success",
+        entity_type="oidc_link_attempt",
+        entity_id=attempt_id,
+        metadata={"context": "oidc_link"},
+        ip_address=ip_address,
+        user_agent=user_agent,
+        request_id=request_id,
+    )
+    return status_model
+
+
+@router.post("/oidc/link/{attempt_id}/recovery/verify", response_model=OidcLinkStatus)
+def oidc_link_recovery_code_verify(
+    request: Request,
+    attempt_id: str,
+    payload: RecoveryCodeRequest,
+    db: Session = Depends(get_db),
+    audit: AuditService = Depends(get_audit_service),
+) -> OidcLinkStatus:
+    require_trusted_origin(request)
+    browser_hash = oidc_browser_binding_hash(request)
+    service = _link_service(db)
+    try:
+        status_model = service.status(attempt_id, browser_hash)
+        if status_model.stage != "mfa":
+            raise OidcLinkError("Recovery code verification is not required")
+        user = service.target_user(attempt_id, browser_hash)
+        if not WebAuthnService(db).consume_recovery_code(user, payload.code):
+            raise OidcLinkError("Invalid recovery code")
+        status_model = service.mark_mfa_verified(attempt_id, browser_hash)
+    except OidcLinkError as exc:
+        raise _link_error(exc) from exc
+    ip_address, user_agent, request_id = request_context(request, settings=settings)
+    audit.record_action(
+        user=user,
+        scope="auth",
+        action="recovery_code_authentication_success",
         entity_type="oidc_link_attempt",
         entity_id=attempt_id,
         metadata={"context": "oidc_link"},

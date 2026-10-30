@@ -27,7 +27,7 @@ def test_auth_router_aggregates_each_authentication_domain() -> None:
     included_routers = tuple(route.original_router for route in auth.router.routes)
 
     assert included_routers == feature_routers
-    assert sum(len(router.routes) for router in feature_routers) == 38
+    assert sum(len(router.routes) for router in feature_routers) == 39
 
 
 def test_admin_control_plane_auth_routes_are_kept_separate() -> None:

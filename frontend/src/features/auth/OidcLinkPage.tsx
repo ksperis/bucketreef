@@ -16,6 +16,7 @@ import {
   startOidcLinkProof,
   verifyOidcLinkLdap,
   verifyOidcLinkPassword,
+  verifyOidcLinkRecoveryCode,
   type OidcLinkProofMethod,
   type OidcLinkStatus,
 } from "../../api/auth";
@@ -47,6 +48,7 @@ export default function OidcLinkPage() {
   const [ldapProvider, setLdapProvider] = useState("");
   const [ldapUsername, setLdapUsername] = useState("");
   const [ldapPassword, setLdapPassword] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [recoveryCodesSaved, setRecoveryCodesSaved] = useState(false);
 
@@ -81,6 +83,20 @@ export default function OidcLinkPage() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [attemptId, text]);
+
+  useEffect(() => {
+    if (!attemptId || status?.stage !== "admin_requested") return;
+    let active = true;
+    const timer = window.setInterval(() => {
+      fetchOidcLinkStatus(attemptId)
+        .then((next) => { if (active) setStatus(next); })
+        .catch((failure) => console.error(failure));
+    }, 3000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [attemptId, status?.stage]);
 
   const run = async (action: () => Promise<OidcLinkStatus>) => {
     setBusy(true);
@@ -154,6 +170,13 @@ export default function OidcLinkPage() {
   const requestAdmin = async () => {
     if (!attemptId) return;
     await run(() => requestOidcLinkAdminApproval(attemptId));
+  };
+
+  const submitRecoveryCode = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!attemptId || !recoveryCode.trim()) return;
+    const next = await run(() => verifyOidcLinkRecoveryCode(attemptId, recoveryCode.trim()));
+    if (next) setRecoveryCode("");
   };
 
   const confirm = async () => {
@@ -237,6 +260,13 @@ export default function OidcLinkPage() {
                 <AuthButton type="button" className="mt-4" disabled={busy} onClick={() => void completeMfa()}>
                   {text(status.stage === "mfa" ? "usePasskey" : "createPasskey")}
                 </AuthButton>
+                {status.stage === "mfa" && (
+                  <form onSubmit={submitRecoveryCode} className="mt-5 space-y-3 border-t border-slate-200 pt-5">
+                    <p className="ui-body text-slate-600">{text("oidcLinkRecoveryHelp")}</p>
+                    <AuthInput label={text("recoveryCode")} autoComplete="one-time-code" value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} required />
+                    <AuthButton type="submit" presentation="provider" disabled={busy || !recoveryCode.trim()}>{text("useRecoveryCode")}</AuthButton>
+                  </form>
+                )}
               </div>
             )}
 
@@ -265,6 +295,18 @@ export default function OidcLinkPage() {
 
             {status.stage === "admin_requested" && (
               <UiInlineMessage tone="info">{text("oidcLinkAdminRequested")}</UiInlineMessage>
+            )}
+            {status.stage === "admin_approved" && (
+              <div className="space-y-4">
+                <UiInlineMessage tone="success">{text("oidcLinkAdminApproved")}</UiInlineMessage>
+                <AuthButton type="button" onClick={() => window.location.assign("/login")}>{text("oidcLinkSignInAgain")}</AuthButton>
+              </div>
+            )}
+            {status.stage === "admin_rejected" && (
+              <div className="space-y-4">
+                <UiInlineMessage tone="error">{text("oidcLinkAdminRejected")}</UiInlineMessage>
+                <AuthButton type="button" presentation="provider" onClick={() => window.location.assign("/login")}>{text("returnToSignIn")}</AuthButton>
+              </div>
             )}
             {status.stage === "completed" && (
               <UiInlineMessage tone="success">{text("oidcLinkCompleted")}</UiInlineMessage>

@@ -157,7 +157,7 @@ export type OidcLinkStatus = {
   target_email: string;
   provider_id: string;
   source: "login_collision" | "profile";
-  stage: "oidc" | "proof" | "mfa" | "mfa_enrollment" | "confirm" | "admin_requested" | "completed";
+  stage: "oidc" | "proof" | "mfa" | "mfa_enrollment" | "confirm" | "admin_requested" | "admin_approved" | "admin_rejected" | "completed";
   proof_methods: OidcLinkProofMethod[];
   expires_at: string;
 };
@@ -235,6 +235,14 @@ export async function finishOidcLinkWebAuthnAuthentication(attemptId: string, cr
   const { data } = await client.post<OidcLinkStatus>(
     `/auth/oidc/link/${encodeURIComponent(attemptId)}/webauthn/authentication/verify`,
     { credential },
+  );
+  return data;
+}
+
+export async function verifyOidcLinkRecoveryCode(attemptId: string, code: string): Promise<OidcLinkStatus> {
+  const { data } = await client.post<OidcLinkStatus>(
+    `/auth/oidc/link/${encodeURIComponent(attemptId)}/recovery/verify`,
+    { code },
   );
   return data;
 }

@@ -5923,6 +5923,48 @@
           "check": null
         },
         {
+          "id": "field:external_identity_link_requests.email_verified",
+          "name": "email_verified",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:external_identity_link_requests.request_source",
+          "name": "request_source",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:external_identity_link_requests.display_name",
           "name": "display_name",
           "type": {

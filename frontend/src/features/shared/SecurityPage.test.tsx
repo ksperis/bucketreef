@@ -154,6 +154,14 @@ describe("SecurityPage", () => {
 
   it("shows legacy OIDC identities that must be revalidated", async () => {
     const user = userEvent.setup();
+    mocks.fetchOidcProviders.mockResolvedValueOnce([
+      { id: "company", display_name: "Company SSO", icon_url: null },
+    ]);
+    mocks.startProfileOidcLink.mockResolvedValue({
+      provider: "company",
+      authorization_url: "https://issuer.example.test/authorize",
+      state: "revalidate-state",
+    });
     mocks.listExternalIdentities.mockResolvedValueOnce([
       {
         id: "identity-legacy",
@@ -172,6 +180,8 @@ describe("SecurityPage", () => {
     await user.click(await screen.findByRole("button", { name: "View accounts" }));
     expect(screen.getByText("Revalidation required")).toBeInTheDocument();
     expect(screen.getByText(/cannot be used to sign in until it is revalidated/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revalidate with Company SSO" }));
+    await waitFor(() => expect(mocks.startProfileOidcLink).toHaveBeenCalledWith("company"));
   });
 
   it("keeps successful sections visible when one security resource fails and retries only that section", async () => {

@@ -428,6 +428,8 @@ describe("AuthenticationSettingsPage", () => {
     await user.type(screen.getByLabelText("Client ID"), "client-id");
     await user.type(screen.getByLabelText("Redirect URI"), "https://app.example.test/auth/callback");
     await user.type(screen.getByLabelText("Client secret"), "super-secret");
+    expect(screen.getByRole("option", { name: "Trusted verified email (advanced)" })).toBeInTheDocument();
+    expect(screen.getByText(/advanced automatic-linking policy/i)).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Identity linking policy"), "trusted_email");
     await user.type(screen.getByLabelText("Trusted email domains"), "Example.COM\ncorp.example.com");
     await user.click(screen.getByRole("button", { name: "Save OIDC provider" }));

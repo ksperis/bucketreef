@@ -124,6 +124,8 @@ class ExternalIdentityLinkRequest(Base):
     issuer = Column(String, nullable=True)
     subject = Column(String, nullable=False)
     email = Column(String, nullable=False)
+    email_verified = Column(Boolean, nullable=False, default=False, server_default="0")
+    request_source = Column(String, nullable=True)
     display_name = Column(String, nullable=True)
     picture_url = Column(String, nullable=True)
     status = Column(String, nullable=False, default="pending", server_default="pending", index=True)
