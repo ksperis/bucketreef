@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured API token scopes
+
+Migration `0202_structure_api_token_scopes` replaces
+`api_tokens.scopes_json` text with a non-null structured JSON `scopes`
+column. Existing values must decode to a JSON array containing only strings;
+malformed JSON, non-array values, and arrays containing non-string values stop
+the upgrade explicitly.
+
+API token creation, listing, and authentication now use the structured list
+directly. Authentication still fails closed if the persisted structure is
+corrupted after migration. The downgrade recreates the former text column from
+the structured list.
+
 ## 2026-10 structured user notification payloads
 
 Migration `0201_structure_user_notification_payloads` replaces

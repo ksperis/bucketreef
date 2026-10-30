@@ -84,9 +84,9 @@ def test_cutover_migrates_subjects_and_revokes_every_legacy_authenticator(tmp_pa
             assert connection.scalar(sa.text("SELECT COUNT(*) FROM s3_sessions")) == 0
             assert connection.scalar(sa.text("SELECT COUNT(*) FROM oidc_login_states")) == 0
             token = connection.execute(sa.text(
-                "SELECT scopes_json, auth_version, revoked_at FROM api_tokens WHERE id = 'api-1'"
+                "SELECT scopes, auth_version, revoked_at FROM api_tokens WHERE id = 'api-1'"
             )).mappings().one()
-            assert token["scopes_json"] == "[]"
+            assert token["scopes"] == "[]"
             assert token["auth_version"] == 1
             assert token["revoked_at"] is not None
         engine.dispose()

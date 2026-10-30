@@ -193,7 +193,7 @@ def test_api_token_rejects_corrupt_persisted_scopes(db_session):
     )
     claims = decode_typed_token(token, expected_type="api_access")
     assert claims is not None
-    row.scopes_json = "{invalid-json"
+    row.scopes = {"profile:read": True}
     db_session.commit()
 
     assert service.resolve_user_from_claims(
