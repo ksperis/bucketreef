@@ -10,11 +10,15 @@ use; see [OpenStack connections](../storage/backends/openstack.md).
 
 Migration `0195_openstack_catalog_targets` moves OpenStack S3 execution targets
 from manually associated BucketReef Storage Endpoints to the scoped Keystone
-service catalog. Existing project contexts are retained only as legacy markers
-and require explicit project reactivation before they can execute. The obsolete
-`openstack_cloud_endpoints` association is removed. Deploy backend and frontend
-together because project activation now exchanges a Keystone `target_id`, and
-the selected region/URL are part of the session-bound execution context. The
+service catalog. Migration `0195` initially retained the former endpoint-bound
+project contexts as non-executable legacy markers, while removing the obsolete
+`openstack_cloud_endpoints` association. Migration
+`0198_remove_openstack_legacy_contexts` subsequently deletes those legacy
+contexts and credentials and removes their `endpoint_id` column. After applying
+the current migration chain, no endpoint-bound legacy project context remains;
+projects must be activated from a current Keystone catalog target. Deploy backend
+and frontend together because project activation exchanges a Keystone `target_id`,
+and the selected region/URL are part of the session-bound execution context. The
 migration also adds `openstack_clouds.managed_endpoints_only`, defaulting to
 false. Catalog targets whose canonical S3 URL matches a current Storage Endpoint
 are associated dynamically; enabling the policy restricts activation to those
