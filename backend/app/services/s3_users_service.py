@@ -280,12 +280,17 @@ class S3UsersService:
         group_links_map: dict[int, list[S3UserGroupLink]],
         *,
         include_quota: bool = True,
+        quota_admin: RGWAdminClient | None = None,
+        bucket_count: int | None = None,
     ) -> S3UserSchema:
         endpoint = self._endpoint_for_user(row)
         quota_max_size_gb = None
         quota_max_objects = None
         if include_quota:
-            quota_max_size_gb, quota_max_objects = self.get_user_quota(row)
+            quota_max_size_gb, quota_max_objects = self.get_user_quota(
+                row,
+                quota_admin,
+            )
         return s3_user_from_db(
             row,
             user_links=user_links_map.get(row.id, []),
@@ -293,6 +298,7 @@ class S3UsersService:
             quota_max_size_gb=quota_max_size_gb,
             quota_max_objects=quota_max_objects,
             storage_endpoint=endpoint,
+            bucket_count=bucket_count,
             tags=self.tags.get_s3_user_tags(row),
         )
 
@@ -418,21 +424,13 @@ class S3UsersService:
     ) -> S3UserSchema:
         s3_user = self._get_s3_user(user_id)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        endpoint = self._endpoint_for_user(s3_user)
-        quota_max_size_gb = None
-        quota_max_objects = None
-        if include_quota:
-            quota_max_size_gb, quota_max_objects = self.get_user_quota(s3_user)
         bucket_count = self._interface_bucket_count(s3_user) if include_buckets else None
-        return s3_user_from_db(
+        return self._serialize_s3_user(
             s3_user,
-            user_links=user_links_map.get(s3_user.id, []),
-            group_links=group_links_map.get(s3_user.id, []),
-            quota_max_size_gb=quota_max_size_gb,
-            quota_max_objects=quota_max_objects,
-            storage_endpoint=endpoint,
+            user_links_map,
+            group_links_map,
+            include_quota=include_quota,
             bucket_count=bucket_count,
-            tags=self.tags.get_s3_user_tags(s3_user),
         )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
@@ -624,16 +622,10 @@ class S3UsersService:
         self.db.commit()
         self.db.refresh(s3_user)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        endpoint = self._endpoint_for_user(s3_user)
-        quota_max_size_gb, quota_max_objects = self.get_user_quota(s3_user)
-        return s3_user_from_db(
+        return self._serialize_s3_user(
             s3_user,
-            user_links=user_links_map.get(s3_user.id, []),
-            group_links=group_links_map.get(s3_user.id, []),
-            quota_max_size_gb=quota_max_size_gb,
-            quota_max_objects=quota_max_objects,
-            storage_endpoint=endpoint,
-            tags=self.tags.get_s3_user_tags(s3_user),
+            user_links_map,
+            group_links_map,
         )
 
     def rotate_keys(self, user_id: int, *, actor=None) -> S3UserSchema:
@@ -646,15 +638,11 @@ class S3UsersService:
             raise ValueError("Rotation is pending; check RGW connectivity and retry.") from exc
         admin = self._admin_for_user(s3_user)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        quota_max_size_gb, quota_max_objects = self.get_user_quota(s3_user, admin)
-        return s3_user_from_db(
+        return self._serialize_s3_user(
             s3_user,
-            user_links=user_links_map.get(s3_user.id, []),
-            group_links=group_links_map.get(s3_user.id, []),
-            quota_max_size_gb=quota_max_size_gb,
-            quota_max_objects=quota_max_objects,
-            storage_endpoint=endpoint,
-            tags=self.tags.get_s3_user_tags(s3_user),
+            user_links_map,
+            group_links_map,
+            quota_admin=admin,
         )
 
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
