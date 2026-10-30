@@ -50,6 +50,10 @@ from app.models.s3_user import (
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
+from app.services.rgw_quota_update import (
+    prepare_rgw_quota_update,
+    validate_rgw_quota_update_response,
+)
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services import s3_client
 from app.utils.rgw_payloads import (
@@ -58,7 +62,6 @@ from app.utils.rgw_payloads import (
 )
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.quota_stats import bytes_to_gb, extract_quota_limits, parse_positive_limit
-from app.utils.size_units import size_to_bytes
 from app.utils.name_ordering import name_order_by
 from app.utils.usage_stats import aggregate_bucket_usage
 
@@ -240,26 +243,23 @@ class S3UsersService:
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
         require_endpoint_permissions(s3_user.storage_endpoint, "users_write")
         admin = self._admin_for_user(s3_user)
-        try:
-            max_size_bytes = size_to_bytes(max_size_gb, max_size_unit)
-        except ValueError as exc:
-            raise ValueError(sanitized_error_log_detail(exc)) from exc
-        enabled = max_size_bytes is not None or max_objects is not None
+        quota = prepare_rgw_quota_update(max_size_gb, max_objects, max_size_unit)
         try:
             tenant = self._verified_user(s3_user, admin)
             response = admin.set_user_quota(
                 uid=s3_user.rgw_user_uid,
                 **({"tenant": tenant} if tenant else {}),
-                max_size_bytes=max_size_bytes,
-                max_objects=max_objects,
-                enabled=enabled,
+                max_size_bytes=quota.max_size_bytes,
+                max_objects=quota.max_objects,
+                enabled=quota.enabled,
             )
         except RGWAdminError as exc:
             raise ValueError(f"RGW user quota update failed: {exc}") from exc
-        if response.get("not_found"):
-            raise ValueError(f"RGW user not found for quota update: {s3_user.rgw_user_uid}")
-        if response.get("not_implemented"):
-            raise ValueError("RGW user quota update is not supported on this cluster.")
+        validate_rgw_quota_update_response(
+            response,
+            subject="user",
+            identifier=s3_user.rgw_user_uid,
+        )
 
     def _get_s3_user(self, user_id: int) -> S3UserModel:
         s3_user = self.db.execute(
