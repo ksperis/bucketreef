@@ -22,7 +22,7 @@ from app.main import app
 
 def _request(path="/api/browser/buckets/config/archive/versioning", *, workspace=None):
     headers = [] if workspace is None else [(b"x-s3-workspace", workspace.encode())]
-    return Request({"type": "http", "path": path, "headers": headers, "method": "PUT"})
+    return Request({"type": "http", "path": path, "query_string": b"", "headers": headers, "method": "PUT"})
 
 
 def _context(kind="connection"):

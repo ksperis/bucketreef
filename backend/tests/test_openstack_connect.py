@@ -1050,7 +1050,7 @@ def test_external_project_context_cannot_cross_workspace_authority(db_session, s
 
     service, user, auth, _, ctx = connect(db_session, setup_cloud)
     assert service.resolve(user, auth.id, ctx)
-    request = Request({"type": "http", "method": "GET", "path": path, "headers": headers})
+    request = Request({"type": "http", "method": "GET", "path": path, "query_string": b"", "headers": headers})
     with pytest.raises(HTTPException) as caught:
         resolve_s3_execution_context(request, ctx, user, db_session)
     assert caught.value.status_code == 403

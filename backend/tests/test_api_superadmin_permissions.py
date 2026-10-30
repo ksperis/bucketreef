@@ -178,7 +178,7 @@ def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision
     audit = FakeAuditService()
     user = _superadmin_user()
     background_tasks = BackgroundTasks()
-    request = Request({"type": "http", "method": "POST", "path": "/", "headers": []})
+    request = Request({"type": "http", "method": "POST", "path": "/", "query_string": b"", "headers": []})
 
     result = storage_endpoints_router.reconcile_service_identities(
         7,
