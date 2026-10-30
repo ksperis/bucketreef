@@ -364,26 +364,24 @@ class ManagedPrivateAccessService:
 
     def managed_iam_user(self, source_kind: str, source_id: int, username: str) -> ManagedPrivateAccess | None:
         return self.db.scalar(
-            select(ManagedPrivateAccess)
-            .where(
-                ManagedPrivateAccess.source_context_type == source_kind,
-                ManagedPrivateAccess.source_context_id == source_id,
-                ManagedPrivateAccess.iam_username == username,
-                ManagedPrivateAccess.state.in_(ACTIVE_STATES),
-            )
+            self._active_source_statement(source_kind, source_id)
+            .where(ManagedPrivateAccess.iam_username == username)
             .limit(1)
         )
 
     def managed_key(self, source_kind: str, source_id: int, access_key_id: str) -> ManagedPrivateAccess | None:
         return self.db.scalar(
-            select(ManagedPrivateAccess)
-            .where(
-                ManagedPrivateAccess.source_context_type == source_kind,
-                ManagedPrivateAccess.source_context_id == source_id,
-                ManagedPrivateAccess.access_key_id == access_key_id,
-                ManagedPrivateAccess.state.in_(ACTIVE_STATES),
-            )
+            self._active_source_statement(source_kind, source_id)
+            .where(ManagedPrivateAccess.access_key_id == access_key_id)
             .limit(1)
+        )
+
+    @staticmethod
+    def _active_source_statement(source_kind: str, source_id: int):
+        return select(ManagedPrivateAccess).where(
+            ManagedPrivateAccess.source_context_type == source_kind,
+            ManagedPrivateAccess.source_context_id == source_id,
+            ManagedPrivateAccess.state.in_(ACTIVE_STATES),
         )
 
     def managed_resources_for_source(
@@ -393,11 +391,7 @@ class ManagedPrivateAccessService:
     ) -> list[ManagedPrivateAccess]:
         return list(
             self.db.scalars(
-                select(ManagedPrivateAccess).where(
-                    ManagedPrivateAccess.source_context_type == source_kind,
-                    ManagedPrivateAccess.source_context_id == source_id,
-                    ManagedPrivateAccess.state.in_(ACTIVE_STATES),
-                )
+                self._active_source_statement(source_kind, source_id)
             ).all()
         )
 
