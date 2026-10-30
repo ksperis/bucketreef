@@ -67,10 +67,12 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   const confirmationRef = useRef<HTMLInputElement>(null);
   const [providerType, setProviderType] = useState<"oidc" | "ldap">("oidc");
   const [providerId, setProviderId] = useState("");
+  const [oidcIssuer, setOidcIssuer] = useState("");
   const [subject, setSubject] = useState("");
   const [identityEmail, setIdentityEmail] = useState("");
   const [identityAttempted, setIdentityAttempted] = useState(false);
   const providerRef = useRef<HTMLInputElement>(null);
+  const issuerRef = useRef<HTMLInputElement>(null);
   const subjectRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
@@ -87,6 +89,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   const passwordError = !password.trim() || [...password].length < 12 ? text("passwordMinimumLength") : undefined;
   const confirmationError = !passwordConfirmation || password !== passwordConfirmation ? text("passwordConfirmationMismatch") : undefined;
   const providerError = !providerId.trim() ? text("providerIdRequired") : undefined;
+  const issuerError = providerType === "oidc" && !oidcIssuer.trim() ? text("issuerRequired") : undefined;
   const subjectError = !subject.trim() ? text("immutableSubjectRequired") : undefined;
   // Read the native email validity, including after any controlled-input update.
   const [invalidEmail, setInvalidEmail] = useState(false);
@@ -94,7 +97,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   const date = (value?: string | null) => securityDate(value, locale, text("notAvailable"));
 
   useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
-  const dirty = Boolean(password || passwordConfirmation || providerId || subject || identityEmail);
+  const dirty = Boolean(password || passwordConfirmation || providerId || oidcIssuer || subject || identityEmail);
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
 
@@ -169,8 +172,8 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
     setErrorContext("identity");
     setMessage(null);
     setIdentityAttempted(true);
-    if (providerError || subjectError || emailError) {
-      (providerError ? providerRef : subjectError ? subjectRef : emailRef).current?.focus();
+    if (providerError || issuerError || subjectError || emailError) {
+      (providerError ? providerRef : issuerError ? issuerRef : subjectError ? subjectRef : emailRef).current?.focus();
       return;
     }
     try {
@@ -178,6 +181,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
         async () => { await addAdminExternalIdentity(userId, {
           provider_type: providerType,
           provider_id: providerId,
+          issuer: providerType === "oidc" ? oidcIssuer.trim() : null,
           subject,
           email: identityEmail || null,
           email_verified: providerType === "oidc" && Boolean(identityEmail),
@@ -185,6 +189,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
         text("identityLinked"),
       )) {
         setProviderId("");
+        setOidcIssuer("");
         setSubject("");
         setIdentityEmail("");
         setInvalidEmail(false);
@@ -259,18 +264,22 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
         <SettingsSection title={text("externalIdentities")} presentation="compact" description={text("externalIdentitiesDescription")}>
           {security.external_identities.map((identity) => <SettingsItem compact key={identity.id}
             title={`${identity.provider_type}:${identity.provider_id}`} className="[overflow-wrap:anywhere]"
-            status={<UiBadge tone={identity.revoked_at ? "neutral" : "success"}>{text(identity.revoked_at ? "revoked" : "active")}</UiBadge>}
-            description={<><code className="block break-all">{identity.subject}</code><span>{identity.link_source}</span></>}
+            status={<UiBadge tone={identity.revoked_at ? "neutral" : identity.revalidation_required ? "warning" : "success"}>{text(identity.revoked_at ? "revoked" : identity.revalidation_required ? "revalidationRequired" : "active")}</UiBadge>}
+            description={<><code className="block break-all">{identity.subject}</code>{identity.issuer && <span className="block break-all">{text("issuer")}: {identity.issuer}</span>}<span>{identity.link_source}</span></>}
             action={canMutate && (identity.revoked_at
               ? <SettingsButton variant="secondary" onClick={() => requestAction({ kind: "restore-identity", identity })}>{text("restore")}</SettingsButton>
               : <SettingsButton variant="danger" onClick={() => requestAction({ kind: "revoke-identity", identity })}>{text("revoke")}</SettingsButton>)} />)}
           {security.external_identities.length === 0 && <p className="settings-readonly">{text("noExternalIdentities")}</p>}
           {canMutate && <fieldset aria-label={text("linkExternalIdentity")} className="settings-fields mt-3 border-t border-[var(--ui-border-soft)] pt-3 sm:grid-cols-2"
             onKeyDown={(event) => submitOnEnter(event, addIdentity)}>
-            <UiSelect label={text("providerType")} value={providerType} onChange={(event) => setProviderType(event.target.value as "oidc" | "ldap")}>
+            <UiSelect label={text("providerType")} value={providerType} onChange={(event) => {
+              setProviderType(event.target.value as "oidc" | "ldap");
+              setOidcIssuer("");
+            }}>
               <option value="oidc">{text("oidc")}</option><option value="ldap">{text("ldap")}</option>
             </UiSelect>
             <UiInput ref={providerRef} label={text("providerId")} value={providerId} onChange={(event) => setProviderId(event.target.value)} error={identityAttempted ? providerError : undefined} />
+            {providerType === "oidc" && <UiInput ref={issuerRef} label={text("issuer")} value={oidcIssuer} onChange={(event) => setOidcIssuer(event.target.value)} error={identityAttempted ? issuerError : undefined} />}
             <UiInput ref={subjectRef} label={text("immutableSubject")} value={subject} onChange={(event) => setSubject(event.target.value)} error={identityAttempted ? subjectError : undefined} />
             <UiInput ref={emailRef} label={text("claimedEmailOptional")} type="email" value={identityEmail} error={identityAttempted ? emailError : undefined}
               onChange={(event) => { setIdentityEmail(event.target.value); setInvalidEmail(!event.target.validity.valid); }} />
@@ -296,6 +305,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
           { label: text("user"), value: security?.email ?? String(userId) },
           ...(pending.kind === "revoke-identity" || pending.kind === "restore-identity" ? [
             { label: text("provider"), value: `${pending.identity.provider_type}:${pending.identity.provider_id}` },
+            ...(pending.identity.issuer ? [{ label: text("issuer"), value: pending.identity.issuer, mono: true }] : []),
             { label: text("subject"), value: pending.identity.subject, mono: true },
           ] : pending.kind === "revoke-session" ? [
             { label: text("session"), value: pending.session.id, mono: true },

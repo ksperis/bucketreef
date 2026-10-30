@@ -46,11 +46,13 @@ const security = {
       id: "identity-1",
       provider_type: "oidc",
       provider_id: "company",
+      issuer: "https://issuer.example.test",
       subject: "immutable-subject",
       email: "target@example.com",
       email_verified: true,
       link_source: "trusted_email",
       created_at: "2026-08-14T10:00:00Z",
+      revalidation_required: false,
       revoked_at: null,
     },
   ],
@@ -128,6 +130,7 @@ describe("UserAuthenticationPanel", () => {
     );
 
     await user.type(await screen.findByLabelText("Provider ID"), "company-two");
+    await user.type(screen.getByLabelText("Issuer"), "https://issuer-two.example.test");
     await user.type(screen.getByLabelText("Immutable subject"), "second-subject");
     await user.click(screen.getByRole("button", { name: "Link identity" }));
 
@@ -218,6 +221,9 @@ describe("UserAuthenticationPanel", () => {
     expect(screen.getByLabelText("Immutable subject")).toHaveAttribute("aria-invalid", "true");
     await user.selectOptions(screen.getByLabelText("Provider type"), providerType);
     await user.type(screen.getByLabelText("Provider ID"), " company-two ");
+    if (providerType === "oidc") {
+      await user.type(screen.getByLabelText("Issuer"), " https://issuer-two.example.test/ ");
+    }
     await user.type(screen.getByLabelText("Immutable subject"), " immutable-subject-two ");
     const email = screen.getByLabelText("Claimed email (optional)");
     await user.type(email, "invalid-email");
@@ -232,6 +238,7 @@ describe("UserAuthenticationPanel", () => {
     await user.keyboard("{Enter}");
     await waitFor(() => expect(mocks.addAdminExternalIdentity).toHaveBeenCalledWith(42, {
       provider_type: providerType, provider_id: " company-two ", subject: " immutable-subject-two ",
+      issuer: providerType === "oidc" ? "https://issuer-two.example.test/" : null,
       email: "claim@example.com", email_verified: providerType === "oidc",
     }));
     await waitFor(() => expect(screen.getByLabelText("Provider ID")).toHaveValue(""));

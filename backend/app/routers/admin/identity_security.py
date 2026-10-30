@@ -151,6 +151,7 @@ def add_user_external_identity(
             user=target,
             provider_type=payload.provider_type,
             provider_id=payload.provider_id,
+            issuer=payload.issuer,
             subject=payload.subject,
             email=str(payload.email) if payload.email else None,
             email_verified=payload.email_verified,

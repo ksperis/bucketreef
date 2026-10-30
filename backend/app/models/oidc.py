@@ -64,7 +64,7 @@ class OIDCProviderAdminItem(ApiModel):
     icon_url: Optional[str]
     use_pkce: bool
     use_nonce: bool
-    linking_policy: Literal["manual", "trusted_email"]
+    linking_policy: Literal["manual", "reauthenticate", "trusted_email"]
     trusted_email_domains: list[str]
     source: Literal["environment", "ui"]
     editable: bool
@@ -84,7 +84,7 @@ class OIDCProviderAdminPayload(ApiModel):
     icon_url: Optional[str]
     use_pkce: bool
     use_nonce: bool
-    linking_policy: Literal["manual", "trusted_email"]
+    linking_policy: Literal["manual", "reauthenticate", "trusted_email"]
     trusted_email_domains: list[str]
     client_secret: Optional[str] = None
     clear_client_secret: bool = False

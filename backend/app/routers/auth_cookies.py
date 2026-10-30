@@ -2,9 +2,11 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import hashlib
+import secrets
 import uuid
 
-from fastapi import Response
+from fastapi import Request, Response
 
 from app.core.config import get_settings
 from app.core.security import create_pre_auth_token
@@ -13,6 +15,36 @@ from app.services.auth_session_service import SessionCredentials
 
 
 _settings = get_settings()
+
+
+def _oidc_browser_binding_hash(raw_secret: str) -> str:
+    return hashlib.sha256(raw_secret.encode("utf-8")).hexdigest()
+
+
+def oidc_browser_binding(request: Request) -> str | None:
+    return request.cookies.get(_settings.oidc_browser_cookie_name)
+
+
+def oidc_browser_binding_hash(request: Request) -> str | None:
+    raw_secret = oidc_browser_binding(request)
+    return _oidc_browser_binding_hash(raw_secret) if raw_secret else None
+
+
+def ensure_oidc_browser_binding(request: Request, response: Response) -> tuple[str, str]:
+    raw_secret = oidc_browser_binding(request) or secrets.token_urlsafe(32)
+    response.set_cookie(
+        _settings.oidc_browser_cookie_name,
+        raw_secret,
+        max_age=max(
+            _settings.oidc_state_ttl_seconds,
+            _settings.oidc_link_attempt_ttl_seconds,
+        ),
+        httponly=True,
+        secure=_settings.refresh_token_cookie_secure,
+        samesite=_settings.refresh_token_cookie_samesite,
+        path="/api/auth",
+    )
+    return raw_secret, _oidc_browser_binding_hash(raw_secret)
 
 
 def set_auth_cookies(response: Response, credentials: SessionCredentials) -> None:

@@ -30,7 +30,7 @@ export type OidcProviderAdminItem = {
   icon_url: string | null;
   use_pkce: boolean;
   use_nonce: boolean;
-  linking_policy: "manual" | "trusted_email";
+  linking_policy: "manual" | "reauthenticate" | "trusted_email";
   trusted_email_domains: string[];
   source: OidcProviderSource;
   editable: boolean;
@@ -50,7 +50,7 @@ export type OidcProviderAdminPayload = {
   icon_url: string | null;
   use_pkce: boolean;
   use_nonce: boolean;
-  linking_policy: "manual" | "trusted_email";
+  linking_policy: "manual" | "reauthenticate" | "trusted_email";
   trusted_email_domains: string[];
   client_secret?: string | null;
   clear_client_secret?: boolean;

@@ -6,6 +6,7 @@ import {
   revokeSecurityCredential, revokeSecuritySession,
   type SecurityCredential, type SecuritySession, type ExternalIdentity,
 } from "../../api/security";
+import { fetchOidcProviders, startProfileOidcLink, type OidcProviderInfo } from "../../api/auth";
 import { updateCurrentUser } from "../../api/users";
 import { createPasskey } from "../../auth/webauthn";
 import { useSession } from "../../auth/SessionProvider";
@@ -15,6 +16,7 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { SettingsItem, SettingsSection } from "../../components/settings/SettingsLayout";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
+import UiSelect from "../../components/ui/UiSelect";
 import UiBadge from "../../components/ui/UiBadge";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { readStoredUser } from "../../utils/workspaces";
@@ -67,7 +69,20 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
   const [message, setMessage] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
   const [now, setNow] = useState(Date.now);
+  const [oidcProviders, setOidcProviders] = useState<OidcProviderInfo[]>([]);
+  const [selectedOidcProvider, setSelectedOidcProvider] = useState("");
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => {
+    let active = true;
+    fetchOidcProviders()
+      .then((providers) => {
+        if (!active) return;
+        setOidcProviders(providers);
+        if (providers.length > 0) setSelectedOidcProvider((current) => current || providers[0].id);
+      })
+      .catch(() => { if (active) setOidcProviders([]); });
+    return () => { active = false; };
+  }, []);
   const openSessions = useMemo(() => openSecuritySessions(sessions.data, now), [sessions.data, now]);
   const dirty = (panel === "add" && keyName.length > 0) || (panel === "password" && Object.values(password).some(Boolean));
   useEffect(() => { onUnsavedChangesChange?.(dirty); }, [dirty, onUnsavedChangesChange]);
@@ -93,6 +108,13 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
     event.preventDefault(); setInvalid(true);
     if (!password.current || password.next.length < 12 || password.next !== password.confirm || !canChangePassword) return;
     if (await run(async () => { await updateCurrentUser({ current_password: password.current, new_password: password.next }); })) signOut();
+  };
+  const linkOidcAccount = async () => {
+    if (!selectedOidcProvider) return;
+    await run(async () => {
+      const started = await startProfileOidcLink(selectedOidcProvider);
+      window.location.assign(started.authorization_url);
+    });
   };
   const executeConfirmation = async () => {
     const pending = confirmation;
@@ -125,7 +147,7 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
     <SettingsSection presentation="compact" title={text("signIn")} description={text("signInHelp")}>
       <SettingsItem compact title={text("passkeys")} icon={<ShieldIcon className="h-5 w-5" />} description={<ResourceStatus resource={keys} errorKey="loadKeysError">{keyDescription}</ResourceStatus>} action={<ProfileButton disabled={keys.loading || Boolean(keys.error) || busy} onClick={() => openPanel(keys.data.length ? "keys" : "add")}>{text(keys.data.length ? "manageKeys" : "addKey")}</ProfileButton>} />
       <SettingsItem compact title={text("password")} icon={<ShieldIcon className="h-5 w-5" />} description={text(canChangePassword ? "localPassword" : "externalPassword")} action={canChangePassword && <ProfileButton variant="secondary" onClick={() => openPanel("password")}>{text("edit")}</ProfileButton>} />
-      <SettingsItem compact title={text("externalIdentities")} icon={<UserIcon className="h-5 w-5" />} description={<ResourceStatus resource={identities} errorKey="loadIdentitiesError">{identities.data.length ? identities.data.map((identity) => identity.email ?? identity.provider_id).join(", ") : text("noIdentities")}</ResourceStatus>} action={identities.data.length > 0 && <ProfileButton variant="secondary" onClick={() => openPanel("identities")}>{text("manageIdentities")}</ProfileButton>} />
+      <SettingsItem compact title={text("externalIdentities")} icon={<UserIcon className="h-5 w-5" />} description={<ResourceStatus resource={identities} errorKey="loadIdentitiesError">{identities.data.length ? identities.data.map((identity) => identity.email ?? identity.provider_id).join(", ") : text("noIdentities")}</ResourceStatus>} action={(identities.data.length > 0 || oidcProviders.length > 0) && <ProfileButton variant="secondary" onClick={() => openPanel("identities")}>{text(identities.data.length > 0 ? "manageIdentities" : "linkOidcAccount")}</ProfileButton>} />
     </SettingsSection>
     <SettingsSection presentation="compact" title={text("recovery")} description={text("recoveryHelp")}>
       <SettingsItem compact title={text("codes")} icon={<FileIcon className="h-5 w-5" />} description={keys.loading ? text("loading") : keys.error ? text("loadKeysError") : text(keys.data.length ? "codesHelp" : "codesNeedKey")} action={keys.data.length > 0 && !keys.error && <ProfileButton variant="secondary" onClick={() => confirm({ kind: "codes" })}>{text("renewCodes")}</ProfileButton>} />
@@ -151,7 +173,15 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
           <UiInput label={text("confirmPassword")} type={showPasswords ? "text" : "password"} autoComplete="new-password" value={password.confirm} onChange={(event) => setPassword((value) => ({ ...value, confirm: event.target.value }))} error={invalid && password.next !== password.confirm ? text("mismatch") : undefined} />
           <UiCheckboxField className="min-h-11 settings-body" checked={showPasswords} onChange={(event) => setShowPasswords(event.target.checked)}>{text("showPasswords")}</UiCheckboxField><p className="settings-description text-[var(--ui-text-muted)]">{text("globalImpact")}</p><div className="flex justify-end gap-2"><ProfileButton variant="secondary" disabled={busy} onClick={guard.requestClose}>{text("cancel")}</ProfileButton><ProfileButton type="submit" disabled={busy}>{text(busy ? "saving" : "save")}</ProfileButton></div>
         </form>}
-        {panel === "identities" && <><ul>{identities.data.map((identity) => <li key={identity.id} className="border-b border-[var(--ui-border-soft)] settings-list-item first:pt-0"><div className="flex flex-wrap items-center justify-between gap-3"><strong className="min-w-0 break-words settings-body">{identity.email ?? identity.provider_id}</strong>{generalSettings.allow_user_external_identity_unlink && <ProfileButton variant="secondary" onClick={() => confirm({ kind: "identity", value: identity })}>{text("unlink")}</ProfileButton>}</div><p className="settings-description text-[var(--ui-text-muted)]">{identity.provider_type}: {identity.provider_id} · {text("created")}: {date(identity.created_at)}</p></li>)}</ul>{!generalSettings.allow_user_external_identity_unlink && <p className="settings-body">{text("managedIdentities")}</p>}</>}
+        {panel === "identities" && <>
+          {oidcProviders.length > 0 && <div className="settings-stack border-b border-[var(--ui-border-soft)] pb-4">
+            <p className="settings-body">{text("linkOidcHelp")}</p>
+            <UiSelect label={text("oidcProvider")} value={selectedOidcProvider} onChange={(event) => setSelectedOidcProvider(event.target.value)}>
+              {oidcProviders.map((provider) => <option key={provider.id} value={provider.id}>{provider.display_name}</option>)}
+            </UiSelect>
+            <div><ProfileButton disabled={busy || !selectedOidcProvider} onClick={() => void linkOidcAccount()}>{text("linkOidcAccount")}</ProfileButton></div>
+          </div>}
+          <ul>{identities.data.map((identity) => <li key={identity.id} className="border-b border-[var(--ui-border-soft)] settings-list-item first:pt-0"><div className="flex flex-wrap items-center justify-between gap-3"><strong className="min-w-0 break-words settings-body">{identity.email ?? identity.provider_id}</strong><div className="flex items-center gap-2">{identity.revalidation_required && <UiBadge tone="warning">{text("revalidationRequired")}</UiBadge>}{generalSettings.allow_user_external_identity_unlink && <ProfileButton variant="secondary" onClick={() => confirm({ kind: "identity", value: identity })}>{text("unlink")}</ProfileButton>}</div></div><p className="settings-description text-[var(--ui-text-muted)]">{identity.provider_type}: {identity.provider_id}{identity.issuer ? ` · ${text("issuer")}: ${identity.issuer}` : ""} · {text("created")}: {date(identity.created_at)}</p>{identity.revalidation_required && <p className="mt-1 settings-description text-amber-700 dark:text-amber-300">{text("revalidationRequiredHelp")}</p>}</li>)}</ul>{!generalSettings.allow_user_external_identity_unlink && identities.data.length > 0 && <p className="settings-body">{text("managedIdentities")}</p>}</>}
         {error && !confirmation && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
       </div>
     </ProfileDialog>}

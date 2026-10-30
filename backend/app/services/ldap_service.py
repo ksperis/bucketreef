@@ -99,6 +99,14 @@ class LDAPAuthService:
         user = self.users_service.mark_last_login(user)
         return user, created
 
+    def verify_credentials(self, provider_id: str, username: str, password: str) -> LDAPIdentity:
+        """Verify LDAP credentials without provisioning or linking a BucketReef user."""
+        normalized_username = str(username or "").strip()
+        if not normalized_username or not password:
+            raise LDAPAuthenticationError("Invalid credentials")
+        provider_key, provider = self._get_provider(provider_id)
+        return self._authenticate_directory(provider_key, provider, normalized_username, password)
+
     def _provider_map(self) -> dict[str, LDAPProviderSettings]:
         return resolve_ldap_provider_map(self.db, self.settings)
 

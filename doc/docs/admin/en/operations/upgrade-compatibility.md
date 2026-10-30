@@ -1,5 +1,26 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 secure OIDC account linking and issuer binding
+
+Migration `0220_oidc_secure_account_linking` binds OIDC identities to their
+discovered issuer and introduces short-lived browser-bound account-linking
+transactions. OIDC identity uniqueness is now `(issuer, subject)`, while LDAP
+keeps `(provider_id, subject)` uniqueness. Provider IDs remain configuration
+and provenance for OIDC rather than part of the immutable external identity.
+
+Existing active OIDC identities do not have a trustworthy persisted issuer.
+The migration marks them `revalidation_required`, increments the affected
+users' authentication version, revokes their active UI sessions, refresh
+tokens, and API tokens, removes associated OpenStack session credentials, and
+deletes pre-upgrade OIDC login states that lack issuer/browser binding. The
+issuer is established only by a fresh OIDC authentication; it is never inferred
+from the current provider configuration.
+
+After the upgrade, users with a legacy OIDC identity must authenticate again
+and complete the revalidation flow. New UI-managed providers default to the
+`reauthenticate` linking policy. Environment-managed providers retain the
+`manual` default unless configured otherwise.
+
 ## 2026-10 structured S3 capability state
 
 Migration `0219_structure_s3_capabilities` replaces the text JSON capability

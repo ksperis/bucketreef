@@ -743,6 +743,7 @@ class UsersService:
         self,
         *,
         provider: str,
+        issuer: str,
         subject: str,
         email: Optional[str],
         full_name: Optional[str],
@@ -750,9 +751,12 @@ class UsersService:
         email_verified: bool = True,
         linking_policy: str = "manual",
         trusted_email_domains: Optional[list[str]] = None,
+        browser_secret_hash: Optional[str] = None,
+        redirect_path: Optional[str] = None,
     ) -> tuple[User, bool]:
         return ExternalIdentityUserService(self.db).get_or_create_oidc_user(
             provider=provider,
+            issuer=issuer,
             subject=subject,
             email=email,
             full_name=full_name,
@@ -760,6 +764,8 @@ class UsersService:
             email_verified=email_verified,
             linking_policy=linking_policy,
             trusted_email_domains=trusted_email_domains,
+            browser_secret_hash=browser_secret_hash,
+            redirect_path=redirect_path,
         )
 
     def get_or_create_ldap_user(

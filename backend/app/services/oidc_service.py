@@ -22,7 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import OIDCProviderSettings, Settings, get_settings
-from app.db import OidcAuthorizationCode, OidcLoginState
+from app.db import OidcAuthorizationCode, OidcLoginState, OidcProviderIssuerPin
 from app.models.oidc import OIDCProviderInfo
 from app.services.oidc_provider_settings_service import resolve_oidc_provider_map
 from app.services.users_service import UsersService, get_users_service
@@ -37,6 +37,13 @@ class _ClaimedLoginState:
     code_verifier: str
     expected_nonce: Optional[str]
     redirect_path: Optional[str]
+    issuer: str
+    purpose: str
+    target_user_id: Optional[int]
+    link_attempt_id: Optional[str]
+    auth_session_id: Optional[str]
+    require_auth_time: bool
+    created_at: Any
 
 
 class OIDCError(Exception):
@@ -57,6 +64,12 @@ class OIDCStateError(OIDCError):
 
 class OIDCAuthenticationError(OIDCError):
     """Raised when the provider rejects the authentication attempt."""
+
+
+class OIDCLinkContinuationRequiredError(OIDCError):
+    def __init__(self, attempt_id: str) -> None:
+        super().__init__("OIDC account linking requires continuation")
+        self.attempt_id = attempt_id
 
 
 class OidcService:
@@ -85,15 +98,29 @@ class OidcService:
                 )
         return providers
 
+    def provider_issuer(self, provider_id: str) -> str:
+        provider_key, provider = self._get_provider(provider_id)
+        return self._pin_provider_issuer(
+            provider_key,
+            self._get_metadata(provider_key, provider),
+        )
+
     def start_login(
         self,
         provider_id: str,
         redirect_path: Optional[str],
         *,
         request_origin: Optional[str] = None,
+        browser_secret_hash: Optional[str] = None,
+        purpose: str = "login",
+        target_user_id: Optional[int] = None,
+        link_attempt_id: Optional[str] = None,
+        auth_session_id: Optional[str] = None,
+        require_auth_time: bool = False,
     ) -> dict[str, str]:
         provider_key, provider = self._get_provider(provider_id)
         metadata = self._get_metadata(provider_key, provider)
+        issuer = self._pin_provider_issuer(provider_key, metadata)
         authorization_endpoint = metadata.get("authorization_endpoint")
         if not authorization_endpoint:
             raise OIDCConfigurationError("Provider does not expose an authorization endpoint")
@@ -112,16 +139,25 @@ class OidcService:
         params["nonce"] = nonce
         if provider.prompt:
             params["prompt"] = provider.prompt
+        if require_auth_time:
+            params["max_age"] = "0"
         params["code_challenge_method"] = "S256"
         params["code_challenge"] = self._build_code_challenge(code_verifier)
 
         record = OidcLoginState(
             state=state_token,
             provider=provider_key,
+            issuer=issuer,
             code_verifier=code_verifier,
             nonce=nonce,
             redirect_path=redirect_path,
             redirect_uri=redirect_uri,
+            browser_secret_hash=browser_secret_hash,
+            purpose=purpose,
+            target_user_id=target_user_id,
+            link_attempt_id=link_attempt_id,
+            auth_session_id=auth_session_id,
+            require_auth_time=require_auth_time,
         )
         self.db.add(record)
         self.db.commit()
@@ -140,6 +176,7 @@ class OidcService:
         state: str,
         *,
         request_origin: Optional[str] = None,
+        browser_secret_hash: Optional[str] = None,
     ):
         provider_key, provider = self._get_provider(provider_id)
         login_state = self._claim_login_state(
@@ -147,10 +184,14 @@ class OidcService:
             provider,
             state,
             request_origin=request_origin,
+            browser_secret_hash=browser_secret_hash,
         )
         self._claim_authorization_code(provider_key, code)
 
         metadata = self._get_metadata(provider_key, provider)
+        issuer = self._pin_provider_issuer(provider_key, metadata)
+        if issuer != login_state.issuer:
+            raise OIDCStateError("OIDC issuer changed during authentication")
         token_payload = self._exchange_authorization_code(
             provider,
             metadata,
@@ -162,13 +203,44 @@ class OidcService:
             metadata,
             token_payload,
             login_state.expected_nonce,
+            require_auth_time=login_state.require_auth_time,
+            state_created_at=login_state.created_at,
         )
+
+        if login_state.purpose != "login":
+            if not login_state.link_attempt_id:
+                raise OIDCStateError("OIDC link state is incomplete")
+            from app.services.oidc_link_service import OidcLinkService
+
+            link_service = OidcLinkService(self.db, settings=self.settings)
+            if login_state.purpose == "link_identity":
+                link_service.record_oidc_identity(
+                    attempt_id=login_state.link_attempt_id,
+                    browser_secret_hash=browser_secret_hash,
+                    provider_id=provider_key,
+                    issuer=issuer,
+                    **identity,
+                )
+            elif login_state.purpose == "link_proof":
+                link_service.verify_oidc_proof(
+                    attempt_id=login_state.link_attempt_id,
+                    browser_secret_hash=browser_secret_hash,
+                    provider_id=provider_key,
+                    issuer=issuer,
+                    subject=identity["subject"],
+                )
+            else:
+                raise OIDCStateError("Unsupported OIDC state purpose")
+            raise OIDCLinkContinuationRequiredError(login_state.link_attempt_id)
 
         user, created = self.users_service.get_or_create_oidc_user(
             provider=provider_key,
+            issuer=issuer,
             **identity,
             linking_policy=provider.linking_policy,
             trusted_email_domains=provider.trusted_email_domains,
+            browser_secret_hash=browser_secret_hash,
+            redirect_path=login_state.redirect_path,
         )
 
         user = self.users_service.mark_last_login(user)
@@ -181,12 +253,17 @@ class OidcService:
         state: str,
         *,
         request_origin: Optional[str],
+        browser_secret_hash: Optional[str],
     ) -> _ClaimedLoginState:
         login_state = self.db.scalar(
             select(OidcLoginState).where(OidcLoginState.state == state)
         )
         if not login_state or login_state.provider != provider_key:
             raise OIDCStateError("Invalid OIDC state")
+        if login_state.browser_secret_hash and login_state.browser_secret_hash != browser_secret_hash:
+            raise OIDCStateError("OIDC browser binding mismatch")
+        if not login_state.issuer:
+            raise OIDCStateError("OIDC state requires revalidation")
         ttl = timedelta(seconds=self.settings.oidc_state_ttl_seconds)
         if login_state.created_at < utcnow() - ttl:
             self.db.delete(login_state)
@@ -202,6 +279,13 @@ class OidcService:
             code_verifier=login_state.code_verifier,
             expected_nonce=login_state.nonce,
             redirect_path=login_state.redirect_path,
+            issuer=login_state.issuer,
+            purpose=login_state.purpose,
+            target_user_id=login_state.target_user_id,
+            link_attempt_id=login_state.link_attempt_id,
+            auth_session_id=login_state.auth_session_id,
+            require_auth_time=bool(login_state.require_auth_time),
+            created_at=login_state.created_at,
         )
         # Claim the state before any network call. A concurrent callback can no
         # longer exchange the same authorization response.
@@ -269,6 +353,9 @@ class OidcService:
         metadata: dict[str, Any],
         token_payload: dict[str, Any],
         expected_nonce: Optional[str],
+        *,
+        require_auth_time: bool = False,
+        state_created_at: Any = None,
     ) -> dict[str, Any]:
         claims = self._decode_id_token(
             provider,
@@ -280,6 +367,8 @@ class OidcService:
         subject = claims.get("sub")
         if not subject:
             raise OIDCAuthenticationError("OIDC token missing subject claim")
+        if require_auth_time:
+            self._validate_auth_time(claims, state_created_at)
         email = claims.get("email")
         email_verified = claims.get("email_verified")
         if email and email_verified is not True:
@@ -288,8 +377,13 @@ class OidcService:
         picture_url = claims.get("picture")
 
         if not email and token_payload.get("access_token") and metadata.get("userinfo_endpoint"):
-            email = self._fetch_userinfo_email(metadata["userinfo_endpoint"], token_payload["access_token"])
-            email_verified = bool(email)
+            userinfo = self._fetch_userinfo(metadata["userinfo_endpoint"], token_payload["access_token"])
+            if userinfo is not None:
+                if userinfo.get("sub") != subject:
+                    raise OIDCAuthenticationError("OIDC UserInfo subject mismatch")
+                if userinfo.get("email_verified") is True:
+                    email = userinfo.get("email")
+                    email_verified = bool(email)
 
         return {
             "subject": subject,
@@ -429,7 +523,7 @@ class OidcService:
                 return candidate
         raise OIDCAuthenticationError("Unable to find a matching signing key")
 
-    def _fetch_userinfo_email(self, userinfo_endpoint: str, access_token: str) -> Optional[str]:
+    def _fetch_userinfo(self, userinfo_endpoint: str, access_token: str) -> Optional[dict[str, Any]]:
         try:
             response = requests.get(
                 userinfo_endpoint,
@@ -448,10 +542,56 @@ class OidcService:
             return None
         if not isinstance(payload, dict):
             return None
-        email = payload.get("email")
-        if payload.get("email_verified") is not True:
+        return payload
+
+    def _fetch_userinfo_email(self, userinfo_endpoint: str, access_token: str) -> Optional[str]:
+        """Compatibility helper for callers that only need a verified email."""
+        payload = self._fetch_userinfo(userinfo_endpoint, access_token)
+        if not payload or payload.get("email_verified") is not True:
             return None
-        return email
+        email = payload.get("email")
+        return str(email) if email else None
+
+    def _pin_provider_issuer(
+        self,
+        provider_key: str,
+        metadata: dict[str, Any],
+    ) -> str:
+        issuer = str(metadata.get("issuer") or "").rstrip("/")
+        if not issuer:
+            raise OIDCConfigurationError("OIDC provider issuer is missing")
+        row = self.db.get(OidcProviderIssuerPin, provider_key)
+        now = utcnow()
+        if row is None:
+            row = OidcProviderIssuerPin(
+                provider_id=provider_key,
+                issuer=issuer,
+                created_at=now,
+                last_verified_at=now,
+            )
+            self.db.add(row)
+            self.db.commit()
+            return issuer
+        if row.issuer.rstrip("/") != issuer:
+            raise OIDCConfigurationError("OIDC provider issuer no longer matches its pinned issuer")
+        row.last_verified_at = now
+        self.db.add(row)
+        self.db.commit()
+        return issuer
+
+    def _validate_auth_time(self, claims: dict[str, Any], state_created_at: Any) -> None:
+        raw = claims.get("auth_time")
+        if not isinstance(raw, (int, float)):
+            raise OIDCAuthenticationError("OIDC reauthentication did not return auth_time")
+        now_epoch = int(utcnow().timestamp())
+        auth_time = int(raw)
+        max_age = self.settings.oidc_link_attempt_ttl_seconds
+        if auth_time > now_epoch + 60 or auth_time < now_epoch - max_age:
+            raise OIDCAuthenticationError("OIDC reauthentication is not recent")
+        if state_created_at is not None:
+            created_epoch = int(state_created_at.timestamp())
+            if auth_time < created_epoch - 60:
+                raise OIDCAuthenticationError("OIDC reauthentication predates the link attempt")
 
     def _validate_metadata(self, provider: OIDCProviderSettings, metadata: dict[str, Any]) -> None:
         discovery_host = (urlparse(provider.discovery_url).hostname or "").lower()

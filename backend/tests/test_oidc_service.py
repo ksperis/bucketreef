@@ -22,6 +22,8 @@ from app.services.oidc_service import (
 )
 from app.utils.time import utcnow
 
+OIDC_ISSUER = "https://issuer.example.test"
+
 
 class _FakeUsersService:
     def __init__(self):
@@ -105,7 +107,10 @@ def test_start_login_generates_authorization_url_and_persists_state(db_session, 
     monkeypatch.setattr(
         service,
         "_get_metadata",
-        lambda *args, **kwargs: {"authorization_endpoint": "https://issuer.example.test/auth"},
+        lambda *args, **kwargs: {
+            "issuer": OIDC_ISSUER,
+            "authorization_endpoint": "https://issuer.example.test/auth",
+        },
     )
 
     # Seed expired row to verify purge.
@@ -113,6 +118,7 @@ def test_start_login_generates_authorization_url_and_persists_state(db_session, 
         OidcLoginState(
             state="expired-state",
             provider="google",
+            issuer=OIDC_ISSUER,
             code_verifier="old",
             nonce="old",
             redirect_path="/old",
@@ -153,7 +159,10 @@ def test_start_login_selects_redirect_uri_for_trusted_public_origin(db_session, 
     monkeypatch.setattr(
         service,
         "_get_metadata",
-        lambda *args, **kwargs: {"authorization_endpoint": "https://issuer.example.test/auth"},
+        lambda *args, **kwargs: {
+            "issuer": OIDC_ISSUER,
+            "authorization_endpoint": "https://issuer.example.test/auth",
+        },
     )
 
     result = service.start_login(
@@ -180,7 +189,10 @@ def test_complete_login_rejects_callback_on_different_public_origin(db_session, 
     monkeypatch.setattr(
         service,
         "_get_metadata",
-        lambda *args, **kwargs: {"authorization_endpoint": "https://issuer.example.test/auth"},
+        lambda *args, **kwargs: {
+            "issuer": OIDC_ISSUER,
+            "authorization_endpoint": "https://issuer.example.test/auth",
+        },
     )
     started = service.start_login(
         "google",
@@ -209,7 +221,11 @@ def test_start_login_provider_not_found_when_disabled(db_session):
 
 def test_start_login_requires_authorization_endpoint(db_session, monkeypatch):
     service, _ = _service(db_session)
-    monkeypatch.setattr(service, "_get_metadata", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {"issuer": OIDC_ISSUER},
+    )
     with pytest.raises(OIDCConfigurationError, match="authorization endpoint"):
         service.start_login("google", "/")
 
@@ -223,6 +239,7 @@ def test_complete_login_invalid_and_expired_state(db_session):
         OidcLoginState(
             state="expired",
             provider="google",
+            issuer=OIDC_ISSUER,
             code_verifier="verifier",
             nonce="nonce",
             redirect_path="/manager",
@@ -244,13 +261,21 @@ def test_complete_login_token_endpoint_errors(db_session, monkeypatch):
         OidcLoginState(
             state="state-token-error",
             provider="google",
+            issuer=OIDC_ISSUER,
             code_verifier="verifier",
             nonce="nonce",
             redirect_path="/",
         )
     )
     db_session.commit()
-    monkeypatch.setattr(service, "_get_metadata", lambda *args, **kwargs: {"token_endpoint": "https://issuer/token"})
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {
+            "issuer": OIDC_ISSUER,
+            "token_endpoint": "https://issuer/token",
+        },
+    )
 
     def _raise(*args, **kwargs):
         raise requests.RequestException("down")
@@ -263,6 +288,7 @@ def test_complete_login_token_endpoint_errors(db_session, monkeypatch):
         OidcLoginState(
             state="state-token-4xx",
             provider="google",
+            issuer=OIDC_ISSUER,
             code_verifier="verifier",
             nonce="nonce",
             redirect_path="/",
@@ -283,13 +309,21 @@ def test_oidc_token_exchange_refuses_redirect_with_client_secret(db_session, mon
         OidcLoginState(
             state="state-redirect",
             provider="google",
+            issuer=OIDC_ISSUER,
             code_verifier="verifier",
             nonce="nonce",
             redirect_path="/",
         )
     )
     db_session.commit()
-    monkeypatch.setattr(service, "_get_metadata", lambda *_args: {"token_endpoint": "https://issuer/token"})
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *_args: {
+            "issuer": OIDC_ISSUER,
+            "token_endpoint": "https://issuer/token",
+        },
+    )
     captured = {}
 
     def fake_post(_url, **kwargs):
@@ -337,12 +371,20 @@ def test_oidc_userinfo_refuses_redirect_with_bearer_token(db_session, monkeypatc
 
 def test_complete_login_missing_id_token_and_unverified_email(db_session, monkeypatch):
     service, _ = _service(db_session)
-    monkeypatch.setattr(service, "_get_metadata", lambda *args, **kwargs: {"token_endpoint": "https://issuer/token"})
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {
+            "issuer": OIDC_ISSUER,
+            "token_endpoint": "https://issuer/token",
+        },
+    )
 
     db_session.add(
         OidcLoginState(
             state="state-no-id-token",
             provider="google",
+            issuer=OIDC_ISSUER,
             code_verifier="verifier",
             nonce="nonce",
             redirect_path="/",
@@ -357,6 +399,7 @@ def test_complete_login_missing_id_token_and_unverified_email(db_session, monkey
         OidcLoginState(
             state="state-email-unverified",
             provider="google",
+            issuer=OIDC_ISSUER,
             code_verifier="verifier",
             nonce="nonce",
             redirect_path="/",
@@ -383,6 +426,7 @@ def test_complete_login_missing_id_token_and_unverified_email(db_session, monkey
 def test_complete_login_success_uses_userinfo_fallback_and_cleans_state(db_session, monkeypatch):
     service, users = _service(db_session)
     start_metadata = {
+        "issuer": OIDC_ISSUER,
         "authorization_endpoint": "https://issuer/auth",
         "token_endpoint": "https://issuer/token",
         "userinfo_endpoint": "https://issuer/userinfo",
@@ -399,7 +443,15 @@ def test_complete_login_success_uses_userinfo_fallback_and_cleans_state(db_sessi
         "_decode_id_token",
         lambda *args, **kwargs: {"sub": "sub-123", "name": "OIDC Name", "picture": "https://img/pic.png"},
     )
-    monkeypatch.setattr(service, "_fetch_userinfo_email", lambda *args, **kwargs: "oidc@example.test")
+    monkeypatch.setattr(
+        service,
+        "_fetch_userinfo",
+        lambda *args, **kwargs: {
+            "sub": "sub-123",
+            "email": "oidc@example.test",
+            "email_verified": True,
+        },
+    )
 
     user, redirect_path, created = service.complete_login("google", "auth-code", started["state"])
     assert user == users.user
@@ -418,6 +470,7 @@ def test_complete_login_rejects_replayed_authorization_code(db_session, monkeypa
         service,
         "_get_metadata",
         lambda *args, **kwargs: {
+            "issuer": OIDC_ISSUER,
             "authorization_endpoint": "https://issuer.example.test/auth",
             "token_endpoint": "https://issuer.example.test/token",
         },

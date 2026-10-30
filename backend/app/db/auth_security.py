@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -61,13 +61,29 @@ class RefreshToken(Base):
 class ExternalIdentity(Base):
     __tablename__ = "external_identities"
     __table_args__ = (
-        UniqueConstraint("provider_type", "provider_id", "subject", name="uq_external_identity_subject"),
+        Index(
+            "uq_external_identity_oidc_issuer_subject",
+            "issuer",
+            "subject",
+            unique=True,
+            sqlite_where=text("provider_type = 'oidc'"),
+            postgresql_where=text("provider_type = 'oidc'"),
+        ),
+        Index(
+            "uq_external_identity_ldap_provider_subject",
+            "provider_id",
+            "subject",
+            unique=True,
+            sqlite_where=text("provider_type = 'ldap'"),
+            postgresql_where=text("provider_type = 'ldap'"),
+        ),
     )
 
     id = Column(String, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     provider_type = Column(String, nullable=False)
     provider_id = Column(String, nullable=False)
+    issuer = Column(String, nullable=True, index=True)
     subject = Column(String, nullable=False)
     email = Column(String, nullable=True, index=True)
     email_verified = Column(Boolean, nullable=False, default=False, server_default="0")
@@ -75,6 +91,7 @@ class ExternalIdentity(Base):
     last_login_at = Column(UTCDateTime(), nullable=True)
     revoked_at = Column(UTCDateTime(), nullable=True, index=True)
     link_source = Column(String, nullable=False, default="jit", server_default="jit")
+    revalidation_required = Column(Boolean, nullable=False, default=False, server_default="0", index=True)
 
     user = relationship("User", foreign_keys=[user_id])
 
@@ -82,13 +99,29 @@ class ExternalIdentity(Base):
 class ExternalIdentityLinkRequest(Base):
     __tablename__ = "external_identity_link_requests"
     __table_args__ = (
-        UniqueConstraint("provider_type", "provider_id", "subject", name="uq_external_link_request_subject"),
+        Index(
+            "uq_external_link_request_oidc_issuer_subject",
+            "issuer",
+            "subject",
+            unique=True,
+            sqlite_where=text("provider_type = 'oidc'"),
+            postgresql_where=text("provider_type = 'oidc'"),
+        ),
+        Index(
+            "uq_external_link_request_ldap_provider_subject",
+            "provider_id",
+            "subject",
+            unique=True,
+            sqlite_where=text("provider_type = 'ldap'"),
+            postgresql_where=text("provider_type = 'ldap'"),
+        ),
     )
 
     id = Column(String, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     provider_type = Column(String, nullable=False)
     provider_id = Column(String, nullable=False)
+    issuer = Column(String, nullable=True)
     subject = Column(String, nullable=False)
     email = Column(String, nullable=False)
     display_name = Column(String, nullable=True)

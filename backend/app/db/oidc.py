@@ -3,7 +3,7 @@
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, Column, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, JSON, String, Text
 
 from app.core.security import EncryptedString
 from .base import Base
@@ -14,10 +14,17 @@ class OidcLoginState(Base):
 
     state = Column(String, primary_key=True, index=True)
     provider = Column(String, nullable=False)
+    issuer = Column(String, nullable=True)
     code_verifier = Column(String, nullable=False)
     nonce = Column(String, nullable=True)
     redirect_path = Column(String, nullable=True)
     redirect_uri = Column(String, nullable=True)
+    browser_secret_hash = Column(String, nullable=True)
+    purpose = Column(String, nullable=False, default="login", server_default="login", index=True)
+    target_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    link_attempt_id = Column(String, ForeignKey("oidc_link_attempts.id", ondelete="CASCADE"), nullable=True, index=True)
+    auth_session_id = Column(String, ForeignKey("auth_sessions.id", ondelete="SET NULL"), nullable=True, index=True)
+    require_auth_time = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
 
 
@@ -58,3 +65,48 @@ class OidcProvider(Base):
     trusted_email_domains = Column(JSON, nullable=False, default=list, server_default="[]")
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+
+class OidcProviderIssuerPin(Base):
+    __tablename__ = "oidc_provider_issuer_pins"
+
+    provider_id = Column(String, primary_key=True)
+    issuer = Column(String, nullable=False, index=True)
+    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+    last_verified_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+
+
+class OidcLinkAttempt(Base):
+    __tablename__ = "oidc_link_attempts"
+
+    id = Column(String, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider_id = Column(String, nullable=False)
+    issuer = Column(String, nullable=False)
+    subject = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    email_verified = Column(Boolean, nullable=False, default=False, server_default="0")
+    display_name = Column(String, nullable=True)
+    picture_url = Column(String, nullable=True)
+    source = Column(String, nullable=False)
+    browser_secret_hash = Column(String, nullable=False)
+    initiating_auth_session_id = Column(
+        String,
+        ForeignKey("auth_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    existing_identity_id = Column(
+        String,
+        ForeignKey("external_identities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    proof_method = Column(String, nullable=True)
+    proof_verified_at = Column(UTCDateTime(), nullable=True)
+    mfa_verified_at = Column(UTCDateTime(), nullable=True)
+    status = Column(String, nullable=False, default="pending", server_default="pending", index=True)
+    redirect_path = Column(String, nullable=True)
+    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+    expires_at = Column(UTCDateTime(), nullable=False, index=True)
+    consumed_at = Column(UTCDateTime(), nullable=True, index=True)

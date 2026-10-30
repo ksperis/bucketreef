@@ -60,7 +60,8 @@ export default function OidcProviderFields({ form, update, provider, readOnly, e
       <div className="settings-fields">
         <UiSelect label={adminText("Identity linking policy")} value={form.linking_policy} disabled={state.locked("linking_policy")}
           hint={state.hint("linking_policy", "Trusted email linking applies only to active standard local-password accounts without any prior external identity.")}
-          error={errors.linking_policy} onChange={event => update("linking_policy", event.target.value as "manual" | "trusted_email")}>
+          error={errors.linking_policy} onChange={event => update("linking_policy", event.target.value as "manual" | "reauthenticate" | "trusted_email")}>
+          <option value="reauthenticate">{adminText("Reauthenticate existing account")}</option>
           <option value="manual">{adminText("Manual approval")}</option>
           <option value="trusted_email">{adminText("Trusted verified email")}</option>
         </UiSelect>

@@ -20,7 +20,7 @@ export type OidcProviderFormState = {
   use_nonce: boolean;
   client_secret: string;
   clear_client_secret: boolean;
-  linking_policy: "manual" | "trusted_email";
+  linking_policy: "manual" | "reauthenticate" | "trusted_email";
   trustedEmailDomainsText: string;
 };
 
@@ -62,7 +62,7 @@ export function emptyOidcForm(): OidcProviderFormState {
     use_nonce: true,
     client_secret: "",
     clear_client_secret: false,
-    linking_policy: "manual",
+    linking_policy: "reauthenticate",
     trustedEmailDomainsText: "",
   };
 }

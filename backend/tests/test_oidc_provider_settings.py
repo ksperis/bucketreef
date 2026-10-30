@@ -290,7 +290,10 @@ def test_oidc_service_start_login_uses_ui_defined_provider(db_session, monkeypat
     monkeypatch.setattr(
         service,
         "_get_metadata",
-        lambda *args, **kwargs: {"authorization_endpoint": "https://ui.example.test/auth"},
+        lambda *args, **kwargs: {
+            "issuer": "https://ui.example.test",
+            "authorization_endpoint": "https://ui.example.test/auth",
+        },
     )
 
     result = service.start_login("ui", "/admin")
@@ -301,6 +304,7 @@ def test_oidc_service_start_login_uses_ui_defined_provider(db_session, monkeypat
         select(OidcLoginState).where(OidcLoginState.state == result["state"])
     ).one()
     assert stored.provider == "ui"
+    assert stored.issuer == "https://ui.example.test"
     assert stored.redirect_path == "/admin"
 
 

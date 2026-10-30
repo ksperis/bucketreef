@@ -24,6 +24,12 @@ class ExternalIdentityLinkRequiredError(ValueError):
         self.request_id = request_id
 
 
+class ExternalIdentityReauthenticationRequiredError(ValueError):
+    def __init__(self, attempt_id: str) -> None:
+        super().__init__("External identity linking requires account reauthentication")
+        self.attempt_id = attempt_id
+
+
 class ExternalIdentityUserService:
     """Resolve immutable provider subjects and apply the configured linking policy."""
 
@@ -34,6 +40,7 @@ class ExternalIdentityUserService:
         self,
         *,
         provider: str,
+        issuer: str,
         subject: str,
         email: Optional[str],
         full_name: Optional[str],
@@ -41,10 +48,13 @@ class ExternalIdentityUserService:
         email_verified: bool = True,
         linking_policy: str = "manual",
         trusted_email_domains: Optional[list[str]] = None,
+        browser_secret_hash: Optional[str] = None,
+        redirect_path: Optional[str] = None,
     ) -> tuple[User, bool]:
         return self._get_or_create(
             provider_type="oidc",
             provider_id=provider,
+            issuer=issuer,
             subject=subject,
             email=email,
             email_verified=bool(email_verified and self._normalize_email(email)),
@@ -52,6 +62,8 @@ class ExternalIdentityUserService:
             picture_url=picture_url,
             linking_policy=linking_policy,
             trusted_email_domains=trusted_email_domains or [],
+            browser_secret_hash=browser_secret_hash,
+            redirect_path=redirect_path,
         )
 
     def get_or_create_ldap_user(
@@ -65,6 +77,7 @@ class ExternalIdentityUserService:
         return self._get_or_create(
             provider_type="ldap",
             provider_id=provider,
+            issuer=None,
             subject=subject,
             email=email,
             email_verified=False,
@@ -72,6 +85,8 @@ class ExternalIdentityUserService:
             picture_url=None,
             linking_policy="manual",
             trusted_email_domains=[],
+            browser_secret_hash=None,
+            redirect_path=None,
         )
 
     def list_link_requests(self, *, include_decided: bool = False) -> list[ExternalIdentityLinkRequest]:
@@ -116,6 +131,7 @@ class ExternalIdentityUserService:
                 request.provider_type,
                 request.provider_id,
                 request.subject,
+                issuer=request.issuer,
                 include_revoked=True,
             ):
                 raise ValueError("External identity is already linked")
@@ -124,6 +140,7 @@ class ExternalIdentityUserService:
                 user_id=request.user_id,
                 provider_type=request.provider_type,
                 provider_id=request.provider_id,
+                issuer=request.issuer,
                 subject=request.subject,
                 email=request.email,
                 email_verified=request.provider_type == "oidc",
@@ -151,11 +168,27 @@ class ExternalIdentityUserService:
         identity = self.db.get(ExternalIdentity, identity_id)
         if not identity or identity.revoked_at is not None:
             raise ExternalIdentityNotFoundError("External identity not found")
-        identity.revoked_at = utcnow()
+        now = utcnow()
+        identity.revoked_at = now
         user = self.db.get(User, identity.user_id)
         if user:
             user.auth_version += 1
             self.db.add(user)
+            UserNotificationsService(self.db).create_notifications(
+                user_ids=[user.id],
+                notification_type="identity_changed",
+                severity="warning",
+                title="External identity removed",
+                message=f"The external identity from {identity.provider_id} was removed from your account.",
+                subject_type=None,
+                event_key=f"external_identity_revoked:{identity.id}:{now.isoformat()}",
+                payload={
+                    "identity_id": identity.id,
+                    "provider_type": identity.provider_type,
+                    "provider_id": identity.provider_id,
+                },
+                created_at=now,
+            )
         self.db.add(identity)
         self.db.commit()
         if user:
@@ -188,6 +221,7 @@ class ExternalIdentityUserService:
         user: User,
         provider_type: str,
         provider_id: str,
+        issuer: Optional[str] = None,
         subject: str,
         email: Optional[str] = None,
         email_verified: bool = False,
@@ -196,15 +230,19 @@ class ExternalIdentityUserService:
     ) -> tuple[ExternalIdentity, bool]:
         provider_kind = str(provider_type or "").strip().lower()
         provider_key = str(provider_id or "").strip().lower()
+        normalized_issuer = str(issuer or "").rstrip("/") or None
         normalized_subject = str(subject or "").strip()
         if provider_kind not in {"oidc", "ldap"}:
             raise ValueError("provider_type must be oidc or ldap")
         if not provider_key or not normalized_subject:
             raise ValueError("External provider and subject are required")
+        if provider_kind == "oidc" and not normalized_issuer:
+            raise ValueError("OIDC issuer is required")
         existing = self._find_mapping(
             provider_kind,
             provider_key,
             normalized_subject,
+            issuer=normalized_issuer,
             include_revoked=True,
         )
         if existing:
@@ -221,6 +259,7 @@ class ExternalIdentityUserService:
             user_id=user.id,
             provider_type=provider_kind,
             provider_id=provider_key,
+            issuer=normalized_issuer,
             subject=normalized_subject,
             email=self._normalize_email(email),
             email_verified=bool(email_verified),
@@ -232,6 +271,7 @@ class ExternalIdentityUserService:
         self._close_pending_request(
             provider_type=provider_kind,
             provider_id=provider_key,
+            issuer=normalized_issuer,
             subject=normalized_subject,
             user_id=user.id,
             source=link_source,
@@ -254,6 +294,10 @@ class ExternalIdentityUserService:
                 ExternalIdentity.user_id == user.id,
                 ExternalIdentity.id != excluding_identity_id,
                 ExternalIdentity.revoked_at.is_(None),
+                ~(
+                    (ExternalIdentity.provider_type == "oidc")
+                    & ExternalIdentity.revalidation_required.is_(True)
+                ),
             )
             .limit(1)
         ) is not None
@@ -263,6 +307,7 @@ class ExternalIdentityUserService:
         *,
         provider_type: str,
         provider_id: str,
+        issuer: Optional[str],
         subject: str,
         email: Optional[str],
         email_verified: bool,
@@ -270,15 +315,28 @@ class ExternalIdentityUserService:
         picture_url: Optional[str],
         linking_policy: str,
         trusted_email_domains: list[str],
+        browser_secret_hash: Optional[str],
+        redirect_path: Optional[str],
     ) -> tuple[User, bool]:
         provider_key = str(provider_id or "").strip().lower()
+        normalized_issuer = str(issuer or "").rstrip("/") or None
         normalized_subject = str(subject or "").strip()
         if not provider_key or not normalized_subject:
             raise ValueError("External provider and subject are required")
+        if provider_type == "oidc" and not normalized_issuer:
+            raise ValueError("OIDC issuer is required")
         normalized_email = self._normalize_email(email)
-        identity = self._find_mapping(provider_type, provider_key, normalized_subject, include_revoked=True)
+        identity = self._find_mapping(
+            provider_type,
+            provider_key,
+            normalized_subject,
+            issuer=normalized_issuer,
+            include_revoked=True,
+        )
         if identity and identity.revoked_at is not None:
             raise ValueError("External identity has been revoked")
+        if identity and provider_type == "oidc" and identity.revalidation_required:
+            raise ValueError("External identity requires revalidation")
         if identity:
             return self._reuse_identity_mapping(
                 identity,
@@ -290,6 +348,7 @@ class ExternalIdentityUserService:
             existing = self._resolve_existing_email_user(
                 provider_type=provider_type,
                 provider_id=provider_key,
+                issuer=normalized_issuer,
                 subject=normalized_subject,
                 email=normalized_email,
                 email_verified=email_verified,
@@ -297,6 +356,8 @@ class ExternalIdentityUserService:
                 picture_url=picture_url,
                 linking_policy=linking_policy,
                 trusted_email_domains=trusted_email_domains,
+                browser_secret_hash=browser_secret_hash,
+                redirect_path=redirect_path,
             )
             if existing is not None:
                 return existing, False
@@ -304,6 +365,7 @@ class ExternalIdentityUserService:
         return self._create_jit_identity_user(
             provider_type=provider_type,
             provider_id=provider_key,
+            issuer=normalized_issuer,
             subject=normalized_subject,
             email=normalized_email,
             email_verified=email_verified,
@@ -336,6 +398,7 @@ class ExternalIdentityUserService:
         *,
         provider_type: str,
         provider_id: str,
+        issuer: Optional[str],
         subject: str,
         email: str,
         email_verified: bool,
@@ -343,6 +406,8 @@ class ExternalIdentityUserService:
         picture_url: Optional[str],
         linking_policy: str,
         trusted_email_domains: list[str],
+        browser_secret_hash: Optional[str],
+        redirect_path: Optional[str],
     ) -> User | None:
         candidates = self._find_email_candidates(email)
         if len(candidates) > 1:
@@ -362,6 +427,7 @@ class ExternalIdentityUserService:
                 user=existing,
                 provider_type=provider_type,
                 provider_id=provider_id,
+                issuer=issuer,
                 subject=subject,
                 email=email,
                 email_verified=True,
@@ -377,10 +443,30 @@ class ExternalIdentityUserService:
             )
             return existing
 
+        if provider_type == "oidc" and linking_policy == "reauthenticate":
+            if not issuer or not browser_secret_hash:
+                raise ValueError("OIDC account linking browser binding is unavailable")
+            from app.services.oidc_link_service import OidcLinkService
+
+            attempt = OidcLinkService(self.db).create_login_collision_attempt(
+                user=existing,
+                provider_id=provider_id,
+                issuer=issuer,
+                subject=subject,
+                email=email,
+                email_verified=email_verified,
+                display_name=full_name,
+                picture_url=picture_url,
+                browser_secret_hash=browser_secret_hash,
+                redirect_path=redirect_path,
+            )
+            raise ExternalIdentityReauthenticationRequiredError(attempt.id)
+
         request = self._create_link_request(
             user=existing,
             provider_type=provider_type,
             provider_id=provider_id,
+            issuer=issuer,
             subject=subject,
             email=email,
             full_name=full_name,
@@ -393,6 +479,7 @@ class ExternalIdentityUserService:
         *,
         provider_type: str,
         provider_id: str,
+        issuer: Optional[str],
         subject: str,
         email: Optional[str],
         email_verified: bool,
@@ -416,6 +503,7 @@ class ExternalIdentityUserService:
             user_id=user.id,
             provider_type=provider_type,
             provider_id=provider_id,
+            issuer=issuer,
             subject=subject,
             email=email,
             email_verified=email_verified,
@@ -433,18 +521,21 @@ class ExternalIdentityUserService:
         user: User,
         provider_type: str,
         provider_id: str,
+        issuer: Optional[str],
         subject: str,
         email: str,
         full_name: Optional[str],
         picture_url: Optional[str],
     ) -> ExternalIdentityLinkRequest:
-        existing = self.db.scalar(
-            select(ExternalIdentityLinkRequest).where(
-                ExternalIdentityLinkRequest.provider_type == provider_type,
-                ExternalIdentityLinkRequest.provider_id == provider_id,
-                ExternalIdentityLinkRequest.subject == subject,
-            )
+        statement = select(ExternalIdentityLinkRequest).where(
+            ExternalIdentityLinkRequest.provider_type == provider_type,
+            ExternalIdentityLinkRequest.subject == subject,
         )
+        if provider_type == "oidc":
+            statement = statement.where(ExternalIdentityLinkRequest.issuer == issuer)
+        else:
+            statement = statement.where(ExternalIdentityLinkRequest.provider_id == provider_id)
+        existing = self.db.scalar(statement)
         now = utcnow()
         if existing:
             if existing.status == "pending" and existing.expires_at > now:
@@ -463,6 +554,7 @@ class ExternalIdentityUserService:
                 user_id=user.id,
                 provider_type=provider_type,
                 provider_id=provider_id,
+                issuer=issuer,
                 subject=subject,
                 email=email,
                 display_name=full_name,
@@ -477,6 +569,29 @@ class ExternalIdentityUserService:
         self.db.commit()
         self.db.refresh(request)
         return request
+
+    def request_link_approval(
+        self,
+        *,
+        user: User,
+        provider_type: str,
+        provider_id: str,
+        issuer: Optional[str],
+        subject: str,
+        email: str,
+        full_name: Optional[str],
+        picture_url: Optional[str],
+    ) -> ExternalIdentityLinkRequest:
+        return self._create_link_request(
+            user=user,
+            provider_type=provider_type,
+            provider_id=provider_id,
+            issuer=issuer,
+            subject=subject,
+            email=email,
+            full_name=full_name,
+            picture_url=picture_url,
+        )
 
     def _notify_link_request_admins(
         self,
@@ -529,13 +644,17 @@ class ExternalIdentityUserService:
         provider_id: str,
         subject: str,
         *,
+        issuer: Optional[str] = None,
         include_revoked: bool = False,
     ) -> ExternalIdentity | None:
         statement = select(ExternalIdentity).where(
             ExternalIdentity.provider_type == provider_type,
-            ExternalIdentity.provider_id == provider_id,
             ExternalIdentity.subject == subject,
         )
+        if provider_type == "oidc":
+            statement = statement.where(ExternalIdentity.issuer == issuer)
+        else:
+            statement = statement.where(ExternalIdentity.provider_id == provider_id)
         if not include_revoked:
             statement = statement.where(ExternalIdentity.revoked_at.is_(None))
         return self.db.scalar(statement)
@@ -573,18 +692,21 @@ class ExternalIdentityUserService:
         *,
         provider_type: str,
         provider_id: str,
+        issuer: Optional[str],
         subject: str,
         user_id: int,
         source: str,
     ) -> None:
-        request = self.db.scalar(
-            select(ExternalIdentityLinkRequest).where(
-                ExternalIdentityLinkRequest.provider_type == provider_type,
-                ExternalIdentityLinkRequest.provider_id == provider_id,
-                ExternalIdentityLinkRequest.subject == subject,
-                ExternalIdentityLinkRequest.status == "pending",
-            )
+        statement = select(ExternalIdentityLinkRequest).where(
+            ExternalIdentityLinkRequest.provider_type == provider_type,
+            ExternalIdentityLinkRequest.subject == subject,
+            ExternalIdentityLinkRequest.status == "pending",
         )
+        if provider_type == "oidc":
+            statement = statement.where(ExternalIdentityLinkRequest.issuer == issuer)
+        else:
+            statement = statement.where(ExternalIdentityLinkRequest.provider_id == provider_id)
+        request = self.db.scalar(statement)
         if request is None:
             return
         request.user_id = user_id
