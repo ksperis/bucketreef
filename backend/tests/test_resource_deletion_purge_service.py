@@ -39,11 +39,11 @@ def _snapshot(context_id: str, bucket_name: str) -> BucketUsageStatsSnapshot:
         scope_kind="manager",
         scope_id=context_id,
         bucket_name=bucket_name,
-        data_type_distribution_json="[]",
-        storage_class_distribution_json="[]",
-        size_distribution_json="[]",
-        age_distribution_json="[]",
-        current_noncurrent_distribution_json="[]",
+        data_type_distribution=[],
+        storage_class_distribution=[],
+        size_distribution=[],
+        age_distribution=[],
+        current_noncurrent_distribution=[],
     )
 
 

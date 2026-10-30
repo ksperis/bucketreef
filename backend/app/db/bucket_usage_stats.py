@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, Column, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Index, Integer, JSON, String, UniqueConstraint
 
 from .base import Base
 
@@ -43,12 +43,12 @@ class BucketUsageStatsSnapshot(Base):
     current_bytes = Column(Integer, nullable=False, default=0, server_default="0")
     noncurrent_bytes = Column(Integer, nullable=False, default=0, server_default="0")
 
-    data_type_distribution_json = Column(Text, nullable=False)
-    storage_class_distribution_json = Column(Text, nullable=False)
-    size_distribution_json = Column(Text, nullable=False)
-    age_distribution_json = Column(Text, nullable=False)
-    current_noncurrent_distribution_json = Column(Text, nullable=False)
-    warnings_json = Column(Text, nullable=True)
+    data_type_distribution = Column(JSON, nullable=False)
+    storage_class_distribution = Column(JSON, nullable=False)
+    size_distribution = Column(JSON, nullable=False)
+    age_distribution = Column(JSON, nullable=False)
+    current_noncurrent_distribution = Column(JSON, nullable=False)
+    warnings = Column(JSON, nullable=True)
 
     calculated_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)

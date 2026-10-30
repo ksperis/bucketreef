@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 import logging
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -110,28 +109,22 @@ class _BucketUsageRunTotals:
         return "completed"
 
 
-def _json_dumps(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=True, sort_keys=True, default=str)
-
-
 def _load_distribution_entries(
-    value: str,
+    value: object,
 ) -> list[BucketUsageStatsDistributionEntry]:
-    payload = json.loads(value)
-    if not isinstance(payload, list):
+    if not isinstance(value, list):
         raise ValueError("Bucket usage distribution must be a JSON list")
-    return [BucketUsageStatsDistributionEntry.model_validate(entry) for entry in payload]
+    return [BucketUsageStatsDistributionEntry.model_validate(entry) for entry in value]
 
 
-def _load_warnings(value: str | None) -> list[str]:
+def _load_warnings(value: object | None) -> list[str]:
     if value is None:
         return []
-    payload = json.loads(value)
-    if not isinstance(payload, list) or any(
-        not isinstance(item, str) for item in payload
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) for item in value
     ):
         raise ValueError("Bucket usage warnings must be a JSON string list")
-    return payload
+    return value
 
 
 def _is_version_listing_unsupported(exc: Exception) -> bool:
@@ -520,12 +513,12 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         row.total_bytes = snapshot.total_bytes
         row.current_bytes = snapshot.current_bytes
         row.noncurrent_bytes = snapshot.noncurrent_bytes
-        row.data_type_distribution_json = _json_dumps([entry.model_dump(mode="json") for entry in snapshot.data_type_distribution])
-        row.storage_class_distribution_json = _json_dumps([entry.model_dump(mode="json") for entry in snapshot.storage_class_distribution])
-        row.size_distribution_json = _json_dumps([entry.model_dump(mode="json") for entry in snapshot.size_distribution])
-        row.age_distribution_json = _json_dumps([entry.model_dump(mode="json") for entry in snapshot.age_distribution])
-        row.current_noncurrent_distribution_json = _json_dumps([entry.model_dump(mode="json") for entry in snapshot.current_vs_noncurrent])
-        row.warnings_json = _json_dumps(snapshot.warnings) if snapshot.warnings else None
+        row.data_type_distribution = [entry.model_dump(mode="json") for entry in snapshot.data_type_distribution]
+        row.storage_class_distribution = [entry.model_dump(mode="json") for entry in snapshot.storage_class_distribution]
+        row.size_distribution = [entry.model_dump(mode="json") for entry in snapshot.size_distribution]
+        row.age_distribution = [entry.model_dump(mode="json") for entry in snapshot.age_distribution]
+        row.current_noncurrent_distribution = [entry.model_dump(mode="json") for entry in snapshot.current_vs_noncurrent]
+        row.warnings = list(snapshot.warnings) if snapshot.warnings else None
         row.calculated_at = snapshot.calculated_at
         db.commit()
         db.refresh(row)
@@ -709,11 +702,11 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             total_bytes=int(row.total_bytes or 0),
             current_bytes=int(row.current_bytes or 0),
             noncurrent_bytes=int(row.noncurrent_bytes or 0),
-            data_type_distribution=_load_distribution_entries(row.data_type_distribution_json),
-            storage_class_distribution=_load_distribution_entries(row.storage_class_distribution_json),
-            size_distribution=_load_distribution_entries(row.size_distribution_json),
-            age_distribution=_load_distribution_entries(row.age_distribution_json),
-            current_vs_noncurrent=_load_distribution_entries(row.current_noncurrent_distribution_json),
-            warnings=_load_warnings(row.warnings_json),
+            data_type_distribution=_load_distribution_entries(row.data_type_distribution),
+            storage_class_distribution=_load_distribution_entries(row.storage_class_distribution),
+            size_distribution=_load_distribution_entries(row.size_distribution),
+            age_distribution=_load_distribution_entries(row.age_distribution),
+            current_vs_noncurrent=_load_distribution_entries(row.current_noncurrent_distribution),
+            warnings=_load_warnings(row.warnings),
             calculated_at=row.calculated_at,
         )

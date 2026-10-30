@@ -769,11 +769,11 @@ def test_delete(db_session):
                 scope_kind="manager",
                 scope_id=f"conn-{row.id}",
                 bucket_name="bucket-c",
-                data_type_distribution_json="[]",
-                storage_class_distribution_json="[]",
-                size_distribution_json="[]",
-                age_distribution_json="[]",
-                current_noncurrent_distribution_json="[]",
+                data_type_distribution=[],
+                storage_class_distribution=[],
+                size_distribution=[],
+                age_distribution=[],
+                current_noncurrent_distribution=[],
             ),
         ]
     )

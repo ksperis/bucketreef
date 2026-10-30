@@ -42,11 +42,11 @@ def _snapshot_row(*, account_id: int, bucket_name: str, calculated_at) -> Snapsh
         total_bytes=0,
         current_bytes=0,
         noncurrent_bytes=0,
-        data_type_distribution_json="[]",
-        storage_class_distribution_json="[]",
-        size_distribution_json="[]",
-        age_distribution_json="[]",
-        current_noncurrent_distribution_json="[]",
+        data_type_distribution=[],
+        storage_class_distribution=[],
+        size_distribution=[],
+        age_distribution=[],
+        current_noncurrent_distribution=[],
         calculated_at=calculated_at,
     )
 

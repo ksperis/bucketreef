@@ -405,11 +405,11 @@ def _seed_s3_user_derived_rows(db_session, *, endpoint: StorageEndpoint, s3_user
                 scope_id=f"s3u-{s3_user.id}",
                 scope_name=s3_user.name,
                 bucket_name="s3-user-bucket",
-                data_type_distribution_json="[]",
-                storage_class_distribution_json="[]",
-                size_distribution_json="[]",
-                age_distribution_json="[]",
-                current_noncurrent_distribution_json="[]",
+                data_type_distribution=[],
+                storage_class_distribution=[],
+                size_distribution=[],
+                age_distribution=[],
+                current_noncurrent_distribution=[],
             ),
         ]
     )

@@ -21024,11 +21024,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_usage_stats_snapshots.data_type_distribution_json",
-          "name": "data_type_distribution_json",
+          "id": "field:bucket_usage_stats_snapshots.data_type_distribution",
+          "name": "data_type_distribution",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -21045,11 +21045,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_usage_stats_snapshots.storage_class_distribution_json",
-          "name": "storage_class_distribution_json",
+          "id": "field:bucket_usage_stats_snapshots.storage_class_distribution",
+          "name": "storage_class_distribution",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -21066,11 +21066,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_usage_stats_snapshots.size_distribution_json",
-          "name": "size_distribution_json",
+          "id": "field:bucket_usage_stats_snapshots.size_distribution",
+          "name": "size_distribution",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -21087,11 +21087,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_usage_stats_snapshots.age_distribution_json",
-          "name": "age_distribution_json",
+          "id": "field:bucket_usage_stats_snapshots.age_distribution",
+          "name": "age_distribution",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -21108,11 +21108,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_usage_stats_snapshots.current_noncurrent_distribution_json",
-          "name": "current_noncurrent_distribution_json",
+          "id": "field:bucket_usage_stats_snapshots.current_noncurrent_distribution",
+          "name": "current_noncurrent_distribution",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,
@@ -21129,11 +21129,11 @@
           "check": null
         },
         {
-          "id": "field:bucket_usage_stats_snapshots.warnings_json",
-          "name": "warnings_json",
+          "id": "field:bucket_usage_stats_snapshots.warnings",
+          "name": "warnings",
           "type": {
-            "id": "text",
-            "name": "text"
+            "id": "json",
+            "name": "json"
           },
           "primaryKey": false,
           "unique": false,

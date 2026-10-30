@@ -130,14 +130,14 @@ def test_classify_data_type_keeps_typescript_priority_over_transport_stream_vide
     assert classify_data_type("src/stream.ts") == "source_code"
 
 
-def test_persisted_usage_stats_json_uses_strict_list_contracts():
-    assert _load_distribution_entries("[]") == []
+def test_persisted_usage_stats_uses_strict_structured_list_contracts():
+    assert _load_distribution_entries([]) == []
     assert _load_warnings(None) == []
-    assert _load_warnings('["partial"]') == ["partial"]
-    for raw in ("{", "{}", '["invalid"]'):
+    assert _load_warnings(["partial"]) == ["partial"]
+    for raw in ("{}", {}, ["invalid"]):
         with pytest.raises((ValueError, TypeError)):
             _load_distribution_entries(raw)
-    for raw in ("{", "{}", '["partial",42]'):
+    for raw in ("{}", {}, ["partial", 42]):
         with pytest.raises(ValueError):
             _load_warnings(raw)
 
