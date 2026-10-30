@@ -111,11 +111,7 @@ function storedSidebarSectionState(
   section: SidebarSection,
 ): boolean | undefined {
   const persistenceKey = sidebarSectionPersistenceKey(section);
-  const legacyLabelKey = section.label?.trim();
-  return (
-    (persistenceKey ? stored?.[persistenceKey] : undefined) ??
-    (legacyLabelKey ? stored?.[legacyLabelKey] : undefined)
-  );
+  return persistenceKey ? stored?.[persistenceKey] : undefined;
 }
 
 function sidebarLinkMatchesPath(link: SidebarLink, pathname: string) {

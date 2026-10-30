@@ -496,6 +496,31 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("link", { name: "General" })).not.toBeInTheDocument();
   });
 
+  it("ignores legacy label-based persisted section state", () => {
+    window.localStorage.setItem(
+      "shell:sidebar-sections:v1:admin",
+      JSON.stringify({ Paramètres: true }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Sidebar
+          title="ADMIN"
+          sections={[
+            {
+              id: "settings",
+              label: "Paramètres",
+              collapsible: true,
+              links: [{ to: "/admin/general-settings", label: "General" }],
+            },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("link", { name: "General" })).toBeInTheDocument();
+  });
+
   it("does not infer collapsibility from a Settings label", () => {
     render(
       <MemoryRouter initialEntries={["/admin"]}>
