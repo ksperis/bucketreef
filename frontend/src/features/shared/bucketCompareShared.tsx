@@ -8,6 +8,7 @@ import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
 import "./bucketOperationRun.css";
 import type { CompareObjectDetailLike } from "./BucketCompareObjectDetails";
+import type { BucketCompareContentDiff } from "../../api/bucketCompareContracts";
 import type { UiTone } from "../../components/ui/styles";
 import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { diffToneClasses, type DiffTone } from "./diffPresentation";
@@ -338,7 +339,7 @@ export const targetCompareObjectDetailFromDiff = (
   storage_class: diff.target_storage_class,
 });
 
-export const getVisibleCompareObjectKeys = (rows: CompareObjectDetailLike[]): string[] => {
+const getVisibleCompareObjectKeys = (rows: CompareObjectDetailLike[]): string[] => {
   const keys: string[] = [];
   const seen = new Set<string>();
   rows.forEach((row) => {
@@ -349,9 +350,82 @@ export const getVisibleCompareObjectKeys = (rows: CompareObjectDetailLike[]): st
   return keys;
 };
 
-export const getCompareHiddenCount = (totalCount: number, visibleCount: number, hiddenCount?: number | null): number => {
+const getCompareHiddenCount = (totalCount: number, visibleCount: number, hiddenCount?: number | null): number => {
   const reportedHiddenCount = typeof hiddenCount === "number" && Number.isFinite(hiddenCount) ? hiddenCount : totalCount - visibleCount;
   return Math.max(0, reportedHiddenCount);
+};
+
+type BucketCompareContentSection = {
+  key: "source_only" | "target_only" | "different";
+  changed: boolean;
+  objectCount: number;
+  visibleCount: number;
+  hiddenCount: number;
+  copyKeys: string[];
+  sourceDetails: CompareObjectDetailLike[];
+  targetDetails: CompareObjectDetailLike[];
+};
+
+export const buildBucketCompareContentSections = (
+  content: BucketCompareContentDiff,
+): BucketCompareContentSection[] => {
+  const onlySourceDetails =
+    content.only_source_count > 0 ? content.only_source_details : [];
+  const onlyTargetDetails =
+    content.only_target_count > 0 ? content.only_target_details : [];
+  const differentSourceDetails =
+    content.different_count > 0
+      ? content.different_sample.map(sourceCompareObjectDetailFromDiff)
+      : [];
+  const differentTargetDetails =
+    content.different_count > 0
+      ? content.different_sample.map(targetCompareObjectDetailFromDiff)
+      : [];
+
+  return [
+    {
+      key: "source_only",
+      changed: content.only_source_count > 0,
+      objectCount: content.only_source_count,
+      visibleCount: onlySourceDetails.length,
+      hiddenCount: getCompareHiddenCount(
+        content.only_source_count,
+        onlySourceDetails.length,
+        content.only_source_hidden_count,
+      ),
+      copyKeys: getVisibleCompareObjectKeys(onlySourceDetails),
+      sourceDetails: onlySourceDetails,
+      targetDetails: [],
+    },
+    {
+      key: "target_only",
+      changed: content.only_target_count > 0,
+      objectCount: content.only_target_count,
+      visibleCount: onlyTargetDetails.length,
+      hiddenCount: getCompareHiddenCount(
+        content.only_target_count,
+        onlyTargetDetails.length,
+        content.only_target_hidden_count,
+      ),
+      copyKeys: getVisibleCompareObjectKeys(onlyTargetDetails),
+      sourceDetails: [],
+      targetDetails: onlyTargetDetails,
+    },
+    {
+      key: "different",
+      changed: content.different_count > 0,
+      objectCount: content.different_count,
+      visibleCount: differentSourceDetails.length,
+      hiddenCount: getCompareHiddenCount(
+        content.different_count,
+        differentSourceDetails.length,
+        content.different_hidden_count,
+      ),
+      copyKeys: getVisibleCompareObjectKeys(differentSourceDetails),
+      sourceDetails: differentSourceDetails,
+      targetDetails: differentTargetDetails,
+    },
+  ];
 };
 
 export const formatCompareDisplayLimitMessage = (

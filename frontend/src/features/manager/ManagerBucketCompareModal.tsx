@@ -38,20 +38,17 @@ import {
   BucketCompareManualMappingEditor,
   CompareVisibleKeysCopyFeedback,
   bucketComparisonCancelledMessage,
+  buildBucketCompareContentSections,
   buildBucketCompareMappingModel,
   extractCompareError,
   formatCompareDisplayLimitMessage,
   formatUnknown,
   getChangedTone,
-  getCompareHiddenCount,
   getObjectParentPrefix,
-  getVisibleCompareObjectKeys,
   matchesBucketCompareRunFilters,
   parseOptionalIsoDateTime,
   renderDiffLines,
-  sourceCompareObjectDetailFromDiff,
   summarizeBucketCompareRun,
-  targetCompareObjectDetailFromDiff,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
 import {
@@ -835,100 +832,28 @@ export default function ManagerBucketCompareModal({
                 content && (content.different_count > 0 || content.only_source_count > 0 || content.only_target_count > 0)
               );
               const contentSections = content
-                ? (() => {
-                    const onlySourceDetails =
-                      content.only_source_count > 0
-                        ? content.only_source_details
-                        : [];
-                    const onlyTargetDetails =
-                      content.only_target_count > 0
-                        ? content.only_target_details
-                        : [];
-                    const differentSourceDetails =
-                      content.different_count > 0 ? content.different_sample.map(sourceCompareObjectDetailFromDiff) : [];
-                    const differentTargetDetails =
-                      content.different_count > 0 ? content.different_sample.map(targetCompareObjectDetailFromDiff) : [];
-                    const onlySourceHiddenCount = getCompareHiddenCount(
-                      content.only_source_count,
-                      onlySourceDetails.length,
-                      content.only_source_hidden_count
-                    );
-                    const onlyTargetHiddenCount = getCompareHiddenCount(
-                      content.only_target_count,
-                      onlyTargetDetails.length,
-                      content.only_target_hidden_count
-                    );
-                    const differentHiddenCount = getCompareHiddenCount(
-                      content.different_count,
-                      differentSourceDetails.length,
-                      content.different_hidden_count
-                    );
-                    return [
-                      {
-                        key: "source_only" as const,
-                        label: text("Source only ({count})", { count: content.only_source_count }),
-                        changed: content.only_source_count > 0,
-                        objectCount: content.only_source_count,
-                        visibleCount: onlySourceDetails.length,
-                        hiddenCount: onlySourceHiddenCount,
-                        copyKeys: getVisibleCompareObjectKeys(onlySourceDetails),
-                        action:
-                          content.only_source_count > 0
-                            ? {
-                                type: "sync_source_only" as const,
-                                label:
-                                  onlySourceHiddenCount > 0
-                                    ? text(remediationVisibleActionLabel.sync_source_only)
-                                    : text(remediationActionLabel.sync_source_only),
-                              }
-                            : null,
-                        sourceDetails: onlySourceDetails,
-                        targetDetails: [],
-                      },
-                      {
-                        key: "target_only" as const,
-                        label: text("Target only ({count})", { count: content.only_target_count }),
-                        changed: content.only_target_count > 0,
-                        objectCount: content.only_target_count,
-                        visibleCount: onlyTargetDetails.length,
-                        hiddenCount: onlyTargetHiddenCount,
-                        copyKeys: getVisibleCompareObjectKeys(onlyTargetDetails),
-                        action:
-                          content.only_target_count > 0
-                            ? {
-                                type: "delete_target_only" as const,
-                                label:
-                                  onlyTargetHiddenCount > 0
-                                    ? text(remediationVisibleActionLabel.delete_target_only)
-                                    : text(remediationActionLabel.delete_target_only),
-                              }
-                            : null,
-                        sourceDetails: [],
-                        targetDetails: onlyTargetDetails,
-                      },
-                      {
-                        key: "different" as const,
-                        label: text("Different objects ({count})", { count: content.different_count }),
-                        changed: content.different_count > 0,
-                        objectCount: content.different_count,
-                        visibleCount: differentSourceDetails.length,
-                        hiddenCount: differentHiddenCount,
-                        copyKeys: getVisibleCompareObjectKeys(differentSourceDetails),
-                        action:
-                          content.different_count > 0
-                            ? {
-                                type: "sync_different" as const,
-                                label:
-                                  differentHiddenCount > 0
-                                    ? text(remediationVisibleActionLabel.sync_different)
-                                    : text(remediationActionLabel.sync_different),
-                              }
-                            : null,
-                        sourceDetails: differentSourceDetails,
-                        targetDetails: differentTargetDetails,
-                      },
-                    ];
-                  })()
+                ? buildBucketCompareContentSections(content).map((section) => {
+                    const action = remediationSectionActionMap[section.key];
+                    const label =
+                      section.key === "source_only"
+                        ? text("Source only ({count})", { count: section.objectCount })
+                        : section.key === "target_only"
+                          ? text("Target only ({count})", { count: section.objectCount })
+                          : text("Different objects ({count})", { count: section.objectCount });
+                    return {
+                      ...section,
+                      label,
+                      action: section.changed
+                        ? {
+                            type: action,
+                            label:
+                              section.hiddenCount > 0
+                                ? text(remediationVisibleActionLabel[action])
+                                : text(remediationActionLabel[action]),
+                          }
+                        : null,
+                    };
+                  })
                 : [];
               const configSections =
                 item.result?.config_diff?.sections.map((section) => ({
