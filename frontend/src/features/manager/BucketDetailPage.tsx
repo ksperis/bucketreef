@@ -5,20 +5,16 @@
 import { useEffect, useMemo, useState, useCallback, useId, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import { uiDataTableClass, uiTableContainerClass } from "../../components/ui/styles";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageHeader from "../../components/PageHeader";
-import { ListActionButton } from "../../components/list/ListControls";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { settingsLabels } from "../../components/settings/settingsLabels";
 import { useI18n } from "../../i18n";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
-import SplitView from "../../components/SplitView";
 import { MetricsCard } from "../../components/MetricsCard";
 import UsageTile from "../../components/UsageTile";
-import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { formatCompactNumber } from "../../utils/format";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
@@ -75,6 +71,7 @@ import {
 import { formatBytes } from "../../utils/format";
 import type { UiRole } from "../../api/users";
 import BucketFeatureGrid from "./bucketDetail/BucketFeatureGrid";
+import BucketObjectsPreview from "./bucketDetail/BucketObjectsPreview";
 import { useManagerI18n } from "./managerI18n";
 
 function getUserRole(): UiRole | null {
@@ -90,8 +87,6 @@ type PropertySummary = {
 const bucketDetailHintClass = "settings-description";
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
 
-const bucketDetailDividerClass =
-  "divide-y divide-slate-200 dark:divide-slate-800";
 const bucketDetailSectionStackClass = "space-y-4";
 
 const bucketDetailTightStackClass = "space-y-1";
@@ -467,16 +462,7 @@ function BucketDetailPageContent({
     enabled: hasContext && !hideUsageMetricsTab,
     endpointId,
   });
-  const {
-    currentPrefix,
-    error: objectsError,
-    loading: objectsLoading,
-    openPrefix: openObjectsPrefix,
-    parentPrefix,
-    prefixes,
-    refresh: refreshObjects,
-    rows: objectRows,
-  } = useBucketObjectsController({
+  const objectsController = useBucketObjectsController({
     contextId,
     bucketName,
     cephAdmin: isCephAdmin,
@@ -484,6 +470,10 @@ function BucketDetailPageContent({
     enabled: hasContext && showObjectsTab,
     endpointId,
   });
+  const {
+    loading: objectsLoading,
+    refresh: refreshObjects,
+  } = objectsController;
   const snsFeatureEnabled = useMemo(() => {
     if (isCephAdmin) {
       return selectedEndpoint?.capabilities?.sns === true;
@@ -1140,142 +1130,16 @@ function BucketDetailPageContent({
                   id: "objects",
                   label: text("Objects"),
                   content: (
-                    <SplitView
-                      left={
-                  <div className="p-3 space-y-2">
-                    <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">{text("Prefixes")}</p>
-                    <div className={bucketDetailTightStackClass}>
-                      <ListActionButton
-                        variant="ghost"
-                        active={currentPrefix === ""}
-                        aria-pressed={currentPrefix === ""}
-                        className="w-full !justify-between text-left"
-                        onClick={() => openObjectsPrefix("")}
-                      >
-                        <span>{text("(root)")}</span>
-                      </ListActionButton>
-                      {parentPrefix !== "" && (
-                        <ListActionButton
-                          variant="ghost"
-                          className="w-full !justify-between text-left"
-                          onClick={() => openObjectsPrefix(parentPrefix)}
-                        >
-                          <span>{text("⬆️ Up")}</span>
-                          <span className={bucketDetailHintClass}>{parentPrefix || "/"}</span>
-                        </ListActionButton>
-                      )}
-                      {prefixes.map((prefix) => {
-                        const isActive = prefix === currentPrefix;
-                        const displayName = prefix.replace(currentPrefix, "") || prefix;
-                        return (
-                          <ListActionButton
-                            key={prefix}
-                            variant="ghost"
-                            active={isActive}
-                            aria-pressed={isActive}
-                            className="w-full !justify-between text-left"
-                            onClick={() => openObjectsPrefix(prefix)}
-                          >
-                            <span>{displayName}</span>
-                          </ListActionButton>
-                        );
-                      })}
-                    </div>
-                  </div>
-                }
-                right={
-                  <div className="space-y-3 p-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                      <div className={bucketDetailTightStackClass}>
-                        <p className="ui-body font-semibold text-slate-800 dark:text-slate-100">{text("Path")}</p>
-                        <div className="ui-caption text-slate-500 dark:text-slate-300">
-                          {bucketName}/{currentPrefix || "(root)"}
-                        </div>
-                        <div className={bucketDetailHintClass}>
-                          {isCephAdmin
-                            ? text("Read-only preview using the selected endpoint's Ceph Admin credentials.")
-                            : managerBrowserAvailable
-                              ? text("Read-only preview. Use the main Browser page for object operations.")
-                              : text("Read-only preview. Object operations are unavailable because Manager Browser is disabled.")}
-                        </div>
-                      </div>
-                    </div>
-                    {objectsError && (
-                      <UiInlineMessage tone="error">{text(objectsError)}</UiInlineMessage>
-                    )}
-
-                    <div className={uiTableContainerClass}>
-                      <table className={uiDataTableClass}>
-                        <thead>
-                          <tr>
-                            <th className="text-left">
-                              {text("Name")}
-                            </th>
-                            <th className="text-left">
-                              {text("Size")}
-                            </th>
-                            <th className="text-left">
-                              {text("Last modified")}
-                            </th>
-                            <th className="text-left">
-                              {text("Storage class")}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className={bucketDetailDividerClass}>
-                          {objectsLoading && (
-                            <tr>
-                              <td colSpan={4} className="ui-table-secondary">
-                                {text("Loading objects...")}
-                              </td>
-                            </tr>
-                          )}
-                          {!objectsLoading && objectRows.length === 0 && (
-                            <tr>
-                              <td colSpan={4} className="ui-table-secondary">
-                                {text("No objects in this prefix.")}
-                              </td>
-                            </tr>
-                          )}
-                          {!objectsLoading &&
-                            objectRows.map((row) => {
-                              if (row.type === "prefix") {
-                                return (
-                                  <tr
-                                    key={row.key}
-                                    className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                                    onClick={() => openObjectsPrefix(row.key)}
-                                  >
-                                    <td className="ui-table-primary">
-                                      📁 {row.name}
-                                    </td>
-                                    <td className="ui-table-secondary">—</td>
-                                    <td className="ui-table-secondary">—</td>
-                                    <td className="ui-table-secondary">—</td>
-                                  </tr>
-                                );
-                              }
-                              return (
-                                <tr key={row.key} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                  <td className="ui-table-primary">{row.name}</td>
-                                  <td className="ui-table-secondary">{formatBytes(row.object.size)}</td>
-                                  <td className="ui-table-secondary">
-                                    {row.object.last_modified ? new Date(row.object.last_modified).toLocaleString(intlLocale) : "-"}
-                                  </td>
-                                  <td className="ui-table-secondary">{row.object.storage_class ?? "-"}</td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                }
-              />
-            ),
-          },
-        ]
-      : []),
+                    <BucketObjectsPreview
+                      bucketName={bucketName}
+                      controller={objectsController}
+                      isCephAdmin={isCephAdmin}
+                      managerBrowserAvailable={managerBrowserAvailable}
+                    />
+                  ),
+                },
+              ]
+            : []),
           {
             id: "properties",
             label: text("Properties"),
