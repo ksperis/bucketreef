@@ -10,9 +10,9 @@ from app.models.ceph_admin import CephAdminRgwUserSummary
 from app.services.listing_progress import (
     ListingProgressEmitter,
     interpolate_progress_percent,
-    invoke_cancel_check,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits

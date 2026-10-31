@@ -37,10 +37,11 @@ from app.services.ceph_admin_bucket_listing_request import (
     CephAdminAdvancedFilterPlan,
     CephAdminBucketListingRequest,
 )
-from app.services.listing_progress import ListingProgressEmitter, invoke_cancel_check
+from app.services.listing_progress import ListingProgressEmitter
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_bucket_target import RgwBucketTarget
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
+from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import is_upstream_timeout
 
 logger = logging.getLogger(__name__)

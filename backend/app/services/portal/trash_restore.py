@@ -24,6 +24,7 @@ from app.services.object_restore_store import (
     ObjectRestoreScanCounts,
     ObjectRestoreStore,
 )
+from app.utils.cancellation import invoke_cancel_check
 
 if TYPE_CHECKING:
     from app.models.access_context import AccountAccess
@@ -101,7 +102,7 @@ class _PortalDeletedPrefixRestoreRunner:
             self.target.client,
             self.target.bucket_name,
             self.target.prefix,
-            before_page=self._check_cancel,
+            before_page=self.cancel_check,
             after_page=update_progress,
         )
 
@@ -113,7 +114,7 @@ class _PortalDeletedPrefixRestoreRunner:
             total_candidates_final=True,
         )
         with ThreadPoolExecutor(max_workers=_RESTORE_CONCURRENCY) as executor:
-            self._check_cancel()
+            invoke_cancel_check(self.cancel_check)
             for batch in store.iter_candidate_batches(_RESTORE_CONCURRENCY):
                 futures = {
                     executor.submit(
@@ -134,7 +135,7 @@ class _PortalDeletedPrefixRestoreRunner:
                         "Restoring deleted files...",
                         total_candidates_final=True,
                     )
-                self._check_cancel()
+                invoke_cancel_check(self.cancel_check)
 
     def _record_restore_result(self, future: Future[Any], key: str) -> None:
         try:
@@ -149,10 +150,6 @@ class _PortalDeletedPrefixRestoreRunner:
                         detail=sanitized_error_log_detail(exc),
                     )
                 )
-
-    def _check_cancel(self) -> None:
-        if self.cancel_check:
-            self.cancel_check()
 
     def _emit(
         self,

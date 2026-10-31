@@ -20,6 +20,7 @@ from app.services.object_listing_temp_store import TemporarySqliteStore
 from app.services.object_version_cleanup_store import ObjectVersionCleanupStore, ObjectVersionScanCounts
 from app.services import s3_deletion
 from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
+from app.utils.cancellation import invoke_cancel_check
 
 if TYPE_CHECKING:
     from app.models.access_context import AccountAccess
@@ -49,10 +50,6 @@ class _PortalVersionCleanupRun:
     deleted_versions: int = 0
     deleted_delete_markers: int = 0
     bytes_freed: int = 0
-
-    def check_cancel(self) -> None:
-        if self.cancel_check:
-            self.cancel_check()
 
     def emit(
         self,
@@ -90,7 +87,7 @@ class _PortalVersionCleanupRun:
         cleanup_store: ObjectVersionCleanupStore,
         batch: list[tuple[str, str, int]],
     ) -> None:
-        self.check_cancel()
+        invoke_cancel_check(self.cancel_check)
         items = [
             {"Key": key, "VersionId": version_id}
             for key, version_id, _size in batch
@@ -108,7 +105,7 @@ class _PortalVersionCleanupRun:
         self.emit("delete", "Deleting historical versions...")
 
     def delete_markers_batch(self, batch: list[tuple[str, str]]) -> None:
-        self.check_cancel()
+        invoke_cancel_check(self.cancel_check)
         items = [{"Key": key, "VersionId": version_id} for key, version_id in batch]
         s3_deletion.delete_objects_count(
             self.target.client,
@@ -222,7 +219,7 @@ class PortalStorageSpaceVersionCleanupMixin:
                 scan_counts = cleanup_store.scan(
                     target.client,
                     target.bucket_name,
-                    before_page=run.check_cancel,
+                    before_page=run.cancel_check,
                     after_page=run.update_scan_progress,
                 )
                 run.scanned_versions = scan_counts.versions

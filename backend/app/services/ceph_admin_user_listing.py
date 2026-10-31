@@ -32,7 +32,6 @@ from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
     emit_listing_ready,
-    invoke_cancel_check,
 )
 from app.services.listing_rule_matching import (
     match_boolean_rule,
@@ -40,6 +39,7 @@ from app.services.listing_rule_matching import (
     match_text_rule,
 )
 from app.services.rgw_admin import RGWAdminClient
+from app.utils.cancellation import invoke_cancel_check
 from app.utils.rgw_payloads import parse_rgw_bool
 from app.utils.usage_stats import compute_usage_ratio_percent
 

@@ -12,7 +12,6 @@ from app.services.bucket_owner_enrichment import BucketOwnerMetadataService, Buc
 from app.services.listing_progress import (
     ListingProgressEmitter,
     build_listing_progress_callback,
-    invoke_cancel_check,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_bucket_metadata import (
@@ -20,6 +19,7 @@ from app.services.rgw_bucket_metadata import (
     owner_kind_from_owner,
     split_tenant_uid,
 )
+from app.utils.cancellation import invoke_cancel_check
 from app.utils.normalize import normalize_optional_scalar, normalize_text
 from app.utils.storage_endpoint_features import resolve_feature_flags
 

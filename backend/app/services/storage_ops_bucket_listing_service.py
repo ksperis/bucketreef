@@ -37,10 +37,10 @@ from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
     interpolate_progress_percent,
-    invoke_cancel_check,
 )
 from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.s3_execution_context import S3ExecutionContext
+from app.utils.cancellation import invoke_cancel_check
 from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_STORAGE_OPS
 
 logger = logging.getLogger(__name__)

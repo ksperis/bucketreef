@@ -14,8 +14,8 @@ from app.services.ceph_admin_bucket_listing_snapshot import CephAdminBucketSnaps
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
-    invoke_cancel_check,
 )
+from app.utils.cancellation import invoke_cancel_check
 
 
 def compute_ceph_admin_bucket_listing(

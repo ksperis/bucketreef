@@ -24,8 +24,9 @@ from app.services.ceph_admin_bucket_listing_cache import (
 )
 from app.services.ceph_admin_bucket_listing_context import CephAdminBucketListingContext
 from app.services.ceph_admin_bucket_listing_request import CephAdminBucketListingRequest
-from app.services.listing_progress import ListingProgressEmitter, invoke_cancel_check
+from app.services.listing_progress import ListingProgressEmitter
 from app.services.s3_execution_context import build_ceph_admin_s3_context
+from app.utils.cancellation import invoke_cancel_check
 from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN
 
 

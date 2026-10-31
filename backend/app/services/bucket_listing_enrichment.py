@@ -43,9 +43,9 @@ from app.services.bucket_property_feature_enrichment import (
 from app.services.listing_progress import (
     ListingProgressEmitter,
     build_listing_progress_callback,
-    invoke_cancel_check,
 )
 from app.services.s3_execution_context import S3ExecutionTarget
+from app.utils.cancellation import invoke_cancel_check
 
 BUCKET_ENRICH_MAX_WORKERS = 6
 
