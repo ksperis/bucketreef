@@ -21,6 +21,7 @@ from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_deletion_service import S3UserDeletionService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_query_service import S3UserQueryService
+from app.services.s3_user_quota_service import S3UserQuotaService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
@@ -33,10 +34,6 @@ from app.models.s3_user import (
     S3UserUpdate,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_quota_update import (
-    execute_rgw_quota_update,
-    prepare_rgw_quota_update,
-)
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.rgw_payloads import (
     require_rgw_user_identity, split_rgw_tenant_uid,
@@ -49,6 +46,7 @@ class S3UsersService:
         self.access_keys = S3UserAccessKeyService(db)
         self.metrics = S3UserMetricsService()
         self.rgw_context = S3UserRgwContextService(db)
+        self.quota = S3UserQuotaService(self.rgw_context)
         self.deletion = S3UserDeletionService(db, self.metrics)
         self.tags = TagsService(db)
         self.query = S3UserQueryService(
@@ -80,34 +78,6 @@ class S3UsersService:
 
     def get_user_limits(self, s3_user: S3UserModel) -> tuple[Optional[float], Optional[int], Optional[int]]:
         return self.metrics.get_limits(s3_user)
-
-    def _apply_user_quota(
-        self,
-        s3_user: S3UserModel,
-        max_size_gb: Optional[float],
-        max_objects: Optional[int],
-        max_size_unit: Optional[str] = None,
-    ) -> None:
-        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
-        require_endpoint_permissions(s3_user.storage_endpoint, "users_write")
-        admin = self.rgw_context.admin_for_user(s3_user)
-        quota = prepare_rgw_quota_update(max_size_gb, max_objects, max_size_unit)
-
-        def update_remote_quota():
-            tenant = self.rgw_context.verified_user_tenant(s3_user, admin)
-            return admin.set_user_quota(
-                uid=s3_user.rgw_user_uid,
-                **({"tenant": tenant} if tenant else {}),
-                max_size_bytes=quota.max_size_bytes,
-                max_objects=quota.max_objects,
-                enabled=quota.enabled,
-            )
-
-        execute_rgw_quota_update(
-            update_remote_quota,
-            subject="user",
-            identifier=s3_user.rgw_user_uid,
-        )
 
     def get_user_record(self, user_id: int) -> S3UserModel:
         return self.query.get_user_record(user_id)
@@ -182,7 +152,7 @@ class S3UsersService:
         self.tags.replace_s3_user_tags(s3_user, payload.tags)
 
         if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
-            self._apply_user_quota(
+            self.quota.update(
                 s3_user,
                 payload.quota_max_size_gb,
                 payload.quota_max_objects,
@@ -333,7 +303,7 @@ class S3UsersService:
         apply_resource_feature_overrides(payload, s3_user)
 
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
-            self._apply_user_quota(
+            self.quota.update(
                 s3_user,
                 payload.quota_max_size_gb,
                 payload.quota_max_objects,
