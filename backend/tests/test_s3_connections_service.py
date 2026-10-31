@@ -724,9 +724,9 @@ def test_update_connection_rejects_endpoint_and_credentials_for_active_managed_s
         lambda value, field_name="Endpoint URL": value.rstrip("/"),
     )
     monkeypatch.setattr(
-        service,
-        "is_active_managed_source",
-        lambda connection_id: connection_id == row.id,
+        service.managed_private_access_queries,
+        "has_active_source",
+        lambda source_kind, source_id: source_kind == "connection" and source_id == row.id,
     )
 
     with pytest.raises(S3ConnectionConflictError, match="endpoint and credentials are locked"):
@@ -866,9 +866,9 @@ def test_delete_admin_shared_rejects_active_managed_source(
     )
     service = S3ConnectionsService(db_session)
     monkeypatch.setattr(
-        service,
-        "is_active_managed_source",
-        lambda connection_id: connection_id == row.id,
+        service.managed_private_access_queries,
+        "has_active_source",
+        lambda source_kind, source_id: source_kind == "connection" and source_id == row.id,
     )
 
     with pytest.raises(S3ConnectionConflictError, match="managed private accesses"):

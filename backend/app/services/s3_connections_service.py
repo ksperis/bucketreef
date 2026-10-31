@@ -4,11 +4,11 @@
 from collections.abc import Collection
 from typing import Any, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3ConnectionConflictError
-from app.db.s3_connection import ManagedPrivateAccess, S3Connection as DBS3Connection
+from app.db.s3_connection import S3Connection as DBS3Connection
 from app.models.s3_connection import (
     S3_CONNECTION_ENDPOINT_FIELDS,
     S3Connection,
@@ -31,6 +31,9 @@ from app.services.s3_connection_endpoint_planner import (
 from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.feature_policy_service import validate_manager_overrides
+from app.services.managed_private_access_query_service import (
+    ManagedPrivateAccessQueryService,
+)
 from app.services.tags_service import TagsService
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
 from app.utils.time import utcnow
@@ -78,6 +81,7 @@ class S3ConnectionsService:
         self.associations = S3ConnectionAssociationsService(db)
         self.endpoint_planner = S3ConnectionEndpointPlanner(db)
         self.queries = S3ConnectionQueryService(db)
+        self.managed_private_access_queries = ManagedPrivateAccessQueryService(db)
 
     def list_for_user(self, user_id: int) -> list[S3Connection]:
         return self.queries.list_for_user(user_id)
@@ -342,7 +346,7 @@ class S3ConnectionsService:
                 "Server-managed connection provenance, endpoint, and credentials are immutable"
             )
         if (
-            self.is_active_managed_source(row.id)
+            self.managed_private_access_queries.has_active_source("connection", row.id)
             and _PRIVATE_MANAGED_SOURCE_IMMUTABLE_FIELDS.intersection(payload_data)
         ):
             raise S3ConnectionConflictError(
@@ -453,12 +457,12 @@ class S3ConnectionsService:
             raise S3ConnectionConflictError(
                 "Server-managed connections must be deleted by the provisioning service"
             )
-        if self.is_active_managed_source(row.id):
+        if self.managed_private_access_queries.has_active_source("connection", row.id):
             raise S3ConnectionConflictError(ACTIVE_MANAGED_SOURCE_DELETE_ERROR)
         self._delete_entry(row)
 
     def delete_admin_shared(self, row: DBS3Connection) -> None:
-        if self.is_active_managed_source(row.id):
+        if self.managed_private_access_queries.has_active_source("connection", row.id):
             raise S3ConnectionConflictError(ACTIVE_MANAGED_SOURCE_DELETE_ERROR)
         self._delete_entry(row)
 
@@ -475,11 +479,14 @@ class S3ConnectionsService:
     ]:
         fields_set = payload.model_fields_set
         if (
-            self.is_active_managed_source(row.id)
+            self.managed_private_access_queries.has_active_source("connection", row.id)
             and _ADMIN_SHARED_SOURCE_IMMUTABLE_FIELDS & fields_set
         ):
             raise S3ConnectionConflictError(ACTIVE_MANAGED_SOURCE_UPDATE_ERROR)
-        if update_credentials and self.is_active_managed_source(row.id):
+        if update_credentials and self.managed_private_access_queries.has_active_source(
+            "connection",
+            row.id,
+        ):
             raise S3ConnectionConflictError(ACTIVE_MANAGED_SOURCE_CREDENTIALS_ERROR)
         endpoint_plan = None
         if S3_CONNECTION_ENDPOINT_FIELDS & fields_set:
@@ -562,14 +569,3 @@ class S3ConnectionsService:
             self.touch_usage(row)
         except Exception:
             return
-
-    def is_active_managed_source(self, connection_id: int) -> bool:
-        return self.db.scalar(
-            select(ManagedPrivateAccess.id)
-            .where(
-                ManagedPrivateAccess.source_context_type == "connection",
-                ManagedPrivateAccess.source_context_id == connection_id,
-                ManagedPrivateAccess.state.in_(("provisioning", "active", "deleting", "cleanup_pending")),
-            )
-            .limit(1)
-        ) is not None

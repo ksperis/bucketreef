@@ -131,7 +131,7 @@ def test_list_keys_marks_managed_private_access(monkeypatch):
             assert (source_kind, source_id, access_key) == ("s3_user", 41, "AKIA-LISTED")
             return SimpleNamespace(s3_connection_id=77)
 
-    monkeypatch.setattr(module, "ManagedPrivateAccessService", _ManagedPrivateAccess)
+    monkeypatch.setattr(module, "ManagedPrivateAccessQueryService", _ManagedPrivateAccess)
 
     keys = CephAdminUserKeyService(
         _ctx(rgw_admin),
@@ -169,7 +169,7 @@ def test_managed_private_key_blocks_mutation_before_rgw_call(monkeypatch, operat
             assert (source_kind, source_id, access_key) == ("s3_user", 41, "AKIA-LISTED")
             return SimpleNamespace(s3_connection_id=77)
 
-    monkeypatch.setattr(module, "ManagedPrivateAccessService", _ManagedPrivateAccess)
+    monkeypatch.setattr(module, "ManagedPrivateAccessQueryService", _ManagedPrivateAccess)
     service = CephAdminUserKeyService(_ctx(rgw_admin), _FakeSession([source]))
 
     with pytest.raises(HTTPException) as raised:
