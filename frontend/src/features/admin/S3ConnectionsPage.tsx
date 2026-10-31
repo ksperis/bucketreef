@@ -31,7 +31,7 @@ import { listMinimalUsers, type UserSummary } from "../../api/users";
 import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import { extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
-import { collectPaginatedItems, pageCount } from "../../utils/pagination";
+import { collectPaginatedItems } from "../../utils/pagination";
 import { normalizeUiTags } from "../../utils/uiTags";
 import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationPanelClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -60,6 +60,7 @@ import {
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useAdminI18n } from "./adminI18n";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
+import useAdminPaginationState from "./useAdminPaginationState";
 import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
 
 type EditTab = "general" | "users" | "groups";
@@ -72,10 +73,17 @@ export default function S3ConnectionsPage() {
   const [items, setItems] = useState<S3ConnectionAdminItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const {
+    filter,
+    page,
+    pageSize,
+    handleFilterChange,
+    handlePageChange,
+    handlePageSizeChange,
+    resetPage,
+    ensurePageInRange,
+  } = useAdminPaginationState();
   const [total, setTotal] = useState(0);
-  const [filter, setFilter] = useState("");
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
 
   const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
@@ -229,11 +237,7 @@ export default function S3ConnectionsPage() {
         search: quick || undefined,
         search_exact: quickFilterMode === "exact",
       });
-      const totalPages = pageCount(response.total || 0, pageSize);
-      if (response.total > 0 && page > totalPages) {
-        setPage(totalPages);
-        return;
-      }
+      if (!ensurePageInRange(response.total)) return;
       setItems(response.items);
       setTotal(response.total);
       setAllFilteredSelectableIds(null);
@@ -243,7 +247,7 @@ export default function S3ConnectionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [adminText, filter, page, pageSize, quickFilterMode]);
+  }, [adminText, ensurePageInRange, filter, page, pageSize, quickFilterMode]);
 
   useEffect(() => {
     fetchItems();
@@ -402,16 +406,6 @@ export default function S3ConnectionsPage() {
   useEffect(() => {
     setSelectedIds([]);
   }, [page, pageSize]);
-
-
-  const handlePageChange = (nextPage: number) => {
-    if (nextPage === page) return;
-    setPage(Math.max(1, nextPage));
-  };
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setPage(1);
-  };
   const loadAllSelectableFilteredIds = useCallback(async () => {
     if (allFilteredSelectableIdsKey === selectionQueryKey && allFilteredSelectableIds) {
       return allFilteredSelectableIds;
@@ -718,14 +712,13 @@ export default function S3ConnectionsPage() {
         bulkDisableBusy={bulkDisableBusy}
         bulkDeleteBusy={bulkDeleteBusy}
         onFilterChange={(value) => {
-          setFilter(value);
+          handleFilterChange(value);
           setSelectedIds([]);
-          setPage(1);
         }}
         onQuickFilterModeChange={(mode) => {
           setQuickFilterMode(mode);
           setSelectedIds([]);
-          setPage(1);
+          resetPage();
         }}
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}

@@ -21,12 +21,12 @@ describe("useAdminPaginatedListState", () => {
     expect(result.current.page).toBe(1);
     expect(result.current.pageSize).toBe(25);
 
-    act(() => result.current.setPage(3));
+    act(() => result.current.handlePageChange(3));
     act(() => result.current.handleFilterChange("admin"));
     expect(result.current.filter).toBe("admin");
     expect(result.current.page).toBe(1);
 
-    act(() => result.current.setPage(4));
+    act(() => result.current.handlePageChange(4));
     act(() => result.current.handleSort("role"));
     expect(result.current.sort).toEqual({ field: "role", direction: "desc" });
     expect(result.current.page).toBe(1);
@@ -34,7 +34,7 @@ describe("useAdminPaginatedListState", () => {
     act(() => result.current.handleSort("role"));
     expect(result.current.sort).toEqual({ field: "role", direction: "asc" });
 
-    act(() => result.current.setPage(5));
+    act(() => result.current.handlePageChange(5));
     act(() => result.current.handlePageSizeChange(50));
     expect(result.current.pageSize).toBe(50);
     expect(result.current.page).toBe(1);

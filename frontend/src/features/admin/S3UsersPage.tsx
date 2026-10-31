@@ -52,7 +52,6 @@ import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
 import { type TextMatchMode } from "../../utils/textMatch";
-import { pageCount } from "../../utils/pagination";
 import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationPanelClass } from "./AdminAssociationPicker";
@@ -85,7 +84,7 @@ export default function S3UsersPage() {
     sort,
     page,
     pageSize,
-    setPage,
+    ensurePageInRange,
     handleFilterChange,
     handleSort: toggleSort,
     handlePageChange,
@@ -220,11 +219,7 @@ export default function S3UsersPage() {
         sort_dir: sort.direction,
         include_quota: false,
       });
-      const totalPages = pageCount(response.total || 0, pageSize);
-      if (response.total > 0 && page > totalPages) {
-        setPage(totalPages);
-        return;
-      }
+      if (!ensurePageInRange(response.total)) return;
       setUsers(response.items);
       setTotalUsers(response.total);
     } catch (err) {
@@ -232,7 +227,7 @@ export default function S3UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [adminText, filter, quickFilterMode, page, pageSize, setPage, sort.direction, sort.field]);
+  }, [adminText, ensurePageInRange, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
 
   useEffect(() => {
     fetchUsers();
