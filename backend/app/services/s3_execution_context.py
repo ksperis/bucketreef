@@ -183,6 +183,15 @@ def build_ceph_admin_s3_context(
 S3ExecutionTarget = S3Account | S3ExecutionContext
 
 
+class ResolvedS3BucketNameMixin:
+    bucket_name: str
+    request_bucket_name: str | None
+
+    @property
+    def s3_bucket_name(self) -> str:
+        return self.request_bucket_name or self.bucket_name
+
+
 def is_ceph_admin_execution_context(
     execution_context: S3ExecutionTarget,
 ) -> TypeGuard[S3ExecutionContext]:

@@ -36,7 +36,7 @@ from app.services.operation_lease_service import (
     OperationLeaseService,
     bucket_usage_stats_bucket_operation_name,
 )
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import ResolvedS3BucketNameMixin, S3ExecutionTarget
 from app.utils.s3_errors import format_s3_error, is_s3_feature_unsupported
 from app.utils.time import utcnow
 
@@ -51,7 +51,7 @@ class BucketUsageStatsCancelled(RuntimeError):
 
 
 @dataclass(frozen=True)
-class BucketUsageStatsResolvedTarget:
+class BucketUsageStatsResolvedTarget(ResolvedS3BucketNameMixin):
     context: S3ExecutionTarget
     bucket_name: str
     scope_kind: str
@@ -61,10 +61,6 @@ class BucketUsageStatsResolvedTarget:
     scope_name: str | None = None
     context_id: str | None = None
     context_name: str | None = None
-
-    @property
-    def s3_bucket_name(self) -> str:
-        return self.request_bucket_name or self.bucket_name
 
 
 @dataclass(frozen=True)
