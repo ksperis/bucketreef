@@ -45,12 +45,12 @@ class PortalSharingMixin:
         storage_space_metadata_id: int,
         user_id: int,
     ) -> PortalStorageSpaceGrant | None:
-        return self.db.execute(
+        return self.db.scalar(
             select(PortalStorageSpaceGrant).where(
                 PortalStorageSpaceGrant.storage_space_metadata_id == storage_space_metadata_id,
                 PortalStorageSpaceGrant.user_id == user_id,
             )
-        ).scalar_one_or_none()
+        )
 
     def _portal_user_can_create_external_sharing(
         self,
@@ -145,9 +145,9 @@ class PortalSharingMixin:
             return None
         owner: User | None = None
         if metadata and metadata.owner_user_id is not None:
-            owner = self.db.execute(
+            owner = self.db.scalar(
                 select(User).where(User.id == metadata.owner_user_id)
-            ).scalar_one_or_none()
+            )
         if owner is None:
             raise RuntimeError("Private Storage Space owner is missing.")
         member = self._portal_account_member_map(account).get(owner.id)
@@ -167,9 +167,9 @@ class PortalSharingMixin:
         user_ids: set[int] = set()
         if metadata.owner_user_id is not None:
             user_ids.add(metadata.owner_user_id)
-        account = self.db.execute(
+        account = self.db.scalar(
             select(S3Account).where(S3Account.id == metadata.account_id)
-        ).scalar_one_or_none()
+        )
         member_map = self._portal_account_member_map(account) if account is not None else {}
         if account is not None:
             user_ids.update(
