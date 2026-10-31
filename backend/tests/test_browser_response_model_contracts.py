@@ -94,12 +94,14 @@ def test_browser_object_response_models_require_complete_canonical_payloads() ->
     assert set(ObjectLegalHold.model_json_schema()["required"]) == {
         "key",
         "status",
+        "object_lock_enabled",
         "version_id",
     }
     assert set(ObjectRetention.model_json_schema()["required"]) == {
         "key",
         "mode",
         "retain_until",
+        "object_lock_enabled",
         "version_id",
     }
     assert set(MultipartUploadItem.model_json_schema()["required"]) == {
