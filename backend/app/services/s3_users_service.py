@@ -17,6 +17,7 @@ from app.services.mappers.s3_user import s3_user_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_deletion_service import S3UserDeletionService
+from app.services.s3_user_import_service import S3UserImportService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_provisioning_service import S3UserProvisioningService
 from app.services.s3_user_query_service import S3UserQueryService
@@ -34,10 +35,6 @@ from app.models.s3_user import (
     S3UserUpdate,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_user_key_parser import RgwUserKeyParser
-from app.utils.rgw_payloads import (
-    require_rgw_user_identity, split_rgw_tenant_uid,
-)
 
 class S3UsersService:
     def __init__(self, db: Session) -> None:
@@ -56,6 +53,12 @@ class S3UsersService:
             quota=self.quota,
             metrics=self.metrics,
             tags=self.tags,
+        )
+        self.importer = S3UserImportService(
+            db,
+            repository=self.repository,
+            rgw_context=self.rgw_context,
+            metrics=self.metrics,
         )
         self.deletion = S3UserDeletionService(db, self.metrics)
         self.query = S3UserQueryService(
@@ -135,76 +138,18 @@ class S3UsersService:
         )
 
     def import_users(self, items: list[S3UserImport]) -> list[S3UserSchema]:
-        app_settings = load_app_settings_for_db_readonly(self.db)
-        parsed_items: list[tuple[S3UserImport, str, str]] = []
-        for payload in items:
-            uid, tenant = split_rgw_tenant_uid(payload.uid, payload.rgw_tenant)
-            if not uid:
-                raise ValueError("uid is required")
-            if tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
-                raise ValueError("Managed RGW tenant creation is disabled")
-            parsed_items.append((payload, uid, tenant))
-
-        created: list[S3UserSchema] = []
-        for payload, uid, tenant in parsed_items:
-            imported = self._import_user(payload, uid=uid, tenant=tenant)
-            if imported is not None:
-                created.append(imported)
-        self.db.commit()
-        return created
-
-    def _import_user(
-        self,
-        payload: S3UserImport,
-        *,
-        uid: str,
-        tenant: str,
-    ) -> S3UserSchema | None:
-        endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id)
-        admin = self.rgw_context.admin_for_endpoint(endpoint)
-        if self.repository.find_identity(
-            uid=uid,
-            tenant=tenant,
-            storage_endpoint_id=endpoint.id,
-        ):
-            return None
-        try:
-            user_info = admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
-        except RGWAdminError as exc:
-            raise ValueError(f"RGW lookup failed for {uid}: {exc}") from exc
-        if not user_info or user_info.get("not_found"):
-            raise ValueError(f"RGW user {uid} not found")
-        require_rgw_user_identity(user_info, uid, tenant)
-        try:
-            key_resp = admin.create_access_key(uid, tenant=tenant or None)
-        except RGWAdminError as exc:
-            raise ValueError(f"Unable to create access key for {uid}: {exc}") from exc
-        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-            admin.extract_keys(key_resp)
-        )
-        if not access_key or not secret_key:
-            raise ValueError(f"RGW did not return access credentials for {uid}")
-        s3_user = S3UserModel(
-            name=payload.name or user_info.get("display_name") or uid,
-            rgw_user_uid=uid,
-            rgw_tenant=tenant,
-            email=payload.email or user_info.get("email"),
-            rgw_access_key=access_key,
-            rgw_secret_key=secret_key,
-            storage_endpoint_id=endpoint.id,
-        )
-        self.db.add(s3_user)
-        self.db.flush()
-        quota_max_size_gb, quota_max_objects = self.get_user_quota(s3_user, admin)
-        return s3_user_from_db(
-            s3_user,
-            user_links=[],
-            group_links=[],
-            quota_max_size_gb=quota_max_size_gb,
-            quota_max_objects=quota_max_objects,
-            storage_endpoint=endpoint,
-            tags=[],
-        )
+        return [
+            s3_user_from_db(
+                imported.s3_user,
+                user_links=[],
+                group_links=[],
+                quota_max_size_gb=imported.quota_max_size_gb,
+                quota_max_objects=imported.quota_max_objects,
+                storage_endpoint=imported.endpoint,
+                tags=[],
+            )
+            for imported in self.importer.import_users(items)
+        ]
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
         s3_user = self.get_user_record(user_id)
