@@ -421,7 +421,7 @@ def test_revocation_requires_confirmed_remote_deletion(identities):
     assert endpoint.service_identity("runtime").status == "revocation_pending"
 
 
-def test_env_sync_preserves_generated_keys_mode_namespace_and_allowed(identities, db_session, monkeypatch):
+def test_env_sync_preserves_generated_keys_mode_and_namespace(identities, db_session, monkeypatch):
     service, endpoint, rgw = identities
     service.reconcile(endpoint)
     identity = endpoint.service_identity("runtime")
@@ -433,7 +433,8 @@ def test_env_sync_preserves_generated_keys_mode_namespace_and_allowed(identities
         "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET", "features": {"admin": {"enabled": True}},
     }]))
     StorageEndpointsService(db_session).sync_env_endpoints()
-    assert endpoint.ceph_admin_allowed and identity.mode == "managed"
+    assert endpoint.ceph_admin_allowed is False
+    assert identity.mode == "managed"
     assert original == (identity.access_key, identity.secret_key, endpoint.identity_namespace)
     assert identity.status == "ready" and not endpoint.is_editable
 
