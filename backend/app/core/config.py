@@ -379,7 +379,7 @@ class Settings(BaseSettings):
     )
     oidc_browser_cookie_name: str = Field(
         "oidc_browser_binding",
-        description="HttpOnly cookie binding OIDC and account-linking transactions to a browser",
+        description="HttpOnly cookie binding external-identity authentication and account-linking transactions to a browser",
     )
     ldap_providers: dict[str, LDAPProviderSettings] = Field(default_factory=dict)
     scheduled_jobs_enabled: bool = Field(
