@@ -657,14 +657,10 @@ class StorageEndpointsService:
         self.db.refresh(endpoint)
         return self._serialize(endpoint)
 
-    def _persist_endpoint(self, endpoint: StorageEndpoint, *, commit: bool = True) -> StorageEndpointSchema:
+    def _commit_endpoint(self, endpoint: StorageEndpoint) -> None:
         self.db.add(endpoint)
-        if commit:
-            self.db.commit()
-            self.db.refresh(endpoint)
-        else:
-            self.db.flush()
-        return self._serialize(endpoint)
+        self.db.commit()
+        self.db.refresh(endpoint)
 
     def create_endpoint(self, payload: StorageEndpointCreate) -> StorageEndpointSchema:
         self._ensure_env_editable()
@@ -676,7 +672,7 @@ class StorageEndpointsService:
         endpoint.is_default = False
         endpoint.is_editable = True
         # Durable endpoint IDs are required before any remote validation or provisioning.
-        self._persist_endpoint(endpoint, commit=True)
+        self._commit_endpoint(endpoint)
         if endpoint.provider == "ceph":
             from app.services.endpoint_service_identities import EndpointServiceIdentityService
             EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(
@@ -708,7 +704,7 @@ class StorageEndpointsService:
             if state.provider != StorageProvider.CEPH and not identities.revoke(endpoint, "ceph_admin"):
                 raise ValueError("Ceph Admin revocation is pending; retry before changing provider.")
             self._apply_endpoint_state(endpoint, state)
-            self._persist_endpoint(endpoint)
+            self._commit_endpoint(endpoint)
             if endpoint.provider == "ceph":
                 identities.reconcile(
                     endpoint,
