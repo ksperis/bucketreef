@@ -210,7 +210,7 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     account = _account(db_session, user, _endpoint(db_session))
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
 
     result = service.provision_iam(user=user, context=account, payload=_payload())
@@ -248,7 +248,7 @@ def test_iam_provisioning_accepts_builtin_full_access_when_catalog_omits_it(db_s
     account = _account(db_session, user, _endpoint(db_session))
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
     policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 
@@ -277,7 +277,7 @@ def test_iam_provisioning_rejects_portal_technical_groups_without_remote_mutatio
     account = _account(db_session, user, _endpoint(db_session))
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     payload = _payload()
     payload.groups = ["operators", technical_group]
 
@@ -319,7 +319,7 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
     context = _connection_context(source)
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     monkeypatch.setattr(
             "app.services.managed_private_access_sources.validate_user_supplied_s3_endpoint",
         lambda value, field_name="Endpoint URL": value,
@@ -399,8 +399,8 @@ def test_managed_connection_permission_is_required_before_remote_calls(db_sessio
     account = _account(db_session, user, _endpoint(db_session))
     service = ManagedPrivateAccessService(db_session)
     monkeypatch.setattr(
-        service,
-        "_iam_service_for_context",
+        service.iam,
+        "for_context",
         lambda _context: (_ for _ in ()).throw(AssertionError("IAM must not be contacted")),
     )
 
@@ -433,8 +433,8 @@ def test_global_flag_is_required_before_remote_calls(
     account = _account(db_session, user, _endpoint(db_session))
     service = ManagedPrivateAccessService(db_session)
     monkeypatch.setattr(
-        service,
-        "_iam_service_for_context",
+        service.iam,
+        "for_context",
         lambda _context: (_ for _ in ()).throw(AssertionError("IAM must not be contacted")),
     )
 
@@ -460,7 +460,7 @@ def test_managed_connection_permission_is_inherited_from_group_and_revoked_befor
     account = _account(db_session, user, _endpoint(db_session))
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
 
     result = service.provision_iam(user=user, context=account, payload=_payload("Group private access"))
@@ -470,8 +470,8 @@ def test_managed_connection_permission_is_inherited_from_group_and_revoked_befor
     db_session.delete(membership)
     db_session.commit()
     monkeypatch.setattr(
-        service,
-        "_iam_service_for_context",
+        service.iam,
+        "for_context",
         lambda _context: (_ for _ in ()).throw(AssertionError("IAM must not be contacted")),
     )
 
@@ -523,7 +523,7 @@ def test_iam_provisioning_never_reuses_portal_identity(db_session, monkeypatch):
     db_session.commit()
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
 
     result = service.provision_iam(user=user, context=account, payload=_payload())
@@ -543,7 +543,7 @@ def test_existing_untracked_deterministic_iam_user_is_never_adopted(db_session, 
     fake = FakeIAM()
     fake.get_user = lambda name: IAMUser(name=name)
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
 
     with pytest.raises(ManagedPrivateAccessConflict, match="already exists"):
         service.provision_iam(user=user, context=account, payload=_payload())
@@ -570,7 +570,7 @@ def test_failed_local_creation_compensates_remote_resources(db_session, monkeypa
     account = _account(db_session, user, _endpoint(db_session))
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     monkeypatch.setattr(
         service,
         "_create_connection",
@@ -608,7 +608,7 @@ def test_failed_capability_probe_rolls_back_flushed_local_connection(db_session,
     account = _account(db_session, user, _endpoint(db_session))
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     monkeypatch.setattr(
         "app.services.managed_private_access_service.refresh_connection_detected_capabilities",
         lambda _row: (_ for _ in ()).throw(RuntimeError("probe failed")),
@@ -629,7 +629,7 @@ def test_failed_compensation_is_durable_cleanup_pending(db_session, monkeypatch)
     account = _account(db_session, user, _endpoint(db_session))
     fake = FakeIAM(cleanup_fails=True)
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     monkeypatch.setattr(service, "_create_connection", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("db failed")))
 
     with pytest.raises(ManagedPrivateAccessError):
@@ -791,7 +791,7 @@ def test_managed_iam_connection_delete_cleans_remote_resources_before_local_rows
     account = _account(db_session, user, _endpoint(db_session))
     fake = FakeIAM()
     service = ManagedPrivateAccessService(db_session)
-    monkeypatch.setattr(service, "_iam_service_for_context", lambda _context: fake)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
     result = service.provision_iam(user=user, context=account, payload=_payload())
 
