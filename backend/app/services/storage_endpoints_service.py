@@ -541,7 +541,7 @@ class StorageEndpointsService:
                 )
         return synced
 
-    def sync_env_endpoints(self, *, _retry_on_integrity: bool = True) -> list[StorageEndpointSchema]:
+    def sync_env_endpoints(self) -> list[StorageEndpointSchema]:
         # Validate the whole inventory before any write, even when another instance
         # currently holds the synchronization lease.
         configs = normalize_env_storage_endpoint_states(
@@ -563,7 +563,7 @@ class StorageEndpointsService:
         if handle is None:
             return self.list_endpoints()
         try:
-            return self._sync_env_endpoints(configs, _retry_on_integrity=_retry_on_integrity)
+            return self._sync_env_endpoints(configs)
         finally:
             lease.release(handle)
 
