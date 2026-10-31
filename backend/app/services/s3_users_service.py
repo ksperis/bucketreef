@@ -264,16 +264,13 @@ class S3UsersService:
             identifier=s3_user.rgw_user_uid,
         )
 
-    def _get_s3_user(self, user_id: int) -> S3UserModel:
+    def get_user_record(self, user_id: int) -> S3UserModel:
         s3_user = self.db.execute(
             select(S3UserModel).where(S3UserModel.id == user_id)
         ).scalar_one_or_none()
         if not s3_user:
             raise S3UserNotFoundError("S3 user not found")
         return s3_user
-
-    def get_user_record(self, user_id: int) -> S3UserModel:
-        return self._get_s3_user(user_id)
 
     def _serialize_s3_user(
         self,
@@ -419,7 +416,7 @@ class S3UsersService:
         include_buckets: bool = False,
         include_quota: bool = False,
     ) -> S3UserSchema:
-        s3_user = self._get_s3_user(user_id)
+        s3_user = self.get_user_record(user_id)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
         bucket_count = self._interface_bucket_count(s3_user) if include_buckets else None
         return self._serialize_s3_user(
@@ -585,7 +582,7 @@ class S3UsersService:
         )
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
-        s3_user = self._get_s3_user(user_id)
+        s3_user = self.get_user_record(user_id)
         app_settings = load_app_settings_for_db_readonly(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies, s3_user)
         validate_multisite_endpoint_switching_override(
@@ -631,7 +628,7 @@ class S3UsersService:
         )
 
     def rotate_keys(self, user_id: int, *, actor=None) -> S3UserSchema:
-        s3_user = self._get_s3_user(user_id)
+        s3_user = self.get_user_record(user_id)
         from app.services.durable_key_rotation_service import DurableKeyRotationService
         endpoint = self._endpoint_for_user(s3_user)
         try:
@@ -648,7 +645,7 @@ class S3UsersService:
         )
 
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
-        s3_user = self._get_s3_user(user_id)
+        s3_user = self.get_user_record(user_id)
         admin = self._admin_for_user(s3_user)
         tenant = self._tenant_for_user(s3_user)
         try:
@@ -668,7 +665,7 @@ class S3UsersService:
         )
 
     def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
-        s3_user = self._get_s3_user(user_id)
+        s3_user = self.get_user_record(user_id)
         admin = self._admin_for_user(s3_user)
         tenant = self._verified_user(s3_user, admin)
         existing_access_keys: set[str] = set()
@@ -700,7 +697,7 @@ class S3UsersService:
         return key
 
     def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:
-        s3_user = self._get_s3_user(user_id)
+        s3_user = self.get_user_record(user_id)
         admin = self._admin_for_user(s3_user)
         tenant = self._verified_user(s3_user, admin)
         normalized = (access_key or "").strip()
@@ -727,7 +724,7 @@ class S3UsersService:
         raise S3AccessKeyNotFoundError("Access key not found after status update")
 
     def delete_key(self, user_id: int, access_key: str) -> None:
-        s3_user = self._get_s3_user(user_id)
+        s3_user = self.get_user_record(user_id)
         admin = self._admin_for_user(s3_user)
         tenant = self._verified_user(s3_user, admin)
         normalized = (access_key or "").strip()
@@ -746,7 +743,7 @@ class S3UsersService:
         self.db.commit()
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
-        s3_user = self._get_s3_user(user_id)
+        s3_user = self.get_user_record(user_id)
         ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(f"s3u-{s3_user.id}")
         admin = self._admin_for_user(s3_user)
         tenant, remote_exists = self._verified_user_for_deletion(s3_user, admin)
