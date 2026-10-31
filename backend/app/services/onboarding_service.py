@@ -52,6 +52,15 @@ REQUIRED_FEATURES = {
 }
 
 
+def required_onboarding_feature_fields(draft: OnboardingDraft) -> tuple[str, ...]:
+    fields: list[str] = []
+    for option in draft.selected_options:
+        for field in REQUIRED_FEATURES[option]:
+            if field not in fields:
+                fields.append(field)
+    return tuple(fields)
+
+
 class OnboardingError(ValueError):
     def __init__(self, code: str, status_code: int = 400):
         super().__init__(code)
@@ -139,14 +148,6 @@ class OnboardingService:
         row = OnboardingJourney(draft=draft.model_dump(mode="json"), resources={})
         return self.preview(actor, row)
 
-    def _required_feature_fields(self, draft: OnboardingDraft) -> tuple[str, ...]:
-        fields: list[str] = []
-        for option in draft.selected_options:
-            for field in REQUIRED_FEATURES[option]:
-                if field not in fields:
-                    fields.append(field)
-        return tuple(fields)
-
     def _preview(self, actor, row):
         draft = self.draft(row)
         result = OnboardingPreview()
@@ -172,7 +173,7 @@ class OnboardingService:
         if not draft.selected_options:
             result.blockers.append("selection_required")
 
-        for field in self._required_feature_fields(draft):
+        for field in required_onboarding_feature_fields(draft):
             if getattr(settings.general, field):
                 continue
             lock = getattr(locks, field, None)
