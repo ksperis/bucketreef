@@ -518,3 +518,18 @@ def test_assembled_graphs_are_acyclic_and_dependencies_never_point_to_later_stag
                 active.remove(name)
                 visited.add(name)
             for name in jobs: visit(name)
+
+
+def test_main_preview_graph_promotes_exact_builds_without_waiting_for_validation():
+    plan = {**select('integration', ['README.md'], preview=True), 'sha': 'a' * 40, 'parent_id': 21}
+    config = render(plan)
+
+    assert {'build-backend', 'build-frontend', 'build-scheduler', 'promote-main'} <= set(config)
+    promote = config['promote-main']
+    assert promote['stage'] == 'promote'
+    assert promote['resource_group'] == 'internal-main-images'
+    assert promote['interruptible'] is False
+    assert {item['job'] for item in promote['needs']} == {
+        'pipeline-plan', 'build-backend', 'build-frontend', 'build-scheduler'
+    }
+    assert 'integration-ready' not in {item['job'] for item in promote['needs']}

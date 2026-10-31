@@ -62,10 +62,10 @@ def version_changed(base: str | None, head: str, paths: list[str] | None, *, roo
 
 
 def release_transition(base: str | None, head: str, *, root: Path = ROOT) -> dict | None:
-    """Authorize publication only from a readable, real push version increase.
+    """Detect and validate a stable-version metadata increase on a real push.
 
     Impact baselines deliberately fail open to full testing. They are never
-    authority to publish: only CI_COMMIT_BEFORE_SHA describes this push.
+    authority for release metadata: only CI_COMMIT_BEFORE_SHA describes this push.
     """
     paths = changes(base, head, root=root)
     if paths is None:
@@ -79,7 +79,7 @@ def release_transition(base: str | None, head: str, *, root: Path = ROOT) -> dic
         return None
     stable = r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
     if not re.fullmatch(stable, previous) or not re.fullmatch(stable, current):
-        raise ValueError("Automatic release requires stable version metadata")
+        raise ValueError("Release preparation requires stable version metadata")
     if tuple(map(int, current.split("."))) <= tuple(map(int, previous.split("."))):
         raise ValueError("Release version must increase across the push")
     # HEAD was already checked against the event by events.py.
@@ -108,7 +108,7 @@ def classify(*, source: str, ref: str, protected: bool, mode: str = "auto", tag:
     raise ValueError("Unsupported pipeline source/profile")
 
 
-def select(profile: str, paths: list[str] | None, *, ref: str = "main", version: bool = False) -> dict:
+def select(profile: str, paths: list[str] | None, *, ref: str = "main", version: bool = False, preview: bool = False) -> dict:
     if profile not in {"pr", "integration", "qualify", "prepare-release", "resume-release", "release", "docs", "regression", "security", "secrets-history", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         raise ValueError("Unknown CI profile")
     if profile == "integration" and ref == "main" and version:
@@ -209,8 +209,9 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
     for job in selected:
         reasons.setdefault(job, ["mandatory policy or dependency for " + profile])
     reasons = {job: reasons[job] for job in sorted(selected)}
+    preview_images = list(COMPONENTS) if preview and ref == "main" and profile in {"integration", "qualify"} else []
     return {"schema": 1, "profile": profile, "ref": ref, "jobs": sorted(selected),
-            "images": sorted(images), "reasons": reasons, "full": full}
+            "images": sorted(images), "preview_images": preview_images, "reasons": reasons, "full": full}
 
 
 def require_results(expected: list[str], results: dict) -> None:

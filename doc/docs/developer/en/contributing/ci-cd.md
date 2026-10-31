@@ -18,11 +18,12 @@ integration and changes to CI select all relevant checks conservatively.
 | Event | Profile and work |
 |---|---|
 | GitHub PR into main/dev or merge queue | Impact-selected autonomous checks, hosted ephemeral runners, read-only token |
-| Protected GitLab main/dev push | Compare to the last successful integration on that branch, or the current SHA parent when no baseline exists, then revalidate selected work |
-| Effective version metadata change on main | Automatic complete qualification, candidate installation tests, stable promotion and demo deployment |
+| Protected GitLab main push | Compare to the last successful integration, revalidate selected work, and build the three private test images. Publish immutable `main-<SHA>` tags plus the moving private `main` alias when the tested SHA is still current main |
+| Protected GitLab dev push | Compare to the last successful integration on dev, or the current SHA parent when no baseline exists, then revalidate selected work |
+| Effective version metadata change on main | Automatic complete qualification and release preflight; no public release mutation |
 | Web pipeline on main, `CI_MODE=qualify` | Complete qualification of the pipeline's exact main SHA, including docs-only revisions, plus the release preflight |
 | Web pipeline on main, `CI_MODE=prepare-release` | Explicit launch of the same complete candidate-before-promotion workflow |
-| Web pipeline on main, `CI_MODE=resume-release` | Resume an interrupted prepared release from retained immutable distribution evidence; requires `RELEASE_RECOVERY_VERSION=X.Y.Z` and the original child `RELEASE_RECOVERY_PIPELINE_ID` with successful schema-2 `release-ready` evidence |
+| Web pipeline on main, `CI_MODE=resume-release` | Promote or resume retained immutable distribution evidence without rebuilding; requires `RELEASE_RECOVERY_VERSION=X.Y.Z` and the original child `RELEASE_RECOVERY_PIPELINE_ID` with successful schema-2 `release-ready` evidence |
 | Protected stable `vX.Y.Z` push | Verify that the tag belongs to an already-published matching GitHub/GitLab release; no build or distribution |
 | Schedule on main, `CI_MODE=regression` | All autonomous checks and Ceph, without producing official images |
 | Schedule on main, `CI_MODE=security` | Dependency/secret checks and both architectures of the latest qualified public images |
@@ -32,16 +33,25 @@ integration and changes to CI select all relevant checks conservatively.
 | Web pipeline on main, `CI_MODE=recover-release` | Recover GitLab metadata for an existing public release only |
 | Web pipeline on main, `CI_MODE=bootstrap-release-bundles` | Create the immutable OCI bundle package from an already-published stable tag; requires `BUNDLE_BOOTSTRAP_VERSION=X.Y.Z` |
 
-Publication authorization compares version fields across the actual push
+Release preparation compares version fields across the actual push
 (`CI_COMMIT_BEFORE_SHA`), checks consistency/changelog and requires numeric
-progression. An unavailable comparison selects full qualification without
-publication. Lockfile dependency changes alone never authorize a release. Cancellation or failure does not advance the integration
+progression. That push qualifies the prepared version but does not authorize
+publication; stable mutation requires a protected manual mode.
+An unavailable comparison still selects full qualification. Lockfile dependency changes alone never authorize a release. Cancellation or failure does not advance the integration
 baseline: the next integration compares against the previous completed successful
 parent and child pipeline with verifiable `integration.json`. A docs deployment,
 maintenance run or release tag verification cannot become that baseline. The read API failing
 is an error. Integration and manual qualification always carry an explicit baseline;
 when no successful baseline exists yet, they use the current commit's parent.
 Only the scheduled `secrets-history` profile enables the detector's full-history mode.
+
+Every protected push to `main` also starts the private test-image path. Backend,
+frontend and scheduler images are built directly from that SHA and published in
+the GitLab Container Registry as immutable `main-<full SHA>` tags. The mutable
+`main` alias is updated only if the same SHA is still the head of `main`, so an
+older pipeline cannot move the alias backwards. This path depends only on the
+image builds and does not wait for the longer qualification, browser, Ceph or
+security suites. GHCR remains the public stable-release registry.
 
 Backend application, migration and dependency changes select pytest, the Admin
 sensitive-route security contract, PostgreSQL/migrations and Vulture. Ordinary
@@ -193,11 +203,11 @@ does not apply them remotely:
    closed until the read token and required lab configuration are present.
 5. Keep explicit, fast-forward synchronization of main/dev between GitHub and
    GitLab. Preserve commit SHAs; never recreate commits or move published tags.
-   Push the same version-bump commit to GitHub first, then GitLab. The push
-   automatically runs qualification, candidate distribution and installation
-   checks before the finalizer creates any stable registry/Git reference.
-   `prepare-release` explicitly launches the same workflow; `qualify` never
-   publishes. The former manual tagging helper is exceptional-only.
+   Push the same version-bump commit to GitHub first, then GitLab. The push runs
+   qualification and release preflight only; it never mutates public release
+   state. A protected manual `prepare-release` pipeline performs technical
+   candidate distribution, installation checks and final stable publication.
+   `qualify` never publishes. The former manual tagging helper is exceptional-only.
 6. Keep qualification and distribution manifests, reports, bundles and referenced
    image digests indefinitely (`expire_in: never` on evidence jobs). Exclude their
    registry tags/manifests from cleanup. Back up GitLab artifacts and registry;

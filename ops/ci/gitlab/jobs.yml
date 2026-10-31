@@ -46,6 +46,16 @@ compose-contract:
   - apk add --no-cache skopeo git
   script:
   - python3 ops/ci/promote_dev.py
+promote-main:
+  stage: promote
+  image: python:3.12-alpine
+  environment:
+    name: ci-main-images
+    action: prepare
+  before_script:
+  - apk add --no-cache skopeo git
+  script:
+  - python3 ops/ci/promote_main.py
 release-tag-metadata:
   stage: test
   image: python:3.12-slim

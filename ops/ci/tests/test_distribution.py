@@ -38,14 +38,14 @@ def qualified():
     return record
 
 
-def prepared(monkeypatch, tmp_path):
+def prepared(monkeypatch, tmp_path, *, profile='prepare-release'):
     monkeypatch.chdir(tmp_path)
     for name, value in {'RELEASE_VERSION':'1.2.3', 'CI_COMMIT_SHA':SHA, 'CI_PIPELINE_ID':'20', 'CI_JOB_ID':'999',
                         'GITHUB_RELEASE_TOKEN':'fixture', 'CI_API_V4_URL':'fixture', 'CI_PROJECT_ID':'1', 'CI_JOB_TOKEN':'fixture'}.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv('RELEASE_SOURCE_SHA', raising=False)
     record = qualified()
-    plan = {**select('prepare-release', []), 'sha':SHA, 'parent_id':19}
+    plan = {**select(profile, []), 'sha':SHA, 'parent_id':19}
     jobs = [{'id':i, 'name':name, 'status':'success', 'commit':{'id':SHA}}
             for i,name in enumerate(sorted(set(expected_names([*plan['jobs'], *dist.REQUIRED]))), 1)]
     ids = {job['name']:job['id'] for job in jobs}

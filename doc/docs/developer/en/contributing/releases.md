@@ -1,11 +1,13 @@
 # Release distribution
 
-A version increase pushed to protected `main` automatically runs one parent/child
-pipeline through qualification, candidate distribution, installation tests,
-stable promotion, public verification and demo deployment. Stable registry tags,
-Git tags, releases and aliases are created only after **all** installation tests
-pass. Images are built once; promotion preserves their exact digests and the
-exact tested archive bytes. GitHub Actions validates PRs without release secrets.
+A version increase pushed to protected `main` automatically runs full
+qualification, but publication is explicit. A protected manual pipeline can
+finalize the stable release. Development testing uses the private GitLab
+Container Registry images produced from `main`.
+Stable registry tags, Git tags, releases and aliases are created only after
+**all** installation tests pass. Images are built once per qualified candidate;
+promotion preserves their exact digests and the exact tested archive bytes.
+GitHub Actions validates PRs without release secrets.
 See [CI/CD](ci-cd.md) for selection, tool locks and required external settings.
 
 ## Prerequisites
@@ -39,19 +41,48 @@ See [CI/CD](ci-cd.md) for selection, tool locks and required external settings.
    `appVersion`; the bundle packager stamps its exact version into `.env.example`.
 2. Push the identical commit to GitHub **first**, then GitLab `main`. The GitLab
    push compares version fields against `CI_COMMIT_BEFORE_SHA`, checks metadata,
-   changelog and numeric progression, and selects `prepare-release` automatically.
-   Dependency-only changes, PRs and `dev` never publish. If the push comparison is
-   unavailable, CI selects full qualification without authorizing publication.
-3. Follow the parent pipeline to its terminal result. It waits for qualification,
+   changelog and numeric progression, and runs full qualification. It does not
+   publish a stable release. Dependency-only changes, PRs and `dev` never publish.
+   If the push comparison is unavailable, CI still selects full qualification
+   without authorizing publication.
+3. To publish the stable release directly, start a protected `main` manual pipeline
+   from the GitLab UI or API with `CI_MODE=prepare-release`. For example:
+   `glab ci run -b main --variables CI_MODE:prepare-release`. The workflow runs
    candidate distribution, AMD64/ARM64 QuickStart and Compose/scheduler tests,
    packaged-chart Kind installation/upgrade, stable promotion and demo deployment.
    Do not create the stable tag manually.
-4. For explicit preparation after a CI fix, use a protected main manual pipeline
-   from the GitLab UI or API with `CI_MODE=prepare-release`. This includes
-   `glab ci run -b main --variables CI_MODE:prepare-release`. It runs the **same
-   complete workflow**, reusing only already-built immutable images at that exact
-   SHA. `CI_MODE=qualify` performs full qualification and preflight, without
-   publishing candidates or a release.
+4. `CI_MODE=qualify` performs full qualification and preflight without publishing
+   a stable release.
+
+## Test the current main build
+
+Each protected push to `main` publishes private images to the GitLab Container
+Registry. Use the moving `main` alias to follow the latest completed image build,
+or `main-<full SHA>` to pin a specific revision. Configure Compose with the three
+private repositories from `CI_REGISTRY_IMAGE`:
+
+```bash
+export BUCKETREEF_BACKEND_IMAGE="$CI_REGISTRY_IMAGE/backend"
+export BUCKETREEF_FRONTEND_IMAGE="$CI_REGISTRY_IMAGE/frontend"
+export BUCKETREEF_SCHEDULER_IMAGE="$CI_REGISTRY_IMAGE/scheduler"
+export BUCKETREEF_TAG=main
+docker compose -f deploy/bundle/compose.yaml pull
+docker compose -f deploy/bundle/compose.yaml up -d
+```
+
+For a reproducible test, replace `main` with the exact immutable tag:
+
+```bash
+BUCKETREEF_TAG=main-<full-SHA> docker compose -f deploy/bundle/compose.yaml up -d
+```
+
+The `main` image path is intentionally fast and does not wait for the complete
+qualification suites. Use `CI_MODE=qualify` when full release-grade validation is
+needed. Supported user-facing GHCR tags remain stable release tags. A
+`prepare-release` pipeline may additionally create opaque `candidate-<SHA>-<pipeline>`
+tags solely as immutable inputs to release qualification; they are not an RC
+channel and are never advertised as installable versions. QuickStart remains a
+stable-release installer and accepts only `X.Y.Z` bundle versions.
 
 `ops/release/tag.py` is retained only as an exceptional manual helper. Do not use
 it for normal publication: a manually created stable tag is verification-only in
