@@ -27,6 +27,7 @@ import DataTableShell, {
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { extractApiError } from "../../utils/apiError";
+import { clampPercentage } from "../../utils/numbers";
 import {
   EndpointTimelineBar,
   formatCheckMode,
@@ -371,8 +372,8 @@ export default function EndpointStatusPage() {
                 const currentAboveAverage = isLatencyMeaningfullyAboveAverage(currentLatency, avgLatency);
                 const relativePct = currentLatency == null ? null : Math.round((currentLatency / maxOverviewLatency) * 100);
                 const relativeWidth = relativePct == null ? 0 : Math.max(8, Math.min(100, relativePct));
-                const minMarkerPct = minLatency == null ? null : Math.max(0, Math.min(100, (minLatency / maxOverviewLatency) * 100));
-                const maxMarkerPct = maxLatency == null ? null : Math.max(0, Math.min(100, (maxLatency / maxOverviewLatency) * 100));
+                const minMarkerPct = minLatency == null ? null : clampPercentage((minLatency / maxOverviewLatency) * 100);
+                const maxMarkerPct = maxLatency == null ? null : clampPercentage((maxLatency / maxOverviewLatency) * 100);
                 const relativeLabel = relativePct == null ? text("noLatencySample") : text("relativeLatency", { percent: relativePct });
 
                 return (

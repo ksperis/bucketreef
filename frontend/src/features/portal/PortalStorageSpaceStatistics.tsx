@@ -17,6 +17,7 @@ import PageBanner from "../../components/PageBanner";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
+import { clampedPercentageOf } from "../../utils/numbers";
 import { BucketUsageStatsCompositionVisuals } from "../shared/BucketUsageStatsVisuals";
 import {
   portalActivitySourceTitle,
@@ -116,10 +117,7 @@ export default function PortalStorageSpaceStatistics({
     };
   }, [accountIdForApi, bucketName, canBrowse, t, trafficWindow]);
 
-  const quotaPercent =
-    space.quotaBytes != null && space.quotaBytes > 0 && space.usedBytes != null
-      ? Math.min(100, (space.usedBytes / space.quotaBytes) * 100)
-      : null;
+  const quotaPercent = clampedPercentageOf(space.usedBytes, space.quotaBytes);
   const remainingBytes =
     space.quotaBytes != null && space.usedBytes != null
       ? Math.max(0, space.quotaBytes - space.usedBytes)

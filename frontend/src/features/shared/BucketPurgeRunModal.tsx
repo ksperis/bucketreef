@@ -23,6 +23,7 @@ import UiInput from "../../components/ui/UiInput";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { formatCompactNumber, formatNumber } from "../../utils/format";
+import { clampPercentage } from "../../utils/numbers";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat } from "./bucketOperationRunUi";
 import {
   buildCephAdminRgwBucketTargets,
@@ -160,11 +161,11 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
     const totalEntries = progressTotalEntries(progress);
     const deletedTotal = progressDeletedEntries(progress);
     if (totalEntries !== null && totalEntries > 0) {
-      const rawPercent = Math.max(0, Math.min(100, Math.round((deletedTotal / totalEntries) * 100)));
+      const rawPercent = clampPercentage(Math.round((deletedTotal / totalEntries) * 100));
       return progress.total_entries_final ? rawPercent : Math.min(rawPercent, 96);
     }
     if (progress.total_buckets > 0) {
-      const rawPercent = Math.max(0, Math.min(100, Math.round((progress.completed_buckets / progress.total_buckets) * 100)));
+      const rawPercent = clampPercentage(Math.round((progress.completed_buckets / progress.total_buckets) * 100));
       return progress.total_entries_final ? rawPercent : Math.min(rawPercent, 96);
     }
     return null;

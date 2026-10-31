@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { clampPercentage } from "../../utils/numbers";
 import { cx } from "./styles";
 
 type UiMeterBarProps = {
@@ -19,7 +20,7 @@ export default function UiMeterBar({
   className,
   barClassName = "bg-primary",
 }: UiMeterBarProps) {
-  const width = Math.max(0, Math.min(100, value ?? 0));
+  const width = clampPercentage(value ?? 0);
   return (
     <>
       {showLabel ? <span className="sr-only">{label}</span> : null}

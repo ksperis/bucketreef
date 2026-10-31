@@ -11,6 +11,7 @@ import {
 } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
 import { formatBytes } from "../../utils/format";
+import { clampPercentage } from "../../utils/numbers";
 
 type PortalQuotaChangePreviewProps = {
   usedBytes: number | null;
@@ -21,10 +22,6 @@ type PortalQuotaChangePreviewProps = {
   directionMismatch: boolean;
   direction: PortalQuotaDirection;
 };
-
-function clampPercent(value: number): number {
-  return Math.max(0, Math.min(100, value));
-}
 
 export default function PortalQuotaChangePreview({
   usedBytes,
@@ -42,15 +39,15 @@ export default function PortalQuotaChangePreview({
     targetQuotaBytes ?? 0,
     1,
   );
-  const usedPct = clampPercent(((usedBytes ?? 0) / maxBytes) * 100);
+  const usedPct = clampPercentage(((usedBytes ?? 0) / maxBytes) * 100);
   const currentPct =
     currentQuotaBytes == null
       ? null
-      : clampPercent((currentQuotaBytes / maxBytes) * 100);
+      : clampPercentage((currentQuotaBytes / maxBytes) * 100);
   const targetPct =
     targetQuotaBytes == null
       ? null
-      : clampPercent((targetQuotaBytes / maxBytes) * 100);
+      : clampPercentage((targetQuotaBytes / maxBytes) * 100);
   const targetTone =
     belowUsed || directionMismatch
       ? "bg-[var(--ui-danger)]"

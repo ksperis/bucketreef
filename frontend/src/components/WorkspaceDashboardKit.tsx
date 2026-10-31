@@ -8,6 +8,7 @@ import type { HealthCheckStatus } from "../api/healthchecks";
 import type { ManagerUsageTrendBaseline } from "../api/stats";
 import type { DemoStorageTrendBaseline } from "../demo/readModels";
 import { formatBytes } from "../utils/format";
+import { clampPercentage } from "../utils/numbers";
 import UiBadge from "./ui/UiBadge";
 import UiButton, { UiButtonLink } from "./ui/UiButton";
 import "./compactDashboard.css";
@@ -232,7 +233,7 @@ export function WorkspaceDashboardProgressBar({
   ariaLabel?: string;
 }) {
   const { text } = useWorkspaceDashboardI18n();
-  const boundedValue = Math.max(0, Math.min(100, value ?? 0));
+  const boundedValue = clampPercentage(value ?? 0);
   return (
     <UiMeterBar
       value={boundedValue}

@@ -16,6 +16,7 @@ import {
   triggerBlobDownload,
   triggerUrlDownload,
 } from "../../utils/download";
+import { clampPercentage } from "../../utils/numbers";
 import { createRuntimeId } from "../../utils/runtimeId";
 import {
   buildBrowserFolderDownloadPlan,
@@ -565,7 +566,7 @@ export function useBrowserDownloads({
             ? downloadedBytes / totalBytes
             : completed / targets.length;
         updateOperation(operationId, {
-          progress: Math.min(100, Math.round(base * 100)),
+          progress: clampPercentage(Math.round(base * 100)),
         });
       };
       try {

@@ -7,6 +7,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { shouldUsePostBucketListing } from "../../api/bucketListingTransport";
 import { isCancelledError } from "../../utils/apiError";
+import { clampPercentage } from "../../utils/numbers";
 import type {
   CephAdminBucket,
   CephAdminBucketsStreamProgress,
@@ -184,7 +185,7 @@ export function useBucketOpsListing({
             onProgress: (event: CephAdminBucketsStreamProgress) => {
               if (requestId !== requestSeqRef.current || requestAbort.signal.aborted) return;
               const rawPercent = Number(event.percent);
-              const percent = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
+              const percent = Number.isFinite(rawPercent) ? clampPercentage(Math.round(rawPercent)) : 0;
               const rawProcessed = Number(event.processed);
               const rawTotal = Number(event.total);
               const total = Number.isFinite(rawTotal) ? Math.max(0, Math.round(rawTotal)) : 0;
