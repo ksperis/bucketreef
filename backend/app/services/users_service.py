@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Optional
 
-from sqlalchemy import and_, delete, func, or_, select, update
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql import Select
 
@@ -16,15 +16,9 @@ from app.core.security import (
 )
 from app.db import (
     AccountIAMUser,
-    ApiToken,
-    AuditLog,
-    BucketMigration,
-    AuthSession,
-    RefreshToken,
     S3Account,
     S3Connection,
     S3User,
-    TagDefinition,
     UiGroup,
     User,
     UserRole,
@@ -48,7 +42,6 @@ from app.models.user import (
 )
 from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
-from app.services.portal_ownership import require_no_private_storage_space_ownership
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
     sync_portal_role_downgrades,
@@ -56,12 +49,12 @@ from app.services.portal_role_sync import (
 )
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_avatar_service import UserAvatarService
+from app.services.user_deletion_service import UserDeletionService
 from app.services.user_output_service import UserOutputService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
-from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +70,7 @@ MANAGER_ROLE_SCOPED_FIELDS = (
 class UsersService:
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.deletion = UserDeletionService(db)
 
     def get_by_email(self, email: str) -> Optional[User]:
         return self.db.scalar(select(User).where(User.email == email).limit(1))
@@ -362,154 +356,8 @@ class UsersService:
         logger.debug("Updated profile for user id=%s", user.id)
         return user
 
-    def _created_private_connection_ids_for_deletion(self, user_id: int) -> list[int]:
-        created_connection_rows = self.db.execute(
-            select(S3Connection.id, S3Connection.is_shared).where(
-                S3Connection.created_by_user_id == user_id
-            )
-        ).all()
-        created_shared_ids = sorted([row[0] for row in created_connection_rows if bool(row[1])])
-        if created_shared_ids:
-            created_shared_str = ", ".join(str(conn_id) for conn_id in created_shared_ids)
-            raise ValueError(
-                f"Cannot delete user with shared S3 connections created by this user: {created_shared_str}"
-            )
-        return [
-            row[0]
-            for row in created_connection_rows
-            if not bool(row[1])
-        ]
-
-    def _sync_portal_access_before_user_deletion(self, user: User) -> None:
-        from app.services.portal_service import PortalService
-
-        portal_service = PortalService(self.db)
-        portal_accounts = self.db.scalars(
-            select(S3Account)
-            .join(AccountIAMUser, AccountIAMUser.account_id == S3Account.id)
-            .where(AccountIAMUser.user_id == user.id)
-        ).unique().all()
-        for account in portal_accounts:
-            portal_service.sync_existing_portal_user_access(
-                user,
-                account,
-                None,
-            )
-
-    def _delete_user_links_and_private_connections(
-        self,
-        user_id: int,
-        created_private_ids: list[int],
-    ) -> None:
-        # Remove dependent links/tokens first to satisfy FK constraints on PostgreSQL.
-        self.db.execute(
-            delete(AccountIAMUser)
-            .where(AccountIAMUser.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UserS3Account)
-            .where(UserS3Account.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UserS3User)
-            .where(UserS3User.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UserS3Connection)
-            .where(UserS3Connection.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UserUiGroup)
-            .where(UserUiGroup.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        if created_private_ids:
-            self.db.execute(
-                delete(UserS3Connection)
-                .where(UserS3Connection.s3_connection_id.in_(created_private_ids))
-                .execution_options(synchronize_session=False)
-            )
-            self.db.execute(
-                delete(S3Connection)
-                .where(S3Connection.id.in_(created_private_ids))
-                .execution_options(synchronize_session=False)
-            )
-
-    def _delete_user_auth_artifacts(self, user_id: int) -> None:
-        self.db.execute(
-            delete(ApiToken)
-            .where(ApiToken.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        auth_session_ids = list(
-            self.db.scalars(
-                select(AuthSession.id).where(AuthSession.user_id == user_id)
-            ).all()
-        )
-        if auth_session_ids:
-            self.db.execute(
-                delete(RefreshToken)
-                .where(RefreshToken.auth_session_id.in_(auth_session_ids))
-                .execution_options(synchronize_session=False)
-            )
-            self.db.execute(
-                delete(AuthSession)
-                .where(AuthSession.id.in_(auth_session_ids))
-                .execution_options(synchronize_session=False)
-            )
-
-    def _anonymize_user_history(self, user_id: int) -> None:
-        self.db.execute(
-            update(AuditLog)
-            .where(AuditLog.user_id == user_id)
-            .values(user_id=None)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            update(BucketMigration)
-            .where(BucketMigration.created_by_user_id == user_id)
-            .values(created_by_user_id=None)
-            .execution_options(synchronize_session=False)
-        )
-
-    def _cleanup_owned_tag_definitions(self, user_id: int) -> None:
-        # Private bucket UI tags must disappear with their owner. Turning them
-        # into global definitions would silently make private metadata shared.
-        self.db.execute(
-            delete(TagDefinition)
-            .where(
-                TagDefinition.owner_user_id == user_id,
-                TagDefinition.domain_kind.in_(
-                    [TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS]
-                ),
-            )
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            update(TagDefinition)
-            .where(TagDefinition.owner_user_id == user_id)
-            .values(owner_user_id=None)
-            .execution_options(synchronize_session=False)
-        )
-
     def delete_user(self, user_id: int) -> None:
-        user = self.db.get(User, user_id)
-        if not user:
-            raise UiUserNotFoundError("User not found")
-        require_no_private_storage_space_ownership(self.db, user_id=user.id)
-        created_private_ids = self._created_private_connection_ids_for_deletion(user.id)
-        self._sync_portal_access_before_user_deletion(user)
-        self._delete_user_links_and_private_connections(user.id, created_private_ids)
-        self._delete_user_auth_artifacts(user.id)
-        self._anonymize_user_history(user.id)
-        self._cleanup_owned_tag_definitions(user.id)
-        self.db.delete(user)
-        self.db.commit()
-        logger.debug("Deleted user id=%s email=%s", user.id, user.email)
+        self.deletion.delete_user(user_id)
 
     def list_users(self) -> list[User]:
         return list(self.db.scalars(select(User)).all())
