@@ -8,7 +8,6 @@ from app.services.feature_policy_service import (
     validate_project_overrides,
 )
 from app.services.app_settings_service import load_app_settings_for_db_readonly
-import logging
 from typing import Any, Optional
 
 from sqlalchemy import exists, func, or_, select
@@ -33,7 +32,6 @@ from app.models.s3_account import (
     S3AccountSummary,
     S3AccountUpdate,
 )
-from app.services.app_settings_service import load_app_settings_for_db
 from app.services.mappers.s3_account import s3_account_from_db, s3_account_summary_from_db
 from app.services.portal_role_sync import (
     PortalRoleMap,
@@ -41,13 +39,14 @@ from app.services.portal_role_sync import (
     sync_portal_role_downgrades,
     sync_portal_role_promotions,
 )
-from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.s3_account_deletion_service import S3AccountDeletionService
 from app.services.s3_account_import_service import S3AccountImportService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
+from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_account_quota_service import S3AccountQuotaService
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
@@ -55,13 +54,8 @@ from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.utils.storage_endpoint_features import resolve_feature_flags
-from app.utils.rgw_identifiers import generate_rgw_account_id
-from app.utils.rgw_payloads import extract_rgw_account_ids, extract_rgw_account_tenant
 from app.utils.sql_search import text_search_predicate
 from app.utils.name_ordering import name_order_by
-
-
-logger = logging.getLogger(__name__)
 
 
 class S3AccountsService:
@@ -81,6 +75,15 @@ class S3AccountsService:
             repository=self.repository,
             rgw_context=self.rgw_context,
             account_roots=self.account_roots,
+        )
+        self.provisioning = S3AccountProvisioningService(
+            db,
+            repository=self.repository,
+            rgw_context=self.rgw_context,
+            account_roots=self.account_roots,
+            quota=self.quota,
+            metrics=self.metrics,
+            tags=self.tags,
         )
         self.deletion = S3AccountDeletionService(
             db,
@@ -111,24 +114,6 @@ class S3AccountsService:
         account: S3Account,
     ) -> tuple[Optional[float], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int]]:
         return self.metrics.get_limits(account)
-
-    @staticmethod
-    def _ensure_account_creation_succeeded(result: Any, expected_id: str) -> None:
-        if isinstance(result, dict) and result.get("conflict"):
-            raise ValueError(
-                "RGW account creation failed: another account already uses "
-                "this name or email."
-            )
-        if not isinstance(result, dict):
-            raise ValueError("RGW did not confirm the created account identity")
-        account_payload = result.get("account")
-        returned_ids = extract_rgw_account_ids(result, account_payload)
-        if returned_ids != {expected_id}:
-            raise ValueError("RGW did not confirm the requested account identity")
-
-    def _generate_account_id(self) -> str:
-        prefix = load_app_settings_for_db(self.db).general.rgw_account_id_prefix
-        return generate_rgw_account_id(prefix)
 
     def list_accounts(
         self,
@@ -368,167 +353,18 @@ class S3AccountsService:
     def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
         return self.importer.import_accounts(imports)
 
-    def _persist_provisioned_account(
-        self,
-        payload: S3AccountCreate,
-        endpoint: StorageEndpoint,
-        *,
-        rgw_account_id: str,
-        root_uid: str,
-        access_key: str,
-        secret_key: str,
-    ) -> S3Account:
-        account = S3Account(
-            name=payload.name,
-            rgw_account_id=rgw_account_id,
-            rgw_tenant=payload.rgw_tenant,
-            rgw_access_key=access_key,
-            rgw_secret_key=secret_key,
-            rgw_user_uid=root_uid,
-            email=payload.email,
-            storage_endpoint_id=endpoint.id,
-        )
-        self.db.add(account)
-        self.db.flush()
-        self.tags.replace_account_tags(account, payload.tags)
-        if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
-            self.quota.update(
-                account,
-                payload.quota_max_size_gb,
-                payload.quota_max_objects,
-                payload.quota_max_size_unit,
-            )
-        return account
-
-    def _validate_managed_account_creation_policy(self, payload: S3AccountCreate) -> None:
-        app_settings = load_app_settings_for_db_readonly(self.db)
-        validate_manager_overrides(payload, app_settings.manager.feature_policies)
-        if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
-            raise ValueError("Managed RGW tenant creation is disabled")
-
-    def _prepare_managed_account_creation(
-        self,
-        payload: S3AccountCreate,
-    ) -> tuple[StorageEndpoint, RGWAdminClient]:
-        self.repository.ensure_name_available(
-            storage_endpoint_id=payload.storage_endpoint_id,
-            rgw_tenant=payload.rgw_tenant,
-            name=payload.name,
-        )
-        endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
-        if not self.rgw_context.endpoint_capabilities(endpoint).get("account", False):
-            raise ValueError("Selected endpoint does not support RGW account API (/admin/account).")
-        admin = self.rgw_context.admin_for_endpoint(endpoint, allow_missing=False)
-        if admin is None:
-            raise ValueError("RGW administrative credentials are required")
-        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
-
-        require_endpoint_permissions(endpoint, "users_write", "accounts_write", client=admin)
-        return endpoint, admin
-
-    def _create_remote_account(
-        self,
-        admin: RGWAdminClient,
-        payload: S3AccountCreate,
-        rgw_account_id: str,
-    ) -> None:
-        try:
-            create_result = admin.create_account(
-                account_id=rgw_account_id,
-                account_name=payload.name,
-                tenant=payload.rgw_tenant or None,
-            )
-        except RGWAdminError as exc:
-            raise ValueError(f"RGW account creation failed: {exc}") from exc
-        self._ensure_account_creation_succeeded(create_result, rgw_account_id)
-        logger.debug("Created RGW account %s (%s)", rgw_account_id, payload.name)
-
     def ensure_provisioned_account(self, payload: S3AccountCreate, rgw_account_id: str) -> S3AccountSchema:
-        """Resume a minimal account provisioning operation with a durable RGW ID.
-
-        The orchestrator owns the ID and records it before any remote mutation.
-        Account and root creation stay on the same RGW client/session. A retry
-        reconciles whichever remote resources were already created.
-        """
-        self._validate_managed_account_creation_policy(payload)
-        existing = self.db.scalar(
-            select(S3Account).where(S3Account.rgw_account_id == rgw_account_id)
-        )
-        if existing:
-            if (
-                existing.storage_endpoint_id != payload.storage_endpoint_id
-                or existing.name != payload.name
-                or existing.rgw_tenant != payload.rgw_tenant
-            ):
-                raise ValueError("Provisioned account scope changed")
-            return self.get_account_detail(existing.id, include_usage=False)
-        endpoint, admin = self._prepare_managed_account_creation(payload)
-        remote = admin.get_account(rgw_account_id, allow_not_found=True)
-        resume = bool(remote and not remote.get("not_found"))
-        if not remote or remote.get("not_found"):
-            self._create_remote_account(admin, payload, rgw_account_id)
-        else:
-            nested_account = remote.get("account")
-            remote_ids = extract_rgw_account_ids(remote, nested_account)
-            remote_name = None
-            for record in (nested_account, remote):
-                if isinstance(record, dict) and record.get("name") is not None:
-                    remote_name = record.get("name")
-                    break
-            if (
-                remote_name != payload.name
-                or remote_ids != {rgw_account_id}
-                or extract_rgw_account_tenant(remote) != payload.rgw_tenant
-            ):
-                raise ValueError("Provisioned RGW account does not match the requested identity")
-        root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
-            admin,
-            rgw_account_id=rgw_account_id,
-            account_name=payload.name,
-            resume=resume,
-            tenant=payload.rgw_tenant,
-        )
-        account = self._persist_provisioned_account(
-            payload,
-            endpoint,
-            rgw_account_id=rgw_account_id,
-            root_uid=root_uid,
-            access_key=access_key,
-            secret_key=secret_key,
-        )
-        self.db.commit()
-        self.db.refresh(account)
+        account = self.provisioning.ensure_provisioned_account(payload, rgw_account_id)
         return self.get_account_detail(account.id, include_usage=False)
 
     def create_account_with_manager(self, payload: S3AccountCreate) -> S3AccountSchema:
-        self._validate_managed_account_creation_policy(payload)
-        endpoint, admin = self._prepare_managed_account_creation(payload)
-        rgw_account_id = self._generate_account_id()
-        self._create_remote_account(admin, payload, rgw_account_id)
-
-        root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
-            admin,
-            rgw_account_id=rgw_account_id,
-            account_name=payload.name,
-            resume=False,
-            tenant=payload.rgw_tenant,
-        )
-        account = self._persist_provisioned_account(
-            payload,
-            endpoint,
-            rgw_account_id=rgw_account_id,
-            root_uid=root_uid,
-            access_key=access_key,
-            secret_key=secret_key,
-        )
-        quota_max_size_gb, quota_max_objects = self.get_account_quota(account, admin)
-
-        self.db.commit()
-        self.db.refresh(account)
+        provisioned = self.provisioning.create_account_with_manager(payload)
+        account = provisioned.account
+        endpoint = provisioned.endpoint
         return s3_account_from_db(
             account,
-            quota_max_size_gb=quota_max_size_gb,
-            quota_max_objects=quota_max_objects,
+            quota_max_size_gb=provisioned.quota_max_size_gb,
+            quota_max_objects=provisioned.quota_max_objects,
             user_links=[],
             group_links=[],
             storage_endpoint=endpoint,

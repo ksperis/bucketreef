@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 
 from app.core.domain_errors import S3AccountNotFoundError
 from app.services.rgw_account_root_service import RgwAccountRootService
+from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_accounts_service import S3AccountsService
 from app.db import (
     CostStorageDaily,
@@ -93,7 +94,10 @@ def test_get_account_detail_uses_typed_not_found_error(db_session):
 ])
 def test_account_provisioning_rejects_conflicts_and_unverified_id(result):
     with pytest.raises(ValueError, match="RGW account creation failed|RGW did not confirm"):
-        S3AccountsService._ensure_account_creation_succeeded(result, "RGW-EXPECTED")
+        S3AccountProvisioningService._ensure_account_creation_succeeded(
+            result,
+            "RGW-EXPECTED",
+        )
 
 
 def test_import_root_lookup_rejects_conflicting_nested_account_id():
@@ -368,7 +372,7 @@ def test_create_managed_account_provisions_root_in_same_tenant_when_enabled(db_s
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        "app.services.s3_account_provisioning_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
 
@@ -396,11 +400,11 @@ def test_create_account_allows_same_name_in_different_tenants(db_session, monkey
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        "app.services.s3_account_provisioning_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
     account_ids = iter(["RGW10000000000000001", "RGW10000000000000002"])
-    monkeypatch.setattr(svc, "_generate_account_id", lambda: next(account_ids))
+    monkeypatch.setattr(svc.provisioning, "_generate_account_id", lambda: next(account_ids))
 
     first = svc.create_account_with_manager(
         S3AccountCreate(
@@ -432,10 +436,14 @@ def test_create_account_rejects_same_name_in_same_endpoint_and_tenant(db_session
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        "app.services.s3_account_provisioning_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
-    monkeypatch.setattr(svc, "_generate_account_id", lambda: "RGW10000000000000003")
+    monkeypatch.setattr(
+        svc.provisioning,
+        "_generate_account_id",
+        lambda: "RGW10000000000000003",
+    )
     svc.create_account_with_manager(
         S3AccountCreate(
             name="Scoped duplicate",
@@ -472,7 +480,7 @@ def test_create_account_allows_same_name_on_different_endpoints(db_session, monk
     fake_admin = FakeRGWAdmin()
     svc = _build_service(db_session, monkeypatch, fake_admin)
     account_ids = iter(["RGW10000000000000004", "RGW10000000000000005"])
-    monkeypatch.setattr(svc, "_generate_account_id", lambda: next(account_ids))
+    monkeypatch.setattr(svc.provisioning, "_generate_account_id", lambda: next(account_ids))
 
     first = svc.create_account_with_manager(
         S3AccountCreate(name="Shared endpoint name", storage_endpoint_id=first_endpoint.id)
@@ -505,7 +513,7 @@ def test_create_account_uses_configured_rgw_account_id_prefix(db_session, monkey
     fake_admin = FakeRGWAdmin()
     svc = _build_service(db_session, monkeypatch, fake_admin)
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db",
+        "app.services.s3_account_provisioning_service.load_app_settings_for_db",
         lambda _db: SimpleNamespace(
             general=SimpleNamespace(rgw_account_id_prefix="123")
         ),
@@ -721,7 +729,7 @@ def test_ensure_provisioned_account_resumes_root_in_account_tenant(db_session, m
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        "app.services.s3_account_provisioning_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
 
