@@ -464,16 +464,16 @@ def test_delete_account_guardrails_and_success(db_session, monkeypatch):
     account = _seed_account(db_session, endpoint.id, name="delete-acc", rgw_account_id="RGW-DEL-1")
     service, admin = _service(db_session)
 
-    monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 1))
+    monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 1))
     monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
-    monkeypatch.setattr(service, "_delete_root_user", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service.deletion, "_delete_root_user", lambda *args, **kwargs: None)
 
     with pytest.raises(ValueError, match="still has attached resources"):
         service.delete_account(account.id, delete_rgw=True)
 
-    monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 0))
+    monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 0))
     service.delete_account(account.id, delete_rgw=True)
     assert admin.deleted_accounts == ["RGW-DEL-1"]
     assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
@@ -527,7 +527,7 @@ class _FakeAccountIAM:
 
 
 def _prepare_account_deletion_checks(service, admin, monkeypatch):
-    monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 0))
+    monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 0))
     monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
@@ -565,11 +565,11 @@ def test_delete_account_removes_empty_portal_groups_before_root_user(db_session,
         events.append(f"group:{group_name}")
 
     iam.delete_group = record_group_delete  # type: ignore[method-assign]
-    service.iam_cleanup = S3AccountIamCleanupService(
+    service.deletion.iam_cleanup = S3AccountIamCleanupService(
         db_session,
         iam_factory=lambda _account: iam,
     )
-    monkeypatch.setattr(service, "_delete_root_user", lambda _account: events.append("root"))
+    monkeypatch.setattr(service.deletion, "_delete_root_user", lambda _account, _admin: events.append("root"))
     monkeypatch.setattr(admin, "delete_account", lambda _account_id: events.append("account"))
     _prepare_account_deletion_checks(service, admin, monkeypatch)
 
@@ -610,14 +610,14 @@ def test_delete_account_uses_scoped_iam_when_account_user_list_is_missing(db_ses
     service, admin = _service(db_session)
     admin.account_payload = {"id": account.rgw_account_id, "tenant": ""}
     admin.list_user_ids = lambda: pytest.fail("endpoint-wide inventory must not be loaded")  # type: ignore[attr-defined]
-    monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 0))
+    monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 0))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
-    service.iam_cleanup = S3AccountIamCleanupService(
+    service.deletion.iam_cleanup = S3AccountIamCleanupService(
         db_session,
         iam_factory=lambda _account: _FakeAccountIAM(),
     )
-    monkeypatch.setattr(service, "_delete_root_user", lambda _account: None)
+    monkeypatch.setattr(service.deletion, "_delete_root_user", lambda _account, _admin: None)
 
     service.delete_account(account.id, delete_rgw=True)
 
@@ -666,7 +666,7 @@ def test_delete_account_preserves_root_when_iam_resources_remain(
     )
     service, admin = _service(db_session)
     _prepare_account_deletion_checks(service, admin, monkeypatch)
-    service.iam_cleanup = S3AccountIamCleanupService(
+    service.deletion.iam_cleanup = S3AccountIamCleanupService(
         db_session,
         iam_factory=lambda _account: iam,
     )
@@ -686,8 +686,7 @@ def test_delete_root_user_success_and_failure(db_session, monkeypatch):
     account = _seed_account(db_session, endpoint.id, name="delete-root", rgw_account_id="RGW-ROOT-1")
     account.rgw_tenant = ""
     admin.get_user = lambda uid, **kwargs: {"uid": uid, "account_id": account.rgw_account_id, "account_root": True}
-    monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
-    service._delete_root_user(account)
+    service.deletion._delete_root_user(account, admin)
     assert admin.deleted_users == [("rgw-root-1-admin", None)]
 
     def _failing_delete(uid: str, tenant: str | None = None):
@@ -695,7 +694,7 @@ def test_delete_root_user_success_and_failure(db_session, monkeypatch):
 
     admin.delete_user = _failing_delete  # type: ignore[method-assign]
     with pytest.raises(ValueError, match="Unable to delete RGW root user"):
-        service._delete_root_user(account)
+        service.deletion._delete_root_user(account, admin)
 
 
 def test_list_accounts_and_minimal_are_sorted_case_insensitive(db_session):

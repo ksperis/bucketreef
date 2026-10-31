@@ -12,12 +12,11 @@ from dataclasses import dataclass
 import logging
 from typing import Any, Optional
 
-from sqlalchemy import delete, exists, func, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFoundError
 from app.db import (
-    AccountIAMUser,
     S3Account,
     S3AccountTag,
     StorageEndpoint,
@@ -44,7 +43,6 @@ from app.services.portal_role_sync import (
     sync_portal_role_downgrades,
     sync_portal_role_promotions,
 )
-from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.rgw_account_root_service import RgwAccountRootService
@@ -54,12 +52,11 @@ from app.services.rgw_quota_update import (
     prepare_rgw_quota_update,
 )
 from app.services.s3_account_associations_service import S3AccountAssociationsService
-from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
+from app.services.s3_account_deletion_service import S3AccountDeletionService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
-from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
     normalize_features,
@@ -94,8 +91,14 @@ class S3AccountsService:
         self.account_roots = RgwAccountRootService()
         self.rgw_users = S3AccountRgwUsersService(self.account_roots)
         self.associations = S3AccountAssociationsService(db)
-        self.iam_cleanup = S3AccountIamCleanupService(db)
         self.metrics = S3AccountMetricsService()
+        self.deletion = S3AccountDeletionService(
+            db,
+            metrics=self.metrics,
+            rgw_users=self.rgw_users,
+            account_topics=self.account_topics,
+            account_roots=self.account_roots,
+        )
 
     def get_account_record(self, account_id: int) -> S3Account:
         account = self.db.scalar(
@@ -884,84 +887,17 @@ class S3AccountsService:
 
     def delete_account(self, account_id: int, delete_rgw: bool = False) -> None:
         account = self.get_account_record(account_id)
-        ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(str(account.id))
+        admin = None
+        endpoint = None
         if delete_rgw:
             admin = self._admin_for_account(account, allow_missing=False)
-            account_identifier = account.rgw_account_id
             endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
-            endpoint_capabilities = self._endpoint_capabilities(endpoint)
-
-            # Safety: only allow RGW deletion when we can prove the account is empty.
-            _, _, bucket_count = self.get_account_usage(account)
-            if bucket_count is None:
-                raise ValueError("Unable to verify bucket existence; cannot delete the RGW account.")
-            rgw_user_count, _ = self.rgw_users.resolve(
-                account_identifier,
-                None,
-                admin,
-                endpoint_capabilities=endpoint_capabilities,
-                root_uid=account.rgw_user_uid,
-            )
-            iam_can_verify_users = resolve_feature_flags(endpoint).iam_enabled
-            if rgw_user_count is None and not iam_can_verify_users:
-                raise ValueError("Unable to verify RGW users; cannot delete the RGW account.")
-            rgw_topic_count, _ = self.account_topics.resolve(
-                account_identifier,
-                admin,
-                account.storage_endpoint_id,
-            )
-            if rgw_topic_count is None:
-                raise ValueError("Unable to verify RGW notification topics; cannot delete the RGW account.")
-            if bucket_count > 0 or (rgw_user_count or 0) > 0 or rgw_topic_count > 0:
-                raise ValueError(
-                    "RGW account still has attached resources "
-                    f"(buckets={bucket_count}, users={rgw_user_count or 0}, topics={rgw_topic_count}); "
-                    "remove them first."
-                )
-
-            # On standard Ceph releases AccountInfo omits user_list. IAM
-            # ListUsers is scoped by the account root credentials and provides
-            # the missing non-root user proof without enumerating every RGW
-            # user on the endpoint.
-            self.iam_cleanup.prepare(account, endpoint)
-            self._delete_root_user(account)
-            try:
-                admin.delete_account(account_identifier)
-            except RGWAdminError as exc:
-                raise ValueError(f"Unable to delete RGW account {account_identifier}: {exc}") from exc
-        self._remove_account_entry(account)
-
-    def _delete_root_user(self, account: S3Account) -> None:
-        admin = self._admin_for_account(account, allow_missing=False)
-        self.account_roots.delete_root_user(
-            admin,
-            root_uid=account.rgw_user_uid,
-            account_id=account.rgw_account_id,
-            tenant=account.rgw_tenant,
-            local_account_id=account.id,
+        self.deletion.delete_account(
+            account,
+            delete_rgw=delete_rgw,
+            admin=admin,
+            endpoint=endpoint,
         )
-
-    def _remove_account_entry(self, account: S3Account) -> None:
-        self.db.execute(
-            delete(AccountIAMUser).where(AccountIAMUser.account_id == account.id)
-        )
-        self.db.execute(
-            delete(UserS3Account).where(UserS3Account.account_id == account.id)
-        )
-        self.db.execute(
-            delete(UiGroupS3Account)
-            .where(UiGroupS3Account.account_id == account.id)
-            .execution_options(synchronize_session=False)
-        )
-        purge = ResourceDeletionPurgeService(self.db)
-        purge.purge_account_derived_data(account.id)
-        purge.purge_execution_context_data(str(account.id))
-        self.db.delete(account)
-        self.db.flush()
-        self.tags.cleanup_orphan_definitions(
-            domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED]
-        )
-        self.db.commit()
 
 
 def get_s3_accounts_service(db: Session) -> S3AccountsService:
