@@ -69,7 +69,7 @@ def _seed_ceph_endpoint(
 
 def _build_service(db_session, monkeypatch, fake_admin) -> S3AccountsService:
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.get_endpoint_admin_rgw_client",
+        "app.services.s3_account_rgw_context_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_admin,
     )
     monkeypatch.setattr(
@@ -621,7 +621,7 @@ def test_ensure_provisioned_account_keeps_fresh_account_and_root_on_same_client(
         return fake_admin
 
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.get_endpoint_admin_rgw_client",
+        "app.services.s3_account_rgw_context_service.get_endpoint_admin_rgw_client",
         build_client,
     )
     svc = S3AccountsService(db_session)

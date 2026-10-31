@@ -130,12 +130,12 @@ def test_resolve_storage_endpoint_errors_and_success(db_session):
     ceph = _seed_endpoint(db_session, name="ceph-default", provider=StorageProvider.CEPH, is_default=True)
     other = _seed_endpoint(db_session, name="other-endpoint", provider=StorageProvider.OTHER, is_default=False)
 
-    assert service._resolve_storage_endpoint(ceph.id, require_ceph=True).id == ceph.id
+    assert service.rgw_context.resolve_storage_endpoint(ceph.id, require_ceph=True).id == ceph.id
 
     with pytest.raises(ValueError, match="Storage endpoint not found"):
-        service._resolve_storage_endpoint(9999)
+        service.rgw_context.resolve_storage_endpoint(9999)
     with pytest.raises(ValueError, match="not a Ceph endpoint"):
-        service._resolve_storage_endpoint(other.id, require_ceph=True)
+        service.rgw_context.resolve_storage_endpoint(other.id, require_ceph=True)
 
 
 def test_account_identity_helpers(db_session):
@@ -467,7 +467,7 @@ def test_delete_account_guardrails_and_success(db_session, monkeypatch):
     monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 1))
     monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
-    monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
+    monkeypatch.setattr(service.rgw_context, "admin_for_account", lambda *args, **kwargs: admin)
     monkeypatch.setattr(service.deletion, "_delete_root_user", lambda *args, **kwargs: None)
 
     with pytest.raises(ValueError, match="still has attached resources"):
@@ -530,7 +530,7 @@ def _prepare_account_deletion_checks(service, admin, monkeypatch):
     monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 0))
     monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
-    monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
+    monkeypatch.setattr(service.rgw_context, "admin_for_account", lambda *args, **kwargs: admin)
 
 
 def test_delete_account_removes_empty_portal_groups_before_root_user(db_session, monkeypatch):
@@ -612,7 +612,7 @@ def test_delete_account_uses_scoped_iam_when_account_user_list_is_missing(db_ses
     admin.list_user_ids = lambda: pytest.fail("endpoint-wide inventory must not be loaded")  # type: ignore[attr-defined]
     monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 0))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
-    monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
+    monkeypatch.setattr(service.rgw_context, "admin_for_account", lambda *args, **kwargs: admin)
     service.deletion.iam_cleanup = S3AccountIamCleanupService(
         db_session,
         iam_factory=lambda _account: _FakeAccountIAM(),

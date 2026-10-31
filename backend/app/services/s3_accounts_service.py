@@ -15,7 +15,7 @@ from typing import Any, Optional
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFoundError
+from app.core.domain_errors import S3AccountNotFoundError
 from app.db import (
     S3Account,
     S3AccountTag,
@@ -46,7 +46,6 @@ from app.services.portal_role_sync import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.rgw_account_root_service import RgwAccountRootService
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_quota_update import (
     execute_rgw_quota_update,
     prepare_rgw_quota_update,
@@ -54,15 +53,11 @@ from app.services.rgw_quota_update import (
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.s3_account_deletion_service import S3AccountDeletionService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
+from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
-from app.utils.storage_endpoint_features import (
-    features_to_capabilities,
-    normalize_features,
-    resolve_admin_endpoint,
-    resolve_feature_flags,
-)
+from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.rgw_payloads import extract_rgw_account_ids, extract_rgw_account_tenant
 from app.utils.sql_search import text_search_predicate
@@ -92,6 +87,7 @@ class S3AccountsService:
         self.rgw_users = S3AccountRgwUsersService(self.account_roots)
         self.associations = S3AccountAssociationsService(db)
         self.metrics = S3AccountMetricsService()
+        self.rgw_context = S3AccountRgwContextService(db)
         self.deletion = S3AccountDeletionService(
             db,
             metrics=self.metrics,
@@ -132,42 +128,6 @@ class S3AccountsService:
         if self.db.scalar(query.limit(1)) is not None:
             raise ValueError(error_message)
 
-    def _endpoint_capabilities(self, endpoint: StorageEndpoint) -> dict[str, bool]:
-        features = normalize_features(endpoint.provider, endpoint.features)
-        return features_to_capabilities(features)
-
-    def _resolve_storage_endpoint(self, storage_endpoint_id: int, require_ceph: bool = False) -> StorageEndpoint:
-        endpoint = self.db.scalar(
-            select(StorageEndpoint).where(StorageEndpoint.id == storage_endpoint_id)
-        )
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Storage endpoint not found.")
-        if require_ceph and endpoint.provider != StorageProvider.CEPH.value:
-            raise ValueError("This endpoint is not a Ceph endpoint.")
-        return endpoint
-
-    def _admin_for_endpoint(self, endpoint: StorageEndpoint, allow_missing: bool = False) -> Optional[RGWAdminClient]:
-        if endpoint.provider != StorageProvider.CEPH.value:
-            if allow_missing:
-                return None
-            raise ValueError("This endpoint does not support Ceph admin operations.")
-        admin_endpoint = resolve_admin_endpoint(endpoint)
-        if not admin_endpoint:
-            if allow_missing:
-                return None
-            raise ValueError("Admin operations are disabled for this endpoint.")
-        try:
-            return get_endpoint_admin_rgw_client(endpoint)
-        except Exception as exc:
-            if allow_missing:
-                logger.warning("Unable to build RGW admin client for endpoint %s: %s", endpoint.name, exc)
-                return None
-            raise
-
-    def _admin_for_account(self, account: S3Account, allow_missing: bool = False) -> Optional[RGWAdminClient]:
-        endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
-        return self._admin_for_endpoint(endpoint, allow_missing=allow_missing)
-
     def _apply_account_quota(
         self,
         account: S3Account,
@@ -177,7 +137,7 @@ class S3AccountsService:
     ) -> None:
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
         require_endpoint_permissions(account.storage_endpoint, "accounts_write")
-        admin = self._admin_for_account(account)
+        admin = self.rgw_context.admin_for_account(account)
         quota = prepare_rgw_quota_update(max_size_gb, max_objects, max_size_unit)
         execute_rgw_quota_update(
             lambda: admin.set_account_quota(
@@ -254,8 +214,8 @@ class S3AccountsService:
 
         results: list[S3AccountSchema] = []
         for acc in db_accounts:
-            endpoint = self._resolve_storage_endpoint(acc.storage_endpoint_id)
-            endpoint_capabilities = self._endpoint_capabilities(endpoint)
+            endpoint = self.rgw_context.resolve_storage_endpoint(acc.storage_endpoint_id)
+            endpoint_capabilities = self.rgw_context.endpoint_capabilities(endpoint)
             used_bytes = None
             used_objects = None
             bucket_count = None
@@ -270,7 +230,7 @@ class S3AccountsService:
             account_identifier = acc.rgw_account_id
             admin = None
             if include_quota or include_rgw_details:
-                admin = self._admin_for_account(acc, allow_missing=True)
+                admin = self.rgw_context.admin_for_account(acc, allow_missing=True)
             if include_quota and admin:
                 quota_max_size_gb, quota_max_objects = self.get_account_quota(acc, admin)
             if include_rgw_details and admin:
@@ -399,14 +359,14 @@ class S3AccountsService:
         group_links_by_account = self.associations.load_group_links(account_ids)
         summaries: list[S3AccountSummary] = []
         for acc in db_accounts:
-            endpoint = self._resolve_storage_endpoint(acc.storage_endpoint_id)
+            endpoint = self.rgw_context.resolve_storage_endpoint(acc.storage_endpoint_id)
             summaries.append(
                 s3_account_summary_from_db(
                     acc,
                     user_links=user_links_by_account.get(acc.id, []),
                     group_links=group_links_by_account.get(acc.id, []),
                     storage_endpoint=endpoint,
-                    storage_endpoint_capabilities=self._endpoint_capabilities(endpoint),
+                    storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
                     tags=self.tags.get_account_tags(acc),
                 )
             )
@@ -423,11 +383,11 @@ class S3AccountsService:
         if include_usage:
             used_bytes, used_objects, bucket_count = self.get_account_usage(account)
         account_identifier = account.rgw_account_id
-        admin = self._admin_for_account(account, allow_missing=True)
+        admin = self.rgw_context.admin_for_account(account, allow_missing=True)
         rgw_user_count = rgw_user_uids = rgw_topic_count = rgw_topics = None
         quota_max_size_gb, quota_max_objects = self.get_account_quota(account, admin)
-        endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
-        endpoint_capabilities = self._endpoint_capabilities(endpoint)
+        endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
+        endpoint_capabilities = self.rgw_context.endpoint_capabilities(endpoint)
         if admin:
             rgw_user_count, rgw_user_uids = self.rgw_users.resolve(
                 account_identifier,
@@ -491,8 +451,8 @@ class S3AccountsService:
         *,
         allow_managed_rgw_tenant_creation: bool,
     ) -> _PreparedAccountImport:
-        endpoint = self._resolve_storage_endpoint(item.storage_endpoint_id, require_ceph=True)
-        admin = self._admin_for_endpoint(endpoint, allow_missing=False)
+        endpoint = self.rgw_context.resolve_storage_endpoint(item.storage_endpoint_id, require_ceph=True)
+        admin = self.rgw_context.admin_for_endpoint(endpoint, allow_missing=False)
         if admin is None:
             raise ValueError("Admin operations are disabled for this endpoint.")
         rgw_info = admin.get_account(item.rgw_account_id, allow_not_found=True)
@@ -575,7 +535,7 @@ class S3AccountsService:
                 user_links=[],
                 group_links=[],
                 storage_endpoint=endpoint,
-                storage_endpoint_capabilities=self._endpoint_capabilities(endpoint),
+                storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
                 tags=[],
             )
             for account, endpoint in accounts
@@ -630,10 +590,10 @@ class S3AccountsService:
             rgw_tenant=payload.rgw_tenant,
             name=payload.name,
         )
-        endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
-        if not self._endpoint_capabilities(endpoint).get("account", False):
+        endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
+        if not self.rgw_context.endpoint_capabilities(endpoint).get("account", False):
             raise ValueError("Selected endpoint does not support RGW account API (/admin/account).")
-        admin = self._admin_for_endpoint(endpoint, allow_missing=False)
+        admin = self.rgw_context.admin_for_endpoint(endpoint, allow_missing=False)
         if admin is None:
             raise ValueError("RGW administrative credentials are required")
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
@@ -747,7 +707,7 @@ class S3AccountsService:
             user_links=[],
             group_links=[],
             storage_endpoint=endpoint,
-            storage_endpoint_capabilities=self._endpoint_capabilities(endpoint),
+            storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
             tags=self.tags.get_account_tags(account),
         )
 
@@ -763,7 +723,7 @@ class S3AccountsService:
         validate_project_collection_overrides(payload, app_settings.general.project_collection_policies, account)
         target_endpoint_id = account.storage_endpoint_id
         if payload.storage_endpoint_id is not None:
-            endpoint = self._resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
+            endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
             target_endpoint_id = endpoint.id
         target_name = payload.name if payload.name else account.name
         if target_name != account.name or target_endpoint_id != account.storage_endpoint_id:
@@ -794,7 +754,7 @@ class S3AccountsService:
                     payload.quota_max_size_unit,
                 )
             else:
-                endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
+                endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
                 if endpoint.provider == StorageProvider.CEPH.value and resolve_feature_flags(endpoint).admin_enabled:
                     self._apply_account_quota(
                         account,
@@ -849,7 +809,7 @@ class S3AccountsService:
             account.id,
             [],
         )
-        endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
+        endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
         quota_max_size_gb, quota_max_objects = self.get_account_quota(account)
 
         return s3_account_from_db(
@@ -859,7 +819,7 @@ class S3AccountsService:
             user_links=user_links,
             group_links=group_links,
             storage_endpoint=endpoint,
-            storage_endpoint_capabilities=self._endpoint_capabilities(endpoint),
+            storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
             tags=self.tags.get_account_tags(account),
         )
 
@@ -890,8 +850,8 @@ class S3AccountsService:
         admin = None
         endpoint = None
         if delete_rgw:
-            admin = self._admin_for_account(account, allow_missing=False)
-            endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
+            admin = self.rgw_context.admin_for_account(account, allow_missing=False)
+            endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
         self.deletion.delete_account(
             account,
             delete_rgw=delete_rgw,

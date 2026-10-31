@@ -9,6 +9,7 @@ from app.db import ManagerAccountRole, PortalAccountRole, S3Account, UiGroup, Ui
 from app.main import app
 from app.routers.admin import s3_accounts as s3_accounts_router
 from app.services.s3_accounts_service import S3AccountsService
+from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.tags_service import TagsService
 from tests.s3_account_factory import make_s3_account
 
@@ -108,7 +109,7 @@ def test_admin_accounts_page_enriches_only_selected_rows(client, db_session, mon
         enriched_account_ids.append(account.id)
         return object()
 
-    monkeypatch.setattr(S3AccountsService, "_admin_for_account", fake_admin_for_account)
+    monkeypatch.setattr(S3AccountRgwContextService, "admin_for_account", fake_admin_for_account)
     monkeypatch.setattr(
         S3AccountsService,
         "get_account_quota",
