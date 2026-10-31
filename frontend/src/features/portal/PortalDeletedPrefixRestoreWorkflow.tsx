@@ -8,7 +8,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { formatCompactNumber } from "../../utils/format";
-import { clampPercentage } from "../../utils/numbers";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 import type { BrowserObjectDetailsRouteTarget } from "../browser/browserPageContract";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import PortalOperationLayout, { PortalOperationProgress } from "./PortalOperationLayout";
@@ -30,7 +30,7 @@ export default function PortalDeletedPrefixRestoreWorkflow({ accountId, spaceId,
   const processed = (counts?.restored_objects ?? 0) + (counts?.failed_objects ?? 0);
   const totalKnown = Boolean(result || progress?.total_candidates_final);
   const percent = totalKnown && counts && counts.restore_candidates > 0
-    ? clampPercentage(Math.round(processed / counts.restore_candidates * 100))
+    ? roundedClampedPercentageOf(processed, counts.restore_candidates)
     : result?.status === "completed" || progress?.stage === "completed" ? 100 : null;
   return <PortalOperationLayout
       title={t({

@@ -18,7 +18,7 @@ import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import { collectPaginatedItems } from "../../utils/pagination";
-import { clampPercentage } from "../../utils/numbers";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 import {
   CephAdminBucketCompareResult,
   compareCephAdminBucketPair,
@@ -270,8 +270,7 @@ export default function CephAdminBucketCompareModal({
     ]
   );
   const progressPercent = useMemo(() => {
-    if (progress.total <= 0) return 0;
-    return clampPercentage(Math.round((progress.completed / progress.total) * 100));
+    return roundedClampedPercentageOf(progress.completed, progress.total) ?? 0;
   }, [progress.completed, progress.total]);
   const hasScopeSelected = includeContent || includeConfig;
   const hasConfigFeatureSelected = selectedConfigFeatures.length > 0;

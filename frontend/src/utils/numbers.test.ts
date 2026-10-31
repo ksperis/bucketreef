@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { clampNumber, clampPercentage, clampedPercentageOf } from "./numbers";
+import {
+  clampNumber,
+  clampPercentage,
+  clampedPercentageOf,
+  roundedClampedPercentageOf,
+} from "./numbers";
 
 describe("clampNumber", () => {
   it("keeps values inside the range and clamps both boundaries", () => {
@@ -29,5 +34,15 @@ describe("clampedPercentageOf", () => {
     expect(clampedPercentageOf(10, null)).toBeNull();
     expect(clampedPercentageOf(10, 0)).toBeNull();
     expect(clampedPercentageOf(10, -1)).toBeNull();
+  });
+});
+
+describe("roundedClampedPercentageOf", () => {
+  it("rounds bounded percentages and preserves unavailable ratios", () => {
+    expect(roundedClampedPercentageOf(1, 3)).toBe(33);
+    expect(roundedClampedPercentageOf(12, 10)).toBe(100);
+    expect(roundedClampedPercentageOf(-1, 10)).toBe(0);
+    expect(roundedClampedPercentageOf(1, 0)).toBeNull();
+    expect(roundedClampedPercentageOf(null, 10)).toBeNull();
   });
 });

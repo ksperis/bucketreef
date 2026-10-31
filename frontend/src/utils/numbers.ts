@@ -13,3 +13,11 @@ export function clampedPercentageOf(
   if (value == null || total == null || total <= 0) return null;
   return clampPercentage((value / total) * 100);
 }
+
+export function roundedClampedPercentageOf(
+  value?: number | null,
+  total?: number | null,
+): number | null {
+  const percentage = clampedPercentageOf(value, total);
+  return percentage == null ? null : Math.round(percentage);
+}
