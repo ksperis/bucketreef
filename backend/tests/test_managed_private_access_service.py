@@ -693,7 +693,7 @@ def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkey
     db_session.commit()
     context = S3ExecutionContext.from_s3_user(s3_user)
     monkeypatch.setattr(
-        "app.services.managed_private_access_service.S3UsersService.create_access_key_entry",
+        "app.services.managed_private_access_credential_service.S3UsersService.create_access_key_entry",
         lambda _service, user_id: S3UserGeneratedKey(
             access_key_id="PERSONAL-AK",
             secret_access_key="PERSONAL-SK",
@@ -777,7 +777,7 @@ def test_rgw_user_provisioning_requires_resource_opt_in_before_remote_calls(db_s
     db_session.commit()
     context = S3ExecutionContext.from_s3_user(s3_user)
     monkeypatch.setattr(
-        "app.services.managed_private_access_service.S3UsersService.create_access_key_entry",
+        "app.services.managed_private_access_credential_service.S3UsersService.create_access_key_entry",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("RGW must not be contacted")),
     )
 

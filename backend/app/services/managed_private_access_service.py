@@ -25,6 +25,9 @@ from app.services.managed_private_access_cleanup_service import (
 from app.services.managed_private_access_connection_service import (
     ManagedPrivateAccessConnectionService,
 )
+from app.services.managed_private_access_credential_service import (
+    ManagedPrivateAccessCredentialService,
+)
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessCleanupPending,
     ManagedPrivateAccessConflict,
@@ -46,10 +49,8 @@ from app.services.managed_private_access_sources import (
 from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
-from app.services.rgw_iam import RGWIAMService
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.services.s3_users_service import S3UsersService
 from app.utils.time import utcnow
 
 
@@ -71,19 +72,20 @@ class ManagedPrivateAccessService:
         connections = S3ConnectionsService(db)
         self.audit = ManagedPrivateAccessAuditService(db)
         self.queries = ManagedPrivateAccessQueryService(db)
-        self.state = ManagedPrivateAccessStateService(db)
+        state = ManagedPrivateAccessStateService(db)
         self.iam = ManagedPrivateAccessIAMService(db, access=self.access)
+        self.credentials = ManagedPrivateAccessCredentialService(db, state=state)
         self.connection = ManagedPrivateAccessConnectionService(
             db,
             audit=self.audit,
-            state=self.state,
+            state=state,
             connections=connections,
         )
         self.cleanup = ManagedPrivateAccessCleanupService(
             db,
             iam=self.iam,
             audit=self.audit,
-            state=self.state,
+            state=state,
             connections=connections,
         )
 
@@ -106,7 +108,7 @@ class ManagedPrivateAccessService:
 
         provisioning = self._start_provisioning(user, source)
         try:
-            access_key_id, secret_access_key = self._provision_iam_credentials(
+            access_key_id, secret_access_key = self.credentials.provision_iam(
                 provisioning,
                 iam,
                 payload,
@@ -158,19 +160,18 @@ class ManagedPrivateAccessService:
             return existing_result
 
         provisioning = self._start_provisioning(user, source)
-        users = S3UsersService(self.db)
         try:
-            key = users.create_access_key_entry(source.identifier)
-            provisioning.access_key_id = key.access_key_id
-            provisioning.created_access_key = True
-            self.state.checkpoint(provisioning)
+            access_key_id, secret_access_key = self.credentials.provision_rgw_user(
+                provisioning,
+                source_id=source.identifier,
+            )
             return self.connection.activate(
                 user=user,
                 provisioning=provisioning,
                 destination=destination,
                 payload=payload,
-                access_key_id=key.access_key_id,
-                secret_access_key=key.secret_access_key,
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
             )
         except Exception as exc:
             self._handle_provisioning_failure(
@@ -184,45 +185,6 @@ class ManagedPrivateAccessService:
                 ),
             )
             raise ManagedPrivateAccessError("Unable to create managed private access") from exc
-
-    def _provision_iam_credentials(
-        self,
-        provisioning: ManagedPrivateAccess,
-        iam: RGWIAMService,
-        payload: ManagedIAMPrivateAccessRequest,
-        *,
-        username: str,
-    ) -> tuple[str, str]:
-        if iam.get_user(username) is not None:
-            self.state.mark_failed(provisioning, "deterministic_remote_principal_exists")
-            raise ManagedPrivateAccessConflict(
-                "The deterministic IAM user already exists and is not linked to a known provisioning"
-            )
-
-        iam.create_user(username, create_key=False)
-        provisioning.created_remote_principal = True
-        self.state.checkpoint(provisioning)
-
-        for group_name in payload.groups:
-            iam.add_user_to_group(group_name, username)
-            self.state.append_list_value(provisioning, "iam_groups", group_name)
-            self.state.checkpoint(provisioning)
-        for policy_arn in payload.managed_policies:
-            iam.attach_user_policy(username, policy_arn)
-            self.state.append_list_value(provisioning, "iam_managed_policies", policy_arn)
-            self.state.checkpoint(provisioning)
-        for inline in payload.inline_policies:
-            iam.put_user_inline_policy(username, inline.name, inline.document)
-            self.state.append_list_value(provisioning, "iam_inline_policy_names", inline.name)
-            self.state.checkpoint(provisioning)
-
-        key = iam.create_access_key(username)
-        if not key.access_key_id or not key.secret_access_key:
-            raise ManagedPrivateAccessError("RGW IAM did not return complete access credentials")
-        provisioning.access_key_id = key.access_key_id
-        provisioning.created_access_key = True
-        self.state.checkpoint(provisioning)
-        return key.access_key_id, key.secret_access_key
 
     def _handle_provisioning_failure(
         self,
