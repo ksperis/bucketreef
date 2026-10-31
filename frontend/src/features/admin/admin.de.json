@@ -57,7 +57,7 @@
   "Access key disabled.": "Zugriffsschlüssel deaktiviert.",
   "Access key enabled.": "Zugriffsschlüssel aktiviert.",
   "Access key management": "Zugriffsschlüsselverwaltung",
-  "Access restricted to super-admin.": "Zugriff auf Superadmin beschränkt.",
+  "Access restricted to administrators.": "Zugriff auf Administratoren beschränkt.",
   "Access to the Manager feature-rule inventory. Requires an eligible Manager role and storage context.": "Zugriff auf die Funktionsregeln des Managers. Erfordert eine berechtigte Manager-Rolle und einen Speicherkontext.",
   "Access-key endpoint list": "Zugriffsschlüssel-Endpunktliste",
   "Access-key expiration": "Zugriffsschlüssel-Ablaufdatum",
