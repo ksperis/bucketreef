@@ -39,6 +39,9 @@ from app.services.managed_private_access_sources import (
     ManagedPrivateAccessSource,
     ManagedPrivateAccessSourceResolver,
 )
+from app.services.managed_private_access_state_service import (
+    ManagedPrivateAccessStateService,
+)
 from app.services.rgw_iam import (
     RGWIAMService,
     get_iam_service,
@@ -79,6 +82,7 @@ class ManagedPrivateAccessService:
         self.connections = S3ConnectionsService(db)
         self.audit = ManagedPrivateAccessAuditService(db)
         self.queries = ManagedPrivateAccessQueryService(db)
+        self.state = ManagedPrivateAccessStateService(db)
 
     def provision_iam(
         self,
@@ -156,7 +160,7 @@ class ManagedPrivateAccessService:
             key = users.create_access_key_entry(source.identifier)
             provisioning.access_key_id = key.access_key_id
             provisioning.created_access_key = True
-            self._checkpoint(provisioning)
+            self.state.checkpoint(provisioning)
             return self._activate_connection(
                 user=user,
                 provisioning=provisioning,
@@ -187,34 +191,34 @@ class ManagedPrivateAccessService:
         username: str,
     ) -> tuple[str, str]:
         if iam.get_user(username) is not None:
-            self._mark_failed(provisioning, "deterministic_remote_principal_exists")
+            self.state.mark_failed(provisioning, "deterministic_remote_principal_exists")
             raise ManagedPrivateAccessConflict(
                 "The deterministic IAM user already exists and is not linked to a known provisioning"
             )
 
         iam.create_user(username, create_key=False)
         provisioning.created_remote_principal = True
-        self._checkpoint(provisioning)
+        self.state.checkpoint(provisioning)
 
         for group_name in payload.groups:
             iam.add_user_to_group(group_name, username)
-            self._append_list_value(provisioning, "iam_groups", group_name)
-            self._checkpoint(provisioning)
+            self.state.append_list_value(provisioning, "iam_groups", group_name)
+            self.state.checkpoint(provisioning)
         for policy_arn in payload.managed_policies:
             iam.attach_user_policy(username, policy_arn)
-            self._append_list_value(provisioning, "iam_managed_policies", policy_arn)
-            self._checkpoint(provisioning)
+            self.state.append_list_value(provisioning, "iam_managed_policies", policy_arn)
+            self.state.checkpoint(provisioning)
         for inline in payload.inline_policies:
             iam.put_user_inline_policy(username, inline.name, inline.document)
-            self._append_list_value(provisioning, "iam_inline_policy_names", inline.name)
-            self._checkpoint(provisioning)
+            self.state.append_list_value(provisioning, "iam_inline_policy_names", inline.name)
+            self.state.checkpoint(provisioning)
 
         key = iam.create_access_key(username)
         if not key.access_key_id or not key.secret_access_key:
             raise ManagedPrivateAccessError("RGW IAM did not return complete access credentials")
         provisioning.access_key_id = key.access_key_id
         provisioning.created_access_key = True
-        self._checkpoint(provisioning)
+        self.state.checkpoint(provisioning)
         return key.access_key_id, key.secret_access_key
 
     def _handle_provisioning_failure(
@@ -379,9 +383,9 @@ class ManagedPrivateAccessService:
                 and bool(connection.access_manager) == bool(payload.access_manager)
             )
             if isinstance(payload, ManagedIAMPrivateAccessRequest):
-                same_request = same_request and self._string_list(provisioning.iam_groups) == payload.groups
-                same_request = same_request and self._string_list(provisioning.iam_managed_policies) == payload.managed_policies
-                same_request = same_request and self._string_list(provisioning.iam_inline_policy_names) == [
+                same_request = same_request and self.state.string_list(provisioning.iam_groups) == payload.groups
+                same_request = same_request and self.state.string_list(provisioning.iam_managed_policies) == payload.managed_policies
+                same_request = same_request and self.state.string_list(provisioning.iam_inline_policy_names) == [
                     policy.name for policy in payload.inline_policies
                 ]
             if same_request:
@@ -531,7 +535,7 @@ class ManagedPrivateAccessService:
             if provisioning.created_access_key and provisioning.access_key_id:
                 users.delete_key(provisioning.source_context_id, provisioning.access_key_id)
                 provisioning.created_access_key = False
-                self._checkpoint(provisioning)
+                self.state.checkpoint(provisioning)
 
     def _iam_service_for_source(self, provisioning: ManagedPrivateAccess, user: User) -> RGWIAMService:
         if provisioning.source_context_type == "account":
@@ -572,7 +576,7 @@ class ManagedPrivateAccessService:
             try:
                 operation()
                 on_success()
-                self._checkpoint(provisioning)
+                self.state.checkpoint(provisioning)
             except Exception as exc:
                 errors.append(sanitized_error_log_detail(exc))
 
@@ -581,20 +585,20 @@ class ManagedPrivateAccessService:
                 lambda: iam.delete_access_key(username, provisioning.access_key_id or ""),
                 lambda: setattr(provisioning, "created_access_key", False),
             )
-        for name in reversed(self._string_list(provisioning.iam_inline_policy_names)):
+        for name in reversed(self.state.string_list(provisioning.iam_inline_policy_names)):
             attempt(
                 lambda name=name: iam.delete_user_inline_policy(username, name),
-                lambda name=name: self._remove_list_value(provisioning, "iam_inline_policy_names", name),
+                lambda name=name: self.state.remove_list_value(provisioning, "iam_inline_policy_names", name),
             )
-        for arn in reversed(self._string_list(provisioning.iam_managed_policies)):
+        for arn in reversed(self.state.string_list(provisioning.iam_managed_policies)):
             attempt(
                 lambda arn=arn: iam.detach_user_policy(username, arn),
-                lambda arn=arn: self._remove_list_value(provisioning, "iam_managed_policies", arn),
+                lambda arn=arn: self.state.remove_list_value(provisioning, "iam_managed_policies", arn),
             )
-        for group in reversed(self._string_list(provisioning.iam_groups)):
+        for group in reversed(self.state.string_list(provisioning.iam_groups)):
             attempt(
                 lambda group=group: iam.remove_user_from_group(group, username),
-                lambda group=group: self._remove_list_value(provisioning, "iam_groups", group),
+                lambda group=group: self.state.remove_list_value(provisioning, "iam_groups", group),
             )
         if provisioning.created_remote_principal:
             attempt(
@@ -692,32 +696,3 @@ class ManagedPrivateAccessService:
             status="failure",
             message=error,
         )
-
-    def _mark_failed(self, provisioning: ManagedPrivateAccess, error: str) -> None:
-        provisioning.state = "failed"
-        provisioning.cleanup_error = error
-        provisioning.updated_at = utcnow()
-        self.db.commit()
-
-    def _checkpoint(self, provisioning: ManagedPrivateAccess) -> None:
-        provisioning.updated_at = utcnow()
-        self.db.commit()
-        self.db.refresh(provisioning)
-
-    @staticmethod
-    def _string_list(value: object) -> list[str]:
-        if not isinstance(value, list):
-            raise ValueError("Managed private access IAM state must be a JSON list")
-        if any(not isinstance(item, str) or not item for item in value):
-            raise ValueError("Managed private access IAM state must contain non-empty strings")
-        return value
-
-    def _append_list_value(self, provisioning, field_name: str, value: str) -> None:
-        values = list(self._string_list(getattr(provisioning, field_name)))
-        if value not in values:
-            values.append(value)
-        setattr(provisioning, field_name, values)
-
-    def _remove_list_value(self, provisioning, field_name: str, value: str) -> None:
-        values = [item for item in self._string_list(getattr(provisioning, field_name)) if item != value]
-        setattr(provisioning, field_name, values)
