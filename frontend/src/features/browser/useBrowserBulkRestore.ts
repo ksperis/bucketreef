@@ -12,6 +12,7 @@ import {
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import { runWithConcurrency } from "../../utils/concurrency";
 import { formatDateTimeLocalInput } from "../../utils/dateTime";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { createRuntimeId } from "../../utils/runtimeId";
 import { buildBulkRestorePlan } from "./browserBulkRestorePlan";
 import type { BrowserItem } from "./browserTypes";
@@ -282,7 +283,7 @@ export function useBrowserBulkRestore({
       let cancelled = false;
 
       const updateProgress = (count: number) => {
-        const progress = total > 0 ? Math.round((count / total) * 100) : 100;
+        const progress = roundedClampedPercentageOf(count, total) ?? 100;
         updateOperation(operationId, { progress });
       };
 

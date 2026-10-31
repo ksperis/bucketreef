@@ -22,6 +22,7 @@ import {
   presignPart,
 } from "../../api/browserMultipart";
 import { runWithConcurrency } from "../../utils/concurrency";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { createRuntimeId } from "../../utils/runtimeId";
 import type { BrowserFunctionalProfile } from "./browserActions";
 import { PART_SIZE } from "./browserConstants";
@@ -456,7 +457,7 @@ export function useBrowserClipboard({
     let failures = 0;
     let cancelled = false;
     const updateProgress = () => {
-      const progress = total > 0 ? Math.round((completed / total) * 100) : 100;
+      const progress = roundedClampedPercentageOf(completed, total) ?? 100;
       updateOperation(operationId, { progress });
     };
 

@@ -14,6 +14,7 @@ import {
 } from "../../api/browserObjects";
 import { runWithConcurrency } from "../../utils/concurrency";
 import { dateTimeLocalInputToIsoString } from "../../utils/dateTime";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import type { BrowserItem, BulkMetadataDraft } from "./browserTypes";
@@ -380,8 +381,7 @@ export function useBrowserBulkAttributes({
             failures += 1;
           } finally {
             completed += 1;
-            const progress =
-              total > 0 ? Math.round((completed / total) * 100) : 100;
+            const progress = roundedClampedPercentageOf(completed, total) ?? 100;
             updateOperation(operationId, { progress });
           }
         },

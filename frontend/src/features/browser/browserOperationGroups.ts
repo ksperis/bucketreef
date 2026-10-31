@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { clampPercentage } from "../../utils/numbers";
+import { clampPercentage, roundedClampedPercentageOf } from "../../utils/numbers";
 import type {
   CopyDetailItem,
   CopyDetailStatus,
@@ -212,10 +212,7 @@ export function buildUploadOperationGroups(
       const progress = clampPercentage(item.progress);
       return sum + ((item.sizeBytes ?? 0) * progress) / 100;
     }, 0);
-    const progress =
-      totalBytes > 0
-        ? Math.round(((activeLoadedBytes + completedBytes) / totalBytes) * 100)
-        : 0;
+    const progress = roundedClampedPercentageOf(activeLoadedBytes + completedBytes, totalBytes) ?? 0;
     return { ...group, progress, totalBytes };
   });
 }
