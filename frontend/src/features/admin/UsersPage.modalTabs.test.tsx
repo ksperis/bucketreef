@@ -140,6 +140,13 @@ function renderPage() {
   return render(<MemoryRouter><UsersPage /></MemoryRouter>);
 }
 
+async function openCreateUser() {
+  const trigger = await screen.findByRole("button", { name: "Create user" });
+  await act(async () => {
+    fireEvent.click(trigger);
+  });
+}
+
 describe("UsersPage modal tabs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -426,7 +433,7 @@ describe("UsersPage modal tabs", () => {
 
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "candidate@example.com" },
     });
@@ -643,7 +650,7 @@ describe("UsersPage modal tabs", () => {
     });
 
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     await waitFor(() => expect(fetchLdapProvidersMock).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByRole("radio", { name: /LDAP directory/ }));
@@ -702,7 +709,7 @@ describe("UsersPage modal tabs", () => {
     });
 
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     fireEvent.click(screen.getByRole("radio", { name: /LDAP directory/ }));
     await waitFor(() => {
       expect(screen.getByRole("combobox", { name: "LDAP provider" })).toHaveValue("corp");
@@ -727,7 +734,7 @@ describe("UsersPage modal tabs", () => {
   it("keeps associations when switching General/Associations and submits linked payload", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     expect(
       screen.getByText("Configure identity, workspace access, groups, and storage associations for this UI user.")
     ).toBeInTheDocument();
@@ -804,7 +811,7 @@ describe("UsersPage modal tabs", () => {
       .mockResolvedValueOnce({ id: 100 });
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "step-up@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123456" } });
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
@@ -852,7 +859,7 @@ describe("UsersPage modal tabs", () => {
       expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
 
     await waitFor(() => {
       expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(2);
@@ -881,7 +888,7 @@ describe("UsersPage modal tabs", () => {
   it("returns to General when required fields are missing and submit is triggered from Associations", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
@@ -893,7 +900,7 @@ describe("UsersPage modal tabs", () => {
   it("shows Platform access and keeps platform permissions out of General in create modal", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "General",
       "Groups",
@@ -920,7 +927,7 @@ describe("UsersPage modal tabs", () => {
   it("shows Groups tab in create modal and sends group_ids in create payload", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "grouped@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
@@ -1097,7 +1104,7 @@ describe("UsersPage modal tabs", () => {
     });
 
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     expect(screen.getByRole("tab", { name: "Platform access" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Manager" })).not.toBeInTheDocument();
@@ -1248,7 +1255,7 @@ describe("UsersPage modal tabs", () => {
   it("keeps role access note hidden by default in create modal and shows it on help button click", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
 
     expect(screen.queryByText("Role access summary")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Explain role access levels" }));
@@ -1293,7 +1300,7 @@ describe("UsersPage modal tabs", () => {
   it("shows Storage Ops access in create modal and sends it in create payload", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
 
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "ops@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
@@ -1319,7 +1326,7 @@ describe("UsersPage modal tabs", () => {
   it("shows Browser options in create modal and sends advanced Browser access", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "browser@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
@@ -1344,7 +1351,7 @@ describe("UsersPage modal tabs", () => {
     generalSettingsState.portal_enabled = true;
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await openCreateUser();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "pm@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
