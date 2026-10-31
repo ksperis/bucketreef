@@ -27,7 +27,7 @@ from app.services.bucket_feature_param_values import (
     notification_rule_entries,
 )
 from app.services.bucket_listing_shared import coerce_filter_bool, coerce_filter_number
-from app.utils.normalize import normalize_text
+from app.utils.normalize import normalize_optional_string, normalize_text
 
 FEATURE_PARAM_UNAVAILABLE = object()
 _FEATURE_PARAM_SOURCE_BY_PARAM: dict[str, str] = {
@@ -554,19 +554,14 @@ def _match_properties_param_rule(
     return _match_scalar_spec(rule, source_data, op, _PROPERTY_SCALAR_SPECS)
 
 
-def _trimmed_text(value: str | None) -> str | None:
-    normalized = (value or "").strip()
-    return normalized or None
-
-
 _LoggingValueGetter = Callable[[BucketLoggingConfiguration], object]
 _LOGGING_SCALAR_SPECS: dict[str, tuple[str, _LoggingValueGetter]] = {
     "logging_enabled": (
         "bool",
-        lambda logging: bool(logging.enabled and _trimmed_text(logging.target_bucket)),
+        lambda logging: bool(logging.enabled and normalize_optional_string(logging.target_bucket)),
     ),
-    "logging_target_bucket": ("text", lambda logging: _trimmed_text(logging.target_bucket)),
-    "logging_target_prefix": ("text", lambda logging: _trimmed_text(logging.target_prefix)),
+    "logging_target_bucket": ("text", lambda logging: normalize_optional_string(logging.target_bucket)),
+    "logging_target_prefix": ("text", lambda logging: normalize_optional_string(logging.target_prefix)),
 }
 
 
@@ -582,14 +577,14 @@ def _match_logging_param_rule(
 
 def _website_redirect_host(configuration: BucketWebsiteConfiguration) -> str | None:
     redirect = configuration.redirect_all_requests_to
-    return _trimmed_text(redirect.host_name if redirect else None)
+    return normalize_optional_string(redirect.host_name if redirect else None)
 
 
 _WebsiteValueGetter = Callable[[BucketWebsiteConfiguration], object]
 _WEBSITE_SCALAR_SPECS: dict[str, tuple[str, _WebsiteValueGetter]] = {
-    "website_index_present": ("bool", lambda website: bool(_trimmed_text(website.index_document))),
-    "website_index_document": ("text", lambda website: _trimmed_text(website.index_document)),
-    "website_error_document": ("text", lambda website: _trimmed_text(website.error_document)),
+    "website_index_present": ("bool", lambda website: bool(normalize_optional_string(website.index_document))),
+    "website_index_document": ("text", lambda website: normalize_optional_string(website.index_document)),
+    "website_error_document": ("text", lambda website: normalize_optional_string(website.error_document)),
     "website_redirect_host_present": ("bool", lambda website: bool(_website_redirect_host(website))),
     "website_redirect_host": ("text", _website_redirect_host),
     "website_routing_rule_count": ("number", lambda website: len(website.routing_rules)),
