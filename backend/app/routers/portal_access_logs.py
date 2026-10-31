@@ -25,12 +25,6 @@ from app.utils.http_headers import build_attachment_content_disposition
 
 router = APIRouter()
 
-
-def _parse_server_access_log_filter(raw: Optional[str]) -> Optional[PortalServerAccessLogFilterQuery]:
-    return parse_filter_query(raw, query_cls=PortalServerAccessLogFilterQuery)
-
-
-
 @router.get("/access-logs/page", response_model=PortalServerAccessLogPage)
 def portal_server_access_logs_page(
     date: str = Query(..., pattern=r"^\d{4}-\d{2}-\d{2}$"),
@@ -46,7 +40,10 @@ def portal_server_access_logs_page(
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
-        parsed_filter = _parse_server_access_log_filter(advanced_filter)
+        parsed_filter = parse_filter_query(
+            advanced_filter,
+            query_cls=PortalServerAccessLogFilterQuery,
+        )
         return service.list_portal_server_access_log_page(
             actor,
             access,

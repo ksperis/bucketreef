@@ -67,10 +67,6 @@ def _clear_optional_user_details(item: CephAdminRgwUserSummary) -> None:
     item.object_count = None
 
 
-def _parse_advanced_filter(raw: str | None) -> CephAdminUserFilterQuery | None:
-    return parse_filter_query(raw, query_cls=CephAdminUserFilterQuery)
-
-
 def _match_user_field_rule(
     user: CephAdminRgwUserSummary,
     rule: CephAdminUserFilterRule,
@@ -259,7 +255,10 @@ class _UserListingPipeline:
             "limits",
             "quota",
         }
-        self.parsed_filter = _parse_advanced_filter(self.raw_advanced_filter)
+        self.parsed_filter = parse_filter_query(
+            self.raw_advanced_filter,
+            query_cls=CephAdminUserFilterQuery,
+        )
         self.advanced_filter_active = bool(
             self.parsed_filter and self.parsed_filter.rules
         )
