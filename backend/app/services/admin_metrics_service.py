@@ -150,9 +150,6 @@ class AdminMetricsService:
         snapshot["generated_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
         return snapshot
 
-    def traffic(self, window: TrafficWindow, *, now: datetime | None = None) -> dict:
-        return self._traffic(window=window, now=now)
-
     def dashboard_storage(self) -> dict:
         """Collect scoped bucket measurements with explicit completeness.
 
@@ -451,7 +448,7 @@ class AdminMetricsService:
         s3_user_usage.sort(key=lambda entry: entry.get("used_bytes") or 0, reverse=True)
         return s3_user_usage
 
-    def _traffic(self, window: TrafficWindow, *, now: datetime | None = None) -> dict:
+    def traffic(self, window: TrafficWindow, *, now: datetime | None = None) -> dict:
         if window not in WINDOW_DELTAS:
             raise ValueError(f"Unsupported window '{window}'.")
         reference = (now or datetime.now(timezone.utc)).astimezone(timezone.utc).replace(microsecond=0)
