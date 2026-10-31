@@ -25,8 +25,10 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessCleanupPending,
     ManagedPrivateAccessConflict,
     ManagedPrivateAccessError,
-    ManagedPrivateAccessForbidden,
     ManagedPrivateAccessNotFound,
+)
+from app.services.managed_private_access_iam_service import (
+    ManagedPrivateAccessIAMService,
 )
 from app.services.managed_private_access_policy_service import (
     ManagedPrivateAccessPolicyService,
@@ -42,25 +44,15 @@ from app.services.managed_private_access_sources import (
 from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
-from app.services.rgw_iam import (
-    RGWIAMService,
-    get_iam_service,
-    get_iam_service_for_execution_target,
-)
+from app.services.rgw_iam import RGWIAMService
 from app.services.s3_connection_capabilities_service import (
     refresh_connection_detected_capabilities,
 )
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.s3_users_service import S3UsersService
-from app.utils.s3_connection_endpoint import resolve_connection_details
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
 from app.utils.rgw_payloads import extract_rgw_user_identity
-from app.utils.storage_endpoint_features import (
-    aws_iam_client_options_for_region,
-    resolve_iam_endpoint,
-    resolve_iam_signing_region,
-)
 from app.utils.time import utcnow
 
 
@@ -83,6 +75,7 @@ class ManagedPrivateAccessService:
         self.audit = ManagedPrivateAccessAuditService(db)
         self.queries = ManagedPrivateAccessQueryService(db)
         self.state = ManagedPrivateAccessStateService(db)
+        self.iam = ManagedPrivateAccessIAMService(db, access=self.access)
 
     def provision_iam(
         self,
@@ -95,7 +88,7 @@ class ManagedPrivateAccessService:
         validate_inline_policy_requests(payload.inline_policies, "user", context)
         source = self.sources.resolve_iam_source(user, context)
         destination = self.sources.derive_destination(source)
-        iam = self._iam_service_for_context(context)
+        iam = self.iam.for_context(context)
         self.policy.validate_iam_provisioning_request(iam, payload)
         existing_result = self._existing_result_for_source(user, source, payload)
         if existing_result is not None:
@@ -528,7 +521,7 @@ class ManagedPrivateAccessService:
 
     def _cleanup_remote(self, provisioning: ManagedPrivateAccess, *, user: User) -> None:
         if provisioning.remote_principal_type == "iam_user":
-            iam = self._iam_service_for_source(provisioning, user)
+            iam = self.iam.for_source(provisioning, user)
             self._cleanup_iam_resources(provisioning, iam)
         else:
             users = S3UsersService(self.db)
@@ -536,37 +529,6 @@ class ManagedPrivateAccessService:
                 users.delete_key(provisioning.source_context_id, provisioning.access_key_id)
                 provisioning.created_access_key = False
                 self.state.checkpoint(provisioning)
-
-    def _iam_service_for_source(self, provisioning: ManagedPrivateAccess, user: User) -> RGWIAMService:
-        if provisioning.source_context_type == "account":
-            link = self.access.resolve_user(user).account_link_for(provisioning.source_context_id)
-            if link is None or not self.access.manager_account_allowed(link):
-                raise ManagedPrivateAccessForbidden("Account access was revoked")
-            account = self.db.get(S3Account, provisioning.source_context_id)
-            if account is None:
-                raise ManagedPrivateAccessError("Source account not found")
-            return self._iam_service_for_context(account)
-        if provisioning.source_context_type != "connection":
-            raise ManagedPrivateAccessError("Invalid IAM source context")
-        connection = self.db.get(S3Connection, provisioning.source_context_id)
-        if connection is None or not self.access.connection_is_allowed(user, connection, workspace="manager"):
-            raise ManagedPrivateAccessForbidden("Source connection access was revoked")
-        details = resolve_connection_details(connection)
-        endpoint = connection.storage_endpoint
-        if endpoint is not None:
-            iam_endpoint = resolve_iam_endpoint(endpoint)
-            iam_region = resolve_iam_signing_region(endpoint)
-        elif (details.provider or "").strip().lower() == "aws":
-            iam_endpoint, iam_region = aws_iam_client_options_for_region(details.region)
-        else:
-            iam_endpoint, iam_region = details.endpoint_url, details.region
-        return get_iam_service(
-            connection.access_key_id,
-            connection.secret_access_key,
-            endpoint=iam_endpoint,
-            region=iam_region,
-            verify_tls=details.verify_tls,
-        )
 
     def _cleanup_iam_resources(self, provisioning: ManagedPrivateAccess, iam: RGWIAMService) -> None:
         username = provisioning.iam_username or provisioning.remote_principal_identifier
@@ -607,13 +569,6 @@ class ManagedPrivateAccessService:
             )
         if errors:
             raise ManagedPrivateAccessError("; ".join(str(error) for error in errors))
-
-    @staticmethod
-    def _iam_service_for_context(context: S3ExecutionTarget) -> RGWIAMService:
-        service = get_iam_service_for_execution_target(context)
-        if service is None:
-            raise ManagedPrivateAccessError("The source context has no IAM administration credentials")
-        return service
 
     def _compensate_iam(
         self,
