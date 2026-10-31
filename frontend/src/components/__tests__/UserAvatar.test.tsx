@@ -49,6 +49,14 @@ describe("UserAvatar", () => {
     expect(avatar).toHaveTextContent("AE");
   });
 
+  it("derives initials from the name and falls back to the email local part", () => {
+    const { rerender } = render(<UserAvatar name="Alice Example" email="alice@example.com" />);
+    expect(screen.getByTitle("Alice Example")).toHaveTextContent("AE");
+
+    rerender(<UserAvatar email="bob@example.com" />);
+    expect(screen.getByTitle("bob@example.com")).toHaveTextContent("BO");
+  });
+
   it("loads uploaded images through the authenticated API", async () => {
     mocks.fetchUserAvatarImage.mockResolvedValue(new Blob(["avatar"], { type: "image/png" }));
 

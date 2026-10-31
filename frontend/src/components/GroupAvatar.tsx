@@ -4,18 +4,9 @@
  */
 import type { UiGroupAvatarDescriptor, UiGroupAvatarIcon } from "../api/groups";
 import { fetchAuthenticatedAvatarImage } from "../api/avatarImages";
+import { avatarSizeClasses, initialsFromLabel, type AvatarSize } from "./avatarPresentation";
 import { cx } from "./ui/styles";
 import { useAuthenticatedAvatarUrl } from "./useAuthenticatedAvatarUrl";
-
-type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
-
-const sizeClasses: Record<AvatarSize, string> = {
-  xs: "h-6 w-6 text-[9px]",
-  sm: "h-7 w-7 text-[10px]",
-  md: "h-8 w-8 text-[11px]",
-  lg: "h-12 w-12 text-sm",
-  xl: "h-20 w-20 text-xl",
-};
 
 const iconPaths: Record<UiGroupAvatarIcon, string> = {
   users: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
@@ -26,9 +17,7 @@ const iconPaths: Record<UiGroupAvatarIcon, string> = {
 };
 
 function fallbackInitials(name: string): string {
-  const parts = name.trim().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
-  return (parts[0]?.slice(0, 2) || "GR").toUpperCase();
+  return initialsFromLabel(name, "GR");
 }
 
 export default function GroupAvatar({
@@ -65,7 +54,7 @@ export default function GroupAvatar({
       title={decorative ? undefined : label}
       className={cx(
         "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-[var(--ui-surface)] bg-indigo-100 font-bold uppercase text-indigo-700 shadow-sm dark:bg-indigo-900/60 dark:text-indigo-100",
-        sizeClasses[size],
+        avatarSizeClasses[size],
         className,
       )}
     >
