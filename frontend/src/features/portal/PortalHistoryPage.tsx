@@ -46,6 +46,7 @@ import {
   parseExactListInput,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
+  serializeAdvancedFilterRules,
   type TextMatchMode,
 } from "../shared/advancedFilterShared";
 
@@ -109,7 +110,7 @@ function buildServerLogAdvancedFilterPayload(advanced: ServerLogAdvancedFilterSt
   rules.push(...buildTextFieldRules("path", advanced.path, advanced.pathMatchMode));
   rules.push(...buildTextFieldRules("identity", advanced.identity, advanced.identityMatchMode));
   if (rules.length === 0) return undefined;
-  return JSON.stringify({ match: "all", rules });
+  return serializeAdvancedFilterRules(rules);
 }
 
 function formatServerLogTimestamp(value: string, locale: string): string {

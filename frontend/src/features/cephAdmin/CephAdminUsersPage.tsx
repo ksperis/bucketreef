@@ -50,6 +50,7 @@ import {
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
   renderAdvancedSearchProgress,
+  serializeAdvancedFilterRules,
   type FilterCostLevel,
   type TextMatchMode,
 } from "../shared/advancedFilterShared";
@@ -260,7 +261,7 @@ const buildAdvancedFilterPayload = (
   }
 
   if (rules.length === 0) return undefined;
-  return JSON.stringify({ match: "all", rules });
+  return serializeAdvancedFilterRules(rules);
 };
 
 const rowKey = (user: CephAdminRgwUser) => `${user.tenant ?? ""}:${user.uid}`;

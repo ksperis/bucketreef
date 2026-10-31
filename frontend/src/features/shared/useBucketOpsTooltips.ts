@@ -27,6 +27,7 @@ import type { BucketOpsApi } from "./bucketOpsApi";
 import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import type { BucketFeatureTooltipState } from "./BucketFeatureSummaryTooltip";
 import { encodeCephAdminBucketRef } from "./bucketOpsPresentation";
+import { serializeAdvancedFilterRules } from "./advancedFilterShared";
 
 type OwnerTooltipState =
   | { status: "loading" }
@@ -142,7 +143,7 @@ export function useBucketOpsTooltips({
       const response = await listBuckets(selectedScopeId, {
         page: 1,
         page_size: 5,
-        advanced_filter: JSON.stringify({ match: "all", rules }),
+        advanced_filter: serializeAdvancedFilterRules(rules),
         include: ["owner_name"],
         with_stats: false,
       });

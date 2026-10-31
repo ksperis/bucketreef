@@ -262,6 +262,9 @@ export const buildTextFieldRules = (field: string, rawValue: string, mode: TextM
   return [{ field, op: mode === "exact" ? "eq" : "contains", value: parsed.values[0] }];
 };
 
+export const serializeAdvancedFilterRules = (rules: Array<Record<string, unknown>>): string =>
+  JSON.stringify({ match: "all", rules });
+
 export const formatTextMatchModeLabel = (mode: TextMatchMode) => (mode === "exact" ? "exact" : "contains");
 
 const formatListPreview = (values: string[], limit: number = 2) => {
