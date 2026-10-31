@@ -7,13 +7,14 @@ import uuid
 from datetime import timedelta
 from typing import Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import ExternalIdentityNotFoundError
 from app.db import ExternalIdentity, ExternalIdentityLinkRequest, ExternalIdentityLinkAttempt, User, UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.audit_service import AuditService
+from app.services.external_identity_query_service import ExternalIdentityQueryService
 from app.services.user_notifications_service import UserNotificationsService
 from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
@@ -36,6 +37,7 @@ class ExternalIdentityUserService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.queries = ExternalIdentityQueryService(db)
 
     def get_or_create_oidc_user(
         self,
@@ -94,21 +96,10 @@ class ExternalIdentityUserService:
         )
 
     def list_link_requests(self, *, include_decided: bool = False) -> list[ExternalIdentityLinkRequest]:
-        statement = select(ExternalIdentityLinkRequest)
-        if not include_decided:
-            statement = statement.where(
-                ExternalIdentityLinkRequest.status == "pending",
-                ExternalIdentityLinkRequest.expires_at > utcnow(),
-            )
-        return self.db.scalars(
-            statement.order_by(ExternalIdentityLinkRequest.created_at.desc())
-        ).all()
+        return self.queries.list_link_requests(include_decided=include_decided)
 
     def list_for_user(self, user_id: int, *, include_revoked: bool = False) -> list[ExternalIdentity]:
-        statement = select(ExternalIdentity).where(ExternalIdentity.user_id == user_id)
-        if not include_revoked:
-            statement = statement.where(ExternalIdentity.revoked_at.is_(None))
-        return self.db.scalars(statement.order_by(ExternalIdentity.created_at.asc())).all()
+        return self.queries.list_for_user(user_id, include_revoked=include_revoked)
 
     def decide_link_request(
         self,
@@ -329,17 +320,10 @@ class ExternalIdentityUserService:
         return identity, True
 
     def has_alternate_primary_login(self, user: User, *, excluding_identity_id: str) -> bool:
-        if bool(user.hashed_password):
-            return True
-        return self.db.scalar(
-            select(ExternalIdentity.id)
-            .where(
-                ExternalIdentity.user_id == user.id,
-                ExternalIdentity.id != excluding_identity_id,
-                ExternalIdentity.revoked_at.is_(None),
-            )
-            .limit(1)
-        ) is not None
+        return self.queries.has_alternate_primary_login(
+            user,
+            excluding_identity_id=excluding_identity_id,
+        )
 
     def _get_or_create(
         self,
@@ -693,20 +677,16 @@ class ExternalIdentityUserService:
         issuer: Optional[str] = None,
         include_revoked: bool = False,
     ) -> ExternalIdentity | None:
-        statement = select(ExternalIdentity).where(
-            ExternalIdentity.provider_type == provider_type,
-            ExternalIdentity.subject == subject,
+        return self.queries.find_mapping(
+            provider_type,
+            provider_id,
+            subject,
+            issuer=issuer,
+            include_revoked=include_revoked,
         )
-        if provider_type == "oidc":
-            statement = statement.where(ExternalIdentity.issuer == issuer)
-        else:
-            statement = statement.where(ExternalIdentity.provider_id == provider_id)
-        if not include_revoked:
-            statement = statement.where(ExternalIdentity.revoked_at.is_(None))
-        return self.db.scalar(statement)
 
     def _find_email_candidates(self, email: str) -> list[User]:
-        return self.db.scalars(select(User).where(func.lower(User.email) == email)).all()
+        return self.queries.find_email_candidates(email)
 
     def _can_trust_email_link(
         self,
