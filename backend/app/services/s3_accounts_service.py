@@ -115,16 +115,13 @@ class S3AccountsService:
         self.account_roots = RgwAccountRootService()
         self.associations = S3AccountAssociationsService(db)
 
-    def _get_account(self, account_id: int) -> S3Account:
+    def get_account_record(self, account_id: int) -> S3Account:
         account = self.db.execute(
             select(S3Account).where(S3Account.id == account_id)
         ).scalar_one_or_none()
         if not account:
             raise S3AccountNotFoundError("S3Account not found")
         return account
-
-    def get_account_record(self, account_id: int) -> S3Account:
-        return self._get_account(account_id)
 
     def find_account_by_rgw_id(self, rgw_account_id: str) -> Optional[S3Account]:
         return self.db.execute(
@@ -186,7 +183,11 @@ class S3AccountsService:
         endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
         return self._admin_for_endpoint(endpoint, allow_missing=allow_missing)
 
-    def _runtime_for_account(self, account, allow_missing=False):
+    def _runtime_for_account(
+        self,
+        account: S3Account,
+        allow_missing: bool = False,
+    ) -> Optional[RGWAdminClient]:
         try:
             return get_endpoint_runtime_rgw_client(account.storage_endpoint)
         except (ValueError, RGWAdminError):
@@ -553,7 +554,7 @@ class S3AccountsService:
         return summaries
 
     def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:
-        account = self._get_account(account_id)
+        account = self.get_account_record(account_id)
         user_links = self.associations.load_user_links([account.id]).get(account.id, [])
         group_links = self.associations.load_group_links([account.id]).get(
             account.id,
@@ -1004,7 +1005,7 @@ class S3AccountsService:
         )
 
     def update_account(self, account_id: int, payload: S3AccountUpdate) -> S3AccountSchema:
-        account = self._get_account(account_id)
+        account = self.get_account_record(account_id)
         affected_portal_user_ids = self.associations.affected_portal_user_ids(
             account,
             payload,
@@ -1026,7 +1027,7 @@ class S3AccountsService:
         return self._updated_account_schema(account)
 
     def delete_account(self, account_id: int, delete_rgw: bool = False) -> None:
-        account = self._get_account(account_id)
+        account = self.get_account_record(account_id)
         ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(str(account.id))
         if delete_rgw:
             admin = self._admin_for_account(account, allow_missing=False)
