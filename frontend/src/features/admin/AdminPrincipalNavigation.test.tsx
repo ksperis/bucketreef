@@ -209,7 +209,7 @@ describe("Admin principal editor navigation", () => {
       expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
       expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
       expect(within(screen.getByRole("tabpanel")).getAllByRole("heading", { level: 2 }).map(heading => heading.textContent)).toEqual([
-        "Mass management workspaces", "Manager", "Browser", "Connections",
+        "Mass management workspaces", "Manager", "RGW multisite", "Browser", "Connections",
       ]);
       const labels = [editor.name === "UI User" ? "Allow access to /storage-ops" : "Allow group access to /storage-ops",
         "Bucket compare", "Enable technical S3 tools", "Allow manual private connection creation"];

@@ -197,4 +197,3 @@ The final workflow state is also captured below for quick reference.
 - [How-to: Use Advanced Filter in Ceph Admin](advanced-filter.md)
 - [How-to: Use UI tags in Ceph Admin](ui-tags.md)
 - [Safe administrative storage operations](../safe-operations.md)
-
