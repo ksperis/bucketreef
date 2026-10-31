@@ -11,14 +11,13 @@ from app.services.app_settings_service import load_app_settings_for_db_readonly
 import logging
 from typing import Any, Optional
 
-from sqlalchemy import delete, exists, func, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import (
     S3UserNotFoundError,
     StorageEndpointNotFoundError,
 )
-from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     S3UserTag,
     S3User as S3UserModel,
@@ -30,15 +29,14 @@ from app.db import (
     User,
     UserS3User as UserS3UserModel,
 )
-from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.managed_resource_naming import managed_s3_user_uid
 from app.services.mappers.s3_user import s3_user_from_db, s3_user_summary_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
+from app.services.s3_user_deletion_service import S3UserDeletionService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
-from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
 from app.utils.storage_endpoint_features import resolve_admin_endpoint, resolve_feature_flags
 from app.models.s3_user import (
     S3User as S3UserSchema,
@@ -58,11 +56,9 @@ from app.services.rgw_quota_update import (
     prepare_rgw_quota_update,
 )
 from app.services.rgw_user_key_parser import RgwUserKeyParser
-from app.services import s3_client
 from app.utils.rgw_payloads import (
     require_rgw_user_identity, split_rgw_tenant_uid,
 )
-from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.name_ordering import name_order_by
 from app.utils.sql_search import text_search_predicate
 
@@ -75,6 +71,7 @@ class S3UsersService:
         self.associations = S3UserAssociationsService(db)
         self.access_keys = S3UserAccessKeyService(db)
         self.metrics = S3UserMetricsService()
+        self.deletion = S3UserDeletionService(db, self.metrics)
         self.tags = TagsService(db)
 
     # Helpers
@@ -125,38 +122,6 @@ class S3UsersService:
             raise ValueError("RGW user no longer owns its stored access key")
         return tenant
 
-    def _verified_user_for_deletion(
-        self,
-        s3_user: S3UserModel,
-        admin: RGWAdminClient,
-    ) -> tuple[str, bool]:
-        """Verify a deletion target while accepting a confirmed missing remote user."""
-        tenant = self._tenant_for_user(s3_user)
-        try:
-            remote = admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=True)
-        except RGWAdminError as exc:
-            raise ValueError(
-                f"Unable to verify RGW user before deletion: {sanitized_error_log_detail(exc)}"
-            ) from exc
-        if remote:
-            require_rgw_user_identity(remote, s3_user.rgw_user_uid, tenant)
-            if not any(key.get("access_key") == s3_user.rgw_access_key for key in admin.extract_keys(remote)):
-                raise ValueError("RGW user no longer owns its stored access key")
-            return tenant, True
-
-        # get_user(..., allow_not_found=True) intentionally collapses every HTTP 404
-        # to None. Re-run strictly so only Ceph's explicit NoSuchUser response is
-        # treated as a stale local entry; endpoint/path failures must still block.
-        try:
-            admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=False)
-        except RGWAdminError as exc:
-            if exc.status_code == 404 and exc.error_code == "NoSuchUser":
-                return tenant, False
-            raise ValueError(
-                f"Unable to verify RGW user before deletion: {sanitized_error_log_detail(exc)}"
-            ) from exc
-        raise ValueError("RGW user could not be verified")
-
     def _existing_identity(self, uid: str, tenant: str, endpoint_id: int):
         return self.db.scalar(
             select(S3UserModel).where(
@@ -165,26 +130,6 @@ class S3UsersService:
                 S3UserModel.rgw_tenant == tenant,
             )
         )
-
-    def _interface_bucket_count(self, s3_user: S3UserModel) -> Optional[int]:
-        access_key = (s3_user.rgw_access_key or "").strip()
-        secret_key = (s3_user.rgw_secret_key or "").strip()
-        if not access_key or not secret_key:
-            return None
-        try:
-            endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(s3_user)
-            buckets = s3_client.list_buckets(
-                access_key=access_key,
-                secret_key=secret_key,
-                endpoint=endpoint,
-                region=region,
-                force_path_style=force_path_style,
-                verify_tls=verify_tls,
-            )
-            return len([bucket for bucket in buckets if isinstance(bucket, dict) and bucket.get("name")])
-        except RuntimeError as exc:
-            logger.warning("Unable to list buckets for user %s: %s", s3_user.rgw_user_uid, exc)
-            return None
 
     def get_user_usage(self, s3_user: S3UserModel) -> tuple[Optional[int], Optional[int], Optional[int]]:
         return self.metrics.get_usage(s3_user)
@@ -381,7 +326,7 @@ class S3UsersService:
     ) -> S3UserSchema:
         s3_user = self.get_user_record(user_id)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        bucket_count = self._interface_bucket_count(s3_user) if include_buckets else None
+        bucket_count = self.metrics.get_interface_bucket_count(s3_user) if include_buckets else None
         return self._serialize_s3_user(
             s3_user,
             user_links_map,
@@ -632,51 +577,8 @@ class S3UsersService:
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self.get_user_record(user_id)
-        ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(f"s3u-{s3_user.id}")
         admin = self._admin_for_user(s3_user)
-        tenant, remote_exists = self._verified_user_for_deletion(s3_user, admin)
-        if not remote_exists:
-            self._delete_user_entry(s3_user)
-            return
-        if delete_rgw:
-            bucket_count = self._interface_bucket_count(s3_user)
-            if bucket_count is None:
-                raise ValueError("Unable to verify owned buckets; cannot delete the RGW user.")
-            if bucket_count > 0:
-                raise ValueError(f"RGW user still owns {bucket_count} bucket(s); delete them first.")
-            try:
-                admin.delete_user(s3_user.rgw_user_uid, tenant=tenant or None)
-            except RGWAdminError as exc:
-                raise ValueError(f"Unable to delete RGW user {s3_user.rgw_user_uid}: {exc}") from exc
-        else:
-            key_to_delete = (s3_user.rgw_access_key or "").strip()
-            if key_to_delete:
-                try:
-                    admin.delete_access_key(s3_user.rgw_user_uid, key_to_delete, tenant=tenant or None)
-                except RGWAdminError as exc:
-                    raise ValueError(f"Unable to delete interface access key: {exc}") from exc
-        self._delete_user_entry(s3_user)
-
-    def _delete_user_entry(self, s3_user: S3UserModel) -> None:
-        self.db.execute(
-            delete(UserS3UserModel)
-            .where(UserS3UserModel.s3_user_id == s3_user.id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UiGroupS3User)
-            .where(UiGroupS3User.s3_user_id == s3_user.id)
-            .execution_options(synchronize_session=False)
-        )
-        purge = ResourceDeletionPurgeService(self.db)
-        purge.purge_s3_user_derived_data(s3_user.id)
-        purge.purge_execution_context_data(f"s3u-{s3_user.id}")
-        self.db.delete(s3_user)
-        self.db.flush()
-        self.tags.cleanup_orphan_definitions(
-            domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED]
-        )
-        self.db.commit()
+        self.deletion.delete_user(s3_user, admin, delete_rgw=delete_rgw)
 
 
 def get_s3_users_service(db: Session) -> S3UsersService:

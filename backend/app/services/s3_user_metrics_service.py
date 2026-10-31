@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import S3User
+from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.utils.quota_stats import bytes_to_gb, extract_quota_limits, parse_positive_limit
@@ -15,6 +16,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_user_payload,
     require_rgw_user_identity,
 )
+from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.usage_stats import aggregate_bucket_usage
 
 
@@ -38,6 +40,29 @@ class S3UserMetricsService:
         if endpoint is None:
             raise StorageEndpointNotFoundError("Storage endpoint not found for S3 user.")
         return get_endpoint_runtime_rgw_client(endpoint)
+
+    @staticmethod
+    def get_interface_bucket_count(s3_user: S3User) -> Optional[int]:
+        access_key = (s3_user.rgw_access_key or "").strip()
+        secret_key = (s3_user.rgw_secret_key or "").strip()
+        if not access_key or not secret_key:
+            return None
+        try:
+            endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(s3_user)
+            buckets = s3_client.list_buckets(
+                access_key=access_key,
+                secret_key=secret_key,
+                endpoint=endpoint,
+                region=region,
+                force_path_style=force_path_style,
+                verify_tls=verify_tls,
+            )
+            return len(
+                [bucket for bucket in buckets if isinstance(bucket, dict) and bucket.get("name")]
+            )
+        except RuntimeError as exc:
+            logger.warning("Unable to list buckets for user %s: %s", s3_user.rgw_user_uid, exc)
+            return None
 
     def get_usage(
         self,
