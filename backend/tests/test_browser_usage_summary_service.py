@@ -28,21 +28,18 @@ def test_browser_usage_summary_requires_the_complete_canonical_payload():
 def test_browser_usage_summary_converts_quota_and_drops_invalid_values(db_session, monkeypatch):
     account = _account_context()
 
-    class FakeS3AccountsService:
-        def __init__(self, db):  # noqa: ANN001
-            assert db is db_session
-
-        def get_account_usage(self, received):  # noqa: ANN001
+    class FakeS3AccountMetricsService:
+        def get_usage(self, received):  # noqa: ANN001
             assert received is account
             return 1024, 5, 1
 
-        def get_account_quota(self, received):  # noqa: ANN001
+        def get_quota(self, received):  # noqa: ANN001
             assert received is account
             return -1.0, 50
 
     monkeypatch.setattr(
-        "app.services.browser_usage_summary_service.S3AccountsService",
-        FakeS3AccountsService,
+        "app.services.browser_usage_summary_service.S3AccountMetricsService",
+        FakeS3AccountMetricsService,
     )
 
     result = BrowserUsageSummaryService(db_session).build(account)
