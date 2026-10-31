@@ -146,12 +146,12 @@ class AdminIdentitySecurityService:
         identity_id: str,
     ) -> tuple[User, ExternalIdentity]:
         target = self.managed_user(actor, user_id, allow_self=False)
-        identity = self.db.execute(
+        identity = self.db.scalar(
             select(ExternalIdentity).where(
                 ExternalIdentity.id == identity_id,
                 ExternalIdentity.user_id == target.id,
             )
-        ).scalar_one_or_none()
+        )
         if identity is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -166,12 +166,12 @@ class AdminIdentitySecurityService:
         session_id: str,
     ) -> AuthSession:
         target = self.managed_user(actor, user_id)
-        session = self.db.execute(
+        session = self.db.scalar(
             select(AuthSession).where(
                 AuthSession.id == session_id,
                 AuthSession.user_id == target.id,
             )
-        ).scalar_one_or_none()
+        )
         if session is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
         return session
@@ -220,11 +220,11 @@ class AdminIdentitySecurityService:
         actor: User,
         request_id: str,
     ) -> ExternalIdentityLinkRequest:
-        link_request = self.db.execute(
+        link_request = self.db.scalar(
             select(ExternalIdentityLinkRequest).where(
                 ExternalIdentityLinkRequest.id == request_id
             )
-        ).scalar_one_or_none()
+        )
         if link_request is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -255,9 +255,9 @@ class AdminIdentitySecurityService:
         ]
 
     def managed_global_session(self, actor: User, session_id: str) -> AuthSession:
-        row = self.db.execute(
+        row = self.db.scalar(
             select(AuthSession).where(AuthSession.id == session_id)
-        ).scalar_one_or_none()
+        )
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
         if row.user_id is None:
