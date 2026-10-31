@@ -113,8 +113,6 @@ export const findTreeNodeByPrefix = (nodes: TreeNode[], targetPrefix: string): T
   return null;
 };
 
-export const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
 export const isLikelyCorsError = (error: unknown) => {
   if (error instanceof TypeError) {
     const message = error.message.toLowerCase();

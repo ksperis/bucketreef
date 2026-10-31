@@ -22,6 +22,7 @@ import {
   presignPart,
 } from "../../api/browserMultipart";
 import { runWithConcurrency } from "../../utils/concurrency";
+import { createRuntimeId } from "../../utils/runtimeId";
 import type { BrowserFunctionalProfile } from "./browserActions";
 import { PART_SIZE } from "./browserConstants";
 import {
@@ -45,7 +46,6 @@ import type {
 } from "./browserTypes";
 import {
   isAbortError,
-  makeId,
   shortName,
 } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
@@ -358,7 +358,7 @@ export function useBrowserClipboard({
           skipped += 1;
           continue;
         }
-        const detailId = makeId();
+        const detailId = createRuntimeId();
         copyTasks.push({
           sourceSelector,
           sourceBucket,
@@ -411,7 +411,7 @@ export function useBrowserClipboard({
           skipped += 1;
           return;
         }
-        const detailId = makeId();
+        const detailId = createRuntimeId();
         copyTasks.push({
           sourceSelector,
           sourceBucket,

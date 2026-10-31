@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createRuntimeId } from "../../utils/runtimeId";
 
 import { COMPLETED_OPERATIONS_LIMIT } from "./browserConstants";
 import { cancelPendingOperationDetails } from "./browserOperationDetailState";
@@ -18,7 +19,7 @@ import type {
   OperationCompletionStatus,
   OperationItem,
 } from "./browserTypes";
-import { isAbortError, makeId } from "./browserUtils";
+import { isAbortError } from "./browserUtils";
 
 type RunningOperationKind = Exclude<
   NonNullable<OperationItem["kind"]>,
@@ -86,7 +87,7 @@ export function useBrowserOperationRegistry() {
       options?: StartOperationOptions,
       progress = status === "uploading" || status === "downloading" ? 0 : 20,
     ) => {
-      const operationId = makeId();
+      const operationId = createRuntimeId();
       setOperations((previous) => [
         {
           id: operationId,
@@ -116,7 +117,7 @@ export function useBrowserOperationRegistry() {
         prependCompletedActivity(
           previous,
           {
-            id: makeId(),
+            id: createRuntimeId(),
             label,
             path,
             progress: 100,

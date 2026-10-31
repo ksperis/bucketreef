@@ -2,6 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { createRuntimeId } from "../utils/runtimeId";
+
 export const SESSION_ENDED_EVENT = "bucketreef:session-ended";
 export const SESSION_ENDED_STORAGE_KEY = "bucketreef:session-ended-at";
 
@@ -10,7 +12,7 @@ export function broadcastSessionEnded(): void {
   try {
     window.localStorage.setItem(
       SESSION_ENDED_STORAGE_KEY,
-      `${Date.now()}:${Math.random()}`,
+      `${Date.now()}:${createRuntimeId()}`,
     );
   } catch {
     // The same-tab event still clears local state when storage is unavailable.

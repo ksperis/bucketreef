@@ -11,9 +11,10 @@ import {
 } from "../../api/browserObjects";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import { runWithConcurrency } from "../../utils/concurrency";
+import { createRuntimeId } from "../../utils/runtimeId";
 import { buildBulkRestorePlan } from "./browserBulkRestorePlan";
 import type { BrowserItem } from "./browserTypes";
-import { formatLocalDateTime, makeId } from "./browserUtils";
+import { formatLocalDateTime } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import { useBrowserI18n } from "./browserI18n";
@@ -131,7 +132,7 @@ export function useBrowserBulkRestore({
       if (!versioningEnabled) return;
       const pathTarget: BrowserItem | null = bucketName
         ? {
-            id: makeId(),
+            id: createRuntimeId(),
             key: normalizedPrefix,
             name: normalizedPrefix
               ? normalizedPrefix.replace(/\/$/, "")

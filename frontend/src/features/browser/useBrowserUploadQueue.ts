@@ -13,11 +13,11 @@ import {
   type SetStateAction,
 } from "react";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
+import { createRuntimeId } from "../../utils/runtimeId";
 import {
   buildUploadCandidates,
   buildUploadGrouping,
   collectDroppedFiles,
-  makeId,
   normalizePrefix,
   normalizeUploadPath,
 } from "./browserUtils";
@@ -189,7 +189,7 @@ export function useBrowserUploadQueue({
       if (!bucketName || !enabled || items.length === 0) return;
       if (items.length > 1) onShowOperations();
       onWarning(null);
-      const batchId = makeId();
+      const batchId = createRuntimeId();
       const previousQueueCount = queueRef.current.length;
       const availableSlots = Math.max(
         0,
@@ -201,7 +201,7 @@ export function useBrowserUploadQueue({
         );
         const grouping = buildUploadGrouping(relativePath, batchId);
         return {
-          id: makeId(),
+          id: createRuntimeId(),
           file: candidate.file,
           relativePath,
           key: `${normalizedPrefix}${relativePath}`,
