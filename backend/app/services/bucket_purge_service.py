@@ -32,6 +32,10 @@ ProgressCallback = Callable[[BucketPurgeProgress], None]
 CancelCheck = Callable[[], None]
 
 
+def _ignore_progress(_: BucketPurgeProgress) -> None:
+    pass
+
+
 def _normalize_progress_stage(stage: str) -> BucketPurgeStage:
     if stage == "list":
         return "list"
@@ -187,10 +191,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         totals = _BucketPurgeTotals()
         initial_entry_estimates = self._resolve_initial_entry_estimates(targets)
         initial_total_entries_estimate = self._sum_known_entry_estimates(initial_entry_estimates)
-
-        def emit(progress: BucketPurgeProgress) -> None:
-            if progress_callback:
-                progress_callback(progress)
+        emit = progress_callback or _ignore_progress
 
         emit(
             BucketPurgeProgress(
@@ -292,10 +293,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         started_at = datetime.now(timezone.utc)
         initial_entry_estimates = self._resolve_initial_entry_estimates([target])
         initial_total_entries_estimate = self._sum_known_entry_estimates(initial_entry_estimates)
-
-        def emit(progress: BucketPurgeProgress) -> None:
-            if progress_callback:
-                progress_callback(progress)
+        emit = progress_callback or _ignore_progress
 
         emit(
             BucketPurgeProgress(
