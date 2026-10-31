@@ -401,17 +401,6 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                     cancel_check=cancel_check,
                 )
             status: BucketPurgeStatus = "completed" if result.failed_count == 0 else "completed_with_errors"
-            failures = [
-                BucketPurgeFailure(
-                    bucket_name=target.bucket_name,
-                    stage=failure.stage,
-                    message=failure.message,
-                    key=failure.key,
-                    version_id=failure.version_id,
-                    count=failure.count,
-                )
-                for failure in result.failures_sample
-            ]
             return BucketPurgeBucketResult(
                 bucket_name=target.bucket_name,
                 context_id=target.context_id,
@@ -424,7 +413,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                 failed_count=result.failed_count,
                 bucket_deleted=False,
                 duration_seconds=round(monotonic() - started, 3),
-                failures_sample=failures,
+                failures_sample=self._content_purge_failures(target.bucket_name, result),
             )
         except BucketPurgeCancelled:
             raise
@@ -569,9 +558,22 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         state: _BucketDeletePurgeState,
         result: s3_deletion.BucketContentPurgeResult,
     ) -> BucketPurgeBucketResult:
-        failures = [
+        return self._build_bucket_delete_result(
+            state,
+            status="failed",
+            failed_count=result.failed_count,
+            bucket_deleted=False,
+            failures_sample=self._content_purge_failures(state.target.bucket_name, result),
+        )
+
+    @staticmethod
+    def _content_purge_failures(
+        bucket_name: str,
+        result: s3_deletion.BucketContentPurgeResult,
+    ) -> list[BucketPurgeFailure]:
+        return [
             BucketPurgeFailure(
-                bucket_name=state.target.bucket_name,
+                bucket_name=bucket_name,
                 stage=failure.stage,
                 message=failure.message,
                 key=failure.key,
@@ -580,13 +582,6 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             )
             for failure in result.failures_sample
         ]
-        return self._build_bucket_delete_result(
-            state,
-            status="failed",
-            failed_count=result.failed_count,
-            bucket_deleted=False,
-            failures_sample=failures,
-        )
 
     def _emit_bucket_deletion_progress(
         self,
