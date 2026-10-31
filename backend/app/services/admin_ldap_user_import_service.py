@@ -213,7 +213,7 @@ class AdminLdapUserImportService:
             user_ids=[user.id],
             account_ids=affected_accounts,
         )
-        UsersService._apply_association_updates(user, association_update, associations)
+        associations.apply_updates(user, association_update)
         self.db.add(user)
         self.db.flush()
         roles_after = capture_effective_portal_roles(

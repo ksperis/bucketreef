@@ -28,6 +28,18 @@ class UserAssociationsService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def apply_updates(self, user: User, payload: UserUpdate) -> None:
+        if payload.account_links is not None:
+            self.set_account_links(user, payload.account_links)
+        if payload.s3_user_links is not None:
+            self.set_s3_user_links(user, payload.s3_user_links)
+        if payload.s3_connection_ids is not None:
+            self.set_s3_connection_links(user, payload.s3_connection_ids)
+        if payload.group_ids is not None:
+            self.set_group_links(user, payload.group_ids)
+        if payload.openstack_cloud_ids is not None:
+            self.set_openstack_cloud_links(user, payload.openstack_cloud_ids)
+
     def affected_portal_account_ids(
         self,
         user: User,
