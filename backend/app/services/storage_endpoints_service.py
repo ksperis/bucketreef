@@ -301,7 +301,7 @@ class StorageEndpointsService:
         from app.core.runtime_surfaces import endpoint_identity_management_enabled
 
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
-        lease, handle = identities._lease(endpoint) if endpoint.id is not None else (None, None)
+        lease, handle = identities.lease(endpoint) if endpoint.id is not None else (None, None)
         try:
             required = required_service_identity_kinds(
                 normalize_features(
@@ -688,7 +688,7 @@ class StorageEndpointsService:
         self._ensure_unique_endpoint(state.endpoint_url, exclude_id=endpoint.id)
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
-        lease, handle = identities._lease(endpoint)
+        lease, handle = identities.lease(endpoint)
         try:
             state = normalize_storage_endpoint_update(endpoint, payload)
             if state.service_identity_mode == "external" or state.provider != StorageProvider.CEPH:
@@ -728,9 +728,9 @@ class StorageEndpointsService:
             raise ValueError("This endpoint is protected and cannot be deleted.")
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
-        lease, handle = identities._lease(endpoint)
+        lease, handle = identities.lease(endpoint)
         try:
-            # _lease refreshes the target; all checks and the deletion commit stay locked.
+            # lease() refreshes the target; all checks and the deletion commit stay locked.
             if not endpoint.is_editable:
                 raise ValueError("This endpoint is protected and cannot be deleted.")
             linked_accounts = self.db.scalar(

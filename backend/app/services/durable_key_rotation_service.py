@@ -164,8 +164,8 @@ class DurableKeyRotationService:
         try:
             self.identities.validate_payload(target.kind, payload)
             if validate_managed_keys:
-                self.identities._validate_managed_keys(target, payload)
-            self.identities._functional_check(
+                self.identities.validate_managed_keys(target, payload)
+            self.identities.functional_check(
                 endpoint,
                 kind=target.kind,
                 rgw_uid=target.rgw_uid,
@@ -291,16 +291,16 @@ class DurableKeyRotationService:
         if key_type not in SERVICE_TYPES:
             return
         provenance = (
-            f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
+            f"{self.identities.installation_id()}:{endpoint.identity_namespace}"
         )
-        if target.provenance != provenance or not self.identities._owns(
+        if target.provenance != provenance or not self.identities.owns(
             target,
             payload,
         ):
             raise ReplacementValidationError(
                 "Cannot rotate an identity without ownership proof."
             )
-        self.identities._validate_managed_keys(target, payload)
+        self.identities.validate_managed_keys(target, payload)
 
     @staticmethod
     def _require_current_access_key(
@@ -424,7 +424,7 @@ class DurableKeyRotationService:
             )
         if key_type in SERVICE_TYPES:
             provenance = (
-                f"{self.identities._installation_id()}:{endpoint.identity_namespace}"
+                f"{self.identities.installation_id()}:{endpoint.identity_namespace}"
             )
             if target.provenance != provenance or target.rgw_uid != intent.rgw_uid:
                 raise ReplacementValidationError(
@@ -448,11 +448,11 @@ class DurableKeyRotationService:
         target: RotationTarget,
         payload: object,
     ) -> None:
-        if not self.identities._owns(target, payload):
+        if not self.identities.owns(target, payload):
             raise ReplacementValidationError(
                 "Cannot rotate an identity without ownership proof."
             )
-        self.identities._validate_managed_keys(target, payload)
+        self.identities.validate_managed_keys(target, payload)
 
     def _activate_replacement(
         self,
@@ -590,7 +590,7 @@ class DurableKeyRotationService:
         if target is None:
             return
         if isinstance(exc, ManagedIdentityKeyDriftError):
-            self.identities._record_key_drift(endpoint, target, exc)
+            self.identities.record_key_drift(endpoint, target, exc)
         elif isinstance(exc, ReplacementValidationError):
             target.last_error = (
                 "Service rotation validation failed; check credentials and permissions, "
@@ -664,7 +664,7 @@ class DurableKeyRotationService:
         deactivate_only: bool = False,
     ) -> tuple[str, str, str]:
         self._validate_rotation_request(key_type, deactivate_only=deactivate_only)
-        lease, handle = self.identities._lease(endpoint)
+        lease, handle = self.identities.lease(endpoint)
         try:
             endpoint, target, intent, admin = self._load_rotation_context(
                 endpoint.id,

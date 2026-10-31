@@ -723,7 +723,7 @@ def test_revalidation_distinguishes_transient_failure_from_denied_key(identities
     db_session.commit()
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
-    functional = service._functional_check
+    functional = service.functional_check
     target_kind = kind
 
     def check(ep, *, kind, rgw_uid, access_key, secret_key):
@@ -736,7 +736,7 @@ def test_revalidation_distinguishes_transient_failure_from_denied_key(identities
             access_key=access_key,
             secret_key=secret_key,
         )
-    monkeypatch.setattr(service, "_functional_check", check)
+    monkeypatch.setattr(service, "functional_check", check)
     service.reconcile(endpoint)
     assert identity.status == ("error" if denied else "ready")
     assert identity.last_error

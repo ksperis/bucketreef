@@ -58,7 +58,7 @@ class EndpointServiceIdentityService:
         self.actor = actor
         self.client_factory = client_factory or get_endpoint_bootstrap_rgw_client
 
-    def _installation_id(self) -> str:
+    def installation_id(self) -> str:
         row = self.db.get(AppSetting, INSTALLATION_KEY)
         if row is None:
             row = AppSetting(key=INSTALLATION_KEY, payload=uuid4().hex)
@@ -88,13 +88,13 @@ class EndpointServiceIdentityService:
         )
 
     @staticmethod
-    def _owns(identity: EndpointServiceIdentity, payload: object) -> bool:
+    def owns(identity: EndpointServiceIdentity, payload: object) -> bool:
         return bool(isinstance(payload, dict) and isinstance(payload.get("keys"), list) and identity.access_key and any(
             key.get("access_key") == identity.access_key
             for key in payload.get("keys", []) if isinstance(key, dict)
         ))
 
-    def _validate_managed_keys(
+    def validate_managed_keys(
         self,
         identity: EndpointServiceIdentity,
         payload: object,
@@ -122,7 +122,7 @@ class EndpointServiceIdentityService:
         ):
             raise ManagedIdentityKeyDriftError()
 
-    def _record_key_drift(
+    def record_key_drift(
         self,
         endpoint: StorageEndpoint,
         identity: EndpointServiceIdentity,
@@ -137,7 +137,7 @@ class EndpointServiceIdentityService:
         if changed:
             self._audit(endpoint, identity, "key_drift_detected")
 
-    def _lease(
+    def lease(
         self,
         endpoint: StorageEndpoint,
     ) -> tuple[OperationLeaseService, OperationLeaseHandle]:
@@ -268,7 +268,7 @@ class EndpointServiceIdentityService:
             client.get_user_by_access_key(access_key, allow_not_found=True),
         )
 
-    def _functional_check(
+    def functional_check(
         self,
         endpoint: StorageEndpoint,
         *,
@@ -305,7 +305,7 @@ class EndpointServiceIdentityService:
             return identity
         if not permissions.users_write:
             raise ValueError("Managed service identities require Admin Ops users=write.")
-        installation = self._installation_id()
+        installation = self.installation_id()
         provenance = f"{installation}:{endpoint.identity_namespace}"
         if identity.provenance not in (None, provenance):
             raise ValueError("Service identity ownership does not match this installation.")
@@ -328,14 +328,14 @@ class EndpointServiceIdentityService:
         admin: RGWAdminClient,
         permissions: StorageEndpointAdminOpsPermissions,
     ) -> None:
-        provenance = f"{self._installation_id()}:{endpoint.identity_namespace}"
+        provenance = f"{self.installation_id()}:{endpoint.identity_namespace}"
         if identity.provenance != provenance:
             raise ValueError("Cannot validate a managed identity without ownership proof.")
         payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
-        if payload is not None and not self._owns(identity, payload):
+        if payload is not None and not self.owns(identity, payload):
             raise ValueError("RGW service UID collision; the existing user will not be modified.")
         if payload is not None:
-            self._validate_managed_keys(identity, payload)
+            self.validate_managed_keys(identity, payload)
         created = payload is None
         if created:
             if not permissions.users_write:
@@ -350,9 +350,9 @@ class EndpointServiceIdentityService:
                 secret_key=identity.secret_key,
                 extra_params={"max-buckets": 0},
             )
-            if not self._owns(identity, payload):
+            if not self.owns(identity, payload):
                 raise ValueError("RGW did not confirm ownership of the new service identity.")
-            self._validate_managed_keys(identity, payload)
+            self.validate_managed_keys(identity, payload)
             self._audit(endpoint, identity, "created")
         # Only bootstrap an identity that has never passed validation. Do not
         # rewrite permissions or interrupt a previously operational identity.
@@ -383,9 +383,9 @@ class EndpointServiceIdentityService:
         payload = admin.get_user_by_access_key(identity.access_key, allow_not_found=True)
         self.validate_payload(kind, payload)
         if managed:
-            self._validate_managed_keys(identity, payload)
+            self.validate_managed_keys(identity, payload)
         identity.rgw_uid = str(payload.get("user_id") or payload.get("uid") or identity.rgw_uid or "")
-        self._functional_check(
+        self.functional_check(
             endpoint,
             kind=identity.kind,
             rgw_uid=identity.rgw_uid,
@@ -487,11 +487,11 @@ class EndpointServiceIdentityService:
         try:
             admin, permissions = self.admin_permissions(endpoint)
             payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
-            provenance = f"{self._installation_id()}:{endpoint.identity_namespace}"
+            provenance = f"{self.installation_id()}:{endpoint.identity_namespace}"
             if payload is not None:
-                if identity.provenance != provenance or not self._owns(identity, payload):
+                if identity.provenance != provenance or not self.owns(identity, payload):
                     raise ValueError("Cannot revoke an RGW identity without ownership proof.")
-                self._validate_managed_keys(identity, payload)
+                self.validate_managed_keys(identity, payload)
                 if not permissions.users_write:
                     raise ValueError("Revocation requires Admin Ops users=write.")
                 admin.delete_user(identity.rgw_uid)  # Never purge buckets or objects.
@@ -517,7 +517,7 @@ class EndpointServiceIdentityService:
             return True
         except ManagedIdentityKeyDriftError as exc:
             self.db.rollback()
-            self._record_key_drift(endpoint, identity, exc)
+            self.record_key_drift(endpoint, identity, exc)
             return False
         except (ValueError, RGWAdminError):
             self.db.rollback()
@@ -713,7 +713,7 @@ class EndpointServiceIdentityService:
         except ManagedIdentityKeyDriftError as exc:
             self.db.rollback()
             identity = endpoint.service_identity(kind)
-            self._record_key_drift(endpoint, identity, exc)
+            self.record_key_drift(endpoint, identity, exc)
         except (ValueError, RGWAdminError) as exc:
             identity = self._record_identity_reconcile_failure(
                 endpoint,
@@ -732,7 +732,7 @@ class EndpointServiceIdentityService:
     ) -> list[dict[str, str]]:
         if endpoint.provider != "ceph":
             return []
-        lease, handle = (None, None) if locked else self._lease(endpoint)
+        lease, handle = (None, None) if locked else self.lease(endpoint)
         results = []
         try:
             results.append(self.validate_ceph_admin(endpoint))
