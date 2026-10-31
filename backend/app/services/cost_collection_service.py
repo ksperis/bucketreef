@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal, Optional, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -41,6 +41,8 @@ from app.utils.usage_stats import extract_usage_stats
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+_DailyCostRow = TypeVar("_DailyCostRow", CostUsageDaily, CostStorageDaily)
 
 
 @dataclass(frozen=True)
@@ -393,22 +395,23 @@ class CostCollector:
         ops_total: int,
         ops_breakdown: Optional[dict[str, int]],
     ) -> None:
-        existing = self._find_usage_row(
-            day=day,
-            endpoint_id=endpoint_id,
-            s3_account_id=s3_account_id,
-            s3_user_id=s3_user_id,
-        )
         stored_breakdown = ops_breakdown or None
-        now = utcnow()
-        if existing:
-            existing.bytes_in = bytes_in
-            existing.bytes_out = bytes_out
-            existing.ops_total = ops_total
-            existing.ops_breakdown = stored_breakdown
-            existing.collected_at = now
-        else:
-            row = CostUsageDaily(
+
+        def update_existing(row: CostUsageDaily, collected_at: datetime) -> None:
+            row.bytes_in = bytes_in
+            row.bytes_out = bytes_out
+            row.ops_total = ops_total
+            row.ops_breakdown = stored_breakdown
+            row.collected_at = collected_at
+
+        self._upsert_daily_row(
+            find_existing=lambda: self._find_usage_row(
+                day=day,
+                endpoint_id=endpoint_id,
+                s3_account_id=s3_account_id,
+                s3_user_id=s3_user_id,
+            ),
+            build_row=lambda collected_at: CostUsageDaily(
                 day=day,
                 storage_endpoint_id=endpoint_id,
                 s3_account_id=s3_account_id,
@@ -418,27 +421,10 @@ class CostCollector:
                 ops_total=ops_total,
                 ops_breakdown=stored_breakdown,
                 source="rgw_admin_usage",
-                collected_at=now,
-            )
-            try:
-                with self.db.begin_nested():
-                    self.db.add(row)
-                    self.db.flush()
-            except IntegrityError:
-                existing = self._find_usage_row(
-                    day=day,
-                    endpoint_id=endpoint_id,
-                    s3_account_id=s3_account_id,
-                    s3_user_id=s3_user_id,
-                )
-                if existing is None:
-                    raise
-                existing.bytes_in = bytes_in
-                existing.bytes_out = bytes_out
-                existing.ops_total = ops_total
-                existing.ops_breakdown = stored_breakdown
-                existing.collected_at = now
-        self.db.commit()
+                collected_at=collected_at,
+            ),
+            update_existing=update_existing,
+        )
 
     def _upsert_storage(
         self,
@@ -451,21 +437,22 @@ class CostCollector:
         total_objects: int,
         by_bucket: Optional[dict[str, dict[str, int]]],
     ) -> None:
-        existing = self._find_storage_row(
-            day=day,
-            endpoint_id=endpoint_id,
-            s3_account_id=s3_account_id,
-            s3_user_id=s3_user_id,
-        )
         stored_by_bucket = by_bucket or None
-        now = utcnow()
-        if existing:
-            existing.total_bytes = total_bytes
-            existing.total_objects = total_objects
-            existing.by_bucket = stored_by_bucket
-            existing.collected_at = now
-        else:
-            row = CostStorageDaily(
+
+        def update_existing(row: CostStorageDaily, collected_at: datetime) -> None:
+            row.total_bytes = total_bytes
+            row.total_objects = total_objects
+            row.by_bucket = stored_by_bucket
+            row.collected_at = collected_at
+
+        self._upsert_daily_row(
+            find_existing=lambda: self._find_storage_row(
+                day=day,
+                endpoint_id=endpoint_id,
+                s3_account_id=s3_account_id,
+                s3_user_id=s3_user_id,
+            ),
+            build_row=lambda collected_at: CostStorageDaily(
                 day=day,
                 storage_endpoint_id=endpoint_id,
                 s3_account_id=s3_account_id,
@@ -474,25 +461,33 @@ class CostCollector:
                 total_objects=total_objects,
                 by_bucket=stored_by_bucket,
                 source="rgw_admin_bucket_stats",
-                collected_at=now,
-            )
+                collected_at=collected_at,
+            ),
+            update_existing=update_existing,
+        )
+
+    def _upsert_daily_row(
+        self,
+        *,
+        find_existing: Callable[[], _DailyCostRow | None],
+        build_row: Callable[[datetime], _DailyCostRow],
+        update_existing: Callable[[_DailyCostRow, datetime], None],
+    ) -> None:
+        existing = find_existing()
+        collected_at = utcnow()
+        if existing is not None:
+            update_existing(existing, collected_at)
+        else:
+            row = build_row(collected_at)
             try:
                 with self.db.begin_nested():
                     self.db.add(row)
                     self.db.flush()
             except IntegrityError:
-                existing = self._find_storage_row(
-                    day=day,
-                    endpoint_id=endpoint_id,
-                    s3_account_id=s3_account_id,
-                    s3_user_id=s3_user_id,
-                )
+                existing = find_existing()
                 if existing is None:
                     raise
-                existing.total_bytes = total_bytes
-                existing.total_objects = total_objects
-                existing.by_bucket = stored_by_bucket
-                existing.collected_at = now
+                update_existing(existing, collected_at)
         self.db.commit()
 
     def _find_usage_row(
