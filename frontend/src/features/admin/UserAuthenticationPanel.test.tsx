@@ -93,6 +93,16 @@ describe("UserAuthenticationPanel", () => {
     expect(screen.getByText(/password · Unknown address/i)).toBeInTheDocument();
   });
 
+  it("places passkeys and MFA below external identities", async () => {
+    render(<UserAuthenticationPanel userId={42} canMutate />);
+
+    await screen.findByText("Laptop");
+    const externalIdentities = screen.getByRole("region", { name: "External identities" });
+    const passkeysAndMfa = screen.getByRole("region", { name: "Passkeys and MFA" });
+
+    expect(externalIdentities.compareDocumentPosition(passkeysAndMfa) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("confirms MFA reset and external identity revocation", async () => {
     const user = userEvent.setup();
     render(<UserAuthenticationPanel userId={42} canMutate />);

@@ -169,6 +169,20 @@ describe("SecurityPage", () => {
     expect(screen.queryByText("Platform sessions")).not.toBeInTheDocument();
   });
 
+  it("groups sign-in methods before account security", async () => {
+    render(<SecurityPage />);
+
+    const signIn = await screen.findByRole("region", { name: "Sign-in methods" });
+    const accountSecurity = screen.getByRole("region", { name: "Account security" });
+
+    expect(within(signIn).getByText("Password")).toBeInTheDocument();
+    expect(within(signIn).getByText("Connected sign-in accounts")).toBeInTheDocument();
+    expect(within(signIn).queryByText("Passkeys")).not.toBeInTheDocument();
+    expect(within(accountSecurity).getByText("Passkeys")).toBeInTheDocument();
+    expect(within(accountSecurity).getByText("Recovery codes")).toBeInTheDocument();
+    expect(signIn.compareDocumentPosition(accountSecurity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("presents linked sign-in accounts as a structured management dialog", async () => {
     const user = userEvent.setup();
     mocks.fetchOidcProviders.mockResolvedValue([

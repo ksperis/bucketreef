@@ -146,11 +146,11 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
 
   return <div className="settings-compact" data-profile-view="security">
     <SettingsSection presentation="compact" title={text("signIn")} description={text("signInHelp")}>
-      <SettingsItem compact title={text("passkeys")} icon={<ShieldIcon className="h-5 w-5" />} description={<ResourceStatus resource={keys} errorKey="loadKeysError">{keyDescription}</ResourceStatus>} action={<ProfileButton disabled={keys.loading || Boolean(keys.error) || busy} onClick={() => openPanel(keys.data.length ? "keys" : "add")}>{text(keys.data.length ? "manageKeys" : "addKey")}</ProfileButton>} />
       <SettingsItem compact title={text("password")} icon={<ShieldIcon className="h-5 w-5" />} description={text(canChangePassword ? "localPassword" : "externalPassword")} action={canChangePassword && <ProfileButton variant="secondary" onClick={() => openPanel("password")}>{text("edit")}</ProfileButton>} />
       <SettingsItem compact title={text("externalIdentities")} icon={<UserIcon className="h-5 w-5" />} description={<ResourceStatus resource={identities} errorKey="loadIdentitiesError">{identities.data.length ? identities.data.map((identity) => identity.email ?? identity.provider_id).join(", ") : text("noIdentities")}</ResourceStatus>} action={(identities.data.length > 0 || oidcProviders.length > 0) && <ProfileButton variant="secondary" onClick={() => openPanel("identities")}>{text(identities.data.length > 0 ? "manageIdentities" : "linkOidcAccount")}</ProfileButton>} />
     </SettingsSection>
-    <SettingsSection presentation="compact" title={text("recovery")} description={text("recoveryHelp")}>
+    <SettingsSection presentation="compact" title={text("accountSecurity")} description={text("accountSecurityHelp")}>
+      <SettingsItem compact title={text("passkeys")} icon={<ShieldIcon className="h-5 w-5" />} description={<ResourceStatus resource={keys} errorKey="loadKeysError">{keyDescription}</ResourceStatus>} action={<ProfileButton disabled={keys.loading || Boolean(keys.error) || busy} onClick={() => openPanel(keys.data.length ? "keys" : "add")}>{text(keys.data.length ? "manageKeys" : "addKey")}</ProfileButton>} />
       <SettingsItem compact title={text("codes")} icon={<FileIcon className="h-5 w-5" />} description={keys.loading ? text("loading") : keys.error ? text("loadKeysError") : text(keys.data.length ? "codesHelp" : "codesNeedKey")} action={keys.data.length > 0 && !keys.error && <ProfileButton variant="secondary" onClick={() => confirm({ kind: "codes" })}>{text("renewCodes")}</ProfileButton>} />
     </SettingsSection>
     <SettingsSection presentation="compact" title={text("sessions")} description={text("sessionsHelp")}>

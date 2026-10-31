@@ -239,16 +239,6 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
       </p>
 
       {security && <fieldset disabled={disabled} className="min-w-0">
-        <SettingsSection title={text("passkeysAndMfa")} presentation="compact"
-          description={text(security.passkey_required ? "passkeyRequired" : "passkeyOptional")}>
-          {security.passkeys.map((passkey) => <SettingsItem compact key={passkey.id} title={passkey.name}
-            className="[overflow-wrap:anywhere]"
-            status={<UiBadge tone={passkey.revoked_at ? "neutral" : "success"}>{text(passkey.revoked_at ? "revoked" : "active")}</UiBadge>}
-            description={text("lastUsed", { date: date(passkey.last_used_at) })} />)}
-          {security.passkeys.length === 0 && <p className="settings-readonly">{text("noPasskeys")}</p>}
-          {canMutate && <div className="mt-2"><SettingsButton variant="danger" onClick={() => requestAction({ kind: "reset-mfa" })}>{text("resetMfa")}</SettingsButton></div>}
-        </SettingsSection>
-
         <SettingsSection title={text("localPassword")} presentation="compact"
           description={text(security.has_local_password ? "localPasswordConfigured" : "noLocalPassword")}>
           {canMutate && <fieldset aria-label={text("changeLocalPassword")} className="settings-fields sm:grid-cols-2" onKeyDown={(event) => submitOnEnter(event, savePassword)}>
@@ -286,6 +276,16 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
             <div className="sm:col-span-2"><SettingsButton onClick={() => void addIdentity()}>{text("linkIdentity")}</SettingsButton></div>
             {error && errorContext === "identity" && <PageBanner tone="error" className="sm:col-span-2">{error}</PageBanner>}
           </fieldset>}
+        </SettingsSection>
+
+        <SettingsSection title={text("passkeysAndMfa")} presentation="compact"
+          description={text(security.passkey_required ? "passkeyRequired" : "passkeyOptional")}>
+          {security.passkeys.map((passkey) => <SettingsItem compact key={passkey.id} title={passkey.name}
+            className="[overflow-wrap:anywhere]"
+            status={<UiBadge tone={passkey.revoked_at ? "neutral" : "success"}>{text(passkey.revoked_at ? "revoked" : "active")}</UiBadge>}
+            description={text("lastUsed", { date: date(passkey.last_used_at) })} />)}
+          {security.passkeys.length === 0 && <p className="settings-readonly">{text("noPasskeys")}</p>}
+          {canMutate && <div className="mt-2"><SettingsButton variant="danger" onClick={() => requestAction({ kind: "reset-mfa" })}>{text("resetMfa")}</SettingsButton></div>}
         </SettingsSection>
 
         <SettingsSection title={text("userSessions")} presentation="compact">
