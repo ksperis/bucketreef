@@ -40,6 +40,9 @@ SIGNAL_FIELDS = {
     "delegated_access_key_expiration_audit": "AccessKeyExpirationService(db).run_due(",
     "delegated_auth_attempt_audit": "AuthAttemptContext.from_request(",
     "delegated_manager_iam_role_update_audit": "update_iam_role(",
+    "delegated_admin_identity_provider_delete_audit": "_delete_identity_provider_settings(",
+    "delegated_manager_iam_mutation_audit": "run_audited_iam_mutation(",
+    "delegated_bucket_migration_action_audit": "_run_migration_action(",
 }
 DELEGATED_AUDIT_SIGNALS = frozenset(
     {
@@ -65,6 +68,9 @@ DELEGATED_AUDIT_SIGNALS = frozenset(
         "delegated_access_key_expiration_audit",
         "delegated_auth_attempt_audit",
         "delegated_manager_iam_role_update_audit",
+        "delegated_admin_identity_provider_delete_audit",
+        "delegated_manager_iam_mutation_audit",
+        "delegated_bucket_migration_action_audit",
     }
 )
 
@@ -175,6 +181,15 @@ def _decorator_route(decorator: ast.AST) -> tuple[str, str] | None:
     return method, ""
 
 
+def _calls_named_function(node: ast.AST, function_name: str) -> bool:
+    return any(
+        isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Name)
+        and call.func.id == function_name
+        for call in ast.walk(node)
+    )
+
+
 def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
     routers_root = backend_root / "app" / "routers"
     rows: list[RouteAuditRow] = []
@@ -250,12 +265,16 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
                 and call.func.value.id in auth_attempt_names
                 for call in ast.walk(node)
             )
-            signals["delegated_manager_iam_role_update_audit"] = any(
-                isinstance(call, ast.Call)
-                and isinstance(call.func, ast.Name)
-                and call.func.id == "update_iam_role"
-                for call in ast.walk(node)
-            )
+            for signal_name, helper_name in (
+                ("delegated_manager_iam_role_update_audit", "update_iam_role"),
+                (
+                    "delegated_admin_identity_provider_delete_audit",
+                    "_delete_identity_provider_settings",
+                ),
+                ("delegated_manager_iam_mutation_audit", "run_audited_iam_mutation"),
+                ("delegated_bucket_migration_action_audit", "_run_migration_action"),
+            ):
+                signals[signal_name] = _calls_named_function(node, helper_name)
             for method, path in routes:
                 rows.append(
                     RouteAuditRow(

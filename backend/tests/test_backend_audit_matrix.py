@@ -177,6 +177,80 @@ def test_manager_iam_role_audit_signal_requires_exact_helper(tmp_path):
     assert not row.has_audit_signal
 
 
+@pytest.mark.parametrize(
+    ("relative_file", "functions", "signal"),
+    [
+        (
+            "app/routers/admin/settings.py",
+            ("delete_oidc_provider_settings", "delete_ldap_provider_settings"),
+            "delegated_admin_identity_provider_delete_audit",
+        ),
+        (
+            "app/routers/manager/iam_groups.py",
+            ("delete_group_inline_policy", "detach_group_policy"),
+            "delegated_manager_iam_mutation_audit",
+        ),
+        (
+            "app/routers/manager/iam_roles.py",
+            ("delete_role_inline_policy", "detach_role_policy"),
+            "delegated_manager_iam_mutation_audit",
+        ),
+        (
+            "app/routers/manager/iam_users.py",
+            ("delete_user_inline_policy", "detach_user_policy"),
+            "delegated_manager_iam_mutation_audit",
+        ),
+        (
+            "app/routers/manager/migrations_actions.py",
+            (
+                "start_migration",
+                "pause_migration",
+                "resume_migration",
+                "stop_migration",
+                "continue_after_presync",
+            ),
+            "delegated_bucket_migration_action_audit",
+        ),
+    ],
+)
+def test_backend_audit_matrix_tracks_shared_audit_helpers(relative_file, functions, signal):
+    backend_root = Path(__file__).resolve().parents[1]
+    rows = {
+        row.function: row
+        for row in collect_rows(backend_root)
+        if row.file.relative_to(backend_root) == Path(relative_file)
+    }
+
+    for function in functions:
+        assert rows[function].signals[signal]
+
+
+@pytest.mark.parametrize(
+    ("helper_name", "signal"),
+    [
+        (
+            "_delete_identity_provider_settings",
+            "delegated_admin_identity_provider_delete_audit",
+        ),
+        ("run_audited_iam_mutation", "delegated_manager_iam_mutation_audit"),
+        ("_run_migration_action", "delegated_bucket_migration_action_audit"),
+    ],
+)
+def test_shared_audit_signal_requires_exact_helper(tmp_path, helper_name, signal):
+    routers = tmp_path / "app" / "routers"
+    routers.mkdir(parents=True)
+    (routers / "example.py").write_text(
+        '@router.post("/example")\n'
+        'def example():\n'
+        f'    return future{helper_name}()\n'
+    )
+
+    row, = collect_rows(tmp_path)
+
+    assert not row.signals[signal]
+    assert not row.has_audit_signal
+
+
 def test_backend_audit_matrix_tracks_ceph_admin_bucket_ui_tag_delegation():
     backend_root = Path(__file__).resolve().parents[1]
     row = next(
