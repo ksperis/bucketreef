@@ -169,6 +169,25 @@ describe("SecurityPage", () => {
     expect(screen.queryByText("Platform sessions")).not.toBeInTheDocument();
   });
 
+  it("presents linked sign-in accounts as a structured management dialog", async () => {
+    const user = userEvent.setup();
+    mocks.fetchOidcProviders.mockResolvedValue([
+      { id: "company", display_name: "Company SSO", icon_url: null },
+    ]);
+
+    render(<SecurityPage />);
+
+    await user.click(await screen.findByRole("button", { name: "View accounts" }));
+    const dialog = screen.getByRole("dialog", { name: "Connected sign-in accounts" });
+
+    expect(within(dialog).getByText("Add a sign-in method")).toBeInTheDocument();
+    expect(within(dialog).getByText("Accounts currently linked to your BucketReef profile.")).toBeInTheDocument();
+    expect(within(dialog).getByText("OIDC · Company SSO")).toBeInTheDocument();
+    expect(within(dialog).getByText("https://issuer.example.test")).toBeInTheDocument();
+    expect(within(dialog).getByText("Managed by your administrator.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Link OIDC account" })).toBeInTheDocument();
+  });
+
   it("keeps successful sections visible when one security resource fails and retries only that section", async () => {
     const user = userEvent.setup();
     mocks.listExternalIdentities.mockRejectedValueOnce(new Error("Identity service down"));

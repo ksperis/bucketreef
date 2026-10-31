@@ -175,14 +175,49 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
           <UiCheckboxField className="min-h-11 settings-body" checked={showPasswords} onChange={(event) => setShowPasswords(event.target.checked)}>{text("showPasswords")}</UiCheckboxField><p className="settings-description text-[var(--ui-text-muted)]">{text("globalImpact")}</p><div className="flex justify-end gap-2"><ProfileButton variant="secondary" disabled={busy} onClick={guard.requestClose}>{text("cancel")}</ProfileButton><ProfileButton type="submit" disabled={busy}>{text(busy ? "saving" : "save")}</ProfileButton></div>
         </form>}
         {panel === "identities" && <>
-          {oidcProviders.length > 0 && <div className="settings-stack border-b border-[var(--ui-border-soft)] pb-4">
-            <p className="settings-body">{text("linkOidcHelp")}</p>
-            <UiSelect label={text("oidcProvider")} value={selectedOidcProvider} onChange={(event) => setSelectedOidcProvider(event.target.value)}>
-              {oidcProviders.map((provider) => <option key={provider.id} value={provider.id}>{provider.display_name}</option>)}
-            </UiSelect>
-            <div><ProfileButton disabled={busy || !selectedOidcProvider} onClick={() => void linkOidcAccount()}>{text("linkOidcAccount")}</ProfileButton></div>
-          </div>}
-          <ul>{identities.data.map((identity) => <li key={identity.id} className="border-b border-[var(--ui-border-soft)] settings-list-item first:pt-0"><div className="flex flex-wrap items-center justify-between gap-3"><strong className="min-w-0 break-words settings-body">{identity.email ?? identity.provider_id}</strong><div className="flex items-center gap-2">{generalSettings.allow_user_external_identity_unlink && <ProfileButton variant="secondary" onClick={() => confirm({ kind: "identity", value: identity })}>{text("unlink")}</ProfileButton>}</div></div><p className="settings-description text-[var(--ui-text-muted)]">{identity.provider_type}: {identity.provider_id}{identity.issuer ? ` · ${text("issuer")}: ${identity.issuer}` : ""} · {text("created")}: {date(identity.created_at)}</p></li>)}</ul>{!generalSettings.allow_user_external_identity_unlink && identities.data.length > 0 && <p className="settings-body">{text("managedIdentities")}</p>}</>}
+          {oidcProviders.length > 0 && <section aria-labelledby="profile-add-sign-in-method" className="settings-stack">
+            <div>
+              <h3 id="profile-add-sign-in-method" className="settings-body font-semibold">{text("addSignInMethod")}</h3>
+              <p className="mt-1 settings-description text-[var(--ui-text-muted)]">{text("linkOidcHelp")}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+              <UiSelect label={text("oidcProvider")} value={selectedOidcProvider} onChange={(event) => setSelectedOidcProvider(event.target.value)}>
+                {oidcProviders.map((provider) => <option key={provider.id} value={provider.id}>{provider.display_name}</option>)}
+              </UiSelect>
+              <ProfileButton disabled={busy || !selectedOidcProvider} onClick={() => void linkOidcAccount()}>{text("linkOidcAccount")}</ProfileButton>
+            </div>
+          </section>}
+          <section aria-labelledby="profile-linked-sign-in-accounts" className={oidcProviders.length > 0 ? "settings-stack border-t border-[var(--ui-border-soft)] pt-4" : "settings-stack"}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 id="profile-linked-sign-in-accounts" className="settings-body font-semibold">{text("externalIdentities")}</h3>
+                <p className="mt-1 settings-description text-[var(--ui-text-muted)]">{text("linkedAccountsHelp")}</p>
+              </div>
+              <UiBadge tone="neutral" aria-label={`${identities.data.length} ${text("externalIdentities")}`}>{identities.data.length}</UiBadge>
+            </div>
+            {identities.data.length === 0
+              ? <p className="settings-body text-[var(--ui-text-muted)]">{text("noIdentities")}</p>
+              : <ul className="divide-y divide-[var(--ui-border-soft)]">{identities.data.map((identity) => {
+                const providerName = oidcProviders.find((provider) => provider.id === identity.provider_id)?.display_name ?? identity.provider_id;
+                return <li key={identity.id} className="py-3 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="min-w-0 break-words settings-body">{identity.email ?? providerName}</strong>
+                        <UiBadge tone="neutral">{identity.provider_type.toUpperCase()} · {providerName}</UiBadge>
+                      </div>
+                      <dl className="mt-2 grid min-w-0 gap-x-4 gap-y-1 settings-description text-[var(--ui-text-muted)] sm:grid-cols-[auto_minmax(0,1fr)]">
+                        {identity.issuer && <><dt>{text("issuer")}</dt><dd className="min-w-0 break-all text-[var(--ui-text)]">{identity.issuer}</dd></>}
+                        <dt>{text("created")}</dt><dd className="text-[var(--ui-text)]">{date(identity.created_at)}</dd>
+                      </dl>
+                    </div>
+                    {generalSettings.allow_user_external_identity_unlink && <ProfileButton variant="secondary" onClick={() => confirm({ kind: "identity", value: identity })}>{text("unlink")}</ProfileButton>}
+                  </div>
+                </li>;
+              })}</ul>}
+            {!generalSettings.allow_user_external_identity_unlink && identities.data.length > 0 && <UiInlineMessage tone="neutral">{text("managedIdentities")}</UiInlineMessage>}
+          </section>
+        </>}
         {error && !confirmation && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
       </div>
     </ProfileDialog>}

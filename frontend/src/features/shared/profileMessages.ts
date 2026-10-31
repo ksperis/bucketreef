@@ -111,6 +111,8 @@ export const profileMessages = {
   mismatch: m("Passwords do not match.", "Les mots de passe ne correspondent pas.", "Die Passwörter stimmen nicht überein.", "两次输入的密码不一致。"),
   showPasswords: m("Show passwords", "Afficher les mots de passe", "Passwörter anzeigen", "显示密码"),
   externalIdentities: m("Connected sign-in accounts", "Comptes de connexion associés", "Verknüpfte Anmeldekonten", "已关联的登录账户"),
+  addSignInMethod: m("Add a sign-in method", "Ajouter une méthode de connexion", "Anmeldemethode hinzufügen", "添加登录方式"),
+  linkedAccountsHelp: m("Accounts currently linked to your BucketReef profile.", "Comptes actuellement associés à votre profil BucketReef.", "Konten, die derzeit mit Ihrem BucketReef-Profil verknüpft sind.", "当前已关联到你的 BucketReef 个人资料的账户。"),
   noIdentities: m("No accounts linked.", "Aucun compte associé.", "Keine Konten verknüpft.", "没有关联的账户。"),
   manageIdentities: m("View accounts", "Voir les comptes", "Konten anzeigen", "查看账户"),
   managedIdentities: m("Managed by your administrator.", "Gérés par votre administrateur.", "Von Ihrer Administration verwaltet.", "由管理员管理。"),
