@@ -63,12 +63,6 @@ class BucketsService:
             ) from exc
         return extract_bucket_list(payload)
 
-    def _client_kwargs(self, execution_context: S3ExecutionTarget) -> dict:
-        return s3_execution_request_kwargs(
-            execution_context,
-            error_message="S3ExecutionTarget is missing admin credentials",
-        )
-
     @staticmethod
     def _context_label(execution_context: S3ExecutionTarget) -> str | int | None:
         return execution_context.rgw_account_id or execution_context.id
@@ -151,7 +145,7 @@ class BucketsService:
         include: set[str] | None = None,
         with_stats: bool = True,
     ) -> list[Bucket]:
-        buckets = s3_client.list_buckets(**self._client_kwargs(execution_context))
+        buckets = s3_client.list_buckets(**s3_execution_request_kwargs(execution_context))
         admin_by_name = self._admin_stats_by_bucket(
             execution_context,
             with_stats=with_stats,
@@ -186,7 +180,7 @@ class BucketsService:
         if not normalized_bucket:
             raise RuntimeError("Bucket name is required")
 
-        buckets = s3_client.list_buckets(**self._client_kwargs(execution_context))
+        buckets = s3_client.list_buckets(**s3_execution_request_kwargs(execution_context))
         creation_date = None
         bucket_in_scope = False
         for entry in buckets:
@@ -240,14 +234,14 @@ class BucketsService:
             name,
             location_constraint=location_constraint,
             object_lock_enabled=object_lock_enabled,
-            **self._client_kwargs(execution_context),
+            **s3_execution_request_kwargs(execution_context),
         )
         effective_versioning = bool(versioning or object_lock_enabled)
         if effective_versioning:
             s3_client.set_bucket_versioning(
                 name,
                 enabled=True,
-                **self._client_kwargs(execution_context),
+                **s3_execution_request_kwargs(execution_context),
             )
         logger.debug(
             "S3 execution context %s created bucket %s (versioning=%s object_lock=%s location=%s)",
@@ -265,7 +259,7 @@ class BucketsService:
         force: bool = False,
     ) -> None:
         s3_deletion.delete_bucket(
-            name, force=force, **self._client_kwargs(execution_context)
+            name, force=force, **s3_execution_request_kwargs(execution_context)
         )
         logger.debug(
             "S3 execution context %s deleted bucket %s force=%s",

@@ -77,15 +77,6 @@ class BucketConfigurationService:
         except RGWAdminError as exc:
             raise RuntimeError(f"Unable to initialize bucket quota admin client: {exc}") from exc
 
-    def _client_kwargs(
-        self,
-        execution_context: S3ExecutionTarget,
-    ) -> dict:
-        return s3_execution_request_kwargs(
-            execution_context,
-            error_message="S3ExecutionTarget is missing admin credentials",
-        )
-
     def _bucket_client_kwargs(
         self,
         execution_context: S3ExecutionTarget,
@@ -98,9 +89,8 @@ class BucketConfigurationService:
             return s3_execution_bucket_request_kwargs(
                 execution_context,
                 bucket_name,
-                error_message="S3ExecutionTarget is missing admin credentials",
             )
-        return self._client_kwargs(execution_context)
+        return s3_execution_request_kwargs(execution_context)
 
     def _resolve_bucket_quota_scope(
         self,
