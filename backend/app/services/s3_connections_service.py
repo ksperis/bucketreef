@@ -92,7 +92,7 @@ class S3ConnectionsService:
             .distinct()
             .order_by(*name_order_by(DBS3Connection))
         ).all()
-        return [self._to_model(r) for r in rows]
+        return [self.serialize(r) for r in rows]
 
     def list_owned_private(self, user_id: int) -> list[S3Connection]:
         """List private connections managed by the authenticated creator."""
@@ -104,7 +104,7 @@ class S3ConnectionsService:
             )
             .order_by(*name_order_by(DBS3Connection))
         ).all()
-        return [self._to_model(r) for r in rows]
+        return [self.serialize(r) for r in rows]
 
     @staticmethod
     def admin_shared_predicates():
@@ -333,7 +333,7 @@ class S3ConnectionsService:
             updated_at=utcnow(),
         )
         self._persist_created_connection(row, payload.tags, commit=commit)
-        return self._to_model(row)
+        return self.serialize(row)
 
     def _persist_created_connection(
         self,
@@ -373,7 +373,7 @@ class S3ConnectionsService:
         row.updated_at = utcnow()
         self.db.commit()
         self.db.refresh(row)
-        return self._to_model(row)
+        return self.serialize(row)
 
     def _validate_private_update_mutability(
         self,
@@ -582,15 +582,12 @@ class S3ConnectionsService:
     def _capabilities(self, row: DBS3Connection) -> dict[str, Any]:
         return validate_s3_connection_capabilities(row.capabilities)
 
-    def _to_model(self, row: DBS3Connection) -> S3Connection:
+    def serialize(self, row: DBS3Connection) -> S3Connection:
         return s3_connection_from_db(
             row,
             capabilities=self._capabilities(row),
             tags=self.tags.get_connection_tags(row),
         )
-
-    def serialize(self, row: DBS3Connection) -> S3Connection:
-        return self._to_model(row)
 
     def touch_usage(self, row: DBS3Connection) -> None:
         now = utcnow()
