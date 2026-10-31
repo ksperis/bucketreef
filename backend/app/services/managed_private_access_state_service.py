@@ -4,9 +4,12 @@
 
 from __future__ import annotations
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import ManagedPrivateAccess
+from app.db import ManagedPrivateAccess, User
+from app.services.managed_private_access_errors import ManagedPrivateAccessConflict
+from app.services.managed_private_access_sources import ManagedPrivateAccessSource
 from app.utils.time import utcnow
 
 
@@ -15,6 +18,33 @@ class ManagedPrivateAccessStateService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
+
+    def claim(
+        self,
+        user: User,
+        source: ManagedPrivateAccessSource,
+    ) -> ManagedPrivateAccess:
+        row = ManagedPrivateAccess(
+            owner_user_id=user.id,
+            source_context_type=source.kind,
+            source_context_id=source.identifier,
+            remote_principal_type=source.remote_principal_type,
+            remote_principal_identifier=source.remote_principal_identifier,
+            iam_username=source.iam_username,
+            state="provisioning",
+            created_at=utcnow(),
+            updated_at=utcnow(),
+        )
+        self.db.add(row)
+        try:
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise ManagedPrivateAccessConflict(
+                "A managed private access operation already exists for this execution context"
+            ) from exc
+        self.db.refresh(row)
+        return row
 
     def checkpoint(self, provisioning: ManagedPrivateAccess) -> None:
         provisioning.updated_at = utcnow()
