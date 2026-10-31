@@ -13,6 +13,7 @@ import StorageSpaceIcon from "../../components/StorageSpaceIcon";
 import { cx } from "../../components/ui/styles";
 import type { BrowserBucket, BrowserUsageSummary } from "../../api/browserContracts";
 import { formatBytes } from "../../utils/format";
+import { clampedPercentageOf } from "../../utils/numbers";
 import {
   BucketIcon,
   OpenIcon,
@@ -85,15 +86,6 @@ function getBucketDisplayName(bucket: BrowserBucket, isPortalContext: boolean): 
   return bucket.display_name?.trim() || bucket.name;
 }
 
-function formatUsagePercent(summary: BrowserUsageSummary): number | null {
-  const used = summary.used_bytes;
-  const quota = summary.quota_max_size_bytes;
-  if (used == null || quota == null || quota <= 0) {
-    return null;
-  }
-  return Math.max(0, Math.min(100, (used / quota) * 100));
-}
-
 export default function BrowserWorkspaceSidebar({
   favorites,
   compact,
@@ -128,7 +120,9 @@ export default function BrowserWorkspaceSidebar({
   const searchPlaceholder = isPortalContext ? tr("Search storage spaces") : tr("Search buckets");
   const hasUsageGauge =
     usageSummary?.available === true && usageSummary.used_bytes != null;
-  const usagePercent = usageSummary ? formatUsagePercent(usageSummary) : null;
+  const usagePercent = usageSummary
+    ? clampedPercentageOf(usageSummary.used_bytes, usageSummary.quota_max_size_bytes)
+    : null;
   const usageUsedLabel =
     usageSummary?.used_bytes == null ? null : formatBytes(usageSummary.used_bytes, intlLocale);
   const usageQuotaLabel =

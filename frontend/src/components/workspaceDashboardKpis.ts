@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import type { ManagerTrafficStats, ManagerUsageTrendBaseline, TrafficWindow } from "../api/stats";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../utils/format";
+import { clampedPercentageOf } from "../utils/numbers";
 import {
   workspaceTrendWindowDays,
   type WorkspaceDashboardMetric,
@@ -75,11 +76,6 @@ type BuildWorkspaceDashboardKpisConfig = {
   objects: WorkspaceKpiCountConfig;
   transfer: WorkspaceKpiTransferConfig;
 };
-
-function workspaceDashboardPercent(used?: number | null, quota?: number | null): number | null {
-  if (used == null || quota == null || quota <= 0) return null;
-  return Math.max(0, Math.min(100, (used / quota) * 100));
-}
 
 function formatWorkspaceOptionalBytes(value?: number | null): string {
   return value == null ? "" : formatBytes(value);
@@ -230,7 +226,7 @@ function formatCountValue(value: number | null | undefined): string {
 }
 
 function buildCountMetric(config: WorkspaceKpiCountConfig): WorkspaceDashboardMetric {
-  const progress = workspaceDashboardPercent(config.value, config.quota);
+  const progress = clampedPercentageOf(config.value, config.quota);
   const detail =
     config.quota != null
       ? formatWorkspaceCountQuotaDetail(config.value, config.quota, config.unitLabel, progress, config.quotaOfLabel)
@@ -255,7 +251,7 @@ function buildCountMetric(config: WorkspaceKpiCountConfig): WorkspaceDashboardMe
 }
 
 export function buildWorkspaceDashboardKpis(config: BuildWorkspaceDashboardKpisConfig): WorkspaceDashboardMetric[] {
-  const storagePercent = workspaceDashboardPercent(config.storage.usedBytes, config.storage.quotaBytes);
+  const storagePercent = clampedPercentageOf(config.storage.usedBytes, config.storage.quotaBytes);
   const storageMetric: WorkspaceDashboardMetric = {
     label: config.storage.label ?? "Storage used",
     value: formatWorkspaceOptionalBytes(config.storage.usedBytes),
