@@ -96,6 +96,7 @@ class ExternalIdentityLinkService:
         browser_secret_hash: str,
         auth_session_id: str,
         mfa_verified_at: Optional[datetime],
+        redirect_path: Optional[str],
     ) -> ExternalIdentityLinkAttempt:
         if not browser_secret_hash:
             raise ExternalIdentityLinkError("External identity browser binding is required")
@@ -113,6 +114,7 @@ class ExternalIdentityLinkService:
             proof_verified_at=now,
             mfa_verified_at=mfa_verified_at,
             status="pending",
+            redirect_path=redirect_path,
             created_at=now,
             expires_at=now + timedelta(seconds=self.settings.oidc_link_attempt_ttl_seconds),
         )
@@ -466,6 +468,7 @@ class ExternalIdentityLinkService:
             source=attempt.source,
             stage=self._stage(attempt, user),
             proof_methods=self._proof_methods(user),
+            redirect_path=attempt.redirect_path,
             expires_at=attempt.expires_at,
         )
 

@@ -89,6 +89,7 @@ function recentWebAuthnRequiredError() {
 describe("SecurityPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, "", "/manager/profile?tab=security");
     policyState.require_passkey_for_admins = true;
     policyState.require_passkey_for_users = false;
     storedUserState.role = "ui_superadmin";
@@ -128,6 +129,23 @@ describe("SecurityPage", () => {
     mocks.beginRecentWebAuthnVerification.mockResolvedValue({ challenge: "challenge" });
     mocks.authenticatePasskey.mockResolvedValue({ id: "credential" });
     mocks.finishRecentWebAuthnVerification.mockResolvedValue({ mfa_verified_at: "2026-08-14T10:00:00Z" });
+  });
+
+  it("preserves the workspace profile route when starting an OIDC account link", async () => {
+    const user = userEvent.setup();
+    mocks.fetchOidcProviders.mockResolvedValue([{ id: "company", display_name: "Company SSO", icon_url: null }]);
+    mocks.startProfileOidcLink.mockResolvedValue({
+      provider: "company",
+      authorization_url: "https://issuer.example.test/authorize",
+      state: "state-1",
+    });
+
+    render(<SecurityPage />);
+
+    await user.click(await screen.findByRole("button", { name: "View accounts" }));
+    await user.click(screen.getByRole("button", { name: "Link OIDC account" }));
+
+    expect(mocks.startProfileOidcLink).toHaveBeenCalledWith("company", "/manager/profile?tab=security");
   });
 
   it("explains whether passkey enrollment is required for the current role", async () => {

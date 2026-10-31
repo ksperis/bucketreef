@@ -6,11 +6,13 @@ import uuid
 from datetime import timedelta
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.security import get_password_hash
 from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, User, UserNotification, UserRole
+from app.models.external_identity_link import ExternalIdentityProfileOidcStartRequest
 from app.services.api_token_service import ApiTokenService
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPIdentity
@@ -84,6 +86,18 @@ def test_link_attempt_is_browser_bound_and_expires(db_session):
         service.status(attempt.id, BROWSER_HASH)
 
 
+def test_profile_oidc_link_redirect_path_is_limited_to_internal_profile_routes():
+    payload = ExternalIdentityProfileOidcStartRequest(
+        redirect_path="/browser/profile?tab=security",
+    )
+    assert payload.redirect_path == "/browser/profile?tab=security"
+
+    with pytest.raises(ValidationError, match="BucketReef profile route"):
+        ExternalIdentityProfileOidcStartRequest(
+            redirect_path="https://evil.example.test/profile",
+        )
+
+
 def test_profile_link_preserves_mfa_time_and_requires_fresh_step_up(db_session, monkeypatch):
     user = _user(db_session, email="profile-link@example.test")
     service = ExternalIdentityLinkService(db_session)
@@ -95,6 +109,7 @@ def test_profile_link_preserves_mfa_time_and_requires_fresh_step_up(db_session, 
         browser_secret_hash=BROWSER_HASH,
         auth_session_id="profile-session",
         mfa_verified_at=verified_at,
+        redirect_path="/manager/profile?tab=security",
     )
     monkeypatch.setattr(
         "app.services.external_identity_link_service.WebAuthnService.has_credentials",
@@ -115,6 +130,7 @@ def test_profile_link_preserves_mfa_time_and_requires_fresh_step_up(db_session, 
 
     db_session.refresh(attempt)
     assert attempt.mfa_verified_at == verified_at
+    assert status.redirect_path == "/manager/profile?tab=security"
     assert status.stage == "confirm"
 
     attempt.mfa_verified_at = utcnow() - timedelta(minutes=service.settings.mfa_recent_minutes + 1)

@@ -58,6 +58,7 @@ function status(
     source: "login_collision",
     stage,
     proof_methods: [],
+    redirect_path: null,
     expires_at: "2099-01-01T00:00:00Z",
     ...overrides,
   };
@@ -247,8 +248,15 @@ describe("ExternalIdentityLinkPage", () => {
     expect(mocks.confirm).toHaveBeenCalledWith("attempt-123");
   });
 
-  it("returns profile links to profile and login-collision links to the app root", () => {
-    expect(externalIdentityLinkCompletionPath(status("completed", { source: "profile" }))).toBe("/profile");
+  it("returns profile links to their initiating workspace and login-collision links to the app root", () => {
+    expect(externalIdentityLinkCompletionPath(status("completed", {
+      source: "profile",
+      redirect_path: "/manager/profile?tab=security",
+    }))).toBe("/manager/profile?tab=security");
+    expect(externalIdentityLinkCompletionPath(status("completed", {
+      source: "profile",
+      redirect_path: "https://evil.example.test/profile",
+    }))).toBe("/profile");
     expect(externalIdentityLinkCompletionPath(status("completed", { source: "login_collision" }))).toBe("/");
   });
 });
