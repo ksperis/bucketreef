@@ -96,6 +96,51 @@ class AuditService:
             )
         return None, None, None
 
+    def _persist_log(self, payload: AuditLog) -> bool:
+        self.db.add(payload)
+        try:
+            self.db.commit()
+        except SQLAlchemyError as exc:
+            self.db.rollback()
+            logger.warning(
+                "Failed to persist audit log for action %s: %s",
+                payload.action,
+                exc,
+            )
+            return False
+        return True
+
+    def _publish_webhook(
+        self,
+        payload: AuditLog,
+        *,
+        account_id: Optional[int],
+        account_name: Optional[str],
+    ) -> None:
+        try:
+            WebhookEventPublisher(self.db).publish_audit_event(
+                scope=payload.scope,
+                action=payload.action,
+                user_email=payload.user_email,
+                user_role=payload.user_role,
+                entity_type=payload.entity_type,
+                entity_id=payload.entity_id,
+                account_id=account_id,
+                account_name=account_name,
+                status=payload.status,
+                message=payload.message,
+                metadata=audit_metadata_object(payload.audit_metadata),
+                occurred_at=payload.created_at,
+                commit=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.db.rollback()
+            logger.warning(
+                "Failed to queue webhook for audit action %s: %s",
+                payload.action,
+                exc,
+            )
+
     def record_action(
         self,
         *,
@@ -149,33 +194,14 @@ class AuditService:
             ip_address=ip_address,
             user_agent=user_agent,
         )
-        self.db.add(payload)
-        try:
-            self.db.commit()
-        except SQLAlchemyError as exc:
-            self.db.rollback()
-            logger.warning("Failed to persist audit log for action %s: %s", action, exc)
+        if not self._persist_log(payload):
             return
 
-        try:
-            WebhookEventPublisher(self.db).publish_audit_event(
-                scope=scope,
-                action=action,
-                user_email=resolved_user_email,
-                user_role=resolved_user_role,
-                entity_type=entity_type,
-                entity_id=str(entity_id) if entity_id is not None else None,
-                account_id=resolved_account_id,
-                account_name=resolved_account_name,
-                status=status,
-                message=message,
-                metadata=audit_metadata_object(payload.audit_metadata),
-                occurred_at=payload.created_at,
-                commit=True,
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.db.rollback()
-            logger.warning("Failed to queue webhook for audit action %s: %s", action, exc)
+        self._publish_webhook(
+            payload,
+            account_id=resolved_account_id,
+            account_name=resolved_account_name,
+        )
 
     def list_logs(
         self,
