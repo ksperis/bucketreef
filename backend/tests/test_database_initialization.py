@@ -43,7 +43,7 @@ def _database_revision(connection) -> str | None:
     return connection.scalar(sa.text("SELECT version_num FROM alembic_version"))
 
 
-def test_empty_database_uses_metadata_bootstrap_then_regular_upgrade(
+def test_empty_database_runs_migrations_then_regular_upgrade(
     sqlite_database: Engine,
     monkeypatch,
 ) -> None:
@@ -58,7 +58,7 @@ def test_empty_database_uses_metadata_bootstrap_then_regular_upgrade(
 
     database_initialization._initialize_or_upgrade_schema(sqlite_database)
 
-    assert upgrade_targets == []
+    assert upgrade_targets == ["head"]
     with sqlite_database.connect() as connection:
         table_names = set(sa.inspect(connection).get_table_names())
         assert set(Base.metadata.tables).issubset(table_names)
@@ -82,7 +82,7 @@ def test_empty_database_uses_metadata_bootstrap_then_regular_upgrade(
 
     database_initialization._initialize_or_upgrade_schema(sqlite_database)
 
-    assert upgrade_targets == ["head"]
+    assert upgrade_targets == ["head", "head"]
     with sqlite_database.connect() as connection:
         assert _database_revision(connection) == _alembic_head()
 
