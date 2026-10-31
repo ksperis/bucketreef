@@ -69,6 +69,42 @@ class CephAdminEndpointService:
         return results
 
     @staticmethod
+    def _probe_accounts_access(
+        endpoint: StorageEndpoint,
+        *,
+        access_key: str,
+        secret_key: str,
+    ) -> tuple[bool, str | None]:
+        admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
+        try:
+            admin_client = get_rgw_admin_client(
+                access_key=access_key,
+                secret_key=secret_key,
+                endpoint=admin_endpoint,
+                region=endpoint.region,
+                verify_tls=endpoint.verify_tls,
+                request_timeout_seconds=get_settings().rgw_admin_probe_timeout_seconds,
+            )
+            admin_client.get_account(
+                "RGW00000000000000000",
+                allow_not_found=True,
+                allow_not_implemented=True,
+            )
+        except RGWAdminError:
+            return (
+                False,
+                "RGW Accounts API could not be checked. "
+                "Other Ceph Admin operations remain available.",
+            )
+        if admin_client.account_api_supported is True:
+            return True, None
+        return (
+            False,
+            "RGW Accounts API is not supported by this endpoint. "
+            "Other Ceph Admin operations remain available.",
+        )
+
+    @staticmethod
     def get_access(
         endpoint: StorageEndpoint,
         *,
@@ -105,36 +141,14 @@ class CephAdminEndpointService:
                 and ceph_admin_identity.access_key
                 and ceph_admin_identity.secret_key
             ):
-                admin_endpoint = resolve_rgw_admin_api_endpoint(endpoint)
-                try:
-                    admin_client = get_rgw_admin_client(
-                        access_key=ceph_admin_identity.access_key,
-                        secret_key=ceph_admin_identity.secret_key,
-                        endpoint=admin_endpoint,
-                        region=endpoint.region,
-                        verify_tls=endpoint.verify_tls,
-                        request_timeout_seconds=get_settings().rgw_admin_probe_timeout_seconds,
-                    )
-                    active_rgw_uid, active_rgw_tenant = extract_rgw_user_identity(
-                        identity_probe.user_payload
-                    )
-                    admin_client.get_account(
-                        "RGW00000000000000000",
-                        allow_not_found=True,
-                        allow_not_implemented=True,
-                    )
-                    can_accounts = admin_client.account_api_supported is True
-                    if not can_accounts:
-                        accounts_warning = (
-                            "RGW Accounts API is not supported by this endpoint. "
-                            "Other Ceph Admin operations remain available."
-                        )
-                except RGWAdminError:
-                    can_accounts = False
-                    accounts_warning = (
-                        "RGW Accounts API could not be checked. "
-                        "Other Ceph Admin operations remain available."
-                    )
+                active_rgw_uid, active_rgw_tenant = extract_rgw_user_identity(
+                    identity_probe.user_payload
+                )
+                can_accounts, accounts_warning = CephAdminEndpointService._probe_accounts_access(
+                    endpoint,
+                    access_key=ceph_admin_identity.access_key,
+                    secret_key=ceph_admin_identity.secret_key,
+                )
 
         return CephAdminEndpointAccess(
             endpoint_id=endpoint.id,

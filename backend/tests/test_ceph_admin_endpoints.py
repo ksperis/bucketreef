@@ -205,7 +205,11 @@ def test_get_ceph_admin_endpoint_access_disables_accounts_when_account_api_unava
     monkeypatch.setattr(
         ceph_admin_endpoint_service,
         "probe_ceph_admin_service_identity",
-        lambda _endpoint: SimpleNamespace(status="available", warning=None, user_payload={}),
+        lambda _endpoint: SimpleNamespace(
+            status="available",
+            warning=None,
+            user_payload={"uid": "admin", "tenant": "operations"},
+        ),
     )
 
     class _FailingClient:
@@ -222,6 +226,37 @@ def test_get_ceph_admin_endpoint_access_disables_accounts_when_account_api_unava
     assert payload.can_accounts is False
     assert payload.can_metrics is True
     assert payload.availability_status == "available"
+    assert payload.accounts_warning is not None
+    assert payload.active_rgw_uid == "admin"
+    assert payload.active_rgw_tenant == "operations"
+
+
+def test_get_ceph_admin_endpoint_access_handles_accounts_client_creation_failure(monkeypatch):
+    endpoint = _build_endpoint(130, has_supervision_credentials=True)
+    monkeypatch.setattr(
+        ceph_admin_endpoint_service,
+        "probe_ceph_admin_service_identity",
+        lambda _endpoint: SimpleNamespace(
+            status="available",
+            warning=None,
+            user_payload={"uid": "admin"},
+        ),
+    )
+
+    def fail_client_creation(**kwargs):
+        raise ceph_admin_endpoint_service.RGWAdminError("RGW admin client unavailable")
+
+    monkeypatch.setattr(
+        ceph_admin_endpoint_service,
+        "get_rgw_admin_client",
+        fail_client_creation,
+    )
+
+    payload = endpoints_router.get_ceph_admin_endpoint_access(endpoint=endpoint, probe=True)
+
+    assert payload.can_admin is True
+    assert payload.can_accounts is False
+    assert payload.active_rgw_uid == "admin"
     assert payload.accounts_warning is not None
 
 
