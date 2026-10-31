@@ -10,7 +10,6 @@ from app.models.bucket import (
     BucketEncryptionConfiguration,
     BucketObjectLock,
     BucketObjectLockUpdate,
-    BucketProperties,
     BucketVersioningStatus,
     BucketVersioningUpdate,
 )
@@ -26,20 +25,6 @@ from app.services.bucket_configuration_service import (
 from app.services.s3_execution_context import S3ExecutionContext
 
 router = APIRouter(tags=["manager-buckets"])
-
-
-@router.get("/{bucket_name}/properties", response_model=BucketProperties)
-def bucket_properties(
-    bucket_name: str,
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
-    _: ManagerActor = Depends(get_current_account_admin),
-) -> BucketProperties:
-    return bucket_config_actions.get_bucket_properties_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
-    )
 
 
 @router.get("/{bucket_name}/versioning", response_model=BucketVersioningStatus)

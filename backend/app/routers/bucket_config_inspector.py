@@ -1,0 +1,79 @@
+# Copyright (c) 2026 Laurent Barbe
+# Licensed under the Apache License, Version 2.0
+
+"""Read-only bucket configuration routes shared by Manager and Browser."""
+
+from fastapi import APIRouter, Depends
+
+from app.models.access_context import ManagerActor
+from app.models.bucket import (
+    BucketLoggingConfiguration,
+    BucketPolicyOut,
+    BucketProperties,
+    BucketWebsiteConfiguration,
+)
+from app.routers.dependencies import get_current_account_admin, get_s3_execution_context
+from app.services import bucket_config_actions
+from app.services.bucket_configuration_service import (
+    BucketConfigurationService,
+    get_bucket_configuration_service,
+)
+from app.services.s3_execution_context import S3ExecutionContext
+
+router = APIRouter()
+
+
+@router.get("/{bucket_name}/properties", response_model=BucketProperties)
+def get_bucket_properties_config(
+    bucket_name: str,
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> BucketProperties:
+    return bucket_config_actions.get_bucket_properties_config(
+        service=service,
+        context=context,
+        bucket_name=bucket_name,
+    )
+
+
+@router.get("/{bucket_name}/policy", response_model=BucketPolicyOut)
+def get_bucket_policy_config(
+    bucket_name: str,
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> BucketPolicyOut:
+    return bucket_config_actions.get_bucket_policy_config(
+        service=service,
+        context=context,
+        bucket_name=bucket_name,
+    )
+
+
+@router.get("/{bucket_name}/logging", response_model=BucketLoggingConfiguration)
+def get_bucket_logging_config(
+    bucket_name: str,
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> BucketLoggingConfiguration:
+    return bucket_config_actions.get_bucket_logging_config(
+        service=service,
+        context=context,
+        bucket_name=bucket_name,
+    )
+
+
+@router.get("/{bucket_name}/website", response_model=BucketWebsiteConfiguration)
+def get_bucket_website_config(
+    bucket_name: str,
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> BucketWebsiteConfiguration:
+    return bucket_config_actions.get_bucket_website_config(
+        service=service,
+        context=context,
+        bucket_name=bucket_name,
+    )

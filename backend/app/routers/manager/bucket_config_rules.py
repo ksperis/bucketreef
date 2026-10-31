@@ -235,20 +235,6 @@ def delete_replication(
     )
 
 
-@router.get("/{bucket_name}/logging", response_model=BucketLoggingConfiguration)
-def get_logging(
-    bucket_name: str,
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
-    _: ManagerActor = Depends(get_current_account_admin),
-) -> BucketLoggingConfiguration:
-    return bucket_config_actions.get_bucket_logging_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
-    )
-
-
 @router.put("/{bucket_name}/logging", response_model=BucketLoggingConfiguration)
 def put_logging(
     bucket_name: str,
@@ -282,20 +268,6 @@ def delete_logging(
         context=context,
         bucket_name=bucket_name,
         config_area="logging",
-    )
-
-
-@router.get("/{bucket_name}/website", response_model=BucketWebsiteConfiguration)
-def get_website(
-    bucket_name: str,
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
-    _: ManagerActor = Depends(get_current_account_admin),
-) -> BucketWebsiteConfiguration:
-    return bucket_config_actions.get_bucket_website_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
     )
 
 

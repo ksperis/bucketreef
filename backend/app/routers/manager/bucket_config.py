@@ -5,6 +5,7 @@
 
 from fastapi import APIRouter
 
+from app.routers import bucket_config_inspector
 from app.routers.manager import (
     bucket_config_access,
     bucket_config_core,
@@ -12,6 +13,7 @@ from app.routers.manager import (
 )
 
 router = APIRouter()
+router.include_router(bucket_config_inspector.router)
 router.include_router(bucket_config_core.router)
 router.include_router(bucket_config_access.router)
 router.include_router(bucket_config_rules.router)
