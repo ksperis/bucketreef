@@ -138,6 +138,7 @@ def _apply_payload(provider: LdapProvider, payload: LDAPProviderAdminPayload, *,
         bind_password=candidate_secret,
         user_base_dn=payload.user_base_dn,
         user_filter=payload.user_filter,
+        import_search_filter=payload.import_search_filter,
         email_attribute=payload.email_attribute,
         name_attribute=payload.name_attribute,
         subject_attribute=payload.subject_attribute,
@@ -157,6 +158,7 @@ def _apply_payload(provider: LdapProvider, payload: LDAPProviderAdminPayload, *,
     provider.bind_dn = payload.bind_dn
     provider.user_base_dn = payload.user_base_dn
     provider.user_filter = payload.user_filter
+    provider.import_search_filter = payload.import_search_filter
     provider.email_attribute = payload.email_attribute
     provider.name_attribute = payload.name_attribute
     provider.subject_attribute = payload.subject_attribute
@@ -180,6 +182,7 @@ def _ui_provider_to_settings(provider: LdapProvider) -> LDAPProviderSettings:
         bind_password=provider.bind_password,
         user_base_dn=provider.user_base_dn,
         user_filter=provider.user_filter,
+        import_search_filter=provider.import_search_filter,
         email_attribute=provider.email_attribute,
         name_attribute=provider.name_attribute,
         subject_attribute=provider.subject_attribute,
@@ -216,6 +219,7 @@ def _provider_item(
         bind_dn=provider.bind_dn,
         user_base_dn=provider.user_base_dn,
         user_filter=provider.user_filter,
+        import_search_filter=provider.import_search_filter,
         email_attribute=provider.email_attribute,
         name_attribute=provider.name_attribute,
         subject_attribute=provider.subject_attribute,

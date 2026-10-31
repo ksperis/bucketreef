@@ -90,6 +90,7 @@ def _payload(**overrides) -> dict:
         "bind_password": "first-secret",
         "user_base_dn": "ou=people,dc=example,dc=test",
         "user_filter": "(uid={username})",
+        "import_search_filter": None,
         "email_attribute": "mail",
         "name_attribute": "displayName",
         "subject_attribute": "",
@@ -103,6 +104,52 @@ def _payload(**overrides) -> dict:
     }
     payload.update(overrides)
     return payload
+
+
+def test_ldap_import_search_filter_round_trips_through_ui_provider(db_session):
+    provider = _ui_provider("ui")
+    provider.import_search_filter = "(|(mail=*{query}*)(displayName=*{query}*))"
+    db_session.add(provider)
+    db_session.commit()
+
+    runtime = resolve_ldap_provider_map(db_session, Settings(ldap_providers={}))
+    listed = list_effective_ldap_providers(db_session, Settings(ldap_providers={}))
+
+    assert runtime["ui"].import_search_filter == "(|(mail=*{query}*)(displayName=*{query}*))"
+    assert listed[0].import_search_filter == "(|(mail=*{query}*)(displayName=*{query}*))"
+
+
+def test_ldap_import_search_filter_migration_adds_and_drops_column(monkeypatch):
+    migration_path = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "0223_ldap_import_search_filter.py"
+    )
+    spec = util.spec_from_file_location("migration_0223_ldap_import_search_filter", migration_path)
+    assert spec is not None and spec.loader is not None
+    migration = util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    engine = create_engine("sqlite:///:memory:")
+    metadata = sa.MetaData()
+    sa.Table(
+        "ldap_providers",
+        metadata,
+        sa.Column("id", sa.Integer(), primary_key=True),
+    )
+    metadata.create_all(engine)
+
+    with engine.begin() as connection:
+        operations = Operations(MigrationContext.configure(connection))
+        monkeypatch.setattr(migration, "op", operations)
+
+        migration.upgrade()
+        columns = {column["name"] for column in sa.inspect(connection).get_columns("ldap_providers")}
+        assert "import_search_filter" in columns
+
+        migration.downgrade()
+        columns = {column["name"] for column in sa.inspect(connection).get_columns("ldap_providers")}
+        assert "import_search_filter" not in columns
 
 
 def test_admin_ldap_payload_requires_complete_configuration_but_not_secret_controls():

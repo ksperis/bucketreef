@@ -10,6 +10,7 @@ from app.utils.identity_provider_ids import normalize_identity_provider_id
 from app.utils.ldap_validation import (
     normalize_optional_ldap_string,
     normalize_required_ldap_string,
+    validate_ldap_import_search_filter,
     validate_ldap_url,
     validate_ldap_user_filter,
 )
@@ -22,6 +23,7 @@ LDAP_PROVIDER_CONFIG_FIELDS = (
     "bind_dn",
     "user_base_dn",
     "user_filter",
+    "import_search_filter",
     "email_attribute",
     "name_attribute",
     "subject_attribute",
@@ -68,6 +70,7 @@ class LDAPProviderAdminItem(ApiModel):
     bind_dn: Optional[str]
     user_base_dn: str
     user_filter: str
+    import_search_filter: Optional[str]
     email_attribute: str
     name_attribute: Optional[str]
     subject_attribute: Optional[str]
@@ -93,6 +96,7 @@ class LDAPProviderAdminPayload(ApiModel):
     bind_password: Optional[str] = None
     user_base_dn: str
     user_filter: str
+    import_search_filter: Optional[str] = None
     email_attribute: str
     name_attribute: Optional[str]
     subject_attribute: Optional[str]
@@ -120,6 +124,7 @@ class LDAPProviderAdminPayload(ApiModel):
     normalize_optional_strings = field_validator(
         "bind_dn",
         "bind_password",
+        "import_search_filter",
         "name_attribute",
         "subject_attribute",
         "tls_ca_file",
@@ -129,6 +134,7 @@ class LDAPProviderAdminPayload(ApiModel):
     validate_url = field_validator("url")(validate_ldap_url)
 
     validate_user_filter = field_validator("user_filter")(validate_ldap_user_filter)
+    validate_import_search_filter = field_validator("import_search_filter")(validate_ldap_import_search_filter)
 
     @model_validator(mode="after")
     def validate_transport(self):

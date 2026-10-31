@@ -146,6 +146,42 @@ export type CreateUserPayload = {
   openstack_cloud_ids?: number[] | null;
 };
 
+export type LdapImportMatchedUser = {
+  id: number;
+  email: string;
+  full_name: string | null;
+  role: UiRole;
+};
+
+export type LdapImportSearchItem = {
+  selection_token: string;
+  provider_id: string;
+  email: string | null;
+  full_name: string | null;
+  directory_dn: string;
+  identity_state: "available" | "linked" | "revoked";
+  linked_user: LdapImportMatchedUser | null;
+  email_match_user: LdapImportMatchedUser | null;
+};
+
+export type LdapImportSearchResponse = {
+  items: LdapImportSearchItem[];
+  truncated: boolean;
+};
+
+export type LdapImportCreatePayload = Omit<CreateUserPayload, "password"> & {
+  account_links?: AccountMembership[] | null;
+  s3_user_links?: S3UserMembership[] | null;
+  s3_connection_ids?: number[] | null;
+};
+
+export type LdapImportUserPayload = {
+  selection_token: string;
+  action: "create" | "link" | "restore";
+  target_user_id?: number;
+  create?: LdapImportCreatePayload;
+};
+
 export type UpdateUserPayload = {
   email?: string;
   full_name?: string | null;
@@ -203,6 +239,18 @@ export async function listMinimalUsers(): Promise<UserSummary[]> {
 
 export async function createUser(payload: CreateUserPayload): Promise<User> {
   const { data } = await client.post<User>("/admin/users", payload);
+  return data;
+}
+
+export async function searchLdapUsers(providerId: string, query: string): Promise<LdapImportSearchResponse> {
+  const { data } = await client.get<LdapImportSearchResponse>("/admin/users/ldap/search", {
+    params: { provider_id: providerId, q: query },
+  });
+  return data;
+}
+
+export async function importLdapUser(payload: LdapImportUserPayload): Promise<User> {
+  const { data } = await client.post<User>("/admin/users/ldap/import", payload);
   return data;
 }
 

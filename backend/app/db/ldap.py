@@ -20,6 +20,7 @@ class LdapProvider(Base):
     bind_password = Column(EncryptedString, nullable=True)
     user_base_dn = Column(String, nullable=False)
     user_filter = Column(Text, nullable=False)
+    import_search_filter = Column(Text, nullable=True)
     email_attribute = Column(String, nullable=False, default="mail")
     name_attribute = Column(String, nullable=True)
     subject_attribute = Column(String, nullable=True)

@@ -32,6 +32,7 @@ export type LdapProviderFormState = {
   bind_password: string;
   user_base_dn: string;
   user_filter: string;
+  import_search_filter: string;
   email_attribute: string;
   name_attribute: string;
   subject_attribute: string;
@@ -128,6 +129,7 @@ export function emptyLdapForm(): LdapProviderFormState {
     bind_password: "",
     user_base_dn: "",
     user_filter: LDAP_DEFAULT_USER_FILTER,
+    import_search_filter: "",
     email_attribute: "mail",
     name_attribute: "displayName",
     subject_attribute: "",
@@ -153,6 +155,7 @@ export function ldapProviderToForm(
     bind_password: "",
     user_base_dn: provider.user_base_dn,
     user_filter: provider.user_filter,
+    import_search_filter: provider.import_search_filter ?? "",
     email_attribute: provider.email_attribute,
     name_attribute: provider.name_attribute ?? "",
     subject_attribute: provider.subject_attribute ?? "",
@@ -181,6 +184,7 @@ export function ldapPayloadFromForm(
     bind_password: bindPassword || null,
     user_base_dn: form.user_base_dn.trim(),
     user_filter: form.user_filter.trim(),
+    import_search_filter: form.import_search_filter.trim() || null,
     email_attribute: form.email_attribute.trim(),
     name_attribute: form.name_attribute.trim() || null,
     subject_attribute: form.subject_attribute.trim() || null,

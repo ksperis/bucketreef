@@ -15,6 +15,7 @@ export function userIdentityErrors(
   values: IdentityValues,
   creating: boolean,
   text: AdminUserText = (key) => adminUserMessage[key].en,
+  requiresPassword = true,
 ): UserIdentityErrors {
   const errors: UserIdentityErrors = {};
   const email = document.createElement("input");
@@ -22,16 +23,17 @@ export function userIdentityErrors(
   email.value = values.email ?? "";
   if (creating && !values.email) errors.email = text("emailRequired");
   else if (!email.checkValidity()) errors.email = text("invalidEmail");
-  if (creating && !values.password) errors.password = text("passwordRequired");
+  if (creating && requiresPassword && !values.password) errors.password = text("passwordRequired");
   return errors;
 }
 
 export default function AdminUserIdentityFields({
-  values, creating = false, onChange, onRoleChange, canAssignAdmin, errors,
+  values, creating = false, requiresPassword = creating, onChange, onRoleChange, canAssignAdmin, errors,
   helpOpen, onToggleHelp, idPrefix, children,
 }: {
   values: IdentityValues;
   creating?: boolean;
+  requiresPassword?: boolean;
   onChange: (patch: Partial<IdentityValues>) => void;
   onRoleChange: (role: UiRole) => void;
   canAssignAdmin: boolean;
@@ -49,7 +51,7 @@ export default function AdminUserIdentityFields({
         <UiInput id={`${idPrefix}-email`} label={text("email")} type="email" required={creating}
           value={values.email ?? ""} onChange={(event) => onChange({ email: event.target.value })}
           autoComplete="off" placeholder={creating ? text("emailPlaceholder") : undefined} error={errors.email} />
-        {creating && <UiInput id={`${idPrefix}-password`} label={text("password")} type="password" required
+        {creating && requiresPassword && <UiInput id={`${idPrefix}-password`} label={text("password")} type="password" required
           value={values.password ?? ""} onChange={(event) => onChange({ password: event.target.value })}
           autoComplete="new-password" error={errors.password} />}
         <UiInput label={text("fullName")} value={values.full_name ?? ""}

@@ -10,6 +10,8 @@ import type { S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
 
 const listUsersMock = vi.fn();
 const createUserMock = vi.fn();
+const searchLdapUsersMock = vi.fn();
+const importLdapUserMock = vi.fn();
 const updateUserMock = vi.fn();
 const assignUserToS3AccountMock = vi.fn();
 const deleteUserMock = vi.fn();
@@ -21,6 +23,7 @@ const listMinimalS3AccountsMock = vi.fn();
 const listMinimalS3UsersMock = vi.fn();
 const listMinimalS3ConnectionsMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
+const fetchLdapProvidersMock = vi.fn();
 
 function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
   return {
@@ -88,10 +91,16 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
 vi.mock("../../api/users", () => ({
   listUsers: (params?: unknown) => listUsersMock(params),
   createUser: (payload: unknown) => createUserMock(payload),
+  searchLdapUsers: (providerId: string, query: string) => searchLdapUsersMock(providerId, query),
+  importLdapUser: (payload: unknown) => importLdapUserMock(payload),
   updateUser: (userId: number, payload: unknown) => updateUserMock(userId, payload),
   assignUserToS3Account: (userId: number, accountId: number, role: string) =>
     assignUserToS3AccountMock(userId, accountId, role),
   deleteUser: (userId: number) => deleteUserMock(userId),
+}));
+
+vi.mock("../../api/auth", () => ({
+  fetchLdapProviders: () => fetchLdapProvidersMock(),
 }));
 
 vi.mock("../../api/security", () => ({
@@ -175,6 +184,11 @@ describe("UsersPage modal tabs", () => {
       },
     ]);
 
+    fetchLdapProvidersMock.mockResolvedValue([
+      { id: "corp", display_name: "Corporate directory" },
+    ]);
+    searchLdapUsersMock.mockResolvedValue({ items: [], truncated: false });
+    importLdapUserMock.mockResolvedValue({ id: 101 });
     createUserMock.mockResolvedValue({ id: 100 });
     updateUserMock.mockResolvedValue({ id: 100 });
     assignUserToS3AccountMock.mockResolvedValue(undefined);
@@ -609,6 +623,105 @@ describe("UsersPage modal tabs", () => {
     expect(
       within(managerRoleSelect).getByRole("option", { name: "No Manager access" }),
     ).toBeDisabled();
+  });
+
+  it("imports an LDAP directory entry without a local password", async () => {
+    searchLdapUsersMock.mockResolvedValue({
+      items: [
+        {
+          selection_token: "selection-ldap-alice",
+          provider_id: "corp",
+          email: "alice@example.com",
+          full_name: "Alice Directory",
+          directory_dn: "uid=alice,ou=people,dc=example,dc=com",
+          identity_state: "available",
+          linked_user: null,
+          email_match_user: null,
+        },
+      ],
+      truncated: false,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    await waitFor(() => expect(fetchLdapProvidersMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("radio", { name: /LDAP directory/ }));
+    expect(screen.getByRole("combobox", { name: "LDAP provider" })).toHaveValue("corp");
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Directory search"), { target: { value: "alice" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    await waitFor(() => {
+      expect(searchLdapUsersMock).toHaveBeenCalledWith("corp", "alice");
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Use this entry" }));
+
+    expect(screen.getByLabelText("Email")).toHaveValue("alice@example.com");
+    expect(screen.getByLabelText("Full name")).toHaveValue("Alice Directory");
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(importLdapUserMock).toHaveBeenCalledTimes(1));
+    expect(importLdapUserMock).toHaveBeenCalledWith({
+      selection_token: "selection-ldap-alice",
+      action: "create",
+      create: expect.objectContaining({
+        email: "alice@example.com",
+        full_name: "Alice Directory",
+        role: "ui_user",
+        account_links: [],
+        s3_user_links: [],
+        s3_connection_ids: [],
+      }),
+    });
+    expect(createUserMock).not.toHaveBeenCalled();
+    expect(updateUserMock).not.toHaveBeenCalled();
+  });
+
+  it("links an LDAP identity to an existing UI user only after the explicit link action", async () => {
+    searchLdapUsersMock.mockResolvedValue({
+      items: [
+        {
+          selection_token: "selection-ldap-existing",
+          provider_id: "corp",
+          email: "existing@example.com",
+          full_name: "Existing Directory User",
+          directory_dn: "uid=existing,ou=people,dc=example,dc=com",
+          identity_state: "available",
+          linked_user: null,
+          email_match_user: {
+            id: 12,
+            email: "existing@example.com",
+            full_name: "Existing UI User",
+            role: "ui_user",
+          },
+        },
+      ],
+      truncated: false,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    fireEvent.click(screen.getByRole("radio", { name: /LDAP directory/ }));
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "LDAP provider" })).toHaveValue("corp");
+    });
+    fireEvent.change(screen.getByLabelText("Directory search"), { target: { value: "existing" } });
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+
+    expect(await screen.findByText(/already has email existing@example.com/)).toBeInTheDocument();
+    expect(importLdapUserMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Link existing user" }));
+
+    await waitFor(() => {
+      expect(importLdapUserMock).toHaveBeenCalledWith({
+        selection_token: "selection-ldap-existing",
+        action: "link",
+        target_user_id: 12,
+      });
+    });
+    expect(createUserMock).not.toHaveBeenCalled();
   });
 
   it("keeps associations when switching General/Associations and submits linked payload", async () => {

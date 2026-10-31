@@ -48,6 +48,10 @@ export default function LdapProviderFields({ form, update, provider, readOnly, e
           hint={state.hint("user_base_dn")} error={errors.user_base_dn} onChange={event => update("user_base_dn", event.target.value)} />
         <UiTextarea label={adminText("User filter")} aria-label={adminText("LDAP User filter")} value={form.user_filter} rows={3} required disabled={state.locked("user_filter")}
           hint={state.hint("user_filter")} error={errors.user_filter} onChange={event => update("user_filter", event.target.value)} />
+        <UiTextarea label={adminText("Import search filter (optional)")} aria-label={adminText("LDAP Import search filter")} value={form.import_search_filter} rows={3}
+          disabled={state.locked("import_search_filter")}
+          hint={state.hint("import_search_filter", "Use {query} for the escaped Admin UI user search text. Leave empty to derive a partial search from the login filter.")}
+          error={errors.import_search_filter} onChange={event => update("import_search_filter", event.target.value)} />
       </div>
     </SettingsSection>
     <SettingsSection title={adminText("Identity mapping")} description={adminText("Map directory attributes to the user's email, name and stable identity.")} presentation="compact">

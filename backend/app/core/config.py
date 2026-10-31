@@ -15,6 +15,7 @@ from app.utils.ldap_validation import (
     LDAP_PROVIDER_DEFAULT_USER_FILTER,
     normalize_optional_ldap_string,
     normalize_required_ldap_string,
+    validate_ldap_import_search_filter,
     validate_ldap_url,
     validate_ldap_user_filter,
 )
@@ -97,6 +98,7 @@ class LDAPProviderSettings(BaseModel):
     bind_password: Optional[str] = None
     user_base_dn: str
     user_filter: str = LDAP_PROVIDER_DEFAULT_USER_FILTER
+    import_search_filter: Optional[str] = None
     email_attribute: str = "mail"
     name_attribute: Optional[str] = "displayName"
     subject_attribute: Optional[str] = None
@@ -121,6 +123,7 @@ class LDAPProviderSettings(BaseModel):
     normalize_optional_strings = field_validator(
         "bind_dn",
         "bind_password",
+        "import_search_filter",
         "name_attribute",
         "subject_attribute",
         "tls_ca_file",
@@ -130,6 +133,7 @@ class LDAPProviderSettings(BaseModel):
     validate_url = field_validator("url")(validate_ldap_url)
 
     validate_user_filter = field_validator("user_filter")(validate_ldap_user_filter)
+    validate_import_search_filter = field_validator("import_search_filter")(validate_ldap_import_search_filter)
 
     @model_validator(mode="after")
     def validate_transport(self):

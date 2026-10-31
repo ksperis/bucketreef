@@ -141,6 +141,33 @@ def create_pre_auth_token(*, user_id: int, session_id: str, auth_version: int, p
     )
 
 
+def create_ldap_import_selection_token(
+    *,
+    user_id: int,
+    session_id: str,
+    auth_version: int,
+    provider_id: str,
+    subject: str,
+    dn: str,
+) -> str:
+    settings = get_settings()
+    return _create_typed_token(
+        {
+            "sub": f"user:{user_id}",
+            "uid": user_id,
+            "sid": session_id,
+            "auth_version": auth_version,
+            "provider_id": provider_id,
+            "ldap_subject": subject,
+            "ldap_dn": dn,
+        },
+        token_type="ldap_import_selection",
+        audience=settings.ui_jwt_audience,
+        key_ring=_get_ui_jwt_key_ring(),
+        expires_delta=timedelta(minutes=15),
+    )
+
+
 def create_refresh_token() -> str:
     return secrets.token_urlsafe(48)
 

@@ -5,16 +5,20 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateUserPayload,
+  type LdapImportSearchItem,
   UpdateUserPayload,
   User,
   type UiRole,
   createUser,
   deleteUser,
   deleteUserAvatar,
+  importLdapUser,
   listUsers,
+  searchLdapUsers,
   updateUser,
   uploadUserAvatar,
 } from "../../api/users";
+import { fetchLdapProviders, type LDAPProviderInfo } from "../../api/auth";
 import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
@@ -42,6 +46,7 @@ import PageBanner from "../../components/PageBanner";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsButton, SettingsPersistentEditActions, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import AdminUserIdentityFields, { userIdentityErrors, type UserIdentityErrors } from "./AdminUserIdentityFields";
+import AdminUserLdapImportFields, { type UserCreationSource } from "./AdminUserLdapImportFields";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { useProfileI18n } from "../shared/profileMessages";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
@@ -163,7 +168,10 @@ export default function UsersPage() {
   });
   const [form, setForm] = useState<CreateUserPayload>(() => createFormTemplate());
   const [createInitialSignature, setCreateInitialSignature] = useState(() =>
-    emptyAdminUserEditorSignature(createFormTemplate())
+    JSON.stringify({
+      editor: emptyAdminUserEditorSignature(createFormTemplate()),
+      identity: { source: "local", provider_id: "", directory_dn: null },
+    })
   );
   const [createModalTab, setCreateModalTab] = useState<UserModalTab>("general");
   const {
@@ -287,6 +295,18 @@ export default function UsersPage() {
   const [pendingDeleteUser, setPendingDeleteUser] = useState<User | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [createSource, setCreateSource] = useState<UserCreationSource>("local");
+  const [ldapProviders, setLdapProviders] = useState<LDAPProviderInfo[]>([]);
+  const [ldapProvidersLoading, setLdapProvidersLoading] = useState(false);
+  const [ldapProvidersLoaded, setLdapProvidersLoaded] = useState(false);
+  const [ldapProviderId, setLdapProviderId] = useState("");
+  const [ldapQuery, setLdapQuery] = useState("");
+  const [ldapSearchLoading, setLdapSearchLoading] = useState(false);
+  const [ldapSearchError, setLdapSearchError] = useState<string | null>(null);
+  const [ldapSearchItems, setLdapSearchItems] = useState<LdapImportSearchItem[]>([]);
+  const [ldapSearchTruncated, setLdapSearchTruncated] = useState(false);
+  const [ldapSearchPerformed, setLdapSearchPerformed] = useState(false);
+  const [selectedLdapEntry, setSelectedLdapEntry] = useState<LdapImportSearchItem | null>(null);
   const [createRoleHelpOpen, setCreateRoleHelpOpen] = useState(false);
   const [editRoleHelpOpen, setEditRoleHelpOpen] = useState(false);
   const {
@@ -462,29 +482,68 @@ export default function UsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
+  const ensureLdapProviders = useCallback(async () => {
+    if (ldapProvidersLoaded || ldapProvidersLoading) return;
+    setLdapProvidersLoading(true);
+    setLdapSearchError(null);
+    try {
+      const providers = await fetchLdapProviders();
+      setLdapProviders(providers);
+      setLdapProvidersLoaded(true);
+      if (providers.length === 1) {
+        setLdapProviderId((current) => current || providers[0].id);
+      }
+    } catch (err) {
+      setLdapSearchError(extractApiError(err, textRef.current("loadLdapProvidersError")));
+    } finally {
+      setLdapProvidersLoading(false);
+    }
+  }, [ldapProvidersLoaded, ldapProvidersLoading]);
+
+  useEffect(() => {
+    if (showCreateModal) void ensureLdapProviders();
+  }, [ensureLdapProviders, showCreateModal]);
+
+  useEffect(() => {
+    if (showCreateModal && ldapProvidersLoaded && ldapProviders.length === 1 && !ldapProviderId) {
+      setLdapProviderId(ldapProviders[0].id);
+    }
+  }, [ldapProviderId, ldapProviders, ldapProvidersLoaded, showCreateModal]);
+
   useEffect(() => {
     if ((showCreateModal && createModalTab === "groups") || (showEditModal && editModalTab === "groups")) {
       void ensureGroups({ retryOnError: true });
     }
   }, [createModalTab, editModalTab, ensureGroups, showCreateModal, showEditModal]);
 
-  const emptyCreateSignature = () => emptyAdminUserEditorSignature(createFormTemplate());
+  const emptyCreateSignature = () =>
+    JSON.stringify({
+      editor: emptyAdminUserEditorSignature(createFormTemplate()),
+      identity: { source: "local", provider_id: "", directory_dn: null },
+    });
 
   const createCurrentSignature = useMemo(
     () =>
-      adminUserEditorSignature({
-        form,
-        selectedAccounts: createSelectedS3Accounts,
-        selectedS3Users: createSelectedS3Users,
-        selectedS3Connections: createSelectedS3Connections,
-        selectedOpenStackClouds: createSelectedOpenStackClouds,
-        selectedGroups: createSelectedGroups,
-        pendingAccountSelections: createAccountSelections,
-        pendingS3UserSelections: createS3UserSelections,
-        pendingConnectionSelections: createConnectionSelections,
-        pendingOpenStackSelections: createOpenStackSelections,
-        pendingGroupSelections: createGroupSelections,
-        accountAccessChoice: createAccountAccessChoice,
+      JSON.stringify({
+        editor: adminUserEditorSignature({
+          form,
+          selectedAccounts: createSelectedS3Accounts,
+          selectedS3Users: createSelectedS3Users,
+          selectedS3Connections: createSelectedS3Connections,
+          selectedOpenStackClouds: createSelectedOpenStackClouds,
+          selectedGroups: createSelectedGroups,
+          pendingAccountSelections: createAccountSelections,
+          pendingS3UserSelections: createS3UserSelections,
+          pendingConnectionSelections: createConnectionSelections,
+          pendingOpenStackSelections: createOpenStackSelections,
+          pendingGroupSelections: createGroupSelections,
+          accountAccessChoice: createAccountAccessChoice,
+        }),
+        identity: {
+          source: createSource,
+          provider_id: createSource === "ldap" ? ldapProviderId : "",
+          directory_dn: createSource === "ldap" ? selectedLdapEntry?.directory_dn ?? null : null,
+        },
       }),
     [
       createAccountAccessChoice,
@@ -498,13 +557,24 @@ export default function UsersPage() {
       createSelectedOpenStackClouds,
       createSelectedGroups,
       createSelectedS3Users,
+      createSource,
       form,
+      ldapProviderId,
+      selectedLdapEntry?.directory_dn,
     ]
   );
 
   const resetCreateModalState = () => {
     setCreateAttempted(false);
     setForm(createFormTemplate());
+    setCreateSource("local");
+    setLdapProviderId("");
+    setLdapQuery("");
+    setLdapSearchError(null);
+    setLdapSearchItems([]);
+    setLdapSearchTruncated(false);
+    setLdapSearchPerformed(false);
+    setSelectedLdapEntry(null);
     resetCreateAssociations();
     setCreateModalTab("general");
     setCreateRoleHelpOpen(false);
@@ -597,12 +667,123 @@ export default function UsersPage() {
     onClose: () => setEditModalTab(pendingEditTab.current),
   });
 
+  const handleCreateSourceChange = (source: UserCreationSource) => {
+    setCreateSource(source);
+    setCreateAttempted(false);
+    setLdapSearchError(null);
+    setLdapSearchItems([]);
+    setLdapSearchTruncated(false);
+    setLdapSearchPerformed(false);
+    setSelectedLdapEntry(null);
+    if (source === "ldap") {
+      setForm((current) => ({ ...current, password: "" }));
+      void ensureLdapProviders();
+    } else {
+      setLdapQuery("");
+    }
+  };
+
+  const handleLdapProviderChange = (providerId: string) => {
+    setLdapProviderId(providerId);
+    setLdapQuery("");
+    setLdapSearchError(null);
+    setLdapSearchItems([]);
+    setLdapSearchTruncated(false);
+    setLdapSearchPerformed(false);
+    setSelectedLdapEntry(null);
+  };
+
+  const handleLdapQueryChange = (query: string) => {
+    setLdapQuery(query);
+    setLdapSearchError(null);
+    setLdapSearchItems([]);
+    setLdapSearchTruncated(false);
+    setLdapSearchPerformed(false);
+    setSelectedLdapEntry(null);
+  };
+
+  const handleLdapSearch = async () => {
+    const query = ldapQuery.trim();
+    if (!ldapProviderId || query.length < 2 || ldapSearchLoading) return;
+    setLdapSearchLoading(true);
+    setLdapSearchError(null);
+    setLdapSearchPerformed(false);
+    setSelectedLdapEntry(null);
+    try {
+      const result = await searchLdapUsers(ldapProviderId, query);
+      setLdapSearchItems(result.items);
+      setLdapSearchTruncated(result.truncated);
+      setLdapSearchPerformed(true);
+    } catch (err) {
+      setLdapSearchItems([]);
+      setLdapSearchTruncated(false);
+      setLdapSearchError(extractApiError(err, text("ldapSearchFailed")));
+    } finally {
+      setLdapSearchLoading(false);
+    }
+  };
+
+  const handleSelectLdapEntry = (item: LdapImportSearchItem) => {
+    setSelectedLdapEntry(item);
+    setCreateAttempted(false);
+    setActionError(null);
+    setForm((current) => ({
+      ...current,
+      email: item.email ?? "",
+      full_name: item.full_name ?? "",
+      password: "",
+    }));
+  };
+
+  const handleExistingLdapIdentity = async (
+    item: LdapImportSearchItem,
+    action: "link" | "restore",
+  ) => {
+    const target = action === "link" ? item.email_match_user : item.linked_user;
+    if (!target || savingRef.current) return;
+    setActionError(null);
+    setActionMessage(null);
+    savingRef.current = true;
+    setCreating(true);
+    try {
+      await runWithStepUp(() =>
+        importLdapUser({
+          selection_token: item.selection_token,
+          action,
+          target_user_id: target.id,
+        })
+      );
+      setActionMessage(text(action === "link" ? "ldapIdentityLinked" : "ldapIdentityRestored"));
+      resetCreateModalState();
+      await fetchUsers();
+      setShowCreateModal(false);
+    } catch (err) {
+      if (!isRecentWebAuthnVerificationCancelled(err)) {
+        setActionError(extractApiError(err, text("unexpectedError")));
+      }
+    } finally {
+      savingRef.current = false;
+      setCreating(false);
+    }
+  };
+
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
     if (savingRef.current) return;
     setActionError(null);
     setActionMessage(null);
-    const errors = userIdentityErrors(form, true, adminUserText);
+    if (createSource === "ldap" && !selectedLdapEntry) {
+      setCreateAttempted(true);
+      setCreateModalTab("general");
+      setActionError(text("selectLdapEntryRequired"));
+      return;
+    }
+    const errors = userIdentityErrors(
+      form,
+      true,
+      adminUserText,
+      createSource === "local",
+    );
     setCreateAttempted(true);
     if (Object.keys(errors).length) {
       setCreateModalTab("general");
@@ -648,24 +829,55 @@ export default function UsersPage() {
     savingRef.current = true;
     setCreating(true);
     try {
-      const created = await runWithStepUp(() => createUser(payload));
-      if (created?.id) {
-        const associationsPayload: UpdateUserPayload = {
-          account_links: createSelectedS3Accounts.map((entry) => ({
-            account_id: Number(entry.id),
-            manager_role: entry.manager_role,
-            portal_role: entry.portal_role,
-            allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
-          })),
-        };
-        if (createSelectedS3Users.length > 0) {
-          associationsPayload.s3_user_links = createSelectedS3Users;
-        }
-        if (createSelectedS3Connections.length > 0) {
-          associationsPayload.s3_connection_ids = createSelectedS3Connections;
-        }
-        if (Object.keys(associationsPayload).length > 0) {
-          await runWithStepUp(() => updateUser(created.id, associationsPayload));
+      if (createSource === "ldap" && selectedLdapEntry) {
+        await runWithStepUp(() =>
+          importLdapUser({
+            selection_token: selectedLdapEntry.selection_token,
+            action: "create",
+            create: {
+              email: payload.email,
+              full_name: payload.full_name,
+              role: payload.role,
+              can_access_ceph_admin: payload.can_access_ceph_admin,
+              can_access_storage_ops: payload.can_access_storage_ops,
+              can_create_manual_private_connections: payload.can_create_manual_private_connections,
+              can_provision_managed_private_connections: payload.can_provision_managed_private_connections,
+              allow_multisite_endpoint_switching: payload.allow_multisite_endpoint_switching,
+              manager_tool_access: payload.manager_tool_access,
+              browser_advanced_features_enabled: payload.browser_advanced_features_enabled,
+              group_ids: payload.group_ids,
+              openstack_cloud_ids: payload.openstack_cloud_ids,
+              account_links: createSelectedS3Accounts.map((entry) => ({
+                account_id: Number(entry.id),
+                manager_role: entry.manager_role,
+                portal_role: entry.portal_role,
+                allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
+              })),
+              s3_user_links: createSelectedS3Users,
+              s3_connection_ids: createSelectedS3Connections,
+            },
+          })
+        );
+      } else {
+        const created = await runWithStepUp(() => createUser(payload));
+        if (created?.id) {
+          const associationsPayload: UpdateUserPayload = {
+            account_links: createSelectedS3Accounts.map((entry) => ({
+              account_id: Number(entry.id),
+              manager_role: entry.manager_role,
+              portal_role: entry.portal_role,
+              allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
+            })),
+          };
+          if (createSelectedS3Users.length > 0) {
+            associationsPayload.s3_user_links = createSelectedS3Users;
+          }
+          if (createSelectedS3Connections.length > 0) {
+            associationsPayload.s3_connection_ids = createSelectedS3Connections;
+          }
+          if (Object.keys(associationsPayload).length > 0) {
+            await runWithStepUp(() => updateUser(created.id, associationsPayload));
+          }
         }
       }
       setActionMessage(text("userCreated"));
@@ -1012,17 +1224,46 @@ export default function UsersPage() {
             >
 
             {createModalTab === "general" && (
-              <AdminUserIdentityFields
-                idPrefix="create-user"
-                values={{ ...form, role: createRoleValue }}
-                creating
-                errors={createAttempted ? userIdentityErrors(form, true, adminUserText) : {}}
-                onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
-                canAssignAdmin={currentIsSuperAdmin}
-                helpOpen={createRoleHelpOpen}
-                onToggleHelp={() => setCreateRoleHelpOpen((open) => !open)}
-                onRoleChange={(value) => setForm((current) => ({ ...current, ...roleAccessPatch(value, current) }))}
-              />
+              <>
+                <AdminUserLdapImportFields
+                  source={createSource}
+                  onSourceChange={handleCreateSourceChange}
+                  providers={ldapProviders}
+                  providersLoading={ldapProvidersLoading}
+                  providerId={ldapProviderId}
+                  onProviderChange={handleLdapProviderChange}
+                  query={ldapQuery}
+                  onQueryChange={handleLdapQueryChange}
+                  onSearch={() => void handleLdapSearch()}
+                  searchLoading={ldapSearchLoading}
+                  searchError={ldapSearchError}
+                  items={ldapSearchItems}
+                  truncated={ldapSearchTruncated}
+                  searchPerformed={ldapSearchPerformed}
+                  selected={selectedLdapEntry}
+                  onSelect={handleSelectLdapEntry}
+                  onLinkExisting={(item) => void handleExistingLdapIdentity(item, "link")}
+                  onRestore={(item) => void handleExistingLdapIdentity(item, "restore")}
+                  busy={creating}
+                  text={text}
+                />
+                <AdminUserIdentityFields
+                  idPrefix="create-user"
+                  values={{ ...form, role: createRoleValue }}
+                  creating
+                  requiresPassword={createSource === "local"}
+                  errors={
+                    createAttempted
+                      ? userIdentityErrors(form, true, adminUserText, createSource === "local")
+                      : {}
+                  }
+                  onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+                  canAssignAdmin={currentIsSuperAdmin}
+                  helpOpen={createRoleHelpOpen}
+                  onToggleHelp={() => setCreateRoleHelpOpen((open) => !open)}
+                  onRoleChange={(value) => setForm((current) => ({ ...current, ...roleAccessPatch(value, current) }))}
+                />
+              </>
             )}
 
             {createModalTab === "access" && (
