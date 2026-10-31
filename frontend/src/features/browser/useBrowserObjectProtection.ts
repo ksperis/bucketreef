@@ -18,7 +18,6 @@ import type {
 } from "../../api/browserContracts";
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime, toIsoString } from "./browserUtils";
-import { isObjectLockUnavailableMessage } from "./browserObjectDetailsModel";
 import { runBrowserScopedSave } from "./browserScopedSave";
 
 export type ObjectRetentionMode = "" | "GOVERNANCE" | "COMPLIANCE";
@@ -138,9 +137,11 @@ export function useBrowserObjectProtection({
           nextRetention.status === "rejected"
             ? extractApiError(nextRetention.reason, "Unable to load retention.")
             : null;
-        const unavailable = [legalHoldFailure, retentionFailure]
-          .filter((message): message is string => Boolean(message))
-          .some((message) => isObjectLockUnavailableMessage(message));
+        const unavailable =
+          (nextLegalHold.status === "fulfilled" &&
+            !nextLegalHold.value.object_lock_enabled) ||
+          (nextRetention.status === "fulfilled" &&
+            !nextRetention.value.object_lock_enabled);
 
         if (unavailable) {
           legalHoldLoadedRef.current = true;

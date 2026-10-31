@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 explicit Browser Object Lock capability state
+
+Browser object Legal Hold and Retention responses now include the explicit
+`object_lock_enabled` boolean. S3 reads that report no usable Object Lock
+configuration, including RGW `InvalidRequest` responses for these two reads,
+are normalized by the backend to `object_lock_enabled=false` instead of forcing
+the frontend to infer bucket capability from human-readable error text.
+
+Deploy the backend and bundled frontend together. This changes only the internal
+application API response shape and does not require a database migration.
+
 ## 2026-10 structured global Cost-disabled errors
 
 Admin, Manager, and Portal Cost endpoints now return the canonical structured

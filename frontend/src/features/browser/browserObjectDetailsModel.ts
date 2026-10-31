@@ -43,17 +43,6 @@ export const formatRestoreStatus = (value?: string | null, text?: BrowserTextFn,
 export const OBJECT_LOCK_DISABLED_MESSAGE =
   "Object Lock is not enabled on this bucket. Legal hold and retention settings are unavailable.";
 
-export const isObjectLockUnavailableMessage = (message: string) => {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("object lock") &&
-    (normalized.includes("not configured") ||
-      normalized.includes("not enabled") ||
-      normalized.includes("not found") ||
-      normalized.includes("invalidrequest"))
-  );
-};
-
 export const nextTabAfterDeleted = (versioningEnabled: boolean): ObjectDetailsTabId =>
   versioningEnabled ? "versions" : "preview";
 

@@ -186,6 +186,7 @@ export type ObjectAclUpdate = {
 export type ObjectLegalHold = {
   key: string;
   status: "ON" | "OFF" | null;
+  object_lock_enabled: boolean;
   version_id: string | null;
 };
 
@@ -199,6 +200,7 @@ export type ObjectRetention = {
   key: string;
   mode: "GOVERNANCE" | "COMPLIANCE" | null;
   retain_until: string | null;
+  object_lock_enabled: boolean;
   version_id: string | null;
 };
 

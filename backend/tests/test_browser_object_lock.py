@@ -16,7 +16,7 @@ def _client_error(code: str, operation: str, message: str = "missing") -> Client
     return ClientError({"Error": {"Code": code, "Message": message}}, operation)
 
 
-def test_get_object_legal_hold_returns_empty_when_ceph_reports_no_configuration(
+def test_get_object_legal_hold_returns_unavailable_when_ceph_reports_no_configuration(
     monkeypatch,
 ):
     calls: list[dict[str, object]] = []
@@ -38,11 +38,12 @@ def test_get_object_legal_hold_returns_empty_when_ceph_reports_no_configuration(
 
     assert result.key == "docs/report.txt"
     assert result.status is None
+    assert result.object_lock_enabled is False
     assert result.version_id == "v1"
     assert calls == [{"Bucket": "bucket-a", "Key": "docs/report.txt", "VersionId": "v1"}]
 
 
-def test_get_object_retention_returns_empty_when_ceph_reports_no_configuration(
+def test_get_object_retention_returns_unavailable_when_ceph_reports_no_configuration(
     monkeypatch,
 ):
     calls: list[dict[str, object]] = []
@@ -60,11 +61,12 @@ def test_get_object_retention_returns_empty_when_ceph_reports_no_configuration(
     assert result.key == "docs/report.txt"
     assert result.mode is None
     assert result.retain_until is None
+    assert result.object_lock_enabled is False
     assert result.version_id is None
     assert calls == [{"Bucket": "bucket-a", "Key": "docs/report.txt"}]
 
 
-def test_get_object_retention_keeps_invalid_request_as_failure(monkeypatch):
+def test_get_object_retention_marks_invalid_request_as_object_lock_unavailable(monkeypatch):
     class FakeClient:
         def get_object_retention(self, **_kwargs):  # noqa: ANN001
             raise _client_error(
@@ -72,6 +74,21 @@ def test_get_object_retention_keeps_invalid_request_as_failure(monkeypatch):
                 "GetObjectRetention",
                 "bucket object lock not configured",
             )
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
+
+    result = service.get_object_retention("bucket-a", _account(), "docs/report.txt")
+
+    assert result.mode is None
+    assert result.retain_until is None
+    assert result.object_lock_enabled is False
+
+
+def test_get_object_retention_keeps_unrelated_s3_errors_as_failures(monkeypatch):
+    class FakeClient:
+        def get_object_retention(self, **_kwargs):  # noqa: ANN001
+            raise _client_error("AccessDenied", "GetObjectRetention")
 
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())

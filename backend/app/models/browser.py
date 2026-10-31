@@ -207,6 +207,7 @@ class ObjectAclUpdate(ApiModel):
 class ObjectLegalHold(ApiModel):
     key: str
     status: Optional[Literal["ON", "OFF"]]
+    object_lock_enabled: bool
     version_id: Optional[str]
 
 
@@ -220,6 +221,7 @@ class ObjectRetention(ApiModel):
     key: str
     mode: Optional[Literal["GOVERNANCE", "COMPLIANCE"]]
     retain_until: Optional[datetime]
+    object_lock_enabled: bool
     version_id: Optional[str]
 
 
