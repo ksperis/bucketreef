@@ -8,39 +8,28 @@ from app.services.feature_policy_service import (
     validate_project_overrides,
 )
 from app.services.app_settings_service import load_app_settings_for_db_readonly
-from typing import Any, Optional
+from typing import Optional
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3UserNotFoundError
-from app.db import (
-    S3UserTag,
-    S3User as S3UserModel,
-    TagDefinition,
-    UiGroup,
-    UiGroupS3User,
-    User,
-    UserS3User as UserS3UserModel,
-)
+from app.db import S3User as S3UserModel
 from app.services.managed_resource_naming import managed_s3_user_uid
-from app.services.mappers.s3_user import s3_user_from_db, s3_user_summary_from_db
+from app.services.mappers.s3_user import s3_user_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_deletion_service import S3UserDeletionService
 from app.services.s3_user_metrics_service import S3UserMetricsService
+from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
-from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
     S3User as S3UserSchema,
     S3UserAccessKey,
     S3UserCreate,
     S3UserGeneratedKey,
-    S3UserGroupLink,
     S3UserImport,
     S3UserSummary,
-    S3UserUserLink,
     S3UserUpdate,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
@@ -52,8 +41,6 @@ from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.rgw_payloads import (
     require_rgw_user_identity, split_rgw_tenant_uid,
 )
-from app.utils.name_ordering import name_order_by
-from app.utils.sql_search import text_search_predicate
 
 class S3UsersService:
     def __init__(self, db: Session) -> None:
@@ -64,6 +51,13 @@ class S3UsersService:
         self.rgw_context = S3UserRgwContextService(db)
         self.deletion = S3UserDeletionService(db, self.metrics)
         self.tags = TagsService(db)
+        self.query = S3UserQueryService(
+            db,
+            rgw_context=self.rgw_context,
+            metrics=self.metrics,
+            associations=self.associations,
+            tags=self.tags,
+        )
 
     def _existing_identity(self, uid: str, tenant: str, endpoint_id: int):
         return self.db.scalar(
@@ -116,119 +110,13 @@ class S3UsersService:
         )
 
     def get_user_record(self, user_id: int) -> S3UserModel:
-        s3_user = self.db.scalar(
-            select(S3UserModel).where(S3UserModel.id == user_id)
-        )
-        if not s3_user:
-            raise S3UserNotFoundError("S3 user not found")
-        return s3_user
-
-    def _serialize_s3_user(
-        self,
-        row: S3UserModel,
-        user_links_map: dict[int, list[S3UserUserLink]],
-        group_links_map: dict[int, list[S3UserGroupLink]],
-        *,
-        include_quota: bool = True,
-        quota_admin: RGWAdminClient | None = None,
-        bucket_count: int | None = None,
-    ) -> S3UserSchema:
-        endpoint = self.rgw_context.endpoint_for_user(row)
-        quota_max_size_gb = None
-        quota_max_objects = None
-        if include_quota:
-            quota_max_size_gb, quota_max_objects = self.get_user_quota(
-                row,
-                quota_admin,
-            )
-        return s3_user_from_db(
-            row,
-            user_links=user_links_map.get(row.id, []),
-            group_links=group_links_map.get(row.id, []),
-            quota_max_size_gb=quota_max_size_gb,
-            quota_max_objects=quota_max_objects,
-            storage_endpoint=endpoint,
-            bucket_count=bucket_count,
-            tags=self.tags.get_s3_user_tags(row),
-        )
+        return self.query.get_user_record(user_id)
 
     def list_users(self, include_quota: bool = False) -> list[S3UserSchema]:
-        rows = self.db.scalars(
-            select(S3UserModel).order_by(*name_order_by(S3UserModel))
-        ).all()
-        s3_user_ids = [row.id for row in rows]
-        user_links_map, group_links_map = self.associations.load_links(s3_user_ids)
-        return [
-            self._serialize_s3_user(
-                row,
-                user_links_map,
-                group_links_map,
-                include_quota=include_quota,
-            )
-            for row in rows
-        ]
+        return self.query.list_users(include_quota=include_quota)
 
     def list_users_minimal(self) -> list[S3UserSummary]:
-        rows = self.db.scalars(
-            select(S3UserModel).order_by(*name_order_by(S3UserModel))
-        ).all()
-        summaries: list[S3UserSummary] = []
-        for row in rows:
-            endpoint = self.rgw_context.endpoint_for_user(row)
-            summaries.append(
-                s3_user_summary_from_db(
-                    row,
-                    storage_endpoint=endpoint,
-                    tags=self.tags.get_s3_user_tags(row),
-                )
-            )
-        return summaries
-
-    @staticmethod
-    def _apply_user_search(query, search_value: str, *, exact: bool):
-        if not search_value:
-            return query
-        tag_match = (
-            exists()
-            .where(S3UserTag.s3_user_id == S3UserModel.id)
-            .where(TagDefinition.id == S3UserTag.tag_definition_id)
-            .where(text_search_predicate(TagDefinition.label, search_value, exact=exact))
-        )
-        return (
-            query.outerjoin(UserS3UserModel, S3UserModel.id == UserS3UserModel.s3_user_id)
-            .outerjoin(User, UserS3UserModel.user_id == User.id)
-            .outerjoin(UiGroupS3User, S3UserModel.id == UiGroupS3User.s3_user_id)
-            .outerjoin(UiGroup, UiGroupS3User.group_id == UiGroup.id)
-            .where(
-                or_(
-                    text_search_predicate(S3UserModel.name, search_value, exact=exact),
-                    text_search_predicate(S3UserModel.rgw_user_uid, search_value, exact=exact),
-                    text_search_predicate(S3UserModel.email, search_value, exact=exact),
-                    text_search_predicate(User.email, search_value, exact=exact),
-                    text_search_predicate(User.full_name, search_value, exact=exact),
-                    text_search_predicate(UiGroup.name, search_value, exact=exact),
-                    tag_match,
-                )
-            )
-            .distinct()
-        )
-
-    @staticmethod
-    def _user_order_columns(sort_field: str, sort_direction: str) -> list[Any]:
-        sort_map = {
-            "name": S3UserModel.name,
-            "uid": S3UserModel.rgw_user_uid,
-            "email": S3UserModel.email,
-            "created_at": S3UserModel.created_at,
-        }
-        requested_sort = sort_field if sort_field in sort_map else "name"
-        descending = sort_direction.lower() == "desc"
-        if requested_sort == "name":
-            return list(name_order_by(S3UserModel, descending=descending))
-        sort_column = sort_map[requested_sort]
-        direction = sort_column.desc if descending else sort_column.asc
-        id_direction = S3UserModel.id.desc if descending else S3UserModel.id.asc
-        return [direction(), id_direction()]
+        return self.query.list_users_minimal()
 
     def paginate_users(
         self,
@@ -240,26 +128,15 @@ class S3UsersService:
         include_quota: bool = False,
         search_exact: bool = False,
     ) -> tuple[list[S3UserSchema], int]:
-        search_value = search.strip() if isinstance(search, str) else ""
-        query = self._apply_user_search(select(S3UserModel), search_value, exact=search_exact)
-        rows, total = paginate_scalars(
-            self.db,
-            query,
-            order_by=self._user_order_columns(sort_field, sort_direction),
+        return self.query.paginate_users(
             page=page,
             page_size=page_size,
+            search=search,
+            sort_field=sort_field,
+            sort_direction=sort_direction,
+            include_quota=include_quota,
+            search_exact=search_exact,
         )
-        s3_user_ids = [row.id for row in rows]
-        user_links_map, group_links_map = self.associations.load_links(s3_user_ids)
-        return [
-            self._serialize_s3_user(
-                row,
-                user_links_map,
-                group_links_map,
-                include_quota=include_quota,
-            )
-            for row in rows
-        ], total
 
     def get_user(
         self,
@@ -267,15 +144,10 @@ class S3UsersService:
         include_buckets: bool = False,
         include_quota: bool = False,
     ) -> S3UserSchema:
-        s3_user = self.get_user_record(user_id)
-        user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        bucket_count = self.metrics.get_interface_bucket_count(s3_user) if include_buckets else None
-        return self._serialize_s3_user(
-            s3_user,
-            user_links_map,
-            group_links_map,
+        return self.query.get_user(
+            user_id,
+            include_buckets=include_buckets,
             include_quota=include_quota,
-            bucket_count=bucket_count,
         )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
@@ -472,7 +344,7 @@ class S3UsersService:
         self.db.commit()
         self.db.refresh(s3_user)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        return self._serialize_s3_user(
+        return self.query.serialize_user(
             s3_user,
             user_links_map,
             group_links_map,
@@ -488,7 +360,7 @@ class S3UsersService:
             raise ValueError("Rotation is pending; check RGW connectivity and retry.") from exc
         admin = self.rgw_context.admin_for_user(s3_user)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        return self._serialize_s3_user(
+        return self.query.serialize_user(
             s3_user,
             user_links_map,
             group_links_map,
