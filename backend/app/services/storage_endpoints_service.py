@@ -207,9 +207,7 @@ class StorageEndpointsService:
         config: NormalizedEndpointState,
     ) -> None:
         runtime = endpoint.service_identity("runtime")
-        identity_mode = config.service_identity_mode or (
-            runtime.mode if runtime is not None else "managed"
-        )
+        identity_mode = config.service_identity_mode
         runtime = cls._ensure_service_identity(endpoint, "runtime", identity_mode)
         if runtime.mode == "external":
             cls._apply_external_credentials(

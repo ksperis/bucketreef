@@ -98,7 +98,7 @@ class NormalizedEndpointState:
     provider: StorageProvider
     admin_access_key: Optional[str]
     admin_secret_key: Optional[str]
-    service_identity_mode: str | None
+    service_identity_mode: Literal["managed", "external"]
     runtime_access_key: Optional[str]
     runtime_secret_key: Optional[str]
     ceph_admin_access_key: Optional[str]
