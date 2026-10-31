@@ -17,6 +17,7 @@ from app.models.external_identity_link import (
     ExternalIdentityLinkLdapProof,
     ExternalIdentityLinkMfaRegistrationResult,
     ExternalIdentityLinkPasswordProof,
+    ExternalIdentityProfileOidcStartRequest,
     ExternalIdentityLinkStatus,
 )
 from app.routers.auth_common import AuthAttemptContext
@@ -461,6 +462,7 @@ def profile_oidc_link_start(
     request: Request,
     response: Response,
     provider_id: str,
+    payload: ExternalIdentityProfileOidcStartRequest | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> OIDCStartResponse:
@@ -478,6 +480,7 @@ def profile_oidc_link_start(
             browser_secret_hash=browser_hash,
             auth_session_id=current_session.id,
             mfa_verified_at=current_session.mfa_verified_at,
+            redirect_path=payload.redirect_path if payload else None,
         )
         result = oidc.start_login(
             provider_id,

@@ -160,6 +160,7 @@ export type ExternalIdentityLinkStatus = {
   source: "login_collision" | "profile";
   stage: "identity" | "proof" | "mfa" | "mfa_enrollment" | "confirm" | "admin_requested" | "admin_approved" | "admin_rejected" | "completed";
   proof_methods: ExternalIdentityLinkProofMethod[];
+  redirect_path: string | null;
   expires_at: string;
 };
 
@@ -281,9 +282,10 @@ export async function confirmExternalIdentityLink(attemptId: string): Promise<Ex
   return data;
 }
 
-export async function startProfileOidcLink(providerId: string): Promise<OidcStartResponse> {
+export async function startProfileOidcLink(providerId: string, redirectPath?: string): Promise<OidcStartResponse> {
   const { data } = await client.post<OidcStartResponse>(
     `/auth/security/oidc/${encodeURIComponent(providerId)}/start-link`,
+    { redirect_path: redirectPath },
   );
   return data;
 }

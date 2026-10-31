@@ -112,7 +112,8 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
   const linkOidcAccount = async () => {
     if (!selectedOidcProvider) return;
     await run(async () => {
-      const started = await startProfileOidcLink(selectedOidcProvider);
+      const redirectPath = `${window.location.pathname}${window.location.search}`;
+      const started = await startProfileOidcLink(selectedOidcProvider, redirectPath);
       window.location.assign(started.authorization_url);
     });
   };

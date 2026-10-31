@@ -34,7 +34,9 @@ function proofLabel(method: ExternalIdentityLinkProofMethod, text: ReturnType<ty
 }
 
 export function externalIdentityLinkCompletionPath(status: ExternalIdentityLinkStatus): string {
-  return status.source === "profile" ? "/profile" : "/";
+  if (status.source !== "profile") return "/";
+  const redirectPath = status.redirect_path;
+  return redirectPath?.startsWith("/") && !redirectPath.startsWith("//") ? redirectPath : "/profile";
 }
 
 export default function ExternalIdentityLinkPage() {

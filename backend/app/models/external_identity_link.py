@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
 
@@ -34,7 +34,31 @@ class ExternalIdentityLinkStatus(ApiModel):
         "completed",
     ]
     proof_methods: list[ExternalIdentityLinkProofMethod]
+    redirect_path: Optional[str] = None
     expires_at: datetime
+
+
+class ExternalIdentityProfileOidcStartRequest(ApiModel):
+    redirect_path: Optional[str] = Field(default=None, max_length=2048)
+
+    @field_validator("redirect_path")
+    @classmethod
+    def validate_redirect_path(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        path = value.split("?", 1)[0].rstrip("/") or "/"
+        allowed_profile_paths = {
+            "/profile",
+            "/admin/profile",
+            "/manager/profile",
+            "/portal/profile",
+            "/browser/profile",
+            "/ceph-admin/profile",
+            "/storage-ops/profile",
+        }
+        if not value.startswith("/") or value.startswith("//") or "#" in value or path not in allowed_profile_paths:
+            raise ValueError("redirect_path must target a BucketReef profile route")
+        return value
 
 
 class ExternalIdentityLinkPasswordProof(ApiModel):
