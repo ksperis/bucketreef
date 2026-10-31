@@ -36,7 +36,9 @@ from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_users_service import get_s3_users_service
 from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
-from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_private_access_policy_service import (
+    ManagedPrivateAccessPolicyService,
+)
 from app.services.rgw_supervision import has_supervision_credentials
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -230,7 +232,7 @@ def _manager_private_access_enabled(
         return False
     if resolved_access is None:
         raise RuntimeError("UI user effective access was not resolved")
-    managed_private_access = ManagedPrivateAccessService(db)
+    managed_private_access = ManagedPrivateAccessPolicyService(db)
     if context.context_kind == "s3_user":
         return managed_private_access.rgw_user_provisioning_available(
             actor,

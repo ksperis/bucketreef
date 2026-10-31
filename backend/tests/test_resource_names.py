@@ -216,7 +216,8 @@ def test_invalid_topic_never_creates_remote_topic(naming_client):
 
 def test_private_access_prevalidates_before_claim_or_remote_work():
     service = object.__new__(ManagedPrivateAccessService)
-    service._ensure_managed_private_connection_provisioning_allowed = Mock()
+    service.policy = Mock()
+    service.policy.ensure_managed_private_connection_provisioning_allowed = Mock()
     service.sources = Mock()
     service._claim = Mock()
     service._iam_service_for_context = Mock()

@@ -437,7 +437,7 @@ def test_global_flag_is_required_before_remote_calls(
         lambda _context: (_ for _ in ()).throw(AssertionError("IAM must not be contacted")),
     )
 
-    assert service.managed_provisioning_allowed(user) is False
+    assert service.policy.managed_provisioning_allowed(user) is False
     with pytest.raises(ManagedPrivateAccessForbidden, match="not allowed"):
         service.provision_iam(user=user, context=account, payload=_payload())
 
