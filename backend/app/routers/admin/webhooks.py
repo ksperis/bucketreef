@@ -20,8 +20,9 @@ from app.routers.dependencies import get_audit_service, get_current_ui_superadmi
 from app.services.audit_service import AuditService
 from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.webhook_catalog import get_webhook_event_definitions
-from app.services.webhook_service import WebhookService, webhook_target_hostname
+from app.services.webhook_service import WebhookService
 from app.utils.http_errors import http_exception_from_exception
+from app.utils.network_targets import url_hostname
 
 router = APIRouter(prefix="/admin/settings/webhooks", tags=["admin-webhooks"])
 
@@ -86,7 +87,7 @@ def create_webhook_endpoint(
         entity_id=str(created.id),
         metadata={
             "name": created.name,
-            "host": webhook_target_hostname(created.url),
+            "host": url_hostname(created.url),
             "enabled": created.enabled,
             "event_types": created.event_types,
         },
@@ -118,7 +119,7 @@ def update_webhook_endpoint(
         entity_id=str(updated.id),
         metadata={
             "name": updated.name,
-            "host": webhook_target_hostname(updated.url),
+            "host": url_hostname(updated.url),
             "enabled": updated.enabled,
             "event_types": updated.event_types,
         },
@@ -149,7 +150,7 @@ def delete_webhook_endpoint(
         entity_id=str(endpoint_id),
         metadata={
             "name": previous.name,
-            "host": webhook_target_hostname(previous.url),
+            "host": url_hostname(previous.url),
         },
     )
 

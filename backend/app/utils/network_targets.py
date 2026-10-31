@@ -10,8 +10,16 @@ from urllib.parse import urlparse
 IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 
 
+def normalize_hostname(host: object) -> str:
+    return str(host or "").strip().lower().rstrip(".")
+
+
+def url_hostname(url: str) -> str:
+    return normalize_hostname(urlparse(url).hostname)
+
+
 def resolve_hostname_ips(host: str) -> set[IPAddress]:
-    normalized_host = str(host or "").strip().lower().rstrip(".")
+    normalized_host = normalize_hostname(host)
     if not normalized_host:
         return set()
 
@@ -56,7 +64,7 @@ def _validated_outbound_host(
         raise ValueError(f"{field_name} must be a valid {display_scheme} URL")
     if parsed.username or parsed.password:
         raise ValueError(f"{field_name} must not include user credentials")
-    return parsed.hostname.strip().lower().rstrip(".")
+    return normalize_hostname(parsed.hostname)
 
 
 def _resolved_outbound_ips(host: str, *, field_name: str) -> set[IPAddress]:
@@ -96,11 +104,11 @@ def validate_outbound_url(
 
 def host_matches_allowlist(host: str, allowed_hosts: Iterable[str]) -> bool:
     """Match an exact hostname or an explicitly declared ``*.example.com`` wildcard."""
-    normalized_host = str(host or "").strip().lower().rstrip(".")
+    normalized_host = normalize_hostname(host)
     if not normalized_host:
         return False
     for allowed in allowed_hosts:
-        normalized_allowed = str(allowed or "").strip().lower().rstrip(".")
+        normalized_allowed = normalize_hostname(allowed)
         if not normalized_allowed:
             continue
         if normalized_allowed.startswith("*."):
