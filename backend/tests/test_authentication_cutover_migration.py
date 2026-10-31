@@ -28,7 +28,7 @@ def _load_cutover_migration():
     return module
 
 
-def test_cutover_migrates_subjects_and_revokes_every_legacy_authenticator(tmp_path, monkeypatch):
+def test_cutover_migrates_ldap_discards_legacy_oidc_and_revokes_authenticators(tmp_path, monkeypatch):
     database_path = tmp_path / "authentication-cutover.sqlite"
     database_url = f"sqlite:///{database_path}"
     monkeypatch.setenv("DATABASE_URL", database_url)
@@ -79,7 +79,6 @@ def test_cutover_migrates_subjects_and_revokes_every_legacy_authenticator(tmp_pa
             )).mappings().all()
             assert identities == [
                 {"provider_type": "ldap", "provider_id": "directory", "subject": "uid=ldap", "email_verified": 0},
-                {"provider_type": "oidc", "provider_id": "company", "subject": "subject-1", "email_verified": 0},
             ]
             assert connection.scalar(sa.text("SELECT COUNT(*) FROM s3_sessions")) == 0
             assert connection.scalar(sa.text("SELECT COUNT(*) FROM oidc_login_states")) == 0
