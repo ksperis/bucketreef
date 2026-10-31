@@ -19,6 +19,7 @@ import type { S3Connection } from "../api/connections";
 import type { S3ConnectionAdminItem, S3ConnectionUserDetail } from "../api/s3ConnectionsAdmin";
 import type { UserNotification } from "../api/userNotifications";
 import type { CephAdminRgwAccountDetail } from "../api/cephAdminAccounts";
+import { createRuntimeId } from "../utils/runtimeId";
 
 const MiB = 1024 ** 2;
 export const GiB = 1024 ** 3;
@@ -243,7 +244,7 @@ export function putObject(bucket: DemoBucket, key: string, body: Blob, imported:
     cache_control: null, content_disposition: null, content_encoding: null, content_language: null,
     expires: null, restore_status: null, imported, metadata: { source: imported ? "local-upload" : "demo-scenario" },
     last_modified: date, etag: `"demo-${body.size}-${date.replace(/\D/g, "")}"`, storage_class: "STANDARD",
-    version_id: crypto.randomUUID() };
+    version_id: createRuntimeId() };
   if (!(bucket.config.versioning as { enabled: boolean }).enabled) object.versions = [];
   object.versions.unshift(version);
   return object;
