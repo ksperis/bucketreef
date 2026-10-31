@@ -900,7 +900,7 @@ def test_import_account_discovers_custom_tenant_root(db_session, monkeypatch):
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        "app.services.s3_account_import_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
     created = service.import_accounts(
@@ -933,7 +933,7 @@ def test_import_account_allows_same_name_in_different_tenant(db_session, monkeyp
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        "app.services.s3_account_import_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
 
@@ -978,7 +978,7 @@ def test_import_tenanted_account_rejects_mismatched_tenant_assertion(db_session,
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        "app.services.s3_account_import_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
 
@@ -1003,7 +1003,7 @@ def test_import_account_rejects_other_tenant_root_response(db_session, monkeypat
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.load_app_settings_for_db_readonly",
+        "app.services.s3_account_import_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
     with pytest.raises(ValueError, match="another tenant"):
