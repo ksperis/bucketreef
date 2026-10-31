@@ -242,15 +242,18 @@ class PortalSharingMixin:
             for grant, target in explicit_share_rows
             if grant.role in {"Viewer", "Editor"}
         ]
-        public_link_count = self.db.execute(
-            select(func.count())
-            .select_from(DBPortalPublicLink)
-            .where(
-                DBPortalPublicLink.account_id == access.account.id,
-                DBPortalPublicLink.bucket_name == bucket_name,
-                DBPortalPublicLink.revoked_at.is_(None),
+        public_link_count = int(
+            self.db.scalar(
+                select(func.count())
+                .select_from(DBPortalPublicLink)
+                .where(
+                    DBPortalPublicLink.account_id == access.account.id,
+                    DBPortalPublicLink.bucket_name == bucket_name,
+                    DBPortalPublicLink.revoked_at.is_(None),
+                )
             )
-        ).scalar_one()
+            or 0
+        )
         return PortalStorageSpaceAccessSummary(
             mode=mode,
             default_account_member_role=self._metadata_account_member_role(metadata),
