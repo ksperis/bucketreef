@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db import S3User as S3UserModel
 from app.models.browser import BrowserUsageSummary
-from app.services.s3_accounts_service import S3AccountsService
+from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_users_service import S3UsersService
 from app.utils.size_units import size_to_bytes
@@ -82,11 +82,11 @@ class BrowserUsageSummaryService:
         source: BrowserUsageSource,
         label: str,
     ) -> BrowserUsageSummary:
-        service = S3AccountsService(self.db)
-        used_bytes, object_count, _bucket_count = service.get_account_usage(context)
+        service = S3AccountMetricsService()
+        used_bytes, object_count, _bucket_count = service.get_usage(context)
         if used_bytes is None:
             return self._unavailable(source=source, label=label)
-        quota_max_size_gb, quota_max_objects = service.get_account_quota(context)
+        quota_max_size_gb, quota_max_objects = service.get_quota(context)
         return self._available(
             source=source,
             label=label,

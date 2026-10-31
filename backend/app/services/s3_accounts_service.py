@@ -51,13 +51,14 @@ from app.services.rgw_account_topics_resolver import (
     normalize_account_key,
 )
 from app.services.rgw_account_root_service import RgwAccountRootService
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
+from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_quota_update import (
     execute_rgw_quota_update,
     prepare_rgw_quota_update,
 )
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
+from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
@@ -68,14 +69,8 @@ from app.utils.storage_endpoint_features import (
     resolve_feature_flags,
 )
 from app.utils.rgw_identifiers import generate_rgw_account_id
-from app.utils.rgw_payloads import (
-    extract_bucket_list,
-    extract_rgw_account_ids,
-    extract_rgw_account_tenant,
-)
+from app.utils.rgw_payloads import extract_rgw_account_ids, extract_rgw_account_tenant
 from app.utils.sql_search import text_search_predicate
-from app.utils.usage_stats import aggregate_bucket_usage
-from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
 from app.utils.name_ordering import name_order_by
 
 
@@ -101,6 +96,7 @@ class S3AccountsService:
         self.account_roots = RgwAccountRootService()
         self.associations = S3AccountAssociationsService(db)
         self.iam_cleanup = S3AccountIamCleanupService(db)
+        self.metrics = S3AccountMetricsService()
 
     def get_account_record(self, account_id: int) -> S3Account:
         account = self.db.scalar(
@@ -170,18 +166,6 @@ class S3AccountsService:
         endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
         return self._admin_for_endpoint(endpoint, allow_missing=allow_missing)
 
-    def _runtime_for_account(
-        self,
-        account: S3Account,
-        allow_missing: bool = False,
-    ) -> Optional[RGWAdminClient]:
-        try:
-            return get_endpoint_runtime_rgw_client(account.storage_endpoint)
-        except (ValueError, RGWAdminError):
-            if allow_missing:
-                return None
-            raise
-
     def _apply_account_quota(
         self,
         account: S3Account,
@@ -205,62 +189,20 @@ class S3AccountsService:
         )
 
     def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
-        admin = self._runtime_for_account(account, allow_missing=True)
-        if not admin:
-            return None, None, None
-        try:
-            uid = account.rgw_user_uid
-            if not uid:
-                return None, None, None
-            payload = admin.get_all_buckets(uid=uid, with_stats=True, **({"tenant": account.rgw_tenant} if account.rgw_tenant else {}))
-        except RGWAdminError as exc:
-            logger.warning("Unable to list buckets for account %s: %s", account.rgw_account_id, exc)
-            return None, None, None
-        used_bytes, used_objects, bucket_count = aggregate_bucket_usage(
-            extract_bucket_list(payload)
-        )
-        return used_bytes, used_objects, bucket_count
+        return self.metrics.get_usage(account)
 
     def get_account_quota(
         self,
         account: S3Account,
         admin: Optional[RGWAdminClient] = None,
     ) -> tuple[Optional[float], Optional[int]]:
-        rgw_admin = admin or self._runtime_for_account(account, allow_missing=True)
-        if not rgw_admin:
-            return None, None
-        try:
-            max_size_bytes, max_objects = rgw_admin.get_account_quota(account.rgw_account_id)
-        except RGWAdminError as exc:
-            logger.warning("Unable to fetch account quota for %s: %s", account.rgw_account_id, exc)
-            return None, None
-        return bytes_to_gb(max_size_bytes), max_objects
+        return self.metrics.get_quota(account, admin)
 
     def get_account_limits(
         self,
         account: S3Account,
     ) -> tuple[Optional[float], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int]]:
-        rgw_admin = self._runtime_for_account(account, allow_missing=True)
-        if not rgw_admin:
-            return None, None, None, None, None, None
-        try:
-            payload = rgw_admin.get_account(
-                account.rgw_account_id,
-                allow_not_found=True,
-                allow_not_implemented=True,
-            ) or {}
-        except RGWAdminError as exc:
-            logger.warning("Unable to fetch account limits for %s: %s", account.rgw_account_id, exc)
-            return None, None, None, None, None, None
-        max_size_bytes, max_objects = extract_quota_limits(payload, keys=("quota", "account_quota"))
-        return (
-            bytes_to_gb(max_size_bytes),
-            max_objects,
-            extract_positive_limit(payload, "max_buckets"),
-            extract_positive_limit(payload, "max_users"),
-            extract_positive_limit(payload, "max_roles"),
-            extract_positive_limit(payload, "max_groups"),
-        )
+        return self.metrics.get_limits(account)
 
     @staticmethod
     def _ensure_account_creation_succeeded(result: Any, expected_id: str) -> None:

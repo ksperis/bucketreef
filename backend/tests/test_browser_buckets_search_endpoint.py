@@ -190,22 +190,23 @@ def test_browser_bucket_search_endpoint_maps_service_error(client):
     assert "bucket search failed" in response.json()["detail"]
 
 
-def test_browser_usage_summary_uses_live_account_usage(client, db_session, monkeypatch):
+def test_browser_usage_summary_uses_live_account_usage(client, monkeypatch):
     account = _account()
 
-    class FakeS3AccountsService:
-        def __init__(self, db):  # noqa: ANN001
-            assert db is db_session
-
-        def get_account_usage(self, received):  # noqa: ANN001
+    class FakeS3AccountMetricsService:
+        def get_usage(self, received):  # noqa: ANN001
             assert received is account
             return 50, 2, 2
 
-        def get_account_quota(self, received):  # noqa: ANN001
+        def get_quota(self, received):  # noqa: ANN001
             assert received is account
             return 2.0, 200
 
-    monkeypatch.setattr(browser_usage_summary_service, "S3AccountsService", FakeS3AccountsService)
+    monkeypatch.setattr(
+        browser_usage_summary_service,
+        "S3AccountMetricsService",
+        FakeS3AccountMetricsService,
+    )
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
@@ -222,21 +223,22 @@ def test_browser_usage_summary_uses_live_account_usage(client, db_session, monke
     }
 
 
-def test_browser_usage_summary_hides_account_when_live_usage_is_unavailable(client, db_session, monkeypatch):
+def test_browser_usage_summary_hides_account_when_live_usage_is_unavailable(client, monkeypatch):
     account = _account()
 
-    class FakeS3AccountsService:
-        def __init__(self, db):  # noqa: ANN001
-            assert db is db_session
-
-        def get_account_usage(self, received):  # noqa: ANN001
+    class FakeS3AccountMetricsService:
+        def get_usage(self, received):  # noqa: ANN001
             assert received is account
             return None, None, None
 
-        def get_account_quota(self, received):  # noqa: ANN001
+        def get_quota(self, received):  # noqa: ANN001
             raise AssertionError("quota should not be fetched when live usage is unavailable")
 
-    monkeypatch.setattr(browser_usage_summary_service, "S3AccountsService", FakeS3AccountsService)
+    monkeypatch.setattr(
+        browser_usage_summary_service,
+        "S3AccountMetricsService",
+        FakeS3AccountMetricsService,
+    )
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
@@ -336,25 +338,26 @@ def test_browser_usage_summary_hides_s3_user_when_live_usage_is_unavailable(clie
     }
 
 
-def test_browser_usage_summary_uses_live_account_usage_for_portal_context(client, db_session, monkeypatch):
+def test_browser_usage_summary_uses_live_account_usage_for_portal_context(client, monkeypatch):
     persisted_account = S3Account(name="portal-browser-summary")
     persisted_account.id = 77
     account = S3ExecutionContext.from_account(persisted_account, context_kind="portal_account")
     account.portal_browser_role = "portal_manager"
 
-    class FakeS3AccountsService:
-        def __init__(self, db):  # noqa: ANN001
-            assert db is db_session
-
-        def get_account_usage(self, received):  # noqa: ANN001
+    class FakeS3AccountMetricsService:
+        def get_usage(self, received):  # noqa: ANN001
             assert received is account
             return 900, 90, 4
 
-        def get_account_quota(self, received):  # noqa: ANN001
+        def get_quota(self, received):  # noqa: ANN001
             assert received is account
             return 5.0, 500
 
-    monkeypatch.setattr(browser_usage_summary_service, "S3AccountsService", FakeS3AccountsService)
+    monkeypatch.setattr(
+        browser_usage_summary_service,
+        "S3AccountMetricsService",
+        FakeS3AccountMetricsService,
+    )
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
@@ -371,7 +374,7 @@ def test_browser_usage_summary_uses_live_account_usage_for_portal_context(client
     }
 
 
-def test_browser_usage_summary_does_not_fallback_to_portal_storage_space_rows(client, db_session, monkeypatch):
+def test_browser_usage_summary_does_not_fallback_to_portal_storage_space_rows(client, monkeypatch):
     persisted_account = S3Account(name="portal-browser-summary")
     persisted_account.id = 77
     account = S3ExecutionContext.from_account(persisted_account, context_kind="portal_account")
@@ -386,18 +389,19 @@ def test_browser_usage_summary_does_not_fallback_to_portal_storage_space_rows(cl
         ),
     ]
 
-    class FakeS3AccountsService:
-        def __init__(self, db):  # noqa: ANN001
-            assert db is db_session
-
-        def get_account_usage(self, received):  # noqa: ANN001
+    class FakeS3AccountMetricsService:
+        def get_usage(self, received):  # noqa: ANN001
             assert received is account
             return None, None, None
 
-        def get_account_quota(self, received):  # noqa: ANN001
+        def get_quota(self, received):  # noqa: ANN001
             raise AssertionError("quota should not be fetched when live usage is unavailable")
 
-    monkeypatch.setattr(browser_usage_summary_service, "S3AccountsService", FakeS3AccountsService)
+    monkeypatch.setattr(
+        browser_usage_summary_service,
+        "S3AccountMetricsService",
+        FakeS3AccountMetricsService,
+    )
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
