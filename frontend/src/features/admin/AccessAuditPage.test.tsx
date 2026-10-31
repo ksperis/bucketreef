@@ -145,4 +145,19 @@ describe("AccessAuditPage", () => {
     await waitFor(() => expect(listAccessAuditMock).toHaveBeenCalledWith(expect.objectContaining({ page: 3 })));
     await waitFor(() => expect(listAccessAuditMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 })));
   });
+
+  it("restores the platform source filter from the URL", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/access-audit?source=platform"]}>
+        <AccessAuditPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(listAccessAuditMock).toHaveBeenCalledWith(expect.objectContaining({
+      source: "platform",
+      page: 1,
+      page_size: 25,
+    })));
+    expect(screen.getByLabelText("Filter by source")).toHaveValue("platform");
+  });
 });
