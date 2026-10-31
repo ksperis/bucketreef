@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import Callable, Protocol, TypeVar
 
 from app.models.ceph_admin_identity_filters import CephAdminFilterMatch
-from app.services.listing_progress import ListingProgressEmitter
+from app.services.listing_progress import ListingProgressEmitter, emit_listing_ready
 from app.utils.cancellation import invoke_cancel_check
 
 
 _T = TypeVar("_T")
 _R = TypeVar("_R")
+_Response = TypeVar("_Response")
 
 
 class _FilterRule(Protocol):
@@ -126,3 +127,52 @@ def paginate_listing_results(
         page_size=page_size,
         clone=clone,
     )
+
+
+def run_identity_listing_pipeline(
+    *,
+    progress: ListingProgressEmitter,
+    cancel_check: Callable[[], None] | None,
+    prepare_query: Callable[[], None],
+    load_results: Callable[[], list[_T]],
+    search_results: Callable[[list[_T]], list[_T]],
+    page: int,
+    page_size: int,
+    clone: Callable[[list[_T]], list[_T]],
+    enrich_page: Callable[[list[_T]], list[_T]],
+    build_response: Callable[[list[_T], int, bool], _Response],
+) -> _Response:
+    progress.emit(
+        percent=0,
+        stage="prepare",
+        message="Preparing advanced search",
+        force=True,
+    )
+    invoke_cancel_check(cancel_check)
+    prepare_query()
+
+    results = load_results()
+    emit_listing_ready(
+        progress,
+        item_count=len(results),
+        cancel_check=cancel_check,
+    )
+    filtered_results = search_results(results)
+    page_items, total, has_next = paginate_listing_results(
+        filtered_results,
+        page=page,
+        page_size=page_size,
+        clone=clone,
+        progress=progress,
+        cancel_check=cancel_check,
+    )
+    page_items = enrich_page(page_items)
+    progress.emit(
+        percent=100,
+        stage="finalize",
+        processed=total,
+        total=total,
+        message="Search completed",
+        force=True,
+    )
+    return build_response(page_items, total, has_next)
