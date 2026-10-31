@@ -62,41 +62,11 @@ class HealthCheckService:
             for endpoint in endpoints
         }
         check_targets = [self._to_check_target(endpoint) for endpoint in endpoints]
-
-        results: list[HealthCheckResult] = []
-        if check_targets:
-            worker_count = min(len(check_targets), 8)
-            with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="healthcheck") as executor:
-                futures = {
-                    executor.submit(
-                        self._check_endpoint,
-                        target,
-                        profile=profiles[target.endpoint_id],
-                        baseline_latency_ms=baselines[target.endpoint_id],
-                    ): target.endpoint_id
-                    for target in check_targets
-                }
-                for future in as_completed(futures):
-                    endpoint_id = futures[future]
-                    try:
-                        results.append(future.result())
-                    except Exception as exc:  # pragma: no cover - defensive guard
-                        logger.exception("Healthcheck worker failed for endpoint %s: %s", endpoint_id, exc)
-                        results.append(
-                            HealthCheckResult(
-                                endpoint_id=endpoint_id,
-                                status=HealthCheckStatus.DOWN,
-                                checked_at=utcnow(),
-                                latency_ms=None,
-                                http_status=None,
-                                error_message=(
-                                    f"Healthcheck worker failure: {sanitized_error_log_detail(exc)}"
-                                ),
-                                check_mode=profiles[endpoint_id].mode,
-                            )
-                        )
-
-        results.sort(key=lambda item: item.endpoint_id)
+        results = self._run_endpoint_checks(
+            check_targets,
+            profiles=profiles,
+            baselines=baselines,
+        )
 
         notification_service = EndpointHealthNotificationsService(self.db)
         previous_statuses = notification_service.load_previous_statuses(results)
@@ -106,9 +76,67 @@ class HealthCheckService:
             previous_statuses=previous_statuses,
         )
         self._persistence.record_results(results)
+        return self._serialize_run_result(
+            run_started_at=run_started_at,
+            total=len(endpoints),
+            notifications_created=notifications_created,
+            results=results,
+        )
+
+    def _run_endpoint_checks(
+        self,
+        check_targets: list[EndpointCheckTarget],
+        *,
+        profiles: dict[int, HealthCheckProfile],
+        baselines: dict[int, Optional[int]],
+    ) -> list[HealthCheckResult]:
+        if not check_targets:
+            return []
+
+        results: list[HealthCheckResult] = []
+        worker_count = min(len(check_targets), 8)
+        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="healthcheck") as executor:
+            futures = {
+                executor.submit(
+                    self._check_endpoint,
+                    target,
+                    profile=profiles[target.endpoint_id],
+                    baseline_latency_ms=baselines[target.endpoint_id],
+                ): target.endpoint_id
+                for target in check_targets
+            }
+            for future in as_completed(futures):
+                endpoint_id = futures[future]
+                try:
+                    results.append(future.result())
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    logger.exception("Healthcheck worker failed for endpoint %s: %s", endpoint_id, exc)
+                    results.append(
+                        HealthCheckResult(
+                            endpoint_id=endpoint_id,
+                            status=HealthCheckStatus.DOWN,
+                            checked_at=utcnow(),
+                            latency_ms=None,
+                            http_status=None,
+                            error_message=f"Healthcheck worker failure: {sanitized_error_log_detail(exc)}",
+                            check_mode=profiles[endpoint_id].mode,
+                        )
+                    )
+
+        results.sort(key=lambda item: item.endpoint_id)
+        return results
+
+    @staticmethod
+    def _serialize_run_result(
+        *,
+        run_started_at: datetime,
+        total: int,
+        notifications_created: int,
+        results: list[HealthCheckResult],
+    ) -> dict:
         return {
             "checked_at": run_started_at.isoformat(),
-            "total": len(endpoints),
+            "total": total,
             "notifications_created": notifications_created,
             "results": [
                 {
