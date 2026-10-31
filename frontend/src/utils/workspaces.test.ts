@@ -474,6 +474,12 @@ describe("resolveAvailableWorkspacesWithFlags", () => {
       manager: unavailable, browser: unavailable, portal: unavailable,
       default_workspace: null, openstack_connect_available: allowed,
     };
-    expect(resolvePostLoginPathWithWorkspaceAccess(user, baseSettings, access)).toBe(allowed ? "/profile?tab=openstack" : "/unauthorized");
+    expect(resolvePostLoginPathWithWorkspaceAccess(user, baseSettings, access)).toBe(allowed ? "/profile?tab=openstack" : "/no-access");
+  });
+
+  it("routes a user with no UI role to the dedicated no-access state", () => {
+    const user: SessionUser = { id: 14, email: "pending@example.test", role: "ui_none", effective_access: effectiveAccess() };
+
+    expect(resolvePostLoginPath(user, baseSettings)).toBe("/no-access");
   });
 });

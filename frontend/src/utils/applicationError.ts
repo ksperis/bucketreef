@@ -3,7 +3,7 @@ import { isApiError } from "../api/client";
 import { classifyApiError, isRecentWebAuthnRequired } from "./apiError";
 
 export type ApplicationErrorKind =
-  | "not_found" | "gone" | "sign_in" | "session_expired" | "forbidden"
+  | "not_found" | "gone" | "sign_in" | "session_expired" | "forbidden" | "no_access"
   | "verification_required" | "invalid_link" | "link_expired" | "auth_failed"
   | "unexpected" | "unavailable" | "timeout" | "offline" | "rate_limited"
   | "maintenance" | "feature_disabled" | "unsupported" | "validation"

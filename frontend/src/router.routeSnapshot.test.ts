@@ -134,6 +134,7 @@ describe("route snapshot", () => {
       "/oidc/:provider/callback",
         "/identity/link/:attemptId",
       "/unauthorized",
+      "/no-access",
       "/session-expired",
       "/*",
     ]);

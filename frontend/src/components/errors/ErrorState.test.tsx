@@ -53,4 +53,15 @@ describe("ErrorState", () => {
     expect(screen.getByRole("heading")).toHaveTextContent("Cette page a pris le large.");
     expect(await axe(container)).toHaveNoViolations();
   });
+
+  it("explains that authentication succeeded when no access is assigned", () => {
+    localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+    render(<LanguageProvider><MemoryRouter><ErrorState kind="no_access" presentation="full" /></MemoryRouter></LanguageProvider>);
+
+    expect(screen.getByText("Aucun accès attribué")).toBeInTheDocument();
+    expect(screen.getByRole("heading")).toHaveTextContent("Votre compte est bien connecté.");
+    expect(screen.getByText(/Aucun espace BucketReef ni aucune autorisation/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Changer de compte" })).toHaveAttribute("href", "/login");
+    expect(screen.queryByRole("link", { name: "Se connecter" })).not.toBeInTheDocument();
+  });
 });

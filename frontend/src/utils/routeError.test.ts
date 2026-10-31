@@ -18,4 +18,10 @@ describe("resolveRouteErrorHomePath", () => {
   it("falls back to login when there is no valid workspace", () => {
     expect(resolveRouteErrorHomePath(DEFAULT_GENERAL_SETTINGS)).toBe("/login");
   });
+
+  it("falls back to login for an authenticated user with no assigned access", () => {
+    setSessionUserCache({ email: "pending@example.com", role: "ui_none" });
+
+    expect(resolveRouteErrorHomePath(DEFAULT_GENERAL_SETTINGS)).toBe("/login");
+  });
 });

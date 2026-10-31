@@ -42,6 +42,16 @@ export const errorCopy: Record<ApplicationErrorKind, ErrorCopy> = {
     description: message("Your account does not have access to this page. Contact your administrator if you need it.", "Votre compte n’a pas accès à cette page. Contactez votre administrateur si vous en avez besoin.", "你的账户无权访问此页面。如需访问，请联系管理员。"),
     illustration: "access", tone: "warning",
   },
+  no_access: {
+    label: message("No access assigned", "Aucun accès attribué", "尚未分配访问权限"),
+    title: message("Your account is connected.", "Votre compte est bien connecté.", "你的账户已成功连接。"),
+    description: message(
+      "No BucketReef workspace or permissions have been assigned to this account yet. Contact your administrator to request access.",
+      "Aucun espace BucketReef ni aucune autorisation n’a encore été attribué à ce compte. Contactez votre administrateur pour demander les accès nécessaires.",
+      "此账户尚未分配任何 BucketReef 工作区或权限。请联系管理员申请所需访问权限。",
+    ),
+    illustration: "access", tone: "warning",
+  },
   verification_required: {
     label: message("Verification required", "Vérification requise", "需要验证"),
     title: message("One more check before continuing.", "Une vérification avant de continuer.", "继续前还需进行一次验证。"),
