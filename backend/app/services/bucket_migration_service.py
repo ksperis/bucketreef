@@ -18,12 +18,14 @@ from .bucket_migration.maintenance import BucketMigrationMaintenanceMixin
 from .bucket_migration.preparation import BucketMigrationPreparationMixin
 from .bucket_migration.progress import BucketMigrationProgressMixin
 from .bucket_migration.rollback import BucketMigrationRollbackMixin
+from .bucket_migration.scheduling import BucketMigrationSchedulingMixin
 
 
 class BucketMigrationService(
     BucketMigrationPersistenceMixin,
     BucketMigrationQueryMixin,
     BucketMigrationPlanningMixin,
+    BucketMigrationSchedulingMixin,
     BucketMigrationPreparationMixin,
     BucketMigrationMaintenanceMixin,
     BucketMigrationExecutionMixin,

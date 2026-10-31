@@ -2,12 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import update
 
 from .workflow import require_action
 
@@ -23,10 +21,7 @@ from app.utils.time import utcnow
 
 from ._shared import (
     _FINAL_MIGRATION_STATUSES,
-    _RUNNABLE_MIGRATION_STATUSES,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -318,7 +313,6 @@ class BucketMigrationPlanningMixin:
         self._commit()
         self.db.refresh(migration)
         return migration
-
     def update_draft_migration(
         self, migration_id: int, payload: BucketMigrationUpdateRequest
     ) -> BucketMigration:
@@ -380,7 +374,6 @@ class BucketMigrationPlanningMixin:
         self._commit()
         self.db.refresh(migration)
         return migration
-
     def delete_migration(self, migration_id: int) -> None:
         migration = self.get_migration(migration_id)
         if migration.status not in {*_FINAL_MIGRATION_STATUSES, "draft"}:
@@ -569,90 +562,3 @@ class BucketMigrationPlanningMixin:
         self._commit()
         self.db.refresh(migration)
         return migration
-
-    def claim_next_runnable_migration_id(
-        self, *, worker_id: str, lease_seconds: int
-    ) -> Optional[int]:
-        if not worker_id:
-            raise ValueError("worker_id is required to claim a migration lease")
-        now = utcnow()
-        lease_duration = max(15, int(lease_seconds))
-        lease_until = now + timedelta(seconds=lease_duration)
-        limits = self._load_runtime_limits()
-        max_active_per_endpoint = max(1, int(limits.max_active_per_endpoint))
-        endpoint_usage = self._active_endpoint_usage(now=now)
-        endpoint_cache: dict[str, str] = {}
-        candidate_rows = self.db.execute(
-            select(
-                BucketMigration.id,
-                BucketMigration.source_context_id,
-                BucketMigration.target_context_id,
-            )
-            .where(
-                or_(
-                    BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
-                    BucketMigration.maintenance_status.in_({"queued", "running"}),
-                ),
-                or_(
-                    BucketMigration.worker_lease_until.is_(None),
-                    BucketMigration.worker_lease_until < now,
-                ),
-            )
-            .order_by(BucketMigration.created_at.asc())
-            .limit(50)
-        ).all()
-        for row in candidate_rows:
-            migration_id = int(row.id)
-            endpoint_keys = self._endpoint_keys_for_contexts(
-                row.source_context_id,
-                row.target_context_id,
-                cache=endpoint_cache,
-            )
-            if any(
-                endpoint_usage.get(key, 0) >= max_active_per_endpoint
-                for key in endpoint_keys
-            ):
-                continue
-            updated = self.db.execute(
-                update(BucketMigration)
-                .where(
-                    BucketMigration.id == migration_id,
-                    or_(
-                        BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
-                        BucketMigration.maintenance_status.in_({"queued", "running"}),
-                    ),
-                    or_(
-                        BucketMigration.worker_lease_until.is_(None),
-                        BucketMigration.worker_lease_until < now,
-                    ),
-                )
-                .values(
-                    {
-                        BucketMigration.worker_lease_owner: worker_id,
-                        BucketMigration.worker_lease_until: lease_until,
-                        BucketMigration.updated_at: now,
-                    }
-                )
-                .execution_options(synchronize_session=False)
-            ).rowcount
-            if updated == 1:
-                self._commit()
-                if self._claimed_migration_within_endpoint_limit(
-                    migration_id,
-                    endpoint_keys=endpoint_keys,
-                    max_active_per_endpoint=max_active_per_endpoint,
-                    now=utcnow(),
-                    cache=endpoint_cache,
-                ):
-                    return migration_id
-                logger.info(
-                    "Bucket migration claim released after endpoint limit recheck: migration=%s worker=%s",
-                    migration_id,
-                    worker_id,
-                )
-                self._release_migration_lease(migration_id, worker_id=worker_id)
-                self._commit()
-                endpoint_usage = self._active_endpoint_usage(now=utcnow())
-                continue
-            self.db.rollback()
-        return None

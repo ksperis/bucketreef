@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import logging
-from sqlalchemy import or_, select, update
+from sqlalchemy import select, update
 from typing import Callable, Optional
 
 from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
-from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.time import utcnow
 from ._shared import (
     _DB_ERROR_MESSAGE_MAX_CHARS,
@@ -244,101 +243,3 @@ class BucketMigrationExecutionControlMixin:
         if migration.status not in _RUNNABLE_MIGRATION_STATUSES:
             self._clear_owned_worker_lease(migration, worker_id=worker_id)
         self._commit()
-
-    def _active_endpoint_usage(self, *, now) -> dict[str, int]:
-        usage: dict[str, int] = {}
-        cache: dict[str, str] = {}
-        rows = self.db.execute(
-            select(
-                BucketMigration.source_context_id,
-                BucketMigration.target_context_id,
-            ).where(
-                or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.maintenance_status.in_({"queued", "running"})),
-                BucketMigration.worker_lease_until.isnot(None),
-                BucketMigration.worker_lease_until >= now,
-            )
-        ).all()
-        for row in rows:
-            for key in self._endpoint_keys_for_contexts(
-                row.source_context_id,
-                row.target_context_id,
-                cache=cache,
-            ):
-                usage[key] = usage.get(key, 0) + 1
-        return usage
-
-    def _claimed_migration_within_endpoint_limit(
-        self,
-        migration_id: int,
-        *,
-        endpoint_keys: set[str],
-        max_active_per_endpoint: int,
-        now,
-        cache: dict[str, str],
-    ) -> bool:
-        if not endpoint_keys:
-            return True
-        allowed_per_endpoint = max(1, int(max_active_per_endpoint))
-        rows = self.db.execute(
-            select(
-                BucketMigration.id,
-                BucketMigration.source_context_id,
-                BucketMigration.target_context_id,
-            )
-            .where(
-                or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.maintenance_status.in_({"queued", "running"})),
-                BucketMigration.worker_lease_until.isnot(None),
-                BucketMigration.worker_lease_until >= now,
-            )
-            .order_by(BucketMigration.created_at.asc(), BucketMigration.id.asc())
-        ).all()
-        ranked_by_endpoint: dict[str, list[int]] = {}
-        for row in rows:
-            row_keys = self._endpoint_keys_for_contexts(
-                row.source_context_id,
-                row.target_context_id,
-                cache=cache,
-            )
-            for key in row_keys:
-                ranked_by_endpoint.setdefault(key, []).append(int(row.id))
-        for key in endpoint_keys:
-            ranked_ids = ranked_by_endpoint.get(key, [])
-            if migration_id not in ranked_ids:
-                return False
-            if ranked_ids.index(migration_id) >= allowed_per_endpoint:
-                return False
-        return True
-
-    def _endpoint_keys_for_contexts(
-        self,
-        source_context_id: str,
-        target_context_id: str,
-        *,
-        cache: dict[str, str],
-    ) -> set[str]:
-        source_key = self._context_endpoint_capacity_key(source_context_id, cache=cache)
-        target_key = self._context_endpoint_capacity_key(target_context_id, cache=cache)
-        keys = {source_key, target_key}
-        return {key for key in keys if key}
-
-    def _context_endpoint_capacity_key(self, context_id: str, *, cache: dict[str, str]) -> str:
-        normalized_context_id = (context_id or "").strip()
-        if not normalized_context_id:
-            return "context:unknown"
-        cached = cache.get(normalized_context_id)
-        if cached is not None:
-            return cached
-        endpoint_key = f"context:{normalized_context_id}"
-        try:
-            ctx = self._resolve_context(normalized_context_id)
-            endpoint = normalize_s3_endpoint(ctx.endpoint)
-            if endpoint:
-                endpoint_key = f"endpoint:{endpoint}"
-        except Exception:
-            logger.debug(
-                "Unable to resolve endpoint for migration context '%s' while evaluating endpoint limits.",
-                normalized_context_id,
-                exc_info=True,
-            )
-        cache[normalized_context_id] = endpoint_key
-        return endpoint_key
