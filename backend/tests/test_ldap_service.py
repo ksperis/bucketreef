@@ -53,7 +53,7 @@ def _service(db_session, provider: LDAPProviderSettings | None = None) -> LDAPAu
 
 
 def test_pyasn1_dependency_is_pinned_to_patched_release():
-    assert tuple(int(part) for part in version("pyasn1").split(".")[:3]) >= (0, 6, 4)
+    assert tuple(int(part) for part in version("pyasn1").split(".")[:3]) >= (0, 6, 5)
 
 
 def test_python_multipart_dependency_is_pinned_to_patched_release():

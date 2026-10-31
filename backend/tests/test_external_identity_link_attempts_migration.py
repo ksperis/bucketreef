@@ -150,6 +150,8 @@ def test_external_identity_link_attempts_migration_upgrade_and_downgrade(monkeyp
             if foreign_key["constrained_columns"] == ["link_attempt_id"]
         )
         assert login_state_fk["referred_table"] == "external_identity_link_attempts"
+        assert login_state_fk["name"] == "fk_oidc_login_states_link_attempt_external_identity"
+        assert len(login_state_fk["name"]) <= 63
         ldap_columns = {column["name"] for column in inspector.get_columns("ldap_providers")}
         assert "linking_policy" in ldap_columns
         assert connection.execute(
