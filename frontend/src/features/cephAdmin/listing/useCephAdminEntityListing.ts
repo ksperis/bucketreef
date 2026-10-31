@@ -6,7 +6,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CephAdminListingStreamProgress } from "../../../api/cephAdminEntityListing";
 import { extractApiError, isCancelledError } from "../../../utils/apiError";
 import {
+  FALLBACK_ADVANCED_PROGRESS,
   INACTIVE_ADVANCED_PROGRESS,
+  PREPARING_ADVANCED_PROGRESS,
   progressFromAdvancedSearchEvent,
   type AdvancedSearchProgress,
 } from "../../shared/advancedFilterShared";
@@ -66,26 +68,6 @@ type CephAdminEntityListingState<Entity> = {
   advancedProgress: AdvancedSearchProgress;
   error: string | null;
   updateEntity: (key: string, update: (entity: Entity) => Entity) => void;
-};
-
-const PREPARING_ADVANCED_PROGRESS: AdvancedSearchProgress = {
-  active: true,
-  determinate: true,
-  percent: 0,
-  stage: "prepare",
-  message: "Preparing advanced search...",
-  processed: 0,
-  total: 0,
-};
-
-const FALLBACK_ADVANCED_PROGRESS: AdvancedSearchProgress = {
-  active: true,
-  determinate: false,
-  percent: 0,
-  stage: "fallback",
-  message: "Advanced search in progress...",
-  processed: 0,
-  total: 0,
 };
 
 export function useCephAdminEntityListing<Entity>({

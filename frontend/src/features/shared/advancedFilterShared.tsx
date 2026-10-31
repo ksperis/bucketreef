@@ -45,6 +45,26 @@ export const INACTIVE_ADVANCED_PROGRESS: AdvancedSearchProgress = {
   total: 0,
 };
 
+export const PREPARING_ADVANCED_PROGRESS: AdvancedSearchProgress = {
+  active: true,
+  determinate: true,
+  percent: 0,
+  stage: "prepare",
+  message: "Preparing advanced search...",
+  processed: 0,
+  total: 0,
+};
+
+export const FALLBACK_ADVANCED_PROGRESS: AdvancedSearchProgress = {
+  active: true,
+  determinate: false,
+  percent: 0,
+  stage: "fallback",
+  message: "Advanced search in progress...",
+  processed: 0,
+  total: 0,
+};
+
 const advancedFilterSummaryClass =
   "rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] p-3 text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)]";
 

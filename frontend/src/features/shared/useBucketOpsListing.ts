@@ -7,13 +7,19 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { shouldUsePostBucketListing } from "../../api/bucketListingTransport";
 import { isCancelledError } from "../../utils/apiError";
-import { clampPercentage } from "../../utils/numbers";
 import type {
   CephAdminBucket,
   CephAdminBucketsStreamProgress,
   ListCephAdminBucketsParams,
   PaginatedCephAdminBucketsResponse,
 } from "../../api/cephAdminBuckets";
+import {
+  FALLBACK_ADVANCED_PROGRESS,
+  INACTIVE_ADVANCED_PROGRESS,
+  PREPARING_ADVANCED_PROGRESS,
+  progressFromAdvancedSearchEvent,
+  type AdvancedSearchProgress,
+} from "./advancedFilterShared";
 
 type BucketSort = {
   field: string;
@@ -49,16 +55,6 @@ type UseBucketOpsListingParams = {
   ) => Promise<PaginatedCephAdminBucketsResponse>;
 };
 
-type AdvancedSearchProgress = {
-  active: boolean;
-  determinate: boolean;
-  percent: number;
-  stage: string;
-  message: string;
-  processed: number;
-  total: number;
-};
-
 type UseBucketOpsListingResult = {
   items: CephAdminBucket[];
   total: number;
@@ -74,15 +70,6 @@ type UseBucketOpsListingResult = {
 
 const bucketRowKey = (bucket: CephAdminBucket) => `${bucket.tenant ?? ""}:${bucket.name}`;
 const DETAILS_FETCH_DELAY_MS = 120;
-const INACTIVE_ADVANCED_PROGRESS: AdvancedSearchProgress = {
-  active: false,
-  determinate: true,
-  percent: 0,
-  stage: "",
-  message: "",
-  processed: 0,
-  total: 0,
-};
 
 export function useBucketOpsListing({
   selectedScopeId,
@@ -170,51 +157,19 @@ export function useBucketOpsListing({
 
       let baseResponse;
       if (canUseAdvancedStream) {
-        setAdvancedProgress({
-          active: true,
-          determinate: true,
-          percent: 0,
-          stage: "prepare",
-          message: "Preparing advanced search...",
-          processed: 0,
-          total: 0,
-        });
+        setAdvancedProgress(PREPARING_ADVANCED_PROGRESS);
         try {
           baseResponse = await streamBuckets(selectedScopeId, baseParams, {
             signal: requestAbort.signal,
             onProgress: (event: CephAdminBucketsStreamProgress) => {
               if (requestId !== requestSeqRef.current || requestAbort.signal.aborted) return;
-              const rawPercent = Number(event.percent);
-              const percent = Number.isFinite(rawPercent) ? clampPercentage(Math.round(rawPercent)) : 0;
-              const rawProcessed = Number(event.processed);
-              const rawTotal = Number(event.total);
-              const total = Number.isFinite(rawTotal) ? Math.max(0, Math.round(rawTotal)) : 0;
-              const processed = Number.isFinite(rawProcessed)
-                ? Math.max(0, Math.min(total || Number.MAX_SAFE_INTEGER, Math.round(rawProcessed)))
-                : 0;
-              setAdvancedProgress({
-                active: true,
-                determinate: true,
-                percent,
-                stage: event.stage || "",
-                message: event.message || "Running advanced search...",
-                processed,
-                total,
-              });
+              setAdvancedProgress(progressFromAdvancedSearchEvent(event));
             },
           });
         } catch (streamErr) {
           if (requestAbort.signal.aborted || isCancelledError(streamErr)) return;
           if (requestId !== requestSeqRef.current) return;
-          setAdvancedProgress({
-            active: true,
-            determinate: false,
-            percent: 0,
-            stage: "fallback",
-            message: "Advanced search in progress...",
-            processed: 0,
-            total: 0,
-          });
+          setAdvancedProgress(FALLBACK_ADVANCED_PROGRESS);
           baseResponse = await listBuckets(selectedScopeId, baseParams, { signal: requestAbort.signal });
         }
       } else {
