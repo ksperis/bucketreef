@@ -18,6 +18,7 @@ from app.routers.manager.iam_common import (
     ensure_unmanaged_iam_user,
     ensure_inline_policy_name,
     get_iam_service_for_context,
+    run_audited_iam_mutation,
 )
 from app.services.audit_service import AuditService
 from app.services.manager_iam_support import load_inline_policies, resolve_attached_policy, save_inline_policy
@@ -295,19 +296,16 @@ def delete_group_inline_policy(
 ) -> None:
     _ensure_unmanaged_group(group_name)
     service = get_iam_service_for_context(context)
-    try:
-        service.delete_group_inline_policy(group_name, policy_name)
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="delete_group_inline_policy",
-            entity_type="iam_group",
-            entity_id=group_name,
-            execution_context=context,
-            metadata={"policy_name": policy_name},
-        )
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    run_audited_iam_mutation(
+        mutation=lambda: service.delete_group_inline_policy(group_name, policy_name),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="delete_group_inline_policy",
+        entity_type="iam_group",
+        entity_id=group_name,
+        metadata={"policy_name": policy_name},
+    )
 
 
 @router.get("/{group_name}/policies", response_model=list[Policy])
@@ -359,16 +357,13 @@ def detach_group_policy(
 ) -> None:
     _ensure_unmanaged_group(group_name)
     service = get_iam_service_for_context(context)
-    try:
-        service.detach_group_policy(group_name, policy_arn)
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="detach_group_policy",
-            entity_type="iam_group",
-            entity_id=group_name,
-            execution_context=context,
-            metadata={"policy_arn": policy_arn},
-        )
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    run_audited_iam_mutation(
+        mutation=lambda: service.detach_group_policy(group_name, policy_arn),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="detach_group_policy",
+        entity_type="iam_group",
+        entity_id=group_name,
+        metadata={"policy_arn": policy_arn},
+    )

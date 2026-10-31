@@ -19,6 +19,7 @@ from app.utils.http_errors import (
 from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
     get_iam_service_for_context,
+    run_audited_iam_mutation,
 )
 from app.services.audit_service import AuditService
 from app.services.manager_iam_role_service import update_iam_role
@@ -308,19 +309,16 @@ def delete_role_inline_policy(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     service = get_iam_service_for_context(context)
-    try:
-        service.delete_role_inline_policy(role_name, policy_name)
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="delete_role_inline_policy",
-            entity_type="iam_role",
-            entity_id=role_name,
-            execution_context=context,
-            metadata={"policy_name": policy_name},
-        )
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    run_audited_iam_mutation(
+        mutation=lambda: service.delete_role_inline_policy(role_name, policy_name),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="delete_role_inline_policy",
+        entity_type="iam_role",
+        entity_id=role_name,
+        metadata={"policy_name": policy_name},
+    )
 
 
 @router.get("/{role_name}/policies", response_model=list[Policy])
@@ -370,16 +368,13 @@ def detach_role_policy(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     service = get_iam_service_for_context(context)
-    try:
-        service.detach_role_policy(role_name, policy_arn)
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="detach_role_policy",
-            entity_type="iam_role",
-            entity_id=role_name,
-            execution_context=context,
-            metadata={"policy_arn": policy_arn},
-        )
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    run_audited_iam_mutation(
+        mutation=lambda: service.detach_role_policy(role_name, policy_arn),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="detach_role_policy",
+        entity_type="iam_role",
+        entity_id=role_name,
+        metadata={"policy_arn": policy_arn},
+    )
