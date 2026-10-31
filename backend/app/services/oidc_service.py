@@ -544,14 +544,6 @@ class OidcService:
             return None
         return payload
 
-    def _fetch_userinfo_email(self, userinfo_endpoint: str, access_token: str) -> Optional[str]:
-        """Compatibility helper for callers that only need a verified email."""
-        payload = self._fetch_userinfo(userinfo_endpoint, access_token)
-        if not payload or payload.get("email_verified") is not True:
-            return None
-        email = payload.get("email")
-        return str(email) if email else None
-
     def _pin_provider_issuer(
         self,
         provider_key: str,

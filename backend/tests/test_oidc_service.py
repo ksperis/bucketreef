@@ -364,7 +364,7 @@ def test_oidc_userinfo_refuses_redirect_with_bearer_token(db_session, monkeypatc
         return _Response(status_code=307)
 
     monkeypatch.setattr("app.services.oidc_service.requests.get", fake_get)
-    assert service._fetch_userinfo_email("https://issuer.example.test/userinfo", "token") is None
+    assert service._fetch_userinfo("https://issuer.example.test/userinfo", "token") is None
     assert captured["allow_redirects"] is False
     assert captured["headers"]["Authorization"] == "Bearer token"
 
@@ -611,26 +611,8 @@ def test_decode_id_token_requires_verification_signing_key(db_session, monkeypat
         service._decode_id_token(_provider(), metadata, "token", expected_nonce="n", access_token="a")
 
 
-def test_fetch_userinfo_email_and_code_challenge_helpers(db_session, monkeypatch):
+def test_build_code_challenge_helper(db_session):
     service, _ = _service(db_session)
-
-    monkeypatch.setattr(
-        "app.services.oidc_service.requests.get",
-        lambda *args, **kwargs: _Response(payload={"email": "user@example.test", "email_verified": True}),
-    )
-    assert service._fetch_userinfo_email("https://issuer/userinfo", "access-token") == "user@example.test"
-
-    monkeypatch.setattr(
-        "app.services.oidc_service.requests.get",
-        lambda *args, **kwargs: _Response(payload={"email": "user@example.test", "email_verified": False}),
-    )
-    assert service._fetch_userinfo_email("https://issuer/userinfo", "access-token") is None
-
-    def _raise(*args, **kwargs):
-        raise requests.RequestException("down")
-
-    monkeypatch.setattr("app.services.oidc_service.requests.get", _raise)
-    assert service._fetch_userinfo_email("https://issuer/userinfo", "access-token") is None
 
     challenge = service._build_code_challenge("verifier-123")
     assert challenge
