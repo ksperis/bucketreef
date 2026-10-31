@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.db import S3Account, S3User
 from app.models.cost import CostSubjectDetail
 from app.models.feature_policy import resolve_feature_policy
+from app.routers.cost_common import raise_cost_disabled
 from app.routers.dependencies import get_s3_execution_context
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.cost_service import CostService
@@ -28,7 +29,7 @@ def manager_cost_me(
 ) -> CostSubjectDetail:
     settings = load_app_settings_for_db_readonly(db)
     if not settings.general.cost_enabled:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cost is disabled")
+        raise_cost_disabled()
 
     subject_type: str
     subject_id: int

@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 structured global Cost-disabled errors
+
+Admin, Manager, and Portal Cost endpoints now return the canonical structured
+`403` detail `{"code":"cost_disabled","message":"Cost is disabled"}` when the
+global Cost feature is disabled. The bundled Admin frontend checks the stable
+`cost_disabled` code instead of parsing the human-readable message.
+
+Deploy the backend and bundled frontend together. Internal callers that used
+the previous plain `"Cost is disabled"` detail must switch to the structured
+code. Per-project and per-resource Cost policy denials keep their distinct
+messages. No database migration is required.
+
 ## 2026-10 secure OIDC account linking and issuer binding
 
 Migration `0220_oidc_secure_account_linking` binds OIDC identities to their

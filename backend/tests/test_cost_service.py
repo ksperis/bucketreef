@@ -71,6 +71,56 @@ def _enabled_cost_settings() -> AppSettings:
     return settings
 
 
+def _assert_cost_disabled_error(exc: HTTPException) -> None:
+    assert exc.status_code == 403
+    assert exc.detail == {
+        "code": "cost_disabled",
+        "message": "Cost is disabled",
+    }
+
+
+def test_manager_cost_global_disable_uses_structured_error(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    monkeypatch.setattr(
+        "app.routers.manager.cost.load_app_settings_for_db_readonly",
+        lambda _db: AppSettings(),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        manager_cost_me(
+            month="2026-01",
+            context=S3ExecutionContext.from_account(account),
+            db=db_session,
+        )
+
+    _assert_cost_disabled_error(exc_info.value)
+
+
+def test_portal_cost_global_disable_uses_structured_error(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    user = User(email="cost-disabled@example.test", hashed_password="x", role="ui_user")
+    db_session.add(user)
+    db_session.commit()
+    access = AccountAccess(
+        account=account,
+        actor=user,
+        membership=None,
+        capabilities=AccountCapabilities(),
+        portal_role="portal_user",
+    )
+    monkeypatch.setattr(
+        "app.routers.portal_cost.load_app_settings_for_db_readonly",
+        lambda _db: AppSettings(),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        portal_cost_me(month="2026-01", access=access, db=db_session)
+
+    _assert_cost_disabled_error(exc_info.value)
+
+
 def test_manager_cost_requires_targeted_subject_opt_in(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint.id)
@@ -761,7 +811,10 @@ def test_admin_cost_routes_preserve_feature_and_endpoint_status_codes(client, db
 
     response = client.get("/api/admin/cost/summary", params={"month": "2026-01"})
     assert response.status_code == 403, response.text
-    assert response.json()["detail"] == "Cost is disabled"
+    assert response.json()["detail"] == {
+        "code": "cost_disabled",
+        "message": "Cost is disabled",
+    }
 
     monkeypatch.setattr(admin_cost_service, "load_app_settings_for_db_readonly", lambda _db: _enabled_cost_settings())
     response = client.get(

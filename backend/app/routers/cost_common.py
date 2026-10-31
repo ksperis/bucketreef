@@ -2,8 +2,19 @@
 # Licensed under the Apache License, Version 2.0
 
 from datetime import date, datetime
+from typing import NoReturn
 
 from fastapi import HTTPException, status
+
+
+def raise_cost_disabled() -> NoReturn:
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "cost_disabled",
+            "message": "Cost is disabled",
+        },
+    )
 
 
 def parse_cost_day(value: str) -> date:
