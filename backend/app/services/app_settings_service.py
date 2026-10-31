@@ -189,11 +189,11 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
             if lock and lock.forced and lock.value is False:
                 raise ValueError(f"Feature locked by {lock.source}")
         _load_persisted_settings_from_db(db)
-        row = db.execute(
+        row = db.scalars(
             select(AppSetting)
             .where(AppSetting.key == APP_SETTINGS_DB_KEY)
             .execution_options(populate_existing=True)
-        ).scalar_one()
+        ).one()
         previous_updated_at = row.updated_at
         settings = _parse_settings_payload(row.payload)
         changed = []
