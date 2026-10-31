@@ -4,6 +4,7 @@
  */
 import { intlLocale, type I18nMessage } from "../../i18n";
 import type { UiLanguage } from "../../components/language";
+import { getBackendElapsedTime } from "../../utils/dateTime";
 import type {
   PortalStorageSpaceVisibility,
 } from "../../api/portal";
@@ -112,15 +113,12 @@ export function portalTrendPeriodLabel(label: string | null | undefined, t: TFun
 
 export function portalTimeAgoLabel(value?: string | null, locale: UiLanguage = "en", t?: TFunction): string {
   if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  const diffMs = Date.now() - parsed.getTime();
-  if (diffMs < 60_000) return t?.({ en: "Now", fr: "Maintenant", de: "Jetzt", zh: "现在" }) ?? "Now";
-  const minutes = Math.floor(diffMs / 60_000);
+  const elapsed = getBackendElapsedTime(value);
+  if (!elapsed) return value;
+  const { parsed, milliseconds, minutes, hours, days } = elapsed;
+  if (milliseconds < 60_000) return t?.({ en: "Now", fr: "Maintenant", de: "Jetzt", zh: "现在" }) ?? "Now";
   if (minutes < 60) return t?.({ en: `${minutes}m ago`, fr: `il y a ${minutes} min`, de: `vor ${minutes} Min.`, zh: `${minutes} 分钟前` }) ?? `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
   if (hours < 24) return t?.({ en: `${hours}h ago`, fr: `il y a ${hours} h`, de: `vor ${hours} Std.`, zh: `${hours} 小时前` }) ?? `${hours}h ago`;
-  const days = Math.floor(hours / 24);
   if (days < 7) return t?.({ en: `${days}d ago`, fr: `il y a ${days} j`, de: `vor ${days} Tg.`, zh: `${days} 天前` }) ?? `${days}d ago`;
   return parsed.toLocaleDateString(intlLocale(locale), { month: "short", day: "numeric" });
 }

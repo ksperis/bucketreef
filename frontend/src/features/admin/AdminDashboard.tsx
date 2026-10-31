@@ -56,7 +56,7 @@ import {
   RefreshIcon,
 } from "../browser/browserIcons";
 import { extractApiError } from "../../utils/apiError";
-import { formatLocalDateTime } from "../../utils/dateTime";
+import { formatLocalDateTime, getBackendElapsedTime } from "../../utils/dateTime";
 import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
 import { useI18n } from "../../i18n";
 import { onboardingCopy } from "./onboardingCopy";
@@ -68,25 +68,13 @@ type AdminDashboardText = ReturnType<typeof useAdminDashboardI18n>["text"];
 const ADMIN_INCIDENT_HISTORY_MINUTES = 7 * 24 * 60;
 const MAX_ENDPOINT_ROWS = 8;
 
-function parseBackendIsoDate(value?: string | null): Date | null {
-  if (!value) return null;
-  const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value);
-  const normalized = hasTimezone ? value : `${value}Z`;
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
-}
-
 function formatRelativeTime(value: string | null | undefined, text: AdminDashboardText, now = Date.now()): string {
-  const parsed = parseBackendIsoDate(value);
-  if (!parsed) return text("dateUnavailable");
-  const diffMs = Math.max(0, now - parsed.getTime());
-  const minutes = Math.floor(diffMs / 60000);
+  const elapsed = getBackendElapsedTime(value, now);
+  if (!elapsed) return text("dateUnavailable");
+  const { minutes, hours, days } = elapsed;
   if (minutes < 1) return text("justNow");
   if (minutes < 60) return text("minutesAgo", { count: minutes });
-  const hours = Math.floor(minutes / 60);
   if (hours < 24) return text("hoursAgo", { count: hours });
-  const days = Math.floor(hours / 24);
   return text("daysAgo", { count: days });
 }
 
