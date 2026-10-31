@@ -27,20 +27,6 @@ from app.services.s3_execution_context import S3ExecutionContext
 router = APIRouter(tags=["manager-buckets"])
 
 
-@router.get("/{bucket_name}/policy", response_model=BucketPolicyOut)
-def get_policy(
-    bucket_name: str,
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
-    _: ManagerActor = Depends(get_current_account_admin),
-) -> BucketPolicyOut:
-    return bucket_config_actions.get_bucket_policy_config(
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
-    )
-
-
 @router.get("/{bucket_name}/acl", response_model=BucketAcl)
 def get_acl(
     bucket_name: str,

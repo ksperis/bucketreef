@@ -3,7 +3,7 @@
 
 from fastapi import APIRouter, FastAPI
 
-from app.routers import browser_bucket_config
+from app.routers import browser_bucket_config, bucket_config_inspector
 from app.routers.ceph_admin import (
     bucket_config as ceph_admin_bucket_config,
     bucket_config_access as ceph_admin_bucket_config_access,
@@ -43,8 +43,16 @@ def test_browser_bucket_config_exposes_inspector_reads_and_advanced_s3_settings(
         (f"/buckets/config{path}", methods)
         for router in manager_features
         for path, methods in _route_operations(router)
-        if (f"/buckets/config{path}", methods) not in inspector_reads
     }
+    included_routers = tuple(
+        route.original_router
+        for route in browser_bucket_config.router.routes
+        if hasattr(route, "original_router")
+    )
+    assert included_routers == (
+        bucket_config_inspector.router,
+        *manager_features,
+    )
     # FastAPI may defer include_router() expansion until OpenAPI generation.
     app = FastAPI()
     app.include_router(browser_bucket_config.router)
@@ -60,6 +68,7 @@ def test_browser_bucket_config_exposes_inspector_reads_and_advanced_s3_settings(
 
 def test_manager_bucket_config_router_aggregates_every_feature_family() -> None:
     feature_routers = (
+        bucket_config_inspector.router,
         manager_bucket_config_core.router,
         manager_bucket_config_access.router,
         manager_bucket_config_rules.router,
