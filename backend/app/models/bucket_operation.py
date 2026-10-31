@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Hashable
 from typing import Annotated, TypeVar
 
 from pydantic import AfterValidator, Field, model_validator
@@ -25,18 +26,28 @@ class RgwBucketReference(ApiModel):
         return self
 
 
+_ItemT = TypeVar("_ItemT")
+
+
+def _deduplicate_by_key(
+    items: list[_ItemT],
+    key: Callable[[_ItemT], Hashable],
+) -> list[_ItemT]:
+    deduplicated: list[_ItemT] = []
+    seen: set[Hashable] = set()
+    for item in items:
+        item_key = key(item)
+        if item_key in seen:
+            continue
+        seen.add(item_key)
+        deduplicated.append(item)
+    return deduplicated
+
+
 def deduplicate_rgw_bucket_references(
     targets: list[RgwBucketReference],
 ) -> list[RgwBucketReference]:
-    deduplicated: list[RgwBucketReference] = []
-    seen: set[tuple[str, str]] = set()
-    for target in targets:
-        key = (target.tenant, target.name)
-        if key in seen:
-            continue
-        seen.add(key)
-        deduplicated.append(target)
-    return deduplicated
+    return _deduplicate_by_key(targets, lambda target: (target.tenant, target.name))
 
 
 class BucketOperationTarget(ApiModel):
@@ -75,15 +86,10 @@ def require_bucket_names(bucket_names: list[str]) -> list[str]:
 
 
 def deduplicate_bucket_targets(targets: list[_TargetT]) -> list[_TargetT]:
-    deduplicated: list[_TargetT] = []
-    seen: set[tuple[str, str]] = set()
-    for target in targets:
-        key = (target.context_id, target.bucket_name)
-        if key in seen:
-            continue
-        seen.add(key)
-        deduplicated.append(target)
-    return deduplicated
+    return _deduplicate_by_key(
+        targets,
+        lambda target: (target.context_id, target.bucket_name),
+    )
 
 
 BucketNameList = Annotated[

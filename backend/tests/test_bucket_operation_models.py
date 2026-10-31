@@ -74,6 +74,23 @@ def test_target_requests_share_deduplication(request_type, extra):
 
 
 @pytest.mark.parametrize(
+    ("request_type", "extra"),
+    [
+        (BucketIntegrityRgwTargetRequest, {}),
+        (BucketPurgeRgwTargetRequest, {"confirmation": "PURGE 1 BUCKETS"}),
+        (BucketUsageStatsRgwTargetRequest, {}),
+    ],
+)
+def test_rgw_target_requests_share_deduplication(request_type, extra):
+    target = {"name": " bucket-1 ", "tenant": " tenant_a "}
+    request = request_type(targets=[target, target.copy()], **extra)
+
+    assert len(request.targets) == 1
+    assert request.targets[0].name == "bucket-1"
+    assert request.targets[0].tenant == "tenant_a"
+
+
+@pytest.mark.parametrize(
     ("request_type", "valid_payload", "forbidden_field", "forbidden_value"),
     [
         (BucketIntegrityBucketRequest, {"buckets": ["bucket-1"]}, "targets", [{"context_id": "account-1", "bucket_name": "bucket-1"}]),
