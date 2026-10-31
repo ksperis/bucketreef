@@ -23,6 +23,7 @@ from app.models.user import UserOut, UserSummary
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.user_avatar_service import UserAvatarService
 from app.services.user_output_service import UserOutputService
+from app.utils.normalize import normalize_optional_email
 
 
 class UserQueryService:
@@ -30,6 +31,20 @@ class UserQueryService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
+
+    def get_by_email(self, email: str) -> User | None:
+        return self.db.scalar(select(User).where(User.email == email).limit(1))
+
+    def get_by_email_case_insensitive(self, email: str) -> User | None:
+        normalized = normalize_optional_email(email)
+        if not normalized:
+            return None
+        return self.db.scalar(
+            select(User).where(func.lower(User.email) == normalized).limit(1)
+        )
+
+    def get_by_id(self, user_id: int) -> User | None:
+        return self.db.get(User, user_id)
 
     def list_users(self) -> list[User]:
         return list(self.db.scalars(select(User)).all())
