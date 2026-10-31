@@ -267,17 +267,11 @@ class ManagedPrivateAccessService:
         except ValueError as exc:
             raise ManagedPrivateAccessConflict(str(exc)) from exc
         connection.is_active = False
-        provisioning.state = "deleting"
-        provisioning.updated_at = utcnow()
-        self.db.commit()
-        try:
-            self._cleanup_remote(provisioning, user=user)
-        except Exception as exc:
-            self._set_cleanup_pending(provisioning, sanitized_error_log_detail(exc), user=user)
-            raise ManagedPrivateAccessCleanupPending(
-                provisioning.id,
-                "Remote cleanup failed; the managed access remains recorded for remediation",
-            ) from exc
+        self._cleanup_remote_or_pending(
+            provisioning,
+            user=user,
+            pending_message="Remote cleanup failed; the managed access remains recorded for remediation",
+        )
 
         self.db.delete(provisioning)
         domain_kind, _owner_user_id = self.connections.tags.resolve_connection_domain(
@@ -326,6 +320,27 @@ class ManagedPrivateAccessService:
         )
         if provisioning is None:
             raise ManagedPrivateAccessNotFound("Managed private access provisioning cleanup not found")
+        self._cleanup_remote_or_pending(
+            provisioning,
+            user=user,
+            pending_message="Remote cleanup still requires remediation",
+        )
+
+        self.db.delete(provisioning)
+        self.db.commit()
+        self._record(
+            user,
+            provisioning,
+            "managed_private_access.compensation.retry.success",
+        )
+
+    def _cleanup_remote_or_pending(
+        self,
+        provisioning: ManagedPrivateAccess,
+        *,
+        user: User,
+        pending_message: str,
+    ) -> None:
         provisioning.state = "deleting"
         provisioning.updated_at = utcnow()
         self.db.commit()
@@ -335,16 +350,8 @@ class ManagedPrivateAccessService:
             self._set_cleanup_pending(provisioning, sanitized_error_log_detail(exc), user=user)
             raise ManagedPrivateAccessCleanupPending(
                 provisioning.id,
-                "Remote cleanup still requires remediation",
+                pending_message,
             ) from exc
-
-        self.db.delete(provisioning)
-        self.db.commit()
-        self._record(
-            user,
-            provisioning,
-            "managed_private_access.compensation.retry.success",
-        )
 
     def managed_iam_user(self, source_kind: str, source_id: int, username: str) -> ManagedPrivateAccess | None:
         return self.db.scalar(
