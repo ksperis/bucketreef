@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import ManagedPrivateAccess, User
+from app.db import User
 from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
     ManagedPrivateAccessResult,
@@ -33,32 +32,24 @@ from app.services.managed_private_access_errors import (
 from app.services.managed_private_access_iam_service import (
     ManagedPrivateAccessIAMService,
 )
+from app.services.managed_private_access_lifecycle_service import (
+    ManagedPrivateAccessLifecycleService,
+)
 from app.services.managed_private_access_policy_service import (
     ManagedPrivateAccessPolicyService,
 )
-from app.services.managed_private_access_query_service import (
-    ManagedPrivateAccessQueryService,
-)
-from app.services.managed_private_access_sources import (
-    ManagedPrivateAccessSource,
-    ManagedPrivateAccessSourceResolver,
-)
+from app.services.managed_private_access_sources import ManagedPrivateAccessSourceResolver
 from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.utils.time import utcnow
-
-
-ManagedPrivateAccessRequest = ManagedIAMPrivateAccessRequest | ManagedRGWUserPrivateAccessRequest
 
 
 class ManagedPrivateAccessService:
     """Orchestrate remote credentials and a private connection as a durable saga."""
 
     def __init__(self, db: Session) -> None:
-        self.db = db
         self.access = EffectiveAccessService(db)
         self.sources = ManagedPrivateAccessSourceResolver(db, self.access)
         self.policy = ManagedPrivateAccessPolicyService(
@@ -68,7 +59,6 @@ class ManagedPrivateAccessService:
         )
         connections = S3ConnectionsService(db)
         self.audit = ManagedPrivateAccessAuditService(db)
-        self.queries = ManagedPrivateAccessQueryService(db)
         state = ManagedPrivateAccessStateService(db)
         self.iam = ManagedPrivateAccessIAMService(db, access=self.access)
         self.credentials = ManagedPrivateAccessCredentialService(db, state=state)
@@ -77,6 +67,12 @@ class ManagedPrivateAccessService:
             audit=self.audit,
             state=state,
             connections=connections,
+        )
+        self.lifecycle = ManagedPrivateAccessLifecycleService(
+            db,
+            audit=self.audit,
+            state=state,
+            connection=self.connection,
         )
         self.cleanup = ManagedPrivateAccessCleanupService(
             db,
@@ -99,11 +95,11 @@ class ManagedPrivateAccessService:
         destination = self.sources.derive_destination(source)
         iam = self.iam.for_context(context)
         self.policy.validate_iam_provisioning_request(iam, payload)
-        existing_result = self._existing_result_for_source(user, source, payload)
+        existing_result = self.lifecycle.existing_result_for_source(user, source, payload)
         if existing_result is not None:
             return existing_result
 
-        provisioning = self._start_provisioning(user, source)
+        provisioning = self.lifecycle.start(user, source)
         try:
             access_key_id, secret_access_key = self.credentials.provision_iam(
                 provisioning,
@@ -147,11 +143,11 @@ class ManagedPrivateAccessService:
         self.policy.ensure_managed_private_connection_provisioning_allowed(user)
         source = self.sources.resolve_rgw_user_source(user, context)
         destination = self.sources.derive_destination(source)
-        existing_result = self._existing_result_for_source(user, source, payload)
+        existing_result = self.lifecycle.existing_result_for_source(user, source, payload)
         if existing_result is not None:
             return existing_result
 
-        provisioning = self._start_provisioning(user, source)
+        provisioning = self.lifecycle.start(user, source)
         try:
             access_key_id, secret_access_key = self.credentials.provision_rgw_user(
                 provisioning,
@@ -172,54 +168,3 @@ class ManagedPrivateAccessService:
                 exc=exc,
             )
             raise ManagedPrivateAccessError("Unable to create managed private access") from exc
-
-    def _existing_result_for_source(
-        self,
-        user: User,
-        source: ManagedPrivateAccessSource,
-        payload: ManagedPrivateAccessRequest,
-    ) -> ManagedPrivateAccessResult | None:
-        existing = self.queries.active_for_source(
-            user.id,
-            source.kind,
-            source.identifier,
-        )
-        if existing is None:
-            return None
-        return self.connection.resolve_existing(existing, payload)
-
-    def _start_provisioning(
-        self,
-        user: User,
-        source: ManagedPrivateAccessSource,
-    ) -> ManagedPrivateAccess:
-        provisioning = self._claim(user, source)
-        self.audit.record(user, provisioning, "managed_private_access.provision.start")
-        return provisioning
-
-    def _claim(
-        self,
-        user: User,
-        source: ManagedPrivateAccessSource,
-    ) -> ManagedPrivateAccess:
-        row = ManagedPrivateAccess(
-            owner_user_id=user.id,
-            source_context_type=source.kind,
-            source_context_id=source.identifier,
-            remote_principal_type=source.remote_principal_type,
-            remote_principal_identifier=source.remote_principal_identifier,
-            iam_username=source.iam_username,
-            state="provisioning",
-            created_at=utcnow(),
-            updated_at=utcnow(),
-        )
-        self.db.add(row)
-        try:
-            self.db.commit()
-        except IntegrityError as exc:
-            self.db.rollback()
-            raise ManagedPrivateAccessConflict(
-                "A managed private access operation already exists for this execution context"
-            ) from exc
-        self.db.refresh(row)
-        return row

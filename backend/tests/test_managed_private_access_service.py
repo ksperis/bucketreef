@@ -562,10 +562,11 @@ def test_claim_constraint_rejects_concurrent_active_source(db_session):
     account = _account(db_session, user, _endpoint(db_session))
     service = ManagedPrivateAccessService(db_session)
     source = service.sources.resolve_iam_source(user, account)
+    state = ManagedPrivateAccessStateService(db_session)
 
-    service._claim(user, source)
+    state.claim(user, source)
     with pytest.raises(ManagedPrivateAccessConflict, match="already exists"):
-        service._claim(user, source)
+        state.claim(user, source)
 
 
 def test_failed_local_creation_compensates_remote_resources(db_session, monkeypatch):
