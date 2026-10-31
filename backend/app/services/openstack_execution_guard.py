@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.db import User
 from app.services.keystone_client import OpenStackError
 from app.services.s3_execution_client import s3_execution_cache_key
+from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 
 
 def make_openstack_validator(bind, user_id: int, auth_id: str, context_ref: str, fingerprint: str):
@@ -28,8 +29,8 @@ def make_openstack_validator(bind, user_id: int, auth_id: str, context_ref: str,
     return validate
 
 
-def guard_openstack_client(context, client):
-    validator = getattr(context, "access_validator", None)
+def guard_openstack_client(context: S3ExecutionTarget, client):
+    validator = context.access_validator if isinstance(context, S3ExecutionContext) else None
     if validator is not None:
         def before_send(**kwargs):
             validator()
