@@ -77,6 +77,8 @@ class EndpointHealthNotificationsService:
         previous_statuses: dict[tuple[int, str], str],
     ) -> int:
         admin_ids = self._active_admin_ids()
+        notifications = UserNotificationsService(self.db)
+        webhook_publisher = WebhookEventPublisher(self.db)
         created = 0
         for result in results:
             current = result.status.value
@@ -88,56 +90,83 @@ class EndpointHealthNotificationsService:
             endpoint = endpoints.get(int(result.endpoint_id))
             if endpoint is None:
                 continue
-            severity, title, message = self._content(
+            severity, title, message, payload = self._transition_content(
                 endpoint=endpoint,
                 result=result,
                 previous=previous,
+                current=current,
             )
-            safe_error = (
-                sanitize_persisted_error(result.error_message)
-                if result.error_message is not None
-                else None
-            )
-            payload = {
-                "endpoint_id": int(endpoint.id),
-                "endpoint_name": endpoint.name,
-                "previous_status": previous,
-                "current_status": current,
-                "check_mode": result.check_mode,
-                "http_status": result.http_status,
-                "latency_ms": result.latency_ms,
-                "error_message": safe_error,
-                "checked_at": result.checked_at.isoformat(),
-            }
             if admin_ids:
-                created += UserNotificationsService(self.db).create_notifications(
-                    user_ids=admin_ids,
-                    notification_type="endpoint_health",
+                created += self._create_ui_notifications(
+                    notifications=notifications,
+                    admin_ids=admin_ids,
+                    endpoint=endpoint,
+                    result=result,
+                    previous=previous,
+                    current=current,
                     severity=severity,
                     title=title,
                     message=message,
-                    subject_type="endpoint",
-                    storage_endpoint_id=int(endpoint.id),
-                    event_key=(
-                        f"endpoint_health:{endpoint.id}:{result.check_mode}:"
-                        f"{previous or 'none'}:{current}:{result.checked_at.isoformat()}"
-                    ),
                     payload=payload,
-                    created_at=result.checked_at,
                 )
-            try:
-                WebhookEventPublisher(self.db).publish_event_in_current_transaction(
-                    event_type=ENDPOINT_HEALTH_EVENT_TYPE,
-                    data=payload,
-                    occurred_at=result.checked_at,
-                )
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "Failed to queue endpoint health webhook endpoint=%s: %s",
-                    endpoint.id,
-                    exc,
-                )
+            self._publish_webhook(
+                publisher=webhook_publisher,
+                endpoint=endpoint,
+                result=result,
+                payload=payload,
+            )
         return created
+
+    def _create_ui_notifications(
+        self,
+        *,
+        notifications: UserNotificationsService,
+        admin_ids: list[int],
+        endpoint: StorageEndpoint,
+        result: HealthCheckResult,
+        previous: str | None,
+        current: str,
+        severity: str,
+        title: str,
+        message: str,
+        payload: dict[str, object],
+    ) -> int:
+        return notifications.create_notifications(
+            user_ids=admin_ids,
+            notification_type="endpoint_health",
+            severity=severity,
+            title=title,
+            message=message,
+            subject_type="endpoint",
+            storage_endpoint_id=int(endpoint.id),
+            event_key=(
+                f"endpoint_health:{endpoint.id}:{result.check_mode}:"
+                f"{previous or 'none'}:{current}:{result.checked_at.isoformat()}"
+            ),
+            payload=payload,
+            created_at=result.checked_at,
+        )
+
+    @staticmethod
+    def _publish_webhook(
+        *,
+        publisher: WebhookEventPublisher,
+        endpoint: StorageEndpoint,
+        result: HealthCheckResult,
+        payload: dict[str, object],
+    ) -> None:
+        try:
+            publisher.publish_event_in_current_transaction(
+                event_type=ENDPOINT_HEALTH_EVENT_TYPE,
+                data=payload,
+                occurred_at=result.checked_at,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Failed to queue endpoint health webhook endpoint=%s: %s",
+                endpoint.id,
+                exc,
+            )
 
     def _active_admin_ids(self) -> list[int]:
         return [
@@ -168,6 +197,7 @@ class EndpointHealthNotificationsService:
         endpoint: StorageEndpoint,
         result: HealthCheckResult,
         previous: str | None,
+        safe_error: str | None,
     ) -> tuple[str, str, str]:
         status = result.status
         if status == HealthCheckStatus.UP:
@@ -177,11 +207,6 @@ class EndpointHealthNotificationsService:
                 f"Endpoint {endpoint.name} recovered from {previous} and is up.",
             )
 
-        safe_error = (
-            sanitize_persisted_error(result.error_message)
-            if result.error_message is not None
-            else None
-        )
         detail = safe_error
         if not detail and result.http_status is not None:
             detail = f"HTTP {result.http_status}"
@@ -198,4 +223,41 @@ class EndpointHealthNotificationsService:
             "warning",
             "Endpoint degraded",
             f"Endpoint {endpoint.name} is degraded{suffix}",
+        )
+
+    @classmethod
+    def _transition_content(
+        cls,
+        *,
+        endpoint: StorageEndpoint,
+        result: HealthCheckResult,
+        previous: str | None,
+        current: str,
+    ) -> tuple[str, str, str, dict[str, object]]:
+        safe_error = (
+            sanitize_persisted_error(result.error_message)
+            if result.error_message is not None
+            else None
+        )
+        severity, title, message = cls._content(
+            endpoint=endpoint,
+            result=result,
+            previous=previous,
+            safe_error=safe_error,
+        )
+        return (
+            severity,
+            title,
+            message,
+            {
+                "endpoint_id": int(endpoint.id),
+                "endpoint_name": endpoint.name,
+                "previous_status": previous,
+                "current_status": current,
+                "check_mode": result.check_mode,
+                "http_status": result.http_status,
+                "latency_ms": result.latency_ms,
+                "error_message": safe_error,
+                "checked_at": result.checked_at.isoformat(),
+            },
         )

@@ -203,6 +203,52 @@ def test_endpoint_health_notifications_follow_transitions_and_admin_scope(
     assert webhook_payload["data"]["error_message"] == "access_key=<redacted> timed out"
 
 
+def test_endpoint_health_webhook_failure_does_not_block_ui_notification(
+    db_session,
+    monkeypatch,
+):
+    endpoint = StorageEndpoint(
+        name="Webhook failure endpoint",
+        endpoint_url="https://webhook-failure.example.test",
+        provider=StorageProvider.CEPH.value,
+        is_default=True,
+    )
+    admin = User(
+        email="webhook-failure-admin@example.test",
+        hashed_password="x",
+        role=UserRole.UI_ADMIN.value,
+        is_active=True,
+    )
+    db_session.add_all([endpoint, admin])
+    db_session.commit()
+
+    def fail_webhook(*_args, **_kwargs):
+        raise RuntimeError("webhook unavailable")
+
+    monkeypatch.setattr(
+        "app.services.endpoint_health_notifications_service."
+        "WebhookEventPublisher.publish_event_in_current_transaction",
+        fail_webhook,
+    )
+
+    created = EndpointHealthNotificationsService(
+        db_session
+    ).create_transition_notifications(
+        results=[
+            _result(endpoint.id, HealthCheckStatus.DEGRADED, offset_minutes=1)
+        ],
+        endpoints={int(endpoint.id): endpoint},
+        previous_statuses={(endpoint.id, "http"): "up"},
+    )
+
+    assert created == 1
+    notification = db_session.scalar(
+        sa.select(UserNotification).where(UserNotification.user_id == admin.id)
+    )
+    assert notification is not None
+    assert notification.payload["current_status"] == "degraded"
+
+
 def test_previous_endpoint_status_uses_latest_raw_check(db_session):
     endpoint = StorageEndpoint(
         name="Previous endpoint",
