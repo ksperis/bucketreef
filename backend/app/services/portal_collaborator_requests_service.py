@@ -38,12 +38,12 @@ class PortalCollaboratorRequestsService:
         self.users_service = users_service
 
     def _direct_portal_link(self, user_id: int, account_id: int) -> UserS3Account | None:
-        return self.db.execute(
+        return self.db.scalar(
             select(UserS3Account).where(
                 UserS3Account.user_id == user_id,
                 UserS3Account.account_id == account_id,
             )
-        ).scalar_one_or_none()
+        )
 
     def normalize_user_access_request(
         self,
@@ -62,9 +62,9 @@ class PortalCollaboratorRequestsService:
             raise ValueError("Target user is required")
         if int(actor.id) == int(payload.target_user_id):
             raise ValueError("Portal managers cannot change their own project role")
-        target = self.db.execute(
+        target = self.db.scalar(
             select(User).where(User.id == int(payload.target_user_id))
-        ).scalar_one_or_none()
+        )
         if not target or not target.is_active:
             raise ValueError("Target user was not found or is inactive")
         link = self._direct_portal_link(
@@ -256,9 +256,9 @@ class PortalCollaboratorRequestsService:
         if requested_role == expected_role:
             raise ValueError("Requested Portal role is unchanged")
 
-        target = self.db.execute(
+        target = self.db.scalar(
             select(User).where(User.id == target_user_id)
-        ).scalar_one_or_none()
+        )
         if not target or not target.is_active:
             raise ValueError("Target user was not found or is inactive")
         link = self._direct_portal_link(
@@ -286,7 +286,7 @@ class PortalCollaboratorRequestsService:
         }
 
     def _has_group_portal_membership(self, user_id: int, account_id: int) -> bool:
-        return self.db.execute(
+        return self.db.scalar(
             select(UserUiGroup.id)
             .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
             .where(
@@ -295,4 +295,4 @@ class PortalCollaboratorRequestsService:
                 UiGroupS3Account.portal_role.is_not(None),
             )
             .limit(1)
-        ).scalar_one_or_none() is not None
+        ) is not None
