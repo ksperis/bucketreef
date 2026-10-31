@@ -21,9 +21,9 @@ from app.db import (
 from app.models.user import UserAvatar, UserAvatarPreference
 from app.services.avatar_image_service import (
     ALLOWED_AVATAR_CONTENT_TYPES,
-    validate_avatar_image,
+    clear_avatar_image,
+    store_avatar_image,
 )
-from app.utils.time import utcnow
 
 
 PORTAL_ACCOUNT_ROLES = {
@@ -133,17 +133,12 @@ class UserAvatarService:
         user.avatar_preference = preference
 
     def store_uploaded_image(self, user: User, payload: bytes, content_type: str | None) -> None:
-        detected_type = validate_avatar_image(payload, content_type)
-        user.avatar_image = payload
-        user.avatar_content_type = detected_type
+        store_avatar_image(user, payload, content_type)
         user.avatar_preference = "uploaded"
-        user.avatar_updated_at = utcnow()
         self._persist(user)
 
     def remove_uploaded_image(self, user: User) -> None:
-        user.avatar_image = None
-        user.avatar_content_type = None
-        user.avatar_updated_at = utcnow()
+        clear_avatar_image(user)
         if user.avatar_preference == "uploaded":
             user.avatar_preference = "auto"
         self._persist(user)

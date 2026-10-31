@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 from app.core.domain_errors import AvatarNotFoundError
 from app.db import UiGroup
 from app.models.ui_group import UiGroupAvatar, UiGroupAvatarIcon, UiGroupAvatarSource
-from app.services.avatar_image_service import ALLOWED_AVATAR_CONTENT_TYPES, validate_avatar_image
+from app.services.avatar_image_service import (
+    ALLOWED_AVATAR_CONTENT_TYPES,
+    clear_avatar_image,
+    store_avatar_image,
+)
 from app.utils.time import utcnow
 
 
@@ -74,17 +78,12 @@ class UiGroupAvatarService:
         group.avatar_updated_at = utcnow()
 
     def store_uploaded_image(self, group: UiGroup, payload: bytes, content_type: str | None) -> None:
-        detected_type = validate_avatar_image(payload, content_type)
-        group.avatar_image = payload
-        group.avatar_content_type = detected_type
+        store_avatar_image(group, payload, content_type)
         group.avatar_source = "uploaded"
-        group.avatar_updated_at = utcnow()
         self._persist(group)
 
     def remove_uploaded_image(self, group: UiGroup) -> None:
-        group.avatar_image = None
-        group.avatar_content_type = None
-        group.avatar_updated_at = utcnow()
+        clear_avatar_image(group)
         if group.avatar_source == "uploaded":
             group.avatar_source = "initials"
         self._persist(group)
