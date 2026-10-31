@@ -34,6 +34,9 @@ from app.services.storage_endpoint_admin_permissions import (
 from app.services.storage_endpoint_feature_detection import (
     StorageEndpointFeatureDetector,
 )
+from app.services.endpoint_service_identity_reconciliation_policy import (
+    needs_startup_reconciliation,
+)
 from app.services.storage_endpoint_env_sync import StorageEndpointEnvSyncService
 from app.services.storage_endpoint_normalization import (
     normalize_storage_endpoint_state,
@@ -141,7 +144,7 @@ class StorageEndpointsService:
         for endpoint in self.db.scalars(
             select(StorageEndpoint).where(StorageEndpoint.provider == "ceph")
         ).all():
-            if not identities.needs_startup_reconciliation(endpoint):
+            if not needs_startup_reconciliation(endpoint):
                 continue
             try:
                 identities.reconcile(endpoint)

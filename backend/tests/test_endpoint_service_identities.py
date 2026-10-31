@@ -14,6 +14,9 @@ from app.services.endpoint_service_identity_validation import (
     SERVICE_CAPS,
     EndpointServiceIdentityValidationService,
 )
+from app.services.endpoint_service_identity_reconciliation_policy import (
+    needs_startup_reconciliation,
+)
 from app.services.operation_lease_service import OperationLeaseService
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
@@ -667,7 +670,7 @@ def test_endpoint_creation_waits_for_explicit_provisioning_and_failure_is_retrya
     assert supervision.status == "not_provisioned"
     assert identity.access_key is None and identity.provenance is None
     assert not any(call[0] == "create" for call in rgw.calls)
-    assert not EndpointServiceIdentityService(db_session).needs_startup_reconciliation(endpoint)
+    assert not needs_startup_reconciliation(endpoint)
 
     StorageEndpointsService(db_session).reconcile_identities(endpoint.id)
     assert identity.status == "error" and identity.access_key and identity.provenance
