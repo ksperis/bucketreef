@@ -5,26 +5,13 @@
 import { useMemo } from "react";
 import type { UserAvatarDescriptor } from "../api/users";
 import { fetchAuthenticatedAvatarImage } from "../api/avatarImages";
+import { avatarSizeClasses, initialsFromLabel, type AvatarSize } from "./avatarPresentation";
 import { cx } from "./ui/styles";
 import { useAuthenticatedAvatarUrl } from "./useAuthenticatedAvatarUrl";
 
-type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
-
-const sizeClasses: Record<AvatarSize, string> = {
-  xs: "h-6 w-6 text-[9px]",
-  sm: "h-7 w-7 text-[10px]",
-  md: "h-8 w-8 text-[11px]",
-  lg: "h-12 w-12 text-sm",
-  xl: "h-20 w-20 text-xl",
-};
-
 function fallbackInitials(name?: string | null, email?: string | null): string {
-  const label = (name ?? "").trim();
-  const parts = label.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-  if (parts.length >= 2) return `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}`.toUpperCase();
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   const localPart = (email ?? "U").split("@", 1)[0];
-  return localPart.slice(0, 2).toUpperCase() || "U";
+  return initialsFromLabel(name, localPart.slice(0, 2) || "U");
 }
 
 type UserAvatarProps = {
@@ -65,7 +52,7 @@ export default function UserAvatar({
       title={decorative ? undefined : label}
       className={cx(
         "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--ui-surface)] bg-primary-100 font-bold uppercase text-primary-700 shadow-sm dark:bg-primary-900/60 dark:text-primary-100",
-        sizeClasses[size],
+        avatarSizeClasses[size],
         className,
       )}
     >
@@ -133,7 +120,7 @@ export function UserAvatarStack({
           title={`${remaining} more collaborator${remaining === 1 ? "" : "s"}`}
           className={cx(
             "relative inline-flex shrink-0 items-center justify-center rounded-full border-2 border-[var(--ui-surface)] bg-slate-200 font-bold text-slate-700 dark:bg-slate-700 dark:text-slate-100",
-            sizeClasses[size],
+            avatarSizeClasses[size],
           )}
         >
           +{remaining}

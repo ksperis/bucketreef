@@ -35,6 +35,11 @@ describe("GroupAvatar", () => {
     expect(avatar.querySelector("svg")).toBeInTheDocument();
   });
 
+  it("derives group initials from the group name", () => {
+    render(<GroupAvatar name="Storage Operators" />);
+    expect(screen.getByTitle("Storage Operators")).toHaveTextContent("SO");
+  });
+
   it("loads an uploaded group image through the authenticated API", async () => {
     mocks.fetchImage.mockResolvedValue(new Blob(["avatar"], { type: "image/png" }));
     render(
