@@ -5,11 +5,12 @@
 import type { ReactNode } from "react";
 import UiProgressBar from "../../components/ui/UiProgressBar";
 import { interpolateText } from "../../i18n";
+import type { TextMatchMode } from "../../utils/textMatch";
 import type { SharedText } from "./sharedI18n";
 
 const identityText: SharedText = interpolateText;
 
-export type TextMatchMode = "contains" | "exact";
+export type { TextMatchMode } from "../../utils/textMatch";
 export type FilterCostLevel = "none" | "low" | "medium" | "high";
 export type AdvancedFilterFieldState = {
   fieldClass: string;
