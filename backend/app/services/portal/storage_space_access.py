@@ -185,9 +185,9 @@ class PortalStorageSpaceAccessMixin:
         user_id: int,
         account_id: int,
     ) -> Optional[str]:
-        account = self.db.execute(
+        account = self.db.scalar(
             select(S3Account).where(S3Account.id == account_id)
-        ).scalar_one_or_none()
+        )
         if account is None:
             return None
         row = self._portal_account_member_map(account).get(user_id)
@@ -303,9 +303,9 @@ class PortalStorageSpaceAccessMixin:
             )
         ).all()
         user_ids.update(user_id for user_id in grant_user_ids if user_id is not None)
-        account = self.db.execute(
+        account = self.db.scalar(
             select(S3Account).where(S3Account.id == metadata.account_id)
-        ).scalar_one_or_none()
+        )
         if account is not None:
             member_map = self._portal_account_member_map(account)
             user_ids.update(
