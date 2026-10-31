@@ -8,7 +8,7 @@ from typing import Any, Literal
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.services.s3_delete_response import parse_delete_objects_failures
-from app.utils.aws_errors import aws_error_code
+from app.utils.s3_errors import is_s3_access_denied
 
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ def _copy_single_object(
             target_client.copy_object(Bucket=target_bucket, Key=key, CopySource=copy_source)
             return
         except (ClientError, BotoCoreError) as exc:
-            if not _is_access_denied_error(exc):
+            if not is_s3_access_denied(exc):
                 raise RuntimeError(f"Unable to copy object '{key}': {exc}") from exc
             logger.warning(
                 "CopyObject denied for '%s' (%s), falling back to stream copy.",
@@ -167,11 +167,3 @@ def _delete_objects(client: Any, *, target_bucket: str, keys: list[str]) -> tupl
         succeeded += len(chunk) - len(failures)
         failed_keys.extend(sorted(failure.key for failure in failures))
     return succeeded, failed_keys
-
-
-def _is_access_denied_error(exc: Exception) -> bool:
-    code = aws_error_code(exc, lowercase=True)
-    if code in {"accessdenied", "access_denied", "403", "unauthorized"}:
-        return True
-    text = str(exc).strip().lower()
-    return "accessdenied" in text or "access denied" in text or "403" in text

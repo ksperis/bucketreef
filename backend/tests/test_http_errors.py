@@ -142,6 +142,14 @@ def test_raise_bad_gateway_from_runtime_does_not_treat_generic_405_as_unsupporte
     assert raised.value.detail == "upstream request failed"
 
 
+def test_raise_bad_gateway_from_runtime_does_not_infer_access_denied_from_message():
+    with pytest.raises(HTTPException) as raised:
+        raise_bad_gateway_from_runtime(RuntimeError("AccessDenied 403"))
+
+    assert raised.value.status_code == 502
+    assert raised.value.detail == "AccessDenied 403"
+
+
 @pytest.mark.parametrize(
     ("error", "expected"),
     [

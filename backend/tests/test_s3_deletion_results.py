@@ -275,6 +275,24 @@ def test_individual_and_xml_fallback_purges_keep_exact_versions_and_partial_resu
     assert client.delete_objects.call_count == int(not individual_deletes)
 
 
+def test_delete_objects_does_not_infer_parse_error_from_client_error_message():
+    client = Mock()
+    client.delete_objects.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "InternalError",
+                "Message": "Unable to parse response, invalid XML received",
+            }
+        },
+        "DeleteObjects",
+    )
+
+    with pytest.raises(ClientError):
+        s3_deletion.delete_objects_count(client, "target", [{"Key": "first"}])
+
+    client.delete_object.assert_not_called()
+
+
 def test_partial_purge_totals_span_batches_and_failure_samples_stay_bounded():
     items = [{"Key": f" key-{index} "} for index in range(2003)]
     client = Mock()

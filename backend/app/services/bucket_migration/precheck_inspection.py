@@ -19,6 +19,7 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
 )
 from app.utils.aws_errors import aws_error_code
+from app.utils.s3_errors import is_s3_feature_unsupported
 from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features
 
 from ._shared import _ResolvedContext
@@ -171,25 +172,6 @@ def _feature_availability_entry(
     return payload
 
 
-def _is_probe_unavailable_error(exc: Exception) -> bool:
-    text = str(exc).strip().lower()
-    return any(
-        token in text
-        for token in (
-            "methodnotallowed",
-            "method not allowed",
-            "notimplemented",
-            "not implemented",
-            "notsupported",
-            "not supported",
-            "httpstatuscode': 405",
-            "httpstatuscode\": 405",
-            "status code: 405",
-            "(405)",
-        )
-    )
-
-
 class _BucketFeatureProbe:
     def __init__(
         self,
@@ -232,7 +214,7 @@ class _BucketFeatureProbe:
         try:
             value = fetcher()
         except Exception as exc:  # noqa: BLE001
-            if soft_unavailable and _is_probe_unavailable_error(exc):
+            if soft_unavailable and is_s3_feature_unsupported(exc):
                 self.mark(
                     feature,
                     state="unavailable",
