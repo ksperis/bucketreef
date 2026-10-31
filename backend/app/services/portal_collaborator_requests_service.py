@@ -21,6 +21,7 @@ from app.models.access_context import AccountAccess
 from app.models.portal_requests import PortalUserAccessRequestCreate
 from app.services.portal_service import PortalService
 from app.services.users_service import UsersService
+from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
 
 
@@ -152,7 +153,7 @@ class PortalCollaboratorRequestsService:
     @staticmethod
     def _validated_user_addition(payload: dict[str, Any]) -> tuple[str, str, str]:
         target_name = str(payload.get("target_name") or "").strip()
-        target_email = str(payload.get("target_email") or "").strip().lower()
+        target_email = normalize_optional_email(payload.get("target_email"))
         requested_portal_role = payload.get("portal_role")
         if not target_name or not target_email:
             raise ValueError("Target user name and email are required")
@@ -207,7 +208,7 @@ class PortalCollaboratorRequestsService:
         row: PortalAdminRequest,
         payload: dict[str, Any],
     ) -> dict[str, Any]:
-        target_email = str(payload.get("target_email") or "").strip().lower()
+        target_email = normalize_optional_email(payload.get("target_email"))
         if not target_email:
             raise ValueError("Target user email is required")
 

@@ -59,6 +59,7 @@ from app.services.user_avatar_service import UserAvatarService
 from app.services.user_output_service import UserOutputService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
+from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
 from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS
 
@@ -81,7 +82,7 @@ class UsersService:
         return self.db.scalar(select(User).where(User.email == email).limit(1))
 
     def get_by_email_case_insensitive(self, email: str) -> Optional[User]:
-        normalized = str(email or "").strip().lower()
+        normalized = normalize_optional_email(email)
         if not normalized:
             return None
         return self.db.scalar(
