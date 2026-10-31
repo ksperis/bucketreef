@@ -13,6 +13,9 @@ from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 
 
+DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR = "S3ExecutionTarget is missing admin credentials"
+
+
 def require_s3_execution_credentials(
     execution_context: S3ExecutionTarget,
     *,
@@ -34,7 +37,7 @@ def s3_execution_client_kwargs(execution_context: S3ExecutionTarget) -> dict[str
 def s3_execution_request_kwargs(
     execution_context: S3ExecutionTarget,
     *,
-    error_message: str,
+    error_message: str = DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR,
 ) -> dict[str, Any]:
     access_key, secret_key = require_s3_execution_credentials(
         execution_context,
@@ -51,7 +54,7 @@ def s3_execution_bucket_request_kwargs(
     execution_context: S3ExecutionTarget,
     bucket_name: str,
     *,
-    error_message: str,
+    error_message: str = DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR,
 ) -> dict[str, Any]:
     kwargs = s3_execution_request_kwargs(
         execution_context,

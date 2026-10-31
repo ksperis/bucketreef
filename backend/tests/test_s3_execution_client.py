@@ -69,6 +69,13 @@ def test_s3_execution_request_kwargs_includes_credentials_and_client_options() -
     }
 
 
+def test_s3_execution_request_kwargs_uses_default_credentials_error() -> None:
+    account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
+
+    with pytest.raises(RuntimeError, match="S3ExecutionTarget is missing admin credentials"):
+        s3_execution_request_kwargs(account)
+
+
 def test_s3_execution_cache_key_matches_account_and_explicit_context() -> None:
     account = S3Account(
         id=42,
