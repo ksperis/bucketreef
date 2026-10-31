@@ -93,7 +93,7 @@ def test_account_user_inventory_excludes_actual_tenanted_root(db_session):
         },
     )
     service = S3AccountsService(db_session)
-    assert service._account_rgw_users(account_id, None, admin, root_uid="custom-root") == (1, ["customer01$member"])
+    assert service.rgw_users.resolve(account_id, None, admin, root_uid="custom-root") == (1, ["customer01$member"])
 
 
 def test_manager_bucket_stats_and_quota_preserve_explicit_tenant(monkeypatch):
