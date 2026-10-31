@@ -17,11 +17,13 @@ from app.services.managed_private_access_audit_service import (
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessCleanupPending,
     ManagedPrivateAccessConflict,
-    ManagedPrivateAccessError,
     ManagedPrivateAccessNotFound,
 )
 from app.services.managed_private_access_iam_service import (
     ManagedPrivateAccessIAMService,
+)
+from app.services.managed_private_access_remote_cleanup_service import (
+    ManagedPrivateAccessRemoteCleanupService,
 )
 from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
@@ -29,7 +31,6 @@ from app.services.managed_private_access_state_service import (
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.rgw_iam import RGWIAMService
 from app.services.s3_connections_service import S3ConnectionsService
-from app.services.s3_users_service import S3UsersService
 from app.utils.time import utcnow
 
 
@@ -46,10 +47,15 @@ class ManagedPrivateAccessCleanupService:
         connections: S3ConnectionsService | None = None,
     ) -> None:
         self.db = db
-        self.iam = iam or ManagedPrivateAccessIAMService(db)
         self.audit = audit or ManagedPrivateAccessAuditService(db)
-        self.state = state or ManagedPrivateAccessStateService(db)
         self.connections = connections or S3ConnectionsService(db)
+        iam_resolver = iam or ManagedPrivateAccessIAMService(db)
+        state_store = state or ManagedPrivateAccessStateService(db)
+        self.remote = ManagedPrivateAccessRemoteCleanupService(
+            db,
+            iam=iam_resolver,
+            state=state_store,
+        )
 
     def delete_owned_connection(self, *, user: User, connection_id: int) -> bool:
         provisioning = self.db.scalar(
@@ -212,7 +218,7 @@ class ManagedPrivateAccessCleanupService:
     ) -> None:
         self._compensate(
             provisioning_id,
-            cleanup=lambda provisioning: self._cleanup_iam_resources(provisioning, iam),
+            cleanup=lambda provisioning: self.remote.cleanup_iam_resources(provisioning, iam),
             failure=failure,
             user=user,
         )
@@ -224,16 +230,9 @@ class ManagedPrivateAccessCleanupService:
         failure: str,
         user: User,
     ) -> None:
-        def cleanup(provisioning: ManagedPrivateAccess) -> None:
-            if provisioning.created_access_key and provisioning.access_key_id:
-                S3UsersService(self.db).delete_key(
-                    provisioning.source_context_id,
-                    provisioning.access_key_id,
-                )
-
         self._compensate(
             provisioning_id,
-            cleanup=cleanup,
+            cleanup=self.remote.cleanup_rgw_user_resources,
             failure=failure,
             user=user,
         )
@@ -249,7 +248,7 @@ class ManagedPrivateAccessCleanupService:
         provisioning.updated_at = utcnow()
         self.db.commit()
         try:
-            self._cleanup_remote(provisioning, user=user)
+            self.remote.cleanup(provisioning, user=user)
         except Exception as exc:
             self._set_cleanup_pending(
                 provisioning,
@@ -260,74 +259,6 @@ class ManagedPrivateAccessCleanupService:
                 provisioning.id,
                 pending_message,
             ) from exc
-
-    def _cleanup_remote(self, provisioning: ManagedPrivateAccess, *, user: User) -> None:
-        if provisioning.remote_principal_type == "iam_user":
-            iam = self.iam.for_source(provisioning, user)
-            self._cleanup_iam_resources(provisioning, iam)
-            return
-
-        users = S3UsersService(self.db)
-        if provisioning.created_access_key and provisioning.access_key_id:
-            users.delete_key(provisioning.source_context_id, provisioning.access_key_id)
-            provisioning.created_access_key = False
-            self.state.checkpoint(provisioning)
-
-    def _cleanup_iam_resources(
-        self,
-        provisioning: ManagedPrivateAccess,
-        iam: RGWIAMService,
-    ) -> None:
-        username = provisioning.iam_username or provisioning.remote_principal_identifier
-        errors: list[str] = []
-
-        def attempt(operation: Callable[[], None], on_success: Callable[[], None]) -> None:
-            try:
-                operation()
-                on_success()
-                self.state.checkpoint(provisioning)
-            except Exception as exc:
-                errors.append(sanitized_error_log_detail(exc))
-
-        if provisioning.created_access_key and provisioning.access_key_id:
-            attempt(
-                lambda: iam.delete_access_key(username, provisioning.access_key_id or ""),
-                lambda: setattr(provisioning, "created_access_key", False),
-            )
-        for name in reversed(self.state.string_list(provisioning.iam_inline_policy_names)):
-            attempt(
-                lambda name=name: iam.delete_user_inline_policy(username, name),
-                lambda name=name: self.state.remove_list_value(
-                    provisioning,
-                    "iam_inline_policy_names",
-                    name,
-                ),
-            )
-        for arn in reversed(self.state.string_list(provisioning.iam_managed_policies)):
-            attempt(
-                lambda arn=arn: iam.detach_user_policy(username, arn),
-                lambda arn=arn: self.state.remove_list_value(
-                    provisioning,
-                    "iam_managed_policies",
-                    arn,
-                ),
-            )
-        for group in reversed(self.state.string_list(provisioning.iam_groups)):
-            attempt(
-                lambda group=group: iam.remove_user_from_group(group, username),
-                lambda group=group: self.state.remove_list_value(
-                    provisioning,
-                    "iam_groups",
-                    group,
-                ),
-            )
-        if provisioning.created_remote_principal:
-            attempt(
-                lambda: iam.delete_user(username),
-                lambda: setattr(provisioning, "created_remote_principal", False),
-            )
-        if errors:
-            raise ManagedPrivateAccessError("; ".join(errors))
 
     def _compensate(
         self,
