@@ -404,7 +404,7 @@ class BucketConfigurationService:
                     rules=[],
                     **self._bucket_client_kwargs(execution_context, name),
                 )
-            except RuntimeError as exc:  # noqa: BLE001
+            except RuntimeError as exc:
                 raise RuntimeError(f"Unable to delete bucket lifecycle: {exc}") from exc
 
     def set_bucket_tags(self, name: str, execution_context: S3ExecutionTarget, tags: list[dict]) -> None:
