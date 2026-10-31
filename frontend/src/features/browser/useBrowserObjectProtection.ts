@@ -17,7 +17,10 @@ import type {
   ObjectRetentionUpdate,
 } from "../../api/browserContracts";
 import { extractApiError } from "../../utils/apiError";
-import { formatLocalDateTime, toIsoString } from "./browserUtils";
+import {
+  dateTimeLocalInputToIsoString,
+  formatDateTimeLocalInput,
+} from "../../utils/dateTime";
 import { runBrowserScopedSave } from "./browserScopedSave";
 
 export type ObjectRetentionMode = "" | "GOVERNANCE" | "COMPLIANCE";
@@ -171,7 +174,7 @@ export function useBrowserObjectProtection({
           retentionLoadedRef.current = true;
           setRetentionMode(nextRetention.value.mode ?? "");
           setRetentionDate(
-            formatLocalDateTime(nextRetention.value.retain_until),
+            formatDateTimeLocalInput(nextRetention.value.retain_until),
           );
           setRetentionError(null);
         } else {
@@ -247,7 +250,7 @@ export function useBrowserObjectProtection({
       ) {
         return "skipped";
       }
-      const retainUntil = toIsoString(retentionDate);
+      const retainUntil = dateTimeLocalInputToIsoString(retentionDate);
       if (!retainUntil) return "invalid";
 
       return (

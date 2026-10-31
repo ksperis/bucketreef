@@ -13,6 +13,7 @@ import {
   updateObjectTags,
 } from "../../api/browserObjects";
 import { runWithConcurrency } from "../../utils/concurrency";
+import { dateTimeLocalInputToIsoString } from "../../utils/dateTime";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import type { BrowserItem, BulkMetadataDraft } from "./browserTypes";
@@ -20,7 +21,6 @@ import {
   normalizePrefix,
   pairsToRecord,
   parseKeyValueLines,
-  toIsoString,
 } from "./browserUtils";
 import { useBrowserI18n, type BrowserTextFn } from "./browserI18n";
 
@@ -112,7 +112,7 @@ export function validateBrowserBulkAttributesDraft(
   }
 
   const expiresIso = draft.metadata.expires.trim()
-    ? toIsoString(draft.metadata.expires)
+    ? dateTimeLocalInputToIsoString(draft.metadata.expires)
     : "";
   const metadataHasValues =
     Boolean(draft.metadata.contentType.trim()) ||
@@ -136,7 +136,7 @@ export function validateBrowserBulkAttributesDraft(
     return text("Provide at least one valid key=value tag.");
   }
   const retentionIso = draft.retentionDate.trim()
-    ? toIsoString(draft.retentionDate)
+    ? dateTimeLocalInputToIsoString(draft.retentionDate)
     : "";
   if (
     draft.applyRetention &&
@@ -234,10 +234,10 @@ export function useBrowserBulkAttributes({
     const metadataPairs = parseKeyValueLines(draft.metadataEntries);
     const tagsPairs = parseKeyValueLines(draft.tags);
     const expiresIso = draft.metadata.expires.trim()
-      ? toIsoString(draft.metadata.expires)
+      ? dateTimeLocalInputToIsoString(draft.metadata.expires)
       : "";
     const retentionIso = draft.retentionDate
-      ? toIsoString(draft.retentionDate)
+      ? dateTimeLocalInputToIsoString(draft.retentionDate)
       : "";
     const retentionUpdate =
       draft.applyRetention && draft.retentionMode && retentionIso

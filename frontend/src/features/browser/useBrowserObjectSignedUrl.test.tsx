@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { formatLocalDateTime } from "./browserUtils";
+import { formatDateTimeLocalInput } from "../../utils/dateTime";
 import { useBrowserObjectSignedUrl } from "./useBrowserObjectSignedUrl";
 
 const apiMocks = vi.hoisted(() => ({
@@ -93,7 +93,7 @@ describe("useBrowserObjectSignedUrl", () => {
 
     act(() =>
       result.current.setExpires(
-        formatLocalDateTime(new Date(Date.now() + 30 * 1000)),
+        formatDateTimeLocalInput(new Date(Date.now() + 30 * 1000)),
       ),
     );
     await act(async () => {
@@ -107,7 +107,7 @@ describe("useBrowserObjectSignedUrl", () => {
 
     act(() =>
       result.current.setExpires(
-        formatLocalDateTime(new Date(Date.now() + 13 * 60 * 60 * 1000)),
+        formatDateTimeLocalInput(new Date(Date.now() + 13 * 60 * 60 * 1000)),
       ),
     );
     await act(async () => {

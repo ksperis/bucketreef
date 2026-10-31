@@ -11,10 +11,10 @@ import {
 } from "../../api/browserObjects";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import { runWithConcurrency } from "../../utils/concurrency";
+import { formatDateTimeLocalInput } from "../../utils/dateTime";
 import { createRuntimeId } from "../../utils/runtimeId";
 import { buildBulkRestorePlan } from "./browserBulkRestorePlan";
 import type { BrowserItem } from "./browserTypes";
-import { formatLocalDateTime } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import { useBrowserI18n } from "./browserI18n";
@@ -70,7 +70,7 @@ type UseBrowserBulkRestoreOptions = {
 
 export function createBrowserBulkRestoreDraft(): BrowserBulkRestoreDraft {
   return {
-    date: formatLocalDateTime(new Date()),
+    date: formatDateTimeLocalInput(new Date()),
     deleteMissing: false,
     dryRun: false,
     restoreDeleted: false,

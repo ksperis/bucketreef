@@ -38,3 +38,17 @@ export function getBackendElapsedTime(
   const days = Math.floor(hours / 24);
   return { parsed, milliseconds, minutes, hours, days };
 }
+
+export function formatDateTimeLocalInput(value?: string | Date | null): string {
+  if (!value) return "";
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+}
+
+export function dateTimeLocalInputToIsoString(value: string): string {
+  if (!value) return "";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+}

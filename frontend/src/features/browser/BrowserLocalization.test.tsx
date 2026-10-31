@@ -6,7 +6,8 @@ import { BrowserDirectItemActionButton } from "./BrowserActionPresentation";
 import { BrowserObjectFactsSection } from "./BrowserObjectReadOnlyDetailsTab";
 import { BrowserObjectColumnValue } from "./BrowserObjectTablePresentation";
 import type { BrowserItem } from "./browserTypes";
-import { formatDateTime, formatLocalDateTime } from "./browserUtils";
+import { formatDateTime } from "./browserUtils";
+import { formatDateTimeLocalInput } from "../../utils/dateTime";
 import { formatBytes } from "../../utils/format";
 
 const item: BrowserItem = {
@@ -59,7 +60,7 @@ describe("Browser locale changes", () => {
     expect(formatDateTime(date)).toMatch(/^2026-10-11 /);
     expect(formatDateTime(0, "fr-FR")).not.toBe("-");
     expect(formatDateTime("invalid", "fr-FR")).toBe("invalid");
-    expect(formatLocalDateTime(date)).toMatch(/^2026-10-11T\d{2}:\d{2}$/);
+    expect(formatDateTimeLocalInput(date)).toMatch(/^2026-10-11T\d{2}:\d{2}$/);
     expect(formatBytes(1536)).toBe("1.5 KB");
     expect(formatBytes(1536, "fr-FR")).toBe("1,5 KB");
   });

@@ -10,7 +10,7 @@ import {
   type PresignedUrl,
 } from "../../api/browserTransfers";
 import { extractApiError } from "../../utils/apiError";
-import { formatLocalDateTime } from "./browserUtils";
+import { formatDateTimeLocalInput } from "../../utils/dateTime";
 import { runBrowserScopedSave } from "./browserScopedSave";
 import { useBrowserI18n } from "./browserI18n";
 
@@ -34,7 +34,7 @@ type UseBrowserObjectSignedUrlOptions = {
 };
 
 const defaultExpiration = () =>
-  formatLocalDateTime(new Date(Date.now() + 60 * 60 * 1000));
+  formatDateTimeLocalInput(new Date(Date.now() + 60 * 60 * 1000));
 
 export function useBrowserObjectSignedUrl({
   contextId,

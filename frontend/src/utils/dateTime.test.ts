@@ -1,4 +1,10 @@
-import { formatLocalDateTime, getBackendElapsedTime, parseBackendDateTime } from "./dateTime";
+import {
+  dateTimeLocalInputToIsoString,
+  formatDateTimeLocalInput,
+  formatLocalDateTime,
+  getBackendElapsedTime,
+  parseBackendDateTime,
+} from "./dateTime";
 
 describe("formatLocalDateTime", () => {
   it("uses the shared placeholder for missing or invalid Date values", () => {
@@ -36,5 +42,14 @@ describe("formatLocalDateTime", () => {
       days: 0,
     });
     expect(getBackendElapsedTime(undefined, now)).toBeNull();
+  });
+
+  it("formats and parses datetime-local input values", () => {
+    const value = new Date("2026-10-11T10:00:00Z");
+    const localInput = formatDateTimeLocalInput(value);
+    expect(localInput).toMatch(/^2026-10-11T\d{2}:\d{2}$/);
+    expect(dateTimeLocalInputToIsoString(localInput)).toBe(value.toISOString());
+    expect(formatDateTimeLocalInput("invalid")).toBe("");
+    expect(dateTimeLocalInputToIsoString("invalid")).toBe("");
   });
 });
