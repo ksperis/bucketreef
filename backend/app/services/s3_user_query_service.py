@@ -7,7 +7,6 @@ from typing import Any, Optional
 from sqlalchemy import exists, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3UserNotFoundError
 from app.db import (
     S3User as S3UserModel,
     S3UserTag,
@@ -27,6 +26,7 @@ from app.services.mappers.s3_user import s3_user_from_db, s3_user_summary_from_d
 from app.services.rgw_admin import RGWAdminClient
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_metrics_service import S3UserMetricsService
+from app.services.s3_user_repository import S3UserRepository
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
@@ -43,22 +43,19 @@ class S3UserQueryService:
         *,
         rgw_context: S3UserRgwContextService | None = None,
         metrics: S3UserMetricsService | None = None,
+        repository: S3UserRepository | None = None,
         associations: S3UserAssociationsService | None = None,
         tags: TagsService | None = None,
     ) -> None:
         self.db = db
         self.rgw_context = rgw_context or S3UserRgwContextService(db)
         self.metrics = metrics or S3UserMetricsService()
+        self.repository = repository or S3UserRepository(db)
         self.associations = associations or S3UserAssociationsService(db)
         self.tags = tags or TagsService(db)
 
     def get_user_record(self, user_id: int) -> S3UserModel:
-        s3_user = self.db.scalar(
-            select(S3UserModel).where(S3UserModel.id == user_id)
-        )
-        if not s3_user:
-            raise S3UserNotFoundError("S3 user not found")
-        return s3_user
+        return self.repository.get(user_id)
 
     def serialize_user(
         self,

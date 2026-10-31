@@ -10,7 +10,6 @@ from app.services.feature_policy_service import (
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from typing import Optional
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import S3User as S3UserModel
@@ -22,6 +21,7 @@ from app.services.s3_user_deletion_service import S3UserDeletionService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_quota_service import S3UserQuotaService
+from app.services.s3_user_repository import S3UserRepository
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
@@ -47,23 +47,16 @@ class S3UsersService:
         self.metrics = S3UserMetricsService()
         self.rgw_context = S3UserRgwContextService(db)
         self.quota = S3UserQuotaService(self.rgw_context)
+        self.repository = S3UserRepository(db)
         self.deletion = S3UserDeletionService(db, self.metrics)
         self.tags = TagsService(db)
         self.query = S3UserQueryService(
             db,
             rgw_context=self.rgw_context,
             metrics=self.metrics,
+            repository=self.repository,
             associations=self.associations,
             tags=self.tags,
-        )
-
-    def _existing_identity(self, uid: str, tenant: str, endpoint_id: int):
-        return self.db.scalar(
-            select(S3UserModel).where(
-                S3UserModel.storage_endpoint_id == endpoint_id,
-                S3UserModel.rgw_user_uid == uid,
-                S3UserModel.rgw_tenant == tenant,
-            )
         )
 
     def get_user_usage(self, s3_user: S3UserModel) -> tuple[Optional[int], Optional[int], Optional[int]]:
@@ -130,7 +123,11 @@ class S3UsersService:
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
         require_endpoint_permissions(endpoint, "users_write")
         admin = self.rgw_context.admin_for_endpoint(endpoint)
-        if self._existing_identity(uid, tenant, endpoint.id):
+        if self.repository.find_identity(
+            uid=uid,
+            tenant=tenant,
+            storage_endpoint_id=endpoint.id,
+        ):
             raise ValueError("An S3 user with this UID already exists in this tenant")
         access_key, secret_key = self._provision_remote_user_credentials(
             admin,
@@ -234,7 +231,11 @@ class S3UsersService:
     ) -> S3UserSchema | None:
         endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id)
         admin = self.rgw_context.admin_for_endpoint(endpoint)
-        if self._existing_identity(uid, tenant, endpoint.id):
+        if self.repository.find_identity(
+            uid=uid,
+            tenant=tenant,
+            storage_endpoint_id=endpoint.id,
+        ):
             return None
         try:
             user_info = admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
