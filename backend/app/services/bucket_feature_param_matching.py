@@ -522,6 +522,25 @@ def _match_scalar_value(kind: str, value: object, op: str, expected: object) -> 
     return False
 
 
+_ScalarSource = TypeVar("_ScalarSource")
+
+
+def _match_scalar_spec(
+    rule: BucketFilterRule,
+    source_data: _ScalarSource,
+    op: str,
+    specs: dict[str, tuple[str, Callable[[_ScalarSource], object]]],
+) -> bool:
+    spec = specs.get(rule.param or "")
+    if spec is None:
+        return False
+    kind, getter = spec
+    return _apply_scalar_quantifier(
+        rule,
+        _match_scalar_value(kind, getter(source_data), op, rule.value),
+    )
+
+
 def _match_properties_param_rule(
     rule: BucketFilterRule,
     source_data: object,
@@ -532,12 +551,7 @@ def _match_properties_param_rule(
     param = rule.param
     if param in _CORS_PARAMS:
         return _match_cors_param_rule_individual(rule, source_data.cors_rules or [])
-    spec = _PROPERTY_SCALAR_SPECS.get(param or "")
-    if spec is None:
-        return False
-    kind, getter = spec
-    result = _match_scalar_value(kind, getter(source_data), op, rule.value)
-    return _apply_scalar_quantifier(rule, result)
+    return _match_scalar_spec(rule, source_data, op, _PROPERTY_SCALAR_SPECS)
 
 
 def _trimmed_text(value: str | None) -> str | None:
@@ -563,12 +577,7 @@ def _match_logging_param_rule(
 ) -> bool:
     if not isinstance(source_data, BucketLoggingConfiguration):
         return False
-    spec = _LOGGING_SCALAR_SPECS.get(rule.param or "")
-    if spec is None:
-        return False
-    kind, getter = spec
-    result = _match_scalar_value(kind, getter(source_data), op, rule.value)
-    return _apply_scalar_quantifier(rule, result)
+    return _match_scalar_spec(rule, source_data, op, _LOGGING_SCALAR_SPECS)
 
 
 def _website_redirect_host(configuration: BucketWebsiteConfiguration) -> str | None:
@@ -594,12 +603,7 @@ def _match_website_param_rule(
 ) -> bool:
     if not isinstance(source_data, BucketWebsiteConfiguration):
         return False
-    spec = _WEBSITE_SCALAR_SPECS.get(rule.param or "")
-    if spec is None:
-        return False
-    kind, getter = spec
-    result = _match_scalar_value(kind, getter(source_data), op, rule.value)
-    return _apply_scalar_quantifier(rule, result)
+    return _match_scalar_spec(rule, source_data, op, _WEBSITE_SCALAR_SPECS)
 
 
 def _match_policy_param_rule(
