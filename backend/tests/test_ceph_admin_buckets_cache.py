@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from requests.exceptions import Timeout as RequestsTimeout
 
 from app.db import StorageEndpoint
 from app.models.bucket import (
@@ -1699,7 +1700,8 @@ def test_ceph_admin_bucket_listing_returns_gateway_timeout_without_fallback(monk
 
         def get_all_buckets(self, with_stats: bool = True):
             self.calls.append(with_stats)
-            raise RGWAdminError("RGW admin request failed: Read timed out. (read timeout=120.0)")
+            cause = RequestsTimeout("Read timed out")
+            raise RGWAdminError("RGW admin request failed") from cause
 
     rgw_admin = TimingOutStatsAdmin()
     ctx = _ceph_admin_context(190, rgw_admin)
@@ -1718,7 +1720,7 @@ def test_ceph_admin_bucket_listing_returns_gateway_timeout_without_fallback(monk
         )
 
     assert exc.value.status_code == 504
-    assert "timed out" in str(exc.value.detail).lower()
+    assert exc.value.detail == "RGW admin request failed"
     assert rgw_admin.calls == [True]
 
 
