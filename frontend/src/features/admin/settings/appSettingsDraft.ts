@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { AppSettings } from "../../../api/appSettings";
 import { equalSettings } from "../../../components/settings/useSettingsDraft";
+import { isRecord } from "../../../utils/record";
 import { appSettingsSource, type AppSettingsText } from "./appSettingsMessage";
 
 type LeafPaths<T> = {
@@ -14,10 +15,6 @@ export type SettingsPath = LeafPaths<AppSettings>;
 export type DraftValue = string | boolean | string[] | null | undefined;
 export type AppSettingsValues = Partial<Record<SettingsPath, DraftValue>>;
 export type FieldErrors = Partial<Record<SettingsPath, string>>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function read(settings: AppSettings, path: SettingsPath): unknown {
   return path

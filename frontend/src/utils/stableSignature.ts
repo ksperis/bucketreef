@@ -2,10 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "./record";
 
 function shouldSortArray(entries: unknown[]): boolean {
   if (entries.length < 2) return false;
@@ -14,7 +11,7 @@ function shouldSortArray(entries: unknown[]): boolean {
   }
   return entries.every(
     (entry) =>
-      isPlainObject(entry) &&
+      isRecord(entry) &&
       ("id" in entry || "key" in entry || "name" in entry || "arn" in entry)
   );
 }
@@ -27,7 +24,7 @@ function normalizeForStableSignature(value: unknown): unknown {
     }
     return normalized;
   }
-  if (isPlainObject(value)) {
+  if (isRecord(value)) {
     const entries = Object.entries(value)
       .map(([key, entry]) => [key, normalizeForStableSignature(entry)] as const)
       .sort(([a], [b]) => a.localeCompare(b));

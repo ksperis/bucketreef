@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { asRecord } from "../../utils/record";
 
 export type ReplicationRuleStatus = "Enabled" | "Disabled";
 
@@ -19,13 +20,6 @@ type GraphicalReplicationState = {
   rules: GraphicalReplicationRule[];
   hasAdvancedFields: boolean;
 };
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  return value as Record<string, unknown>;
-}
 
 function normalizeStatus(value: unknown, fallback: ReplicationRuleStatus): ReplicationRuleStatus {
   if (typeof value !== "string") return fallback;

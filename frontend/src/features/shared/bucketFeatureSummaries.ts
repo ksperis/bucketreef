@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { asRecord } from "../../utils/record";
 
 type BucketFeatureRecord = Record<string, unknown>;
 type RecordValue = BucketFeatureRecord;
@@ -10,10 +11,6 @@ type BucketFeatureTagSummary = {
   key?: string | null;
   value?: string | null;
 };
-
-function asRecord(value: unknown): RecordValue | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as RecordValue) : null;
-}
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
