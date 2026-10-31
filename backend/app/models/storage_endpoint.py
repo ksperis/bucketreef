@@ -83,25 +83,9 @@ class EndpointServiceIdentityStatus(ApiModel):
     last_reconciled_at: Optional[datetime]
 
 
-class StorageEndpointMetadata(ApiModel):
-    name: str
-    endpoint_url: str
-    region: Optional[str] = None
-    realm_id: Optional[str] = None
-    zonegroup_id: Optional[str] = None
-    zone_id: Optional[str] = None
-    force_path_style: bool = False
-    verify_tls: bool = True
-    provider: StorageProvider = Field(default=StorageProvider.CEPH)
-    ceph_admin_allowed: bool = False
-    latitude: Optional[float] = Field(default=None)
-    longitude: Optional[float] = Field(default=None)
-
-    normalize_string_fields = field_validator(
-        "name", "endpoint_url", "region", "realm_id", "zonegroup_id", "zone_id", mode="before"
-    )(
-        normalize_optional_string_field
-    )
+class StorageEndpointCoordinates(ApiModel):
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
     @field_validator("latitude")
     @classmethod
@@ -121,6 +105,25 @@ class StorageEndpointMetadata(ApiModel):
             raise ValueError("Longitude must be a finite number between -180 and 180.")
         return value
 
+
+class StorageEndpointMetadata(StorageEndpointCoordinates):
+    name: str
+    endpoint_url: str
+    region: Optional[str] = None
+    realm_id: Optional[str] = None
+    zonegroup_id: Optional[str] = None
+    zone_id: Optional[str] = None
+    force_path_style: bool = False
+    verify_tls: bool = True
+    provider: StorageProvider = Field(default=StorageProvider.CEPH)
+    ceph_admin_allowed: bool = False
+
+    normalize_string_fields = field_validator(
+        "name", "endpoint_url", "region", "realm_id", "zonegroup_id", "zone_id", mode="before"
+    )(
+        normalize_optional_string_field
+    )
+
 class StorageEndpointCreate(StorageEndpointMetadata):
     features: Optional[StorageEndpointFeatures] = None
     admin_access_key: Optional[str] = None
@@ -134,7 +137,7 @@ class StorageEndpointCreate(StorageEndpointMetadata):
     supervision_secret_key: Optional[SecretStr] = None
 
 
-class StorageEndpointUpdate(ApiModel):
+class StorageEndpointUpdate(StorageEndpointCoordinates):
     name: Optional[str] = None
     endpoint_url: Optional[str] = None
     region: Optional[str] = None
@@ -155,24 +158,12 @@ class StorageEndpointUpdate(ApiModel):
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[SecretStr] = None
     features: Optional[StorageEndpointFeatures] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
 
     normalize_string_fields = field_validator(
         "name", "endpoint_url", "region", "realm_id", "zonegroup_id", "zone_id", mode="before"
     )(
         normalize_optional_string_field
     )
-
-    @field_validator("latitude")
-    @classmethod
-    def validate_optional_latitude(cls, value: Optional[float]) -> Optional[float]:
-        return StorageEndpointMetadata.validate_latitude(value)
-
-    @field_validator("longitude")
-    @classmethod
-    def validate_optional_longitude(cls, value: Optional[float]) -> Optional[float]:
-        return StorageEndpointMetadata.validate_longitude(value)
 
 class StorageEndpointTagsUpdate(ApiModel):
     tags: RequiredTagDefinitionList

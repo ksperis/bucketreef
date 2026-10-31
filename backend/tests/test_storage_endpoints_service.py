@@ -417,6 +417,38 @@ def test_endpoint_coordinates_reject_invalid_ranges():
         StorageEndpointUpdate(longitude=-181)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("latitude", 91),
+        ("longitude", -181),
+    ],
+)
+def test_environment_storage_endpoint_rejects_invalid_coordinates(
+    db_session,
+    monkeypatch,
+    field,
+    value,
+):
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        json.dumps(
+            [
+                {
+                    "name": "invalid-coordinates",
+                    "endpoint_url": "https://invalid-coordinates.example.test",
+                    "provider": "other",
+                    field: value,
+                }
+            ]
+        ),
+        raising=False,
+    )
+
+    with pytest.raises(ValueError, match="Invalid ENV_STORAGE_ENDPOINTS entry at index 0"):
+        StorageEndpointsService(db_session).sync_env_endpoints()
+
+
 def test_storage_endpoint_inputs_reject_obsolete_admin_endpoint_field():
     with pytest.raises(ValidationError, match="admin_endpoint"):
         StorageEndpointCreate(
