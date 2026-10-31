@@ -6,6 +6,7 @@ from app.utils.storage_endpoint_features import parse_features_config
 from app.db import PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
 from app.main import app
 from app.routers import dependencies
+from app.services.s3_account_metrics_service import S3AccountMetricsService
 
 
 def _seed_endpoint(db_session) -> StorageEndpoint:
@@ -73,7 +74,8 @@ def test_portal_accounts_are_sorted_case_insensitive(client, db_session, monkeyp
     db_session.commit()
 
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.S3AccountsService.get_account_quota",
+        S3AccountMetricsService,
+        "get_quota",
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("Portal account catalog must stay local")),
     )
 
