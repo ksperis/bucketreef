@@ -1,38 +1,30 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import logging
 from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.security import get_password_hash
 from app.db import (
     User,
     UserRole,
-    is_admin_ui_role,
 )
 from app.models.user import (
-    ManagerToolAccess,
     UserCreate,
     UserOut,
     UserSelfUpdate,
     UserSummary,
     UserUpdate,
-    validate_password_policy,
 )
 from app.services.external_identity_user_service import ExternalIdentityUserService
-from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_deletion_service import UserDeletionService
 from app.services.user_login_service import UserLoginService
 from app.services.user_output_service import UserOutputService
+from app.services.user_provisioning_service import UserProvisioningService
 from app.services.user_query_service import UserQueryService
 from app.services.user_update_service import UserUpdateService
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
-
-logger = logging.getLogger(__name__)
-
 
 class UsersService:
     def __init__(self, db: Session) -> None:
@@ -42,6 +34,7 @@ class UsersService:
         self.updates = UserUpdateService(db)
         self.associations = UserAssociationsService(db)
         self.login = UserLoginService(db)
+        self.provisioning = UserProvisioningService(db)
 
     def get_by_email(self, email: str) -> Optional[User]:
         return self.query.get_by_email(email)
@@ -94,52 +87,7 @@ class UsersService:
             raise ValueError("The last active superadmin cannot be deleted")
 
     def create_user(self, payload: UserCreate) -> User:
-        existing = self.get_by_email(payload.email)
-        if existing:
-            raise ValueError("User already exists")
-        validate_password_policy(payload.password)
-        role = payload.role or UserRole.UI_USER.value
-        can_access_ceph_admin = bool(payload.can_access_ceph_admin) if is_admin_ui_role(role) else False
-        can_access_storage_ops = (
-            bool(payload.can_access_storage_ops)
-            if role in MANAGER_TOOL_ROLES
-            else False
-        )
-        manager_tool_access = payload.manager_tool_access or ManagerToolAccess()
-        manager_tools_supported = role in MANAGER_TOOL_ROLES
-        user = User(
-            email=payload.email,
-            full_name=payload.full_name,
-            hashed_password=get_password_hash(payload.password),
-            is_active=True,
-            role=role,
-            can_access_ceph_admin=can_access_ceph_admin,
-            can_access_storage_ops=can_access_storage_ops,
-            can_create_manual_private_connections=(
-                bool(payload.can_create_manual_private_connections) if manager_tools_supported else False
-            ),
-            can_provision_managed_private_connections=(
-                bool(payload.can_provision_managed_private_connections) if manager_tools_supported else False
-            ),
-            allow_multisite_endpoint_switching=(
-                bool(payload.allow_multisite_endpoint_switching) if manager_tools_supported else False
-            ),
-            browser_advanced_features_enabled=bool(payload.browser_advanced_features_enabled),
-            **manager_tool_column_values(manager_tool_access, enabled=manager_tools_supported),
-        )
-        self.db.add(user)
-        self.db.flush()
-        if payload.group_ids is not None:
-            associations = UserAssociationsService(self.db)
-            associations.set_group_links(user, payload.group_ids)
-        else:
-            associations = UserAssociationsService(self.db)
-        if payload.openstack_cloud_ids is not None:
-            associations.set_openstack_cloud_links(user, payload.openstack_cloud_ids)
-        self.db.commit()
-        self.db.refresh(user)
-        logger.debug("Created user id=%s email=%s role=%s", user.id, user.email, role)
-        return user
+        return self.provisioning.create_user(payload)
 
     def update_user(self, user_id: int, payload: UserUpdate) -> User:
         return self.updates.update_user(user_id, payload)
