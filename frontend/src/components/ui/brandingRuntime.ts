@@ -4,6 +4,7 @@
  */
 import { fetchBrandingSettings } from "../../api/appSettings";
 import { CLIENT_STORAGE_KEYS, readClientStorage, removeClientStorage, writeClientStorage } from "../../utils/clientStorage";
+import { clampNumber } from "../../utils/numbers";
 
 const PRIMARY_SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
 const LIGHTNESS_OFFSETS_LIGHT = [42, 36, 26, 16, 8, 0, -8, -16, -24, -32, -38] as const;
@@ -17,10 +18,6 @@ type PrimaryShade = (typeof PRIMARY_SHADES)[number];
 type PrimaryScale = Record<PrimaryShade, string>;
 type Hsl = { h: number; s: number; l: number };
 type Rgb = { r: number; g: number; b: number };
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
 
 function normalizeHexColor(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -61,8 +58,8 @@ function rgbToHsl({ r, g, b }: Rgb): Hsl {
 }
 
 function hslToRgb({ h, s, l }: Hsl): Rgb {
-  const normalizedS = clamp(s, 0, 100) / 100;
-  const normalizedL = clamp(l, 0, 100) / 100;
+  const normalizedS = clampNumber(s, 0, 100) / 100;
+  const normalizedL = clampNumber(l, 0, 100) / 100;
   const c = (1 - Math.abs(2 * normalizedL - 1)) * normalizedS;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
   const m = normalizedL - c / 2;
@@ -117,8 +114,8 @@ export function generatePrimaryScale(primaryColor: string, mode: ThemeMode): Pri
   const scale = {} as PrimaryScale;
 
   PRIMARY_SHADES.forEach((shade, index) => {
-    const nextS = clamp(baseHsl.s + SATURATION_OFFSETS[index], 12, 96);
-    const nextL = clamp(baseHsl.l + lightnessOffsets[index], 6, 96);
+    const nextS = clampNumber(baseHsl.s + SATURATION_OFFSETS[index], 12, 96);
+    const nextL = clampNumber(baseHsl.l + lightnessOffsets[index], 6, 96);
     scale[shade] = rgbToCssValue(hslToRgb({ h: baseHsl.h, s: nextS, l: nextL }));
   });
   return scale;

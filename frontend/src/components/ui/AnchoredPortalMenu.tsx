@@ -4,6 +4,7 @@
  */
 import { CSSProperties, ReactNode, RefObject, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { clampNumber } from "../../utils/numbers";
 
 export type AnchoredMenuPlacement =
   | "bottom-start"
@@ -33,10 +34,6 @@ type AnchoredPortalMenuProps = {
 };
 
 const VIEWPORT_MARGIN = 8;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
 
 function resolveX(
   rect: DOMRect,
@@ -69,7 +66,7 @@ function resolveY(
   offset: number
 ): number {
   if (placement === "right-center") {
-    return clamp(
+    return clampNumber(
       rect.top + (rect.height - height) / 2,
       VIEWPORT_MARGIN,
       Math.max(VIEWPORT_MARGIN, viewportHeight - height - VIEWPORT_MARGIN)
@@ -84,11 +81,11 @@ function resolveY(
   if (preferTop) {
     if (canFitAbove) return above;
     if (canFitBelow) return below;
-    return clamp(above, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewportHeight - height - VIEWPORT_MARGIN));
+    return clampNumber(above, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewportHeight - height - VIEWPORT_MARGIN));
   }
   if (canFitBelow) return below;
   if (canFitAbove) return above;
-  return clamp(below, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewportHeight - height - VIEWPORT_MARGIN));
+  return clampNumber(below, VIEWPORT_MARGIN, Math.max(VIEWPORT_MARGIN, viewportHeight - height - VIEWPORT_MARGIN));
 }
 
 function useAnchoredMenuPosition({
@@ -123,7 +120,7 @@ function useAnchoredMenuPosition({
       const maxWidth = Math.max(0, viewportWidth - VIEWPORT_MARGIN * 2);
       const targetMinWidth = Math.max(0, Math.min(minWidth === "anchor" ? anchorRect.width : minWidth, maxWidth));
       const menuWidth = Math.min(Math.max(menuRect.width, targetMinWidth), maxWidth);
-      const x = clamp(
+      const x = clampNumber(
         resolveX(anchorRect, menuWidth, viewportWidth, placement, offset),
         VIEWPORT_MARGIN,
         Math.max(VIEWPORT_MARGIN, viewportWidth - menuWidth - VIEWPORT_MARGIN)
