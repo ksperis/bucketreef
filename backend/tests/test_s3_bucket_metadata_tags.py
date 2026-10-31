@@ -18,8 +18,11 @@ def test_bucket_tags_preserve_literal_keys_and_values_on_round_trip(monkeypatch)
     service = BucketConfigurationService()
     monkeypatch.setattr(
         service,
-        "_client_kwargs",
-        lambda account: {"access_key": "test-key", "secret_key": "test-secret"},
+        "_bucket_client_kwargs",
+        lambda execution_context, bucket_name: {
+            "access_key": "test-key",
+            "secret_key": "test-secret",
+        },
     )
 
     tags = [tag.model_dump() for tag in service.get_bucket_tags("reports", Mock())]
