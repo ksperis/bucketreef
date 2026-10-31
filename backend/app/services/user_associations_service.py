@@ -4,6 +4,7 @@
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
 from app.db import (
     S3Account,
     S3User,
@@ -19,6 +20,12 @@ from app.db import (
 from app.db.openstack import OpenStackCloud, cloud_groups, cloud_users
 from app.models.user import AccountMembership, S3UserMembership, UserUpdate
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
+from app.services.portal_role_sync import (
+    capture_effective_portal_roles,
+    sync_portal_role_downgrades,
+    sync_portal_role_promotions,
+)
+from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 from app.utils.time import utcnow
 
 
@@ -121,6 +128,78 @@ class UserAssociationsService:
             self.db.add(row)
         if desired_ids and user.role == UserRole.UI_NONE.value:
             user.role = UserRole.UI_USER.value
+
+    def assign_account(
+        self,
+        user_id: int,
+        account_id: int,
+        *,
+        manager_role: ManagerAccountRoleValue | None,
+        portal_role: PortalAccountRoleValue | None,
+    ) -> User:
+        user = self.db.get(User, user_id)
+        if not user:
+            raise UiUserNotFoundError("User not found")
+        account = self.db.get(S3Account, account_id)
+        if not account:
+            raise S3AccountNotFoundError("S3Account not found")
+
+        before_roles = capture_effective_portal_roles(
+            self.db,
+            user_ids=[user.id],
+            account_ids=[account.id],
+        )
+        link = self.db.scalar(
+            select(UserS3Account)
+            .where(
+                UserS3Account.user_id == user.id,
+                UserS3Account.account_id == account.id,
+            )
+            .limit(1)
+        )
+        if user.role == UserRole.UI_NONE.value:
+            user.role = UserRole.UI_USER.value
+        membership = AccountMembership(
+            account_id=account.id,
+            manager_role=manager_role,
+            portal_role=portal_role,
+        )
+        if not link:
+            link = UserS3Account(
+                user_id=user.id,
+                account_id=account.id,
+                manager_role=membership.manager_role,
+                portal_role=membership.portal_role,
+            )
+        link.manager_role = membership.manager_role
+        link.portal_role = membership.portal_role
+        link.updated_at = utcnow()
+        self.db.add(link)
+        self.db.add(user)
+        self.db.flush()
+
+        after_roles = capture_effective_portal_roles(
+            self.db,
+            user_ids=[user.id],
+            account_ids=[account.id],
+        )
+        try:
+            sync_portal_role_downgrades(
+                self.db,
+                before=before_roles,
+                after=after_roles,
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        sync_portal_role_promotions(
+            self.db,
+            before=before_roles,
+            after=after_roles,
+        )
+        self.db.refresh(user)
+        return user
 
     def set_s3_user_links(
         self,

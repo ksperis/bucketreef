@@ -31,7 +31,7 @@ from app.models.storage_endpoint import (
 from app.services import app_settings_service as settings_service
 from app.services import onboarding_service as progress_module
 from app.services import onboarding_setup_service as setup_service
-from app.services import users_service as users_module
+from app.services import user_associations_service as user_associations_module
 from app.services.managed_resource_naming import onboarding_sample_account_name
 from app.services.onboarding_service import OnboardingError, OnboardingService, REQUIRED_FEATURES
 from app.services.s3_connections_service import S3ConnectionsService
@@ -389,8 +389,16 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
         features=parse_features_config(account_feature_config(iam=True)),
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
-    monkeypatch.setattr(users_module, "sync_portal_role_downgrades", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(users_module, "sync_portal_role_promotions", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        user_associations_module,
+        "sync_portal_role_downgrades",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        user_associations_module,
+        "sync_portal_role_promotions",
+        lambda *_args, **_kwargs: None,
+    )
 
     def ensure_account(payload, rgw_account_id):
         row = make_s3_account(
@@ -504,8 +512,16 @@ def test_manager_and_portal_role_axes_remain_independent(
         features=parse_features_config(account_feature_config(iam=True)),
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
-    monkeypatch.setattr(users_module, "sync_portal_role_downgrades", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(users_module, "sync_portal_role_promotions", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        user_associations_module,
+        "sync_portal_role_downgrades",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        user_associations_module,
+        "sync_portal_role_promotions",
+        lambda *_args, **_kwargs: None,
+    )
 
     def ensure_account(payload, rgw_account_id):
         row = make_s3_account(
