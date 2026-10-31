@@ -96,7 +96,6 @@ def test_authentication_responses_require_complete_canonical_payloads() -> None:
         "issuer",
         "email",
         "email_verified",
-        "revalidation_required",
         "created_at",
         "last_login_at",
     }
@@ -125,7 +124,6 @@ def test_admin_identity_responses_require_complete_canonical_payloads() -> None:
         "email",
         "email_verified",
         "link_source",
-        "revalidation_required",
         "created_at",
         "last_login_at",
         "revoked_at",

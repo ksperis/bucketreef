@@ -116,14 +116,6 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
       window.location.assign(started.authorization_url);
     });
   };
-  const revalidateOidcIdentity = async (identity: ExternalIdentity) => {
-    const provider = oidcProviders.find((candidate) => candidate.id === identity.provider_id);
-    if (!provider) return;
-    await run(async () => {
-      const started = await startProfileOidcLink(provider.id);
-      window.location.assign(started.authorization_url);
-    });
-  };
   const executeConfirmation = async () => {
     const pending = confirmation;
     if (!pending) return;
@@ -189,12 +181,7 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
             </UiSelect>
             <div><ProfileButton disabled={busy || !selectedOidcProvider} onClick={() => void linkOidcAccount()}>{text("linkOidcAccount")}</ProfileButton></div>
           </div>}
-          <ul>{identities.data.map((identity) => {
-            const revalidationProvider = identity.revalidation_required
-              ? oidcProviders.find((provider) => provider.id === identity.provider_id)
-              : undefined;
-            return <li key={identity.id} className="border-b border-[var(--ui-border-soft)] settings-list-item first:pt-0"><div className="flex flex-wrap items-center justify-between gap-3"><strong className="min-w-0 break-words settings-body">{identity.email ?? identity.provider_id}</strong><div className="flex items-center gap-2">{identity.revalidation_required && <UiBadge tone="warning">{text("revalidationRequired")}</UiBadge>}{revalidationProvider && <ProfileButton variant="secondary" disabled={busy} onClick={() => void revalidateOidcIdentity(identity)}>{text("revalidateWith", { provider: revalidationProvider.display_name })}</ProfileButton>}{generalSettings.allow_user_external_identity_unlink && <ProfileButton variant="secondary" onClick={() => confirm({ kind: "identity", value: identity })}>{text("unlink")}</ProfileButton>}</div></div><p className="settings-description text-[var(--ui-text-muted)]">{identity.provider_type}: {identity.provider_id}{identity.issuer ? ` · ${text("issuer")}: ${identity.issuer}` : ""} · {text("created")}: {date(identity.created_at)}</p>{identity.revalidation_required && <p className="mt-1 settings-description text-amber-700 dark:text-amber-300">{text("revalidationRequiredHelp")}</p>}</li>;
-          })}</ul>{!generalSettings.allow_user_external_identity_unlink && identities.data.length > 0 && <p className="settings-body">{text("managedIdentities")}</p>}</>}
+          <ul>{identities.data.map((identity) => <li key={identity.id} className="border-b border-[var(--ui-border-soft)] settings-list-item first:pt-0"><div className="flex flex-wrap items-center justify-between gap-3"><strong className="min-w-0 break-words settings-body">{identity.email ?? identity.provider_id}</strong><div className="flex items-center gap-2">{generalSettings.allow_user_external_identity_unlink && <ProfileButton variant="secondary" onClick={() => confirm({ kind: "identity", value: identity })}>{text("unlink")}</ProfileButton>}</div></div><p className="settings-description text-[var(--ui-text-muted)]">{identity.provider_type}: {identity.provider_id}{identity.issuer ? ` · ${text("issuer")}: ${identity.issuer}` : ""} · {text("created")}: {date(identity.created_at)}</p></li>)}</ul>{!generalSettings.allow_user_external_identity_unlink && identities.data.length > 0 && <p className="settings-body">{text("managedIdentities")}</p>}</>}
         {error && !confirmation && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
       </div>
     </ProfileDialog>}

@@ -9,15 +9,18 @@ keeps `(provider_id, subject)` uniqueness. Provider IDs remain configuration
 and provenance for OIDC rather than part of the immutable external identity.
 
 Existing active OIDC identities do not have a trustworthy persisted issuer.
-The migration marks them `revalidation_required`, increments the affected
-users' authentication version, revokes their active UI sessions, refresh
-tokens, and API tokens, removes associated OpenStack session credentials, and
-deletes pre-upgrade OIDC login states that lack issuer/browser binding. The
-issuer is established only by a fresh OIDC authentication; it is never inferred
-from the current provider configuration.
+The migration removes those OIDC identity mappings and OIDC link requests,
+increments the affected users' authentication version, revokes their active UI
+sessions, refresh tokens, and API tokens, removes associated OpenStack session
+credentials, and deletes pre-upgrade OIDC login states that lack issuer/browser
+binding. The BucketReef user account itself is preserved. The issuer is
+established only by a fresh OIDC authentication; it is never inferred from the
+current provider configuration.
 
-After the upgrade, users with a legacy OIDC identity must authenticate again
-and complete the revalidation flow. New UI-managed providers default to the
+After the upgrade, a user's next OIDC login follows the normal secure
+account-link collision workflow and recreates the identity only after the
+existing account has been proved or an administrator has approved the link.
+LDAP identities are preserved. New UI-managed providers default to the
 `reauthenticate` linking policy. Environment-managed providers retain the
 `manual` default unless configured otherwise.
 

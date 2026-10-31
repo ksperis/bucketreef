@@ -52,7 +52,6 @@ const security = {
       email_verified: true,
       link_source: "trusted_email",
       created_at: "2026-08-14T10:00:00Z",
-      revalidation_required: false,
       revoked_at: null,
     },
   ],

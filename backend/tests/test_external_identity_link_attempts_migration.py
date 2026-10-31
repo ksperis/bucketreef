@@ -47,11 +47,6 @@ def _create_0221_schema(connection) -> None:
         metadata,
         sa.Column("id", sa.String(), primary_key=True),
     )
-    sa.Table(
-        "external_identities",
-        metadata,
-        sa.Column("id", sa.String(), primary_key=True),
-    )
     attempts = sa.Table(
         "oidc_link_attempts",
         metadata,
@@ -72,12 +67,6 @@ def _create_0221_schema(connection) -> None:
             sa.ForeignKey("auth_sessions.id", ondelete="SET NULL"),
             nullable=True,
         ),
-        sa.Column(
-            "existing_identity_id",
-            sa.String(),
-            sa.ForeignKey("external_identities.id", ondelete="SET NULL"),
-            nullable=True,
-        ),
         sa.Column("proof_method", sa.String(), nullable=True),
         sa.Column("proof_verified_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("mfa_verified_at", sa.DateTime(timezone=True), nullable=True),
@@ -90,7 +79,6 @@ def _create_0221_schema(connection) -> None:
     for column in (
         "user_id",
         "initiating_auth_session_id",
-        "existing_identity_id",
         "status",
         "expires_at",
         "consumed_at",

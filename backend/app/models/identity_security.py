@@ -38,7 +38,6 @@ class AdminExternalIdentityInfo(ApiModel):
     created_at: datetime
     last_login_at: Optional[datetime]
     revoked_at: Optional[datetime]
-    revalidation_required: bool
 
 
 class AdminUserSecurity(ApiModel):

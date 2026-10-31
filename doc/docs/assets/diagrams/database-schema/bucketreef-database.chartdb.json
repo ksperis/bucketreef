@@ -3462,8 +3462,8 @@
       "id": "table:browser_favorites",
       "name": "browser_favorites",
       "schema": null,
-      "x": 1320,
-      "y": 1964,
+      "x": 900,
+      "y": 1934,
       "fields": [
         {
           "id": "field:browser_favorites.id",
@@ -5388,8 +5388,8 @@
       "id": "table:external_identities",
       "name": "external_identities",
       "schema": null,
-      "x": 900,
-      "y": 1168,
+      "x": 1320,
+      "y": 1934,
       "fields": [
         {
           "id": "field:external_identities.id",
@@ -5642,27 +5642,6 @@
           "collation": null,
           "comments": null,
           "check": null
-        },
-        {
-          "id": "field:external_identities.revalidation_required",
-          "name": "revalidation_required",
-          "type": {
-            "id": "boolean",
-            "name": "boolean"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": "0",
-          "collation": null,
-          "comments": null,
-          "check": null
         }
       ],
       "indexes": [
@@ -5694,17 +5673,6 @@
           "unique": false,
           "fieldIds": [
             "field:external_identities.issuer"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        },
-        {
-          "id": "index:external_identities:ix_external_identities_revalidation_required",
-          "name": "ix_external_identities_revalidation_required",
-          "unique": false,
-          "fieldIds": [
-            "field:external_identities.revalidation_required"
           ],
           "createdAt": 0,
           "isPrimaryKey": false,
@@ -5772,7 +5740,7 @@
       "id": "table:external_identity_link_requests",
       "name": "external_identity_link_requests",
       "schema": null,
-      "x": 1320,
+      "x": 900,
       "y": 1168,
       "fields": [
         {
@@ -6505,27 +6473,6 @@
           "check": null
         },
         {
-          "id": "field:external_identity_link_attempts.existing_identity_id",
-          "name": "existing_identity_id",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:external_identity_link_attempts.proof_method",
           "name": "proof_method",
           "type": {
@@ -6712,17 +6659,6 @@
           "unique": false,
           "fieldIds": [
             "field:external_identity_link_attempts.consumed_at"
-          ],
-          "createdAt": 0,
-          "isPrimaryKey": false,
-          "comments": null
-        },
-        {
-          "id": "index:external_identity_link_attempts:ix_external_identity_link_attempts_existing_identity_id",
-          "name": "ix_external_identity_link_attempts_existing_identity_id",
-          "unique": false,
-          "fieldIds": [
-            "field:external_identity_link_attempts.existing_identity_id"
           ],
           "createdAt": 0,
           "isPrimaryKey": false,
@@ -7063,8 +6999,8 @@
       "id": "table:auth_challenges",
       "name": "auth_challenges",
       "schema": null,
-      "x": 900,
-      "y": 1964,
+      "x": 480,
+      "y": 1934,
       "fields": [
         {
           "id": "field:auth_challenges.id",
@@ -7669,8 +7605,8 @@
       "id": "table:api_tokens",
       "name": "api_tokens",
       "schema": null,
-      "x": 480,
-      "y": 1964,
+      "x": 60,
+      "y": 1934,
       "fields": [
         {
           "id": "field:api_tokens.id",
@@ -11836,8 +11772,8 @@
       "id": "table:user_ui_groups",
       "name": "user_ui_groups",
       "schema": null,
-      "x": 60,
-      "y": 1964,
+      "x": 1320,
+      "y": 1168,
       "fields": [
         {
           "id": "field:user_ui_groups.id",
@@ -26323,19 +26259,6 @@
       "targetTableId": "table:auth_sessions",
       "sourceFieldId": "field:external_identity_link_attempts.initiating_auth_session_id",
       "targetFieldId": "field:auth_sessions.id",
-      "sourceCardinality": "many",
-      "targetCardinality": "one",
-      "createdAt": 0
-    },
-    {
-      "id": "relationship:external_identity_link_attempts.existing_identity_id->external_identities.id",
-      "name": "fk_external_identity_link_attempts_existing_identity_id_external_identities_id [ON DELETE SET NULL]",
-      "sourceSchema": null,
-      "sourceTableId": "table:external_identity_link_attempts",
-      "targetSchema": null,
-      "targetTableId": "table:external_identities",
-      "sourceFieldId": "field:external_identity_link_attempts.existing_identity_id",
-      "targetFieldId": "field:external_identities.id",
       "sourceCardinality": "many",
       "targetCardinality": "one",
       "createdAt": 0

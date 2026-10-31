@@ -336,10 +336,6 @@ class ExternalIdentityUserService:
                 ExternalIdentity.user_id == user.id,
                 ExternalIdentity.id != excluding_identity_id,
                 ExternalIdentity.revoked_at.is_(None),
-                ~(
-                    (ExternalIdentity.provider_type == "oidc")
-                    & ExternalIdentity.revalidation_required.is_(True)
-                ),
             )
             .limit(1)
         ) is not None
@@ -377,8 +373,6 @@ class ExternalIdentityUserService:
         )
         if identity and identity.revoked_at is not None:
             raise ValueError("External identity has been revoked")
-        if identity and provider_type == "oidc" and identity.revalidation_required:
-            raise ValueError("External identity requires revalidation")
         if identity:
             return self._reuse_identity_mapping(
                 identity,

@@ -75,7 +75,6 @@ class AdminIdentitySecurityService:
             created_at=row.created_at,
             last_login_at=row.last_login_at,
             revoked_at=row.revoked_at,
-            revalidation_required=bool(row.revalidation_required),
         )
 
     def managed_user(

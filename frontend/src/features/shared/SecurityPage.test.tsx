@@ -121,7 +121,6 @@ describe("SecurityPage", () => {
         email_verified: true,
         created_at: "2026-08-14T10:00:00Z",
         last_login_at: null,
-        revalidation_required: false,
       },
     ]);
     mocks.revokeSecurityCredential.mockResolvedValue(undefined);
@@ -150,38 +149,6 @@ describe("SecurityPage", () => {
     expect(screen.getByText("This session")).toBeInTheDocument();
     expect(screen.queryByText("External identity link requests")).not.toBeInTheDocument();
     expect(screen.queryByText("Platform sessions")).not.toBeInTheDocument();
-  });
-
-  it("shows legacy OIDC identities that must be revalidated", async () => {
-    const user = userEvent.setup();
-    mocks.fetchOidcProviders.mockResolvedValueOnce([
-      { id: "company", display_name: "Company SSO", icon_url: null },
-    ]);
-    mocks.startProfileOidcLink.mockResolvedValue({
-      provider: "company",
-      authorization_url: "https://issuer.example.test/authorize",
-      state: "revalidate-state",
-    });
-    mocks.listExternalIdentities.mockResolvedValueOnce([
-      {
-        id: "identity-legacy",
-        provider_type: "oidc",
-        provider_id: "company",
-        issuer: null,
-        email: "admin@example.com",
-        email_verified: true,
-        created_at: "2026-08-14T10:00:00Z",
-        last_login_at: null,
-        revalidation_required: true,
-      },
-    ]);
-
-    render(<SecurityPage />);
-    await user.click(await screen.findByRole("button", { name: "View accounts" }));
-    expect(screen.getByText("Revalidation required")).toBeInTheDocument();
-    expect(screen.getByText(/cannot be used to sign in until it is revalidated/i)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Revalidate with Company SSO" }));
-    await waitFor(() => expect(mocks.startProfileOidcLink).toHaveBeenCalledWith("company"));
   });
 
   it("keeps successful sections visible when one security resource fails and retries only that section", async () => {

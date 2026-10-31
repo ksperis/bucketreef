@@ -1866,7 +1866,6 @@
   "Warning": "Warnung",
   "Issuer is required for OIDC identities.": "Für OIDC-Identitäten ist ein Aussteller erforderlich.",
   "Issuer": "Aussteller",
-  "Revalidation required": "Erneute Validierung erforderlich",
   "Email verified": "E-Mail verifiziert",
   "Yes": "Ja",
   "Request source": "Anfragequelle",

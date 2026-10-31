@@ -1840,7 +1840,6 @@
   "{delta} vs {month}": "{delta}，对比 {month}",
   "Issuer is required for OIDC identities.": "OIDC 身份必须填写签发者。",
   "Issuer": "签发者",
-  "Revalidation required": "需要重新验证",
   "Email verified": "邮箱已验证",
   "Yes": "是",
   "Request source": "请求来源",

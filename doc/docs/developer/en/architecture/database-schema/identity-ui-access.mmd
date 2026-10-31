@@ -121,7 +121,6 @@ erDiagram
         datetime last_login_at
         datetime revoked_at
         varchar link_source "NN; default=jit"
-        boolean revalidation_required "NN; default=0"
     }
     external_identity_link_requests {
         varchar id PK "NN"
@@ -157,7 +156,6 @@ erDiagram
         varchar source "NN"
         varchar browser_secret_hash "NN"
         varchar initiating_auth_session_id FK
-        varchar existing_identity_id FK
         varchar proof_method
         datetime proof_verified_at
         datetime mfa_verified_at
@@ -343,7 +341,6 @@ erDiagram
     external_identity_link_requests }o--o| users : "decided_by_user_id to id; ON DELETE SET NULL"
     external_identity_link_attempts }o--|| users : "user_id to id; ON DELETE CASCADE"
     external_identity_link_attempts }o--o| auth_sessions : "initiating_auth_session_id to id; ON DELETE SET NULL"
-    external_identity_link_attempts }o--o| external_identities : "existing_identity_id to id; ON DELETE SET NULL"
     webauthn_credentials }o--|| users : "user_id to id; ON DELETE CASCADE"
     auth_challenges }o--|| users : "user_id to id; ON DELETE CASCADE"
     recovery_codes }o--|| users : "user_id to id; ON DELETE CASCADE"

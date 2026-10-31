@@ -25,21 +25,8 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("external_identities", schema=None) as batch_op:
         batch_op.add_column(sa.Column("issuer", sa.String(), nullable=True))
-        batch_op.add_column(
-            sa.Column(
-                "revalidation_required",
-                sa.Boolean(),
-                nullable=False,
-                server_default=sa.false(),
-            )
-        )
         batch_op.drop_constraint("uq_external_identity_subject", type_="unique")
         batch_op.create_index("ix_external_identities_issuer", ["issuer"], unique=False)
-        batch_op.create_index(
-            "ix_external_identities_revalidation_required",
-            ["revalidation_required"],
-            unique=False,
-        )
     op.create_index(
         "uq_external_identity_oidc_issuer_subject",
         "external_identities",
@@ -106,7 +93,6 @@ def upgrade() -> None:
         sa.Column("source", sa.String(), nullable=False),
         sa.Column("browser_secret_hash", sa.String(), nullable=False),
         sa.Column("initiating_auth_session_id", sa.String(), nullable=True),
-        sa.Column("existing_identity_id", sa.String(), nullable=True),
         sa.Column("proof_method", sa.String(), nullable=True),
         sa.Column("proof_verified_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("mfa_verified_at", sa.DateTime(timezone=True), nullable=True),
@@ -121,17 +107,11 @@ def upgrade() -> None:
             ["auth_sessions.id"],
             ondelete="SET NULL",
         ),
-        sa.ForeignKeyConstraint(
-            ["existing_identity_id"],
-            ["external_identities.id"],
-            ondelete="SET NULL",
-        ),
         sa.PrimaryKeyConstraint("id"),
     )
     for column in (
         "user_id",
         "initiating_auth_session_id",
-        "existing_identity_id",
         "status",
         "expires_at",
         "consumed_at",
@@ -186,14 +166,12 @@ def upgrade() -> None:
         ).all()
     ]
 
-    bind.execute(
-        sa.text(
-            "UPDATE external_identities SET revalidation_required = :required "
-            "WHERE provider_type = 'oidc' AND revoked_at IS NULL"
-        ),
-        {"required": True},
-    )
-    # States created by older code have no issuer/browser binding and must not
+    # Pre-cutover OIDC identities do not carry a trustworthy issuer. Remove
+    # them rather than keeping a second legacy identity model. The account
+    # remains and can be linked again through the normal collision workflow.
+    bind.execute(sa.text("DELETE FROM external_identities WHERE provider_type = 'oidc'"))
+    bind.execute(sa.text("DELETE FROM external_identity_link_requests WHERE provider_type = 'oidc'"))
+    # States created by older code have no issuer/browser binding and cannot
     # survive the upgrade into the stricter callback path.
     bind.execute(sa.text("DELETE FROM oidc_login_states WHERE issuer IS NULL"))
 
@@ -223,7 +201,7 @@ def upgrade() -> None:
             bind.execute(
                 sa.text(
                     "UPDATE refresh_tokens SET revoked_at = :now, "
-                    "revoke_reason = 'oidc_identity_revalidation_required' "
+                    "revoke_reason = 'oidc_identity_cutover' "
                     "WHERE auth_session_id IN :session_ids AND revoked_at IS NULL"
                 ).bindparams(sa.bindparam("session_ids", expanding=True)),
                 {"session_ids": session_ids, "now": now},
@@ -231,7 +209,7 @@ def upgrade() -> None:
             bind.execute(
                 sa.text(
                     "UPDATE auth_sessions SET revoked_at = :now, "
-                    "revoke_reason = 'oidc_identity_revalidation_required' "
+                    "revoke_reason = 'oidc_identity_cutover' "
                     "WHERE id IN :session_ids AND revoked_at IS NULL"
                 ).bindparams(sa.bindparam("session_ids", expanding=True)),
                 {"session_ids": session_ids, "now": now},
@@ -276,7 +254,6 @@ def downgrade() -> None:
         "consumed_at",
         "expires_at",
         "status",
-        "existing_identity_id",
         "initiating_auth_session_id",
         "user_id",
     ):
@@ -309,11 +286,9 @@ def downgrade() -> None:
         table_name="external_identities",
     )
     with op.batch_alter_table("external_identities", schema=None) as batch_op:
-        batch_op.drop_index("ix_external_identities_revalidation_required")
         batch_op.drop_index("ix_external_identities_issuer")
         batch_op.create_unique_constraint(
             "uq_external_identity_subject",
             ["provider_type", "provider_id", "subject"],
         )
-        batch_op.drop_column("revalidation_required")
         batch_op.drop_column("issuer")
