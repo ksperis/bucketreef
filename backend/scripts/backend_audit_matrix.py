@@ -241,6 +241,26 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
                 and call.func.value.func.id == "OnboardingService"
                 for call in ast.walk(node)
             )
+            private_access_audited_methods = {
+                "ManagedPrivateAccessService": {
+                    "provision_iam",
+                    "provision_rgw_user",
+                },
+                "ManagedPrivateAccessCleanupService": {
+                    "delete_owned_connection",
+                    "retry_cleanup",
+                    "retry_provisioning_cleanup",
+                },
+            }
+            signals["delegated_private_access_audit"] = any(
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and isinstance(call.func.value, ast.Call)
+                and isinstance(call.func.value.func, ast.Name)
+                and call.func.attr
+                in private_access_audited_methods.get(call.func.value.func.id, set())
+                for call in ast.walk(node)
+            )
             auth_attempt_names = {
                 target.id
                 for assignment in ast.walk(node)

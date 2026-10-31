@@ -42,6 +42,9 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessForbidden,
     ManagedPrivateAccessNotFound,
 )
+from app.services.managed_private_access_cleanup_service import (
+    ManagedPrivateAccessCleanupService,
+)
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_state_service import ManagedPrivateAccessStateService
 from tests.s3_connection_factory import custom_endpoint_fields
@@ -644,7 +647,7 @@ def test_failed_compensation_is_durable_cleanup_pending(db_session, monkeypatch)
     assert "managed_private_access.cleanup_pending" in actions
 
     fake.cleanup_fails = False
-    service.retry_provisioning_cleanup(user=user, provisioning_id=provisioning.id)
+    service.cleanup.retry_provisioning_cleanup(user=user, provisioning_id=provisioning.id)
     assert db_session.scalar(
         sa.select(ManagedPrivateAccess).where(ManagedPrivateAccess.id == provisioning.id)
     ) is None
@@ -657,7 +660,7 @@ def test_failed_compensation_is_durable_cleanup_pending(db_session, monkeypatch)
 
 def test_retry_cleanup_uses_typed_not_found_errors(db_session):
     user = _user(db_session, email="missing-cleanup@example.test")
-    service = ManagedPrivateAccessService(db_session)
+    service = ManagedPrivateAccessCleanupService(db_session)
 
     with pytest.raises(ManagedPrivateAccessNotFound, match="cleanup not found"):
         service.retry_cleanup(user=user, connection_id=999)
@@ -800,7 +803,10 @@ def test_managed_iam_connection_delete_cleans_remote_resources_before_local_rows
     settings = AppSettings()
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
 
-    deleted = service.delete_owned_connection(user=user, connection_id=result.connection.id)
+    deleted = service.cleanup.delete_owned_connection(
+        user=user,
+        connection_id=result.connection.id,
+    )
 
     assert deleted is True
     assert fake.deleted_keys == [(f"bkr-private-u{user.id}-acc{account.id}", "AK-MANAGED")]

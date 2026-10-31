@@ -28,7 +28,9 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessCleanupPending,
     ManagedPrivateAccessConflict,
 )
-from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_private_access_cleanup_service import (
+    ManagedPrivateAccessCleanupService,
+)
 from app.services.s3_connection_validation_service import S3ConnectionValidationService
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.services.tags_service import TagsService, serialize_tag_summaries
@@ -220,7 +222,7 @@ def delete_connection(
     service = S3ConnectionsService(db)
     audit = AuditService(db)
     try:
-        if ManagedPrivateAccessService(db).delete_owned_connection(
+        if ManagedPrivateAccessCleanupService(db).delete_owned_connection(
             user=user,
             connection_id=connection_id,
         ):
