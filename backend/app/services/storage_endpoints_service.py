@@ -197,8 +197,7 @@ class StorageEndpointsService:
         endpoint.provider = config.provider.value
         endpoint.admin_access_key = config.admin_access_key
         endpoint.admin_secret_key = config.admin_secret_key
-        if config.ceph_admin_allowed is not None:
-            endpoint.ceph_admin_allowed = config.ceph_admin_allowed
+        endpoint.ceph_admin_allowed = config.ceph_admin_allowed
 
     @classmethod
     def _apply_ceph_service_identities(

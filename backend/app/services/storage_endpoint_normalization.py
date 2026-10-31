@@ -103,7 +103,7 @@ class NormalizedEndpointState:
     runtime_secret_key: Optional[str]
     ceph_admin_access_key: Optional[str]
     ceph_admin_secret_key: Optional[str]
-    ceph_admin_allowed: bool | None
+    ceph_admin_allowed: bool
     supervision_access_key: Optional[str]
     supervision_secret_key: Optional[str]
     features: dict[str, dict[str, object]]
@@ -620,9 +620,5 @@ def normalize_env_storage_endpoint_states(
                 longitude=entry.longitude,
             ),
         )
-        states.append(replace(
-            state, is_default=identity.is_default,
-            service_identity_mode=entry.service_identity_mode,
-            ceph_admin_allowed=entry.ceph_admin_allowed if "ceph_admin_allowed" in entry.model_fields_set else None,
-        ))
+        states.append(replace(state, is_default=identity.is_default))
     return states
