@@ -16,6 +16,7 @@ from requests.exceptions import Timeout as RequestsTimeout
 
 from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.sensitive_data import sanitize_error_detail
+from app.utils.exception_chain import iter_exception_chain
 from app.utils.s3_errors import matches_s3_error
 
 
@@ -24,15 +25,6 @@ _FORBIDDEN_ERROR_CODES = frozenset(
     {"accessdenied", "invalidaccesskeyid", "signaturedoesnotmatch"}
 )
 _NOT_IMPLEMENTED_ERROR_CODES = frozenset({"notimplemented", "xnotimplemented"})
-
-
-def _exception_chain(exc: Exception):
-    current: BaseException | None = exc
-    seen: set[int] = set()
-    while isinstance(current, Exception) and id(current) not in seen:
-        seen.add(id(current))
-        yield current
-        current = current.__cause__ or current.__context__
 
 
 def _client_error_status_code(exc: ClientError) -> int | None:
@@ -73,7 +65,7 @@ def _exception_status_code(exc: Exception) -> int | None:
 
 
 def _structured_upstream_status_code(exc: Exception) -> int | None:
-    for current in _exception_chain(exc):
+    for current in iter_exception_chain(exc):
         if isinstance(current, (ConnectTimeoutError, ReadTimeoutError, RequestsTimeout, TimeoutError)):
             return status.HTTP_504_GATEWAY_TIMEOUT
         if isinstance(current, (EndpointConnectionError, ConnectionClosedError, RequestsConnectionError)):
