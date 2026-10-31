@@ -114,17 +114,12 @@ class RGWAdminTransport:
         url = f"{self.endpoint}{path}"
         start = perf_counter()
         try:
-            headers = (
-                {"Content-Type": "application/x-www-form-urlencoded"}
-                if method.upper() in {"POST", "PUT", "DELETE"}
-                else None
-            )
             resp = self.session.request(
                 method,
                 url,
                 params=params,
                 data=data,
-                headers=headers,
+                headers=self._request_headers(method),
                 auth=self.auth,
                 timeout=self.request_timeout_seconds if timeout is None else timeout,
                 verify=self.verify_tls,
@@ -138,59 +133,9 @@ class RGWAdminTransport:
                 resp.status_code,
                 (perf_counter() - start) * 1000,
             )
-            if 300 <= resp.status_code < 400:
-                location = str(resp.headers.get("Location") or "").strip()
-                source_scheme = urlsplit(url).scheme.lower()
-                target_scheme = (
-                    urlsplit(urljoin(url, location)).scheme.lower()
-                    if location
-                    else ""
-                )
-                if source_scheme == "http" and target_scheme == "https":
-                    message = (
-                        "RGW Admin Ops endpoint redirects from HTTP to HTTPS. "
-                        "Configure the HTTPS endpoint directly; signed Admin Ops "
-                        "requests cannot use redirects."
-                    )
-                else:
-                    message = (
-                        "RGW Admin Ops endpoint returned a redirect. Configure the "
-                        "final Admin Ops endpoint directly; signed Admin Ops requests "
-                        "cannot use redirects."
-                    )
-                logger.warning(
-                    "RGW admin redirect rejected method=%s path=%s status=%s "
-                    "source_scheme=%s target_scheme=%s",
-                    method.upper(),
-                    path,
-                    resp.status_code,
-                    source_scheme or "unknown",
-                    target_scheme or "unknown",
-                )
-                raise RGWAdminError(
-                    message,
-                    status_code=resp.status_code,
-                    error_code="RedirectNotAllowed",
-                )
+            self._reject_redirect(resp, request_url=url, method=method, path=path)
             if max_response_bytes is not None:
-                # Diagnostic lists can stream an unbounded body after a successful
-                # header. Require the complete document within the byte budget.
-                chunks: list[bytes] = []
-                received = 0
-                try:
-                    for chunk in resp.iter_content(chunk_size=65536):
-                        received += len(chunk)
-                        if received > max_response_bytes:
-                            raise RGWAdminError(
-                                "RGW diagnostic response exceeds its byte limit",
-                                status_code=resp.status_code,
-                                error_code="ResponseTooLarge",
-                            )
-                        chunks.append(chunk)
-                    resp._content = b"".join(chunks)
-                    resp._content_consumed = True
-                finally:
-                    resp.close()
+                self._consume_bounded_response(resp, max_response_bytes=max_response_bytes)
         except requests.RequestException as exc:
             safe_detail = sanitized_error_log_detail(exc)
             logger.warning(
@@ -202,6 +147,71 @@ class RGWAdminTransport:
             )
             raise RGWAdminError(f"RGW admin request failed: {safe_detail}") from exc
         return resp
+
+    @staticmethod
+    def _request_headers(method: str) -> Optional[Dict[str, str]]:
+        if method.upper() not in {"POST", "PUT", "DELETE"}:
+            return None
+        return {"Content-Type": "application/x-www-form-urlencoded"}
+
+    @staticmethod
+    def _reject_redirect(
+        resp: requests.Response,
+        *,
+        request_url: str,
+        method: str,
+        path: str,
+    ) -> None:
+        if not 300 <= resp.status_code < 400:
+            return
+
+        location = str(resp.headers.get("Location") or "").strip()
+        source_scheme = urlsplit(request_url).scheme.lower()
+        target_scheme = urlsplit(urljoin(request_url, location)).scheme.lower() if location else ""
+        if source_scheme == "http" and target_scheme == "https":
+            message = (
+                "RGW Admin Ops endpoint redirects from HTTP to HTTPS. "
+                "Configure the HTTPS endpoint directly; signed Admin Ops requests cannot use redirects."
+            )
+        else:
+            message = (
+                "RGW Admin Ops endpoint returned a redirect. Configure the final Admin Ops endpoint directly; "
+                "signed Admin Ops requests cannot use redirects."
+            )
+        logger.warning(
+            "RGW admin redirect rejected method=%s path=%s status=%s source_scheme=%s target_scheme=%s",
+            method.upper(),
+            path,
+            resp.status_code,
+            source_scheme or "unknown",
+            target_scheme or "unknown",
+        )
+        raise RGWAdminError(
+            message,
+            status_code=resp.status_code,
+            error_code="RedirectNotAllowed",
+        )
+
+    @staticmethod
+    def _consume_bounded_response(resp: requests.Response, *, max_response_bytes: int) -> None:
+        # Diagnostic lists can stream an unbounded body after a successful header.
+        # Require the complete document within the byte budget.
+        chunks: list[bytes] = []
+        received = 0
+        try:
+            for chunk in resp.iter_content(chunk_size=65536):
+                received += len(chunk)
+                if received > max_response_bytes:
+                    raise RGWAdminError(
+                        "RGW diagnostic response exceeds its byte limit",
+                        status_code=resp.status_code,
+                        error_code="ResponseTooLarge",
+                    )
+                chunks.append(chunk)
+            resp._content = b"".join(chunks)
+            resp._content_consumed = True
+        finally:
+            resp.close()
 
     def _request(
         self,
