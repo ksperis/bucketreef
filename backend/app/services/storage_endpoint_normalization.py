@@ -363,6 +363,8 @@ def normalize_storage_endpoint_update(
     runtime = endpoint.service_identity("runtime")
     supervision = endpoint.service_identity("supervision")
     ceph_admin = endpoint.service_identity("ceph_admin")
+    if endpoint.provider == StorageProvider.CEPH.value:
+        assert runtime is not None, "Ceph endpoints require a Runtime service identity."
     current_identity_mode = runtime.mode if runtime is not None else "managed"
     fields_set = _effective_storage_endpoint_update_fields(payload)
     merged = _storage_endpoint_update_base(
