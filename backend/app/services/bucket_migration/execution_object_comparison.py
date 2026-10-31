@@ -16,7 +16,7 @@ from ._shared import (
     _VersionAwareDiff,
     _VersionTimelineComparison,
     _VersionTimelineDiffKey,
-    _WorkerLeaseLostError,
+    _check_control_state,
 )
 
 
@@ -208,9 +208,10 @@ class BucketMigrationObjectComparisonMixin:
         while source_item is not None or target_item is not None:
             scanned_keys += 1
             if scanned_keys % 200 == 0:
-                state = control_check()
-                if state == "lost_lease":
-                    raise _WorkerLeaseLostError("Worker lease lost while comparing version-aware timelines")
+                state = _check_control_state(
+                    control_check,
+                    lost_lease_message="Worker lease lost while comparing version-aware timelines",
+                )
                 if state in {"pause", "cancel"}:
                     return None
 
@@ -321,9 +322,10 @@ class BucketMigrationObjectComparisonMixin:
         ):
             scan_count_since_control += 1
             if scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
-                state = control_check()
-                if state == "lost_lease":
-                    raise _WorkerLeaseLostError("Worker lease lost while comparing bucket content")
+                state = _check_control_state(
+                    control_check,
+                    lost_lease_message="Worker lease lost while comparing bucket content",
+                )
                 if state in {"pause", "cancel"}:
                     return None
                 scan_count_since_control = 0

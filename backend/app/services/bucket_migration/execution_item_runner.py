@@ -14,7 +14,7 @@ from app.utils.time import utcnow
 
 from ._shared import (
     _ResolvedContext,
-    _WorkerLeaseLostError,
+    _check_control_state,
 )
 from .execution_item_loop import _MigrationItemExecutionLoop
 from .execution_settings_copy import _BucketSettingsCopyRunner
@@ -50,9 +50,10 @@ class BucketMigrationItemRunnerMixin:
         item: BucketMigrationItem,
         control_check: Callable[[], str],
     ) -> None:
-        state = control_check()
-        if state == "lost_lease":
-            raise _WorkerLeaseLostError(f"Worker lease lost for migration {migration.id}")
+        state = _check_control_state(
+            control_check,
+            lost_lease_message=f"Worker lease lost for migration {migration.id}",
+        )
         if state == "cancel":
             item.status = "canceled"
             item.finished_at = utcnow()

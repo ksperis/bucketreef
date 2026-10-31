@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from app.core.sensitive_data import sanitize_log_text
 from app.services.s3_execution_context import S3ExecutionTarget
@@ -45,6 +45,17 @@ class _MigrationControlRequested(RuntimeError):
     def __init__(self, state: str) -> None:
         super().__init__(state)
         self.state = state
+
+
+def _check_control_state(
+    control_check: Callable[[], str],
+    *,
+    lost_lease_message: str,
+) -> str:
+    state = control_check()
+    if state == "lost_lease":
+        raise _WorkerLeaseLostError(lost_lease_message)
+    return state
 
 
 @dataclass

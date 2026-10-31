@@ -11,7 +11,7 @@ from app.utils.time import utcnow
 from ._shared import (
     _ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS,
     _ResolvedContext,
-    _WorkerLeaseLostError,
+    _check_control_state,
 )
 
 if TYPE_CHECKING:
@@ -77,11 +77,10 @@ class _MigrationItemExecutionLoop:
         self.last_heartbeat_persist = now_mono
 
     def _may_continue(self) -> bool:
-        state = self.control_check()
-        if state == "lost_lease":
-            raise _WorkerLeaseLostError(
-                f"Worker lease lost for migration {self.migration.id}"
-            )
+        state = _check_control_state(
+            self.control_check,
+            lost_lease_message=f"Worker lease lost for migration {self.migration.id}",
+        )
         if state == "cancel":
             self.item.status = "canceled"
             self.item.finished_at = utcnow()
