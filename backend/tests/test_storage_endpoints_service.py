@@ -63,6 +63,7 @@ def _create_ceph_endpoint(db_session, name: str = "ceph-main") -> StorageEndpoin
         provider=StorageProvider.CEPH.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
+        service_identities=[service_identity("runtime", mode="managed")],
         features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
         is_default=True,
         is_editable=True,
@@ -339,6 +340,25 @@ def test_update_and_serialize_ceph_multisite_topology(db_session):
     assert endpoint.realm_id == "realm-a"
     assert endpoint.zonegroup_id == "zonegroup-a"
     assert endpoint.zone_id == "zone-a"
+
+
+def test_update_ceph_endpoint_requires_runtime_identity(db_session):
+    endpoint = StorageEndpoint(
+        name="ceph-missing-runtime",
+        endpoint_url="https://ceph-missing-runtime.example.test",
+        provider=StorageProvider.CEPH.value,
+        features={},
+        is_default=False,
+        is_editable=True,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    with pytest.raises(AssertionError, match="Runtime service identity"):
+        StorageEndpointsService(db_session).update_endpoint(
+            endpoint.id,
+            StorageEndpointUpdate(name="ceph-missing-runtime-renamed"),
+        )
 
 
 def test_ceph_multisite_topology_requires_all_ids_together(db_session):
