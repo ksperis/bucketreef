@@ -23,7 +23,6 @@ depends_on = None
 _INDEX_COLUMNS = (
     "user_id",
     "initiating_auth_session_id",
-    "existing_identity_id",
     "status",
     "expires_at",
     "consumed_at",

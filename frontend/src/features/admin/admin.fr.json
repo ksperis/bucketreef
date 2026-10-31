@@ -1866,7 +1866,6 @@
   "Warning": "Avertissement",
   "Issuer is required for OIDC identities.": "L’émetteur est obligatoire pour les identités OIDC.",
   "Issuer": "Émetteur",
-  "Revalidation required": "Revalidation requise",
   "Email verified": "E-mail vérifié",
   "Yes": "Oui",
   "Request source": "Origine de la demande",

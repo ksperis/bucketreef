@@ -91,7 +91,6 @@ class ExternalIdentity(Base):
     last_login_at = Column(UTCDateTime(), nullable=True)
     revoked_at = Column(UTCDateTime(), nullable=True, index=True)
     link_source = Column(String, nullable=False, default="jit", server_default="jit")
-    revalidation_required = Column(Boolean, nullable=False, default=False, server_default="0", index=True)
 
     user = relationship("User", foreign_keys=[user_id])
 
@@ -155,12 +154,6 @@ class ExternalIdentityLinkAttempt(Base):
     initiating_auth_session_id = Column(
         String,
         ForeignKey("auth_sessions.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
-    existing_identity_id = Column(
-        String,
-        ForeignKey("external_identities.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )

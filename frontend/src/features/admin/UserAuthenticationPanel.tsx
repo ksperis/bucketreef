@@ -264,7 +264,7 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
         <SettingsSection title={text("externalIdentities")} presentation="compact" description={text("externalIdentitiesDescription")}>
           {security.external_identities.map((identity) => <SettingsItem compact key={identity.id}
             title={`${identity.provider_type}:${identity.provider_id}`} className="[overflow-wrap:anywhere]"
-            status={<UiBadge tone={identity.revoked_at ? "neutral" : identity.revalidation_required ? "warning" : "success"}>{text(identity.revoked_at ? "revoked" : identity.revalidation_required ? "revalidationRequired" : "active")}</UiBadge>}
+            status={<UiBadge tone={identity.revoked_at ? "neutral" : "success"}>{text(identity.revoked_at ? "revoked" : "active")}</UiBadge>}
             description={<><code className="block break-all">{identity.subject}</code>{identity.issuer && <span className="block break-all">{text("issuer")}: {identity.issuer}</span>}<span>{identity.link_source}</span></>}
             action={canMutate && (identity.revoked_at
               ? <SettingsButton variant="secondary" onClick={() => requestAction({ kind: "restore-identity", identity })}>{text("restore")}</SettingsButton>

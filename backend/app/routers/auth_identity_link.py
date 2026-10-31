@@ -448,7 +448,6 @@ def external_identity_link_confirm(
         metadata={
             "provider_type": completed.identity.provider_type,
             "provider_id": completed.identity.provider_id,
-            "revalidated": completed.identity.link_source == "revalidated",
         },
         ip_address=ip_address,
         user_agent=user_agent,

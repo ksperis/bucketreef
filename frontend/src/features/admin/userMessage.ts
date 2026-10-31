@@ -98,7 +98,6 @@ const userMessage = {
   ldap: m("LDAP", "LDAP"),
   providerId: m("Provider ID", "提供方 ID"),
   issuer: m("Issuer", "签发者"),
-  revalidationRequired: m("Revalidation required", "需要重新验证"),
   immutableSubject: m("Immutable subject", "不可变主体标识"),
   claimedEmailOptional: m("Claimed email (optional)", "身份声明的邮箱（可选）"),
   linkIdentity: m("Link identity", "关联身份"),

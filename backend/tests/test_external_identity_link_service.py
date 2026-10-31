@@ -373,39 +373,6 @@ def test_ldap_admin_fallback_updates_bound_attempt(
     assert len(identities) == expected_identity_count
 
 
-def test_legacy_oidc_identity_is_revalidated_in_place(db_session):
-    user = _user(db_session, email="legacy@example.test")
-    legacy = ExternalIdentity(
-        id=str(uuid.uuid4()),
-        user_id=user.id,
-        provider_type="oidc",
-        provider_id="company",
-        issuer=None,
-        subject="legacy-subject",
-        email=user.email,
-        email_verified=True,
-        revalidation_required=True,
-    )
-    db_session.add(legacy)
-    db_session.commit()
-    attempt = _attempt(db_session, user, subject="legacy-subject")
-    assert attempt.existing_identity_id == legacy.id
-
-    service = ExternalIdentityLinkService(db_session)
-    service.verify_password(attempt.id, BROWSER_HASH, "correct horse battery staple")
-    completion = service.confirm(
-        attempt.id,
-        BROWSER_HASH,
-        ip_address="127.0.0.1",
-        user_agent="pytest",
-    )
-
-    assert completion.identity.id == legacy.id
-    assert completion.identity.issuer == OIDC_ISSUER
-    assert completion.identity.revalidation_required is False
-    assert completion.identity.link_source == "revalidated"
-
-
 def test_external_identity_uniqueness_matches_provider_semantics(db_session):
     first = _user(db_session, email="identity-one@example.test")
     second = _user(db_session, email="identity-two@example.test")

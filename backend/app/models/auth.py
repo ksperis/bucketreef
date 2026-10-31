@@ -104,4 +104,3 @@ class ExternalIdentityInfo(ApiModel):
     email_verified: bool
     created_at: datetime
     last_login_at: Optional[datetime]
-    revalidation_required: bool

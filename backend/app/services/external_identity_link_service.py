@@ -76,15 +76,6 @@ class ExternalIdentityLinkService:
             picture_url=picture_url,
             source="login_collision",
             browser_secret_hash=browser_secret_hash,
-            existing_identity_id=(
-                self._legacy_revalidation_identity_id(
-                    user.id,
-                    provider_id.lower(),
-                    subject,
-                )
-                if provider_kind == "oidc"
-                else None
-            ),
             status="pending",
             redirect_path=redirect_path,
             created_at=now,
@@ -168,13 +159,6 @@ class ExternalIdentityLinkService:
                 raise ExternalIdentityLinkError("OIDC identity belongs to another user")
             if existing.revoked_at is not None:
                 raise ExternalIdentityLinkError("OIDC identity is revoked")
-            attempt.existing_identity_id = existing.id
-        else:
-            attempt.existing_identity_id = self._legacy_revalidation_identity_id(
-                attempt.user_id,
-                attempt.provider_id,
-                subject,
-            )
         attempt.subject = subject
         attempt.email = self._normalize_email(email)
         attempt.email_verified = bool(email_verified)
@@ -245,7 +229,6 @@ class ExternalIdentityLinkService:
                 ExternalIdentity.issuer == self._normalize_issuer(issuer),
                 ExternalIdentity.subject == subject,
                 ExternalIdentity.revoked_at.is_(None),
-                ExternalIdentity.revalidation_required.is_(False),
             )
         )
         if linked is None:
@@ -337,17 +320,6 @@ class ExternalIdentityLinkService:
                 raise ExternalIdentityLinkError("External identity belongs to another user")
             if identity.revoked_at is not None:
                 raise ExternalIdentityLinkError("External identity is revoked")
-        elif attempt.existing_identity_id:
-            identity = self.db.get(ExternalIdentity, attempt.existing_identity_id)
-            if (
-                identity is None
-                or identity.user_id != user.id
-                or identity.provider_type != "oidc"
-                or identity.revoked_at is not None
-                or not identity.revalidation_required
-                or identity.subject != attempt.subject
-            ):
-                raise ExternalIdentityLinkError("Legacy OIDC identity can no longer be revalidated")
 
         now = utcnow()
         if identity is None:
@@ -362,15 +334,12 @@ class ExternalIdentityLinkService:
                 email_verified=bool(attempt.email_verified),
                 created_at=now,
                 link_source="reauthenticated",
-                revalidation_required=False,
             )
         else:
             identity.provider_id = attempt.provider_id
             identity.issuer = attempt.issuer
             identity.email = attempt.email
             identity.email_verified = bool(attempt.email_verified)
-            identity.revalidation_required = False
-            identity.link_source = "revalidated" if attempt.existing_identity_id else identity.link_source
         self.db.add(identity)
 
         request_conditions = [
@@ -449,7 +418,6 @@ class ExternalIdentityLinkService:
                 ExternalIdentity.provider_type == "oidc",
                 ExternalIdentity.provider_id == provider_id.lower(),
                 ExternalIdentity.revoked_at.is_(None),
-                ExternalIdentity.revalidation_required.is_(False),
             )
             .order_by(ExternalIdentity.created_at.asc(), ExternalIdentity.id.asc())
             .limit(1)
@@ -546,7 +514,7 @@ class ExternalIdentityLinkService:
                         ExternalIdentityLinkProofMethod(type="ldap", provider_id=row.provider_id, display_name=row.provider_id)
                     )
                     seen.add(key)
-            elif row.provider_type == "oidc" and row.issuer and not row.revalidation_required:
+            elif row.provider_type == "oidc" and row.issuer:
                 key = ("oidc", row.provider_id)
                 if key not in seen:
                     methods.append(
@@ -561,20 +529,6 @@ class ExternalIdentityLinkService:
         attempt.proof_method = method
         attempt.proof_verified_at = utcnow()
         self.db.add(attempt)
-
-    def _legacy_revalidation_identity_id(self, user_id: int, provider_id: str, subject: str) -> Optional[str]:
-        row = self.db.scalar(
-            select(ExternalIdentity).where(
-                ExternalIdentity.user_id == user_id,
-                ExternalIdentity.provider_type == "oidc",
-                ExternalIdentity.provider_id == provider_id,
-                ExternalIdentity.subject == subject,
-                ExternalIdentity.issuer.is_(None),
-                ExternalIdentity.revalidation_required.is_(True),
-                ExternalIdentity.revoked_at.is_(None),
-            )
-        )
-        return row.id if row else None
 
     @staticmethod
     def _normalize_issuer(issuer: Optional[str]) -> str:

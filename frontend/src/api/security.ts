@@ -19,7 +19,6 @@ export type ExternalIdentity = {
   email_verified: boolean;
   created_at: string;
   last_login_at: string | null;
-  revalidation_required: boolean;
 };
 export type ExternalLinkRequest = {
   id: string;
