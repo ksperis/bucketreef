@@ -1,13 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.feature_policy_service import (
-    apply_resource_feature_overrides,
-    validate_manager_overrides,
-    validate_multisite_endpoint_switching_override,
-    validate_project_collection_overrides,
-    validate_project_overrides,
-)
-from app.services.app_settings_service import load_app_settings_for_db_readonly
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -24,6 +16,7 @@ from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_quota_service import S3UserQuotaService
 from app.services.s3_user_repository import S3UserRepository
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
+from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
     S3User as S3UserSchema,
@@ -68,6 +61,14 @@ class S3UsersService:
             repository=self.repository,
             associations=self.associations,
             tags=self.tags,
+        )
+        self.updater = S3UserUpdateService(
+            db,
+            repository=self.repository,
+            quota=self.quota,
+            associations=self.associations,
+            tags=self.tags,
+            query=self.query,
         )
 
     def get_user_usage(self, s3_user: S3UserModel) -> tuple[Optional[int], Optional[int], Optional[int]]:
@@ -152,50 +153,7 @@ class S3UsersService:
         ]
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
-        s3_user = self.get_user_record(user_id)
-        app_settings = load_app_settings_for_db_readonly(self.db)
-        validate_manager_overrides(payload, app_settings.manager.feature_policies, s3_user)
-        validate_multisite_endpoint_switching_override(
-            payload,
-            app_settings.manager.feature_policies,
-            s3_user,
-        )
-        validate_project_overrides(payload, app_settings.general.project_feature_policies, s3_user)
-        validate_project_collection_overrides(
-            payload,
-            app_settings.general.project_collection_policies,
-            s3_user,
-        )
-        if payload.name is not None:
-            s3_user.name = payload.name
-        if payload.email is not None:
-            s3_user.email = payload.email
-        self.associations.replace_links(
-            s3_user,
-            user_links=payload.user_links,
-            group_links=payload.group_links,
-        )
-        if payload.tags is not None:
-            self.tags.replace_s3_user_tags(s3_user, payload.tags)
-        apply_resource_feature_overrides(payload, s3_user)
-
-        if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
-            self.quota.update(
-                s3_user,
-                payload.quota_max_size_gb,
-                payload.quota_max_objects,
-                payload.quota_max_size_unit,
-            )
-
-        self.db.add(s3_user)
-        self.db.commit()
-        self.db.refresh(s3_user)
-        user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        return self.query.serialize_user(
-            s3_user,
-            user_links_map,
-            group_links_map,
-        )
+        return self.updater.update_user(user_id, payload)
 
     def rotate_keys(self, user_id: int, *, actor=None) -> S3UserSchema:
         s3_user = self.get_user_record(user_id)
