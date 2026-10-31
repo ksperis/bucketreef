@@ -319,7 +319,7 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
     service, _ = _service(db_session)
 
     quota_calls: list[tuple] = []
-    monkeypatch.setattr(service, "_apply_account_quota", lambda *args, **kwargs: quota_calls.append(args))
+    monkeypatch.setattr(service.quota, "update", lambda *args, **kwargs: quota_calls.append(args))
     monkeypatch.setattr(service, "get_account_quota", lambda *args, **kwargs: (12.5, 42))
 
     updated = service.update_account(
