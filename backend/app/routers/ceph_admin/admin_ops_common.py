@@ -21,10 +21,6 @@ from app.services.ceph_admin_identity_listing_cache import (
 from app.services.rgw_admin import RGWAdminError, RGWAdminOperationResponse
 
 
-def qualified_user(uid: str, tenant: Optional[str]) -> str:
-    return f"{tenant}${uid}" if tenant else uid
-
-
 def qualified_bucket(bucket: str, tenant: Optional[str]) -> str:
     return f"{tenant}/{bucket}" if tenant else bucket
 
