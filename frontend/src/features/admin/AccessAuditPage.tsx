@@ -27,6 +27,7 @@ import { triggerBlobDownload } from "../../utils/download";
 import AccessAuditTable from "./AccessAuditTable";
 import { useAccessAuditI18n } from "./accessAuditMessage";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import useAdminPaginationState from "./useAdminPaginationState";
 
 type AllOr<T extends string> = "all" | T;
 
@@ -42,7 +43,16 @@ export default function AccessAuditPage() {
   const initialScope = searchParams.get("scope") as AccessAuditScope | null;
   const initialRight = searchParams.get("right") as AccessAuditRightCode | null;
   const initialSource = searchParams.get("source") as AccessAuditSourceKind | null;
-  const [search, setSearch] = useState(searchParams.get("search") ?? "");
+  const {
+    filter: search,
+    page,
+    pageSize,
+    handleFilterChange,
+    handlePageChange,
+    handlePageSizeChange,
+    resetPage,
+    ensurePageInRange,
+  } = useAdminPaginationState({ initialFilter: searchParams.get("search") ?? "" });
   const [scope, setScope] = useState<AllOr<AccessAuditScope>>(initialScope && ACCESS_AUDIT_SCOPES.some((item) => item.value === initialScope) ? initialScope : "all");
   const [right, setRight] = useState<AllOr<AccessAuditRightCode>>(initialRight && ACCESS_AUDIT_RIGHTS.some((item) => item.value === initialRight) ? initialRight : "all");
   const [source, setSource] = useState<AllOr<AccessAuditSourceKind>>(initialSource === "direct" || initialSource === "group" ? initialSource : "all");
@@ -51,8 +61,6 @@ export default function AccessAuditPage() {
   const [targetId, setTargetId] = useState<number | undefined>(() => positiveInt(searchParams.get("target_id")));
   const [sortBy, setSortBy] = useState<AccessAuditSortBy>("user");
   const [sortDir, setSortDir] = useState<AccessAuditSortDir>("asc");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
   const [rows, setRows] = useState<AccessAuditRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -91,6 +99,7 @@ export default function AccessAuditPage() {
     listAccessAudit({ ...query, page, page_size: pageSize })
       .then((response) => {
         if (cancelled) return;
+        if (!ensurePageInRange(response.total)) return;
         setRows(response.items);
         setTotal(response.total);
       })
@@ -102,15 +111,10 @@ export default function AccessAuditPage() {
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [page, pageSize, query]);
-
-  function updateFilter(action: () => void) {
-    setPage(1);
-    action();
-  }
+  }, [ensurePageInRange, page, pageSize, query]);
 
   function handleSort(field: AccessAuditSortBy) {
-    setPage(1);
+    resetPage();
     if (field === sortBy) setSortDir((current) => current === "asc" ? "desc" : "asc");
     else { setSortBy(field); setSortDir("asc"); }
   }
@@ -167,21 +171,30 @@ export default function AccessAuditPage() {
         title={text("title")}
         countLabel={text(total === 1 ? "entryCount" : "entriesCount", { count: total })}
         search={<UiInput aria-label={text("searchAccess")} type="search" value={search}
-          onChange={(event) => updateFilter(() => setSearch(event.target.value))}
+          onChange={(event) => handleFilterChange(event.target.value)}
           placeholder={text("searchPlaceholder")} size="compact" fieldClassName="min-w-[220px] flex-1" />}
         filters={<>
           <UiSelect label={text("scope")} aria-label={text("filterScope")} size="compact" value={scope}
-            onChange={(event) => updateFilter(() => setScope(event.target.value as AllOr<AccessAuditScope>))}>
+            onChange={(event) => {
+              resetPage();
+              setScope(event.target.value as AllOr<AccessAuditScope>);
+            }}>
             <option value="all">{text("allScopes")}</option>
             {ACCESS_AUDIT_SCOPES.map((item) => <option key={item.value} value={item.value}>{scopeLabel(item.value, item.label)}</option>)}
           </UiSelect>
           <UiSelect label={text("right")} aria-label={text("filterRight")} size="compact" value={right}
-            onChange={(event) => updateFilter(() => setRight(event.target.value as AllOr<AccessAuditRightCode>))}>
+            onChange={(event) => {
+              resetPage();
+              setRight(event.target.value as AllOr<AccessAuditRightCode>);
+            }}>
             <option value="all">{text("allRights")}</option>
             {ACCESS_AUDIT_RIGHTS.map((item) => <option key={item.value} value={item.value}>{rightLabel(item.value, item.label)}</option>)}
           </UiSelect>
           <UiSelect label={text("source")} aria-label={text("filterSource")} size="compact" value={source}
-            onChange={(event) => updateFilter(() => setSource(event.target.value as AllOr<AccessAuditSourceKind>))}>
+            onChange={(event) => {
+              resetPage();
+              setSource(event.target.value as AllOr<AccessAuditSourceKind>);
+            }}>
             <option value="all">{text("allSources")}</option>
             <option value="platform">{text("platform")}</option>
             <option value="direct">{text("direct")}</option>
@@ -193,7 +206,7 @@ export default function AccessAuditPage() {
           {hasContextFilter ? <>
             <span>{text("contextFilter", { context: contextLabel })}</span>
             <ListActionButton variant="ghost" onClick={() => {
-              setPage(1);
+              resetPage();
               setUserId(undefined);
               setGroupId(undefined);
               setTargetId(undefined);
@@ -213,8 +226,8 @@ export default function AccessAuditPage() {
             page,
             pageSize,
             total,
-            onPageChange: setPage,
-            onPageSizeChange: (size) => { setPage(1); setPageSize(size); },
+            onPageChange: handlePageChange,
+            onPageSizeChange: handlePageSizeChange,
             disabled: loading,
           }}
         />
