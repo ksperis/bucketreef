@@ -263,7 +263,7 @@ def test_create_managed_user_allows_explicit_tenant_when_enabled(db_session, mon
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_users_service.load_app_settings_for_db_readonly",
+        "app.services.s3_user_provisioning_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
 

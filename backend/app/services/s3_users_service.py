@@ -13,12 +13,12 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.db import S3User as S3UserModel
-from app.services.managed_resource_naming import managed_s3_user_uid
 from app.services.mappers.s3_user import s3_user_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_deletion_service import S3UserDeletionService
 from app.services.s3_user_metrics_service import S3UserMetricsService
+from app.services.s3_user_provisioning_service import S3UserProvisioningService
 from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_quota_service import S3UserQuotaService
 from app.services.s3_user_repository import S3UserRepository
@@ -48,8 +48,16 @@ class S3UsersService:
         self.rgw_context = S3UserRgwContextService(db)
         self.quota = S3UserQuotaService(self.rgw_context)
         self.repository = S3UserRepository(db)
-        self.deletion = S3UserDeletionService(db, self.metrics)
         self.tags = TagsService(db)
+        self.provisioning = S3UserProvisioningService(
+            db,
+            repository=self.repository,
+            rgw_context=self.rgw_context,
+            quota=self.quota,
+            metrics=self.metrics,
+            tags=self.tags,
+        )
+        self.deletion = S3UserDeletionService(db, self.metrics)
         self.query = S3UserQueryService(
             db,
             rgw_context=self.rgw_context,
@@ -114,94 +122,17 @@ class S3UsersService:
         )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
-        app_settings = load_app_settings_for_db_readonly(self.db)
-        validate_manager_overrides(payload, app_settings.manager.feature_policies)
-        uid, tenant = split_rgw_tenant_uid((payload.uid or "").strip() or managed_s3_user_uid(), payload.rgw_tenant)
-        if tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
-            raise ValueError("Managed RGW tenant creation is disabled")
-        endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id)
-        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
-        require_endpoint_permissions(endpoint, "users_write")
-        admin = self.rgw_context.admin_for_endpoint(endpoint)
-        if self.repository.find_identity(
-            uid=uid,
-            tenant=tenant,
-            storage_endpoint_id=endpoint.id,
-        ):
-            raise ValueError("An S3 user with this UID already exists in this tenant")
-        access_key, secret_key = self._provision_remote_user_credentials(
-            admin,
-            payload,
-            uid=uid,
-            tenant=tenant,
-        )
-        s3_user = S3UserModel(
-            name=payload.name,
-            rgw_user_uid=uid,
-            rgw_tenant=tenant,
-            email=payload.email,
-            rgw_access_key=access_key,
-            rgw_secret_key=secret_key,
-            storage_endpoint_id=endpoint.id,
-        )
-        self.db.add(s3_user)
-        self.db.flush()
-        self.tags.replace_s3_user_tags(s3_user, payload.tags)
-
-        if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
-            self.quota.update(
-                s3_user,
-                payload.quota_max_size_gb,
-                payload.quota_max_objects,
-                payload.quota_max_size_unit,
-            )
-
-        self.db.commit()
-        self.db.refresh(s3_user)
-        quota_max_size_gb, quota_max_objects = self.get_user_quota(s3_user, admin)
+        provisioned = self.provisioning.create_user(payload)
+        s3_user = provisioned.s3_user
         return s3_user_from_db(
             s3_user,
             user_links=[],
             group_links=[],
-            quota_max_size_gb=quota_max_size_gb,
-            quota_max_objects=quota_max_objects,
-            storage_endpoint=endpoint,
+            quota_max_size_gb=provisioned.quota_max_size_gb,
+            quota_max_objects=provisioned.quota_max_objects,
+            storage_endpoint=provisioned.endpoint,
             tags=self.tags.get_s3_user_tags(s3_user),
         )
-
-    @staticmethod
-    def _provision_remote_user_credentials(
-        admin: RGWAdminClient,
-        payload: S3UserCreate,
-        *,
-        uid: str,
-        tenant: str,
-    ) -> tuple[str, str]:
-        try:
-            response = admin.create_user(
-                uid=uid,
-                display_name=payload.name,
-                email=payload.email or "",
-                **({"tenant": tenant} if tenant else {}),
-            )
-        except RGWAdminError as exc:
-            raise ValueError(f"RGW user creation failed: {exc}") from exc
-        if isinstance(response, dict) and response.get("conflict"):
-            raise ValueError("An RGW user with this UID already exists in this tenant")
-        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-            admin.extract_keys(response)
-        )
-        if not access_key or not secret_key:
-            try:
-                key_response = admin.create_access_key(uid, tenant=tenant or None)
-            except RGWAdminError as exc:
-                raise ValueError(f"Unable to obtain RGW access keys: {exc}") from exc
-            access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
-                admin.extract_keys(key_response)
-            )
-        if not access_key or not secret_key:
-            raise ValueError("RGW did not return access credentials for the new user")
-        return access_key, secret_key
 
     def import_users(self, items: list[S3UserImport]) -> list[S3UserSchema]:
         app_settings = load_app_settings_for_db_readonly(self.db)
