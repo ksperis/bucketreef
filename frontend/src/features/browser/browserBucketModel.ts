@@ -26,22 +26,10 @@ export const UNKNOWN_BUCKET_ACCESS: BucketAccessEntry = {
   detail: null,
 };
 
-const ACCESS_DENIED_PATTERN = /\b(accessdenied|forbidden)\b/i;
 const BUCKET_LIST_ACCESS_DENIED_MESSAGE =
   "The current account is not allowed to list buckets. You can still open a bucket you have access to directly, or ask an administrator to update your permissions.";
 const STORAGE_SPACE_LIST_ACCESS_DENIED_MESSAGE =
   "The current account is not allowed to list Storage Spaces. Ask an administrator to update your access.";
-
-const isBucketListAccessDeniedMessage = (message: string) => {
-  const normalized = message.toLowerCase();
-  const compact = normalized.replace(/\s+/g, "");
-  return (
-    compact.includes("accessdenied") &&
-    (compact.includes("listbuckets") ||
-      normalized.includes("list buckets") ||
-      normalized.includes("unable to list buckets"))
-  );
-};
 
 export const extractBucketListError = (
   error: unknown,
@@ -51,7 +39,7 @@ export const extractBucketListError = (
     error,
     "Unable to list buckets for this account.",
   );
-  if (!isBucketListAccessDeniedMessage(message)) return message;
+  if (!isApiError(error) || error.response?.status !== 403) return message;
   return useStorageSpaceVocabulary
     ? STORAGE_SPACE_LIST_ACCESS_DENIED_MESSAGE
     : BUCKET_LIST_ACCESS_DENIED_MESSAGE;
@@ -63,7 +51,7 @@ export function normalizeBrowserListingIssue(
 ): BrowserListingIssue {
   const technicalDetail = extractApiError(error, fallbackTechnicalDetail);
   const statusCode = isApiError(error) ? error.response?.status : undefined;
-  const accessDenied = statusCode === 403 || ACCESS_DENIED_PATTERN.test(technicalDetail);
+  const accessDenied = statusCode === 403;
 
   if (accessDenied) {
     return {

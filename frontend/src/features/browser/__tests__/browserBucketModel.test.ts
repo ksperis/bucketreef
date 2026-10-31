@@ -135,13 +135,36 @@ describe("browserBucketModel", () => {
   });
 
   it("rephrases bucket-list access denial using the active vocabulary", () => {
-    const error = new Error("AccessDenied while calling ListBuckets");
+    const error = new ApiError("Request failed", {
+      response: {
+        status: 403,
+        data: { detail: "Policy rejected the catalogue request" },
+        headers: {},
+      },
+    });
 
     expect(extractBucketListError(error, false)).toContain(
       "not allowed to list buckets",
     );
     expect(extractBucketListError(error, true)).toContain(
       "not allowed to list Storage Spaces",
+    );
+  });
+
+  it("does not infer bucket-list authorization from error wording", () => {
+    const error = new ApiError("Request failed", {
+      response: {
+        status: 500,
+        data: { detail: "AccessDenied while calling ListBuckets" },
+        headers: {},
+      },
+    });
+
+    expect(extractBucketListError(error, false)).toBe(
+      "AccessDenied while calling ListBuckets",
+    );
+    expect(normalizeBrowserListingIssue(error, "Fallback message").kind).toBe(
+      "request_failed",
     );
   });
 
