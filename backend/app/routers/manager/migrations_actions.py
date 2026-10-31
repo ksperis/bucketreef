@@ -4,10 +4,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.db import BucketMigration
 from app.models.access_context import BucketMigrationAccessScope
 from app.models.bucket_migration import (
     BucketMigrationActionResponse,
@@ -23,12 +26,46 @@ from app.services.bucket_migration.runtime import (
     build_bucket_migration_service,
     wake_bucket_migration_worker,
 )
+from app.services.bucket_migration_service import BucketMigrationService
 from app.utils.http_errors import (
     raise_http_error_from_value_error,
     raise_http_exception_from_exception,
 )
 
 router = APIRouter(prefix="/manager/migrations", tags=["manager-migrations"])
+
+
+def _run_migration_action(
+    migration_id: int,
+    *,
+    db: Session,
+    scope: BucketMigrationAccessScope,
+    audit: AuditService,
+    operation: Callable[[BucketMigrationService], BucketMigration],
+    audit_action: str,
+    message: str,
+) -> BucketMigrationActionResponse:
+    service = build_bucket_migration_service(db, scope)
+    try:
+        migration = operation(service)
+    except PermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
+
+    wake_bucket_migration_worker()
+    audit.record_action(
+        user=scope.user,
+        scope="manager",
+        action=audit_action,
+        entity_type="bucket_migration",
+        entity_id=str(migration.id),
+    )
+    return BucketMigrationActionResponse(
+        id=migration.id,
+        status=migration.status,
+        message=message,
+    )
 
 
 @router.post("/{migration_id}/start", response_model=BucketMigrationActionResponse)
@@ -39,29 +76,18 @@ def start_migration(
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
-    current_user = scope.user
-    service = build_bucket_migration_service(db, scope)
-    try:
-        migration = service.start_migration(
+    return _run_migration_action(
+        migration_id,
+        db=db,
+        scope=scope,
+        audit=audit,
+        operation=lambda service: service.start_migration(
             migration_id,
             configuration_revision=payload.configuration_revision,
             confirm_write_interruption=payload.confirm_write_interruption,
-        )
-    except PermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except ValueError as exc:
-        raise_http_error_from_value_error(exc)
-
-    wake_bucket_migration_worker()
-    audit.record_action(
-        user=current_user,
-        scope="manager",
-        action="start_bucket_migration",
-        entity_type="bucket_migration",
-        entity_id=str(migration.id),
-    )
-    return BucketMigrationActionResponse(
-        id=migration.id, status=migration.status, message="Migration queued"
+        ),
+        audit_action="start_bucket_migration",
+        message="Migration queued",
     )
 
 
@@ -72,25 +98,14 @@ def pause_migration(
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
-    current_user = scope.user
-    service = build_bucket_migration_service(db, scope)
-    try:
-        migration = service.request_pause(migration_id)
-    except PermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except ValueError as exc:
-        raise_http_error_from_value_error(exc)
-
-    wake_bucket_migration_worker()
-    audit.record_action(
-        user=current_user,
-        scope="manager",
-        action="pause_bucket_migration",
-        entity_type="bucket_migration",
-        entity_id=str(migration.id),
-    )
-    return BucketMigrationActionResponse(
-        id=migration.id, status=migration.status, message="Pause requested"
+    return _run_migration_action(
+        migration_id,
+        db=db,
+        scope=scope,
+        audit=audit,
+        operation=lambda service: service.request_pause(migration_id),
+        audit_action="pause_bucket_migration",
+        message="Pause requested",
     )
 
 
@@ -101,25 +116,14 @@ def resume_migration(
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
-    current_user = scope.user
-    service = build_bucket_migration_service(db, scope)
-    try:
-        migration = service.resume_migration(migration_id)
-    except PermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except ValueError as exc:
-        raise_http_error_from_value_error(exc)
-
-    wake_bucket_migration_worker()
-    audit.record_action(
-        user=current_user,
-        scope="manager",
-        action="resume_bucket_migration",
-        entity_type="bucket_migration",
-        entity_id=str(migration.id),
-    )
-    return BucketMigrationActionResponse(
-        id=migration.id, status=migration.status, message="Migration resumed"
+    return _run_migration_action(
+        migration_id,
+        db=db,
+        scope=scope,
+        audit=audit,
+        operation=lambda service: service.resume_migration(migration_id),
+        audit_action="resume_bucket_migration",
+        message="Migration resumed",
     )
 
 
@@ -130,25 +134,14 @@ def stop_migration(
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
-    current_user = scope.user
-    service = build_bucket_migration_service(db, scope)
-    try:
-        migration = service.stop_migration(migration_id)
-    except PermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except ValueError as exc:
-        raise_http_error_from_value_error(exc)
-
-    wake_bucket_migration_worker()
-    audit.record_action(
-        user=current_user,
-        scope="manager",
-        action="stop_bucket_migration",
-        entity_type="bucket_migration",
-        entity_id=str(migration.id),
-    )
-    return BucketMigrationActionResponse(
-        id=migration.id, status=migration.status, message="Stop requested"
+    return _run_migration_action(
+        migration_id,
+        db=db,
+        scope=scope,
+        audit=audit,
+        operation=lambda service: service.stop_migration(migration_id),
+        audit_action="stop_bucket_migration",
+        message="Stop requested",
     )
 
 
@@ -160,27 +153,17 @@ def continue_after_presync(
     scope: BucketMigrationAccessScope = Depends(get_current_bucket_migration_scope),
     audit: AuditService = Depends(get_audit_service),
 ) -> BucketMigrationActionResponse:
-    current_user = scope.user
-    service = build_bucket_migration_service(db, scope)
-    try:
-        migration = service.continue_after_presync(
-            migration_id, confirmed=payload.confirmed
-        )
-    except PermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except ValueError as exc:
-        raise_http_error_from_value_error(exc)
-
-    wake_bucket_migration_worker()
-    audit.record_action(
-        user=current_user,
-        scope="manager",
-        action="continue_bucket_migration",
-        entity_type="bucket_migration",
-        entity_id=str(migration.id),
-    )
-    return BucketMigrationActionResponse(
-        id=migration.id, status=migration.status, message="Cutover queued"
+    return _run_migration_action(
+        migration_id,
+        db=db,
+        scope=scope,
+        audit=audit,
+        operation=lambda service: service.continue_after_presync(
+            migration_id,
+            confirmed=payload.confirmed,
+        ),
+        audit_action="continue_bucket_migration",
+        message="Cutover queued",
     )
 
 
