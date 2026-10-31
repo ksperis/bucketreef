@@ -257,16 +257,19 @@ class PortalCollaboratorsMixin:
         }
         if not visible_bucket_names:
             return 0
-        return self.db.execute(
-            select(func.count())
-            .select_from(PortalExternalAccessCredential)
-            .where(
-                PortalExternalAccessCredential.account_id == access.account.id,
-                PortalExternalAccessCredential.bucket_name.in_(visible_bucket_names),
-                PortalExternalAccessCredential.status == "Active",
-                PortalExternalAccessCredential.revoked_at.is_(None),
+        return int(
+            self.db.scalar(
+                select(func.count())
+                .select_from(PortalExternalAccessCredential)
+                .where(
+                    PortalExternalAccessCredential.account_id == access.account.id,
+                    PortalExternalAccessCredential.bucket_name.in_(visible_bucket_names),
+                    PortalExternalAccessCredential.status == "Active",
+                    PortalExternalAccessCredential.revoked_at.is_(None),
+                )
             )
-        ).scalar_one()
+            or 0
+        )
 
     def _portal_collaborator(
         self,
