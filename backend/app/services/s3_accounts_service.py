@@ -15,7 +15,6 @@ from typing import Any, Optional
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3AccountNotFoundError
 from app.db import (
     S3Account,
     S3AccountTag,
@@ -50,6 +49,7 @@ from app.services.s3_account_associations_service import S3AccountAssociationsSe
 from app.services.s3_account_deletion_service import S3AccountDeletionService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_quota_service import S3AccountQuotaService
+from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.sqlalchemy_pagination import paginate_scalars
@@ -86,6 +86,7 @@ class S3AccountsService:
         self.metrics = S3AccountMetricsService()
         self.rgw_context = S3AccountRgwContextService(db)
         self.quota = S3AccountQuotaService(self.rgw_context)
+        self.repository = S3AccountRepository(db)
         self.deletion = S3AccountDeletionService(
             db,
             metrics=self.metrics,
@@ -95,36 +96,10 @@ class S3AccountsService:
         )
 
     def get_account_record(self, account_id: int) -> S3Account:
-        account = self.db.scalar(
-            select(S3Account).where(S3Account.id == account_id)
-        )
-        if not account:
-            raise S3AccountNotFoundError("S3Account not found")
-        return account
+        return self.repository.get(account_id)
 
     def find_account_by_rgw_id(self, rgw_account_id: str) -> Optional[S3Account]:
-        return self.db.scalar(
-            select(S3Account).where(S3Account.rgw_account_id == rgw_account_id)
-        )
-
-    def _ensure_account_name_available(
-        self,
-        *,
-        storage_endpoint_id: int,
-        rgw_tenant: str,
-        name: str,
-        exclude_account_id: Optional[int] = None,
-        error_message: str = "S3Account already exists",
-    ) -> None:
-        query = select(S3Account.id).where(
-            S3Account.storage_endpoint_id == storage_endpoint_id,
-            S3Account.rgw_tenant == rgw_tenant,
-            S3Account.name == name,
-        )
-        if exclude_account_id is not None:
-            query = query.where(S3Account.id != exclude_account_id)
-        if self.db.scalar(query.limit(1)) is not None:
-            raise ValueError(error_message)
+        return self.repository.find_by_rgw_id(rgw_account_id)
 
     def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
         return self.metrics.get_usage(account)
@@ -465,7 +440,7 @@ class S3AccountsService:
             scope = (item.endpoint.id, item.rgw_tenant, item.account_name)
             if scope in seen_scopes:
                 raise ValueError(f"S3Account name already exists: {item.account_name}")
-            self._ensure_account_name_available(
+            self.repository.ensure_name_available(
                 storage_endpoint_id=item.endpoint.id,
                 rgw_tenant=item.rgw_tenant,
                 name=item.account_name,
@@ -561,7 +536,7 @@ class S3AccountsService:
         self,
         payload: S3AccountCreate,
     ) -> tuple[StorageEndpoint, RGWAdminClient]:
-        self._ensure_account_name_available(
+        self.repository.ensure_name_available(
             storage_endpoint_id=payload.storage_endpoint_id,
             rgw_tenant=payload.rgw_tenant,
             name=payload.name,
@@ -703,7 +678,7 @@ class S3AccountsService:
             target_endpoint_id = endpoint.id
         target_name = payload.name if payload.name else account.name
         if target_name != account.name or target_endpoint_id != account.storage_endpoint_id:
-            self._ensure_account_name_available(
+            self.repository.ensure_name_available(
                 storage_endpoint_id=target_endpoint_id,
                 rgw_tenant=account.rgw_tenant,
                 name=target_name,
