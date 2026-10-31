@@ -41,7 +41,7 @@ import {
   uiTitleTextClass,
 } from "../../components/ui/styles";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
 import { triggerBlobDownload } from "../../utils/download";
 import { currentUtcMonthInputValue } from "../../utils/dateInputValues";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
@@ -172,10 +172,6 @@ function formatCollectionResult(result: CostCollectionResult | null, day: string
   return `${prefix} for ${day}: ${endpoints} endpoint${endpoints === 1 ? "" : "s"}, ${storageRecords} storage record${storageRecords === 1 ? "" : "s"}, ${usageRecords} usage record${usageRecords === 1 ? "" : "s"}, ${errors} error${errors === 1 ? "" : "s"}.`;
 }
 
-function isCostDisabledMessage(message: string): boolean {
-  return message.toLowerCase().includes("cost is disabled");
-}
-
 function subjectTypeLabel(subjectType: string): string {
   return subjectType === "account" ? "RGW Account" : subjectType === "s3_user" ? "RGW User" : subjectType;
 }
@@ -277,7 +273,7 @@ export default function CostPage() {
           const message = extractApiError(err, adminText("Unable to load cost summary."));
           setSummary(null);
           setSummaryError(message);
-          setCostDisabled(isCostDisabledMessage(message));
+          setCostDisabled(extractApiErrorCode(err) === "cost_disabled");
         }
       } finally {
         if (!cancelled) setSummaryLoading(false);

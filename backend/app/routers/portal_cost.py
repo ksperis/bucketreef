@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.db import User
 from app.models.access_context import AccountAccess
 from app.models.cost import CostSubjectDetail
+from app.routers.cost_common import raise_cost_disabled
 from app.routers.dependencies import get_portal_account_access
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.cost_service import CostService
@@ -27,7 +28,7 @@ def portal_cost_me(
 ) -> CostSubjectDetail:
     app_settings = load_app_settings_for_db_readonly(db)
     if not app_settings.general.cost_enabled:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cost is disabled")
+        raise_cost_disabled()
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")

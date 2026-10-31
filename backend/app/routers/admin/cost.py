@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import NoReturn
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -17,7 +17,7 @@ from app.models.cost import (
     CostSubjectsResponse,
     CostSummary,
 )
-from app.routers.cost_common import parse_cost_day
+from app.routers.cost_common import parse_cost_day, raise_cost_disabled
 from app.routers.dependencies import get_current_super_admin
 from app.services.admin_cost_service import AdminCostService
 from app.utils.http_errors import raise_http_error_from_value_error
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/admin/cost", tags=["admin-cost"])
 
 def _raise_cost_http_error(exc: ValueError) -> NoReturn:
     if isinstance(exc, CostDisabledError):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cost is disabled") from exc
+        raise_cost_disabled()
     raise_http_error_from_value_error(exc)
 
 

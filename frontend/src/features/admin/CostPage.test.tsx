@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../api/client";
 import CostPage from "./CostPage";
 
 const mocks = vi.hoisted(() => ({
@@ -73,6 +74,16 @@ function renderPage(initialEntry = "/admin/cost") {
       <LocationProbe />
     </MemoryRouter>,
   );
+}
+
+function costDisabledError(message: string) {
+  return new ApiError("Request failed", {
+    response: {
+      status: 403,
+      data: { detail: { code: "cost_disabled", message } },
+      headers: {},
+    },
+  });
 }
 
 function summary(overrides = {}) {
@@ -240,6 +251,18 @@ describe("CostPage", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("uses the structured cost-disabled code independently from the message", async () => {
+    mocks.getCostSummary.mockRejectedValueOnce(costDisabledError("Feature unavailable"));
+
+    renderPage();
+
+    expect(
+      await screen.findByText("Cost is disabled. Enable it in General settings to use this page."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Feature unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collect daily" })).toBeDisabled();
   });
 
   it("defaults to all endpoints and all subjects, paginates globally, links to dedicated detail, and exports the scope", async () => {
