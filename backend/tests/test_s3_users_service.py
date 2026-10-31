@@ -200,7 +200,7 @@ def test_import_same_uid_across_isolated_tenants(db_session, monkeypatch):
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_users_service.load_app_settings_for_db_readonly",
+        "app.services.s3_user_import_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
 
@@ -315,7 +315,7 @@ def test_import_allows_same_uid_in_another_tenant(db_session, monkeypatch):
     settings = load_app_settings_for_db_readonly(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_users_service.load_app_settings_for_db_readonly",
+        "app.services.s3_user_import_service.load_app_settings_for_db_readonly",
         lambda _db: settings,
     )
     imported = service.import_users([S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id)])
