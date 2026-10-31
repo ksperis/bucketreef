@@ -278,7 +278,7 @@ setup("bootstrap reusable admin and browser auth", async ({ browser, page }) => 
     await browserPage.locator('input[type="email"]').fill(E2E_USER_EMAIL);
     await browserPage.locator('input[type="password"]').fill(E2E_USER_PASSWORD);
     await browserPage.getByRole("button", { name: "Sign in" }).click();
-    await expect(browserPage).toHaveURL(/\/unauthorized(?:\?.*)?$/);
+    await expect(browserPage).toHaveURL(/\/no-access(?:\?.*)?$/);
     const connection = await ensurePrivateConnection(browserPage);
     await browserPage.goto(
       `/browser?ctx=${encodeURIComponent(`conn-${connection.id}`)}&bucket=${encodeURIComponent(E2E_BUCKET_NAME)}`,
