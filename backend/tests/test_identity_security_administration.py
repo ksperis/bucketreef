@@ -36,6 +36,7 @@ from app.services.mfa_reset_service import MfaResetService
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
 from tests.s3_connection_factory import custom_endpoint_fields
+from tests.service_identity_helpers import service_identity
 
 
 @pytest.fixture
@@ -496,6 +497,7 @@ def test_storage_endpoint_mutations_require_recent_webauthn_and_detection_reject
         provider=StorageProvider.CEPH.value,
         is_default=False,
         is_editable=True,
+        service_identities=[service_identity("runtime", mode="managed")],
     )
     db_session.add(endpoint)
     db_session.commit()
