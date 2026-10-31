@@ -280,6 +280,7 @@ describe("AuthenticationSettingsPage", () => {
     expect(screen.getByLabelText("Require passkeys for administrators")).toBeChecked();
     expect(screen.getByLabelText("Require passkeys for standard users")).not.toBeChecked();
     expect(screen.getByLabelText("Allow users to edit their profile name")).not.toBeChecked();
+    expect(screen.getByLabelText("Allow users to link external identities")).not.toBeChecked();
     expect(screen.getByLabelText("Allow users to unlink external identities")).not.toBeChecked();
     expect(screen.queryByLabelText("Private S3 connections for UI users")).not.toBeInTheDocument();
   });

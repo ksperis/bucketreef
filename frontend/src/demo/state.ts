@@ -206,7 +206,7 @@ export const settings: AppSettings = {
     usage_history_enabled: true,
     allow_login_access_keys: false, allow_login_endpoint_list: false, allow_login_custom_endpoint: false,
     require_passkey_for_admins: false, require_passkey_for_users: false,
-    allow_user_profile_name_edit: true, allow_user_external_identity_unlink: false,
+    allow_user_profile_name_edit: true, allow_user_external_identity_link: false, allow_user_external_identity_unlink: false,
   },
   portal: {
       feature_policies: { ...DEFAULT_PORTAL_FEATURE_POLICIES, browser_access: "default_on", private_storage_space_create: "default_on", named_bucket_create: "default_on", user_access_key_create: "default_on", user_external_sharing: "targeted", server_access_logging: "default_on", storage_space_version_cleanup: "targeted" },

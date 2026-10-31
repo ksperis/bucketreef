@@ -88,6 +88,7 @@ export type GeneralConfiguration = {
   require_passkey_for_admins: boolean;
   require_passkey_for_users: boolean;
   allow_user_profile_name_edit: boolean;
+  allow_user_external_identity_link: boolean;
   allow_user_external_identity_unlink: boolean;
 };
 

@@ -147,7 +147,7 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
   return <div className="settings-compact" data-profile-view="security">
     <SettingsSection presentation="compact" title={text("signIn")} description={text("signInHelp")}>
       <SettingsItem compact title={text("password")} icon={<ShieldIcon className="h-5 w-5" />} description={text(canChangePassword ? "localPassword" : "externalPassword")} action={canChangePassword && <ProfileButton variant="secondary" onClick={() => openPanel("password")}>{text("edit")}</ProfileButton>} />
-      <SettingsItem compact title={text("externalIdentities")} icon={<UserIcon className="h-5 w-5" />} description={<ResourceStatus resource={identities} errorKey="loadIdentitiesError">{identities.data.length ? identities.data.map((identity) => identity.email ?? identity.provider_id).join(", ") : text("noIdentities")}</ResourceStatus>} action={(identities.data.length > 0 || oidcProviders.length > 0) && <ProfileButton variant="secondary" onClick={() => openPanel("identities")}>{text(identities.data.length > 0 ? "manageIdentities" : "linkOidcAccount")}</ProfileButton>} />
+      <SettingsItem compact title={text("externalIdentities")} icon={<UserIcon className="h-5 w-5" />} description={<ResourceStatus resource={identities} errorKey="loadIdentitiesError">{identities.data.length ? identities.data.map((identity) => identity.email ?? identity.provider_id).join(", ") : text("noIdentities")}</ResourceStatus>} action={(identities.data.length > 0 || (generalSettings.allow_user_external_identity_link && oidcProviders.length > 0)) && <ProfileButton variant="secondary" onClick={() => openPanel("identities")}>{text(identities.data.length > 0 ? "manageIdentities" : "linkOidcAccount")}</ProfileButton>} />
     </SettingsSection>
     <SettingsSection presentation="compact" title={text("accountSecurity")} description={text("accountSecurityHelp")}>
       <SettingsItem compact title={text("passkeys")} icon={<ShieldIcon className="h-5 w-5" />} description={<ResourceStatus resource={keys} errorKey="loadKeysError">{keyDescription}</ResourceStatus>} action={<ProfileButton disabled={keys.loading || Boolean(keys.error) || busy} onClick={() => openPanel(keys.data.length ? "keys" : "add")}>{text(keys.data.length ? "manageKeys" : "addKey")}</ProfileButton>} />
@@ -175,7 +175,7 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
           <UiCheckboxField className="min-h-11 settings-body" checked={showPasswords} onChange={(event) => setShowPasswords(event.target.checked)}>{text("showPasswords")}</UiCheckboxField><p className="settings-description text-[var(--ui-text-muted)]">{text("globalImpact")}</p><div className="flex justify-end gap-2"><ProfileButton variant="secondary" disabled={busy} onClick={guard.requestClose}>{text("cancel")}</ProfileButton><ProfileButton type="submit" disabled={busy}>{text(busy ? "saving" : "save")}</ProfileButton></div>
         </form>}
         {panel === "identities" && <>
-          {oidcProviders.length > 0 && <section aria-labelledby="profile-add-sign-in-method" className="settings-stack">
+          {generalSettings.allow_user_external_identity_link && oidcProviders.length > 0 && <section aria-labelledby="profile-add-sign-in-method" className="settings-stack">
             <div>
               <h3 id="profile-add-sign-in-method" className="settings-body font-semibold">{text("addSignInMethod")}</h3>
               <p className="mt-1 settings-description text-[var(--ui-text-muted)]">{text("linkOidcHelp")}</p>
@@ -187,7 +187,7 @@ export default function SecurityPage({ onUnsavedChangesChange }: { onUnsavedChan
               <ProfileButton disabled={busy || !selectedOidcProvider} onClick={() => void linkOidcAccount()}>{text("linkOidcAccount")}</ProfileButton>
             </div>
           </section>}
-          <section aria-labelledby="profile-linked-sign-in-accounts" className={oidcProviders.length > 0 ? "settings-stack border-t border-[var(--ui-border-soft)] pt-4" : "settings-stack"}>
+          <section aria-labelledby="profile-linked-sign-in-accounts" className={generalSettings.allow_user_external_identity_link && oidcProviders.length > 0 ? "settings-stack border-t border-[var(--ui-border-soft)] pt-4" : "settings-stack"}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 id="profile-linked-sign-in-accounts" className="settings-body font-semibold">{text("externalIdentities")}</h3>
