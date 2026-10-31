@@ -78,21 +78,65 @@ class BucketCompareObjectIndex:
         ignored_after_cutoff_count = self._exclude_modified_after(ignore_modified_after)
         source_count = self._count_side("source")
         target_count = self._count_side("target")
-        only_source_count = self._count_only("source", "target")
-        only_target_count = self._count_only("target", "source")
+        only_source_count, only_source_sample, only_source_details = self._only_side_summary(
+            "source",
+            "target",
+        )
+        only_target_count, only_target_sample, only_target_details = self._only_side_summary(
+            "target",
+            "source",
+        )
+        matched_count, different_count, different_sample = self._compare_common_objects(
+            md5_resolver
+        )
 
-        only_source_rows = list(self._iter_only_rows("source", "target", BUCKET_COMPARE_DISPLAY_LIMIT))
-        only_target_rows = list(self._iter_only_rows("target", "source", BUCKET_COMPARE_DISPLAY_LIMIT))
-        only_source_sample = [str(row["key"]) for row in only_source_rows]
-        only_target_sample = [str(row["key"]) for row in only_target_rows]
+        return BucketContentDiff(
+            source_count=source_count,
+            target_count=target_count,
+            matched_count=matched_count,
+            different_count=different_count,
+            only_source_count=only_source_count,
+            only_target_count=only_target_count,
+            ignored_after_cutoff_count=ignored_after_cutoff_count,
+            display_limit=BUCKET_COMPARE_DISPLAY_LIMIT,
+            only_source_hidden_count=max(0, only_source_count - len(only_source_sample)),
+            only_target_hidden_count=max(0, only_target_count - len(only_target_sample)),
+            different_hidden_count=max(0, different_count - len(different_sample)),
+            only_source_sample=only_source_sample,
+            only_target_sample=only_target_sample,
+            only_source_details=only_source_details,
+            only_target_details=only_target_details,
+            different_sample=different_sample,
+        )
 
+    def _only_side_summary(
+        self,
+        side: Literal["source", "target"],
+        other_side: Literal["source", "target"],
+    ) -> tuple[int, list[str], list[BucketObjectDetail]]:
+        count = self._count_only(side, other_side)
+        rows = list(self._iter_only_rows(side, other_side, BUCKET_COMPARE_DISPLAY_LIMIT))
+        return (
+            count,
+            [str(row["key"]) for row in rows],
+            [self._object_detail_from_row(row) for row in rows],
+        )
+
+    def _compare_common_objects(
+        self,
+        md5_resolver: Callable[[Optional[str]], Optional[str]],
+    ) -> tuple[int, int, list[BucketObjectDiffEntry]]:
         matched_count = 0
         different_count = 0
         different_sample: list[BucketObjectDiffEntry] = []
         for row in self._iter_common_rows():
             source_entry = self._source_entry_from_joined_row(row)
             target_entry = self._target_entry_from_joined_row(row)
-            comparison = compare_object_entries(source_entry, target_entry, md5_resolver=md5_resolver)
+            comparison = compare_object_entries(
+                source_entry,
+                target_entry,
+                md5_resolver=md5_resolver,
+            )
             if comparison.equal:
                 matched_count += 1
                 continue
@@ -121,25 +165,7 @@ class BucketCompareObjectIndex:
                         compare_by=comparison.compare_by,
                     )
                 )
-
-        return BucketContentDiff(
-            source_count=source_count,
-            target_count=target_count,
-            matched_count=matched_count,
-            different_count=different_count,
-            only_source_count=only_source_count,
-            only_target_count=only_target_count,
-            ignored_after_cutoff_count=ignored_after_cutoff_count,
-            display_limit=BUCKET_COMPARE_DISPLAY_LIMIT,
-            only_source_hidden_count=max(0, only_source_count - len(only_source_sample)),
-            only_target_hidden_count=max(0, only_target_count - len(only_target_sample)),
-            different_hidden_count=max(0, different_count - len(different_sample)),
-            only_source_sample=only_source_sample,
-            only_target_sample=only_target_sample,
-            only_source_details=[self._object_detail_from_row(row) for row in only_source_rows],
-            only_target_details=[self._object_detail_from_row(row) for row in only_target_rows],
-            different_sample=different_sample,
-        )
+        return matched_count, different_count, different_sample
 
     def _insert_batch(
         self,

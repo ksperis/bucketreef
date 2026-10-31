@@ -188,12 +188,14 @@ def test_compare_bucket_content_limits_display_rows_but_keeps_totals(monkeypatch
 
     def large_listing(bucket_name, _account):
         if bucket_name == "source-bucket":
+            yield BucketCompareObjectEntry(key="matched", size=42)
             for index in range(1005):
                 yield BucketCompareObjectEntry(key=f"source-only-{index:04d}", size=index)
             for index in range(1007):
                 yield BucketCompareObjectEntry(key=f"different-{index:04d}", size=index)
             return
 
+        yield BucketCompareObjectEntry(key="matched", size=42)
         for index in range(1003):
             yield BucketCompareObjectEntry(key=f"target-only-{index:04d}", size=index)
         for index in range(1007):
@@ -207,6 +209,7 @@ def test_compare_bucket_content_limits_display_rows_but_keeps_totals(monkeypatch
 
     diff = service.compare_bucket_content("source-bucket", source, "target-bucket", target)
 
+    assert diff.matched_count == 1
     assert diff.only_source_count == 1005
     assert diff.only_target_count == 1003
     assert diff.different_count == 1007
