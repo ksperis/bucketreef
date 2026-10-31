@@ -362,10 +362,7 @@ class BucketMigrationInspector:
         endpoint = ctx.execution_context.storage_endpoint
         if endpoint is None:
             return {}
-        try:
-            features = normalize_features(endpoint.provider, endpoint.features)
-        except Exception:  # noqa: BLE001
-            return {}
+        features = normalize_features(endpoint.provider, endpoint.features)
         raw = features_to_capabilities(features)
         return {str(key): bool(value) for key, value in raw.items()}
 
