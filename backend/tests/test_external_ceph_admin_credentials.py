@@ -84,6 +84,13 @@ def test_signed_pair_failure_blocks_access_and_sanitizes_errors(identities, db_s
 def test_manual_pair_replacement_and_empty_update_preservation(identities, db_session):
     service, endpoint, rgw = identities
     configure(db_session, endpoint, rgw)
+    endpoint.service_identities.extend(
+        [
+            service_identity("runtime", mode="managed", status="not_provisioned"),
+            service_identity("supervision", mode="managed", status="not_provisioned"),
+        ]
+    )
+    db_session.commit()
     endpoints = StorageEndpointsService(db_session)
     with pytest.raises(ValueError, match="complete pair"):
         endpoints.update_endpoint(endpoint.id, StorageEndpointUpdate(ceph_admin_access_key="NEW-AK"))
