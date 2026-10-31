@@ -22,6 +22,7 @@ import {
   MULTIPART_THRESHOLD,
   PART_SIZE,
 } from "./browserConstants";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { uploadBrowserFile } from "./browserFileUpload";
 import { uploadBrowserFileMultipart } from "./browserMultipartUpload";
 import { formatBrowserOperationError } from "./browserOperationErrors";
@@ -173,9 +174,7 @@ export function useBrowserQueuedUpload({
         } else {
           const onProgress = (event: UploadProgressEvent) => {
             const total = event.total ?? file.size;
-            const progress = total
-              ? Math.round((event.loaded / total) * 100)
-              : 0;
+            const progress = roundedClampedPercentageOf(event.loaded, total) ?? 0;
             updateOperation(operationId, { progress });
           };
           const uploadProxyFile = () =>
