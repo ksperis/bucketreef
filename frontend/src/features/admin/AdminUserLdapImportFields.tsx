@@ -1,4 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
+import type { KeyboardEvent } from "react";
 import type { LDAPProviderInfo } from "../../api/auth";
 import type { LdapImportSearchItem } from "../../api/users";
 import { SettingsButton } from "../../components/settings/SettingsControls";
@@ -55,6 +56,14 @@ export default function AdminUserLdapImportFields({
   busy: boolean;
   text: UsersText;
 }) {
+  const canSearch = !busy && !searchLoading && Boolean(providerId) && query.trim().length >= 2;
+
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter" || !canSearch) return;
+    event.preventDefault();
+    onSearch();
+  };
+
   return (
     <SettingsSection title={text("identitySource")} description={text("identitySourceDescription")} presentation="compact">
       <div className="settings-fields">
@@ -98,35 +107,44 @@ export default function AdminUserLdapImportFields({
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-[16rem] flex-1">
                 <UiInput
+                  id="admin-user-ldap-search"
                   label={text("searchLdapDirectory")}
                   value={query}
                   disabled={busy || !providerId}
                   placeholder={text("ldapSearchPlaceholder")}
-                  hint={text("ldapSearchHint")}
+                  aria-describedby="admin-user-ldap-search-hint"
                   onChange={(event) => onQueryChange(event.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                 />
               </div>
               <SettingsButton
                 variant="secondary"
-                disabled={busy || searchLoading || !providerId || query.trim().length < 2}
+                disabled={!canSearch}
                 onClick={onSearch}
               >
                 {searchLoading ? text("searching") : text("search")}
               </SettingsButton>
             </div>
+            <p id="admin-user-ldap-search-hint" className="ui-caption text-[var(--ui-text-muted)]">
+              {text("ldapSearchHint")}
+            </p>
             {searchError && <UiInlineMessage tone="error" role="alert">{searchError}</UiInlineMessage>}
             {truncated && <UiInlineMessage tone="info">{text("ldapSearchTruncated")}</UiInlineMessage>}
             {searchPerformed && !searchLoading && !searchError && items.length === 0 && (
               <UiInlineMessage tone="neutral">{text("noLdapMatches")}</UiInlineMessage>
             )}
             {items.length > 0 && (
-              <div className="settings-stack" aria-label={text("ldapSearchResults")}>
+              <div
+                className="settings-stack max-h-80 overflow-y-auto pr-1"
+                role="list"
+                aria-label={text("ldapSearchResults")}
+              >
                 {items.map((item) => {
                   const linked = item.linked_user;
                   const emailMatch = item.email_match_user;
                   const isSelected = selected?.selection_token === item.selection_token;
                   return (
-                    <div key={item.selection_token} className={`${uiPanelMutedClass} p-3`}>
+                    <div key={item.selection_token} role="listitem" className={`${uiPanelMutedClass} p-3`}>
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="font-medium text-[var(--ui-text)]">
@@ -155,13 +173,13 @@ export default function AdminUserLdapImportFields({
                         <p className="settings-description mt-2">{text("ldapMissingEmail")}</p>
                       )}
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {item.identity_state === "available" && (
+                        {item.identity_state === "available" && !emailMatch && (
                           <SettingsButton variant="secondary" disabled={busy} onClick={() => onSelect(item)}>
                             {text("useLdapEntry")}
                           </SettingsButton>
                         )}
                         {item.identity_state === "available" && emailMatch && (
-                          <SettingsButton variant="secondary" disabled={busy} onClick={() => onLinkExisting(item)}>
+                          <SettingsButton disabled={busy} onClick={() => onLinkExisting(item)}>
                             {text("linkExistingUser")}
                           </SettingsButton>
                         )}
