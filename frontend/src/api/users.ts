@@ -164,18 +164,18 @@ export type LdapImportSearchItem = {
   email_match_user: LdapImportMatchedUser | null;
 };
 
-export type LdapImportSearchResponse = {
+type LdapImportSearchResponse = {
   items: LdapImportSearchItem[];
   truncated: boolean;
 };
 
-export type LdapImportCreatePayload = Omit<CreateUserPayload, "password"> & {
+type LdapImportCreatePayload = Omit<CreateUserPayload, "password"> & {
   account_links?: AccountMembership[] | null;
   s3_user_links?: S3UserMembership[] | null;
   s3_connection_ids?: number[] | null;
 };
 
-export type LdapImportUserPayload = {
+type LdapImportUserPayload = {
   selection_token: string;
   action: "create" | "link" | "restore";
   target_user_id?: number;
