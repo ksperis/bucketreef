@@ -80,7 +80,7 @@ def _resolve_cookie(db: Session, token: str, request: Request) -> ManagerActor:
         if not AuthSessionService(db).validate_csrf(auth_session, submitted):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid CSRF token")
     if token_type == "s3_access":
-        return SessionService(db)._to_principal(principal)
+        return SessionService(db).to_principal(principal)
     return principal
 
 

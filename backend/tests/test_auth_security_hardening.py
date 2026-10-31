@@ -38,6 +38,8 @@ from app.services.auth_session_guards import current_auth_session
 from app.core.domain_errors import ExternalIdentityNotFoundError
 from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError, ExternalIdentityUserService
 from app.services.oidc_service import OIDCStateError
+from app.services import session_service
+from app.services.session_service import SessionService
 from app.services.users_service import UsersService
 from app.services.webauthn_service import WebAuthnService
 from app.utils.request_security import client_ip
@@ -959,6 +961,33 @@ def test_expired_s3_auth_session_erases_persisted_credentials(db_session):
     assert s3_session.revoked_at is not None
     assert s3_session.access_key_enc is None
     assert s3_session.secret_key_enc is None
+
+
+def test_s3_session_principal_conversion_uses_public_service_contract(monkeypatch):
+    monkeypatch.setattr(
+        session_service,
+        "decrypt_secret",
+        lambda value: f"decrypted:{value}",
+    )
+    row = SimpleNamespace(
+        id="s3-session-principal",
+        access_key_enc="ACCESS",
+        secret_key_enc="SECRET",
+        actor_type="s3_account",
+        account_id="RGWACCOUNT01",
+        account_name="Account",
+        user_uid="account-user",
+        capabilities={"access_browser": True},
+        role=UserRole.UI_USER.value,
+    )
+
+    principal = SessionService(SimpleNamespace()).to_principal(row)
+
+    assert principal.session_id == row.id
+    assert principal.access_key == "decrypted:ACCESS"
+    assert principal.secret_key == "decrypted:SECRET"
+    assert principal.account_id == row.account_id
+    assert principal.capabilities.access_browser is True
 
 
 def test_expired_s3_credentials_are_erased_by_startup_cleanup(db_session):

@@ -31,7 +31,6 @@ class SessionService:
     def __init__(self, db):
         self.db = db
 
-    # public API
     def create_session(
         self,
         *,
@@ -69,7 +68,7 @@ class SessionService:
         )
         self.db.add(session)
         self.db.commit()
-        return self._to_principal(session)
+        return self.to_principal(session)
 
     def introspect_credentials(
         self,
@@ -167,7 +166,7 @@ class SessionService:
             access_browser=True,
         )
 
-    def _to_principal(self, session: S3Session) -> ManagerSessionPrincipal:
+    def to_principal(self, session: S3Session) -> ManagerSessionPrincipal:
         if not session.access_key_enc or not session.secret_key_enc:
             raise SessionIntrospectionError("S3 session credentials have been erased")
         capabilities = self._capabilities_from_row(session)
