@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import ResolvedS3BucketNameMixin, S3ExecutionTarget
 from app.models.bucket_purge import (
     BucketPurgeBucketResult,
     BucketPurgeFailure,
@@ -53,16 +53,12 @@ class BucketPurgeCancelled(RuntimeError):
 
 
 @dataclass(frozen=True)
-class BucketPurgeResolvedTarget:
+class BucketPurgeResolvedTarget(ResolvedS3BucketNameMixin):
     context: S3ExecutionTarget
     bucket_name: str
     request_bucket_name: str | None = None
     context_id: str | None = None
     context_name: str | None = None
-
-    @property
-    def s3_bucket_name(self) -> str:
-        return self.request_bucket_name or self.bucket_name
 
 
 @dataclass(frozen=True)
