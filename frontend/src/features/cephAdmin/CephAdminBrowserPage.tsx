@@ -74,6 +74,8 @@ export default function CephAdminBrowserPage() {
           title={surfaceText("Ceph Admin browser warning")}
           description={surfaceText("This browser uses endpoint-wide ceph-admin credentials. Bucket and object operations may execute with an owner identity different from the expected tenant owner.")}
           confirmLabel={surfaceText("I understand the risks")}
+          cancelLabel={surfaceText("Cancel")}
+          closeLabel={surfaceText("Close")}
           tone="primary"
           details={[
             { label: surfaceText("Endpoint"), value: selectedEndpoint?.name ?? surfaceText("Unavailable") },

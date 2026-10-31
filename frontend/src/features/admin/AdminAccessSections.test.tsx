@@ -2,13 +2,20 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { ManagerToolAccessSection } from "./AdminAccessSections";
+import { BrowserAccessSection, ManagerToolAccessSection } from "./AdminAccessSections";
+import { LanguageProvider, useLanguage } from "../../components/language";
 import {
   buildManagerToolDefinitions,
   DEFAULT_MANAGER_TOOL_ACCESS,
   roleSupportsOperationalAccess,
 } from "./adminAccessConfig";
 import { DEFAULT_GENERAL_SETTINGS } from "../../components/GeneralSettingsContext";
+
+
+function FrenchLanguageButton() {
+  const { setLanguage } = useLanguage();
+  return <button onClick={() => setLanguage("fr")}>fr</button>;
+}
 
 const tools = buildManagerToolDefinitions({ ...DEFAULT_GENERAL_SETTINGS,
   manager_feature_policies: { ...DEFAULT_GENERAL_SETTINGS.manager_feature_policies, bucket_compare: "default_on" } }).slice(0, 1);
@@ -21,6 +28,30 @@ describe("UI role operational access", () => {
     ["ui_none", false],
   ] as const)("maps %s to %s", (role, expected) => {
     expect(roleSupportsOperationalAccess(role)).toBe(expected);
+  });
+});
+
+describe("access section localization", () => {
+  it("localizes Manager provenance and Browser technical tools", async () => {
+    const user = userEvent.setup();
+    render(
+      <LanguageProvider>
+        <FrenchLanguageButton />
+        <ManagerToolAccessSection title="Manager" description="Autorisations Manager." tools={tools} onChange={vi.fn()} />
+        <BrowserAccessSection checked={false} onChange={vi.fn()} />
+      </LanguageProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "fr" }));
+
+    expect(await screen.findByText(/Les autorisations sont cumulatives avec celles de la plateforme/)).toBeVisible();
+    expect(screen.getByText("Comparaison de buckets")).toBeVisible();
+    expect(screen.getByText("Activé")).toBeVisible();
+    expect(screen.getByText("Plateforme")).toBeVisible();
+    expect(screen.getByText("Autorisation directe")).toBeVisible();
+    expect(screen.getByText("Outils S3 techniques")).toBeVisible();
+    expect(screen.getByRole("switch", { name: "Activer les outils S3 techniques" })).toBeInTheDocument();
+    expect(screen.queryByText("Technical S3 tools")).not.toBeInTheDocument();
   });
 });
 

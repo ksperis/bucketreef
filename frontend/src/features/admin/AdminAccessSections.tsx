@@ -121,16 +121,17 @@ export function BrowserAccessSection({
   onChange: (value: boolean) => void;
   description?: string;
 }) {
+  const { text: adminText } = useAdminI18n();
   return (
     <AdminAccessToggleSection
-      title="Browser"
-      description={description}
+      title={adminText("Browser")}
+      description={adminText(description)}
       items={[{
-        title: "Technical S3 tools",
-        description: "Adds versions, metadata, batch operations, and bucket maintenance tools to /browser. Display density (rows and action toolbar) and optional panels remain personal choices for every Browser user.",
+        title: adminText("Technical S3 tools"),
+        description: adminText("Adds versions, metadata, batch operations, and bucket maintenance tools to /browser. Display density (rows and action toolbar) and optional panels remain personal choices for every Browser user."),
         checked,
         onChange,
-        ariaLabel: "Enable technical S3 tools",
+        ariaLabel: adminText("Enable technical S3 tools"),
       }]}
     />
   );
@@ -157,8 +158,9 @@ export function ManagerToolAccessSection({
   eligible?: boolean;
   inheritedAccess?: ManagerToolAccess | null;
 }) {
+  const { text: adminText } = useAdminI18n();
   const normalizedAccess = normalizeManagerToolAccess(access);
-  const sectionDescription = `${description} Grants are additive with platform and group grants; removing one source does not revoke another. Eligible UI roles and storage access are still required.`;
+  const sectionDescription = `${description} ${adminText("Grants are additive with platform and group grants; removing one source does not revoke another. Eligible UI roles and storage access are still required.")}`;
   const effectiveGrant = ({
     direct,
     platformDefault,
@@ -173,48 +175,48 @@ export function ManagerToolAccessSection({
     if (blocked) {
       return {
         state: "unavailable",
-        stateLabel: "Unavailable",
-        sourceLabel: "Platform",
-        localLabel: "Direct grant",
+        stateLabel: adminText("Unavailable"),
+        sourceLabel: adminText("Platform"),
+        localLabel: adminText("Direct grant"),
       };
     }
     if (!eligible) {
       return {
         state: "unavailable",
-        stateLabel: "Unavailable",
-        sourceLabel: "Role required",
-        localLabel: "Direct grant",
+        stateLabel: adminText("Unavailable"),
+        sourceLabel: adminText("Role required"),
+        localLabel: adminText("Direct grant"),
       };
     }
     if (platformDefault) {
       return {
         state: "enabled",
-        stateLabel: "Enabled",
-        sourceLabel: "Platform",
-        localLabel: "Direct grant",
+        stateLabel: adminText("Enabled"),
+        sourceLabel: adminText("Platform"),
+        localLabel: adminText("Direct grant"),
       };
     }
     if (direct) {
       return {
         state: "enabled",
-        stateLabel: "Enabled",
-        sourceLabel: "Direct",
-        localLabel: "Direct grant",
+        stateLabel: adminText("Enabled"),
+        sourceLabel: adminText("Direct"),
+        localLabel: adminText("Direct grant"),
       };
     }
     if (inherited) {
       return {
         state: "enabled",
-        stateLabel: "Enabled",
-        sourceLabel: "Group",
-        localLabel: "Direct grant",
+        stateLabel: adminText("Enabled"),
+        sourceLabel: adminText("Group"),
+        localLabel: adminText("Direct grant"),
       };
     }
     return {
       state: "disabled",
-      stateLabel: "Disabled",
-      sourceLabel: "No grant",
-      localLabel: "Direct grant",
+      stateLabel: adminText("Disabled"),
+      sourceLabel: adminText("No grant"),
+      localLabel: adminText("Direct grant"),
     };
   };
   return (
@@ -239,12 +241,12 @@ export function ManagerToolAccessSection({
           const direct = eligible && Boolean(normalizedAccess[tool.key]);
           const blocked = !tool.enabled;
           return {
-            title: tool.title,
+            title: adminText(tool.title),
             checked: direct,
             blocked,
             disabled: !eligible || Boolean(tool.enabled && isToolDisabled?.(tool)),
             onChange: (value) => onChange(tool.key, value),
-            ariaLabel: tool.title,
+            ariaLabel: adminText(tool.title),
             effective: effectiveGrant({
               direct,
               platformDefault: tool.platformDefault,

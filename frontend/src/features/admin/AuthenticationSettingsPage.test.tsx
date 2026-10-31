@@ -15,6 +15,8 @@ import type {
 } from "../../api/authSettings";
 import { ApiError } from "../../api/client";
 import AuthenticationSettingsPage from "./AuthenticationSettingsPage";
+import { LanguageProvider } from "../../components/language";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
 const setGeneralSettingsMock = vi.fn();
 const fetchAppSettingsMock = vi.fn<() => Promise<AppSettings>>();
@@ -216,7 +218,7 @@ function renderPage(initialEntries = ["/admin/authentication-settings"]) {
       { path: `/admin/authentication-settings/${kind}/providers/:providerId`, element: <AuthProviderPage kind={kind} /> },
     ]),
   ], { initialEntries, initialIndex: initialEntries.length - 1 });
-  render(<RouterProvider router={router} />);
+  render(<LanguageProvider><RouterProvider router={router} /></LanguageProvider>);
   return router;
 }
 
@@ -224,6 +226,7 @@ describe("AuthenticationSettingsPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     setSessionUserCache(null);
+    localStorage.removeItem(CLIENT_STORAGE_KEYS.languagePreference);
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     fetchAppSettingsMock.mockResolvedValue(buildSettings());
     fetchDefaultAppSettingsMock.mockResolvedValue(buildSettings());
@@ -372,6 +375,22 @@ describe("AuthenticationSettingsPage", () => {
     expect(payload.general.allow_login_custom_endpoint).toBe(true);
     expect(payload.general.manager_enabled).toBe(false);
     expect(payload.branding.primary_color).toBe("#2563eb");
+  });
+
+  it("localizes authentication provider lists in French", async () => {
+    localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+    fetchOidcAdminProvidersMock.mockResolvedValue([buildOidcProvider(), buildEnvOidcProvider()]);
+
+    renderPage();
+
+    expect(await screen.findByText("Fournisseurs OIDC")).toBeInTheDocument();
+    expect(screen.getByText("Fournisseurs LDAP")).toBeInTheDocument();
+    expect(screen.getAllByText("Activé").length).toBeGreaterThan(0);
+    expect(screen.getByText("Environnement")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Modifier le fournisseur OIDC ui" })).toHaveTextContent("Modifier");
+    expect(screen.getByRole("button", { name: "Afficher le fournisseur OIDC google" })).toHaveTextContent("Afficher");
+    expect(screen.getByRole("button", { name: "Ajouter un fournisseur OIDC" })).toBeInTheDocument();
+    expect(screen.queryByText("OIDC providers")).not.toBeInTheDocument();
   });
 
   it("renders OIDC providers with source and status badges", async () => {

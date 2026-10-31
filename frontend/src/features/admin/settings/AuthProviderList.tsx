@@ -55,7 +55,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
       })
       .catch((err) => {
         if (active)
-          setError(extractApiError(err, `Unable to load ${name} providers.`));
+          setError(extractApiError(err, adminText("Unable to load {kind} providers.", { kind: name })));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -63,7 +63,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
     return () => {
       active = false;
     };
-  }, [fetchProviders, name]);
+  }, [adminText, fetchProviders, name]);
   const remove = async () => {
     if (!selected?.editable || pending.current) return;
     pending.current = true;
@@ -82,10 +82,10 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
         ),
       );
       setSelected(null);
-      setMessage(`${name} provider deleted.`);
+      setMessage(adminText("{kind} provider deleted.", { kind: name }));
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err))
-        setError(extractApiError(err, `Unable to delete ${name} provider.`));
+        setError(extractApiError(err, adminText("Unable to delete {kind} provider.", { kind: name })));
     } finally {
       pending.current = false;
       setBusy(false);
@@ -94,7 +94,7 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
   return (
     <SettingsSection
       presentation="compact"
-      title={`${name} providers`}
+      title={adminText("{kind} providers", { kind: name })}
       description={adminText("Login providers. Environment-managed settings remain locked.")}
     >
       <div className="mb-2 flex justify-end">
@@ -124,10 +124,10 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
           status={
             <>
               <UiBadge tone={provider.enabled ? "success" : "neutral"}>
-                {provider.enabled ? "Enabled" : "Disabled"}
+                {adminText(provider.enabled ? "Enabled" : "Disabled")}
               </UiBadge>
               <UiBadge tone="neutral">
-                {provider.source === "environment" ? "Environment" : "UI"}
+                {provider.source === "environment" ? adminText("Environment") : "UI"}
               </UiBadge>
             </>
           }
@@ -136,20 +136,20 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
               <SettingsButton
                 variant="secondary"
                 disabled={isDemo || busy}
-                aria-label={`${provider.editable ? "Edit" : "View"} ${name} provider ${provider.provider_id}`}
+                aria-label={adminText("{action} {kind} provider {id}", { action: adminText(provider.editable ? "Edit" : "View"), kind: name, id: provider.provider_id })}
                 onClick={() =>
                   navigate(
                     `${path}/providers/${encodeURIComponent(provider.provider_id)}`,
                   )
                 }
               >
-                {provider.editable ? "Edit" : "View"}
+                {adminText(provider.editable ? "Edit" : "View")}
               </SettingsButton>
               {provider.editable && (
                 <SettingsButton
                   variant="ghost"
                   disabled={isDemo || busy}
-                  aria-label={`Delete ${name} provider ${provider.provider_id}`}
+                  aria-label={adminText("{action} {kind} provider {id}", { action: adminText("Delete"), kind: name, id: provider.provider_id })}
                   onClick={() => setSelected(provider)}
                 >
                   {adminText("Delete")}</SettingsButton>
@@ -160,13 +160,13 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
       ))}
       {selected && (
         <ConfirmActionDialog
-          title={`Delete ${name} provider?`}
-          description={`Remove ${selected.display_name} (${selected.provider_id}) from sign-in options.`}
+          title={adminText("Delete {kind} provider?", { kind: name })}
+          description={adminText("Remove {name} ({id}) from sign-in options.", { name: selected.display_name, id: selected.provider_id })}
           confirmLabel={adminText("Delete provider")}
           loading={busy}
           warning={error ? <span role="alert">{error}</span> : undefined}
           impacts={[
-            "Users will no longer be able to sign in through this provider.",
+            adminText("Users will no longer be able to sign in through this provider."),
           ]}
           onCancel={() => {
             if (!busy) setSelected(null);
