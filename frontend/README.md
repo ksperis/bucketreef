@@ -93,4 +93,5 @@ Current budget calibration (2026-08-02):
 - `ui_admin` -> `/admin`
 - `ui_user` -> `/manager` by default
 - `ui_user` with only portal rights -> `/portal`
-- `ui_none` or missing role -> `/unauthorized`
+- `ui_none` or an authenticated user with no available workspace -> `/no-access`
+- a denied page or workspace guard -> `/unauthorized`

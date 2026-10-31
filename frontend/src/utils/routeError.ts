@@ -10,7 +10,7 @@ export function resolveRouteErrorHomePath(
   runtimeSurfaces?: RuntimeSurfaces,
 ): string {
   const nextPath = resolvePostLoginPath(readStoredUser(), generalSettings, runtimeSurfaces);
-  if (nextPath === "/login" || nextPath === "/unauthorized") {
+  if (nextPath === "/login" || nextPath === "/no-access") {
     return "/login";
   }
   return nextPath;

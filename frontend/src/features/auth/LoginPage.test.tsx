@@ -241,7 +241,18 @@ describe("LoginPage", () => {
 
   it("shows directory login without persisting browser credentials", async () => {
     const user = userEvent.setup();
-    renderLoginPage();
+    render(
+      <LanguageProvider>
+        <ThemeProvider>
+          <MemoryRouter initialEntries={["/login"]}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/no-access" element={<p>No access assigned</p>} />
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>
+      </LanguageProvider>,
+    );
 
     await user.click(await screen.findByRole("button", { name: "Directory" }));
     expect(screen.getByLabelText("Password")).not.toHaveAttribute("placeholder");
@@ -253,6 +264,7 @@ describe("LoginPage", () => {
       expect(mocks.loginWithLdap).toHaveBeenCalledWith("corp", "jane", "secret-password");
       expect(mocks.getWorkspaceAccess).toHaveBeenCalledOnce();
     });
+    expect(await screen.findByText("No access assigned")).toBeInTheDocument();
     expect(window.localStorage.getItem("token")).toBeNull();
     expect(window.localStorage.getItem("user")).toBeNull();
   });

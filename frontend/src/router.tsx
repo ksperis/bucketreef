@@ -391,6 +391,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
       <Route path="/oidc/:provider/callback" element={<OidcCallbackPage />} />
       <Route path="/identity/link/:attemptId" element={<ExternalIdentityLinkPage />} />
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
+      <Route path="/no-access" element={<ErrorState kind="no_access" presentation="full" />} />
       <Route path="/session-expired" element={<ErrorState kind="session_expired" presentation="full" />} />
       <Route path="*" element={<NotFoundPage />} />
     </Route>

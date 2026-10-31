@@ -22,7 +22,7 @@ async function checkPage(page: Page, kind: string) {
 }
 
 for (const theme of ["light", "dark"] as const) {
-  for (const [route, kind] of [["/unknown-error-test", "not_found"], ["/unauthorized", "forbidden"], ["/session-expired", "session_expired"]]) {
+  for (const [route, kind] of [["/unknown-error-test", "not_found"], ["/unauthorized", "forbidden"], ["/no-access", "no_access"], ["/session-expired", "session_expired"]]) {
     test(`${theme} full page ${kind}`, async ({ page }, info) => {
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
@@ -31,6 +31,10 @@ for (const theme of ["light", "dark"] as const) {
       await checkPage(page, kind);
       await expect(page.locator(".error-state--full")).toBeVisible();
       await expect(page.locator("[data-topbar]")).toHaveCount(0);
+      if (kind === "no_access") {
+        await expect(page.getByRole("heading", { name: "Votre compte est bien connecté." })).toBeVisible();
+        await expect(page.getByRole("link", { name: "Changer de compte" })).toHaveAttribute("href", "/login");
+      }
       await page.screenshot({ path: info.outputPath(`${kind}-${theme}.png`) });
       await page.getByText("Détails techniques", { exact: true }).click();
       await expect(page.locator("details")).toHaveAttribute("open", "");

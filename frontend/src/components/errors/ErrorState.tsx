@@ -92,7 +92,9 @@ export default function ErrorState({ kind, error, presentation = "auto", title, 
     }
   };
   const authRequired = ["sign_in", "session_expired", "auth_failed"].includes(effectiveKind);
-  const recovery = primaryAction ?? (authRequired
+  const recovery = primaryAction ?? (effectiveKind === "no_access"
+    ? { label: t(errorActions.switchAccount), to: "/login" }
+    : authRequired
     ? { label: t(effectiveKind === "session_expired" ? errorActions.reconnect : errorActions.login), to: "/login" }
     : effectiveKind === "verification_required"
       ? { label: t(errorActions.security), to: home === "/login" ? home : `${home}/profile?tab=security` }

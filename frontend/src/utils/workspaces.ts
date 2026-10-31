@@ -261,7 +261,7 @@ function resolveRoleHomePath(
   if (!user || !user.role) return "/login";
   const adminLike = isAdminLikeRole(user.role);
   if (adminLike && runtimeSurfaces.admin) return "/admin";
-  if (!adminLike && user.role !== USER_ROLE) return "/unauthorized";
+  if (!adminLike && user.role !== USER_ROLE) return "/no-access";
   if (user.authType === "s3_session") {
     const canManager = user.capabilities?.can_manage_iam !== false;
     const canBrowser = user.capabilities?.access_browser !== false;
@@ -274,7 +274,7 @@ function resolveRoleHomePath(
     ) {
       return "/browser";
     }
-    return "/unauthorized";
+    return "/no-access";
   }
   const links = getAccountLinks(user);
   const hasPortalAccess = hasPortalWorkspaceAccess(user);
@@ -317,7 +317,7 @@ function resolveRoleHomePath(
   ) {
     return "/browser";
   }
-  return "/unauthorized";
+  return "/no-access";
 }
 
 export function resolvePostLoginPath(
@@ -326,7 +326,7 @@ export function resolvePostLoginPath(
   runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTIME_SURFACES,
 ): string {
   const fallbackPath = resolveRoleHomePath(user, generalSettings, runtimeSurfaces);
-  if (fallbackPath === "/login" || fallbackPath === "/unauthorized") {
+  if (fallbackPath === "/login" || fallbackPath === "/no-access") {
     return fallbackPath;
   }
   const availableWorkspaces = resolveAvailableWorkspacesWithFlags(
@@ -372,5 +372,5 @@ export function resolvePostLoginPathWithWorkspaceAccess(
   const backendDefault = access.default_workspace
     ? available.find((workspace) => workspace.id === access.default_workspace)
     : null;
-  return backendDefault?.path ?? (access.openstack_connect_available ? "/profile?tab=openstack" : "/unauthorized");
+  return backendDefault?.path ?? (access.openstack_connect_available ? "/profile?tab=openstack" : "/no-access");
 }
