@@ -355,7 +355,7 @@ def _build_service(db_session, monkeypatch, fake_admin: FakeRGWAdmin) -> S3Users
         "app.services.s3_users_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_admin,
     )
-    monkeypatch.setattr("app.services.s3_users_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_admin)
+    monkeypatch.setattr("app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_admin)
     monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_admin)
     return S3UsersService(db_session)
 
