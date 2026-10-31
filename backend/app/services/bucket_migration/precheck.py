@@ -350,48 +350,16 @@ class BucketMigrationPrecheckPlanner:
                 message="Content and tag permissions are unverified for this empty bucket. They will be checked again before copying if objects appear.",
             )
 
-        object_count: int | None = None
-        try:
-            object_count = int(
-                self._service._count_bucket_objects(context, item.source_bucket)
-            )
-            add_check(
-                code="source_count_ok",
-                severity="info",
-                blocking=False,
-                scope="source_bucket",
-                message=f"Source bucket object count: {object_count}.",
-                details={"current_object_count": object_count},
-            )
-        except Exception as exc:  # noqa: BLE001
-            add_check(
-                code="source_count_failed",
-                severity="warning",
-                blocking=False,
-                scope="source_bucket",
-                message=f"Unable to count source bucket objects: {exc}",
-            )
-
-        profile: dict[str, Any] | None = None
-        try:
-            profile = self._inspector.inspect_bucket_state(
-                context,
-                item.source_bucket,
-                probe_policy=probe_policy,
-            )
-            self._add_feature_availability_checks(
-                profile,
-                scope_prefix="source",
-                add_check=add_check,
-            )
-        except Exception as exc:  # noqa: BLE001
-            add_check(
-                code="source_profile_inspection_failed",
-                severity="error",
-                blocking=True,
-                scope="source_bucket",
-                message=f"Unable to inspect source bucket features: {exc}",
-            )
+        object_count, profile = self._inspect_existing_bucket_details(
+            context,
+            item.source_bucket,
+            scope_prefix="source",
+            probe_policy=probe_policy,
+            add_check=add_check,
+            profile_error_severity="error",
+            profile_error_blocking=True,
+            profile_error_message="Unable to inspect source bucket features",
+        )
         return _SourceInspection(
             access_ok=True, object_count=object_count, profile=profile
         )
@@ -449,51 +417,75 @@ class BucketMigrationPrecheckPlanner:
                 profile=None,
             )
 
+        object_count, profile = self._inspect_existing_bucket_details(
+            context,
+            item.target_bucket,
+            scope_prefix="target",
+            probe_policy=probe_policy,
+            add_check=add_check,
+            profile_error_severity="warning",
+            profile_error_blocking=False,
+            profile_error_message="Unable to inspect existing target bucket features",
+        )
+        return _TargetInspection(
+            exists=True, object_count=object_count, profile=profile
+        )
+
+    def _inspect_existing_bucket_details(
+        self,
+        context: Any,
+        bucket_name: str,
+        *,
+        scope_prefix: str,
+        probe_policy: Any,
+        add_check: Callable[..., None],
+        profile_error_severity: str,
+        profile_error_blocking: bool,
+        profile_error_message: str,
+    ) -> tuple[int | None, dict[str, Any] | None]:
+        scope = f"{scope_prefix}_bucket"
+        label = scope_prefix.title()
         object_count: int | None = None
         try:
-            object_count = int(
-                self._service._count_bucket_objects(context, item.target_bucket)
-            )
+            object_count = int(self._service._count_bucket_objects(context, bucket_name))
             add_check(
-                code="target_count_ok",
+                code=f"{scope_prefix}_count_ok",
                 severity="info",
                 blocking=False,
-                scope="target_bucket",
-                message=f"Target bucket object count: {object_count}.",
+                scope=scope,
+                message=f"{label} bucket object count: {object_count}.",
                 details={"current_object_count": object_count},
             )
         except Exception as exc:  # noqa: BLE001
             add_check(
-                code="target_count_failed",
+                code=f"{scope_prefix}_count_failed",
                 severity="warning",
                 blocking=False,
-                scope="target_bucket",
-                message=f"Unable to count target bucket objects: {exc}",
+                scope=scope,
+                message=f"Unable to count {scope_prefix} bucket objects: {exc}",
             )
 
         profile: dict[str, Any] | None = None
         try:
             profile = self._inspector.inspect_bucket_state(
                 context,
-                item.target_bucket,
+                bucket_name,
                 probe_policy=probe_policy,
             )
             self._add_feature_availability_checks(
                 profile,
-                scope_prefix="target",
+                scope_prefix=scope_prefix,
                 add_check=add_check,
             )
         except Exception as exc:  # noqa: BLE001
             add_check(
-                code="target_profile_inspection_failed",
-                severity="warning",
-                blocking=False,
-                scope="target_bucket",
-                message=f"Unable to inspect existing target bucket features: {exc}",
+                code=f"{scope_prefix}_profile_inspection_failed",
+                severity=profile_error_severity,
+                blocking=profile_error_blocking,
+                scope=scope,
+                message=f"{profile_error_message}: {exc}",
             )
-        return _TargetInspection(
-            exists=True, object_count=object_count, profile=profile
-        )
+        return object_count, profile
 
     def _plan_source_bucket(
         self,
