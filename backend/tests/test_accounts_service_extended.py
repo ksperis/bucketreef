@@ -20,6 +20,7 @@ from app.services.managed_resource_naming import (
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver, normalize_account_key
+from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
 from app.services.s3_accounts_service import S3AccountsService
 
 
@@ -564,7 +565,10 @@ def test_delete_account_removes_empty_portal_groups_before_root_user(db_session,
         events.append(f"group:{group_name}")
 
     iam.delete_group = record_group_delete  # type: ignore[method-assign]
-    monkeypatch.setattr(service, "_iam_for_account", lambda _account: iam)
+    service.iam_cleanup = S3AccountIamCleanupService(
+        db_session,
+        iam_factory=lambda _account: iam,
+    )
     monkeypatch.setattr(service, "_delete_root_user", lambda _account: events.append("root"))
     monkeypatch.setattr(admin, "delete_account", lambda _account_id: events.append("account"))
     _prepare_account_deletion_checks(service, admin, monkeypatch)
@@ -609,7 +613,10 @@ def test_delete_account_uses_scoped_iam_when_account_user_list_is_missing(db_ses
     monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 0))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
-    monkeypatch.setattr(service, "_iam_for_account", lambda _account: _FakeAccountIAM())
+    service.iam_cleanup = S3AccountIamCleanupService(
+        db_session,
+        iam_factory=lambda _account: _FakeAccountIAM(),
+    )
     monkeypatch.setattr(service, "_delete_root_user", lambda _account: None)
 
     service.delete_account(account.id, delete_rgw=True)
@@ -659,7 +666,10 @@ def test_delete_account_preserves_root_when_iam_resources_remain(
     )
     service, admin = _service(db_session)
     _prepare_account_deletion_checks(service, admin, monkeypatch)
-    monkeypatch.setattr(service, "_iam_for_account", lambda _account: iam)
+    service.iam_cleanup = S3AccountIamCleanupService(
+        db_session,
+        iam_factory=lambda _account: iam,
+    )
 
     with pytest.raises(ValueError, match=expected_fragment):
         service.delete_account(account.id, delete_rgw=True)
