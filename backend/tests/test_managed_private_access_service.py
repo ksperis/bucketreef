@@ -199,7 +199,7 @@ def test_managed_access_iam_state_requires_string_lists():
 
 def _disable_capability_probe(monkeypatch):
     monkeypatch.setattr(
-        "app.services.managed_private_access_service.refresh_connection_detected_capabilities",
+        "app.services.managed_private_access_connection_service.refresh_connection_detected_capabilities",
         lambda row: setattr(row, "capabilities", {"can_manage_iam": False}),
     )
 
@@ -575,8 +575,8 @@ def test_failed_local_creation_compensates_remote_resources(db_session, monkeypa
     service = ManagedPrivateAccessService(db_session)
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     monkeypatch.setattr(
-        service,
-        "_create_connection",
+        service.connection,
+        "activate",
         lambda **_kwargs: (_ for _ in ()).throw(
             RuntimeError(
                 "db failed secret_access_key=LEAK-ME "
@@ -613,7 +613,7 @@ def test_failed_capability_probe_rolls_back_flushed_local_connection(db_session,
     service = ManagedPrivateAccessService(db_session)
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     monkeypatch.setattr(
-        "app.services.managed_private_access_service.refresh_connection_detected_capabilities",
+        "app.services.managed_private_access_connection_service.refresh_connection_detected_capabilities",
         lambda _row: (_ for _ in ()).throw(RuntimeError("probe failed")),
     )
 
@@ -633,7 +633,11 @@ def test_failed_compensation_is_durable_cleanup_pending(db_session, monkeypatch)
     fake = FakeIAM(cleanup_fails=True)
     service = ManagedPrivateAccessService(db_session)
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
-    monkeypatch.setattr(service, "_create_connection", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("db failed")))
+    monkeypatch.setattr(
+        service.connection,
+        "activate",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("db failed")),
+    )
 
     with pytest.raises(ManagedPrivateAccessError):
         service.provision_iam(user=user, context=account, payload=_payload())

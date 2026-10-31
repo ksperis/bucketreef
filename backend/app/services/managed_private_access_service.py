@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import ManagedPrivateAccess, S3Account, S3Connection, User
+from app.db import ManagedPrivateAccess, User
 from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
     ManagedPrivateAccessResult,
@@ -21,6 +21,9 @@ from app.services.managed_private_access_audit_service import (
 )
 from app.services.managed_private_access_cleanup_service import (
     ManagedPrivateAccessCleanupService,
+)
+from app.services.managed_private_access_connection_service import (
+    ManagedPrivateAccessConnectionService,
 )
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessCleanupPending,
@@ -37,7 +40,6 @@ from app.services.managed_private_access_query_service import (
     ManagedPrivateAccessQueryService,
 )
 from app.services.managed_private_access_sources import (
-    ManagedPrivateAccessDestination,
     ManagedPrivateAccessSource,
     ManagedPrivateAccessSourceResolver,
 )
@@ -45,14 +47,9 @@ from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
 from app.services.rgw_iam import RGWIAMService
-from app.services.s3_connection_capabilities_service import (
-    refresh_connection_detected_capabilities,
-)
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.s3_users_service import S3UsersService
-from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
-from app.utils.rgw_payloads import extract_rgw_user_identity
 from app.utils.time import utcnow
 
 
@@ -71,17 +68,23 @@ class ManagedPrivateAccessService:
             access=self.access,
             sources=self.sources,
         )
-        self.connections = S3ConnectionsService(db)
+        connections = S3ConnectionsService(db)
         self.audit = ManagedPrivateAccessAuditService(db)
         self.queries = ManagedPrivateAccessQueryService(db)
         self.state = ManagedPrivateAccessStateService(db)
         self.iam = ManagedPrivateAccessIAMService(db, access=self.access)
+        self.connection = ManagedPrivateAccessConnectionService(
+            db,
+            audit=self.audit,
+            state=self.state,
+            connections=connections,
+        )
         self.cleanup = ManagedPrivateAccessCleanupService(
             db,
             iam=self.iam,
             audit=self.audit,
             state=self.state,
-            connections=self.connections,
+            connections=connections,
         )
 
     def provision_iam(
@@ -109,7 +112,7 @@ class ManagedPrivateAccessService:
                 payload,
                 username=source.iam_username or "",
             )
-            return self._activate_connection(
+            return self.connection.activate(
                 user=user,
                 provisioning=provisioning,
                 destination=destination,
@@ -161,7 +164,7 @@ class ManagedPrivateAccessService:
             provisioning.access_key_id = key.access_key_id
             provisioning.created_access_key = True
             self.state.checkpoint(provisioning)
-            return self._activate_connection(
+            return self.connection.activate(
                 user=user,
                 provisioning=provisioning,
                 destination=destination,
@@ -261,35 +264,7 @@ class ManagedPrivateAccessService:
         )
         if existing is None:
             return None
-        return self._resolve_idempotent_existing(existing, payload)
-
-    def _resolve_idempotent_existing(
-        self,
-        provisioning: ManagedPrivateAccess,
-        payload: ManagedPrivateAccessRequest,
-    ) -> ManagedPrivateAccessResult:
-        connection = provisioning.connection
-        if provisioning.state == "active" and connection is not None:
-            same_request = (
-                connection.name == payload.connection_name
-                and bool(connection.access_browser) == bool(payload.access_browser)
-                and bool(connection.access_manager) == bool(payload.access_manager)
-            )
-            if isinstance(payload, ManagedIAMPrivateAccessRequest):
-                same_request = same_request and self.state.string_list(provisioning.iam_groups) == payload.groups
-                same_request = same_request and self.state.string_list(provisioning.iam_managed_policies) == payload.managed_policies
-                same_request = same_request and self.state.string_list(provisioning.iam_inline_policy_names) == [
-                    policy.name for policy in payload.inline_policies
-                ]
-            if same_request:
-                return ManagedPrivateAccessResult(
-                    provisioning_id=provisioning.id,
-                    status="active",
-                    connection=self.connections.serialize(connection),
-                )
-        raise ManagedPrivateAccessConflict(
-            "A managed private access already exists or requires cleanup for this execution context"
-        )
+        return self.connection.resolve_existing(existing, payload)
 
     def _start_provisioning(
         self,
@@ -326,95 +301,3 @@ class ManagedPrivateAccessService:
             ) from exc
         self.db.refresh(row)
         return row
-
-    def _create_connection(
-        self,
-        *,
-        user: User,
-        provisioning: ManagedPrivateAccess,
-        destination: ManagedPrivateAccessDestination,
-        connection_name: str,
-        access_key_id: str,
-        secret_access_key: str,
-        access_browser: bool,
-        access_manager: bool,
-    ) -> ManagedPrivateAccessResult:
-        rgw_user_uid, rgw_tenant, rgw_account_id = self._managed_connection_rgw_identity(provisioning)
-        connection = S3Connection(
-            created_by_user_id=user.id,
-            name=connection_name,
-            is_shared=False,
-            is_active=True,
-            access_manager=access_manager,
-            access_browser=access_browser,
-            server_managed=True,
-            rgw_user_uid=rgw_user_uid,
-            rgw_tenant=rgw_tenant,
-            rgw_account_id=rgw_account_id,
-            **destination.persistence_values(),
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            created_at=utcnow(),
-            updated_at=utcnow(),
-        )
-        self.db.add(connection)
-        self.db.flush()
-        refresh_connection_detected_capabilities(connection)
-        provisioning.s3_connection_id = connection.id
-        provisioning.state = "active"
-        provisioning.cleanup_error = None
-        provisioning.updated_at = utcnow()
-        self.db.commit()
-        self.db.refresh(connection)
-        return ManagedPrivateAccessResult(
-            provisioning_id=provisioning.id,
-            status="active",
-            connection=self.connections.serialize(connection),
-        )
-
-    def _activate_connection(
-        self,
-        *,
-        user: User,
-        provisioning: ManagedPrivateAccess,
-        destination: ManagedPrivateAccessDestination,
-        payload: ManagedPrivateAccessRequest,
-        access_key_id: str,
-        secret_access_key: str,
-    ) -> ManagedPrivateAccessResult:
-        result = self._create_connection(
-            user=user,
-            provisioning=provisioning,
-            destination=destination,
-            connection_name=payload.connection_name,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            access_browser=payload.access_browser,
-            access_manager=payload.access_manager,
-        )
-        self.audit.record(user, provisioning, "managed_private_access.provision.success")
-        return result
-
-    def _managed_connection_rgw_identity(
-        self,
-        provisioning: ManagedPrivateAccess,
-    ) -> tuple[str | None, str | None, str | None]:
-        user_uid = None
-        tenant = None
-        account_id = None
-        if provisioning.remote_principal_type == "iam_user":
-            if provisioning.source_context_type == "account":
-                source_account = self.db.get(S3Account, provisioning.source_context_id)
-                account_id = source_account.rgw_account_id if source_account is not None else None
-            elif provisioning.source_context_type == "connection":
-                source_connection = self.db.get(S3Connection, provisioning.source_context_id)
-                account_id = source_connection.rgw_account_id if source_connection is not None else None
-        elif provisioning.remote_principal_type == "rgw_user":
-            user_uid, tenant = extract_rgw_user_identity(
-                {"uid": provisioning.remote_principal_identifier}
-            )
-        else:
-            raise ManagedPrivateAccessError(
-                f"Unsupported remote principal type: {provisioning.remote_principal_type}"
-            )
-        return normalize_connection_rgw_identity(user_uid, tenant, account_id)
