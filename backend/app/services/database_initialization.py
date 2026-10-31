@@ -66,10 +66,10 @@ def _sqlite_foreign_key_violations(connection) -> list[tuple]:
 
 
 def _ensure_all_users_group(connection) -> None:
-    existing_system_group = connection.execute(
+    existing_system_group = connection.scalar(
         text("SELECT id FROM ui_groups WHERE system_key = :system_key"),
         {"system_key": ALL_USERS_SYSTEM_KEY},
-    ).scalar_one_or_none()
+    )
     if existing_system_group is not None:
         return
 
