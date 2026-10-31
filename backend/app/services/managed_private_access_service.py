@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import ManagedPrivateAccess, S3Account, S3Connection, S3User, User
+from app.db import ManagedPrivateAccess, S3Account, S3Connection, User
 from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
     ManagedPrivateAccessResult,
@@ -17,8 +17,10 @@ from app.models.managed_private_access import (
 )
 from app.services.resource_name_validation import validate_inline_policy_requests
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
-from app.services.audit_service import AuditService
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.managed_private_access_audit_service import (
+    ManagedPrivateAccessAuditService,
+)
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessCleanupPending,
     ManagedPrivateAccessConflict,
@@ -37,7 +39,6 @@ from app.services.managed_private_access_sources import (
     ManagedPrivateAccessSource,
     ManagedPrivateAccessSourceResolver,
 )
-from app.services.mappers.s3_connection import mask_access_key_id
 from app.services.rgw_iam import (
     RGWIAMService,
     get_iam_service,
@@ -47,7 +48,7 @@ from app.services.s3_connection_capabilities_service import (
     refresh_connection_detected_capabilities,
 )
 from app.services.s3_connections_service import S3ConnectionsService
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.s3_users_service import S3UsersService
 from app.utils.s3_connection_endpoint import resolve_connection_details
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
@@ -76,7 +77,7 @@ class ManagedPrivateAccessService:
             sources=self.sources,
         )
         self.connections = S3ConnectionsService(db)
-        self.audit = AuditService(db)
+        self.audit = ManagedPrivateAccessAuditService(db)
         self.queries = ManagedPrivateAccessQueryService(db)
 
     def provision_iam(
@@ -113,7 +114,7 @@ class ManagedPrivateAccessService:
                 secret_access_key=secret_access_key,
             )
         except ManagedPrivateAccessConflict:
-            self._record(
+            self.audit.record(
                 user,
                 provisioning,
                 "managed_private_access.provision.failure",
@@ -228,7 +229,7 @@ class ManagedPrivateAccessService:
         self.db.rollback()
         failed = self.db.get(ManagedPrivateAccess, provisioning_id)
         if failed is not None:
-            self._record(
+            self.audit.record(
                 user,
                 failed,
                 "managed_private_access.provision.failure",
@@ -281,7 +282,7 @@ class ManagedPrivateAccessService:
             domain_kinds=[domain_kind]
         )
         self.db.commit()
-        self._record(
+        self.audit.record(
             user,
             provisioning,
             "managed_private_access.delete.success",
@@ -325,7 +326,7 @@ class ManagedPrivateAccessService:
 
         self.db.delete(provisioning)
         self.db.commit()
-        self._record(
+        self.audit.record(
             user,
             provisioning,
             "managed_private_access.compensation.retry.success",
@@ -399,7 +400,7 @@ class ManagedPrivateAccessService:
         source: ManagedPrivateAccessSource,
     ) -> ManagedPrivateAccess:
         provisioning = self._claim(user, source)
-        self._record(user, provisioning, "managed_private_access.provision.start")
+        self.audit.record(user, provisioning, "managed_private_access.provision.start")
         return provisioning
 
     def _claim(
@@ -494,7 +495,7 @@ class ManagedPrivateAccessService:
             access_browser=payload.access_browser,
             access_manager=payload.access_manager,
         )
-        self._record(user, provisioning, "managed_private_access.provision.success")
+        self.audit.record(user, provisioning, "managed_private_access.provision.success")
         return result
 
     def _managed_connection_rgw_identity(
@@ -658,7 +659,7 @@ class ManagedPrivateAccessService:
             cleanup(provisioning)
         except Exception as cleanup_exc:
             cleanup_error = sanitized_error_log_detail(cleanup_exc)
-            self._record(
+            self.audit.record(
                 user,
                 provisioning,
                 "managed_private_access.compensation.failure",
@@ -671,14 +672,20 @@ class ManagedPrivateAccessService:
         provisioning.cleanup_error = failure
         provisioning.updated_at = utcnow()
         self.db.commit()
-        self._record(user, provisioning, "managed_private_access.compensation.success", status="failure", message=failure)
+        self.audit.record(
+            user,
+            provisioning,
+            "managed_private_access.compensation.success",
+            status="failure",
+            message=failure,
+        )
 
     def _set_cleanup_pending(self, provisioning, error: str, *, user: User) -> None:
         provisioning.state = "cleanup_pending"
         provisioning.cleanup_error = error
         provisioning.updated_at = utcnow()
         self.db.commit()
-        self._record(
+        self.audit.record(
             user,
             provisioning,
             "managed_private_access.cleanup_pending",
@@ -696,53 +703,6 @@ class ManagedPrivateAccessService:
         provisioning.updated_at = utcnow()
         self.db.commit()
         self.db.refresh(provisioning)
-
-    def _record(
-        self,
-        user: User,
-        provisioning: ManagedPrivateAccess,
-        action: str,
-        *,
-        status: str = "success",
-        message: str | None = None,
-        connection_id: int | None = None,
-    ) -> None:
-        self.audit.record_action(
-            user=user,
-            scope="manager",
-            action=action,
-            entity_type="managed_private_access",
-            entity_id=str(provisioning.id),
-            execution_context=self._audit_execution_context(provisioning),
-            status=status,
-            message=message,
-            metadata={
-                "source_context_type": provisioning.source_context_type,
-                "source_context_id": provisioning.source_context_id,
-                "remote_principal_type": provisioning.remote_principal_type,
-                "remote_principal_identifier": provisioning.remote_principal_identifier,
-                "iam_username": provisioning.iam_username,
-                "access_key_id": mask_access_key_id(provisioning.access_key_id),
-                "connection_id": connection_id or provisioning.s3_connection_id,
-                "provisioning_state": provisioning.state,
-            },
-        )
-
-    def _audit_execution_context(
-        self,
-        provisioning: ManagedPrivateAccess,
-    ) -> S3ExecutionContext | None:
-        source_id = provisioning.source_context_id
-        if provisioning.source_context_type == "account":
-            account = self.db.get(S3Account, source_id)
-            return S3ExecutionContext.from_account(account) if account is not None else None
-        if provisioning.source_context_type == "s3_user":
-            s3_user = self.db.get(S3User, source_id)
-            return S3ExecutionContext.from_s3_user(s3_user) if s3_user is not None else None
-        if provisioning.source_context_type == "connection":
-            connection = self.db.get(S3Connection, source_id)
-            return S3ExecutionContext.from_connection(connection) if connection is not None else None
-        return None
 
     @staticmethod
     def _string_list(value: object) -> list[str]:
