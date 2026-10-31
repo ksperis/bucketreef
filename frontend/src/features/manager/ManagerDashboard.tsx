@@ -56,7 +56,7 @@ import {
   uiMutedTextClass,
 } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
-import { formatLocalDateTime } from "../../utils/dateTime";
+import { formatLocalDateTime, getBackendElapsedTime } from "../../utils/dateTime";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
 import {
   BellIcon,
@@ -106,16 +106,12 @@ function percent(used?: number | null, quota?: number | null): number | null {
 }
 
 function formatRelativeTime(value: string | null | undefined, text: ManagerTextFunction, now = Date.now()): string {
-  if (!value) return "";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "";
-  const diffMs = Math.max(0, now - parsed.getTime());
-  const minutes = Math.floor(diffMs / 60000);
+  const elapsed = getBackendElapsedTime(value, now);
+  if (!elapsed) return "";
+  const { minutes, hours, days } = elapsed;
   if (minutes < 1) return text("just now");
   if (minutes < 60) return text("{count}m ago", { count: minutes });
-  const hours = Math.floor(minutes / 60);
   if (hours < 24) return text("{count}h ago", { count: hours });
-  const days = Math.floor(hours / 24);
   return text("{count}d ago", { count: days });
 }
 
