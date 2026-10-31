@@ -174,6 +174,45 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             return discovered_total if discovered_total > 0 else None
         return max(initial_total_entries_estimate, discovered_total)
 
+    def _build_progress(
+        self,
+        *,
+        stage: BucketPurgeStage,
+        target: BucketPurgeResolvedTarget | None,
+        total_buckets: int,
+        completed_buckets: int,
+        totals: _BucketPurgeTotals,
+        initial_total_entries_estimate: int | None,
+        total_entries_final: bool,
+        bucket_deleted: bool,
+        message: str | None,
+    ) -> BucketPurgeProgress:
+        return BucketPurgeProgress(
+            request_id=None,
+            stage=stage,
+            bucket_name=target.bucket_name if target else None,
+            context_id=target.context_id if target else None,
+            context_name=target.context_name if target else None,
+            total_buckets=total_buckets,
+            completed_buckets=completed_buckets,
+            listed_objects=totals.listed_objects,
+            listed_versions=totals.listed_versions,
+            deleted_objects=totals.deleted_objects,
+            deleted_versions=totals.deleted_versions,
+            total_entries_estimate=self._progress_total_entries_estimate(
+                initial_total_entries_estimate,
+                listed_objects=totals.listed_objects,
+                listed_versions=totals.listed_versions,
+                deleted_objects=totals.deleted_objects,
+                deleted_versions=totals.deleted_versions,
+                total_entries_final=total_entries_final,
+            ),
+            total_entries_final=total_entries_final,
+            failed_count=totals.failed_count,
+            bucket_deleted=bucket_deleted,
+            message=message,
+        )
+
     def run(
         self,
         targets: list[BucketPurgeResolvedTarget],
@@ -190,21 +229,14 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         emit = progress_callback or _ignore_progress
 
         emit(
-            BucketPurgeProgress(
-                request_id=None,
+            self._build_progress(
                 stage="prepare",
-                bucket_name=None,
-                context_id=None,
-                context_name=None,
+                target=None,
                 total_buckets=len(targets),
                 completed_buckets=0,
-                listed_objects=0,
-                listed_versions=0,
-                deleted_objects=0,
-                deleted_versions=0,
-                total_entries_estimate=initial_total_entries_estimate,
+                totals=totals,
+                initial_total_entries_estimate=initial_total_entries_estimate,
                 total_entries_final=False,
-                failed_count=0,
                 bucket_deleted=False,
                 message="Preparing bucket purge...",
             )
@@ -226,31 +258,16 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             )
             bucket_results.append(bucket_result)
             totals.add_bucket_result(bucket_result)
-            total_entries_estimate = self._progress_total_entries_estimate(
-                initial_total_entries_estimate,
-                listed_objects=totals.listed_objects,
-                listed_versions=totals.listed_versions,
-                deleted_objects=totals.deleted_objects,
-                deleted_versions=totals.deleted_versions,
-                total_entries_final=index == len(targets) - 1 and bucket_result.status != "failed",
-            )
             total_entries_final = index == len(targets) - 1 and bucket_result.status != "failed"
             emit(
-                BucketPurgeProgress(
-                    request_id=None,
+                self._build_progress(
                     stage="completed",
-                    bucket_name=target.bucket_name,
-                    context_id=target.context_id,
-                    context_name=target.context_name,
+                    target=target,
                     total_buckets=len(targets),
                     completed_buckets=index + 1,
-                    listed_objects=totals.listed_objects,
-                    listed_versions=totals.listed_versions,
-                    deleted_objects=totals.deleted_objects,
-                    deleted_versions=totals.deleted_versions,
-                    total_entries_estimate=total_entries_estimate,
+                    totals=totals,
+                    initial_total_entries_estimate=initial_total_entries_estimate,
                     total_entries_final=total_entries_final,
-                    failed_count=totals.failed_count,
                     bucket_deleted=False,
                     message=f"Completed purge for {target.bucket_name}.",
                 )
@@ -292,21 +309,14 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         emit = progress_callback or _ignore_progress
 
         emit(
-            BucketPurgeProgress(
-                request_id=None,
+            self._build_progress(
                 stage="prepare",
-                bucket_name=target.bucket_name,
-                context_id=target.context_id,
-                context_name=target.context_name,
+                target=target,
                 total_buckets=1,
                 completed_buckets=0,
-                listed_objects=0,
-                listed_versions=0,
-                deleted_objects=0,
-                deleted_versions=0,
-                total_entries_estimate=initial_total_entries_estimate,
+                totals=_BucketPurgeTotals(),
+                initial_total_entries_estimate=initial_total_entries_estimate,
                 total_entries_final=False,
-                failed_count=0,
                 bucket_deleted=False,
                 message="Preparing bucket deletion...",
             )
@@ -352,37 +362,6 @@ class BucketPurgeService(LongRunningS3ClientMixin):
     ) -> BucketPurgeBucketResult:
         started = monotonic()
 
-        def low_progress(progress: s3_deletion.BucketContentPurgeProgress) -> None:
-            stage = _normalize_progress_stage(progress.stage)
-            current = base_totals.with_progress(progress)
-            progress_callback(
-                BucketPurgeProgress(
-                    request_id=None,
-                    stage=stage,
-                    bucket_name=target.bucket_name,
-                    context_id=target.context_id,
-                    context_name=target.context_name,
-                    total_buckets=total_buckets,
-                    completed_buckets=completed_buckets,
-                    listed_objects=current.listed_objects,
-                    listed_versions=current.listed_versions,
-                    deleted_objects=current.deleted_objects,
-                    deleted_versions=current.deleted_versions,
-                    total_entries_estimate=self._progress_total_entries_estimate(
-                        total_entries_estimate,
-                        listed_objects=current.listed_objects,
-                        listed_versions=current.listed_versions,
-                        deleted_objects=current.deleted_objects,
-                        deleted_versions=current.deleted_versions,
-                        total_entries_final=is_last_bucket and stage == "completed",
-                    ),
-                    total_entries_final=is_last_bucket and stage == "completed",
-                    failed_count=current.failed_count,
-                    bucket_deleted=False,
-                    message=progress.message,
-                )
-            )
-
         try:
             with self._open_client(target.context, bucket_name=target.s3_bucket_name) as client:
                 result = s3_deletion.purge_bucket_contents(
@@ -391,7 +370,16 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                     parallelism=options.parallelism,
                     include_versions=options.include_versions,
                     individual_deletes=options.individual_deletes,
-                    progress_callback=low_progress,
+                    progress_callback=lambda progress: self._emit_bucket_purge_progress(
+                        target=target,
+                        total_buckets=total_buckets,
+                        completed_buckets=completed_buckets,
+                        base_totals=base_totals,
+                        initial_total_entries_estimate=total_entries_estimate,
+                        is_last_bucket=is_last_bucket,
+                        progress_callback=progress_callback,
+                        progress=progress,
+                    ),
                     cancel_check=cancel_check,
                 )
             status: BucketPurgeStatus = "completed" if result.failed_count == 0 else "completed_with_errors"
@@ -435,6 +423,34 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                     )
                 ],
             )
+
+    def _emit_bucket_purge_progress(
+        self,
+        *,
+        target: BucketPurgeResolvedTarget,
+        total_buckets: int,
+        completed_buckets: int,
+        base_totals: _BucketPurgeTotals,
+        initial_total_entries_estimate: int | None,
+        is_last_bucket: bool,
+        progress_callback: ProgressCallback,
+        progress: s3_deletion.BucketContentPurgeProgress,
+    ) -> None:
+        stage = _normalize_progress_stage(progress.stage)
+        totals = base_totals.with_progress(progress)
+        progress_callback(
+            self._build_progress(
+                stage=stage,
+                target=target,
+                total_buckets=total_buckets,
+                completed_buckets=completed_buckets,
+                totals=totals,
+                initial_total_entries_estimate=initial_total_entries_estimate,
+                total_entries_final=is_last_bucket and stage == "completed",
+                bucket_deleted=False,
+                message=progress.message,
+            )
+        )
 
     def _run_bucket_delete_with_purge(
         self,
@@ -509,29 +525,22 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         progress: s3_deletion.BucketContentPurgeProgress,
     ) -> None:
         stage = _normalize_progress_stage(progress.stage)
+        totals = _BucketPurgeTotals(
+            listed_objects=progress.listed_objects,
+            listed_versions=progress.listed_versions,
+            deleted_objects=progress.deleted_objects,
+            deleted_versions=progress.deleted_versions,
+            failed_count=progress.failed_count,
+        )
         state.progress_callback(
-            BucketPurgeProgress(
-                request_id=None,
+            self._build_progress(
                 stage=stage,
-                bucket_name=state.target.bucket_name,
-                context_id=state.target.context_id,
-                context_name=state.target.context_name,
+                target=state.target,
                 total_buckets=1,
                 completed_buckets=0,
-                listed_objects=progress.listed_objects,
-                listed_versions=progress.listed_versions,
-                deleted_objects=progress.deleted_objects,
-                deleted_versions=progress.deleted_versions,
-                total_entries_estimate=self._progress_total_entries_estimate(
-                    state.total_entries_estimate,
-                    listed_objects=progress.listed_objects,
-                    listed_versions=progress.listed_versions,
-                    deleted_objects=progress.deleted_objects,
-                    deleted_versions=progress.deleted_versions,
-                    total_entries_final=stage == "completed",
-                ),
+                totals=totals,
+                initial_total_entries_estimate=state.total_entries_estimate,
                 total_entries_final=stage == "completed",
-                failed_count=progress.failed_count,
                 bucket_deleted=False,
                 message=progress.message,
             )
@@ -586,29 +595,21 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         bucket_deleted: bool,
         message: str,
     ) -> None:
+        totals = _BucketPurgeTotals(
+            listed_objects=state.listed_objects,
+            listed_versions=state.listed_versions,
+            deleted_objects=state.deleted_objects,
+            deleted_versions=state.deleted_versions,
+        )
         state.progress_callback(
-            BucketPurgeProgress(
-                request_id=None,
+            self._build_progress(
                 stage=stage,
-                bucket_name=state.target.bucket_name,
-                context_id=state.target.context_id,
-                context_name=state.target.context_name,
+                target=state.target,
                 total_buckets=1,
                 completed_buckets=completed_buckets,
-                listed_objects=state.listed_objects,
-                listed_versions=state.listed_versions,
-                deleted_objects=state.deleted_objects,
-                deleted_versions=state.deleted_versions,
-                total_entries_estimate=self._progress_total_entries_estimate(
-                    state.total_entries_estimate,
-                    listed_objects=state.listed_objects,
-                    listed_versions=state.listed_versions,
-                    deleted_objects=state.deleted_objects,
-                    deleted_versions=state.deleted_versions,
-                    total_entries_final=True,
-                ),
+                totals=totals,
+                initial_total_entries_estimate=state.total_entries_estimate,
                 total_entries_final=True,
-                failed_count=0,
                 bucket_deleted=bucket_deleted,
                 message=message,
             )
