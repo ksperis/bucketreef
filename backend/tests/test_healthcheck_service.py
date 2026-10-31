@@ -21,6 +21,7 @@ from app.services.healthcheck_common import (
     DEFAULT_SCOPE,
     EndpointCheckTarget,
     HealthCheckProfile,
+    HealthCheckResult,
     HealthWindow,
 )
 from app.services.healthcheck_persistence_service import HealthCheckPersistenceService
@@ -29,11 +30,16 @@ from app.services.healthcheck_service import HealthCheckService
 from app.utils.time import utcnow
 
 
-def _build_target(*, verify_tls: bool, force_path_style: bool = False) -> EndpointCheckTarget:
+def _build_target(
+    *,
+    verify_tls: bool,
+    force_path_style: bool = False,
+    endpoint_id: int = 1,
+) -> EndpointCheckTarget:
     return EndpointCheckTarget(
-        endpoint_id=1,
-        name="endpoint-1",
-        endpoint_url="https://endpoint.example.test",
+        endpoint_id=endpoint_id,
+        name=f"endpoint-{endpoint_id}",
+        endpoint_url=f"https://endpoint-{endpoint_id}.example.test",
         force_path_style=force_path_style,
         verify_tls=verify_tls,
         region="us-east-1",
@@ -152,6 +158,46 @@ def test_s3_healthcheck_honors_endpoint_force_path_style(monkeypatch):
     assert captured["force_path_style"] is True
     assert result.status == HealthCheckStatus.UP
     assert result.error_message is None
+
+
+def test_run_endpoint_checks_converts_worker_failures_and_sorts_results(monkeypatch):
+    service = HealthCheckService(db=None)
+    targets = [
+        _build_target(verify_tls=True, endpoint_id=2),
+        _build_target(verify_tls=True, endpoint_id=1),
+    ]
+    profiles = {
+        1: HealthCheckProfile(mode="http", target_url=targets[1].endpoint_url),
+        2: HealthCheckProfile(mode="http", target_url=targets[0].endpoint_url),
+    }
+
+    def fake_check(target, *, profile, baseline_latency_ms):
+        assert profile is profiles[target.endpoint_id]
+        assert baseline_latency_ms is None
+        if target.endpoint_id == 1:
+            raise RuntimeError("worker exploded")
+        return HealthCheckResult(
+            endpoint_id=target.endpoint_id,
+            status=HealthCheckStatus.UP,
+            checked_at=utcnow(),
+            latency_ms=10,
+            http_status=200,
+            error_message=None,
+            check_mode=profile.mode,
+        )
+
+    monkeypatch.setattr(service, "_check_endpoint", fake_check)
+
+    results = service._run_endpoint_checks(
+        targets,
+        profiles=profiles,
+        baselines={1: None, 2: None},
+    )
+
+    assert [result.endpoint_id for result in results] == [1, 2]
+    assert results[0].status == HealthCheckStatus.DOWN
+    assert results[0].error_message == "Healthcheck worker failure: worker exploded"
+    assert results[1].status == HealthCheckStatus.UP
 
 
 def test_healthcheck_classifies_http_server_error_as_degraded():
