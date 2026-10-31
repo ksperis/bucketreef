@@ -9,6 +9,7 @@ import {
 } from "../../../components/settings/SettingsControls";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
+import { asRecord } from "../../../utils/record";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import {
   BucketFeatureEditorEmpty,
@@ -35,12 +36,6 @@ type BucketEncryptionFeatureProps = {
   controller: BucketEncryptionController;
   enabled: boolean;
 };
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
 
 function ruleAlgorithm(rule: EncryptionRuleRecord): string {
   const defaults = asRecord(rule.ApplyServerSideEncryptionByDefault);

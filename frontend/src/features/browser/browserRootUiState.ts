@@ -9,6 +9,7 @@ import {
   writeClientJson,
   writeSessionJsonToKey,
 } from "../../utils/clientStorage";
+import { isRecord } from "../../utils/record";
 import type { BrowserDensity } from "./browserActions";
 
 export const BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY =
@@ -32,9 +33,6 @@ type BrowserRootUiState = {
   objectColumnWidths: Record<string, number>;
   contextSelections: Record<string, BrowserRootUiContextSelection>;
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
 const clampPanelWidth = (
   value: unknown,

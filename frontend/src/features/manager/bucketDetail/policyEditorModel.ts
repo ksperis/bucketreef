@@ -4,6 +4,7 @@
  */
 
 import { cloneBucketJsonValue } from "./bucketFeatureState";
+import { asRecord } from "../../../utils/record";
 
 export type PolicyDocumentRecord = Record<string, unknown>;
 export type PolicyStatementRecord = Record<string, unknown>;
@@ -52,11 +53,6 @@ const supportedStatementKeys = new Set([
   "Resource",
   "Condition",
 ]);
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
 
 function isStringListValue(value: unknown): boolean {
   return typeof value === "string" || (

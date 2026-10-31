@@ -8,6 +8,7 @@ import {
   type GraphicalReplicationRule,
   type ReplicationRuleStatus,
 } from "../bucketReplication";
+import { asRecord } from "../../../utils/record";
 import { cloneBucketJsonValue } from "./bucketFeatureState";
 
 type ReplicationRuleRecord = Record<string, unknown>;
@@ -22,13 +23,6 @@ const allowedRuleKeys = new Set([
   "Destination",
   "DeleteMarkerReplication",
 ]);
-
-function asRecord(value: unknown): ReplicationRuleRecord | null {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  return value as ReplicationRuleRecord;
-}
 
 function hasOwn(value: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);

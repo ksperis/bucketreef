@@ -6,6 +6,7 @@ import type {
   BucketLoggingConfiguration,
   BucketPublicAccessBlock,
 } from "../../../api/bucketContracts";
+import { isRecord } from "../../../utils/record";
 
 export type BucketFeatureMode = "graphical" | "json" | "hybrid";
 export type BucketFeatureVisualState = "neutral" | "configured" | "unsaved" | "disabled";
@@ -19,10 +20,6 @@ type JsonNormalizer = (value: unknown) => unknown;
 
 const INVALID_JSON_SIGNATURE_PREFIX = "__INVALID_JSON__";
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function normalizeString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -31,7 +28,7 @@ function normalizeBucketJsonValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((entry) => normalizeBucketJsonValue(entry));
   }
-  if (isPlainObject(value)) {
+  if (isRecord(value)) {
     const sortedEntries = Object.entries(value)
       .map(([key, entry]) => [key, normalizeBucketJsonValue(entry)] as const)
       .sort(([a], [b]) => a.localeCompare(b));
@@ -95,7 +92,7 @@ export function normalizeAccessLoggingDraft(config: BucketLoggingConfiguration |
 }
 
 export function normalizeNotificationConfiguration(configuration: unknown): Record<string, unknown> {
-  if (!isPlainObject(configuration)) return {};
+  if (!isRecord(configuration)) return {};
   const normalized: Record<string, unknown> = {};
 
   Object.entries(configuration).forEach(([key, value]) => {
@@ -106,9 +103,9 @@ export function normalizeNotificationConfiguration(configuration: unknown): Reco
       return;
     }
 
-    if (isPlainObject(value)) {
+    if (isRecord(value)) {
       const normalizedObject = normalizeBucketJsonValue(value);
-      if (isPlainObject(normalizedObject) && Object.keys(normalizedObject).length === 0) {
+      if (isRecord(normalizedObject) && Object.keys(normalizedObject).length === 0) {
         return;
       }
       normalized[key] = normalizedObject;
