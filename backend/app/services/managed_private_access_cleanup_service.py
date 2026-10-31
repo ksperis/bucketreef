@@ -137,7 +137,72 @@ class ManagedPrivateAccessCleanupService:
             "managed_private_access.compensation.retry.success",
         )
 
-    def compensate_iam(
+    def handle_iam_provisioning_failure(
+        self,
+        *,
+        user: User,
+        provisioning_id: int,
+        iam: RGWIAMService,
+        exc: Exception,
+    ) -> None:
+        self._handle_provisioning_failure(
+            user=user,
+            provisioning_id=provisioning_id,
+            exc=exc,
+            compensate=lambda failure: self._compensate_iam(
+                provisioning_id,
+                iam,
+                failure=failure,
+                user=user,
+            ),
+        )
+
+    def handle_rgw_user_provisioning_failure(
+        self,
+        *,
+        user: User,
+        provisioning_id: int,
+        exc: Exception,
+    ) -> None:
+        self._handle_provisioning_failure(
+            user=user,
+            provisioning_id=provisioning_id,
+            exc=exc,
+            compensate=lambda failure: self._compensate_rgw_user(
+                provisioning_id,
+                failure=failure,
+                user=user,
+            ),
+        )
+
+    def _handle_provisioning_failure(
+        self,
+        *,
+        user: User,
+        provisioning_id: int,
+        exc: Exception,
+        compensate: Callable[[str], None],
+    ) -> None:
+        safe_error = sanitized_error_log_detail(exc)
+        self.db.rollback()
+        failed = self.db.get(ManagedPrivateAccess, provisioning_id)
+        if failed is not None:
+            self.audit.record(
+                user,
+                failed,
+                "managed_private_access.provision.failure",
+                status="failure",
+                message=safe_error,
+            )
+        compensate(safe_error)
+        pending = self.db.get(ManagedPrivateAccess, provisioning_id)
+        if pending is not None and pending.state == "cleanup_pending":
+            raise ManagedPrivateAccessCleanupPending(
+                pending.id,
+                "Provisioning failed and remote cleanup requires remediation",
+            ) from exc
+
+    def _compensate_iam(
         self,
         provisioning_id: int,
         iam: RGWIAMService,
@@ -152,7 +217,7 @@ class ManagedPrivateAccessCleanupService:
             user=user,
         )
 
-    def compensate_rgw_user(
+    def _compensate_rgw_user(
         self,
         provisioning_id: int,
         *,

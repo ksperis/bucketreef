@@ -3,11 +3,9 @@
 
 from __future__ import annotations
 
-from typing import Callable
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import ManagedPrivateAccess, User
 from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
@@ -29,7 +27,6 @@ from app.services.managed_private_access_credential_service import (
     ManagedPrivateAccessCredentialService,
 )
 from app.services.managed_private_access_errors import (
-    ManagedPrivateAccessCleanupPending,
     ManagedPrivateAccessConflict,
     ManagedPrivateAccessError,
 )
@@ -132,16 +129,11 @@ class ManagedPrivateAccessService:
             )
             raise
         except Exception as exc:
-            self._handle_provisioning_failure(
+            self.cleanup.handle_iam_provisioning_failure(
                 user=user,
                 provisioning_id=provisioning.id,
+                iam=iam,
                 exc=exc,
-                compensate=lambda failure: self.cleanup.compensate_iam(
-                    provisioning.id,
-                    iam,
-                    failure=failure,
-                    user=user,
-                ),
             )
             raise ManagedPrivateAccessError("Unable to create managed private access") from exc
 
@@ -174,44 +166,12 @@ class ManagedPrivateAccessService:
                 secret_access_key=secret_access_key,
             )
         except Exception as exc:
-            self._handle_provisioning_failure(
+            self.cleanup.handle_rgw_user_provisioning_failure(
                 user=user,
                 provisioning_id=provisioning.id,
                 exc=exc,
-                compensate=lambda failure: self.cleanup.compensate_rgw_user(
-                    provisioning.id,
-                    failure=failure,
-                    user=user,
-                ),
             )
             raise ManagedPrivateAccessError("Unable to create managed private access") from exc
-
-    def _handle_provisioning_failure(
-        self,
-        *,
-        user: User,
-        provisioning_id: int,
-        exc: Exception,
-        compensate: Callable[[str], None],
-    ) -> None:
-        safe_error = sanitized_error_log_detail(exc)
-        self.db.rollback()
-        failed = self.db.get(ManagedPrivateAccess, provisioning_id)
-        if failed is not None:
-            self.audit.record(
-                user,
-                failed,
-                "managed_private_access.provision.failure",
-                status="failure",
-                message=safe_error,
-            )
-        compensate(safe_error)
-        pending = self.db.get(ManagedPrivateAccess, provisioning_id)
-        if pending is not None and pending.state == "cleanup_pending":
-            raise ManagedPrivateAccessCleanupPending(
-                pending.id,
-                "Provisioning failed and remote cleanup requires remediation",
-            ) from exc
 
     def _existing_result_for_source(
         self,
