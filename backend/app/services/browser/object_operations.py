@@ -25,6 +25,7 @@ from app.models.browser import (
 from app.services.s3_deletion import delete_objects
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.services.keystone_client import OpenStackError
+from app.utils.time import utcnow
 
 
 def require_multipart_write_access(context: S3ExecutionTarget, bucket_name: str) -> None:
@@ -36,6 +37,24 @@ def require_multipart_write_access(context: S3ExecutionTarget, bucket_name: str)
 
 
 class BrowserObjectOperationsMixin:
+    @staticmethod
+    def _presign_expiration(
+        context: S3ExecutionTarget,
+        requested_expiration: Optional[int],
+    ) -> int:
+        expires = requested_expiration or 900
+        if not isinstance(context, S3ExecutionContext):
+            return expires
+        deadline = context.credential_expires_at
+        if deadline is None:
+            return expires
+        remaining = int((deadline - utcnow()).total_seconds())
+        if remaining < 1:
+            raise OpenStackError("reauthentication_required", "OpenStack access expired; reconnect")
+        if context.access_validator is not None:
+            context.access_validator()
+        return min(expires, remaining)
+
     @staticmethod
     def _object_identity_kwargs(
         bucket_name: str,
@@ -192,16 +211,7 @@ class BrowserObjectOperationsMixin:
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> PresignedUrl:
         client = self._client(context)
-        expires = payload.expires_in or 900
-        deadline = getattr(context, "credential_expires_at", None)
-        if deadline is not None:
-            from app.utils.time import utcnow
-            remaining = int((deadline - utcnow()).total_seconds())
-            if remaining < 1:
-                raise OpenStackError("reauthentication_required", "OpenStack access expired; reconnect")
-            expires = min(expires, remaining)
-            if context.access_validator is not None:
-                context.access_validator()
+        expires = self._presign_expiration(context, payload.expires_in)
         params = {"Bucket": bucket_name, "Key": payload.key}
         params.update(self._sse_customer_params(sse_customer))
         headers: dict[str, str] = self._sse_customer_headers(sse_customer)
@@ -400,16 +410,7 @@ class BrowserObjectOperationsMixin:
             raise RuntimeError("Upload id is required to presign a part")
         require_multipart_write_access(context, bucket_name)
         client = self._client(context)
-        expires = payload.expires_in or 900
-        deadline = getattr(context, "credential_expires_at", None)
-        if deadline is not None:
-            from app.utils.time import utcnow
-            remaining = int((deadline - utcnow()).total_seconds())
-            if remaining < 1:
-                raise OpenStackError("reauthentication_required", "OpenStack access expired; reconnect")
-            expires = min(expires, remaining)
-            if context.access_validator is not None:
-                context.access_validator()
+        expires = self._presign_expiration(context, payload.expires_in)
         params = {
             "Bucket": bucket_name,
             "Key": payload.key,
