@@ -46,13 +46,10 @@ from app.services.portal_role_sync import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.rgw_account_root_service import RgwAccountRootService
-from app.services.rgw_quota_update import (
-    execute_rgw_quota_update,
-    prepare_rgw_quota_update,
-)
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.s3_account_deletion_service import S3AccountDeletionService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
+from app.services.s3_account_quota_service import S3AccountQuotaService
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.sqlalchemy_pagination import paginate_scalars
@@ -88,6 +85,7 @@ class S3AccountsService:
         self.associations = S3AccountAssociationsService(db)
         self.metrics = S3AccountMetricsService()
         self.rgw_context = S3AccountRgwContextService(db)
+        self.quota = S3AccountQuotaService(self.rgw_context)
         self.deletion = S3AccountDeletionService(
             db,
             metrics=self.metrics,
@@ -127,28 +125,6 @@ class S3AccountsService:
             query = query.where(S3Account.id != exclude_account_id)
         if self.db.scalar(query.limit(1)) is not None:
             raise ValueError(error_message)
-
-    def _apply_account_quota(
-        self,
-        account: S3Account,
-        max_size_gb: Optional[float],
-        max_objects: Optional[int],
-        max_size_unit: Optional[str] = None,
-    ) -> None:
-        from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
-        require_endpoint_permissions(account.storage_endpoint, "accounts_write")
-        admin = self.rgw_context.admin_for_account(account)
-        quota = prepare_rgw_quota_update(max_size_gb, max_objects, max_size_unit)
-        execute_rgw_quota_update(
-            lambda: admin.set_account_quota(
-                account_id=account.rgw_account_id,
-                max_size_bytes=quota.max_size_bytes,
-                max_objects=quota.max_objects,
-                enabled=quota.enabled,
-            ),
-            subject="account",
-            identifier=account.rgw_account_id,
-        )
 
     def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
         return self.metrics.get_usage(account)
@@ -567,7 +543,7 @@ class S3AccountsService:
         self.db.flush()
         self.tags.replace_account_tags(account, payload.tags)
         if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
-            self._apply_account_quota(
+            self.quota.update(
                 account,
                 payload.quota_max_size_gb,
                 payload.quota_max_objects,
@@ -747,7 +723,7 @@ class S3AccountsService:
         if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
             quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None
             if quota_requested:
-                self._apply_account_quota(
+                self.quota.update(
                     account,
                     payload.quota_max_size_gb,
                     payload.quota_max_objects,
@@ -756,7 +732,7 @@ class S3AccountsService:
             else:
                 endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
                 if endpoint.provider == StorageProvider.CEPH.value and resolve_feature_flags(endpoint).admin_enabled:
-                    self._apply_account_quota(
+                    self.quota.update(
                         account,
                         payload.quota_max_size_gb,
                         payload.quota_max_objects,
