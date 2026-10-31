@@ -39,6 +39,10 @@ class BucketIntegrityCheckCancelled(RuntimeError):
     pass
 
 
+def _ignore_progress(_: BucketIntegrityCheckProgress) -> None:
+    pass
+
+
 class _BucketProgressEmitter(Protocol):
     def __call__(
         self,
@@ -119,6 +123,20 @@ class _BucketCheckState:
             )
 
 
+@dataclass
+class _IntegrityTotals:
+    listed_count: int = 0
+    checked_count: int = 0
+    failed_count: int = 0
+    bytes_read: int = 0
+
+    def add_bucket_result(self, result: BucketIntegrityBucketResult) -> None:
+        self.listed_count += result.listed_count
+        self.checked_count += result.checked_count
+        self.failed_count += result.failed_count
+        self.bytes_read += result.bytes_read
+
+
 def _object_request_kwargs(bucket_name: str, obj: _ObjectRef) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"Bucket": bucket_name, "Key": obj.key}
     if obj.version_id:
@@ -150,6 +168,31 @@ def _listed_object_ref(
 
 class BucketIntegrityCheckService(LongRunningS3ClientMixin):
     s3_user_agent_extra = "bucketreef-bucket-integrity"
+
+    @staticmethod
+    def _build_progress(
+        *,
+        stage: BucketIntegrityProgressStage,
+        target: BucketIntegrityResolvedTarget | None,
+        total_buckets: int,
+        completed_buckets: int,
+        counts: _BucketCheckState | _IntegrityTotals,
+        message: str | None,
+    ) -> BucketIntegrityCheckProgress:
+        return BucketIntegrityCheckProgress(
+            request_id=None,
+            stage=stage,
+            bucket_name=target.bucket_name if target else None,
+            context_id=target.context_id if target else None,
+            context_name=target.context_name if target else None,
+            total_buckets=total_buckets,
+            completed_buckets=completed_buckets,
+            listed_count=counts.listed_count,
+            checked_count=counts.checked_count,
+            failed_count=counts.failed_count,
+            bytes_read=counts.bytes_read,
+            message=message,
+        )
 
     def _iter_objects(
         self,
@@ -308,18 +351,12 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             return
         state.last_progress_at = now
         progress_callback(
-            BucketIntegrityCheckProgress(
-                request_id=None,
+            BucketIntegrityCheckService._build_progress(
                 stage=stage,
-                bucket_name=target.bucket_name,
-                context_id=target.context_id,
-                context_name=target.context_name,
+                target=target,
                 total_buckets=total_buckets,
                 completed_buckets=completed_buckets,
-                listed_count=state.listed_count,
-                checked_count=state.checked_count,
-                failed_count=state.failed_count,
-                bytes_read=state.bytes_read,
+                counts=state,
                 message=message,
             )
         )
@@ -334,29 +371,17 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
     ) -> BucketIntegrityCheckResult:
         started_at = datetime.now(timezone.utc)
         bucket_results: list[BucketIntegrityBucketResult] = []
-        total_listed = 0
-        total_checked = 0
-        total_failed = 0
-        total_bytes = 0
+        totals = _IntegrityTotals()
         max_bytes = options.max_bytes_per_object
-
-        def emit(progress: BucketIntegrityCheckProgress) -> None:
-            if progress_callback:
-                progress_callback(progress)
+        emit = progress_callback or _ignore_progress
 
         emit(
-            BucketIntegrityCheckProgress(
-                request_id=None,
+            self._build_progress(
                 stage="prepare",
-                bucket_name=None,
-                context_id=None,
-                context_name=None,
+                target=None,
                 total_buckets=len(targets),
                 completed_buckets=0,
-                listed_count=0,
-                checked_count=0,
-                failed_count=0,
-                bytes_read=0,
+                counts=totals,
                 message="Preparing bucket integrity check...",
             )
         )
@@ -374,23 +399,14 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
                 cancel_check=cancel_check,
             )
             bucket_results.append(bucket_result)
-            total_listed += bucket_result.listed_count
-            total_checked += bucket_result.checked_count
-            total_failed += bucket_result.failed_count
-            total_bytes += bucket_result.bytes_read
+            totals.add_bucket_result(bucket_result)
             emit(
-                BucketIntegrityCheckProgress(
-                    request_id=None,
+                self._build_progress(
                     stage="completed",
-                    bucket_name=target.bucket_name,
-                    context_id=target.context_id,
-                    context_name=target.context_name,
+                    target=target,
                     total_buckets=len(targets),
                     completed_buckets=index + 1,
-                    listed_count=total_listed,
-                    checked_count=total_checked,
-                    failed_count=total_failed,
-                    bytes_read=total_bytes,
+                    counts=totals,
                     message=f"Completed {target.bucket_name}.",
                 )
             )
@@ -398,7 +414,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
         status = "passed"
         if bucket_results and all(item.status == "failed" for item in bucket_results):
             status = "failed"
-        elif total_failed > 0 or any(item.status != "passed" for item in bucket_results):
+        elif totals.failed_count > 0 or any(item.status != "passed" for item in bucket_results):
             status = "completed_with_errors"
 
         finished_at = datetime.now(timezone.utc)
@@ -406,10 +422,10 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             status=status,
             total_buckets=len(targets),
             completed_buckets=len(bucket_results),
-            listed_count=total_listed,
-            checked_count=total_checked,
-            failed_count=total_failed,
-            bytes_read=total_bytes,
+            listed_count=totals.listed_count,
+            checked_count=totals.checked_count,
+            failed_count=totals.failed_count,
+            bytes_read=totals.bytes_read,
             started_at=started_at,
             finished_at=finished_at,
             buckets=bucket_results,
