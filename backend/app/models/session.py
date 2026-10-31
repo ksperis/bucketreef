@@ -3,24 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import Field, field_validator
+from pydantic import BeforeValidator, Field
 
 from app.models.base import ApiModel
 from app.db import UserRole
 from app.utils.s3_endpoint import normalize_s3_endpoint
 
+NormalizedS3Endpoint = Annotated[Optional[str], BeforeValidator(normalize_s3_endpoint)]
+
 
 class S3KeyLogin(ApiModel):
     access_key: str = Field(min_length=1)
     secret_key: str = Field(min_length=1)
-    endpoint_url: Optional[str] = None
-
-    @field_validator("endpoint_url", mode="before")
-    @classmethod
-    def normalize_endpoint(cls, value: Optional[str]) -> Optional[str]:
-        return normalize_s3_endpoint(value)
+    endpoint_url: NormalizedS3Endpoint = None
 
 
 class SessionCapabilities(ApiModel):
@@ -28,12 +25,7 @@ class SessionCapabilities(ApiModel):
     can_manage_buckets: bool = True
     can_view_traffic: bool = False
     access_browser: bool = True
-    endpoint_url: Optional[str] = None
-
-    @field_validator("endpoint_url", mode="before")
-    @classmethod
-    def normalize_capability_endpoint(cls, value: Optional[str]) -> Optional[str]:
-        return normalize_s3_endpoint(value)
+    endpoint_url: NormalizedS3Endpoint = None
 
 
 class SessionDescriptor(ApiModel):
