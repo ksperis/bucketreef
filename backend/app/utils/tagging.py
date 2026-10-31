@@ -59,30 +59,41 @@ def build_tag_label_key(label: str) -> str:
     return cleaned.casefold()
 
 
-def normalize_tag_color_key(value: object) -> str:
+def _normalize_tag_choice(
+    value: object,
+    *,
+    default: str,
+    allowed: tuple[str, ...],
+    error_message: str,
+) -> str:
     if value is None:
-        return DEFAULT_TAG_COLOR_KEY
+        return default
     if not isinstance(value, str):
-        raise ValueError("tag color_key is invalid.")
+        raise ValueError(error_message)
     cleaned = value.strip().lower()
     if not cleaned:
-        return DEFAULT_TAG_COLOR_KEY
-    if cleaned not in TAG_COLOR_KEYS:
-        raise ValueError("tag color_key is invalid.")
+        return default
+    if cleaned not in allowed:
+        raise ValueError(error_message)
     return cleaned
+
+
+def normalize_tag_color_key(value: object) -> str:
+    return _normalize_tag_choice(
+        value,
+        default=DEFAULT_TAG_COLOR_KEY,
+        allowed=TAG_COLOR_KEYS,
+        error_message="tag color_key is invalid.",
+    )
 
 
 def normalize_tag_scope(value: object) -> str:
-    if value is None:
-        return DEFAULT_TAG_SCOPE
-    if not isinstance(value, str):
-        raise ValueError("tag scope is invalid.")
-    cleaned = value.strip().lower()
-    if not cleaned:
-        return DEFAULT_TAG_SCOPE
-    if cleaned not in TAG_SCOPES:
-        raise ValueError("tag scope is invalid.")
-    return cleaned
+    return _normalize_tag_choice(
+        value,
+        default=DEFAULT_TAG_SCOPE,
+        allowed=TAG_SCOPES,
+        error_message="tag scope is invalid.",
+    )
 
 
 def _get_mapping_value(entry: object, key: str) -> object:
