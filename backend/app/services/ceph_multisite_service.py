@@ -18,7 +18,7 @@ from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import StorageEndpoint
 from app.models.ceph_multisite import (
     BilogInfo, BucketDiagnostic, BucketIdentity, EndpointReference, Family, Flow,
-    LocalZoneConfiguration, MultisiteState, Observation, Operation, Overview,
+    LocalZoneConfiguration, MultisiteState, Observation, Operation, Overview, Period,
     Provenance, SyncStatus, Topology,
 )
 from app.services.ceph_admin_endpoint_service import (
@@ -183,6 +183,41 @@ class CephMultisiteService:
             reason_code=None,
         )
 
+    def _attach_diagnostic_endpoints(self, period: Period) -> None:
+        # The catalogue and execution share CephAdminEndpointService. Never
+        # connect to the untrusted endpoint URLs published in the period.
+        for ref in self.endpoints.list_endpoints():
+            try:
+                endpoint = self.resolve(ref.id)
+            except HTTPException:
+                # A secondary endpoint may be withdrawn between catalogue and
+                # resolution. It no longer contributes a usable association.
+                continue
+            discovered = self.local_zone(endpoint)
+            if (
+                discovered.availability != "available"
+                or discovered.data is None
+                or discovered.data.realm_id != period.realm_id
+            ):
+                continue
+            zone = next(
+                (candidate for candidate in period.zones if candidate.id == discovered.data.id),
+                None,
+            )
+            if zone is not None:
+                zone.endpoints.append(EndpointReference(
+                    id=endpoint.id,
+                    name=endpoint.name,
+                    diagnostic=False,
+                ))
+
+        for zone in period.zones:
+            if len(zone.endpoints) == 1:
+                zone.endpoints[0].diagnostic = True
+                zone.diagnostic_endpoint_id = zone.endpoints[0].id
+            else:
+                zone.diagnostic_endpoint_id = None
+
     def topology(self) -> Topology:
         local_zone = self.local_zone(self.entry)
         if local_zone.availability != "available" or local_zone.data is None:
@@ -239,35 +274,7 @@ class CephMultisiteService:
             topology.configuration_reason = "local_zone_not_in_period"
             return topology
 
-        # The catalogue and execution share CephAdminEndpointService. Never
-        # connect to the untrusted endpoint URLs published in the period.
-        for ref in self.endpoints.list_endpoints():
-            try:
-                endpoint = self.resolve(ref.id)
-            except HTTPException:
-                # A secondary endpoint may be withdrawn between catalogue and
-                # resolution. It no longer contributes a usable association.
-                continue
-            discovered = self.local_zone(endpoint)
-            if (
-                discovered.availability != "available"
-                or discovered.data is None
-                or discovered.data.realm_id != data.realm_id
-            ):
-                continue
-            zone = next((candidate for candidate in data.zones if candidate.id == discovered.data.id), None)
-            if zone is not None:
-                zone.endpoints.append(EndpointReference(
-                    id=endpoint.id,
-                    name=endpoint.name,
-                    diagnostic=False,
-                ))
-        for zone in data.zones:
-            if len(zone.endpoints) == 1:
-                zone.endpoints[0].diagnostic = True
-                zone.diagnostic_endpoint_id = zone.endpoints[0].id
-            else:
-                zone.diagnostic_endpoint_id = None
+        self._attach_diagnostic_endpoints(data)
         return topology
 
     def validated_zone(self, topology: Topology, endpoint):
