@@ -16,6 +16,9 @@ from app.utils.tagging import (
     normalize_tag_scope,
 )
 
+NormalizedTagLabel = Annotated[str, BeforeValidator(normalize_tag_label)]
+NormalizedTagColorKey = Annotated[str, BeforeValidator(normalize_tag_color_key)]
+
 
 class TagDefinitionSummary(ApiModel):
     id: int
@@ -25,19 +28,9 @@ class TagDefinitionSummary(ApiModel):
 
 
 class TagDefinitionInput(ApiModel):
-    label: str
-    color_key: str = DEFAULT_TAG_COLOR_KEY
+    label: NormalizedTagLabel
+    color_key: NormalizedTagColorKey = DEFAULT_TAG_COLOR_KEY
     scope: Literal["administrative", "standard"] = DEFAULT_TAG_SCOPE
-
-    @field_validator("label", mode="before")
-    @classmethod
-    def normalize_label(cls, value: object) -> str:
-        return normalize_tag_label(value)
-
-    @field_validator("color_key", mode="before")
-    @classmethod
-    def normalize_color_key(cls, value: object) -> str:
-        return normalize_tag_color_key(value)
 
     @field_validator("scope", mode="before")
     @classmethod
