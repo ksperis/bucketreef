@@ -381,12 +381,12 @@ class PortalCollaboratorsMixin:
         )
         if not can_manage or target_user_id == user.id or not direct_only:
             return can_request_project_removal, False
-        direct_membership = self.db.execute(
+        direct_membership = self.db.scalar(
             select(UserS3Account).where(
                 UserS3Account.user_id == target_user_id,
                 UserS3Account.account_id == access.account.id,
             )
-        ).scalar_one_or_none()
+        )
         can_request_role_change = bool(
             direct_membership is not None
             and direct_membership.portal_role in {
