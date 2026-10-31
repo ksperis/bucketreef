@@ -13,6 +13,7 @@ from sqlalchemy.pool import ConnectionPoolEntry
 
 from .config import get_settings
 from .sensitive_data import sanitized_error_log_detail
+from .sqlite import configure_sqlite_adapters
 
 settings = get_settings()
 _SQLITE_BUSY_TIMEOUT_MS = 30_000
@@ -79,6 +80,7 @@ def sqlite_integrity_status(engine: Engine) -> tuple[bool, str]:
 def _create_engine() -> Engine:
     connect_args = {}
     if is_sqlite_url(settings.database_url):
+        configure_sqlite_adapters()
         connect_args = {"check_same_thread": False, "timeout": _SQLITE_BUSY_TIMEOUT_MS / 1000}
     engine = create_engine(
         settings.database_url,

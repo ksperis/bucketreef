@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
 from app.core.config import get_settings
+from app.core.sqlite import configure_sqlite_adapters
 from app.db import Base
 
 config = context.config
@@ -47,6 +48,8 @@ def run_migrations_offline() -> None:
 
 
 def _run_migrations_with_connection(connection) -> None:
+    if connection.dialect.name == "sqlite":
+        configure_sqlite_adapters()
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
