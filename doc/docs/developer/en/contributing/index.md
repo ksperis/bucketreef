@@ -23,7 +23,9 @@ Required format for AI-authored commits:
   `ceph-admin`, `release`
 - subject in English, without a trailing period
 - body sections in this order: `Why:`, `What:`, `Validation:`
-- breaking commits must add a blank line followed by `BREAKING CHANGE: ...`
+- breaking commits must add a blank line followed by `BREAKING CHANGE: ...`;
+  coordinated changes to the internal bundled backend/frontend API are not
+  breaking by themselves
 
 Frequent mappings:
 

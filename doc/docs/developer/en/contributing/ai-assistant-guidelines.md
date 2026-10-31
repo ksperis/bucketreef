@@ -127,9 +127,12 @@ Internal APIs under `/internal` are non-UI operational endpoints.
 - Prefer a database migration plus coordinated backend/frontend changes over
   long-lived route aliases, payload fallbacks, or compatibility branches for
   older frontend versions.
-- Breaking application-API changes must update the frontend, tests, upgrade
-  notes, and commit metadata in the same change set, and the matching
-  application components must be deployed together.
+- Application-API changes that alter the frontend/backend contract must update
+  the frontend, tests, and upgrade notes in the same change set, and the
+  matching application components must be deployed together. Because this API
+  is internal to the bundled application, such coordinated changes are not
+  release-breaking by themselves and do not require Conventional Commit
+  breaking-change metadata.
 - This does not relax compatibility requirements for external protocols and
   integrations such as S3, IAM, RGW Admin Ops, webhook receivers, or documented
   operational endpoints. Their contracts remain explicit at their own
@@ -321,6 +324,10 @@ Breaking changes:
 
 - Use `!` in the subject only when the change is actually breaking
 - Add a `BREAKING CHANGE:` footer whenever the commit is breaking
+- Do not mark a coordinated backend/frontend application-API refactor as
+  breaking solely because an internal route or payload changed. Reserve
+  breaking metadata for supported external contracts, deployment boundaries,
+  or migrations that require explicit operator/user action.
 
 Repository helpers:
 
