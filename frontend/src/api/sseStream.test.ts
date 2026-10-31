@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { consumeSseStream } from "./sseStream";
+import { buildSseError, consumeJsonSseStream, consumeSseStream } from "./sseStream";
 
 function streamChunks(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
   return new ReadableStream({
@@ -54,5 +54,25 @@ describe("consumeSseStream", () => {
       "invalid event payload"
     );
     expect(events).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("JSON SSE helpers", () => {
+  it("parses object payloads and centralizes sanitized stream errors", async () => {
+    const encoder = new TextEncoder();
+    const events = vi.fn();
+    const stream = streamChunks([
+      encoder.encode('event: result\ndata: {"value":42}\n\n'),
+    ]);
+
+    await consumeJsonSseStream(stream, events);
+
+    expect(events).toHaveBeenCalledWith({ event: "result", payload: { value: 42 } });
+    expect(
+      buildSseError(
+        { detail: "failed https://source.internal/object?X-Amz-Signature=abcdef" },
+        "Stream failed"
+      ).message
+    ).toBe("failed [redacted-url]");
   });
 });

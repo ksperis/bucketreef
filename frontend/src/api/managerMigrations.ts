@@ -3,9 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { sanitizeErrorMessage } from "../utils/apiError";
 import { openSseStream, resolveApiBaseUrl } from "./sseBucketsStream";
-import { consumeSseStream } from "./sseStream";
+import { buildSseError, consumeJsonSseStream } from "./sseStream";
 
 export type BucketMigrationMode = "one_shot" | "pre_sync";
 export type BucketMigrationStatus =
@@ -224,8 +223,7 @@ export async function streamManagerMigration(
 
   let latestSnapshot: BucketMigrationDetail | null = null;
 
-  await consumeSseStream(body, ({ event, data }) => {
-    const payload = data ? (JSON.parse(data) as Record<string, unknown>) : {};
+  await consumeJsonSseStream(body, ({ event, payload }) => {
     if (event === "snapshot") {
       const detail = payload as unknown as BucketMigrationDetail;
       latestSnapshot = detail;
@@ -233,8 +231,7 @@ export async function streamManagerMigration(
     } else if (event === "done") {
       options?.onDone?.(payload as unknown as ManagerMigrationStreamDone);
     } else if (event === "error") {
-      const detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail ?? payload);
-      throw new Error(sanitizeErrorMessage(detail || "Migration stream failed", "Migration stream failed"));
+      throw buildSseError(payload, "Migration stream failed");
     }
   });
 
