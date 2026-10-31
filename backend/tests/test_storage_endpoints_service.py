@@ -840,6 +840,7 @@ def test_environment_storage_endpoint_rejects_unknown_fields(db_session, monkeyp
 @pytest.mark.parametrize("locked", [False, True])
 def test_environment_external_runtime_is_required_before_any_sync(db_session, monkeypatch, runtime, locked):
     from app.services.operation_lease_service import OperationLeaseService
+    from app.services.storage_endpoint_env_sync import StorageEndpointEnvSyncService
 
     service = StorageEndpointsService(db_session)
     leases = OperationLeaseService(db_session)
@@ -855,7 +856,11 @@ def test_environment_external_runtime_is_required_before_any_sync(db_session, mo
         },
     ]
     monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps(entries))
-    monkeypatch.setattr(service, "_upsert_env_endpoint", lambda *_args: pytest.fail("Invalid inventory must not be applied"))
+    monkeypatch.setattr(
+        StorageEndpointEnvSyncService,
+        "_upsert",
+        lambda *_args: pytest.fail("Invalid inventory must not be applied"),
+    )
     try:
         with pytest.raises(ValueError, match="External service identities require Runtime"):
             service.sync_env_endpoints()
