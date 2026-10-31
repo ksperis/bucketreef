@@ -2,12 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from collections.abc import Collection, Iterator
+from collections.abc import Collection
 
 from botocore.exceptions import ClientError
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.utils.aws_errors import aws_error_code
+from app.utils.exception_chain import iter_exception_chain
 
 
 _ACCESS_DENIED_CODES = frozenset(
@@ -26,16 +27,6 @@ _FEATURE_UNSUPPORTED_CODES = frozenset(
 )
 
 
-def _iter_s3_client_errors(exc: Exception) -> Iterator[ClientError]:
-    current: BaseException | None = exc
-    seen: set[int] = set()
-    while isinstance(current, Exception) and id(current) not in seen:
-        seen.add(id(current))
-        if isinstance(current, ClientError):
-            yield current
-        current = current.__cause__ or current.__context__
-
-
 def matches_s3_error(
     exc: Exception,
     *,
@@ -44,7 +35,10 @@ def matches_s3_error(
 ) -> bool:
     normalized_codes = {str(code).strip().lower() for code in codes}
     normalized_statuses = {int(status_code) for status_code in status_codes}
-    for client_error in _iter_s3_client_errors(exc):
+    for current in iter_exception_chain(exc):
+        if not isinstance(current, ClientError):
+            continue
+        client_error = current
         if aws_error_code(client_error, lowercase=True) in normalized_codes:
             return True
         upstream_status = client_error.response.get("ResponseMetadata", {}).get(
