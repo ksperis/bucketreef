@@ -446,85 +446,53 @@ class BucketMigrationInspector:
         )
         object_lock = configuration.get_bucket_object_lock(bucket_name, execution_context)
         probe.mark("object_lock", state="available")
-        encryption = probe.fetch(
-            "encryption",
-            lambda: configuration.get_bucket_encryption(bucket_name, execution_context),
-            soft_unavailable=True,
-            default=None,
-        )
-        policy = probe.fetch(
-            "bucket_policy",
-            lambda: configuration.get_policy(bucket_name, execution_context),
-            soft_unavailable=False,
-            default=None,
-        )
-        logging_cfg = probe.fetch(
-            "access_logging",
-            lambda: configuration.get_bucket_logging(bucket_name, execution_context),
-            soft_unavailable=False,
-            default=None,
-        )
-        tags = probe.fetch(
-            "tags",
-            lambda: configuration.get_bucket_tags(bucket_name, execution_context),
-            soft_unavailable=False,
-            default=[],
-        )
-        lifecycle = probe.fetch(
-            "lifecycle",
-            lambda: configuration.get_lifecycle(bucket_name, execution_context),
-            soft_unavailable=False,
-            default=None,
-        )
-        cors = probe.fetch(
-            "cors",
-            lambda: configuration.get_bucket_cors(bucket_name, execution_context),
-            soft_unavailable=False,
-            default=[],
-        )
-        public_access_block = probe.fetch(
-            "public_access_block",
-            lambda: configuration.get_public_access_block(bucket_name, execution_context),
-            soft_unavailable=False,
-            default=None,
-        )
-        website = probe.fetch(
-            "website",
-            lambda: configuration.get_bucket_website(bucket_name, execution_context),
-            soft_unavailable=True,
-            default=None,
-        )
-        notifications = probe.fetch(
-            "notifications",
-            lambda: configuration.get_bucket_notifications(bucket_name, execution_context),
-            soft_unavailable=True,
-            default=None,
-        )
-        replication = probe.fetch(
-            "replication",
-            lambda: configuration.get_bucket_replication(bucket_name, execution_context),
-            soft_unavailable=True,
-            default=None,
-        )
-        acl = probe.fetch(
-            "acl",
-            lambda: configuration.get_bucket_acl(bucket_name, execution_context),
-            soft_unavailable=True,
-            default=None,
-        )
+
+        def fetch_feature(
+            feature: str,
+            getter: Callable[[str, Any], Any],
+            *,
+            soft_unavailable: bool,
+            default: Any,
+        ) -> Any:
+            return probe.fetch(
+                feature,
+                lambda: getter(bucket_name, execution_context),
+                soft_unavailable=soft_unavailable,
+                default=default,
+            )
+
+        feature_values: dict[str, Any] = {
+            "encryption": fetch_feature(
+                "encryption", configuration.get_bucket_encryption, soft_unavailable=True, default=None
+            ),
+            "policy": fetch_feature(
+                "bucket_policy", configuration.get_policy, soft_unavailable=False, default=None
+            ),
+            "logging": fetch_feature(
+                "access_logging", configuration.get_bucket_logging, soft_unavailable=False, default=None
+            ),
+            "tags": fetch_feature("tags", configuration.get_bucket_tags, soft_unavailable=False, default=[]),
+            "lifecycle": fetch_feature(
+                "lifecycle", configuration.get_lifecycle, soft_unavailable=False, default=None
+            ),
+            "cors": fetch_feature("cors", configuration.get_bucket_cors, soft_unavailable=False, default=[]),
+            "public_access_block": fetch_feature(
+                "public_access_block", configuration.get_public_access_block, soft_unavailable=False, default=None
+            ),
+            "website": fetch_feature(
+                "website", configuration.get_bucket_website, soft_unavailable=True, default=None
+            ),
+            "notifications": fetch_feature(
+                "notifications", configuration.get_bucket_notifications, soft_unavailable=True, default=None
+            ),
+            "replication": fetch_feature(
+                "replication", configuration.get_bucket_replication, soft_unavailable=True, default=None
+            ),
+            "acl": fetch_feature("acl", configuration.get_bucket_acl, soft_unavailable=True, default=None),
+        }
         return _BucketInspectionValues(
             versioning_status=versioning_status,
             object_lock=object_lock,
-            encryption=encryption,
-            policy=policy,
-            logging=logging_cfg,
-            tags=tags,
-            lifecycle=lifecycle,
-            cors=cors,
-            public_access_block=public_access_block,
-            website=website,
-            notifications=notifications,
-            replication=replication,
-            acl=acl,
             version_scan=self.scan_bucket_versions(ctx, bucket_name) if scan_versions else {},
+            **feature_values,
         )
