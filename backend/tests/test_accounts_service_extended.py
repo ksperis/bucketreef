@@ -207,16 +207,16 @@ def test_account_topics_resolver_ignores_null_topic_entries(db_session):
 
 def test_account_rgw_users_paths(db_session):
     service, admin = _service(db_session)
-    assert service._account_rgw_users("RGW1", {"rgw1": ["u1", "u2"]}, admin) == (2, ["u1", "u2"])
-    assert service._account_rgw_users(None, None, admin) == (None, None)
-    assert service._account_rgw_users("RGW1", None, None) == (None, None)
+    assert service.rgw_users.resolve("RGW1", {"rgw1": ["u1", "u2"]}, admin) == (2, ["u1", "u2"])
+    assert service.rgw_users.resolve(None, None, admin) == (None, None)
+    assert service.rgw_users.resolve("RGW1", None, None) == (None, None)
 
     admin.raise_get_account = RGWAdminError("boom")
-    assert service._account_rgw_users("RGW1", None, admin) == (None, None)
+    assert service.rgw_users.resolve("RGW1", None, admin) == (None, None)
 
     admin.raise_get_account = None
     admin.account_payload = {"user_list": ["rgw1-admin", "alice", "bob", "alice"]}
-    assert service._account_rgw_users("RGW1", None, admin) == (2, ["alice", "bob"])
+    assert service.rgw_users.resolve("RGW1", None, admin) == (2, ["alice", "bob"])
 
 
 def test_account_rgw_users_does_not_scan_endpoint_inventory(db_session):
@@ -225,7 +225,7 @@ def test_account_rgw_users_does_not_scan_endpoint_inventory(db_session):
     inventory_calls: list[bool] = []
     admin.list_user_ids = lambda: inventory_calls.append(True) or []  # type: ignore[attr-defined]
 
-    assert service._account_rgw_users("RGW1", None, admin) == (None, None)
+    assert service.rgw_users.resolve("RGW1", None, admin) == (None, None)
     assert inventory_calls == []
 
 
@@ -233,14 +233,14 @@ def test_account_rgw_users_skips_optional_lookup_when_accounts_api_is_unavailabl
     service, admin = _service(db_session)
     admin.unsupported_account_api = True
 
-    assert service._account_rgw_users("RGW1", None, admin) == (None, None)
+    assert service.rgw_users.resolve("RGW1", None, admin) == (None, None)
     assert admin.get_account_calls == 1
 
 
 def test_account_rgw_users_skips_lookup_when_endpoint_capabilities_disable_accounts(db_session):
     service, admin = _service(db_session)
 
-    assert service._account_rgw_users("RGW1", None, admin, endpoint_capabilities={"account": False}) == (None, None)
+    assert service.rgw_users.resolve("RGW1", None, admin, endpoint_capabilities={"account": False}) == (None, None)
     assert admin.get_account_calls == 0
 
 
@@ -465,7 +465,7 @@ def test_delete_account_guardrails_and_success(db_session, monkeypatch):
     service, admin = _service(db_session)
 
     monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 1))
-    monkeypatch.setattr(service, "_account_rgw_users", lambda *args, **kwargs: (0, []))
+    monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
     monkeypatch.setattr(service, "_delete_root_user", lambda *args, **kwargs: None)
@@ -528,7 +528,7 @@ class _FakeAccountIAM:
 
 def _prepare_account_deletion_checks(service, admin, monkeypatch):
     monkeypatch.setattr(service, "get_account_usage", lambda *args, **kwargs: (0, 0, 0))
-    monkeypatch.setattr(service, "_account_rgw_users", lambda *args, **kwargs: (0, []))
+    monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service, "_admin_for_account", lambda *args, **kwargs: admin)
 

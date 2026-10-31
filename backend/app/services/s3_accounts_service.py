@@ -46,10 +46,7 @@ from app.services.portal_role_sync import (
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_account_topics_resolver import (
-    RgwAccountTopicsResolver,
-    normalize_account_key,
-)
+from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_quota_update import (
@@ -59,6 +56,7 @@ from app.services.rgw_quota_update import (
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
+from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
@@ -94,6 +92,7 @@ class S3AccountsService:
         self.tags = TagsService(db)
         self.account_topics = RgwAccountTopicsResolver()
         self.account_roots = RgwAccountRootService()
+        self.rgw_users = S3AccountRgwUsersService(self.account_roots)
         self.associations = S3AccountAssociationsService(db)
         self.iam_cleanup = S3AccountIamCleanupService(db)
         self.metrics = S3AccountMetricsService()
@@ -218,78 +217,6 @@ class S3AccountsService:
         if returned_ids != {expected_id}:
             raise ValueError("RGW did not confirm the requested account identity")
 
-    def _account_rgw_users(
-        self,
-        account_identifier: Optional[str],
-        precomputed_users: Optional[dict[str, list[str]]],
-        admin: Optional[RGWAdminClient],
-        endpoint_capabilities: Optional[dict[str, bool]] = None,
-        root_uid: Optional[str] = None,
-    ) -> tuple[Optional[int], Optional[list[str]]]:
-        normalized_key = normalize_account_key(account_identifier)
-        if not normalized_key:
-            return None, None
-        if precomputed_users is not None:
-            users = list(precomputed_users.get(normalized_key, []))
-            return len(users), users
-        if not admin:
-            return None, None
-        if endpoint_capabilities is not None and not endpoint_capabilities.get("account", False):
-            return None, None
-        try:
-            account_info = admin.get_account(
-                account_identifier,
-                allow_not_found=True,
-                allow_not_implemented=True,
-            )
-        except RGWAdminError as exc:
-            logger.debug("Unable to fetch account info for %s: %s", account_identifier, exc)
-            return None, None
-        if admin.account_api_supported is False:
-            return None, None
-        if not account_info:
-            return 0, []
-        info, user_list = self._embedded_account_user_list(account_info)
-        if not isinstance(user_list, list):
-            # Standard Ceph AccountInfo does not embed the account's users.
-            # Do not scan the endpoint-wide user inventory here: account
-            # listings call this method once per account and a large default
-            # tenant would otherwise turn one request into thousands of Admin
-            # Ops lookups. Import keeps its deliberate one-shot discovery path,
-            # while deletion proves that no non-root users remain through IAM.
-            return None, None
-        root_uid = root_uid or self.account_roots.root_uid(account_identifier)
-        deduped = self._clean_account_user_uids(
-            user_list,
-            root_uid=root_uid,
-            account_tenant=str(info.get("tenant") or ""),
-        )
-        return len(deduped), deduped
-
-    @staticmethod
-    def _embedded_account_user_list(account_info: dict[str, Any]) -> tuple[dict[str, Any], Any]:
-        info = account_info.get("account")
-        if not isinstance(info, dict):
-            info = account_info
-        return info, info.get("user_list", info.get("users"))
-
-    @staticmethod
-    def _clean_account_user_uids(
-        user_list: list[Any],
-        *,
-        root_uid: str,
-        account_tenant: str,
-    ) -> list[str]:
-        cleaned: list[str] = []
-        for entry in user_list:
-            uid = str(entry.get("uid", entry.get("user_id", ""))) if isinstance(entry, dict) else str(entry or "")
-            if not uid:
-                continue
-            if uid == root_uid or uid == f"{account_tenant}${root_uid}":
-                continue
-            cleaned.append(uid)
-        return sorted(set(cleaned))
-
     def _generate_account_id(self) -> str:
         prefix = load_app_settings_for_db(self.db).general.rgw_account_id_prefix
         return generate_rgw_account_id(prefix)
@@ -344,7 +271,7 @@ class S3AccountsService:
             if include_quota and admin:
                 quota_max_size_gb, quota_max_objects = self.get_account_quota(acc, admin)
             if include_rgw_details and admin:
-                rgw_user_count, rgw_user_uids = self._account_rgw_users(
+                rgw_user_count, rgw_user_uids = self.rgw_users.resolve(
                     account_identifier,
                     None,
                     admin,
@@ -499,7 +426,7 @@ class S3AccountsService:
         endpoint = self._resolve_storage_endpoint(account.storage_endpoint_id)
         endpoint_capabilities = self._endpoint_capabilities(endpoint)
         if admin:
-            rgw_user_count, rgw_user_uids = self._account_rgw_users(
+            rgw_user_count, rgw_user_uids = self.rgw_users.resolve(
                 account_identifier,
                 None,
                 admin,
@@ -968,7 +895,7 @@ class S3AccountsService:
             _, _, bucket_count = self.get_account_usage(account)
             if bucket_count is None:
                 raise ValueError("Unable to verify bucket existence; cannot delete the RGW account.")
-            rgw_user_count, _ = self._account_rgw_users(
+            rgw_user_count, _ = self.rgw_users.resolve(
                 account_identifier,
                 None,
                 admin,
