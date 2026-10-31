@@ -1,4 +1,5 @@
 import type { BrowserFavorite, BrowserFavoriteInput } from "../api/browserFavorites";
+import { createRuntimeId } from "../utils/runtimeId";
 import { DemoError, done, json, type DemoRequest } from "./http";
 
 export function favorites(c: DemoRequest): Response | undefined {
@@ -17,7 +18,7 @@ export function favorites(c: DemoRequest): Response | undefined {
   if (!input.name || input.name.length > 120 || !input.context || !input.bucket) throw new DemoError(422, "A name and exact destination are required");
   if (!previous && items.length >= 500) throw new DemoError(409, "Favorites limit reached");
   const now = new Date().toISOString();
-  const row: BrowserFavorite = { name: input.name, surface: input.surface, workspace: input.workspace, context: input.context, bucket: input.bucket, prefix: input.prefix, id: previous?.id ?? crypto.randomUUID(), revision: (previous?.revision ?? 0) + 1, created_at: previous?.created_at ?? now, updated_at: now };
+  const row: BrowserFavorite = { name: input.name, surface: input.surface, workspace: input.workspace, context: input.context, bucket: input.bucket, prefix: input.prefix, id: previous?.id ?? createRuntimeId(), revision: (previous?.revision ?? 0) + 1, created_at: previous?.created_at ?? now, updated_at: now };
   if (previous) Object.assign(previous, row); else items.push(row);
   return json(row, previous ? 200 : 201);
 }

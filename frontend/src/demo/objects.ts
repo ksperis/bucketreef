@@ -1,4 +1,5 @@
 import type { BrowserObject, ListBrowserObjectsResponse, ObjectTag } from "../api/browserContracts";
+import { createRuntimeId } from "../utils/runtimeId";
 import { FILE_LIMIT, TOTAL_LIMIT, putObject, type DemoBucket, type DemoObject, type DemoObjectVersion } from "./state";
 import { spaceRole, DemoError, done, json, required, scopedBucket, textField, type DemoRequest } from "./http";
 
@@ -48,7 +49,7 @@ function removeObject(bucket: DemoBucket, key: string, versionId?: string | null
   const object = required(bucket.objects.find(o => o.key === key));
   if (versionId) throw new DemoError(403, "Permanent history deletion is disabled in the demo");
   if ((bucket.config.versioning as { enabled: boolean }).enabled) {
-    object.versions.unshift({ ...object.versions[0], version_id: crypto.randomUUID(), deleted: true, body: new Blob(), size: 0, imported: false, last_modified: new Date().toISOString() });
+    object.versions.unshift({ ...object.versions[0], version_id: createRuntimeId(), deleted: true, body: new Blob(), size: 0, imported: false, last_modified: new Date().toISOString() });
   } else bucket.objects = bucket.objects.filter(o => o !== object);
 }
 function checkUpload(c: DemoRequest, blob: Blob) {
