@@ -46,6 +46,7 @@ from app.services.listing_progress import (
 )
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.cancellation import invoke_cancel_check
+from app.utils.normalize import normalize_optional_string
 
 BUCKET_ENRICH_MAX_WORKERS = 6
 
@@ -110,10 +111,6 @@ def _mark_details_unavailable(column_details: dict[str, Any], detail_keys: set[s
         column_details[key] = None
 
 
-def _normalized_optional_text(value: str | None) -> str | None:
-    return (value or "").strip() or None
-
-
 def _project_requested_details(
     column_details: dict[str, Any],
     detail_keys: set[str],
@@ -142,12 +139,12 @@ def _enrich_website_configuration(
         _mark_details_unavailable(column_details, detail_keys)
         return
 
-    redirect_host = _normalized_optional_text(
+    redirect_host = normalize_optional_string(
         website.redirect_all_requests_to.host_name if website.redirect_all_requests_to else None
     )
     details = {
-        "website_index_document": _normalized_optional_text(website.index_document),
-        "website_error_document": _normalized_optional_text(website.error_document),
+        "website_index_document": normalize_optional_string(website.index_document),
+        "website_error_document": normalize_optional_string(website.error_document),
         "website_redirect_host": redirect_host,
         "website_routing_rule_count": len(website.routing_rules),
     }
@@ -211,7 +208,7 @@ def _enrich_logging_configuration(
         _mark_details_unavailable(column_details, detail_keys)
         return
 
-    target_bucket = _normalized_optional_text(logging_config.target_bucket)
+    target_bucket = normalize_optional_string(logging_config.target_bucket)
     enabled = bool(logging_config.enabled and target_bucket)
     if wants_feature:
         feature_map["access_logging"] = (
@@ -222,7 +219,7 @@ def _enrich_logging_configuration(
         detail_keys,
         {
             "logging_target_bucket": target_bucket,
-            "logging_target_prefix": _normalized_optional_text(logging_config.target_prefix),
+            "logging_target_prefix": normalize_optional_string(logging_config.target_prefix),
         },
     )
 
