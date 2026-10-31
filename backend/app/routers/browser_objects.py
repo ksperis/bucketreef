@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from collections.abc import Callable
+from typing import Annotated, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -39,6 +40,24 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_bad_gateway_from_runtime
 
 router = APIRouter()
+
+_ObjectReadResult = TypeVar("_ObjectReadResult")
+
+
+def _read_object_detail(
+    *,
+    bucket_name: str,
+    key: str,
+    version_id: Optional[str],
+    context: S3ExecutionContext,
+    getter: Callable[..., _ObjectReadResult],
+) -> _ObjectReadResult:
+    if not key:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
+    try:
+        return getter(bucket_name, context, key, version_id=version_id)
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
 
 
 @router.get("/buckets/{bucket_name}/versions", response_model=ListObjectVersionsResponse)
@@ -118,12 +137,13 @@ def get_object_tags(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectTags:
-    if not key:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
-    try:
-        return service.get_object_tags(bucket_name, context, key, version_id=version_id)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _read_object_detail(
+        bucket_name=bucket_name,
+        key=key,
+        version_id=version_id,
+        context=context,
+        getter=service.get_object_tags,
+    )
 
 
 @router.put("/buckets/{bucket_name}/object-tags", response_model=ObjectTags)
@@ -157,12 +177,13 @@ def get_object_acl(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectAcl:
-    if not key:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
-    try:
-        return service.get_object_acl(bucket_name, context, key, version_id=version_id)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _read_object_detail(
+        bucket_name=bucket_name,
+        key=key,
+        version_id=version_id,
+        context=context,
+        getter=service.get_object_acl,
+    )
 
 
 @router.put("/buckets/{bucket_name}/object-acl", response_model=ObjectAcl)
@@ -188,12 +209,13 @@ def get_object_legal_hold(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectLegalHold:
-    if not key:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
-    try:
-        return service.get_object_legal_hold(bucket_name, context, key, version_id=version_id)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _read_object_detail(
+        bucket_name=bucket_name,
+        key=key,
+        version_id=version_id,
+        context=context,
+        getter=service.get_object_legal_hold,
+    )
 
 
 @router.put("/buckets/{bucket_name}/object-legal-hold", response_model=ObjectLegalHold)
@@ -219,12 +241,13 @@ def get_object_retention(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectRetention:
-    if not key:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
-    try:
-        return service.get_object_retention(bucket_name, context, key, version_id=version_id)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _read_object_detail(
+        bucket_name=bucket_name,
+        key=key,
+        version_id=version_id,
+        context=context,
+        getter=service.get_object_retention,
+    )
 
 
 @router.put("/buckets/{bucket_name}/object-retention", response_model=ObjectRetention)
