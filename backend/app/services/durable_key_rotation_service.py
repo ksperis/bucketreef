@@ -66,6 +66,7 @@ class DurableKeyRotationService:
 
         self.db, self.actor = db, actor
         self.identities = identity_service or EndpointServiceIdentityService(db, actor=actor)
+        self.identity_validation = self.identities.validation
 
     def _audit(
         self,
@@ -162,10 +163,10 @@ class DurableKeyRotationService:
         denied_message: str,
     ) -> None:
         try:
-            self.identities.validate_payload(target.kind, payload)
+            self.identity_validation.validate_payload(target.kind, payload)
             if validate_managed_keys:
-                self.identities.validate_managed_keys(target, payload)
-            self.identities.functional_check(
+                self.identity_validation.validate_managed_keys(target, payload)
+            self.identity_validation.functional_check(
                 endpoint,
                 kind=target.kind,
                 rgw_uid=target.rgw_uid,
@@ -293,14 +294,14 @@ class DurableKeyRotationService:
         provenance = (
             f"{self.identities.installation_id()}:{endpoint.identity_namespace}"
         )
-        if target.provenance != provenance or not self.identities.owns(
+        if target.provenance != provenance or not self.identity_validation.owns(
             target,
             payload,
         ):
             raise ReplacementValidationError(
                 "Cannot rotate an identity without ownership proof."
             )
-        self.identities.validate_managed_keys(target, payload)
+        self.identity_validation.validate_managed_keys(target, payload)
 
     @staticmethod
     def _require_current_access_key(
@@ -448,11 +449,11 @@ class DurableKeyRotationService:
         target: RotationTarget,
         payload: object,
     ) -> None:
-        if not self.identities.owns(target, payload):
+        if not self.identity_validation.owns(target, payload):
             raise ReplacementValidationError(
                 "Cannot rotate an identity without ownership proof."
             )
-        self.identities.validate_managed_keys(target, payload)
+        self.identity_validation.validate_managed_keys(target, payload)
 
     def _activate_replacement(
         self,
