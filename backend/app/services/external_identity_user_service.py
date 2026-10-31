@@ -15,6 +15,7 @@ from app.db import ExternalIdentity, ExternalIdentityLinkRequest, ExternalIdenti
 from app.services.auth_session_service import AuthSessionService
 from app.services.audit_service import AuditService
 from app.services.user_notifications_service import UserNotificationsService
+from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
 
 
@@ -57,7 +58,7 @@ class ExternalIdentityUserService:
             issuer=issuer,
             subject=subject,
             email=email,
-            email_verified=bool(email_verified and self._normalize_email(email)),
+            email_verified=bool(email_verified and normalize_optional_email(email)),
             full_name=full_name,
             picture_url=picture_url,
             linking_policy=linking_policy,
@@ -303,7 +304,7 @@ class ExternalIdentityUserService:
             provider_id=provider_key,
             issuer=normalized_issuer,
             subject=normalized_subject,
-            email=self._normalize_email(email),
+            email=normalize_optional_email(email),
             email_verified=bool(email_verified),
             created_at=utcnow(),
             link_source=link_source,
@@ -363,7 +364,7 @@ class ExternalIdentityUserService:
             raise ValueError("External provider and subject are required")
         if provider_type == "oidc" and not normalized_issuer:
             raise ValueError("OIDC issuer is required")
-        normalized_email = self._normalize_email(email)
+        normalized_email = normalize_optional_email(email)
         identity = self._find_mapping(
             provider_type,
             provider_key,
@@ -760,10 +761,6 @@ class ExternalIdentityUserService:
         request.decision_source = source
         request.decision_reason = "Linked by configured identity policy"
         self.db.add(request)
-
-    @staticmethod
-    def _normalize_email(email: Optional[str]) -> Optional[str]:
-        return str(email or "").strip().lower() or None
 
     @staticmethod
     def _generated_email(provider_type: str, provider: str, subject: str) -> str:

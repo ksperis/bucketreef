@@ -25,6 +25,10 @@ def normalize_optional_scalar(value: object) -> str | None:
     return normalized or None
 
 
+def normalize_optional_email(value: object) -> str | None:
+    return str(value or "").strip().lower() or None
+
+
 def normalize_text(value: object) -> str:
     return str(value or "").strip().lower()
 
