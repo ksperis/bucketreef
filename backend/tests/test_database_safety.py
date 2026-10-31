@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 import sqlite3
 from types import SimpleNamespace
 
@@ -19,6 +20,7 @@ from app.core.database import (
     is_sqlite_malformed_database_error,
     sqlite_integrity_status,
 )
+from app.core.sqlite import configure_sqlite_adapters
 
 
 def _request(path: str = "/api/migrations/retry") -> Request:
@@ -97,6 +99,15 @@ def test_configure_sqlite_connection_applies_safe_pragmas():
             cursor.close()
     finally:
         connection.close()
+
+
+def test_configure_sqlite_adapters_preserves_datetime_representation():
+    configure_sqlite_adapters()
+    value = datetime(2026, 10, 31, 13, 28, 24, 423787, tzinfo=timezone.utc)
+    with sqlite3.connect(":memory:") as connection:
+        stored = connection.execute("SELECT ?", (value,)).fetchone()[0]
+
+    assert stored == value.isoformat(" ")
 
 
 def test_is_sqlite_malformed_database_error_detects_sqlalchemy_database_error():
