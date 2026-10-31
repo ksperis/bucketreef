@@ -94,9 +94,9 @@ class ManagedPrivateAccessSourceResolver:
         effective: ResolvedUserAccess,
         connection_id: int,
     ) -> ManagedPrivateAccessSource:
-        connection = self.db.execute(
+        connection = self.db.scalar(
             select(S3Connection).where(S3Connection.id == connection_id)
-        ).scalar_one_or_none()
+        )
         if (
             connection is None
             or not self.access.connection_is_allowed(
@@ -135,9 +135,9 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "Account administrator access is required"
             )
-        source_account = self.db.execute(
+        source_account = self.db.scalar(
             select(S3Account).where(S3Account.id == account_id)
-        ).scalar_one_or_none()
+        )
         if source_account is None or source_account.storage_endpoint is None:
             raise ManagedPrivateAccessError(
                 "The account has no usable storage endpoint"
@@ -182,9 +182,9 @@ class ManagedPrivateAccessSourceResolver:
             raise ManagedPrivateAccessForbidden(
                 "The RGW User is not assigned to this user"
             )
-        s3_user = self.db.execute(
+        s3_user = self.db.scalar(
             select(S3User).where(S3User.id == s3_user_id)
-        ).scalar_one_or_none()
+        )
         if s3_user is None:
             raise ManagedPrivateAccessError("RGW User not found")
         return s3_user
@@ -218,17 +218,17 @@ class ManagedPrivateAccessSourceResolver:
         source: ManagedPrivateAccessSource,
     ) -> ManagedPrivateAccessDestination:
         if source.kind == "account":
-            row = self.db.execute(
+            row = self.db.scalar(
                 select(S3Account).where(S3Account.id == source.identifier)
-            ).scalar_one_or_none()
+            )
             return self._stored_source_destination(
                 row,
                 error_message="The source account has no usable storage endpoint",
             )
         if source.kind == "s3_user":
-            row = self.db.execute(
+            row = self.db.scalar(
                 select(S3User).where(S3User.id == source.identifier)
-            ).scalar_one_or_none()
+            )
             return self._stored_source_destination(
                 row,
                 error_message="The source RGW User has no usable storage endpoint",
@@ -247,9 +247,9 @@ class ManagedPrivateAccessSourceResolver:
         return ManagedPrivateAccessDestination.managed(endpoint_id)
 
     def _connection_destination(self, connection_id: int) -> ManagedPrivateAccessDestination:
-        connection = self.db.execute(
+        connection = self.db.scalar(
             select(S3Connection).where(S3Connection.id == connection_id)
-        ).scalar_one_or_none()
+        )
         if connection is None:
             raise ManagedPrivateAccessError("Source connection not found")
         if connection.storage_endpoint_id is not None:
