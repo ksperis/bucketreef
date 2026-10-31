@@ -11,6 +11,7 @@ from app.services.buckets_service import BucketsService
 from .bucket_migration.execution import BucketMigrationExecutionMixin
 from .bucket_migration.persistence import BucketMigrationPersistenceMixin
 from .bucket_migration.planning import BucketMigrationPlanningMixin
+from .bucket_migration.queries import BucketMigrationQueryMixin
 from .bucket_migration.precheck import BucketMigrationPrecheckPlanner
 from .bucket_migration.precheck_inspection import BucketMigrationInspector
 from .bucket_migration.maintenance import BucketMigrationMaintenanceMixin
@@ -21,6 +22,7 @@ from .bucket_migration.rollback import BucketMigrationRollbackMixin
 
 class BucketMigrationService(
     BucketMigrationPersistenceMixin,
+    BucketMigrationQueryMixin,
     BucketMigrationPlanningMixin,
     BucketMigrationPreparationMixin,
     BucketMigrationMaintenanceMixin,
