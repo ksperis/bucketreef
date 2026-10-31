@@ -18,6 +18,7 @@ import {
 import {
   buildTextFieldRules,
   parseExactListInput,
+  serializeAdvancedFilterRules,
 } from "./advancedFilterShared";
 
 export type FeatureKey =
@@ -354,9 +355,9 @@ export const buildAdvancedFilterPayload = (
     if (parsedBasicFilter.values.length === 0) return undefined;
     if (!parsedBasicFilter.listProvided && basicFilterMode === "contains") return trimmedFilter;
     if (parsedBasicFilter.listProvided && parsedBasicFilter.values.length > 1) {
-      return JSON.stringify({ match: "all", rules: [{ field: "name", op: "in", value: parsedBasicFilter.values }] });
+      return serializeAdvancedFilterRules([{ field: "name", op: "in", value: parsedBasicFilter.values }]);
     }
-    return JSON.stringify({ match: "all", rules: [{ field: "name", op: "eq", value: trimmedFilter }] });
+    return serializeAdvancedFilterRules([{ field: "name", op: "eq", value: trimmedFilter }]);
   }
 
   const rules: Array<Record<string, unknown>> = [];
@@ -397,7 +398,7 @@ export const buildAdvancedFilterPayload = (
     rules.push({ field: isStorageOps ? "bucket_identity" : "name", op: "in", value: taggedBuckets });
   }
   if (rules.length === 0) return trimmedFilter || undefined;
-  return JSON.stringify({ match: "all", rules });
+  return serializeAdvancedFilterRules(rules);
 };
 
 export const hasAdvancedFilters = (
