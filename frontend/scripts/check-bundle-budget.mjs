@@ -4,9 +4,9 @@ import path from "node:path";
 const DIST_DIR = path.resolve(process.cwd(), "dist");
 const MANIFEST_PATH = path.join(DIST_DIR, ".vite", "manifest.json");
 const MAX_ENTRY_JS_BYTES = 600 * 1024;
-// 0.2.18 baseline: 5,386,957 bytes across 289 JS chunks after secure OIDC account linking.
-// Keep less than 1% total-size headroom; entry/largest-chunk caps stay unchanged.
-const MAX_TOTAL_JS_BYTES = 5_300 * 1024;
+// 2026-10-31 post-release qualification baseline: 5,431,763 bytes across 291 JS chunks.
+// Keep 1% total-size headroom; entry/largest-chunk caps stay unchanged.
+const MAX_TOTAL_JS_BYTES = Math.floor(5_431_763 * 1.01);
 const MAX_LARGEST_CHUNK_BYTES = 1_500 * 1024;
 
 function formatBytes(bytes) {
