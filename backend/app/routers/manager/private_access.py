@@ -28,6 +28,9 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessForbidden,
     ManagedPrivateAccessNotFound,
 )
+from app.services.managed_private_access_cleanup_service import (
+    ManagedPrivateAccessCleanupService,
+)
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.utils.http_errors import http_exception_from_exception
 
@@ -91,7 +94,10 @@ def retry_private_access_cleanup(
     db: Session = Depends(get_db),
 ) -> Response:
     try:
-        ManagedPrivateAccessService(db).retry_cleanup(user=user, connection_id=connection_id)
+        ManagedPrivateAccessCleanupService(db).retry_cleanup(
+            user=user,
+            connection_id=connection_id,
+        )
     except ManagedPrivateAccessError as exc:
         raise _translate_error(exc) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -104,7 +110,7 @@ def retry_private_access_provisioning_cleanup(
     db: Session = Depends(get_db),
 ) -> Response:
     try:
-        ManagedPrivateAccessService(db).retry_provisioning_cleanup(
+        ManagedPrivateAccessCleanupService(db).retry_provisioning_cleanup(
             user=user,
             provisioning_id=provisioning_id,
         )

@@ -130,6 +130,52 @@ def test_backend_audit_matrix_tracks_access_key_expiration_delegation():
     assert row.signals["delegated_access_key_expiration_audit"]
 
 
+def test_backend_audit_matrix_tracks_managed_private_access_delegation():
+    backend_root = Path(__file__).resolve().parents[1]
+    rows = {
+        (row.file.relative_to(backend_root), row.function): row
+        for row in collect_rows(backend_root)
+    }
+
+    for key in (
+        (Path("app/routers/manager/private_access.py"), "create_iam_private_access"),
+        (Path("app/routers/manager/private_access.py"), "create_rgw_user_private_access"),
+        (Path("app/routers/manager/private_access.py"), "retry_private_access_cleanup"),
+        (
+            Path("app/routers/manager/private_access.py"),
+            "retry_private_access_provisioning_cleanup",
+        ),
+        (Path("app/routers/connections.py"), "delete_connection"),
+    ):
+        assert rows[key].signals["delegated_private_access_audit"]
+
+
+@pytest.mark.parametrize(
+    ("service_name", "method"),
+    [
+        ("ManagedPrivateAccessService", "future_mutation"),
+        ("ManagedPrivateAccessCleanupService", "future_mutation"),
+    ],
+)
+def test_private_access_service_reference_alone_does_not_imply_audit(
+    tmp_path,
+    service_name,
+    method,
+):
+    routers = tmp_path / "app" / "routers"
+    routers.mkdir(parents=True)
+    (routers / "example.py").write_text(
+        '@router.post("/example")\n'
+        'def example():\n'
+        f'    return {service_name}(db).{method}(user=user)\n'
+    )
+
+    row, = collect_rows(tmp_path)
+
+    assert not row.signals["delegated_private_access_audit"]
+    assert not row.has_audit_signal
+
+
 def test_backend_audit_matrix_tracks_auth_attempt_delegation():
     backend_root = Path(__file__).resolve().parents[1]
     rows = {
