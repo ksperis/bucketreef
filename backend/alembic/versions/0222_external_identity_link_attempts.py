@@ -27,6 +27,7 @@ _INDEX_COLUMNS = (
     "expires_at",
     "consumed_at",
 )
+_LOGIN_STATE_LINK_ATTEMPT_FK = "fk_oidc_login_states_link_attempt_external_identity"
 
 
 def _drop_login_state_foreign_key() -> None:
@@ -135,13 +136,13 @@ def upgrade() -> None:
     if current_fk is None:
         _create_login_state_foreign_key(
             "external_identity_link_attempts",
-            "fk_oidc_login_states_link_attempt_id_external_identity_link_attempts",
+            _LOGIN_STATE_LINK_ATTEMPT_FK,
         )
     elif current_fk.get("referred_table") != "external_identity_link_attempts":
         _drop_login_state_foreign_key()
         _create_login_state_foreign_key(
             "external_identity_link_attempts",
-            "fk_oidc_login_states_link_attempt_id_external_identity_link_attempts",
+            _LOGIN_STATE_LINK_ATTEMPT_FK,
         )
     ldap_columns = {column["name"] for column in sa.inspect(bind).get_columns("ldap_providers")}
     if "linking_policy" not in ldap_columns:
