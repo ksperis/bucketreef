@@ -59,10 +59,6 @@ def _clone_account_list(
     return [_clone_account(item) for item in items]
 
 
-def _parse_advanced_filter(raw: str | None) -> CephAdminAccountFilterQuery | None:
-    return parse_filter_query(raw, query_cls=CephAdminAccountFilterQuery)
-
-
 def _match_account_field_rule(
     account: CephAdminRgwAccountSummary,
     rule: CephAdminAccountFilterRule,
@@ -250,7 +246,10 @@ class _AccountListingPipeline:
             "quota",
             "stats",
         }
-        self.parsed_filter = _parse_advanced_filter(self.raw_advanced_filter)
+        self.parsed_filter = parse_filter_query(
+            self.raw_advanced_filter,
+            query_cls=CephAdminAccountFilterQuery,
+        )
         self.advanced_filter_active = bool(
             self.parsed_filter and self.parsed_filter.rules
         )
