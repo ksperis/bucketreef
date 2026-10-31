@@ -1,6 +1,6 @@
 import client, { buildApiRequestHeaders } from "./client";
 import { isCancelledError, sanitizeErrorMessage } from "../utils/apiError";
-import { consumeSseStream } from "./sseStream";
+import { buildSseError, consumeJsonSseStream } from "./sseStream";
 
 type StreamBucketsOptions<TProgress> = {
   signal?: AbortSignal;
@@ -111,15 +111,13 @@ export async function streamBucketsWithSse<TProgress, TResult>({
 
   let resultPayload: TResult | null = null;
 
-  await consumeSseStream(body, ({ event, data }) => {
-    const payload = data ? (JSON.parse(data) as Record<string, unknown>) : {};
+  await consumeJsonSseStream(body, ({ event, payload }) => {
     if (event === "progress") {
       options?.onProgress?.(payload as unknown as TProgress);
     } else if (event === "result") {
       resultPayload = payload as unknown as TResult;
     } else if (event === "error") {
-      const detail = typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail ?? payload);
-      throw new Error(sanitizeErrorMessage(detail || streamFailedLabel, streamFailedLabel));
+      throw buildSseError(payload, streamFailedLabel);
     }
   });
 

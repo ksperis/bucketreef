@@ -1,6 +1,13 @@
+import { sanitizeErrorMessage } from "../utils/apiError";
+
 type SseStreamEvent = {
   event: string;
   data: string;
+};
+
+type JsonSseStreamEvent = {
+  event: string;
+  payload: Record<string, unknown>;
 };
 
 export async function consumeSseStream(
@@ -61,4 +68,21 @@ export async function consumeSseStream(
       return;
     }
   }
+}
+
+export async function consumeJsonSseStream(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: JsonSseStreamEvent) => void
+): Promise<void> {
+  await consumeSseStream(body, ({ event, data }) => {
+    const payload = data ? (JSON.parse(data) as Record<string, unknown>) : {};
+    onEvent({ event, payload });
+  });
+}
+
+export function buildSseError(payload: Record<string, unknown>, fallback: string): Error {
+  const detail = typeof payload.detail === "string"
+    ? payload.detail
+    : JSON.stringify(payload.detail ?? payload);
+  return new Error(sanitizeErrorMessage(detail || fallback, fallback));
 }
