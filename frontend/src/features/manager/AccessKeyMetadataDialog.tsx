@@ -11,15 +11,11 @@ import {
   ACCESS_KEY_NOTES_MAX_LENGTH,
   type AccessKeyMetadataInput,
 } from "../../api/accessKeyContracts";
+import {
+  dateTimeLocalInputToIsoString,
+  formatDateTimeLocalInput,
+} from "../../utils/dateTime";
 import { useManagerI18n } from "./managerI18n";
-
-function toLocalDateTimeInput(value?: string | null): string {
-  if (!value) return "";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "";
-  const local = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 16);
-}
 
 type Props = {
   mode: "create" | "edit";
@@ -47,12 +43,12 @@ export default function AccessKeyMetadataDialog({
   const { text } = useManagerI18n();
   const [name, setName] = useState(initial?.name ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [expiresAt, setExpiresAt] = useState(toLocalDateTimeInput(initial?.expires_at));
+  const [expiresAt, setExpiresAt] = useState(formatDateTimeLocalInput(initial?.expires_at));
   const nameRef = useRef<HTMLInputElement>(null);
   const expirationRef = useRef<HTMLInputElement>(null);
   const initialName = initial?.name ?? "";
   const initialNotes = initial?.notes ?? "";
-  const initialExpiration = toLocalDateTimeInput(initial?.expires_at);
+  const initialExpiration = formatDateTimeLocalInput(initial?.expires_at);
   const expirationVisible = expirationEnabled || Boolean(initial?.expires_at);
   const expirationEditable = expirationEnabled && !expirationLockedReason;
   const dirty = (metadataEnabled && (name !== initialName || notes !== initialNotes))
@@ -62,7 +58,7 @@ export default function AccessKeyMetadataDialog({
   useEffect(() => {
     setName(initial?.name ?? "");
     setNotes(initial?.notes ?? "");
-    setExpiresAt(toLocalDateTimeInput(initial?.expires_at));
+    setExpiresAt(formatDateTimeLocalInput(initial?.expires_at));
   }, [initial?.name, initial?.notes, initial?.expires_at]);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -73,7 +69,7 @@ export default function AccessKeyMetadataDialog({
       payload.notes = notes.trim() || null;
     }
     if (expirationEditable) {
-      payload.expires_at = expiresAt ? new Date(expiresAt).toISOString() : null;
+      payload.expires_at = expiresAt ? dateTimeLocalInputToIsoString(expiresAt) : null;
     }
     void onSubmit(payload);
   };
@@ -136,7 +132,7 @@ export default function AccessKeyMetadataDialog({
                 label={text("Expiration date and time")}
                 value={expiresAt}
                 disabled={!expirationEditable}
-                min={toLocalDateTimeInput(new Date().toISOString())}
+                min={formatDateTimeLocalInput(new Date())}
                 hint={
                   <>
                     {expirationEditable && <span className="block">{text("Automatically disables the key, usually within one minute after expiration.")}</span>}

@@ -26,23 +26,6 @@ export const formatDateTime = (value?: string | number | null, locale?: string):
   )}`;
 };
 
-export const formatLocalDateTime = (value?: string | Date | null) => {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (num: number) => `${num}`.padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-    date.getMinutes()
-  )}`;
-};
-
-export const toIsoString = (value: string) => {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString();
-};
-
 export const formatBadgeCount = (count: number) => (count > 99 ? "99+" : `${count}`);
 
 export const normalizePrefix = (value: string) => {

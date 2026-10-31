@@ -19,8 +19,11 @@ import type {
   ObjectTagsUpdate,
 } from "../../api/browserContracts";
 import { extractApiError } from "../../utils/apiError";
+import {
+  dateTimeLocalInputToIsoString,
+  formatDateTimeLocalInput,
+} from "../../utils/dateTime";
 import { prepareS3Tags } from "../../utils/s3Tags";
-import { formatLocalDateTime, toIsoString } from "./browserUtils";
 import { normalizeObjectDetailPairs } from "./browserObjectDetailsModel";
 import { runBrowserScopedSave } from "./browserScopedSave";
 import type { BrowserItem } from "./browserTypes";
@@ -64,7 +67,7 @@ const metadataDraftFromResponse = (metadata: ObjectMetadata): BrowserObjectMetad
   contentDisposition: metadata.content_disposition ?? "",
   contentEncoding: metadata.content_encoding ?? "",
   contentLanguage: metadata.content_language ?? "",
-  expires: formatLocalDateTime(metadata.expires),
+  expires: formatDateTimeLocalInput(metadata.expires),
 });
 
 const draftSignatures = ({
@@ -403,7 +406,7 @@ export function useBrowserObjectProperties({
           content_disposition: metadataDraft.contentDisposition,
           content_encoding: metadataDraft.contentEncoding,
           content_language: metadataDraft.contentLanguage,
-          expires: toIsoString(metadataDraft.expires),
+          expires: dateTimeLocalInputToIsoString(metadataDraft.expires),
           metadata: normalizeObjectDetailPairs(metadataItems),
         };
         await updateObjectMetadata(

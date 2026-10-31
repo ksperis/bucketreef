@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { formatLocalDateTime } from "./browserUtils";
+import { formatDateTimeLocalInput } from "../../utils/dateTime";
 import { useBrowserObjectProtection } from "./useBrowserObjectProtection";
 
 const apiMocks = vi.hoisted(() => ({
@@ -84,7 +84,7 @@ describe("useBrowserObjectProtection", () => {
     expect(result.current.legalHoldStatus).toBe("OFF");
     expect(result.current.retentionMode).toBe("GOVERNANCE");
     expect(result.current.retentionDate).toBe(
-      formatLocalDateTime("2026-09-01T10:30:00Z"),
+      formatDateTimeLocalInput("2026-09-01T10:30:00Z"),
     );
   });
 
@@ -271,7 +271,7 @@ describe("useBrowserObjectProtection", () => {
     expect(result.current.legalHoldStatus).toBe("OFF");
     expect(result.current.retentionMode).toBe("GOVERNANCE");
     expect(result.current.retentionDate).toBe(
-      formatLocalDateTime("2026-10-01T09:00:00Z"),
+      formatDateTimeLocalInput("2026-10-01T09:00:00Z"),
     );
   });
 });
