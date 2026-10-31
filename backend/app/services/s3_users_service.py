@@ -15,7 +15,6 @@ from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import (
-    S3AccessKeyNotFoundError,
     S3UserNotFoundError,
     StorageEndpointNotFoundError,
 )
@@ -35,6 +34,7 @@ from app.services.resource_deletion_purge_service import ResourceDeletionPurgeSe
 from app.services.managed_resource_naming import managed_s3_user_uid
 from app.services.mappers.s3_user import s3_user_from_db, s3_user_summary_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
+from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
@@ -79,6 +79,7 @@ class S3UsersService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.associations = S3UserAssociationsService(db)
+        self.access_keys = S3UserAccessKeyService(db)
         self.tags = TagsService(db)
 
     # Helpers
@@ -647,100 +648,25 @@ class S3UsersService:
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
         s3_user = self.get_user_record(user_id)
         admin = self._admin_for_user(s3_user)
-        tenant = self._tenant_for_user(s3_user)
-        try:
-            user_info = admin.get_user(
-                s3_user.rgw_user_uid,
-                tenant=tenant or None,
-                allow_not_found=True,
-            )
-        except RGWAdminError as exc:
-            raise ValueError(f"Unable to list keys: {exc}") from exc
-        if not user_info or user_info.get("not_found"):
-            raise S3UserNotFoundError("RGW user not found")
-        require_rgw_user_identity(user_info, s3_user.rgw_user_uid, tenant)
-        return RgwUserKeyParser.to_access_keys(
-            admin.extract_keys(user_info),
-            ui_managed_access_key=s3_user.rgw_access_key,
-        )
+        return self.access_keys.list_keys(s3_user, admin)
 
     def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
         s3_user = self.get_user_record(user_id)
         admin = self._admin_for_user(s3_user)
-        tenant = self._verified_user(s3_user, admin)
-        existing_access_keys: set[str] = set()
-        try:
-            before_payload = admin.get_user(
-                s3_user.rgw_user_uid,
-                tenant=tenant or None,
-                allow_not_found=True,
-            )
-            if before_payload and not before_payload.get("not_found"):
-                existing_access_keys = RgwUserKeyParser.access_key_ids(
-                    admin.extract_keys(before_payload)
-                )
-        except RGWAdminError as exc:
-            raise ValueError(f"Unable to verify RGW user before key creation: {exc}") from exc
-        try:
-            if before_payload:
-                require_rgw_user_identity(before_payload, s3_user.rgw_user_uid, tenant)
-            response = admin.create_access_key(s3_user.rgw_user_uid, tenant=tenant or None)
-        except RGWAdminError as exc:
-            raise ValueError(f"Unable to create access key: {exc}") from exc
-        if isinstance(response, dict) and response.get("not_found"):
-            raise S3UserNotFoundError("RGW user not found")
-        key = RgwUserKeyParser.to_generated_key(
-            admin.extract_keys(response),
-            existing_access_keys=existing_access_keys,
-        )
-        self.db.commit()
-        return key
+        self._verified_user(s3_user, admin)
+        return self.access_keys.create_key(s3_user, admin)
 
     def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:
         s3_user = self.get_user_record(user_id)
         admin = self._admin_for_user(s3_user)
-        tenant = self._verified_user(s3_user, admin)
-        normalized = (access_key or "").strip()
-        if not normalized:
-            raise ValueError("access_key is required")
-        if normalized == s3_user.rgw_access_key:
-            raise ValueError("Cannot disable the interface access key; rotate it instead")
-        try:
-            admin.set_access_key_status(
-                s3_user.rgw_user_uid,
-                normalized,
-                active,
-                tenant=tenant or None,
-            )
-        except RGWAdminError as exc:
-            if exc.status_code == 404:
-                raise S3AccessKeyNotFoundError("Access key not found") from exc
-            raise ValueError(f"Unable to update access key status: {exc}") from exc
-        keys = self.list_keys(user_id)
-        for key in keys:
-            if key.access_key_id == normalized:
-                self.db.commit()
-                return key
-        raise S3AccessKeyNotFoundError("Access key not found after status update")
+        self._verified_user(s3_user, admin)
+        return self.access_keys.set_key_status(s3_user, admin, access_key, active)
 
     def delete_key(self, user_id: int, access_key: str) -> None:
         s3_user = self.get_user_record(user_id)
         admin = self._admin_for_user(s3_user)
-        tenant = self._verified_user(s3_user, admin)
-        normalized = (access_key or "").strip()
-        if not normalized:
-            raise ValueError("access_key is required")
-        if normalized == s3_user.rgw_access_key:
-            raise ValueError("Cannot delete the interface access key; rotate it instead")
-        try:
-            admin.delete_access_key(
-                s3_user.rgw_user_uid,
-                normalized,
-                tenant=tenant or None,
-            )
-        except RGWAdminError as exc:
-            raise ValueError(f"Unable to delete access key: {exc}") from exc
-        self.db.commit()
+        self._verified_user(s3_user, admin)
+        self.access_keys.delete_key(s3_user, admin, access_key)
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self.get_user_record(user_id)
