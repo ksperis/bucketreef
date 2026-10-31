@@ -1,5 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from collections.abc import Callable
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from sqlalchemy.orm import Session
 
@@ -78,6 +80,38 @@ def _portal_server_access_logging_changed(current: AppSettings, requested: AppSe
         current.portal.feature_policies.server_access_logging
         != requested.portal.feature_policies.server_access_logging
     )
+
+
+def _delete_identity_provider_settings(
+    request: Request,
+    provider_id: str,
+    *,
+    current_user: User,
+    db: Session,
+    audit: AuditService,
+    delete_provider: Callable[[Session, str], None],
+    provider_type: str,
+) -> IdentityProviderDeleteResult:
+    require_admin_sensitive_action(request, db, current_user)
+    try:
+        delete_provider(db, provider_id)
+    except IdentityProviderManagedByEnvironmentError as exc:
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+    except IdentityProviderNotFoundError as exc:
+        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
+    except ValueError as exc:
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+
+    normalized_provider_id = provider_id.lower()
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action=f"{provider_type}_provider.delete",
+        entity_type=f"{provider_type}_provider",
+        entity_id=normalized_provider_id,
+        metadata={"provider_id": normalized_provider_id},
+    )
+    return IdentityProviderDeleteResult(status="deleted")
 
 
 @router.get("", response_model=AppSettings)
@@ -261,25 +295,15 @@ def delete_oidc_provider_settings(
     db: Session = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
 ) -> IdentityProviderDeleteResult:
-    require_admin_sensitive_action(request, db, current_user)
-    try:
-        delete_oidc_provider(db, provider_id)
-    except IdentityProviderManagedByEnvironmentError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except IdentityProviderNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-    except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="admin",
-        action="oidc_provider.delete",
-        entity_type="oidc_provider",
-        entity_id=provider_id.lower(),
-        metadata={"provider_id": provider_id.lower()},
+    return _delete_identity_provider_settings(
+        request,
+        provider_id,
+        current_user=current_user,
+        db=db,
+        audit=audit,
+        delete_provider=delete_oidc_provider,
+        provider_type="oidc",
     )
-    return IdentityProviderDeleteResult(status="deleted")
 
 
 @router.get("/ldap/providers", response_model=list[LDAPProviderAdminItem])
@@ -373,25 +397,15 @@ def delete_ldap_provider_settings(
     db: Session = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
 ) -> IdentityProviderDeleteResult:
-    require_admin_sensitive_action(request, db, current_user)
-    try:
-        delete_ldap_provider(db, provider_id)
-    except IdentityProviderManagedByEnvironmentError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except IdentityProviderNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-    except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="admin",
-        action="ldap_provider.delete",
-        entity_type="ldap_provider",
-        entity_id=provider_id.lower(),
-        metadata={"provider_id": provider_id.lower()},
+    return _delete_identity_provider_settings(
+        request,
+        provider_id,
+        current_user=current_user,
+        db=db,
+        audit=audit,
+        delete_provider=delete_ldap_provider,
+        provider_type="ldap",
     )
-    return IdentityProviderDeleteResult(status="deleted")
 
 
 @router.post("/quota-notifications/test-email", response_model=QuotaNotificationTestEmailResult)
