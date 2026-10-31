@@ -121,4 +121,28 @@ describe("AccessAuditPage", () => {
     })));
     expect(triggerBlobDownloadMock).toHaveBeenCalledWith("access-audit.csv", expect.any(Blob));
   });
+
+  it("reconciles the current page when the result total shrinks", async () => {
+    listAccessAuditMock.mockImplementation(async ({ page }: { page: number }) => ({
+      items: [row],
+      total: page === 3 ? 25 : 75,
+      page,
+      page_size: 25,
+      has_next: page < 3,
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/admin/access-audit"]}>
+        <AccessAuditPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Example User")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(listAccessAuditMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 })));
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(listAccessAuditMock).toHaveBeenCalledWith(expect.objectContaining({ page: 3 })));
+    await waitFor(() => expect(listAccessAuditMock).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 })));
+  });
 });
