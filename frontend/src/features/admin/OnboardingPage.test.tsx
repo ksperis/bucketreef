@@ -549,6 +549,38 @@ describe("simplified onboarding", () => {
     expect(mocks.refreshSession).toHaveBeenCalled();
   });
 
+  it("requires a fresh review when the persisted onboarding preview changes", async () => {
+    renderPage();
+    fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), { target: { value: "4" } });
+    await continueWhenReady();
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: /Private S3 connection/ }));
+    await continueWhenReady();
+    fireEvent.change(await screen.findByLabelText("Private S3 access key"), { target: { value: "private-access" } });
+    fireEvent.change(screen.getByLabelText("Private S3 secret key"), { target: { value: "private-secret" } });
+    await continueWhenReady();
+
+    const changedToken = "b".repeat(64);
+    mocks.saveOnboardingJourney.mockImplementationOnce(async (id: string, draft: OnboardingDraft) => {
+      const saved = journey(id, draft);
+      saved.preview = { ...saved.preview, review_token: changedToken };
+      lastJourney = saved;
+      status = { ...status, complete: false, journeys: [saved] };
+      return saved;
+    });
+
+    const applyButton = await screen.findByRole("button", { name: "Apply configuration" });
+    await waitFor(() => expect(applyButton).toBeEnabled());
+    fireEvent.click(applyButton);
+
+    expect(
+      await screen.findByText(
+        "The configuration changed since the summary was displayed. Review it again.",
+      ),
+    ).toBeInTheDocument();
+    expect(mocks.applyOnboardingJourney).not.toHaveBeenCalled();
+  });
+
   it("shows why Ceph-specific choices are unavailable on a generic S3 endpoint", async () => {
     renderPage();
     fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), { target: { value: "4" } });
