@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import csv
 import io
-from typing import Iterable, Optional, TypeAlias
+from typing import Iterable, Optional, TypeAlias, TypeVar
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.core.domain_errors import CostSubjectNotFoundError
 from app.db import (
@@ -47,6 +47,26 @@ from app.services.cost_calculations import (
 )
 
 CostSubject: TypeAlias = S3Account | S3User
+_CostDailyRow = TypeVar("_CostDailyRow", CostUsageDaily, CostStorageDaily)
+
+
+def _cost_subject_model(subject_type: str) -> type[S3Account] | type[S3User]:
+    if subject_type == "account":
+        return S3Account
+    if subject_type == "s3_user":
+        return S3User
+    raise ValueError("Invalid subject type")
+
+
+def _daily_subject_column(
+    model: type[_CostDailyRow],
+    subject_type: str,
+) -> InstrumentedAttribute[Optional[int]]:
+    if subject_type == "account":
+        return model.s3_account_id
+    if subject_type == "s3_user":
+        return model.s3_user_id
+    raise ValueError("Invalid subject type")
 
 
 _COST_SUBJECT_SORT_VALUE_GETTERS = {
@@ -215,22 +235,13 @@ class CostService:
     ) -> CostSubjectDetail:
         period = parse_cost_month(month)
         subject_type = self._normalize_subject_type(subject_type)
-        if subject_type == "account":
-            subject = self.db.scalar(
-                select(S3Account).where(
-                    S3Account.id == subject_id,
-                    S3Account.storage_endpoint_id == endpoint_id,
-                )
+        subject_model = _cost_subject_model(subject_type)
+        subject = self.db.scalar(
+            select(subject_model).where(
+                subject_model.id == subject_id,
+                subject_model.storage_endpoint_id == endpoint_id,
             )
-        elif subject_type == "s3_user":
-            subject = self.db.scalar(
-                select(S3User).where(
-                    S3User.id == subject_id,
-                    S3User.storage_endpoint_id == endpoint_id,
-                )
-            )
-        else:
-            raise ValueError("Invalid subject type")
+        )
         if not subject:
             raise CostSubjectNotFoundError("Subject not found")
 
@@ -585,16 +596,11 @@ class CostService:
         return items
 
     def _load_subjects(self, endpoint_id: int, subject_type: str) -> list[CostSubject]:
-        if subject_type == "account":
-            return self.db.scalars(
-                select(S3Account)
-                .where(S3Account.storage_endpoint_id == endpoint_id)
-                .order_by(S3Account.name.asc())
-            ).all()
+        subject_model = _cost_subject_model(subject_type)
         return self.db.scalars(
-            select(S3User)
-            .where(S3User.storage_endpoint_id == endpoint_id)
-            .order_by(S3User.name.asc())
+            select(subject_model)
+            .where(subject_model.storage_endpoint_id == endpoint_id)
+            .order_by(subject_model.name.asc())
         ).all()
 
     def _endpoint_ids_with_data(
@@ -723,7 +729,7 @@ class CostService:
         endpoint_id: int,
         subject_type: str,
     ) -> dict[int, tuple[int, int, int]]:
-        column = CostUsageDaily.s3_account_id if subject_type == "account" else CostUsageDaily.s3_user_id
+        column = _daily_subject_column(CostUsageDaily, subject_type)
         rows = self.db.execute(
             select(
                 column,
@@ -751,7 +757,7 @@ class CostService:
         endpoint_id: int,
         subject_type: str,
     ) -> dict[int, tuple[Optional[int], Optional[int], int]]:
-        column = CostStorageDaily.s3_account_id if subject_type == "account" else CostStorageDaily.s3_user_id
+        column = _daily_subject_column(CostStorageDaily, subject_type)
         rows = self.db.execute(
             select(
                 column,
@@ -783,6 +789,26 @@ class CostService:
             )
         return results
 
+    def _daily_rows_for_subject(
+        self,
+        model: type[_CostDailyRow],
+        period: CostPeriod,
+        endpoint_id: int,
+        subject_type: str,
+        subject_id: int,
+    ) -> list[_CostDailyRow]:
+        column = _daily_subject_column(model, subject_type)
+        return self.db.scalars(
+            select(model)
+            .where(
+                model.storage_endpoint_id == endpoint_id,
+                model.day >= period.start,
+                model.day < period.end,
+                column == subject_id,
+            )
+            .order_by(model.day.asc())
+        ).all()
+
     def _usage_rows_for_subject(
         self,
         period: CostPeriod,
@@ -790,17 +816,13 @@ class CostService:
         subject_type: str,
         subject_id: int,
     ) -> list[CostUsageDaily]:
-        column = CostUsageDaily.s3_account_id if subject_type == "account" else CostUsageDaily.s3_user_id
-        return self.db.scalars(
-            select(CostUsageDaily)
-            .where(
-                CostUsageDaily.storage_endpoint_id == endpoint_id,
-                CostUsageDaily.day >= period.start,
-                CostUsageDaily.day < period.end,
-                column == subject_id,
-            )
-            .order_by(CostUsageDaily.day.asc())
-        ).all()
+        return self._daily_rows_for_subject(
+            CostUsageDaily,
+            period,
+            endpoint_id,
+            subject_type,
+            subject_id,
+        )
 
     def _storage_rows_for_subject(
         self,
@@ -809,14 +831,10 @@ class CostService:
         subject_type: str,
         subject_id: int,
     ) -> list[CostStorageDaily]:
-        column = CostStorageDaily.s3_account_id if subject_type == "account" else CostStorageDaily.s3_user_id
-        return self.db.scalars(
-            select(CostStorageDaily)
-            .where(
-                CostStorageDaily.storage_endpoint_id == endpoint_id,
-                CostStorageDaily.day >= period.start,
-                CostStorageDaily.day < period.end,
-                column == subject_id,
-            )
-            .order_by(CostStorageDaily.day.asc())
-        ).all()
+        return self._daily_rows_for_subject(
+            CostStorageDaily,
+            period,
+            endpoint_id,
+            subject_type,
+            subject_id,
+        )

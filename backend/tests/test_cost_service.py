@@ -576,6 +576,50 @@ def test_cost_subject_detail_and_export(db_session):
     assert account.rgw_user_uid in payload
 
 
+def test_cost_s3_user_subject_detail_uses_user_scoped_daily_rows(db_session):
+    endpoint = _seed_endpoint(db_session)
+    user = _seed_s3_user(db_session, endpoint.id)
+    db_session.add_all(
+        [
+            CostUsageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=endpoint.id,
+                s3_user_id=user.id,
+                bytes_in=256,
+                bytes_out=512,
+                ops_total=12,
+                source="rgw_admin_usage",
+                collected_at=utcnow(),
+            ),
+            CostStorageDaily(
+                day=date(2026, 1, 5),
+                storage_endpoint_id=endpoint.id,
+                s3_user_id=user.id,
+                total_bytes=4096,
+                total_objects=3,
+                source="rgw_admin_bucket_stats",
+                collected_at=utcnow(),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    detail = CostService(db_session).subject_detail(
+        "2026-01",
+        endpoint.id,
+        "s3_user",
+        user.id,
+    )
+
+    assert detail.subject_id == user.id
+    assert detail.subject_type == "s3_user"
+    assert detail.rgw_identifier == user.rgw_user_uid
+    assert detail.usage.bytes_in == 256
+    assert detail.usage.bytes_out == 512
+    assert detail.storage.avg_bytes == 4096
+    assert detail.storage.total_objects == 3
+
+
 def test_admin_cost_subject_detail_includes_scoped_twelve_month_history(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint.id)
