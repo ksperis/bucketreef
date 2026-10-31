@@ -38,7 +38,9 @@ from app.services.manager_iam_support import (
     update_iam_user,
     validate_iam_user_create,
 )
-from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_private_access_query_service import (
+    ManagedPrivateAccessQueryService,
+)
 from app.services.managed_private_access_sources import iam_source_reference
 from app.services.rgw_iam import RGWIAMService
 
@@ -207,7 +209,7 @@ def list_access_keys(
         if source is not None:
             managed = {
                 row.access_key_id: row
-                for row in ManagedPrivateAccessService(db).managed_resources_for_source(*source)
+                for row in ManagedPrivateAccessQueryService(db).managed_resources_for_source(*source)
                 if row.iam_username == user_name and row.access_key_id
             }
             for key in keys:
@@ -231,7 +233,10 @@ def create_access_key(
 ) -> AccessKey:
     _ensure_unmanaged_user(db, context, user_name)
     source = iam_source_reference(context)
-    if source is not None and ManagedPrivateAccessService(db).managed_iam_user(*source, user_name) is not None:
+    if source is not None and ManagedPrivateAccessQueryService(db).managed_iam_user(
+        *source,
+        user_name,
+    ) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Managed private access IAM users cannot receive keys through the generic endpoint",
@@ -323,7 +328,10 @@ def update_access_key_status(
 ) -> AccessKey:
     _ensure_unmanaged_user(db, context, user_name)
     source = iam_source_reference(context)
-    if source is not None and ManagedPrivateAccessService(db).managed_key(*source, access_key_id) is not None:
+    if source is not None and ManagedPrivateAccessQueryService(db).managed_key(
+        *source,
+        access_key_id,
+    ) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; update or delete its private connection instead",
@@ -372,7 +380,10 @@ def delete_access_key(
 ) -> None:
     _ensure_unmanaged_user(db, context, user_name)
     source = iam_source_reference(context)
-    if source is not None and ManagedPrivateAccessService(db).managed_key(*source, access_key_id) is not None:
+    if source is not None and ManagedPrivateAccessQueryService(db).managed_key(
+        *source,
+        access_key_id,
+    ) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This key belongs to a managed private access; delete its private connection instead",

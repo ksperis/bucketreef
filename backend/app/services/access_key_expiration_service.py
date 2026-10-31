@@ -13,7 +13,9 @@ from app.db.enums import StorageProvider
 from app.models.access_key_metadata import AccessKeyExpirationRunResult
 from app.models.iam import AccessKey
 from app.services.audit_service import AuditService
-from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_private_access_query_service import (
+    ManagedPrivateAccessQueryService,
+)
 from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_users_service import S3UsersService
@@ -98,7 +100,11 @@ class AccessKeyExpirationService:
             raise PermanentExpirationError("Individual access-key expiration is supported only for Ceph RGW accounts")
         if not row.principal_name:
             raise PermanentExpirationError("IAM principal is missing for the access-key expiration")
-        if ManagedPrivateAccessService(self.db).managed_key("account", account.id, row.access_key_id) is not None:
+        if ManagedPrivateAccessQueryService(self.db).managed_key(
+            "account",
+            account.id,
+            row.access_key_id,
+        ) is not None:
             raise PermanentExpirationError("Managed private-access keys cannot be expired from the generic key inventory")
         return row.principal_name
 
@@ -185,7 +191,11 @@ class AccessKeyExpirationService:
             raise PermanentExpirationError("Individual access-key expiration is supported only for Ceph RGW users")
         if row.access_key_id == s3_user.rgw_access_key:
             raise PermanentExpirationError("BucketReef interface access keys cannot be expired; rotate them instead")
-        if ManagedPrivateAccessService(self.db).managed_key("s3_user", s3_user.id, row.access_key_id) is not None:
+        if ManagedPrivateAccessQueryService(self.db).managed_key(
+            "s3_user",
+            s3_user.id,
+            row.access_key_id,
+        ) is not None:
             raise PermanentExpirationError("Managed private-access keys cannot be expired from the generic key inventory")
         service = S3UsersService(self.db)
         remote = next((key for key in service.list_keys(s3_user.id) if key.access_key_id == row.access_key_id), None)

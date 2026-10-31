@@ -18,7 +18,9 @@ from app.db import AccountIAMUser
 from app.models.iam import IAMUser, IAMUserCreate, IAMUserUpdate, IAMUserWithKey
 from app.models.policy import InlinePolicy, Policy
 from app.services.access_key_metadata_service import AccessKeyMetadataService
-from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_private_access_query_service import (
+    ManagedPrivateAccessQueryService,
+)
 from app.services.managed_private_access_sources import iam_source_reference
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.resource_name_validation import validate_inline_policy_requests
@@ -41,7 +43,10 @@ def managed_iam_user_source(
 ) -> tuple[str, int | None] | None:
     source = iam_source_reference(context)
     if source is not None:
-        provisioning = ManagedPrivateAccessService(db).managed_iam_user(*source, user_name)
+        provisioning = ManagedPrivateAccessQueryService(db).managed_iam_user(
+            *source,
+            user_name,
+        )
         if provisioning is not None:
             return "private_access", provisioning.s3_connection_id
     if context.id is not None and (

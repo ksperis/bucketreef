@@ -29,6 +29,9 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessForbidden,
     ManagedPrivateAccessNotFound,
 )
+from app.services.managed_private_access_query_service import (
+    ManagedPrivateAccessQueryService,
+)
 from app.services.managed_private_access_sources import (
     ManagedPrivateAccessDestination,
     ManagedPrivateAccessSource,
@@ -58,7 +61,6 @@ from app.utils.storage_endpoint_features import (
 from app.utils.time import utcnow
 
 
-ACTIVE_STATES = ("provisioning", "active", "deleting", "cleanup_pending")
 AMAZON_S3_FULL_ACCESS_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 ManagedPrivateAccessRequest = ManagedIAMPrivateAccessRequest | ManagedRGWUserPrivateAccessRequest
 
@@ -72,6 +74,7 @@ class ManagedPrivateAccessService:
         self.sources = ManagedPrivateAccessSourceResolver(db, self.access)
         self.connections = S3ConnectionsService(db)
         self.audit = AuditService(db)
+        self.queries = ManagedPrivateAccessQueryService(db)
 
     def provision_iam(
         self,
@@ -356,39 +359,6 @@ class ManagedPrivateAccessService:
                 pending_message,
             ) from exc
 
-    def managed_iam_user(self, source_kind: str, source_id: int, username: str) -> ManagedPrivateAccess | None:
-        return self.db.scalar(
-            self._active_source_statement(source_kind, source_id)
-            .where(ManagedPrivateAccess.iam_username == username)
-            .limit(1)
-        )
-
-    def managed_key(self, source_kind: str, source_id: int, access_key_id: str) -> ManagedPrivateAccess | None:
-        return self.db.scalar(
-            self._active_source_statement(source_kind, source_id)
-            .where(ManagedPrivateAccess.access_key_id == access_key_id)
-            .limit(1)
-        )
-
-    @staticmethod
-    def _active_source_statement(source_kind: str, source_id: int):
-        return select(ManagedPrivateAccess).where(
-            ManagedPrivateAccess.source_context_type == source_kind,
-            ManagedPrivateAccess.source_context_id == source_id,
-            ManagedPrivateAccess.state.in_(ACTIVE_STATES),
-        )
-
-    def managed_resources_for_source(
-        self,
-        source_kind: str,
-        source_id: int,
-    ) -> list[ManagedPrivateAccess]:
-        return list(
-            self.db.scalars(
-                self._active_source_statement(source_kind, source_id)
-            ).all()
-        )
-
     def managed_provisioning_allowed(
         self,
         user: User,
@@ -454,24 +424,17 @@ class ManagedPrivateAccessService:
         if len(inline_names) != len(set(inline_names)):
             raise ManagedPrivateAccessError("Inline policy names must be unique")
 
-    def _active_for_source(
-        self,
-        user_id: int,
-        source: ManagedPrivateAccessSource,
-    ) -> ManagedPrivateAccess | None:
-        return self.db.scalar(
-            self._active_source_statement(source.kind, source.identifier)
-            .where(ManagedPrivateAccess.owner_user_id == user_id)
-            .limit(1)
-        )
-
     def _existing_result_for_source(
         self,
         user: User,
         source: ManagedPrivateAccessSource,
         payload: ManagedPrivateAccessRequest,
     ) -> ManagedPrivateAccessResult | None:
-        existing = self._active_for_source(user.id, source)
+        existing = self.queries.active_for_source(
+            user.id,
+            source.kind,
+            source.identifier,
+        )
         if existing is None:
             return None
         return self._resolve_idempotent_existing(existing, payload)

@@ -16,7 +16,9 @@ from app.models.ceph_admin import (
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_user_access import require_user_scope, serialize_access_keys
-from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_private_access_query_service import (
+    ManagedPrivateAccessQueryService,
+)
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
@@ -215,7 +217,7 @@ class CephAdminUserKeyService:
                 S3User.rgw_user_uid.in_(remote_uids),
             )
         ).all()
-        managed = ManagedPrivateAccessService(self.db)
+        managed = ManagedPrivateAccessQueryService(self.db)
         for source in sources:
             provisioning = managed.managed_key("s3_user", source.id, access_key)
             if provisioning is not None:
