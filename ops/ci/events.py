@@ -51,13 +51,19 @@ def gitlab_plan(env, api=None):
     if profile == "integration" and ref == "main":
         transition = release_transition(env.get("CI_COMMIT_BEFORE_SHA"), sha)
         if transition:
-            profile = "prepare-release"
+            # Preparing release metadata on main must not publish automatically.
+            # Stable publication is always an explicit protected-main action.
+            profile = "qualify"
         elif changes(env.get("CI_COMMIT_BEFORE_SHA"), sha) is None:
             # Unknown push comparison may widen tests, never authorize release.
             profile = "qualify"
-    plan = select(profile, paths, ref=ref, version=profile == "integration" and version_changed(base, sha, paths))
-    if transition:
-        plan["release_trigger"] = transition
+    plan = select(
+        profile,
+        paths,
+        ref=ref,
+        version=profile == "integration" and version_changed(base, sha, paths),
+        preview=env["CI_PIPELINE_SOURCE"] == "push" and ref == "main",
+    )
     if profile == "resume-release":
         value = env.get("RELEASE_RECOVERY_VERSION", "")
         pipeline_id = env.get("RELEASE_RECOVERY_PIPELINE_ID", "")

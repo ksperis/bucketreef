@@ -66,7 +66,7 @@ def test_mismatched_metadata_and_missing_changelog_cannot_publish(tmp_path):
     with pytest.raises(ValueError): release_transition(before, head, root=tmp_path)
 
 
-@pytest.mark.parametrize('comparison,transition,profile', [(None,None,'qualify'), ([],None,'integration'), (['frontend/package.json'],{'version':'0.2.11'},'prepare-release')])
+@pytest.mark.parametrize('comparison,transition,profile', [(None,None,'qualify'), ([],None,'integration'), (['frontend/package.json'],{'version':'0.2.11'},'qualify')])
 def test_push_uses_event_comparison_not_impact_baseline(monkeypatch, comparison, transition, profile):
     monkeypatch.setattr(gitlab_api,'latest_baseline',lambda *args:'a'*40)
     monkeypatch.setattr(events,'git',lambda *args:SHA)
@@ -75,6 +75,8 @@ def test_push_uses_event_comparison_not_impact_baseline(monkeypatch, comparison,
     plan = events.gitlab_plan({'CI_COMMIT_BRANCH':'main','CI_PIPELINE_SOURCE':'push','CI_COMMIT_REF_PROTECTED':'true',
                               'CI_COMMIT_SHA':SHA,'CI_COMMIT_BEFORE_SHA':'c'*40,'CI_PIPELINE_ID':'19'}, api=object())
     assert plan['profile'] == profile
+    assert 'release_trigger' not in plan
+    assert plan['preview_images'] == ['backend', 'frontend', 'scheduler']
 
 
 def test_arm64_failure_creates_no_stable_reference(monkeypatch, tmp_path):

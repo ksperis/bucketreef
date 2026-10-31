@@ -62,6 +62,9 @@ def render(plan):
             names.add("release-preflight")
         if plan["ref"] == "dev":
             names.update(f"promote-{c}-dev" for c in plan["images"])
+        if plan.get("preview_images"):
+            names.update(f"build-{component}" for component in plan["preview_images"])
+            names.add("promote-main")
     payload = base64.b64encode(json.dumps(plan).encode()).decode()
     plan_bootstrap = "\n".join([
         "python3 - <<'BUCKETREEF_CI_PLAN_PY'",
@@ -107,6 +110,10 @@ def render(plan):
             dependencies = ["integration-ready"]
             job["stage"] = "finalize"
             job["resource_group"] = "internal-dev-images"
+            job["interruptible"] = False
+        if name == "promote-main":
+            dependencies = [f"build-{component}" for component in plan["preview_images"]]
+            job["resource_group"] = "internal-main-images"
             job["interruptible"] = False
         if name == "docs-deploy" and profile in {"prepare-release", "resume-release"}:
             finalizer = "finalize-release" if profile == "prepare-release" else "resume-finalize-release"

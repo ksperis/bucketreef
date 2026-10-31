@@ -6,7 +6,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from plan import PUBLIC, changes, classify, secret_scan_options, select, version_values
+from plan import COMPONENTS, PUBLIC, changes, classify, secret_scan_options, select, version_values
 from required import check
 
 
@@ -88,12 +88,25 @@ def test_resume_release_is_explicit_main_only_manual_mode(source):
 
 @pytest.mark.parametrize("source", ["web", "api"])
 def test_manual_modes_still_require_protected_main(source):
-    for values in [
-        dict(source=source, ref="dev", protected=True),
-        dict(source=source, ref="main", protected=False),
-    ]:
-        with pytest.raises(ValueError):
-            classify(**values, mode="prepare-release")
+    for mode in ("prepare-release",):
+        for values in [
+            dict(source=source, ref="dev", protected=True),
+            dict(source=source, ref="main", protected=False),
+        ]:
+            with pytest.raises(ValueError):
+                classify(**values, mode=mode)
+
+
+def test_main_push_preview_builds_all_private_images_without_expanding_validation():
+    paths = ["README.md"]
+    normal = select("integration", paths, ref="main")
+    preview = select("integration", paths, ref="main", preview=True)
+
+    assert preview["jobs"] == normal["jobs"]
+    assert preview["images"] == normal["images"]
+    assert preview["preview_images"] == list(COMPONENTS)
+    assert select("integration", paths, ref="dev", preview=True)["preview_images"] == []
+    assert select("prepare-release", None, ref="main", preview=True)["preview_images"] == []
 
 
 @pytest.mark.parametrize("status", ["failure", "cancelled", "skipped", None, "neutral"])
