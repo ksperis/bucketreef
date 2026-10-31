@@ -83,9 +83,9 @@ class S3UsersService:
 
     # Helpers
     def _resolve_endpoint(self, storage_endpoint_id: int) -> StorageEndpoint:
-        endpoint = self.db.execute(
+        endpoint = self.db.scalar(
             select(StorageEndpoint).where(StorageEndpoint.id == storage_endpoint_id)
-        ).scalar_one_or_none()
+        )
         if not endpoint:
             raise StorageEndpointNotFoundError("Storage endpoint not found.")
         if endpoint.provider != StorageProvider.CEPH.value:
@@ -162,13 +162,13 @@ class S3UsersService:
         raise ValueError("RGW user could not be verified")
 
     def _existing_identity(self, uid: str, tenant: str, endpoint_id: int):
-        return self.db.execute(
+        return self.db.scalar(
             select(S3UserModel).where(
                 S3UserModel.storage_endpoint_id == endpoint_id,
                 S3UserModel.rgw_user_uid == uid,
                 S3UserModel.rgw_tenant == tenant,
             )
-        ).scalar_one_or_none()
+        )
 
     def _interface_bucket_count(self, s3_user: S3UserModel) -> Optional[int]:
         access_key = (s3_user.rgw_access_key or "").strip()
@@ -265,9 +265,9 @@ class S3UsersService:
         )
 
     def get_user_record(self, user_id: int) -> S3UserModel:
-        s3_user = self.db.execute(
+        s3_user = self.db.scalar(
             select(S3UserModel).where(S3UserModel.id == user_id)
-        ).scalar_one_or_none()
+        )
         if not s3_user:
             raise S3UserNotFoundError("S3 user not found")
         return s3_user
