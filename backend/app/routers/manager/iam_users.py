@@ -23,6 +23,7 @@ from app.routers.manager.iam_common import (
     ensure_unmanaged_iam_user,
     ensure_inline_policy_name,
     get_iam_service_for_context,
+    run_audited_iam_mutation,
 )
 from app.services.audit_service import AuditService
 from app.services.resource_name_validation import validate_inline_policy_request
@@ -459,19 +460,16 @@ def delete_user_inline_policy(
 ) -> None:
     _ensure_unmanaged_user(db, context, user_name)
     service = get_iam_service_for_context(context)
-    try:
-        service.delete_user_inline_policy(user_name, policy_name)
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="delete_user_inline_policy",
-            entity_type="iam_user",
-            entity_id=user_name,
-            execution_context=context,
-            metadata={"policy_name": policy_name},
-        )
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    run_audited_iam_mutation(
+        mutation=lambda: service.delete_user_inline_policy(user_name, policy_name),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="delete_user_inline_policy",
+        entity_type="iam_user",
+        entity_id=user_name,
+        metadata={"policy_name": policy_name},
+    )
 
 
 @router.get("/{user_name}/policies", response_model=list[Policy])
@@ -525,16 +523,13 @@ def detach_user_policy(
 ) -> None:
     _ensure_unmanaged_user(db, context, user_name)
     service = get_iam_service_for_context(context)
-    try:
-        service.detach_user_policy(user_name, policy_arn)
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="detach_user_policy",
-            entity_type="iam_user",
-            entity_id=user_name,
-            execution_context=context,
-            metadata={"policy_arn": policy_arn},
-        )
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    run_audited_iam_mutation(
+        mutation=lambda: service.detach_user_policy(user_name, policy_arn),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="detach_user_policy",
+        entity_type="iam_user",
+        entity_id=user_name,
+        metadata={"policy_arn": policy_arn},
+    )
