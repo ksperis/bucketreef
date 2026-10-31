@@ -57,7 +57,7 @@
   "Access key disabled.": "访问密钥已禁用。",
   "Access key enabled.": "访问密钥已启用。",
   "Access key management": "访问密钥管理",
-  "Access restricted to super-admin.": "访问仅限超级管理员。",
+  "Access restricted to administrators.": "访问仅限管理员。",
   "Access to the Manager feature-rule inventory. Requires an eligible Manager role and storage context.": "访问 Manager 功能规则清单。需要符合条件的 Manager 角色和存储上下文。",
   "Access-key endpoint list": "访问密钥端点列表",
   "Access-key expiration": "访问密钥过期",

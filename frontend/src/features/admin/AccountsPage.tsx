@@ -47,7 +47,7 @@ import {
 } from "./AssociationSummary";
 import AdminAccountEditor from "./AdminAccountEditor";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
-import { extractApiError } from "../../utils/apiError";
+import { classifyApiError, extractApiError } from "../../utils/apiError";
 import { stableSignature } from "../../utils/stableSignature";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
@@ -182,16 +182,16 @@ export default function S3AccountsPage() {
       setTotalAccounts(response.total);
     } catch (err) {
       console.error(err);
-      const msg = extractError(err);
-      if (msg.toLowerCase().includes("not authorized") || msg.includes("403")) {
-        setError(adminText("Access restricted to super-admin."));
+      const failure = classifyApiError(err, adminText("Unable to load accounts."));
+      if (failure.status === 403) {
+        setError(adminText("Access restricted to administrators."));
       } else {
         setError(adminText("Unable to load accounts."));
       }
     } finally {
       setLoading(false);
     }
-  }, [adminText, ensurePageInRange, extractError, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
+  }, [adminText, ensurePageInRange, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
 
   const clearAllFilters = () => {
     handleFilterChange("");

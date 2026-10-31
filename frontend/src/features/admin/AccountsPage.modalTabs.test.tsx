@@ -4,6 +4,7 @@ import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-d
 import userEvent from "@testing-library/user-event";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../api/client";
 import AccountsPage from "./AccountsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
@@ -270,6 +271,38 @@ describe("AccountsPage modal tabs", () => {
 
     expect(await screen.findByText("No accounts.")).toBeInTheDocument();
     expect(screen.queryByText("No accounts yet.")).not.toBeInTheDocument();
+  });
+
+  it("classifies account-list authorization failures by HTTP status", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    listS3AccountsMock.mockRejectedValueOnce(new ApiError("Request failed", {
+      response: {
+        status: 403,
+        data: { detail: "Policy rejected request" },
+        headers: {},
+      },
+    }));
+
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Access restricted to administrators.");
+    consoleError.mockRestore();
+  });
+
+  it("does not infer account-list authorization from error wording", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    listS3AccountsMock.mockRejectedValueOnce(new ApiError("Request failed", {
+      response: {
+        status: 500,
+        data: { detail: "Not authorized" },
+        headers: {},
+      },
+    }));
+
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load accounts.");
+    consoleError.mockRestore();
   });
 
   it("shows a tenant qualifier beside the account name only for non-default tenants", async () => {

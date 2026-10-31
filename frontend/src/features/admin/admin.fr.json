@@ -57,7 +57,7 @@
   "Access key disabled.": "Clé d’accès désactivée.",
   "Access key enabled.": "Clé d’accès activée.",
   "Access key management": "Gestion des clés d'accès",
-  "Access restricted to super-admin.": "Accès réservé au super-administrateur.",
+  "Access restricted to administrators.": "Accès réservé aux administrateurs.",
   "Access to the Manager feature-rule inventory. Requires an eligible Manager role and storage context.": "Accès à l’inventaire des règles Manager. Nécessite un rôle Manager éligible et un contexte de stockage.",
   "Access-key endpoint list": "Liste des endpoints de clé d’accès",
   "Access-key expiration": "Expiration de la clé d'accès",
