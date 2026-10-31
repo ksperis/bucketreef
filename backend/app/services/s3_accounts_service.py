@@ -16,7 +16,6 @@ from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3AccountNotFoundError, StorageEndpointNotFoundError
-from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     AccountIAMUser,
     S3Account,
@@ -37,11 +36,7 @@ from app.models.s3_account import (
     S3AccountSummary,
     S3AccountUpdate,
 )
-from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.services.app_settings_service import load_app_settings_for_db
-from app.services.managed_resource_naming import (
-    PORTAL_MANAGED_IAM_GROUP_NAMES,
-)
 from app.services.mappers.s3_account import s3_account_from_db, s3_account_summary_from_db
 from app.services.portal_role_sync import (
     PortalRoleMap,
@@ -57,15 +52,14 @@ from app.services.rgw_account_topics_resolver import (
 )
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
-from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.rgw_quota_update import (
     execute_rgw_quota_update,
     prepare_rgw_quota_update,
 )
 from app.services.s3_account_associations_service import S3AccountAssociationsService
+from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
-from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
@@ -99,14 +93,6 @@ class _PreparedAccountImport:
     rgw_tenant: str
 
 
-@dataclass(frozen=True)
-class _AccountIAMDeletionInventory:
-    users: list[IAMUser]
-    groups: list[IAMGroup]
-    roles: list[IAMRole]
-    group_members: dict[str, list[IAMUser]]
-
-
 class S3AccountsService:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -114,6 +100,7 @@ class S3AccountsService:
         self.account_topics = RgwAccountTopicsResolver()
         self.account_roots = RgwAccountRootService()
         self.associations = S3AccountAssociationsService(db)
+        self.iam_cleanup = S3AccountIamCleanupService(db)
 
     def get_account_record(self, account_id: int) -> S3Account:
         account = self.db.scalar(
@@ -1067,106 +1054,13 @@ class S3AccountsService:
             # ListUsers is scoped by the account root credentials and provides
             # the missing non-root user proof without enumerating every RGW
             # user on the endpoint.
-            self._prepare_account_iam_for_deletion(account, endpoint)
+            self.iam_cleanup.prepare(account, endpoint)
             self._delete_root_user(account)
             try:
                 admin.delete_account(account_identifier)
             except RGWAdminError as exc:
                 raise ValueError(f"Unable to delete RGW account {account_identifier}: {exc}") from exc
         self._remove_account_entry(account)
-
-    def _iam_for_account(self, account: S3Account) -> RGWIAMService:
-        access_key, secret_key = account.effective_rgw_credentials()
-        if not access_key or not secret_key:
-            raise ValueError("Unable to verify RGW IAM resources; account root credentials are missing.")
-        endpoint, region, verify_tls = resolve_iam_client_options(account)
-        try:
-            return get_iam_service(
-                access_key,
-                secret_key,
-                endpoint=endpoint,
-                region=region,
-                verify_tls=verify_tls,
-            )
-        except Exception as exc:
-            raise ValueError(
-                f"Unable to initialize RGW IAM cleanup: {sanitized_error_log_detail(exc)}"
-            ) from exc
-
-    def _prepare_account_iam_for_deletion(
-        self,
-        account: S3Account,
-        endpoint: StorageEndpoint,
-    ) -> None:
-        if not resolve_feature_flags(endpoint).iam_enabled:
-            return
-
-        iam = self._iam_for_account(account)
-        inventory = self._load_account_iam_deletion_inventory(iam)
-        self._require_account_iam_deletion_ready(inventory)
-        self._remove_portal_iam_groups(iam, inventory.groups)
-
-    @staticmethod
-    def _load_account_iam_deletion_inventory(
-        iam: RGWIAMService,
-    ) -> _AccountIAMDeletionInventory:
-        try:
-            users = iam.list_users()
-            groups = iam.list_groups()
-            roles = iam.list_roles()
-            group_members = {
-                group.name: iam.list_group_users(group.name)
-                for group in groups
-            }
-        except RuntimeError as exc:
-            raise ValueError(
-                f"Unable to verify RGW IAM resources; cannot delete the RGW tenant: {sanitized_error_log_detail(exc)}"
-            ) from exc
-        return _AccountIAMDeletionInventory(
-            users=users,
-            groups=groups,
-            roles=roles,
-            group_members=group_members,
-        )
-
-    @staticmethod
-    def _require_account_iam_deletion_ready(
-        inventory: _AccountIAMDeletionInventory,
-    ) -> None:
-        unexpected_groups = sorted(
-            group.name
-            for group in inventory.groups
-            if group.name not in PORTAL_MANAGED_IAM_GROUP_NAMES
-        )
-        groups_with_members = sorted(
-            group_name
-            for group_name, members in inventory.group_members.items()
-            if members
-        )
-        if inventory.users or inventory.roles or unexpected_groups or groups_with_members:
-            raise ValueError(
-                "RGW tenant still has attached IAM resources "
-                f"(users={len(inventory.users)}, roles={len(inventory.roles)}, "
-                f"groups={len(unexpected_groups)}, groups_with_members={len(groups_with_members)}); "
-                "remove them first."
-            )
-
-    @staticmethod
-    def _remove_portal_iam_groups(
-        iam: RGWIAMService,
-        groups: list[IAMGroup],
-    ) -> None:
-        try:
-            for group in groups:
-                for policy_arn in group.policies or []:
-                    iam.detach_group_policy(group.name, policy_arn)
-                for policy_name in iam.list_group_inline_policies(group.name):
-                    iam.delete_group_inline_policy(group.name, policy_name)
-                iam.delete_group(group.name)
-        except RuntimeError as exc:
-            raise ValueError(
-                f"Unable to remove Portal IAM groups; cannot delete the RGW tenant: {sanitized_error_log_detail(exc)}"
-            ) from exc
 
     def _delete_root_user(self, account: S3Account) -> None:
         admin = self._admin_for_account(account, allow_missing=False)
