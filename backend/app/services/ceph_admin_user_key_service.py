@@ -20,6 +20,7 @@ from app.services.managed_private_access_service import ManagedPrivateAccessServ
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.rgw_payloads import rgw_qualified_uid
 
 
 class CephAdminUserKeyService:
@@ -90,7 +91,7 @@ class CephAdminUserKeyService:
             self.ctx,
             action="rgw_user_key.create",
             entity_type="rgw_user",
-            entity_id=self._entity_id(normalized_uid, tenant),
+            entity_id=rgw_qualified_uid(normalized_uid, tenant),
             metadata={"access_key_suffix": access_key[-4:]},
         )
         return CephAdminRgwGeneratedAccessKey(
@@ -149,7 +150,7 @@ class CephAdminUserKeyService:
             self.ctx,
             action="rgw_user_key.update_status",
             entity_type="rgw_user",
-            entity_id=self._entity_id(normalized_uid, tenant),
+            entity_id=rgw_qualified_uid(normalized_uid, tenant),
             metadata={"access_key_suffix": normalized_key[-4:], "active": active},
         )
         return updated_key
@@ -194,7 +195,7 @@ class CephAdminUserKeyService:
             self.ctx,
             action="rgw_user_key.delete",
             entity_type="rgw_user",
-            entity_id=self._entity_id(normalized_uid, tenant),
+            entity_id=rgw_qualified_uid(normalized_uid, tenant),
             metadata={"access_key_suffix": normalized_key[-4:]},
         )
 
@@ -207,7 +208,7 @@ class CephAdminUserKeyService:
     ):
         remote_uids = {uid}
         if tenant:
-            remote_uids.add(f"{tenant}${uid}")
+            remote_uids.add(rgw_qualified_uid(uid, tenant))
         sources = self.db.scalars(
             select(S3User).where(
                 S3User.storage_endpoint_id == self.ctx.endpoint.id,
@@ -230,7 +231,3 @@ class CephAdminUserKeyService:
                 detail="access_key is required",
             )
         return normalized_key
-
-    @staticmethod
-    def _entity_id(uid: str, tenant: Optional[str]) -> str:
-        return f"{tenant}${uid}" if tenant else uid

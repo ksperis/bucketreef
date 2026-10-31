@@ -16,7 +16,6 @@ from app.routers.ceph_admin.admin_ops_common import (
     admin_ops_network_failure as _network_failure,
     execute_admin_operation as _execute,
     invalidate_all_admin_ops_caches,
-    qualified_user,
     require_confirmation,
 )
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
@@ -24,7 +23,7 @@ from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.ceph_admin_user_access import require_user_scope
 from app.services.rgw_admin import RGWAdminError
-from app.utils.rgw_payloads import extract_rgw_user_identity
+from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
 
 router = APIRouter()
 
@@ -66,7 +65,7 @@ def delete_user(
 ) -> JSONResponse:
     operation = "delete_user"
     action = "ceph_admin.user.delete"
-    target = qualified_user(uid, tenant)
+    target = rgw_qualified_uid(uid, tenant)
     expected = f"PURGE USER {target}" if payload.purge_data else f"DELETE USER {target}"
     require_confirmation(
         ctx,
@@ -90,7 +89,7 @@ def delete_user(
             metadata=metadata,
         )
     active_uid, active_tenant = extract_rgw_user_identity(active_identity)
-    if active_uid and qualified_user(active_uid, active_tenant) == target:
+    if active_uid and rgw_qualified_uid(active_uid, active_tenant) == target:
         record_ceph_admin_action(
             ctx,
             action=action,
