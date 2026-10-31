@@ -108,7 +108,7 @@ def _coerce_check_mode(value: object) -> Literal["http", "s3"]:
 
 def resolve_healthcheck_profile(endpoint: StorageEndpoint) -> HealthCheckProfile:
     features = normalize_features(endpoint.provider, endpoint.features)
-    healthcheck_cfg = features.get("healthcheck", {})
-    mode = _coerce_check_mode(healthcheck_cfg.get("mode"))
-    target_url = str(healthcheck_cfg.get("url") or endpoint.endpoint_url or "").strip()
+    healthcheck_cfg = features["healthcheck"]
+    mode = _coerce_check_mode(healthcheck_cfg["mode"])
+    target_url = str(healthcheck_cfg["url"] or endpoint.endpoint_url or "").strip()
     return HealthCheckProfile(mode=mode, target_url=target_url)
