@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyForm, mergeProjectOverrides } from "./projectSettingsForm";
+import { emptyForm, mergeProjectOverrides, ProjectSettingsConflict } from "./projectSettingsForm";
 
 describe("project override merge", () => {
   it("preserves unrelated flags and defaults changed on the server", () => {
@@ -40,7 +40,7 @@ describe("project override merge", () => {
         { ...baseline, versionHistoryRetentionDays: "30" },
         { bucket_defaults: { noncurrent_version_expiration_days: 60 } },
       ),
-    ).toThrow("project_settings_conflict");
+    ).toThrow(ProjectSettingsConflict);
   });
 
   it("merges the Portal-user external sharing override independently", () => {

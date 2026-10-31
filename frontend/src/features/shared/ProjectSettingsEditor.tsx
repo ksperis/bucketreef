@@ -207,12 +207,7 @@ export default function ProjectSettingsEditor({
     } catch (cause) {
       if (active.current && cause instanceof ProjectSettingsConflict) setConflicts(cause.fields);
       if (active.current)
-        setError(
-          cause instanceof Error &&
-            cause.message === "project_settings_conflict"
-            ? "conflict"
-            : "save",
-        );
+        setError(cause instanceof ProjectSettingsConflict ? "conflict" : "save");
     } finally {
       pending.current = false;
       if (active.current) setSaving(false);

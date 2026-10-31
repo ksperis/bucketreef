@@ -83,6 +83,13 @@ import {
 
 type Step = "connect" | "prepare" | "credentials" | "review";
 
+class OnboardingReviewChangedError extends Error {
+  constructor() {
+    super("Onboarding review changed while applying configuration");
+    this.name = "OnboardingReviewChangedError";
+  }
+}
+
 const initialDraft = (): OnboardingDraft => ({
   version: 2,
   endpoint_id: null,
@@ -443,7 +450,7 @@ export default function OnboardingPage() {
         );
       }
       return message(
-        cause instanceof Error && cause.message === "review_changed"
+        cause instanceof OnboardingReviewChangedError
           ? "review_changed"
           : "generic",
       );
@@ -691,7 +698,7 @@ export default function OnboardingPage() {
       if (!canApply || !preview) return;
       const reviewed = preview.review_token;
       const saved = await persist();
-      if (saved.preview.review_token !== reviewed) throw new Error("review_changed");
+      if (saved.preview.review_token !== reviewed) throw new OnboardingReviewChangedError();
       const result = await runWithStepUp(() =>
         applyOnboardingJourney(saved, {
           admin_access_key: needsAdmin ? adminAccessKey || undefined : undefined,

@@ -149,7 +149,8 @@ function buildOverride(form: ProjectSettingsForm): PortalSettingsOverride {
 
 export class ProjectSettingsConflict extends Error {
   constructor(public fields: string[]) {
-    super("project_settings_conflict");
+    super("Project settings changed concurrently");
+    this.name = "ProjectSettingsConflict";
   }
 }
 
