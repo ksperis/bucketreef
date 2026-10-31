@@ -7,6 +7,7 @@ import { useSearchParams } from "react-router-dom";
 import {
   ACCESS_AUDIT_RIGHTS,
   ACCESS_AUDIT_SCOPES,
+  ACCESS_AUDIT_SOURCES,
   downloadAccessAuditCsv,
   listAccessAudit,
   type AccessAuditRightCode,
@@ -55,7 +56,9 @@ export default function AccessAuditPage() {
   } = useAdminPaginationState({ initialFilter: searchParams.get("search") ?? "" });
   const [scope, setScope] = useState<AllOr<AccessAuditScope>>(initialScope && ACCESS_AUDIT_SCOPES.some((item) => item.value === initialScope) ? initialScope : "all");
   const [right, setRight] = useState<AllOr<AccessAuditRightCode>>(initialRight && ACCESS_AUDIT_RIGHTS.some((item) => item.value === initialRight) ? initialRight : "all");
-  const [source, setSource] = useState<AllOr<AccessAuditSourceKind>>(initialSource === "direct" || initialSource === "group" ? initialSource : "all");
+  const [source, setSource] = useState<AllOr<AccessAuditSourceKind>>(
+    initialSource && ACCESS_AUDIT_SOURCES.includes(initialSource) ? initialSource : "all",
+  );
   const [userId, setUserId] = useState<number | undefined>(() => positiveInt(searchParams.get("user_id")));
   const [groupId, setGroupId] = useState<number | undefined>(() => positiveInt(searchParams.get("group_id")));
   const [targetId, setTargetId] = useState<number | undefined>(() => positiveInt(searchParams.get("target_id")));

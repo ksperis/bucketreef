@@ -79,6 +79,12 @@ export const ACCESS_AUDIT_SCOPES: Array<{ value: AccessAuditScope; label: string
   { value: "s3_connection", label: "S3 Connection" },
 ];
 
+export const ACCESS_AUDIT_SOURCES: readonly AccessAuditSourceKind[] = [
+  "platform",
+  "direct",
+  "group",
+];
+
 export const ACCESS_AUDIT_RIGHTS: Array<{ value: AccessAuditRightCode; label: string }> = [
   { value: "ceph_admin", label: "Ceph Admin" },
   { value: "storage_ops", label: "Storage Ops" },
