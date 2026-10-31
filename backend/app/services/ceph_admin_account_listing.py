@@ -32,12 +32,11 @@ from app.services.ceph_admin_identity_listing_support import (
     apply_simple_search,
     coerce_number,
     collect_filter_fields,
-    paginate_listing_results,
+    run_identity_listing_pipeline,
 )
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
-    emit_listing_ready,
 )
 from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_rule_matching import match_numeric_rule, match_text_rule
@@ -196,48 +195,29 @@ class _AccountListingPipeline:
         self.cache_key: EndpointListCacheKey | None = None
 
     def run(self) -> PaginatedCephAdminAccountsResponse:
-        self.progress.emit(
-            percent=0,
-            stage="prepare",
-            message="Preparing advanced search",
-            force=True,
-        )
-        invoke_cancel_check(self.cancel_check)
-        self._prepare_query()
-
-        if self.cache_key is None:
-            raise RuntimeError("Account listing cache key is not initialized")
-        results = get_cached_accounts_listing(self.cache_key, self._build_listing)
-        emit_listing_ready(
-            self.progress,
-            item_count=len(results),
+        return run_identity_listing_pipeline(
+            progress=self.progress,
             cancel_check=self.cancel_check,
-        )
-        filtered_results = self._search(results)
-        page_items, total, has_next = paginate_listing_results(
-            filtered_results,
+            prepare_query=self._prepare_query,
+            load_results=self._load_results,
+            search_results=self._search,
             page=self.page,
             page_size=self.page_size,
             clone=_clone_account_list,
-            progress=self.progress,
-            cancel_check=self.cancel_check,
+            enrich_page=self._enrich_page,
+            build_response=lambda items, total, has_next: PaginatedCephAdminAccountsResponse(
+                items=items,
+                total=total,
+                page=self.page,
+                page_size=self.page_size,
+                has_next=has_next,
+            ),
         )
-        page_items = self._enrich_page(page_items)
-        self.progress.emit(
-            percent=100,
-            stage="finalize",
-            processed=total,
-            total=total,
-            message="Search completed",
-            force=True,
-        )
-        return PaginatedCephAdminAccountsResponse(
-            items=page_items,
-            total=total,
-            page=self.page,
-            page_size=self.page_size,
-            has_next=has_next,
-        )
+
+    def _load_results(self) -> list[CephAdminRgwAccountSummary]:
+        if self.cache_key is None:
+            raise RuntimeError("Account listing cache key is not initialized")
+        return get_cached_accounts_listing(self.cache_key, self._build_listing)
 
     def _prepare_query(self) -> None:
         self.requested = parse_includes(self.include) & {
@@ -299,7 +279,7 @@ class _AccountListingPipeline:
         results = apply_advanced_filter(
             results,
             self.parsed_filter,
-                _match_account_field_rule,
+            _match_account_field_rule,
         )
         invoke_cancel_check(self.cancel_check)
         results.sort(
