@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../api/client";
 import { useBrowserBucketAccess } from "./useBrowserBucketAccess";
 
 const apiMocks = vi.hoisted(() => ({ listBrowserObjects: vi.fn() }));
@@ -72,7 +73,15 @@ describe("useBrowserBucketAccess", () => {
       (contextId: string) =>
         contextId === "account-a"
           ? Promise.resolve({})
-          : Promise.reject(new Error("AccessDenied for this bucket")),
+          : Promise.reject(
+              new ApiError("Request failed", {
+                response: {
+                  status: 403,
+                  data: { detail: "Forbidden by policy" },
+                  headers: {},
+                },
+              }),
+            ),
     );
     const { result, rerender } = renderHook(
       ({ contextId, contextKey }) =>

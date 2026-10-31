@@ -75,14 +75,17 @@ describe("BrowserPage error handling", () => {
     });
   });
 
-  it("shows backend detail when bucket loading fails with detail", async () => {
+  it("shows a public access message when bucket listing is forbidden", async () => {
     searchBrowserBucketsMock.mockRejectedValueOnce(new ApiError("Request failed", {
       response: { status: 403, data: { detail: "Forbidden by policy" }, headers: {} },
     }));
 
     renderPage();
 
-    expect(await screen.findByText("Forbidden by policy")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/not allowed to list buckets/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Forbidden by policy")).not.toBeInTheDocument();
   });
 
   it("shows a public fallback when bucket loading fails without detail", async () => {
