@@ -23,6 +23,7 @@ from app.services.ldap_service import LDAPAuthService
 from app.services.user_notifications_service import UserNotificationsService
 from app.services.users_service import get_users_service
 from app.services.webauthn_service import WebAuthnService
+from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
 
 
@@ -70,7 +71,7 @@ class ExternalIdentityLinkService:
             provider_id=provider_id.lower(),
             issuer=normalized_issuer,
             subject=subject,
-            email=self._normalize_email(email),
+            email=normalize_optional_email(email),
             email_verified=bool(email_verified),
             display_name=display_name,
             picture_url=picture_url,
@@ -160,7 +161,7 @@ class ExternalIdentityLinkService:
             if existing.revoked_at is not None:
                 raise ExternalIdentityLinkError("OIDC identity is revoked")
         attempt.subject = subject
-        attempt.email = self._normalize_email(email)
+        attempt.email = normalize_optional_email(email)
         attempt.email_verified = bool(email_verified)
         attempt.display_name = full_name
         attempt.picture_url = picture_url
@@ -543,7 +544,3 @@ class ExternalIdentityLinkService:
         if value not in {"oidc", "ldap"}:
             raise ExternalIdentityLinkError("Unsupported external identity provider type")
         return value
-
-    @staticmethod
-    def _normalize_email(email: Optional[str]) -> Optional[str]:
-        return str(email or "").strip().lower() or None

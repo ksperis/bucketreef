@@ -19,6 +19,7 @@ from app.db import (
     UserUiGroup,
 )
 from app.services.quota_subject import SubjectContext
+from app.utils.normalize import normalize_optional_email
 
 
 @dataclass
@@ -29,12 +30,6 @@ class QuotaAlertRecipientIndex:
     account_user_ids: dict[int, set[int]] = field(default_factory=dict)
     s3_user_member_ids: dict[int, set[int]] = field(default_factory=dict)
     global_user_ids: set[int] = field(default_factory=set)
-
-
-def normalize_email(value: Optional[str]) -> Optional[str]:
-    if value is None:
-        return None
-    return str(value).strip().lower() or None
 
 
 class QuotaAlertRecipientsService:
@@ -69,7 +64,7 @@ class QuotaAlertRecipientsService:
                 index.s3_user_emails.get(subject.subject_id, set())
             )
         if include_subject_contact:
-            subject_email = normalize_email(subject.contact_email)
+            subject_email = normalize_optional_email(subject.contact_email)
             if subject_email:
                 recipients.add(subject_email)
         return sorted(recipients)
@@ -232,7 +227,7 @@ class QuotaAlertRecipientsService:
         for user_id, email, email_enabled in rows:
             index.global_user_ids.add(int(user_id))
             if email_enabled:
-                normalized = normalize_email(email)
+                normalized = normalize_optional_email(email)
                 if normalized:
                     index.global_emails.add(normalized)
 
@@ -252,7 +247,7 @@ class QuotaAlertRecipientsService:
         )
         if not email_enabled:
             return
-        normalized = normalize_email(email)
+        normalized = normalize_optional_email(email)
         if normalized:
             email_map.setdefault(canonical_subject_id, set()).add(
                 normalized

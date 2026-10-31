@@ -8,8 +8,8 @@ from typing import Optional
 from app.core.config import get_settings
 from app.models.app_settings import QuotaNotificationSettings
 from app.services import smtp_mailer
-from app.services.quota_alert_recipients_service import normalize_email
 from app.services.quota_subject import SubjectContext
+from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
 
 
@@ -71,7 +71,7 @@ class QuotaAlertEmailService:
         notification_settings: QuotaNotificationSettings,
         recipient_email: Optional[str],
     ) -> dict[str, str]:
-        recipient = normalize_email(recipient_email)
+        recipient = normalize_optional_email(recipient_email)
         if not recipient:
             raise ValueError(
                 "Current user email is required to send a test email."

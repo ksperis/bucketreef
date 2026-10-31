@@ -5,6 +5,7 @@ import pytest
 
 from app.db import StorageProvider
 from app.utils.normalize import (
+    normalize_optional_email,
     normalize_optional_string,
     normalize_optional_string_field,
     normalize_storage_provider,
@@ -25,6 +26,20 @@ from app.utils.normalize import (
 )
 def test_normalize_optional_string(value, expected):
     assert normalize_optional_string(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("User@Example.COM", "user@example.com"),
+        ("  User@Example.COM  ", "user@example.com"),
+        ("", None),
+        ("   ", None),
+        (None, None),
+    ],
+)
+def test_normalize_optional_email(value, expected):
+    assert normalize_optional_email(value) == expected
 
 
 @pytest.mark.parametrize(
