@@ -33,28 +33,13 @@ import UiSegmentedControl from "./ui/UiSegmentedControl";
 import { cx, uiMenuClass } from "./ui/styles";
 import { formatChartTooltipTimestamp, type ChartTooltipProps } from "./chartTooltip";
 import { useMetricsI18n, type MetricsMessageKey } from "./metricsMessage";
+import { buildTrafficTimeline, trafficTimelineDomain } from "./trafficTimeline";
 
 const WINDOW_OPTIONS: { labelKey: MetricsMessageKey; value: TrafficWindow; helperKey: MetricsMessageKey }[] = [
   { labelKey: "dayLabel", value: "day", helperKey: "dayHelper" },
   { labelKey: "weekLabel", value: "week", helperKey: "weekHelper" },
   { labelKey: "monthLabel", value: "month", helperKey: "monthHelper" },
 ];
-
-type TimelinePoint = {
-  timestamp: string;
-  timestampMs: number;
-  bytes_in: number;
-  bytes_out: number;
-  ops: number;
-  success_ops: number;
-};
-
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
-
-function expectedStepMs(window: TrafficWindow): number {
-  return window === "week" || window === "month" ? DAY_MS : HOUR_MS;
-}
 
 type MetricsSnapshotCardProps = {
   label: string;
@@ -142,82 +127,14 @@ export default function MetricsTrafficOverview({
     label: text(option.labelKey),
     value: option.value,
   }));
-  const timeline = useMemo<TimelinePoint[]>(
-    () => {
-      const raw = (traffic?.series ?? [])
-        .map((point) => ({
-          ...point,
-          timestampMs: new Date(point.timestamp).getTime(),
-        }))
-        .filter((point) => Number.isFinite(point.timestampMs))
-        .sort((a, b) => a.timestampMs - b.timestampMs);
-
-      if (!traffic?.start || !traffic?.end) {
-        return raw;
-      }
-
-      const startMs = new Date(traffic.start).getTime();
-      const endMs = new Date(traffic.end).getTime();
-      if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
-        return raw;
-      }
-
-      const step = expectedStepMs(window);
-      const startBoundary = Math.floor(startMs / step) * step;
-      const endBoundary = Math.floor(endMs / step) * step;
-      const entries = new Map<number, TimelinePoint>();
-      raw.forEach((point) => {
-        const key = Math.floor(point.timestampMs / step) * step;
-        const existing = entries.get(key);
-        if (existing) {
-          entries.set(key, {
-            ...existing,
-            bytes_in: existing.bytes_in + point.bytes_in,
-            bytes_out: existing.bytes_out + point.bytes_out,
-            ops: existing.ops + point.ops,
-            success_ops: existing.success_ops + point.success_ops,
-          });
-        } else {
-          entries.set(key, { ...point, timestampMs: key, timestamp: new Date(key).toISOString() });
-        }
-      });
-
-      const filled: TimelinePoint[] = [];
-      for (let ts = startBoundary; ts <= endBoundary; ts += step) {
-        const existing = entries.get(ts);
-        if (existing) {
-          filled.push(existing);
-        } else {
-          filled.push({
-            timestamp: new Date(ts).toISOString(),
-            timestampMs: ts,
-            bytes_in: 0,
-            bytes_out: 0,
-            ops: 0,
-            success_ops: 0,
-          });
-        }
-      }
-      return filled;
-    },
-    [traffic, window]
+  const timeline = useMemo(
+    () => buildTrafficTimeline(window, traffic?.series ?? [], traffic?.start, traffic?.end),
+    [traffic, window],
   );
 
   const totals = traffic?.totals;
   const hasData = timeline.length > 0;
-  const domain = useMemo(() => {
-    if (!timeline.length) {
-      return undefined;
-    }
-    const minTs = timeline[0]?.timestampMs;
-    const maxTs = timeline[timeline.length - 1]?.timestampMs;
-    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
-      return undefined;
-    }
-    const step = expectedStepMs(window);
-    const halfStep = Math.max(step / 2, 1);
-    return [minTs - halfStep, maxTs + halfStep] as [number, number];
-  }, [timeline, window]);
+  const domain = useMemo(() => trafficTimelineDomain(window, timeline), [timeline, window]);
   const helperKey = WINDOW_OPTIONS.find((option) => option.value === window)?.helperKey ?? "selectedRange";
   const subtitle = description ?? text("trafficDescription", { range: text(helperKey) });
   const hideMetrics = Boolean(error);

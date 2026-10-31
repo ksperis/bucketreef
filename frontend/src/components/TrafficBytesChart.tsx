@@ -7,8 +7,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { TrafficSeriesPoint, TrafficWindow } from "../api/stats";
 import { formatBytes, formatBytesAxis } from "../utils/format";
 import { formatChartTooltipTimestamp, type ChartTooltipProps } from "./chartTooltip";
-
-type ChartPoint = TrafficSeriesPoint & { timestampMs: number };
+import { buildTrafficTimeline, trafficTimelineDomain } from "./trafficTimeline";
 
 type TrafficBytesChartProps = {
   window: TrafficWindow;
@@ -20,113 +19,6 @@ type TrafficBytesChartProps = {
   ingressLabel?: string;
   egressLabel?: string;
 };
-
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
-const MINUTE_MS = 60 * 1000;
-
-function expectedStepMs(windowValue: TrafficWindow): number {
-  if (windowValue === "week" || windowValue === "month") {
-    return DAY_MS;
-  }
-  if (windowValue === "day") {
-    return HOUR_MS;
-  }
-  return MINUTE_MS;
-}
-
-function inferStepMs(windowValue: TrafficWindow, points: ChartPoint[]): number {
-  const expected = expectedStepMs(windowValue);
-  if (points.length < 2) {
-    return expected;
-  }
-  const diffs: number[] = [];
-  for (let i = 1; i < points.length; i += 1) {
-    const diff = points[i].timestampMs - points[i - 1].timestampMs;
-    if (diff > 0) {
-      diffs.push(diff);
-    }
-  }
-  if (diffs.length === 0) {
-    return expected;
-  }
-  const smallestDiff = Math.min(...diffs);
-  if (!Number.isFinite(smallestDiff) || smallestDiff <= 0) {
-    return expected;
-  }
-  if (windowValue === "week" || windowValue === "month" || windowValue === "day") {
-    // Keep chart density stable for fixed windows (30d/7d = daily bars, 24h = hourly bars).
-    return expected;
-  }
-  return smallestDiff;
-}
-
-function normalizeTimestamp(timestamp: number, step: number): number {
-  if (step <= 0) {
-    return timestamp;
-  }
-  return Math.floor(timestamp / step) * step;
-}
-
-function buildChartData(window: TrafficWindow, series: TrafficSeriesPoint[], start?: string | null, end?: string | null) {
-  const raw: ChartPoint[] = (series ?? []).map((point) => ({
-    ...point,
-    timestampMs: new Date(point.timestamp).getTime(),
-  }));
-  const sorted = [...raw].sort((a, b) => a.timestampMs - b.timestampMs);
-
-  if (!start || !end) {
-    return sorted;
-  }
-
-  const step = inferStepMs(window, sorted);
-  if (!step) {
-    return sorted;
-  }
-
-  const startMs = new Date(start).getTime();
-  const endMs = new Date(end).getTime();
-  if (Number.isNaN(startMs) || Number.isNaN(endMs)) {
-    return sorted;
-  }
-
-  const startBoundary = normalizeTimestamp(startMs, step);
-  const endBoundary = normalizeTimestamp(endMs, step);
-  const entries = new Map<number, ChartPoint>();
-  sorted.forEach((point) => {
-    const key = normalizeTimestamp(point.timestampMs, step);
-    const existing = entries.get(key);
-    if (existing) {
-      entries.set(key, {
-        ...existing,
-        bytes_in: existing.bytes_in + point.bytes_in,
-        bytes_out: existing.bytes_out + point.bytes_out,
-        ops: existing.ops + point.ops,
-        success_ops: existing.success_ops + point.success_ops,
-      });
-    } else {
-      entries.set(key, { ...point, timestampMs: key, timestamp: new Date(key).toISOString() });
-    }
-  });
-
-  const filled: ChartPoint[] = [];
-  for (let ts = startBoundary; ts <= endBoundary; ts += step) {
-    const existing = entries.get(ts);
-    if (existing) {
-      filled.push(existing);
-    } else {
-      filled.push({
-        timestamp: new Date(ts).toISOString(),
-        timestampMs: ts,
-        bytes_in: 0,
-        bytes_out: 0,
-        ops: 0,
-        success_ops: 0,
-      });
-    }
-  }
-  return filled;
-}
 
 function formatXAxisTimestamp(value: string | number, window: TrafficWindow) {
   const date = new Date(value);
@@ -171,21 +63,8 @@ export default function TrafficBytesChart({
   ingressLabel = "Ingress",
   egressLabel = "Egress",
 }: TrafficBytesChartProps) {
-  const chartData = useMemo(() => buildChartData(window, series, start, end), [end, series, start, window]);
-  const domain = useMemo(() => {
-    if (!chartData.length) {
-      return undefined;
-    }
-    const sorted = [...chartData].sort((a, b) => a.timestampMs - b.timestampMs);
-    const minTs = sorted[0]?.timestampMs;
-    const maxTs = sorted[sorted.length - 1]?.timestampMs;
-    if (!Number.isFinite(minTs) || !Number.isFinite(maxTs)) {
-      return undefined;
-    }
-    const step = inferStepMs(window, sorted);
-    const halfStep = Math.max(step / 2, 1);
-    return [minTs - halfStep, maxTs + halfStep] as [number, number];
-  }, [chartData, window]);
+  const chartData = useMemo(() => buildTrafficTimeline(window, series, start, end), [end, series, start, window]);
+  const domain = useMemo(() => trafficTimelineDomain(window, chartData), [chartData, window]);
 
   return (
     <ResponsiveContainer width="100%" height={height}>
