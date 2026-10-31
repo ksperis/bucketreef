@@ -52,6 +52,7 @@ import {
   isRecentWebAuthnRequired,
 } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
+import { createRuntimeId } from "../../utils/runtimeId";
 import S3CredentialsValidationMessage from "../shared/S3CredentialsValidationMessage";
 import { useLiveS3CredentialsValidation } from "../shared/useLiveS3CredentialsValidation";
 import { onboardingActions, onboardingCopy as copy, onboardingErrors } from "./onboardingCopy";
@@ -271,7 +272,7 @@ export default function OnboardingPage() {
   });
 
   const initialized = useRef(false);
-  const id = useRef<string>(crypto.randomUUID());
+  const id = useRef<string>(createRuntimeId());
   const [step, setStep] = useState<Step>("connect");
   const workflowTopRef = useRef<HTMLDivElement>(null);
   const previousStepRef = useRef<Step>(step);
