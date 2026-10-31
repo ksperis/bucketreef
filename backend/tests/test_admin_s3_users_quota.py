@@ -122,7 +122,7 @@ def test_admin_create_s3_user_with_quota_unit(monkeypatch, client: TestClient, d
     endpoint = _seed_ceph_endpoint(db_session)
     fake_rgw = FakeRGWAdmin()
     monkeypatch.setattr(
-        "app.services.s3_users_service.get_endpoint_admin_rgw_client",
+        "app.services.s3_user_rgw_context_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_rgw,
     )
 
@@ -158,7 +158,7 @@ def test_admin_update_s3_user_quota(monkeypatch, client: TestClient, db_session)
     endpoint = _seed_ceph_endpoint(db_session)
     fake_rgw = FakeRGWAdmin()
     monkeypatch.setattr(
-        "app.services.s3_users_service.get_endpoint_admin_rgw_client",
+        "app.services.s3_user_rgw_context_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_rgw,
     )
 

@@ -8,21 +8,15 @@ from app.services.feature_policy_service import (
     validate_project_overrides,
 )
 from app.services.app_settings_service import load_app_settings_for_db_readonly
-import logging
 from typing import Any, Optional
 
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import (
-    S3UserNotFoundError,
-    StorageEndpointNotFoundError,
-)
+from app.core.domain_errors import S3UserNotFoundError
 from app.db import (
     S3UserTag,
     S3User as S3UserModel,
-    StorageEndpoint,
-    StorageProvider,
     TagDefinition,
     UiGroup,
     UiGroupS3User,
@@ -35,9 +29,9 @@ from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_deletion_service import S3UserDeletionService
 from app.services.s3_user_metrics_service import S3UserMetricsService
+from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
-from app.utils.storage_endpoint_features import resolve_admin_endpoint, resolve_feature_flags
 from app.models.s3_user import (
     S3User as S3UserSchema,
     S3UserAccessKey,
@@ -50,7 +44,6 @@ from app.models.s3_user import (
     S3UserUpdate,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_quota_update import (
     execute_rgw_quota_update,
     prepare_rgw_quota_update,
@@ -62,65 +55,15 @@ from app.utils.rgw_payloads import (
 from app.utils.name_ordering import name_order_by
 from app.utils.sql_search import text_search_predicate
 
-logger = logging.getLogger(__name__)
-
-
 class S3UsersService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.associations = S3UserAssociationsService(db)
         self.access_keys = S3UserAccessKeyService(db)
         self.metrics = S3UserMetricsService()
+        self.rgw_context = S3UserRgwContextService(db)
         self.deletion = S3UserDeletionService(db, self.metrics)
         self.tags = TagsService(db)
-
-    # Helpers
-    def _resolve_endpoint(self, storage_endpoint_id: int) -> StorageEndpoint:
-        endpoint = self.db.scalar(
-            select(StorageEndpoint).where(StorageEndpoint.id == storage_endpoint_id)
-        )
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Storage endpoint not found.")
-        if endpoint.provider != StorageProvider.CEPH.value:
-            raise ValueError("Only Ceph endpoints are allowed for S3 users.")
-        if not resolve_feature_flags(endpoint).admin_enabled:
-            raise ValueError("Admin operations are disabled for this endpoint.")
-        return endpoint
-
-    @staticmethod
-    def _endpoint_for_user(s3_user: S3UserModel) -> StorageEndpoint:
-        endpoint = s3_user.storage_endpoint
-        if endpoint is None:
-            raise StorageEndpointNotFoundError("Storage endpoint not found for S3 user.")
-        return endpoint
-
-    def _admin_for_endpoint(self, endpoint: StorageEndpoint) -> RGWAdminClient:
-        try:
-            admin_endpoint = resolve_admin_endpoint(endpoint)
-            if not admin_endpoint:
-                raise ValueError("Admin operations are disabled for this endpoint.")
-            return get_endpoint_admin_rgw_client(endpoint)
-        except Exception as exc:
-            raise ValueError(f"Unable to build admin client for {endpoint.name}: {exc}") from exc
-
-    def _admin_for_user(self, s3_user: S3UserModel) -> RGWAdminClient:
-        endpoint = self._endpoint_for_user(s3_user)
-        return self._admin_for_endpoint(endpoint)
-
-    @staticmethod
-    def _tenant_for_user(s3_user: S3UserModel) -> str:
-        return s3_user.rgw_tenant
-
-    def _verified_user(self, s3_user: S3UserModel, admin: RGWAdminClient) -> str:
-        """Verify the exact remote principal and its stored credential before Admin Ops writes."""
-        tenant = self._tenant_for_user(s3_user)
-        remote = admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=True)
-        if not remote:
-            raise ValueError("RGW user could not be verified")
-        require_rgw_user_identity(remote, s3_user.rgw_user_uid, tenant)
-        if not any(key.get("access_key") == s3_user.rgw_access_key for key in admin.extract_keys(remote)):
-            raise ValueError("RGW user no longer owns its stored access key")
-        return tenant
 
     def _existing_identity(self, uid: str, tenant: str, endpoint_id: int):
         return self.db.scalar(
@@ -153,11 +96,11 @@ class S3UsersService:
     ) -> None:
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
         require_endpoint_permissions(s3_user.storage_endpoint, "users_write")
-        admin = self._admin_for_user(s3_user)
+        admin = self.rgw_context.admin_for_user(s3_user)
         quota = prepare_rgw_quota_update(max_size_gb, max_objects, max_size_unit)
 
         def update_remote_quota():
-            tenant = self._verified_user(s3_user, admin)
+            tenant = self.rgw_context.verified_user_tenant(s3_user, admin)
             return admin.set_user_quota(
                 uid=s3_user.rgw_user_uid,
                 **({"tenant": tenant} if tenant else {}),
@@ -190,7 +133,7 @@ class S3UsersService:
         quota_admin: RGWAdminClient | None = None,
         bucket_count: int | None = None,
     ) -> S3UserSchema:
-        endpoint = self._endpoint_for_user(row)
+        endpoint = self.rgw_context.endpoint_for_user(row)
         quota_max_size_gb = None
         quota_max_objects = None
         if include_quota:
@@ -231,7 +174,7 @@ class S3UsersService:
         ).all()
         summaries: list[S3UserSummary] = []
         for row in rows:
-            endpoint = self._endpoint_for_user(row)
+            endpoint = self.rgw_context.endpoint_for_user(row)
             summaries.append(
                 s3_user_summary_from_db(
                     row,
@@ -341,10 +284,10 @@ class S3UsersService:
         uid, tenant = split_rgw_tenant_uid((payload.uid or "").strip() or managed_s3_user_uid(), payload.rgw_tenant)
         if tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
             raise ValueError("Managed RGW tenant creation is disabled")
-        endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
+        endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id)
         from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
         require_endpoint_permissions(endpoint, "users_write")
-        admin = self._admin_for_endpoint(endpoint)
+        admin = self.rgw_context.admin_for_endpoint(endpoint)
         if self._existing_identity(uid, tenant, endpoint.id):
             raise ValueError("An S3 user with this UID already exists in this tenant")
         access_key, secret_key = self._provision_remote_user_credentials(
@@ -447,8 +390,8 @@ class S3UsersService:
         uid: str,
         tenant: str,
     ) -> S3UserSchema | None:
-        endpoint = self._resolve_endpoint(payload.storage_endpoint_id)
-        admin = self._admin_for_endpoint(endpoint)
+        endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id)
+        admin = self.rgw_context.admin_for_endpoint(endpoint)
         if self._existing_identity(uid, tenant, endpoint.id):
             return None
         try:
@@ -538,12 +481,12 @@ class S3UsersService:
     def rotate_keys(self, user_id: int, *, actor=None) -> S3UserSchema:
         s3_user = self.get_user_record(user_id)
         from app.services.durable_key_rotation_service import DurableKeyRotationService
-        endpoint = self._endpoint_for_user(s3_user)
+        endpoint = self.rgw_context.endpoint_for_user(s3_user)
         try:
             DurableKeyRotationService(self.db, actor=actor).rotate(endpoint, "s3_user", s3_user.id)
         except RGWAdminError as exc:
             raise ValueError("Rotation is pending; check RGW connectivity and retry.") from exc
-        admin = self._admin_for_user(s3_user)
+        admin = self.rgw_context.admin_for_user(s3_user)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
         return self._serialize_s3_user(
             s3_user,
@@ -554,30 +497,30 @@ class S3UsersService:
 
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
         s3_user = self.get_user_record(user_id)
-        admin = self._admin_for_user(s3_user)
+        admin = self.rgw_context.admin_for_user(s3_user)
         return self.access_keys.list_keys(s3_user, admin)
 
     def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
         s3_user = self.get_user_record(user_id)
-        admin = self._admin_for_user(s3_user)
-        self._verified_user(s3_user, admin)
+        admin = self.rgw_context.admin_for_user(s3_user)
+        self.rgw_context.verified_user_tenant(s3_user, admin)
         return self.access_keys.create_key(s3_user, admin)
 
     def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:
         s3_user = self.get_user_record(user_id)
-        admin = self._admin_for_user(s3_user)
-        self._verified_user(s3_user, admin)
+        admin = self.rgw_context.admin_for_user(s3_user)
+        self.rgw_context.verified_user_tenant(s3_user, admin)
         return self.access_keys.set_key_status(s3_user, admin, access_key, active)
 
     def delete_key(self, user_id: int, access_key: str) -> None:
         s3_user = self.get_user_record(user_id)
-        admin = self._admin_for_user(s3_user)
-        self._verified_user(s3_user, admin)
+        admin = self.rgw_context.admin_for_user(s3_user)
+        self.rgw_context.verified_user_tenant(s3_user, admin)
         self.access_keys.delete_key(s3_user, admin, access_key)
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self.get_user_record(user_id)
-        admin = self._admin_for_user(s3_user)
+        admin = self.rgw_context.admin_for_user(s3_user)
         self.deletion.delete_user(s3_user, admin, delete_rgw=delete_rgw)
 
 

@@ -352,7 +352,7 @@ def _seed_ceph_endpoint(db_session, *, metrics_enabled: bool = False) -> Storage
 
 def _build_service(db_session, monkeypatch, fake_admin: FakeRGWAdmin) -> S3UsersService:
     monkeypatch.setattr(
-        "app.services.s3_users_service.get_endpoint_admin_rgw_client",
+        "app.services.s3_user_rgw_context_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_admin,
     )
     monkeypatch.setattr("app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_admin)
@@ -1044,7 +1044,11 @@ def test_delete_user_confirms_missing_remote_in_stored_tenant(db_session, monkey
             raise RGWAdminError("missing", status_code=404, error_code="NoSuchUser")
 
     service = S3UsersService(db_session)
-    monkeypatch.setattr(service, "_admin_for_user", lambda _s3_user: MissingTenantAdmin())
+    monkeypatch.setattr(
+        service.rgw_context,
+        "admin_for_user",
+        lambda _s3_user: MissingTenantAdmin(),
+    )
 
     service.delete_user(row.id, delete_rgw=False)
 
