@@ -235,6 +235,33 @@ def test_ui_group_create_rolls_back_when_portal_role_sync_fails(db_session, monk
     ) == 0
 
 
+def test_system_ui_group_cannot_be_renamed_or_deleted(client: TestClient, db_session):
+    group = UiGroup(
+        name="All users",
+        system_key="all_users",
+        description="Built-in group containing every active BucketReef UI user.",
+    )
+    db_session.add(group)
+    db_session.commit()
+    db_session.refresh(group)
+
+    renamed = client.patch(
+        f"/api/admin/groups/{group.id}",
+        json={"name": "Everyone"},
+    )
+    assert renamed.status_code == 400, renamed.text
+    assert renamed.json()["detail"] == "System groups cannot be renamed"
+
+    deleted = client.delete(f"/api/admin/groups/{group.id}")
+    assert deleted.status_code == 400, deleted.text
+    assert deleted.json()["detail"] == "System groups cannot be deleted"
+
+    db_session.expire_all()
+    persisted = db_session.get(UiGroup, group.id)
+    assert persisted is not None
+    assert persisted.name == "All users"
+
+
 def test_ui_group_projection_and_search_hide_private_connection_links(
     client: TestClient,
     db_session,

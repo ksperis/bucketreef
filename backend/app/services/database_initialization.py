@@ -8,13 +8,11 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Column, MetaData, PrimaryKeyConstraint, String, Table, inspect, text
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import is_postgresql_url, is_sqlite_url, sqlite_integrity_status
-from app.db import Base
-from app.db.ui_group import ALL_USERS_DESCRIPTION, ALL_USERS_NAME, ALL_USERS_SYSTEM_KEY
 from app.services.storage_endpoints_service import StorageEndpointsService
 
 
@@ -22,7 +20,6 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 _POSTGRES_STARTUP_LOCK_ID = 2_026_070_300_001
 _ALEMBIC_VERSION_TABLE = "alembic_version"
-_POSTGRES_ALEMBIC_VERSION_LENGTH = 255
 
 
 def _alembic_config() -> Config:
@@ -49,59 +46,8 @@ def _postgres_startup_lock(engine):
             logger.info("Released PostgreSQL startup advisory lock %s", _POSTGRES_STARTUP_LOCK_ID)
 
 
-def _create_postgresql_alembic_version_table(connection) -> None:
-    if connection.dialect.name != "postgresql":
-        return
-    metadata = MetaData()
-    Table(
-        _ALEMBIC_VERSION_TABLE,
-        metadata,
-        Column("version_num", String(length=_POSTGRES_ALEMBIC_VERSION_LENGTH), nullable=False),
-        PrimaryKeyConstraint("version_num", name="alembic_version_pkc"),
-    ).create(connection)
-
-
 def _sqlite_foreign_key_violations(connection) -> list[tuple]:
     return list(connection.exec_driver_sql("PRAGMA foreign_key_check").all())
-
-
-def _ensure_all_users_group(connection) -> None:
-    existing_system_group = connection.scalar(
-        text("SELECT id FROM ui_groups WHERE system_key = :system_key"),
-        {"system_key": ALL_USERS_SYSTEM_KEY},
-    )
-    if existing_system_group is not None:
-        return
-
-    rows = connection.execute(text("SELECT id, name FROM ui_groups")).mappings().all()
-    taken_names = {str(row["name"]).casefold() for row in rows}
-    for row in rows:
-        if str(row["name"]).casefold() != ALL_USERS_NAME.casefold():
-            continue
-        suffix = 1
-        candidate = f"{ALL_USERS_NAME} (custom)"
-        while candidate.casefold() in taken_names:
-            suffix += 1
-            candidate = f"{ALL_USERS_NAME} (custom {suffix})"
-        connection.execute(
-            text("UPDATE ui_groups SET name = :name WHERE id = :group_id"),
-            {"name": candidate, "group_id": row["id"]},
-        )
-        taken_names.add(candidate.casefold())
-
-    connection.execute(
-        text(
-            """
-            INSERT INTO ui_groups (name, system_key, description, created_at, updated_at)
-            VALUES (:name, :system_key, :description, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            """
-        ),
-        {
-            "name": ALL_USERS_NAME,
-            "system_key": ALL_USERS_SYSTEM_KEY,
-            "description": ALL_USERS_DESCRIPTION,
-        },
-    )
 
 
 def _upgrade_sqlite_schema(connection, config: Config) -> None:
@@ -152,21 +98,9 @@ def _initialize_or_upgrade_schema(engine) -> None:
         inspector = inspect(connection)
         table_names = set(inspector.get_table_names())
         view_names = set(inspector.get_view_names())
+        is_empty = not table_names and not view_names
 
-        if not table_names and not view_names:
-            Base.metadata.create_all(bind=connection)
-            _create_postgresql_alembic_version_table(connection)
-            config.attributes["connection"] = connection
-            command.stamp(config, "head")
-            _ensure_all_users_group(connection)
-            if connection.dialect.name == "sqlite" and connection.in_transaction():
-                connection.commit()
-            logger.info(
-                "Bootstrapped empty database from SQLAlchemy metadata and stamped Alembic head"
-            )
-            return
-
-        if _ALEMBIC_VERSION_TABLE not in table_names:
+        if not is_empty and _ALEMBIC_VERSION_TABLE not in table_names:
             raise RuntimeError(
                 "Database is not empty and has no alembic_version table. "
                 "Refusing to create or stamp a potentially unmanaged or partially initialized schema."
@@ -174,14 +108,12 @@ def _initialize_or_upgrade_schema(engine) -> None:
 
         if connection.dialect.name == "sqlite":
             _upgrade_sqlite_schema(connection, config)
-            _ensure_all_users_group(connection)
-            if connection.in_transaction():
-                connection.commit()
-            return
+        else:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "head")
 
-        config.attributes["connection"] = connection
-        command.upgrade(config, "head")
-        _ensure_all_users_group(connection)
+        if is_empty:
+            logger.info("Initialized empty database through Alembic migrations")
 
 
 def _init_db_locked(engine, session_factory) -> None:
