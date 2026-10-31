@@ -2,8 +2,19 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Protocol
+
+from app.utils.time import utcnow
+
 MAX_AVATAR_BYTES = 1024 * 1024
 ALLOWED_AVATAR_CONTENT_TYPES = {"image/jpeg", "image/png"}
+
+
+class AvatarImageTarget(Protocol):
+    avatar_image: bytes | None
+    avatar_content_type: str | None
+    avatar_updated_at: datetime | None
 
 
 def _detected_content_type(payload: bytes) -> str | None:
@@ -58,3 +69,19 @@ def validate_avatar_image(payload: bytes, content_type: str | None) -> str:
     if dimensions is None or not all(1 <= value <= 4096 for value in dimensions):
         raise ValueError("Avatar image dimensions are invalid or exceed 4096 pixels.")
     return detected_type
+
+
+def store_avatar_image(
+    target: AvatarImageTarget,
+    payload: bytes,
+    content_type: str | None,
+) -> None:
+    target.avatar_content_type = validate_avatar_image(payload, content_type)
+    target.avatar_image = payload
+    target.avatar_updated_at = utcnow()
+
+
+def clear_avatar_image(target: AvatarImageTarget) -> None:
+    target.avatar_image = None
+    target.avatar_content_type = None
+    target.avatar_updated_at = utcnow()
