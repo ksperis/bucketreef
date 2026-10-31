@@ -16,6 +16,7 @@ import {
   triggerBlobDownload,
   triggerUrlDownload,
 } from "../../utils/download";
+import { createRuntimeId } from "../../utils/runtimeId";
 import {
   buildBrowserFolderDownloadPlan,
   canStreamBrowserArchive,
@@ -38,7 +39,7 @@ import type {
   DownloadDetailStatus,
   OperationCompletionStatus,
 } from "./browserTypes";
-import { isAbortError, makeId } from "./browserUtils";
+import { isAbortError } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import { useBrowserI18n } from "./browserI18n";
@@ -238,7 +239,7 @@ export function useBrowserDownloads({
       try {
         setDownloadDetails((previous) => ({
           ...previous,
-          [operationId]: [...plan.excluded.map(entry => ({ id: makeId(), key: entry.key, label: entry.key, status: "failed" as const, errorMessage: text("Excluded: {reason}", { reason: text(entry.reason) }) })), ...plan.targets.map((target) => ({
+          [operationId]: [...plan.excluded.map(entry => ({ id: createRuntimeId(), key: entry.key, label: entry.key, status: "failed" as const, errorMessage: text("Excluded: {reason}", { reason: text(entry.reason) }) })), ...plan.targets.map((target) => ({
             id: target.detailId,
             key: target.key,
             label: target.relativeKey,
@@ -385,7 +386,7 @@ export function useBrowserDownloads({
         const plan = buildBrowserFolderDownloadPlan(
           objects,
           basePrefix,
-          makeId,
+          createRuntimeId,
         );
         if (plan.excluded.length) {
           onWarning(
@@ -539,7 +540,7 @@ export function useBrowserDownloads({
       const controller = createOperationController(operationId);
       let completionStatus: OperationCompletionStatus = "done";
       let completionError: string | undefined;
-      const targets = files.map((item) => ({ item, detailId: makeId() }));
+      const targets = files.map((item) => ({ item, detailId: createRuntimeId() }));
       setDownloadDetails((previous) => ({
         ...previous,
         [operationId]: targets.map((target) => ({

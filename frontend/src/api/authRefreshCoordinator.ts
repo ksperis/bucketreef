@@ -7,6 +7,7 @@ import {
   removeClientStorageKey,
   writeClientStorageKey,
 } from "../utils/clientStorage";
+import { createRuntimeId } from "../utils/runtimeId";
 
 const AUTH_REFRESH_LOCK_NAME = "bucketreef.auth-refresh";
 const AUTH_REFRESH_LEASE_KEY = "bucketreef.auth-refresh.lease.v2";
@@ -50,9 +51,7 @@ export async function coordinateAuthRefresh(refresh: () => Promise<void>): Promi
     return;
   }
 
-  const owner = typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random()}`;
+  const owner = createRuntimeId();
   while (true) {
     if (marker() > observed) return;
     const now = Date.now();

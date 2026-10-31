@@ -7,6 +7,7 @@ import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { deleteObjects } from "../../api/browserObjects";
 import { runWithConcurrency } from "../../utils/concurrency";
+import { createRuntimeId } from "../../utils/runtimeId";
 import { formatBrowserOperationError } from "./browserOperationErrors";
 import { updateOperationDetailsByKey } from "./browserOperationDetailState";
 import type {
@@ -17,7 +18,6 @@ import type {
 import {
   chunkItems,
   isAbortError,
-  makeId,
   normalizePrefix,
 } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
@@ -235,7 +235,7 @@ export function useBrowserDeleteItems({
             ? object.key.slice(folderPrefix.length)
             : object.key;
           return {
-            id: makeId(),
+            id: createRuntimeId(),
             key: object.key,
             label: relativeKey || object.key,
             status: "queued" as DeleteDetailStatus,
@@ -243,7 +243,7 @@ export function useBrowserDeleteItems({
         });
         if (detailItems.length === 0) {
           detailItems.push({
-            id: makeId(),
+            id: createRuntimeId(),
             key: folderPrefix,
             label: folder.name || folderPrefix,
             status: "queued",
@@ -353,7 +353,7 @@ export function useBrowserDeleteItems({
               setDeleteDetails((previous) => ({
                 ...previous,
                 [operationId]: fileTargets.map((item) => ({
-                  id: makeId(),
+                  id: createRuntimeId(),
                   key: item.key,
                   label: item.name,
                   status: "queued",
