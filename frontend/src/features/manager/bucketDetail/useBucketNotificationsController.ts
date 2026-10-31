@@ -11,6 +11,7 @@ import {
   putCephAdminBucketNotifications,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
+import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   cloneBucketJsonValue,
@@ -40,17 +41,6 @@ type UseBucketNotificationsControllerOptions = {
   enabled: boolean;
   endpointId?: number | null;
 };
-
-function createNotificationId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    try {
-      return `notification-${crypto.randomUUID()}`;
-    } catch {
-      // Fall through when randomUUID is not available in the runtime.
-    }
-  }
-  return `notification-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function asConfiguration(value: unknown): NotificationConfigurationRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return {};
@@ -146,7 +136,7 @@ export function useBucketNotificationsController({
   const openEditorWithNew = useCallback(() => {
     const nextDraft = addNotificationTopic(
       cloneBucketJsonValue(configuration),
-      createVisualNotificationTopic(createNotificationId()),
+      createVisualNotificationTopic(createUiDraftId("notification")),
     );
     const nextTopics = notificationTopicConfigurations(nextDraft);
     openEditorDraft(nextDraft, "visual", nextTopics.length - 1);
@@ -188,7 +178,7 @@ export function useBucketNotificationsController({
     setDraftConfiguration((current) =>
       addNotificationTopic(
         current,
-        createVisualNotificationTopic(createNotificationId()),
+        createVisualNotificationTopic(createUiDraftId("notification")),
       ),
     );
     setEditorTargetIndex(null);

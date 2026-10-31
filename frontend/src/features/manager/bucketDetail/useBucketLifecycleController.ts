@@ -11,6 +11,7 @@ import {
   putCephAdminBucketLifecycle,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
+import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
 import {
   cloneBucketJsonValue,
@@ -34,17 +35,6 @@ type UseBucketLifecycleControllerOptions = {
   enabled: boolean;
   endpointId?: number | null;
 };
-
-function createRuleId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    try {
-      return `rule-${crypto.randomUUID()}`;
-    } catch {
-      // Fall back to a local random identifier when randomUUID is unavailable.
-    }
-  }
-  return `rule-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function normalizeRules(value: unknown): LifecycleRuleRecord[] {
   if (!Array.isArray(value)) return [];
@@ -147,7 +137,7 @@ export function useBucketLifecycleController({
   const openEditorWithNew = useCallback(() => {
     const nextDraft = [
       ...cloneBucketJsonValue(rules),
-      createVisualLifecycleRule(createRuleId()),
+      createVisualLifecycleRule(createUiDraftId("rule")),
     ];
     openEditorDraft(nextDraft, "visual", nextDraft.length - 1);
   }, [openEditorDraft, rules]);
@@ -188,7 +178,10 @@ export function useBucketLifecycleController({
   );
 
   const addDraftRule = useCallback(() => {
-    setDraftRules((current) => [...current, createVisualLifecycleRule(createRuleId())]);
+    setDraftRules((current) => [
+      ...current,
+      createVisualLifecycleRule(createUiDraftId("rule")),
+    ]);
     setEditorTargetIndex(null);
     setEditorError(null);
   }, []);
