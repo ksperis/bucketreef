@@ -23,7 +23,10 @@ from app.services.app_settings_service import (
     load_app_settings_for_db,
 )
 from app.services.managed_resource_naming import onboarding_sample_account_name
-from app.services.onboarding_service import OnboardingError, REQUIRED_FEATURES
+from app.services.onboarding_service import (
+    OnboardingError,
+    required_onboarding_feature_fields,
+)
 from app.services.portal_access_service import resolve_portal_account_access
 from app.services.portal_service import get_portal_service
 from app.services.rgw_iam import get_iam_client
@@ -164,12 +167,10 @@ class OnboardingSetupService:
                 endpoint_id=endpoint.id,
             )
 
-        fields: list[str] = []
-        for option in draft.selected_options:
-            for field in REQUIRED_FEATURES[option]:
-                if field not in fields:
-                    fields.append(field)
-        features = enable_onboarding_features(self.db, tuple(fields))
+        features = enable_onboarding_features(
+            self.db,
+            required_onboarding_feature_fields(draft),
+        )
         if features:
             self.progress.audit(actor, "features_enabled", row.id, features=features)
 
