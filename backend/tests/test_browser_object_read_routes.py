@@ -57,8 +57,18 @@ _READ_CASES = [
     ),
     (
         "object-legal-hold",
-        ObjectLegalHold(key="folder/demo.txt", status="ON", version_id="v1"),
-        {"key": "folder/demo.txt", "status": "ON", "version_id": "v1"},
+        ObjectLegalHold(
+            key="folder/demo.txt",
+            status="ON",
+            object_lock_enabled=True,
+            version_id="v1",
+        ),
+        {
+            "key": "folder/demo.txt",
+            "status": "ON",
+            "object_lock_enabled": True,
+            "version_id": "v1",
+        },
     ),
     (
         "object-retention",
@@ -66,12 +76,14 @@ _READ_CASES = [
             key="folder/demo.txt",
             mode="GOVERNANCE",
             retain_until=datetime(2026, 11, 30, 12, 0, tzinfo=timezone.utc),
+            object_lock_enabled=True,
             version_id="v1",
         ),
         {
             "key": "folder/demo.txt",
             "mode": "GOVERNANCE",
             "retain_until": "2026-11-30T12:00:00Z",
+            "object_lock_enabled": True,
             "version_id": "v1",
         },
     ),

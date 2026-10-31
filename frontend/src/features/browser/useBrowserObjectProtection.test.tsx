@@ -39,10 +39,14 @@ function deferred<T>() {
 describe("useBrowserObjectProtection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    apiMocks.getObjectLegalHold.mockResolvedValue({ status: "OFF" });
+    apiMocks.getObjectLegalHold.mockResolvedValue({
+      status: "OFF",
+      object_lock_enabled: true,
+    });
     apiMocks.getObjectRetention.mockResolvedValue({
       mode: "GOVERNANCE",
       retain_until: "2026-09-01T10:30:00Z",
+      object_lock_enabled: true,
     });
     apiMocks.updateObjectLegalHold.mockResolvedValue(undefined);
     apiMocks.updateObjectRetention.mockResolvedValue(undefined);
@@ -85,11 +89,15 @@ describe("useBrowserObjectProtection", () => {
   });
 
   it("normalizes an unavailable Object Lock configuration", async () => {
-    const unavailableError = new Error(
-      "InvalidRequest: bucket object lock not configured",
-    );
-    apiMocks.getObjectLegalHold.mockRejectedValue(unavailableError);
-    apiMocks.getObjectRetention.mockRejectedValue(unavailableError);
+    apiMocks.getObjectLegalHold.mockResolvedValue({
+      status: null,
+      object_lock_enabled: false,
+    });
+    apiMocks.getObjectRetention.mockResolvedValue({
+      mode: null,
+      retain_until: null,
+      object_lock_enabled: false,
+    });
 
     const { result } = renderHook(() =>
       useBrowserObjectProtection({
@@ -206,19 +214,24 @@ describe("useBrowserObjectProtection", () => {
   });
 
   it("ignores protection responses from a previously selected object", async () => {
-    const oldLegalHold = deferred<{ status: "ON" }>();
+    const oldLegalHold = deferred<{
+      status: "ON";
+      object_lock_enabled: true;
+    }>();
     const oldRetention = deferred<{
       mode: "COMPLIANCE";
       retain_until: string;
+      object_lock_enabled: true;
     }>();
     apiMocks.getObjectLegalHold
       .mockReturnValueOnce(oldLegalHold.promise)
-      .mockResolvedValueOnce({ status: "OFF" });
+      .mockResolvedValueOnce({ status: "OFF", object_lock_enabled: true });
     apiMocks.getObjectRetention
       .mockReturnValueOnce(oldRetention.promise)
       .mockResolvedValueOnce({
         mode: "GOVERNANCE",
         retain_until: "2026-10-01T09:00:00Z",
+        object_lock_enabled: true,
       });
 
     const { result, rerender } = renderHook(
@@ -247,10 +260,11 @@ describe("useBrowserObjectProtection", () => {
     expect(apiMocks.getObjectLegalHold).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      oldLegalHold.resolve({ status: "ON" });
+      oldLegalHold.resolve({ status: "ON", object_lock_enabled: true });
       oldRetention.resolve({
         mode: "COMPLIANCE",
         retain_until: "2030-01-01T00:00:00Z",
+        object_lock_enabled: true,
       });
       await Promise.all([oldLegalHold.promise, oldRetention.promise]);
     });

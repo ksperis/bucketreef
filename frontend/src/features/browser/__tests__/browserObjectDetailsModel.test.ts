@@ -6,7 +6,6 @@ import {
   buildInlinePreviewDisposition,
   buildObjectDetailsTabs,
   formatRestoreStatus,
-  isObjectLockUnavailableMessage,
   nextTabAfterDeleted,
   normalizeObjectDetailPairs,
 } from "../browserObjectDetailsModel";
@@ -31,12 +30,6 @@ describe("browserObjectDetailsModel", () => {
     expect(formatRestoreStatus('ongoing-request="false", expiry-date="2030-01-01T00:00:00Z"')).toContain(
       "Temporary restore available until"
     );
-  });
-
-  it("detects object lock unavailability without hiding unrelated messages", () => {
-    expect(isObjectLockUnavailableMessage("InvalidRequest: bucket object lock not configured")).toBe(true);
-    expect(isObjectLockUnavailableMessage("Object Lock is not enabled")).toBe(true);
-    expect(isObjectLockUnavailableMessage("AccessDenied for retention")).toBe(false);
   });
 
   it("keeps modal routing and object dispositions deterministic", () => {

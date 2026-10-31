@@ -856,11 +856,16 @@ describe("BrowserPage interactions", () => {
     updateObjectMetadataMock.mockResolvedValue(undefined);
     updateObjectTagsMock.mockResolvedValue(undefined);
     updateObjectAclMock.mockResolvedValue(undefined);
-    getObjectLegalHoldMock.mockResolvedValue({ key: "a.txt", status: "OFF" });
+    getObjectLegalHoldMock.mockResolvedValue({
+      key: "a.txt",
+      status: "OFF",
+      object_lock_enabled: true,
+    });
     getObjectRetentionMock.mockResolvedValue({
       key: "a.txt",
       mode: null,
       retain_until: null,
+      object_lock_enabled: true,
     });
     updateObjectLegalHoldMock.mockResolvedValue(undefined);
     updateObjectRetentionMock.mockResolvedValue(undefined);
@@ -3712,9 +3717,13 @@ describe("BrowserPage interactions", () => {
     const friendlyMessage =
       "The current account is not allowed to list buckets. You can still open a bucket you have access to directly, or ask an administrator to update your permissions.";
     searchBrowserBucketsMock.mockRejectedValue(
-      new Error(
-        "Unable to list buckets: An error occurred (AccessDenied) when calling the ListBuckets operation: None",
-      ),
+      new ApiError("Request failed", {
+        response: {
+          status: 403,
+          data: { detail: "Policy rejected the catalogue request" },
+          headers: {},
+        },
+      }),
     );
 
     renderPage({ contextIdForApi: "acc-1" });
@@ -4940,11 +4949,17 @@ describe("BrowserPage interactions", () => {
 
   it("shows disabled legal hold and retention controls when object lock is not enabled on the bucket", async () => {
     const user = userEvent.setup();
-    const objectLockError = new Error(
-      "Unable to fetch retention for 'a.txt': An error occurred (InvalidRequest) when calling the GetObjectRetention operation: bucket object lock not configured",
-    );
-    getObjectLegalHoldMock.mockRejectedValue(objectLockError);
-    getObjectRetentionMock.mockRejectedValue(objectLockError);
+    getObjectLegalHoldMock.mockResolvedValue({
+      key: "a.txt",
+      status: null,
+      object_lock_enabled: false,
+    });
+    getObjectRetentionMock.mockResolvedValue({
+      key: "a.txt",
+      mode: null,
+      retain_until: null,
+      object_lock_enabled: false,
+    });
 
     renderPage();
     const row = await findRowByLabel("a.txt");

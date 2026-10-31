@@ -34,14 +34,15 @@ OBJECT_LAZY_COLUMN_CACHE_TTL_SECONDS = 15
 OBJECT_LAZY_COLUMN_CACHE_MAX_ENTRIES = 2048
 OBJECT_LIST_SCAN_PAGE_BUDGET = 20
 OBJECT_LIST_SCAN_TIME_BUDGET_MS = 1200
-MISSING_OBJECT_LOCK_CONFIGURATION_CODES = {
+OBJECT_LOCK_UNAVAILABLE_CODES = {
     "nosuchobjectlockconfiguration",
     "objectlockconfigurationnotfounderror",
+    "invalidrequest",
 }
 
 
-def _is_missing_object_lock_configuration(exc: ClientError) -> bool:
-    return aws_error_code(exc, lowercase=True) in MISSING_OBJECT_LOCK_CONFIGURATION_CODES
+def _is_object_lock_unavailable(exc: ClientError) -> bool:
+    return aws_error_code(exc, lowercase=True) in OBJECT_LOCK_UNAVAILABLE_CODES
 
 
 _CacheKey = TypeVar("_CacheKey")
