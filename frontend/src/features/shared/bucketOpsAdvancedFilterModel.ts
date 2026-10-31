@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ExecutionContext } from "../../api/executionContexts";
+import type { TextMatchMode } from "../../utils/textMatch";
 import {
   buildFeatureDetailRules,
   clearFeatureDetailField,
@@ -21,6 +22,8 @@ import {
   serializeAdvancedFilterRules,
 } from "./advancedFilterShared";
 
+export type { TextMatchMode } from "../../utils/textMatch";
+
 export type FeatureKey =
   | "versioning"
   | "object_lock"
@@ -33,7 +36,6 @@ export type FeatureKey =
   | "notifications"
   | "server_side_encryption";
 export type FeatureFilterState = "any" | "enabled" | "disabled" | "suspended" | "disabled_or_suspended";
-export type TextMatchMode = "contains" | "exact";
 export type BooleanFilterState = "any" | "true" | "false";
 type StorageOpsContextFilterKind = "any" | "account" | "connection" | "s3_user" | "openstack_project";
 export type AdvancedNumericField =
