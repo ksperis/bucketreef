@@ -92,6 +92,7 @@ class GeneralSettings(ApiModel):
     require_passkey_for_admins: bool = False
     require_passkey_for_users: bool = False
     allow_user_profile_name_edit: bool = False
+    allow_user_external_identity_link: bool = False
     allow_user_external_identity_unlink: bool = False
 
     @field_validator("documentation_base_url", mode="before")

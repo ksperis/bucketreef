@@ -371,6 +371,7 @@ def test_fresh_app_settings_defaults_admin_passkeys_to_optional():
     assert settings.general.require_passkey_for_admins is False
     assert settings.general.require_passkey_for_users is False
     assert settings.general.allow_user_profile_name_edit is False
+    assert settings.general.allow_user_external_identity_link is False
     assert settings.general.allow_user_external_identity_unlink is False
 
 
@@ -382,6 +383,7 @@ def test_persisted_app_settings_without_admin_passkey_policy_uses_current_defaul
     assert settings.general.require_passkey_for_admins is False
     assert settings.general.require_passkey_for_users is False
     assert settings.general.allow_user_profile_name_edit is False
+    assert settings.general.allow_user_external_identity_link is False
     assert settings.general.allow_user_external_identity_unlink is False
 
 

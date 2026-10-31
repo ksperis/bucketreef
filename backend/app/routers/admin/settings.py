@@ -64,6 +64,7 @@ _SENSITIVE_GENERAL_SETTINGS = (
     "allow_login_custom_endpoint",
     "require_passkey_for_admins",
     "require_passkey_for_users",
+    "allow_user_external_identity_link",
     "allow_user_external_identity_unlink",
 )
 

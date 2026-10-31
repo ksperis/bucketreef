@@ -41,6 +41,7 @@ const DEFAULT_GENERAL_SETTINGS: GeneralSettings = {
   require_passkey_for_admins: false,
   require_passkey_for_users: false,
   allow_user_profile_name_edit: false,
+  allow_user_external_identity_link: false,
   allow_user_external_identity_unlink: false,
 };
 

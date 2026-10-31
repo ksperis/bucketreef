@@ -29,6 +29,7 @@ from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.user import UserUpdate
 from app.routers import dependencies
+from app.routers import auth_identity_link
 from app.routers import auth_oidc as auth_router
 from app.services.api_token_service import ApiTokenService
 from app.services.app_settings_service import load_app_settings_for_db
@@ -669,6 +670,65 @@ def test_external_identity_inventory_and_revocation_require_a_recent_passkey(aut
         "provider_type": "oidc",
         "provider_id": "company",
     }
+
+
+def test_profile_oidc_link_requires_explicit_self_service_permission(
+    auth_client,
+    db_session,
+    monkeypatch,
+):
+    class FakeOidcService:
+        def provider_issuer(self, provider_id):
+            assert provider_id == "company"
+            return "https://issuer.example.test"
+
+        def start_login(
+            self,
+            provider_id,
+            redirect_path,
+            *,
+            request_origin,
+            browser_secret_hash,
+            purpose,
+            target_user_id,
+            link_attempt_id,
+            auth_session_id,
+        ):
+            assert provider_id == "company"
+            assert redirect_path is None
+            assert request_origin
+            assert browser_secret_hash
+            assert purpose == "link_identity"
+            assert target_user_id == user.id
+            assert link_attempt_id
+            assert auth_session_id == credentials.session.id
+            return {
+                "provider": "company",
+                "authorization_url": "https://issuer.example.test/authorize",
+                "state": "state-value",
+            }
+
+    user = _user(db_session, email="profile-link-policy@example.com")
+    credentials = authenticate_ui_client(auth_client, db_session, user, mfa_verified=True)
+    monkeypatch.setattr(auth_identity_link, "get_oidc_service", lambda db: FakeOidcService())
+    _set_general_setting(db_session, "allow_user_external_identity_link", False)
+
+    denied = auth_client.post(
+        "/api/auth/security/oidc/company/start-link",
+        json={},
+        headers=trusted_origin_headers(csrf_token=credentials.csrf_token),
+    )
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == "External identity linking is disabled by the application administrator"
+
+    _set_general_setting(db_session, "allow_user_external_identity_link", True)
+    allowed = auth_client.post(
+        "/api/auth/security/oidc/company/start-link",
+        json={},
+        headers=trusted_origin_headers(csrf_token=credentials.csrf_token),
+    )
+    assert allowed.status_code == 200, allowed.text
+    assert allowed.json()["provider"] == "company"
 
 
 def test_external_identity_cannot_remove_the_last_primary_sign_in_method(auth_client, db_session):

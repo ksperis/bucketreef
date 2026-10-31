@@ -21,6 +21,7 @@ const paths = [
   "general.require_passkey_for_admins",
   "general.require_passkey_for_users",
   "general.allow_user_profile_name_edit",
+  "general.allow_user_external_identity_link",
   "general.allow_user_external_identity_unlink",
 ] as const satisfies readonly SettingsPath[];
 export default function AuthenticationSettingsPage() {
@@ -130,6 +131,12 @@ export default function AuthenticationSettingsPage() {
           form={form}
           field="general.allow_user_profile_name_edit"
           title={text("Allow users to edit their profile name")}
+        />
+        <AppSettingsToggle
+          form={form}
+          field="general.allow_user_external_identity_link"
+          title={text("Allow users to link external identities")}
+          description={text("Users can connect an enabled OIDC provider from Profile > Security.")}
         />
         <AppSettingsToggle
           form={form}

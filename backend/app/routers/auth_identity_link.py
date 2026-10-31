@@ -29,6 +29,7 @@ from app.routers.auth_cookies import (
 from app.routers.auth_request_context import request_context
 from app.routers.dependencies import get_audit_service, get_current_user
 from app.services.audit_service import AuditService
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.auth_session_guards import current_auth_session
 from app.services.identity_security_policy import require_self_service_security_action
 from app.services.ldap_service import LDAPAuthenticationError, LDAPConfigurationError, LDAPProviderNotFoundError
@@ -466,6 +467,11 @@ def profile_oidc_link_start(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> OIDCStartResponse:
+    if not load_app_settings_for_db(db).general.allow_user_external_identity_link:
+        raise HTTPException(
+            status_code=403,
+            detail="External identity linking is disabled by the application administrator",
+        )
     request_origin = require_trusted_origin(request)
     require_self_service_security_action(request, db, current_user)
     current_session = current_auth_session(request, db)

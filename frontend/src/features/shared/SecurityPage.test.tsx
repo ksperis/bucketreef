@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
 const policyState = vi.hoisted(() => ({
   require_passkey_for_admins: true,
   require_passkey_for_users: false,
+  allow_user_external_identity_link: false,
   allow_user_external_identity_unlink: false,
 }));
 const storedUserState = vi.hoisted(() => ({
@@ -92,6 +93,7 @@ describe("SecurityPage", () => {
     window.history.replaceState({}, "", "/manager/profile?tab=security");
     policyState.require_passkey_for_admins = true;
     policyState.require_passkey_for_users = false;
+    policyState.allow_user_external_identity_link = false;
     storedUserState.role = "ui_superadmin";
     storedUserState.authType = "password";
     storedUserState.has_local_password = true;
@@ -133,6 +135,7 @@ describe("SecurityPage", () => {
 
   it("preserves the workspace profile route when starting an OIDC account link", async () => {
     const user = userEvent.setup();
+    policyState.allow_user_external_identity_link = true;
     mocks.fetchOidcProviders.mockResolvedValue([{ id: "company", display_name: "Company SSO", icon_url: null }]);
     mocks.startProfileOidcLink.mockResolvedValue({
       provider: "company",
@@ -146,6 +149,17 @@ describe("SecurityPage", () => {
     await user.click(screen.getByRole("button", { name: "Link OIDC account" }));
 
     expect(mocks.startProfileOidcLink).toHaveBeenCalledWith("company", "/manager/profile?tab=security");
+  });
+
+  it("hides self-service OIDC linking when the administrator disables it", async () => {
+    mocks.fetchOidcProviders.mockResolvedValue([{ id: "company", display_name: "Company SSO", icon_url: null }]);
+    mocks.listExternalIdentities.mockResolvedValue([]);
+
+    render(<SecurityPage />);
+
+    await waitFor(() => expect(mocks.fetchOidcProviders).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Link OIDC account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View accounts" })).not.toBeInTheDocument();
   });
 
   it("explains whether passkey enrollment is required for the current role", async () => {
@@ -185,6 +199,7 @@ describe("SecurityPage", () => {
 
   it("presents linked sign-in accounts as a structured management dialog", async () => {
     const user = userEvent.setup();
+    policyState.allow_user_external_identity_link = true;
     mocks.fetchOidcProviders.mockResolvedValue([
       { id: "company", display_name: "Company SSO", icon_url: null },
     ]);
