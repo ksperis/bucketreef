@@ -16,7 +16,7 @@ const manualTableAllowlist = new Map([
   ["features/admin/AdminDashboard.tsx", 1],
   ["features/browser/BrowserObjectTableScaffold.tsx", 1],
   ["features/cephAdmin/CephAdminBucketIndexCheckPage.tsx", 1],
-  ["features/manager/BucketDetailPage.tsx", 1],
+  ["features/manager/bucketDetail/BucketObjectsPreview.tsx", 1],
   ["features/manager/FeatureRulesTable.tsx", 1],
   ["features/shared/BucketOperationResult.tsx", 1],
   ["features/shared/BucketOpsBulkTransferFields.tsx", 1],

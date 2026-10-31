@@ -1847,5 +1847,20 @@
   "Expires {date}": "到期时间 {date}",
   "Review the account and external sign-in before approving or rejecting a link request.": "批准或拒绝关联请求前，请核对账户和外部登录信息。",
   "Approving this link signs the user out of their active sessions. They will need to sign in again.": "批准此关联会使用户退出其活动会话。用户需要重新登录。",
-  "Technical details": "技术详情"
+  "Technical details": "技术详情",
+  "Allow eligible RGW Account, S3 User, and endpoint-backed S3 Connection contexts to execute on another configured Ceph endpoint in the same declared realm and zonegroup. Custom URLs and temporary credentials stay pinned to their original endpoint.": "允许符合条件的 RGW Account、S3 User 和绑定到已注册端点的 S3 Connection 上下文在同一已声明 Realm 和 Zonegroup 内的其他已配置 Ceph 端点上执行。自定义 URL 和临时凭据仍固定到原始端点。",
+  "Allow eligible RGW Account, S3 User, and endpoint-backed S3 Connection contexts to execute on another configured Ceph endpoint in the same declared realm and zonegroup. S3 Connections are available wherever their workspace access permits; custom URLs and temporary credentials stay pinned to their original endpoint.": "允许符合条件的 RGW Account、S3 User 和绑定到已注册端点的 S3 Connection 上下文在同一已声明 Realm 和 Zonegroup 内的其他已配置 Ceph 端点上执行。S3 Connection 仅在其工作区权限允许的位置可用；自定义 URL 和临时凭据仍固定到原始端点。",
+  "Control endpoint-switching grants supplied by RGW Accounts and RGW Users. UI User and UI Group grants remain additive.": "控制由 RGW Account 和 RGW User 提供的端点切换授权。UI User 和 UI Group 授权仍为叠加权限。",
+  "Endpoint switching": "端点切换",
+  "Grants endpoint switching for this RGW Account when the destination is in the same realm and zonegroup. UI User and UI Group grants remain additive.": "当目标位于同一 Realm 和 Zonegroup 时，为此 RGW Account 授予端点切换权限。UI User 和 UI Group 授权仍为叠加权限。",
+  "Grants endpoint switching for this RGW User when the destination is in the same realm and zonegroup. UI User and UI Group grants remain additive.": "当目标位于同一 Realm 和 Zonegroup 时，为此 RGW User 授予端点切换权限。UI User 和 UI Group 授权仍为叠加权限。",
+  "RGW Account and User endpoint switching": "RGW Account 和 RGW User 端点切换",
+  "RGW multisite": "RGW 多站点",
+  "RGW multisite execution permission for Manager and Browser. Groups can also grant this permission.": "适用于 Manager 和 Browser 的 RGW 多站点执行权限。用户组也可以授予此权限。",
+  "RGW multisite execution permission inherited by group members across Manager and Browser.": "用户组成员在 Manager 和 Browser 中继承的 RGW 多站点执行权限。",
+  "Set the default endpoint-switching policy for compatible RGW Accounts and RGW Users. Each resource can inherit, explicitly grant, or explicitly disable it.": "设置兼容 RGW Account 和 RGW User 的默认端点切换策略。每个资源都可以继承、显式授予或显式禁用该策略。",
+  "Email verified": "邮箱已验证",
+  "Request source": "请求来源",
+  "Requested": "请求时间",
+  "Yes": "是"
 }
