@@ -80,8 +80,7 @@ class ExecutionContextCatalogService:
             resolved=effective,
         ):
             portal_role = link.portal_role
-            if portal_role is None:  # pragma: no cover - filtered by the service
-                continue
+            assert portal_role is not None
             results.append(
                 portal_account_execution_context_from_db(
                     account,
