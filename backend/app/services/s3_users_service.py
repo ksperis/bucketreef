@@ -10,6 +10,7 @@ from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_deletion_service import S3UserDeletionService
 from app.services.s3_user_import_service import S3UserImportService
+from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_provisioning_service import S3UserProvisioningService
 from app.services.s3_user_query_service import S3UserQueryService
@@ -27,7 +28,7 @@ from app.models.s3_user import (
     S3UserSummary,
     S3UserUpdate,
 )
-from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.rgw_admin import RGWAdminClient
 
 class S3UsersService:
     def __init__(self, db: Session) -> None:
@@ -68,6 +69,14 @@ class S3UsersService:
             quota=self.quota,
             associations=self.associations,
             tags=self.tags,
+            query=self.query,
+        )
+        self.key_management = S3UserKeyManagementService(
+            db,
+            repository=self.repository,
+            rgw_context=self.rgw_context,
+            access_keys=self.access_keys,
+            associations=self.associations,
             query=self.query,
         )
 
@@ -156,44 +165,19 @@ class S3UsersService:
         return self.updater.update_user(user_id, payload)
 
     def rotate_keys(self, user_id: int, *, actor=None) -> S3UserSchema:
-        s3_user = self.get_user_record(user_id)
-        from app.services.durable_key_rotation_service import DurableKeyRotationService
-        endpoint = self.rgw_context.endpoint_for_user(s3_user)
-        try:
-            DurableKeyRotationService(self.db, actor=actor).rotate(endpoint, "s3_user", s3_user.id)
-        except RGWAdminError as exc:
-            raise ValueError("Rotation is pending; check RGW connectivity and retry.") from exc
-        admin = self.rgw_context.admin_for_user(s3_user)
-        user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        return self.query.serialize_user(
-            s3_user,
-            user_links_map,
-            group_links_map,
-            quota_admin=admin,
-        )
+        return self.key_management.rotate_keys(user_id, actor=actor)
 
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
-        s3_user = self.get_user_record(user_id)
-        admin = self.rgw_context.admin_for_user(s3_user)
-        return self.access_keys.list_keys(s3_user, admin)
+        return self.key_management.list_keys(user_id)
 
     def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
-        s3_user = self.get_user_record(user_id)
-        admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(s3_user, admin)
-        return self.access_keys.create_key(s3_user, admin)
+        return self.key_management.create_access_key_entry(user_id)
 
     def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:
-        s3_user = self.get_user_record(user_id)
-        admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(s3_user, admin)
-        return self.access_keys.set_key_status(s3_user, admin, access_key, active)
+        return self.key_management.set_key_status(user_id, access_key, active)
 
     def delete_key(self, user_id: int, access_key: str) -> None:
-        s3_user = self.get_user_record(user_id)
-        admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(s3_user, admin)
-        self.access_keys.delete_key(s3_user, admin, access_key)
+        self.key_management.delete_key(user_id, access_key)
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self.get_user_record(user_id)
