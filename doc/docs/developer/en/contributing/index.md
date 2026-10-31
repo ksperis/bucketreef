@@ -9,9 +9,10 @@
 
 ## AI-authored commit messages
 
-AI-authored commits should follow the repository Conventional Commit policy so
+AI-authored commits must follow the repository Conventional Commit policy so
 future changelog automation can consume them reliably without rewriting the
-existing mixed history.
+existing mixed history. This requirement is also enforced by the repository
+instructions for AI assistants.
 
 Required format for AI-authored commits:
 
@@ -43,10 +44,11 @@ Versioned helpers:
 - optional Git usage:
   `git commit --template .gitmessage-ai.txt`
 
-The validator is intentionally non-blocking in this phase. Use it for
-AI-authored commits when preparing release-ready history, and start automated
-changelog generation from the first release/tag created after this policy lands
-rather than parsing the full legacy history.
+The validator is not installed as a blocking Git hook or CI gate for human
+contributors. AI assistants must run it before creating a commit, as required by
+the repository instructions. Automated changelog generation starts from the
+first release/tag created after this policy landed rather than parsing the full
+legacy history.
 
 ## Pull request checklist
 
