@@ -15,7 +15,6 @@ import {
 } from "../../../components/settings/SettingsAutocomplete";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiTextarea from "../../../components/ui/UiTextarea";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import {
   BucketFeatureEditorEmpty,
@@ -363,7 +362,7 @@ export default function BucketPolicyFeature({
     updateEditorMode,
     updateJsonText,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured,

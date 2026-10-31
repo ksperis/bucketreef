@@ -83,8 +83,29 @@ def test_raise_bad_gateway_from_runtime_preserves_safe_runtime_message():
             ),
             409,
         ),
+        (
+            ClientError(
+                {
+                    "Error": {"Code": "XNotImplemented", "Message": "unsupported"},
+                    "ResponseMetadata": {"HTTPStatusCode": 405},
+                },
+                "GetBucketLogging",
+            ),
+            501,
+        ),
+        (
+            ClientError(
+                {
+                    "Error": {"Code": "InternalError", "Message": "unsupported"},
+                    "ResponseMetadata": {"HTTPStatusCode": 501},
+                },
+                "GetBucketNotificationConfiguration",
+            ),
+            501,
+        ),
         (_StatusError(503), 503),
         (_StatusError(504), 504),
+        (_StatusError(501), 501),
     ],
 )
 def test_raise_bad_gateway_from_runtime_uses_structured_causes(cause, expected_status):
@@ -95,6 +116,29 @@ def test_raise_bad_gateway_from_runtime_uses_structured_causes(cause, expected_s
         raise_bad_gateway_from_runtime(wrapped)
 
     assert raised.value.status_code == expected_status
+    if expected_status == 501:
+        assert raised.value.detail == {
+            "code": "feature_not_implemented",
+            "message": "upstream request failed",
+        }
+    else:
+        assert raised.value.detail == "upstream request failed"
+
+
+def test_raise_bad_gateway_from_runtime_does_not_treat_generic_405_as_unsupported():
+    wrapped = RuntimeError("upstream request failed")
+    wrapped.__cause__ = ClientError(
+        {
+            "Error": {"Code": "MethodNotAllowed", "Message": "method not allowed"},
+            "ResponseMetadata": {"HTTPStatusCode": 405},
+        },
+        "GetBucketLogging",
+    )
+
+    with pytest.raises(HTTPException) as raised:
+        raise_bad_gateway_from_runtime(wrapped)
+
+    assert raised.value.status_code == 502
     assert raised.value.detail == "upstream request failed"
 
 

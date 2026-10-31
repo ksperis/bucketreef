@@ -22,6 +22,7 @@ _CONFLICT_ERROR_CODES = frozenset({"preconditionfailed", "conditionalrequestconf
 _FORBIDDEN_ERROR_CODES = frozenset(
     {"accessdenied", "invalidaccesskeyid", "signaturedoesnotmatch"}
 )
+_NOT_IMPLEMENTED_ERROR_CODES = frozenset({"notimplemented", "xnotimplemented"})
 
 
 def _exception_chain(exc: Exception):
@@ -38,6 +39,8 @@ def _client_error_status_code(exc: ClientError) -> int | None:
     error = response.get("Error") or {}
     code = str(error.get("Code") or "").lower()
     upstream_status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    if upstream_status == 501 or code in _NOT_IMPLEMENTED_ERROR_CODES:
+        return status.HTTP_501_NOT_IMPLEMENTED
     if upstream_status in {409, 412} or code in _CONFLICT_ERROR_CODES:
         return status.HTTP_409_CONFLICT
     if upstream_status in {401, 403} or code in _FORBIDDEN_ERROR_CODES:
@@ -47,6 +50,8 @@ def _client_error_status_code(exc: ClientError) -> int | None:
 
 def _exception_status_code(exc: Exception) -> int | None:
     upstream_status = getattr(exc, "status_code", None)
+    if upstream_status == 501:
+        return status.HTTP_501_NOT_IMPLEMENTED
     if upstream_status in {409, 412}:
         return status.HTTP_409_CONFLICT
     if upstream_status in {401, 403}:
@@ -75,7 +80,16 @@ def _structured_upstream_status_code(exc: Exception) -> int | None:
 
 
 def raise_bad_gateway_from_runtime(exc: RuntimeError) -> NoReturn:
-    raise_http_exception_from_exception(_upstream_status_code(exc), exc)
+    status_code = _upstream_status_code(exc)
+    if status_code == status.HTTP_501_NOT_IMPLEMENTED:
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "code": "feature_not_implemented",
+                "message": sanitize_error_detail(str(exc)),
+            },
+        ) from exc
+    raise_http_exception_from_exception(status_code, exc)
 
 
 def _has_timeout_message(exc: Exception) -> bool:

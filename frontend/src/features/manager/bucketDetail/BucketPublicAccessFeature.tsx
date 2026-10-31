@@ -8,7 +8,6 @@ import { SettingsButton } from "../../../components/settings/SettingsControls";
 import { SettingsItem, SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -64,7 +63,7 @@ export default function BucketPublicAccessFeature({ controller }: BucketPublicAc
     status,
     update,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured: fullyEnabled || partiallyEnabled,

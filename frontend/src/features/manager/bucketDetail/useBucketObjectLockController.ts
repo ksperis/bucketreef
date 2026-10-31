@@ -11,7 +11,7 @@ import {
   setCephAdminBucketVersioning,
   updateCephAdminBucketObjectLock,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { stableBucketJsonSignature } from "./bucketFeatureState";
 
 type ObjectLockDraft = {
@@ -76,6 +76,7 @@ export function useBucketObjectLockController({
   const [draft, setDraft] = useState<ObjectLockDraft>(emptyDraft);
   const [snapshot, setSnapshot] = useState<ObjectLockDraft>(emptyDraft);
   const [error, setError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -103,6 +104,7 @@ export function useBucketObjectLockController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setLoadError(null);
     setError(null);
     setStatus(null);
@@ -114,6 +116,7 @@ export function useBucketObjectLockController({
         : await bucketDetailsApi.getBucketObjectLock(contextId, bucketName);
       apply(data);
     } catch (loadFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadFailure));
       apply();
       setLoadError(
         extractApiError(
@@ -208,6 +211,7 @@ export function useBucketObjectLockController({
       apply(updated);
       setStatus("Object Lock updated");
     } catch (saveFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setError(
         extractApiError(
           saveFailure,
@@ -220,6 +224,7 @@ export function useBucketObjectLockController({
   };
 
   return {
+    featureUnsupported,
     active: draft.enabled === true || persistentlyEnabled,
     configuration,
     days: draft.days,

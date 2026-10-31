@@ -14,7 +14,7 @@ import {
   getCephAdminBucketWebsite,
   putCephAdminBucketWebsite,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { jsonTextSignature, stableBucketJsonSignature } from "./bucketFeatureState";
 
 type WebsiteMode = "hosting" | "redirect";
@@ -87,6 +87,7 @@ export function useBucketWebsiteController({
   const [draft, setDraft] = useState<WebsiteDraft>(emptyDraft);
   const [snapshot, setSnapshot] = useState<WebsiteDraft>(emptyDraft);
   const [error, setError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -106,6 +107,7 @@ export function useBucketWebsiteController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setError(null);
     setStatus(null);
     try {
@@ -116,6 +118,7 @@ export function useBucketWebsiteController({
         : await bucketDetailsApi.getBucketWebsite(contextId, bucketName);
       apply(config);
     } catch (loadError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadError));
       apply();
       setError(
         extractApiError(
@@ -193,6 +196,7 @@ export function useBucketWebsiteController({
       apply(saved);
       setStatus("Website configuration updated.");
     } catch (saveError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveError));
       setError(
         extractApiError(
           saveError,
@@ -219,6 +223,7 @@ export function useBucketWebsiteController({
       apply();
       setStatus("Website configuration cleared.");
     } catch (clearError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(clearError));
       setError(
         extractApiError(
           clearError,
@@ -243,6 +248,7 @@ export function useBucketWebsiteController({
         stableBucketJsonSignature([]),
   );
   return {
+    featureUnsupported,
     clear,
     clearing,
     configured,

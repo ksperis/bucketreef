@@ -4,11 +4,32 @@ import { transferableAbortController } from "node:util";
 import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "../../../api/client";
 import BucketDetailPage from "../BucketDetailPage";
 import { setSessionUserCache } from "../../../utils/workspaces";
 
 type ListManagerObjects = typeof import("../../../api/managerObjects").listManagerObjects;
 type ListCephAdminBucketObjects = typeof import("../../../api/cephAdminBucketDetails").listCephAdminBucketObjects;
+
+function structuredApiError(
+  status: number,
+  detail: string | { code: string; message: string },
+): ApiError {
+  return new ApiError("Request failed", {
+    response: {
+      status,
+      data: { detail },
+      headers: {},
+    },
+  });
+}
+
+function unsupportedFeatureError(): ApiError {
+  return structuredApiError(501, {
+    code: "feature_not_implemented",
+    message: "This bucket feature is not implemented by the endpoint.",
+  });
+}
 
 const useExecutionContextMock = vi.fn();
 const useCephAdminEndpointMock = vi.fn();
@@ -1308,7 +1329,7 @@ describe("BucketDetailPage replication state", () => {
 
   it("keeps Properties cards visible when public access block is unavailable", async () => {
     const user = userEvent.setup();
-    getCephAdminBucketPublicAccessBlockMock.mockRejectedValueOnce(new Error("XNotImplemented"));
+    getCephAdminBucketPublicAccessBlockMock.mockRejectedValueOnce(unsupportedFeatureError());
 
     render(
       <MemoryRouter>
@@ -1546,11 +1567,7 @@ describe("BucketDetailPage replication state", () => {
 
   it("disables server access logging when the endpoint does not implement it", async () => {
     const user = userEvent.setup();
-    getCephAdminBucketLoggingMock.mockRejectedValue(
-      new Error(
-        "Unable to fetch bucket logging for 'demo-bucket': An error occurred (XNotImplemented) when calling the GetBucketLogging operation: The request you provided implies functionality that is not implemented."
-      )
-    );
+    getCephAdminBucketLoggingMock.mockRejectedValue(unsupportedFeatureError());
 
     render(
       <MemoryRouter>
@@ -1572,11 +1589,9 @@ describe("BucketDetailPage replication state", () => {
     expect(within(accessLoggingCard).queryByLabelText("Target prefix (optional)")).not.toBeInTheDocument();
   });
 
-  it("disables JSON feature cards when the endpoint returns XNotImplemented", async () => {
+  it("disables JSON feature cards when the endpoint reports the feature as unsupported", async () => {
     const user = userEvent.setup();
-    getCephAdminBucketNotificationsMock.mockRejectedValue(
-      new Error("An error occurred (XNotImplemented) when calling the GetBucketNotificationConfiguration operation.")
-    );
+    getCephAdminBucketNotificationsMock.mockRejectedValue(unsupportedFeatureError());
 
     render(
       <MemoryRouter>
@@ -1599,7 +1614,9 @@ describe("BucketDetailPage replication state", () => {
 
   it("does not disable feature cards for non-implementation-unrelated errors", async () => {
     const user = userEvent.setup();
-    getCephAdminBucketLoggingMock.mockRejectedValue(new Error("AccessDenied"));
+    getCephAdminBucketLoggingMock.mockRejectedValue(
+      structuredApiError(403, "Access denied"),
+    );
 
     render(
       <MemoryRouter>
@@ -1614,7 +1631,7 @@ describe("BucketDetailPage replication state", () => {
     await user.click(screen.getByRole("tab", { name: "Properties" }));
 
     const accessLoggingCard = await screen.findByTestId("bucket-feature-access-logging");
-    const accessDeniedMessage = within(accessLoggingCard).getByText("AccessDenied");
+    const accessDeniedMessage = within(accessLoggingCard).getByText("Access denied");
     expect(accessDeniedMessage).toBeInTheDocument();
     expect(accessDeniedMessage).toHaveClass("ui-caption");
     expect(accessLoggingCard).toHaveAttribute("data-feature-state", "neutral");

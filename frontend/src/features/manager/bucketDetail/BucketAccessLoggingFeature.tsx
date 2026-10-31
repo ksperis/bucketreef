@@ -7,7 +7,6 @@ import { SettingsButton, SettingsInput } from "../../../components/settings/Sett
 import { SettingsAutocomplete } from "../../../components/settings/SettingsAutocomplete";
 import { SettingsItem, SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import { useBucketFeatureSuggestions } from "./BucketFeatureSuggestions";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
@@ -45,7 +44,7 @@ export default function BucketAccessLoggingFeature({
     updateTargetBucket,
     updateTargetPrefix,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const { buckets } = useBucketFeatureSuggestions();
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,

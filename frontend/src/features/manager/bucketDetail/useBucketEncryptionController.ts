@@ -10,7 +10,7 @@ import {
   getCephAdminBucketEncryption,
   putCephAdminBucketEncryption,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   cloneBucketJsonValue,
@@ -62,6 +62,7 @@ export function useBucketEncryptionController({
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,6 +81,7 @@ export function useBucketEncryptionController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setLoadError(null);
     setStatus(null);
     try {
@@ -95,6 +97,7 @@ export function useBucketEncryptionController({
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadFailure));
       applyBaseline([]);
       setLoadError(
         extractApiError(
@@ -222,6 +225,7 @@ export function useBucketEncryptionController({
       }
       setEditorOpen(false);
     } catch (saveFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(
         extractApiError(saveFailure, "Unable to update bucket encryption settings."),
       );
@@ -253,6 +257,7 @@ export function useBucketEncryptionController({
   const dirty = editorOpen && draftSignature !== baselineSignature;
 
   return {
+    featureUnsupported,
     addDraftRule,
     closeEditor,
     configured: rules.length > 0,

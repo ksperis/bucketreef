@@ -10,7 +10,7 @@ import {
   getCephAdminBucketPublicAccessBlock,
   updateCephAdminBucketPublicAccessBlock,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import {
   normalizePublicAccessDraft,
   stableBucketJsonSignature,
@@ -61,6 +61,7 @@ export function useBucketPublicAccessController({
   const [config, setConfig] = useState(() => normalize());
   const [snapshot, setSnapshot] = useState(() => normalize());
   const [error, setError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -79,6 +80,7 @@ export function useBucketPublicAccessController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setError(null);
     setStatus(null);
     try {
@@ -89,6 +91,7 @@ export function useBucketPublicAccessController({
         : await bucketDetailsApi.getBucketPublicAccessBlock(contextId, bucketName);
       apply(data);
     } catch (loadError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadError));
       apply();
       setError(
         extractApiError(
@@ -121,6 +124,7 @@ export function useBucketPublicAccessController({
       apply(saved);
       setStatus("Public access block updated.");
     } catch (saveError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveError));
       setError(
         extractApiError(saveError, "Unable to update public access block."),
       );
@@ -143,6 +147,7 @@ export function useBucketPublicAccessController({
   const partiallyEnabled =
     !fullyEnabled && publicAccessKeys.some((key) => config[key] === true);
   return {
+    featureUnsupported,
     config,
     dirty:
       stableBucketJsonSignature(normalizePublicAccessDraft(config)) !==

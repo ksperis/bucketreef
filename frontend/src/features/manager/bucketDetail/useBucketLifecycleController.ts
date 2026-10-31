@@ -10,7 +10,7 @@ import {
   getCephAdminBucketLifecycle,
   putCephAdminBucketLifecycle,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
 import {
@@ -68,6 +68,7 @@ export function useBucketLifecycleController({
     rule: LifecycleRuleRecord;
   } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,6 +86,7 @@ export function useBucketLifecycleController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setLoadError(null);
     setStatus(null);
     try {
@@ -100,6 +102,7 @@ export function useBucketLifecycleController({
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadFailure));
       applyBaseline([]);
       setLoadError(extractApiError(loadFailure, "Unable to load lifecycle rules."));
     } finally {
@@ -244,6 +247,7 @@ export function useBucketLifecycleController({
       applyBaseline(savedRules);
       setStatus(successMessage);
     } catch (mutationFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(mutationFailure));
       setLoadError(extractApiError(mutationFailure, "Unable to update lifecycle rules."));
     } finally {
       setSaving(false);
@@ -301,6 +305,7 @@ export function useBucketLifecycleController({
       setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(extractApiError(saveFailure, "Invalid or unsaved lifecycle."));
     } finally {
       setSaving(false);
@@ -327,6 +332,7 @@ export function useBucketLifecycleController({
   const dirty = editorOpen && draftSignature !== baselineSignature;
 
   return {
+    featureUnsupported,
     addDraftRule,
     closeEditor,
     dirty,

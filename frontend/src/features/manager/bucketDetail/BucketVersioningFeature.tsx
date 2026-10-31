@@ -5,7 +5,6 @@
 import { SettingsButton } from "../../../components/settings/SettingsControls";
 import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
 import type { useBucketVersioningController } from "./useBucketVersioningController";
@@ -35,7 +34,7 @@ export default function BucketVersioningFeature({
     saving,
     updateDraft,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(loadError);
+  const notImplemented = controller.featureUnsupported;
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured: isEnabled,

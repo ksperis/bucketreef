@@ -6,7 +6,6 @@ import { useState } from "react";
 import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import { SettingsItem, SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -50,7 +49,7 @@ export default function BucketObjectLockFeature({
     updateYears,
     years,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(loadError);
+  const notImplemented = controller.featureUnsupported;
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured: persistentlyEnabled,

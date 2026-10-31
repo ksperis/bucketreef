@@ -10,7 +10,7 @@ import {
   getCephAdminBucketNotifications,
   putCephAdminBucketNotifications,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
@@ -71,6 +71,7 @@ export function useBucketNotificationsController({
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
   const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -88,6 +89,7 @@ export function useBucketNotificationsController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setLoadError(null);
     setStatus(null);
     try {
@@ -98,6 +100,7 @@ export function useBucketNotificationsController({
         : await bucketDetailsApi.getBucketNotifications(contextId, bucketName);
       applyBaseline(data.configuration);
     } catch (loadFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadFailure));
       applyBaseline({});
       setLoadError(
         extractApiError(loadFailure, "Unable to load bucket notifications."),
@@ -231,6 +234,7 @@ export function useBucketNotificationsController({
       applyBaseline(savedConfiguration);
       setStatus(isEmptyConfiguration(savedConfiguration) ? "Notifications cleared." : "Notification removed.");
     } catch (removeFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(removeFailure));
       setLoadError(extractApiError(removeFailure, "Unable to update bucket notifications."));
     } finally {
       setSaving(false);
@@ -269,6 +273,7 @@ export function useBucketNotificationsController({
       setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(
         extractApiError(saveFailure, "Unable to update bucket notifications."),
       );
@@ -306,6 +311,7 @@ export function useBucketNotificationsController({
   const dirty = editorOpen && draftSignature !== baselineSignature;
 
   return {
+    featureUnsupported,
     addDraftTopic,
     closeEditor,
     configuration,

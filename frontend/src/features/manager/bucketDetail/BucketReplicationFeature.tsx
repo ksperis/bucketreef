@@ -15,7 +15,6 @@ import { SettingsAutocomplete } from "../../../components/settings/SettingsAutoc
 import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import {
   BucketFeatureEditorEmpty,
@@ -219,7 +218,7 @@ export default function BucketReplicationFeature({
     updateRole,
     updateRule,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const featureDisabled = blocked || notImplemented;
   const visualState = resolveFeatureVisualState({
     disabled: featureDisabled,

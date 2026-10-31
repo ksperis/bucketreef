@@ -10,7 +10,7 @@ import {
   getCephAdminBucketAcl,
   updateCephAdminBucketAcl,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { stableBucketJsonSignature } from "./bucketFeatureState";
 
 type UseBucketAclControllerOptions = {
@@ -82,6 +82,7 @@ export function useBucketAclController({
   const [draft, setDraft] = useState<AclDraft>(privateDraft);
   const [snapshot, setSnapshot] = useState<AclDraft>(privateDraft);
   const [error, setError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -101,6 +102,7 @@ export function useBucketAclController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setError(null);
     setStatus(null);
     try {
@@ -111,6 +113,7 @@ export function useBucketAclController({
         : await bucketDetailsApi.getBucketAcl(contextId, bucketName);
       applyLoaded(data);
     } catch (loadError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadError));
       applyLoaded();
       setError(extractApiError(loadError, "Unable to load bucket ACL."));
     } finally {
@@ -163,6 +166,7 @@ export function useBucketAclController({
       setSnapshot(savedDraft);
       setStatus("Bucket ACL updated.");
     } catch (saveError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveError));
       setError(extractApiError(saveError, "Unable to update bucket ACL."));
     } finally {
       setSaving(false);
@@ -170,6 +174,7 @@ export function useBucketAclController({
   };
 
   return {
+    featureUnsupported,
     acl,
     configured: inferPreset(acl) !== "private",
     custom: draft.custom,

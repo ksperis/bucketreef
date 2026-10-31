@@ -11,7 +11,7 @@ import {
   getCephAdminBucketTags,
   putCephAdminBucketTags,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { createUiDraftId } from "../../../utils/uiDraftId";
 import { prepareS3Tags } from "../../../utils/s3Tags";
 import { stableBucketJsonSignature } from "./bucketFeatureState";
@@ -53,6 +53,7 @@ export function useBucketTagsController({
   const [tags, setTags] = useState<BucketTagDraft[]>([]);
   const [snapshot, setSnapshot] = useState<BucketTag[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,6 +72,7 @@ export function useBucketTagsController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setError(null);
     setStatus(null);
     try {
@@ -81,6 +83,7 @@ export function useBucketTagsController({
         : await bucketDetailsApi.getBucketTags(contextId, bucketName);
       apply(response.tags);
     } catch (loadError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadError));
       apply([]);
       setError(extractApiError(loadError, "Unable to load bucket tags."));
     } finally {
@@ -142,6 +145,7 @@ export function useBucketTagsController({
         setStatus("Bucket tags updated.");
       }
     } catch (saveError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveError));
       setError(extractApiError(saveError, "Unable to update bucket tags."));
     } finally {
       setSaving(false);
@@ -162,6 +166,7 @@ export function useBucketTagsController({
       apply([]);
       setStatus("Bucket tags cleared.");
     } catch (clearError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(clearError));
       setError(extractApiError(clearError, "Unable to clear bucket tags."));
     } finally {
       setClearing(false);
@@ -169,6 +174,7 @@ export function useBucketTagsController({
   };
 
   return {
+    featureUnsupported,
     add,
     clear,
     clearing,
