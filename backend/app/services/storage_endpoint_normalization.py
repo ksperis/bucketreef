@@ -7,11 +7,10 @@ from typing import Literal, Optional
 from pydantic import SecretStr, ValidationError, field_validator, model_validator
 
 from app.db import StorageEndpoint, StorageProvider
-from app.models.base import ApiModel
 from app.models.storage_endpoint import (
+    StorageEndpointCoordinates,
     StorageEndpointCreate,
     StorageEndpointFeatures,
-    StorageEndpointMetadata,
     StorageEndpointUpdate,
 )
 from app.utils.normalize import (
@@ -49,7 +48,7 @@ _PRESERVE_EXISTING_ON_NULL_UPDATE_FIELDS = frozenset(
 )
 
 
-class EnvStorageEndpoint(ApiModel):
+class EnvStorageEndpoint(StorageEndpointCoordinates):
     name: str
     endpoint_url: str
     region: Optional[str] = None
@@ -69,8 +68,6 @@ class EnvStorageEndpoint(ApiModel):
     ceph_admin_allowed: bool = False
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
     features: Optional[dict[str, dict[str, object]]] = None
     is_default: bool = False
 
@@ -85,16 +82,6 @@ class EnvStorageEndpoint(ApiModel):
     )(
         normalize_optional_string_field
     )
-
-    @field_validator("latitude")
-    @classmethod
-    def validate_latitude(_cls, value: Optional[float]) -> Optional[float]:
-        return StorageEndpointMetadata.validate_latitude(value)
-
-    @field_validator("longitude")
-    @classmethod
-    def validate_longitude(_cls, value: Optional[float]) -> Optional[float]:
-        return StorageEndpointMetadata.validate_longitude(value)
 
 @dataclass(frozen=True)
 class NormalizedEndpointState:
