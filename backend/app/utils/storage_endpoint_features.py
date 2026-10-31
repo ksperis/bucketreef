@@ -345,23 +345,24 @@ def resolve_feature_flags(endpoint: StorageEndpoint) -> EndpointFeatureFlags:
         endpoint.features,
         endpoint.region,
     )
+    healthcheck = features["healthcheck"]
     return EndpointFeatureFlags(
         admin_enabled=bool(features["admin"]["enabled"]),
-        admin_endpoint=features["admin"].get("endpoint"),
-        account_enabled=bool(features.get("account", {}).get("enabled")),
+        admin_endpoint=features["admin"]["endpoint"],
+        account_enabled=bool(features["account"]["enabled"]),
         sts_enabled=bool(features["sts"]["enabled"]),
-        sts_endpoint=features["sts"].get("endpoint"),
+        sts_endpoint=features["sts"]["endpoint"],
         usage_enabled=bool(features["usage"]["enabled"]),
         metrics_enabled=bool(features["metrics"]["enabled"]),
         static_website_enabled=bool(features["static_website"]["enabled"]),
-        iam_enabled=bool(features.get("iam", {}).get("enabled")),
-        iam_endpoint=features.get("iam", {}).get("endpoint"),
-        sns_enabled=bool(features.get("sns", {}).get("enabled")),
-        sse_enabled=bool(features.get("sse", {}).get("enabled")),
-        replication_enabled=bool(features.get("replication", {}).get("enabled")),
-        healthcheck_enabled=bool(features.get("healthcheck", {}).get("enabled", True)),
-        healthcheck_mode=str(features.get("healthcheck", {}).get("mode") or "http").strip().lower(),
-        healthcheck_url=features.get("healthcheck", {}).get("url"),
+        iam_enabled=bool(features["iam"]["enabled"]),
+        iam_endpoint=features["iam"]["endpoint"],
+        sns_enabled=bool(features["sns"]["enabled"]),
+        sse_enabled=bool(features["sse"]["enabled"]),
+        replication_enabled=bool(features["replication"]["enabled"]),
+        healthcheck_enabled=bool(healthcheck["enabled"]),
+        healthcheck_mode=str(healthcheck["mode"]),
+        healthcheck_url=healthcheck["url"],
     )
 
 
@@ -411,14 +412,14 @@ def resolve_iam_signing_region(endpoint: StorageEndpoint) -> Optional[str]:
 
 def features_to_capabilities(features: dict[str, dict[str, Any]]) -> dict[str, bool]:
     return {
-        "admin": bool(features.get("admin", {}).get("enabled")),
-        "account": bool(features.get("account", {}).get("enabled")),
-        "sts": bool(features.get("sts", {}).get("enabled")),
-        "usage": bool(features.get("usage", {}).get("enabled")),
-        "metrics": bool(features.get("metrics", {}).get("enabled")),
-        "static_website": bool(features.get("static_website", {}).get("enabled")),
-        "iam": bool(features.get("iam", {}).get("enabled")),
-        "sns": bool(features.get("sns", {}).get("enabled")),
-        "sse": bool(features.get("sse", {}).get("enabled")),
-        "replication": bool(features.get("replication", {}).get("enabled")),
+        "admin": bool(features["admin"]["enabled"]),
+        "account": bool(features["account"]["enabled"]),
+        "sts": bool(features["sts"]["enabled"]),
+        "usage": bool(features["usage"]["enabled"]),
+        "metrics": bool(features["metrics"]["enabled"]),
+        "static_website": bool(features["static_website"]["enabled"]),
+        "iam": bool(features["iam"]["enabled"]),
+        "sns": bool(features["sns"]["enabled"]),
+        "sse": bool(features["sse"]["enabled"]),
+        "replication": bool(features["replication"]["enabled"]),
     }

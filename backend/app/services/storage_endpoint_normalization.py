@@ -317,8 +317,8 @@ def normalize_storage_endpoint_state(
     ):
         features["healthcheck"]["enabled"] = True
         features["healthcheck"]["mode"] = "s3"
-    admin_enabled = bool(features.get("admin", {}).get("enabled")) or bool(
-        features.get("account", {}).get("enabled")
+    admin_enabled = bool(features["admin"]["enabled"]) or bool(
+        features["account"]["enabled"]
     )
     required_identities = required_service_identity_kinds(features)
     admin_required = admin_enabled or (
