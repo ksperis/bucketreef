@@ -1104,6 +1104,30 @@ def test_source_copy_grant_candidates_use_canonical_account_root_uid(db_session)
     assert "RGW002-admin" not in candidates
 
 
+def test_endpoint_capabilities_reject_invalid_persisted_features(db_session):
+    account = _create_account(
+        db_session,
+        name="invalid-features",
+        endpoint_url="https://invalid-features.example.test",
+        account_id="RGW003",
+    )
+    account.storage_endpoint.features = {
+        "removed_feature": {"enabled": True},
+    }
+    service = BucketMigrationService(db_session)
+    context = _ResolvedContext(
+        context_id=str(account.id),
+        execution_context=account,
+        endpoint=account.storage_endpoint.endpoint_url,
+        region=account.storage_endpoint.region,
+        force_path_style=False,
+        verify_tls=True,
+    )
+
+    with pytest.raises(ValueError, match="Unknown endpoint feature.*removed_feature"):
+        service._inspector._endpoint_capabilities(context)
+
+
 def test_precheck_same_endpoint_copy_source_access_can_use_temporary_auto_grant(db_session):
     source = _create_account(db_session, name="source", endpoint_url="https://same.example.test", account_id="RGW001")
     target_user = _create_s3_user(
