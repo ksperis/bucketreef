@@ -16,6 +16,7 @@ from requests.exceptions import Timeout as RequestsTimeout
 
 from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.sensitive_data import sanitize_error_detail
+from app.utils.s3_errors import matches_s3_error
 
 
 _CONFLICT_ERROR_CODES = frozenset({"preconditionfailed", "conditionalrequestconflict"})
@@ -35,15 +36,23 @@ def _exception_chain(exc: Exception):
 
 
 def _client_error_status_code(exc: ClientError) -> int | None:
-    response = exc.response or {}
-    error = response.get("Error") or {}
-    code = str(error.get("Code") or "").lower()
-    upstream_status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
-    if upstream_status == 501 or code in _NOT_IMPLEMENTED_ERROR_CODES:
+    if matches_s3_error(
+        exc,
+        codes=_NOT_IMPLEMENTED_ERROR_CODES,
+        status_codes={501},
+    ):
         return status.HTTP_501_NOT_IMPLEMENTED
-    if upstream_status in {409, 412} or code in _CONFLICT_ERROR_CODES:
+    if matches_s3_error(
+        exc,
+        codes=_CONFLICT_ERROR_CODES,
+        status_codes={409, 412},
+    ):
         return status.HTTP_409_CONFLICT
-    if upstream_status in {401, 403} or code in _FORBIDDEN_ERROR_CODES:
+    if matches_s3_error(
+        exc,
+        codes=_FORBIDDEN_ERROR_CODES,
+        status_codes={401, 403},
+    ):
         return status.HTTP_403_FORBIDDEN
     return None
 
@@ -123,8 +132,6 @@ def _upstream_status_code(exc: Exception) -> int:
         )
     ):
         return status.HTTP_503_SERVICE_UNAVAILABLE
-    if any(marker in message for marker in ("accessdenied", "invalidaccesskeyid", "signaturedoesnotmatch")):
-        return status.HTTP_403_FORBIDDEN
     return status.HTTP_502_BAD_GATEWAY
 
 

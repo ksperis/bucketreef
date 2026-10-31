@@ -37,8 +37,7 @@ from app.services.operation_lease_service import (
     bucket_usage_stats_bucket_operation_name,
 )
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.utils.aws_errors import aws_error_code
-from app.utils.s3_errors import format_s3_error
+from app.utils.s3_errors import format_s3_error, is_s3_feature_unsupported
 from app.utils.time import utcnow
 
 
@@ -125,14 +124,6 @@ def _load_warnings(value: object | None) -> list[str]:
     ):
         raise ValueError("Bucket usage warnings must be a JSON string list")
     return value
-
-
-def _is_version_listing_unsupported(exc: Exception) -> bool:
-    code = aws_error_code(exc, lowercase=True)
-    if code in {"notimplemented", "notsupported", "unsupported", "methodnotallowed", "notallowed"}:
-        return True
-    detail = str(exc).lower()
-    return any(marker in detail for marker in ("not implemented", "not supported", "unsupported operation"))
 
 
 def _dedupe_bucket_names(bucket_names: Iterable[str] | None) -> list[str] | None:
@@ -261,7 +252,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             except BucketUsageStatsCancelled:
                 raise
             except (ClientError, BotoCoreError, RuntimeError) as exc:
-                if not _is_version_listing_unsupported(exc):
+                if not is_s3_feature_unsupported(exc):
                     raise RuntimeError(
                         f"Unable to list object versions for '{target.bucket_name}': {format_s3_error(exc)}"
                     ) from exc

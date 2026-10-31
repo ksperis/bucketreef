@@ -10,6 +10,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
+from app.utils.s3_errors import is_s3_access_denied
 from app.utils.time import utcnow
 
 from ._shared import (
@@ -632,5 +633,4 @@ class BucketMigrationItemRunnerMixin:
         return "apply_read_only"
 
     def _is_access_denied_error(self, exc: Exception) -> bool:
-        text = str(exc).strip().lower()
-        return "accessdenied" in text or "access denied" in text or "403" in text
+        return is_s3_access_denied(exc)

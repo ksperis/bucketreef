@@ -1545,10 +1545,14 @@ def test_apply_read_only_policy_returns_clear_message_on_access_denied(db_sessio
             return None
 
         def put_policy(self, *_args, **_kwargs):
-            raise RuntimeError(
-                "Unable to set bucket policy for 'bucket-a': "
-                "An error occurred (AccessDenied) when calling the PutBucketPolicy operation: None"
+            cause = ClientError(
+                {
+                    "Error": {"Code": "AccessDenied", "Message": "Denied"},
+                    "ResponseMetadata": {"HTTPStatusCode": 403},
+                },
+                "PutBucketPolicy",
             )
+            raise RuntimeError("Unable to set bucket policy for 'bucket-a'.") from cause
 
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
@@ -1971,10 +1975,14 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
         )
 
     def _website_method_not_allowed():
-        raise RuntimeError(
-            "Unable to fetch bucket website for 'bucket-a': "
-            "An error occurred (MethodNotAllowed) when calling the GetBucketWebsite operation: None"
+        cause = ClientError(
+            {
+                "Error": {"Code": "MethodNotAllowed", "Message": "Unsupported"},
+                "ResponseMetadata": {"HTTPStatusCode": 405},
+            },
+            "GetBucketWebsite",
         )
+        raise RuntimeError("Unable to fetch bucket website for 'bucket-a'.") from cause
 
     buckets_stub, website_calls, _notification_calls, _replication_calls, _policy_calls = _make_bucket_feature_probe_stub(
         get_bucket_website=_website_method_not_allowed,

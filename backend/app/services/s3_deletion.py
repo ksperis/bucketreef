@@ -105,13 +105,6 @@ def delete_objects_count(client, bucket_name: str, items: Iterable[dict]) -> int
     return deleted
 
 
-def _is_delete_objects_parse_error(exc: Exception) -> bool:
-    if isinstance(exc, ResponseParserError):
-        return True
-    text = str(exc).strip().lower()
-    return "unable to parse response" in text or "invalid xml received" in text
-
-
 def _delete_object_kwargs(bucket_name: str, item: dict) -> dict[str, str]:
     kwargs = {"Bucket": bucket_name, "Key": str(item.get("Key") or "")}
     version_id = str(item.get("VersionId") or "")
@@ -159,16 +152,6 @@ def _delete_objects_chunk(client, bucket_name: str, chunk: list[dict]) -> int:
             exc,
         )
         return _delete_objects_individually(client, bucket_name, chunk, after_batch_fallback=True)
-    except (ClientError, BotoCoreError) as exc:
-        if _is_delete_objects_parse_error(exc):
-            logger.warning(
-                "DeleteObjects returned an unparseable response for bucket %s; retrying %s object(s) individually: %s",
-                bucket_name,
-                len(chunk),
-                exc,
-            )
-            return _delete_objects_individually(client, bucket_name, chunk, after_batch_fallback=True)
-        raise
     failures = parse_delete_objects_failures(resp, bucket_name=bucket_name, items=chunk)
     if failures:
         raise DeleteObjectsError(bucket_name, len(chunk) - len(failures), failures)
