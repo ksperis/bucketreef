@@ -9,7 +9,11 @@ from sqlalchemy import func, select, text
 
 from app.db import AuditLog, EndpointServiceIdentity, KeyRotationIntent, StorageEndpoint
 from app.services import endpoint_service_identities as module
-from app.services.endpoint_service_identities import EndpointServiceIdentityService, SERVICE_CAPS
+from app.services.endpoint_service_identities import EndpointServiceIdentityService
+from app.services.endpoint_service_identity_validation import (
+    SERVICE_CAPS,
+    EndpointServiceIdentityValidationService,
+)
 from app.services.operation_lease_service import OperationLeaseService
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
@@ -260,7 +264,7 @@ def test_ceph_admin_validation_sanitizes_persisted_value_error(identities, monke
     }
 
     monkeypatch.setattr(
-        EndpointServiceIdentityService,
+        EndpointServiceIdentityValidationService,
         "validate_payload",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             ValueError("secret_key=TOPSECRET endpoint=https://private.example.test/admin")
@@ -341,7 +345,10 @@ def test_runtime_response_containing_keys_fails_closed(identities):
 @pytest.mark.parametrize("caps", ["users=read;buckets=read;accounts=read", SERVICE_CAPS["runtime"] + ";buckets=write", SERVICE_CAPS["runtime"] + ";usage=read"])
 def test_runtime_excessive_permissions_are_rejected(caps):
     with pytest.raises(ValueError):
-        EndpointServiceIdentityService.validate_payload("runtime", {"user_id": "runtime", "caps": caps})
+        EndpointServiceIdentityValidationService.validate_payload(
+            "runtime",
+            {"user_id": "runtime", "caps": caps},
+        )
 
 
 def test_lease_prevents_parallel_reconciliation(identities, db_session):
@@ -723,7 +730,7 @@ def test_revalidation_distinguishes_transient_failure_from_denied_key(identities
     db_session.commit()
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
-    functional = service.functional_check
+    functional = service.validation.functional_check
     target_kind = kind
 
     def check(ep, *, kind, rgw_uid, access_key, secret_key):
@@ -736,7 +743,7 @@ def test_revalidation_distinguishes_transient_failure_from_denied_key(identities
             access_key=access_key,
             secret_key=secret_key,
         )
-    monkeypatch.setattr(service, "functional_check", check)
+    monkeypatch.setattr(service.validation, "functional_check", check)
     service.reconcile(endpoint)
     assert identity.status == ("error" if denied else "ready")
     assert identity.last_error

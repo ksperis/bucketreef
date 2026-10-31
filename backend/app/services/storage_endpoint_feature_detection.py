@@ -18,7 +18,9 @@ from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionResult,
     StorageEndpointHttpCheck,
 )
-from app.services.endpoint_service_identities import EndpointServiceIdentityService
+from app.services.endpoint_service_identity_validation import (
+    EndpointServiceIdentityValidationService,
+)
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import (
     classify_rgw_credential_failure,
@@ -401,7 +403,7 @@ class StorageEndpointFeatureDetector:
         supervision_client = None
         try:
             supervision_client = self._client(context, credentials)
-            EndpointServiceIdentityService.validate_functional_access(
+            EndpointServiceIdentityValidationService.validate_functional_access(
                 "supervision",
                 supervision_client,
                 check_usage=False,
@@ -425,7 +427,7 @@ class StorageEndpointFeatureDetector:
         if supervision_client is None:
             return
         try:
-            usage_payload = EndpointServiceIdentityService.validate_functional_access(
+            usage_payload = EndpointServiceIdentityValidationService.validate_functional_access(
                 "supervision",
                 supervision_client,
                 check_buckets=False,
@@ -470,7 +472,7 @@ class StorageEndpointFeatureDetector:
         elif credentials.complete:
             try:
                 client = self._client(context, credentials)
-                EndpointServiceIdentityService.validate_functional_access(
+                EndpointServiceIdentityValidationService.validate_functional_access(
                     "runtime",
                     client,
                     access_key=credentials.access_key,
@@ -515,7 +517,10 @@ class StorageEndpointFeatureDetector:
                     credentials.access_key,
                     allow_not_found=True,
                 )
-                EndpointServiceIdentityService.validate_payload("ceph_admin", payload)
+                EndpointServiceIdentityValidationService.validate_payload(
+                    "ceph_admin",
+                    payload,
+                )
                 if not (payload.get("user_id") or payload.get("uid")):
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
                 result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(

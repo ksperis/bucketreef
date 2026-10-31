@@ -1483,7 +1483,7 @@ def test_detect_features_sanitizes_ceph_admin_validation_errors(db_session, monk
         lambda **_kwargs: FakeRGWClient(),
     )
     monkeypatch.setattr(
-        "app.services.storage_endpoint_feature_detection.EndpointServiceIdentityService.validate_payload",
+        "app.services.storage_endpoint_feature_detection.EndpointServiceIdentityValidationService.validate_payload",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             ValueError("secret_key=TOPSECRET endpoint=https://private.example.test/admin")
         ),
