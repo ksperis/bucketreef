@@ -57,8 +57,8 @@ def sync_portal_role_downgrades(
             continue
         if next_role is None:
             require_no_private_storage_space_ownership(db, user_id=user_id, account_id=account_id)
-        user = db.execute(select(User).where(User.id == user_id)).scalar_one()
-        account = db.execute(select(S3Account).where(S3Account.id == account_id)).scalar_one()
+        user = db.scalars(select(User).where(User.id == user_id)).one()
+        account = db.scalars(select(S3Account).where(S3Account.id == account_id)).one()
         service.sync_existing_portal_user_access(user, account, next_role)
 
 
@@ -77,6 +77,6 @@ def sync_portal_role_promotions(
             previous_role
         ):
             continue
-        user = db.execute(select(User).where(User.id == user_id)).scalar_one()
-        account = db.execute(select(S3Account).where(S3Account.id == account_id)).scalar_one()
+        user = db.scalars(select(User).where(User.id == user_id)).one()
+        account = db.scalars(select(S3Account).where(S3Account.id == account_id)).one()
         service.sync_existing_portal_user_access(user, account, next_role)
