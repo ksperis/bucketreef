@@ -79,12 +79,18 @@ def actor(db, *, role=UserRole.UI_SUPERADMIN.value, **values):
 
 
 def endpoint(db, **values):
+    provider = values.pop("provider", "ceph")
+    service_identities = values.pop(
+        "service_identities",
+        [service_identity("runtime", mode="managed")] if provider == "ceph" else [],
+    )
     row = StorageEndpoint(
         name=f"Endpoint {uuid4().hex[:8]}",
         endpoint_url=f"https://{uuid4().hex[:8]}.example.test",
-        provider="ceph",
+        provider=provider,
         verify_tls=True,
         is_editable=True,
+        service_identities=service_identities,
         **values,
     )
     db.add(row)
@@ -708,11 +714,16 @@ def test_ceph_admin_onboarding_reuses_keys_with_read_only_admin_ops(guided, db_s
     from app.services.endpoint_service_identities import get_endpoint_bootstrap_rgw_client
 
     user = actor(db_session)
-    ep = endpoint(db_session, admin_access_key="admin-ak", admin_secret_key="admin-sk")
-    for kind in ("runtime", "supervision", "ceph_admin"):
-        prefix = "ceph" if kind == "ceph_admin" else kind
-        ep.service_identities.append(service_identity(kind, f"{prefix}-ak", f"{prefix}-sk", mode="external"))
-    db_session.commit()
+    ep = endpoint(
+        db_session,
+        admin_access_key="admin-ak",
+        admin_secret_key="admin-sk",
+        service_identities=[
+            service_identity("runtime", "runtime-ak", "runtime-sk", mode="external"),
+            service_identity("supervision", "supervision-ak", "supervision-sk", mode="external"),
+            service_identity("ceph_admin", "ceph-ak", "ceph-sk", mode="external"),
+        ],
+    )
     rgw = get_endpoint_bootstrap_rgw_client(ep)
     rgw.users["operator"]["caps"] = "users=read;accounts=read"
     before = deepcopy(rgw.users)
@@ -841,9 +852,7 @@ def test_required_features_are_minimal_and_supported(guided, db_session):
 @pytest.mark.parametrize("provider", ["aws", "other"])
 def test_private_generic_onboarding_requires_no_ceph_credentials(guided, db_session, monkeypatch, provider):
     user = actor(db_session)
-    ep = endpoint(db_session)
-    ep.provider = provider
-    db_session.commit()
+    ep = endpoint(db_session, provider=provider)
     monkeypatch.setattr(S3ConnectionsService, "_refresh_detected_capabilities", lambda *_: None)
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_: pytest.fail("private path inspected Ceph"))
     result = apply(guided, user, save(guided, user, endpoint_id=ep.id, private_connection=True),
