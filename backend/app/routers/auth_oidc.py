@@ -18,7 +18,10 @@ from app.routers.auth_common import (
     external_identity_link_response,
     settings,
 )
-from app.routers.auth_cookies import ensure_oidc_browser_binding, oidc_browser_binding_hash
+from app.routers.auth_cookies import (
+    ensure_external_identity_browser_binding,
+    external_identity_browser_binding_hash,
+)
 from app.routers.auth_request_context import request_context
 from app.routers.dependencies import (
     get_audit_service,
@@ -81,7 +84,7 @@ def start_oidc_login(
             headers={"Retry-After": str(exc.retry_after)},
         ) from exc
     try:
-        _, browser_secret_hash = ensure_oidc_browser_binding(request, response)
+        _, browser_secret_hash = ensure_external_identity_browser_binding(request, response)
         result = oidc_service.start_login(
             provider_id,
             payload.redirect_path if payload else None,
@@ -130,7 +133,7 @@ def complete_oidc_login(
             payload.code,
             payload.state,
             request_origin=request_origin,
-            browser_secret_hash=oidc_browser_binding_hash(request),
+            browser_secret_hash=external_identity_browser_binding_hash(request),
         )
     except ExternalIdentityReauthenticationRequiredError as exc:
         attempt.clear_rate_limit()

@@ -17,21 +17,21 @@ from app.services.auth_session_service import SessionCredentials
 _settings = get_settings()
 
 
-def _oidc_browser_binding_hash(raw_secret: str) -> str:
+def _external_identity_browser_binding_hash(raw_secret: str) -> str:
     return hashlib.sha256(raw_secret.encode("utf-8")).hexdigest()
 
 
-def oidc_browser_binding(request: Request) -> str | None:
+def external_identity_browser_binding(request: Request) -> str | None:
     return request.cookies.get(_settings.oidc_browser_cookie_name)
 
 
-def oidc_browser_binding_hash(request: Request) -> str | None:
-    raw_secret = oidc_browser_binding(request)
-    return _oidc_browser_binding_hash(raw_secret) if raw_secret else None
+def external_identity_browser_binding_hash(request: Request) -> str | None:
+    raw_secret = external_identity_browser_binding(request)
+    return _external_identity_browser_binding_hash(raw_secret) if raw_secret else None
 
 
-def ensure_oidc_browser_binding(request: Request, response: Response) -> tuple[str, str]:
-    raw_secret = oidc_browser_binding(request) or secrets.token_urlsafe(32)
+def ensure_external_identity_browser_binding(request: Request, response: Response) -> tuple[str, str]:
+    raw_secret = external_identity_browser_binding(request) or secrets.token_urlsafe(32)
     response.set_cookie(
         _settings.oidc_browser_cookie_name,
         raw_secret,
@@ -44,20 +44,7 @@ def ensure_oidc_browser_binding(request: Request, response: Response) -> tuple[s
         samesite=_settings.refresh_token_cookie_samesite,
         path="/api/auth",
     )
-    return raw_secret, _oidc_browser_binding_hash(raw_secret)
-
-
-def external_identity_browser_binding_hash(request: Request) -> str | None:
-    """Return the browser binding used by all external-identity link attempts.
-
-    The cookie setting keeps its historical OIDC name for configuration
-    compatibility, while the binding itself is provider-neutral.
-    """
-    return oidc_browser_binding_hash(request)
-
-
-def ensure_external_identity_browser_binding(request: Request, response: Response) -> tuple[str, str]:
-    return ensure_oidc_browser_binding(request, response)
+    return raw_secret, _external_identity_browser_binding_hash(raw_secret)
 
 
 def set_auth_cookies(response: Response, credentials: SessionCredentials) -> None:
