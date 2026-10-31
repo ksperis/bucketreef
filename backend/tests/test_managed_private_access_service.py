@@ -43,6 +43,7 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessNotFound,
 )
 from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_private_access_state_service import ManagedPrivateAccessStateService
 from tests.s3_connection_factory import custom_endpoint_fields
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services import app_settings_service
@@ -185,12 +186,12 @@ def _payload(name="Private account access"):
 
 
 def test_managed_access_iam_state_requires_string_lists():
-    assert ManagedPrivateAccessService._string_list(["operators"]) == [
+    assert ManagedPrivateAccessStateService.string_list(["operators"]) == [
         "operators"
     ]
     for raw in ("{}", {}, "operators", ["operators", 42], [""]):
         with pytest.raises(ValueError):
-            ManagedPrivateAccessService._string_list(raw)
+            ManagedPrivateAccessStateService.string_list(raw)
 
 
 def _disable_capability_probe(monkeypatch):
