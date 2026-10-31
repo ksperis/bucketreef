@@ -450,13 +450,8 @@ class ManagedPrivateAccessService:
         source: ManagedPrivateAccessSource,
     ) -> ManagedPrivateAccess | None:
         return self.db.scalar(
-            select(ManagedPrivateAccess)
-            .where(
-                ManagedPrivateAccess.owner_user_id == user_id,
-                ManagedPrivateAccess.source_context_type == source.kind,
-                ManagedPrivateAccess.source_context_id == source.identifier,
-                ManagedPrivateAccess.state.in_(ACTIVE_STATES),
-            )
+            self._active_source_statement(source.kind, source.identifier)
+            .where(ManagedPrivateAccess.owner_user_id == user_id)
             .limit(1)
         )
 
