@@ -35,6 +35,7 @@ from app.services.managed_resource_naming import managed_s3_user_uid
 from app.services.mappers.s3_user import s3_user_from_db, s3_user_summary_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
+from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
@@ -51,7 +52,7 @@ from app.models.s3_user import (
     S3UserUpdate,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
+from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_quota_update import (
     execute_rgw_quota_update,
     prepare_rgw_quota_update,
@@ -59,20 +60,13 @@ from app.services.rgw_quota_update import (
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services import s3_client
 from app.utils.rgw_payloads import (
-    extract_bucket_list, extract_rgw_user_payload,
     require_rgw_user_identity, split_rgw_tenant_uid,
 )
 from app.utils.s3_endpoint import resolve_s3_client_options
-from app.utils.quota_stats import bytes_to_gb, extract_quota_limits, parse_positive_limit
 from app.utils.name_ordering import name_order_by
 from app.utils.sql_search import text_search_predicate
-from app.utils.usage_stats import aggregate_bucket_usage
 
 logger = logging.getLogger(__name__)
-
-def _extract_max_buckets(payload: Any) -> Optional[int]:
-    user_payload = extract_rgw_user_payload(payload)
-    return parse_positive_limit(user_payload.get("max_buckets") or (payload.get("max_buckets") if isinstance(payload, dict) else None))
 
 
 class S3UsersService:
@@ -80,6 +74,7 @@ class S3UsersService:
         self.db = db
         self.associations = S3UserAssociationsService(db)
         self.access_keys = S3UserAccessKeyService(db)
+        self.metrics = S3UserMetricsService()
         self.tags = TagsService(db)
 
     # Helpers
@@ -192,50 +187,17 @@ class S3UsersService:
             return None
 
     def get_user_usage(self, s3_user: S3UserModel) -> tuple[Optional[int], Optional[int], Optional[int]]:
-        try:
-            endpoint = self._endpoint_for_user(s3_user)
-            admin = get_endpoint_runtime_rgw_client(endpoint)
-            tenant = self._tenant_for_user(s3_user)
-            payload = admin.get_all_buckets(uid=s3_user.rgw_user_uid, with_stats=True, **({"tenant": tenant} if tenant else {}))
-        except (RGWAdminError, ValueError) as exc:
-            logger.warning("Unable to list buckets with stats for user %s: %s", s3_user.rgw_user_uid, exc)
-            return None, None, None
-        return aggregate_bucket_usage(extract_bucket_list(payload))
+        return self.metrics.get_usage(s3_user)
 
     def get_user_quota(
         self,
         s3_user: S3UserModel,
         admin: Optional[RGWAdminClient] = None,
     ) -> tuple[Optional[float], Optional[int]]:
-        try:
-            rgw_admin = admin or get_endpoint_runtime_rgw_client(self._endpoint_for_user(s3_user))
-        except ValueError as exc:
-            logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
-            return None, None
-        try:
-            tenant = self._tenant_for_user(s3_user)
-            max_size_bytes, max_objects = rgw_admin.get_user_quota(s3_user.rgw_user_uid, tenant=tenant or None)
-        except (RGWAdminError, ValueError) as exc:
-            logger.warning("Unable to fetch S3 user quota for %s: %s", s3_user.rgw_user_uid, exc)
-            return None, None
-        return bytes_to_gb(max_size_bytes), max_objects
+        return self.metrics.get_quota(s3_user, admin)
 
     def get_user_limits(self, s3_user: S3UserModel) -> tuple[Optional[float], Optional[int], Optional[int]]:
-        try:
-            rgw_admin = get_endpoint_runtime_rgw_client(self._endpoint_for_user(s3_user))
-        except ValueError as exc:
-            logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
-            return None, None, None
-        try:
-            tenant = self._tenant_for_user(s3_user)
-            payload = rgw_admin.get_user(s3_user.rgw_user_uid, tenant=tenant or None, allow_not_found=True) or {}
-            if payload:
-                require_rgw_user_identity(payload, s3_user.rgw_user_uid, tenant)
-        except (RGWAdminError, ValueError) as exc:
-            logger.warning("Unable to fetch S3 user limits for %s: %s", s3_user.rgw_user_uid, exc)
-            return None, None, None
-        max_size_bytes, max_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
-        return bytes_to_gb(max_size_bytes), max_objects, _extract_max_buckets(payload)
+        return self.metrics.get_limits(s3_user)
 
     def _apply_user_quota(
         self,

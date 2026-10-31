@@ -127,7 +127,7 @@ def test_admin_create_s3_user_with_quota_unit(monkeypatch, client: TestClient, d
     )
 
     monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_rgw)
-    monkeypatch.setattr("app.services.s3_users_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_rgw)
+    monkeypatch.setattr("app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_rgw)
 
     payload = {
         "name": "quota-user",
@@ -163,7 +163,7 @@ def test_admin_update_s3_user_quota(monkeypatch, client: TestClient, db_session)
     )
 
     monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_rgw)
-    monkeypatch.setattr("app.services.s3_users_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_rgw)
+    monkeypatch.setattr("app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_rgw)
 
     create = client.post(
         "/api/admin/s3-users",
