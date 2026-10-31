@@ -6,6 +6,7 @@ import {
   advancedFilterSummaryChipClass,
   advancedFilterSyncBadgeClass,
   formatAdvancedFilterSyncLabel,
+  progressFromAdvancedSearchEvent,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
@@ -14,6 +15,26 @@ import {
 } from "./advancedFilterShared";
 
 describe("advancedFilterShared", () => {
+  it("normalizes advanced-search progress events consistently", () => {
+    expect(
+      progressFromAdvancedSearchEvent({
+        percent: 121.6,
+        processed: 12.4,
+        total: 10.2,
+        stage: "scan",
+        message: "Scanning buckets",
+      }),
+    ).toEqual({
+      active: true,
+      determinate: true,
+      percent: 100,
+      stage: "scan",
+      message: "Scanning buckets",
+      processed: 10,
+      total: 10,
+    });
+  });
+
   it("returns stable advanced-filter field card classes", () => {
     expect(advancedFilterFieldCardClass()).toBe("rounded-lg border border-[color:var(--ui-border-soft)] p-3");
     expect(advancedFilterFieldCardClass("md:col-span-2")).toBe(
