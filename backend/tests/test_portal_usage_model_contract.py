@@ -2,6 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 
 import pytest
+from botocore.exceptions import ClientError
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 
 from app.db import PortalAccountRole, S3Account, User, UserRole
 from app.main import app
@@ -82,17 +85,28 @@ def test_portal_usage_routes_preserve_their_openapi_contracts() -> None:
 
 
 @pytest.mark.parametrize(
-    ("message", "status_code"),
+    ("cause", "status_code"),
     [
-        ("upstream timeout", 504),
-        ("connection refused", 503),
-        ("AccessDenied", 403),
-        ("InvalidAccessKeyId", 403),
-        ("SignatureDoesNotMatch", 403),
-        ("upstream unavailable", 502),
+        (RequestsTimeout("slow upstream"), 504),
+        (RequestsConnectionError("connection refused"), 503),
+        (
+            ClientError(
+                {
+                    "Error": {"Code": "AccessDenied", "Message": "denied"},
+                    "ResponseMetadata": {"HTTPStatusCode": 403},
+                },
+                "GetUsage",
+            ),
+            403,
+        ),
+        (None, 502),
     ],
 )
-def test_portal_usage_translates_upstream_failures_without_exposing_secrets(client, message, status_code):
+def test_portal_usage_translates_structured_upstream_failures_without_exposing_secrets(
+    client,
+    cause,
+    status_code,
+):
     user = User(id=1, email="usage@example.test", role=UserRole.UI_USER.value)
     access = AccountAccess(
         account=S3Account(id=42, name="usage-account"),
@@ -106,7 +120,9 @@ def test_portal_usage_translates_upstream_failures_without_exposing_secrets(clie
         def get_usage(self, actor, resolved_access):
             assert actor is user
             assert resolved_access is access
-            raise RuntimeError(f"{message} secret_access_key=test-secret token=test-token")
+            failure = RuntimeError("upstream request failed secret_access_key=test-secret token=test-token")
+            failure.__cause__ = cause
+            raise failure
 
     app.dependency_overrides[dependencies.require_portal_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_portal_account_access] = lambda: access
@@ -116,7 +132,7 @@ def test_portal_usage_translates_upstream_failures_without_exposing_secrets(clie
 
     assert response.status_code == status_code
     assert response.json() == {
-        "detail": f"{message} secret_access_key=<redacted> token=<redacted>",
+        "detail": "upstream request failed secret_access_key=<redacted> token=<redacted>",
     }
 
 
