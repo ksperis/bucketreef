@@ -73,7 +73,6 @@ import { stableSignature } from "../../utils/stableSignature";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import { extractApiError } from "../../utils/apiError";
-import { pageCount } from "../../utils/pagination";
 import {
   clearAdminPrincipalEditRequest,
   readAdminPrincipalEditRequest,
@@ -192,7 +191,7 @@ export default function GroupsPage() {
     sort,
     page,
     pageSize,
-    setPage,
+    ensurePageInRange,
     handleFilterChange,
     handleSort: toggleSort,
     handlePageChange,
@@ -333,11 +332,7 @@ export default function GroupsPage() {
         sort_by: sort.field,
         sort_dir: sort.direction,
       });
-      const totalPages = pageCount(response.total || 0, pageSize);
-      if (response.total > 0 && page > totalPages) {
-        setPage(totalPages);
-        return;
-      }
+      if (!ensurePageInRange(response.total)) return;
       setGroups(response.items);
       setTotalGroups(response.total);
     } catch (err) {
@@ -345,7 +340,7 @@ export default function GroupsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, page, pageSize, setPage, sort.direction, sort.field]);
+  }, [ensurePageInRange, filter, page, pageSize, sort.direction, sort.field]);
 
   const loadAuxiliaryData = useCallback(async () => {
     setAuxLoading(true);

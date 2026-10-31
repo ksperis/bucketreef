@@ -47,7 +47,6 @@ import { useProfileI18n } from "../shared/profileMessages";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
 import { extractApiError } from "../../utils/apiError";
-import { pageCount } from "../../utils/pagination";
 import { isAdminLikeRole, isSuperAdminRole, readStoredUser, setSessionUserCache } from "../../utils/workspaces";
 import {
   clearAdminPrincipalEditRequest,
@@ -295,7 +294,7 @@ export default function UsersPage() {
     sort,
     page,
     pageSize,
-    setPage,
+    ensurePageInRange,
     handleFilterChange,
     handleSort: toggleSort,
     handlePageChange,
@@ -449,11 +448,7 @@ export default function UsersPage() {
         sort_by: sort.field,
         sort_dir: sort.direction,
       });
-      const totalPages = pageCount(response.total || 0, pageSize);
-      if (response.total > 0 && page > totalPages) {
-        setPage(totalPages);
-        return;
-      }
+      if (!ensurePageInRange(response.total)) return;
       setUsers(response.items);
       setTotalUsers(response.total);
     } catch (err) {
@@ -461,7 +456,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, page, pageSize, setPage, sort.direction, sort.field]);
+  }, [ensurePageInRange, filter, page, pageSize, sort.direction, sort.field]);
 
   useEffect(() => {
     fetchUsers();
