@@ -18,6 +18,7 @@ from ._shared import (
     _ResolvedContext,
     _VersionTimelineDiffKey,
     _WorkerLeaseLostError,
+    _check_control_state,
     _chunked,
 )
 
@@ -70,9 +71,10 @@ class BucketMigrationObjectVerificationMixin:
         failure_log_prefix: str,
         lost_lease_message: str,
     ) -> bool:
-        state = control_check()
-        if state == "lost_lease":
-            raise _WorkerLeaseLostError(lost_lease_message)
+        state = _check_control_state(
+            control_check,
+            lost_lease_message=lost_lease_message,
+        )
         if state in {"pause", "cancel"}:
             return False
 
@@ -349,9 +351,10 @@ class BucketMigrationObjectVerificationMixin:
         ):
             scan_count_since_control += 1
             if scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
-                state = control_check()
-                if state == "lost_lease":
-                    raise _WorkerLeaseLostError("Worker lease lost while collecting strong-verification candidates")
+                state = _check_control_state(
+                    control_check,
+                    lost_lease_message="Worker lease lost while collecting strong-verification candidates",
+                )
                 if state in {"pause", "cancel"}:
                     return -1, 0, [], results.method_counts
                 scan_count_since_control = 0
@@ -394,11 +397,12 @@ class BucketMigrationObjectVerificationMixin:
         while source_item is not None or target_item is not None:
             scanned_keys += 1
             if scanned_keys % 200 == 0:
-                state = control_check()
-                if state == "lost_lease":
-                    raise _WorkerLeaseLostError(
+                state = _check_control_state(
+                    control_check,
+                    lost_lease_message=(
                         "Worker lease lost while collecting version-aware strong-verification candidates"
-                    )
+                    ),
+                )
                 if state in {"pause", "cancel"}:
                     raise _MigrationControlRequested(state)
 
