@@ -12,12 +12,7 @@ def execution_context_sns_feature_enabled(execution_context: S3ExecutionTarget) 
     endpoint = execution_context.storage_endpoint
     if endpoint is None:
         return True
-    if getattr(endpoint, "features", None) is None and endpoint.provider is None:
-        return True
-    try:
-        return resolve_feature_flags(endpoint).sns_enabled
-    except Exception:  # noqa: BLE001
-        return False
+    return resolve_feature_flags(endpoint).sns_enabled
 
 
 def _normalize_notification_value(value: Any) -> Any | None:
