@@ -10,6 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
+import { clampNumber } from "../../utils/numbers";
 import type { BrowserItem, ContextMenuState } from "./browserTypes";
 
 const CONTEXT_MENU_PADDING_PX = 8;
@@ -53,11 +54,9 @@ function clampContextMenuPosition(
     CONTEXT_MENU_PADDING_PX,
     window.innerHeight - safeHeight - CONTEXT_MENU_PADDING_PX,
   );
-  const clamp = (value: number, min: number, max: number) =>
-    Math.min(Math.max(value, min), max);
   return {
-    x: clamp(x, CONTEXT_MENU_PADDING_PX, maxX),
-    y: clamp(y, CONTEXT_MENU_PADDING_PX, maxY),
+    x: clampNumber(x, CONTEXT_MENU_PADDING_PX, maxX),
+    y: clampNumber(y, CONTEXT_MENU_PADDING_PX, maxY),
   };
 }
 
