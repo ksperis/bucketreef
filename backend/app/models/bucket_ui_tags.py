@@ -7,8 +7,12 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
-from app.models.tagging import TagDefinitionSummary
-from app.utils.tagging import DEFAULT_TAG_COLOR_KEY, normalize_tag_color_key, normalize_tag_label
+from app.models.tagging import (
+    NormalizedTagColorKey,
+    NormalizedTagLabel,
+    TagDefinitionSummary,
+)
+from app.utils.tagging import DEFAULT_TAG_COLOR_KEY, normalize_tag_color_key
 
 
 BucketUiTagVisibility = Literal["private", "shared"]
@@ -24,13 +28,8 @@ class BucketUiTagCatalogResponse(ApiModel):
 
 
 class CephAdminBucketUiTagTarget(ApiModel):
-    name: str
+    name: NormalizedTagLabel
     tenant: str = ""
-
-    @field_validator("name", mode="before")
-    @classmethod
-    def normalize_name(cls, value: object) -> str:
-        return normalize_tag_label(value)
 
     @field_validator("tenant", mode="before")
     @classmethod
@@ -40,12 +39,7 @@ class CephAdminBucketUiTagTarget(ApiModel):
 
 class StorageOpsBucketUiTagTarget(ApiModel):
     context_id: str
-    name: str
-
-    @field_validator("name", mode="before")
-    @classmethod
-    def normalize_required_text(cls, value: object) -> str:
-        return normalize_tag_label(value)
+    name: NormalizedTagLabel
 
     @field_validator("context_id", mode="before")
     @classmethod
@@ -57,18 +51,8 @@ class StorageOpsBucketUiTagTarget(ApiModel):
 
 
 class StorageOpsBucketUiTagCreate(ApiModel):
-    label: str
-    color_key: str = DEFAULT_TAG_COLOR_KEY
-
-    @field_validator("label", mode="before")
-    @classmethod
-    def normalize_label(cls, value: object) -> str:
-        return normalize_tag_label(value)
-
-    @field_validator("color_key", mode="before")
-    @classmethod
-    def normalize_color(cls, value: object) -> str:
-        return normalize_tag_color_key(value)
+    label: NormalizedTagLabel
+    color_key: NormalizedTagColorKey = DEFAULT_TAG_COLOR_KEY
 
 
 class CephAdminBucketUiTagCreate(StorageOpsBucketUiTagCreate):
