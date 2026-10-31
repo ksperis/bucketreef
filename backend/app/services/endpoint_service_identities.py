@@ -22,16 +22,18 @@ from app.services.endpoint_service_identity_validation import (
     ManagedServiceIdentityKind,
     ServiceIdentityKind,
 )
+from app.services.endpoint_service_identity_reconciliation_policy import (
+    desired_service_kinds,
+    skip_unprovisioned_identity,
+)
 from app.services.operation_lease_service import OperationLeaseHandle, OperationLeaseService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
 from app.services.rgw_endpoint_clients import get_endpoint_bootstrap_rgw_client
 from app.services.storage_endpoint_admin_permissions import admin_ops_permissions_from_caps
 from app.utils.time import utcnow
-from app.utils.storage_endpoint_features import normalize_features, required_service_identity_kinds
 
 INSTALLATION_KEY = "endpoint-service-identity-installation"
-STARTUP_RECOVERY_KEY_TYPES = frozenset({"endpoint_runtime", "endpoint_supervision"})
 EndpointClientFactory = Callable[[StorageEndpoint], RGWAdminClient]
 
 
@@ -381,81 +383,6 @@ class EndpointServiceIdentityService:
         return DurableKeyRotationService(self.db, actor=self.actor, identity_service=self).rotate(
             endpoint, key_type, identity.id, deactivate_only=deactivate_only)
 
-    @staticmethod
-    def _identity_is_locally_ready(
-        identity: EndpointServiceIdentity | None,
-    ) -> bool:
-        if (
-            identity is None
-            or identity.status != "ready"
-            or not identity.rgw_uid
-            or not identity.access_key
-            or not identity.secret_key
-        ):
-            return False
-        return identity.mode != "managed" or bool(identity.provenance)
-
-    def needs_startup_reconciliation(self, endpoint: StorageEndpoint) -> bool:
-        """Return whether persisted local state requires an RGW recovery pass."""
-        if endpoint.provider != "ceph":
-            return False
-
-        for kind in self.desired_service_kinds(endpoint):
-            identity = endpoint.service_identity(kind)
-            if (
-                identity is not None
-                and identity.mode == "managed"
-                and identity.status == "not_provisioned"
-            ):
-                continue
-            if not self._identity_is_locally_ready(identity):
-                return True
-
-        ceph_admin = endpoint.service_identity("ceph_admin")
-        if ceph_admin is not None and ceph_admin.access_key and ceph_admin.secret_key:
-            if not self._identity_is_locally_ready(ceph_admin):
-                return True
-
-        return any(
-            intent.key_type in STARTUP_RECOVERY_KEY_TYPES
-            for intent in endpoint.key_rotation_intents
-        )
-
-    @staticmethod
-    def desired_service_kinds(
-        endpoint: StorageEndpoint,
-    ) -> list[ManagedServiceIdentityKind]:
-        """Keep configured/in-flight identities, skip unused empty placeholders."""
-        required = required_service_identity_kinds(normalize_features(
-            endpoint.provider, endpoint.features, endpoint.region,
-        ))
-        desired: list[ManagedServiceIdentityKind] = []
-        for kind in ("runtime", "supervision"):
-            identity = endpoint.service_identity(kind)
-            tracked = identity is not None and identity.status != "disabled" and (
-                any((identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance))
-                or identity.status in ("provisioning", "revocation_pending")
-            )
-            rotation_pending = any(
-                intent.key_type == f"endpoint_{kind}" for intent in endpoint.key_rotation_intents
-            )
-            if kind in required or tracked or rotation_pending:
-                desired.append(kind)
-        return desired
-
-    @staticmethod
-    def _skip_unprovisioned_identity(
-        identity: EndpointServiceIdentity | None,
-        *,
-        provision_unprovisioned: bool,
-    ) -> bool:
-        return bool(
-            not provision_unprovisioned
-            and identity is not None
-            and identity.mode == "managed"
-            and identity.status == "not_provisioned"
-        )
-
     def _record_admin_validation_failure(
         self,
         endpoint: StorageEndpoint,
@@ -471,7 +398,7 @@ class EndpointServiceIdentityService:
         )
         for kind in desired:
             identity = endpoint.service_identity(kind)
-            if self._skip_unprovisioned_identity(
+            if skip_unprovisioned_identity(
                 identity,
                 provision_unprovisioned=provision_unprovisioned,
             ):
@@ -533,7 +460,7 @@ class EndpointServiceIdentityService:
         provision_unprovisioned: bool,
     ) -> dict[str, str]:
         identity = endpoint.service_identity(kind)
-        if self._skip_unprovisioned_identity(
+        if skip_unprovisioned_identity(
             identity,
             provision_unprovisioned=provision_unprovisioned,
         ):
@@ -576,7 +503,7 @@ class EndpointServiceIdentityService:
         results = []
         try:
             results.append(self.validate_ceph_admin(endpoint))
-            desired = self.desired_service_kinds(endpoint)
+            desired = desired_service_kinds(endpoint)
             if not desired or not endpoint.admin_access_key or not endpoint.admin_secret_key:
                 return results
             try:

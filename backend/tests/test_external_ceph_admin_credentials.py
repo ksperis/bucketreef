@@ -15,6 +15,9 @@ from app.models.storage_endpoint import StorageEndpointCreate, StorageEndpointFe
 from app.models.key_rotation import KeyRotationRequest
 from app.services.key_rotation_service import KeyRotationService
 from app.services.mappers.storage_endpoint import ceph_admin_identity_active
+from app.services.endpoint_service_identity_reconciliation_policy import (
+    needs_startup_reconciliation,
+)
 from app.services.rgw_admin import RGWAdminError
 from app.services.storage_endpoints_service import StorageEndpointsService
 from tests.service_identity_helpers import service_identity
@@ -200,7 +203,7 @@ def test_ceph_admin_only_endpoint_creation_and_update(identities, db_session, mo
     assert ep.service_identity("ceph_admin").status == "ready"
     assert all(not ep.service_identity(kind).access_key and not ep.service_identity(kind).secret_key
                and not ep.service_identity(kind).last_error for kind in ("runtime", "supervision"))
-    assert not identity_service.needs_startup_reconciliation(ep)
+    assert not needs_startup_reconciliation(ep)
     identity_service.reconcile(ep, provision_unprovisioned=True)
     access = get_ceph_admin_endpoint_access(endpoint=ep, probe=False)
     assert access.can_admin and access.can_accounts and not access.can_metrics
@@ -240,8 +243,6 @@ def test_ceph_admin_authorization_rejects_blank_pair(db_session):
 
 
 def test_empty_unused_managed_placeholders_can_change_mode(identities, db_session):
-    from app.services.endpoint_service_identities import EndpointServiceIdentityService
-
     _, original, rgw = identities
     configure(db_session, original, rgw)
     endpoints = StorageEndpointsService(db_session)
@@ -252,7 +253,7 @@ def test_empty_unused_managed_placeholders_can_change_mode(identities, db_sessio
     for mode in ("external", "managed"):
         endpoints.update_endpoint(ep.id, StorageEndpointUpdate(service_identity_mode=mode))
         assert all(ep.service_identity(kind).mode == mode for kind in ("runtime", "supervision"))
-        assert not EndpointServiceIdentityService(db_session).needs_startup_reconciliation(ep)
+        assert not needs_startup_reconciliation(ep)
     assert not rgw.calls
 
 
