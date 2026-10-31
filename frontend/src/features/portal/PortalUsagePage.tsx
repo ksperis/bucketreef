@@ -213,7 +213,7 @@ export default function PortalUsagePage() {
         if (!cancelled) {
           setCostDetail(null);
           setCostUnavailable(true);
-          setCostError(extractApiError(err, t({ en: "Unable to load cost source.", fr: "Impossible de charger la source de facturation.", de: "Abrechnungsquelle kann nicht geladen werden.", zh: "无法加载计费来源。" })));
+          setCostError(extractApiError(err, t({ en: "Unable to load cost source.", fr: "Impossible de charger la source de coût.", de: "Kostenquelle konnte nicht geladen werden.", zh: "无法加载成本来源。" })));
         }
       })
       .finally(() => {
