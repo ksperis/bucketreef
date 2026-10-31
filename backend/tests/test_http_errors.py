@@ -48,11 +48,11 @@ def _request(path: str = "/api/browser/buckets/demo") -> Request:
     )
 
 
-def test_raise_bad_gateway_from_runtime_preserves_safe_runtime_message():
+def test_raise_bad_gateway_from_runtime_does_not_infer_timeout_from_message():
     try:
         raise_bad_gateway_from_runtime(RuntimeError("backend timeout"))
     except HTTPException as exc:
-        assert exc.status_code == 504
+        assert exc.status_code == 502
         assert exc.detail == "backend timeout"
     else:
         raise AssertionError("Expected HTTPException")
@@ -155,11 +155,11 @@ def test_raise_bad_gateway_from_runtime_does_not_infer_access_denied_from_messag
     [
         (RequestsTimeout("request timed out"), True),
         (RequestsConnectionError("socket unavailable"), False),
-        (RequestsConnectionError("connection timeout"), True),
-        (RuntimeError("read timeout"), True),
+        (RequestsConnectionError("connection timeout"), False),
+        (RuntimeError("read timeout"), False),
     ],
 )
-def test_is_upstream_timeout_uses_timeout_text_without_changing_connection_semantics(error, expected):
+def test_is_upstream_timeout_uses_structured_exception_types(error, expected):
     assert is_upstream_timeout(error) is expected
 
 
