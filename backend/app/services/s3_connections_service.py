@@ -7,8 +7,8 @@ from typing import Any, Optional
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3ConnectionConflictError, S3ConnectionNotFoundError
-from app.db.s3_connection import ManagedPrivateAccess, S3Connection as DBS3Connection, UserS3Connection
+from app.core.domain_errors import S3ConnectionConflictError
+from app.db.s3_connection import ManagedPrivateAccess, S3Connection as DBS3Connection
 from app.models.s3_connection import (
     S3_CONNECTION_ENDPOINT_FIELDS,
     S3Connection,
@@ -19,7 +19,6 @@ from app.models.s3_connection_admin import (
     S3ConnectionAdminCreate,
     S3ConnectionAdminUpdate,
 )
-from app.services.mappers.s3_connection import s3_connection_from_db
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.s3_connection_associations_service import (
     S3ConnectionAssociationsService,
@@ -29,12 +28,11 @@ from app.services.s3_connection_endpoint_planner import (
     S3ConnectionEndpointPlan,
     S3ConnectionEndpointPlanner,
 )
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.feature_policy_service import validate_manager_overrides
 from app.services.tags_service import TagsService
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
-from app.utils.s3_connection_capabilities import validate_s3_connection_capabilities
-from app.utils.name_ordering import name_order_by
 from app.utils.time import utcnow
 
 
@@ -79,54 +77,23 @@ class S3ConnectionsService:
         self.tags = TagsService(db)
         self.associations = S3ConnectionAssociationsService(db)
         self.endpoint_planner = S3ConnectionEndpointPlanner(db)
+        self.queries = S3ConnectionQueryService(db)
 
     def list_for_user(self, user_id: int) -> list[S3Connection]:
-        """List connections visible to a UI user."""
-        rows = self.db.scalars(
-            select(DBS3Connection)
-            .outerjoin(UserS3Connection, UserS3Connection.s3_connection_id == DBS3Connection.id)
-            .where(
-                ((DBS3Connection.is_shared.is_(False)) & (DBS3Connection.created_by_user_id == user_id))
-                | ((DBS3Connection.is_shared.is_(True)) & (UserS3Connection.user_id == user_id)),
-            )
-            .distinct()
-            .order_by(*name_order_by(DBS3Connection))
-        ).all()
-        return [self.serialize(r) for r in rows]
+        return self.queries.list_for_user(user_id)
 
     def list_owned_private(self, user_id: int) -> list[S3Connection]:
-        """List private connections managed by the authenticated creator."""
-        rows = self.db.scalars(
-            select(DBS3Connection)
-            .where(
-                DBS3Connection.created_by_user_id == user_id,
-                DBS3Connection.is_shared.is_(False),
-            )
-            .order_by(*name_order_by(DBS3Connection))
-        ).all()
-        return [self.serialize(r) for r in rows]
+        return self.queries.list_owned_private(user_id)
 
     @staticmethod
     def admin_shared_predicates():
-        """Return the single scope used by every Admin selector."""
-        return (DBS3Connection.is_shared.is_(True),)
+        return S3ConnectionQueryService.admin_shared_predicates()
 
     def get_admin_shared(self, connection_id: int) -> DBS3Connection:
-        row = self.db.scalar(
-            select(DBS3Connection).where(
-                *self.admin_shared_predicates(),
-                DBS3Connection.id == connection_id,
-            )
-        )
-        if row is None:
-            raise S3ConnectionNotFoundError("S3Connection not found")
-        return row
+        return self.queries.get_admin_shared(connection_id)
 
     def get_record(self, connection_id: int) -> DBS3Connection:
-        row = self.db.get(DBS3Connection, connection_id)
-        if row is None:
-            raise S3ConnectionNotFoundError("S3Connection not found")
-        return row
+        return self.queries.get_record(connection_id)
 
     def create_admin_shared(
         self,
@@ -259,17 +226,7 @@ class S3ConnectionsService:
         row.rgw_account_id = None
 
     def get_owned(self, user_id: int, connection_id: int) -> DBS3Connection:
-        row = self.db.scalar(
-            select(DBS3Connection).where(
-                DBS3Connection.created_by_user_id == user_id,
-                DBS3Connection.id == connection_id,
-            )
-        )
-        if not row:
-            raise S3ConnectionNotFoundError("S3Connection not found")
-        if row.is_shared:
-            raise S3ConnectionNotFoundError("S3Connection not found")
-        return row
+        return self.queries.get_owned(user_id, connection_id)
 
     def create(self, user_id: int, payload: S3ConnectionCreate, *, commit: bool = True) -> S3Connection:
         return self._create(
@@ -579,15 +536,8 @@ class S3ConnectionsService:
         row.rgw_tenant = tenant
         row.rgw_account_id = account_id
 
-    def _capabilities(self, row: DBS3Connection) -> dict[str, Any]:
-        return validate_s3_connection_capabilities(row.capabilities)
-
     def serialize(self, row: DBS3Connection) -> S3Connection:
-        return s3_connection_from_db(
-            row,
-            capabilities=self._capabilities(row),
-            tags=self.tags.get_connection_tags(row),
-        )
+        return self.queries.serialize(row)
 
     def touch_usage(self, row: DBS3Connection) -> None:
         now = utcnow()
