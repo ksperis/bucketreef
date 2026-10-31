@@ -58,6 +58,50 @@ class _StrongVerificationResults:
 
 
 class BucketMigrationObjectVerificationMixin:
+    def _run_strong_verification_batch(
+        self,
+        executor: ThreadPoolExecutor,
+        items: list[Any],
+        *,
+        worker: Callable[[Any], tuple[bool, str]],
+        key_for_item: Callable[[Any], str],
+        results: _StrongVerificationResults,
+        control_check: Callable[[], str],
+        failure_log_prefix: str,
+        lost_lease_message: str,
+    ) -> bool:
+        state = control_check()
+        if state == "lost_lease":
+            raise _WorkerLeaseLostError(lost_lease_message)
+        if state in {"pause", "cancel"}:
+            return False
+
+        futures = {executor.submit(worker, item): item for item in items}
+        interrupted_state: Optional[str] = None
+        pending = set(futures)
+        while pending:
+            done, pending = wait(pending, timeout=1.0)
+            state = control_check()
+            if state == "lost_lease":
+                interrupted_state = "lost_lease"
+            elif state in {"pause", "cancel"} and interrupted_state is None:
+                interrupted_state = state
+
+            for future in done:
+                item = futures[future]
+                key = key_for_item(item)
+                try:
+                    verified, method = future.result()
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("%s for '%s': %s", failure_log_prefix, key, exc)
+                    results.record_failure(key)
+                    continue
+                results.record(key, verified=verified, method=method)
+
+        if interrupted_state == "lost_lease":
+            raise _WorkerLeaseLostError(lost_lease_message)
+        return interrupted_state not in {"pause", "cancel"}
+
     def _strong_verification_clients(
         self,
         thread_local: threading.local,
@@ -116,40 +160,17 @@ class BucketMigrationObjectVerificationMixin:
             )
 
         for chunk in _chunked(keys, worker_count):
-            state = control_check()
-            if state == "lost_lease":
-                raise _WorkerLeaseLostError("Worker lease lost while strong-verifying objects")
-            if state in {"pause", "cancel"}:
-                return -1, [], results.method_counts
-
             with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-migration-strong-verify") as executor:
-                futures = {
-                    executor.submit(_verify_worker, key): key
-                    for key in chunk
-                }
-                interrupted_state: Optional[str] = None
-                pending = set(futures.keys())
-                while pending:
-                    done, pending = wait(pending, timeout=1.0)
-                    state = control_check()
-                    if state == "lost_lease":
-                        interrupted_state = "lost_lease"
-                    elif state in {"pause", "cancel"} and interrupted_state is None:
-                        interrupted_state = state
-
-                    for future in done:
-                        key = futures[future]
-                        try:
-                            verified, method = future.result()
-                        except Exception as exc:  # noqa: BLE001
-                            logger.warning("Strong verification failed for '%s': %s", key, exc)
-                            results.record_failure(key)
-                            continue
-                        results.record(key, verified=verified, method=method)
-
-                if interrupted_state == "lost_lease":
-                    raise _WorkerLeaseLostError("Worker lease lost while strong-verifying objects")
-                if interrupted_state in {"pause", "cancel"}:
+                if not self._run_strong_verification_batch(
+                    executor,
+                    chunk,
+                    worker=_verify_worker,
+                    key_for_item=lambda key: key,
+                    results=results,
+                    control_check=control_check,
+                    failure_log_prefix="Strong verification failed",
+                    lost_lease_message="Worker lease lost while strong-verifying objects",
+                ):
                     return -1, [], results.method_counts
         return results.as_tuple()
 
@@ -449,40 +470,18 @@ class BucketMigrationObjectVerificationMixin:
         def flush_pair_batch(executor: ThreadPoolExecutor) -> bool:
             if not pair_batch:
                 return True
-            state = control_check()
-            if state == "lost_lease":
-                raise _WorkerLeaseLostError("Worker lease lost while strong-verifying version-aware objects")
-            if state in {"pause", "cancel"}:
-                return False
-
             batch = list(pair_batch)
             pair_batch.clear()
-            futures = {executor.submit(_verify_worker, pair): pair for pair in batch}
-            interrupted_state: Optional[str] = None
-            pending = set(futures)
-            while pending:
-                done, pending = wait(pending, timeout=1.0)
-                state = control_check()
-                if state == "lost_lease":
-                    interrupted_state = "lost_lease"
-                elif state in {"pause", "cancel"} and interrupted_state is None:
-                    interrupted_state = state
-
-                for future in done:
-                    pair = futures[future]
-                    try:
-                        verified, method = future.result()
-                    except Exception as exc:  # noqa: BLE001
-                        logger.warning("Version-aware strong verification failed: %s", exc)
-                        results.record_failure(pair.key)
-                        continue
-                    results.record(pair.key, verified=verified, method=method)
-
-            if interrupted_state == "lost_lease":
-                raise _WorkerLeaseLostError("Worker lease lost while strong-verifying version-aware objects")
-            if interrupted_state in {"pause", "cancel"}:
-                return False
-            return True
+            return self._run_strong_verification_batch(
+                executor,
+                batch,
+                worker=_verify_worker,
+                key_for_item=lambda pair: pair.key,
+                results=results,
+                control_check=control_check,
+                failure_log_prefix="Version-aware strong verification failed",
+                lost_lease_message="Worker lease lost while strong-verifying version-aware objects",
+            )
 
         try:
             with ThreadPoolExecutor(
