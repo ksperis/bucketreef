@@ -11,7 +11,7 @@ import {
   getCephAdminBucketLogging,
   putCephAdminBucketLogging,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import {
   normalizeAccessLoggingDraft,
   stableBucketJsonSignature,
@@ -40,6 +40,7 @@ export function useBucketAccessLoggingController({
   const [targetBucket, setTargetBucket] = useState("");
   const [targetPrefix, setTargetPrefix] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,6 +67,7 @@ export function useBucketAccessLoggingController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setError(null);
     setStatus(null);
     try {
@@ -76,6 +78,7 @@ export function useBucketAccessLoggingController({
         : await bucketDetailsApi.getBucketLogging(contextId, bucketName);
       apply(data);
     } catch (loadError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadError));
       apply(null);
       setError(
         extractApiError(loadError, "Unable to load bucket access logging."),
@@ -112,6 +115,7 @@ export function useBucketAccessLoggingController({
           : "Access logging disabled.",
       );
     } catch (saveError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveError));
       setError(extractApiError(saveError, "Unable to update access logging."));
     } finally {
       setSaving(false);
@@ -133,6 +137,7 @@ export function useBucketAccessLoggingController({
       apply({ enabled: false, target_bucket: null, target_prefix: null });
       setStatus("Access logging disabled.");
     } catch (clearError) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(clearError));
       setError(
         extractApiError(clearError, "Unable to disable access logging."),
       );
@@ -175,6 +180,7 @@ export function useBucketAccessLoggingController({
     normalizeAccessLoggingDraft(config),
   );
   return {
+    featureUnsupported,
     clear,
     clearing,
     configured,

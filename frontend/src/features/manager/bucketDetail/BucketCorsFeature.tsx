@@ -11,7 +11,6 @@ import {
 import { SettingsMultiValueAutocomplete } from "../../../components/settings/SettingsAutocomplete";
 import UiCheckboxField from "../../../components/ui/UiCheckboxField";
 import UiBadge from "../../../components/ui/UiBadge";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import {
   BucketFeatureEditorEmpty,
@@ -306,7 +305,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
     updateEditorMode,
     updateJsonText,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured,

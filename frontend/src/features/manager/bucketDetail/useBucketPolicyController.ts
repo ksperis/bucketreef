@@ -10,7 +10,7 @@ import {
   getCephAdminBucketPolicy,
   putCephAdminBucketPolicy,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   cloneBucketJsonValue,
@@ -77,6 +77,7 @@ export function useBucketPolicyController({
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
   const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,6 +96,7 @@ export function useBucketPolicyController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setLoadError(null);
     setStatus(null);
     try {
@@ -105,6 +107,7 @@ export function useBucketPolicyController({
         : await bucketDetailsApi.getBucketPolicy(contextId, bucketName);
       applyBaseline(data.policy);
     } catch (loadFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadFailure));
       applyBaseline({});
       setLoadError(extractApiError(loadFailure, "Unable to load the bucket policy."));
     } finally {
@@ -275,6 +278,7 @@ export function useBucketPolicyController({
       applyBaseline(savedPolicy);
       setStatus(isPolicyConfigurationEmpty(savedPolicy) ? "Bucket policy deleted" : "Policy statement removed");
     } catch (removeFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(removeFailure));
       setLoadError(extractApiError(removeFailure, "Unable to update the bucket policy."));
     } finally {
       setSaving(false);
@@ -313,6 +317,7 @@ export function useBucketPolicyController({
       setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(extractApiError(saveFailure, "Unable to update the bucket policy."));
     } finally {
       setSaving(false);
@@ -344,6 +349,7 @@ export function useBucketPolicyController({
       applyBaseline({});
       setStatus("Bucket policy deleted");
     } catch (removeFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(removeFailure));
       setLoadError(extractApiError(removeFailure, "Unable to delete the bucket policy."));
     } finally {
       setDeleting(false);
@@ -361,6 +367,7 @@ export function useBucketPolicyController({
   const dirty = editorOpen && draftSignature !== baselineSignature;
 
   return {
+    featureUnsupported,
     addDraftStatement,
     allowCount: statements.filter((statement) => statement.Effect === "Allow").length,
     closeEditor,

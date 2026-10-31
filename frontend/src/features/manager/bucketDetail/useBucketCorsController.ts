@@ -10,7 +10,7 @@ import {
   getCephAdminBucketCors,
   putCephAdminBucketCors,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import {
   cloneBucketJsonValue,
   jsonTextSignature,
@@ -63,6 +63,7 @@ export function useBucketCorsController({
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
   const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,6 +81,7 @@ export function useBucketCorsController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setLoadError(null);
     setStatus(null);
     try {
@@ -95,6 +97,7 @@ export function useBucketCorsController({
       }
       applyBaseline(data.rules);
     } catch (loadFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadFailure));
       applyBaseline([]);
       setLoadError(
         extractApiError(loadFailure, "Unable to load the CORS configuration."),
@@ -216,6 +219,7 @@ export function useBucketCorsController({
       applyBaseline(savedRules);
       setStatus(savedRules.length === 0 ? "CORS configuration deleted" : "CORS rule removed");
     } catch (removeFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(removeFailure));
       setLoadError(extractApiError(removeFailure, "Unable to update the CORS configuration."));
     } finally {
       setSaving(false);
@@ -255,6 +259,7 @@ export function useBucketCorsController({
       setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(
         extractApiError(saveFailure, "Unable to update the CORS configuration."),
       );
@@ -283,6 +288,7 @@ export function useBucketCorsController({
   const dirty = editorOpen && draftSignature !== baselineSignature;
 
   return {
+    featureUnsupported,
     addDraftRule,
     closeEditor,
     configured: rules.length > 0,

@@ -4,7 +4,13 @@
  */
 import { isApiError } from "../api/client";
 
-type ApiFailureKind = "timeout" | "unavailable" | "denied" | "invalid_response" | "unknown";
+type ApiFailureKind =
+  | "timeout"
+  | "unavailable"
+  | "denied"
+  | "unsupported"
+  | "invalid_response"
+  | "unknown";
 
 type ApiFailure = {
   kind: ApiFailureKind;
@@ -57,6 +63,14 @@ export function extractApiErrorCode(error: unknown): string | null {
   if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null;
   const code = (detail as { code?: unknown }).code;
   return typeof code === "string" && code.trim().length > 0 ? code.trim() : null;
+}
+
+export function isApiFeatureUnsupportedError(error: unknown): boolean {
+  if (!isApiError(error)) return false;
+  return (
+    error.response?.status === 501 ||
+    extractApiErrorCode(error) === "feature_not_implemented"
+  );
 }
 
 export function isRecentWebAuthnRequired(error: unknown): boolean {
@@ -126,6 +140,9 @@ export function classifyApiError(error: unknown, fallback: string): ApiFailure {
     if (status === 503 || !error.response || NETWORK_UNAVAILABLE_PATTERN.test(lowLevelMessage)) {
       return { kind: "unavailable", message: safeDetail ?? fallback, retryable: true, status };
     }
+    if (status === 501 || extractApiErrorCode(error) === "feature_not_implemented") {
+      return { kind: "unsupported", message: safeDetail ?? fallback, retryable: false, status };
+    }
     if (status === 502) {
       return { kind: "invalid_response", message: safeDetail ?? fallback, retryable: true, status };
     }
@@ -155,9 +172,4 @@ export function classifyApiError(error: unknown, fallback: string): ApiFailure {
     };
   }
   return { kind: "unknown", message: fallback, retryable: false, status: null };
-}
-
-export function isApiFeatureNotImplemented(message: string | null | undefined): boolean {
-  const normalized = String(message ?? "").toLowerCase();
-  return normalized.includes("xnotimplemented") || normalized.includes("notimplemented") || normalized.includes("not implemented");
 }

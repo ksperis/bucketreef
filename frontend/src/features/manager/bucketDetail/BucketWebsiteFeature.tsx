@@ -8,7 +8,6 @@ import { SettingsAutocomplete } from "../../../components/settings/SettingsAutoc
 import SettingsJsonEditor from "../../../components/settings/SettingsJsonEditor";
 import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureJsonExample from "./BucketFeatureJsonExample";
 import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
@@ -71,7 +70,7 @@ export default function BucketWebsiteFeature({
     updateRedirectProtocol,
     updateRoutingRules,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const { objectKeys } = useBucketFeatureSuggestions();
   const visualState = resolveFeatureVisualState({
     disabled: blocked || notImplemented,

@@ -2183,6 +2183,12 @@ Current behavior after cleanup:
   longer accepted; use the explicit `FEATURE_COST_ENABLED` and
   `FEATURE_ENDPOINT_STATUS_ENABLED` force-locks.
 
+Manager and Ceph Admin bucket-configuration routes now normalize explicit S3
+`NotImplemented`/`XNotImplemented` responses to HTTP `501` with
+`detail.code = "feature_not_implemented"`. Deploy the backend and bundled
+frontend together so unsupported bucket features are classified from this
+structured contract instead of RGW error-message text.
+
 ## Operator guidance
 
 - Remove scripts relying on legacy selector values.

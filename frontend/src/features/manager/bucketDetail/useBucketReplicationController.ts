@@ -10,7 +10,7 @@ import {
   getCephAdminBucketReplication,
   putCephAdminBucketReplication,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { createUiDraftId } from "../../../utils/uiDraftId";
 import {
   containsUnsupportedReplicationZone,
@@ -95,6 +95,7 @@ export function useBucketReplicationController({
   const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
   const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -112,6 +113,7 @@ export function useBucketReplicationController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setLoadError(null);
     setStatus(null);
     try {
@@ -122,6 +124,7 @@ export function useBucketReplicationController({
         : await bucketDetailsApi.getBucketReplication(contextId, bucketName);
       applyBaseline(data.configuration);
     } catch (loadFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadFailure));
       applyBaseline({});
       setLoadError(
         extractApiError(
@@ -295,6 +298,7 @@ export function useBucketReplicationController({
       applyBaseline(savedConfiguration);
       setStatus(successMessage);
     } catch (mutationFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(mutationFailure));
       setLoadError(extractApiError(mutationFailure, "Unable to update bucket replication configuration."));
     } finally {
       setSaving(false);
@@ -370,6 +374,7 @@ export function useBucketReplicationController({
       setEditorTargetIndex(null);
       setEditorOpen(false);
     } catch (saveFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(
         extractApiError(
           saveFailure,
@@ -420,6 +425,7 @@ export function useBucketReplicationController({
   ).filter((rule) => !isReplicationRuleVisuallyEditable(rule)).length;
 
   return {
+    featureUnsupported,
     addRule,
     advancedRuleCount,
     busy: loading || saving,

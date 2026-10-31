@@ -9,7 +9,7 @@ import {
   getCephAdminBucketVersioning,
   setCephAdminBucketVersioning,
 } from "../../../api/cephAdminBucketDetails";
-import { extractApiError } from "../../../utils/apiError";
+import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 
 type UseBucketVersioningControllerOptions = {
   contextId: S3ExecutionContextSelector;
@@ -36,6 +36,7 @@ export function useBucketVersioningController({
   const [status, setStatus] = useState<string | null>(null);
   const [draftEnabled, setDraftEnabled] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,6 +55,7 @@ export function useBucketVersioningController({
       return;
     }
     setLoading(true);
+    setFeatureUnsupported(false);
     setLoadError(null);
     setSaveError(null);
     try {
@@ -64,6 +66,7 @@ export function useBucketVersioningController({
         : await bucketDetailsApi.getBucketVersioning(contextId, bucketName);
       applyStatus(data.status ?? null);
     } catch (loadFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(loadFailure));
       applyStatus(null);
       setLoadError(
         extractApiError(loadFailure, "Unable to load bucket versioning."),
@@ -111,6 +114,7 @@ export function useBucketVersioningController({
       }
       applyStatus(draftEnabled ? "Enabled" : "Suspended");
     } catch (saveFailure) {
+      setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setSaveError(
         extractApiError(saveFailure, "Failed to update versioning."),
       );
@@ -122,6 +126,7 @@ export function useBucketVersioningController({
   const normalizedStatus = (status ?? "").trim().toLowerCase();
   const isEnabled = normalizedStatus === "enabled";
   return {
+    featureUnsupported,
     dirty: draftEnabled !== isEnabled,
     draftEnabled,
     isEnabled,

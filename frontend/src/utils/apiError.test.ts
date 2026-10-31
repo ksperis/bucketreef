@@ -5,7 +5,7 @@ import {
   classifyApiError,
   extractApiError,
   extractApiErrorCode,
-  isApiFeatureNotImplemented,
+  isApiFeatureUnsupportedError,
   isCancelledError,
   isRecentWebAuthnRequired,
   sanitizeErrorMessage,
@@ -173,11 +173,27 @@ describe("extractApiError", () => {
     expect(message).not.toContain("abcdef");
   });
 
-  it("detects not implemented feature errors from extracted messages", () => {
-    expect(isApiFeatureNotImplemented("An error occurred (XNotImplemented) when calling the GetBucketLogging operation")).toBe(true);
-    expect(isApiFeatureNotImplemented("The request you provided implies functionality that is not implemented.")).toBe(true);
-    expect(isApiFeatureNotImplemented("AccessDenied")).toBe(false);
-    expect(isApiFeatureNotImplemented(null)).toBe(false);
+  it("detects unsupported features from the structured API contract", () => {
+    const unsupported = new ApiError("Request failed", {
+      response: {
+        status: 501,
+        data: {
+          detail: {
+            code: "feature_not_implemented",
+            message: "This bucket feature is not implemented by the endpoint.",
+          },
+        },
+        headers: {},
+      },
+    });
+    const denied = new ApiError("Request failed", {
+      response: { status: 403, data: { detail: "AccessDenied" }, headers: {} },
+    });
+
+    expect(isApiFeatureUnsupportedError(unsupported)).toBe(true);
+    expect(classifyApiError(unsupported, "Fallback message").kind).toBe("unsupported");
+    expect(isApiFeatureUnsupportedError(denied)).toBe(false);
+    expect(isApiFeatureUnsupportedError(new Error("XNotImplemented"))).toBe(false);
   });
 
   it("detects only the exact recent WebAuthn guard response", () => {

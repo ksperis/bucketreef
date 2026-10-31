@@ -13,7 +13,6 @@ import { SettingsAutocomplete } from "../../../components/settings/SettingsAutoc
 import { SettingsSwitch } from "../../../components/settings/SettingsLayout";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import {
   describeLifecycleActions,
   lifecycleFilterLabel,
@@ -300,7 +299,7 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
     updateEditorMode,
     updateJsonText,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured: hasRules,

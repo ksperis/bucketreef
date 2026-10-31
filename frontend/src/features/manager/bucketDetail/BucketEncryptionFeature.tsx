@@ -9,7 +9,6 @@ import {
 } from "../../../components/settings/SettingsControls";
 import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
 import {
   BucketFeatureEditorEmpty,
@@ -189,7 +188,7 @@ export default function BucketEncryptionFeature({
     updateEditorMode,
     updateJsonText,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const disabled = !enabled || notImplemented;
   const visualState = resolveFeatureVisualState({
     disabled,

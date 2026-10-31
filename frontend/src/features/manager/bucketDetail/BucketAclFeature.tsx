@@ -6,7 +6,6 @@ import { useState } from "react";
 import DataTableShell from "../../../components/list/DataTableShell";
 import { SettingsButton, SettingsInput, SettingsSelect } from "../../../components/settings/SettingsControls";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
-import { isApiFeatureNotImplemented } from "../../../utils/apiError";
 import BucketFeatureSection from "./BucketFeatureSection";
 import BucketFeatureSettingsDialog from "./BucketFeatureSettingsDialog";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
@@ -49,7 +48,7 @@ export default function BucketAclFeature({ controller }: BucketAclFeatureProps) 
     updateCustom,
     updatePreset,
   } = controller;
-  const notImplemented = isApiFeatureNotImplemented(error);
+  const notImplemented = controller.featureUnsupported;
   const visualState = resolveFeatureVisualState({
     disabled: notImplemented,
     configured: Boolean(acl),
