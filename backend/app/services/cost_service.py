@@ -69,6 +69,20 @@ def _daily_subject_column(
     raise ValueError("Invalid subject type")
 
 
+def _history_periods(period: CostPeriod, months: int) -> list[CostPeriod]:
+    if months < 1:
+        return []
+    selected_month_index = period.start.year * 12 + period.start.month - 1
+    return [
+        parse_cost_month(f"{year:04d}-{zero_based_month + 1:02d}")
+        for month_index in range(
+            selected_month_index - months + 1,
+            selected_month_index + 1,
+        )
+        for year, zero_based_month in [divmod(month_index, 12)]
+    ]
+
+
 _COST_SUBJECT_SORT_VALUE_GETTERS = {
     "cost": lambda entry: (
         entry.cost.total_cost
@@ -298,15 +312,10 @@ class CostService:
         subject_type = self._normalize_subject_type(subject_type)
         if subject_type == "all":
             raise ValueError("Invalid subject type")
-        if months < 1:
-            return []
 
         model = _resolve_cost_model(self.db, endpoint_id)
-        selected_month_index = period.start.year * 12 + period.start.month - 1
         history: list[CostSubjectHistoryPoint] = []
-        for month_index in range(selected_month_index - months + 1, selected_month_index + 1):
-            year, zero_based_month = divmod(month_index, 12)
-            history_period = parse_cost_month(f"{year:04d}-{zero_based_month + 1:02d}")
+        for history_period in _history_periods(period, months):
             usage_rows = self._usage_rows_for_subject(
                 history_period,
                 endpoint_id,
@@ -501,11 +510,8 @@ class CostService:
         endpoint_id: Optional[int],
         subject_type: str,
     ) -> list[CostAnalyticsHistoryPoint]:
-        selected_month_index = period.start.year * 12 + period.start.month - 1
         history: list[CostAnalyticsHistoryPoint] = []
-        for month_index in range(selected_month_index - 11, selected_month_index + 1):
-            year, zero_based_month = divmod(month_index, 12)
-            history_period = parse_cost_month(f"{year:04d}-{zero_based_month + 1:02d}")
+        for history_period in _history_periods(period, 12):
             history_summary = self._summary_for_period(history_period, endpoint_id, subject_type)
             history.append(
                 CostAnalyticsHistoryPoint(
