@@ -61,6 +61,29 @@ def build_sse_progress_callback(
     return progress_callback
 
 
+def _emit_done(push_message: SseMessageSender, *, request_id: str, status: object) -> None:
+    push_message(
+        format_sse_event(
+            "done",
+            {"request_id": request_id, "status": status},
+        )
+    )
+
+
+def _emit_error(
+    push_message: SseMessageSender,
+    *,
+    request_id: str,
+    detail: object,
+    status_code: int | None = None,
+) -> None:
+    payload: dict[str, object] = {"request_id": request_id, "detail": detail}
+    if status_code is not None:
+        payload["status_code"] = status_code
+    push_message(format_sse_event("error", payload))
+    _emit_done(push_message, request_id=request_id, status="failed")
+
+
 def stream_status_operation(
     request: Request,
     *,
@@ -93,8 +116,7 @@ def stream_status_operation(
             detail = unexpected_error_detail(exc) if unexpected_error_detail else failure_message
             if on_error:
                 on_error(request_id, detail)
-            push_message(format_sse_event("error", {"request_id": request_id, "detail": detail}))
-            push_message(format_sse_event("done", {"request_id": request_id, "status": "failed"}))
+            _emit_error(push_message, request_id=request_id, detail=detail)
 
         try:
             if on_start:
@@ -104,21 +126,11 @@ def stream_status_operation(
                 on_result(request_id, result)
             result_payload = result.model_dump(mode="json")
             push_message(format_sse_event("result", result_payload))
-            push_message(
-                format_sse_event(
-                    "done",
-                    {"request_id": request_id, "status": result_payload["status"]},
-                )
-            )
+            _emit_done(push_message, request_id=request_id, status=result_payload["status"])
         except cancelled_error:
             if on_cancel:
                 on_cancel(request_id)
-            push_message(
-                format_sse_event(
-                    "done",
-                    {"request_id": request_id, "status": "canceled"},
-                )
-            )
+            _emit_done(push_message, request_id=request_id, status="canceled")
         except HTTPException as exc:
             if not expose_http_status:
                 emit_unexpected_error(exc)
@@ -126,21 +138,11 @@ def stream_status_operation(
             detail = sanitize_error_detail(exc.detail)
             if on_error:
                 on_error(request_id, str(detail))
-            push_message(
-                format_sse_event(
-                    "error",
-                    {
-                        "request_id": request_id,
-                        "detail": detail,
-                        "status_code": exc.status_code,
-                    },
-                )
-            )
-            push_message(
-                format_sse_event(
-                    "done",
-                    {"request_id": request_id, "status": "failed"},
-                )
+            _emit_error(
+                push_message,
+                request_id=request_id,
+                detail=detail,
+                status_code=exc.status_code,
             )
         except Exception as exc:  # pragma: no cover
             emit_unexpected_error(exc)
