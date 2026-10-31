@@ -68,15 +68,23 @@ def s3_execution_bucket_request_kwargs(
 
 def s3_execution_cache_key(execution_context: S3ExecutionTarget) -> str:
     """Fingerprint the explicit execution identity and full S3 client configuration."""
-    identity = (
-        (execution_context.context_kind, execution_context.context_id)
-        if isinstance(execution_context, S3ExecutionContext)
-        else ("account", str(execution_context.id))
-    )
+    if isinstance(execution_context, S3ExecutionContext):
+        identity = (execution_context.context_kind, execution_context.context_id)
+        execution_auth_session_id = execution_context.execution_auth_session_id
+        openstack_session_id = execution_context.openstack_session_id
+    else:
+        identity = ("account", str(execution_context.id))
+        execution_auth_session_id = None
+        openstack_session_id = None
     payload = json.dumps(
-        [identity, getattr(execution_context, "execution_auth_session_id", None),
-         getattr(execution_context, "openstack_session_id", None), execution_context.rgw_tenant,
-         execution_context.effective_rgw_credentials(), s3_execution_client_kwargs(execution_context)],
+        [
+            identity,
+            execution_auth_session_id,
+            openstack_session_id,
+            execution_context.rgw_tenant,
+            execution_context.effective_rgw_credentials(),
+            s3_execution_client_kwargs(execution_context),
+        ],
         sort_keys=True,
         separators=(",", ":"),
     )
