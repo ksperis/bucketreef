@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 import logging
@@ -538,23 +539,28 @@ class QuotaMonitoringService:
         endpoint: StorageEndpoint,
         cache: dict[int, RGWAdminClient | None],
     ) -> RGWAdminClient | None:
-        cached = cache.get(endpoint.id)
-        if endpoint.id in cache:
-            return cached
-        if endpoint.provider != StorageProvider.CEPH.value:
-            cache[endpoint.id] = None
-            return None
-        try:
-            client = get_endpoint_runtime_rgw_client(endpoint)
-        except Exception:
-            client = None
-        cache[endpoint.id] = client
-        return client
+        return self._resolve_cached_client(
+            endpoint,
+            cache,
+            get_endpoint_runtime_rgw_client,
+        )
 
     def _resolve_usage_client(
         self,
         endpoint: StorageEndpoint,
         cache: dict[int, RGWAdminClient | None],
+    ) -> RGWAdminClient | None:
+        return self._resolve_cached_client(
+            endpoint,
+            cache,
+            get_supervision_rgw_client,
+        )
+
+    @staticmethod
+    def _resolve_cached_client(
+        endpoint: StorageEndpoint,
+        cache: dict[int, RGWAdminClient | None],
+        factory: Callable[[StorageEndpoint], RGWAdminClient],
     ) -> RGWAdminClient | None:
         cached = cache.get(endpoint.id)
         if endpoint.id in cache:
@@ -563,7 +569,7 @@ class QuotaMonitoringService:
             cache[endpoint.id] = None
             return None
         try:
-            client = get_supervision_rgw_client(endpoint)
+            client = factory(endpoint)
         except Exception:
             client = None
         cache[endpoint.id] = client
