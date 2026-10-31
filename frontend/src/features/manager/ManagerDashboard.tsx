@@ -58,6 +58,7 @@ import {
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime, getBackendElapsedTime } from "../../utils/dateTime";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
+import { clampedPercentageOf } from "../../utils/numbers";
 import {
   BellIcon,
   BucketCollectionIcon,
@@ -99,11 +100,6 @@ type ActivityRow = {
 };
 
 type ManagerTextFunction = (message: string, values?: Record<string, string | number>) => string;
-
-function percent(used?: number | null, quota?: number | null): number | null {
-  if (used == null || quota == null || quota <= 0) return null;
-  return Math.max(0, Math.min(100, (used / quota) * 100));
-}
 
 function formatRelativeTime(value: string | null | undefined, text: ManagerTextFunction, now = Date.now()): string {
   const elapsed = getBackendElapsedTime(value, now);
@@ -192,7 +188,7 @@ function StorageOverviewCard({
   unavailableReason?: string | null;
 }) {
   const { text, intlLocale } = useManagerI18n();
-  const usagePercent = unavailableReason ? null : percent(usedBytes, quotaBytes);
+  const usagePercent = unavailableReason ? null : clampedPercentageOf(usedBytes, quotaBytes);
   const storageValue = unavailableReason ? "" : formatOptionalBytes(usedBytes);
   const quotaValue = unavailableReason || quotaBytes == null ? "" : formatBytes(quotaBytes);
   const chartPoints = useMemo(
@@ -389,12 +385,12 @@ function QuotaStatusCard({
   const visibleRoleQuota = iamUnavailableReason ? null : roleQuota;
   const visibleGroupCount = iamUnavailableReason ? null : groupCount;
   const visibleGroupQuota = iamUnavailableReason ? null : groupQuota;
-  const storagePercent = percent(visibleStorageUsed, visibleStorageQuota);
-  const objectPercent = percent(visibleObjectCount, visibleObjectQuota);
-  const bucketStatusPercent = percent(visibleBucketCount, visibleBucketQuota);
-  const userPercent = percent(visibleUserCount, visibleUserQuota);
-  const rolePercent = percent(visibleRoleCount, visibleRoleQuota);
-  const groupPercent = percent(visibleGroupCount, visibleGroupQuota);
+  const storagePercent = clampedPercentageOf(visibleStorageUsed, visibleStorageQuota);
+  const objectPercent = clampedPercentageOf(visibleObjectCount, visibleObjectQuota);
+  const bucketStatusPercent = clampedPercentageOf(visibleBucketCount, visibleBucketQuota);
+  const userPercent = clampedPercentageOf(visibleUserCount, visibleUserQuota);
+  const rolePercent = clampedPercentageOf(visibleRoleCount, visibleRoleQuota);
+  const groupPercent = clampedPercentageOf(visibleGroupCount, visibleGroupQuota);
   const rows = [
     {
       label: text("Storage"),

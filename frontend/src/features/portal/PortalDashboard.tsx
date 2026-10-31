@@ -39,6 +39,7 @@ import UiBadge from "../../components/ui/UiBadge";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { useI18n, type I18nMessage } from "../../i18n";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
+import { clampedPercentageOf } from "../../utils/numbers";
 import {
   BucketCollectionIcon,
   BucketIcon,
@@ -87,11 +88,6 @@ type QuickLink = {
 };
 
 const TOP_STORAGE_SPACES_LIMIT = 6;
-
-function percent(used?: number | null, quota?: number | null): number | null {
-  if (used == null || quota == null || quota <= 0) return null;
-  return Math.max(0, Math.min(100, (used / quota) * 100));
-}
 
 function alertTone(tone: string) {
   if (tone === "danger") return "danger";
@@ -171,7 +167,7 @@ function buildStorageRows(spaces: PortalWorkspaceSpace[], other?: PortalUsageSto
     : namedRows;
   const maxBytes = Math.max(...rows.map((row) => row.usedBytes ?? 0), 1);
   return rows.map((row) => {
-    const quotaPercent = percent(row.usedBytes, row.quotaBytes);
+    const quotaPercent = clampedPercentageOf(row.usedBytes, row.quotaBytes);
     const rankingPercent = row.usedBytes == null ? null : Math.max(4, ((row.usedBytes ?? 0) / maxBytes) * 100);
     return { ...row, percent: quotaPercent ?? rankingPercent };
   });
@@ -204,7 +200,7 @@ function StorageOverviewCard({
   referenceDate?: string | Date | null;
 }) {
   const { t } = useI18n();
-  const usagePercent = percent(usedBytes, quotaBytes);
+  const usagePercent = clampedPercentageOf(usedBytes, quotaBytes);
   const storageTrendPoints = useMemo(
     () => buildWorkspaceStorageEvolutionPoints(usedBytes, trendBaseline, referenceDate),
     [referenceDate, trendBaseline, usedBytes]

@@ -24,6 +24,7 @@ import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { currentUtcMonthInputValue } from "../../utils/dateInputValues";
 import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
+import { clampedPercentageOf } from "../../utils/numbers";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
@@ -37,11 +38,6 @@ import { PortalPageState } from "./portalUi";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
 type PortalUsageTab = "storage" | "storage-spaces" | "usage-composition" | "usage-history" | "traffic" | "cost";
-
-function percent(used?: number | null, quota?: number | null): number | null {
-  if (used == null || quota == null || quota <= 0) return null;
-  return Math.min(100, Math.max(0, (used / quota) * 100));
-}
 
 function backendStatusFromHealth(health: ReturnType<typeof usePortalWorkspaceData>["health"]): HealthCheckStatus {
   if (!health || health.endpoint_count <= 0) return "unknown";
@@ -275,8 +271,8 @@ export default function PortalUsagePage() {
       : workspace.usedObjects ?? null);
   const quotaBytes = usage?.quota_max_size_bytes ?? workspace.quotaBytes ?? null;
   const quotaObjects = usage?.quota_max_objects ?? workspace.quotaObjects ?? null;
-  const quotaPercent = percent(totalUsedBytes, quotaBytes);
-  const objectQuotaPercent = percent(totalObjects, quotaObjects);
+  const quotaPercent = clampedPercentageOf(totalUsedBytes, quotaBytes);
+  const objectQuotaPercent = clampedPercentageOf(totalObjects, quotaObjects);
   const remainingBytes =
     totalUsedBytes != null && quotaBytes != null && quotaBytes >= 0
       ? Math.max(0, quotaBytes - totalUsedBytes)
