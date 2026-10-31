@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.security import create_ldap_import_selection_token
-from app.db import ApiToken, AuthSession, ExternalIdentity, User, UserRole
+from app.db import ApiToken, AuthSession, ExternalIdentity, UiGroup, User, UserRole, UserUiGroup
 from app.models.admin_ldap_import import LDAPImportRequest
 from app.services.admin_ldap_user_import_service import AdminLdapUserImportService
 from app.services.ldap_service import LDAPIdentity
@@ -72,6 +72,9 @@ def _service(db_session, identity: LDAPIdentity) -> AdminLdapUserImportService:
 def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_session):
     actor = _actor(db_session)
     identity = _identity()
+    group = UiGroup(name="LDAP imported users")
+    db_session.add(group)
+    db_session.flush()
     session = SimpleNamespace(id="admin-session")
     service = _service(db_session, identity)
     request = LDAPImportRequest.model_validate(
@@ -83,6 +86,7 @@ def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_s
                 "full_name": "Jane Profile",
                 "role": "ui_user",
                 "browser_advanced_features_enabled": True,
+                "group_ids": [group.id],
             },
         }
     )
@@ -100,6 +104,10 @@ def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_s
     assert mapping.subject == "uuid-jane"
     assert mapping.email == "jane.directory@example.test"
     assert mapping.link_source == "administrator"
+    membership = db_session.scalars(
+        select(UserUiGroup).where(UserUiGroup.user_id == created.id)
+    ).one()
+    assert membership.group_id == group.id
 
 
 def test_link_ldap_identity_preserves_target_and_revokes_credentials(db_session):

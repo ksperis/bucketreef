@@ -235,23 +235,6 @@ class UsersService:
         if not admin_role:
             user.quota_alerts_global_watch = False
 
-    @staticmethod
-    def _apply_association_updates(
-        user: User,
-        payload: UserUpdate,
-        associations: UserAssociationsService,
-    ) -> None:
-        if payload.account_links is not None:
-            associations.set_account_links(user, payload.account_links)
-        if payload.s3_user_links is not None:
-            associations.set_s3_user_links(user, payload.s3_user_links)
-        if payload.s3_connection_ids is not None:
-            associations.set_s3_connection_links(user, payload.s3_connection_ids)
-        if payload.group_ids is not None:
-            associations.set_group_links(user, payload.group_ids)
-        if payload.openstack_cloud_ids is not None:
-            associations.set_openstack_cloud_links(user, payload.openstack_cloud_ids)
-
     def _revoke_portal_iam_for_deactivated_user(
         self,
         user: User,
@@ -293,7 +276,7 @@ class UsersService:
         security_changed = security_changed or role_security_changed
         self._apply_access_updates(user, payload, role=next_role)
         self._apply_profile_preferences(user, payload)
-        self._apply_association_updates(user, payload, associations)
+        associations.apply_updates(user, payload)
         if security_changed:
             user.auth_version += 1
         self.db.add(user)
