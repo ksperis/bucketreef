@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable
-from urllib.parse import urlparse
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -13,7 +12,7 @@ from app.core.config import Settings
 from app.db import S3Connection, WebhookEndpoint
 from app.db.openstack import OpenStackCloud
 from app.services.webhook_service import webhook_dispatcher_enabled, webhook_runtime_config
-from app.utils.network_targets import host_matches_allowlist
+from app.utils.network_targets import host_matches_allowlist, url_hostname
 
 
 @dataclass(frozen=True, order=True)
@@ -21,15 +20,10 @@ class UncoveredTarget:
     target_type: str
     hostname: str
 
-
-def _hostname(url: str) -> str:
-    return str(urlparse(url).hostname or "").strip().lower().rstrip(".")
-
-
 def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[UncoveredTarget]:
     uncovered: set[UncoveredTarget] = set()
     for url in db.scalars(select(OpenStackCloud.auth_url).where(OpenStackCloud.enabled.is_(True))).all():
-        hostname = _hostname(url)
+        hostname = url_hostname(url)
         if not host_matches_allowlist(hostname, settings.openstack_allowed_hosts):
             uncovered.add(UncoveredTarget("openstack", hostname or "<invalid>"))
     connections = db.scalars(
@@ -41,14 +35,14 @@ def find_uncovered_outbound_targets(db: Session, settings: Settings) -> list[Unc
         )
     ).all()
     for connection in connections:
-        hostname = _hostname(connection.custom_endpoint_url or "") or "<invalid>"
+        hostname = url_hostname(connection.custom_endpoint_url or "") or "<invalid>"
         if not host_matches_allowlist(hostname, settings.user_supplied_s3_endpoint_allowed_hosts):
             uncovered.add(UncoveredTarget("user-s3-endpoint", hostname or "<invalid>"))
 
     if webhook_dispatcher_enabled(settings):
         webhook_hosts = webhook_runtime_config(settings).allowed_hosts
         for webhook_url in db.scalars(select(WebhookEndpoint.url)).all():
-            hostname = _hostname(webhook_url or "") or "<invalid>"
+            hostname = url_hostname(webhook_url or "") or "<invalid>"
             if not host_matches_allowlist(hostname, webhook_hosts):
                 uncovered.add(UncoveredTarget("webhook", hostname))
     return sorted(uncovered)

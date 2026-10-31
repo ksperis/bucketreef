@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from app.core.config import Settings, is_local_origin, is_weak_secret_value
 from app.services.deployment_check_models import DeploymentCheckFinding, finding
 from app.services.deployment_identity_checks import environment_ldap_findings, environment_oidc_findings
+from app.utils.network_targets import normalize_hostname, url_hostname
 
 
 _PRODUCTION_ORIGIN_GROUPS = (
@@ -29,7 +30,7 @@ def _is_production_origin(origin: str) -> bool:
 
 
 def _rp_id_covers_origin(rp_id: str, origin: str) -> bool:
-    host = (urlparse(origin).hostname or "").lower().rstrip(".")
+    host = url_hostname(origin)
     return host == rp_id or host.endswith(f".{rp_id}")
 
 
@@ -46,7 +47,7 @@ def _origin_problem(settings: Settings) -> str | None:
     webauthn_origins = origins_by_kind["webauthn"]
     if not set(webauthn_origins).issubset(set(public_origins)):
         return "Every WebAuthn origin must also be a trusted public origin."
-    rp_id = settings.webauthn_rp_id.strip().lower().rstrip(".")
+    rp_id = normalize_hostname(settings.webauthn_rp_id)
     if not rp_id or ":" in rp_id or "/" in rp_id:
         return "WEBAUTHN_RP_ID must be a DNS domain for production."
     if any(not _rp_id_covers_origin(rp_id, origin) for origin in webauthn_origins):
@@ -78,9 +79,7 @@ def _browser_origin_findings(
     cookie_scope_ok = (
         settings.refresh_token_cookie_domain is None and samesite in {"lax", "strict"}
     )
-    allowed_hosts = {
-        host.strip().lower() for host in settings.allowed_hosts if host.strip()
-    }
+    allowed_hosts = {normalize_hostname(host) for host in settings.allowed_hosts if host.strip()}
     public_origin_set = set(settings.effective_public_origins())
     cors_set = {
         str(origin or "").strip().rstrip("/")

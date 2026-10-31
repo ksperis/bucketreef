@@ -6,7 +6,11 @@ import socket
 
 import pytest
 
-from app.utils.network_targets import host_matches_allowlist, validate_outbound_url
+from app.utils.network_targets import (
+    host_matches_allowlist,
+    url_hostname,
+    validate_outbound_url,
+)
 
 
 def _set_resolved_ips(monkeypatch, ips: list[str]) -> None:
@@ -18,6 +22,14 @@ def _set_resolved_ips(monkeypatch, ips: list[str]) -> None:
         ]
 
     monkeypatch.setattr("app.utils.network_targets.socket.getaddrinfo", fake_getaddrinfo)
+
+
+def test_url_hostname_returns_only_the_normalized_hostname():
+    assert (
+        url_hostname("https://S3.Example.TEST.:9443/private/path?signature=hidden")
+        == "s3.example.test"
+    )
+    assert url_hostname("not-a-url") == ""
 
 
 def test_validate_outbound_url_accepts_public_https_url(monkeypatch):

@@ -10,7 +10,6 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable
-from urllib.parse import urlparse
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -33,7 +32,7 @@ from app.services.webhook_catalog import (
     KNOWN_WEBHOOK_EVENT_TYPES,
     WEBHOOK_TEST_EVENT_TYPE,
 )
-from app.utils.network_targets import validate_outbound_url
+from app.utils.network_targets import normalize_hostname, validate_outbound_url
 from app.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
@@ -79,7 +78,7 @@ def webhook_runtime_config(settings: Settings | None = None) -> WebhookRuntimeCo
         timeout_seconds=effective_timeout_seconds,
         allow_private_targets=bool(settings.webhook_allow_private_targets),
         allowed_hosts={
-            str(host or "").strip().lower().rstrip(".")
+            normalize_hostname(host)
             for host in (settings.webhook_allowed_hosts or [])
             if str(host or "").strip()
         },
@@ -111,11 +110,6 @@ def validate_webhook_target_url(url: str, settings: Settings | None = None) -> N
         allow_private_targets=runtime.allow_private_targets,
         private_target_hint="; set WEBHOOK_ALLOW_PRIVATE_TARGETS=true to allow it",
     )
-
-
-def webhook_target_hostname(url: str) -> str:
-    return str(urlparse(url).hostname or "").strip().lower().rstrip(".")
-
 
 def _new_signing_secret() -> str:
     return secrets.token_urlsafe(32)
