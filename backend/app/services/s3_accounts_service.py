@@ -116,17 +116,17 @@ class S3AccountsService:
         self.associations = S3AccountAssociationsService(db)
 
     def get_account_record(self, account_id: int) -> S3Account:
-        account = self.db.execute(
+        account = self.db.scalar(
             select(S3Account).where(S3Account.id == account_id)
-        ).scalar_one_or_none()
+        )
         if not account:
             raise S3AccountNotFoundError("S3Account not found")
         return account
 
     def find_account_by_rgw_id(self, rgw_account_id: str) -> Optional[S3Account]:
-        return self.db.execute(
+        return self.db.scalar(
             select(S3Account).where(S3Account.rgw_account_id == rgw_account_id)
-        ).scalar_one_or_none()
+        )
 
     def _ensure_account_name_available(
         self,
@@ -144,7 +144,7 @@ class S3AccountsService:
         )
         if exclude_account_id is not None:
             query = query.where(S3Account.id != exclude_account_id)
-        if self.db.execute(query.limit(1)).scalar_one_or_none() is not None:
+        if self.db.scalar(query.limit(1)) is not None:
             raise ValueError(error_message)
 
     def _endpoint_capabilities(self, endpoint: StorageEndpoint) -> dict[str, bool]:
@@ -152,9 +152,9 @@ class S3AccountsService:
         return features_to_capabilities(features)
 
     def _resolve_storage_endpoint(self, storage_endpoint_id: int, require_ceph: bool = False) -> StorageEndpoint:
-        endpoint = self.db.execute(
+        endpoint = self.db.scalar(
             select(StorageEndpoint).where(StorageEndpoint.id == storage_endpoint_id)
-        ).scalar_one_or_none()
+        )
         if not endpoint:
             raise StorageEndpointNotFoundError("Storage endpoint not found.")
         if require_ceph and endpoint.provider != StorageProvider.CEPH.value:
@@ -807,9 +807,9 @@ class S3AccountsService:
         reconciles whichever remote resources were already created.
         """
         self._validate_managed_account_creation_policy(payload)
-        existing = self.db.execute(
+        existing = self.db.scalar(
             select(S3Account).where(S3Account.rgw_account_id == rgw_account_id)
-        ).scalar_one_or_none()
+        )
         if existing:
             if (
                 existing.storage_endpoint_id != payload.storage_endpoint_id
