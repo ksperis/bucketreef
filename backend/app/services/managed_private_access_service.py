@@ -36,7 +36,11 @@ from app.services.managed_private_access_sources import (
 )
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.mappers.s3_connection import mask_access_key_id
-from app.services.rgw_iam import RGWIAMService, get_iam_service
+from app.services.rgw_iam import (
+    RGWIAMService,
+    get_iam_service,
+    get_iam_service_for_execution_target,
+)
 from app.services.s3_connection_capabilities_service import (
     refresh_connection_detected_capabilities,
 )
@@ -44,7 +48,6 @@ from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.services.s3_users_service import S3UsersService
 from app.utils.s3_connection_endpoint import resolve_connection_details
-from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
 from app.utils.rgw_payloads import extract_rgw_user_identity
 from app.utils.storage_endpoint_features import (
@@ -713,17 +716,10 @@ class ManagedPrivateAccessService:
 
     @staticmethod
     def _iam_service_for_context(context: S3ExecutionTarget) -> RGWIAMService:
-        access_key, secret_key = context.effective_rgw_credentials()
-        if not access_key or not secret_key:
+        service = get_iam_service_for_execution_target(context)
+        if service is None:
             raise ManagedPrivateAccessError("The source context has no IAM administration credentials")
-        endpoint, region, verify_tls = resolve_iam_client_options(context)
-        return get_iam_service(
-            access_key,
-            secret_key,
-            endpoint=endpoint,
-            region=region,
-            verify_tls=verify_tls,
-        )
+        return service
 
     def _compensate_iam(
         self,

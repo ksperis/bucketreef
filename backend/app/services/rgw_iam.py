@@ -9,7 +9,9 @@ from app.models.iam import AccessKey, IAMGroup, IAMRole, IAMTag, IAMUser
 from app.models.policy import Policy
 from app.core.config import get_settings
 from app.services.aws_client_config import build_interactive_aws_config
+from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
+from app.utils.s3_endpoint import resolve_iam_client_options
 
 settings = get_settings()
 
@@ -705,3 +707,19 @@ def get_iam_service(
     verify_tls: bool = True,
 ) -> RGWIAMService:
     return RGWIAMService(access_key, secret_key, endpoint=endpoint, region=region, verify_tls=verify_tls)
+
+
+def get_iam_service_for_execution_target(
+    context: S3ExecutionTarget,
+) -> RGWIAMService | None:
+    access_key, secret_key = context.effective_rgw_credentials()
+    if not access_key or not secret_key:
+        return None
+    endpoint, region, verify_tls = resolve_iam_client_options(context)
+    return get_iam_service(
+        access_key,
+        secret_key,
+        endpoint=endpoint,
+        region=region,
+        verify_tls=verify_tls,
+    )
