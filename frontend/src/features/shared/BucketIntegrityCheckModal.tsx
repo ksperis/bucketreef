@@ -29,7 +29,7 @@ import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
-import { clampPercentage } from "../../utils/numbers";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat } from "./bucketOperationRunUi";
 import {
   buildCephAdminRgwBucketTargets,
@@ -154,8 +154,8 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
     { count: targetCount },
   );
   const progressPercent = useMemo(() => {
-    if (!progress || progress.listed_count <= 0) return null;
-    return clampPercentage(Math.round((progress.checked_count / progress.listed_count) * 100));
+    if (!progress) return null;
+    return roundedClampedPercentageOf(progress.checked_count, progress.listed_count);
   }, [progress]);
   const filteredBucketResults = useMemo(() => {
     if (!result) return [];

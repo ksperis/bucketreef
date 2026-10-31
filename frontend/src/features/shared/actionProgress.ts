@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { clampPercentage } from "../../utils/numbers";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 
 export type ActionProgressState = {
   label: string;
@@ -14,6 +14,6 @@ export type ActionProgressState = {
 export const calculateActionProgressPercent = (
   progress: Pick<ActionProgressState, "completed" | "total"> | null | undefined
 ) => {
-  if (!progress || progress.total <= 0) return 0;
-  return clampPercentage(Math.round((progress.completed / progress.total) * 100));
+  if (!progress) return 0;
+  return roundedClampedPercentageOf(progress.completed, progress.total) ?? 0;
 };
