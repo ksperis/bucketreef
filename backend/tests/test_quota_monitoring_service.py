@@ -721,6 +721,72 @@ def test_smtp_incomplete_is_non_blocking(db_session, monkeypatch):
     assert any("SMTP not configured" in warning for warning in result["warnings"])
 
 
+def test_webhook_failure_is_non_blocking_for_other_alert_channels(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint)
+    recipient = _seed_user(db_session, email="quota-recipient@example.test")
+    db_session.add(
+        UserS3Account(
+            user_id=recipient.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        )
+    )
+    db_session.commit()
+
+    fake_admin = _FakeAdminClient(
+        usage_bytes=90,
+        usage_objects=90,
+        quota_bytes=100,
+        quota_objects=100,
+    )
+    fake_mailer = _FakeMailer()
+
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _settings(quota_alerts_enabled=True, usage_history_enabled=False),
+    )
+    monkeypatch.setattr(
+        quota_monitoring_service.DataRetentionService,
+        "purge_all",
+        lambda self: {},
+    )
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "get_supervision_rgw_client",
+        lambda endpoint: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_runtime_client",
+        lambda self, endpoint, cache: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaAlertEmailService,
+        "build_mailer",
+        lambda self, notification_settings: (fake_mailer, None),
+    )
+
+    def fail_webhook(*args, **kwargs):
+        raise RuntimeError("queue failed")
+
+    monkeypatch.setattr(
+        quota_monitoring_service.WebhookEventPublisher,
+        "publish_event_in_current_transaction",
+        fail_webhook,
+    )
+
+    result = QuotaMonitoringService(db_session).run_monitor()
+
+    assert result["alerts_triggered"] == 1
+    assert result["notifications_created"] == 1
+    assert result["alerts_sent"] == 1
+    assert result["email_errors"] == 0
+    assert len(fake_mailer.calls) == 1
+
+
 def test_quota_history_constraints_prevent_duplicate_subject_rows(db_session):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint)

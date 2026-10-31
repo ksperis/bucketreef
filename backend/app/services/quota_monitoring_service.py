@@ -21,7 +21,7 @@ from app.db import (
 from app.models.app_settings import AppSettings
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.data_retention_service import DataRetentionService
-from app.services.quota_alert_content import build_quota_alert_content
+from app.services.quota_alert_content import QuotaAlertContent, build_quota_alert_content
 from app.services.quota_alert_email_service import QuotaAlertEmailService
 from app.services.quota_alert_recipients_service import (
     QuotaAlertRecipientIndex,
@@ -32,6 +32,7 @@ from app.services.quota_alert_state_service import (
     QUOTA_ALERT_THRESHOLD,
     QuotaAlertStateKey,
     QuotaAlertStateService,
+    QuotaAlertTransition,
 )
 from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
@@ -390,6 +391,22 @@ class QuotaMonitoringService:
             quota_objects=snapshot.quota_objects,
             checked_at=run.now,
         )
+        self._create_quota_notifications(subject, content, run)
+        self._publish_quota_webhook(subject, transition, content, run)
+        self._send_alert_email(
+            subject,
+            snapshot,
+            transition.next_level,
+            threshold_percent,
+            run,
+        )
+
+    @staticmethod
+    def _create_quota_notifications(
+        subject: SubjectContext,
+        content: QuotaAlertContent,
+        run: _QuotaMonitorRun,
+    ) -> None:
         notification_user_ids = run.recipients.notification_user_ids(
             subject=subject,
             index=run.recipient_index,
@@ -408,6 +425,14 @@ class QuotaMonitoringService:
                 created_at=run.now,
             )
         )
+
+    def _publish_quota_webhook(
+        self,
+        subject: SubjectContext,
+        transition: QuotaAlertTransition,
+        content: QuotaAlertContent,
+        run: _QuotaMonitorRun,
+    ) -> None:
         try:
             WebhookEventPublisher(self.db).publish_event_in_current_transaction(
                 event_type=QUOTA_THRESHOLD_EVENT_TYPE,
@@ -429,13 +454,6 @@ class QuotaMonitoringService:
                 subject.subject_id,
                 exc,
             )
-        self._send_alert_email(
-            subject,
-            snapshot,
-            transition.next_level,
-            threshold_percent,
-            run,
-        )
 
     @staticmethod
     def _send_alert_email(
