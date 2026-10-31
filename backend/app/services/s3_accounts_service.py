@@ -59,8 +59,8 @@ from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
 from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.rgw_quota_update import (
+    execute_rgw_quota_update,
     prepare_rgw_quota_update,
-    validate_rgw_quota_update_response,
 )
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.sqlalchemy_pagination import paginate_scalars
@@ -205,17 +205,13 @@ class S3AccountsService:
         require_endpoint_permissions(account.storage_endpoint, "accounts_write")
         admin = self._admin_for_account(account)
         quota = prepare_rgw_quota_update(max_size_gb, max_objects, max_size_unit)
-        try:
-            response = admin.set_account_quota(
+        execute_rgw_quota_update(
+            lambda: admin.set_account_quota(
                 account_id=account.rgw_account_id,
                 max_size_bytes=quota.max_size_bytes,
                 max_objects=quota.max_objects,
                 enabled=quota.enabled,
-            )
-        except RGWAdminError as exc:
-            raise ValueError(f"RGW account quota update failed: {exc}") from exc
-        validate_rgw_quota_update_response(
-            response,
+            ),
             subject="account",
             identifier=account.rgw_account_id,
         )

@@ -2,10 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Mapping
 
 from app.core.sensitive_data import sanitized_error_log_detail
+from app.services.rgw_admin import RGWAdminError
 from app.utils.size_units import size_to_bytes
 
 
@@ -42,3 +44,20 @@ def validate_rgw_quota_update_response(
         raise ValueError(f"RGW {subject} not found for quota update: {identifier}")
     if response.get("not_implemented"):
         raise ValueError(f"RGW {subject} quota update is not supported on this cluster.")
+
+
+def execute_rgw_quota_update(
+    operation: Callable[[], Mapping[str, object]],
+    *,
+    subject: str,
+    identifier: str,
+) -> None:
+    try:
+        response = operation()
+    except RGWAdminError as exc:
+        raise ValueError(f"RGW {subject} quota update failed: {exc}") from exc
+    validate_rgw_quota_update_response(
+        response,
+        subject=subject,
+        identifier=identifier,
+    )

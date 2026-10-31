@@ -53,8 +53,8 @@ from app.models.s3_user import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client, get_endpoint_runtime_rgw_client
 from app.services.rgw_quota_update import (
+    execute_rgw_quota_update,
     prepare_rgw_quota_update,
-    validate_rgw_quota_update_response,
 )
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services import s3_client
@@ -247,19 +247,19 @@ class S3UsersService:
         require_endpoint_permissions(s3_user.storage_endpoint, "users_write")
         admin = self._admin_for_user(s3_user)
         quota = prepare_rgw_quota_update(max_size_gb, max_objects, max_size_unit)
-        try:
+
+        def update_remote_quota():
             tenant = self._verified_user(s3_user, admin)
-            response = admin.set_user_quota(
+            return admin.set_user_quota(
                 uid=s3_user.rgw_user_uid,
                 **({"tenant": tenant} if tenant else {}),
                 max_size_bytes=quota.max_size_bytes,
                 max_objects=quota.max_objects,
                 enabled=quota.enabled,
             )
-        except RGWAdminError as exc:
-            raise ValueError(f"RGW user quota update failed: {exc}") from exc
-        validate_rgw_quota_update_response(
-            response,
+
+        execute_rgw_quota_update(
+            update_remote_quota,
             subject="user",
             identifier=s3_user.rgw_user_uid,
         )
