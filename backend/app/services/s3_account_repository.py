@@ -30,6 +30,18 @@ class S3AccountRepository:
             select(S3Account).where(S3Account.rgw_account_id == rgw_account_id)
         )
 
+    def existing_rgw_ids(self, rgw_account_ids: set[str]) -> set[str]:
+        if not rgw_account_ids:
+            return set()
+        return {
+            str(rgw_account_id)
+            for rgw_account_id in self.db.scalars(
+                select(S3Account.rgw_account_id).where(
+                    S3Account.rgw_account_id.in_(rgw_account_ids)
+                )
+            ).all()
+        }
+
     def ensure_name_available(
         self,
         *,
