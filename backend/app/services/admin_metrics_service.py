@@ -330,18 +330,6 @@ class AdminMetricsService:
 
         return self._storage_snapshot_from_account_fallback(accounts, s3_users)
 
-    def _resolve_fallback_account_usage(
-        self,
-        account: S3Account,
-    ) -> tuple[int | None, int | None, int | None]:
-        used_bytes, used_objects, bucket_count = self._collect_bucket_usage(
-            uid=rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account)),
-            context=f"account:{account.id}",
-        )
-        if used_bytes is not None or used_objects is not None:
-            return used_bytes, used_objects, bucket_count
-        return None, None, bucket_count
-
     def _storage_snapshot_from_account_fallback(
         self,
         accounts: Iterable[S3Account],
@@ -352,7 +340,10 @@ class AdminMetricsService:
         totals = _StorageUsageTotals()
         account_usage: list[dict] = []
         for account in accounts:
-            used_bytes, used_objects, bucket_count = self._resolve_fallback_account_usage(account)
+            used_bytes, used_objects, bucket_count = self._collect_bucket_usage(
+                uid=rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account)),
+                context=f"account:{account.id}",
+            )
             totals.add_account_usage(used_bytes, used_objects, bucket_count)
             if used_bytes is None and used_objects is None:
                 continue
