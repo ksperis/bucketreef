@@ -47,14 +47,14 @@ class WebAuthnService:
         self.settings = settings or get_settings()
 
     def has_credentials(self, user_id: int) -> bool:
-        return self.db.execute(
+        return self.db.scalar(
             select(WebAuthnCredential.id)
             .where(
                 WebAuthnCredential.user_id == user_id,
                 WebAuthnCredential.revoked_at.is_(None),
             )
             .limit(1)
-        ).scalar_one_or_none() is not None
+        ) is not None
 
     def list_credentials(self, user_id: int) -> list[WebAuthnCredential]:
         return self.db.scalars(
@@ -172,13 +172,13 @@ class WebAuthnService:
             binding_sid=binding_sid,
         )
         credential_id = str(credential.get("id") or "")
-        row = self.db.execute(
+        row = self.db.scalar(
             select(WebAuthnCredential).where(
                 WebAuthnCredential.user_id == user.id,
                 WebAuthnCredential.credential_id == credential_id,
                 WebAuthnCredential.revoked_at.is_(None),
             )
-        ).scalar_one_or_none()
+        )
         if not row:
             raise WebAuthnSecurityError("Passkey is not registered")
         try:
@@ -239,16 +239,16 @@ class WebAuthnService:
         return result.rowcount == 1
 
     def revoke_credential(self, user: User, credential_id: str) -> None:
-        row = self.db.execute(
+        row = self.db.scalar(
             select(WebAuthnCredential).where(
                 WebAuthnCredential.id == credential_id,
                 WebAuthnCredential.user_id == user.id,
                 WebAuthnCredential.revoked_at.is_(None),
             )
-        ).scalar_one_or_none()
+        )
         if not row:
             raise WebAuthnSecurityError("Passkey not found")
-        remaining = self.db.execute(
+        remaining = self.db.scalar(
             select(WebAuthnCredential.id)
             .where(
                 WebAuthnCredential.user_id == user.id,
@@ -256,7 +256,7 @@ class WebAuthnService:
                 WebAuthnCredential.id != row.id,
             )
             .limit(1)
-        ).scalar_one_or_none()
+        )
         if remaining is None:
             from app.services.identity_security_policy import passkey_required_for_role
 
@@ -316,7 +316,7 @@ class WebAuthnService:
         binding_sid: Optional[str] = None,
     ) -> bytes:
         now = utcnow()
-        row = self.db.execute(
+        row = self.db.scalar(
             select(AuthChallenge)
             .where(
                 AuthChallenge.user_id == user_id,
@@ -327,7 +327,7 @@ class WebAuthnService:
             )
             .order_by(AuthChallenge.created_at.desc())
             .limit(1)
-        ).scalar_one_or_none()
+        )
         if not row:
             raise WebAuthnSecurityError("WebAuthn challenge is unavailable")
         claimed = self.db.execute(
