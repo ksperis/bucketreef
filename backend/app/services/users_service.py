@@ -6,7 +6,7 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.security import consume_dummy_password_hash, get_password_hash, verify_and_update_password
+from app.core.security import get_password_hash
 from app.db import (
     User,
     UserRole,
@@ -25,11 +25,11 @@ from app.services.external_identity_user_service import ExternalIdentityUserServ
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_deletion_service import UserDeletionService
+from app.services.user_login_service import UserLoginService
 from app.services.user_output_service import UserOutputService
 from app.services.user_query_service import UserQueryService
 from app.services.user_update_service import UserUpdateService
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
-from app.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ class UsersService:
         self.query = UserQueryService(db)
         self.updates = UserUpdateService(db)
         self.associations = UserAssociationsService(db)
+        self.login = UserLoginService(db)
 
     def get_by_email(self, email: str) -> Optional[User]:
         return self.query.get_by_email(email)
@@ -187,28 +188,7 @@ class UsersService:
         )
 
     def authenticate(self, email: str, password: str) -> Optional[User]:
-        user = self.get_by_email(email)
-        if not user or not user.is_active or not user.hashed_password:
-            consume_dummy_password_hash(password)
-            return None
-        valid, updated_hash = verify_and_update_password(password, user.hashed_password)
-        if not valid:
-            return None
-        if updated_hash:
-            user.hashed_password = updated_hash
-            user.auth_version += 1
-            self.db.add(user)
-            self.db.commit()
-            from app.services.auth_session_service import AuthSessionService
-
-            AuthSessionService(self.db).revoke_all_for_user(
-                user,
-                "password_rehashed",
-                increment_version=False,
-            )
-            self.db.refresh(user)
-        logger.debug("Authenticated user id=%s email=%s", user.id, user.email)
-        return self.mark_last_login(user)
+        return self.login.authenticate_password(email, password)
 
     def user_to_out(
         self,
@@ -217,11 +197,7 @@ class UsersService:
         return UserOutputService(self.db).to_out(user)
 
     def mark_last_login(self, user: User) -> User:
-        user.last_login_at = utcnow()
-        self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
-        return user
+        return self.login.mark_last_login(user)
 
     def get_or_create_oidc_user(
         self,
