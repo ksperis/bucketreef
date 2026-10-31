@@ -39,3 +39,11 @@ def validate_ldap_user_filter(value: str) -> str:
     if "{username}" not in value:
         raise ValueError("LDAP provider user_filter must contain {username}")
     return value
+
+
+def validate_ldap_import_search_filter(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if "{query}" not in value:
+        raise ValueError("LDAP provider import_search_filter must contain {query}")
+    return value

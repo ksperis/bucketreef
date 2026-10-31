@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0222_external_identity_link_attempts"
+_EXPECTED_ALEMBIC_HEAD = "0223_ldap_import_search_filter"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):

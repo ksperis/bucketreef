@@ -12,7 +12,7 @@ from typing import Any, Optional
 from urllib.parse import urlparse
 
 from email_validator import EmailNotValidError, validate_email
-from ldap3 import NONE, SUBTREE, Connection, Server, Tls
+from ldap3 import BASE, NONE, SUBTREE, Connection, Server, Tls
 from ldap3.core.exceptions import LDAPExceptionError
 from ldap3.utils.conv import escape_filter_chars
 from sqlalchemy.orm import Session
@@ -120,6 +120,95 @@ class LDAPAuthService:
             raise LDAPAuthenticationError("Invalid credentials")
         provider_key, provider = self._get_provider(provider_id)
         return self._authenticate_directory(provider_key, provider, normalized_username, password)
+
+    def search_import_candidates(
+        self,
+        provider_id: str,
+        query: str,
+        *,
+        limit: int = 25,
+    ) -> tuple[list[LDAPIdentity], bool]:
+        normalized_query = str(query or "").strip()
+        if len(normalized_query) < 2:
+            raise ValueError("LDAP import search requires at least 2 characters")
+        provider_key, provider = self._get_provider(provider_id)
+        connection = self._bind_connection(
+            provider,
+            user=provider.bind_dn,
+            password=provider.bind_password,
+            invalid_credentials_as_auth=False,
+        )
+        try:
+            search_filter = self._build_import_search_filter(provider, normalized_query)
+            attributes = self._requested_attributes(provider)
+            search_ok = connection.search(
+                search_base=provider.user_base_dn,
+                search_filter=search_filter,
+                search_scope=SUBTREE,
+                attributes=attributes,
+                size_limit=limit + 1,
+            )
+            if not search_ok:
+                result = connection.result or {}
+                detail = result.get("description") or "search failed"
+                raise LDAPConfigurationError(f"LDAP user search failed: {detail}")
+            entries = list(getattr(connection, "entries", []) or [])
+            identities = [
+                self._identity_from_entry(provider_key, provider, entry, strict_email=False)
+                for entry in entries[:limit]
+            ]
+            return identities, len(entries) > limit
+        except (KeyError, ValueError) as exc:
+            raise LDAPConfigurationError("LDAP import_search_filter is invalid") from exc
+        except LDAPExceptionError as exc:
+            raise LDAPConfigurationError("LDAP user search failed") from exc
+        finally:
+            self._unbind(connection)
+
+    def reread_import_identity(
+        self,
+        provider_id: str,
+        *,
+        dn: str,
+        subject: str,
+    ) -> LDAPIdentity:
+        provider_key, provider = self._get_provider(provider_id)
+        normalized_dn = str(dn or "").strip()
+        normalized_subject = str(subject or "").strip()
+        if not normalized_dn or not normalized_subject:
+            raise LDAPConfigurationError("LDAP import selection is incomplete")
+        connection = self._bind_connection(
+            provider,
+            user=provider.bind_dn,
+            password=provider.bind_password,
+            invalid_credentials_as_auth=False,
+        )
+        try:
+            search_ok = connection.search(
+                search_base=normalized_dn,
+                search_filter="(objectClass=*)",
+                search_scope=BASE,
+                attributes=self._requested_attributes(provider),
+                size_limit=2,
+            )
+            if not search_ok:
+                raise LDAPAuthenticationError("LDAP import selection is no longer available")
+            entries = list(getattr(connection, "entries", []) or [])
+            if len(entries) != 1:
+                raise LDAPAuthenticationError("LDAP import selection is no longer available")
+            identity = self._identity_from_entry(
+                provider_key,
+                provider,
+                entries[0],
+                strict_email=False,
+            )
+            if identity.subject != normalized_subject:
+                raise LDAPAuthenticationError("LDAP import selection changed; search again")
+            return identity
+        except LDAPExceptionError as exc:
+            raise LDAPConfigurationError("LDAP user lookup failed") from exc
+        finally:
+            self._unbind(connection)
 
     def _provider_map(self) -> dict[str, LDAPProviderSettings]:
         return resolve_ldap_provider_map(self.db, self.settings)
@@ -258,7 +347,38 @@ class LDAPAuthService:
         if not user_dn:
             raise LDAPConfigurationError("LDAP user entry is missing a DN")
 
-        email = self._normalize_email(self._entry_value(entry, provider.email_attribute))
+        return self._identity_from_entry(provider_key, provider, entry, strict_email=True)
+
+    def _build_search_filter(self, provider: LDAPProviderSettings, username: str) -> str:
+        escaped_username = escape_filter_chars(str(username or "").strip())
+        try:
+            return provider.user_filter.format(username=escaped_username)
+        except (KeyError, ValueError) as exc:
+            raise LDAPConfigurationError("LDAP user_filter is invalid") from exc
+
+    def _build_import_search_filter(self, provider: LDAPProviderSettings, query: str) -> str:
+        escaped_query = escape_filter_chars(str(query or "").strip())
+        template = provider.import_search_filter
+        if not template:
+            template = provider.user_filter.replace("{username}", "*{query}*")
+        try:
+            return template.format(query=escaped_query)
+        except (KeyError, ValueError) as exc:
+            raise LDAPConfigurationError("LDAP import_search_filter is invalid") from exc
+
+    def _identity_from_entry(
+        self,
+        provider_key: str,
+        provider: LDAPProviderSettings,
+        entry: Any,
+        *,
+        strict_email: bool,
+    ) -> LDAPIdentity:
+        user_dn = str(getattr(entry, "entry_dn", "") or "").strip()
+        if not user_dn:
+            raise LDAPConfigurationError("LDAP user entry is missing a DN")
+        raw_email = self._entry_value(entry, provider.email_attribute)
+        email = self._normalize_email(raw_email, strict=strict_email)
         full_name = self._entry_value(entry, provider.name_attribute) if provider.name_attribute else None
         subject = (
             self._entry_value(entry, provider.subject_attribute)
@@ -274,13 +394,6 @@ class LDAPAuthService:
             email=email,
             full_name=full_name,
         )
-
-    def _build_search_filter(self, provider: LDAPProviderSettings, username: str) -> str:
-        escaped_username = escape_filter_chars(str(username or "").strip())
-        try:
-            return provider.user_filter.format(username=escaped_username)
-        except (KeyError, ValueError) as exc:
-            raise LDAPConfigurationError("LDAP user_filter is invalid") from exc
 
     def _requested_attributes(self, provider: LDAPProviderSettings) -> list[str]:
         attributes = {
@@ -317,7 +430,7 @@ class LDAPAuthService:
         return text or None
 
     @staticmethod
-    def _normalize_email(value: Optional[str]) -> Optional[str]:
+    def _normalize_email(value: Optional[str], *, strict: bool = True) -> Optional[str]:
         if not value:
             return None
         normalized = value.strip()
@@ -326,7 +439,9 @@ class LDAPAuthService:
         try:
             validated = validate_email(normalized, check_deliverability=False)
         except EmailNotValidError as exc:
-            raise LDAPConfigurationError("LDAP user entry contains an invalid email address") from exc
+            if strict:
+                raise LDAPConfigurationError("LDAP user entry contains an invalid email address") from exc
+            return None
         return validated.normalized.lower()
 
     @staticmethod

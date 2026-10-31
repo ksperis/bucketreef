@@ -52,6 +52,7 @@ def test_ldap_provider_responses_require_complete_canonical_payloads() -> None:
         "bind_dn",
         "user_base_dn",
         "user_filter",
+        "import_search_filter",
         "email_attribute",
         "name_attribute",
         "subject_attribute",

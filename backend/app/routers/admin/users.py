@@ -15,6 +15,7 @@ from app.models.user import (
     UserSummary,
     UserUpdate,
 )
+from app.models.admin_ldap_import import LDAPImportRequest, LDAPImportSearchResponse
 from app.routers.dependencies import (
     get_audit_service,
     get_current_super_admin,
@@ -26,6 +27,13 @@ from app.services.user_associations_service import (
     get_user_associations_service,
 )
 from app.services.users_service import UsersService
+from app.services.admin_ldap_user_import_service import AdminLdapUserImportService
+from app.services.ldap_service import (
+    LDAPAuthenticationError,
+    LDAPConfigurationError,
+    LDAPProviderNotFoundError,
+    get_ldap_auth_service,
+)
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.user_avatar_service import UserAvatarService
 from app.services.identity_security_policy import (
@@ -47,6 +55,28 @@ def get_user_associations_service_dependency(
     db: Session = Depends(get_db),
 ) -> UserAssociationsService:
     return get_user_associations_service(db)
+
+
+def _ldap_import_service(db: Session, users_service: UsersService) -> AdminLdapUserImportService:
+    return AdminLdapUserImportService(db, get_ldap_auth_service(db), users_service)
+
+
+def _raise_ldap_import_error(exc: Exception) -> None:
+    if isinstance(exc, LDAPProviderNotFoundError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="LDAP provider not found") from exc
+    if isinstance(exc, LDAPConfigurationError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="LDAP directory is unavailable or misconfigured",
+        ) from exc
+    if isinstance(exc, LDAPAuthenticationError):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="LDAP import selection is no longer valid; search again",
+        ) from exc
+    if isinstance(exc, ValueError):
+        raise_bad_request_from_value_error(exc)
+    raise exc
 
 
 def _require_superadmin_for_privileged_change(
@@ -125,6 +155,79 @@ def list_users_minimal(
 ) -> list[UserSummary]:
     require_admin_interactive_session(request, db, current_user)
     return users_service.list_users_minimal()
+
+
+@router.get("/ldap/search", response_model=LDAPImportSearchResponse)
+def search_ldap_users_for_import(
+    request: Request,
+    provider_id: str = Query(..., min_length=1, max_length=128),
+    q: str = Query(..., min_length=2, max_length=256),
+    users_service: UsersService = Depends(get_users_service_dependency),
+    current_user: DbUser = Depends(get_current_super_admin),
+) -> LDAPImportSearchResponse:
+    session = require_admin_interactive_session(request, users_service.db, current_user)
+    try:
+        return _ldap_import_service(users_service.db, users_service).search(
+            actor=current_user,
+            session=session,
+            provider_id=provider_id,
+            query=q,
+        )
+    except Exception as exc:
+        _raise_ldap_import_error(exc)
+
+
+@router.post("/ldap/import", response_model=UserOut)
+def import_ldap_user(
+    request: Request,
+    payload: LDAPImportRequest,
+    users_service: UsersService = Depends(get_users_service_dependency),
+    associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
+    current_user: DbUser = Depends(get_current_super_admin),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> UserOut:
+    if payload.action == "create":
+        assert payload.create is not None
+        ensure_actor_can_assign_role(current_user, payload.create.role)
+        _require_superadmin_for_privileged_change(
+            current_user,
+            role=payload.create.role,
+            can_access_ceph_admin=payload.create.can_access_ceph_admin,
+        )
+        _require_superadmin_for_group_privileges(
+            current_user,
+            associations_service,
+            group_ids=payload.create.group_ids,
+        )
+    else:
+        target = users_service.get_by_id(int(payload.target_user_id or 0))
+        if target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        ensure_actor_can_manage_user(
+            current_user,
+            target,
+            allow_self=is_superadmin_ui_role(current_user.role),
+        )
+
+    require_admin_sensitive_action(request, users_service.db, current_user)
+    session = require_admin_interactive_session(request, users_service.db, current_user)
+    try:
+        user, provider_id = _ldap_import_service(users_service.db, users_service).import_user(
+            payload,
+            actor=current_user,
+            session=session,
+        )
+        audit_service.record_action(
+            user=current_user,
+            scope="admin",
+            action=f"{payload.action}_ldap_ui_user",
+            entity_type="ui_user",
+            entity_id=str(user.id),
+            metadata={"provider_id": provider_id, "mode": payload.action},
+        )
+        return users_service.user_to_out(user)
+    except Exception as exc:
+        _raise_ldap_import_error(exc)
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)

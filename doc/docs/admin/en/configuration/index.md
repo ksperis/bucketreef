@@ -225,6 +225,11 @@ Common environment fields:
   to search anonymously when directory ACLs permit it
 - `LDAP_PROVIDERS__<key>__USER_BASE_DN`
 - `LDAP_PROVIDERS__<key>__USER_FILTER` containing `{username}`
+- optional `LDAP_PROVIDERS__<key>__IMPORT_SEARCH_FILTER` containing `{query}`.
+  This filter is used only by the Admin UI directory search when importing a
+  UI user. If it is omitted, BucketReef derives a partial-match filter from
+  `USER_FILTER` by replacing `{username}` with `*{query}*`. User input is LDAP
+  filter-escaped before substitution and search results are bounded.
 - optional attributes: `EMAIL_ATTRIBUTE`, `NAME_ATTRIBUTE`, `SUBJECT_ATTRIBUTE`
 - identity linking: `LINKING_POLICY`, accepting `reauthenticate` or `manual`.
   `reauthenticate` verifies the incoming LDAP credentials, then requires proof
@@ -245,6 +250,11 @@ Provider keys must match `[a-z0-9_-]+`. `ALLOW_INSECURE=true`,
 
 LDAP only authenticates the UI identity. First LDAP login creates a user with
 `ui_none`; admins still grant roles and storage access in BucketReef.
+Admins can also choose **LDAP directory** while creating a UI user. The search
+selects an LDAP identity first, then creates the BucketReef user and its LDAP
+identity link in one operation without a local password. An email match only
+offers an explicit link to the existing UI user; email equality never links an
+identity automatically. A revoked LDAP identity must be explicitly restored.
 
 ## App settings (persisted)
 

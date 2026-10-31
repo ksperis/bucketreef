@@ -54,6 +54,38 @@ const usersMessage = {
   create: m("Create", "创建"),
   backToUsers: m("Back to users", "返回用户列表"),
   createUiUser: m("Create UI user", "创建 UI 用户"),
+  identitySource: m("Identity source", "身份来源"),
+  identitySourceDescription: m("Create a local account or import and link an identity from an enabled LDAP directory.", "创建本地账户，或从已启用的 LDAP 目录导入并关联身份。"),
+  localAccount: m("Local account", "本地账户"),
+  localAccountDescription: m("Create the UI user with a BucketReef password.", "使用 BucketReef 密码创建 UI 用户。"),
+  ldapDirectory: m("LDAP directory", "LDAP 目录"),
+  ldapDirectoryDescription: m("Select a directory entry and create the LDAP link in the same operation.", "选择目录条目，并在同一操作中创建 LDAP 关联。"),
+  ldapProvider: m("LDAP provider", "LDAP 提供程序"),
+  loadingLdapProviders: m("Loading providers...", "正在加载提供程序…"),
+  loadLdapProvidersError: m("Unable to load LDAP providers.", "无法加载 LDAP 提供程序。"),
+  selectLdapProvider: m("Select a provider", "选择提供程序"),
+  noLdapProviders: m("No enabled LDAP provider is available.", "没有可用的已启用 LDAP 提供程序。"),
+  searchLdapDirectory: m("Directory search", "目录搜索"),
+  ldapSearchPlaceholder: m("Name, email, or login", "姓名、邮箱或登录名"),
+  ldapSearchHint: m("Enter at least 2 characters. Up to 25 matches are returned.", "至少输入 2 个字符。最多返回 25 个匹配项。"),
+  search: m("Search", "搜索"),
+  searching: m("Searching...", "正在搜索…"),
+  ldapSearchFailed: m("Unable to search the LDAP directory.", "无法搜索 LDAP 目录。"),
+  ldapSearchTruncated: m("More matches exist. Refine the search to narrow the result.", "还有更多匹配项。请缩小搜索范围。"),
+  noLdapMatches: m("No LDAP users match this search.", "没有 LDAP 用户符合此搜索。"),
+  ldapSearchResults: m("LDAP search results", "LDAP 搜索结果"),
+  alreadyLinked: m("Linked", "已关联"),
+  revokedLink: m("Revoked", "已撤销"),
+  selected: m("Selected", "已选择"),
+  ldapLinkedUser: m("Linked to existing UI user {email}.", "已关联到现有 UI 用户 {email}。"),
+  ldapEmailMatch: m("A UI user already has email {email}. Link the LDAP identity explicitly to reuse that account.", "UI 用户 {email} 已使用此邮箱。请显式关联 LDAP 身份以复用该账户。"),
+  ldapMissingEmail: m("The directory entry has no valid email. Enter the BucketReef UI user email manually after selecting it.", "目录条目没有有效邮箱。选择后请手动输入 BucketReef UI 用户邮箱。"),
+  useLdapEntry: m("Use this entry", "使用此条目"),
+  linkExistingUser: m("Link existing user", "关联现有用户"),
+  restoreLdapLink: m("Restore LDAP link", "恢复 LDAP 关联"),
+  selectLdapEntryRequired: m("Select an LDAP directory entry before creating the user.", "创建用户前请选择 LDAP 目录条目。"),
+  ldapIdentityLinked: m("LDAP identity linked", "LDAP 身份已关联"),
+  ldapIdentityRestored: m("LDAP identity link restored", "LDAP 身份关联已恢复"),
   creating: m("Creating...", "正在创建…"),
   creationSections: m("User creation sections", "用户创建分区"),
   operationalWorkspaces: m("Additional operational workspaces available to this UI user.", "此 UI 用户可用的其他运维工作区。"),
@@ -113,7 +145,7 @@ const usersMessage = {
   verificationFailed: m("Passkey verification failed. Please try again.", "通行密钥验证失败。请重试。"),
 } satisfies Record<string, I18nMessage>;
 
-type UsersMessageKey = keyof typeof usersMessage;
+export type UsersMessageKey = keyof typeof usersMessage;
 export type UsersText = (key: UsersMessageKey, values?: Record<string, string | number>) => string;
 
 export function useUsersI18n() {

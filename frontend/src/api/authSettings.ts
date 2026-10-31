@@ -63,6 +63,7 @@ export type LdapProviderAdminItem = {
   bind_dn: string | null;
   user_base_dn: string;
   user_filter: string;
+  import_search_filter: string | null;
   email_attribute: string;
   name_attribute: string | null;
   subject_attribute: string | null;
@@ -88,6 +89,7 @@ export type LdapProviderAdminPayload = {
   bind_password?: string | null;
   user_base_dn: string;
   user_filter: string;
+  import_search_filter: string | null;
   email_attribute: string;
   name_attribute: string | null;
   subject_attribute: string | null;

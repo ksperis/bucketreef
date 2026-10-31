@@ -86,6 +86,15 @@ def test_ldap_provider_requires_username_placeholder_in_filter():
         _provider(user_filter="(mail=admin@example.test)")
 
 
+def test_ldap_provider_import_search_filter_requires_query_placeholder():
+    with pytest.raises(ValidationError, match="import_search_filter"):
+        _provider(import_search_filter="(mail=admin@example.test)")
+
+    assert _provider(import_search_filter="(|(mail=*{query}*)(uid=*{query}*))").import_search_filter == (
+        "(|(mail=*{query}*)(uid=*{query}*))"
+    )
+
+
 def test_ldap_provider_allows_anonymous_search_and_rejects_partial_bind_credentials():
     provider = _provider(bind_dn=None, bind_password=None)
 
@@ -113,6 +122,89 @@ def test_search_filter_escapes_username():
     provider = _provider(user_filter="(uid={username})")
 
     assert service._build_search_filter(provider, "a*b(c)\\") == r"(uid=a\2ab\28c\29\5c)"
+
+
+def test_import_search_filter_escapes_query_and_derives_from_user_filter():
+    service = _service(SimpleNamespace())
+    provider = _provider(user_filter="(|(uid={username})(mail={username}))")
+
+    assert service._build_import_search_filter(provider, "a*b(c)\\") == (
+        r"(|(uid=*a\2ab\28c\29\5c*)(mail=*a\2ab\28c\29\5c*))"
+    )
+
+    custom = _provider(import_search_filter="(|(displayName=*{query}*)(mail=*{query}*))")
+    assert service._build_import_search_filter(custom, "a*b") == (
+        r"(|(displayName=*a\2ab*)(mail=*a\2ab*))"
+    )
+
+
+def test_search_import_candidates_is_bounded_and_accepts_invalid_email(db_session, monkeypatch):
+    service = _service(db_session, _provider(subject_attribute="entryUUID"))
+
+    class Entry:
+        def __init__(self, index: int):
+            self.entry_dn = f"uid=user{index},ou=people,dc=example,dc=test"
+            self.entry_attributes_as_dict = {
+                "mail": ["not-an-email" if index == 0 else f"user{index}@example.test"],
+                "displayName": [f"User {index}"],
+                "entryUUID": [f"uuid-{index}"],
+            }
+
+    class Connection:
+        entries = [Entry(index) for index in range(3)]
+
+        def search(self, **kwargs):
+            self.kwargs = kwargs
+            return True
+
+        def unbind(self):
+            return True
+
+    connection = Connection()
+    monkeypatch.setattr(service, "_bind_connection", lambda *_args, **_kwargs: connection)
+
+    identities, truncated = service.search_import_candidates("corp", "us", limit=2)
+
+    assert truncated is True
+    assert len(identities) == 2
+    assert identities[0].email is None
+    assert identities[0].subject == "uuid-0"
+    assert connection.kwargs["size_limit"] == 3
+
+
+def test_reread_import_identity_rejects_changed_subject(db_session, monkeypatch):
+    service = _service(db_session, _provider(subject_attribute="entryUUID"))
+
+    class Entry:
+        entry_dn = "uid=jane,ou=people,dc=example,dc=test"
+        entry_attributes_as_dict = {
+            "mail": ["jane@example.test"],
+            "displayName": ["Jane Doe"],
+            "entryUUID": ["uuid-changed"],
+        }
+
+    class Connection:
+        entries = [Entry()]
+
+        def search(self, **kwargs):
+            self.kwargs = kwargs
+            return True
+
+        def unbind(self):
+            return True
+
+    connection = Connection()
+    monkeypatch.setattr(service, "_bind_connection", lambda *_args, **_kwargs: connection)
+
+    with pytest.raises(LDAPAuthenticationError, match="selection changed"):
+        service.reread_import_identity(
+            "corp",
+            dn="uid=jane,ou=people,dc=example,dc=test",
+            subject="uuid-original",
+        )
+
+    assert connection.kwargs["search_base"] == "uid=jane,ou=people,dc=example,dc=test"
+    assert connection.kwargs["size_limit"] == 2
 
 
 def test_build_server_enables_legacy_tls_ciphers_only_when_requested(db_session):
