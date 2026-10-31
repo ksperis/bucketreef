@@ -497,13 +497,7 @@ class S3AccountsService:
                 account_id_order.desc() if descending else account_id_order.asc(),
                 S3Account.id.desc() if descending else S3Account.id.asc(),
             ]
-        if descending:
-            return [
-                func.lower(S3Account.name).desc(),
-                S3Account.name.desc(),
-                S3Account.id.desc(),
-            ]
-        return list(name_order_by(S3Account))
+        return list(name_order_by(S3Account, descending=descending))
 
     def list_accounts_page(
         self,

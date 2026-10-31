@@ -296,14 +296,19 @@ def test_ui_group_listings_share_stable_case_insensitive_order(client: TestClien
         "/api/admin/groups",
         params={"sort_by": "name", "sort_dir": "asc", "page_size": 10},
     )
+    paginated_desc = client.get(
+        "/api/admin/groups",
+        params={"sort_by": "name", "sort_dir": "desc", "page_size": 10},
+    )
     created_desc = client.get(
         "/api/admin/groups",
         params={"sort_by": "created_at", "sort_dir": "desc", "page_size": 10},
     )
 
-    assert minimal.status_code == paginated.status_code == created_desc.status_code == 200
+    assert minimal.status_code == paginated.status_code == paginated_desc.status_code == created_desc.status_code == 200
     assert [item["name"] for item in minimal.json()] == ["alpha", "Beta", "Zulu"]
     assert [item["name"] for item in paginated.json()["items"]] == ["alpha", "Beta", "Zulu"]
+    assert [item["name"] for item in paginated_desc.json()["items"]] == ["Zulu", "Beta", "alpha"]
     assert [item["id"] for item in created_desc.json()["items"]] == sorted(
         [item["id"] for item in created],
         reverse=True,

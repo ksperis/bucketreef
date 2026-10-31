@@ -300,13 +300,7 @@ class UiGroupsService:
     def _group_order_columns(sort_field: str, sort_direction: str):
         descending = sort_direction == "desc"
         if sort_field == "name" or sort_field not in {"created_at", "updated_at"}:
-            if descending:
-                return (
-                    func.lower(UiGroup.name).desc(),
-                    UiGroup.name.desc(),
-                    UiGroup.id.desc(),
-                )
-            return name_order_by(UiGroup)
+            return name_order_by(UiGroup, descending=descending)
         sort_column = UiGroup.created_at if sort_field == "created_at" else UiGroup.updated_at
         direction = sort_column.desc if descending else sort_column.asc
         id_direction = UiGroup.id.desc if descending else UiGroup.id.asc

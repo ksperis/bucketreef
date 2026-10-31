@@ -8,9 +8,14 @@ from sqlalchemy import func
 from sqlalchemy.sql.elements import ColumnElement
 
 
-def name_order_by(model: Any) -> tuple[ColumnElement[Any], ColumnElement[Any], ColumnElement[Any]]:
+def name_order_by(
+    model: Any,
+    *,
+    descending: bool = False,
+) -> tuple[ColumnElement[Any], ColumnElement[Any], ColumnElement[Any]]:
+    direction = "desc" if descending else "asc"
     return (
-        func.lower(model.name).asc(),
-        model.name.asc(),
-        model.id.asc(),
+        getattr(func.lower(model.name), direction)(),
+        getattr(model.name, direction)(),
+        getattr(model.id, direction)(),
     )

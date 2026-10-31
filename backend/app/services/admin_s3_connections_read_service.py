@@ -198,13 +198,7 @@ class AdminS3ConnectionsReadService:
         requested_sort = sort_by if sort_by in sort_map else "name"
         descending = sort_dir.lower() == "desc"
         if requested_sort == "name":
-            if descending:
-                return query.order_by(
-                    func.lower(S3Connection.name).desc(),
-                    S3Connection.name.desc(),
-                    S3Connection.id.desc(),
-                )
-            return query.order_by(*name_order_by(S3Connection))
+            return query.order_by(*name_order_by(S3Connection, descending=descending))
 
         sort_field = sort_map[requested_sort]
         if descending:

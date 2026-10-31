@@ -376,13 +376,7 @@ class S3UsersService:
         requested_sort = sort_field if sort_field in sort_map else "name"
         descending = sort_direction.lower() == "desc"
         if requested_sort == "name":
-            if descending:
-                return [
-                    func.lower(S3UserModel.name).desc(),
-                    S3UserModel.name.desc(),
-                    S3UserModel.id.desc(),
-                ]
-            return list(name_order_by(S3UserModel))
+            return list(name_order_by(S3UserModel, descending=descending))
         sort_column = sort_map[requested_sort]
         direction = sort_column.desc if descending else sort_column.asc
         id_direction = S3UserModel.id.desc if descending else S3UserModel.id.asc
