@@ -8,6 +8,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
+import { clampPercentage } from "../../utils/numbers";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import PortalOperationLayout, { PortalOperationProgress } from "./PortalOperationLayout";
 import { usePortalStreamOperation } from "./usePortalStreamOperation";
@@ -27,7 +28,7 @@ export default function PortalStorageSpaceHistoryCleanupWorkflow({ accountId, sp
   const counts = result ?? progress;
   const deleted = (counts?.deleted_versions ?? 0) + (counts?.deleted_delete_markers ?? 0);
   const percent = result?.status === "completed" ? 100 : !result && progress?.total_candidates_final && progress.delete_candidates > 0
-    ? Math.min(100, Math.round(deleted / progress.delete_candidates * 100)) : null;
+    ? clampPercentage(Math.round(deleted / progress.delete_candidates * 100)) : null;
   return <PortalOperationLayout
       title={t({
         en: "Clean up history",

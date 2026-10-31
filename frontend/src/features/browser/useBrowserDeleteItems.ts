@@ -7,6 +7,7 @@ import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { deleteObjects } from "../../api/browserObjects";
 import { runWithConcurrency } from "../../utils/concurrency";
+import { clampPercentage } from "../../utils/numbers";
 import { createRuntimeId } from "../../utils/runtimeId";
 import { formatBrowserOperationError } from "./browserOperationErrors";
 import { updateOperationDetailsByKey } from "./browserOperationDetailState";
@@ -258,7 +259,7 @@ export function useBrowserDeleteItems({
           (deleted, itemCount) => {
             const progress =
               itemCount > 0
-                ? Math.min(100, Math.round((deleted / itemCount) * 100))
+                ? clampPercentage(Math.round((deleted / itemCount) * 100))
                 : 0;
             updateOperation(operationId, { progress });
           },
@@ -365,7 +366,7 @@ export function useBrowserDeleteItems({
               (deleted, total) => {
                 const progress =
                   total > 0
-                    ? Math.min(100, Math.round((deleted / total) * 100))
+                    ? clampPercentage(Math.round((deleted / total) * 100))
                     : 0;
                 updateOperation(operationId, { progress });
               },

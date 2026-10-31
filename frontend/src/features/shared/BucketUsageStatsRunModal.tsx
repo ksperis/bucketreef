@@ -18,6 +18,7 @@ import UiInput from "../../components/ui/UiInput";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
 import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
+import { clampPercentage } from "../../utils/numbers";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat, bucketOperationTableContainerClass } from "./bucketOperationRunUi";
 import {
   buildCephAdminRgwBucketTargets,
@@ -86,7 +87,7 @@ export default function BucketUsageStatsRunModal(props: BucketUsageStatsRunModal
   const targetLabel = text(targetCount > 1 ? "targetBuckets" : "targetBucket", { count: targetCount });
   const progressPercent = useMemo(() => {
     if (!progress || progress.total_buckets <= 0) return null;
-    return Math.max(0, Math.min(100, Math.round((progress.completed_buckets / progress.total_buckets) * 100)));
+    return clampPercentage(Math.round((progress.completed_buckets / progress.total_buckets) * 100));
   }, [progress]);
 
   const runCalculation = async () => {

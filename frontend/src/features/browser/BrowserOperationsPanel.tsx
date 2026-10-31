@@ -6,6 +6,7 @@ import { Fragment, useMemo, type ReactNode } from "react";
 import { ListActionButton } from "../../components/list/ListControls";
 import { cx } from "../../components/ui/styles";
 import { formatBytes } from "../../utils/format";
+import { clampPercentage } from "../../utils/numbers";
 import { countBadgeClasses } from "./browserConstants";
 import { ChevronDownIcon, DownloadIcon, InfoIcon, XIcon } from "./browserIcons";
 import {
@@ -178,7 +179,7 @@ export default function BrowserOperationsPanel({
       .filter((value) => Number.isFinite(value));
     if (progressValues.length === 0) return pendingOperationsCount > 0 ? 0 : 100;
     const average = progressValues.reduce((sum, value) => sum + value, 0) / progressValues.length;
-    return Math.max(0, Math.min(100, Math.round(average)));
+    return clampPercentage(Math.round(average));
   }, [pendingOperationsCount, timelineEntries, totalOperationsCount]);
 
   const renderEntry = (entry: BrowserOperationTimelineEntry) => {

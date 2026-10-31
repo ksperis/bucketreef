@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { BrowserTransferOperationGroupCard } from "./BrowserOperationCards";
+import { BrowserOperationCard, BrowserTransferOperationGroupCard } from "./BrowserOperationCards";
 import type { OperationItem } from "./browserTypes";
 
 const baseOperation: OperationItem = {
@@ -22,6 +22,22 @@ const allSections = {
 };
 
 describe("BrowserTransferOperationGroupCard", () => {
+  it("clamps progress semantics and visual width", () => {
+    const { rerender } = render(
+      <BrowserOperationCard title="Overshoot" progress={130} />,
+    );
+
+    let progressbar = screen.getByRole("progressbar", { name: "Overshoot" });
+    expect(progressbar).toHaveAttribute("aria-valuenow", "100");
+    expect(progressbar.firstElementChild).toHaveStyle({ width: "100%" });
+
+    rerender(<BrowserOperationCard title="Overshoot" progress={-10} />);
+
+    progressbar = screen.getByRole("progressbar", { name: "Overshoot" });
+    expect(progressbar).toHaveAttribute("aria-valuenow", "0");
+    expect(progressbar.firstElementChild).toHaveStyle({ width: "0%" });
+  });
+
   it("renders and routes a paginated download group", () => {
     const onToggleExpanded = vi.fn();
     const onShowMore = vi.fn();

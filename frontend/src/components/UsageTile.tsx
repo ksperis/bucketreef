@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { formatPercentage } from "../utils/format";
+import { clampPercentage, clampedPercentageOf } from "../utils/numbers";
 import { useI18n } from "../i18n";
 import UiMeterBar from "./ui/UiMeterBar";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
@@ -30,7 +31,7 @@ export default function UsageTile({
 }: UsageTileProps) {
   const { t } = useI18n();
   const hasUsage = typeof used === "number" && !Number.isNaN(used);
-  const ratio = quota && quota > 0 && hasUsage ? Math.min(100, (used / quota) * 100) : null;
+  const ratio = hasUsage ? clampedPercentageOf(used, quota) : null;
   const usedDisplay = hasUsage ? formatter(used) : loading ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen...", zh: "正在加载..." }) : "—";
   const quotaDisplay = quota && quota > 0 ? (quotaFormatter ? quotaFormatter(quota) : formatter(quota)) : null;
   const ratioLabel = ratio !== null ? formatPercentage(ratio) : "—";
@@ -74,7 +75,7 @@ export default function UsageTile({
 
 function UsageGauge({ ratio }: { ratio: number }) {
   const { t } = useI18n();
-  const clamped = Math.min(100, Math.max(0, ratio));
+  const clamped = clampPercentage(ratio);
   const angle = (clamped / 100) * 360;
   const color = getAccentColor(clamped);
   const track = "rgba(148, 163, 184, 0.25)";

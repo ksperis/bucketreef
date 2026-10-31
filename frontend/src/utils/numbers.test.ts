@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { clampNumber, clampedPercentageOf } from "./numbers";
+import { clampNumber, clampPercentage, clampedPercentageOf } from "./numbers";
 
 describe("clampNumber", () => {
   it("keeps values inside the range and clamps both boundaries", () => {
     expect(clampNumber(5, 0, 10)).toBe(5);
     expect(clampNumber(-1, 0, 10)).toBe(0);
     expect(clampNumber(11, 0, 10)).toBe(10);
+  });
+});
+
+describe("clampPercentage", () => {
+  it("clamps values to the percentage range", () => {
+    expect(clampPercentage(42.5)).toBe(42.5);
+    expect(clampPercentage(-1)).toBe(0);
+    expect(clampPercentage(101)).toBe(100);
   });
 });
 

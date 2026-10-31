@@ -6,6 +6,7 @@ import { ListActionButton, ListBadge } from "../../components/list/ListControls"
 import type { ReactNode } from "react";
 
 import { formatBytes } from "../../utils/format";
+import { clampPercentage } from "../../utils/numbers";
 import { DEFAULT_QUEUED_VISIBLE_COUNT } from "./browserConstants";
 import { buildOperationStatusPill } from "./browserOperationStatus";
 import type {
@@ -36,6 +37,7 @@ export function BrowserOperationCard({
   children,
 }: BrowserOperationCardProps) {
   const { text } = useBrowserI18n();
+  const boundedProgress = typeof progress === "number" ? clampPercentage(progress) : null;
   return (
     <div className="border-b border-[color:var(--ui-border-soft)] py-3 last:border-b-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -65,13 +67,13 @@ export function BrowserOperationCard({
           {actions}
         </div>
       </div>
-      {typeof progress === "number" && (
+      {boundedProgress !== null && (
         <div role="progressbar" aria-label={title} aria-valuemin={0} aria-valuemax={100}
-          aria-valuenow={Math.min(100, Math.max(0, progress))}
+          aria-valuenow={boundedProgress}
           className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--ui-surface-muted)]">
           <div
             className="h-full bg-primary-500"
-            style={{ width: `${progress}%` }}
+            style={{ width: `${boundedProgress}%` }}
           />
         </div>
       )}

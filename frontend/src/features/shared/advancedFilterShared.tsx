@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import UiProgressBar from "../../components/ui/UiProgressBar";
 import { interpolateText } from "../../i18n";
+import { clampPercentage } from "../../utils/numbers";
 import type { TextMatchMode } from "../../utils/textMatch";
 import type { SharedText } from "./sharedI18n";
 
@@ -176,7 +177,7 @@ const formatAdvancedSearchStage = (stage: string) => {
 
 export const progressFromAdvancedSearchEvent = (event: AdvancedSearchProgressEvent): AdvancedSearchProgress => {
   const rawPercent = Number(event.percent);
-  const percent = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, Math.round(rawPercent))) : 0;
+  const percent = Number.isFinite(rawPercent) ? clampPercentage(Math.round(rawPercent)) : 0;
   const rawProcessed = Number(event.processed);
   const rawTotal = Number(event.total);
   const total = Number.isFinite(rawTotal) ? Math.max(0, Math.round(rawTotal)) : 0;
@@ -197,7 +198,7 @@ export const renderAdvancedSearchProgress = (
   text: SharedText = identityText,
 ) => {
   if (!progress.active) return null;
-  const percent = Math.max(0, Math.min(100, Math.round(progress.percent)));
+  const percent = clampPercentage(Math.round(progress.percent));
   const progressDetails = progress.total > 0 ? ` · ${progress.processed} / ${progress.total}` : "";
   return (
     <div className="mb-3 rounded-lg border border-[color:var(--ui-border)] bg-[var(--ui-surface)] p-3">

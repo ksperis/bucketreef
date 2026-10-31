@@ -20,6 +20,7 @@ import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { proxyDownload } from "../../api/browserTransfers";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
+import { clampPercentage } from "../../utils/numbers";
 import {
   compareManagerBucketPair,
   listBuckets,
@@ -292,7 +293,7 @@ export default function ManagerBucketCompareModal({
   );
   const progressPercent = useMemo(() => {
     if (progress.total <= 0) return 0;
-    return Math.min(100, Math.round((progress.completed / progress.total) * 100));
+    return clampPercentage(Math.round((progress.completed / progress.total) * 100));
   }, [progress.completed, progress.total]);
   const hasScopeSelected = includeContent || includeConfig;
   const hasConfigFeatureSelected = selectedConfigFeatures.length > 0;

@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { clampPercentage } from "../../utils/numbers";
 import { cx } from "./styles";
 
 type UiProgressBarProps = {
@@ -19,7 +20,7 @@ export default function UiProgressBar({
   className,
   barClassName = "bg-primary",
 }: UiProgressBarProps) {
-  const width = value === null ? null : Math.max(0, Math.min(100, value));
+  const width = value === null ? null : clampPercentage(value);
   return (
     <>
       {showLabel ? <span className="sr-only">{label}</span> : null}

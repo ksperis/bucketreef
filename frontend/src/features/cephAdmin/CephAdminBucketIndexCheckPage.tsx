@@ -18,6 +18,7 @@ import UiProgressBar from "../../components/ui/UiProgressBar";
 import { cx, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { formatNumber } from "../../utils/format";
+import { clampPercentage } from "../../utils/numbers";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { useCephAdminI18n } from "./cephAdminI18n";
 
@@ -44,7 +45,7 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
 
   const progressPercent = useMemo(() => {
     if (!progress || progress.total_buckets <= 0) return 0;
-    return Math.max(0, Math.min(100, Math.round((progress.completed_buckets / progress.total_buckets) * 100)));
+    return clampPercentage(Math.round((progress.completed_buckets / progress.total_buckets) * 100));
   }, [progress]);
 
   const runChecks = async () => {

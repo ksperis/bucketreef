@@ -40,6 +40,7 @@ import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
 import PropertySummaryChip from "../../components/PropertySummaryChip";
 import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
+import { clampPercentage } from "../../utils/numbers";
 import { compareByNullableField, nextSortState, type SortableField } from "../../utils/sortValues";
 import { getManagerToolAccess, readStoredUser } from "../../utils/workspaces";
 import {
@@ -81,7 +82,7 @@ function QuotaBar({ usedBytes, quotaBytes }: { usedBytes?: number | null; quotaB
     return <span className="ui-body text-slate-500 dark:text-slate-400">-</span>;
   }
   const used = usedBytes ?? 0;
-  const ratio = Math.min(100, Math.round((used / quotaBytes) * 100));
+  const ratio = clampPercentage(Math.round((used / quotaBytes) * 100));
   const usedDisplay = formatBytes(used);
   const quotaDisplay = formatBytes(quotaBytes);
   return (
@@ -103,7 +104,7 @@ function QuotaObjectsBar({ usedObjects, quotaObjects }: { usedObjects?: number |
     return <span className="ui-body text-slate-500 dark:text-slate-400">-</span>;
   }
   const used = usedObjects ?? 0;
-  const ratio = Math.min(100, Math.round((used / quotaObjects) * 100));
+  const ratio = clampPercentage(Math.round((used / quotaObjects) * 100));
   return (
     <div className="flex items-center gap-2" title={`${formatNumber(used)} / ${formatNumber(quotaObjects)} objects`}>
       <UiMeterBar
