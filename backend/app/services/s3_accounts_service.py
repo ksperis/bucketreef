@@ -1,13 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.feature_policy_service import (
-    apply_resource_feature_overrides,
-    validate_manager_overrides,
-    validate_multisite_endpoint_switching_override,
-    validate_project_collection_overrides,
-    validate_project_overrides,
-)
-from app.services.app_settings_service import load_app_settings_for_db_readonly
 from typing import Any, Optional
 
 from sqlalchemy import exists, func, or_, select
@@ -17,7 +9,6 @@ from app.db import (
     S3Account,
     S3AccountTag,
     StorageEndpoint,
-    StorageProvider,
     TagDefinition,
     UiGroup,
     UiGroupS3Account,
@@ -33,12 +24,6 @@ from app.models.s3_account import (
     S3AccountUpdate,
 )
 from app.services.mappers.s3_account import s3_account_from_db, s3_account_summary_from_db
-from app.services.portal_role_sync import (
-    PortalRoleMap,
-    capture_effective_portal_roles,
-    sync_portal_role_downgrades,
-    sync_portal_role_promotions,
-)
 from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.rgw_account_root_service import RgwAccountRootService
@@ -51,9 +36,9 @@ from app.services.s3_account_quota_service import S3AccountQuotaService
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
+from app.services.s3_account_update_service import S3AccountUpdateService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
-from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.sql_search import text_search_predicate
 from app.utils.name_ordering import name_order_by
 
@@ -83,6 +68,15 @@ class S3AccountsService:
             account_roots=self.account_roots,
             quota=self.quota,
             metrics=self.metrics,
+            tags=self.tags,
+        )
+        self.updater = S3AccountUpdateService(
+            db,
+            repository=self.repository,
+            rgw_context=self.rgw_context,
+            quota=self.quota,
+            metrics=self.metrics,
+            associations=self.associations,
             tags=self.tags,
         )
         self.deletion = S3AccountDeletionService(
@@ -372,139 +366,8 @@ class S3AccountsService:
             tags=self.tags.get_account_tags(account),
         )
 
-    def _apply_account_update_fields(self, account: S3Account, payload: S3AccountUpdate) -> None:
-        app_settings = load_app_settings_for_db_readonly(self.db)
-        validate_manager_overrides(payload, app_settings.manager.feature_policies, account)
-        validate_multisite_endpoint_switching_override(
-            payload,
-            app_settings.manager.feature_policies,
-            account,
-        )
-        validate_project_overrides(payload, app_settings.general.project_feature_policies, account)
-        validate_project_collection_overrides(payload, app_settings.general.project_collection_policies, account)
-        target_endpoint_id = account.storage_endpoint_id
-        if payload.storage_endpoint_id is not None:
-            endpoint = self.rgw_context.resolve_storage_endpoint(payload.storage_endpoint_id, require_ceph=True)
-            target_endpoint_id = endpoint.id
-        target_name = payload.name if payload.name else account.name
-        if target_name != account.name or target_endpoint_id != account.storage_endpoint_id:
-            self.repository.ensure_name_available(
-                storage_endpoint_id=target_endpoint_id,
-                rgw_tenant=account.rgw_tenant,
-                name=target_name,
-                exclude_account_id=account.id,
-            )
-        if payload.name:
-            account.name = payload.name
-        if payload.email is not None:
-            account.email = payload.email
-        if payload.storage_endpoint_id is not None:
-            account.storage_endpoint_id = target_endpoint_id
-        if payload.tags is not None:
-            self.tags.replace_account_tags(account, payload.tags)
-        apply_resource_feature_overrides(payload, account)
-
-    def _apply_account_quota_update(self, account: S3Account, payload: S3AccountUpdate) -> None:
-        if {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set:
-            quota_requested = payload.quota_max_size_gb is not None or payload.quota_max_objects is not None
-            if quota_requested:
-                self.quota.update(
-                    account,
-                    payload.quota_max_size_gb,
-                    payload.quota_max_objects,
-                    payload.quota_max_size_unit,
-                )
-            else:
-                endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
-                if endpoint.provider == StorageProvider.CEPH.value and resolve_feature_flags(endpoint).admin_enabled:
-                    self.quota.update(
-                        account,
-                        payload.quota_max_size_gb,
-                        payload.quota_max_objects,
-                        payload.quota_max_size_unit,
-                    )
-
-    def _apply_account_associations(self, account: S3Account, payload: S3AccountUpdate) -> None:
-        if payload.user_links is not None:
-            self.associations.set_user_links(account, payload.user_links)
-        if payload.group_links is not None:
-            self.associations.set_group_links(account, payload.group_links)
-
-    def _commit_account_update_with_portal_sync(
-        self,
-        account: S3Account,
-        *,
-        affected_portal_user_ids: set[int],
-        portal_roles_before: PortalRoleMap,
-    ) -> None:
-        self.db.add(account)
-        self.db.flush()
-        portal_roles_after = capture_effective_portal_roles(
-            self.db,
-            user_ids=affected_portal_user_ids,
-            account_ids=[account.id],
-        )
-        try:
-            sync_portal_role_downgrades(
-                self.db,
-                before=portal_roles_before,
-                after=portal_roles_after,
-            )
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-        sync_portal_role_promotions(
-            self.db,
-            before=portal_roles_before,
-            after=portal_roles_after,
-        )
-        self.db.refresh(account)
-
-    def _updated_account_schema(self, account: S3Account) -> S3AccountSchema:
-        user_links = self.associations.load_user_links([account.id]).get(
-            account.id,
-            [],
-        )
-        group_links = self.associations.load_group_links([account.id]).get(
-            account.id,
-            [],
-        )
-        endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
-        quota_max_size_gb, quota_max_objects = self.get_account_quota(account)
-
-        return s3_account_from_db(
-            account,
-            quota_max_size_gb=quota_max_size_gb,
-            quota_max_objects=quota_max_objects,
-            user_links=user_links,
-            group_links=group_links,
-            storage_endpoint=endpoint,
-            storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
-            tags=self.tags.get_account_tags(account),
-        )
-
     def update_account(self, account_id: int, payload: S3AccountUpdate) -> S3AccountSchema:
-        account = self.get_account_record(account_id)
-        affected_portal_user_ids = self.associations.affected_portal_user_ids(
-            account,
-            payload,
-        )
-        portal_roles_before = capture_effective_portal_roles(
-            self.db,
-            user_ids=affected_portal_user_ids,
-            account_ids=[account.id],
-        )
-
-        self._apply_account_update_fields(account, payload)
-        self._apply_account_quota_update(account, payload)
-        self._apply_account_associations(account, payload)
-        self._commit_account_update_with_portal_sync(
-            account,
-            affected_portal_user_ids=affected_portal_user_ids,
-            portal_roles_before=portal_roles_before,
-        )
-        return self._updated_account_schema(account)
+        return self.updater.update_account(account_id, payload)
 
     def delete_account(self, account_id: int, delete_rgw: bool = False) -> None:
         account = self.get_account_record(account_id)

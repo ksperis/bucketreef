@@ -261,7 +261,7 @@ def test_update_account_user_links_missing_user(db_session, monkeypatch):
     db_session.commit()
 
     service, _ = _service(db_session)
-    monkeypatch.setattr(service, "get_account_quota", lambda *args, **kwargs: (None, None))
+    monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (None, None))
 
     with pytest.raises(ValueError, match="User not found"):
         service.update_account(
@@ -320,7 +320,7 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
 
     quota_calls: list[tuple] = []
     monkeypatch.setattr(service.quota, "update", lambda *args, **kwargs: quota_calls.append(args))
-    monkeypatch.setattr(service, "get_account_quota", lambda *args, **kwargs: (12.5, 42))
+    monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (12.5, 42))
 
     updated = service.update_account(
         account.id,
@@ -423,7 +423,7 @@ def test_update_account_persists_privileged_bucket_quota_grant(db_session, monke
     assert account.allow_bucket_quota_management is None
 
     service, _ = _service(db_session)
-    monkeypatch.setattr(service, "get_account_quota", lambda *args, **kwargs: (None, None))
+    monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (None, None))
 
     updated = service.update_account(
         account.id,
@@ -439,7 +439,7 @@ def test_update_account_persists_project_usage_feature_overrides(db_session, mon
     endpoint = _seed_endpoint(db_session, name="ceph-usage-overrides", is_default=True)
     account = _seed_account(db_session, endpoint.id, name="usage-overrides", rgw_account_id="RGW-USAGE-OVERRIDES")
     service, _ = _service(db_session)
-    monkeypatch.setattr(service, "get_account_quota", lambda *args, **kwargs: (None, None))
+    monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (None, None))
 
     updated = service.update_account(
         account.id,
