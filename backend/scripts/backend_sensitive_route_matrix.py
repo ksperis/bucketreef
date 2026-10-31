@@ -141,7 +141,7 @@ EXPECTED_GUARDS: dict[tuple[str, str], str] = {
     **_entries("usage_history.py", ADMIN_AUTH, "collect_usage_history"),
     **_entries("usage_stats.py", ADMIN_AUTH, "stream_admin_managed_usage_stats_aggregate"),
     **_entries("users.py", RECENT_WEBAUTHN, "create_user", "import_ldap_user", "update_user", "delete_user"),
-    **_entries("users.py", ADMIN_AUTH, "upload_user_avatar", "delete_user_avatar"),
+    **_entries("users.py", INTERACTIVE_UI, "upload_user_avatar", "delete_user_avatar"),
     **_entries(
         "webhooks.py",
         RECENT_WEBAUTHN,
@@ -217,13 +217,38 @@ def _decorator_route(decorator: ast.AST) -> tuple[str, str] | None:
     return method.upper(), ""
 
 
-def _observed_guard(body: str) -> str:
+def _direct_observed_guard(body: str) -> str:
     if "require_admin_sensitive_action(" in body:
         return RECENT_WEBAUTHN
     if "require_admin_interactive_session(" in body or "get_current_ui_superadmin" in body:
         return INTERACTIVE_UI
     if "get_current_super_admin" in body:
         return ADMIN_AUTH
+    return "missing"
+
+
+def _called_local_functions(node: ast.AST) -> set[str]:
+    return {
+        call.func.id
+        for call in ast.walk(node)
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+    }
+
+
+def _observed_guard(
+    node: ast.AST,
+    body: str,
+    local_guards: dict[str, str],
+) -> str:
+    guards = {_direct_observed_guard(body)}
+    guards.update(
+        local_guards[function_name]
+        for function_name in _called_local_functions(node)
+        if function_name in local_guards
+    )
+    for guard in (RECENT_WEBAUTHN, INTERACTIVE_UI, ADMIN_AUTH):
+        if guard in guards:
+            return guard
     return "missing"
 
 
@@ -243,6 +268,15 @@ def collect_rows(backend_root: Path) -> list[RouteSecurityRow]:
         tree = ast.parse(source, filename=str(file_path))
         prefix = _router_prefix(tree)
         lines = source.splitlines()
+        local_guards = {
+            node.name: _direct_observed_guard(
+                "\n".join(
+                    lines[node.lineno - 1 : getattr(node, "end_lineno", node.lineno)]
+                )
+            )
+            for node in getattr(tree, "body", [])
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
@@ -251,7 +285,7 @@ def collect_rows(backend_root: Path) -> list[RouteSecurityRow]:
                 continue
             end_lineno = getattr(node, "end_lineno", node.lineno)
             body = "\n".join(lines[node.lineno - 1 : end_lineno])
-            guard = _observed_guard(body)
+            guard = _observed_guard(node, body, local_guards)
             for method, path in routes:
                 rows.append(
                     RouteSecurityRow(

@@ -45,6 +45,10 @@ def test_sensitive_route_matrix_keeps_high_risk_routes_guarded():
         ("app/routers/admin/users.py", "create_user"): RECENT_WEBAUTHN,
         ("app/routers/admin/users.py", "update_user"): RECENT_WEBAUTHN,
         ("app/routers/admin/settings.py", "update_settings"): RECENT_WEBAUTHN,
+        ("app/routers/admin/settings.py", "delete_oidc_provider_settings"): RECENT_WEBAUTHN,
+        ("app/routers/admin/settings.py", "delete_ldap_provider_settings"): RECENT_WEBAUTHN,
+        ("app/routers/admin/users.py", "upload_user_avatar"): INTERACTIVE_UI,
+        ("app/routers/admin/users.py", "delete_user_avatar"): INTERACTIVE_UI,
         ("app/routers/admin/webhooks.py", "create_webhook_endpoint"): RECENT_WEBAUTHN,
         ("app/routers/admin/webhooks.py", "update_webhook_endpoint"): RECENT_WEBAUTHN,
         ("app/routers/admin/webhooks.py", "delete_webhook_endpoint"): RECENT_WEBAUTHN,
@@ -53,6 +57,37 @@ def test_sensitive_route_matrix_keeps_high_risk_routes_guarded():
     }
 
     assert {key: EXPECTED_GUARDS[key] for key in expected} == expected
+
+
+def test_sensitive_route_matrix_propagates_local_helper_guard(tmp_path):
+    routers = tmp_path / "app" / "routers" / "admin"
+    routers.mkdir(parents=True)
+    route_file = routers / "example.py"
+    route_file.write_text(
+        'router = APIRouter(prefix="/admin/example")\n'
+        'def _mutate(request, db, user):\n'
+        '    require_admin_sensitive_action(request, db, user)\n'
+        '@router.delete("/{item_id}")\n'
+        'def delete_item(item_id, current_user=Depends(get_current_ui_superadmin)):\n'
+        '    return _mutate(request, db, current_user)\n'
+    )
+
+    row, = collect_rows(tmp_path)
+
+    assert row.observed_guard == RECENT_WEBAUTHN
+
+    route_file.write_text(
+        'router = APIRouter(prefix="/admin/example")\n'
+        'def _mutate(request, db, user):\n'
+        '    require_admin_interactive_session(request, db, user)\n'
+        '@router.delete("/{item_id}")\n'
+        'def delete_item(item_id, current_user=Depends(get_current_ui_superadmin)):\n'
+        '    return _mutate(request, db, current_user)\n'
+    )
+
+    row, = collect_rows(tmp_path)
+
+    assert row.observed_guard == INTERACTIVE_UI
 
 
 def test_sensitive_route_matrix_report_is_ci_readable():
