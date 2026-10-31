@@ -16,9 +16,9 @@ from app.services.bucket_notification_state import execution_context_sns_feature
 from app.services.listing_progress import (
     ListingProgressEmitter,
     build_listing_progress_callback,
-    invoke_cancel_check,
 )
 from app.services.s3_execution_context import S3ExecutionTarget
+from app.utils.cancellation import invoke_cancel_check
 
 BUCKET_FEATURE_PARAM_MAX_WORKERS = 6
 _FEATURE_PARAM_SOURCE_ORDER = (

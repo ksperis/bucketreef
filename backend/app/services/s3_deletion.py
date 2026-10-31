@@ -13,6 +13,7 @@ from botocore.parsers import ResponseParserError
 
 from app.services.s3_client import get_s3_client
 from app.services.s3_delete_response import ObjectDeletionFailure, parse_delete_objects_failures
+from app.utils.cancellation import invoke_cancel_check
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import format_s3_error
 
@@ -236,10 +237,6 @@ class _BucketContentPurger:
         self._emit("completed", f"Purged {self.bucket_name}.")
         return self._result()
 
-    def _check_cancel(self) -> None:
-        if self.cancel_check:
-            self.cancel_check()
-
     def _emit(self, stage: str, message: str | None = None) -> None:
         if not self.progress_callback:
             return
@@ -296,7 +293,7 @@ class _BucketContentPurger:
         )
 
     def _delete_batch(self, stage: str, items: list[dict]) -> _DeleteBatchResult:
-        self._check_cancel()
+        invoke_cancel_check(self.cancel_check)
         try:
             if self.individual_deletes:
                 deleted = _delete_objects_individually(self.client, self.bucket_name, items)
@@ -329,7 +326,7 @@ class _BucketContentPurger:
 
     def _drain_all(self, pending: _PendingDeletes) -> None:
         while pending:
-            self._check_cancel()
+            invoke_cancel_check(self.cancel_check)
             pending = self._drain(pending, wait_all=True)
 
     def _submit_batch(
@@ -348,7 +345,7 @@ class _BucketContentPurger:
             return self._drain(pending)
         pending.add(executor.submit(self._delete_batch, stage, items))
         while len(pending) >= self.worker_count * 2:
-            self._check_cancel()
+            invoke_cancel_check(self.cancel_check)
             pending = self._drain(pending)
         return pending
 
@@ -371,7 +368,7 @@ class _BucketContentPurger:
     ) -> tuple[_PendingDeletes, bool]:
         continuation_token = None
         while True:
-            self._check_cancel()
+            invoke_cancel_check(self.cancel_check)
             list_kwargs = {"Bucket": self.bucket_name, "MaxKeys": 1000}
             if continuation_token:
                 list_kwargs["ContinuationToken"] = continuation_token
@@ -398,7 +395,7 @@ class _BucketContentPurger:
         key_marker = None
         version_marker = None
         while True:
-            self._check_cancel()
+            invoke_cancel_check(self.cancel_check)
             list_kwargs = {"Bucket": self.bucket_name}
             if key_marker:
                 list_kwargs["KeyMarker"] = key_marker

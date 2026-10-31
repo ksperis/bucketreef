@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from time import monotonic
 from typing import Callable
 
+from app.utils.cancellation import invoke_cancel_check
+
 PROGRESS_EMIT_EVERY_ITEMS = 100
 PROGRESS_EMIT_MIN_INTERVAL_SECONDS = 0.2
 
@@ -62,13 +64,6 @@ class ListingProgressEmitter:
         self._last_emitted_at = now
         self._last_snapshot = snapshot
         self._callback(snapshot)
-
-
-def invoke_cancel_check(cancel_check: Callable[[], None] | None) -> None:
-    if cancel_check is None:
-        return
-    cancel_check()
-
 
 def emit_listing_ready(
     progress: ListingProgressEmitter,

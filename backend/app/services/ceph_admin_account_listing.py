@@ -38,11 +38,11 @@ from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
     emit_listing_ready,
-    invoke_cancel_check,
 )
 from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_rule_matching import match_numeric_rule, match_text_rule
 from app.services.rgw_admin import RGWAdminClient
+from app.utils.cancellation import invoke_cancel_check
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import parse_rgw_int

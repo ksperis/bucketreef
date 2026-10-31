@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Callable, Protocol, TypeVar
 
 from app.models.ceph_admin_identity_filters import CephAdminFilterMatch
-from app.services.listing_progress import ListingProgressEmitter, invoke_cancel_check
+from app.services.listing_progress import ListingProgressEmitter
+from app.utils.cancellation import invoke_cancel_check
 
 
 _T = TypeVar("_T")
