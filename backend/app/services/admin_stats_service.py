@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypeVar
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -29,6 +30,9 @@ from app.utils.http_errors import raise_bad_request_from_value_error
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import build_bucket_overview, summarize_bucket_usage
+
+_StatsPrincipal = TypeVar("_StatsPrincipal", S3Account, S3User)
+
 
 @dataclass(frozen=True)
 class _AssignmentCounts:
@@ -221,37 +225,40 @@ class AdminStatsService:
         }
 
     def account(self, account_id: int) -> dict:
-        account = self.db.get(S3Account, account_id)
-        if account is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="S3Account not found",
-            )
-        endpoint = self.resolve_endpoint(
-            account.storage_endpoint_id,
-            require_storage_metrics=True,
-        )
-        return self._principal_bucket_stats(
-            self._supervision_client(endpoint),
-            account.rgw_user_uid,
-            account.rgw_tenant,
+        return self._principal_stats(
+            S3Account,
+            account_id,
+            not_found_detail="S3Account not found",
         )
 
     def s3_user(self, user_id: int) -> dict:
-        s3_user = self.db.get(S3User, user_id)
-        if s3_user is None:
+        return self._principal_stats(
+            S3User,
+            user_id,
+            not_found_detail="S3 user not found",
+        )
+
+    def _principal_stats(
+        self,
+        model: type[_StatsPrincipal],
+        principal_id: int,
+        *,
+        not_found_detail: str,
+    ) -> dict:
+        principal = self.db.get(model, principal_id)
+        if principal is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="S3 user not found",
+                detail=not_found_detail,
             )
         endpoint = self.resolve_endpoint(
-            s3_user.storage_endpoint_id,
+            principal.storage_endpoint_id,
             require_storage_metrics=True,
         )
         return self._principal_bucket_stats(
             self._supervision_client(endpoint),
-            s3_user.rgw_user_uid,
-            s3_user.rgw_tenant,
+            principal.rgw_user_uid,
+            principal.rgw_tenant,
         )
 
     def storage(self, endpoint_id: int | None) -> dict:

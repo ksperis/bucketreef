@@ -20,6 +20,25 @@ from app.db import (
 from app.services.admin_stats_service import AdminStatsService
 
 
+@pytest.mark.parametrize(
+    ("method_name", "expected_detail"),
+    [
+        ("account", "S3Account not found"),
+        ("s3_user", "S3 user not found"),
+    ],
+)
+def test_principal_stats_preserve_missing_resource_errors(
+    db_session,
+    method_name,
+    expected_detail,
+):
+    with pytest.raises(HTTPException) as exc_info:
+        getattr(AdminStatsService(db_session), method_name)(999)
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == expected_detail
+
+
 def test_platform_summary_reports_global_counts(db_session):
     ceph_one = StorageEndpoint(
         name="ceph-one",
