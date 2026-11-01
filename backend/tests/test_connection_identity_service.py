@@ -448,6 +448,30 @@ def test_resolve_metrics_identity_rejects_conflicting_provider_identity(monkeypa
     assert "unable to resolve rgw identity" in resolved.reason.lower()
 
 
+def test_resolve_metrics_identity_rejects_conflicting_account_aliases(monkeypatch):
+    endpoint = _ceph_endpoint(name="ceph-conflicting-account-aliases")
+    connection = _connection(endpoint)
+
+    monkeypatch.setattr(
+        "app.services.connection_identity_service.get_rgw_admin_client",
+        lambda **kwargs: SimpleNamespace(
+            get_user_by_access_key=lambda *args, **kwargs: {
+                "uid": "analytics",
+                "account_id": "RGW12345678901234567",
+                "account": "RGW76543210987654321",
+            }
+        ),
+    )
+
+    resolved = ConnectionIdentityService().resolve_metrics_identity(connection)
+
+    assert resolved.eligible is False
+    assert resolved.iam_identity is None
+    assert resolved.reason == (
+        "RGW identity is unavailable: unable to resolve RGW identity for this connection."
+    )
+
+
 def test_metrics_identity_cache_rechecks_when_supervision_leaves_ready(monkeypatch):
     endpoint = _ceph_endpoint(name="ceph-supervision-state")
     connection = _connection(endpoint)
