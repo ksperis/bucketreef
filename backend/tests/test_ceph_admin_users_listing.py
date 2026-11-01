@@ -694,6 +694,30 @@ def test_ceph_admin_user_enrichment_preserves_nested_false_and_zero_values():
     assert enriched[0].max_buckets == 0
 
 
+def test_ceph_admin_user_enrichment_reuses_account_name_lookup():
+    users = [
+        CephAdminRgwUserSummary(uid="alice"),
+        CephAdminRgwUserSummary(uid="bob"),
+    ]
+    rgw_admin = FakeRGWAdmin(
+        users_payload=[],
+        user_details={
+            (None, "alice"): _build_user_payload("alice", account_id="RGW-1"),
+            (None, "bob"): _build_user_payload("bob", account_id="RGW-1"),
+        },
+    )
+
+    enriched = user_listing_enrichment.enrich_users(
+        users,
+        {"account"},
+        rgw_admin,
+        account_lookup_enabled=True,
+    )
+
+    assert [user.account_name for user in enriched] == ["Account-RGW-1", "Account-RGW-1"]
+    assert rgw_admin.get_account_calls == 1
+
+
 def test_build_user_detail_ignores_legacy_kebab_case_default_fields():
     payload = _build_user_payload("alice")
     payload["user"]["default-placement"] = "legacy-placement"

@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional
 from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwUserSummary
+from app.services.ceph_admin_account_access import resolve_optional_account_name
 from app.services.ceph_admin_user_payloads import extract_user_fields
 from app.services.listing_progress import (
     ListingProgressEmitter,
@@ -15,10 +16,7 @@ from app.services.listing_progress import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.rgw_payloads import (
-    extract_bucket_list,
-    extract_rgw_account_name,
-)
+from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.usage_stats import summarize_bucket_usage
 
 
@@ -94,9 +92,12 @@ class _UserDetailsEnricher:
         fields = extract_user_fields(payload, self.requested)
         if "account" in self.requested:
             user.account_id = fields.account_id
-            user.account_name = self._resolve_account_name(
+            user.account_name = resolve_optional_account_name(
                 fields.account_id,
                 fields.account_name,
+                self.rgw_admin,
+                account_lookup_enabled=self.account_lookup_enabled,
+                cache=self.account_name_by_id,
             )
         if "profile" in self.requested:
             user.full_name = fields.display_name
@@ -110,27 +111,6 @@ class _UserDetailsEnricher:
             user.quota_max_objects = fields.quota_max_objects
         if "usage" in self.requested:
             self._apply_usage(user)
-
-    def _resolve_account_name(
-        self,
-        account_id: str | None,
-        payload_account_name: str | None,
-    ) -> str | None:
-        if not account_id:
-            return payload_account_name
-        if account_id not in self.account_name_by_id:
-            account_payload = None
-            if self.account_lookup_enabled is not False:
-                try:
-                    account_payload = self.rgw_admin.get_account(
-                        account_id,
-                        allow_not_found=True,
-                        allow_not_implemented=True,
-                    )
-                except RGWAdminError as exc:
-                    raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-            self.account_name_by_id[account_id] = extract_rgw_account_name(account_payload)
-        return self.account_name_by_id.get(account_id) or payload_account_name
 
     def _apply_usage(self, user: CephAdminRgwUserSummary) -> None:
         lookup_uid = f"{user.tenant}${user.uid}" if user.tenant else user.uid
