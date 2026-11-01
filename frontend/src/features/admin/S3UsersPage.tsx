@@ -17,7 +17,7 @@ import {
   listS3Users,
   updateS3User,
 } from "../../api/s3Users";
-import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
+import { listStorageEndpoints } from "../../api/storageEndpoints";
 import PageHeader from "../../components/PageHeader";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -44,6 +44,7 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
+import useLazyListLoader from "../../hooks/useLazyListLoader";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
@@ -99,9 +100,11 @@ export default function S3UsersPage() {
   const [totalUsers, setTotalUsers] = useState(0);
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
   const MAX_LINK_OPTIONS = 10;
-  const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
-  const [loadingEndpoints, setLoadingEndpoints] = useState(false);
-  const [endpointsLoaded, setEndpointsLoaded] = useState(false);
+  const {
+    items: storageEndpoints,
+    loading: loadingEndpoints,
+    ensure: ensureStorageEndpoints,
+  } = useLazyListLoader(listStorageEndpoints);
   const formatEndpointPermissionError = useCallback(
     (error: unknown) => extractApiError(error, adminText("Unexpected error")),
     [adminText]
@@ -204,19 +207,10 @@ export default function S3UsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const loadEndpointsIfNeeded = useCallback(async () => {
-    if (endpointsLoaded || loadingEndpoints) return;
-    setLoadingEndpoints(true);
-    try {
-      const data = await listStorageEndpoints();
-      setStorageEndpoints(data);
-      setEndpointsLoaded(true);
-    } catch {
-      setStorageEndpoints([]);
-    } finally {
-      setLoadingEndpoints(false);
-    }
-  }, [endpointsLoaded, loadingEndpoints]);
+  const loadEndpointsIfNeeded = useCallback(
+    () => ensureStorageEndpoints({ retryOnError: true }),
+    [ensureStorageEndpoints],
+  );
 
   const hasLinkedPortalUsers = useMemo(
     () => users.some((user) => (user.user_links?.length ?? 0) > 0),

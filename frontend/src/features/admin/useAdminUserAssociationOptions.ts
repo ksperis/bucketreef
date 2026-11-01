@@ -1,54 +1,19 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { listMinimalS3Accounts, type S3AccountSummary } from "../../api/accounts";
 import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { listMinimalS3Connections, type S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
 import { listMinimalS3Users, type S3UserSummary } from "../../api/s3Users";
 import { listAdminOpenStackClouds, type OpenStackCloud } from "../../api/openstack";
+import useLazyListLoader, { type LazyListEnsureOptions } from "../../hooks/useLazyListLoader";
 import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 
-type LoadState = "idle" | "loading" | "loaded" | "error";
-type EnsureOptions = { retryOnError?: boolean };
-
-function useLazyOptionsLoader<T>(loader: () => Promise<T[]>) {
-  const [items, setItems] = useState<T[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const loadStateRef = useRef<LoadState>("idle");
-
-  const refresh = useCallback(async () => {
-    if (loadStateRef.current === "loading") return;
-    loadStateRef.current = "loading";
-    setLoading(true);
-    try {
-      const data = await loader();
-      setItems(data);
-      setLoaded(true);
-      loadStateRef.current = "loaded";
-    } catch (error) {
-      loadStateRef.current = "error";
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [loader]);
-
-  const ensure = useCallback(async (options?: EnsureOptions) => {
-    const loadState = loadStateRef.current;
-    if (loadState === "loaded" || loadState === "loading") return;
-    if (loadState === "error" && !options?.retryOnError) return;
-    await refresh();
-  }, [refresh]);
-
-  return { items, loading, loaded, refresh, ensure };
-}
-
 export default function useAdminUserAssociationOptions() {
-  const accountsLoader = useLazyOptionsLoader<S3AccountSummary>(listMinimalS3Accounts);
-  const s3UsersLoader = useLazyOptionsLoader<S3UserSummary>(listMinimalS3Users);
-  const s3ConnectionsLoader = useLazyOptionsLoader<S3ConnectionSummary>(listMinimalS3Connections);
-  const groupsLoader = useLazyOptionsLoader<UiGroupSummary>(listMinimalGroups);
-  const openStackLoader = useLazyOptionsLoader<OpenStackCloud>(listAdminOpenStackClouds);
+  const accountsLoader = useLazyListLoader<S3AccountSummary>(listMinimalS3Accounts, console.error);
+  const s3UsersLoader = useLazyListLoader<S3UserSummary>(listMinimalS3Users, console.error);
+  const s3ConnectionsLoader = useLazyListLoader<S3ConnectionSummary>(listMinimalS3Connections, console.error);
+  const groupsLoader = useLazyListLoader<UiGroupSummary>(listMinimalGroups, console.error);
+  const openStackLoader = useLazyListLoader<OpenStackCloud>(listAdminOpenStackClouds, console.error);
 
   const { ensure: ensureS3Accounts } = accountsLoader;
   const { ensure: ensureS3Users } = s3UsersLoader;
@@ -59,7 +24,7 @@ export default function useAdminUserAssociationOptions() {
   }, [ensureS3Accounts]);
 
   const ensureAssociationOptionsForTab = useCallback(
-    async (tab: StorageAssociationTab, options?: EnsureOptions) => {
+    async (tab: StorageAssociationTab, options?: LazyListEnsureOptions) => {
       if (tab === "accounts") {
         await ensureS3Accounts(options);
         return;
