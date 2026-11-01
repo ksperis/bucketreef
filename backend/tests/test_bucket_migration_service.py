@@ -2470,6 +2470,79 @@ def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session
     ]
 
 
+def test_compare_buckets_streamed_records_current_diff_entries(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace(context_id="src")
+    target_ctx = SimpleNamespace(context_id="target")
+    entries = [
+        SimpleNamespace(
+            kind="only_source",
+            key="source-only",
+            source_size=1,
+            target_size=0,
+            source_etag="source-etag",
+            target_etag=None,
+            compare_by="presence",
+        ),
+        SimpleNamespace(
+            kind="only_target",
+            key="target-only",
+            source_size=0,
+            target_size=2,
+            source_etag=None,
+            target_etag="target-etag",
+            compare_by="presence",
+        ),
+        SimpleNamespace(
+            kind="matched",
+            key="matched",
+            source_size=3,
+            target_size=3,
+            source_etag="same",
+            target_etag="same",
+            compare_by="md5",
+        ),
+        SimpleNamespace(
+            kind="different",
+            key="different",
+            source_size=4,
+            target_size=5,
+            source_etag="source-different",
+            target_etag="target-different",
+            compare_by="size",
+        ),
+    ]
+
+    service._context_client = lambda *_args, **_kwargs: object()  # type: ignore[method-assign]
+    service._iter_bucket_diff_entries = lambda *_args, **_kwargs: iter(entries)  # type: ignore[method-assign]
+
+    diff = service._compare_buckets_streamed(
+        source_ctx,
+        target_ctx,
+        source_bucket="bucket-a",
+        target_bucket="bucket-b",
+        control_check=lambda: "run",
+    )
+
+    assert diff is not None
+    assert (diff.source_count, diff.target_count, diff.matched_count) == (3, 3, 1)
+    assert (diff.only_source_count, diff.only_target_count, diff.different_count) == (1, 1, 1)
+    assert diff.sample == {
+        "only_source_sample": ["source-only"],
+        "only_target_sample": ["target-only"],
+        "different_sample": [
+            {
+                "key": "different",
+                "source_size": 4,
+                "target_size": 5,
+                "source_etag": "source-different",
+                "target_etag": "target-different",
+                "compare_by": "size",
+            }
+        ],
+    }
+
+
 def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_markers(db_session):
     service = BucketMigrationService(db_session)
     source_ctx = SimpleNamespace(

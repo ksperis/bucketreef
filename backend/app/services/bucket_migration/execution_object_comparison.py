@@ -303,6 +303,40 @@ class BucketMigrationObjectComparisonMixin:
             return None
         return self._version_aware_diff_to_sync_diff(compared)
 
+    @staticmethod
+    def _record_current_diff_entry(diff: SyncDiff, entry: BucketDiffEntry) -> None:
+        if entry.kind == "only_source":
+            diff.source_count += 1
+            diff.only_source_count += 1
+            if len(diff.sample["only_source_sample"]) < 200:
+                diff.sample["only_source_sample"].append(entry.key)
+            return
+        if entry.kind == "only_target":
+            diff.target_count += 1
+            diff.only_target_count += 1
+            if len(diff.sample["only_target_sample"]) < 200:
+                diff.sample["only_target_sample"].append(entry.key)
+            return
+
+        diff.source_count += 1
+        diff.target_count += 1
+        if entry.kind == "matched":
+            diff.matched_count += 1
+            return
+        if entry.kind == "different":
+            diff.different_count += 1
+            if len(diff.sample["different_sample"]) < 200:
+                diff.sample["different_sample"].append(
+                    {
+                        "key": entry.key,
+                        "source_size": entry.source_size,
+                        "target_size": entry.target_size,
+                        "source_etag": entry.source_etag,
+                        "target_etag": entry.target_etag,
+                        "compare_by": entry.compare_by,
+                    }
+                )
+
     def _compare_buckets_streamed(
         self,
         source_ctx: ResolvedContext,
@@ -344,38 +378,7 @@ class BucketMigrationObjectComparisonMixin:
                     return None
                 scan_count_since_control = 0
 
-            if entry.kind == "only_source":
-                diff.source_count += 1
-                diff.only_source_count += 1
-                if len(diff.sample["only_source_sample"]) < 200:
-                    diff.sample["only_source_sample"].append(entry.key)
-                continue
-            if entry.kind == "only_target":
-                diff.target_count += 1
-                diff.only_target_count += 1
-                if len(diff.sample["only_target_sample"]) < 200:
-                    diff.sample["only_target_sample"].append(entry.key)
-                continue
-            if entry.kind == "matched":
-                diff.source_count += 1
-                diff.target_count += 1
-                diff.matched_count += 1
-                continue
-            if entry.kind == "different":
-                diff.source_count += 1
-                diff.target_count += 1
-                diff.different_count += 1
-                if len(diff.sample["different_sample"]) < 200:
-                    diff.sample["different_sample"].append(
-                        {
-                            "key": entry.key,
-                            "source_size": entry.source_size,
-                            "target_size": entry.target_size,
-                            "source_etag": entry.source_etag,
-                            "target_etag": entry.target_etag,
-                            "compare_by": entry.compare_by,
-                        }
-                    )
+            self._record_current_diff_entry(diff, entry)
 
         return diff
 
