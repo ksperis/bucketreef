@@ -21,7 +21,7 @@ from app.utils.cache import (
     prune_expired_lru_cache,
 )
 from app.utils.normalize import normalize_optional_string
-from app.utils.quota_stats import extract_quota_limits
+from app.utils.quota_stats import extract_quota_limits, extract_rgw_account_quota_limits
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.rgw_payloads import (
     extract_rgw_account_id,
@@ -418,7 +418,7 @@ class BucketOwnerMetadataService:
                     if suspended is None:
                         suspended = False
                 if include_quota:
-                    quota_size, quota_objects = extract_quota_limits(detail, keys=("quota", "account_quota"))
+                    quota_size, quota_objects = extract_rgw_account_quota_limits(detail)
             metadata_by_key[identity.key] = BucketOwnerMetadata(
                 owner_name=owner_name,
                 suspended=suspended,
