@@ -101,16 +101,27 @@ def classify(*, source: str, ref: str, protected: bool, mode: str = "auto", tag:
         raise ValueError("Private pipelines require main or dev")
     if source == "push" and mode == "auto":
         return "integration"
-    if source in {"web", "api"} and ref == "main" and mode in {"qualify", "prepare-release", "resume-release", "docs", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
+    if source in {"web", "api"} and ref == "main" and mode in {"build-images", "qualify", "prepare-release", "resume-release", "docs", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         return mode
     if source == "schedule" and ref == "main" and mode in {"regression", "security", "secrets-history"}:
         return mode
     raise ValueError("Unsupported pipeline source/profile")
 
 
-def select(profile: str, paths: list[str] | None, *, ref: str = "main", version: bool = False, preview: bool = False) -> dict:
-    if profile not in {"pr", "integration", "qualify", "prepare-release", "resume-release", "release", "docs", "regression", "security", "secrets-history", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
+def select(profile: str, paths: list[str] | None, *, ref: str = "main", version: bool = False) -> dict:
+    if profile not in {"pr", "integration", "build-images", "qualify", "prepare-release", "resume-release", "release", "docs", "regression", "security", "secrets-history", "recover-release", "release-history", "bootstrap-release-bundles", "bootstrap-demo"}:
         raise ValueError("Unknown CI profile")
+    if profile == "build-images":
+        jobs = sorted(f"build-{component}" for component in COMPONENTS)
+        return {
+            "schema": 1,
+            "profile": profile,
+            "ref": ref,
+            "jobs": jobs,
+            "images": list(COMPONENTS),
+            "reasons": {job: ["explicit private main image build"] for job in jobs},
+            "full": False,
+        }
     if profile == "integration" and ref == "main" and version:
         profile = "qualify"
     selected = {"project-naming", "ci-contract", "secret-scan"}
@@ -209,9 +220,8 @@ def select(profile: str, paths: list[str] | None, *, ref: str = "main", version:
     for job in selected:
         reasons.setdefault(job, ["mandatory policy or dependency for " + profile])
     reasons = {job: reasons[job] for job in sorted(selected)}
-    preview_images = list(COMPONENTS) if preview and ref == "main" and profile in {"integration", "qualify"} else []
     return {"schema": 1, "profile": profile, "ref": ref, "jobs": sorted(selected),
-            "images": sorted(images), "preview_images": preview_images, "reasons": reasons, "full": full}
+            "images": sorted(images), "reasons": reasons, "full": full}
 
 
 def require_results(expected: list[str], results: dict) -> None:

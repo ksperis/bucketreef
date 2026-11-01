@@ -56,15 +56,14 @@ def render(plan):
         names = {"publish-release-history"}
     elif profile == "bootstrap-release-bundles":
         names = {"bootstrap-release-bundles"}
+    elif profile == "build-images":
+        names.add("promote-main")
     elif profile in {"integration", "qualify"}:
         names.add("integration-ready")
         if profile == "qualify" and plan["ref"] == "main":
             names.add("release-preflight")
         if plan["ref"] == "dev":
             names.update(f"promote-{c}-dev" for c in plan["images"])
-        if plan.get("preview_images"):
-            names.update(f"build-{component}" for component in plan["preview_images"])
-            names.add("promote-main")
     payload = base64.b64encode(json.dumps(plan).encode()).decode()
     plan_bootstrap = "\n".join([
         "python3 - <<'BUCKETREEF_CI_PLAN_PY'",
@@ -112,7 +111,7 @@ def render(plan):
             job["resource_group"] = "internal-dev-images"
             job["interruptible"] = False
         if name == "promote-main":
-            dependencies = [f"build-{component}" for component in plan["preview_images"]]
+            dependencies = [f"build-{component}" for component in plan["images"]]
             job["resource_group"] = "internal-main-images"
             job["interruptible"] = False
         if name == "docs-deploy" and profile in {"prepare-release", "resume-release"}:

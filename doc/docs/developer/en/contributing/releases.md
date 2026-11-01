@@ -56,10 +56,13 @@ See [CI/CD](ci-cd.md) for selection, tool locks and required external settings.
 
 ## Test the current main build
 
-Each protected push to `main` publishes private images to the GitLab Container
-Registry. Use the moving `main` alias to follow the latest completed image build,
-or `main-<full SHA>` to pin a specific revision. Configure Compose with the three
-private repositories from `CI_REGISTRY_IMAGE`:
+Start a protected main pipeline from the GitLab UI or API with
+`CI_MODE=build-images` when you want test images for the current revision. For
+example: `glab ci run -b main --variables CI_MODE:build-images`. The pipeline
+publishes private images to the GitLab Container Registry without running the
+qualification suites. Use the moving `main` alias to follow the latest completed
+image build, or `main-<full SHA>` to pin a specific revision. Configure Compose
+with the three private repositories from `CI_REGISTRY_IMAGE`:
 
 ```bash
 export BUCKETREEF_BACKEND_IMAGE="$CI_REGISTRY_IMAGE/backend"
@@ -76,8 +79,8 @@ For a reproducible test, replace `main` with the exact immutable tag:
 BUCKETREEF_TAG=main-<full-SHA> docker compose -f deploy/bundle/compose.yaml up -d
 ```
 
-The `main` image path is intentionally fast and does not wait for the complete
-qualification suites. Use `CI_MODE=qualify` when full release-grade validation is
+The `build-images` path is intentionally fast and contains only image build and
+promotion jobs. Use `CI_MODE=qualify` when full release-grade validation is
 needed. Supported user-facing GHCR tags remain stable release tags. A
 `prepare-release` pipeline may additionally create opaque `candidate-<SHA>-<pipeline>`
 tags solely as immutable inputs to release qualification; they are not an RC
