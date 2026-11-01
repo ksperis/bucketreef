@@ -8,6 +8,7 @@ from unittest.mock import Mock
 import pytest
 from botocore.exceptions import ClientError
 
+from app.models.bucket_purge import BucketPurgeBucketResult
 from app.services import bucket_purge_service
 from app.services.bucket_purge_service import (
     BucketPurgeOptions,
@@ -179,6 +180,85 @@ def test_real_partial_purge_preserves_counts_and_never_deletes_the_bucket(monkey
     assert (progress[-1].deleted_objects, progress[-1].failed_count) == (1, 1)
     client.delete_bucket.assert_not_called()
     client.close.assert_called_once_with()
+
+
+def test_run_aggregates_multiple_bucket_results_and_completed_progress(monkeypatch):
+    service = BucketPurgeService()
+    targets = [
+        BucketPurgeResolvedTarget(
+            context=SimpleNamespace(),
+            bucket_name="bucket-a",
+            context_id="account-1",
+        ),
+        BucketPurgeResolvedTarget(
+            context=SimpleNamespace(),
+            bucket_name="bucket-b",
+            context_id="account-1",
+        ),
+    ]
+    results = iter(
+        [
+            BucketPurgeBucketResult(
+                bucket_name="bucket-a",
+                context_id="account-1",
+                context_name=None,
+                status="failed",
+                listed_objects=1,
+                listed_versions=0,
+                deleted_objects=0,
+                deleted_versions=0,
+                failed_count=1,
+                bucket_deleted=False,
+                duration_seconds=0.1,
+                failures_sample=[],
+            ),
+            BucketPurgeBucketResult(
+                bucket_name="bucket-b",
+                context_id="account-1",
+                context_name=None,
+                status="completed",
+                listed_objects=2,
+                listed_versions=1,
+                deleted_objects=2,
+                deleted_versions=1,
+                failed_count=0,
+                bucket_deleted=False,
+                duration_seconds=0.2,
+                failures_sample=[],
+            ),
+        ]
+    )
+    calls: list[tuple[str, int, bool]] = []
+
+    monkeypatch.setattr(service, "_resolve_initial_entry_estimates", lambda _targets: [None, None])
+
+    def fake_run_bucket(target, _options, **kwargs):
+        calls.append(
+            (
+                target.bucket_name,
+                kwargs["completed_buckets"],
+                kwargs["is_last_bucket"],
+            )
+        )
+        return next(results)
+
+    monkeypatch.setattr(service, "_run_bucket", fake_run_bucket)
+    progress = []
+
+    result = service.run(
+        targets,
+        BucketPurgeOptions(),
+        progress_callback=progress.append,
+    )
+
+    assert calls == [("bucket-a", 0, False), ("bucket-b", 1, True)]
+    assert result.status == "completed_with_errors"
+    assert result.completed_buckets == 2
+    assert (result.listed_objects, result.listed_versions) == (3, 1)
+    assert (result.deleted_objects, result.deleted_versions, result.failed_count) == (2, 1, 1)
+    completed = [event for event in progress if event.stage == "completed"]
+    assert [event.completed_buckets for event in completed] == [1, 2]
+    assert completed[-1].total_entries_final is True
 
 
 def test_delete_bucket_with_purge_reports_bucket_not_empty_race(monkeypatch):

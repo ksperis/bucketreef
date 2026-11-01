@@ -222,7 +222,6 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         cancel_check: CancelCheck | None = None,
     ) -> BucketPurgeResult:
         started_at = datetime.now(timezone.utc)
-        bucket_results: list[BucketPurgeBucketResult] = []
         totals = _BucketPurgeTotals()
         initial_entry_estimates = self._resolve_initial_entry_estimates(targets)
         initial_total_entries_estimate = self._sum_known_entry_estimates(initial_entry_estimates)
@@ -242,42 +241,15 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             )
         )
 
-        for index, target in enumerate(targets):
-            if cancel_check:
-                cancel_check()
-            bucket_result = self._run_bucket(
-                target,
-                options,
-                total_buckets=len(targets),
-                completed_buckets=index,
-                base_totals=totals,
-                total_entries_estimate=initial_total_entries_estimate,
-                is_last_bucket=index == len(targets) - 1,
-                progress_callback=emit,
-                cancel_check=cancel_check,
-            )
-            bucket_results.append(bucket_result)
-            totals.add_bucket_result(bucket_result)
-            total_entries_final = index == len(targets) - 1 and bucket_result.status != "failed"
-            emit(
-                self._build_progress(
-                    stage="completed",
-                    target=target,
-                    total_buckets=len(targets),
-                    completed_buckets=index + 1,
-                    totals=totals,
-                    initial_total_entries_estimate=initial_total_entries_estimate,
-                    total_entries_final=total_entries_final,
-                    bucket_deleted=False,
-                    message=f"Completed purge for {target.bucket_name}.",
-                )
-            )
-
-        status: BucketPurgeStatus = "completed"
-        if bucket_results and all(item.status == "failed" for item in bucket_results):
-            status = "failed"
-        elif totals.failed_count > 0 or any(item.status != "completed" for item in bucket_results):
-            status = "completed_with_errors"
+        bucket_results = self._run_targets(
+            targets,
+            options,
+            totals=totals,
+            initial_total_entries_estimate=initial_total_entries_estimate,
+            progress_callback=emit,
+            cancel_check=cancel_check,
+        )
+        status = self._resolve_run_status(bucket_results, totals)
 
         finished_at = datetime.now(timezone.utc)
         return BucketPurgeResult(
@@ -294,6 +266,63 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             finished_at=finished_at,
             buckets=bucket_results,
         )
+
+    def _run_targets(
+        self,
+        targets: list[BucketPurgeResolvedTarget],
+        options: BucketPurgeOptions,
+        *,
+        totals: _BucketPurgeTotals,
+        initial_total_entries_estimate: int | None,
+        progress_callback: ProgressCallback,
+        cancel_check: CancelCheck | None,
+    ) -> list[BucketPurgeBucketResult]:
+        bucket_results: list[BucketPurgeBucketResult] = []
+        total_buckets = len(targets)
+        for index, target in enumerate(targets):
+            if cancel_check:
+                cancel_check()
+            bucket_result = self._run_bucket(
+                target,
+                options,
+                total_buckets=total_buckets,
+                completed_buckets=index,
+                base_totals=totals,
+                total_entries_estimate=initial_total_entries_estimate,
+                is_last_bucket=index == total_buckets - 1,
+                progress_callback=progress_callback,
+                cancel_check=cancel_check,
+            )
+            bucket_results.append(bucket_result)
+            totals.add_bucket_result(bucket_result)
+            total_entries_final = index == total_buckets - 1 and bucket_result.status != "failed"
+            progress_callback(
+                self._build_progress(
+                    stage="completed",
+                    target=target,
+                    total_buckets=total_buckets,
+                    completed_buckets=index + 1,
+                    totals=totals,
+                    initial_total_entries_estimate=initial_total_entries_estimate,
+                    total_entries_final=total_entries_final,
+                    bucket_deleted=False,
+                    message=f"Completed purge for {target.bucket_name}.",
+                )
+            )
+        return bucket_results
+
+    def _resolve_run_status(
+        self,
+        bucket_results: list[BucketPurgeBucketResult],
+        totals: _BucketPurgeTotals,
+    ) -> BucketPurgeStatus:
+        if bucket_results and all(item.status == "failed" for item in bucket_results):
+            return "failed"
+        if totals.failed_count > 0 or any(
+            item.status != "completed" for item in bucket_results
+        ):
+            return "completed_with_errors"
+        return "completed"
 
     def run_delete_bucket_with_purge(
         self,
