@@ -14,7 +14,7 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.routers.listing_common import require_advanced_filter_stream_payload, stream_listing_response
-from app.services.ceph_admin_user_access import optional_account_lookup_enabled
+from app.services.ceph_admin_account_access import optional_account_lookup_enabled
 from app.services.ceph_admin_user_listing import compute_users_listing
 from app.services.listing_progress import ListingProgressSnapshot
 

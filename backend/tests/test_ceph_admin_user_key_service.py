@@ -6,8 +6,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.services import ceph_admin_user_key_service as module
+from app.services.ceph_admin_account_access import optional_account_lookup_enabled
 from app.services.ceph_admin_user_access import (
-    optional_account_lookup_enabled,
     require_user_scope,
     serialize_access_keys,
 )
@@ -93,7 +93,7 @@ def test_optional_account_lookup_tolerates_invalid_feature_configuration(monkeyp
         raise ValueError("invalid features")
 
     monkeypatch.setattr(
-        "app.services.ceph_admin_user_access.resolve_feature_flags",
+        "app.services.ceph_admin_account_access.resolve_feature_flags",
         invalid_features,
     )
 
@@ -105,7 +105,7 @@ def test_optional_account_lookup_propagates_unexpected_failures(monkeypatch):
         raise RuntimeError("unexpected failure")
 
     monkeypatch.setattr(
-        "app.services.ceph_admin_user_access.resolve_feature_flags",
+        "app.services.ceph_admin_account_access.resolve_feature_flags",
         unexpected_failure,
     )
 

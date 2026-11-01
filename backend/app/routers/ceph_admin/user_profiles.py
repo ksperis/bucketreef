@@ -20,12 +20,14 @@ from app.models.ceph_admin import (
 )
 from app.routers.ceph_admin import user_keys
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
-from app.services.ceph_admin_account_access import load_account_payload
+from app.services.ceph_admin_account_access import (
+    load_account_payload,
+    optional_account_lookup_enabled,
+)
 from app.services.ceph_admin_context import CephAdminContext
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
 from app.services.ceph_admin_user_access import (
     load_user_payload,
-    optional_account_lookup_enabled,
     require_user_scope,
     serialize_access_keys,
 )

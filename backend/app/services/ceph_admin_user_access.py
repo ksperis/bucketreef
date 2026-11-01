@@ -6,21 +6,12 @@ from typing import Any, Optional
 
 from fastapi import HTTPException, status
 
-from app.db import StorageEndpoint
 from app.models.ceph_admin import CephAdminRgwAccessKey
 from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.rgw_payloads import extract_rgw_user_payload
-from app.utils.storage_endpoint_features import resolve_feature_flags
-
-
-def optional_account_lookup_enabled(endpoint: StorageEndpoint) -> bool | None:
-    try:
-        return resolve_feature_flags(endpoint).account_enabled
-    except ValueError:
-        return None
 
 
 def serialize_access_keys(entries: list[dict]) -> list[CephAdminRgwAccessKey]:
