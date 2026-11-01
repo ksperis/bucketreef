@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -82,5 +82,65 @@ describe("AuditLogsPage", () => {
     fireEvent.change(screen.getByLabelText("Search audit logs"), { target: { value: "alice" } });
     fireEvent.change(screen.getByLabelText("Filter by workspace scope"), { target: { value: "admin" } });
     await waitFor(() => expect(listAuditLogsMock).toHaveBeenLastCalledWith(expect.objectContaining({ search: "alice", scope: "admin", cursor: undefined })));
+  });
+
+  it("ignores a stale response after the server-side filters change", async () => {
+    let resolveInitial!: (value: {
+      logs: Array<Record<string, unknown>>;
+      next_cursor: number | null;
+    }) => void;
+    const initialResponse = new Promise<{
+      logs: Array<Record<string, unknown>>;
+      next_cursor: number | null;
+    }>((resolve) => {
+      resolveInitial = resolve;
+    });
+    listAuditLogsMock.mockReset();
+    listAuditLogsMock
+      .mockReturnValueOnce(initialResponse)
+      .mockResolvedValue({
+        logs: [{
+          id: 2,
+          created_at: "2026-03-22T11:00:00Z",
+          user_email: "alice@example.com",
+          user_role: "ui_admin",
+          scope: "admin",
+          action: "users.create",
+          status: "success",
+          entity_type: "user",
+          entity_id: "13",
+          metadata: null,
+        }],
+        next_cursor: null,
+      });
+
+    render(<MemoryRouter><AuditLogsPage /></MemoryRouter>);
+    await waitFor(() => expect(listAuditLogsMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText("Search audit logs"), { target: { value: "alice" } });
+    const table = screen.getByRole("table");
+    expect(await within(table).findByText("users.create")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveInitial({
+        logs: [{
+          id: 1,
+          created_at: "2026-03-22T10:00:00Z",
+          user_email: "stale@example.com",
+          user_role: "ui_admin",
+          scope: "admin",
+          action: "users.delete",
+          status: "success",
+          entity_type: "user",
+          entity_id: "12",
+          metadata: null,
+        }],
+        next_cursor: null,
+      });
+    });
+
+    await waitFor(() => expect(screen.queryByText("users.delete")).not.toBeInTheDocument());
+    expect(within(table).getByText("users.create")).toBeInTheDocument();
+    expect(within(table).getByText("alice@example.com")).toBeInTheDocument();
   });
 });

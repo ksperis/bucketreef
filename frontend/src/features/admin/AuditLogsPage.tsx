@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActionButton } from "../../components/list/ListControls";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuditLogEntry, listAuditLogs, type AuditStatus } from "../../api/audit";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageShell from "../../components/PageShell";
@@ -126,9 +126,11 @@ export default function AuditLogsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const loadGeneration = useRef(0);
 
   const fetchLogs = useCallback(
     async ({ append = false, cursor }: { append?: boolean; cursor?: number | null } = {}) => {
+      const generation = ++loadGeneration.current;
       const params = {
         limit: 100,
         role: roleFilter !== "all" ? roleFilter : undefined,
@@ -136,13 +138,21 @@ export default function AuditLogsPage() {
         search: searchTerm.trim() || undefined,
         cursor: cursor ?? undefined,
       };
-      const response = await listAuditLogs(params);
+      let response;
+      try {
+        response = await listAuditLogs(params);
+      } catch (cause) {
+        if (generation !== loadGeneration.current) return false;
+        throw cause;
+      }
+      if (generation !== loadGeneration.current) return false;
       if (append) {
         setLogs((prev) => [...prev, ...response.logs]);
       } else {
         setLogs(response.logs);
       }
       setNextCursor(response.next_cursor ?? null);
+      return true;
     },
     [roleFilter, scopeFilter, searchTerm]
   );
@@ -150,49 +160,55 @@ export default function AuditLogsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      let currentRequest = true;
       try {
         setLoading(true);
+        setLoadingMore(false);
         setError(null);
-        await fetchLogs({ append: false });
+        currentRequest = await fetchLogs({ append: false });
       } catch (err) {
         if (!cancelled) {
           console.error(err);
           setError({ message: extractApiError(err, ""), fallback: "loadError" });
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && currentRequest) {
           setLoading(false);
         }
       }
     })();
     return () => {
       cancelled = true;
+      loadGeneration.current += 1;
     };
   }, [fetchLogs]);
 
   const handleRefresh = async () => {
+    let currentRequest = true;
     try {
       setLoading(true);
+      setLoadingMore(false);
       setError(null);
-      await fetchLogs({ append: false });
+      currentRequest = await fetchLogs({ append: false });
     } catch (err) {
       console.error(err);
       setError({ message: extractApiError(err, ""), fallback: "refreshError" });
     } finally {
-      setLoading(false);
+      if (currentRequest) setLoading(false);
     }
   };
 
   const handleLoadMore = async () => {
-    if (!nextCursor) return;
+    if (!nextCursor || loading || loadingMore) return;
+    let currentRequest = true;
     try {
       setLoadingMore(true);
-      await fetchLogs({ append: true, cursor: nextCursor });
+      currentRequest = await fetchLogs({ append: true, cursor: nextCursor });
     } catch (err) {
       console.error(err);
       setError({ message: extractApiError(err, ""), fallback: "olderError" });
     } finally {
-      setLoadingMore(false);
+      if (currentRequest) setLoadingMore(false);
     }
   };
 
@@ -414,7 +430,7 @@ export default function AuditLogsPage() {
           <ListActionButton
             type="button"
             onClick={handleLoadMore}
-            disabled={!hasMore || loadingMore}
+            disabled={!hasMore || loading || loadingMore}
           >
             {text(loadingMore ? "loading" : hasMore ? "loadOlder" : "noMore")}
           </ListActionButton>
