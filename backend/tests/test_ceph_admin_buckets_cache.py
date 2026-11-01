@@ -1463,6 +1463,68 @@ def test_ceph_admin_bucket_listing_owner_name_skips_account_lookup_when_feature_
     assert rgw_admin.get_user_calls == 2
 
 
+def test_ceph_admin_bucket_listing_owner_name_reads_nested_user_payload():
+    class UserOnlyAdmin(FakeRGWAdmin):
+        def get_account(
+            self,
+            owner_id: str,
+            allow_not_found: bool = True,
+            allow_not_implemented: bool = False,
+        ):
+            self.get_account_calls += 1
+            return {"not_found": True}
+
+    payload = [{"name": "bucket-a", "owner": "user-alpha"}]
+    rgw_admin = UserOnlyAdmin(
+        payload,
+        user_details={
+            (None, "user-alpha"): {
+                "user": {
+                    "uid": "user-alpha",
+                    "display_name": "Nested User Alpha",
+                }
+            }
+        },
+    )
+    ctx = _ceph_admin_context(175, rgw_admin)
+
+    response = buckets_router.list_buckets(
+        page=1,
+        page_size=25,
+        filter=None,
+        advanced_filter=None,
+        sort_by="name",
+        sort_dir="asc",
+        include=["owner_name"],
+        with_stats=False,
+        ctx=ctx,
+    )
+
+    assert response.items[0].owner_name == "Nested User Alpha"
+
+
+def test_bucket_owner_metadata_service_reads_nested_user_display_name():
+    rgw_admin = FakeRGWAdmin(
+        [],
+        user_details={
+            (None, "user-alpha"): {
+                "user": {
+                    "uid": "user-alpha",
+                    "display_name": "Nested User Alpha",
+                }
+            }
+        },
+    )
+    bucket = BucketListingSummary(name="bucket-a", tenant=None, owner="user-alpha")
+
+    BucketOwnerMetadataService(endpoint_id=176, rgw_admin=rgw_admin).enrich_buckets(
+        [bucket],
+        include_name=True,
+    )
+
+    assert bucket.owner_name == "Nested User Alpha"
+
+
 def test_ceph_admin_bucket_listing_owner_name_filter_accounts_only_limits_rgw_calls():
     payload = [
         {"name": "bucket-account", "owner": "RGW00000000000000001"},
