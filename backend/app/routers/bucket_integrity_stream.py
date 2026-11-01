@@ -44,10 +44,10 @@ def stream_resolved_bucket_integrity_check(
     *,
     payload: BucketIntegrityRequestOptions,
     targets: Sequence[BucketIntegrityResolvedTarget],
-    service: BucketIntegrityCheckService,
     logger: logging.Logger,
     failure_message: str,
 ) -> StreamingResponse:
+    service = BucketIntegrityCheckService()
     options = BucketIntegrityOptions(
         parallelism=payload.parallelism,
         all_versions=payload.all_versions,

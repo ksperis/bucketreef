@@ -15,10 +15,7 @@ from app.routers.ceph_admin.dependencies import (
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.s3_execution_context import build_ceph_admin_s3_context
 from app.services.rgw_bucket_target import RgwBucketTarget
-from app.services.bucket_integrity_service import (
-    BucketIntegrityCheckService,
-    BucketIntegrityResolvedTarget,
-)
+from app.services.bucket_integrity_service import BucketIntegrityResolvedTarget
 
 router = APIRouter(
     prefix="/ceph-admin/endpoints/{endpoint_id}/buckets/integrity-check",
@@ -46,12 +43,10 @@ def stream_ceph_admin_bucket_integrity_check(
                 context_name=ctx.endpoint.name,
             )
         )
-    service = BucketIntegrityCheckService()
     return stream_resolved_bucket_integrity_check(
         request,
         payload=payload,
         targets=targets,
-        service=service,
         logger=logger,
         failure_message="Ceph Admin bucket integrity check failed.",
     )
