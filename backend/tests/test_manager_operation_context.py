@@ -88,8 +88,11 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
 
     if operation in {"usage", "aggregate-usage"}:
         module = usage_stats
-        monkeypatch.setattr(module, "BucketUsageStatsService", FakeService)
-        monkeypatch.setattr(module, "stream_bucket_usage_stats", fake_stream)
+        def fake_resolved_usage_stream(_request, *, targets, **_kwargs):
+            captured["targets"] = list(targets)
+            return JSONResponse({"ok": True})
+
+        monkeypatch.setattr(module, "stream_resolved_bucket_usage_stats", fake_resolved_usage_stream)
         monkeypatch.setattr(module, "_list_manager_bucket_names", lambda *_args: ["bucket-a"])
         app.dependency_overrides[module.require_bucket_usage_stats_enabled] = lambda: actor
         app.dependency_overrides[module.get_buckets_service] = lambda: object()
@@ -97,8 +100,11 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
         payload = {}
     elif operation == "integrity":
         module = integrity
-        monkeypatch.setattr(module, "BucketIntegrityCheckService", FakeService)
-        monkeypatch.setattr(module, "stream_bucket_integrity_check", fake_stream)
+        def fake_resolved_integrity_stream(_request, *, targets, **_kwargs):
+            captured["targets"] = list(targets)
+            return JSONResponse({"ok": True})
+
+        monkeypatch.setattr(module, "stream_resolved_bucket_integrity_check", fake_resolved_integrity_stream)
         app.dependency_overrides[module.require_bucket_integrity_check_enabled] = lambda: actor
         path = "/api/manager/bucket-integrity/stream"
         payload = {"buckets": ["bucket-a"]}

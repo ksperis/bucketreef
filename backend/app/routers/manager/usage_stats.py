@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal, get_db
+from app.core.database import get_db
 from app.db import User
 from app.models.access_context import ManagerActor
 from app.models.bucket_usage_stats import (
@@ -16,7 +16,7 @@ from app.models.bucket_usage_stats import (
     BucketUsageStatsLatestResponse,
     BucketUsageStatsScopeRequest,
 )
-from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
+from app.routers.bucket_usage_stats_stream import stream_resolved_bucket_usage_stats
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_account_admin,
@@ -26,7 +26,6 @@ from app.utils.http_errors import raise_bad_gateway_from_runtime
 from app.routers.manager.access import require_bucket_management_context
 from app.services.bucket_listing_cache import get_cached_bucket_listing_for_context
 from app.services.bucket_usage_stats_service import (
-    BucketUsageStatsOptions,
     BucketUsageStatsResolvedTarget,
     BucketUsageStatsService,
 )
@@ -94,15 +93,10 @@ def stream_manager_usage_stats_aggregate(
     require_bucket_management_context(context)
     bucket_names = _list_manager_bucket_names(context, bucket_service)
     targets = [_target_for_bucket(context, bucket_name) for bucket_name in bucket_names]
-    service = BucketUsageStatsService(SessionLocal)
-    return stream_bucket_usage_stats(
+    return stream_resolved_bucket_usage_stats(
         request,
-        run_check=lambda progress_callback, cancel_check: service.run(
-            targets,
-            BucketUsageStatsOptions(parallelism=payload.parallelism),
-            progress_callback=progress_callback,
-            cancel_check=cancel_check,
-        ),
+        targets=targets,
+        parallelism=payload.parallelism,
         logger=logger,
         failure_message="Manager usage stats calculation failed.",
     )
@@ -137,15 +131,10 @@ def stream_manager_bucket_usage_stats_for_bucket(
 ) -> StreamingResponse:
     require_bucket_management_context(context)
     target = _target_for_bucket(context, bucket_name)
-    service = BucketUsageStatsService(SessionLocal)
-    return stream_bucket_usage_stats(
+    return stream_resolved_bucket_usage_stats(
         request,
-        run_check=lambda progress_callback, cancel_check: service.run(
-            [target],
-            BucketUsageStatsOptions(parallelism=1),
-            progress_callback=progress_callback,
-            cancel_check=cancel_check,
-        ),
+        targets=[target],
+        parallelism=1,
         logger=logger,
         failure_message="Manager bucket usage stats calculation failed.",
     )

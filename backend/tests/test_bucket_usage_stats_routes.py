@@ -22,7 +22,7 @@ from app.models.bucket_usage_stats import (
     BucketUsageStatsSnapshot,
 )
 from app.models.session import ManagerSessionPrincipal, SessionCapabilities
-from app.routers import dependencies
+from app.routers import bucket_usage_stats_stream as bucket_usage_stats_stream_router, dependencies
 from app.routers.admin import usage_stats as admin_usage_stats_router
 from app.routers.ceph_admin import usage_stats as ceph_usage_stats_router
 from app.routers.manager import usage_stats as manager_usage_stats_router
@@ -132,22 +132,13 @@ def test_manager_usage_stats_stream_builds_scope_targets(client: TestClient, mon
     )
     captured: dict[str, object] = {}
 
-    class FakeService:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def run(self, targets, options, **_kwargs):
-            captured["targets"] = targets
-            captured["parallelism"] = options.parallelism
-            return {"status": "completed"}
-
-    def fake_stream(_request, run_check, **_kwargs):
-        run_check(lambda _event: None, lambda: False)
+    def fake_stream(_request, *, targets, parallelism, **_kwargs):
+        captured["targets"] = list(targets)
+        captured["parallelism"] = parallelism
         return JSONResponse({"ok": True})
 
     monkeypatch.setattr(manager_usage_stats_router, "_list_manager_bucket_names", lambda account, service: ["bucket-a", "bucket-b"])
-    monkeypatch.setattr(manager_usage_stats_router, "BucketUsageStatsService", FakeService)
-    monkeypatch.setattr(manager_usage_stats_router, "stream_bucket_usage_stats", fake_stream)
+    monkeypatch.setattr(manager_usage_stats_router, "stream_resolved_bucket_usage_stats", fake_stream)
     app.dependency_overrides[manager_usage_stats_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[manager_usage_stats_router.require_bucket_usage_stats_enabled] = _tool_user
     app.dependency_overrides[manager_usage_stats_router.get_buckets_service] = lambda: object()
@@ -178,15 +169,6 @@ def test_storage_ops_usage_stats_stream_uses_authorized_user_for_context_resolut
     )
     captured: dict[str, object] = {}
 
-    class FakeService:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def run(self, targets, options, **_kwargs):
-            captured["targets"] = targets
-            captured["parallelism"] = options.parallelism
-            return {"status": "completed"}
-
     def fake_context_names(actor, _db):
         captured["catalog_actor"] = actor
         return {"1": "Managed Account"}
@@ -196,14 +178,14 @@ def test_storage_ops_usage_stats_stream_uses_authorized_user_for_context_resolut
         captured["context_ref"] = context_ref
         return context
 
-    def fake_stream(_request, run_check, **_kwargs):
-        run_check(lambda _event: None, lambda: False)
+    def fake_stream(_request, *, targets, parallelism, **_kwargs):
+        captured["targets"] = list(targets)
+        captured["parallelism"] = parallelism
         return JSONResponse({"ok": True})
 
     monkeypatch.setattr(storage_ops_usage_stats_router, "storage_ops_context_names", fake_context_names)
     monkeypatch.setattr(storage_ops_usage_stats_router, "get_s3_execution_context", fake_execution_context)
-    monkeypatch.setattr(storage_ops_usage_stats_router, "BucketUsageStatsService", FakeService)
-    monkeypatch.setattr(storage_ops_usage_stats_router, "stream_bucket_usage_stats", fake_stream)
+    monkeypatch.setattr(storage_ops_usage_stats_router, "stream_resolved_bucket_usage_stats", fake_stream)
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[storage_ops_usage_stats_router.get_current_storage_ops_admin] = lambda: user
 
@@ -279,17 +261,9 @@ def test_ceph_admin_usage_stats_stream_builds_endpoint_targets(client: TestClien
     user = _tool_user()
     captured: dict[str, object] = {}
 
-    class FakeService:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def run(self, targets, options, **_kwargs):
-            captured["targets"] = targets
-            captured["parallelism"] = options.parallelism
-            return {"status": "completed"}
-
-    def fake_stream(_request, run_check, **_kwargs):
-        run_check(lambda _event: None, lambda: False)
+    def fake_stream(_request, *, targets, parallelism, **_kwargs):
+        captured["targets"] = list(targets)
+        captured["parallelism"] = parallelism
         return JSONResponse({"ok": True})
 
     monkeypatch.setattr(
@@ -300,8 +274,7 @@ def test_ceph_admin_usage_stats_stream_builds_endpoint_targets(client: TestClien
             RgwBucketReference(name="bucket-b", tenant="tenant_a"),
         ],
     )
-    monkeypatch.setattr(ceph_usage_stats_router, "BucketUsageStatsService", FakeService)
-    monkeypatch.setattr(ceph_usage_stats_router, "stream_bucket_usage_stats", fake_stream)
+    monkeypatch.setattr(ceph_usage_stats_router, "stream_resolved_bucket_usage_stats", fake_stream)
     app.dependency_overrides[dependencies.require_ceph_admin_enabled] = lambda: None
     app.dependency_overrides[ceph_usage_stats_router.get_ceph_admin_context] = lambda: ctx
     app.dependency_overrides[ceph_usage_stats_router.get_current_ceph_admin] = lambda: user
@@ -405,7 +378,7 @@ def test_manager_scan_persists_and_reads_resolved_scope(
     app.dependency_overrides[manager_usage_stats_router.require_bucket_usage_stats_enabled] = lambda: user
     app.dependency_overrides[manager_usage_stats_router.get_buckets_service] = lambda: object()
     monkeypatch.setattr(manager_usage_stats_router, "_list_manager_bucket_names", lambda *_args: ["bucket-a"])
-    monkeypatch.setattr(manager_usage_stats_router, "SessionLocal", sessionmaker(bind=test_engine))
+    monkeypatch.setattr(bucket_usage_stats_stream_router, "SessionLocal", sessionmaker(bind=test_engine))
     monkeypatch.setattr(BucketUsageStatsService, "_build_client", build_client)
     canonical_params = {} if selector is None else {"context_id": expected_scope}
 
@@ -492,22 +465,13 @@ def test_admin_usage_stats_stream_builds_manager_scope_targets(client: TestClien
         def list_buckets(self, account, **_kwargs):
             return [type("Bucket", (), {"name": f"bucket-{account.id}"})()]
 
-    class FakeService:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def run(self, targets, options, **_kwargs):
-            captured["targets"] = targets
-            captured["parallelism"] = options.parallelism
-            return {"status": "completed"}
-
-    def fake_stream(_request, run_check, **_kwargs):
-        run_check(lambda _event: None, lambda: False)
+    def fake_stream(_request, *, targets, parallelism, **_kwargs):
+        captured["targets"] = list(targets)
+        captured["parallelism"] = parallelism
         return JSONResponse({"ok": True})
 
     app.dependency_overrides[admin_usage_stats_router.get_buckets_service] = lambda: FakeBucketService()
-    monkeypatch.setattr(admin_usage_stats_router, "BucketUsageStatsService", FakeService)
-    monkeypatch.setattr(admin_usage_stats_router, "stream_bucket_usage_stats", fake_stream)
+    monkeypatch.setattr(admin_usage_stats_router, "stream_resolved_bucket_usage_stats", fake_stream)
 
     response = client.post("/api/admin/usage-stats/stream", params={"endpoint_id": 7}, json={"parallelism": 5})
 

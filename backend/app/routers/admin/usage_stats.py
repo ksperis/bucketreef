@@ -8,14 +8,13 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal, get_db
+from app.core.database import get_db
 from app.db import User
 from app.models.bucket_usage_stats import BucketUsageStatsAggregateResponse, BucketUsageStatsScopeRequest
-from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
+from app.routers.bucket_usage_stats_stream import stream_resolved_bucket_usage_stats
 from app.routers.dependencies import get_current_ui_admin
 from app.services.admin_usage_stats_scope_service import AdminUsageStatsScopeService
 from app.services.bucket_usage_stats_service import (
-    BucketUsageStatsOptions,
     BucketUsageStatsService,
 )
 from app.services.buckets_service import BucketsService, get_buckets_service
@@ -59,15 +58,10 @@ def stream_admin_managed_usage_stats_aggregate(
     scope_service = AdminUsageStatsScopeService(db, bucket_service)
     endpoint = scope_service.resolve_ceph_endpoint(endpoint_id)
     targets = scope_service.build_scope(endpoint).resolved_targets
-    service = BucketUsageStatsService(SessionLocal)
-    return stream_bucket_usage_stats(
+    return stream_resolved_bucket_usage_stats(
         request,
-        run_check=lambda progress_callback, cancel_check: service.run(
-            targets,
-            BucketUsageStatsOptions(parallelism=payload.parallelism),
-            progress_callback=progress_callback,
-            cancel_check=cancel_check,
-        ),
+        targets=targets,
+        parallelism=payload.parallelism,
         logger=logger,
         failure_message="Admin managed usage stats calculation failed.",
     )
