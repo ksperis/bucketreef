@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import UsersPage from "./UsersPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { ApiError } from "../../api/client";
-import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, type ManagerFeaturePolicies } from "../../api/featurePolicies";
 import type { S3UserSummary } from "../../api/s3Users";
 import type { S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
 
@@ -42,6 +42,9 @@ function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
     allow_activity_history: null,
     allow_rgw_usage_metrics: null,
     allow_cost_estimation: null,
+    allow_bucket_usage_stats: null,
+    allow_bucket_usage_stats_collection: null,
+    allow_multisite_endpoint_switching: null,
     allow_managed_private_connection_provisioning: null,
   };
 }
@@ -55,11 +58,13 @@ function canonicalS3ConnectionSummary(id: number, name: string): S3ConnectionSum
     execution_status: "ready",
   };
 }
-const generalSettingsState = {
-  manager_feature_policies: {
+const managerFeaturePolicies: ManagerFeaturePolicies = {
     ...DEFAULT_MANAGER_FEATURE_POLICIES,
-    managed_private_connection_provisioning: "targeted" as const,
-  },
+    managed_private_connection_provisioning: "targeted",
+};
+
+const generalSettingsState = {
+  manager_feature_policies: managerFeaturePolicies,
   manager_enabled: true,
   openstack_enabled: true,
   ceph_admin_enabled: false,
@@ -1108,8 +1113,8 @@ describe("UsersPage modal tabs", () => {
     expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Manager" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
-    expect(screen.getByRole("heading", { name: "Manager", exact: true })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Connections", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
@@ -1117,11 +1122,11 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Allow manual private connection creation" }));
     fireEvent.click(screen.getByRole("switch", { name: "Allow managed private connection provisioning" }));
 
-    expect(screen.getByRole("heading", { name: "Manager", exact: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Manager" })).toBeInTheDocument();
     expect(screen.queryByText("Privileged Ceph operations")).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Bucket quota management" })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Ceph S3 User keys" })).not.toBeInTheDocument();
-    const managerSection = screen.getByRole("region", { name: "Manager", exact: true });
+    const managerSection = screen.getByRole("region", { name: "Manager" });
     expect(within(managerSection).getByText("Bucket compare")).toBeInTheDocument();
     expect(within(managerSection).getByText("Bucket integrity check")).toBeInTheDocument();
     expect(within(managerSection).getByText("Bucket migration")).toBeInTheDocument();
@@ -1422,7 +1427,7 @@ describe("UsersPage modal tabs", () => {
     let rejectSave!: (error: Error) => void;
     save.mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
     renderPage();
-    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create user", exact: true });
+    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create user" });
     await act(async () => { fireEvent.click(trigger); });
     const form = screen.getByRole("form", { name: editing ? "Edit UI user" : "Create UI user" });
     fireEvent.change(within(form).getByLabelText("Email"), { target: { value: "retained@example.com" } });
@@ -1451,12 +1456,12 @@ describe("UsersPage modal tabs", () => {
   it.each([false, true])("returns to the invalid email from another tab (edit=%s)", async (editing) => {
     listUsersMock.mockResolvedValue({ items: [{ id: 12, email: "draft@example.com", role: "ui_user" }], total: 1, page: 1, page_size: 25 });
     renderPage();
-    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create user", exact: true });
+    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create user" });
     await act(async () => { fireEvent.click(trigger); });
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "invalid-email" } });
     if (!editing) fireEvent.change(screen.getByLabelText("Password"), { target: { value: "fixture-password" } });
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
-    fireEvent.click(screen.getByRole("button", { name: editing ? "Save" : "Create", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: editing ? "Save" : "Create" }));
     const email = await screen.findByLabelText("Email");
     expect(email).toHaveAttribute("aria-invalid", "true");
     await waitFor(() => expect(email).toHaveFocus());

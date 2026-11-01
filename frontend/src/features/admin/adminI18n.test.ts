@@ -241,6 +241,7 @@ function collectRawAdminCopy(): string[] {
       }
       if (
         ts.isJsxAttribute(node) &&
+        ts.isIdentifier(node.name) &&
         translatedAttributeNames.has(node.name.text) &&
         node.initializer &&
         ts.isStringLiteral(node.initializer) &&

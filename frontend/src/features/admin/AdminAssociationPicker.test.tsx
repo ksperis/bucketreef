@@ -137,13 +137,13 @@ describe("AdminAssociationPicker", () => {
             id: 1,
             label: "Research Archive",
             selected: true,
-            access: { manager_role: "account_administrator", portal_role: null },
+            access: { manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false },
           },
           {
             id: 2,
             label: "Analytics",
             selected: false,
-            access: { manager_role: null, portal_role: "portal_user" },
+            access: { manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false },
           },
         ]}
         onToggle={vi.fn()}

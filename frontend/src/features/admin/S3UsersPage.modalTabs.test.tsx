@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import S3UsersPage from "./S3UsersPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 import type { S3User } from "../../api/s3Users";
+import type { TagColorKey, TagDefinitionSummary, TagScope } from "../../api/tags";
 
 const listS3UsersMock = vi.fn();
 const getS3UserMock = vi.fn();
@@ -22,7 +23,12 @@ const listAdminTagDefinitionsMock = vi.fn();
 const adminS3UserStatsMock = vi.fn();
 let managedTenantCreationEnabled = false;
 
-const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
+const makeTag = (
+  id: number,
+  label: string,
+  color_key: TagColorKey = "neutral",
+  scope: TagScope = "standard",
+): TagDefinitionSummary => ({
   id,
   label,
   color_key,
@@ -306,8 +312,19 @@ describe("S3UsersPage modal tabs", () => {
       items: [
         makeS3User({
           email: "rgw-user-1@example.com",
-          user_links: [{ user_id: 33, user_email: "ui33@example.com", allow_manager_browser_data_access: false }],
-          group_links: [{ group_id: 31, group_name: "Storage Group", allow_manager_browser_data_access: false }],
+          user_links: [{
+            user_id: 33,
+            user_email: "ui33@example.com",
+            user_full_name: null,
+            user_avatar: null,
+            allow_manager_browser_data_access: false,
+          }],
+          group_links: [{
+            group_id: 31,
+            group_name: "Storage Group",
+            group_avatar: null,
+            allow_manager_browser_data_access: false,
+          }],
           quota_max_size_gb: 1,
           quota_max_objects: 100,
           bucket_count: 0,
@@ -588,7 +605,7 @@ describe("S3UsersPage modal tabs", () => {
     for (const name of ["RGW traffic and usage metrics", "Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning", "Endpoint switching"])
       expectInheritedFeatureOverride(name);
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Display name", exact: true }), { target: { value: "renamed-user" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Display name" }), { target: { value: "renamed-user" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(updateS3UserMock).toHaveBeenCalled());
     expect(updateS3UserMock.mock.calls.at(-1)?.[1]).toEqual(expect.objectContaining({
@@ -778,7 +795,7 @@ describe("S3UsersPage modal tabs", () => {
   ])("blocks RGW deletion when the owned-bucket count is %s", async (bucket_count, warning) => {
     getS3UserWithBucketsMock.mockResolvedValueOnce({ id: 5, name: "rgw-user-1", rgw_user_uid: "rgw-uid-1", bucket_count });
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete rgw-user-1" }));
     expect(dialog.getByRole("checkbox", { name: "Also delete RGW user rgw-uid-1" })).toBeDisabled();
     expect(dialog.getByText(warning)).toBeInTheDocument();
@@ -795,7 +812,7 @@ describe("S3UsersPage modal tabs", () => {
     getS3UserWithBucketsMock.mockResolvedValueOnce({ id: 5, name: "rgw-user-1", rgw_user_uid: "rgw-uid-1", bucket_count: 0 });
     deleteS3UserMock.mockRejectedValueOnce(new Error("RGW refused deletion"));
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete rgw-user-1" }));
     const choice = dialog.getByRole("checkbox", { name: "Also delete RGW user rgw-uid-1" });
     expect(choice).not.toBeChecked();
@@ -821,10 +838,10 @@ describe("S3UsersPage modal tabs", () => {
 
   it("validates creation fields before sending and retains the pending draft after failure", async () => {
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("button", {name: "Create user", exact: true}));
+    fireEvent.click(await screen.findByRole("button", {name: "Create user"}));
     const form = await screen.findByRole("form", {name: "Create RGW user"});
     const fields = within(form);
-    const submit = fields.getByRole("button", {name: "Create user", exact: true});
+    const submit = fields.getByRole("button", {name: "Create user"});
     await waitFor(() => expect(submit).toBeEnabled());
     const name = fields.getByLabelText("Display name *");
     fireEvent.change(name, {target: {value: "   "}});
@@ -864,12 +881,12 @@ describe("S3UsersPage modal tabs", () => {
   it("validates import identifiers inline and freezes the same payload through a retry", async () => {
     managedTenantCreationEnabled = true;
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));
+    fireEvent.click(await screen.findByRole("button", {name: "Import"}));
     const dialog = screen.getByRole("dialog", {name: "Import RGW users"});
     const form = await screen.findByRole("form", {name: "Import RGW users"});
     expect(dialog).toContainElement(form);
     const fields = within(form), text = fields.getByLabelText("RGW user IDs");
-    await waitFor(() => expect(fields.getByRole("button", {name: "Import", exact: true})).toBeEnabled());
+    await waitFor(() => expect(fields.getByRole("button", {name: "Import"})).toBeEnabled());
     fireEvent.submit(form);
     expect(text).toHaveAccessibleDescription("Enter at least one identifier.");
     fireEvent.change(text, {target: {value: "tenant$"}});
@@ -903,12 +920,12 @@ describe("S3UsersPage modal tabs", () => {
 
   it("blocks tenant-qualified imports while managed RGW tenant creation is disabled", async () => {
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));
+    fireEvent.click(await screen.findByRole("button", {name: "Import"}));
     const form = await screen.findByRole("form", {name: "Import RGW users"});
     const fields = within(form);
     const text = fields.getByLabelText("RGW user IDs");
     expect(fields.getByText(/for the default tenant/)).toBeInTheDocument();
-    await waitFor(() => expect(fields.getByRole("button", {name: "Import", exact: true})).toBeEnabled());
+    await waitFor(() => expect(fields.getByRole("button", {name: "Import"})).toBeEnabled());
     fireEvent.change(text, {target: {value: "tenant$user-alpha"}});
     fireEvent.submit(form);
     expect(text).toHaveAccessibleDescription("Tenant-qualified RGW user IDs require Managed RGW tenant creation.");
@@ -918,14 +935,14 @@ describe("S3UsersPage modal tabs", () => {
   it("keeps endpoint capability failures visible and prevents creating or importing", async () => {
     getStorageEndpointMock.mockResolvedValue({id: 10, provider: "ceph", admin_ops_permissions: {accounts_write: false, users_write: false}});
     render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("button", {name: "Create user", exact: true}));
+    fireEvent.click(await screen.findByRole("button", {name: "Create user"}));
     let form = await screen.findByRole("form", {name: "Create RGW user"});
     await within(form).findByText(/Selected endpoint does not allow this operation/);
     expect(within(form).getByRole("button", {name: "Create user"})).toBeDisabled();
     fireEvent.submit(form);
     expect(createS3UserMock).not.toHaveBeenCalled();
     fireEvent.click(within(form).getByRole("button", {name: "Cancel"}));
-    fireEvent.click(screen.getByRole("button", {name: "Import", exact: true}));
+    fireEvent.click(screen.getByRole("button", {name: "Import"}));
     form = await screen.findByRole("form", {name: "Import RGW users"});
     await within(form).findByText(/Selected endpoint does not allow this operation/);
     expect(within(form).getByRole("button", {name: "Import"})).toBeDisabled();

@@ -1328,7 +1328,7 @@ describe("AccountsPage modal tabs", () => {
     let finishSave!: () => void;
     updateS3AccountMock.mockReturnValueOnce(new Promise(resolve => { finishSave = () => resolve(makeAccountDetail()); }));
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     await selectPortalFeature("Browser workspace access", "enabled");
     fireEvent.click(screen.getByRole("tab", { name: "Manager features" }));
@@ -1354,14 +1354,14 @@ describe("AccountsPage modal tabs", () => {
     let finishSave!: () => void;
     updateS3AccountMock.mockReturnValueOnce(new Promise(resolve => { finishSave = () => resolve(makeAccountDetail()); }));
     const first = renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
     selectFeatureOverride("Bucket quota management", "Enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(screen.getByRole("button", { name: "Back to accounts" })).toBeDisabled();
     first.unmount();
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
     await selectPortalFeature("Browser workspace access", "enabled");
     await act(async () => finishSave());
@@ -1376,7 +1376,7 @@ describe("AccountsPage modal tabs", () => {
     getS3AccountMock.mockResolvedValueOnce({ id: 1, name: "acc-1", rgw_account_id: "RGW001", ...counts,
       rgw_user_uids: ["tenant$user"], rgw_topics: ["notification-topic"] });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete acc-1" }));
     expect(dialog.getByRole("checkbox", { name: "Also delete RGW account RGW001" })).toBeDisabled();
     expect(dialog.getByText("tenant$user")).toBeInTheDocument();
@@ -1392,7 +1392,7 @@ describe("AccountsPage modal tabs", () => {
     getS3AccountMock.mockResolvedValueOnce({ id: 1, name: "acc-1", rgw_account_id: "RGW001", bucket_count: 0, rgw_user_count: 0, rgw_topic_count: 0 });
     deleteS3AccountMock.mockRejectedValueOnce(new Error("RGW refused deletion"));
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     const dialog = within(await screen.findByRole("dialog", { name: "Delete acc-1" }));
     const choice = dialog.getByRole("checkbox", { name: "Also delete RGW account RGW001" });
     expect(choice).not.toBeChecked();
@@ -1418,10 +1418,10 @@ describe("AccountsPage modal tabs", () => {
 
   it("validates creation fields before sending and retains the pending draft after failure", async () => {
     renderPage();
-    fireEvent.click(await screen.findByRole("button", {name: "Create account", exact: true}));
+    fireEvent.click(await screen.findByRole("button", {name: "Create account"}));
     const form = await screen.findByRole("form", {name: "Create RGW account"});
     const fields = within(form);
-    const submit = fields.getByRole("button", {name: "Create account", exact: true});
+    const submit = fields.getByRole("button", {name: "Create account"});
     await waitFor(() => expect(submit).toBeEnabled());
     const name = fields.getByLabelText("Account name *");
     fireEvent.change(name, {target: {value: "   "}});
@@ -1463,10 +1463,10 @@ describe("AccountsPage modal tabs", () => {
     ["tenant$account", "Account name must not contain '$'."],
   ])("rejects an RGW account name containing reserved characters: %s", async (value, message) => {
     renderPage();
-    fireEvent.click(await screen.findByRole("button", {name: "Create account", exact: true}));
+    fireEvent.click(await screen.findByRole("button", {name: "Create account"}));
     const form = await screen.findByRole("form", {name: "Create RGW account"});
     const name = within(form).getByLabelText("Account name *");
-    const submit = within(form).getByRole("button", {name: "Create account", exact: true});
+    const submit = within(form).getByRole("button", {name: "Create account"});
     await waitFor(() => expect(submit).toBeEnabled());
     fireEvent.change(name, {target: {value}});
     expect(name).toHaveAttribute("aria-invalid", "true");
@@ -1483,10 +1483,10 @@ describe("AccountsPage modal tabs", () => {
 
   it("validates import identifiers inline and freezes the same payload through a retry", async () => {
     renderPage();
-    fireEvent.click(await screen.findByRole("button", {name: "Import", exact: true}));
+    fireEvent.click(await screen.findByRole("button", {name: "Import"}));
     const form = await screen.findByRole("form", {name: "Import RGW accounts"});
     const fields = within(form), text = fields.getByLabelText("RGW account IDs");
-    await waitFor(() => expect(fields.getByRole("button", {name: "Import", exact: true})).toBeEnabled());
+    await waitFor(() => expect(fields.getByRole("button", {name: "Import"})).toBeEnabled());
     fireEvent.submit(form);
     expect(text).toHaveAccessibleDescription("Enter at least one identifier.");
     fireEvent.change(text, {target: {value: "invalid-id"}});
@@ -1526,7 +1526,7 @@ describe("AccountsPage modal tabs", () => {
       { path: "/admin/s3-accounts", element: <AccountsPage /> },
     ], { initialEntries: ["/admin", "/admin/s3-accounts"] });
     render(<RouterProvider router={router} />);
-    await user.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
     const quota = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(quota).toBeEnabled());
     await user.click(screen.getByRole("tab", { name: "Linked UI users" }));
@@ -1565,7 +1565,7 @@ describe("AccountsPage modal tabs", () => {
   it("retries an account read without enabling an empty editor", async () => {
     getS3AccountMock.mockRejectedValueOnce(new Error("Account unavailable"));
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Account unavailable");
     expect(screen.queryByRole("form", { name: "Edit RGW account" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
@@ -1580,20 +1580,20 @@ describe("AccountsPage modal tabs", () => {
   ])("recovers the $kind catalogue and protects selected additions before they are applied", async ({ kind, label, mock }) => {
     mock.mockRejectedValueOnce(new Error("Catalogue unavailable"));
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: `Linked UI ${kind}` }));
     fireEvent.click(screen.getByRole("button", { name: `Add UI ${kind}` }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Catalogue unavailable");
     expect(screen.queryByText("No results.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: label, exact: true }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: label }));
     fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(`Add the selected UI ${kind}`);
     expect(screen.getByRole("tab", { name: `Linked UI ${kind}` })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("checkbox", { name: label, exact: true })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: label })).toBeChecked();
     expect(updateS3AccountMock).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByRole("button", { name: "Add selected" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
@@ -1605,7 +1605,7 @@ describe("AccountsPage modal tabs", () => {
 
   it("reveals invalid quota fields across tabs and preserves zero and selected units", async () => {
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     const quota = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(quota).toBeEnabled());
     fireEvent.change(quota, { target: { value: "1.5" } });
@@ -1627,7 +1627,7 @@ describe("AccountsPage modal tabs", () => {
     const account = await getS3AccountMock();
     getS3AccountMock.mockResolvedValue({ ...account, quota_max_size_gb: 0.5001, quota_max_objects: 100 });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     const objects = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(objects).toBeEnabled());
     expect(screen.getByLabelText("Storage quota")).toHaveValue(0.5001);
@@ -1641,7 +1641,7 @@ describe("AccountsPage modal tabs", () => {
   it("keeps endpoint-permission failures retryable without authorizing quota edits", async () => {
     getStorageEndpointMock.mockRejectedValueOnce(new Error("Permission lookup failed"));
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Permission lookup failed");
     expect(screen.getByLabelText("Object quota")).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Retry permissions" }));
@@ -1654,7 +1654,7 @@ describe("AccountsPage modal tabs", () => {
     let reject!: (error: Error) => void;
     updateAccountPortalSettingsMock.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     const quota = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(quota).toBeEnabled());
     fireEvent.change(quota, { target: { value: "24" } });
@@ -1679,14 +1679,14 @@ describe("AccountsPage modal tabs", () => {
   it("keeps endpoint capability failures visible and prevents creating or importing", async () => {
     getStorageEndpointMock.mockResolvedValue({id: 10, provider: "ceph", admin_ops_permissions: {accounts_write: false, users_write: false}});
     renderPage();
-    fireEvent.click(await screen.findByRole("button", {name: "Create account", exact: true}));
+    fireEvent.click(await screen.findByRole("button", {name: "Create account"}));
     let form = await screen.findByRole("form", {name: "Create RGW account"});
     await within(form).findByText(/Selected endpoint does not allow this operation/);
     expect(within(form).getByRole("button", {name: "Create account"})).toBeDisabled();
     fireEvent.submit(form);
     expect(createS3AccountMock).not.toHaveBeenCalled();
     fireEvent.click(within(form).getByRole("button", {name: "Cancel"}));
-    fireEvent.click(screen.getByRole("button", {name: "Import", exact: true}));
+    fireEvent.click(screen.getByRole("button", {name: "Import"}));
     form = await screen.findByRole("form", {name: "Import RGW accounts"});
     await within(form).findByText(/Selected endpoint does not allow this operation/);
     expect(within(form).getByRole("button", {name: "Import"})).toBeDisabled();

@@ -224,7 +224,7 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.queryByRole("button", { name: "Add tag rgw-a" })).not.toBeInTheDocument();
     for (const tab of screen.getAllByRole("tab")) expect(tab).toBeDisabled();
     expect(screen.getByRole("button", { name: "Back to endpoints" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     await act(async () => { await router.navigate("/elsewhere"); });
     expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Discard changes" })).toBeDisabled();
@@ -1277,7 +1277,7 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("button", { name: "New endpoint" }));
     await waitFor(() => expect(listAdminTagDefinitionsMock).toHaveBeenCalled());
 
-    const dialog = screen.getByRole("heading", { name: "New storage endpoint" }).closest(".workflow-page");
+    const dialog = screen.getByRole("heading", { name: "New storage endpoint" }).closest<HTMLElement>(".workflow-page");
     if (!dialog) {
       throw new Error("New storage endpoint workflow page not found");
     }
@@ -1628,7 +1628,7 @@ describe("StorageEndpointsPage tags", () => {
     await screen.findByText("Ceph Endpoint");
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "prod" } });
     fireEvent.change(screen.getByRole("combobox", { name: "Provider" }), { target: { value: "ceph" } });
-    fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     await screen.findByRole("heading", { name: "Edit storage endpoint · Ceph Endpoint" });
     fireEvent.change(screen.getByLabelText("Endpoint name"), { target: { value: "Unsaved name" } });
     fireEvent.click(screen.getByRole("button", { name: "Back to endpoints" }));
@@ -1666,8 +1666,8 @@ describe("StorageEndpointsPage tags", () => {
     await screen.findByText(/Unable to load endpoint management mode/);
     expect(screen.getByText("Ceph Endpoint")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New endpoint" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Edit", exact: true })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Set as default" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "View" }));
     await screen.findByRole("heading", { name: "Storage endpoint · Ceph Endpoint" });
@@ -1676,7 +1676,7 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByText(/Management mode is unavailable. Return to endpoints/)).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "Back to endpoints" })[0]);
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("button", { name: "Edit", exact: true })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Edit" })).toBeEnabled();
     expect(setDefaultStorageEndpointMock).not.toHaveBeenCalled();
   });
 
@@ -1714,14 +1714,14 @@ describe("StorageEndpointsPage tags", () => {
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
     deleteStorageEndpointMock.mockRejectedValueOnce(new Error("Endpoint is in use"));
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     let dialog = within(screen.getByRole("dialog"));
-    fireEvent.click(dialog.getByRole("button", { name: "Delete", exact: true }));
+    fireEvent.click(dialog.getByRole("button", { name: "Delete" }));
     expect(await dialog.findByText("Endpoint is in use")).toBeInTheDocument();
     expect(deleteStorageEndpointMock).toHaveBeenCalledTimes(1);
     let resolve!: () => void;
     deleteStorageEndpointMock.mockReturnValueOnce(new Promise<void>((done) => { resolve = done; }));
-    const button = dialog.getByRole("button", { name: "Delete", exact: true });
+    const button = dialog.getByRole("button", { name: "Delete" });
     fireEvent.click(button);
     fireEvent.click(button);
     dialog = within(screen.getByRole("dialog"));

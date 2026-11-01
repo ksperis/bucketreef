@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import S3ConnectionsPage from "./S3ConnectionsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 import type { S3ConnectionAdminItem } from "../../api/s3ConnectionsAdmin";
+import type { TagColorKey, TagDefinitionSummary, TagScope } from "../../api/tags";
 
 const listAdminS3ConnectionsMock = vi.fn();
 const createAdminS3ConnectionMock = vi.fn();
@@ -28,7 +29,12 @@ function getWorkflowPage(title: string): HTMLElement {
   return page as HTMLElement;
 }
 
-const makeTag = (id: number, label: string, color_key = "neutral", scope = "standard") => ({
+const makeTag = (
+  id: number,
+  label: string,
+  color_key: TagColorKey = "neutral",
+  scope: TagScope = "standard",
+): TagDefinitionSummary => ({
   id,
   label,
   color_key,
@@ -515,14 +521,14 @@ describe("S3ConnectionsPage modal tabs", () => {
   it("keeps single-deletion failures in a protected confirmation", async () => {
     deleteAdminS3ConnectionMock.mockRejectedValueOnce(new Error("Connection is in use"));
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Delete", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     const dialog = within(screen.getByRole("dialog", { name: "Delete: connection-1" }));
     expect(deleteAdminS3ConnectionMock).not.toHaveBeenCalled();
-    fireEvent.click(dialog.getByRole("button", { name: "Delete", exact: true }));
+    fireEvent.click(dialog.getByRole("button", { name: "Delete" }));
     expect(await dialog.findByRole("alert")).toHaveTextContent("Connection is in use");
     let resolve!: () => void;
     deleteAdminS3ConnectionMock.mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
-    const confirm = dialog.getByRole("button", { name: "Delete", exact: true });
+    const confirm = dialog.getByRole("button", { name: "Delete" });
     fireEvent.click(confirm);
     fireEvent.click(confirm);
     expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
@@ -542,7 +548,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     await screen.findByText("connection-2");
     fireEvent.click(screen.getByRole("checkbox", { name: "Select connection connection-1" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select connection connection-2" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete selected", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
     const dialog = within(screen.getByRole("dialog", { name: "Delete selected (2)" }));
     expect(deleteAdminS3ConnectionMock).not.toHaveBeenCalled();
     fireEvent.click(dialog.getByRole("button", { name: "Delete selected connections" }));
@@ -550,7 +556,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Select connection connection-1" })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Select connection connection-2" })).toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Delete selected", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete selected" }));
     fireEvent.click(within(screen.getByRole("dialog", { name: "Delete selected (1)" })).getByRole("button", { name: "Delete selected connections" }));
     await waitFor(() => expect(deleteAdminS3ConnectionMock.mock.calls).toEqual([[1], [2], [2]]));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

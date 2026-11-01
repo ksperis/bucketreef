@@ -20,6 +20,7 @@ const fixtures = vi.hoisted(() => ({
     can_access_storage_ops: false,
     can_create_manual_private_connections: false,
     can_provision_managed_private_connections: false,
+    allow_multisite_endpoint_switching: false,
     manager_tool_access: {
       bucket_compare: false,
       bucket_integrity_check: false,
@@ -115,7 +116,7 @@ describe("Admin principal editor navigation", () => {
   describe.each(editors)("$name", (editor) => {
     async function openEditor() {
       const router = mount(editor);
-      fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+      fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
       await screen.findByRole("form", { name: editor.form });
       return router;
     }
@@ -153,7 +154,7 @@ describe("Admin principal editor navigation", () => {
 
     it("discards pending association selections on query navigation without retaining an editor", async () => {
       const router = await openEditor();
-      fireEvent.click(screen.getByRole("tab", { name: editor.tab, exact: true }));
+      fireEvent.click(screen.getByRole("tab", { name: editor.tab }));
       fireEvent.click(screen.getByRole("button", { name: editor.add }));
       fireEvent.click(await screen.findByRole("checkbox", { name: editor.selection }));
       expect(unloadBlocked()).toBe(true);
@@ -162,8 +163,8 @@ describe("Admin principal editor navigation", () => {
       await waitFor(() => expect(router.state.location.search).toBe("?search=another"));
       expect(screen.queryByRole("form", { name: editor.form })).not.toBeInTheDocument();
       expect(unloadBlocked()).toBe(false);
-      fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
-      fireEvent.click(screen.getByRole("tab", { name: editor.tab, exact: true }));
+      fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+      fireEvent.click(screen.getByRole("tab", { name: editor.tab }));
       fireEvent.click(screen.getByRole("button", { name: editor.add }));
       expect(await screen.findByRole("checkbox", { name: editor.selection })).not.toBeChecked();
       expect(unloadBlocked()).toBe(false);
@@ -173,17 +174,17 @@ describe("Admin principal editor navigation", () => {
       const router = await openEditor();
       fireEvent.change(screen.getByLabelText(editor.field), { target: { value: "Draft" } });
       editor.update.mockRejectedValueOnce(new Error("Fixture save failed"));
-      fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
-      await waitFor(() => expect(screen.getByRole("button", { name: "Save", exact: true })).toBeEnabled());
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
       expect(editor.update).toHaveBeenCalledOnce();
       expect(screen.getByLabelText(editor.field)).toHaveValue("Draft");
       fireEvent.click(screen.getByRole("link", { name: "Other page" }));
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
       expect(unloadBlocked()).toBe(true);
-      fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeEnabled());
       expect(screen.getByRole("form", { name: editor.form })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Save", exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
       expect(editor.update).toHaveBeenCalledTimes(2);
       expect(editor.update.mock.calls[1]).toEqual(editor.update.mock.calls[0]);
       expect(unloadBlocked()).toBe(false);
@@ -193,7 +194,7 @@ describe("Admin principal editor navigation", () => {
 
     it("uses the same navigation protection for a new principal draft", async () => {
       mount(editor);
-      fireEvent.click(await screen.findByRole("button", { name: editor.create, exact: true }));
+      fireEvent.click(await screen.findByRole("button", { name: editor.create }));
       fireEvent.change(screen.getByLabelText(editor.field), { target: { value: "Draft" } });
       fireEvent.click(screen.getByRole("link", { name: "Other page" }));
       expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeInTheDocument();
@@ -204,7 +205,7 @@ describe("Admin principal editor navigation", () => {
 
     it("keeps all platform access together across tab changes and saves", async () => {
       await openEditor();
-      fireEvent.click(screen.getByRole("tab", { name: "Platform access", exact: true }));
+      fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
       expect(screen.queryByRole("tab", { name: "Manager" })).not.toBeInTheDocument();
       expect(screen.queryByRole("tab", { name: "Browser" })).not.toBeInTheDocument();
       expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
@@ -213,16 +214,15 @@ describe("Admin principal editor navigation", () => {
       ]);
       const labels = [editor.name === "UI User" ? "Allow access to /storage-ops" : "Allow group access to /storage-ops",
         "Bucket compare", "Enable technical S3 tools", "Allow manual private connection creation"];
-      for (const label of labels) fireEvent.click(screen.getByRole("switch", { name: label, exact: true }));
+      for (const label of labels) fireEvent.click(screen.getByRole("switch", { name: label }));
       fireEvent.click(screen.getByRole("tab", {
         name: editor.name === "UI User" ? "Profile and preferences" : "General",
-        exact: true,
       }));
-      fireEvent.click(screen.getByRole("tab", { name: "Platform access", exact: true }));
+      fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
       fireEvent.click(screen.getByRole("link", { name: "Other page" }));
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
-      for (const label of labels) expect(screen.getByRole("switch", { name: label, exact: true })).toBeChecked();
-      fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+      for (const label of labels) expect(screen.getByRole("switch", { name: label })).toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(editor.update).toHaveBeenCalledOnce());
       expect(editor.update.mock.calls[0][1]).toEqual(expect.objectContaining({
         can_access_storage_ops: true, browser_advanced_features_enabled: true,
@@ -235,7 +235,7 @@ describe("Admin principal editor navigation", () => {
 
   it("protects a group avatar change even when text and permissions are unchanged", async () => {
     mount(editors[1]);
-    const edit = await screen.findByRole("button", { name: "Edit", exact: true });
+    const edit = await screen.findByRole("button", { name: "Edit" });
     await act(async () => { fireEvent.click(edit); });
     fireEvent.click(screen.getByRole("button", { name: "Use Security pictogram" }));
     fireEvent.click(screen.getByRole("link", { name: "Other page" }));
@@ -245,7 +245,7 @@ describe("Admin principal editor navigation", () => {
 
   it("keeps authentication fields across cancelled tab and page exits, and discards only that tab draft", async () => {
     mount(editors[0]);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Alice draft" } });
     fireEvent.click(screen.getByRole("tab", { name: "Security" }));
     const provider = await screen.findByLabelText("Provider ID");
@@ -268,7 +268,7 @@ describe("Admin principal editor navigation", () => {
 
   it("protects an authentication-only draft after failure and allows navigation after its successful action", async () => {
     mount(editors[0]);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("tab", { name: "Security" }));
     fireEvent.change(await screen.findByLabelText("New password"), { target: { value: "fixture-password" } });
     fireEvent.change(screen.getByLabelText("Confirm password"), { target: { value: "fixture-password" } });
@@ -288,7 +288,7 @@ describe("Admin principal editor navigation", () => {
 
   it("saves account language and alerts with the protected principal draft", async () => {
     mount(editors[0]);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "Theme" })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: "Global quota watch" })).not.toBeInTheDocument();
@@ -300,7 +300,7 @@ describe("Admin principal editor navigation", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Profile and preferences" }));
     expect(screen.getByRole("combobox", { name: "Language" })).toHaveValue("de");
     expect(screen.getByRole("switch", { name: "Quota alert emails" })).not.toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(fixtures.updateUser).toHaveBeenCalledWith(2, expect.objectContaining({
       ui_language: "de", quota_alerts_enabled: false, quota_alerts_global_watch: false,
     })));
@@ -309,17 +309,17 @@ describe("Admin principal editor navigation", () => {
 
   it("saves an avatar independently without submitting or resetting the parent draft", async () => {
     mount(editors[0]);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Full name"), { target: { value: "Unsaved name" } });
     fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
     const dialog = screen.getByRole("dialog", { name: "Edit profile image" });
     fireEvent.change(within(dialog).getByRole("combobox", { name: "Image source" }), { target: { value: "initials" } });
     fixtures.updateUser.mockRejectedValueOnce(new Error("Fixture avatar save failure"));
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save", exact: true }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Unable to save your changes.");
     expect(fixtures.updateUser).toHaveBeenCalledExactlyOnceWith(2, { avatar_preference: "initials" });
     expect(within(dialog).getByRole("combobox", { name: "Image source" })).toHaveValue("initials");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save", exact: true }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(fixtures.updateUser).toHaveBeenCalledTimes(2);
     expect(fixtures.updateUser.mock.calls[1]).toEqual(fixtures.updateUser.mock.calls[0]);
@@ -331,7 +331,7 @@ describe("Admin principal editor navigation", () => {
 
   it("protects avatar-only changes and discards them without a request", async () => {
     const router = mount(editors[0]);
-    fireEvent.click(await screen.findByRole("button", { name: "Edit", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Image source" }), { target: { value: "initials" } });
     expect(unloadBlocked()).toBe(true);
@@ -339,7 +339,7 @@ describe("Admin principal editor navigation", () => {
     fireEvent.click(within(screen.getByRole("dialog", { name: "Discard changes?" })).getByRole("button", { name: "Keep editing" }));
     const dialog = screen.getByRole("dialog", { name: "Edit profile image" });
     expect(within(dialog).getByRole("combobox", { name: "Image source" })).toHaveValue("initials");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel", exact: true }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     fireEvent.click(within(screen.getByRole("dialog", { name: "Discard unsaved changes?" })).getByRole("button", { name: "Discard changes" }));
     expect(unloadBlocked()).toBe(false);
     expect(fixtures.updateUser).not.toHaveBeenCalled();

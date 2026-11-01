@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import GroupsPage from "./GroupsPage";
-import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
+import { DEFAULT_MANAGER_FEATURE_POLICIES, type ManagerFeaturePolicies } from "../../api/featurePolicies";
 import type { UiGroup } from "../../api/groups";
 import type { S3UserSummary } from "../../api/s3Users";
 import type { S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
@@ -36,6 +36,9 @@ function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
     allow_activity_history: null,
     allow_rgw_usage_metrics: null,
     allow_cost_estimation: null,
+    allow_bucket_usage_stats: null,
+    allow_bucket_usage_stats_collection: null,
+    allow_multisite_endpoint_switching: null,
     allow_managed_private_connection_provisioning: null,
   };
 }
@@ -73,6 +76,7 @@ function canonicalGroup(input: Pick<UiGroup, "id" | "name"> & Partial<UiGroup>):
     can_access_storage_ops: input.can_access_storage_ops ?? false,
     can_create_manual_private_connections: input.can_create_manual_private_connections ?? false,
     can_provision_managed_private_connections: input.can_provision_managed_private_connections ?? false,
+    allow_multisite_endpoint_switching: input.allow_multisite_endpoint_switching ?? false,
     manager_tool_access: {
       bucket_compare: input.manager_tool_access?.bucket_compare ?? false,
       bucket_integrity_check: input.manager_tool_access?.bucket_integrity_check ?? false,
@@ -108,11 +112,13 @@ function canonicalGroup(input: Pick<UiGroup, "id" | "name"> & Partial<UiGroup>):
   };
 }
 
-const generalSettingsState = {
-  manager_feature_policies: {
+const managerFeaturePolicies: ManagerFeaturePolicies = {
     ...DEFAULT_MANAGER_FEATURE_POLICIES,
-    managed_private_connection_provisioning: "targeted" as const,
-  },
+    managed_private_connection_provisioning: "targeted",
+};
+
+const generalSettingsState = {
+  manager_feature_policies: managerFeaturePolicies,
   manager_enabled: true,
   openstack_enabled: true,
   ceph_admin_enabled: true,
@@ -803,7 +809,7 @@ describe("GroupsPage", () => {
     let rejectSave!: (error: Error) => void;
     save.mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
     renderPage();
-    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create group", exact: true });
+    const trigger = await screen.findByRole("button", { name: editing ? "Edit" : "Create group" });
     await act(async () => { fireEvent.click(trigger); });
     const form = screen.getByRole("form", { name: editing ? "Edit UI group" : "Create UI group" });
     fireEvent.change(within(form).getByLabelText("Name"), { target: { value: "retained-group" } });
@@ -832,7 +838,7 @@ describe("GroupsPage", () => {
     renderPage();
     const trigger = await screen.findByRole("button", { name: "Create group" });
     await act(async () => { fireEvent.click(trigger); });
-    fireEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Create group" })); });
     fireEvent.click(screen.getByRole("tab", { name: "Members" }));
@@ -842,21 +848,21 @@ describe("GroupsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(screen.getByRole("checkbox", { name: "alice@example.com" })).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: "Back to groups" }));
-    fireEvent.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard changes" }));
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Create group" })); });
-    fireEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("keeps the latest pictogram choice after cancelling image removal", async () => {
     listGroupsMock.mockResolvedValue({ items: [{ id: 50, name: "illustrated", avatar: { source: "uploaded", initials: "I" } }], total: 1, page: 1, page_size: 25 });
     renderPage();
-    const trigger = await screen.findByRole("button", { name: "Edit", exact: true });
+    const trigger = await screen.findByRole("button", { name: "Edit" });
     await act(async () => { fireEvent.click(trigger); });
     fireEvent.click(screen.getByRole("button", { name: "Remove uploaded image" }));
     fireEvent.click(screen.getByRole("button", { name: "Use Security pictogram" }));
     expect(screen.getByRole("button", { name: "Use Security pictogram" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Done" })).toBeVisible());
     expect(screen.getByRole("form", { name: "Edit UI group" })).toBeInTheDocument();
     expect(updateGroupMock).toHaveBeenCalledWith(50, expect.objectContaining({ avatar_source: "preset", avatar_icon: "shield" }));
