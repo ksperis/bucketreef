@@ -36,8 +36,6 @@ import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import AdminUserPlatformAccessPanel from "./AdminUserPlatformAccessPanel";
 import AdminUsersList, { type AdminUsersSortField } from "./AdminUsersList";
 import {
-  DEFAULT_MANAGER_TOOL_ACCESS,
-  normalizeManagerToolAccess,
   roleSupportsOperationalAccess,
 } from "./adminAccessConfig";
 import PageBanner from "../../components/PageBanner";
@@ -70,6 +68,15 @@ import useAdminUserAssociationDerivedOptions from "./useAdminUserAssociationDeri
 import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminUserLdapImport from "./useAdminUserLdapImport";
+import {
+  adminUserCreatePayload,
+  adminUserEditForm,
+  adminUserLdapCreatePayload,
+  adminUserRoleAccessPatch,
+  adminUserUpdatePayload,
+  emptyAdminUserCreateForm,
+  type AdminUserAssociationSelection,
+} from "./adminUserForm";
 
 type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
 
@@ -154,19 +161,7 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const createFormTemplate = (): CreateUserPayload => ({
-    email: "",
-    full_name: "",
-    password: "",
-    role: "ui_user",
-    can_access_ceph_admin: false,
-    can_access_storage_ops: false,
-    can_create_manual_private_connections: false,
-    can_provision_managed_private_connections: false,
-    allow_multisite_endpoint_switching: false,
-    manager_tool_access: { ...DEFAULT_MANAGER_TOOL_ACCESS },
-    browser_advanced_features_enabled: false,
-  });
+  const createFormTemplate = emptyAdminUserCreateForm;
   const [form, setForm] = useState<CreateUserPayload>(() => createFormTemplate());
   const [createInitialSignature, setCreateInitialSignature] = useState(() =>
     JSON.stringify({
@@ -455,17 +450,11 @@ export default function UsersPage() {
     clearAdminPrincipalEditRequest();
   };
 
-  const roleAccessPatch = (role: UiRole, current: UpdateUserPayload) => {
-    const supportsCephAdmin = isAdminLikeRole(role);
-    const supportsStorageOps = roleSupportsOperationalAccess(role);
-    return {
-      role,
-      can_access_ceph_admin: currentIsSuperAdmin && supportsCephAdmin ? Boolean(current.can_access_ceph_admin) : false,
-      can_access_storage_ops: currentIsAdminLike && supportsStorageOps ? Boolean(current.can_access_storage_ops) : false,
-      can_create_manual_private_connections: supportsStorageOps ? Boolean(current.can_create_manual_private_connections) : false,
-      can_provision_managed_private_connections: supportsStorageOps ? Boolean(current.can_provision_managed_private_connections) : false,
-    };
-  };
+  const roleAccessPatch = (role: UiRole, current: UpdateUserPayload) =>
+    adminUserRoleAccessPatch(role, current, {
+      currentIsAdminLike,
+      currentIsSuperAdmin,
+    });
 
   const createDirty = showCreateModal && createCurrentSignature !== createInitialSignature;
   const editMainDirty = showEditModal && editCurrentSignature !== editInitialSignature;
@@ -577,44 +566,19 @@ export default function UsersPage() {
       setActionError(getAccountAccessRequiredMessage(showPortalRole));
       return;
     }
-    const role = form.role ?? "ui_user";
-    const payload: CreateUserPayload = {
-      email: form.email,
-      full_name: form.full_name?.trim() || null,
-      password: form.password,
-      role,
-      can_access_ceph_admin:
-        currentIsSuperAdmin && isAdminLikeRole(role)
-          ? Boolean(form.can_access_ceph_admin)
-          : false,
-      can_access_storage_ops:
-        currentIsAdminLike && roleSupportsOperationalAccess(role)
-          ? Boolean(form.can_access_storage_ops)
-          : false,
-      can_create_manual_private_connections: createTargetSupportsManagerTools
-        ? Boolean(form.can_create_manual_private_connections)
-        : false,
-      can_provision_managed_private_connections: createTargetSupportsManagerTools
-        ? Boolean(form.can_provision_managed_private_connections)
-        : false,
-      allow_multisite_endpoint_switching: createTargetSupportsManagerTools
-        ? Boolean(form.allow_multisite_endpoint_switching)
-        : false,
-      manager_tool_access: createTargetSupportsManagerTools
-        ? normalizeManagerToolAccess(form.manager_tool_access)
-        : { ...DEFAULT_MANAGER_TOOL_ACCESS },
-      browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
-      account_links: createAssociations.accounts.selected.map((entry) => ({
-        account_id: Number(entry.id),
-        manager_role: entry.manager_role,
-        portal_role: entry.portal_role,
-        allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
-      })),
-      s3_user_links: createAssociations.s3Users.selected,
-      s3_connection_ids: createAssociations.connections.selected,
-      group_ids: createAssociations.groups.selected,
-      ...(openStackEnabled ? { openstack_cloud_ids: createAssociations.openStack.selected } : {}),
+    const associations: AdminUserAssociationSelection = {
+      accounts: createAssociations.accounts.selected,
+      s3Users: createAssociations.s3Users.selected,
+      connections: createAssociations.connections.selected,
+      groups: createAssociations.groups.selected,
+      openStack: createAssociations.openStack.selected,
     };
+    const payload = adminUserCreatePayload(
+      form,
+      associations,
+      { currentIsAdminLike, currentIsSuperAdmin },
+      openStackEnabled,
+    );
     savingRef.current = true;
     setCreating(true);
     try {
@@ -623,23 +587,7 @@ export default function UsersPage() {
           importLdapUser({
             selection_token: selectedLdapEntry.selection_token,
             action: "create",
-            create: {
-              email: payload.email,
-              full_name: payload.full_name,
-              role: payload.role,
-              can_access_ceph_admin: payload.can_access_ceph_admin,
-              can_access_storage_ops: payload.can_access_storage_ops,
-              can_create_manual_private_connections: payload.can_create_manual_private_connections,
-              can_provision_managed_private_connections: payload.can_provision_managed_private_connections,
-              allow_multisite_endpoint_switching: payload.allow_multisite_endpoint_switching,
-              manager_tool_access: payload.manager_tool_access,
-              browser_advanced_features_enabled: payload.browser_advanced_features_enabled,
-              account_links: payload.account_links,
-              s3_user_links: payload.s3_user_links,
-              s3_connection_ids: payload.s3_connection_ids,
-              group_ids: payload.group_ids,
-              openstack_cloud_ids: payload.openstack_cloud_ids,
-            },
+            create: adminUserLdapCreatePayload(payload),
           })
         );
       } else {
@@ -667,37 +615,7 @@ export default function UsersPage() {
       setActionError(text("standardUsersOnly"));
       return;
     }
-    const role = user.role;
-    const nextEditForm = {
-      email: user.email,
-      full_name: user.full_name ?? "",
-      ui_language: user.ui_language ?? null,
-      quota_alerts_enabled: user.quota_alerts_enabled !== false,
-      quota_alerts_global_watch: Boolean(user.quota_alerts_global_watch),
-      role,
-      can_access_ceph_admin:
-        isAdminLikeRole(role)
-          ? Boolean(user.can_access_ceph_admin)
-          : false,
-      can_access_storage_ops:
-        roleSupportsOperationalAccess(role)
-          ? Boolean(user.can_access_storage_ops)
-          : false,
-      can_create_manual_private_connections:
-        roleSupportsOperationalAccess(role)
-          ? Boolean(user.can_create_manual_private_connections)
-          : false,
-      can_provision_managed_private_connections:
-        roleSupportsOperationalAccess(role)
-          ? Boolean(user.can_provision_managed_private_connections)
-          : false,
-      allow_multisite_endpoint_switching:
-        roleSupportsOperationalAccess(role)
-          ? Boolean(user.allow_multisite_endpoint_switching)
-          : false,
-      manager_tool_access: normalizeManagerToolAccess(user.manager_tool_access),
-      browser_advanced_features_enabled: Boolean(user.browser_advanced_features_enabled),
-    };
+    const nextEditForm = adminUserEditForm(user);
     setEditAttempted(false);
     setEditingUser(user);
     setEditForm(nextEditForm);
@@ -789,81 +707,27 @@ export default function UsersPage() {
     savingRef.current = true;
     setBusyId(editingUser.id);
     try {
-      const payload: UpdateUserPayload = {};
-      const nextRole = editForm.role ?? editingUser.role;
-      if (editForm.email) {
-        payload.email = editForm.email;
-      }
-      payload.full_name = editForm.full_name?.trim() || null;
-      payload.ui_language = editForm.ui_language ?? null;
-      payload.quota_alerts_enabled = editForm.quota_alerts_enabled !== false;
-      payload.quota_alerts_global_watch = isAdminLikeRole(nextRole) && Boolean(editForm.quota_alerts_global_watch);
-      if (editForm.role) {
-        payload.role = nextRole;
-      }
-      payload.can_access_ceph_admin =
-        currentIsSuperAdmin && isAdminLikeRole(nextRole)
-          ? Boolean(editForm.can_access_ceph_admin ?? editingUser.can_access_ceph_admin)
-          : false;
-      payload.can_access_storage_ops =
-        currentIsAdminLike && roleSupportsOperationalAccess(nextRole)
-          ? Boolean(editForm.can_access_storage_ops ?? editingUser.can_access_storage_ops)
-          : false;
-      const nextRoleSupportsConnectionPermissions = roleSupportsOperationalAccess(nextRole);
-      payload.can_create_manual_private_connections = nextRoleSupportsConnectionPermissions
-        ? Boolean(
-            editForm.can_create_manual_private_connections ??
-              editingUser.can_create_manual_private_connections
-          )
-        : false;
-      payload.can_provision_managed_private_connections = nextRoleSupportsConnectionPermissions
-        ? Boolean(
-            editForm.can_provision_managed_private_connections ??
-              editingUser.can_provision_managed_private_connections
-          )
-        : false;
-      payload.allow_multisite_endpoint_switching = nextRoleSupportsConnectionPermissions
-        ? Boolean(
-            editForm.allow_multisite_endpoint_switching ??
-              editingUser.allow_multisite_endpoint_switching
-          )
-        : false;
-      payload.manager_tool_access =
-        roleSupportsOperationalAccess(nextRole)
-          ? normalizeManagerToolAccess(editForm.manager_tool_access ?? editingUser.manager_tool_access)
-          : { ...DEFAULT_MANAGER_TOOL_ACCESS };
-      payload.browser_advanced_features_enabled = Boolean(
-        editForm.browser_advanced_features_enabled ?? editingUser.browser_advanced_features_enabled
+      const associations: AdminUserAssociationSelection = {
+        accounts: editAssociations.accounts.selected,
+        s3Users: editAssociations.s3Users.selected,
+        connections: editAssociations.connections.selected,
+        groups: editAssociations.groups.selected,
+        openStack: editAssociations.openStack.selected,
+      };
+      const payload = adminUserUpdatePayload(
+        editForm,
+        editingUser,
+        associations,
+        { currentIsAdminLike, currentIsSuperAdmin },
+        openStackEnabled,
       );
-      payload.account_links = editAssociations.accounts.selected.map((entry) => ({
-        account_id: Number(entry.id),
-        manager_role: entry.manager_role,
-        portal_role: entry.portal_role,
-        allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
-      }));
-      payload.group_ids = editAssociations.groups.selected;
-      payload.s3_user_links = editAssociations.s3Users.selected;
-      payload.s3_connection_ids = editAssociations.connections.selected;
-      if (openStackEnabled) payload.openstack_cloud_ids = editAssociations.openStack.selected;
       const updatedUser = await runWithStepUp(() => updateUser(editingUser.id, payload));
       if (currentUserId !== null && currentUserId === editingUser.id && typeof window !== "undefined") {
         setSessionUserCache({ ...(readStoredUser() ?? {}), ...updatedUser });
       }
       const savedForm: UpdateUserPayload = {
         ...editForm,
-        email: updatedUser.email,
-        full_name: updatedUser.full_name ?? "",
-        ui_language: updatedUser.ui_language ?? null,
-        quota_alerts_enabled: updatedUser.quota_alerts_enabled !== false,
-        quota_alerts_global_watch: Boolean(updatedUser.quota_alerts_global_watch),
-        role: updatedUser.role,
-        can_access_ceph_admin: Boolean(updatedUser.can_access_ceph_admin),
-        can_access_storage_ops: Boolean(updatedUser.can_access_storage_ops),
-        can_create_manual_private_connections: Boolean(updatedUser.can_create_manual_private_connections),
-        can_provision_managed_private_connections: Boolean(updatedUser.can_provision_managed_private_connections),
-        allow_multisite_endpoint_switching: Boolean(updatedUser.allow_multisite_endpoint_switching),
-        manager_tool_access: normalizeManagerToolAccess(updatedUser.manager_tool_access),
-        browser_advanced_features_enabled: Boolean(updatedUser.browser_advanced_features_enabled),
+        ...adminUserEditForm(updatedUser),
       };
       setEditingUser(updatedUser);
       setEditForm(savedForm);
