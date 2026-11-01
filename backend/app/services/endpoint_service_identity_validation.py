@@ -11,6 +11,7 @@ from app.db import EndpointServiceIdentity, StorageEndpoint
 from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_admin_identity import extract_ceph_admin_flags
 from app.utils.rgw_caps import parse_rgw_caps_permissions
+from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
 SERVICE_CAPS = {
@@ -141,7 +142,7 @@ class EndpointServiceIdentityValidationService:
             raise ValueError("Runtime access key is required for validation.")
         payload = client.get_user_by_access_key(access_key, allow_not_found=True)
         cls.validate_payload("runtime", payload)
-        uid = payload.get("user_id") or payload.get("uid")
+        uid, tenant = extract_rgw_user_identity(payload)
         if (
             not uid
             or payload.get("keys")
@@ -151,7 +152,10 @@ class EndpointServiceIdentityValidationService:
             raise ValueError("Runtime user lookup must succeed without returning keys.")
         client.get_account("RGW00000000000000000", allow_not_found=True)
         if check_buckets:
-            client.get_all_buckets(uid=bucket_uid or str(uid), with_stats=True)
+            client.get_all_buckets(
+                uid=bucket_uid or rgw_qualified_uid(uid, tenant),
+                with_stats=True,
+            )
 
     @staticmethod
     def _validate_supervision_functional_access(
