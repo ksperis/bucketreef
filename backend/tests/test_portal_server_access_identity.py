@@ -1,6 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+
 from app.services.portal_service import PortalService
 
 
@@ -43,3 +45,20 @@ def test_rgw_requester_identity_ignores_not_found_payload(db_session):
         )
         is None
     )
+
+
+def test_rgw_requester_identity_rejects_conflicting_account_aliases(db_session):
+    with pytest.raises(ValueError, match="conflicting account identity"):
+        PortalService(db_session)._portal_server_access_identity_from_rgw_payload(
+            {
+                "account_id": "RGW00000000000000001",
+                "user": {"account": "RGW00000000000000002", "uid": "user-a"},
+            }
+        )
+
+
+def test_rgw_requester_identity_rejects_conflicting_user_identity(db_session):
+    with pytest.raises(ValueError, match="conflicting user identity"):
+        PortalService(db_session)._portal_server_access_identity_from_rgw_payload(
+            {"uid": "user-a", "user": {"uid": "user-b"}}
+        )
