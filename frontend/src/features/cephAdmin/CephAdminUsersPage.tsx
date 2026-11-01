@@ -43,8 +43,6 @@ import {
   advancedFilterFieldHighlight,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
-  buildQuickTextFilterRules,
-  buildTextFieldRules,
   formatAdvancedFilterSyncLabel,
   formatTextFilterSummary,
   resolveTextFilterFieldState,
@@ -52,13 +50,10 @@ import {
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
   renderAdvancedSearchProgress,
-  serializeAdvancedFilterRules,
   shouldShowActiveFilterSummary,
-  type FilterCostLevel,
   type TextMatchMode,
 } from "../shared/advancedFilterShared";
 import {
-  appendNumericFilterRule,
   buildNumericFilterFields,
   buildNumericFilterFieldStates,
   buildNumericFilterSummaryItems,
@@ -66,6 +61,16 @@ import {
   type NumericFilterRangeField,
 } from "./filtering/advancedFilterModel";
 import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
+import {
+  buildUserAdvancedFilterPayload,
+  defaultUserAdvancedFilter,
+  hasUserAdvancedFilters,
+  resolveUserAdvancedFilterCost,
+  type UserActiveFilterSummaryItem,
+  type UserAdvancedFilterState,
+  type UserAdvancedNumericField,
+  type UserAdvancedStatusFilter,
+} from "./filtering/userAdvancedFilterModel";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
 import {
   resolveCephAdminQuickFilterState,
@@ -74,13 +79,6 @@ import { useCephAdminListingTableState } from "./listing/useCephAdminListingTabl
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
 import { useCephAdminUserConfigurationNavigation } from "./useCephAdminEntityConfigurationNavigation";
-import {
-  appendQuotaAdvancedFilterRules,
-  defaultQuotaAdvancedFilter,
-  hasQuotaAdvancedFilters,
-  type QuotaAdvancedFilterState,
-  type QuotaAdvancedNumericField,
-} from "../shared/quotaAdvancedFilterModel";
 
 type ColumnId =
   | "tenant"
@@ -102,37 +100,6 @@ type SortField =
   | "max_buckets"
   | "quota_max_size_bytes"
   | "quota_max_objects";
-
-type AdvancedStatusFilter = "any" | "active" | "suspended";
-
-type AdvancedFilterState = QuotaAdvancedFilterState & {
-  tenant: string;
-  tenantMatchMode: TextMatchMode;
-  accountId: string;
-  accountIdMatchMode: TextMatchMode;
-  accountName: string;
-  accountNameMatchMode: TextMatchMode;
-  fullName: string;
-  fullNameMatchMode: TextMatchMode;
-  email: string;
-  emailMatchMode: TextMatchMode;
-  minMaxBuckets: string;
-  maxMaxBuckets: string;
-  suspended: AdvancedStatusFilter;
-};
-
-type AdvancedTextField = "tenant" | "accountId" | "accountName" | "fullName" | "email";
-type AdvancedNumericField =
-  | "minMaxBuckets"
-  | "maxMaxBuckets"
-  | QuotaAdvancedNumericField;
-type AdvancedField = AdvancedTextField | AdvancedNumericField | "suspended";
-type ActiveFilterRemoveAction = { type: "quick" } | { type: "advanced"; field: AdvancedField };
-type ActiveFilterSummaryItem = {
-  id: string;
-  label: string;
-  remove: ActiveFilterRemoveAction;
-};
 
 const COLUMNS_STORAGE_KEY = "ceph-admin.user_list.columns.v2";
 const defaultVisibleColumns: ColumnId[] = ["tenant"];
@@ -166,68 +133,6 @@ const SORT_COLUMNS: Array<{ field: SortField; label: string }> = [
   { field: "uid", label: "UID" },
   ...USER_COLUMN_GROUPS.flatMap(group => group.options.map(option => ({ field: option.id, label: option.label }))),
 ];
-
-const defaultAdvancedFilter: AdvancedFilterState = {
-  tenant: "",
-  tenantMatchMode: "contains",
-  accountId: "",
-  accountIdMatchMode: "contains",
-  accountName: "",
-  accountNameMatchMode: "contains",
-  fullName: "",
-  fullNameMatchMode: "contains",
-  email: "",
-  emailMatchMode: "contains",
-  minMaxBuckets: "",
-  maxMaxBuckets: "",
-  ...defaultQuotaAdvancedFilter,
-  suspended: "any",
-};
-
-const hasAdvancedFilters = (advanced: AdvancedFilterState | null, allowUsageFilters: boolean) => {
-  if (!advanced) return false;
-  return Boolean(
-    advanced.tenant.trim() ||
-      advanced.accountId.trim() ||
-      advanced.accountName.trim() ||
-      advanced.fullName.trim() ||
-      advanced.email.trim() ||
-      advanced.minMaxBuckets.trim() ||
-      advanced.maxMaxBuckets.trim() ||
-      hasQuotaAdvancedFilters(advanced, allowUsageFilters) ||
-      advanced.suspended !== "any"
-  );
-};
-
-const buildAdvancedFilterPayload = (
-  advanced: AdvancedFilterState | null,
-  quickSearch: string,
-  quickMatchMode: TextMatchMode,
-  allowUsageFilters: boolean
-) => {
-  const rules: Array<Record<string, unknown>> = [];
-  rules.push(...buildQuickTextFilterRules("uid", quickSearch, quickMatchMode));
-
-  if (advanced) {
-    rules.push(...buildTextFieldRules("tenant", advanced.tenant, advanced.tenantMatchMode));
-    rules.push(...buildTextFieldRules("account_id", advanced.accountId, advanced.accountIdMatchMode));
-    rules.push(...buildTextFieldRules("account_name", advanced.accountName, advanced.accountNameMatchMode));
-    rules.push(...buildTextFieldRules("full_name", advanced.fullName, advanced.fullNameMatchMode));
-    rules.push(...buildTextFieldRules("email", advanced.email, advanced.emailMatchMode));
-    appendNumericFilterRule(rules, "max_buckets", "gte", advanced.minMaxBuckets);
-    appendNumericFilterRule(rules, "max_buckets", "lte", advanced.maxMaxBuckets);
-    appendQuotaAdvancedFilterRules(rules, advanced, allowUsageFilters);
-
-    if (advanced.suspended === "active") {
-      rules.push({ field: "suspended", op: "eq", value: false });
-    } else if (advanced.suspended === "suspended") {
-      rules.push({ field: "suspended", op: "eq", value: true });
-    }
-  }
-
-  if (rules.length === 0) return undefined;
-  return serializeAdvancedFilterRules(rules);
-};
 
 const rowKey = (user: CephAdminRgwUser) => `${user.tenant ?? ""}:${user.uid}`;
 const bucketOwnerFilterForUser = (user: CephAdminRgwUser) => {
@@ -278,9 +183,9 @@ export default function CephAdminUsersPage() {
     resetAdvancedFilter,
     resetAllFilters,
     removeActiveFilterItem,
-  } = useCephAdminListingFilters<AdvancedFilterState>({
+  } = useCephAdminListingFilters<UserAdvancedFilterState>({
     endpointId: selectedEndpointId,
-    defaultAdvancedFilter,
+    defaultAdvancedFilter: defaultUserAdvancedFilter,
     setPage,
   });
 
@@ -310,7 +215,7 @@ export default function CephAdminUsersPage() {
     pending: quickFilterPending,
   } = resolveCephAdminQuickFilterState(filter, searchValue, quickFilterMode);
   const advancedFilterParam = useMemo(
-    () => buildAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
+    () => buildUserAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
     [advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics]
   );
 
@@ -378,12 +283,12 @@ export default function CephAdminUsersPage() {
   const suspendedPending = suspendedDraftValue !== suspendedAppliedValue;
   const suspendedFieldState = advancedFilterFieldHighlight(suspendedAppliedValue !== "any", suspendedPending);
 
-  const numericRangeFields = useMemo<NumericFilterRangeField<AdvancedNumericField>[]>(() => [
+  const numericRangeFields = useMemo<NumericFilterRangeField<UserAdvancedNumericField>[]>(() => [
     { label: surfaceText("Max buckets"), minKey: "minMaxBuckets", maxKey: "maxMaxBuckets" },
     { label: surfaceText("Quota bytes"), minKey: "minQuotaBytes", maxKey: "maxQuotaBytes" },
     { label: surfaceText("Quota objects"), minKey: "minQuotaObjects", maxKey: "maxQuotaObjects" },
   ], [surfaceText]);
-  const usageNumericRangeFields = useMemo<NumericFilterRangeField<AdvancedNumericField>[]>(() => [
+  const usageNumericRangeFields = useMemo<NumericFilterRangeField<UserAdvancedNumericField>[]>(() => [
     { label: surfaceText("Quota usage size %"), minKey: "minQuotaUsageSizePercent", maxKey: "maxQuotaUsageSizePercent" },
     { label: surfaceText("Quota usage objects %"), minKey: "minQuotaUsageObjectPercent", maxKey: "maxQuotaUsageObjectPercent" },
   ], [surfaceText]);
@@ -399,7 +304,7 @@ export default function CephAdminUsersPage() {
     () => buildNumericFilterFieldStates(advancedDraft, advancedApplied, [...numericFields, ...usageNumericFields]),
     [advancedDraft, advancedApplied, numericFields, usageNumericFields],
   );
-  const numericRangeFieldState = (minKey: AdvancedNumericField, maxKey: AdvancedNumericField) =>
+  const numericRangeFieldState = (minKey: UserAdvancedNumericField, maxKey: UserAdvancedNumericField) =>
     numericFilterRangeFieldHighlight(advancedDraft, advancedApplied, minKey, maxKey);
 
   const toggleQuickFilterMode = () => {
@@ -422,11 +327,11 @@ export default function CephAdminUsersPage() {
     setShowAdvancedFilter(false);
   };
   const advancedAppliedPayload = useMemo(
-    () => buildAdvancedFilterPayload(advancedApplied, "", "contains", canViewMetrics),
+    () => buildUserAdvancedFilterPayload(advancedApplied, "", "contains", canViewMetrics),
     [advancedApplied, canViewMetrics]
   );
   const advancedDraftPayload = useMemo(
-    () => buildAdvancedFilterPayload(advancedDraft, "", "contains", canViewMetrics),
+    () => buildUserAdvancedFilterPayload(advancedDraft, "", "contains", canViewMetrics),
     [advancedDraft, canViewMetrics]
   );
   const hasPendingAdvancedChanges = advancedDraftPayload !== advancedAppliedPayload;
@@ -437,14 +342,14 @@ export default function CephAdminUsersPage() {
     zIndexClass: "z-[70]",
   });
 
-  const advancedFilterActive = hasAdvancedFilters(advancedApplied, canViewMetrics);
+  const advancedFilterActive = hasUserAdvancedFilters(advancedApplied, canViewMetrics);
   const activeFilterSummaryItems = useMemo(() => {
-    const items: ActiveFilterSummaryItem[] = [];
+    const items: UserActiveFilterSummaryItem[] = [];
     if (quickFilterActive) {
       const label = formatTextFilterSummary(surfaceText("UID"), searchValue, effectiveQuickFilterMode);
       if (label) items.push({ id: "quick", label, remove: { type: "quick" } });
     }
-    if (advancedApplied && hasAdvancedFilters(advancedApplied, canViewMetrics)) {
+    if (advancedApplied && hasUserAdvancedFilters(advancedApplied, canViewMetrics)) {
       const tenantLabel = formatTextFilterSummary(surfaceText("Tenant"), advancedApplied.tenant, tenantFilter.appliedMode);
       if (tenantLabel) items.push({ id: "tenant", label: tenantLabel, remove: { type: "advanced", field: "tenant" } });
       const accountIdLabel = formatTextFilterSummary(surfaceText("Account ID"), advancedApplied.accountId, accountIdFilter.appliedMode);
@@ -531,39 +436,18 @@ export default function CephAdminUsersPage() {
     surfaceText,
   ]);
 
-  const advancedDraftTextCount =
-    Number(tenantFilter.draftValue.length > 0) +
-    Number(accountIdFilter.draftValue.length > 0) +
-    Number(accountNameFilter.draftValue.length > 0) +
-    Number(fullNameFilter.draftValue.length > 0) +
-    Number(emailFilter.draftValue.length > 0) +
-    Number(suspendedDraftValue !== "any");
-  const advancedDraftDirectTextCount = Number(tenantFilter.draftValue.length > 0);
-  const advancedDraftEnrichedTextCount =
-    Number(accountIdFilter.draftValue.length > 0) +
-    Number(accountNameFilter.draftValue.length > 0) +
-    Number(fullNameFilter.draftValue.length > 0) +
-    Number(emailFilter.draftValue.length > 0) +
-    Number(suspendedDraftValue !== "any");
-  const advancedDraftNumericCount =
-    numericFields.filter(({ key }) => (advancedDraft[key] as string).trim().length > 0).length +
-    (canViewMetrics
-      ? usageNumericFields.filter(({ key }) => (advancedDraft[key] as string).trim().length > 0).length
-      : 0);
-  const advancedDraftActiveCount = advancedDraftTextCount + advancedDraftNumericCount;
-  const advancedDraftGlobalCostLevel: FilterCostLevel = useMemo(() => {
-    if (advancedDraftNumericCount >= 4) return "high";
-    if (advancedDraftNumericCount > 0) return "medium";
-    if (advancedDraftEnrichedTextCount > 0) return "medium";
-    if (advancedDraftDirectTextCount > 0) return "low";
-    return "none";
-  }, [advancedDraftDirectTextCount, advancedDraftEnrichedTextCount, advancedDraftNumericCount]);
+  const advancedDraftCost = useMemo(
+    () => resolveUserAdvancedFilterCost(advancedDraft, canViewMetrics),
+    [advancedDraft, canViewMetrics],
+  );
+  const advancedDraftActiveCount = advancedDraftCost.activeCount;
+  const advancedDraftGlobalCostLevel = advancedDraftCost.level;
   const advancedDraftGlobalCostTooltip = useMemo(() => {
     if (advancedDraftGlobalCostLevel === "high") {
       return surfaceText("High cost: many numeric filters are active and may increase stats processing.");
     }
     if (advancedDraftGlobalCostLevel === "medium") {
-      if (advancedDraftEnrichedTextCount > 0 && advancedDraftNumericCount === 0) {
+      if (advancedDraftCost.enrichedTextCount > 0 && advancedDraftCost.numericCount === 0) {
         return surfaceText("Medium cost: enriched identity/status filters require per-user detail lookups.");
       }
       return surfaceText("Medium cost: numeric filters are active and rely on limits/quota counters.");
@@ -572,7 +456,7 @@ export default function CephAdminUsersPage() {
       return surfaceText("Low cost: direct metadata filters are active.");
     }
     return surfaceText("No additional filter cost.");
-  }, [advancedDraftEnrichedTextCount, advancedDraftGlobalCostLevel, advancedDraftNumericCount, surfaceText]);
+  }, [advancedDraftCost.enrichedTextCount, advancedDraftCost.numericCount, advancedDraftGlobalCostLevel, surfaceText]);
 
   const renderSuspended = (value?: boolean | null) => {
     if (value === null || value === undefined) {
@@ -976,7 +860,7 @@ export default function CephAdminUsersPage() {
                                 costTooltip={surfaceText("Medium cost: status filters require per-user status details.")}
                                 fieldState={suspendedFieldState}
                                 value={advancedDraft.suspended}
-                                onChange={(value) => updateAdvancedField("suspended", value as AdvancedStatusFilter)}
+                                onChange={(value) => updateAdvancedField("suspended", value as UserAdvancedStatusFilter)}
                               >
                                 <option value="any">{surfaceText("Any")}</option>
                                 <option value="active">{surfaceText("Active")}</option>
