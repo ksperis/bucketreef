@@ -14,7 +14,7 @@ import {
   importS3Accounts,
   listS3Accounts,
 } from "../../api/accounts";
-import { getStorageEndpoint, listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
+import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -54,6 +54,7 @@ import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { buildUiTagItems, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
 import { useAdminI18n } from "./adminI18n";
+import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 
 type SortField = "name" | "rgw_account_id";
@@ -105,9 +106,6 @@ export default function S3AccountsPage() {
   const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
   const [loadingEndpoints, setLoadingEndpoints] = useState(false);
   const [endpointsLoaded, setEndpointsLoaded] = useState(false);
-  const [endpointAccountsWrite, setEndpointAccountsWrite] = useState<Record<number, boolean>>({});
-  const [endpointPermissionLoading, setEndpointPermissionLoading] = useState<Record<number, boolean>>({});
-  const [endpointPermissionErrors, setEndpointPermissionErrors] = useState<Record<number, string | null>>({});
   const [importTenantEndpointId, setImportTenantEndpointId] = useState<string>("");
   const [importInitialSignature, setImportInitialSignature] = useState("");
   const [editingS3Account, setEditingS3Account] = useState<S3AccountSummary | null>(null);
@@ -161,6 +159,12 @@ export default function S3AccountsPage() {
   );
 
   const extractError = useCallback((err: unknown) => extractApiError(err, adminText("Unexpected error")), [adminText]);
+  const {
+    permissionsByEndpointId: endpointPermissions,
+    loadingByEndpointId: endpointPermissionLoading,
+    errorByEndpointId: endpointPermissionErrors,
+    loadPermissions: loadEndpointPermissions,
+  } = useAdminEndpointAdminOpsPermissions({ formatError: extractError });
 
   const fetchS3Accounts = useCallback(async () => {
     setLoading(true);
@@ -221,28 +225,6 @@ export default function S3AccountsPage() {
     fetchS3Accounts();
   }, [fetchS3Accounts]);
 
-  const fetchEndpointAccountsWritePermission = useCallback(
-    async (endpointId: number) => {
-      if (!Number.isFinite(endpointId) || endpointId <= 0) return;
-      if (endpointPermissionLoading[endpointId]) return;
-      setEndpointPermissionLoading((prev) => ({ ...prev, [endpointId]: true }));
-      try {
-        const endpoint = await getStorageEndpoint(endpointId, { include_admin_ops_permissions: true });
-        setEndpointAccountsWrite((prev) => ({
-          ...prev,
-          [endpointId]: endpoint.admin_ops_permissions.accounts_write,
-        }));
-        setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: null }));
-      } catch (err) {
-        setEndpointAccountsWrite((prev) => ({ ...prev, [endpointId]: false }));
-        setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: extractError(err) }));
-      } finally {
-        setEndpointPermissionLoading((prev) => ({ ...prev, [endpointId]: false }));
-      }
-    },
-    [endpointPermissionLoading, extractError]
-  );
-
   useEffect(() => {
     if (storageEndpoints.length === 0) return;
     const defaultCeph =
@@ -267,18 +249,18 @@ export default function S3AccountsPage() {
     if (!form.storage_endpoint_id) return;
     const endpointId = Number(form.storage_endpoint_id);
     if (!Number.isFinite(endpointId) || endpointId <= 0) return;
-    if (Object.prototype.hasOwnProperty.call(endpointAccountsWrite, endpointId)) return;
-    void fetchEndpointAccountsWritePermission(endpointId);
-  }, [showCreateModal, form.storage_endpoint_id, endpointAccountsWrite, fetchEndpointAccountsWritePermission]);
+    if (Object.prototype.hasOwnProperty.call(endpointPermissions, endpointId)) return;
+    void loadEndpointPermissions(endpointId);
+  }, [showCreateModal, form.storage_endpoint_id, endpointPermissions, loadEndpointPermissions]);
 
   useEffect(() => {
     if (!showImportModal) return;
     if (!importTenantEndpointId) return;
     const endpointId = Number(importTenantEndpointId);
     if (!Number.isFinite(endpointId) || endpointId <= 0) return;
-    if (Object.prototype.hasOwnProperty.call(endpointAccountsWrite, endpointId)) return;
-    void fetchEndpointAccountsWritePermission(endpointId);
-  }, [showImportModal, importTenantEndpointId, endpointAccountsWrite, fetchEndpointAccountsWritePermission]);
+    if (Object.prototype.hasOwnProperty.call(endpointPermissions, endpointId)) return;
+    void loadEndpointPermissions(endpointId);
+  }, [showImportModal, importTenantEndpointId, endpointPermissions, loadEndpointPermissions]);
 
   const loadAccountDetail = useCallback(
     async (account: S3Account | S3AccountSummary, options?: { includeUsage?: boolean }) => {
@@ -517,8 +499,12 @@ export default function S3AccountsPage() {
   const selectedImportEndpointId = importTenantEndpointId ? Number(importTenantEndpointId) : null;
   const createPermissionLoading = selectedCreateEndpointId ? Boolean(endpointPermissionLoading[selectedCreateEndpointId]) : false;
   const importPermissionLoading = selectedImportEndpointId ? Boolean(endpointPermissionLoading[selectedImportEndpointId]) : false;
-  const createEndpointCanWrite = selectedCreateEndpointId ? endpointAccountsWrite[selectedCreateEndpointId] === true : false;
-  const importEndpointCanWrite = selectedImportEndpointId ? endpointAccountsWrite[selectedImportEndpointId] === true : false;
+  const createEndpointCanWrite = selectedCreateEndpointId
+    ? endpointPermissions[selectedCreateEndpointId]?.accounts_write === true
+    : false;
+  const importEndpointCanWrite = selectedImportEndpointId
+    ? endpointPermissions[selectedImportEndpointId]?.accounts_write === true
+    : false;
   const createPermissionError = selectedCreateEndpointId ? endpointPermissionErrors[selectedCreateEndpointId] ?? null : null;
   const importPermissionError = selectedImportEndpointId ? endpointPermissionErrors[selectedImportEndpointId] ?? null : null;
   const createCurrentSignature = useMemo(
