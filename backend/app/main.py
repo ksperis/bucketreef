@@ -147,10 +147,7 @@ def _run_pre_database_startup_checks() -> None:
 
 def _run_startup_deployment_checks() -> None:
     with SessionLocal() as db:
-        try:
-            app_settings = load_app_settings_for_db_readonly(db)
-        except Exception:
-            app_settings = None
+        app_settings = load_app_settings_for_db_readonly(db)
         findings = run_deployment_checks(
             settings,
             app_settings=app_settings,
