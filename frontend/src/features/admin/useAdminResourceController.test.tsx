@@ -103,4 +103,64 @@ describe("useAdminResourceController", () => {
     expect(result.current.error).toBe("Unable to load");
     expect(result.current.errorCause).toBe(failure);
   });
+
+  it("reloads when the reload token changes and can reset while loading", async () => {
+    let resolveSecond: ((value: { id: number }) => void) | undefined;
+    const loadResource = vi.fn()
+      .mockResolvedValueOnce({ id: 1 })
+      .mockImplementationOnce(
+        () => new Promise<{ id: number }>((resolve) => { resolveSecond = resolve; }),
+      );
+    const formatError = vi.fn(() => "Unable to load");
+    const { result, rerender } = renderHook(
+      ({ reloadToken }) => useAdminResourceController({
+        loadResource,
+        initialResource: null as { id: number } | null,
+        formatError,
+        reloadToken,
+        resetResourceOnLoad: true,
+      }),
+      { initialProps: { reloadToken: 0 } },
+    );
+
+    await waitFor(() => expect(result.current.resource).toEqual({ id: 1 }));
+    rerender({ reloadToken: 1 });
+
+    await waitFor(() => expect(result.current.resource).toBeNull());
+    expect(result.current.loading).toBe(true);
+    await act(async () => resolveSecond?.({ id: 2 }));
+    expect(result.current.resource).toEqual({ id: 2 });
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("can reset resources after failures and when disabled", async () => {
+    const failure = new Error("request failed");
+    const loadResource = vi.fn()
+      .mockResolvedValueOnce({ id: 1 })
+      .mockRejectedValueOnce(failure);
+    const formatError = vi.fn(() => "Unable to load");
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useAdminResourceController({
+        loadResource,
+        initialResource: null as { id: number } | null,
+        formatError,
+        enabled,
+        resetResourceOnError: true,
+        resetResourceWhenDisabled: true,
+      }),
+      { initialProps: { enabled: true } },
+    );
+
+    await waitFor(() => expect(result.current.resource).toEqual({ id: 1 }));
+    await act(async () => result.current.refresh());
+    expect(result.current.resource).toBeNull();
+    expect(result.current.error).toBe("Unable to load");
+    expect(result.current.errorCause).toBe(failure);
+
+    act(() => result.current.setResource({ id: 3 }));
+    rerender({ enabled: false });
+    await waitFor(() => expect(result.current.resource).toBeNull());
+    expect(result.current.error).toBeNull();
+    expect(result.current.errorCause).toBeNull();
+  });
 });
