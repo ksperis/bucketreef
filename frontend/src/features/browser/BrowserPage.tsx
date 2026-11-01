@@ -97,16 +97,10 @@ import BrowserMobileSelectionActions from "./BrowserMobileSelectionActions";
 import BrowserPrefixVersionsModal from "./BrowserPrefixVersionsModal";
 import {
   DEFAULT_FOLDERS_PANEL_WIDTH_PX,
-  MAX_FOLDERS_PANEL_WIDTH_PX,
-  MIN_FOLDERS_PANEL_WIDTH_PX,
 } from "./browserRootUiState";
 import { storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import { getSelectionInfo, normalizePrefix } from "./browserUtils";
-import {
-  PANEL_LAYOUT_GAP_PX,
-  PANEL_RESIZER_HITBOX_WIDTH_PX,
-} from "./browserPanelLayout";
 import {
   COLUMN_DEFINITIONS,
   DEFAULT_VISIBLE_COLUMN_IDS,
@@ -1804,6 +1798,13 @@ export default function BrowserPage({
                 onRefresh={handleRefresh}
                 onSelectPrefix={handleSelectPrefix}
                 onToggleTreeNode={handleToggleTreeNode}
+                resize={{
+                  active: foldersPanelResizeActive,
+                  widthPx: resolvedFoldersWidth,
+                  onAdjustWidth: adjustFoldersPanelWidth,
+                  onPointerDown: startFoldersPanelResize,
+                  onResetWidth: resetFoldersPanelWidth,
+                }}
               />
             )}
             <div className="flex min-h-0 h-full min-w-0 flex-1 flex-col gap-3">
@@ -1901,45 +1902,6 @@ export default function BrowserPage({
               />
             </div>
 
-            {isFoldersPanelVisible && (
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                aria-label={text("Resize folders panel")}
-                aria-valuemin={MIN_FOLDERS_PANEL_WIDTH_PX}
-                aria-valuemax={MAX_FOLDERS_PANEL_WIDTH_PX}
-                aria-valuenow={resolvedFoldersWidth}
-                title={text("Resize folders panel")}
-                tabIndex={0}
-                className="absolute inset-y-0 z-20 -translate-x-1/2 cursor-col-resize touch-none select-none"
-                style={{
-                  left: `calc(${resolvedFoldersWidth}px + ${PANEL_LAYOUT_GAP_PX / 2}px)`,
-                  width: `${PANEL_RESIZER_HITBOX_WIDTH_PX}px`,
-                }}
-                onPointerDown={startFoldersPanelResize}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft") {
-                    event.preventDefault();
-                    adjustFoldersPanelWidth(-16);
-                  } else if (event.key === "ArrowRight") {
-                    event.preventDefault();
-                    adjustFoldersPanelWidth(16);
-                  } else if (event.key === "Home") {
-                    event.preventDefault();
-                    resetFoldersPanelWidth();
-                  }
-                }}
-                onDoubleClick={resetFoldersPanelWidth}
-              >
-                <div
-                  className={`mx-auto h-full w-0.5 rounded-full bg-slate-200 transition dark:bg-slate-700 ${
-                    foldersPanelResizeActive
-                      ? "bg-primary dark:bg-primary-300"
-                      : "hover:bg-slate-300 dark:hover:bg-slate-500"
-                  }`}
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
