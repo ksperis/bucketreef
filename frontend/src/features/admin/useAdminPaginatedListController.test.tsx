@@ -55,4 +55,28 @@ describe("useAdminPaginatedListController", () => {
     expect(formatError).toHaveBeenCalledTimes(1);
     expect(onLoaded).toHaveBeenCalledTimes(1);
   });
+
+  it("ignores an obsolete page after the loader changes", async () => {
+    let resolveFirst: ((value: { items: Array<{ id: number; name: string }>; total: number }) => void) | undefined;
+    const firstLoader = vi.fn(
+      () => new Promise<{ items: Array<{ id: number; name: string }>; total: number }>((resolve) => {
+        resolveFirst = resolve;
+      }),
+    );
+    const secondLoader = vi.fn().mockResolvedValue({ items: [{ id: 2, name: "new" }], total: 1 });
+    const ensurePageInRange = vi.fn().mockReturnValue(true);
+    const formatError = vi.fn(() => "Unable to load");
+    const { result, rerender } = renderHook(
+      ({ loadPage }) => useAdminPaginatedListController({ loadPage, ensurePageInRange, formatError }),
+      { initialProps: { loadPage: firstLoader } },
+    );
+
+    rerender({ loadPage: secondLoader });
+    await waitFor(() => expect(result.current.items).toEqual([{ id: 2, name: "new" }]));
+
+    await act(async () => resolveFirst?.({ items: [{ id: 1, name: "stale" }], total: 1 }));
+    expect(result.current.items).toEqual([{ id: 2, name: "new" }]);
+    expect(result.current.total).toBe(1);
+    expect(result.current.error).toBeNull();
+  });
 });

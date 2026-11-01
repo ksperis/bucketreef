@@ -2,7 +2,9 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+
+import useAdminResourceController from "./useAdminResourceController";
 
 type PaginatedListResponse<T> = {
   items: T[];
@@ -22,38 +24,36 @@ export default function useAdminPaginatedListController<T extends { id: number }
   formatError,
   onLoaded,
 }: Args<T>) {
-  const [items, setItems] = useState<T[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await loadPage();
-      if (!ensurePageInRange(response.total)) return;
-      setItems(response.items);
-      setTotal(response.total);
-      onLoaded?.();
-    } catch (cause) {
-      setError(formatError(cause));
-    } finally {
-      setLoading(false);
-    }
-  }, [ensurePageInRange, formatError, loadPage, onLoaded]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  const acceptPage = useCallback(
+    (response: PaginatedListResponse<T>) => ensurePageInRange(response.total),
+    [ensurePageInRange],
+  );
+  const handleLoaded = useCallback(() => onLoaded?.(), [onLoaded]);
+  const {
+    resource: page,
+    setResource: setPage,
+    loading,
+    error,
+    setError,
+    refresh,
+  } = useAdminResourceController<PaginatedListResponse<T>>({
+    loadResource: loadPage,
+    initialResource: { items: [], total: 0 },
+    formatError,
+    acceptResource: acceptPage,
+    onLoaded: handleLoaded,
+  });
 
   const updateItem = useCallback((id: number, update: (item: T) => T) => {
-    setItems((current) => current.map((item) => (item.id === id ? update(item) : item)));
-  }, []);
+    setPage((current) => ({
+      ...current,
+      items: current.items.map((item) => (item.id === id ? update(item) : item)),
+    }));
+  }, [setPage]);
 
   return {
-    items,
-    total,
+    items: page.items,
+    total: page.total,
     loading,
     error,
     setError,
