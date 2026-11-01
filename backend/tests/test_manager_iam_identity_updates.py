@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models.iam import (
-    AccessKeyStatusChange, IAMGroup, IAMGroupCreate, IAMGroupUpdate, IAMRole,
+    AccessKey, AccessKeyStatusChange, IAMGroup, IAMGroupCreate, IAMGroupUpdate, IAMRole,
     IAMRoleCreate, IAMRoleUpdate, IAMTag, IAMUser, IAMUserCreate, IAMUserUpdate,
 )
 from app.models.access_key_metadata import AccessKeyMetadataInput
@@ -166,14 +166,45 @@ class _RoleService:
 
 
 class _CreateIdentityService:
-    def __init__(self, fail_on: str | None = None) -> None:
+    def __init__(self, fail_on: str | set[str] | None = None) -> None:
         self.fail_on = fail_on
         self.calls: list[tuple[str, tuple, dict]] = []
 
     def _record(self, operation: str, *args, **kwargs) -> None:
         self.calls.append((operation, args, kwargs))
-        if self.fail_on == operation:
+        if self.fail_on == operation or (
+            isinstance(self.fail_on, set) and operation in self.fail_on
+        ):
             raise RuntimeError(f"{operation} failed")
+
+    def create_user(self, name: str, create_key: bool = False):
+        self._record("create_user", name, create_key=create_key)
+        key = AccessKey(access_key_id="AKIA-created") if create_key else None
+        return IAMUser(name=name), key
+
+    def add_user_to_group(self, group_name: str, user_name: str) -> None:
+        self._record("add_user_to_group", group_name, user_name)
+
+    def remove_user_from_group(self, group_name: str, user_name: str) -> None:
+        self._record("remove_user_from_group", group_name, user_name)
+
+    def attach_user_policy(self, name: str, policy_arn: str) -> None:
+        self._record("attach_user_policy", name, policy_arn)
+
+    def detach_user_policy(self, name: str, policy_arn: str) -> None:
+        self._record("detach_user_policy", name, policy_arn)
+
+    def put_user_inline_policy(self, name: str, policy_name: str, document: dict) -> None:
+        self._record("put_user_inline_policy", name, policy_name, document)
+
+    def delete_user_inline_policy(self, name: str, policy_name: str) -> None:
+        self._record("delete_user_inline_policy", name, policy_name)
+
+    def delete_access_key(self, name: str, access_key_id: str) -> None:
+        self._record("delete_access_key", name, access_key_id)
+
+    def delete_user(self, name: str) -> None:
+        self._record("delete_user", name)
 
     def create_group(self, name: str) -> IAMGroup:
         self._record("create_group", name)
@@ -262,6 +293,57 @@ def test_group_create_orchestration_rolls_back_after_policy_failure():
         "delete_group_inline_policy",
         "detach_group_policy",
         "delete_group",
+    ]
+
+
+def test_user_create_orchestration_rolls_back_after_inline_policy_failure():
+    service = _CreateIdentityService(fail_on="put_user_inline_policy")
+    payload = IAMUserCreate(
+        name="alice",
+        create_key=True,
+        groups=["researchers"],
+        policies=["arn:policy/read"],
+        inline_policies=[InlinePolicy(name="local-read", document={})],
+    )
+
+    with pytest.raises(RuntimeError, match="put_user_inline_policy failed"):
+        manager_iam_support.create_iam_user(service, payload)
+
+    assert [call[0] for call in service.calls] == [
+        "create_user",
+        "add_user_to_group",
+        "attach_user_policy",
+        "put_user_inline_policy",
+        "detach_user_policy",
+        "remove_user_from_group",
+        "delete_access_key",
+        "delete_user",
+    ]
+
+
+def test_user_create_orchestration_continues_rollback_after_cleanup_failure():
+    service = _CreateIdentityService(
+        fail_on={"put_user_inline_policy", "detach_user_policy"}
+    )
+    payload = IAMUserCreate(
+        name="alice",
+        create_key=True,
+        groups=["researchers"],
+        policies=["arn:policy/read"],
+        inline_policies=[InlinePolicy(name="local-read", document={})],
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        manager_iam_support.create_iam_user(service, payload)
+
+    message = str(exc_info.value)
+    assert "put_user_inline_policy failed" in message
+    assert "detach_user_policy failed" in message
+    assert [call[0] for call in service.calls][-4:] == [
+        "detach_user_policy",
+        "remove_user_from_group",
+        "delete_access_key",
+        "delete_user",
     ]
 
 

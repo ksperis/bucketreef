@@ -155,13 +155,89 @@ def create_iam_user(
         payload.name,
         create_key=payload.create_key,
     )
-    for group_name in payload.groups or []:
-        service.add_user_to_group(group_name, payload.name)
-    for policy_arn in payload.policies or []:
-        service.attach_user_policy(payload.name, policy_arn)
-    for inline in payload.inline_policies or []:
-        service.put_user_inline_policy(payload.name, inline.name, inline.document)
+    added_groups: list[str] = []
+    attached_policies: list[str] = []
+    inline_policy_names: list[str] = []
+    try:
+        for group_name in payload.groups or []:
+            service.add_user_to_group(group_name, payload.name)
+            added_groups.append(group_name)
+        for policy_arn in payload.policies or []:
+            service.attach_user_policy(payload.name, policy_arn)
+            attached_policies.append(policy_arn)
+        for inline in payload.inline_policies or []:
+            service.put_user_inline_policy(payload.name, inline.name, inline.document)
+            inline_policy_names.append(inline.name)
+    except RuntimeError as exc:
+        try:
+            _rollback_created_iam_user(
+                service,
+                user_name=payload.name,
+                groups=added_groups,
+                policies=attached_policies,
+                inline_policy_names=inline_policy_names,
+                access_key_id=created_key.access_key_id if created_key is not None else None,
+            )
+        except RuntimeError as rollback_exc:
+            raise RuntimeError(f"{exc}; {rollback_exc}") from exc
+        raise
     return IAMUserWithKey(**created_user.model_dump(), access_key=created_key)
+
+
+def _run_iam_rollback_step(
+    failures: list[str],
+    rollback_fn: Callable[..., None],
+    *args: Any,
+) -> None:
+    try:
+        rollback_fn(*args)
+    except RuntimeError as exc:
+        failures.append(str(exc))
+
+
+def _rollback_created_iam_user(
+    service: RGWIAMService,
+    *,
+    user_name: str,
+    groups: list[str],
+    policies: list[str],
+    inline_policy_names: list[str],
+    access_key_id: str | None,
+) -> None:
+    failures: list[str] = []
+    for policy_name in reversed(inline_policy_names):
+        _run_iam_rollback_step(
+            failures,
+            service.delete_user_inline_policy,
+            user_name,
+            policy_name,
+        )
+    for policy_arn in reversed(policies):
+        _run_iam_rollback_step(
+            failures,
+            service.detach_user_policy,
+            user_name,
+            policy_arn,
+        )
+    for group_name in reversed(groups):
+        _run_iam_rollback_step(
+            failures,
+            service.remove_user_from_group,
+            group_name,
+            user_name,
+        )
+    if access_key_id is not None:
+        _run_iam_rollback_step(
+            failures,
+            service.delete_access_key,
+            user_name,
+            access_key_id,
+        )
+    _run_iam_rollback_step(failures, service.delete_user, user_name)
+    if failures:
+        raise RuntimeError(
+            f"Unable to fully roll back created IAM user {user_name}: " + "; ".join(failures)
+        )
 
 
 def _rollback_created_iam_identity(
@@ -176,19 +252,15 @@ def _rollback_created_iam_identity(
 ) -> None:
     failures: list[str] = []
     for policy_name in reversed(inline_policy_names):
-        try:
-            delete_inline_policy_fn(entity_name, policy_name)
-        except RuntimeError as exc:
-            failures.append(str(exc))
+        _run_iam_rollback_step(
+            failures,
+            delete_inline_policy_fn,
+            entity_name,
+            policy_name,
+        )
     for policy_arn in reversed(policies):
-        try:
-            detach_policy_fn(entity_name, policy_arn)
-        except RuntimeError as exc:
-            failures.append(str(exc))
-    try:
-        delete_entity_fn(entity_name)
-    except RuntimeError as exc:
-        failures.append(str(exc))
+        _run_iam_rollback_step(failures, detach_policy_fn, entity_name, policy_arn)
+    _run_iam_rollback_step(failures, delete_entity_fn, entity_name)
     if failures:
         raise RuntimeError(
             f"Unable to fully roll back created {entity_label} {entity_name}: "
