@@ -58,24 +58,14 @@ class AuthSessionService:
         user_agent: Optional[str],
         mfa_verified: bool,
     ) -> SessionCredentials:
-        now = utcnow()
-        absolute = now + timedelta(minutes=self.settings.ui_session_absolute_minutes)
-        row = AuthSession(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            principal_type="user",
+        return self._create_user_session(
+            user,
             auth_type=auth_type,
-            auth_version=user.auth_version,
-            created_at=now,
-            last_activity_at=now,
-            idle_expires_at=min(now + timedelta(minutes=self.settings.ui_session_idle_minutes), absolute),
-            absolute_expires_at=absolute,
-            mfa_verified_at=now if mfa_verified else None,
             ip_address=ip_address,
             user_agent=user_agent,
-            csrf_token_hash="",
+            mfa_verified=mfa_verified,
+            commit=True,
         )
-        return self._persist_new_session(row, user=user)
 
     def create_for_user_in_transaction(
         self,
@@ -87,6 +77,25 @@ class AuthSessionService:
         mfa_verified: bool,
     ) -> SessionCredentials:
         """Create UI session rows without committing the surrounding transaction."""
+        return self._create_user_session(
+            user,
+            auth_type=auth_type,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            mfa_verified=mfa_verified,
+            commit=False,
+        )
+
+    def _create_user_session(
+        self,
+        user: User,
+        *,
+        auth_type: str,
+        ip_address: Optional[str],
+        user_agent: Optional[str],
+        mfa_verified: bool,
+        commit: bool,
+    ) -> SessionCredentials:
         now = utcnow()
         absolute = now + timedelta(minutes=self.settings.ui_session_absolute_minutes)
         row = AuthSession(
@@ -104,7 +113,7 @@ class AuthSessionService:
             user_agent=user_agent,
             csrf_token_hash="",
         )
-        return self._persist_new_session(row, user=user, commit=False)
+        return self._persist_new_session(row, user=user, commit=commit)
 
     def create_for_s3_session(
         self,
