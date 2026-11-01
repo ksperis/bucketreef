@@ -14,7 +14,12 @@ from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_listing import BucketListingSummary
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
-from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache, prune_expired_lru_cache
+from app.utils.cache import (
+    TtlCacheEntry,
+    get_or_build_single_flight_cache,
+    invalidate_single_flight_cache,
+    prune_expired_lru_cache,
+)
 from app.utils.normalize import normalize_optional_string
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_identifiers import is_rgw_account_id
@@ -202,20 +207,26 @@ def _get_or_set_inflight_cache(
 
 
 def invalidate_bucket_owner_metadata_cache(endpoint_id: int | None = None) -> None:
-    def invalidate(cache: OrderedDict[object, TtlCacheEntry[object]], lock: Lock) -> None:
-        with lock:
-            if endpoint_id is None:
-                cache.clear()
-                return
-            keys = [key for key in cache.keys() if isinstance(key, tuple) and key and key[0] == endpoint_id]
-            if isinstance(next(iter(cache.keys()), None), int):
-                keys.extend([key for key in cache.keys() if key == endpoint_id])
-            for key in keys:
-                cache.pop(key, None)
+    with _ACCOUNT_LIST_CACHE_LOCK:
+        if endpoint_id is None:
+            _ACCOUNT_LIST_CACHE.clear()
+        else:
+            _ACCOUNT_LIST_CACHE.pop(endpoint_id, None)
 
-    invalidate(_ACCOUNT_LIST_CACHE, _ACCOUNT_LIST_CACHE_LOCK)
-    invalidate(_ACCOUNT_DETAIL_CACHE, _ACCOUNT_DETAIL_CACHE_LOCK)
-    invalidate(_USER_DETAIL_CACHE, _USER_DETAIL_CACHE_LOCK)
+    account_predicate = None if endpoint_id is None else lambda key: key[0] == endpoint_id
+    invalidate_single_flight_cache(
+        _ACCOUNT_DETAIL_CACHE,
+        _ACCOUNT_DETAIL_INFLIGHT,
+        _ACCOUNT_DETAIL_CACHE_LOCK,
+        predicate=account_predicate,
+    )
+    user_predicate = None if endpoint_id is None else lambda key: key[0] == endpoint_id
+    invalidate_single_flight_cache(
+        _USER_DETAIL_CACHE,
+        _USER_DETAIL_INFLIGHT,
+        _USER_DETAIL_CACHE_LOCK,
+        predicate=user_predicate,
+    )
 
 
 class BucketOwnerMetadataService:
