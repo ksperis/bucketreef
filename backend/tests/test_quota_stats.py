@@ -4,8 +4,6 @@
 import pytest
 
 from app.utils.quota_stats import (
-    extract_positive_limit,
-    extract_quota_config,
     extract_quota_limits,
     extract_rgw_account_bucket_quota_config,
     extract_rgw_account_limit,
@@ -14,9 +12,7 @@ from app.utils.quota_stats import (
     extract_rgw_account_quota_limits,
     extract_rgw_user_positive_limit,
     extract_rgw_user_quota_config,
-    extract_rgw_user_quota_enabled,
     extract_rgw_user_quota_limits,
-    parse_positive_limit,
 )
 
 
@@ -36,8 +32,8 @@ from app.utils.quota_stats import (
         ({"value": 12}, None),
     ],
 )
-def test_parse_positive_limit(value, expected):
-    assert parse_positive_limit(value) == expected
+def test_extract_rgw_account_positive_limit_normalizes_supported_values(value, expected):
+    assert extract_rgw_account_positive_limit({"max_buckets": value}, "max_buckets") == expected
 
 
 @pytest.mark.parametrize(
@@ -50,8 +46,8 @@ def test_parse_positive_limit(value, expected):
         (None, None),
     ],
 )
-def test_extract_positive_limit(payload, expected):
-    assert extract_positive_limit(payload, "max_buckets") == expected
+def test_extract_rgw_account_positive_limit_reads_direct_and_nested_limits(payload, expected):
+    assert extract_rgw_account_positive_limit(payload, "max_buckets") == expected
 
 
 def test_extract_quota_limits_prefers_bytes_and_ignores_disabled_or_unlimited_values():
@@ -89,14 +85,14 @@ def test_extract_quota_limits_prefers_bytes_and_ignores_disabled_or_unlimited_va
     ) == (None, None)
 
 
-def test_extract_quota_config_preserves_enabled_state_with_normalized_limits():
-    assert extract_quota_config(
+def test_extract_rgw_account_quota_config_preserves_enabled_state_with_normalized_limits():
+    assert extract_rgw_account_quota_config(
         {"quota": {"enabled": False, "max_size": 4096, "max_objects": 10}}
     ) == (False, None, None)
-    assert extract_quota_config(
+    assert extract_rgw_account_quota_config(
         {"quota": {"enabled": True, "max_size": "4096", "max_objects": "10"}}
     ) == (True, 4096, 10)
-    assert extract_quota_config({}) == (None, None, None)
+    assert extract_rgw_account_quota_config({}) == (None, None, None)
 
 
 def test_extract_quota_limits_uses_strict_rgw_integer_parsing():
@@ -166,10 +162,8 @@ def test_extract_rgw_user_limits_prefer_nested_user_and_support_split_payloads()
     }
 
     assert extract_rgw_user_quota_limits(nested_payload) == (4096, 10)
-    assert extract_rgw_user_quota_enabled(nested_payload) is True
     assert extract_rgw_user_quota_config(nested_payload) == (True, 4096, 10)
     assert extract_rgw_user_positive_limit(nested_payload, "max_buckets") == 8
     assert extract_rgw_user_quota_limits(split_payload) == (8192, 20)
-    assert extract_rgw_user_quota_enabled(split_payload) is True
     assert extract_rgw_user_quota_config(split_payload) == (True, 8192, 20)
     assert extract_rgw_user_positive_limit(split_payload, "max_buckets") == 7

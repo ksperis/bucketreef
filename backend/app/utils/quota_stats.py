@@ -10,7 +10,7 @@ from app.utils.rgw_payloads import (
 )
 
 
-def parse_positive_limit(value: Any) -> Optional[int]:
+def _parse_positive_limit(value: Any) -> Optional[int]:
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
@@ -28,15 +28,15 @@ def parse_positive_limit(value: Any) -> Optional[int]:
     return parsed if parsed > 0 else None
 
 
-def extract_positive_limit(payload: Any, key: str) -> Optional[int]:
+def _extract_positive_limit(payload: Any, key: str) -> Optional[int]:
     if not isinstance(payload, dict):
         return None
     limits_payload = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
-    return parse_positive_limit(payload.get(key) or limits_payload.get(key))
+    return _parse_positive_limit(payload.get(key) or limits_payload.get(key))
 
 
 def extract_rgw_account_positive_limit(payload: Any, key: str) -> Optional[int]:
-    return extract_positive_limit(extract_rgw_account_payload(payload), key)
+    return _extract_positive_limit(extract_rgw_account_payload(payload), key)
 
 
 def extract_rgw_account_limit(payload: Any, key: str) -> Optional[int]:
@@ -54,7 +54,7 @@ def extract_rgw_user_positive_limit(payload: Any, key: str) -> Optional[int]:
     user_payload = extract_rgw_user_payload(payload)
     records = (user_payload, payload) if user_payload is not payload else (payload,)
     for record in records:
-        parsed = parse_positive_limit(record.get(key))
+        parsed = _parse_positive_limit(record.get(key))
         if parsed is not None:
             return parsed
     return None
@@ -84,7 +84,7 @@ def _quota_max_size_bytes(quota: Dict[str, Any]) -> Optional[int]:
     return max_size_kb * 1024 if max_size_kb is not None else None
 
 
-def extract_quota_config(
+def _extract_quota_config(
     payload: Optional[Dict[str, Any]],
     *,
     keys: Tuple[str, ...] = ("quota", "user_quota", "account_quota"),
@@ -107,14 +107,14 @@ def extract_quota_limits(
     *,
     keys: Tuple[str, ...] = ("quota", "user_quota", "account_quota"),
 ) -> Tuple[Optional[int], Optional[int]]:
-    _enabled, max_size_bytes, max_objects = extract_quota_config(payload, keys=keys)
+    _enabled, max_size_bytes, max_objects = _extract_quota_config(payload, keys=keys)
     return max_size_bytes, max_objects
 
 
 def extract_rgw_account_quota_config(
     payload: Any,
 ) -> Tuple[Optional[bool], Optional[int], Optional[int]]:
-    return extract_quota_config(
+    return _extract_quota_config(
         extract_rgw_account_payload(payload),
         keys=("quota", "account_quota"),
     )
@@ -123,7 +123,7 @@ def extract_rgw_account_quota_config(
 def extract_rgw_account_bucket_quota_config(
     payload: Any,
 ) -> Tuple[Optional[bool], Optional[int], Optional[int]]:
-    return extract_quota_config(
+    return _extract_quota_config(
         extract_rgw_account_payload(payload),
         keys=("bucket_quota",),
     )
@@ -152,12 +152,7 @@ def extract_rgw_user_quota_config(
     record = _rgw_user_quota_record(payload)
     if record is None:
         return None, None, None
-    return extract_quota_config(record, keys=("user_quota", "quota"))
-
-
-def extract_rgw_user_quota_enabled(payload: Any) -> Optional[bool]:
-    enabled, _max_size_bytes, _max_objects = extract_rgw_user_quota_config(payload)
-    return enabled
+    return _extract_quota_config(record, keys=("user_quota", "quota"))
 
 
 def extract_rgw_user_quota_limits(payload: Any) -> Tuple[Optional[int], Optional[int]]:
