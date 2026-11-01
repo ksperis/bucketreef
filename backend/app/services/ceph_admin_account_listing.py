@@ -14,9 +14,7 @@ from app.models.ceph_admin_identity_filters import (
 )
 from app.services.ceph_admin_account_payloads import (
     extract_account_email,
-    extract_account_id,
     extract_account_limit,
-    extract_account_name,
     extract_account_quota_limits,
     extract_bucket_count,
     extract_user_count,
@@ -47,6 +45,7 @@ from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_rule_matching import match_numeric_rule, match_text_rule
 from app.services.rgw_admin import RGWAdminClient
 from app.utils.cancellation import invoke_cancel_check
+from app.utils.rgw_payloads import extract_rgw_account_id, extract_rgw_account_name
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 
@@ -119,14 +118,14 @@ def _account_from_entry(entry: object) -> CephAdminRgwAccountSummary | None:
         account_id = str(entry or "").strip()
         return CephAdminRgwAccountSummary(account_id=account_id) if account_id else None
 
-    account_id = extract_account_id(entry)
+    account_id = extract_rgw_account_id(entry)
     if not account_id:
         return None
     quota_size, quota_objects = extract_account_quota_limits(entry)
     return CephAdminRgwAccountSummary(
         account_id=account_id,
         tenant=(str(entry.get("tenant") or "").strip() if "tenant" in entry else None),
-        account_name=extract_account_name(entry),
+        account_name=extract_rgw_account_name(entry),
         email=extract_account_email(entry),
         max_users=extract_account_limit(entry, "max_users"),
         max_buckets=extract_account_limit(entry, "max_buckets"),

@@ -23,6 +23,7 @@ from app.utils.cache import (
 from app.utils.normalize import normalize_optional_string
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_identifiers import is_rgw_account_id
+from app.utils.rgw_payloads import extract_rgw_account_id, extract_rgw_account_name
 
 OWNER_DETAILS_CACHE_TTL_SECONDS = 30.0
 OWNER_ACCOUNT_LIST_CACHE_MAX_ENTRIES = 32
@@ -391,7 +392,7 @@ class BucketOwnerMetadataService:
         for entry in account_listing:
             if not isinstance(entry, dict):
                 continue
-            account_id = normalize_optional_string(entry.get("account_id") or entry.get("id"))
+            account_id = extract_rgw_account_id(entry)
             if account_id:
                 listing_by_id[account_id] = entry
 
@@ -403,7 +404,7 @@ class BucketOwnerMetadataService:
             suspended = None
             if isinstance(detail, dict):
                 if include_name:
-                    owner_name = normalize_optional_string(detail.get("name") or detail.get("account_name"))
+                    owner_name = extract_rgw_account_name(detail)
                 if include_suspended:
                     suspended = _parse_owner_suspended(
                         detail.get("suspended"),
