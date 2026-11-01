@@ -8,7 +8,9 @@ import {
   useRecentWebAuthnStepUp,
 } from "../../auth/useRecentWebAuthnStepUp";
 import {
+  type Dispatch,
   type FormEvent,
+  type SetStateAction,
   useCallback,
   useEffect,
   useMemo,
@@ -83,6 +85,9 @@ import {
   deriveAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
+import AdminSimpleIdAssociationsPanel, {
+  type AdminSimpleIdAssociationsState,
+} from "./AdminSimpleIdAssociationsPanel";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
@@ -281,6 +286,12 @@ export default function GroupsPage() {
     connections.forEach((connection) => map.set(connection.id, connection.name));
     return map;
   }, [connections]);
+
+  const openStackCloudLabelById = useMemo(() => {
+    const map = new Map<number, string>();
+    openStackClouds.forEach((cloud) => map.set(cloud.id, cloud.name));
+    return map;
+  }, [openStackClouds]);
 
   const managerToolDefinitions = useMemo(
     () => buildManagerToolDefinitions(generalSettings),
@@ -527,6 +538,58 @@ export default function GroupsPage() {
     getId: (cloud) => cloud.id,
     getLabel: (cloud) => cloud.name,
   });
+  const setConnectionIds: Dispatch<SetStateAction<number[]>> = (value) =>
+    setForm((current) => ({
+      ...current,
+      s3_connection_ids:
+        typeof value === "function"
+          ? value(current.s3_connection_ids ?? [])
+          : value,
+    }));
+  const setOpenStackCloudIds: Dispatch<SetStateAction<number[]>> = (value) =>
+    setForm((current) => ({
+      ...current,
+      openstack_cloud_ids:
+        typeof value === "function"
+          ? value(current.openstack_cloud_ids ?? [])
+          : value,
+    }));
+  const connectionAssociationState: AdminSimpleIdAssociationsState = {
+    selected: form.s3_connection_ids ?? [],
+    setSelected: setConnectionIds,
+    labelById: connectionLabelById,
+    available: connectionOptions.available.map((connection) => ({
+      id: connection.id,
+      label: connection.name,
+    })),
+    visible: connectionOptions.visible.map((connection) => ({
+      id: connection.id,
+      label: connection.name,
+    })),
+    search: connectionPicker.search,
+    setSearch: connectionPicker.setSearch,
+    loading: auxLoading,
+    showPanel: connectionPicker.open,
+    setShowPanel: connectionPicker.setOpen,
+    selections: connectionPicker.selections,
+    setSelections: connectionPicker.setSelections,
+    toggleSelection: connectionPicker.toggleSelection,
+  };
+  const openStackAssociationState: AdminSimpleIdAssociationsState = {
+    selected: form.openstack_cloud_ids ?? [],
+    setSelected: setOpenStackCloudIds,
+    labelById: openStackCloudLabelById,
+    available: openStackOptions.available.map((cloud) => ({ id: cloud.id, label: cloud.name })),
+    visible: openStackOptions.visible.map((cloud) => ({ id: cloud.id, label: cloud.name })),
+    search: openStackPicker.search,
+    setSearch: openStackPicker.setSearch,
+    loading: auxLoading,
+    showPanel: openStackPicker.open,
+    setShowPanel: openStackPicker.setOpen,
+    selections: openStackPicker.selections,
+    setSelections: openStackPicker.setSelections,
+    toggleSelection: openStackPicker.toggleSelection,
+  };
 
   const renderMembersTab = () => (
     <AdminAssociationLinkedTable
@@ -881,78 +944,20 @@ export default function GroupsPage() {
           onAction: () => connectionPicker.setOpen((current) => !current),
           hint: text("sharedConnectionsOnly"),
           content: (
-            <AdminAssociationLinkedTable
-              title={text("linkedSharedS3Connections")}
-              headers={[{ label: text("s3Connection") }, { label: text("actions"), align: "right" }]}
-              hasItems={selectedConnectionIds.size > 0}
-              emptyLabel={text("noLinkedS3Connections")}
-              rows={(form.s3_connection_ids ?? []).map((connectionId) => (
-                <tr key={connectionId}>
-                  <td className="ui-table-primary">
-                    {connectionLabelById.get(connectionId) ?? text("connectionNumber", { id: connectionId })}
-                  </td>
-                  <td className="ui-table-actions-cell w-px text-right">
-                    <ListActionButton
-                      type="button"
-                       variant="danger"
-                      onClick={() =>
-                        setForm((current) => ({
-                          ...current,
-                          s3_connection_ids: (current.s3_connection_ids ?? []).filter((id) => id !== connectionId),
-                        }))
-                      }
-                    >
-                      {text("remove")}
-                    </ListActionButton>
-                  </td>
-                </tr>
-              ))}
-              picker={
-                connectionPicker.open ? (
-                  <AdminAssociationPickerPanel
-                    title={text("addS3Connections")}
-                    hint={text("sharedOnly")}
-                    search={connectionPicker.search}
-                    onSearchChange={connectionPicker.setSearch}
-                    searchAriaLabel={text("searchGroupSharedConnections")}
-                    loading={auxLoading}
-                    availableCount={connectionOptions.available.length}
-                    maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-                    selectedCount={connectionPicker.selections.length}
-                    loadingLabel={text("loadingSharedConnections")}
-                    emptyLabel={text("noSharedConnectionsAvailable")}
-                    addDisabled={connectionPicker.selections.length === 0}
-                    onCancel={() => {
-                      connectionPicker.reset();
-                    }}
-                    onAdd={() => {
-                      setForm((current) => ({
-                        ...current,
-                        s3_connection_ids: [
-                          ...new Set([...(current.s3_connection_ids ?? []), ...connectionPicker.selections]),
-                        ].sort((a, b) => a - b),
-                      }));
-                      connectionPicker.reset();
-                    }}
-                  >
-                    {connectionOptions.visible.map((connection) => (
-                      <div
-                        key={connection.id}
-                        className={adminAssociationOptionRowClass(connectionPicker.selections.includes(connection.id))}
-                      >
-                        <AdminAssociationOptionCheckbox
-                          checked={connectionPicker.selections.includes(connection.id)}
-                          onChange={() => connectionPicker.toggleSelection(connection.id)}
-                          inputPosition="end"
-                          className="w-full justify-between"
-                        >
-                          <span>{connection.name}</span>
-                        </AdminAssociationOptionCheckbox>
-                      </div>
-                    ))}
-                  </AdminAssociationPickerPanel>
-                ) : undefined
-              }
+            <AdminSimpleIdAssociationsPanel
+              state={connectionAssociationState}
+              maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
+              primaryLabel={text("s3Connection")}
+              actionsLabel={text("actions")}
+              removeLabel={text("remove")}
+              loadingMessage={text("loadingSharedConnections")}
+              emptyMessage={text("noLinkedS3Connections")}
+              pickerTitle={text("addS3Connections")}
+              searchHint={text("sharedOnly")}
+              fallbackLabel={(id) => text("connectionNumber", { id })}
+              searchAriaLabel={text("searchGroupSharedConnections")}
+              pickerEmptyMessage={text("noSharedConnectionsAvailable")}
+              normalizeSelection={(ids) => [...new Set(ids)].sort((a, b) => a - b)}
             />
           ),
         },
@@ -963,78 +968,20 @@ export default function GroupsPage() {
           actionLabel: openStackPicker.open ? text("close") : text("addOpenStackClouds"),
           onAction: () => openStackPicker.setOpen((current) => !current),
           content: (
-            <AdminAssociationLinkedTable
-              title={text("linkedOpenStackClouds")}
-              headers={[{ label: text("cloud") }, { label: text("actions"), align: "right" }]}
-              hasItems={selectedOpenStackCloudIds.size > 0}
-              emptyLabel={text("noLinkedOpenStackClouds")}
-              rows={(form.openstack_cloud_ids ?? []).map((cloudId) => (
-                <tr key={cloudId}>
-                  <td className="ui-table-primary">
-                    {openStackClouds.find((cloud) => cloud.id === cloudId)?.name ?? text("cloudNumber", { id: cloudId })}
-                  </td>
-                  <td className="ui-table-actions-cell w-px text-right">
-                    <ListActionButton
-                      type="button"
-                      variant="danger"
-                      onClick={() =>
-                        setForm((current) => ({
-                          ...current,
-                          openstack_cloud_ids: (current.openstack_cloud_ids ?? []).filter((id) => id !== cloudId),
-                        }))
-                      }
-                    >
-                      {text("remove")}
-                    </ListActionButton>
-                  </td>
-                </tr>
-              ))}
-              picker={
-                openStackPicker.open ? (
-                  <AdminAssociationPickerPanel
-                    title={text("addOpenStackClouds")}
-                    hint={text("searchByName")}
-                    search={openStackPicker.search}
-                    onSearchChange={openStackPicker.setSearch}
-                    searchAriaLabel={text("searchGroupOpenStackClouds")}
-                    loading={auxLoading}
-                    availableCount={openStackOptions.available.length}
-                    maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-                    selectedCount={openStackPicker.selections.length}
-                    loadingLabel={text("loadingOpenStackClouds")}
-                    emptyLabel={text("noOpenStackCloudsAvailable")}
-                    addDisabled={openStackPicker.selections.length === 0}
-                    onCancel={() => {
-                      openStackPicker.reset();
-                    }}
-                    onAdd={() => {
-                      setForm((current) => ({
-                        ...current,
-                        openstack_cloud_ids: [
-                          ...new Set([...(current.openstack_cloud_ids ?? []), ...openStackPicker.selections]),
-                        ].sort((a, b) => a - b),
-                      }));
-                      openStackPicker.reset();
-                    }}
-                  >
-                    {openStackOptions.visible.map((cloud) => (
-                      <div
-                        key={cloud.id}
-                        className={adminAssociationOptionRowClass(openStackPicker.selections.includes(cloud.id))}
-                      >
-                        <AdminAssociationOptionCheckbox
-                          checked={openStackPicker.selections.includes(cloud.id)}
-                          onChange={() => openStackPicker.toggleSelection(cloud.id)}
-                          inputPosition="end"
-                          className="w-full justify-between"
-                        >
-                          <span>{cloud.name}</span>
-                        </AdminAssociationOptionCheckbox>
-                      </div>
-                    ))}
-                  </AdminAssociationPickerPanel>
-                ) : undefined
-              }
+            <AdminSimpleIdAssociationsPanel
+              state={openStackAssociationState}
+              maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
+              primaryLabel={text("cloud")}
+              actionsLabel={text("actions")}
+              removeLabel={text("remove")}
+              loadingMessage={text("loadingOpenStackClouds")}
+              emptyMessage={text("noLinkedOpenStackClouds")}
+              pickerTitle={text("addOpenStackClouds")}
+              searchHint={text("searchByName")}
+              fallbackLabel={(id) => text("cloudNumber", { id })}
+              searchAriaLabel={text("searchGroupOpenStackClouds")}
+              pickerEmptyMessage={text("noOpenStackCloudsAvailable")}
+              normalizeSelection={(ids) => [...new Set(ids)].sort((a, b) => a - b)}
             />
           ),
         }] : []),

@@ -9,6 +9,9 @@ import type { S3UserMembership } from "../../api/users";
 
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import { AdminAssociationCheckboxOptions, AdminAssociationPickerPanel, AdminAssociationTabs, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
+import AdminSimpleIdAssociationsPanel, {
+  type AdminSimpleIdAssociationsState,
+} from "./AdminSimpleIdAssociationsPanel";
 import UserAccountAssociationsPanel, {
   type UserAccountAssociationsState,
 } from "./UserAccountAssociationsPanel";
@@ -36,22 +39,6 @@ type S3UserAssociationsState = {
   toggleSelection: (id: number) => void;
 };
 
-type SimpleIdAssociationsState = {
-  selected: number[];
-  setSelected: Dispatch<SetStateAction<number[]>>;
-  labelById: Map<number, string>;
-  available: AssociationOption[];
-  visible: AssociationOption[];
-  search: string;
-  setSearch: Dispatch<SetStateAction<string>>;
-  loading: boolean;
-  showPanel: boolean;
-  setShowPanel: Dispatch<SetStateAction<boolean>>;
-  selections: number[];
-  setSelections: Dispatch<SetStateAction<number[]>>;
-  toggleSelection: (id: number) => void;
-};
-
 type UserAssociationsTabsProps = {
   activeTab: StorageAssociationTab;
   onTabChange: (tab: StorageAssociationTab) => void;
@@ -59,78 +46,9 @@ type UserAssociationsTabsProps = {
   showPortalRole: boolean;
   accounts: UserAccountAssociationsState;
   s3Users: S3UserAssociationsState;
-  connections: SimpleIdAssociationsState;
-  openstack?: SimpleIdAssociationsState;
+  connections: AdminSimpleIdAssociationsState;
+  openstack?: AdminSimpleIdAssociationsState;
 };
-
-type SimpleIdAssociationsPanelProps = {
-  state: SimpleIdAssociationsState;
-  columns: DataTableColumn<number>[];
-  maxVisibleOptions: number;
-  loadingMessage: string;
-  emptyMessage: string;
-  pickerTitle: string;
-  searchHint: string;
-};
-
-function SimpleIdAssociationsPanel({
-  state,
-  columns,
-  maxVisibleOptions,
-  loadingMessage,
-  emptyMessage,
-  pickerTitle,
-  searchHint,
-}: SimpleIdAssociationsPanelProps) {
-  const resetPicker = () => {
-    state.setShowPanel(false);
-    state.setSelections([]);
-    state.setSearch("");
-  };
-
-  return (
-    <div className="space-y-3">
-      <DataTableShell
-        columns={columns}
-        rows={state.selected}
-        rowKey={(id) => id}
-        status={state.selected.length ? "ready" : "empty"}
-        loadingMessage={loadingMessage}
-        errorMessage={emptyMessage}
-        emptyMessage={emptyMessage}
-        containerClassName={adminAssociationTableContainerClass}
-        responsiveCards
-      />
-      {state.showPanel ? (
-        <AdminAssociationPickerPanel
-          title={pickerTitle}
-          hint={searchHint}
-          search={state.search}
-          onSearchChange={state.setSearch}
-          loading={state.loading}
-          availableCount={state.available.length}
-          maxVisibleOptions={maxVisibleOptions}
-          selectedCount={state.selections.length}
-          loadingLabel={loadingMessage}
-          addDisabled={state.selections.length === 0}
-          onCancel={resetPicker}
-          onAdd={() => {
-            if (state.selections.length === 0) return;
-            state.setSelected((current) => [...current, ...state.selections]);
-            resetPicker();
-          }}
-        >
-          <AdminAssociationCheckboxOptions
-            options={state.visible}
-            selectedIds={state.selections}
-            onToggle={state.toggleSelection}
-            getLabel={(option) => option.label}
-          />
-        </AdminAssociationPickerPanel>
-      ) : null}
-    </div>
-  );
-}
 
 export default function UserAssociationsTabs({
   activeTab,
@@ -198,52 +116,6 @@ export default function UserAssociationsTabs({
       },
     },
   ];
-  const simpleAssociationColumns = (
-    primaryLabel: string,
-    labelById: Map<number, string>,
-    fallbackLabel: (id: number) => string,
-    onRemove: (id: number) => void,
-  ): DataTableColumn<number>[] => [
-    {
-      id: "principal",
-      label: primaryLabel,
-      primary: true,
-      render: (id) => labelById.get(id) ?? fallbackLabel(id),
-    },
-    {
-      id: "actions",
-      label: text("actions"),
-      align: "right",
-      mobileRole: "actions",
-      render: (id) => (
-        <ListActions>
-          <ListActionButton type="button" variant="danger" onClick={() => onRemove(id)}>
-            {text("remove")}
-          </ListActionButton>
-        </ListActions>
-      ),
-    },
-  ];
-  const connectionColumns = simpleAssociationColumns(
-    text("connection"),
-    connections.labelById,
-    (id) => text("connectionById", { id }),
-    (id) =>
-      connections.setSelected((current) =>
-        current.filter((connectionId) => connectionId !== id),
-      ),
-  );
-  const openStackColumns = openstack
-    ? simpleAssociationColumns(
-        text("cloud"),
-        openstack.labelById,
-        (id) => text("cloudById", { id }),
-        (id) =>
-          openstack.setSelected((current) =>
-            current.filter((cloudId) => cloudId !== id),
-          ),
-      )
-    : [];
   return (
     <AdminAssociationTabs
       tabs={[
@@ -330,14 +202,17 @@ export default function UserAssociationsTabs({
           onAction: () => connections.setShowPanel((current) => !current),
           hint: text("sharedConnectionsOnly"),
           content: (
-            <SimpleIdAssociationsPanel
+            <AdminSimpleIdAssociationsPanel
               state={connections}
-              columns={connectionColumns}
               maxVisibleOptions={maxVisibleOptions}
+              primaryLabel={text("connection")}
+              actionsLabel={text("actions")}
+              removeLabel={text("remove")}
               loadingMessage={text("loadingConnections")}
               emptyMessage={text("noLinkedConnection")}
               pickerTitle={text("addConnections")}
               searchHint={text("searchByName")}
+              fallbackLabel={(id) => text("connectionById", { id })}
             />
           ),
         },
@@ -348,14 +223,17 @@ export default function UserAssociationsTabs({
           actionLabel: text(openstack.showPanel ? "close" : "addOpenStackClouds"),
           onAction: () => openstack.setShowPanel((current) => !current),
           content: (
-            <SimpleIdAssociationsPanel
+            <AdminSimpleIdAssociationsPanel
               state={openstack}
-              columns={openStackColumns}
               maxVisibleOptions={maxVisibleOptions}
+              primaryLabel={text("cloud")}
+              actionsLabel={text("actions")}
+              removeLabel={text("remove")}
               loadingMessage={text("loadingOpenStackClouds")}
               emptyMessage={text("noLinkedOpenStackCloud")}
               pickerTitle={text("addOpenStackClouds")}
               searchHint={text("searchByName")}
+              fallbackLabel={(id) => text("cloudById", { id })}
             />
           ),
         }] : []),
