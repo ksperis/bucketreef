@@ -281,6 +281,44 @@ def test_ceph_admin_validation_sanitizes_persisted_value_error(identities, monke
     assert identity.last_error == "secret_key=<redacted> endpoint=<redacted-url>"
 
 
+def test_ceph_admin_validation_reads_nested_identity_and_preserves_tenant(identities):
+    service, endpoint, rgw = identities
+    endpoint.service_identities.append(service_identity("ceph_admin", "CEPH-AK", "CEPH-SK"))
+    rgw.users["ceph-admin"] = {
+        "admin": True,
+        "system": False,
+        "caps": "",
+        "keys": [{"access_key": "CEPH-AK", "secret_key": "CEPH-SK"}],
+        "user": {"uid": "ceph-admin", "tenant": "tenant-a"},
+    }
+
+    result = service.validate_ceph_admin(endpoint)
+
+    identity = endpoint.service_identity("ceph_admin")
+    assert result == {"kind": "ceph_admin", "status": "ready"}
+    assert identity is not None and identity.rgw_uid == "tenant-a$ceph-admin"
+
+
+def test_ceph_admin_validation_rejects_conflicting_identity_fields(identities):
+    service, endpoint, rgw = identities
+    endpoint.service_identities.append(service_identity("ceph_admin", "CEPH-AK", "CEPH-SK"))
+    rgw.users["ceph-admin"] = {
+        "user_id": "ceph-admin-a",
+        "admin": True,
+        "system": False,
+        "caps": "",
+        "keys": [{"access_key": "CEPH-AK", "secret_key": "CEPH-SK"}],
+        "user": {"uid": "ceph-admin-b"},
+    }
+
+    result = service.validate_ceph_admin(endpoint)
+
+    identity = endpoint.service_identity("ceph_admin")
+    assert result == {"kind": "ceph_admin", "status": "error"}
+    assert identity is not None
+    assert identity.last_error == "RGW returned conflicting user identity fields"
+
+
 def test_uid_collision_never_adopts_or_mutates_foreign_user(identities):
     service, endpoint, rgw = identities
     rgw.fail_create = True
@@ -650,6 +688,45 @@ def test_external_users_may_have_other_keys_without_managed_drift_rules(identiti
     service.reconcile(endpoint)
     assert endpoint.service_identity("runtime").status == "ready"
     assert rgw.users["external"] == original
+
+
+def test_external_runtime_reads_nested_identity_and_preserves_tenant(identities, db_session):
+    service, endpoint, rgw = identities
+    endpoint.service_identities.append(service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET"))
+    rgw.users["external"] = {
+        "caps": SERVICE_CAPS["runtime"],
+        "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}],
+        "user": {"uid": "external", "tenant": "tenant-a"},
+    }
+    db_session.commit()
+
+    service.reconcile(endpoint)
+
+    identity = endpoint.service_identity("runtime")
+    assert identity is not None and identity.status == "ready"
+    assert identity.rgw_uid == "tenant-a$external"
+    assert ("list", "EXTERNAL", {"uid": "tenant-a$external", "with_stats": True}) in rgw.calls
+
+
+def test_external_runtime_rejects_conflicting_identity_fields(identities, db_session):
+    service, endpoint, rgw = identities
+    endpoint.service_identities.append(service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET"))
+    rgw.users["external"] = {
+        "user_id": "external-a",
+        "caps": SERVICE_CAPS["runtime"],
+        "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}],
+        "user": {"uid": "external-b"},
+    }
+    db_session.commit()
+
+    service.reconcile(endpoint)
+
+    identity = endpoint.service_identity("runtime")
+    assert identity is not None and identity.status == "error"
+    assert identity.last_error == (
+        "Unable to configure runtime; check credentials, required caps, ownership and RGW connectivity."
+    )
+    assert not any(call[0] == "list" and call[1] == "EXTERNAL" for call in rgw.calls)
 
 
 def test_endpoint_creation_waits_for_explicit_provisioning_and_failure_is_retryable(identities, db_session):

@@ -31,6 +31,7 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
 from app.services.rgw_endpoint_clients import get_endpoint_bootstrap_rgw_client
 from app.services.storage_endpoint_admin_permissions import admin_ops_permissions_from_caps
+from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
 from app.utils.time import utcnow
 
 INSTALLATION_KEY = "endpoint-service-identity-installation"
@@ -223,7 +224,10 @@ class EndpointServiceIdentityService:
         self.validation.validate_payload(kind, payload)
         if managed:
             self.validation.validate_managed_keys(identity, payload)
-        identity.rgw_uid = str(payload.get("user_id") or payload.get("uid") or identity.rgw_uid or "")
+        uid, tenant = extract_rgw_user_identity(payload)
+        if not uid:
+            raise ValueError(f"{kind} user could not be identified by RGW.")
+        identity.rgw_uid = rgw_qualified_uid(uid, tenant)
         self.validation.functional_check(
             endpoint,
             kind=identity.kind,
@@ -288,10 +292,10 @@ class EndpointServiceIdentityService:
                 )
                 payload = client.get_user_by_access_key(identity.access_key, allow_not_found=True)
                 self.validation.validate_payload("ceph_admin", payload)
-                uid = payload.get("user_id") or payload.get("uid")
+                uid, tenant = extract_rgw_user_identity(payload)
                 if not uid:
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
-                identity.rgw_uid = str(uid)
+                identity.rgw_uid = rgw_qualified_uid(uid, tenant)
                 identity.status, identity.last_error = "ready", None
                 self._audit(endpoint, identity, "validated")
             except ValueError as exc:
