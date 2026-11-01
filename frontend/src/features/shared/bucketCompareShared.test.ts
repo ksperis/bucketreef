@@ -19,6 +19,7 @@ import {
   useBucketCompareConfigFeatures,
   useBucketCompareManualMappingState,
   useBucketCompareRunState,
+  useBucketCompareWorkflowState,
 } from "./bucketCompareShared";
 
 const buildModel = (
@@ -193,6 +194,51 @@ describe("bucket comparison configuration state", () => {
     act(() => result.current.setSelectedConfigFeatures(["tags"]));
     act(() => result.current.toggleConfigFeature("policy", true));
     expect(result.current.selectedConfigFeatures).toEqual(["policy", "tags"]);
+  });
+
+  it("derives comparison readiness and mapping state in the shared workflow", () => {
+    type TestRunItem = {
+      status: "pending" | "running" | "success" | "failed" | "cancelled";
+      result?: string;
+      error?: string;
+    };
+    const { result } = renderHook(() =>
+      useBucketCompareWorkflowState<"versioning", string, TestRunItem>({
+        targetSelected: true,
+        targetKind: "context",
+        sourceBuckets: ["alpha"],
+        targetBuckets: ["alpha"],
+        sameTargetSelected: false,
+        configFeatures: ["versioning"],
+      })
+    );
+
+    expect(result.current.comparePlan).toEqual({
+      mappings: [{ sourceBucket: "alpha", targetBucket: "alpha" }],
+      error: null,
+    });
+    expect(result.current.progressPercent).toBe(0);
+    expect(result.current.hasScopeSelected).toBe(true);
+    expect(result.current.hasConfigFeatureSelected).toBe(true);
+    expect(result.current.ignoreModifiedAfterIso).toBeNull();
+    expect(result.current.ignoreModifiedAfterInvalid).toBe(false);
+
+    act(() => result.current.setIncludeContent(false));
+    expect(result.current.hasScopeSelected).toBe(false);
+
+    act(() => result.current.setIgnoreModifiedAfter("invalid-date"));
+    expect(result.current.ignoreModifiedAfterIso).toBeNull();
+    expect(result.current.ignoreModifiedAfterInvalid).toBe(true);
+
+    act(() =>
+      result.current.setProgress({
+        completed: 1,
+        total: 2,
+        failed: 0,
+        cancelled: 0,
+      })
+    );
+    expect(result.current.progressPercent).toBe(50);
   });
 });
 

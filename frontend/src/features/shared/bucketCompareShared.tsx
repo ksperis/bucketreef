@@ -11,6 +11,7 @@ import type { CompareObjectDetailLike } from "./BucketCompareObjectDetails";
 import type { BucketCompareContentDiff } from "../../api/bucketCompareContracts";
 import type { UiTone } from "../../components/ui/styles";
 import { extractApiError, isCancelledError } from "../../utils/apiError";
+import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { diffToneClasses, type DiffTone } from "./diffPresentation";
 import { useSharedI18n } from "./sharedI18n";
 
@@ -704,11 +705,15 @@ export const useBucketCompareWorkflowState = <
   TResult,
   TItem extends BucketCompareSettledRunItem<TResult>,
 >({
+  targetSelected,
+  targetKind,
   sourceBuckets,
   targetBuckets,
   sameTargetSelected,
   configFeatures,
 }: {
+  targetSelected: boolean;
+  targetKind: "endpoint" | "context";
   sourceBuckets: string[];
   targetBuckets: string[];
   sameTargetSelected: boolean;
@@ -742,6 +747,41 @@ export const useBucketCompareWorkflowState = <
   const run = useBucketCompareRunState<TResult, TItem>();
   const clipboard = useCompareVisibleKeysClipboard();
   const requestControllersRef = useRef(new Set<AbortController>());
+  const mappingModel = useMemo(
+    () =>
+      buildBucketCompareMappingModel({
+        targetSelected,
+        targetKind,
+        sourceBuckets,
+        targetBuckets,
+        sameTargetSelected,
+        mappingMode,
+        rawMapping: mapping.parsedRawMapping.mapping,
+        manualMapping: mapping.manualMapping,
+      }),
+    [
+      mapping.manualMapping,
+      mapping.parsedRawMapping.mapping,
+      mappingMode,
+      sameTargetSelected,
+      sourceBuckets,
+      targetBuckets,
+      targetKind,
+      targetSelected,
+    ]
+  );
+  const progressPercent = useMemo(
+    () => roundedClampedPercentageOf(run.progress.completed, run.progress.total) ?? 0,
+    [run.progress.completed, run.progress.total]
+  );
+  const hasScopeSelected = includeContent || includeConfig;
+  const hasConfigFeatureSelected = config.selectedConfigFeatures.length > 0;
+  const ignoreModifiedAfterIso = useMemo(
+    () => parseOptionalIsoDateTime(ignoreModifiedAfter),
+    [ignoreModifiedAfter]
+  );
+  const ignoreModifiedAfterInvalid =
+    Boolean(ignoreModifiedAfter.trim()) && !ignoreModifiedAfterIso;
 
   return {
     mappingMode,
@@ -767,6 +807,12 @@ export const useBucketCompareWorkflowState = <
     diffFilter,
     setDiffFilter,
     requestControllersRef,
+    ...mappingModel,
+    progressPercent,
+    hasScopeSelected,
+    hasConfigFeatureSelected,
+    ignoreModifiedAfterIso,
+    ignoreModifiedAfterInvalid,
     ...mapping,
     ...config,
     ...run,
