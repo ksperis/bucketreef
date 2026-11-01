@@ -110,8 +110,7 @@ export default function ProfilePage({
   const [deletingConnectionBusyId, setDeletingConnectionBusyId] = useState<number | null>(null);
   const [togglingConnectionBusyId, setTogglingConnectionBusyId] = useState<number | null>(null);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<number[]>([]);
-  const [bulkActivatingConnections, setBulkActivatingConnections] = useState(false);
-  const [bulkDisablingConnections, setBulkDisablingConnections] = useState(false);
+  const [bulkConnectionStatusAction, setBulkConnectionStatusAction] = useState<"activate" | "disable" | null>(null);
   const [bulkDeletingConnections, setBulkDeletingConnections] = useState(false);
   const [pendingConnectionDelete, setPendingConnectionDelete] = useState<PendingPrivateConnectionDelete | null>(null);
   const [editingConnectionId, setEditingConnectionId] = useState<number | null>(null);
@@ -631,40 +630,54 @@ export default function ProfilePage({
     setSelectedConnectionIds(filteredConnectionIds);
   };
 
-  const handleBulkActivatePrivateConnections = async () => {
+  const handleBulkPrivateConnectionStatusChange = async (action: "activate" | "disable") => {
     if (!canAccessConnectionsSection || selectedFilteredConnectionIds.length === 0) return;
+    const activating = action === "activate";
     setConnectionsError(null);
     setConnectionsMessage(null);
-    setBulkActivatingConnections(true);
-    const results = await Promise.allSettled(
-      selectedFilteredConnectionIds.map((connectionId) => updateConnection(connectionId, { is_active: true }))
-    );
-    const failedIds = selectedFilteredConnectionIds.filter((_, index) => results[index].status === "rejected");
-    const successCount = selectedFilteredConnectionIds.length - failedIds.length;
-    setSelectedConnectionIds(failedIds);
-    if (successCount > 0) {
-      await refreshConnections();
-      notifyExecutionContextsRefresh();
+    setBulkConnectionStatusAction(action);
+    try {
+      const results = await Promise.allSettled(
+        selectedFilteredConnectionIds.map((connectionId) =>
+          updateConnection(connectionId, { is_active: activating }),
+        ),
+      );
+      const failedIds = selectedFilteredConnectionIds.filter((_, index) => results[index].status === "rejected");
+      const successCount = selectedFilteredConnectionIds.length - failedIds.length;
+      setSelectedConnectionIds(failedIds);
+      if (successCount > 0) {
+        await refreshConnections();
+        notifyExecutionContextsRefresh();
+      }
+      if (failedIds.length > 0) {
+        setConnectionsError(surfaceText(
+          failedIds.length === 1
+            ? activating
+              ? "{count} private connection failed to activate."
+              : "{count} private connection failed to disable."
+            : activating
+              ? "{count} private connections failed to activate."
+              : "{count} private connections failed to disable.",
+          { count: failedIds.length },
+        ));
+      }
+      setConnectionsMessage(
+        surfaceText(
+          successCount === 1
+            ? activating
+              ? "{count} private connection activated."
+              : "{count} private connection disabled."
+            : activating
+              ? "{count} private connections activated."
+              : "{count} private connections disabled.",
+          { count: successCount },
+        ) + (failedIds.length > 0
+          ? ` ${surfaceText("{count} failed.", { count: failedIds.length })}`
+          : "")
+      );
+    } finally {
+      setBulkConnectionStatusAction(null);
     }
-    if (failedIds.length > 0) {
-      setConnectionsError(surfaceText(
-        failedIds.length === 1
-          ? "{count} private connection failed to activate."
-          : "{count} private connections failed to activate.",
-        { count: failedIds.length },
-      ));
-    }
-    setConnectionsMessage(
-      surfaceText(
-        successCount === 1
-          ? "{count} private connection activated."
-          : "{count} private connections activated.",
-        { count: successCount },
-      ) + (failedIds.length > 0
-        ? ` ${surfaceText("{count} failed.", { count: failedIds.length })}`
-        : "")
-    );
-    setBulkActivatingConnections(false);
   };
 
   const handleTogglePrivateConnectionStatus = async (connection: S3Connection) => {
@@ -688,41 +701,8 @@ export default function ProfilePage({
     }
   };
 
-  const handleBulkDisablePrivateConnections = async () => {
-    if (!canAccessConnectionsSection || selectedFilteredConnectionIds.length === 0) return;
-    setConnectionsError(null);
-    setConnectionsMessage(null);
-    setBulkDisablingConnections(true);
-    const results = await Promise.allSettled(
-      selectedFilteredConnectionIds.map((connectionId) => updateConnection(connectionId, { is_active: false }))
-    );
-    const failedIds = selectedFilteredConnectionIds.filter((_, index) => results[index].status === "rejected");
-    const successCount = selectedFilteredConnectionIds.length - failedIds.length;
-    setSelectedConnectionIds(failedIds);
-    if (successCount > 0) {
-      await refreshConnections();
-      notifyExecutionContextsRefresh();
-    }
-    if (failedIds.length > 0) {
-      setConnectionsError(surfaceText(
-        failedIds.length === 1
-          ? "{count} private connection failed to disable."
-          : "{count} private connections failed to disable.",
-        { count: failedIds.length },
-      ));
-    }
-    setConnectionsMessage(
-      surfaceText(
-        successCount === 1
-          ? "{count} private connection disabled."
-          : "{count} private connections disabled.",
-        { count: successCount },
-      ) + (failedIds.length > 0
-        ? ` ${surfaceText("{count} failed.", { count: failedIds.length })}`
-        : "")
-    );
-    setBulkDisablingConnections(false);
-  };
+  const bulkActivatingConnections = bulkConnectionStatusAction === "activate";
+  const bulkDisablingConnections = bulkConnectionStatusAction === "disable";
 
   const handleBulkDeletePrivateConnections = () => {
     if (!canAccessConnectionsSection || selectedFilteredConnectionIds.length === 0) return;
@@ -1007,14 +987,14 @@ export default function ProfilePage({
                     <ListActions>
                       <ListActionButton
                         type="button"
-                        onClick={() => void handleBulkActivatePrivateConnections()}
+                        onClick={() => void handleBulkPrivateConnectionStatusChange("activate")}
                         disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                       >
                         {surfaceText(bulkActivatingConnections ? "Activating..." : "Activate selected")}
                       </ListActionButton>
                       <ListActionButton
                         type="button"
-                        onClick={() => void handleBulkDisablePrivateConnections()}
+                        onClick={() => void handleBulkPrivateConnectionStatusChange("disable")}
                         disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
                       >
                         {surfaceText(bulkDisablingConnections ? "Disabling..." : "Disable selected")}
