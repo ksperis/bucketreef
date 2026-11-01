@@ -28,7 +28,10 @@ export default function usePaginatedOptions<T>(
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
-    const handle = window.setTimeout(() => setDebouncedSearch(search.trim()), debounceMs);
+    const handle = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, debounceMs);
     return () => window.clearTimeout(handle);
   }, [debounceMs, search]);
 
@@ -65,7 +68,6 @@ export default function usePaginatedOptions<T>(
 
   const setSearch = useCallback((value: string) => {
     setSearchState(value);
-    setPage(1);
   }, []);
   const setPageSize = useCallback((value: number) => {
     setPageSizeState(value);

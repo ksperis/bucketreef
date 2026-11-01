@@ -10,6 +10,8 @@ import ManagerBucketComparePage from "./ManagerBucketComparePage";
 
 const clearSelection = vi.fn();
 const selectAllFiltered = vi.fn();
+const setPage = vi.fn();
+const setPageSize = vi.fn();
 const setFilter = vi.fn();
 const toggleBucket = vi.fn();
 const useManagerBucketSelectionMock = vi.fn();
@@ -61,6 +63,8 @@ describe("ManagerBucketComparePage", () => {
   beforeEach(() => {
     clearSelection.mockReset();
     selectAllFiltered.mockReset();
+    setPage.mockReset();
+    setPageSize.mockReset();
     setFilter.mockReset();
     toggleBucket.mockReset();
     useManagerBucketSelectionMock.mockReturnValue({
@@ -69,14 +73,19 @@ describe("ManagerBucketComparePage", () => {
       filter: "",
       filteredBuckets: [{ name: "alpha" }, { name: "beta" }],
       loading: false,
+      page: 1,
+      pageSize: 25,
       requiresContextSelection: true,
       selectedBucketList: ["alpha"],
       selectedBuckets: new Set(["alpha"]),
       selectAllFiltered,
       setFilter,
+      setPage,
+      setPageSize,
       sourceContext: { id: "context-1", display_name: "Primary account" },
       sourceContextId: "context-1",
       tableStatus: "ready",
+      total: 2,
       toggleBucket,
     });
   });
@@ -93,7 +102,8 @@ describe("ManagerBucketComparePage", () => {
     });
     expect(setFilter).toHaveBeenCalledWith("alp");
 
-    fireEvent.click(screen.getByRole("button", { name: "Select filtered" }));
+    expect(screen.getByText("2 results")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Select page" }));
     expect(selectAllFiltered).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(clearSelection).toHaveBeenCalledOnce();

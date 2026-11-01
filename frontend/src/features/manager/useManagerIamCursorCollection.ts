@@ -29,10 +29,19 @@ export function useManagerIamCursorCollection<Item>(
   const [nextMarker, setNextMarker] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
 
+  const resetCursor = useCallback(() => {
+    setMarkers([null]);
+    setPageIndex(0);
+    setNextMarker(null);
+  }, []);
+
   useEffect(() => {
-    const handle = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    const handle = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      resetCursor();
+    }, 250);
     return () => window.clearTimeout(handle);
-  }, [search]);
+  }, [resetCursor, search]);
 
   useEffect(() => {
     if (contextId === null) return;
@@ -61,12 +70,6 @@ export function useManagerIamCursorCollection<Item>(
     };
   }, [contextId, debouncedSearch, includeDetails, listPage, markers, pageIndex, pageSize, revision]);
 
-  const resetCursor = useCallback(() => {
-    setMarkers([null]);
-    setPageIndex(0);
-    setNextMarker(null);
-  }, []);
-
   const load = useCallback((nextContextId: S3ExecutionContextSelector) => {
     if (contextRef.current !== nextContextId) {
       contextRef.current = nextContextId;
@@ -82,8 +85,7 @@ export function useManagerIamCursorCollection<Item>(
 
   const setSearch = useCallback((value: string) => {
     setSearchState(value);
-    resetCursor();
-  }, [resetCursor]);
+  }, []);
 
   const setPageSize = useCallback((value: number) => {
     setPageSizeState(value);

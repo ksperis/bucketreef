@@ -908,6 +908,7 @@
   "Or": "Oder",
   "Out": "Aus",
   "Outgoing bytes": "Ausgehende Bytes",
+  "Page {page}": "Seite {page}",
   "Page {page} of {pages} · {total} result": "Seite {page} von {pages} · {total} Ergebnis",
   "Page {page} of {pages} · {total} results": "Seite {page} von {pages} · {total} Ergebnisse",
   "Page size": "Seitengröße",

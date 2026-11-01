@@ -98,6 +98,7 @@ describe("Manager IAM inventory tables", () => {
     renderManagerPage(<ManagerGroupsPage />);
 
     expect(await screen.findByText("operators")).toBeInTheDocument();
+    expect(screen.getByText("1 shown on this page")).toBeInTheDocument();
     expect(screen.getByLabelText("Search")).toHaveAttribute("type", "search");
     expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", "Search by name or ARN");
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");

@@ -10,8 +10,8 @@ const createAdminS3ConnectionMock = vi.fn();
 const updateAdminS3ConnectionMock = vi.fn();
 const deleteAdminS3ConnectionMock = vi.fn();
 const validateAdminS3ConnectionCredentialsMock = vi.fn();
-const listMinimalUsersMock = vi.fn();
-const listMinimalGroupsMock = vi.fn();
+const listUserOptionsMock = vi.fn();
+const listGroupOptionsMock = vi.fn();
 const listStorageEndpointsMock = vi.fn();
 
 vi.mock("../../api/s3ConnectionsAdmin", () => ({
@@ -23,11 +23,11 @@ vi.mock("../../api/s3ConnectionsAdmin", () => ({
 }));
 
 vi.mock("../../api/users", () => ({
-  listMinimalUsers: () => listMinimalUsersMock(),
+  listUserOptions: (params?: unknown) => listUserOptionsMock(params),
 }));
 
 vi.mock("../../api/groups", () => ({
-  listMinimalGroups: () => listMinimalGroupsMock(),
+  listGroupOptions: (params?: unknown) => listGroupOptionsMock(params),
 }));
 
 vi.mock("../../api/storageEndpoints", () => ({
@@ -83,8 +83,20 @@ describe("S3ConnectionsPage live validation", () => {
       page_size: 25,
       has_next: false,
     });
-    listMinimalUsersMock.mockResolvedValue([]);
-    listMinimalGroupsMock.mockResolvedValue([]);
+    listUserOptionsMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+    listGroupOptionsMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
     listStorageEndpointsMock.mockResolvedValue([]);
     validateAdminS3ConnectionCredentialsMock.mockResolvedValue({
       ok: false,

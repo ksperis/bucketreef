@@ -307,7 +307,7 @@ export default function ManagerGroupsPage() {
       ) : (
         <ListPageSection variant="page"
             title={text("Groups")}
-            countLabel={text(filteredGroups.length === 1 ? "{count} result" : "{count} results", { count: filteredGroups.length })}
+            countLabel={text("{count} shown on this page", { count: filteredGroups.length })}
             search={
               <ManagerToolbarSearch
                 value={groupFilter}

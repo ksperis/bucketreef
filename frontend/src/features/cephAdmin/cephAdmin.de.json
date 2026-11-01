@@ -224,6 +224,8 @@
   "Save configuration": "Speichern",
   "Search RGW Accounts": "RGW Accounts suchen",
   "Search RGW Users": "RGW Benutzer suchen",
+  "Search accounts": "Accounts suchen",
+  "Search target buckets": "Ziel-Buckets suchen",
   "Search targets": "Ziele suchen",
   "Secret is shown only once.": "Das Secret wird nur einmal angezeigt.",
   "Select Ceph endpoint": "Ceph Endpoint auswählen",
