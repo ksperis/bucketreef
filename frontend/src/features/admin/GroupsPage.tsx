@@ -26,17 +26,13 @@ import {
   uploadGroupAvatar,
   updateGroup,
 } from "../../api/groups";
-import { AccountMembership, UserSummary, listMinimalUsers } from "../../api/users";
+import { AccountMembership } from "../../api/users";
 import {
   defaultAccountAccessGrant,
   getAccountAccessRequiredMessage,
   hasAccountAccessRole,
   type AccountAccessGrant,
 } from "../../api/accountAccess";
-import { S3AccountSummary, listMinimalS3Accounts } from "../../api/accounts";
-import { S3UserSummary, listMinimalS3Users } from "../../api/s3Users";
-import { S3ConnectionSummary, listMinimalS3Connections } from "../../api/s3ConnectionsAdmin";
-import { listAdminOpenStackClouds, type OpenStackCloud } from "../../api/openstack";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import {
   AccountAccessRoleValidationMessage,
@@ -80,6 +76,7 @@ import {
 import { useGroupsI18n, type GroupsMessageKey } from "./groupsMessage";
 import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
+import useAdminGroupAssociationOptions from "./useAdminGroupAssociationOptions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
@@ -176,16 +173,29 @@ export default function GroupsPage() {
   const requestedEditHandledRef = useRef(false);
   const openEditRef = useRef<(group: UiGroup) => void>(() => undefined);
   const [groups, setGroups] = useState<UiGroup[]>([]);
-  const [users, setUsers] = useState<UserSummary[]>([]);
-  const [accounts, setAccounts] = useState<S3AccountSummary[]>([]);
-  const [s3Users, setS3Users] = useState<S3UserSummary[]>([]);
-  const [connections, setConnections] = useState<S3ConnectionSummary[]>([]);
-  const [openStackClouds, setOpenStackClouds] = useState<OpenStackCloud[]>([]);
   const [loading, setLoading] = useState(true);
-  const [auxLoading, setAuxLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const handleAssociationOptionsError = useCallback(
+    (loadError: unknown) =>
+      setActionError(
+        extractApiError(loadError, errorTextRef.current("loadResourcesError")),
+      ),
+    [],
+  );
+  const {
+    users,
+    accounts,
+    s3Users,
+    connections,
+    openStackClouds,
+    loading: auxLoading,
+    refresh: loadAuxiliaryData,
+  } = useAdminGroupAssociationOptions({
+    openStackEnabled,
+    onError: handleAssociationOptionsError,
+  });
   const {
     filter,
     sort,
@@ -251,7 +261,7 @@ export default function GroupsPage() {
   };
 
   const accountOptionsById = useMemo(() => {
-    const map = new Map<number, S3AccountSummary>();
+    const map = new Map<number, (typeof accounts)[number]>();
     accounts.forEach((account) => {
       const id = account.id;
       if (!Number.isNaN(id)) map.set(id, account);
@@ -296,28 +306,6 @@ export default function GroupsPage() {
       setLoading(false);
     }
   }, [ensurePageInRange, filter, page, pageSize, sort.direction, sort.field]);
-
-  const loadAuxiliaryData = useCallback(async () => {
-    setAuxLoading(true);
-    try {
-      const [nextUsers, nextAccounts, nextS3Users, nextConnections, nextOpenStackClouds] = await Promise.all([
-        listMinimalUsers(),
-        listMinimalS3Accounts(),
-        listMinimalS3Users(),
-        listMinimalS3Connections(),
-        openStackEnabled ? listAdminOpenStackClouds() : Promise.resolve([]),
-      ]);
-      setUsers(nextUsers);
-      setAccounts(nextAccounts);
-      setS3Users(nextS3Users);
-      setConnections(nextConnections);
-      setOpenStackClouds(nextOpenStackClouds);
-    } catch (err) {
-      setActionError(extractApiError(err, errorTextRef.current("loadResourcesError")));
-    } finally {
-      setAuxLoading(false);
-    }
-  }, [openStackEnabled]);
 
   useEffect(() => {
     fetchGroups();
