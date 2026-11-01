@@ -197,15 +197,17 @@ class BucketMigrationObjectComparisonMixin:
     ) -> Optional[VersionAwareDiff]:
         source_client = self._context_client(source_ctx)
         target_client = self._context_client(target_ctx)
-        source_iter = iter(self._iter_bucket_version_timelines(source_ctx, source_bucket, client=source_client))
-        target_iter = iter(self._iter_bucket_version_timelines(target_ctx, target_bucket, client=target_client))
-        source_item = next(source_iter, None)
-        target_item = next(target_iter, None)
-
         diff = _VersionAwareDiffAccumulator()
         scanned_keys = 0
 
-        while source_item is not None or target_item is not None:
+        for kind, key, source_timeline, target_timeline in self._iter_merged_version_timelines(
+            source_ctx,
+            target_ctx,
+            source_bucket=source_bucket,
+            target_bucket=target_bucket,
+            source_client=source_client,
+            target_client=target_client,
+        ):
             scanned_keys += 1
             if scanned_keys % 200 == 0:
                 state = check_control_state(
@@ -215,39 +217,17 @@ class BucketMigrationObjectComparisonMixin:
                 if state in {"pause", "cancel"}:
                     return None
 
-            if source_item is None:
-                target_key, target_timeline = target_item
+            if kind == "only_target":
                 diff.record_only_target(
-                    target_key,
+                    key,
                     has_current_object=self._timeline_has_current_object(target_timeline),
                 )
-                target_item = next(target_iter, None)
                 continue
-
-            if target_item is None:
-                source_key, source_timeline = source_item
+            if kind == "only_source":
                 diff.record_only_source(
-                    source_key,
+                    key,
                     has_current_object=self._timeline_has_current_object(source_timeline),
                 )
-                source_item = next(source_iter, None)
-                continue
-
-            source_key, source_timeline = source_item
-            target_key, target_timeline = target_item
-            if source_key < target_key:
-                diff.record_only_source(
-                    source_key,
-                    has_current_object=self._timeline_has_current_object(source_timeline),
-                )
-                source_item = next(source_iter, None)
-                continue
-            if target_key < source_key:
-                diff.record_only_target(
-                    target_key,
-                    has_current_object=self._timeline_has_current_object(target_timeline),
-                )
-                target_item = next(target_iter, None)
                 continue
 
             comparison = self._compare_version_timeline_pair(
@@ -255,7 +235,7 @@ class BucketMigrationObjectComparisonMixin:
                 target_client,
                 source_bucket=source_bucket,
                 target_bucket=target_bucket,
-                key=source_key,
+                key=key,
                 source_timeline=source_timeline,
                 target_timeline=target_timeline,
             )
@@ -264,8 +244,6 @@ class BucketMigrationObjectComparisonMixin:
                 source_has_current_object=self._timeline_has_current_object(source_timeline),
                 target_has_current_object=self._timeline_has_current_object(target_timeline),
             )
-            source_item = next(source_iter, None)
-            target_item = next(target_iter, None)
 
         return diff.build()
 

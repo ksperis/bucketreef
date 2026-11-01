@@ -3089,6 +3089,41 @@ def test_compare_versioned_timelines_streams_large_key_sets_and_limits_samples(d
     assert control_checks["count"] >= 2
 
 
+def test_iter_merged_version_timelines_classifies_union_keys(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace(context_id="src")
+    target_ctx = SimpleNamespace(context_id="target")
+    source_timelines = [
+        ("a", [_version_entry("a", "sv-a")]),
+        ("c", [_version_entry("c", "sv-c")]),
+    ]
+    target_timelines = [
+        ("b", [_version_entry("b", "tv-b")]),
+        ("c", [_version_entry("c", "tv-c")]),
+    ]
+    service._iter_bucket_version_timelines = (  # type: ignore[method-assign]
+        lambda ctx, *_args, **_kwargs: iter(source_timelines if ctx.context_id == "src" else target_timelines)
+    )
+
+    merged = list(
+        service._iter_merged_version_timelines(
+            source_ctx,
+            target_ctx,
+            source_bucket="bucket-a",
+            target_bucket="bucket-b",
+        )
+    )
+
+    assert [
+        (kind, key, source_timeline is not None, target_timeline is not None)
+        for kind, key, source_timeline, target_timeline in merged
+    ] == [
+        ("only_source", "a", True, False),
+        ("only_target", "b", False, True),
+        ("both", "c", True, True),
+    ]
+
+
 def test_strong_verify_current_candidates_filters_and_batches_size_matches(db_session):
     service = BucketMigrationService(db_session)
     source_ctx = SimpleNamespace(context_id="src")
