@@ -163,8 +163,6 @@ def _derive_ceph_test_env_from_storage_endpoints(env: dict[str, str]) -> None:
     admin_endpoint = (
         _storage_feature_endpoint(selected, "admin")
         or _storage_feature_endpoint(selected, "account")
-        or _entry_str("admin_endpoint")
-        or _entry_str("admin_endpoint_url")
         or endpoint_url
     )
 
