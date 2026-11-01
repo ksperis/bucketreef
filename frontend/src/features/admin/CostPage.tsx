@@ -41,7 +41,7 @@ import {
   uiTitleTextClass,
 } from "../../components/ui/styles";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
+import { extractApiError } from "../../utils/apiError";
 import { triggerBlobDownload } from "../../utils/download";
 import { currentUtcMonthInputValue } from "../../utils/dateInputValues";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
@@ -50,14 +50,9 @@ import { DownloadIcon, RefreshIcon } from "../browser/browserIcons";
 import {
   collectCostDaily,
   downloadCostCsv,
-  getCostAnalytics,
-  getCostSubjects,
-  getCostSummary,
-  type CostAnalyticsResponse,
   type CostCollectionError,
   type CostCollectionResult,
   type CostSubjectSummary,
-  type CostSummary,
 } from "../../api/cost";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
@@ -68,6 +63,7 @@ import {
   hasPartialCostSources,
   isLowCostCoverage,
 } from "./costPresentation";
+import { useCostPageResources } from "./useCostPageResources";
 
 type SubjectType = "all" | "account" | "s3_user";
 type CostTab = "subjects" | "analytics";
@@ -159,23 +155,38 @@ export default function CostPage() {
   const [pageSize, setPageSize] = useState(() => parsePositiveInt(searchParams.get("page_size"), 25));
   const [reloadToken, setReloadToken] = useState(0);
 
-  const [summary, setSummary] = useState<CostSummary | null>(null);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [subjects, setSubjects] = useState<CostSubjectSummary[]>([]);
-  const [subjectsTotal, setSubjectsTotal] = useState(0);
-  const [subjectsError, setSubjectsError] = useState<string | null>(null);
-  const [subjectsLoading, setSubjectsLoading] = useState(false);
-  const [analytics, setAnalytics] = useState<CostAnalyticsResponse | null>(null);
-  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
-
   const [pageError, setPageError] = useState<string | null>(null);
-  const [costDisabled, setCostDisabled] = useState(false);
   const [collectLoading, setCollectLoading] = useState(false);
   const [collectMessage, setCollectMessage] = useState<string | null>(null);
   const [collectError, setCollectError] = useState<string | null>(null);
   const [collectResult, setCollectResult] = useState<CostCollectionResult | null>(null);
+  const {
+    summary,
+    summaryError,
+    summaryLoading,
+    costDisabled,
+    subjects,
+    subjectsTotal,
+    subjectsError,
+    subjectsLoading,
+    analytics,
+    analyticsError,
+    analyticsLoading,
+  } = useCostPageResources({
+    month,
+    selectedEndpointId,
+    subjectType,
+    page,
+    pageSize,
+    sortBy,
+    sortDir,
+    search,
+    analyticsEnabled: activeTab === "analytics",
+    reloadToken,
+    summaryErrorText: adminText("Unable to load cost summary."),
+    subjectsErrorText: adminText("Unable to load cost subjects."),
+    analyticsErrorText: adminText("Unable to load cost analytics."),
+  });
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -219,32 +230,6 @@ export default function CostPage() {
     };
   }, [adminText]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSummary() {
-      setSummaryLoading(true);
-      setSummaryError(null);
-      setCostDisabled(false);
-      try {
-        const data = await getCostSummary(month, selectedEndpointId);
-        if (!cancelled) setSummary(data);
-      } catch (err) {
-        if (!cancelled) {
-          const message = extractApiError(err, adminText("Unable to load cost summary."));
-          setSummary(null);
-          setSummaryError(message);
-          setCostDisabled(extractApiErrorCode(err) === "cost_disabled");
-        }
-      } finally {
-        if (!cancelled) setSummaryLoading(false);
-      }
-    }
-    void loadSummary();
-    return () => {
-      cancelled = true;
-    };
-  }, [adminText, month, selectedEndpointId, reloadToken]);
-
   const filterResetInitialized = useRef(false);
   useEffect(() => {
     if (!filterResetInitialized.current) {
@@ -253,66 +238,6 @@ export default function CostPage() {
     }
     setPage(1);
   }, [month, search, selectedEndpointId, subjectType, sortBy, sortDir]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSubjects() {
-      setSubjectsLoading(true);
-      setSubjectsError(null);
-      try {
-        const data = await getCostSubjects(
-          month,
-          selectedEndpointId,
-          subjectType,
-          page,
-          pageSize,
-          sortBy,
-          sortDir,
-          search,
-        );
-        if (!cancelled) {
-          setSubjects(data.items);
-          setSubjectsTotal(data.total);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setSubjects([]);
-          setSubjectsTotal(0);
-          setSubjectsError(extractApiError(err, adminText("Unable to load cost subjects.")));
-        }
-      } finally {
-        if (!cancelled) setSubjectsLoading(false);
-      }
-    }
-    void loadSubjects();
-    return () => {
-      cancelled = true;
-    };
-  }, [adminText, month, page, pageSize, reloadToken, search, selectedEndpointId, sortBy, sortDir, subjectType]);
-
-  useEffect(() => {
-    if (activeTab !== "analytics") return;
-    let cancelled = false;
-    async function loadAnalytics() {
-      setAnalyticsLoading(true);
-      setAnalyticsError(null);
-      try {
-        const data = await getCostAnalytics(month, selectedEndpointId, subjectType);
-        if (!cancelled) setAnalytics(data);
-      } catch (err) {
-        if (!cancelled) {
-          setAnalytics(null);
-          setAnalyticsError(extractApiError(err, adminText("Unable to load cost analytics.")));
-        }
-      } finally {
-        if (!cancelled) setAnalyticsLoading(false);
-      }
-    }
-    void loadAnalytics();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, adminText, month, reloadToken, selectedEndpointId, subjectType]);
 
   const selectedEndpoint = useMemo(
     () => endpoints.find((endpoint) => endpoint.id === selectedEndpointId) ?? null,
