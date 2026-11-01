@@ -23,6 +23,45 @@ if TYPE_CHECKING:
 
 
 class PortalBucketsUsersMixin:
+    def _apply_bucket_creation_defaults(
+        self,
+        account: S3Account,
+        bucket_name: str,
+        portal_settings: PortalEffectiveSettings,
+        *,
+        versioning_enabled: bool,
+        access_key: str,
+        secret_key: str,
+    ) -> None:
+        if versioning_enabled:
+            s3_client.set_bucket_versioning(
+                bucket_name,
+                enabled=True,
+                access_key=access_key,
+                secret_key=secret_key,
+                **self._s3_client_kwargs(account),
+            )
+        if portal_settings.bucket_defaults.enable_lifecycle:
+            s3_bucket_metadata.put_bucket_lifecycle(
+                bucket_name,
+                rules=self._portal_bucket_lifecycle_rules(
+                    portal_settings.bucket_defaults.noncurrent_version_expiration_days
+                ),
+                access_key=access_key,
+                secret_key=secret_key,
+                **self._s3_client_kwargs(account),
+            )
+        if portal_settings.bucket_defaults.enable_cors:
+            origins = normalize_string_list(portal_settings.bucket_defaults.cors_allowed_origins)
+            if origins:
+                s3_bucket_access.put_bucket_cors(
+                    bucket_name,
+                    rules=self._portal_bucket_cors_rules(origins),
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    **self._s3_client_kwargs(account),
+                )
+
     def create_bucket(
         self,
         user: User,
@@ -58,34 +97,14 @@ class PortalBucketsUsersMixin:
             secret_key=bucket_secret,
             **self._s3_client_kwargs(account),
         )
-        if versioning_flag:
-            s3_client.set_bucket_versioning(
-                bucket_name,
-                enabled=True,
-                access_key=bucket_access_key,
-                secret_key=bucket_secret,
-                **self._s3_client_kwargs(account),
-            )
-        if portal_defaults.bucket_defaults.enable_lifecycle:
-            s3_bucket_metadata.put_bucket_lifecycle(
-                bucket_name,
-                rules=self._portal_bucket_lifecycle_rules(
-                    portal_defaults.bucket_defaults.noncurrent_version_expiration_days
-                ),
-                access_key=bucket_access_key,
-                secret_key=bucket_secret,
-                **self._s3_client_kwargs(account),
-            )
-        if portal_defaults.bucket_defaults.enable_cors:
-            origins = normalize_string_list(portal_defaults.bucket_defaults.cors_allowed_origins)
-            if origins:
-                s3_bucket_access.put_bucket_cors(
-                    bucket_name,
-                    rules=self._portal_bucket_cors_rules(origins),
-                    access_key=bucket_access_key,
-                    secret_key=bucket_secret,
-                    **self._s3_client_kwargs(account),
-                )
+        self._apply_bucket_creation_defaults(
+            account,
+            bucket_name,
+            portal_defaults,
+            versioning_enabled=bool(versioning_flag),
+            access_key=bucket_access_key,
+            secret_key=bucket_secret,
+        )
         return Bucket(
             name=bucket_name,
             creation_date=None,

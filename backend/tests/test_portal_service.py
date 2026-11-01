@@ -576,6 +576,36 @@ def test_portal_user_bucket_creation_applies_defaults_with_account_credentials(m
     assert cors_calls[0][1]["secret_key"] == "ROOT-SK"
 
 
+def test_bucket_creation_defaults_allow_explicit_versioning_disable(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-defaults-versioning",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    settings = portal_settings_fixture()
+    settings.bucket_defaults.versioning = True
+    settings.bucket_defaults.enable_lifecycle = False
+    settings.bucket_defaults.enable_cors = False
+    versioning_calls = []
+    monkeypatch.setattr(
+        s3_client,
+        "set_bucket_versioning",
+        lambda *args, **kwargs: versioning_calls.append((args, kwargs)),
+    )
+
+    PortalService(db_session)._apply_bucket_creation_defaults(
+        account,
+        "bucket-a",
+        settings,
+        versioning_enabled=False,
+        access_key="ROOT-AK",
+        secret_key="ROOT-SK",
+    )
+
+    assert versioning_calls == []
+
+
 def test_portal_user_group_policy_is_fixed_and_does_not_grant_direct_bucket_creation(db_session):
     service = PortalService(db_session)
     policy = service._resolve_group_policy("user")
