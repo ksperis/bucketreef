@@ -2,11 +2,13 @@
 import type {
   OnboardingApplyCredentials,
   OnboardingDraft,
+  OnboardingPreview,
 } from "../../api/onboarding";
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
 import type {
   StorageEndpoint,
   StorageEndpointFeatureDetectionPayload,
+  StorageEndpointFeatureDetectionResult,
 } from "../../api/storageEndpoints";
 
 export type OnboardingIdentityMode = "managed" | "external";
@@ -277,6 +279,145 @@ export function buildOnboardingApplyCredentials({
     private_access_key: credentials.privateAccessKey || undefined,
     private_secret_key: credentials.privateSecretKey || undefined,
   };
+}
+
+type OnboardingValidationStatus = "idle" | "loading" | "done";
+
+type OnboardingReadiness = {
+  endpointReachable: boolean;
+  invalidSelection: boolean;
+  validationPending: boolean;
+  canReview: boolean;
+  canApply: boolean;
+};
+
+export function resolveOnboardingReadiness({
+  draft,
+  identityMode,
+  state,
+  credentials,
+  endpointValidation,
+  privateValidation,
+  preview,
+}: {
+  draft: OnboardingDraft;
+  identityMode: OnboardingIdentityMode;
+  state: OnboardingEndpointState;
+  credentials: OnboardingCredentialDraft;
+  endpointValidation: {
+    status: OnboardingValidationStatus;
+    result: StorageEndpointFeatureDetectionResult | null;
+    error: string | null;
+  };
+  privateValidation: {
+    status: OnboardingValidationStatus;
+    ok: boolean;
+  };
+  preview: {
+    value: OnboardingPreview | null;
+    pending: boolean;
+    error: string;
+  };
+}): OnboardingReadiness {
+  const result = endpointValidation.result;
+  const endpointReachable = result?.http_check.status === "valid";
+  const invalidSelection =
+    !state.isCeph && (draft.manager || draft.portal || draft.ceph_admin || draft.supervision);
+  const adminCredentialsPartial =
+    state.adminCredentialsRequired &&
+    Boolean(credentials.adminAccessKey) !== Boolean(credentials.adminSecretKey);
+  const supervisionCredentialsPartial =
+    state.supervisionCredentialsRequired &&
+    Boolean(credentials.supervisionAccessKey) !== Boolean(credentials.supervisionSecretKey);
+  const runtimeCredentialsPartial =
+    state.runtimeCredentialsRequired &&
+    Boolean(credentials.runtimeAccessKey) !== Boolean(credentials.runtimeSecretKey);
+  const adminCredentialsMissing =
+    state.adminCredentialsRequired &&
+    (!credentials.adminAccessKey || !credentials.adminSecretKey);
+  const supervisionCredentialsMissing =
+    state.supervisionCredentialsRequired &&
+    (!credentials.supervisionAccessKey || !credentials.supervisionSecretKey);
+  const runtimeCredentialsMissing =
+    state.runtimeCredentialsRequired &&
+    (!credentials.runtimeAccessKey || !credentials.runtimeSecretKey);
+  const privateCredentialsMissing =
+    draft.private_connection && (!credentials.privateAccessKey || !credentials.privateSecretKey);
+  const adminCredentialStatus = result?.credential_checks.admin.status ?? "not_configured";
+  const supervisionCredentialStatus =
+    result?.credential_checks.supervision.status ?? "not_configured";
+  const cephAdminCredentialStatus =
+    result?.credential_checks.ceph_admin?.status ?? "not_configured";
+  const runtimeCredentialStatus = result?.credential_checks.runtime?.status ?? "not_configured";
+  const adminValidationReady =
+    !state.needsAdmin ||
+    (adminCredentialStatus === "valid" &&
+      result?.admin === true &&
+      (!(draft.manager || draft.portal) ||
+        (result.account === true && hasAccountProvisioningPermissions(result.admin_ops_permissions))));
+  const supervisionValidationReady =
+    !state.needsSupervision ||
+    identityMode === "managed" ||
+    (supervisionCredentialStatus === "valid" && result?.metrics === true);
+  const cephAdminValidationReady =
+    !draft.ceph_admin ||
+    (cephAdminCredentialStatus === "valid" &&
+      Boolean(credentials.cephAdminAccessKey) === Boolean(credentials.cephAdminSecretKey) &&
+      (Boolean(credentials.cephAdminAccessKey && credentials.cephAdminSecretKey) ||
+        state.storedCephAdminCredentials));
+  const runtimeValidationReady =
+    identityMode === "managed" || !state.needsRuntime || runtimeCredentialStatus === "valid";
+  const privateValidationReady =
+    !draft.private_connection || (privateValidation.status === "done" && privateValidation.ok);
+  const validationPending =
+    endpointValidation.status === "loading" ||
+    (draft.private_connection && privateValidation.status === "loading");
+  const canReview = Boolean(
+    endpointReachable &&
+      endpointValidation.status === "done" &&
+      !endpointValidation.error &&
+      countOnboardingSelections(draft) > 0 &&
+      !invalidSelection &&
+      !adminCredentialsPartial &&
+      !supervisionCredentialsPartial &&
+      !runtimeCredentialsPartial &&
+      !adminCredentialsMissing &&
+      !supervisionCredentialsMissing &&
+      !runtimeCredentialsMissing &&
+      !privateCredentialsMissing &&
+      adminValidationReady &&
+      supervisionValidationReady &&
+      cephAdminValidationReady &&
+      runtimeValidationReady &&
+      privateValidationReady &&
+      !validationPending,
+  );
+  const canApply = Boolean(
+    canReview &&
+      preview.value &&
+      !preview.pending &&
+      !preview.error &&
+      preview.value.blockers.length === 0,
+  );
+
+  return {
+    endpointReachable,
+    invalidSelection,
+    validationPending,
+    canReview,
+    canApply,
+  };
+}
+
+function hasAccountProvisioningPermissions(
+  permissions: StorageEndpointFeatureDetectionResult["admin_ops_permissions"],
+): boolean {
+  return Boolean(
+    permissions.users_read &&
+      permissions.users_write &&
+      permissions.accounts_read &&
+      permissions.accounts_write,
+  );
 }
 
 function validEndpointUrl(value: string): boolean {

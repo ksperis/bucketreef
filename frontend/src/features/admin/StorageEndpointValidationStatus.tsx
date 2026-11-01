@@ -11,17 +11,6 @@ import { useAdminI18n } from "./adminI18n";
 type CredentialCheckViewStatus = StorageEndpointCredentialCheckStatus | "checking";
 export type CredentialCheckView = { status: CredentialCheckViewStatus; message?: string | null };
 
-export function hasAccountProvisioningPermissions(
-  permissions?: StorageEndpointAdminOpsPermissions | null,
-): boolean {
-  return Boolean(
-    permissions?.users_read &&
-      permissions.users_write &&
-      permissions.accounts_read &&
-      permissions.accounts_write,
-  );
-}
-
 export function AdminOpsPermissionsBadges({
   permissions,
 }: {
