@@ -18,6 +18,16 @@ export type BucketDetailTabId =
   | "data-management"
   | "usage-metrics";
 
+type BucketDetailFeatureAvailability = {
+  quota: boolean;
+  replication: boolean;
+  sns: boolean;
+  sse: boolean;
+  staticWebsite: boolean;
+  usage: boolean;
+  liveMetrics: boolean;
+};
+
 type BucketDetailSurface = {
   mode: BucketDetailMode;
   rootPath: string;
@@ -52,6 +62,39 @@ export function resolveBucketDetailTabs({
   return showObjectsTab
     ? ["overview", "objects", "properties", "permissions", "data-management", "usage-metrics"]
     : ["overview", "properties", "permissions", "data-management", "usage-metrics"];
+}
+
+export function resolveBucketDetailFeatureAvailability({
+  mode,
+  isCephEndpoint,
+  capabilities,
+  managerStatsEnabled = null,
+  managerBucketQuotaEnabled = null,
+}: {
+  mode: BucketDetailMode;
+  isCephEndpoint: boolean;
+  capabilities?: Record<string, boolean> | null;
+  managerStatsEnabled?: boolean | null;
+  managerBucketQuotaEnabled?: boolean | null;
+}): BucketDetailFeatureAvailability {
+  const isCephAdmin = mode === "ceph-admin";
+  const usage = isCephAdmin
+    ? (capabilities?.metrics ?? true)
+    : Boolean(managerStatsEnabled) && (capabilities?.metrics ?? true);
+
+  return {
+    quota: isCephAdmin
+      ? isCephEndpoint
+      : Boolean(isCephEndpoint && managerBucketQuotaEnabled),
+    replication: isCephEndpoint && capabilities?.replication === true,
+    sns: isCephAdmin
+      ? capabilities?.sns === true
+      : capabilities?.sns !== false,
+    sse: capabilities?.sse === true,
+    staticWebsite: capabilities?.static_website === true,
+    usage,
+    liveMetrics: isCephEndpoint && usage,
+  };
 }
 
 export function buildBucketDetailBreadcrumbs(mode: BucketDetailMode, bucketName: string | null | undefined) {
