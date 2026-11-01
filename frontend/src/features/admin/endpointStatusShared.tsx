@@ -25,11 +25,6 @@ export function StatusPill({ status }: { status: HealthCheckStatus }) {
   return <span className={`inline-flex items-center rounded-full px-2.5 py-1 ui-caption font-semibold ${classes}`}>{formatStatusLabel(status, locale)}</span>;
 }
 
-export function formatLatency(value?: number | null) {
-  if (value == null) return "-";
-  return `${value} ms`;
-}
-
 export function formatTimestamp(value: string, locale?: UiLanguage) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;

@@ -4,7 +4,7 @@
  */
 import type { WorkspaceEndpointHealthOverviewResponse } from "../api/healthchecks";
 import { formatLocalDateTime } from "../utils/dateTime";
-import { formatCheckMode } from "../utils/format";
+import { formatCheckMode, formatLatency } from "../utils/format";
 import { WorkspaceDashboardActionLink, WorkspaceStatusCounter, WorkspaceStatusDot, WorkspaceStatusPill } from "./WorkspaceDashboardKit";
 import WorkspaceIncidentsCard from "./WorkspaceIncidentsCard";
 import { useWorkspaceDashboardI18n } from "./workspaceDashboardMessages";
@@ -15,11 +15,6 @@ import {
   uiPanelMutedClass,
   uiTitleTextClass,
 } from "./ui/styles";
-
-function formatLatency(value?: number | null) {
-  if (value == null) return "-";
-  return `${value} ms`;
-}
 
 type WorkspaceEndpointHealthCardsProps = {
   data: WorkspaceEndpointHealthOverviewResponse | null;

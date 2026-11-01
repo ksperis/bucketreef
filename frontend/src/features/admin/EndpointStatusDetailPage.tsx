@@ -33,14 +33,13 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import ListSectionCard from "../../components/list/ListSectionCard";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
-import { formatCheckMode } from "../../utils/format";
+import { formatCheckMode, formatLatency } from "../../utils/format";
 import {
   buildTimelineSegmentDetails,
   EndpointTimelineBar,
   formatChartDay,
   formatChartTime,
   formatDurationShort,
-  formatLatency,
   formatPercent,
   formatStatusLabel,
   formatTimestamp,
