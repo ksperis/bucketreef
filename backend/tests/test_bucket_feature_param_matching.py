@@ -5,7 +5,8 @@ import pytest
 
 from app.models.bucket import BucketObjectLock, BucketProperties, BucketPublicAccessBlock
 from app.models.bucket_filter import BucketFilterRule
-from app.services.bucket_feature_param_matching import _match_properties_param_rule
+from app.services.bucket_feature_grouped_param_matching import match_grouped_feature_param_rules
+from app.services.bucket_feature_scalar_param_matching import match_scalar_feature_param_rule
 
 
 @pytest.fixture
@@ -38,7 +39,7 @@ def properties() -> BucketProperties:
 def test_match_properties_scalar_params(properties, feature, param, op, value):
     rule = BucketFilterRule(feature=feature, param=param, op=op, value=value)
 
-    assert _match_properties_param_rule(rule, properties, op) is True
+    assert match_scalar_feature_param_rule(rule, "props", properties) is True
 
 
 def test_match_properties_scalar_param_applies_none_quantifier(properties):
@@ -50,7 +51,7 @@ def test_match_properties_scalar_param_applies_none_quantifier(properties):
         quantifier="none",
     )
 
-    assert _match_properties_param_rule(rule, properties, "eq") is False
+    assert match_scalar_feature_param_rule(rule, "props", properties) is False
 
 
 def test_match_properties_cors_param_uses_validated_rules(properties):
@@ -61,4 +62,4 @@ def test_match_properties_cors_param_uses_validated_rules(properties):
         value="GET",
     )
 
-    assert _match_properties_param_rule(rule, properties, "has") is True
+    assert match_grouped_feature_param_rules("cors", [rule], "any", properties) is True

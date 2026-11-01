@@ -2,43 +2,18 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Any, Callable, TypeVar, cast
-
-from app.models.bucket import (
-    BucketLoggingConfiguration,
-    BucketProperties,
-    BucketWebsiteConfiguration,
-)
 from app.models.bucket_filter import BucketFilterRule
-from app.services.bucket_feature_param_values import (
-    encryption_rule_entries,
-    extract_cors_rule_values,
-    extract_lifecycle_abort_days,
-    extract_lifecycle_expiration_days,
-    extract_lifecycle_noncurrent_expiration_days,
-    extract_lifecycle_transition_days,
-    extract_notification_eventbridge_present,
-    extract_notification_events,
-    extract_notification_filter_values,
-    extract_notification_rule_id,
-    extract_notification_topic_match_values,
-    extract_policy_statement_summary,
-    extract_sse_rule_values,
-    notification_rule_entries,
+from app.services.bucket_feature_grouped_param_matching import (
+    grouped_feature_names,
+    grouped_feature_param_source,
+    grouped_feature_source,
+    match_grouped_feature_param_rules,
 )
-from app.services.bucket_listing_shared import coerce_filter_bool, coerce_filter_number
-from app.utils.normalize import normalize_optional_string, normalize_text
+from app.services.bucket_feature_scalar_param_matching import match_scalar_feature_param_rule
+
 
 FEATURE_PARAM_UNAVAILABLE = object()
-_FEATURE_PARAM_SOURCE_BY_PARAM: dict[str, str] = {
-    "lifecycle_rule_id": "lifecycle",
-    "lifecycle_rule_status": "lifecycle",
-    "lifecycle_rule_type": "lifecycle",
-    "lifecycle_expiration_days": "lifecycle",
-    "lifecycle_noncurrent_expiration_days": "lifecycle",
-    "lifecycle_transition_days": "lifecycle",
-    "lifecycle_abort_multipart_present": "lifecycle",
-    "lifecycle_abort_multipart_days": "lifecycle",
+_SCALAR_FEATURE_PARAM_SOURCE_BY_PARAM: dict[str, str] = {
     "object_lock_mode": "props",
     "object_lock_retention_days": "props",
     "object_lock_retention_years": "props",
@@ -46,8 +21,6 @@ _FEATURE_PARAM_SOURCE_BY_PARAM: dict[str, str] = {
     "bpa_ignore_public_acls": "props",
     "bpa_block_public_policy": "props",
     "bpa_restrict_public_buckets": "props",
-    "cors_allowed_method": "props",
-    "cors_allowed_origin": "props",
     "logging_enabled": "logging",
     "logging_target_bucket": "logging",
     "logging_target_prefix": "logging",
@@ -59,682 +32,29 @@ _FEATURE_PARAM_SOURCE_BY_PARAM: dict[str, str] = {
     "website_routing_rule_count": "website",
     "policy_statement_count": "policy",
     "policy_has_conditions": "policy",
-    "notification_rule_id": "notifications",
-    "notification_rule_type": "notifications",
-    "notification_topic_name": "notifications",
-    "notification_event": "notifications",
-    "notification_filter_prefix": "notifications",
-    "notification_filter_suffix": "notifications",
     "notification_eventbridge_present": "notifications",
-    "sse_algorithm": "encryption",
-    "sse_kms_key_id": "encryption",
 }
 
 
-def _params_for_source(source: str) -> frozenset[str]:
-    return frozenset(param for param, candidate in _FEATURE_PARAM_SOURCE_BY_PARAM.items() if candidate == source)
-
-
-_LIFECYCLE_PARAMS = _params_for_source("lifecycle")
-_CORS_PARAMS = frozenset(param for param in _params_for_source("props") if param.startswith("cors_"))
-_NOTIFICATION_ENTRY_PARAMS = _params_for_source("notifications") - {"notification_eventbridge_present"}
-_SSE_PARAMS = _params_for_source("encryption")
-_GROUPED_PARAMS_BY_FEATURE = {
-    "lifecycle_rules": _LIFECYCLE_PARAMS,
-    "cors": _CORS_PARAMS,
-    "notifications": _NOTIFICATION_ENTRY_PARAMS,
-    "server_side_encryption": _SSE_PARAMS,
-}
-def _match_text_value(left: str | None, op: str, right_raw: object) -> bool:
-    if left is None:
-        return False
-    right = normalize_text(str(right_raw or ""))
-    if not right:
-        return False
-    left_norm = normalize_text(left)
-    if op == "eq":
-        return left_norm == right
-    if op == "neq":
-        return left_norm != right
-    if op == "contains":
-        return right in left_norm
-    if op == "starts_with":
-        return left_norm.startswith(right)
-    if op == "ends_with":
-        return left_norm.endswith(right)
-    return False
-
-
-def _match_numeric_value(left: float | None, op: str, right_raw: object) -> bool:
-    if left is None:
-        return False
-    right = coerce_filter_number(right_raw)
-    if right is None:
-        return False
-    if op == "eq":
-        return left == right
-    if op == "neq":
-        return left != right
-    if op == "gt":
-        return left > right
-    if op == "gte":
-        return left >= right
-    if op == "lt":
-        return left < right
-    if op == "lte":
-        return left <= right
-    return False
-
-
-def _match_bool_value(left: bool | None, op: str, right_raw: object) -> bool:
-    if left is None:
-        return False
-    right = coerce_filter_bool(right_raw)
-    if right is None:
-        return False
-    if op == "eq":
-        return left is right
-    if op == "neq":
-        return left is not right
-    return False
-
-
-def _extract_lifecycle_rule_id(rule_entry: dict) -> str | None:
-    raw = rule_entry.get("ID")
-    if raw is None:
-        raw = rule_entry.get("Id")
-    if raw is None:
-        raw = rule_entry.get("id")
-    if raw is None:
+def _feature_param_source(rule: BucketFilterRule) -> str | None:
+    if not rule.feature or not rule.param:
         return None
-    value = str(raw).strip()
-    return value or None
+    grouped_source = grouped_feature_param_source(rule.feature, rule.param)
+    if grouped_source:
+        return grouped_source
+    return _SCALAR_FEATURE_PARAM_SOURCE_BY_PARAM.get(rule.param)
 
 
-def _extract_lifecycle_rule_status(rule_entry: dict) -> str | None:
-    raw = rule_entry.get("Status")
-    if raw is None:
-        raw = rule_entry.get("status")
-    if raw is None:
-        return None
-    value = str(raw).strip()
-    return value or None
-
-
-def _lifecycle_mapping_has_value(
-    rule_entry: dict,
-    section: str,
-    *keys: str,
-) -> bool:
-    value = rule_entry.get(section)
-    return isinstance(value, dict) and any(value.get(key) is not None for key in keys)
-
-
-def _lifecycle_delete_marker_expiration(rule_entry: dict) -> bool:
-    expiration = rule_entry.get("Expiration")
-    return isinstance(expiration, dict) and expiration.get("ExpiredObjectDeleteMarker") is True
-
-
-def _lifecycle_transition_present(rule_entry: dict, plural: str, singular: str) -> bool:
-    transitions = rule_entry.get(plural)
-    return (isinstance(transitions, list) and bool(transitions)) or isinstance(
-        rule_entry.get(singular),
-        dict,
-    )
-
-
-_LifecycleRuleTypePredicate = Callable[[dict], bool]
-_LIFECYCLE_RULE_TYPE_PREDICATES: tuple[tuple[str, _LifecycleRuleTypePredicate], ...] = (
-    (
-        "expiration",
-        lambda entry: _lifecycle_mapping_has_value(entry, "Expiration", "Days", "Date"),
-    ),
-    ("delete_markers", _lifecycle_delete_marker_expiration),
-    (
-        "noncurrent_expiration",
-        lambda entry: _lifecycle_mapping_has_value(
-            entry,
-            "NoncurrentVersionExpiration",
-            "NoncurrentDays",
-        ),
-    ),
-    (
-        "abort_multipart",
-        lambda entry: _lifecycle_mapping_has_value(
-            entry,
-            "AbortIncompleteMultipartUpload",
-            "DaysAfterInitiation",
-        ),
-    ),
-    (
-        "transition",
-        lambda entry: _lifecycle_transition_present(entry, "Transitions", "Transition"),
-    ),
-    (
-        "noncurrent_transition",
-        lambda entry: _lifecycle_transition_present(
-            entry,
-            "NoncurrentVersionTransitions",
-            "NoncurrentVersionTransition",
-        ),
-    ),
-)
-
-
-def _extract_lifecycle_rule_types(rule_entry: dict) -> list[str]:
-    return [
-        rule_type
-        for rule_type, predicate in _LIFECYCLE_RULE_TYPE_PREDICATES
-        if predicate(rule_entry)
-    ]
-
-
-def _feature_param_quantifier(rule: BucketFilterRule) -> str:
-    return "none" if (rule.quantifier or "").strip().lower() == "none" else "any"
-
-
-def _grouped_rule_op(rule: BucketFilterRule, force_presence_positive: bool) -> str:
-    op = (rule.op or "").strip().lower()
-    return "has" if force_presence_positive and op == "has_not" else op
-
-
-_GroupedEntry = TypeVar("_GroupedEntry")
-_GroupedEntryMatcher = Callable[[_GroupedEntry, BucketFilterRule, bool], bool]
-
-
-def _match_grouped_entry_rule_individual(
-    rule: BucketFilterRule,
-    entries: list[_GroupedEntry],
-    matcher: _GroupedEntryMatcher[_GroupedEntry],
-) -> bool:
-    force_presence_positive = (rule.op or "").strip().lower() == "has_not"
-    matched_any = any(matcher(entry, rule, force_presence_positive) for entry in entries)
-    if force_presence_positive:
-        return not matched_any
-    return matched_any if _feature_param_quantifier(rule) == "any" else not matched_any
-
-
-def _match_grouped_entry_rules_all(
-    rules: list[BucketFilterRule],
-    entries: list[_GroupedEntry],
-    matcher: _GroupedEntryMatcher[_GroupedEntry],
-) -> bool:
-    positive_rules: list[BucketFilterRule] = []
-    forbidden_rules: list[BucketFilterRule] = []
-    for rule in rules:
-        op = (rule.op or "").strip().lower()
-        if op == "has_not" or _feature_param_quantifier(rule) == "none":
-            forbidden_rules.append(rule)
-        else:
-            positive_rules.append(rule)
-
-    if positive_rules and not any(
-        all(matcher(entry, rule, False) for rule in positive_rules)
-        for entry in entries
-    ):
+def _match_scalar_param_rule(rule: BucketFilterRule, snapshot: dict[str, object]) -> bool:
+    if not rule.feature or not rule.param or not (rule.op or "").strip():
         return False
-
-    for rule in forbidden_rules:
-        force_presence_positive = (rule.op or "").strip().lower() == "has_not"
-        if any(matcher(entry, rule, force_presence_positive) for entry in entries):
-            return False
-    return True
-
-
-_LifecycleParamMatcher = Callable[[dict, str, object], bool]
-
-
-def _match_lifecycle_rule_type(entry: dict, op: str, expected: object) -> bool:
-    values = _extract_lifecycle_rule_types(entry)
-    if op == "has":
-        return any(_match_text_value(value, "eq", expected) for value in values)
-    if op == "has_not":
-        return not any(_match_text_value(value, "eq", expected) for value in values)
-    return False
-
-
-def _match_lifecycle_abort_presence(entry: dict, op: str, _expected: object) -> bool:
-    present = extract_lifecycle_abort_days(entry) is not None
-    if op == "has":
-        return present
-    if op == "has_not":
-        return not present
-    return False
-
-
-def _match_lifecycle_transition_days(entry: dict, op: str, expected: object) -> bool:
-    return any(
-        _match_numeric_value(days, op, expected)
-        for days in extract_lifecycle_transition_days(entry)
-    )
-
-
-_LIFECYCLE_PARAM_MATCHERS: dict[str, _LifecycleParamMatcher] = {
-    "lifecycle_rule_id": lambda entry, op, expected: _match_text_value(
-        _extract_lifecycle_rule_id(entry), op, expected
-    ),
-    "lifecycle_rule_status": lambda entry, op, expected: _match_text_value(
-        _extract_lifecycle_rule_status(entry), op, expected
-    ),
-    "lifecycle_rule_type": _match_lifecycle_rule_type,
-    "lifecycle_expiration_days": lambda entry, op, expected: _match_numeric_value(
-        extract_lifecycle_expiration_days(entry), op, expected
-    ),
-    "lifecycle_noncurrent_expiration_days": lambda entry, op, expected: _match_numeric_value(
-        extract_lifecycle_noncurrent_expiration_days(entry), op, expected
-    ),
-    "lifecycle_transition_days": _match_lifecycle_transition_days,
-    "lifecycle_abort_multipart_present": _match_lifecycle_abort_presence,
-    "lifecycle_abort_multipart_days": lambda entry, op, expected: _match_numeric_value(
-        extract_lifecycle_abort_days(entry), op, expected
-    ),
-}
-
-
-def _lifecycle_rule_matches_param(
-    lifecycle_rule: dict,
-    rule: BucketFilterRule,
-    force_presence_positive: bool = False,
-) -> bool:
-    matcher = _LIFECYCLE_PARAM_MATCHERS.get(rule.param or "")
-    if matcher is None:
-        return False
-    return matcher(
-        lifecycle_rule,
-        _grouped_rule_op(rule, force_presence_positive),
-        rule.value,
-    )
-
-
-def _match_lifecycle_param_rule_individual(rule: BucketFilterRule, lifecycle_rules: list[dict]) -> bool:
-    return _match_grouped_entry_rule_individual(
-        rule,
-        lifecycle_rules,
-        _lifecycle_rule_matches_param,
-    )
-
-
-def _match_lifecycle_param_rules_all(
-    rules: list[BucketFilterRule],
-    lifecycle_rules: list[dict],
-) -> bool:
-    return _match_grouped_entry_rules_all(
-        rules,
-        lifecycle_rules,
-        _lifecycle_rule_matches_param,
-    )
-
-
-def _match_text_candidates(values: list[str], op: str, right_raw: object) -> bool:
-    if op == "neq":
-        return not any(_match_text_value(value, "eq", right_raw) for value in values)
-    return any(_match_text_value(value, op, right_raw) for value in values)
-
-
-def _match_presence_values(values: list[str], op: str, right_raw: object) -> bool:
-    if op == "has":
-        return any(_match_text_value(value, "eq", right_raw) for value in values)
-    if op == "has_not":
-        return not any(_match_text_value(value, "eq", right_raw) for value in values)
-    return False
-
-
-def _cors_rule_matches_param(
-    entry: dict,
-    rule: BucketFilterRule,
-    force_presence_positive: bool = False,
-) -> bool:
-    op = _grouped_rule_op(rule, force_presence_positive)
-    values = extract_cors_rule_values(entry, rule.param or "")
-    if op in {"has", "has_not"}:
-        return _match_presence_values(values, op, rule.value)
-    return _match_text_candidates(values, op, rule.value)
-
-
-def _match_cors_param_rule_individual(rule: BucketFilterRule, cors_rules: list[dict]) -> bool:
-    return _match_grouped_entry_rule_individual(
-        rule,
-        cors_rules,
-        _cors_rule_matches_param,
-    )
-
-
-def _match_cors_param_rules_all(
-    rules: list[BucketFilterRule],
-    cors_rules: list[dict],
-) -> bool:
-    return _match_grouped_entry_rules_all(
-        rules,
-        cors_rules,
-        _cors_rule_matches_param,
-    )
-
-
-def _sse_rule_matches_param(
-    entry: dict,
-    rule: BucketFilterRule,
-    _force_presence_positive: bool = False,
-) -> bool:
-    values = extract_sse_rule_values(entry, rule.param or "")
-    return _match_text_candidates(values, (rule.op or "").strip().lower(), rule.value)
-
-
-def _match_sse_param_rule_individual(rule: BucketFilterRule, configuration: object) -> bool:
-    return _match_grouped_entry_rule_individual(
-        rule,
-        encryption_rule_entries(configuration),
-        _sse_rule_matches_param,
-    )
-
-
-def _match_sse_param_rules_all(
-    rules: list[BucketFilterRule],
-    configuration: object,
-) -> bool:
-    return _match_grouped_entry_rules_all(
-        rules,
-        encryption_rule_entries(configuration),
-        _sse_rule_matches_param,
-    )
-
-
-def _notification_rule_matches_param(
-    notification_entry: tuple[str, dict],
-    rule: BucketFilterRule,
-    force_presence_positive: bool = False,
-) -> bool:
-    entry_type, entry = notification_entry
-    param = rule.param
-    op = _grouped_rule_op(rule, force_presence_positive)
-    if param == "notification_rule_id":
-        return _match_text_value(extract_notification_rule_id(entry), op, rule.value)
-    if param == "notification_rule_type":
-        return _match_presence_values([entry_type], op, rule.value)
-    if param == "notification_topic_name":
-        if entry_type != "topic":
-            return False
-        return _match_text_candidates(extract_notification_topic_match_values(entry), op, rule.value)
-    if param == "notification_event":
-        return _match_presence_values(extract_notification_events(entry), op, rule.value)
-    if param == "notification_filter_prefix":
-        return _match_presence_values(extract_notification_filter_values(entry, "prefix"), op, rule.value)
-    if param == "notification_filter_suffix":
-        return _match_presence_values(extract_notification_filter_values(entry, "suffix"), op, rule.value)
-    return False
-
-
-def _match_notification_param_rule_individual(rule: BucketFilterRule, configuration: object) -> bool:
-    entries = notification_rule_entries(configuration)
-    return _match_grouped_entry_rule_individual(
-        rule,
-        entries,
-        _notification_rule_matches_param,
-    )
-
-
-def _match_notification_param_rules_all(
-    rules: list[BucketFilterRule],
-    configuration: object,
-) -> bool:
-    entries = notification_rule_entries(configuration)
-    return _match_grouped_entry_rules_all(
-        rules,
-        entries,
-        _notification_rule_matches_param,
-    )
-
-
-def _apply_scalar_quantifier(rule: BucketFilterRule, result: bool) -> bool:
-    return result if _feature_param_quantifier(rule) == "any" else not result
-
-
-_PropertyValueGetter = Callable[[BucketProperties], object]
-_PROPERTY_SCALAR_SPECS: dict[str, tuple[str, _PropertyValueGetter]] = {
-    "object_lock_mode": ("text", lambda props: props.object_lock.mode if props.object_lock else None),
-    "object_lock_retention_days": ("number", lambda props: props.object_lock.days if props.object_lock else None),
-    "object_lock_retention_years": ("number", lambda props: props.object_lock.years if props.object_lock else None),
-    "bpa_block_public_acls": (
-        "bool",
-        lambda props: props.public_access_block.block_public_acls if props.public_access_block else None,
-    ),
-    "bpa_ignore_public_acls": (
-        "bool",
-        lambda props: props.public_access_block.ignore_public_acls if props.public_access_block else None,
-    ),
-    "bpa_block_public_policy": (
-        "bool",
-        lambda props: props.public_access_block.block_public_policy if props.public_access_block else None,
-    ),
-    "bpa_restrict_public_buckets": (
-        "bool",
-        lambda props: props.public_access_block.restrict_public_buckets if props.public_access_block else None,
-    ),
-}
-
-
-def _match_scalar_value(kind: str, value: object, op: str, expected: object) -> bool:
-    if kind == "text":
-        return _match_text_value(cast(str | None, value), op, expected)
-    if kind == "number":
-        return _match_numeric_value(coerce_filter_number(value), op, expected)
-    if kind == "bool":
-        return _match_bool_value(cast(bool | None, value), op, expected)
-    return False
-
-
-_ScalarSource = TypeVar("_ScalarSource")
-
-
-def _match_scalar_spec(
-    rule: BucketFilterRule,
-    source_data: _ScalarSource,
-    op: str,
-    specs: dict[str, tuple[str, Callable[[_ScalarSource], object]]],
-) -> bool:
-    spec = specs.get(rule.param or "")
-    if spec is None:
-        return False
-    kind, getter = spec
-    return _apply_scalar_quantifier(
-        rule,
-        _match_scalar_value(kind, getter(source_data), op, rule.value),
-    )
-
-
-def _match_properties_param_rule(
-    rule: BucketFilterRule,
-    source_data: object,
-    op: str,
-) -> bool:
-    if not isinstance(source_data, BucketProperties):
-        return False
-    param = rule.param
-    if param in _CORS_PARAMS:
-        return _match_cors_param_rule_individual(rule, source_data.cors_rules or [])
-    return _match_scalar_spec(rule, source_data, op, _PROPERTY_SCALAR_SPECS)
-
-
-_LoggingValueGetter = Callable[[BucketLoggingConfiguration], object]
-_LOGGING_SCALAR_SPECS: dict[str, tuple[str, _LoggingValueGetter]] = {
-    "logging_enabled": (
-        "bool",
-        lambda logging: bool(logging.enabled and normalize_optional_string(logging.target_bucket)),
-    ),
-    "logging_target_bucket": ("text", lambda logging: normalize_optional_string(logging.target_bucket)),
-    "logging_target_prefix": ("text", lambda logging: normalize_optional_string(logging.target_prefix)),
-}
-
-
-def _match_logging_param_rule(
-    rule: BucketFilterRule,
-    source_data: object,
-    op: str,
-) -> bool:
-    if not isinstance(source_data, BucketLoggingConfiguration):
-        return False
-    return _match_scalar_spec(rule, source_data, op, _LOGGING_SCALAR_SPECS)
-
-
-def _website_redirect_host(configuration: BucketWebsiteConfiguration) -> str | None:
-    redirect = configuration.redirect_all_requests_to
-    return normalize_optional_string(redirect.host_name if redirect else None)
-
-
-_WebsiteValueGetter = Callable[[BucketWebsiteConfiguration], object]
-_WEBSITE_SCALAR_SPECS: dict[str, tuple[str, _WebsiteValueGetter]] = {
-    "website_index_present": ("bool", lambda website: bool(normalize_optional_string(website.index_document))),
-    "website_index_document": ("text", lambda website: normalize_optional_string(website.index_document)),
-    "website_error_document": ("text", lambda website: normalize_optional_string(website.error_document)),
-    "website_redirect_host_present": ("bool", lambda website: bool(_website_redirect_host(website))),
-    "website_redirect_host": ("text", _website_redirect_host),
-    "website_routing_rule_count": ("number", lambda website: len(website.routing_rules)),
-}
-
-
-def _match_website_param_rule(
-    rule: BucketFilterRule,
-    source_data: object,
-    op: str,
-) -> bool:
-    if not isinstance(source_data, BucketWebsiteConfiguration):
-        return False
-    return _match_scalar_spec(rule, source_data, op, _WEBSITE_SCALAR_SPECS)
-
-
-def _match_policy_param_rule(
-    rule: BucketFilterRule,
-    source_data: object,
-    op: str,
-) -> bool:
-    policy = source_data if isinstance(source_data, dict) else None
-    statement_count, has_conditions = extract_policy_statement_summary(policy)
-    if rule.param == "policy_statement_count":
-        result = _match_numeric_value(float(statement_count), op, rule.value)
-    elif rule.param == "policy_has_conditions":
-        result = _match_bool_value(has_conditions, op, rule.value)
-    else:
-        return False
-    return _apply_scalar_quantifier(rule, result)
-
-
-def _match_notification_scalar_param_rule(
-    rule: BucketFilterRule,
-    source_data: object,
-    op: str,
-) -> bool:
-    if rule.param != "notification_eventbridge_present":
-        return False
-    result = _match_bool_value(extract_notification_eventbridge_present(source_data), op, rule.value)
-    return _apply_scalar_quantifier(rule, result)
-
-
-_SCALAR_SOURCE_MATCHERS: dict[str, Callable[[BucketFilterRule, object, str], bool]] = {
-    "props": _match_properties_param_rule,
-    "logging": _match_logging_param_rule,
-    "website": _match_website_param_rule,
-    "policy": _match_policy_param_rule,
-    "notifications": _match_notification_scalar_param_rule,
-}
-
-
-def _match_feature_param_rule(rule: BucketFilterRule, snapshot: dict[str, object]) -> bool:
-    param = rule.param
-    op = (rule.op or "").strip().lower()
-    if not rule.feature or not param or not op:
-        return False
-    source = _FEATURE_PARAM_SOURCE_BY_PARAM.get(param)
-    if not source:
+    source = _SCALAR_FEATURE_PARAM_SOURCE_BY_PARAM.get(rule.param)
+    if source is None:
         return False
     source_data = snapshot.get(source, FEATURE_PARAM_UNAVAILABLE)
     if source_data is FEATURE_PARAM_UNAVAILABLE:
         return False
-
-    if param in _LIFECYCLE_PARAMS:
-        lifecycle_rules = source_data if isinstance(source_data, list) else []
-        normalized_rules = [item for item in lifecycle_rules if isinstance(item, dict)]
-        return _match_lifecycle_param_rule_individual(rule, normalized_rules)
-    if param in _NOTIFICATION_ENTRY_PARAMS:
-        return _match_notification_param_rule_individual(rule, source_data)
-    if param in _SSE_PARAMS:
-        return _match_sse_param_rule_individual(rule, source_data)
-
-    matcher = _SCALAR_SOURCE_MATCHERS.get(source)
-    return matcher(rule, source_data, op) if matcher else False
-
-
-def _normalize_lifecycle_group_source(source_data: object) -> object:
-    if not isinstance(source_data, list):
-        return FEATURE_PARAM_UNAVAILABLE
-    return [item for item in source_data if isinstance(item, dict)]
-
-
-def _normalize_cors_group_source(source_data: object) -> object:
-    if not isinstance(source_data, BucketProperties):
-        return FEATURE_PARAM_UNAVAILABLE
-    raw_rules = source_data.cors_rules if isinstance(source_data.cors_rules, list) else []
-    return [item for item in raw_rules if isinstance(item, dict)]
-
-
-def _normalize_notification_group_source(source_data: object) -> object:
-    return source_data if isinstance(source_data, dict) else FEATURE_PARAM_UNAVAILABLE
-
-
-def _identity_group_source(source_data: object) -> object:
-    return source_data
-
-
-_GroupedRulesMatcher = Callable[[list[BucketFilterRule], Any], bool]
-_GroupedRuleMatcher = Callable[[BucketFilterRule, Any], bool]
-_GroupedRuleSpec = tuple[
-    str,
-    Callable[[object], object],
-    _GroupedRulesMatcher,
-    _GroupedRuleMatcher,
-]
-_GROUPED_RULE_SPECS: dict[str, _GroupedRuleSpec] = {
-    "lifecycle_rules": (
-        "lifecycle",
-        _normalize_lifecycle_group_source,
-        _match_lifecycle_param_rules_all,
-        _match_lifecycle_param_rule_individual,
-    ),
-    "cors": (
-        "props",
-        _normalize_cors_group_source,
-        _match_cors_param_rules_all,
-        _match_cors_param_rule_individual,
-    ),
-    "notifications": (
-        "notifications",
-        _normalize_notification_group_source,
-        _match_notification_param_rules_all,
-        _match_notification_param_rule_individual,
-    ),
-    "server_side_encryption": (
-        "encryption",
-        _identity_group_source,
-        _match_sse_param_rules_all,
-        _match_sse_param_rule_individual,
-    ),
-}
-
-
-def _match_grouped_param_rules(
-    rules: list[BucketFilterRule],
-    match_mode: str,
-    source_data: object,
-    normalize_source: Callable[[object], object],
-    match_all: _GroupedRulesMatcher,
-    match_one: _GroupedRuleMatcher,
-) -> list[bool]:
-    if not rules or source_data is FEATURE_PARAM_UNAVAILABLE:
-        return [] if not rules else [False]
-    normalized_source = normalize_source(source_data)
-    if normalized_source is FEATURE_PARAM_UNAVAILABLE:
-        return [False]
-    if match_mode == "all":
-        return [match_all(rules, normalized_source)]
-    return [match_one(rule, normalized_source) for rule in rules]
+    return match_scalar_feature_param_rule(rule, source, source_data)
 
 
 def match_bucket_feature_param_rules(
@@ -744,42 +64,41 @@ def match_bucket_feature_param_rules(
 ) -> bool:
     if not rules:
         return True
-    grouped_rules: dict[str, list[BucketFilterRule]] = {
-        feature: [] for feature in _GROUPED_RULE_SPECS
-    }
-    non_grouped_rules: list[BucketFilterRule] = []
+
+    grouped_rules = {feature: [] for feature in grouped_feature_names()}
+    scalar_rules: list[BucketFilterRule] = []
     for rule in rules:
         feature = rule.feature or ""
-        grouped_params = _GROUPED_PARAMS_BY_FEATURE.get(feature)
-        if grouped_params and rule.param in grouped_params:
+        param = rule.param or ""
+        if grouped_feature_param_source(feature, param):
             grouped_rules[feature].append(rule)
         else:
-            non_grouped_rules.append(rule)
+            scalar_rules.append(rule)
 
     results: list[bool] = []
-
-    for feature, (source, normalize_source, match_all, match_one) in _GROUPED_RULE_SPECS.items():
-        results.extend(
-            _match_grouped_param_rules(
-                grouped_rules[feature],
+    for feature, feature_rules in grouped_rules.items():
+        if not feature_rules:
+            continue
+        source = grouped_feature_source(feature)
+        source_data = snapshot.get(source, FEATURE_PARAM_UNAVAILABLE) if source else FEATURE_PARAM_UNAVAILABLE
+        results.append(
+            False
+            if source_data is FEATURE_PARAM_UNAVAILABLE
+            else match_grouped_feature_param_rules(
+                feature,
+                feature_rules,
                 match_mode,
-                snapshot.get(source, FEATURE_PARAM_UNAVAILABLE),
-                normalize_source,
-                match_all,
-                match_one,
+                source_data,
             )
         )
 
-    results.extend(_match_feature_param_rule(rule, snapshot) for rule in non_grouped_rules)
+    results.extend(_match_scalar_param_rule(rule, snapshot) for rule in scalar_rules)
     return all(results) if match_mode == "all" else any(results)
 
 
 def required_feature_param_sources(rules: list[BucketFilterRule]) -> set[str]:
-    required: set[str] = set()
-    for rule in rules:
-        if not rule.param:
-            continue
-        source = _FEATURE_PARAM_SOURCE_BY_PARAM.get(rule.param)
-        if source:
-            required.add(source)
-    return required
+    return {
+        source
+        for rule in rules
+        if (source := _feature_param_source(rule)) is not None
+    }
