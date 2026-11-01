@@ -8,7 +8,6 @@ from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwAccountSummary
 from app.services.ceph_admin_account_payloads import (
-    extract_account_email,
     extract_account_bucket_list,
     extract_bucket_count,
     extract_user_count,
@@ -21,7 +20,11 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.quota_stats import extract_rgw_account_limit, extract_rgw_account_quota_limits
-from app.utils.rgw_payloads import extract_rgw_account_name, extract_rgw_account_tenant
+from app.utils.rgw_payloads import (
+    extract_rgw_account_email,
+    extract_rgw_account_name,
+    extract_rgw_account_tenant,
+)
 from app.utils.usage_stats import summarize_bucket_usage
 
 
@@ -116,7 +119,7 @@ def _apply_account_detail_payload(
         account.tenant = extract_rgw_account_tenant(payload)
         if not account.account_name:
             account.account_name = extract_rgw_account_name(payload)
-        account.email = extract_account_email(payload)
+        account.email = extract_rgw_account_email(payload)
     if "limits" in requested:
         account.max_users = extract_rgw_account_limit(payload, "max_users")
         account.max_buckets = extract_rgw_account_limit(payload, "max_buckets")

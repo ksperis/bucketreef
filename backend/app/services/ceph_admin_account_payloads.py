@@ -10,6 +10,7 @@ from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits, extract_rgw_account_limit
 from app.utils.rgw_payloads import (
     extract_bucket_list,
+    extract_rgw_account_email,
     extract_rgw_account_id,
     extract_rgw_account_name,
     extract_rgw_account_payload,
@@ -17,11 +18,6 @@ from app.utils.rgw_payloads import (
     extract_rgw_quota_enabled,
     parse_rgw_int,
 )
-
-
-def extract_account_email(payload: dict[str, Any]) -> Optional[str]:
-    account = extract_rgw_account_payload(payload)
-    return normalize_optional_scalar(account.get("email") or account.get("mail"))
 
 
 def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
@@ -117,7 +113,7 @@ def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> C
         account_id=account_id,
         tenant=extract_rgw_account_tenant(payload),
         account_name=extract_rgw_account_name(payload),
-        email=extract_account_email(payload),
+        email=extract_rgw_account_email(payload),
         max_users=extract_rgw_account_limit(payload, "max_users"),
         max_buckets=extract_rgw_account_limit(payload, "max_buckets"),
         max_roles=extract_rgw_account_limit(payload, "max_roles"),

@@ -112,6 +112,14 @@ def extract_rgw_account_name(payload: Any) -> str | None:
     return None
 
 
+def extract_rgw_account_email(payload: Any) -> str | None:
+    for record in _rgw_account_payload_candidates(payload):
+        for field in ("email", "mail"):
+            if email := normalize_optional_scalar(record.get(field)):
+                return email
+    return None
+
+
 def extract_rgw_account_tenant_optional(payload: Any) -> str | None:
     """Return an optional account tenant while preserving absent vs explicit-empty."""
     tenants = {
