@@ -3,6 +3,7 @@ import {
   formatDateTimeLocalInput,
   formatLocalDateTime,
   getBackendElapsedTime,
+  getBackendRelativeTime,
   parseBackendDateTime,
 } from "./dateTime";
 
@@ -42,6 +43,16 @@ describe("formatLocalDateTime", () => {
       days: 0,
     });
     expect(getBackendElapsedTime(undefined, now)).toBeNull();
+  });
+
+  it("classifies backend timestamps into shared relative-time units", () => {
+    const now = Date.parse("2026-09-03T10:45:30Z");
+    expect(getBackendRelativeTime("2026-09-03T10:45:15Z", now)).toMatchObject({ unit: "now", count: 0 });
+    expect(getBackendRelativeTime("2026-09-03T10:20:30Z", now)).toMatchObject({ unit: "minutes", count: 25 });
+    expect(getBackendRelativeTime("2026-09-03T08:30:00Z", now)).toMatchObject({ unit: "hours", count: 2 });
+    expect(getBackendRelativeTime("2026-08-31T08:30:00Z", now)).toMatchObject({ unit: "days", count: 3 });
+    expect(getBackendRelativeTime("2026-09-04T08:30:00Z", now)).toMatchObject({ unit: "now", count: 0 });
+    expect(getBackendRelativeTime(undefined, now)).toBeNull();
   });
 
   it("formats and parses datetime-local input values", () => {

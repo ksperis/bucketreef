@@ -19,6 +19,12 @@ type BackendElapsedTime = {
   days: number;
 };
 
+type BackendRelativeTime = {
+  parsed: Date;
+  unit: "now" | "minutes" | "hours" | "days";
+  count: number;
+};
+
 export function parseBackendDateTime(value?: string | null): Date | null {
   if (!value) return null;
   const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value);
@@ -37,6 +43,19 @@ export function getBackendElapsedTime(
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
   return { parsed, milliseconds, minutes, hours, days };
+}
+
+export function getBackendRelativeTime(
+  value?: string | null,
+  now = Date.now(),
+): BackendRelativeTime | null {
+  const elapsed = getBackendElapsedTime(value, now);
+  if (!elapsed) return null;
+  const { parsed, minutes, hours, days } = elapsed;
+  if (minutes < 1) return { parsed, unit: "now", count: 0 };
+  if (minutes < 60) return { parsed, unit: "minutes", count: minutes };
+  if (hours < 24) return { parsed, unit: "hours", count: hours };
+  return { parsed, unit: "days", count: days };
 }
 
 export function formatDateTimeLocalInput(value?: string | Date | null): string {
