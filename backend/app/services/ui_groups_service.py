@@ -26,6 +26,7 @@ from app.models.user import (
     ManagerToolAccess,
     S3UserMembership,
 )
+from app.services.association_sync import sync_simple_association_links
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.manager_tool_access import manager_tool_column_values
 from app.services.portal_role_sync import (
@@ -354,22 +355,18 @@ class UiGroupsService:
     def _set_s3_connection_links(self, group: UiGroup, target_ids: list[int]) -> None:
         cleaned_ids = self._clean_ids(target_ids)
         ensure_shared_s3_connections(self.db, cleaned_ids)
-        existing = self.db.scalars(
-            select(UiGroupS3Connection).where(UiGroupS3Connection.group_id == group.id)
-        ).all()
-        existing_ids = {link.s3_connection_id for link in existing}
-        desired_ids = set(cleaned_ids)
-        for connection_id in existing_ids - desired_ids:
-            self.db.execute(
-                delete(UiGroupS3Connection)
-                .where(
-                    UiGroupS3Connection.group_id == group.id,
-                    UiGroupS3Connection.s3_connection_id == connection_id,
-                )
-                .execution_options(synchronize_session=False)
-            )
-        for connection_id in desired_ids - existing_ids:
-            self.db.add(UiGroupS3Connection(group_id=group.id, s3_connection_id=connection_id))
+        sync_simple_association_links(
+            self.db,
+            link_model=UiGroupS3Connection,
+            owner_column=UiGroupS3Connection.group_id,
+            owner_id=group.id,
+            target_column=UiGroupS3Connection.s3_connection_id,
+            desired_ids=cleaned_ids,
+            link_factory=lambda connection_id: UiGroupS3Connection(
+                group_id=group.id,
+                s3_connection_id=connection_id,
+            ),
+        )
 
     def _set_openstack_cloud_links(self, group: UiGroup, target_ids: list[int]) -> None:
         from app.services.openstack_service import OpenStackService
