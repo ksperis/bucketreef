@@ -26,7 +26,10 @@ from app.models.user import (
     ManagerToolAccess,
     S3UserMembership,
 )
-from app.services.association_sync import sync_simple_association_links
+from app.services.association_sync import (
+    sync_metadata_association_links,
+    sync_simple_association_links,
+)
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.manager_tool_access import manager_tool_column_values
 from app.services.portal_role_sync import (
@@ -284,32 +287,28 @@ class UiGroupsService:
             cleaned,
             entity_label="S3 accounts",
         )
-        existing = self.db.scalars(
-            select(UiGroupS3Account).where(UiGroupS3Account.group_id == group.id)
-        ).all()
-        existing_by_id = {link.account_id: link for link in existing}
-        desired_ids = set(cleaned)
-        for account_id in set(existing_by_id) - desired_ids:
-            self.db.delete(existing_by_id[account_id])
-        for account_id, payload in cleaned.items():
-            row = existing_by_id.get(account_id)
-            if row is None:
-                row = UiGroupS3Account(
-                    group_id=group.id,
-                    account_id=account_id,
-                    manager_role=payload.manager_role,
-                    portal_role=payload.portal_role,
-                    allow_manager_browser_data_access=bool(
-                        payload.allow_manager_browser_data_access
-                    ),
-                )
+
+        def update_link(row: UiGroupS3Account, payload: AccountMembership) -> None:
             row.manager_role = payload.manager_role
             row.portal_role = payload.portal_role
             row.allow_manager_browser_data_access = bool(
                 payload.allow_manager_browser_data_access
             )
             row.updated_at = utcnow()
-            self.db.add(row)
+
+        sync_metadata_association_links(
+            self.db,
+            link_model=UiGroupS3Account,
+            owner_column=UiGroupS3Account.group_id,
+            owner_id=group.id,
+            target_column=UiGroupS3Account.account_id,
+            desired_by_id=cleaned,
+            link_factory=lambda account_id, _payload: UiGroupS3Account(
+                group_id=group.id,
+                account_id=account_id,
+            ),
+            update_link=update_link,
+        )
 
     def _set_s3_user_links(self, group: UiGroup, links: list[S3UserMembership]) -> None:
         cleaned = {int(link.s3_user_id): link for link in links}
@@ -320,37 +319,23 @@ class UiGroupsService:
             cleaned_ids,
             entity_label="S3 users",
         )
-        existing = self.db.scalars(
-            select(UiGroupS3User).where(UiGroupS3User.group_id == group.id)
-        ).all()
-        existing_by_id = {link.s3_user_id: link for link in existing}
-        existing_ids = set(existing_by_id)
-        desired_ids = set(cleaned_ids)
-        for s3_user_id in existing_ids - desired_ids:
-            self.db.execute(
-                delete(UiGroupS3User)
-                .where(
-                    UiGroupS3User.group_id == group.id,
-                    UiGroupS3User.s3_user_id == s3_user_id,
-                )
-                .execution_options(synchronize_session=False)
-            )
-        for s3_user_id in desired_ids - existing_ids:
-            self.db.add(
-                UiGroupS3User(
-                    group_id=group.id,
-                    s3_user_id=s3_user_id,
-                    allow_manager_browser_data_access=bool(
-                        cleaned[s3_user_id].allow_manager_browser_data_access
-                    ),
-                )
-            )
-        for s3_user_id in desired_ids & existing_ids:
-            row = existing_by_id[s3_user_id]
-            row.allow_manager_browser_data_access = bool(
-                cleaned[s3_user_id].allow_manager_browser_data_access
-            )
-            self.db.add(row)
+        sync_metadata_association_links(
+            self.db,
+            link_model=UiGroupS3User,
+            owner_column=UiGroupS3User.group_id,
+            owner_id=group.id,
+            target_column=UiGroupS3User.s3_user_id,
+            desired_by_id=cleaned,
+            link_factory=lambda s3_user_id, _link: UiGroupS3User(
+                group_id=group.id,
+                s3_user_id=s3_user_id,
+            ),
+            update_link=lambda row, link: setattr(
+                row,
+                "allow_manager_browser_data_access",
+                bool(link.allow_manager_browser_data_access),
+            ),
+        )
 
     def _set_s3_connection_links(self, group: UiGroup, target_ids: list[int]) -> None:
         cleaned_ids = self._clean_ids(target_ids)

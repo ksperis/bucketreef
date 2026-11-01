@@ -19,7 +19,10 @@ from app.db import (
 )
 from app.db.openstack import OpenStackCloud, cloud_groups, cloud_users
 from app.models.user import AccountMembership, S3UserMembership, UserAssociationsPayload
-from app.services.association_sync import sync_simple_association_links
+from app.services.association_sync import (
+    sync_metadata_association_links,
+    sync_simple_association_links,
+)
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
@@ -98,35 +101,29 @@ class UserAssociationsService:
             cleaned,
             entity_label="S3 accounts",
         )
-        existing = self.db.scalars(
-            select(UserS3Account).where(UserS3Account.user_id == user.id)
-        ).all()
-        existing_by_account = {
-            int(link.account_id): link for link in existing
-        }
         desired_ids = set(cleaned)
-        for account_id, row in existing_by_account.items():
-            if account_id not in desired_ids:
-                self.db.delete(row)
-        for account_id, link in cleaned.items():
-            row = existing_by_account.get(account_id)
-            if row is None:
-                row = UserS3Account(
-                    user_id=user.id,
-                    account_id=account_id,
-                    manager_role=link.manager_role,
-                    portal_role=link.portal_role,
-                    allow_manager_browser_data_access=bool(
-                        link.allow_manager_browser_data_access
-                    ),
-                )
+
+        def update_link(row: UserS3Account, link: AccountMembership) -> None:
             row.manager_role = link.manager_role
             row.portal_role = link.portal_role
             row.allow_manager_browser_data_access = bool(
                 link.allow_manager_browser_data_access
             )
             row.updated_at = utcnow()
-            self.db.add(row)
+
+        sync_metadata_association_links(
+            self.db,
+            link_model=UserS3Account,
+            owner_column=UserS3Account.user_id,
+            owner_id=user.id,
+            target_column=UserS3Account.account_id,
+            desired_by_id=cleaned,
+            link_factory=lambda account_id, _link: UserS3Account(
+                user_id=user.id,
+                account_id=account_id,
+            ),
+            update_link=update_link,
+        )
         if desired_ids and user.role == UserRole.UI_NONE.value:
             user.role = UserRole.UI_USER.value
 
@@ -208,47 +205,29 @@ class UserAssociationsService:
         links: list[S3UserMembership],
     ) -> None:
         cleaned = {int(link.s3_user_id): link for link in links}
-        existing_links = self.db.scalars(
-            select(UserS3User).where(UserS3User.user_id == user.id)
-        ).all()
-        existing_by_id = {
-            int(link.s3_user_id): link for link in existing_links
-        }
-        existing_ids = set(existing_by_id)
-        desired_ids = set(cleaned)
-        to_remove = existing_ids - desired_ids
-        to_add = desired_ids - existing_ids
-        if to_add:
-            ensure_association_ids_exist(
+        sync_metadata_association_links(
+            self.db,
+            link_model=UserS3User,
+            owner_column=UserS3User.user_id,
+            owner_id=user.id,
+            target_column=UserS3User.s3_user_id,
+            desired_by_id=cleaned,
+            link_factory=lambda s3_user_id, _link: UserS3User(
+                user_id=user.id,
+                s3_user_id=s3_user_id,
+            ),
+            update_link=lambda row, link: setattr(
+                row,
+                "allow_manager_browser_data_access",
+                bool(link.allow_manager_browser_data_access),
+            ),
+            before_create=lambda new_ids: ensure_association_ids_exist(
                 self.db,
                 S3User.id,
-                to_add,
+                new_ids,
                 entity_label="S3 users",
-            )
-            for s3_user_id in to_add:
-                self.db.add(
-                    UserS3User(
-                        user_id=user.id,
-                        s3_user_id=s3_user_id,
-                        allow_manager_browser_data_access=bool(
-                            cleaned[s3_user_id].allow_manager_browser_data_access
-                        ),
-                    )
-                )
-        if to_remove:
-            self.db.execute(
-                delete(UserS3User)
-                .where(
-                    UserS3User.user_id == user.id,
-                    UserS3User.s3_user_id.in_(to_remove),
-                )
-                .execution_options(synchronize_session=False)
-            )
-        for s3_user_id in desired_ids & existing_ids:
-            row = existing_by_id[s3_user_id]
-            row.allow_manager_browser_data_access = bool(
-                cleaned[s3_user_id].allow_manager_browser_data_access
-            )
+            ),
+        )
 
     def set_s3_connection_links(
         self,

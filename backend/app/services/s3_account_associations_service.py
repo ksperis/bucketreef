@@ -21,6 +21,7 @@ from app.models.s3_account import (
     AccountUserLinkInput,
     S3AccountUpdate,
 )
+from app.services.association_sync import sync_metadata_association_links
 from app.services.association_validation import (
     ensure_association_ids_exist,
     load_association_users,
@@ -161,37 +162,34 @@ class S3AccountAssociationsService:
             entity_label="User",
         )
 
-        existing = self.db.scalars(
-            select(UserS3Account).where(UserS3Account.account_id == account.id)
-        ).all()
-        existing_by_user = {int(link.user_id): link for link in existing}
-        desired_ids = set(cleaned)
-        for user_id in set(existing_by_user) - desired_ids:
-            self.db.delete(existing_by_user[user_id])
+        def promote_user_for_new_link(user_id: int, _link: AccountUserLinkInput) -> None:
+            user = users_by_id[user_id]
+            if not is_admin_ui_role(user.role):
+                user.role = UserRole.UI_USER.value
+                self.db.add(user)
 
-        for user_id, link in cleaned.items():
-            row = existing_by_user.get(user_id)
-            if row is None:
-                user = users_by_id[user_id]
-                if not is_admin_ui_role(user.role):
-                    user.role = UserRole.UI_USER.value
-                    self.db.add(user)
-                row = UserS3Account(
-                    user_id=user_id,
-                    account_id=account.id,
-                    manager_role=link.manager_role,
-                    portal_role=link.portal_role,
-                    allow_manager_browser_data_access=bool(
-                        link.allow_manager_browser_data_access
-                    ),
-                )
+        def update_link(row: UserS3Account, link: AccountUserLinkInput) -> None:
             row.manager_role = link.manager_role
             row.portal_role = link.portal_role
             row.allow_manager_browser_data_access = bool(
                 link.allow_manager_browser_data_access
             )
             row.updated_at = utcnow()
-            self.db.add(row)
+
+        sync_metadata_association_links(
+            self.db,
+            link_model=UserS3Account,
+            owner_column=UserS3Account.account_id,
+            owner_id=account.id,
+            target_column=UserS3Account.user_id,
+            desired_by_id=cleaned,
+            link_factory=lambda user_id, _link: UserS3Account(
+                user_id=user_id,
+                account_id=account.id,
+            ),
+            update_link=update_link,
+            on_create=promote_user_for_new_link,
+        )
 
     def set_group_links(
         self,
@@ -207,29 +205,24 @@ class S3AccountAssociationsService:
             entity_label="UI groups",
         )
 
-        existing = self.db.scalars(
-            select(UiGroupS3Account).where(UiGroupS3Account.account_id == account.id)
-        ).all()
-        existing_by_group = {int(link.group_id): link for link in existing}
-        desired_ids = set(cleaned)
-        for group_id in set(existing_by_group) - desired_ids:
-            self.db.delete(existing_by_group[group_id])
-        for group_id, link in cleaned.items():
-            row = existing_by_group.get(group_id)
-            if row is None:
-                row = UiGroupS3Account(
-                    group_id=group_id,
-                    account_id=account.id,
-                    manager_role=link.manager_role,
-                    portal_role=link.portal_role,
-                    allow_manager_browser_data_access=bool(
-                        link.allow_manager_browser_data_access
-                    ),
-                )
+        def update_link(row: UiGroupS3Account, link: AccountGroupLinkInput) -> None:
             row.manager_role = link.manager_role
             row.portal_role = link.portal_role
             row.allow_manager_browser_data_access = bool(
                 link.allow_manager_browser_data_access
             )
             row.updated_at = utcnow()
-            self.db.add(row)
+
+        sync_metadata_association_links(
+            self.db,
+            link_model=UiGroupS3Account,
+            owner_column=UiGroupS3Account.account_id,
+            owner_id=account.id,
+            target_column=UiGroupS3Account.group_id,
+            desired_by_id=cleaned,
+            link_factory=lambda group_id, _link: UiGroupS3Account(
+                group_id=group_id,
+                account_id=account.id,
+            ),
+            update_link=update_link,
+        )
