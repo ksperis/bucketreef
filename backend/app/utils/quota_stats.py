@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Any, Dict, Optional, Tuple
 
-from app.utils.rgw_payloads import parse_rgw_bool, parse_rgw_int
+from app.utils.rgw_payloads import extract_rgw_account_payload, parse_rgw_bool, parse_rgw_int
 
 
 def parse_positive_limit(value: Any) -> Optional[int]:
@@ -28,6 +28,10 @@ def extract_positive_limit(payload: Any, key: str) -> Optional[int]:
         return None
     limits_payload = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
     return parse_positive_limit(payload.get(key) or limits_payload.get(key))
+
+
+def extract_rgw_account_positive_limit(payload: Any, key: str) -> Optional[int]:
+    return extract_positive_limit(extract_rgw_account_payload(payload), key)
 
 
 def _first_quota_payload(
@@ -70,6 +74,13 @@ def extract_quota_limits(
         return None, None
 
     return _quota_max_size_bytes(quota), _positive_rgw_int(quota.get("max_objects"))
+
+
+def extract_rgw_account_quota_limits(payload: Any) -> Tuple[Optional[int], Optional[int]]:
+    return extract_quota_limits(
+        extract_rgw_account_payload(payload),
+        keys=("quota", "account_quota"),
+    )
 
 
 def bytes_to_gb(value: Optional[int]) -> Optional[float]:

@@ -3,7 +3,13 @@
 
 import pytest
 
-from app.utils.quota_stats import extract_positive_limit, extract_quota_limits, parse_positive_limit
+from app.utils.quota_stats import (
+    extract_positive_limit,
+    extract_quota_limits,
+    extract_rgw_account_positive_limit,
+    extract_rgw_account_quota_limits,
+    parse_positive_limit,
+)
 
 
 @pytest.mark.parametrize(
@@ -94,3 +100,17 @@ def test_extract_quota_limits_uses_strict_rgw_integer_parsing():
             }
         }
     ) == (None, None)
+
+
+def test_extract_rgw_account_limits_prefer_nested_account_payload():
+    payload = {
+        "quota": {"enabled": True, "max_size": 1, "max_objects": 2},
+        "limits": {"max_buckets": 3},
+        "account": {
+            "quota": {"enabled": True, "max_size": 4096, "max_objects": 10},
+            "limits": {"max_buckets": 8},
+        },
+    }
+
+    assert extract_rgw_account_quota_limits(payload) == (4096, 10)
+    assert extract_rgw_account_positive_limit(payload, "max_buckets") == 8

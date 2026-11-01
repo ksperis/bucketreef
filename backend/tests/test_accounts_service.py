@@ -844,16 +844,21 @@ def test_get_account_limits_returns_quota_and_entity_limits(db_session, monkeypa
     fake_admin = FakeRGWAdmin(
         {
             "id": "RGW-LIMITED",
-            "quota": {
-                "enabled": True,
-                "max_size": 10 * 1024 ** 3,
-                "max_objects": 2_000,
-            },
-            "limits": {
-                "max_buckets": "8",
-                "max_users": "20",
-                "max_roles": 12,
-                "max_groups": 6,
+            "quota": {"enabled": True, "max_size": 1, "max_objects": 1},
+            "limits": {"max_buckets": 1, "max_users": 1, "max_roles": 1, "max_groups": 1},
+            "account": {
+                "id": "RGW-LIMITED",
+                "quota": {
+                    "enabled": True,
+                    "max_size": 10 * 1024 ** 3,
+                    "max_objects": 2_000,
+                },
+                "limits": {
+                    "max_buckets": "8",
+                    "max_users": "20",
+                    "max_roles": 12,
+                    "max_groups": 6,
+                },
             },
         }
     )

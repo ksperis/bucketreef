@@ -406,6 +406,18 @@ def test_get_account_quota_and_set_user_caps(monkeypatch):
     monkeypatch.setattr(client, "get_account", lambda *args, **kwargs: {"not_found": True})
     assert client.get_account_quota("RGW1") == (None, None)
 
+    monkeypatch.setattr(
+        client,
+        "get_account",
+        lambda *args, **kwargs: {
+            "quota": {"enabled": True, "max_size": 1, "max_objects": 2},
+            "account": {
+                "quota": {"enabled": True, "max_size": 4096, "max_objects": 10}
+            },
+        },
+    )
+    assert client.get_account_quota("RGW1") == (4096, 10)
+
     recorded: list[dict[str, object]] = []
 
     def fake_request(method: str, path: str, **kwargs):

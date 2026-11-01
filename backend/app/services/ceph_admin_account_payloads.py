@@ -116,13 +116,6 @@ def extract_account_limit(payload: dict[str, Any], key: str) -> Optional[int]:
     return parse_rgw_int(limits_payload.get(key))
 
 
-def extract_account_quota_limits(payload: dict[str, Any]) -> tuple[Optional[int], Optional[int]]:
-    return extract_quota_limits(
-        extract_rgw_account_payload(payload),
-        keys=("quota", "account_quota"),
-    )
-
-
 def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> CephAdminRgwAccountDetail:
     account_id = (
         extract_rgw_account_id(payload)
