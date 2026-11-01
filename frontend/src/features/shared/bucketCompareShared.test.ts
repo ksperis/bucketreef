@@ -6,10 +6,12 @@ import {
   buildBucketCompareContentSections,
   buildBucketCompareMappingModel,
   matchesBucketCompareRunFilters,
+  normalizeBucketCompareParallelism,
   parseOptionalIsoDateTime,
   mergeRawBucketCompareMappings,
   reconcileBucketCompareManualMapping,
   resolveBucketCompareRunSettlement,
+  resolveBucketCompareRunError,
   sourceCompareObjectDetailFromDiff,
   summarizeBucketCompareRun,
   targetCompareObjectDetailFromDiff,
@@ -102,6 +104,42 @@ describe("bucket comparison mapping model", () => {
 });
 
 describe("bucket comparison configuration state", () => {
+  it("centralizes run validation order and parallelism bounds", () => {
+    const messages = {
+      targetRequired: "target",
+      scopeRequired: "scope",
+      configFeatureRequired: "config",
+      invalidCutoff: "cutoff",
+    };
+    const ready = {
+      targetSelected: true,
+      hasScopeSelected: true,
+      includeConfig: false,
+      hasConfigFeatureSelected: true,
+      ignoreModifiedAfterInvalid: false,
+      planError: null,
+      messages,
+    };
+
+    expect(resolveBucketCompareRunError(ready)).toBeNull();
+    expect(resolveBucketCompareRunError({ ...ready, targetSelected: false })).toBe("target");
+    expect(resolveBucketCompareRunError({ ...ready, hasScopeSelected: false })).toBe("scope");
+    expect(
+      resolveBucketCompareRunError({
+        ...ready,
+        includeConfig: true,
+        hasConfigFeatureSelected: false,
+      })
+    ).toBe("config");
+    expect(resolveBucketCompareRunError({ ...ready, ignoreModifiedAfterInvalid: true })).toBe("cutoff");
+    expect(resolveBucketCompareRunError({ ...ready, planError: "mapping" })).toBe("mapping");
+
+    expect(normalizeBucketCompareParallelism(Number.NaN)).toBe(4);
+    expect(normalizeBucketCompareParallelism(0)).toBe(1);
+    expect(normalizeBucketCompareParallelism(8.9)).toBe(8);
+    expect(normalizeBucketCompareParallelism(99)).toBe(20);
+  });
+
   it("reconciles selected sources while preserving explicit manual targets", () => {
     expect(
       reconcileBucketCompareManualMapping({

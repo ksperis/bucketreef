@@ -314,6 +314,38 @@ export function parseOptionalIsoDateTime(value: string): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+export const normalizeBucketCompareParallelism = (value: number): number =>
+  Number.isFinite(value) ? Math.max(1, Math.min(20, Math.floor(value))) : 4;
+
+export const resolveBucketCompareRunError = ({
+  targetSelected,
+  hasScopeSelected,
+  includeConfig,
+  hasConfigFeatureSelected,
+  ignoreModifiedAfterInvalid,
+  planError,
+  messages,
+}: {
+  targetSelected: boolean;
+  hasScopeSelected: boolean;
+  includeConfig: boolean;
+  hasConfigFeatureSelected: boolean;
+  ignoreModifiedAfterInvalid: boolean;
+  planError: string | null;
+  messages: {
+    targetRequired: string;
+    scopeRequired: string;
+    configFeatureRequired: string;
+    invalidCutoff: string;
+  };
+}): string | null => {
+  if (!targetSelected) return messages.targetRequired;
+  if (!hasScopeSelected) return messages.scopeRequired;
+  if (includeConfig && !hasConfigFeatureSelected) return messages.configFeatureRequired;
+  if (ignoreModifiedAfterInvalid) return messages.invalidCutoff;
+  return planError;
+};
+
 export const getObjectParentPrefix = (key: string): string => {
   const index = key.lastIndexOf("/");
   if (index < 0) return "";

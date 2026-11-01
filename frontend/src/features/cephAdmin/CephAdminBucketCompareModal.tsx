@@ -37,7 +37,9 @@ import {
   getChangedTone,
   getObjectParentPrefix,
   matchesBucketCompareRunFilters,
+  normalizeBucketCompareParallelism,
   renderDiffLines,
+  resolveBucketCompareRunError,
   summarizeBucketCompareRun,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
@@ -247,13 +249,21 @@ export default function CephAdminBucketCompareModal({
     };
   }, [sourceEndpointId, targetEndpointId, surfaceText]);
 
-  const canRunComparison =
-    !running &&
-    !comparePlan.error &&
-    Boolean(targetEndpointId) &&
-    hasScopeSelected &&
-    (!includeConfig || hasConfigFeatureSelected) &&
-    !ignoreModifiedAfterInvalid;
+  const runValidationError = resolveBucketCompareRunError({
+    targetSelected: Boolean(targetEndpointId),
+    hasScopeSelected,
+    includeConfig,
+    hasConfigFeatureSelected,
+    ignoreModifiedAfterInvalid,
+    planError: comparePlan.error,
+    messages: {
+      targetRequired: surfaceText("Select a target endpoint."),
+      scopeRequired: surfaceText("Select at least one comparison scope: content and/or configuration."),
+      configFeatureRequired: surfaceText("Select at least one configuration feature or disable configuration scope."),
+      invalidCutoff: surfaceText("Enter a valid modified-after cutoff or clear the field."),
+    },
+  });
+  const canRunComparison = !running && !runValidationError;
 
   const buildCephAdminBrowserHref = useCallback((endpointId: number, bucket: RgwBucketReference, key: string) => {
     const params = new URLSearchParams();
@@ -266,27 +276,11 @@ export default function CephAdminBucketCompareModal({
   }, []);
 
   const runCompare = async () => {
-    if (!targetEndpointId) {
-      setRunError(surfaceText("Select a target endpoint."));
+    if (runValidationError || !targetEndpointId) {
+      setRunError(runValidationError ?? surfaceText("Select a target endpoint."));
       return;
     }
-    if (!hasScopeSelected) {
-      setRunError(surfaceText("Select at least one comparison scope: content and/or configuration."));
-      return;
-    }
-    if (includeConfig && !hasConfigFeatureSelected) {
-      setRunError(surfaceText("Select at least one configuration feature or disable configuration scope."));
-      return;
-    }
-    if (ignoreModifiedAfterInvalid) {
-      setRunError(surfaceText("Enter a valid modified-after cutoff or clear the field."));
-      return;
-    }
-    if (comparePlan.error) {
-      setRunError(comparePlan.error);
-      return;
-    }
-    const safeParallelism = Number.isFinite(parallelism) ? Math.max(1, Math.min(20, Math.floor(parallelism))) : 4;
+    const safeParallelism = normalizeBucketCompareParallelism(parallelism);
     const mappings = comparePlan.mappings;
     const initialItems = mappings.map((mapping) => {
       const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
