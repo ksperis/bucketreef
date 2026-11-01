@@ -70,6 +70,29 @@ def extract_rgw_account_ids(*records: object) -> set[str]:
     }
 
 
+def extract_rgw_account_id(payload: Any) -> str | None:
+    """Return the preferred account identifier for non-authoritative payload parsing.
+
+    Use :func:`extract_rgw_account_ids` when all aliases must be compared so a
+    conflicting provider identity can be rejected.
+    """
+    if not isinstance(payload, dict):
+        return None
+    for field in ("account_id", "id"):
+        if account_id := normalize_optional_scalar(payload.get(field)):
+            return account_id
+    return None
+
+
+def extract_rgw_account_name(payload: Any) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    for field in ("account_name", "name", "display_name"):
+        if account_name := normalize_optional_string(payload.get(field)):
+            return account_name
+    return None
+
+
 def extract_rgw_account_tenant(payload: Any) -> str:
     """Return the account tenant while rejecting conflicting RGW payload fields."""
     if not isinstance(payload, dict):

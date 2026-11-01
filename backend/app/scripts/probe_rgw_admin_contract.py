@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.utils.rgw_payloads import extract_rgw_account_id
 
 load_dotenv: Callable[..., Any] | None
 try:
@@ -66,7 +67,7 @@ def _pick_sample_account(client: RGWAdminClient) -> str | None:
         return None
     for entry in payload:
         if isinstance(entry, dict):
-            value = str(entry.get("account_id") or entry.get("id") or "").strip()
+            value = extract_rgw_account_id(entry) or ""
         else:
             value = str(entry or "").strip()
         if value:

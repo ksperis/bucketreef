@@ -10,28 +10,12 @@ from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
+    extract_rgw_account_id,
+    extract_rgw_account_name,
     extract_rgw_account_tenant,
     extract_rgw_quota_enabled,
     parse_rgw_int,
 )
-
-
-def extract_account_id(
-    payload: dict[str, Any],
-    *,
-    fallback: str | None = None,
-) -> Optional[str]:
-    return (
-        normalize_optional_scalar(payload.get("account_id"))
-        or normalize_optional_scalar(payload.get("id"))
-        or normalize_optional_scalar(fallback)
-    )
-
-
-def extract_account_name(payload: dict[str, Any]) -> Optional[str]:
-    return normalize_optional_scalar(
-        payload.get("account_name") or payload.get("name") or payload.get("display_name")
-    )
 
 
 def extract_account_email(payload: dict[str, Any]) -> Optional[str]:
@@ -131,11 +115,15 @@ def extract_account_quota_limits(payload: dict[str, Any]) -> tuple[Optional[int]
 
 
 def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> CephAdminRgwAccountDetail:
-    account_id = extract_account_id(payload, fallback=account_id_fallback) or account_id_fallback
+    account_id = (
+        extract_rgw_account_id(payload)
+        or normalize_optional_scalar(account_id_fallback)
+        or account_id_fallback
+    )
     return CephAdminRgwAccountDetail(
         account_id=account_id,
         tenant=extract_rgw_account_tenant(payload),
-        account_name=extract_account_name(payload),
+        account_name=extract_rgw_account_name(payload),
         email=extract_account_email(payload),
         max_users=extract_account_limit(payload, "max_users"),
         max_buckets=extract_account_limit(payload, "max_buckets"),

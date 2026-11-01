@@ -13,7 +13,9 @@ from app.utils.rgw_identifiers import (
     validate_rgw_account_name,
 )
 from app.utils.rgw_payloads import (
+    extract_rgw_account_id,
     extract_rgw_account_ids,
+    extract_rgw_account_name,
     extract_rgw_user_identity,
     extract_rgw_user_payload,
     rgw_qualified_uid,
@@ -34,6 +36,18 @@ def test_extract_rgw_account_ids_ignores_empty_values_and_normalizes_scalars():
         {"id": None},
         "RGW999",
     ) == {"42"}
+
+
+def test_extract_rgw_account_id_prefers_account_id_alias():
+    assert extract_rgw_account_id(
+        {"account_id": " RGW002 ", "id": "RGW001"}
+    ) == "RGW002"
+
+
+def test_extract_rgw_account_name_normalizes_supported_aliases():
+    assert extract_rgw_account_name({"account_name": " Account "}) == "Account"
+    assert extract_rgw_account_name({"name": " Name "}) == "Name"
+    assert extract_rgw_account_name({"display_name": " Display "}) == "Display"
 
 
 def test_resolve_account_scope_with_account_id():

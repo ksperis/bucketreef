@@ -6,7 +6,11 @@ from typing import Any, Dict, Optional, Tuple
 
 from app.services.rgw_admin_transport import RGWAdminError, RGWAdminOperationResponse
 from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import rgw_qualified_uid
+from app.utils.rgw_payloads import (
+    extract_rgw_account_id,
+    extract_rgw_account_name,
+    rgw_qualified_uid,
+)
 from app.utils.rgw_account_extra_params import validate_rgw_account_extra_params
 
 
@@ -230,11 +234,8 @@ class RGWAdminAccountOperations:
     ) -> tuple[str, Optional[str], Dict[str, Any]] | None:
         account_name: Optional[str] = None
         if isinstance(entry, dict):
-            raw_id = entry.get("account_id") or entry.get("id")
-            account_id = str(raw_id).strip() if raw_id else ""
-            raw_name = entry.get("account_name") or entry.get("name") or entry.get("display_name")
-            if isinstance(raw_name, str) and raw_name.strip():
-                account_name = raw_name.strip()
+            account_id = extract_rgw_account_id(entry) or ""
+            account_name = extract_rgw_account_name(entry)
             normalized: Dict[str, Any] = dict(entry)
         else:
             account_id = str(entry).strip()
