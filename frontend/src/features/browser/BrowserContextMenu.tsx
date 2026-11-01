@@ -35,14 +35,11 @@ import {
   CONTEXT_MENU_PATH_LAYOUT_ACTION_IDS,
   CONTEXT_MENU_SELECTION_ACTION_IDS,
   getVisibleBrowserActions,
-  resolveBrowserActions,
   runBrowserAction,
   type BrowserActionId,
   type BrowserActionMap,
-  type BrowserCapabilityFacts,
-  type BrowserFunctionalProfile,
 } from "./browserActions";
-import type { BrowserItem, ClipboardState, ContextMenuState } from "./browserTypes";
+import type { BrowserItem, ContextMenuState } from "./browserTypes";
 import { useBrowserI18n } from "./browserI18n";
 
 type HeaderConfigColumnOption = {
@@ -53,21 +50,8 @@ type HeaderConfigColumnOption = {
 type BrowserContextMenuProps = {
   contextMenu: ContextMenuState | null;
   contextMenuRef: RefObject<HTMLDivElement>;
-  bucketName: string;
   currentPath: string;
-  hasExecutionContext: boolean;
-  versioningEnabled: boolean;
-  showFolderItems: boolean;
-  showDeletedObjects: boolean;
-  canPaste: boolean;
-  copyUrlDisabled?: boolean;
-  copyUrlDisabledReason?: string;
-  multipartUploadsAvailable?: boolean;
-  bucketConfigurationAvailable?: boolean;
-  bucketConfigurationReadOnly?: boolean;
-  functionalProfile: BrowserFunctionalProfile;
-  capabilityFacts: BrowserCapabilityFacts;
-  clipboard: ClipboardState | null;
+  pathActionStates: BrowserActionMap;
   fileInputRef: RefObject<HTMLInputElement>;
   folderInputRef: RefObject<HTMLInputElement>;
   onClose: () => void;
@@ -79,6 +63,7 @@ type BrowserContextMenuProps = {
   onConfigureBucket: () => void;
   onOpenPathDetails: () => void;
   onResolveItemActions: (item: BrowserItem) => BrowserActionMap;
+  onResolveSelectionActions: (items: BrowserItem[]) => BrowserActionMap;
   onRunItemAction: (item: BrowserItem, actionId: BrowserActionId) => void;
   onCopyUrl: (item: BrowserItem | null) => void;
   onCopyPath: (path: string) => void;
@@ -107,21 +92,8 @@ type BrowserContextMenuProps = {
 export default function BrowserContextMenu({
   contextMenu,
   contextMenuRef,
-  bucketName,
   currentPath,
-  hasExecutionContext,
-  versioningEnabled,
-  showFolderItems,
-  showDeletedObjects,
-  canPaste,
-  copyUrlDisabled = false,
-  copyUrlDisabledReason,
-  multipartUploadsAvailable = false,
-  bucketConfigurationAvailable = false,
-  bucketConfigurationReadOnly = false,
-  functionalProfile,
-  capabilityFacts,
-  clipboard,
+  pathActionStates,
   fileInputRef,
   folderInputRef,
   onClose,
@@ -133,6 +105,7 @@ export default function BrowserContextMenu({
   onConfigureBucket,
   onOpenPathDetails,
   onResolveItemActions,
+  onResolveSelectionActions,
   onRunItemAction,
   onCopyUrl,
   onCopyPath,
@@ -161,40 +134,12 @@ export default function BrowserContextMenu({
   if (!contextMenu) return null;
 
   const contextItem = contextMenu.kind === "item" ? contextMenu.item ?? null : null;
-  const pathActionStates = resolveBrowserActions({
-    scope: "path",
-    bucketName,
-    hasExecutionContext,
-    versioningEnabled,
-    canPaste,
-    clipboardMode: clipboard?.mode ?? null,
-    currentPath,
-    showFolderItems,
-    showDeletedObjects,
-    functionalProfile,
-    capabilityFacts,
-    multipartUploadsAvailable,
-    bucketConfigurationAvailable,
-    bucketConfigurationReadOnly,
-  });
   const itemActionStates = contextItem
     ? onResolveItemActions(contextItem)
     : null;
   const selectionItems = contextMenu.kind === "selection" ? contextMenu.items ?? [] : [];
   const selectionActionStates = contextMenu.kind === "selection"
-    ? resolveBrowserActions({
-          scope: "selection",
-          items: selectionItems,
-          bucketName,
-          hasExecutionContext,
-          versioningEnabled,
-          canPaste,
-          clipboardMode: clipboard?.mode ?? null,
-          copyUrlDisabled,
-          copyUrlDisabledReason,
-          functionalProfile,
-          capabilityFacts,
-        })
+    ? onResolveSelectionActions(selectionItems)
     : null;
   const visiblePathActions = getVisibleBrowserActions(pathActionStates, CONTEXT_MENU_PATH_ACTION_IDS);
   const visiblePathLayoutActions = getVisibleBrowserActions(pathActionStates, CONTEXT_MENU_PATH_LAYOUT_ACTION_IDS);

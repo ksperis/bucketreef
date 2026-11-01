@@ -2769,6 +2769,25 @@ describe("BrowserPage interactions", () => {
     expectPassiveStatusBadge(badge);
   });
 
+  it("keeps path context uploads disabled when transfers are unavailable", async () => {
+    getBrowserBucketCorsStatusMock.mockResolvedValue({ enabled: false, rules: [] });
+    renderPage();
+    await findRowByLabel("a.txt");
+
+    fireEvent.contextMenu(screen.getByLabelText("Objects list"), {
+      clientX: 40,
+      clientY: 40,
+    });
+
+    const menu = await screen.findByRole("menu");
+    expect(
+      within(menu).getByRole("button", { name: "Upload files" }),
+    ).toBeDisabled();
+    expect(
+      within(menu).getByRole("button", { name: "Upload folder" }),
+    ).toBeDisabled();
+  });
+
   it("renders a passive Proxy badge when proxy transfers are active", async () => {
     const user = userEvent.setup();
     fetchBrowserSettingsMock.mockResolvedValue({

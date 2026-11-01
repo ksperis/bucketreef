@@ -872,6 +872,7 @@ export default function BrowserPage({
     pathActionStates,
     selectionActionStates,
     resolveItemActionStates,
+    resolveSelectionActionStates,
     toolbar: {
       canUploadFiles: toolbarCanUploadFiles,
       canUploadFolder: toolbarCanUploadFolder,
@@ -1883,21 +1884,8 @@ export default function BrowserPage({
       <BrowserContextMenu
         contextMenu={contextMenu}
         contextMenuRef={contextMenuRef}
-        bucketName={bucketName}
         currentPath={currentPath}
-        hasExecutionContext={hasExecutionContext}
-        versioningEnabled={isVersioningEnabled}
-        showFolderItems={showFolderItems}
-        showDeletedObjects={showDeletedObjects}
-        canPaste={canPasteInFunctionalProfile}
-        copyUrlDisabled={sseActive}
-        copyUrlDisabledReason={copyUrlDisabledReason}
-        multipartUploadsAvailable={resolvedFunctionalProfile === "advanced"}
-        bucketConfigurationAvailable={bucketConfigurationEnabled}
-        bucketConfigurationReadOnly={workspaceSurface === "portal"}
-        functionalProfile={resolvedFunctionalProfile}
-        capabilityFacts={resolvedCapabilityFacts}
-        clipboard={clipboard}
+        pathActionStates={pathActionStates}
         fileInputRef={fileInputRef}
         folderInputRef={folderInputRef}
         onClose={closeContextMenu}
@@ -1909,6 +1897,7 @@ export default function BrowserPage({
         onConfigureBucket={() => openBucketConfigurationDrawer(bucketName)}
         onOpenPathDetails={() => runPathAction("details")}
         onResolveItemActions={resolveItemActionStates}
+        onResolveSelectionActions={resolveSelectionActionStates}
         onRunItemAction={runItemAction}
         onCopyUrl={handleCopyUrl}
         onCopyPath={(path) => {
