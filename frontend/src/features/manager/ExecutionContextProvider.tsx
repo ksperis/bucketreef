@@ -2,15 +2,12 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type { ExecutionContext } from "../../api/executionContexts";
-import {
-  clearExecutionDestinationForContext,
-  setExecutionDestinationForContext,
-} from "../../api/executionDestinationState";
 import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerContext";
 import type { FeatureState } from "../../api/featurePolicies";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
+import { useExecutionDestinationSelection } from "../../hooks/useExecutionDestinationSelection";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 import { useBrowserContext } from "../browser/BrowserContext";
 
@@ -124,57 +121,18 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
   const contextIdForApi = requiresContextSelection ? selectedContextId : null;
   const selectedContextName = selectedContext?.display_name ?? sessionAccountName;
   const selectedContextKind = selectedContext?.kind ?? null;
-  const [selectedExecutionEndpointId, setSelectedExecutionEndpointId] = useState<number | null>(null);
-  const previousExecutionContextIdRef = useRef<string | null>(null);
-  const executionDestinationIds = useMemo(
-    () => selectedContext?.execution_destinations?.map((item) => item.endpoint_id) ?? [],
-    [selectedContext?.execution_destinations],
-  );
   const destinationSwitchingAvailable = Boolean(
-    selectedContext?.destination_switching_allowed && executionDestinationIds.length > 0,
+    selectedContext?.destination_switching_allowed && (selectedContext.execution_destinations?.length ?? 0) > 0,
   );
-  const selectedExecutionDestination = selectedContext?.execution_destinations?.find(
-    (destination) => destination.endpoint_id === selectedExecutionEndpointId,
-  ) ?? null;
-  const selectedStorageEndpointCapabilities = selectedExecutionDestination?.storage_endpoint_capabilities
-    ?? selectedContext?.storage_endpoint_capabilities
-    ?? null;
-
-  useEffect(() => {
-    const contextChanged = previousExecutionContextIdRef.current !== selectedContextId;
-    const originEndpointId = selectedContext?.endpoint_id ?? null;
-    setSelectedExecutionEndpointId((current) => {
-      if (!destinationSwitchingAvailable || originEndpointId == null) return null;
-      if (contextChanged || current == null || !executionDestinationIds.includes(current)) {
-        return originEndpointId;
-      }
-      return current;
-    });
-    previousExecutionContextIdRef.current = selectedContextId;
-  }, [
-    destinationSwitchingAvailable,
-    executionDestinationIds,
-    selectedContext?.endpoint_id,
+  const {
+    selectedExecutionEndpointId,
+    selectedStorageEndpointCapabilities,
+    setExecutionEndpointId,
+  } = useExecutionDestinationSelection({
     selectedContextId,
-  ]);
-
-  useEffect(() => {
-    if (!selectedContextId) return;
-    if (destinationSwitchingAvailable && selectedExecutionEndpointId != null) {
-      setExecutionDestinationForContext(selectedContextId, selectedExecutionEndpointId);
-    } else {
-      clearExecutionDestinationForContext(selectedContextId);
-    }
-    return () => clearExecutionDestinationForContext(selectedContextId);
-  }, [destinationSwitchingAvailable, selectedContextId, selectedExecutionEndpointId]);
-
-  const setExecutionEndpointId = (endpointId: number) => {
-    if (!destinationSwitchingAvailable || !executionDestinationIds.includes(endpointId)) return;
-    if (selectedContextId) {
-      setExecutionDestinationForContext(selectedContextId, endpointId);
-    }
-    setSelectedExecutionEndpointId(endpointId);
-  };
+    selectedContext,
+    destinationSwitchingAvailable,
+  });
 
   const namingValidationProfile = hasExecutionContext && namingProfileState?.contextId === contextIdForApi
     ? namingProfileState.profile : null;

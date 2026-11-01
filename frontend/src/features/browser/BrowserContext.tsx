@@ -2,14 +2,11 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { createContext, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { ExecutionContext, ExecutionContextKind } from "../../api/executionContexts";
-import {
-  clearExecutionDestinationForContext,
-  setExecutionDestinationForContext,
-} from "../../api/executionDestinationState";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
+import { useExecutionDestinationSelection } from "../../hooks/useExecutionDestinationSelection";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
 const EXECUTION_CONTEXT_STORAGE_KEY = CLIENT_STORAGE_KEYS.selectedBrowserExecutionContext;
@@ -66,59 +63,20 @@ export function BrowserContextProvider({ children }: { children: ReactNode }) {
   const selectedKind = selectedContext?.kind ?? null;
   const hasContext = requiresContextSelection ? selectedContext !== null : true;
   const contextIdForApi: S3ExecutionContextSelector = requiresContextSelection ? selectedContextId : null;
-  const [selectedExecutionEndpointId, setSelectedExecutionEndpointId] = useState<number | null>(null);
-  const previousExecutionContextIdRef = useRef<string | null>(null);
-  const executionDestinationIds = useMemo(
-    () => selectedContext?.execution_destinations?.map((item) => item.endpoint_id) ?? [],
-    [selectedContext?.execution_destinations],
-  );
   const destinationSwitchingAvailable = Boolean(
     selectedContext?.kind === "connection"
       && selectedContext.destination_switching_allowed
-      && executionDestinationIds.length > 1,
+      && (selectedContext.execution_destinations?.length ?? 0) > 1,
   );
-  const selectedExecutionDestination = selectedContext?.execution_destinations?.find(
-    (destination) => destination.endpoint_id === selectedExecutionEndpointId,
-  ) ?? null;
-  const selectedStorageEndpointCapabilities = selectedExecutionDestination?.storage_endpoint_capabilities
-    ?? selectedContext?.storage_endpoint_capabilities
-    ?? null;
-
-  useEffect(() => {
-    const contextChanged = previousExecutionContextIdRef.current !== selectedContextId;
-    const originEndpointId = selectedContext?.endpoint_id ?? null;
-    setSelectedExecutionEndpointId((current) => {
-      if (!destinationSwitchingAvailable || originEndpointId == null) return null;
-      if (contextChanged || current == null || !executionDestinationIds.includes(current)) {
-        return originEndpointId;
-      }
-      return current;
-    });
-    previousExecutionContextIdRef.current = selectedContextId;
-  }, [
-    destinationSwitchingAvailable,
-    executionDestinationIds,
-    selectedContext?.endpoint_id,
+  const {
+    selectedExecutionEndpointId,
+    selectedStorageEndpointCapabilities,
+    setExecutionEndpointId,
+  } = useExecutionDestinationSelection({
     selectedContextId,
-  ]);
-
-  useEffect(() => {
-    if (!selectedContextId) return;
-    if (destinationSwitchingAvailable && selectedExecutionEndpointId != null) {
-      setExecutionDestinationForContext(selectedContextId, selectedExecutionEndpointId);
-    } else {
-      clearExecutionDestinationForContext(selectedContextId);
-    }
-    return () => clearExecutionDestinationForContext(selectedContextId);
-  }, [destinationSwitchingAvailable, selectedContextId, selectedExecutionEndpointId]);
-
-  const setExecutionEndpointId = (endpointId: number) => {
-    if (!destinationSwitchingAvailable || !executionDestinationIds.includes(endpointId)) return;
-    if (selectedContextId) {
-      setExecutionDestinationForContext(selectedContextId, endpointId);
-    }
-    setSelectedExecutionEndpointId(endpointId);
-  };
+    selectedContext,
+    destinationSwitchingAvailable,
+  });
 
   return (
     <Ctx.Provider
