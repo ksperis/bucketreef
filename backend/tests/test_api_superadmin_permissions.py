@@ -34,7 +34,7 @@ def _superadmin_user() -> User:
 
 
 def test_admin_has_read_only_access_to_storage_endpoints(client: TestClient):
-    app.dependency_overrides[dependencies.get_current_super_admin] = _admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = _admin_user
     app.dependency_overrides[dependencies.get_current_user] = _admin_user
     app.dependency_overrides.pop(dependencies.get_current_ui_superadmin, None)
 

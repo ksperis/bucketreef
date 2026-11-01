@@ -15,7 +15,7 @@ from app.models.admin_dashboard_metrics import (
 from app.models.admin_stats import AdminStorageStats, AdminSummary
 from app.models.storage_stats import StorageStats
 from app.models.traffic import TrafficStats
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_current_ui_admin
 from app.services.admin_dashboard_metrics_service import AdminDashboardMetricsService
 from app.services.admin_stats_service import AdminStatsService
 from app.services.traffic_service import TrafficWindow
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/admin/stats", tags=["admin-stats"])
 
 @router.get("/dashboard/scope", response_model=AdminDashboardScope)
 def dashboard_scope(
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> AdminDashboardScope:
     return AdminDashboardScope.model_validate(AdminDashboardMetricsService(db).scope())
@@ -33,7 +33,7 @@ def dashboard_scope(
 
 @router.get("/dashboard/storage", response_model=AdminDashboardStorage)
 def dashboard_storage(
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> AdminDashboardStorage:
     return AdminDashboardStorage.model_validate(AdminDashboardMetricsService(db).storage())
@@ -41,7 +41,7 @@ def dashboard_storage(
 
 @router.get("/dashboard/traffic", response_model=AdminDashboardTraffic)
 def dashboard_traffic(
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> AdminDashboardTraffic:
     return AdminDashboardTraffic.model_validate(AdminDashboardMetricsService(db).traffic())
@@ -49,7 +49,7 @@ def dashboard_traffic(
 
 @router.get("/summary", response_model=AdminSummary)
 def summary_stats(
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> AdminSummary:
     """
@@ -61,7 +61,7 @@ def summary_stats(
 
 @router.get("/account", response_model=StorageStats)
 def account_stats(
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
     account_id: int = Query(...),
 ) -> StorageStats:
@@ -70,7 +70,7 @@ def account_stats(
 
 @router.get("/s3-user", response_model=StorageStats)
 def s3_user_stats(
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
     user_id: int = Query(...),
 ) -> StorageStats:
@@ -79,7 +79,7 @@ def s3_user_stats(
 
 @router.get("/storage", response_model=AdminStorageStats)
 def storage_stats(
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
     endpoint_id: Optional[int] = Query(default=None),
 ) -> AdminStorageStats:
@@ -89,7 +89,7 @@ def storage_stats(
 @router.get("/traffic", response_model=TrafficStats)
 def traffic_stats(
     window: TrafficWindow = Query(TrafficWindow.WEEK),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
     endpoint_id: Optional[int] = Query(default=None),
 ) -> TrafficStats:

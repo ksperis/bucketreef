@@ -64,7 +64,7 @@ def _install_portal_access_override(
 
 
 def _install_admin_override(admin: User) -> None:
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin
     app.dependency_overrides[dependencies.require_portal_enabled] = lambda: None
 
 

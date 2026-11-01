@@ -55,7 +55,7 @@ def _build_client(db_session, *, manual_permission: bool = True):
             pass
 
     app.dependency_overrides[dependencies.get_db] = override_get_db
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: superadmin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: superadmin
     app.dependency_overrides[dependencies.get_current_account_user] = lambda: ui_user
     with TestClient(app) as test_client:
         try:

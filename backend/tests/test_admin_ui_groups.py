@@ -504,7 +504,7 @@ def test_group_ceph_admin_grant_requires_superadmin(client: TestClient, db_sessi
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     response = client.post(
         "/api/admin/groups",
@@ -523,7 +523,7 @@ def test_group_payload_rejects_removed_bucket_quota_permission(client: TestClien
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     response = client.post(
         "/api/admin/groups",

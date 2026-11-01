@@ -17,7 +17,7 @@ from app.models.onboarding import (
     OnboardingApply, OnboardingJourneyOut, OnboardingSave, OnboardingStatus,
     OnboardingDraft, OnboardingPreview,
 )
-from app.routers.dependencies import get_current_super_admin, get_current_ui_superadmin
+from app.routers.dependencies import get_current_ui_admin, get_current_ui_superadmin
 from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.onboarding_service import OnboardingError, OnboardingService
 from app.services.rgw_admin import RGWAdminError
@@ -60,7 +60,7 @@ def _run(action: Callable[[], T]) -> T:
 @router.get("", response_model=OnboardingStatus)
 def get_onboarding_status(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> OnboardingStatus:
     return _run(lambda: OnboardingService(db).status(current_user))
 
@@ -68,7 +68,7 @@ def get_onboarding_status(
 @router.post("/dismiss", response_model=OnboardingStatus)
 def dismiss_onboarding(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> OnboardingStatus:
     return _run(lambda: OnboardingService(db).dismiss(current_user))
 
@@ -78,7 +78,7 @@ def preview_onboarding(
     payload: OnboardingDraft,
     journey_id: UUID | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> OnboardingPreview:
     return _run(lambda: OnboardingService(db).preview_draft(current_user, payload, journey_id))
 
@@ -86,7 +86,7 @@ def preview_onboarding(
 @router.post("/resume", response_model=OnboardingStatus)
 def resume_onboarding(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> OnboardingStatus:
     return _run(lambda: OnboardingService(db).dismiss(current_user, False))
 

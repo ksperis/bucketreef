@@ -159,7 +159,7 @@ def test_admin_cannot_create_superadmin_or_grant_ceph_admin(client: TestClient):
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     resp = client.post(
         "/api/admin/users",
@@ -202,7 +202,7 @@ def test_admin_cannot_assign_group_that_grants_ceph_admin(
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = (
+    app.dependency_overrides[dependencies.get_current_ui_admin] = (
         lambda: admin_user
     )
 
@@ -292,7 +292,7 @@ def test_superadmin_can_create_superadmin_and_grant_ceph_admin(client: TestClien
         is_active=True,
         role=UserRole.UI_SUPERADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: super_admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: super_admin_user
 
     create_superadmin = client.post(
         "/api/admin/users",
@@ -353,7 +353,7 @@ def test_admin_can_configure_manager_tool_access_on_update(client: TestClient, d
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     response = client.patch(
         f"/api/admin/users/{target.id}",
@@ -397,7 +397,7 @@ def test_user_payload_rejects_removed_bucket_quota_permission(client: TestClient
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     response = client.patch(
         f"/api/admin/users/{target.id}",
@@ -430,7 +430,7 @@ def test_admin_can_configure_browser_advanced_features_on_update(client: TestCli
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     response = client.patch(
         f"/api/admin/users/{target.id}",
@@ -461,7 +461,7 @@ def test_admin_cannot_promote_or_grant_ceph_admin_on_update(client: TestClient, 
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     promote_resp = client.patch(
         f"/api/admin/users/{target.id}",
@@ -495,7 +495,7 @@ def test_superadmin_can_promote_and_grant_ceph_admin_on_update(client: TestClien
         is_active=True,
         role=UserRole.UI_SUPERADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: super_admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: super_admin_user
 
     promote_resp = client.patch(
         f"/api/admin/users/{target.id}",
@@ -533,7 +533,7 @@ def test_admin_can_grant_and_revoke_storage_ops_on_update(client: TestClient, db
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     grant_resp = client.patch(
         f"/api/admin/users/{target.id}",
@@ -591,7 +591,7 @@ def test_admin_cannot_delete_own_user(client: TestClient):
         is_active=True,
         role=UserRole.UI_ADMIN.value,
     )
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin_user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin_user
 
     response = client.delete(f"/api/admin/users/{admin_user.id}")
     assert response.status_code == 400
@@ -707,7 +707,7 @@ def test_regular_admin_cannot_change_a_privileged_profile_or_avatar(client, db_s
     user.role = role
     db_session.commit()
     actor = User(id=1001, email="other-admin@example.com", role=UserRole.UI_ADMIN.value, is_active=True)
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: actor
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: actor
     assert client.patch(f"/api/admin/users/{user.id}", json={"ui_language": "fr"}).status_code == 403
     assert client.put(f"/api/admin/users/{user.id}/avatar", files={"file": ("image.png", PROFILE_PNG, "image/png")}).status_code == 403
     assert client.delete(f"/api/admin/users/{user.id}/avatar").status_code == 403

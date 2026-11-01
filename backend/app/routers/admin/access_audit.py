@@ -17,7 +17,7 @@ from app.models.access_audit import (
     AccessAuditSourceKind,
     PaginatedAccessAuditResponse,
 )
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_current_ui_admin
 from app.services.access_audit_service import AccessAuditFilters, AccessAuditService
 from app.utils.http_headers import build_attachment_content_disposition
 
@@ -60,7 +60,7 @@ def export_access_audit_csv(
     target_id: int | None = Query(None, ge=1),
     sort_by: Literal["user", "scope", "target"] = Query("user"),
     sort_dir: Literal["asc", "desc"] = Query("asc"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> Response:
     filename, payload = AccessAuditService(db).export_csv(
@@ -96,7 +96,7 @@ def list_access_audit(
     target_id: int | None = Query(None, ge=1),
     sort_by: Literal["user", "scope", "target"] = Query("user"),
     sort_dir: Literal["asc", "desc"] = Query("asc"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> PaginatedAccessAuditResponse:
     return AccessAuditService(db).paginate(

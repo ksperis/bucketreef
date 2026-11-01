@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import ApiToken, User
 from app.models.api_token import ApiTokenCreateRequest, ApiTokenCreateResponse, ApiTokenInfo
-from app.routers.dependencies import get_audit_service, get_current_super_admin
+from app.routers.dependencies import get_audit_service, get_current_ui_admin
 from app.services.api_token_service import ApiTokenError, ApiTokenNotFoundError, ApiTokenService
 from app.services.audit_service import AuditService
 from app.services.identity_security_policy import (
@@ -38,7 +38,7 @@ def list_api_tokens(
     request: Request,
     include_revoked: bool = Query(False),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> list[ApiTokenInfo]:
     require_admin_interactive_session(request, db, current_user)
     return [
@@ -52,7 +52,7 @@ def create_api_token(
     request: Request,
     payload: ApiTokenCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> ApiTokenCreateResponse:
     require_admin_sensitive_action(request, db, current_user)
@@ -84,7 +84,7 @@ def revoke_api_token(
     request: Request,
     token_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_interactive_session(request, db, current_user)

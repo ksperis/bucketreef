@@ -13,7 +13,7 @@ from app.routers.dependencies_internal.auth_session import (
     get_current_actor,
     get_current_ceph_admin,
     get_current_storage_ops_admin,
-    get_current_super_admin,
+    get_current_ui_admin,
     get_current_ui_superadmin,
     get_current_user,
     require_internal_cron_token,

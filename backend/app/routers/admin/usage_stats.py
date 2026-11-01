@@ -12,7 +12,7 @@ from app.core.database import SessionLocal, get_db
 from app.db import User
 from app.models.bucket_usage_stats import BucketUsageStatsAggregateResponse, BucketUsageStatsScopeRequest
 from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_current_ui_admin
 from app.services.admin_usage_stats_scope_service import AdminUsageStatsScopeService
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsOptions,
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def get_admin_managed_usage_stats_aggregate(
     endpoint_id: int = Query(...),
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> BucketUsageStatsAggregateResponse:
     scope_service = AdminUsageStatsScopeService(db, bucket_service)
@@ -53,7 +53,7 @@ def stream_admin_managed_usage_stats_aggregate(
     request: Request,
     endpoint_id: int = Query(...),
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_super_admin),
+    _user: User = Depends(get_current_ui_admin),
     bucket_service: BucketsService = Depends(get_buckets_service),
 ) -> StreamingResponse:
     scope_service = AdminUsageStatsScopeService(db, bucket_service)

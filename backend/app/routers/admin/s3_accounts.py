@@ -21,7 +21,7 @@ from app.models.s3_account import (
 )
 from app.routers.dependencies import (
     get_audit_service,
-    get_current_super_admin,
+    get_current_ui_admin,
 )
 from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
 from app.services.admin_account_portal_settings_service import AdminAccountPortalSettingsService
@@ -57,7 +57,7 @@ def list_accounts(
     include_quota: bool = Query(False, description="Include RGW quota information (slower)."),
     include_rgw_details: bool = Query(False, description="Include RGW user and topic details (slower)."),
     service: S3AccountsService = Depends(get_admin_accounts_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> PaginatedS3AccountsResponse:
     return service.list_accounts_page(
         page=page,
@@ -74,7 +74,7 @@ def list_accounts(
 @router.get("/minimal", response_model=list[S3AccountSummary])
 def list_accounts_minimal(
     service: S3AccountsService = Depends(get_admin_accounts_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> list[S3AccountSummary]:
     return service.list_accounts_minimal()
 
@@ -87,7 +87,7 @@ def get_account(
         description="Include RGW usage stats (slower, triggers bucket listing).",
     ),
     service: S3AccountsService = Depends(get_admin_accounts_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> S3Account:
     try:
         return service.get_account_detail(account_id, include_usage=include_usage)
@@ -99,7 +99,7 @@ def get_account(
 def get_account_portal_settings(
     account_id: int,
     service: AdminAccountPortalSettingsService = Depends(get_admin_account_portal_settings_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> PortalAccountSettings:
     try:
         return service.get(account_id)
@@ -112,7 +112,7 @@ def update_account_portal_settings(
     account_id: int,
     payload: PortalSettingsAdminUpdate,
     service: AdminAccountPortalSettingsService = Depends(get_admin_account_portal_settings_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> PortalAccountSettings:
     try:
@@ -148,7 +148,7 @@ def update_account_portal_settings(
 def create_account(
     payload: S3AccountCreate,
     service: S3AccountsService = Depends(get_admin_accounts_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3Account:
     try:
@@ -176,7 +176,7 @@ def create_account(
 def import_accounts(
     payload: list[S3AccountImport],
     service: S3AccountsService = Depends(get_admin_accounts_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> list[S3Account]:
     try:
@@ -202,7 +202,7 @@ def update_account(
     account_id: int,
     payload: S3AccountUpdate,
     service: S3AccountsService = Depends(get_admin_accounts_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3Account:
     try:
@@ -227,7 +227,7 @@ def delete_account(
     account_id: int,
     delete_rgw: bool = Query(False, description="Also delete the RGW tenant backing this account"),
     service: S3AccountsService = Depends(get_admin_accounts_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     try:

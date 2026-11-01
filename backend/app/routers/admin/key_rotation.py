@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.key_rotation import KeyRotationRequest, KeyRotationResponse
-from app.routers.dependencies import get_audit_service, get_current_super_admin
+from app.routers.dependencies import get_audit_service, get_current_ui_admin
 from app.services.audit_service import AuditService
 from app.services.key_rotation_service import KeyRotationService, get_key_rotation_service
 from app.utils.http_errors import raise_bad_request_from_value_error
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/admin/key-rotation", tags=["admin-key-rotation"])
 
 def get_service(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> KeyRotationService:
     return get_key_rotation_service(db, actor=current_user)
 
@@ -25,7 +25,7 @@ def get_service(
 def rotate_keys(
     payload: KeyRotationRequest,
     service: KeyRotationService = Depends(get_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> KeyRotationResponse:
     try:

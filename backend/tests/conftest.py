@@ -78,7 +78,7 @@ def client(db_session, monkeypatch):
         )
 
     app.dependency_overrides[dependencies.get_db] = override_get_db
-    app.dependency_overrides[dependencies.get_current_super_admin] = override_super_admin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = override_super_admin
     app.dependency_overrides[dependencies.get_current_account_admin] = override_account_admin
 
     with TestClient(app) as test_client:

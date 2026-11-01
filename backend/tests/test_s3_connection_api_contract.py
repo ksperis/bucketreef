@@ -54,7 +54,7 @@ def contract_client(db_session):
 
     app.dependency_overrides[dependencies.get_db] = override_get_db
     app.dependency_overrides[dependencies.get_current_account_user] = lambda: user
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: user
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: user
     app.dependency_overrides[dependencies.get_current_account_admin] = lambda: user
     with TestClient(app) as test_client:
         credentials = authenticate_ui_client(test_client, db_session, user, mfa_verified=True)

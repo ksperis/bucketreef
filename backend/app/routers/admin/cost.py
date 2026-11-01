@@ -18,7 +18,7 @@ from app.models.cost import (
     CostSummary,
 )
 from app.routers.cost_common import parse_cost_day, raise_cost_disabled
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_current_ui_admin
 from app.services.admin_cost_service import AdminCostService
 from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.http_headers import build_attachment_content_disposition
@@ -36,7 +36,7 @@ def _raise_cost_http_error(exc: ValueError) -> NoReturn:
 def cost_summary(
     month: str = Query(..., description="YYYY-MM"),
     endpoint_id: int | None = Query(None),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> CostSummary:
     try:
@@ -48,7 +48,7 @@ def cost_summary(
 @router.post("/collect/daily", response_model=CostCollectionResult)
 def cost_collect_daily(
     day: str = Query(..., description="UTC day YYYY-MM-DD"),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> CostCollectionResult:
     parsed = parse_cost_day(day)
@@ -68,7 +68,7 @@ def cost_subjects(
     page_size: int = Query(25, ge=1, le=200),
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> CostSubjectsResponse:
     try:
@@ -91,7 +91,7 @@ def cost_analytics(
     month: str = Query(..., description="YYYY-MM"),
     endpoint_id: int | None = Query(None),
     subject_type: str = Query("all"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> CostAnalyticsResponse:
     try:
@@ -106,7 +106,7 @@ def cost_subject_detail(
     subject_id: int,
     month: str = Query(..., description="YYYY-MM"),
     endpoint_id: int = Query(...),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> AdminCostSubjectDetail:
     try:
@@ -120,7 +120,7 @@ def cost_export_csv(
     month: str = Query(..., description="YYYY-MM"),
     endpoint_id: int | None = Query(None),
     subject_type: str = Query("all"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> Response:
     try:

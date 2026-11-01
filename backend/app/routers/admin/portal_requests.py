@@ -14,7 +14,7 @@ from app.models.portal_requests import (
     PortalAdminRequestStatus,
     PortalAdminRequestType,
 )
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_current_ui_admin
 from app.routers.portal_common import get_portal_requests_service_dependency
 from app.services.portal_requests_service import (
     PortalRequestConflict,
@@ -44,7 +44,7 @@ def list_admin_portal_requests(
     account_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
     limit: int = Query(200, ge=1, le=500),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     service: PortalRequestsService = Depends(get_portal_requests_service_dependency),
 ) -> list[PortalAdminRequestOut]:
     return service.list_for_admin(
@@ -60,7 +60,7 @@ def list_admin_portal_requests(
 def approve_admin_portal_request(
     request_id: int,
     payload: PortalAdminRequestDecision,
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     service: PortalRequestsService = Depends(get_portal_requests_service_dependency),
 ) -> PortalAdminRequestOut:
     try:
@@ -73,7 +73,7 @@ def approve_admin_portal_request(
 def reject_admin_portal_request(
     request_id: int,
     payload: PortalAdminRequestDecision,
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     service: PortalRequestsService = Depends(get_portal_requests_service_dependency),
 ) -> PortalAdminRequestOut:
     try:
@@ -86,7 +86,7 @@ def reject_admin_portal_request(
 def add_admin_portal_request_message(
     request_id: int,
     payload: PortalAdminRequestMessageCreate,
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     service: PortalRequestsService = Depends(get_portal_requests_service_dependency),
 ) -> PortalAdminRequestOut:
     try:

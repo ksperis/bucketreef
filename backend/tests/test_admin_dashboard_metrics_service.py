@@ -328,14 +328,14 @@ def test_endpoint_feature_change_during_collection_is_reported(db_session, monke
 
 def test_dashboard_routes_require_admin_authentication(client):
     from app.main import app
-    from app.routers.dependencies import get_current_super_admin
+    from app.routers.dependencies import get_current_ui_admin
 
-    override = app.dependency_overrides.pop(get_current_super_admin)
+    override = app.dependency_overrides.pop(get_current_ui_admin)
     try:
         for suffix in ("scope", "storage", "traffic"):
             assert client.get(f"/api/admin/stats/dashboard/{suffix}").status_code in (401, 403)
     finally:
-        app.dependency_overrides[get_current_super_admin] = override
+        app.dependency_overrides[get_current_ui_admin] = override
 
 
 def test_collectors_use_supervision_credentials_and_never_admin_ops(db_session, monkeypatch):

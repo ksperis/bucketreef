@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.db import User
 from app.models.quota_monitoring import QuotaMonitoringResult
 from app.models.usage_history import UsageHistoryResponse, UsageHistoryTrendResponse
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_current_ui_admin
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.operation_lease_service import (
     OperationLeaseService,
@@ -71,7 +71,7 @@ def list_usage_history(
     page_size: int = Query(50, ge=1, le=200),
     sort_by: Literal["period", "subject", "used_bytes", "used_objects", "ratio"] = Query("period"),
     sort_dir: Literal["asc", "desc"] = Query("desc"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> UsageHistoryResponse:
     _ensure_usage_history_enabled(db)
@@ -94,7 +94,7 @@ def usage_history_trends(
     window: Literal["day", "week", "month"] = Query("month"),
     endpoint_id: Optional[int] = Query(None),
     subject_type: Literal["all", "account", "s3_user"] = Query("all"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> UsageHistoryTrendResponse:
     _ensure_usage_history_enabled(db)
@@ -104,7 +104,7 @@ def usage_history_trends(
 
 @router.post("/collect", response_model=QuotaMonitoringResult)
 def collect_usage_history(
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> QuotaMonitoringResult:
     _ensure_usage_history_enabled(db)

@@ -18,7 +18,7 @@ from app.models.healthcheck import (
     EndpointHealthSummaryResponse,
     WorkspaceEndpointHealthOverviewResponse,
 )
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_current_ui_admin
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.healthcheck_common import HealthWindow
 from app.services.healthcheck_query_service import HealthCheckQueryService
@@ -47,7 +47,7 @@ def _ensure_endpoint_status_enabled(db: Session) -> None:
 
 @router.get("/summary", response_model=EndpointHealthSummaryResponse)
 def health_summary(
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthSummaryResponse:
     _ensure_endpoint_status_enabled(db)
@@ -59,7 +59,7 @@ def health_summary(
 def health_series(
     endpoint_id: int = Query(...),
     window: HealthWindow = Query(HealthWindow.WEEK, description="Window: day, week, month, quarter, half_year, year"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthSeries:
     _ensure_endpoint_status_enabled(db)
@@ -74,7 +74,7 @@ def health_series(
 def health_incidents(
     endpoint_id: int = Query(...),
     window: HealthWindow = Query(HealthWindow.MONTH, description="Window: day, week, month, quarter, half_year, year"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthIncidentsResponse:
     _ensure_endpoint_status_enabled(db)
@@ -91,7 +91,7 @@ def health_raw_checks(
     window: HealthWindow = Query(HealthWindow.WEEK, description="Window: day, week, month, quarter, half_year, year"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthRawChecksResponse:
     _ensure_endpoint_status_enabled(db)
@@ -105,7 +105,7 @@ def health_raw_checks(
 @router.get("/overview", response_model=EndpointHealthOverviewResponse)
 def health_overview(
     window: HealthWindow = Query(HealthWindow.WEEK, description="Window: day, week, month, quarter, half_year, year"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthOverviewResponse:
     _ensure_endpoint_status_enabled(db)
@@ -116,7 +116,7 @@ def health_overview(
 @router.get("/latency-overview", response_model=EndpointHealthLatencyOverviewResponse)
 def health_latency_overview(
     window: HealthWindow = Query(HealthWindow.DAY, description="Window: day, week, month, quarter, half_year, year"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthLatencyOverviewResponse:
     _ensure_endpoint_status_enabled(db)
@@ -128,7 +128,7 @@ def health_latency_overview(
 def health_global_incidents(
     window: HealthWindow = Query(HealthWindow.HALF_YEAR, description="Window: day, week, month, quarter, half_year, year"),
     limit: int = Query(300, ge=1, le=2000),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthGlobalIncidentsResponse:
     _ensure_endpoint_status_enabled(db)
@@ -140,7 +140,7 @@ def health_global_incidents(
 def workspace_health_overview(
     endpoint_id: int | None = Query(None, ge=1),
     incident_highlight_minutes: int | None = Query(None, ge=1),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> WorkspaceEndpointHealthOverviewResponse:
     _ensure_endpoint_status_enabled(db)
@@ -158,7 +158,7 @@ def workspace_health_overview(
 
 @router.post("/run", response_model=EndpointHealthRunResponse)
 def run_healthchecks(
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthRunResponse:
     _ensure_endpoint_status_enabled(db)
