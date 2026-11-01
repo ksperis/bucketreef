@@ -155,6 +155,7 @@ const LIFECYCLE_RULE_TYPE_LABELS: Record<Exclude<LifecycleRuleTypeValue, "">, st
   noncurrent_transition: "Noncurrent transitions",
 };
 const NOTIFICATION_RULE_TYPES: Exclude<NotificationRuleTypeValue, "">[] = ["topic", "queue", "lambda"];
+const OBJECT_LOCK_MODES = ["", "GOVERNANCE", "COMPLIANCE"] as const;
 export const notificationFeatureDetailFilterKeys: FeatureDetailFilterKey[] = [
   "notificationRuleId",
   "notificationRuleTypeMode",
@@ -171,89 +172,39 @@ export const notificationFeatureDetailFilterKeys: FeatureDetailFilterKey[] = [
 export const sseFeatureDetailFilterKeys: FeatureDetailFilterKey[] = ["sseAlgorithm", "sseKmsKeyId"];
 
 const asString = (value: unknown) => (typeof value === "string" ? value : "");
+const sanitizeChoice = <T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fallback: T,
+): T => allowed.includes(value as T) ? (value as T) : fallback;
 
 export const sanitizeFeatureDetailFilters = (value: unknown): FeatureDetailFilters => {
   if (!value || typeof value !== "object") return { ...defaultFeatureDetailFilters };
   const raw = value as Partial<FeatureDetailFilters>;
-  const lifecycleRuleNameMode = LIFECYCLE_NAME_MODES.includes(raw.lifecycleRuleNameMode as LifecycleRuleNameMode)
-    ? (raw.lifecycleRuleNameMode as LifecycleRuleNameMode)
-    : defaultFeatureDetailFilters.lifecycleRuleNameMode;
-  const lifecycleRuleStatus = LIFECYCLE_RULE_STATUSES.includes(
-    raw.lifecycleRuleStatus as Exclude<LifecycleRuleStatusValue, "">
-  )
-    ? (raw.lifecycleRuleStatus as Exclude<LifecycleRuleStatusValue, "">)
-    : defaultFeatureDetailFilters.lifecycleRuleStatus;
-  const lifecycleRuleTypeMode = PRESENCE_MODES.includes(raw.lifecycleRuleTypeMode as PresenceMode)
-    ? (raw.lifecycleRuleTypeMode as PresenceMode)
-    : defaultFeatureDetailFilters.lifecycleRuleTypeMode;
-  const lifecycleRuleTypeValue = LIFECYCLE_RULE_TYPES.includes(raw.lifecycleRuleTypeValue as Exclude<LifecycleRuleTypeValue, "">)
-    ? (raw.lifecycleRuleTypeValue as Exclude<LifecycleRuleTypeValue, "">)
-    : defaultFeatureDetailFilters.lifecycleRuleTypeValue;
-  const lifecycleExpirationDaysOp = NUMERIC_UI_OPS.includes(raw.lifecycleExpirationDaysOp as NumericComparisonOpUi)
-    ? (raw.lifecycleExpirationDaysOp as NumericComparisonOpUi)
-    : defaultFeatureDetailFilters.lifecycleExpirationDaysOp;
-  const lifecycleNoncurrentExpirationDaysOp = NUMERIC_UI_OPS.includes(
-    raw.lifecycleNoncurrentExpirationDaysOp as NumericComparisonOpUi
-  )
-    ? (raw.lifecycleNoncurrentExpirationDaysOp as NumericComparisonOpUi)
-    : defaultFeatureDetailFilters.lifecycleNoncurrentExpirationDaysOp;
-  const lifecycleTransitionDaysOp = NUMERIC_UI_OPS.includes(raw.lifecycleTransitionDaysOp as NumericComparisonOpUi)
-    ? (raw.lifecycleTransitionDaysOp as NumericComparisonOpUi)
-    : defaultFeatureDetailFilters.lifecycleTransitionDaysOp;
-  const lifecycleAbortDaysOp = NUMERIC_UI_OPS.includes(raw.lifecycleAbortDaysOp as NumericComparisonOpUi)
-    ? (raw.lifecycleAbortDaysOp as NumericComparisonOpUi)
-    : defaultFeatureDetailFilters.lifecycleAbortDaysOp;
-  const objectLockMode = raw.objectLockMode === "GOVERNANCE" || raw.objectLockMode === "COMPLIANCE" ? raw.objectLockMode : "";
-  const objectLockRetentionOp = NUMERIC_UI_OPS.includes(raw.objectLockRetentionOp as NumericComparisonOpUi)
-    ? (raw.objectLockRetentionOp as NumericComparisonOpUi)
-    : defaultFeatureDetailFilters.objectLockRetentionOp;
-  const objectLockRetentionYearsOp = NUMERIC_UI_OPS.includes(raw.objectLockRetentionYearsOp as NumericComparisonOpUi)
-    ? (raw.objectLockRetentionYearsOp as NumericComparisonOpUi)
-    : defaultFeatureDetailFilters.objectLockRetentionYearsOp;
-  const corsMethodMode = PRESENCE_MODES.includes(raw.corsMethodMode as PresenceMode)
-    ? (raw.corsMethodMode as PresenceMode)
-    : defaultFeatureDetailFilters.corsMethodMode;
-  const corsOriginMode = PRESENCE_MODES.includes(raw.corsOriginMode as PresenceMode)
-    ? (raw.corsOriginMode as PresenceMode)
-    : defaultFeatureDetailFilters.corsOriginMode;
-  const loggingEnabled = TRI_STATES.includes(raw.loggingEnabled as FeatureTriState)
-    ? (raw.loggingEnabled as FeatureTriState)
-    : defaultFeatureDetailFilters.loggingEnabled;
-  const websiteIndexPresent = TRI_STATES.includes(raw.websiteIndexPresent as FeatureTriState)
-    ? (raw.websiteIndexPresent as FeatureTriState)
-    : defaultFeatureDetailFilters.websiteIndexPresent;
-  const websiteRedirectHostPresent = TRI_STATES.includes(raw.websiteRedirectHostPresent as FeatureTriState)
-    ? (raw.websiteRedirectHostPresent as FeatureTriState)
-    : defaultFeatureDetailFilters.websiteRedirectHostPresent;
-  const websiteRoutingRuleCountOp = NUMERIC_UI_OPS.includes(raw.websiteRoutingRuleCountOp as NumericComparisonOpUi)
-    ? (raw.websiteRoutingRuleCountOp as NumericComparisonOpUi)
-    : defaultFeatureDetailFilters.websiteRoutingRuleCountOp;
-  const policyStatementOp = NUMERIC_UI_OPS.includes(raw.policyStatementOp as NumericComparisonOpUi)
-    ? (raw.policyStatementOp as NumericComparisonOpUi)
-    : defaultFeatureDetailFilters.policyStatementOp;
-  const policyHasConditions = TRI_STATES.includes(raw.policyHasConditions as FeatureTriState)
-    ? (raw.policyHasConditions as FeatureTriState)
-    : defaultFeatureDetailFilters.policyHasConditions;
-  const notificationRuleTypeMode = PRESENCE_MODES.includes(raw.notificationRuleTypeMode as PresenceMode)
-    ? (raw.notificationRuleTypeMode as PresenceMode)
-    : defaultFeatureDetailFilters.notificationRuleTypeMode;
-  const notificationRuleTypeValue = NOTIFICATION_RULE_TYPES.includes(
-    raw.notificationRuleTypeValue as Exclude<NotificationRuleTypeValue, "">
-  )
-    ? (raw.notificationRuleTypeValue as Exclude<NotificationRuleTypeValue, "">)
-    : defaultFeatureDetailFilters.notificationRuleTypeValue;
-  const notificationEventMode = PRESENCE_MODES.includes(raw.notificationEventMode as PresenceMode)
-    ? (raw.notificationEventMode as PresenceMode)
-    : defaultFeatureDetailFilters.notificationEventMode;
-  const notificationFilterPrefixMode = PRESENCE_MODES.includes(raw.notificationFilterPrefixMode as PresenceMode)
-    ? (raw.notificationFilterPrefixMode as PresenceMode)
-    : defaultFeatureDetailFilters.notificationFilterPrefixMode;
-  const notificationFilterSuffixMode = PRESENCE_MODES.includes(raw.notificationFilterSuffixMode as PresenceMode)
-    ? (raw.notificationFilterSuffixMode as PresenceMode)
-    : defaultFeatureDetailFilters.notificationFilterSuffixMode;
-
-  const sanitizeTriState = (candidate: unknown): FeatureTriState =>
-    TRI_STATES.includes(candidate as FeatureTriState) ? (candidate as FeatureTriState) : "any";
+  const lifecycleRuleNameMode = sanitizeChoice(raw.lifecycleRuleNameMode, LIFECYCLE_NAME_MODES, defaultFeatureDetailFilters.lifecycleRuleNameMode);
+  const lifecycleRuleStatus = sanitizeChoice(raw.lifecycleRuleStatus, LIFECYCLE_RULE_STATUSES, defaultFeatureDetailFilters.lifecycleRuleStatus);
+  const lifecycleRuleTypeMode = sanitizeChoice(raw.lifecycleRuleTypeMode, PRESENCE_MODES, defaultFeatureDetailFilters.lifecycleRuleTypeMode);
+  const lifecycleRuleTypeValue = sanitizeChoice(raw.lifecycleRuleTypeValue, LIFECYCLE_RULE_TYPES, defaultFeatureDetailFilters.lifecycleRuleTypeValue);
+  const lifecycleExpirationDaysOp = sanitizeChoice(raw.lifecycleExpirationDaysOp, NUMERIC_UI_OPS, defaultFeatureDetailFilters.lifecycleExpirationDaysOp);
+  const lifecycleNoncurrentExpirationDaysOp = sanitizeChoice(raw.lifecycleNoncurrentExpirationDaysOp, NUMERIC_UI_OPS, defaultFeatureDetailFilters.lifecycleNoncurrentExpirationDaysOp);
+  const lifecycleTransitionDaysOp = sanitizeChoice(raw.lifecycleTransitionDaysOp, NUMERIC_UI_OPS, defaultFeatureDetailFilters.lifecycleTransitionDaysOp);
+  const lifecycleAbortDaysOp = sanitizeChoice(raw.lifecycleAbortDaysOp, NUMERIC_UI_OPS, defaultFeatureDetailFilters.lifecycleAbortDaysOp);
+  const objectLockMode = sanitizeChoice(raw.objectLockMode, OBJECT_LOCK_MODES, defaultFeatureDetailFilters.objectLockMode);
+  const objectLockRetentionOp = sanitizeChoice(raw.objectLockRetentionOp, NUMERIC_UI_OPS, defaultFeatureDetailFilters.objectLockRetentionOp);
+  const objectLockRetentionYearsOp = sanitizeChoice(raw.objectLockRetentionYearsOp, NUMERIC_UI_OPS, defaultFeatureDetailFilters.objectLockRetentionYearsOp);
+  const corsMethodMode = sanitizeChoice(raw.corsMethodMode, PRESENCE_MODES, defaultFeatureDetailFilters.corsMethodMode);
+  const corsOriginMode = sanitizeChoice(raw.corsOriginMode, PRESENCE_MODES, defaultFeatureDetailFilters.corsOriginMode);
+  const loggingEnabled = sanitizeChoice(raw.loggingEnabled, TRI_STATES, defaultFeatureDetailFilters.loggingEnabled);
+  const websiteIndexPresent = sanitizeChoice(raw.websiteIndexPresent, TRI_STATES, defaultFeatureDetailFilters.websiteIndexPresent);
+  const websiteRedirectHostPresent = sanitizeChoice(raw.websiteRedirectHostPresent, TRI_STATES, defaultFeatureDetailFilters.websiteRedirectHostPresent);
+  const websiteRoutingRuleCountOp = sanitizeChoice(raw.websiteRoutingRuleCountOp, NUMERIC_UI_OPS, defaultFeatureDetailFilters.websiteRoutingRuleCountOp);
+  const policyStatementOp = sanitizeChoice(raw.policyStatementOp, NUMERIC_UI_OPS, defaultFeatureDetailFilters.policyStatementOp);
+  const policyHasConditions = sanitizeChoice(raw.policyHasConditions, TRI_STATES, defaultFeatureDetailFilters.policyHasConditions);
+  const notificationRuleTypeMode = sanitizeChoice(raw.notificationRuleTypeMode, PRESENCE_MODES, defaultFeatureDetailFilters.notificationRuleTypeMode);
+  const notificationRuleTypeValue = sanitizeChoice(raw.notificationRuleTypeValue, NOTIFICATION_RULE_TYPES, defaultFeatureDetailFilters.notificationRuleTypeValue);
+  const notificationEventMode = sanitizeChoice(raw.notificationEventMode, PRESENCE_MODES, defaultFeatureDetailFilters.notificationEventMode);
+  const notificationFilterPrefixMode = sanitizeChoice(raw.notificationFilterPrefixMode, PRESENCE_MODES, defaultFeatureDetailFilters.notificationFilterPrefixMode);
+  const notificationFilterSuffixMode = sanitizeChoice(raw.notificationFilterSuffixMode, PRESENCE_MODES, defaultFeatureDetailFilters.notificationFilterSuffixMode);
 
   return {
     lifecycleRuleNameMode,
@@ -274,10 +225,10 @@ export const sanitizeFeatureDetailFilters = (value: unknown): FeatureDetailFilte
     objectLockRetentionDays: asString(raw.objectLockRetentionDays),
     objectLockRetentionYearsOp,
     objectLockRetentionYears: asString(raw.objectLockRetentionYears),
-    bpaBlockPublicAcls: sanitizeTriState(raw.bpaBlockPublicAcls),
-    bpaIgnorePublicAcls: sanitizeTriState(raw.bpaIgnorePublicAcls),
-    bpaBlockPublicPolicy: sanitizeTriState(raw.bpaBlockPublicPolicy),
-    bpaRestrictPublicBuckets: sanitizeTriState(raw.bpaRestrictPublicBuckets),
+    bpaBlockPublicAcls: sanitizeChoice(raw.bpaBlockPublicAcls, TRI_STATES, "any"),
+    bpaIgnorePublicAcls: sanitizeChoice(raw.bpaIgnorePublicAcls, TRI_STATES, "any"),
+    bpaBlockPublicPolicy: sanitizeChoice(raw.bpaBlockPublicPolicy, TRI_STATES, "any"),
+    bpaRestrictPublicBuckets: sanitizeChoice(raw.bpaRestrictPublicBuckets, TRI_STATES, "any"),
     corsMethodMode,
     corsMethodValue: asString(raw.corsMethodValue),
     corsOriginMode,
@@ -305,7 +256,7 @@ export const sanitizeFeatureDetailFilters = (value: unknown): FeatureDetailFilte
     notificationFilterPrefixValue: asString(raw.notificationFilterPrefixValue),
     notificationFilterSuffixMode,
     notificationFilterSuffixValue: asString(raw.notificationFilterSuffixValue),
-    notificationEventBridgePresent: sanitizeTriState(raw.notificationEventBridgePresent),
+    notificationEventBridgePresent: sanitizeChoice(raw.notificationEventBridgePresent, TRI_STATES, "any"),
     sseAlgorithm: asString(raw.sseAlgorithm),
     sseKmsKeyId: asString(raw.sseKmsKeyId),
   };
@@ -319,6 +270,45 @@ const pushTriStateRule = (
 ) => {
   if (triState === "any") return;
   rules.push({ feature, param, op: "eq", value: triState === "true" });
+};
+
+const pushNumericRule = (
+  rules: Array<Record<string, unknown>>,
+  rawValue: string,
+  op: NumericComparisonOpUi,
+  feature: string,
+  param: string,
+) => {
+  const trimmed = rawValue.trim();
+  if (!trimmed) return;
+  const value = Number(trimmed);
+  if (!Number.isFinite(value)) return;
+  rules.push({ feature, param, op: NUMERIC_UI_TO_RULE_OP[op], value });
+};
+
+const pushTextRule = (
+  rules: Array<Record<string, unknown>>,
+  rawValue: string,
+  feature: string,
+  param: string,
+  op: "eq" | "contains" = "contains",
+) => {
+  const value = rawValue.trim();
+  if (!value) return;
+  rules.push({ feature, param, op, value });
+};
+
+const pushPresenceRule = (
+  rules: Array<Record<string, unknown>>,
+  mode: PresenceMode,
+  rawValue: string,
+  feature: string,
+  param: string,
+) => {
+  if (mode === "any") return;
+  const value = rawValue.trim();
+  if (!value) return;
+  rules.push({ feature, param, op: mode === "has" ? "has" : "has_not", value });
 };
 
 export const buildFeatureDetailRules = (
@@ -358,49 +348,10 @@ export const buildFeatureDetailRules = (
     });
   }
 
-  const lifecycleExpirationDaysRaw = filters.lifecycleExpirationDays.trim();
-  const lifecycleExpirationDays = Number(lifecycleExpirationDaysRaw);
-  if (lifecycleExpirationDaysRaw && Number.isFinite(lifecycleExpirationDays)) {
-    rules.push({
-      feature: "lifecycle_rules",
-      param: "lifecycle_expiration_days",
-      op: NUMERIC_UI_TO_RULE_OP[filters.lifecycleExpirationDaysOp],
-      value: lifecycleExpirationDays,
-    });
-  }
-
-  const lifecycleNoncurrentExpirationDaysRaw = filters.lifecycleNoncurrentExpirationDays.trim();
-  const lifecycleNoncurrentExpirationDays = Number(lifecycleNoncurrentExpirationDaysRaw);
-  if (lifecycleNoncurrentExpirationDaysRaw && Number.isFinite(lifecycleNoncurrentExpirationDays)) {
-    rules.push({
-      feature: "lifecycle_rules",
-      param: "lifecycle_noncurrent_expiration_days",
-      op: NUMERIC_UI_TO_RULE_OP[filters.lifecycleNoncurrentExpirationDaysOp],
-      value: lifecycleNoncurrentExpirationDays,
-    });
-  }
-
-  const lifecycleTransitionDaysRaw = filters.lifecycleTransitionDays.trim();
-  const lifecycleTransitionDays = Number(lifecycleTransitionDaysRaw);
-  if (lifecycleTransitionDaysRaw && Number.isFinite(lifecycleTransitionDays)) {
-    rules.push({
-      feature: "lifecycle_rules",
-      param: "lifecycle_transition_days",
-      op: NUMERIC_UI_TO_RULE_OP[filters.lifecycleTransitionDaysOp],
-      value: lifecycleTransitionDays,
-    });
-  }
-
-  const lifecycleAbortDaysRaw = filters.lifecycleAbortDays.trim();
-  const lifecycleAbortDays = Number(lifecycleAbortDaysRaw);
-  if (lifecycleAbortDaysRaw && Number.isFinite(lifecycleAbortDays)) {
-    rules.push({
-      feature: "lifecycle_rules",
-      param: "lifecycle_abort_multipart_days",
-      op: NUMERIC_UI_TO_RULE_OP[filters.lifecycleAbortDaysOp],
-      value: lifecycleAbortDays,
-    });
-  }
+  pushNumericRule(rules, filters.lifecycleExpirationDays, filters.lifecycleExpirationDaysOp, "lifecycle_rules", "lifecycle_expiration_days");
+  pushNumericRule(rules, filters.lifecycleNoncurrentExpirationDays, filters.lifecycleNoncurrentExpirationDaysOp, "lifecycle_rules", "lifecycle_noncurrent_expiration_days");
+  pushNumericRule(rules, filters.lifecycleTransitionDays, filters.lifecycleTransitionDaysOp, "lifecycle_rules", "lifecycle_transition_days");
+  pushNumericRule(rules, filters.lifecycleAbortDays, filters.lifecycleAbortDaysOp, "lifecycle_rules", "lifecycle_abort_multipart_days");
 
   if (filters.objectLockMode) {
     rules.push({
@@ -410,149 +361,31 @@ export const buildFeatureDetailRules = (
       value: filters.objectLockMode,
     });
   }
-  const objectLockRetentionDaysRaw = filters.objectLockRetentionDays.trim();
-  const objectLockRetentionDays = Number(objectLockRetentionDaysRaw);
-  if (objectLockRetentionDaysRaw && Number.isFinite(objectLockRetentionDays)) {
-    rules.push({
-      feature: "object_lock",
-      param: "object_lock_retention_days",
-      op: NUMERIC_UI_TO_RULE_OP[filters.objectLockRetentionOp],
-      value: objectLockRetentionDays,
-    });
-  }
-  const objectLockRetentionYearsRaw = filters.objectLockRetentionYears.trim();
-  const objectLockRetentionYears = Number(objectLockRetentionYearsRaw);
-  if (objectLockRetentionYearsRaw && Number.isFinite(objectLockRetentionYears)) {
-    rules.push({
-      feature: "object_lock",
-      param: "object_lock_retention_years",
-      op: NUMERIC_UI_TO_RULE_OP[filters.objectLockRetentionYearsOp],
-      value: objectLockRetentionYears,
-    });
-  }
+  pushNumericRule(rules, filters.objectLockRetentionDays, filters.objectLockRetentionOp, "object_lock", "object_lock_retention_days");
+  pushNumericRule(rules, filters.objectLockRetentionYears, filters.objectLockRetentionYearsOp, "object_lock", "object_lock_retention_years");
 
   pushTriStateRule(rules, filters.bpaBlockPublicAcls, "block_public_access", "bpa_block_public_acls");
   pushTriStateRule(rules, filters.bpaIgnorePublicAcls, "block_public_access", "bpa_ignore_public_acls");
   pushTriStateRule(rules, filters.bpaBlockPublicPolicy, "block_public_access", "bpa_block_public_policy");
   pushTriStateRule(rules, filters.bpaRestrictPublicBuckets, "block_public_access", "bpa_restrict_public_buckets");
 
-  const corsMethodValue = filters.corsMethodValue.trim();
-  if (filters.corsMethodMode !== "any" && corsMethodValue) {
-    rules.push({
-      feature: "cors",
-      param: "cors_allowed_method",
-      op: filters.corsMethodMode === "has" ? "has" : "has_not",
-      value: corsMethodValue,
-    });
-  }
-  const corsOriginValue = filters.corsOriginValue.trim();
-  if (filters.corsOriginMode !== "any" && corsOriginValue) {
-    rules.push({
-      feature: "cors",
-      param: "cors_allowed_origin",
-      op: filters.corsOriginMode === "has" ? "has" : "has_not",
-      value: corsOriginValue,
-    });
-  }
-
-  if (filters.loggingEnabled !== "any") {
-    rules.push({
-      feature: "access_logging",
-      param: "logging_enabled",
-      op: "eq",
-      value: filters.loggingEnabled === "true",
-    });
-  }
-
-  const loggingTargetBucket = filters.loggingTargetBucket.trim();
-  if (loggingTargetBucket) {
-    rules.push({
-      feature: "access_logging",
-      param: "logging_target_bucket",
-      op: "eq",
-      value: loggingTargetBucket,
-    });
-  }
-  const loggingTargetPrefix = filters.loggingTargetPrefix.trim();
-  if (loggingTargetPrefix) {
-    rules.push({
-      feature: "access_logging",
-      param: "logging_target_prefix",
-      op: "contains",
-      value: loggingTargetPrefix,
-    });
-  }
+  pushPresenceRule(rules, filters.corsMethodMode, filters.corsMethodValue, "cors", "cors_allowed_method");
+  pushPresenceRule(rules, filters.corsOriginMode, filters.corsOriginValue, "cors", "cors_allowed_origin");
+  pushTriStateRule(rules, filters.loggingEnabled, "access_logging", "logging_enabled");
+  pushTextRule(rules, filters.loggingTargetBucket, "access_logging", "logging_target_bucket", "eq");
+  pushTextRule(rules, filters.loggingTargetPrefix, "access_logging", "logging_target_prefix");
 
   pushTriStateRule(rules, filters.websiteIndexPresent, "static_website", "website_index_present");
-  const websiteIndexDocument = filters.websiteIndexDocument.trim();
-  if (websiteIndexDocument) {
-    rules.push({
-      feature: "static_website",
-      param: "website_index_document",
-      op: "contains",
-      value: websiteIndexDocument,
-    });
-  }
-  const websiteErrorDocument = filters.websiteErrorDocument.trim();
-  if (websiteErrorDocument) {
-    rules.push({
-      feature: "static_website",
-      param: "website_error_document",
-      op: "contains",
-      value: websiteErrorDocument,
-    });
-  }
+  pushTextRule(rules, filters.websiteIndexDocument, "static_website", "website_index_document");
+  pushTextRule(rules, filters.websiteErrorDocument, "static_website", "website_error_document");
   pushTriStateRule(rules, filters.websiteRedirectHostPresent, "static_website", "website_redirect_host_present");
-  const websiteRedirectHost = filters.websiteRedirectHost.trim();
-  if (websiteRedirectHost) {
-    rules.push({
-      feature: "static_website",
-      param: "website_redirect_host",
-      op: "contains",
-      value: websiteRedirectHost,
-    });
-  }
-  const websiteRoutingRuleCountRaw = filters.websiteRoutingRuleCount.trim();
-  const websiteRoutingRuleCount = Number(websiteRoutingRuleCountRaw);
-  if (websiteRoutingRuleCountRaw && Number.isFinite(websiteRoutingRuleCount)) {
-    rules.push({
-      feature: "static_website",
-      param: "website_routing_rule_count",
-      op: NUMERIC_UI_TO_RULE_OP[filters.websiteRoutingRuleCountOp],
-      value: websiteRoutingRuleCount,
-    });
-  }
-
-  const policyStatementCountRaw = filters.policyStatementCount.trim();
-  const policyStatementCount = Number(policyStatementCountRaw);
-  if (policyStatementCountRaw && Number.isFinite(policyStatementCount)) {
-    rules.push({
-      feature: "bucket_policy",
-      param: "policy_statement_count",
-      op: NUMERIC_UI_TO_RULE_OP[filters.policyStatementOp],
-      value: policyStatementCount,
-    });
-  }
-
-  if (filters.policyHasConditions !== "any") {
-    rules.push({
-      feature: "bucket_policy",
-      param: "policy_has_conditions",
-      op: "eq",
-      value: filters.policyHasConditions === "true",
-    });
-  }
+  pushTextRule(rules, filters.websiteRedirectHost, "static_website", "website_redirect_host");
+  pushNumericRule(rules, filters.websiteRoutingRuleCount, filters.websiteRoutingRuleCountOp, "static_website", "website_routing_rule_count");
+  pushNumericRule(rules, filters.policyStatementCount, filters.policyStatementOp, "bucket_policy", "policy_statement_count");
+  pushTriStateRule(rules, filters.policyHasConditions, "bucket_policy", "policy_has_conditions");
 
   if (featureSupport.notifications !== false) {
-    const notificationRuleId = filters.notificationRuleId.trim();
-    if (notificationRuleId) {
-      rules.push({
-        feature: "notifications",
-        param: "notification_rule_id",
-        op: "contains",
-        value: notificationRuleId,
-      });
-    }
+    pushTextRule(rules, filters.notificationRuleId, "notifications", "notification_rule_id");
 
     if (filters.notificationRuleTypeMode !== "any" && filters.notificationRuleTypeValue) {
       rules.push({
@@ -563,76 +396,16 @@ export const buildFeatureDetailRules = (
       });
     }
 
-    const notificationTopicName = filters.notificationTopicName.trim();
-    if (notificationTopicName) {
-      rules.push({
-        feature: "notifications",
-        param: "notification_topic_name",
-        op: "contains",
-        value: notificationTopicName,
-      });
-    }
-
-    const notificationEventValue = filters.notificationEventValue.trim();
-    if (filters.notificationEventMode !== "any" && notificationEventValue) {
-      rules.push({
-        feature: "notifications",
-        param: "notification_event",
-        op: filters.notificationEventMode === "has" ? "has" : "has_not",
-        value: notificationEventValue,
-      });
-    }
-
-    const notificationFilterPrefixValue = filters.notificationFilterPrefixValue.trim();
-    if (filters.notificationFilterPrefixMode !== "any" && notificationFilterPrefixValue) {
-      rules.push({
-        feature: "notifications",
-        param: "notification_filter_prefix",
-        op: filters.notificationFilterPrefixMode === "has" ? "has" : "has_not",
-        value: notificationFilterPrefixValue,
-      });
-    }
-
-    const notificationFilterSuffixValue = filters.notificationFilterSuffixValue.trim();
-    if (filters.notificationFilterSuffixMode !== "any" && notificationFilterSuffixValue) {
-      rules.push({
-        feature: "notifications",
-        param: "notification_filter_suffix",
-        op: filters.notificationFilterSuffixMode === "has" ? "has" : "has_not",
-        value: notificationFilterSuffixValue,
-      });
-    }
-
-    if (filters.notificationEventBridgePresent !== "any") {
-      rules.push({
-        feature: "notifications",
-        param: "notification_eventbridge_present",
-        op: "eq",
-        value: filters.notificationEventBridgePresent === "true",
-      });
-    }
+    pushTextRule(rules, filters.notificationTopicName, "notifications", "notification_topic_name");
+    pushPresenceRule(rules, filters.notificationEventMode, filters.notificationEventValue, "notifications", "notification_event");
+    pushPresenceRule(rules, filters.notificationFilterPrefixMode, filters.notificationFilterPrefixValue, "notifications", "notification_filter_prefix");
+    pushPresenceRule(rules, filters.notificationFilterSuffixMode, filters.notificationFilterSuffixValue, "notifications", "notification_filter_suffix");
+    pushTriStateRule(rules, filters.notificationEventBridgePresent, "notifications", "notification_eventbridge_present");
   }
 
   if (featureSupport.server_side_encryption !== false) {
-    const sseAlgorithm = filters.sseAlgorithm.trim();
-    if (sseAlgorithm) {
-      rules.push({
-        feature: "server_side_encryption",
-        param: "sse_algorithm",
-        op: "contains",
-        value: sseAlgorithm,
-      });
-    }
-
-    const sseKmsKeyId = filters.sseKmsKeyId.trim();
-    if (sseKmsKeyId) {
-      rules.push({
-        feature: "server_side_encryption",
-        param: "sse_kms_key_id",
-        op: "contains",
-        value: sseKmsKeyId,
-      });
-    }
+    pushTextRule(rules, filters.sseAlgorithm, "server_side_encryption", "sse_algorithm");
+    pushTextRule(rules, filters.sseKmsKeyId, "server_side_encryption", "sse_kms_key_id");
   }
 
   return rules;
@@ -641,10 +414,7 @@ export const buildFeatureDetailRules = (
 export const hasFeatureDetailFilters = (
   filters: FeatureDetailFilters,
   featureSupport: Partial<Record<string, boolean>> = {}
-): boolean => {
-  if (buildFeatureDetailRules(filters, featureSupport).length > 0) return true;
-  return false;
-};
+): boolean => buildFeatureDetailRules(filters, featureSupport).length > 0;
 
 export const featureDetailSummaryItems = (
   filters: FeatureDetailFilters
