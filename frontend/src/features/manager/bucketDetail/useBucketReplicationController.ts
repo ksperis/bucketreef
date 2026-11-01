@@ -20,6 +20,7 @@ import {
 } from "../bucketReplication";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
+  formatBucketJsonValue,
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
@@ -45,10 +46,6 @@ type UseBucketReplicationControllerOptions = {
   enabled: boolean;
   endpointId?: number | null;
 };
-
-function configurationText(configuration: Record<string, unknown>): string {
-  return JSON.stringify(configuration, null, 2);
-}
 
 function createRuleIds(configuration: Record<string, unknown>): string[] {
   return replicationConfigurationRules(configuration).map(() =>
@@ -144,7 +141,7 @@ export function useBucketReplicationController({
   ) => {
     setDraftConfiguration(nextDraft);
     setDraftRuleIds(createRuleIds(nextDraft));
-    setJsonText(configurationText(nextDraft));
+    setJsonText(formatBucketJsonValue(nextDraft));
     setEditorMode(mode);
     setEditorTargetIndex(targetIndex);
     setEditorError(null);
@@ -190,7 +187,7 @@ export function useBucketReplicationController({
       if (nextMode === editorMode) return;
       setEditorError(null);
       if (nextMode === "json") {
-        setJsonText(configurationText(draftConfiguration));
+        setJsonText(formatBucketJsonValue(draftConfiguration));
         setEditorMode("json");
         return;
       }
@@ -367,7 +364,7 @@ export function useBucketReplicationController({
       applyBaseline(savedConfiguration);
       setDraftConfiguration(cloneReplicationConfiguration(savedConfiguration));
       setDraftRuleIds(createRuleIds(savedConfiguration));
-      setJsonText(configurationText(savedConfiguration));
+      setJsonText(formatBucketJsonValue(savedConfiguration));
       setStatus(replicationConfigurationRules(savedConfiguration).length === 0
         ? "Replication configuration cleared."
         : "Replication configuration updated.");

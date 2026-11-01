@@ -15,6 +15,7 @@ import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
 import {
   cloneBucketJsonValue,
+  formatBucketJsonValue,
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
@@ -42,10 +43,6 @@ function normalizeRules(value: unknown): LifecycleRuleRecord[] {
     (rule): rule is LifecycleRuleRecord =>
       rule !== null && typeof rule === "object" && !Array.isArray(rule),
   );
-}
-
-function rulesText(rules: LifecycleRuleRecord[]): string {
-  return JSON.stringify(rules, null, 2);
 }
 
 export function useBucketLifecycleController({
@@ -116,7 +113,7 @@ export function useBucketLifecycleController({
     targetIndex: number | null,
   ) => {
     setDraftRules(nextDraft);
-    setJsonText(rulesText(nextDraft));
+    setJsonText(formatBucketJsonValue(nextDraft));
     setEditorMode(mode);
     setEditorTargetIndex(targetIndex);
     setLastRemovedRule(null);
@@ -163,7 +160,7 @@ export function useBucketLifecycleController({
       if (nextMode === editorMode) return;
       setEditorError(null);
       if (nextMode === "json") {
-        setJsonText(rulesText(draftRules));
+        setJsonText(formatBucketJsonValue(draftRules));
         setEditorMode("json");
         return;
       }
@@ -299,7 +296,7 @@ export function useBucketLifecycleController({
       if (savedRules === null) return;
       applyBaseline(savedRules);
       setDraftRules(cloneBucketJsonValue(savedRules));
-      setJsonText(rulesText(savedRules));
+      setJsonText(formatBucketJsonValue(savedRules));
       setStatus(savedRules.length === 0 ? "Lifecycle deleted" : "Lifecycle updated");
       setLastRemovedRule(null);
       setEditorTargetIndex(null);

@@ -14,6 +14,7 @@ import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/ap
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   cloneBucketJsonValue,
+  formatBucketJsonValue,
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
@@ -43,10 +44,6 @@ type UseBucketPolicyControllerOptions = {
 function normalizePolicy(value: unknown): PolicyDocumentRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value as PolicyDocumentRecord;
-}
-
-function policyText(policy: PolicyDocumentRecord): string {
-  return JSON.stringify(policy, null, 2);
 }
 
 function nextStatementSid(policy: PolicyDocumentRecord): string {
@@ -121,7 +118,7 @@ export function useBucketPolicyController({
     targetIndex: number | null,
   ) => {
     setDraftPolicy(nextDraft);
-    setJsonText(policyText(nextDraft));
+    setJsonText(formatBucketJsonValue(nextDraft));
     setEditorMode(mode);
     setEditorTargetIndex(targetIndex);
     setEditorError(null);
@@ -166,7 +163,7 @@ export function useBucketPolicyController({
     if (nextMode === editorMode) return;
     setEditorError(null);
     if (nextMode === "json") {
-      setJsonText(policyText(draftPolicy));
+      setJsonText(formatBucketJsonValue(draftPolicy));
       setEditorMode("json");
       return;
     }
@@ -312,7 +309,7 @@ export function useBucketPolicyController({
       if (savedPolicy === null) return;
       applyBaseline(savedPolicy);
       setDraftPolicy(cloneBucketJsonValue(savedPolicy));
-      setJsonText(policyText(savedPolicy));
+      setJsonText(formatBucketJsonValue(savedPolicy));
       setStatus(isPolicyConfigurationEmpty(savedPolicy) ? "Bucket policy deleted" : "Bucket policy updated");
       setEditorTargetIndex(null);
       setEditorOpen(false);

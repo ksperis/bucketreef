@@ -15,6 +15,7 @@ import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   cloneBucketJsonValue,
+  formatBucketJsonValue,
   jsonTextSignature,
   normalizeNotificationConfiguration,
   stableBucketJsonSignature,
@@ -45,10 +46,6 @@ type UseBucketNotificationsControllerOptions = {
 function asConfiguration(value: unknown): NotificationConfigurationRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return {};
   return value as NotificationConfigurationRecord;
-}
-
-function configurationText(configuration: NotificationConfigurationRecord): string {
-  return JSON.stringify(configuration, null, 2);
 }
 
 function isEmptyConfiguration(configuration: NotificationConfigurationRecord): boolean {
@@ -116,7 +113,7 @@ export function useBucketNotificationsController({
     targetIndex: number | null,
   ) => {
     setDraftConfiguration(nextDraft);
-    setJsonText(configurationText(nextDraft));
+    setJsonText(formatBucketJsonValue(nextDraft));
     setEditorMode(mode);
     setEditorTargetIndex(targetIndex);
     setEditorError(null);
@@ -161,7 +158,7 @@ export function useBucketNotificationsController({
       if (nextMode === editorMode) return;
       setEditorError(null);
       if (nextMode === "json") {
-        setJsonText(configurationText(draftConfiguration));
+        setJsonText(formatBucketJsonValue(draftConfiguration));
         setEditorMode("json");
         return;
       }
@@ -268,7 +265,7 @@ export function useBucketNotificationsController({
       if (savedConfiguration === null) return;
       applyBaseline(savedConfiguration);
       setDraftConfiguration(savedConfiguration);
-      setJsonText(configurationText(savedConfiguration));
+      setJsonText(formatBucketJsonValue(savedConfiguration));
       setStatus(isEmptyConfiguration(savedConfiguration) ? "Notifications cleared." : "Notifications updated.");
       setEditorTargetIndex(null);
       setEditorOpen(false);

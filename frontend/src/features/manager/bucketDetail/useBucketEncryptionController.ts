@@ -14,6 +14,7 @@ import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/ap
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   cloneBucketJsonValue,
+  formatBucketJsonValue,
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
@@ -41,10 +42,6 @@ function normalizeRules(value: unknown): EncryptionRuleRecord[] {
     (rule): rule is EncryptionRuleRecord =>
       rule !== null && typeof rule === "object" && !Array.isArray(rule),
   );
-}
-
-function rulesText(rules: EncryptionRuleRecord[]): string {
-  return JSON.stringify(rules, null, 2);
 }
 
 export function useBucketEncryptionController({
@@ -114,7 +111,7 @@ export function useBucketEncryptionController({
     if (!enabled) return;
     const nextDraft = cloneBucketJsonValue(rules);
     setDraftRules(nextDraft);
-    setJsonText(rulesText(nextDraft));
+    setJsonText(formatBucketJsonValue(nextDraft));
     setEditorMode("visual");
     setEditorError(null);
     setStatus(null);
@@ -136,7 +133,7 @@ export function useBucketEncryptionController({
       if (nextMode === editorMode) return;
       setEditorError(null);
       if (nextMode === "json") {
-        setJsonText(rulesText(draftRules));
+        setJsonText(formatBucketJsonValue(draftRules));
         setEditorMode("json");
         return;
       }
@@ -220,7 +217,7 @@ export function useBucketEncryptionController({
         const savedRules = normalizeRules(saved.rules ?? nextRules);
         applyBaseline(savedRules);
         setDraftRules(cloneBucketJsonValue(savedRules));
-        setJsonText(rulesText(savedRules));
+        setJsonText(formatBucketJsonValue(savedRules));
         setStatus("Bucket encryption updated.");
       }
       setEditorOpen(false);

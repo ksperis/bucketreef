@@ -13,6 +13,7 @@ import {
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import {
   cloneBucketJsonValue,
+  formatBucketJsonValue,
   jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
@@ -41,10 +42,6 @@ function normalizeRules(value: unknown): CorsRuleRecord[] {
     (rule): rule is CorsRuleRecord =>
       rule !== null && typeof rule === "object" && !Array.isArray(rule),
   );
-}
-
-function rulesText(rules: CorsRuleRecord[]): string {
-  return JSON.stringify(rules, null, 2);
 }
 
 export function useBucketCorsController({
@@ -113,7 +110,7 @@ export function useBucketCorsController({
     targetIndex: number | null,
   ) => {
     setDraftRules(nextDraft);
-    setJsonText(rulesText(nextDraft));
+    setJsonText(formatBucketJsonValue(nextDraft));
     setEditorMode(mode);
     setEditorTargetIndex(targetIndex);
     setEditorError(null);
@@ -154,7 +151,7 @@ export function useBucketCorsController({
       if (nextMode === editorMode) return;
       setEditorError(null);
       if (nextMode === "json") {
-        setJsonText(rulesText(draftRules));
+        setJsonText(formatBucketJsonValue(draftRules));
         setEditorMode("json");
         return;
       }
@@ -254,7 +251,7 @@ export function useBucketCorsController({
       if (savedRules === null) return;
       applyBaseline(savedRules);
       setDraftRules(cloneBucketJsonValue(savedRules));
-      setJsonText(rulesText(savedRules));
+      setJsonText(formatBucketJsonValue(savedRules));
       setStatus(savedRules.length === 0 ? "CORS configuration deleted" : "CORS configuration updated");
       setEditorTargetIndex(null);
       setEditorOpen(false);
