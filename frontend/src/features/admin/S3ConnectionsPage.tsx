@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
@@ -21,14 +21,12 @@ import {
   S3ConnectionAdminItem,
   createAdminS3Connection,
   deleteAdminS3Connection,
-  listAdminS3Connections,
   updateAdminS3Connection,
   validateAdminS3ConnectionCredentials,
 } from "../../api/s3ConnectionsAdmin";
 import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import { extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
-import { collectPaginatedItems } from "../../utils/pagination";
 import { normalizeUiTags } from "../../utils/uiTags";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminSimpleIdAssociationsPanel, {
@@ -61,10 +59,9 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 import { useAdminI18n } from "./adminI18n";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminPaginationState from "./useAdminPaginationState";
-import AdminS3ConnectionsList, {
-  type S3ConnectionBulkStatusAction,
-} from "./AdminS3ConnectionsList";
+import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
+import useAdminS3ConnectionsListController from "./useAdminS3ConnectionsListController";
 
 type EditTab = "general" | "users" | "groups";
 
@@ -73,9 +70,6 @@ export default function S3ConnectionsPage() {
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { generalSettings } = useGeneralSettings();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
-  const [items, setItems] = useState<S3ConnectionAdminItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const {
     filter,
     page,
@@ -86,8 +80,39 @@ export default function S3ConnectionsPage() {
     resetPage,
     ensurePageInRange,
   } = useAdminPaginationState();
-  const [total, setTotal] = useState(0);
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
+  const {
+    items,
+    loading,
+    error,
+    total,
+    actionMessage,
+    setActionMessage,
+    selectedIds,
+    resolvedFilteredSelectableIds,
+    statusBusyId,
+    selectAllFilteredBusy,
+    bulkStatusAction,
+    bulkDeleteOpen,
+    bulkDeleteBusy,
+    refreshItems,
+    clearSelection,
+    removeSelectedId,
+    toggleRowSelection,
+    setSelectionForFilteredResults,
+    submitToggleConnectionStatus,
+    submitBulkStatusChange,
+    openBulkDelete,
+    closeBulkDelete,
+    submitBulkDelete,
+  } = useAdminS3ConnectionsListController({
+    filter,
+    quickFilterMode,
+    page,
+    pageSize,
+    ensurePageInRange,
+    runWithStepUp,
+  });
 
   const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
   const [loadingEndpoints, setLoadingEndpoints] = useState(false);
@@ -139,16 +164,6 @@ export default function S3ConnectionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<S3ConnectionAdminItem | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [statusBusyId, setStatusBusyId] = useState<number | null>(null);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [bulkStatusAction, setBulkStatusAction] = useState<S3ConnectionBulkStatusAction | null>(null);
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
-  const [selectAllFilteredBusy, setSelectAllFilteredBusy] = useState(false);
-  const [allFilteredSelectableIds, setAllFilteredSelectableIds] = useState<number[] | null>(null);
-  const [allFilteredSelectableIdsKey, setAllFilteredSelectableIdsKey] = useState<string | null>(null);
-
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const showEditGeneralTab = editTab === "general";
   const showEditUsersTab = editTab === "users";
   const showEditGroupsTab = editTab === "groups";
@@ -215,33 +230,6 @@ export default function S3ConnectionsPage() {
     );
     setShowCreateModal(true);
   };
-
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const quick = filter.trim();
-      const response = await listAdminS3Connections({
-        page,
-        page_size: pageSize,
-        search: quick || undefined,
-        search_exact: quickFilterMode === "exact",
-      });
-      if (!ensurePageInRange(response.total)) return;
-      setItems(response.items);
-      setTotal(response.total);
-      setAllFilteredSelectableIds(null);
-      setAllFilteredSelectableIdsKey(null);
-    } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
-    } finally {
-      setLoading(false);
-    }
-  }, [adminText, ensurePageInRange, filter, page, pageSize, quickFilterMode]);
-
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
 
   useEffect(() => {
     const loadEndpoints = async () => {
@@ -376,57 +364,6 @@ export default function S3ConnectionsPage() {
     form: editForm, linkedGroupIds: editLinkedGroupIds, linkedUserIds: editLinkedUserIds,
   });
   const editFormValidation = useS3ConnectionFormValidation(editPrepared, editEndpointMode === "custom" ? editForm.endpoint_url : undefined);
-  const selectionQueryKey = useMemo(
-    () =>
-      JSON.stringify({
-        filter: filter.trim() || null,
-        matchMode: quickFilterMode,
-      }),
-    [filter, quickFilterMode]
-  );
-  useEffect(() => {
-    setAllFilteredSelectableIds(null);
-    setAllFilteredSelectableIdsKey(null);
-  }, [selectionQueryKey]);
-
-  useEffect(() => {
-    setSelectedIds([]);
-  }, [page, pageSize]);
-  const loadAllSelectableFilteredIds = useCallback(async () => {
-    if (allFilteredSelectableIdsKey === selectionQueryKey && allFilteredSelectableIds) {
-      return allFilteredSelectableIds;
-    }
-    const allItems = await collectPaginatedItems((nextPage) =>
-      listAdminS3Connections({
-        page: nextPage,
-        page_size: 200,
-        search: filter.trim() || undefined,
-        search_exact: quickFilterMode === "exact",
-      }),
-    );
-    const ids = new Set(allItems.map((item) => item.id));
-    const resolved = Array.from(ids.values());
-    setAllFilteredSelectableIds(resolved);
-    setAllFilteredSelectableIdsKey(selectionQueryKey);
-    return resolved;
-  }, [allFilteredSelectableIds, allFilteredSelectableIdsKey, filter, quickFilterMode, selectionQueryKey]);
-
-  const setSelectionForFilteredResults = useCallback(
-    async (checked: boolean) => {
-      setSelectAllFilteredBusy(true);
-      setError(null);
-      try {
-        const selectableFilteredIds = await loadAllSelectableFilteredIds();
-        setSelectedIds(checked ? selectableFilteredIds : []);
-      } catch (err) {
-        setError(extractApiError(err, adminText("Unexpected error")));
-      } finally {
-        setSelectAllFilteredBusy(false);
-      }
-    },
-    [adminText, loadAllSelectableFilteredIds]
-  );
-
   const openEdit = (conn: S3ConnectionAdminItem, initialTab: EditTab = "general") => {
     editFormValidation.reset();
     const presetMatch =
@@ -487,7 +424,7 @@ export default function S3ConnectionsPage() {
       setShowCreateModal(false);
       resetCreateForm();
       setActionMessage(adminText("Connection created."));
-      await fetchItems();
+      await refreshItems();
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
         setCreateError(extractApiError(err, adminText("Unexpected error")));
@@ -511,7 +448,7 @@ export default function S3ConnectionsPage() {
       const updated = await runWithStepUp(() => updateAdminS3Connection(editing.id, prepared.payload));
       openEdit(updated, editTab);
       setActionMessage(adminText("Connection updated."));
-      await fetchItems();
+      await refreshItems();
     } catch (err) {
       if (!isRecentWebAuthnVerificationCancelled(err)) {
         setEditError(extractApiError(err, adminText("Unexpected error")));
@@ -528,129 +465,14 @@ export default function S3ConnectionsPage() {
     try {
       await deleteAdminS3Connection(deleteTarget.id);
       setDeleteTarget(null);
-      setSelectedIds((prev) => prev.filter((connectionId) => connectionId !== deleteTarget.id));
+      removeSelectedId(deleteTarget.id);
       setActionMessage(adminText("Connection deleted."));
-      await fetchItems();
+      await refreshItems();
     } catch (err) {
       setDeleteError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setDeleteBusy(false);
     }
-  };
-
-  const submitToggleConnectionStatus = async (conn: S3ConnectionAdminItem) => {
-    if (conn.execution_status === "remediation_required") {
-      setStatusBusyId(conn.id);
-      setError(null);
-      try {
-        await runWithStepUp(() => updateAdminS3Connection(conn.id, {
-          remediation_action: "activate_manager",
-        }));
-        setActionMessage(adminText("Connection remediated and activated for Manager."));
-        await fetchItems();
-      } catch (err) {
-        if (!isRecentWebAuthnVerificationCancelled(err)) {
-          setError(extractApiError(err, adminText("Unexpected error")));
-        }
-      } finally {
-        setStatusBusyId(null);
-      }
-      return;
-    }
-    const nextIsActive = !conn.is_active;
-    setStatusBusyId(conn.id);
-    setError(null);
-    setActionMessage(null);
-    try {
-      await (nextIsActive
-        ? runWithStepUp(() => updateAdminS3Connection(conn.id, { is_active: true }))
-        : updateAdminS3Connection(conn.id, { is_active: false }));
-      setActionMessage(adminText(nextIsActive ? "Connection activated." : "Connection disabled."));
-      await fetchItems();
-    } catch (err) {
-      if (!isRecentWebAuthnVerificationCancelled(err)) {
-        setError(extractApiError(err, adminText("Unexpected error")));
-      }
-    } finally {
-      setStatusBusyId(null);
-    }
-  };
-
-  const submitBulkStatusChange = async (action: S3ConnectionBulkStatusAction) => {
-    if (selectedIds.length === 0 || bulkStatusAction !== null) return;
-    const connectionIds = [...selectedIds];
-    setBulkStatusAction(action);
-    setError(null);
-    setActionMessage(null);
-    const failedIds: number[] = [];
-    try {
-      if (action === "disable") {
-        const results = await Promise.allSettled(
-          connectionIds.map((connectionId) => updateAdminS3Connection(connectionId, { is_active: false }))
-        );
-        connectionIds.forEach((connectionId, index) => {
-          if (results[index].status === "rejected") failedIds.push(connectionId);
-        });
-      } else {
-        for (const connectionId of connectionIds) {
-          try {
-            const connection = items.find((item) => item.id === connectionId);
-            await runWithStepUp(() => connection?.execution_status === "remediation_required"
-              ? updateAdminS3Connection(connectionId, {
-                  remediation_action: "activate_manager",
-                })
-              : updateAdminS3Connection(connectionId, { is_active: true }));
-          } catch (err) {
-            if (isRecentWebAuthnVerificationCancelled(err)) return;
-            failedIds.push(connectionId);
-          }
-        }
-      }
-      const successCount = connectionIds.length - failedIds.length;
-      const completedAction = action === "activate" ? "activated" : "disabled";
-      setSelectedIds(failedIds);
-      if (successCount > 0) {
-        await fetchItems();
-      }
-      if (failedIds.length > 0) {
-        setError(`${failedIds.length} connection${failedIds.length > 1 ? "s" : ""} could not be ${completedAction}.`);
-      }
-      setActionMessage(
-        `${successCount} connection${successCount > 1 ? "s" : ""} ${completedAction}.` +
-          (failedIds.length > 0 ? ` ${failedIds.length} failed.` : "")
-      );
-    } finally {
-      setBulkStatusAction(null);
-    }
-  };
-
-  const submitBulkDelete = async () => {
-    if (bulkDeleteBusy) return;
-    if (selectedIds.length === 0) {
-      setBulkDeleteOpen(false);
-      return;
-    }
-    setBulkDeleteBusy(true);
-    setError(null);
-    setActionMessage(null);
-    const results = await Promise.allSettled(
-      selectedIds.map((connectionId) => deleteAdminS3Connection(connectionId))
-    );
-    const failedIds = selectedIds.filter((_, index) => results[index].status === "rejected");
-    const successCount = selectedIds.length - failedIds.length;
-    setSelectedIds(failedIds);
-    setBulkDeleteOpen(false);
-    if (successCount > 0) {
-      await fetchItems();
-    }
-    if (failedIds.length > 0) {
-      setError(`${failedIds.length} connection${failedIds.length > 1 ? "s" : ""} could not be deleted.`);
-    }
-    setActionMessage(
-      `${successCount} connection${successCount > 1 ? "s" : ""} deleted.` +
-        (failedIds.length > 0 ? ` ${failedIds.length} failed.` : "")
-    );
-    setBulkDeleteBusy(false);
   };
 
   return (
@@ -676,37 +498,29 @@ export default function S3ConnectionsPage() {
         page={page}
         pageSize={pageSize}
         selectedIds={selectedIds}
-        resolvedFilteredSelectableIds={
-          allFilteredSelectableIdsKey === selectionQueryKey ? allFilteredSelectableIds : null
-        }
+        resolvedFilteredSelectableIds={resolvedFilteredSelectableIds}
         statusBusyId={statusBusyId}
         selectAllFilteredBusy={selectAllFilteredBusy}
         bulkStatusAction={bulkStatusAction}
         bulkDeleteBusy={bulkDeleteBusy}
         onFilterChange={(value) => {
           handleFilterChange(value);
-          setSelectedIds([]);
+          clearSelection();
         }}
         onQuickFilterModeChange={(mode) => {
           setQuickFilterMode(mode);
-          setSelectedIds([]);
+          clearSelection();
           resetPage();
         }}
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}
-        onToggleRowSelection={(connectionId) =>
-          setSelectedIds((current) =>
-            current.includes(connectionId)
-              ? current.filter((id) => id !== connectionId)
-              : [...current, connectionId],
-          )
-        }
+        onToggleRowSelection={toggleRowSelection}
         onSelectAllFiltered={setSelectionForFilteredResults}
         onToggleStatus={submitToggleConnectionStatus}
         onEdit={openEdit}
         onDelete={setDeleteTarget}
         onBulkStatusChange={submitBulkStatusChange}
-        onBulkDelete={() => setBulkDeleteOpen(true)}
+        onBulkDelete={openBulkDelete}
       />
 
       {/* Create modal */}
@@ -923,7 +737,7 @@ export default function S3ConnectionsPage() {
           confirmLabel={adminText("Delete selected connections")}
           processingLabel="Deleting..."
           loading={bulkDeleteBusy}
-          onCancel={() => setBulkDeleteOpen(false)}
+          onCancel={closeBulkDelete}
           onConfirm={() => void submitBulkDelete()}
         />
       )}
