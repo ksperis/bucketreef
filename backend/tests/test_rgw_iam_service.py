@@ -361,6 +361,130 @@ def test_list_users_enriches_user_data_and_skips_malformed_entries(monkeypatch):
     assert user.has_keys is True
 
 
+def test_iam_list_operations_follow_markers_until_complete(monkeypatch):
+    fake = _FakeIAMClient()
+
+    def paged(result_key, first_page, second_page):
+        calls: list[dict] = []
+
+        def call(**kwargs):
+            calls.append(dict(kwargs))
+            marker = kwargs.get("Marker")
+            if marker is None:
+                return {
+                    result_key: first_page,
+                    "IsTruncated": True,
+                    "Marker": "next-page",
+                }
+            assert marker == "next-page"
+            return {result_key: second_page, "IsTruncated": False}
+
+        return call, calls
+
+    fake.list_users, user_calls = paged(
+        "Users",
+        [{"UserName": "alice", "UserId": "uid-alice", "Arn": "arn:alice"}],
+        [{"UserName": "bob", "UserId": "uid-bob", "Arn": "arn:bob"}],
+    )
+    fake.list_groups_for_user, group_for_user_calls = paged(
+        "Groups",
+        [{"GroupName": "grp-a", "Arn": "arn:grp-a"}],
+        [{"GroupName": "grp-b", "Arn": "arn:grp-b"}],
+    )
+    fake.list_attached_user_policies, attached_user_policy_calls = paged(
+        "AttachedPolicies",
+        [{"PolicyName": "user-a", "PolicyArn": "arn:user-a"}],
+        [{"PolicyName": "user-b", "PolicyArn": "arn:user-b"}],
+    )
+    fake.list_user_policies, _ = paged("PolicyNames", ["inline-user-a"], ["inline-user-b"])
+    fake.list_access_keys, _ = paged(
+        "AccessKeyMetadata",
+        [{"AccessKeyId": "AKIA-A", "Status": "Active"}],
+        [{"AccessKeyId": "AKIA-B", "Status": "Inactive"}],
+    )
+    fake.list_groups, group_calls = paged(
+        "Groups",
+        [{"GroupName": "grp-a", "Arn": "arn:grp-a"}],
+        [{"GroupName": "grp-b", "Arn": "arn:grp-b"}],
+    )
+    fake.list_attached_group_policies, _ = paged(
+        "AttachedPolicies",
+        [{"PolicyName": "group-a", "PolicyArn": "arn:group-a"}],
+        [{"PolicyName": "group-b", "PolicyArn": "arn:group-b"}],
+    )
+    fake.list_group_policies, _ = paged("PolicyNames", ["inline-group-a"], ["inline-group-b"])
+    fake.list_roles, role_calls = paged(
+        "Roles",
+        [{"RoleName": "role-a", "Arn": "arn:role-a"}],
+        [{"RoleName": "role-b", "Arn": "arn:role-b"}],
+    )
+    fake.list_attached_role_policies, _ = paged(
+        "AttachedPolicies",
+        [{"PolicyName": "role-policy-a", "PolicyArn": "arn:role-policy-a"}],
+        [{"PolicyName": "role-policy-b", "PolicyArn": "arn:role-policy-b"}],
+    )
+    fake.list_role_policies, _ = paged("PolicyNames", ["inline-role-a"], ["inline-role-b"])
+    fake.list_role_tags, _ = paged(
+        "Tags",
+        [{"Key": "environment", "Value": "test"}],
+        [{"Key": "team", "Value": "storage"}],
+    )
+    fake.list_policies, policy_calls = paged(
+        "Policies",
+        [{"PolicyName": "policy-a", "Arn": "arn:policy-a"}],
+        [{"PolicyName": "policy-b", "Arn": "arn:policy-b"}],
+    )
+
+    service, _ = _service(monkeypatch, fake)
+
+    users = service.list_users()
+    assert [user.name for user in users] == ["alice", "bob"]
+    assert users[0].groups == ["grp-a", "grp-b"]
+    assert users[0].policies == ["arn:user-a", "arn:user-b"]
+    assert users[0].inline_policies == ["inline-user-a", "inline-user-b"]
+    assert users[0].has_keys is True
+    assert [key.access_key_id for key in service.list_access_keys("alice")] == ["AKIA-A", "AKIA-B"]
+    assert [policy.arn for policy in service.list_user_policies("alice")] == ["arn:user-a", "arn:user-b"]
+    assert service.list_user_inline_policies("alice") == ["inline-user-a", "inline-user-b"]
+    assert [group.name for group in service.list_groups_for_user("alice")] == ["grp-a", "grp-b"]
+    assert [group.name for group in service.list_groups()] == ["grp-a", "grp-b"]
+    assert [policy.arn for policy in service.list_group_policies("grp-a")] == ["arn:group-a", "arn:group-b"]
+    assert service.list_group_inline_policies("grp-a") == ["inline-group-a", "inline-group-b"]
+    assert [role.name for role in service.list_roles()] == ["role-a", "role-b"]
+    assert [tag.key for tag in service.list_role_tags("role-a")] == ["environment", "team"]
+    assert [policy.arn for policy in service.list_policies()] == ["arn:policy-a", "arn:policy-b"]
+    assert [policy.arn for policy in service.list_role_policies("role-a")] == [
+        "arn:role-policy-a",
+        "arn:role-policy-b",
+    ]
+    assert service.list_role_inline_policies("role-a") == ["inline-role-a", "inline-role-b"]
+
+    assert user_calls[:2] == [{}, {"Marker": "next-page"}]
+    assert group_calls[:2] == [{}, {"Marker": "next-page"}]
+    assert role_calls[:2] == [{}, {"Marker": "next-page"}]
+    assert policy_calls[:2] == [{"Scope": "Local"}, {"Scope": "Local", "Marker": "next-page"}]
+    assert group_for_user_calls[:2] == [
+        {"UserName": "alice"},
+        {"UserName": "alice", "Marker": "next-page"},
+    ]
+    assert attached_user_policy_calls[:2] == [
+        {"UserName": "alice"},
+        {"UserName": "alice", "Marker": "next-page"},
+    ]
+
+
+def test_iam_pagination_rejects_truncated_page_without_next_marker(monkeypatch):
+    service, fake = _service(monkeypatch)
+    monkeypatch.setattr(
+        fake,
+        "list_access_keys",
+        lambda **kwargs: {"AccessKeyMetadata": [], "IsTruncated": True},
+    )
+
+    with pytest.raises(RuntimeError, match="without a usable Marker"):
+        service.list_access_keys("alice")
+
+
 def test_create_get_delete_user_error_paths(monkeypatch):
     service, fake = _service(monkeypatch)
 
