@@ -2,31 +2,16 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { listBuckets } from "../../api/managerBuckets";
 import type { Bucket } from "../../api/bucketContracts";
 import {
-  getManagerUsageStatsAggregate,
-  type BucketUsageStatsAggregate,
-} from "../../api/bucketUsageStats";
-import {
-  fetchManagerWorkspaceHealthOverview,
   type HealthCheckStatus,
   type WorkspaceEndpointHealthEntry,
-  type WorkspaceEndpointHealthOverviewResponse,
   type WorkspaceEndpointIncidentEntry,
 } from "../../api/healthchecks";
-import { listManagerActivity, type ManagerActivityEntry } from "../../api/managerActivity";
-import { fetchManagerContext, type ManagerContext } from "../../api/managerContext";
-import {
-  fetchManagerTraffic,
-  fetchManagerUsageTrends,
-  type ManagerTrafficStats,
-  type ManagerUsageTrendBaseline,
-  type ManagerUsageTrendsResponse,
-  type TrafficWindow,
-} from "../../api/stats";
+import type { ManagerActivityEntry } from "../../api/managerActivity";
+import type { ManagerUsageTrendBaseline } from "../../api/stats";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import PageHeader from "../../components/PageHeader";
 import {
@@ -41,14 +26,11 @@ import {
   type WorkspaceDashboardTone as DashboardTone,
 } from "../../components/WorkspaceDashboardKit";
 import {
-  WORKSPACE_TRAFFIC_TREND_WINDOWS as TRAFFIC_TREND_WINDOWS,
   buildWorkspaceDashboardKpis,
   formatWorkspaceOptionalBytes,
   formatWorkspaceProjectedFull,
   formatWorkspaceSignedBytesDelta,
-  selectWorkspaceTrafficTrend,
   workspaceStorageGrowthDelta,
-  type WorkspaceTrafficTrendSelection,
 } from "../../components/workspaceDashboardKpis";
 import UiBadge from "../../components/ui/UiBadge";
 import {
@@ -56,7 +38,6 @@ import {
   uiCardClass,
   uiMutedTextClass,
 } from "../../components/ui/styles";
-import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime, getBackendRelativeTime } from "../../utils/dateTime";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
 import { clampedPercentageOf } from "../../utils/numbers";
@@ -78,6 +59,7 @@ import {
 import { formatAccountLabel } from "../shared/storageEndpointLabel";
 import { BucketUsageStatsDataTypesCard } from "../shared/BucketUsageStatsVisuals";
 import { useIamOverview } from "./useIamOverview";
+import { useManagerDashboardResources } from "./useManagerDashboardResources";
 import { useManagerStats } from "./useManagerStats";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
@@ -639,25 +621,6 @@ export default function ManagerDashboard() {
   } = useExecutionContext();
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date());
-  const [workspaceHealth, setWorkspaceHealth] = useState<WorkspaceEndpointHealthOverviewResponse | null>(null);
-  const [workspaceHealthLoading, setWorkspaceHealthLoading] = useState(false);
-  const [workspaceHealthError, setWorkspaceHealthError] = useState<string | null>(null);
-  const [buckets, setBuckets] = useState<Bucket[]>([]);
-  const [bucketCountLoading, setBucketCountLoading] = useState(false);
-  const [bucketCountError, setBucketCountError] = useState<string | null>(null);
-  const [activityLogs, setActivityLogs] = useState<ManagerActivityEntry[]>([]);
-  const [activityLoading, setActivityLoading] = useState(false);
-  const [activityError, setActivityError] = useState<string | null>(null);
-  const [trafficStats, setTrafficStats] = useState<ManagerTrafficStats | null>(null);
-  const [trafficTrend, setTrafficTrend] = useState<WorkspaceTrafficTrendSelection | null>(null);
-  const [trafficLoading, setTrafficLoading] = useState(false);
-  const [trafficError, setTrafficError] = useState<string | null>(null);
-  const [usageTrends, setUsageTrends] = useState<ManagerUsageTrendsResponse | null>(null);
-  const [usageTrendsLoading, setUsageTrendsLoading] = useState(false);
-  const [usageStatsAggregate, setUsageStatsAggregate] = useState<BucketUsageStatsAggregate | null>(null);
-  const [usageStatsLoading, setUsageStatsLoading] = useState(false);
-  const [managerLimits, setManagerLimits] = useState<ManagerContext | null>(null);
-
   const selected = useMemo(
     () => contexts.find((context) => context.id === selectedContextId),
     [contexts, selectedContextId]
@@ -687,207 +650,36 @@ export default function ManagerDashboard() {
     hasContext,
     refreshKey
   );
-
-  useEffect(() => {
-    if (!hasContext) {
-      setManagerLimits(null);
-      return;
-    }
-    let cancelled = false;
-    setManagerLimits(null);
-    fetchManagerContext(contextIdForApi, { includeLimits: true })
-      .then((context) => {
-        if (!cancelled) setManagerLimits(context);
-      })
-      .catch(() => {
-        if (!cancelled) setManagerLimits(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contextIdForApi, hasContext, refreshNonce]);
-
-  useEffect(() => {
-    if (!hasContext) {
-      setWorkspaceHealth(null);
-      setWorkspaceHealthError(null);
-      setWorkspaceHealthLoading(false);
-      return;
-    }
-    if (!generalSettings.endpoint_status_enabled) {
-      setWorkspaceHealth(null);
-      setWorkspaceHealthError(null);
-      setWorkspaceHealthLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setWorkspaceHealthLoading(true);
-    setWorkspaceHealthError(null);
-    fetchManagerWorkspaceHealthOverview(contextIdForApi)
-      .then((data) => {
-        if (cancelled) return;
-        setWorkspaceHealth(data);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setWorkspaceHealth(null);
-        setWorkspaceHealthError(extractApiError(err, text("Unable to load endpoint health for this context.")));
-      })
-      .finally(() => {
-        if (!cancelled) setWorkspaceHealthLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contextIdForApi, generalSettings.endpoint_status_enabled, hasContext, refreshNonce, text]);
-
-  useEffect(() => {
-    if (!hasContext) {
-      setBuckets([]);
-      setBucketCountError(null);
-      setBucketCountLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setBucketCountLoading(true);
-    setBucketCountError(null);
-    listBuckets(contextIdForApi, { with_stats: false })
-      .then((items) => {
-        if (cancelled) return;
-        setBuckets(items);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setBuckets([]);
-        setBucketCountError(extractApiError(err, text("Unable to load bucket count.")));
-      })
-      .finally(() => {
-        if (!cancelled) setBucketCountLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contextIdForApi, hasContext, refreshNonce, text]);
-
-  useEffect(() => {
-    if (!hasContext || !activityHistoryEnabled) {
-      setActivityLogs([]);
-      setActivityError(null);
-      setActivityLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setActivityLoading(true);
-    setActivityError(null);
-    listManagerActivity(contextIdForApi, { limit: 5 })
-      .then((items) => {
-        if (cancelled) return;
-        setActivityLogs(items);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setActivityLogs([]);
-        setActivityError(extractApiError(err, text("Unable to load manager activity.")));
-      })
-      .finally(() => {
-        if (!cancelled) setActivityLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contextIdForApi, activityHistoryEnabled, hasContext, refreshNonce, text]);
-
-  useEffect(() => {
-    if (!hasContext || !trafficFeatureEnabled) {
-      setTrafficStats(null);
-      setTrafficTrend(null);
-      setTrafficError(null);
-      setTrafficLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setTrafficLoading(true);
-    setTrafficError(null);
-    Promise.allSettled(
-      TRAFFIC_TREND_WINDOWS.map((option) =>
-        fetchManagerTraffic(contextIdForApi, option.window).then((data) => [option.window, data] as const)
-      )
-    )
-      .then((results) => {
-        if (cancelled) return;
-        const entries = results
-          .filter((result): result is PromiseFulfilledResult<readonly [TrafficWindow, ManagerTrafficStats]> => result.status === "fulfilled")
-          .map((result) => result.value);
-        const statsByWindow = Object.fromEntries(entries) as Partial<Record<TrafficWindow, ManagerTrafficStats>>;
-        const dayStats = statsByWindow.day ?? null;
-        setTrafficStats(dayStats);
-        setTrafficTrend(selectWorkspaceTrafficTrend(statsByWindow));
-        const dayFailure = results.find(
-          (result): result is PromiseRejectedResult => result.status === "rejected"
-        );
-        setTrafficError(dayStats ? null : extractApiError(dayFailure?.reason, text("Unable to load traffic usage.")));
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setTrafficStats(null);
-        setTrafficTrend(null);
-        setTrafficError(extractApiError(err, text("Unable to load traffic usage.")));
-      })
-      .finally(() => {
-        if (!cancelled) setTrafficLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contextIdForApi, hasContext, refreshNonce, text, trafficFeatureEnabled]);
-
-  useEffect(() => {
-    if (!hasContext || !usageFeatureEnabled) {
-      setUsageTrends(null);
-      setUsageTrendsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setUsageTrendsLoading(true);
-    fetchManagerUsageTrends(contextIdForApi)
-      .then((data) => {
-        if (!cancelled) setUsageTrends(data);
-      })
-      .catch(() => {
-        if (!cancelled) setUsageTrends(null);
-      })
-      .finally(() => {
-        if (!cancelled) setUsageTrendsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contextIdForApi, hasContext, refreshNonce, usageFeatureEnabled]);
-
-  useEffect(() => {
-    if (!canLoadUsageStatsDataTypes) {
-      setUsageStatsAggregate(null);
-      setUsageStatsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setUsageStatsLoading(true);
-    getManagerUsageStatsAggregate(contextIdForApi)
-      .then((data) => {
-        if (!cancelled) setUsageStatsAggregate(data.aggregate);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setUsageStatsAggregate(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setUsageStatsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [contextIdForApi, canLoadUsageStatsDataTypes, refreshNonce]);
+  const {
+    workspaceHealth,
+    workspaceHealthLoading,
+    workspaceHealthError,
+    buckets,
+    bucketCountLoading,
+    bucketCountError,
+    activityLogs,
+    activityLoading,
+    activityError,
+    trafficStats,
+    trafficTrend,
+    trafficLoading,
+    trafficError,
+    usageTrends,
+    usageTrendsLoading,
+    usageStatsAggregate,
+    usageStatsLoading,
+    managerLimits,
+  } = useManagerDashboardResources({
+    contextIdForApi,
+    hasContext,
+    endpointStatusEnabled: generalSettings.endpoint_status_enabled,
+    activityHistoryEnabled,
+    trafficFeatureEnabled,
+    usageFeatureEnabled,
+    canLoadUsageStatsDataTypes,
+    refreshNonce,
+    text,
+  });
 
   const contextLabel = selected
     ? formatAccountLabel(selected)
