@@ -14,6 +14,7 @@ import BrandMark from "./BrandMark";
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { SIDEBAR_COMPACT_WIDTH, SIDEBAR_DEFAULT_WIDTH } from "./sidebarSizing";
 import { useShellI18n } from "./shellMessages";
+import { OpenStackIcon as NavOpenStackIcon } from "./topbarIcons";
 
 export type SidebarLink = {
   to: string;
@@ -699,19 +700,6 @@ function NavMultisiteIcon(props: React.SVGProps<SVGSVGElement>) {
       <rect x="7.5" y="2.5" width="5" height="4.5" rx="1" strokeWidth={1.7} />
       <rect x="2.5" y="13" width="5" height="4.5" rx="1" strokeWidth={1.7} />
       <rect x="12.5" y="13" width="5" height="4.5" rx="1" strokeWidth={1.7} />
-    </svg>
-  );
-}
-
-function NavOpenStackIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.7}
-        d="M5.7 15.5h8.1a3.2 3.2 0 0 0 .5-6.4A4.7 4.7 0 0 0 5.4 8a3.8 3.8 0 0 0 .3 7.5Z"
-      />
     </svg>
   );
 }
