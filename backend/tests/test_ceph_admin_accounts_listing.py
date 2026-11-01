@@ -655,6 +655,64 @@ def test_build_account_detail_normalizes_limits_and_quota_configs():
     assert detail.bucket_quota.max_objects == 5
 
 
+def test_ceph_admin_accounts_listing_preserves_zero_top_level_limits():
+    accounts_payload = [
+        {
+            "id": "RGW01",
+            "name": "Alpha",
+            "email": "alpha@example.test",
+            "tenant": "",
+            "max_users": 0,
+            "max_buckets": 0,
+            "limits": {"max_users": 99, "max_buckets": 98},
+        }
+    ]
+    ctx, rgw_admin = _build_ctx(
+        endpoint_id=2504,
+        accounts_payload=accounts_payload,
+        account_details={},
+    )
+
+    result = accounts_router.list_rgw_accounts(
+        page=1,
+        page_size=25,
+        search=None,
+        advanced_filter=None,
+        sort_by="account_id",
+        sort_dir="asc",
+        include=[],
+        ctx=ctx,
+    )
+
+    assert result.items[0].max_users == 0
+    assert result.items[0].max_buckets == 0
+    assert rgw_admin.get_account_calls == 0
+
+
+def test_ceph_admin_accounts_enrichment_preserves_zero_top_level_limits():
+    accounts = [CephAdminRgwAccountSummary(account_id="RGW01")]
+    rgw_admin = FakeRGWAdmin(
+        accounts_payload=[],
+        account_details={
+            "RGW01": {
+                "id": "RGW01",
+                "max_users": 0,
+                "max_buckets": 0,
+                "limits": {"max_users": 99, "max_buckets": 98},
+            }
+        },
+    )
+
+    enriched = account_listing_enrichment.enrich_accounts(
+        accounts,
+        {"limits"},
+        rgw_admin,
+    )
+
+    assert enriched[0].max_users == 0
+    assert enriched[0].max_buckets == 0
+
+
 def test_build_account_detail_preserves_disabled_quota_without_limits():
     detail = build_account_detail(
         {
