@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import {
   fetchProductionReadiness,
@@ -20,6 +20,7 @@ import { cx, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styl
 import { interpolateText, useI18n, type I18nMessage } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
+import useAdminResourceController from "./useAdminResourceController";
 import {
   productionReadinessGroupDescriptions as groupDescription,
   productionReadinessLevelLabels as levelLabel,
@@ -118,29 +119,17 @@ function statusLabel(status: ReadinessStatus): I18nMessage {
 
 export default function ProductionReadinessPage() {
   const { t } = useI18n();
-  const [report, setReport] = useState<ProductionReadinessResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const next = await fetchProductionReadiness(signal);
-      setReport(next);
-    } catch (err) {
-      if (signal?.aborted) return;
-      setError(extractApiError(err, ""));
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+  const formatLoadError = useCallback((error: unknown) => extractApiError(error, ""), []);
+  const {
+    resource: report,
+    loading,
+    error,
+    refresh,
+  } = useAdminResourceController<ProductionReadinessResponse | null>({
+    loadResource: fetchProductionReadiness,
+    initialResource: null,
+    formatError: formatLoadError,
+  });
 
   return (
     <PageShell
@@ -153,7 +142,7 @@ export default function ProductionReadinessPage() {
       actions={[
         {
           label: t(loading ? messages.refreshing : messages.refresh),
-          onClick: () => void load(),
+          onClick: () => void refresh(),
           variant: "secondary",
           disabled: loading,
         },
