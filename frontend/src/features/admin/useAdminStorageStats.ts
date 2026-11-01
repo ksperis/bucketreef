@@ -2,17 +2,17 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import type { StorageStats } from "../../api/stats";
 import { classifyApiError } from "../../utils/apiError";
+import useAdminResourceController from "./useAdminResourceController";
 
 type AdminStorageStatsFetcher = (id: number) => Promise<StorageStats>;
 
 type UseAdminStorageStatsOptions = {
   id: number | null;
   enabled?: boolean;
-  refreshKey?: string | null;
   fetchStats: AdminStorageStatsFetcher;
   unavailableMessage: string;
 };
@@ -27,43 +27,33 @@ export type UseAdminStorageStatsResult = {
 export function useAdminStorageStats({
   id,
   enabled = true,
-  refreshKey,
   fetchStats,
   unavailableMessage,
 }: UseAdminStorageStatsOptions): UseAdminStorageStatsResult {
-  const [stats, setStats] = useState<StorageStats | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const loadStats = useCallback(
+    () => (id == null ? Promise.resolve(null) : fetchStats(id)),
+    [fetchStats, id],
+  );
+  const formatError = useCallback((reason: unknown) => {
+    const fallback = "Unable to load storage stats.";
+    const failure = classifyApiError(reason, fallback);
+    return failure.status === 403 && failure.message === fallback
+      ? unavailableMessage
+      : failure.message;
+  }, [unavailableMessage]);
+  const active = enabled && id != null;
+  const {
+    resource,
+    loading,
+    error,
+    refresh,
+  } = useAdminResourceController<StorageStats | null>({
+    loadResource: loadStats,
+    initialResource: null,
+    formatError,
+    enabled: active,
+  });
+  const stats = active && !loading && !error ? resource : null;
 
-  const load = useCallback(async () => {
-    if (!enabled || id == null) {
-      setStats(null);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setStats(null);
-    try {
-      setStats(await fetchStats(id));
-      setError(null);
-    } catch (reason) {
-      const fallback = "Unable to load storage stats.";
-      const failure = classifyApiError(reason, fallback);
-      setError(
-        failure.status === 403 && failure.message === fallback
-          ? unavailableMessage
-          : failure.message,
-      );
-      setStats(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled, fetchStats, id, unavailableMessage]);
-
-  useEffect(() => {
-    void load();
-  }, [load, refreshKey]);
-
-  return { stats, loading, error, reload: load };
+  return { stats, loading, error, reload: refresh };
 }

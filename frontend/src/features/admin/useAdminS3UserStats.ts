@@ -8,12 +8,10 @@ import { useAdminStorageStats, type UseAdminStorageStatsResult } from "./useAdmi
 export function useAdminS3UserStats(
   userId: number | null,
   enabled: boolean = true,
-  refreshKey?: string | null
 ): UseAdminStorageStatsResult {
   return useAdminStorageStats({
     id: userId,
     enabled,
-    refreshKey,
     fetchStats: fetchAdminS3UserStats,
     unavailableMessage: "Storage metrics are not available for this user.",
   });
