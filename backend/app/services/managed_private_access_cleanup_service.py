@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import Callable
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -29,7 +27,6 @@ from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
-from app.services.rgw_iam import RGWIAMService
 from app.services.s3_connections_service import S3ConnectionsService
 
 
@@ -44,16 +41,16 @@ class ManagedPrivateAccessCleanupService:
         audit: ManagedPrivateAccessAuditService | None = None,
         state: ManagedPrivateAccessStateService | None = None,
         connections: S3ConnectionsService | None = None,
+        remote: ManagedPrivateAccessRemoteCleanupService | None = None,
     ) -> None:
         self.db = db
         self.audit = audit or ManagedPrivateAccessAuditService(db)
         self.connections = connections or S3ConnectionsService(db)
-        iam_resolver = iam or ManagedPrivateAccessIAMService(db)
         state_store = state or ManagedPrivateAccessStateService(db)
         self.state = state_store
-        self.remote = ManagedPrivateAccessRemoteCleanupService(
+        self.remote = remote or ManagedPrivateAccessRemoteCleanupService(
             db,
-            iam=iam_resolver,
+            iam=iam or ManagedPrivateAccessIAMService(db),
             state=state_store,
         )
 
@@ -143,100 +140,6 @@ class ManagedPrivateAccessCleanupService:
             "managed_private_access.compensation.retry.success",
         )
 
-    def handle_iam_provisioning_failure(
-        self,
-        *,
-        user: User,
-        provisioning_id: int,
-        iam: RGWIAMService,
-        exc: Exception,
-    ) -> None:
-        self._handle_provisioning_failure(
-            user=user,
-            provisioning_id=provisioning_id,
-            exc=exc,
-            compensate=lambda failure: self._compensate_iam(
-                provisioning_id,
-                iam,
-                failure=failure,
-                user=user,
-            ),
-        )
-
-    def handle_rgw_user_provisioning_failure(
-        self,
-        *,
-        user: User,
-        provisioning_id: int,
-        exc: Exception,
-    ) -> None:
-        self._handle_provisioning_failure(
-            user=user,
-            provisioning_id=provisioning_id,
-            exc=exc,
-            compensate=lambda failure: self._compensate_rgw_user(
-                provisioning_id,
-                failure=failure,
-                user=user,
-            ),
-        )
-
-    def _handle_provisioning_failure(
-        self,
-        *,
-        user: User,
-        provisioning_id: int,
-        exc: Exception,
-        compensate: Callable[[str], None],
-    ) -> None:
-        safe_error = sanitized_error_log_detail(exc)
-        self.db.rollback()
-        failed = self.db.get(ManagedPrivateAccess, provisioning_id)
-        if failed is not None:
-            self.audit.record(
-                user,
-                failed,
-                "managed_private_access.provision.failure",
-                status="failure",
-                message=safe_error,
-            )
-        compensate(safe_error)
-        pending = self.db.get(ManagedPrivateAccess, provisioning_id)
-        if pending is not None and pending.state == "cleanup_pending":
-            raise ManagedPrivateAccessCleanupPending(
-                pending.id,
-                "Provisioning failed and remote cleanup requires remediation",
-            ) from exc
-
-    def _compensate_iam(
-        self,
-        provisioning_id: int,
-        iam: RGWIAMService,
-        *,
-        failure: str,
-        user: User,
-    ) -> None:
-        self._compensate(
-            provisioning_id,
-            cleanup=lambda provisioning: self.remote.cleanup_iam_resources(provisioning, iam),
-            failure=failure,
-            user=user,
-        )
-
-    def _compensate_rgw_user(
-        self,
-        provisioning_id: int,
-        *,
-        failure: str,
-        user: User,
-    ) -> None:
-        self._compensate(
-            provisioning_id,
-            cleanup=self.remote.cleanup_rgw_user_resources,
-            failure=failure,
-            user=user,
-        )
-
     def _cleanup_remote_or_pending(
         self,
         provisioning: ManagedPrivateAccess,
@@ -257,40 +160,6 @@ class ManagedPrivateAccessCleanupService:
                 provisioning.id,
                 pending_message,
             ) from exc
-
-    def _compensate(
-        self,
-        provisioning_id: int,
-        *,
-        cleanup: Callable[[ManagedPrivateAccess], None],
-        failure: str,
-        user: User,
-    ) -> None:
-        provisioning = self.db.get(ManagedPrivateAccess, provisioning_id)
-        if provisioning is None:
-            return
-        try:
-            cleanup(provisioning)
-        except Exception as cleanup_exc:
-            cleanup_error = sanitized_error_log_detail(cleanup_exc)
-            self.audit.record(
-                user,
-                provisioning,
-                "managed_private_access.compensation.failure",
-                status="failure",
-                message=cleanup_error,
-            )
-            self._set_cleanup_pending(provisioning, cleanup_error, user=user)
-            return
-
-        self.state.mark_failed(provisioning, failure)
-        self.audit.record(
-            user,
-            provisioning,
-            "managed_private_access.compensation.success",
-            status="failure",
-            message=failure,
-        )
 
     def _set_cleanup_pending(
         self,

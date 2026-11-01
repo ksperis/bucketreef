@@ -19,6 +19,9 @@ from app.services.managed_private_access_audit_service import (
 from app.services.managed_private_access_cleanup_service import (
     ManagedPrivateAccessCleanupService,
 )
+from app.services.managed_private_access_compensation_service import (
+    ManagedPrivateAccessCompensationService,
+)
 from app.services.managed_private_access_connection_service import (
     ManagedPrivateAccessConnectionService,
 )
@@ -43,6 +46,9 @@ from app.services.managed_private_access_lifecycle_service import (
 )
 from app.services.managed_private_access_policy_service import (
     ManagedPrivateAccessPolicyService,
+)
+from app.services.managed_private_access_remote_cleanup_service import (
+    ManagedPrivateAccessRemoteCleanupService,
 )
 from app.services.managed_private_access_rgw_user_source_service import (
     ManagedPrivateAccessRGWUserSourceService,
@@ -78,6 +84,11 @@ class ManagedPrivateAccessService:
             state=state,
             connections=connections,
         )
+        remote_cleanup = ManagedPrivateAccessRemoteCleanupService(
+            db,
+            iam=self.iam,
+            state=state,
+        )
         self.lifecycle = ManagedPrivateAccessLifecycleService(
             db,
             audit=self.audit,
@@ -90,6 +101,13 @@ class ManagedPrivateAccessService:
             audit=self.audit,
             state=state,
             connections=connections,
+            remote=remote_cleanup,
+        )
+        self.compensation = ManagedPrivateAccessCompensationService(
+            db,
+            audit=self.audit,
+            state=state,
+            remote=remote_cleanup,
         )
 
     def provision_iam(
@@ -135,7 +153,7 @@ class ManagedPrivateAccessService:
             )
             raise
         except Exception as exc:
-            self.cleanup.handle_iam_provisioning_failure(
+            self.compensation.handle_iam_provisioning_failure(
                 user=user,
                 provisioning_id=provisioning.id,
                 iam=iam,
@@ -172,7 +190,7 @@ class ManagedPrivateAccessService:
                 secret_access_key=secret_access_key,
             )
         except Exception as exc:
-            self.cleanup.handle_rgw_user_provisioning_failure(
+            self.compensation.handle_rgw_user_provisioning_failure(
                 user=user,
                 provisioning_id=provisioning.id,
                 exc=exc,
