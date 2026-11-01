@@ -6,6 +6,7 @@ import {
   advancedFilterFieldCardClass,
   advancedFilterSummaryChipClass,
   advancedFilterSyncBadgeClass,
+  buildQuickTextFilterRules,
   formatAdvancedFilterSyncLabel,
   progressFromAdvancedSearchEvent,
   resolveQuickTextFilterState,
@@ -15,6 +16,7 @@ import {
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
   renderAdvancedSearchProgress,
+  shouldShowActiveFilterSummary,
   type AdvancedSearchProgress,
 } from "./advancedFilterShared";
 
@@ -109,6 +111,60 @@ describe("advancedFilterShared", () => {
       modeForDisplay: "contains",
       pending: false,
     });
+  });
+
+  it("builds server-side quick filter rules only for exact input", () => {
+    expect(buildQuickTextFilterRules("uid", "alice", "contains")).toEqual([]);
+    expect(buildQuickTextFilterRules("uid", "alice", "exact")).toEqual([
+      { field: "uid", op: "eq", value: "alice" },
+    ]);
+    expect(buildQuickTextFilterRules("uid", "alice, bob", "contains")).toEqual([
+      { field: "uid", op: "in", value: ["alice", "bob"] },
+    ]);
+    expect(buildQuickTextFilterRules("uid", "  ", "exact")).toEqual([]);
+  });
+
+  it("shows active filter summaries when quick search needs extra context", () => {
+    expect(
+      shouldShowActiveFilterSummary({
+        itemCount: 0,
+        quickFilterActive: false,
+        hasNonQuickFilters: false,
+        quickFilterListProvided: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowActiveFilterSummary({
+        itemCount: 1,
+        quickFilterActive: true,
+        hasNonQuickFilters: false,
+        quickFilterListProvided: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowActiveFilterSummary({
+        itemCount: 1,
+        quickFilterActive: true,
+        hasNonQuickFilters: true,
+        quickFilterListProvided: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowActiveFilterSummary({
+        itemCount: 1,
+        quickFilterActive: true,
+        hasNonQuickFilters: false,
+        quickFilterListProvided: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowActiveFilterSummary({
+        itemCount: 2,
+        quickFilterActive: true,
+        hasNonQuickFilters: false,
+        quickFilterListProvided: false,
+      }),
+    ).toBe(true);
   });
 
   it("normalizes advanced-search progress events consistently", () => {
