@@ -655,6 +655,64 @@ def test_build_account_detail_normalizes_limits_and_quota_configs():
     assert detail.bucket_quota.max_objects == 5
 
 
+def test_build_account_detail_uses_nested_account_payload_for_all_account_fields():
+    payload = {
+        "id": "WRAPPER",
+        "email": "wrapper@example.test",
+        "max_users": 99,
+        "bucket_count": 99,
+        "user_count": 99,
+        "quota": {"max_size": 99, "max_objects": 99},
+        "account": {
+            "id": "RGW01",
+            "name": "Nested Account",
+            "tenant": "research",
+            "email": "nested@example.test",
+            "max_users": 7,
+            "limits": {
+                "max_buckets": 8,
+                "max_roles": 9,
+                "max_groups": 10,
+                "max_access_keys": 11,
+            },
+            "bucket_count": 2,
+            "user_list": ["root", "alice", "bob"],
+            "account_quota": {
+                "enabled": True,
+                "max_size": 4096,
+                "max_objects": 30,
+            },
+            "bucket_quota": {
+                "enabled": False,
+                "max_size": 1024,
+                "max_objects": 5,
+            },
+        },
+    }
+
+    detail = build_account_detail(payload, account_id_fallback="fallback")
+
+    assert detail.account_id == "RGW01"
+    assert detail.account_name == "Nested Account"
+    assert detail.tenant == "research"
+    assert detail.email == "nested@example.test"
+    assert detail.max_users == 7
+    assert detail.max_buckets == 8
+    assert detail.max_roles == 9
+    assert detail.max_groups == 10
+    assert detail.max_access_keys == 11
+    assert detail.bucket_count == 2
+    assert detail.user_count == 3
+    assert detail.quota is not None
+    assert detail.quota.enabled is True
+    assert detail.quota.max_size_bytes == 4096
+    assert detail.quota.max_objects == 30
+    assert detail.bucket_quota is not None
+    assert detail.bucket_quota.enabled is False
+    assert detail.bucket_quota.max_size_bytes is None
+    assert detail.bucket_quota.max_objects is None
+
+
 def test_ceph_admin_accounts_listing_preserves_zero_top_level_limits():
     accounts_payload = [
         {

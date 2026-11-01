@@ -12,6 +12,7 @@ from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_id,
     extract_rgw_account_name,
+    extract_rgw_account_payload,
     extract_rgw_account_tenant,
     extract_rgw_quota_enabled,
     parse_rgw_int,
@@ -19,7 +20,8 @@ from app.utils.rgw_payloads import (
 
 
 def extract_account_email(payload: dict[str, Any]) -> Optional[str]:
-    return normalize_optional_scalar(payload.get("email") or payload.get("mail"))
+    account = extract_rgw_account_payload(payload)
+    return normalize_optional_scalar(account.get("email") or account.get("mail"))
 
 
 def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
@@ -31,28 +33,30 @@ def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
 
 
 def extract_bucket_count(payload: dict[str, Any]) -> Optional[int]:
-    direct = extract_count(payload, ("bucket_count", "num_buckets", "buckets_count"))
+    account = extract_rgw_account_payload(payload)
+    direct = extract_count(account, ("bucket_count", "num_buckets", "buckets_count"))
     if direct is not None:
         return direct
-    stats = payload.get("stats")
+    stats = account.get("stats")
     if isinstance(stats, dict):
         from_stats = extract_count(stats, ("bucket_count", "num_buckets", "buckets_count"))
         if from_stats is not None:
             return from_stats
-    buckets = payload.get("bucket_list") or payload.get("buckets")
+    buckets = account.get("bucket_list") or account.get("buckets")
     return len(buckets) if isinstance(buckets, list) else None
 
 
 def extract_user_count(payload: dict[str, Any]) -> Optional[int]:
-    direct = extract_count(payload, ("user_count", "users_count", "num_users", "users"))
+    account = extract_rgw_account_payload(payload)
+    direct = extract_count(account, ("user_count", "users_count", "num_users", "users"))
     if direct is not None:
         return direct
-    stats = payload.get("stats")
+    stats = account.get("stats")
     if isinstance(stats, dict):
         from_stats = extract_count(stats, ("user_count", "users_count", "num_users"))
         if from_stats is not None:
             return from_stats
-    users = payload.get("user_list")
+    users = account.get("user_list")
     return len(users) if isinstance(users, list) else None
 
 
@@ -91,8 +95,9 @@ def _quota_config(
     *,
     keys: tuple[str, ...],
 ) -> Optional[CephAdminRgwQuotaConfig]:
-    max_size_bytes, max_objects = extract_quota_limits(payload, keys=keys)
-    enabled = extract_rgw_quota_enabled(payload, keys=keys)
+    account = extract_rgw_account_payload(payload)
+    max_size_bytes, max_objects = extract_quota_limits(account, keys=keys)
+    enabled = extract_rgw_quota_enabled(account, keys=keys)
     if enabled is None and max_size_bytes is None and max_objects is None:
         return None
     return CephAdminRgwQuotaConfig(
@@ -103,15 +108,19 @@ def _quota_config(
 
 
 def extract_account_limit(payload: dict[str, Any], key: str) -> Optional[int]:
-    direct = parse_rgw_int(payload.get(key))
+    account = extract_rgw_account_payload(payload)
+    direct = parse_rgw_int(account.get(key))
     if direct is not None:
         return direct
-    limits_payload = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
+    limits_payload = account.get("limits") if isinstance(account.get("limits"), dict) else {}
     return parse_rgw_int(limits_payload.get(key))
 
 
 def extract_account_quota_limits(payload: dict[str, Any]) -> tuple[Optional[int], Optional[int]]:
-    return extract_quota_limits(payload, keys=("quota", "account_quota"))
+    return extract_quota_limits(
+        extract_rgw_account_payload(payload),
+        keys=("quota", "account_quota"),
+    )
 
 
 def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> CephAdminRgwAccountDetail:
