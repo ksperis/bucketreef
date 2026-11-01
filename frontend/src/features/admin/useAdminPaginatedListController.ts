@@ -13,12 +13,14 @@ type Args<T extends { id: number }> = {
   loadPage: () => Promise<PaginatedListResponse<T>>;
   ensurePageInRange: (total: number) => boolean;
   formatError: (error: unknown) => string;
+  onLoaded?: () => void;
 };
 
 export default function useAdminPaginatedListController<T extends { id: number }>({
   loadPage,
   ensurePageInRange,
   formatError,
+  onLoaded,
 }: Args<T>) {
   const [items, setItems] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
@@ -33,12 +35,13 @@ export default function useAdminPaginatedListController<T extends { id: number }
       if (!ensurePageInRange(response.total)) return;
       setItems(response.items);
       setTotal(response.total);
+      onLoaded?.();
     } catch (cause) {
       setError(formatError(cause));
     } finally {
       setLoading(false);
     }
-  }, [ensurePageInRange, formatError, loadPage]);
+  }, [ensurePageInRange, formatError, loadPage, onLoaded]);
 
   useEffect(() => {
     void refresh();
@@ -53,6 +56,7 @@ export default function useAdminPaginatedListController<T extends { id: number }
     total,
     loading,
     error,
+    setError,
     refresh,
     updateItem,
   };
