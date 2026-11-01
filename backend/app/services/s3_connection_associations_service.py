@@ -2,15 +2,15 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db.s3_connection import UserS3Connection
 from app.db.ui_group import UiGroup, UiGroupS3Connection
 from app.db.user import User
+from app.services.association_sync import sync_simple_association_links
 from app.services.association_validation import ensure_association_ids_exist
 
 
@@ -39,24 +39,26 @@ class S3ConnectionAssociationsService:
         user_ids: Optional[list[int]],
     ) -> None:
         if group_ids is not None:
-            self._replace_link_ids(
-                connection_id,
-                group_ids,
+            sync_simple_association_links(
+                self.db,
                 link_model=UiGroupS3Connection,
-                connection_id_column=UiGroupS3Connection.s3_connection_id,
-                member_id_column=UiGroupS3Connection.group_id,
+                owner_column=UiGroupS3Connection.s3_connection_id,
+                owner_id=connection_id,
+                target_column=UiGroupS3Connection.group_id,
+                desired_ids=group_ids,
                 link_factory=lambda group_id: UiGroupS3Connection(
                     group_id=group_id,
                     s3_connection_id=connection_id,
                 ),
             )
         if user_ids is not None:
-            self._replace_link_ids(
-                connection_id,
-                user_ids,
+            sync_simple_association_links(
+                self.db,
                 link_model=UserS3Connection,
-                connection_id_column=UserS3Connection.s3_connection_id,
-                member_id_column=UserS3Connection.user_id,
+                owner_column=UserS3Connection.s3_connection_id,
+                owner_id=connection_id,
+                target_column=UserS3Connection.user_id,
+                desired_ids=user_ids,
                 link_factory=lambda user_id: UserS3Connection(
                     user_id=user_id,
                     s3_connection_id=connection_id,
@@ -94,33 +96,3 @@ class S3ConnectionAssociationsService:
             entity_label=entity_label,
         )
         return cleaned_ids
-
-    def _replace_link_ids(
-        self,
-        connection_id: int,
-        desired_ids: list[int],
-        *,
-        link_model: type[UserS3Connection] | type[UiGroupS3Connection],
-        connection_id_column: InstrumentedAttribute[int],
-        member_id_column: InstrumentedAttribute[int],
-        link_factory: Callable[[int], UserS3Connection | UiGroupS3Connection],
-    ) -> None:
-        existing_ids = {
-            int(member_id)
-            for member_id in self.db.scalars(
-                select(member_id_column).where(connection_id_column == connection_id)
-            ).all()
-        }
-        desired_id_set = set(desired_ids)
-        removed_ids = existing_ids - desired_id_set
-        if removed_ids:
-            self.db.execute(
-                delete(link_model)
-                .where(
-                    connection_id_column == connection_id,
-                    member_id_column.in_(removed_ids),
-                )
-                .execution_options(synchronize_session=False)
-            )
-        for member_id in sorted(desired_id_set - existing_ids):
-            self.db.add(link_factory(member_id))

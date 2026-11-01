@@ -19,6 +19,7 @@ from app.db import (
 )
 from app.db.openstack import OpenStackCloud, cloud_groups, cloud_users
 from app.models.user import AccountMembership, S3UserMembership, UserAssociationsPayload
+from app.services.association_sync import sync_simple_association_links
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
@@ -259,31 +260,19 @@ class UserAssociationsService:
             for connection_id in target_ids
             if connection_id is not None
         }
-        existing_links = self.db.scalars(
-            select(UserS3Connection).where(UserS3Connection.user_id == user.id)
-        ).all()
-        existing_ids = {
-            int(link.s3_connection_id) for link in existing_links
-        }
         ensure_shared_s3_connections(self.db, cleaned_ids)
-        to_remove = existing_ids - cleaned_ids
-        to_add = cleaned_ids - existing_ids
-        if to_remove:
-            self.db.execute(
-                delete(UserS3Connection)
-                .where(
-                    UserS3Connection.user_id == user.id,
-                    UserS3Connection.s3_connection_id.in_(to_remove),
-                )
-                .execution_options(synchronize_session=False)
-            )
-        for connection_id in to_add:
-            self.db.add(
-                UserS3Connection(
-                    user_id=user.id,
-                    s3_connection_id=connection_id,
-                )
-            )
+        sync_simple_association_links(
+            self.db,
+            link_model=UserS3Connection,
+            owner_column=UserS3Connection.user_id,
+            owner_id=user.id,
+            target_column=UserS3Connection.s3_connection_id,
+            desired_ids=cleaned_ids,
+            link_factory=lambda connection_id: UserS3Connection(
+                user_id=user.id,
+                s3_connection_id=connection_id,
+            ),
+        )
 
     def set_openstack_cloud_links(
         self,
