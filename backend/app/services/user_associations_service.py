@@ -303,10 +303,6 @@ class UserAssociationsService:
             for group_id in target_ids
             if group_id is not None
         }
-        existing_links = self.db.scalars(
-            select(UserUiGroup).where(UserUiGroup.user_id == user.id)
-        ).all()
-        existing_ids = {int(link.group_id) for link in existing_links}
         ensure_association_ids_exist(
             self.db,
             UiGroup.id,
@@ -322,9 +318,18 @@ class UserAssociationsService:
             )
             if system_group_id is not None:
                 raise ValueError("System groups use implicit membership")
-        to_remove = existing_ids - cleaned_ids
-        to_add = cleaned_ids - existing_ids
-        changed_group_ids = to_remove | to_add
+        changed_group_ids = sync_simple_association_links(
+            self.db,
+            link_model=UserUiGroup,
+            owner_column=UserUiGroup.user_id,
+            owner_id=user.id,
+            target_column=UserUiGroup.group_id,
+            desired_ids=cleaned_ids,
+            link_factory=lambda group_id: UserUiGroup(
+                user_id=user.id,
+                group_id=group_id,
+            ),
+        )
         affected_cloud_ids = {
             int(cloud_id)
             for cloud_id in self.db.scalars(
@@ -333,17 +338,6 @@ class UserAssociationsService:
                 )
             ).all()
         } if changed_group_ids else set()
-        if to_remove:
-            self.db.execute(
-                delete(UserUiGroup)
-                .where(
-                    UserUiGroup.user_id == user.id,
-                    UserUiGroup.group_id.in_(to_remove),
-                )
-                .execution_options(synchronize_session=False)
-            )
-        for group_id in to_add:
-            self.db.add(UserUiGroup(user_id=user.id, group_id=group_id))
         if affected_cloud_ids:
             from app.services.openstack_service import OpenStackService
 

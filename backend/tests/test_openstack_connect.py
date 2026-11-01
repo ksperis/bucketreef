@@ -578,6 +578,43 @@ def test_removing_direct_openstack_access_invalidates_session(db_session, setup_
     assert session.token is None
 
 
+@pytest.mark.parametrize("membership_owner", ["user", "group"])
+def test_changing_openstack_group_membership_invalidates_session(
+    db_session,
+    setup_cloud,
+    membership_owner,
+):
+    from app.db.openstack import cloud_groups
+    from app.models.ui_group import UiGroupUpdate
+    from app.services.ui_groups_service import UiGroupsService
+
+    user, _, cloud = setup_cloud
+    group = UiGroup(name=f"OpenStack {membership_owner} membership")
+    db_session.add(group)
+    db_session.flush()
+    db_session.add(UserUiGroup(user_id=user.id, group_id=group.id))
+    db_session.execute(
+        cloud_groups.insert().values(cloud_id=cloud.id, group_id=group.id)
+    )
+    db_session.commit()
+
+    connect(db_session, setup_cloud)
+    session = db_session.scalar(select(OpenStackSession))
+    assert session is not None and session.token is not None
+
+    if membership_owner == "user":
+        UserAssociationsService(db_session).set_group_links(user, [])
+        db_session.commit()
+    else:
+        UiGroupsService(db_session).update_group(
+            group.id,
+            UiGroupUpdate(user_ids=[]),
+        )
+    db_session.refresh(session)
+
+    assert session.token is None
+
+
 def test_catalog_target_change_requires_explicit_reactivation(db_session, setup_cloud, monkeypatch):
     service, user, auth, _, ctx = connect(db_session, setup_cloud)
     credential = db_session.scalar(select(OpenStackProjectCredential))

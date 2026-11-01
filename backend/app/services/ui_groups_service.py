@@ -254,24 +254,30 @@ class UiGroupsService:
             cleaned_ids,
             entity_label="Users",
         )
-        existing = self.db.scalars(
-            select(UserUiGroup).where(UserUiGroup.group_id == group.id)
-        ).all()
-        existing_ids = {link.user_id for link in existing}
-        desired_ids = set(cleaned_ids)
-        changed_user_ids = existing_ids ^ desired_ids
-        affected_cloud_ids = {
-            int(cloud_id)
-            for cloud_id in self.db.scalars(
-                select(cloud_groups.c.cloud_id).where(
-                    cloud_groups.c.group_id == group.id
-                )
-            ).all()
-        }
-        self._delete_removed_user_links(group.id, existing_ids - desired_ids)
-        for user_id in desired_ids - existing_ids:
-            self.db.add(UserUiGroup(user_id=user_id, group_id=group.id))
-        if changed_user_ids and affected_cloud_ids:
+        changed_user_ids = sync_simple_association_links(
+            self.db,
+            link_model=UserUiGroup,
+            owner_column=UserUiGroup.group_id,
+            owner_id=group.id,
+            target_column=UserUiGroup.user_id,
+            desired_ids=cleaned_ids,
+            link_factory=lambda user_id: UserUiGroup(
+                user_id=user_id,
+                group_id=group.id,
+            ),
+        )
+        if changed_user_ids:
+            affected_cloud_ids = {
+                int(cloud_id)
+                for cloud_id in self.db.scalars(
+                    select(cloud_groups.c.cloud_id).where(
+                        cloud_groups.c.group_id == group.id
+                    )
+                ).all()
+            }
+        else:
+            affected_cloud_ids = set()
+        if affected_cloud_ids:
             from app.services.openstack_service import OpenStackService
 
             OpenStackService(self.db).invalidate_user_access(
@@ -416,19 +422,6 @@ class UiGroupsService:
         if self.db.scalar(statement.limit(1)) is not None:
             raise ValueError("UI group already exists")
         return name
-
-    def _delete_removed_user_links(self, group_id: int, user_ids: set[int]) -> None:
-        if not user_ids:
-            return
-        self.db.execute(
-            delete(UserUiGroup)
-            .where(
-                UserUiGroup.group_id == group_id,
-                UserUiGroup.user_id.in_(user_ids),
-            )
-            .execution_options(synchronize_session=False)
-        )
-
 
 def get_ui_groups_service(db: Session) -> UiGroupsService:
     return UiGroupsService(db)

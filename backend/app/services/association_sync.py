@@ -22,8 +22,8 @@ def sync_simple_association_links(
     target_column: InstrumentedAttribute[int],
     desired_ids: Iterable[int],
     link_factory: Callable[[int], LinkT],
-) -> None:
-    """Synchronize a plain many-to-many link table without per-link metadata."""
+) -> set[int]:
+    """Synchronize a plain many-to-many link table and return changed target IDs."""
 
     desired_id_set = {int(target_id) for target_id in desired_ids}
     existing_ids = {
@@ -33,6 +33,7 @@ def sync_simple_association_links(
         ).all()
     }
     removed_ids = existing_ids - desired_id_set
+    added_ids = desired_id_set - existing_ids
     if removed_ids:
         db.execute(
             delete(link_model)
@@ -42,8 +43,9 @@ def sync_simple_association_links(
             )
             .execution_options(synchronize_session=False)
         )
-    for target_id in sorted(desired_id_set - existing_ids):
+    for target_id in sorted(added_ids):
         db.add(link_factory(target_id))
+    return removed_ids | added_ids
 
 
 def sync_metadata_association_links(
