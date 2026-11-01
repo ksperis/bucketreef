@@ -13,6 +13,7 @@ import TableSortControls from "../../components/list/TableSortControls";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
 import { intlLocale } from "../../i18n";
+import { formatLocalDateTime } from "../../utils/dateTime";
 import { isAdminLikeRole } from "../../utils/workspaces";
 import {
   CompactAssociationSummary,
@@ -74,11 +75,8 @@ export default function AdminUsersList({
   onEdit,
   onDelete,
 }: Props) {
-  const formatLastLogin = (value?: string | null) => {
-    if (!value) return "-";
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(intlLocale(locale));
-  };
+  const formatLastLogin = (value?: string | null) =>
+    formatLocalDateTime(value, intlLocale(locale));
 
   const renderAssociationSummary = (user: User) => {
     const accountItems = (user.effective_access?.account_links ?? []).map((link) => {

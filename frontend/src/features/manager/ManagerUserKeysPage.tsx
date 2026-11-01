@@ -26,6 +26,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
+import { formatLocalDateTime } from "../../utils/dateTime";
 import { decodeRouteValue } from "../../utils/routeValues";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import AccessKeyMetadataDialog from "./AccessKeyMetadataDialog";
@@ -54,12 +55,6 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   const [metadataDialog, setMetadataDialog] = useState<{ mode: "create" | "edit"; key?: AccessKey } | null>(null);
   const [metadataError, setMetadataError] = useState<string | null>(null);
   const keyConfirmation = useConfirmActionDialog();
-
-  const formatDate = (value?: string | null) => {
-    if (!value) return "-";
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(intlLocale);
-  };
 
   const isKeyActive = (key: AccessKey): boolean => {
     if (key.status) {
@@ -266,7 +261,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
         />
       ),
     } satisfies DataTableColumn<AccessKey>] : []),
-    { id: "created", label: text("Created on"), render: (key) => formatDate(key.created_at) },
+    { id: "created", label: text("Created on"), render: (key) => formatLocalDateTime(key.created_at, intlLocale) },
     {
       id: "actions",
       label: text("Actions"),

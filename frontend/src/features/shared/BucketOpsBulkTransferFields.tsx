@@ -5,6 +5,7 @@
 import { useMemo } from "react";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiSelect from "../../components/ui/UiSelect";
+import { formatLocalDateTime } from "../../utils/dateTime";
 import {
   BULK_COPY_FEATURE_LABELS,
   type BulkConfigClipboard,
@@ -66,9 +67,7 @@ export default function BucketOpsBulkTransferFields({
   );
   const clipboardCopiedAtLabel = useMemo(() => {
     if (!clipboard) return null;
-    const parsed = new Date(clipboard.copiedAt);
-    if (Number.isNaN(parsed.getTime())) return clipboard.copiedAt;
-    return parsed.toLocaleString();
+    return formatLocalDateTime(clipboard.copiedAt);
   }, [clipboard]);
   const clipboardFeatureLabels = useMemo(() => {
     if (!clipboard) return [];
