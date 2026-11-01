@@ -29,7 +29,7 @@ from app.services.storage_endpoint_admin_permissions import (
     admin_ops_permissions_from_caps,
 )
 from app.utils.normalize import normalize_optional_string
-from app.utils.rgw_payloads import extract_rgw_user_caps
+from app.utils.rgw_payloads import extract_rgw_user_caps, extract_rgw_user_identity
 from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
@@ -522,7 +522,8 @@ class StorageEndpointFeatureDetector:
                     "ceph_admin",
                     payload,
                 )
-                if not (payload.get("user_id") or payload.get("uid")):
+                uid, _tenant = extract_rgw_user_identity(payload)
+                if not uid:
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
                 result.credential_checks.ceph_admin = StorageEndpointCredentialCheck(
                     status="valid",
