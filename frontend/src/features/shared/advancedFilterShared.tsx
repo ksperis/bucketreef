@@ -386,6 +386,33 @@ export const buildTextFieldRules = (field: string, rawValue: string, mode: TextM
   return [{ field, op: effectiveMode === "exact" ? "eq" : "contains", value: parsed.values[0] }];
 };
 
+export const buildQuickTextFilterRules = (
+  field: string,
+  rawValue: string,
+  mode: TextMatchMode,
+): Array<Record<string, unknown>> => {
+  const { parsed, effectiveMode } = resolveTextFilterInputState(rawValue, mode);
+  if (parsed.values.length === 0 || effectiveMode !== "exact") return [];
+  return buildTextFieldRules(field, rawValue, "exact");
+};
+
+export const shouldShowActiveFilterSummary = ({
+  itemCount,
+  quickFilterActive,
+  hasNonQuickFilters,
+  quickFilterListProvided,
+}: {
+  itemCount: number;
+  quickFilterActive: boolean;
+  hasNonQuickFilters: boolean;
+  quickFilterListProvided: boolean;
+}) =>
+  itemCount > 0 &&
+  (itemCount > 1 ||
+    !quickFilterActive ||
+    hasNonQuickFilters ||
+    quickFilterListProvided);
+
 export const serializeAdvancedFilterRules = (rules: Array<Record<string, unknown>>): string =>
   JSON.stringify({ match: "all", rules });
 

@@ -43,16 +43,17 @@ import {
   advancedFilterFieldHighlight,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
+  buildQuickTextFilterRules,
   buildTextFieldRules,
   formatAdvancedFilterSyncLabel,
   formatTextFilterSummary,
-  parseExactListInput,
   resolveTextFilterFieldState,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
   renderAdvancedSearchProgress,
   serializeAdvancedFilterRules,
+  shouldShowActiveFilterSummary,
   type FilterCostLevel,
   type TextMatchMode,
 } from "../shared/advancedFilterShared";
@@ -205,10 +206,7 @@ const buildAdvancedFilterPayload = (
   allowUsageFilters: boolean
 ) => {
   const rules: Array<Record<string, unknown>> = [];
-  const quickParsed = parseExactListInput(quickSearch);
-  if (quickParsed.values.length > 0 && (quickMatchMode === "exact" || quickParsed.listProvided)) {
-    rules.push(...buildTextFieldRules("uid", quickSearch, "exact"));
-  }
+  rules.push(...buildQuickTextFilterRules("uid", quickSearch, quickMatchMode));
 
   if (advanced) {
     rules.push(...buildTextFieldRules("tenant", advanced.tenant, advanced.tenantMatchMode));
@@ -487,14 +485,12 @@ export default function CephAdminUsersPage() {
     usageNumericFields,
     surfaceText,
   ]);
-  const showActiveFiltersCard =
-    activeFilterSummaryItems.length > 0 &&
-    !(
-      activeFilterSummaryItems.length === 1 &&
-      quickFilterActive &&
-      !advancedFilterActive &&
-      !quickFilterAppliedParsed.listProvided
-    );
+  const showActiveFiltersCard = shouldShowActiveFilterSummary({
+    itemCount: activeFilterSummaryItems.length,
+    quickFilterActive,
+    hasNonQuickFilters: advancedFilterActive,
+    quickFilterListProvided: quickFilterAppliedParsed.listProvided,
+  });
 
   const advancedDraftSummaryItems = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [];

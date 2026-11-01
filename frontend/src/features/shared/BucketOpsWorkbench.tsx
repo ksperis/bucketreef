@@ -107,6 +107,7 @@ import {
 } from "./bucketOpsFilterSummary";
 import {
   renderAdvancedSearchProgress,
+  shouldShowActiveFilterSummary,
 } from "./advancedFilterShared";
 import { FEATURE_STATE_OPTIONS, type FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import { type ColumnId, type SortField } from "./bucketOpsListState";
@@ -907,15 +908,12 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       storageOpsContextLabelById,
     ],
   );
-  const showActiveFiltersCard =
-    activeFilterSummaryItems.length > 0 &&
-    !(
-      activeFilterSummaryItems.length === 1 &&
-      quickFilterActive &&
-      !advancedFiltersApplied &&
-      tagFilters.length === 0 &&
-      !quickFilterAppliedParsed.listProvided
-    );
+  const showActiveFiltersCard = shouldShowActiveFilterSummary({
+    itemCount: activeFilterSummaryItems.length,
+    quickFilterActive,
+    hasNonQuickFilters: advancedFiltersApplied || tagFilters.length > 0,
+    quickFilterListProvided: quickFilterAppliedParsed.listProvided,
+  });
   const advancedDraftSummaryItems = useMemo(
     () =>
       buildBucketOpsDraftFilterSummaryItems(advancedDraft, {
