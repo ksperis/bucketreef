@@ -118,13 +118,6 @@ class RGWIAMService:
     ) -> tuple[IAMUser, Optional[AccessKey]]:
         try:
             resp = self.client.create_user(UserName=name)
-            u = resp.get("User", {})
-            new_key = self.create_access_key(name) if create_key else None
-            return IAMUser(
-                name=u.get("UserName") or name,
-                user_id=u.get("UserId"),
-                arn=u.get("Arn"),
-            ), new_key
         except ClientError as exc:
             code = aws_error_code(exc)
             if allow_existing and code in {"EntityAlreadyExists", "UserAlreadyExists"}:
@@ -134,6 +127,25 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to create IAM user: {exc}") from exc
         except BotoCoreError as exc:
             raise RuntimeError(f"Unable to create IAM user: {exc}") from exc
+
+        u = resp.get("User", {})
+        new_key = None
+        if create_key:
+            try:
+                new_key = self.create_access_key(name)
+            except RuntimeError as exc:
+                try:
+                    self.delete_user(name)
+                except RuntimeError as rollback_exc:
+                    raise RuntimeError(
+                        f"{exc}; Unable to roll back created IAM user {name}: {rollback_exc}"
+                    ) from exc
+                raise
+        return IAMUser(
+            name=u.get("UserName") or name,
+            user_id=u.get("UserId"),
+            arn=u.get("Arn"),
+        ), new_key
 
     def get_user(self, name: str) -> Optional[IAMUser]:
         try:

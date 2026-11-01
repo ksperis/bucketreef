@@ -698,6 +698,34 @@ def test_create_user_create_key_success_and_existing_without_lookup_match(monkey
         service.create_user("alice", allow_existing=True)
 
 
+def test_create_user_rolls_back_user_when_access_key_creation_fails(monkeypatch):
+    service, fake = _service(monkeypatch)
+    fake.raise_on["create_access_key"] = _client_error("AccessDenied", "CreateAccessKey")
+
+    with pytest.raises(RuntimeError, match="Unable to create IAM access key"):
+        service.create_user("alice", create_key=True)
+
+    assert [call[0] for call in fake.calls] == [
+        "create_user",
+        "create_access_key",
+        "delete_user",
+    ]
+
+
+def test_create_user_reports_access_key_and_rollback_failures(monkeypatch):
+    service, fake = _service(monkeypatch)
+    fake.raise_on["create_access_key"] = _client_error("AccessDenied", "CreateAccessKey")
+    fake.raise_on["delete_user"] = _client_error("AccessDenied", "DeleteUser")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        service.create_user("alice", create_key=True)
+
+    message = str(exc_info.value)
+    assert "Unable to create IAM access key" in message
+    assert "Unable to roll back created IAM user alice" in message
+    assert "Unable to delete IAM user" in message
+
+
 def test_get_user_and_delete_user_non_no_such_entity_paths(monkeypatch):
     service, fake = _service(monkeypatch)
     monkeypatch.setattr(fake, "get_user", lambda **kwargs: {"User": {}})
