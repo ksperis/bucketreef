@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import NoReturn, Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -478,26 +478,75 @@ class ExternalIdentityUserService:
             linking_policy=linking_policy,
             trusted_email_domains=trusted_email_domains,
         ):
-            identity, _ = self.provision_identity(
-                user=existing,
+            return self._link_trusted_email_identity(
+                existing,
                 provider_type=provider_type,
                 provider_id=provider_id,
                 issuer=issuer,
                 subject=subject,
                 email=email,
-                email_verified=True,
-                link_source="trusted_email",
             )
-            AuditService(self.db).record_action(
-                user=existing,
-                scope="security",
-                action="external_identity_trusted_email_linked",
-                entity_type="external_identity",
-                entity_id=identity.id,
-                metadata={"provider_type": provider_type, "provider_id": provider_id},
-            )
-            return existing
+        self._raise_existing_email_link_challenge(
+            existing,
+            provider_type=provider_type,
+            provider_id=provider_id,
+            issuer=issuer,
+            subject=subject,
+            email=email,
+            email_verified=email_verified,
+            full_name=full_name,
+            picture_url=picture_url,
+            linking_policy=linking_policy,
+            browser_secret_hash=browser_secret_hash,
+            redirect_path=redirect_path,
+        )
 
+    def _link_trusted_email_identity(
+        self,
+        user: User,
+        *,
+        provider_type: str,
+        provider_id: str,
+        issuer: Optional[str],
+        subject: str,
+        email: str,
+    ) -> User:
+        identity, _ = self.provision_identity(
+            user=user,
+            provider_type=provider_type,
+            provider_id=provider_id,
+            issuer=issuer,
+            subject=subject,
+            email=email,
+            email_verified=True,
+            link_source="trusted_email",
+        )
+        AuditService(self.db).record_action(
+            user=user,
+            scope="security",
+            action="external_identity_trusted_email_linked",
+            entity_type="external_identity",
+            entity_id=identity.id,
+            metadata={"provider_type": provider_type, "provider_id": provider_id},
+        )
+        return user
+
+    def _raise_existing_email_link_challenge(
+        self,
+        user: User,
+        *,
+        provider_type: str,
+        provider_id: str,
+        issuer: Optional[str],
+        subject: str,
+        email: str,
+        email_verified: bool,
+        full_name: Optional[str],
+        picture_url: Optional[str],
+        linking_policy: str,
+        browser_secret_hash: Optional[str],
+        redirect_path: Optional[str],
+    ) -> NoReturn:
         can_create_bound_attempt = bool(browser_secret_hash) and (
             provider_type == "ldap" or bool(issuer)
         )
@@ -506,7 +555,7 @@ class ExternalIdentityUserService:
 
             link_service = ExternalIdentityLinkService(self.db)
             attempt = link_service.create_login_collision_attempt(
-                user=existing,
+                user=user,
                 provider_type=provider_type,
                 provider_id=provider_id,
                 issuer=issuer,
@@ -526,7 +575,7 @@ class ExternalIdentityUserService:
             raise ValueError("External identity account linking browser binding is unavailable")
 
         request = self.request_link_approval(
-            user=existing,
+            user=user,
             provider_type=provider_type,
             provider_id=provider_id,
             issuer=issuer,
