@@ -13,6 +13,7 @@ from app.main import app
 from app.models.bucket import Bucket
 from app.models.execution_context import ExecutionContextCapabilities
 from app.routers import dependencies
+from app.routers.manager import bucket_config_core as manager_bucket_config_core
 from app.routers.manager import buckets as manager_buckets_router
 from app.routers.storage_ops import buckets as storage_ops_buckets_router
 from app.services import bucket_listing_cache
@@ -126,7 +127,7 @@ def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monke
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
     app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
     app.dependency_overrides[manager_buckets_router.get_buckets_service] = lambda: service
-    app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = lambda: service
+    app.dependency_overrides[manager_bucket_config_core.get_bucket_configuration_service] = lambda: service
     app.dependency_overrides[storage_ops_buckets_router.get_buckets_service] = lambda: service
     app.dependency_overrides[manager_buckets_router.get_current_account_admin] = _manager_user
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
@@ -149,7 +150,7 @@ def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monke
         app.dependency_overrides.pop(dependencies.get_current_storage_ops_admin, None)
         app.dependency_overrides.pop(manager_buckets_router.get_s3_execution_context, None)
         app.dependency_overrides.pop(manager_buckets_router.get_buckets_service, None)
-        app.dependency_overrides.pop(manager_buckets_router.get_bucket_configuration_service, None)
+        app.dependency_overrides.pop(manager_bucket_config_core.get_bucket_configuration_service, None)
         app.dependency_overrides.pop(storage_ops_buckets_router.get_buckets_service, None)
         app.dependency_overrides.pop(manager_buckets_router.get_current_account_admin, None)
         app.dependency_overrides.pop(manager_buckets_router.get_audit_service, None)

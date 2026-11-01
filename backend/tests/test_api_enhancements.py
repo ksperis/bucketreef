@@ -8,6 +8,7 @@ from app.db import S3Account
 from app.main import app
 from app.models.s3_account import S3Account as S3AccountSchema
 from app.routers.admin import s3_accounts as admin_accounts_router
+from app.routers.manager import bucket_config_core as manager_bucket_config_core
 from app.routers.manager import buckets as manager_buckets_router
 from app.services.s3_deletion import BucketNotEmptyError
 
@@ -283,7 +284,7 @@ def test_manager_get_bucket_versioning_returns_status(client: TestClient):
     account.id = 12
 
     app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
-    app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = lambda: FakeBucketService()
+    app.dependency_overrides[manager_bucket_config_core.get_bucket_configuration_service] = lambda: FakeBucketService()
 
     response = client.get("/api/manager/buckets/demo-bucket/versioning")
 

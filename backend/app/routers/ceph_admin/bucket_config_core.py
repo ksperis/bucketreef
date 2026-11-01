@@ -27,7 +27,7 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
-from app.services.bucket_configuration_service import BucketConfigurationService
+from app.services.bucket_quota_service import BucketQuotaService
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
@@ -97,7 +97,7 @@ def update_quota(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> Response:
     target = ceph_admin_bucket_target(ctx, bucket_name, tenant)
-    service = BucketConfigurationService()
+    service = BucketQuotaService()
     context = build_ceph_admin_s3_context(ctx)
     try:
         bucket_info = ctx.rgw_admin.get_bucket_info(

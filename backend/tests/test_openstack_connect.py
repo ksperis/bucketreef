@@ -395,7 +395,7 @@ def test_other_session_other_user_and_bearer_catalog_cannot_reuse_credentials(db
 
 
 def test_endpoint_service_identities_never_enrich_or_administer_openstack_contexts(db_session, setup_cloud, monkeypatch):
-    from app.services.bucket_configuration_service import BucketConfigurationService
+    from app.services.bucket_quota_service import BucketQuotaService
     from app.services.buckets_service import BucketsService
     from app.services.rgw_principal_scope import resolve_target_admin_uid
     from app.services.rgw_supervision import get_supervision_credentials
@@ -417,7 +417,7 @@ def test_endpoint_service_identities_never_enrich_or_administer_openstack_contex
     execution.rgw_account_id = "RGW99999999999999999"
     acquire = Mock(side_effect=AssertionError("Endpoint service credentials must not be acquired"))
     monkeypatch.setattr("app.services.buckets_service.get_endpoint_runtime_rgw_client", acquire)
-    monkeypatch.setattr("app.services.bucket_configuration_service.get_endpoint_admin_rgw_client", acquire)
+    monkeypatch.setattr("app.services.bucket_quota_service.get_endpoint_admin_rgw_client", acquire)
     monkeypatch.setattr("app.services.rgw_supervision._supervision_credentials_from_endpoint", acquire)
     assert resolve_target_admin_uid(execution) is None
     assert BucketsService()._admin_bucket_list(execution) == []
@@ -425,7 +425,7 @@ def test_endpoint_service_identities_never_enrich_or_administer_openstack_contex
     with pytest.raises(RuntimeError, match="OpenStack"):
         BucketsService()._rgw_runtime_for_context(execution)
     with pytest.raises(RuntimeError, match="OpenStack"):
-        BucketConfigurationService()._rgw_bucket_quota_admin_for_context(execution)
+        BucketQuotaService()._rgw_bucket_quota_admin_for_context(execution)
     acquire.assert_not_called()
 
 

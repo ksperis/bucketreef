@@ -133,7 +133,7 @@ def test_manager_bucket_quota_update_succeeds_with_privileged_access(client, db_
 
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
     app.dependency_overrides[dependencies.get_current_actor] = lambda: user
-    app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = lambda: FakeBucketsService()
+    app.dependency_overrides[manager_buckets_router.get_bucket_quota_service] = lambda: FakeBucketsService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
     monkeypatch.setattr(
         "app.services.manager_ceph_management_access_service._resolve_endpoint_admin_ops_permissions",
@@ -157,7 +157,7 @@ def test_manager_bucket_quota_update_succeeds_with_privileged_access(client, db_
     finally:
         app.dependency_overrides.pop(dependencies.get_current_user, None)
         app.dependency_overrides.pop(dependencies.get_current_actor, None)
-        app.dependency_overrides.pop(manager_buckets_router.get_bucket_configuration_service, None)
+        app.dependency_overrides.pop(manager_buckets_router.get_bucket_quota_service, None)
         app.dependency_overrides.pop(manager_buckets_router.get_audit_service, None)
 
     assert response.status_code == 204, response.text
@@ -197,7 +197,7 @@ def test_embedded_browser_private_connection_cannot_forge_manager_quota_update(c
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
     app.dependency_overrides[dependencies.get_current_actor] = lambda: user
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: context
-    app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = fail_if_ceph_service_is_resolved
+    app.dependency_overrides[manager_buckets_router.get_bucket_quota_service] = fail_if_ceph_service_is_resolved
     try:
         response = client.patch(
             "/api/manager/buckets/demo-bucket/quota",
@@ -208,7 +208,7 @@ def test_embedded_browser_private_connection_cannot_forge_manager_quota_update(c
         app.dependency_overrides.pop(dependencies.get_current_user, None)
         app.dependency_overrides.pop(dependencies.get_current_actor, None)
         app.dependency_overrides.pop(dependencies.get_s3_execution_context, None)
-        app.dependency_overrides.pop(manager_buckets_router.get_bucket_configuration_service, None)
+        app.dependency_overrides.pop(manager_buckets_router.get_bucket_quota_service, None)
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Bucket quota management is not available for this context"

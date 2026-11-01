@@ -12,6 +12,7 @@ from app.main import app
 from app.models.bucket import BucketReplicationConfiguration
 from app.routers.ceph_admin import bucket_config_common as ceph_admin_bucket_config_common
 from app.routers.ceph_admin import bucket_config_rules as ceph_admin_buckets_router
+from app.routers.manager import bucket_config_rules as manager_bucket_config_rules
 from app.routers.manager import buckets as manager_buckets_router
 from app.services.bucket_configuration_service import BucketConfigurationService
 
@@ -57,7 +58,7 @@ def test_manager_put_bucket_replication_returns_200(client: TestClient):
             return BucketReplicationConfiguration(configuration=payload.configuration)
 
     app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_account
-    app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = lambda: FakeService()
+    app.dependency_overrides[manager_bucket_config_rules.get_bucket_configuration_service] = lambda: FakeService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
     payload = {
@@ -92,7 +93,7 @@ def test_manager_put_bucket_replication_rejects_zone(client: TestClient):
             raise ValueError("Destination.Zone is not supported in V1.")
 
     app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_account
-    app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = lambda: FakeService()
+    app.dependency_overrides[manager_bucket_config_rules.get_bucket_configuration_service] = lambda: FakeService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
     payload = {
@@ -121,7 +122,7 @@ def test_manager_put_bucket_replication_requires_endpoint_feature(client: TestCl
             raise AssertionError("service should not be called")
 
     app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: _build_account(replication_enabled=False)
-    app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = lambda: FakeService()
+    app.dependency_overrides[manager_bucket_config_rules.get_bucket_configuration_service] = lambda: FakeService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
     payload = {
@@ -145,7 +146,7 @@ def test_manager_delete_bucket_replication_returns_204(client: TestClient):
             captured["account_id"] = account.id
 
     app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_account
-    app.dependency_overrides[manager_buckets_router.get_bucket_configuration_service] = lambda: FakeService()
+    app.dependency_overrides[manager_bucket_config_rules.get_bucket_configuration_service] = lambda: FakeService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
     response = client.delete("/api/manager/buckets/demo-bucket/replication")
