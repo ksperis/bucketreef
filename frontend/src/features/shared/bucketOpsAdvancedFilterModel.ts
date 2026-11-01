@@ -19,6 +19,7 @@ import {
 import {
   buildTextFieldRules,
   parseExactListInput,
+  resolveTextFilterInputState,
   serializeAdvancedFilterRules,
 } from "./advancedFilterShared";
 import {
@@ -354,9 +355,13 @@ export const buildAdvancedFilterPayload = (
     }
     const tagExpressions = parseS3TagExpressions(advanced.s3Tags);
     if (tagExpressions.length > 0) {
-      const parsedS3Tags = parseExactListInput(advanced.s3Tags);
-      const forceExact = parsedS3Tags.listProvided && parsedS3Tags.values.length > 0;
-      const tagOp = forceExact || advanced.s3TagsMatchMode === "exact" ? "eq" : "contains";
+      const tagOp =
+        resolveTextFilterInputState(
+          advanced.s3Tags,
+          advanced.s3TagsMatchMode,
+        ).effectiveMode === "exact"
+          ? "eq"
+          : "contains";
       tagExpressions.forEach((expression) => rules.push({ field: "tag", op: tagOp, value: expression }));
     }
     numericRules.forEach(({ stateField, apiField, op, requiresStats }) => {

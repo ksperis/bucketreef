@@ -299,6 +299,21 @@ export const parseExactListInput = (value: string): ParsedExactListInput => {
   return { values, listProvided: true };
 };
 
+export const resolveTextFilterInputState = (
+  value: string,
+  mode: TextMatchMode,
+) => {
+  const parsed = parseExactListInput(value);
+  const forcesExact = parsed.listProvided && parsed.values.length > 0;
+
+  return {
+    value: value.trim(),
+    parsed,
+    forcesExact,
+    effectiveMode: forcesExact ? ("exact" as const) : mode,
+  };
+};
+
 export const resolveQuickTextFilterState = ({
   draftValue,
   appliedValue,
@@ -308,29 +323,20 @@ export const resolveQuickTextFilterState = ({
   appliedValue: string;
   mode: TextMatchMode;
 }) => {
-  const draftParsed = parseExactListInput(draftValue);
-  const appliedParsed = parseExactListInput(appliedValue);
-  const draftForcesExact =
-    draftParsed.listProvided && draftParsed.values.length > 0;
-  const appliedForcesExact =
-    appliedParsed.listProvided && appliedParsed.values.length > 0;
-  const modeForDisplay: TextMatchMode = draftForcesExact ? "exact" : mode;
-  const effectiveMode: TextMatchMode = appliedForcesExact ? "exact" : mode;
+  const draft = resolveTextFilterInputState(draftValue, mode);
+  const applied = resolveTextFilterInputState(appliedValue, mode);
   const effectiveSearchValue =
-    effectiveMode === "contains" ? appliedValue : "";
-  const normalizedDraft = draftValue.trim();
-  const normalizedApplied = appliedValue.trim();
-  const pending = normalizedDraft !== normalizedApplied;
+    applied.effectiveMode === "contains" ? appliedValue : "";
 
   return {
-    active: normalizedApplied.length > 0,
-    appliedParsed,
-    draftParsed,
-    draftForcesExact,
-    effectiveMode,
+    active: applied.value.length > 0,
+    appliedParsed: applied.parsed,
+    draftParsed: draft.parsed,
+    draftForcesExact: draft.forcesExact,
+    effectiveMode: applied.effectiveMode,
     effectiveSearchValue,
-    modeForDisplay,
-    pending,
+    modeForDisplay: draft.effectiveMode,
+    pending: draft.value !== applied.value,
   };
 };
 
@@ -345,40 +351,31 @@ export const resolveTextFilterFieldState = ({
   appliedValue?: string | null;
   appliedMode?: TextMatchMode | null;
 }) => {
-  const normalizedDraft = draftValue.trim();
-  const normalizedApplied = (appliedValue ?? "").trim();
-  const draftParsed = parseExactListInput(draftValue);
-  const appliedParsed = parseExactListInput(appliedValue ?? "");
-  const draftForcesExact =
-    draftParsed.listProvided && draftParsed.values.length > 0;
-  const appliedForcesExact =
-    appliedParsed.listProvided && appliedParsed.values.length > 0;
-  const resolvedDraftMode: TextMatchMode = draftForcesExact
-    ? "exact"
-    : draftMode;
-  const resolvedAppliedMode: TextMatchMode = appliedForcesExact
-    ? "exact"
-    : (appliedMode ?? "contains");
+  const draft = resolveTextFilterInputState(draftValue, draftMode);
+  const applied = resolveTextFilterInputState(
+    appliedValue ?? "",
+    appliedMode ?? "contains",
+  );
   const pending =
-    normalizedDraft !== normalizedApplied ||
-    (normalizedDraft.length > 0 && resolvedDraftMode !== resolvedAppliedMode);
+    draft.value !== applied.value ||
+    (draft.value.length > 0 && draft.effectiveMode !== applied.effectiveMode);
 
   return {
-    appliedValue: normalizedApplied,
-    draftValue: normalizedDraft,
-    draftForcesExact,
-    appliedMode: resolvedAppliedMode,
-    draftMode: resolvedDraftMode,
+    appliedValue: applied.value,
+    draftValue: draft.value,
+    draftForcesExact: draft.forcesExact,
+    appliedMode: applied.effectiveMode,
+    draftMode: draft.effectiveMode,
     pending,
     fieldState: advancedFilterFieldHighlight(
-      Boolean(normalizedApplied),
+      Boolean(applied.value),
       pending,
     ),
   };
 };
 
 export const buildTextFieldRules = (field: string, rawValue: string, mode: TextMatchMode): Array<Record<string, unknown>> => {
-  const parsed = parseExactListInput(rawValue);
+  const { parsed, effectiveMode } = resolveTextFilterInputState(rawValue, mode);
   if (parsed.values.length === 0) return [];
   if (parsed.listProvided) {
     if (parsed.values.length === 1) {
@@ -386,7 +383,7 @@ export const buildTextFieldRules = (field: string, rawValue: string, mode: TextM
     }
     return [{ field, op: "in", value: parsed.values }];
   }
-  return [{ field, op: mode === "exact" ? "eq" : "contains", value: parsed.values[0] }];
+  return [{ field, op: effectiveMode === "exact" ? "eq" : "contains", value: parsed.values[0] }];
 };
 
 export const serializeAdvancedFilterRules = (rules: Array<Record<string, unknown>>): string =>
@@ -401,10 +398,10 @@ const formatListPreview = (values: string[], limit: number = 2) => {
 };
 
 export const formatTextFilterSummary = (label: string, rawValue: string, mode: TextMatchMode) => {
-  const parsed = parseExactListInput(rawValue);
+  const { parsed, effectiveMode } = resolveTextFilterInputState(rawValue, mode);
   if (parsed.values.length === 0) return null;
   if (parsed.listProvided) {
     return `${label} exact list: ${formatListPreview(parsed.values, 2)}`;
   }
-  return `${label} ${formatTextMatchModeLabel(mode)}: ${parsed.values[0]}`;
+  return `${label} ${formatTextMatchModeLabel(effectiveMode)}: ${parsed.values[0]}`;
 };

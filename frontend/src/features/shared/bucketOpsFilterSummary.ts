@@ -7,7 +7,7 @@ import { featureDetailSummaryItems } from "../cephAdmin/filtering/bucketAdvanced
 import {
   formatTextFilterSummary,
   formatTextMatchModeLabel,
-  parseExactListInput,
+  resolveTextFilterInputState,
 } from "./advancedFilterShared";
 import {
   FEATURE_LABELS,
@@ -124,10 +124,7 @@ const NUMERIC_SUMMARY_DEFINITIONS: NumericSummaryDefinition[] = [
 const effectiveTextMatchMode = (
   value: string,
   mode: TextMatchMode,
-): TextMatchMode => {
-  const parsed = parseExactListInput(value);
-  return parsed.listProvided && parsed.values.length > 0 ? "exact" : mode;
-};
+): TextMatchMode => resolveTextFilterInputState(value, mode).effectiveMode;
 
 export const buildBucketOpsAdvancedFilterComparison = (
   applied: AdvancedFilterState | null,
@@ -139,26 +136,30 @@ export const buildBucketOpsAdvancedFilterComparison = (
   const endpointAppliedNames = normalizeAdvancedSelectionValues(
     applied?.endpointNames,
   );
-  const tenantAppliedValue = (applied?.tenant ?? "").trim();
-  const ownerAppliedValue = (applied?.owner ?? "").trim();
-  const ownerNameAppliedValue = (applied?.ownerName ?? "").trim();
-  const s3TagsAppliedExpressions = parseS3TagExpressions(applied?.s3Tags ?? "");
-  const tenantAppliedEffectiveMatchMode = effectiveTextMatchMode(
+  const tenantAppliedState = resolveTextFilterInputState(
     applied?.tenant ?? "",
     applied?.tenantMatchMode ?? "contains",
   );
-  const ownerAppliedEffectiveMatchMode = effectiveTextMatchMode(
+  const ownerAppliedState = resolveTextFilterInputState(
     applied?.owner ?? "",
     applied?.ownerMatchMode ?? "contains",
   );
-  const ownerNameAppliedEffectiveMatchMode = effectiveTextMatchMode(
+  const ownerNameAppliedState = resolveTextFilterInputState(
     applied?.ownerName ?? "",
     applied?.ownerNameMatchMode ?? "contains",
   );
-  const s3TagsAppliedEffectiveMatchMode = effectiveTextMatchMode(
+  const s3TagsAppliedState = resolveTextFilterInputState(
     applied?.s3Tags ?? "",
     applied?.s3TagsMatchMode ?? "contains",
   );
+  const tenantAppliedValue = tenantAppliedState.value;
+  const ownerAppliedValue = ownerAppliedState.value;
+  const ownerNameAppliedValue = ownerNameAppliedState.value;
+  const s3TagsAppliedExpressions = parseS3TagExpressions(applied?.s3Tags ?? "");
+  const tenantAppliedEffectiveMatchMode = tenantAppliedState.effectiveMode;
+  const ownerAppliedEffectiveMatchMode = ownerAppliedState.effectiveMode;
+  const ownerNameAppliedEffectiveMatchMode = ownerNameAppliedState.effectiveMode;
+  const s3TagsAppliedEffectiveMatchMode = s3TagsAppliedState.effectiveMode;
   const ownerNameAppliedScope = applied?.ownerNameScope ?? "any";
   const ownerSuspendedApplied = applied?.ownerSuspended ?? "any";
 
@@ -166,38 +167,34 @@ export const buildBucketOpsAdvancedFilterComparison = (
   const endpointDraftNames = normalizeAdvancedSelectionValues(
     draft.endpointNames,
   );
-  const tenantDraftValue = draft.tenant.trim();
-  const ownerDraftValue = draft.owner.trim();
-  const ownerNameDraftValue = draft.ownerName.trim();
-  const s3TagsDraftExpressions = parseS3TagExpressions(draft.s3Tags);
-  const tenantDraftParsed = parseExactListInput(draft.tenant);
-  const ownerDraftParsed = parseExactListInput(draft.owner);
-  const ownerNameDraftParsed = parseExactListInput(draft.ownerName);
-  const s3TagsDraftParsed = parseExactListInput(draft.s3Tags);
-  const tenantDraftForcesExact =
-    tenantDraftParsed.listProvided && tenantDraftParsed.values.length > 0;
-  const ownerDraftForcesExact =
-    ownerDraftParsed.listProvided && ownerDraftParsed.values.length > 0;
-  const ownerNameDraftForcesExact =
-    ownerNameDraftParsed.listProvided && ownerNameDraftParsed.values.length > 0;
-  const s3TagsDraftForcesExact =
-    s3TagsDraftParsed.listProvided && s3TagsDraftParsed.values.length > 0;
-  const tenantDraftEffectiveMatchMode = effectiveTextMatchMode(
+  const tenantDraftState = resolveTextFilterInputState(
     draft.tenant,
     draft.tenantMatchMode,
   );
-  const ownerDraftEffectiveMatchMode = effectiveTextMatchMode(
+  const ownerDraftState = resolveTextFilterInputState(
     draft.owner,
     draft.ownerMatchMode,
   );
-  const ownerNameDraftEffectiveMatchMode = effectiveTextMatchMode(
+  const ownerNameDraftState = resolveTextFilterInputState(
     draft.ownerName,
     draft.ownerNameMatchMode,
   );
-  const s3TagsDraftEffectiveMatchMode = effectiveTextMatchMode(
+  const s3TagsDraftState = resolveTextFilterInputState(
     draft.s3Tags,
     draft.s3TagsMatchMode,
   );
+  const tenantDraftValue = tenantDraftState.value;
+  const ownerDraftValue = ownerDraftState.value;
+  const ownerNameDraftValue = ownerNameDraftState.value;
+  const s3TagsDraftExpressions = parseS3TagExpressions(draft.s3Tags);
+  const tenantDraftForcesExact = tenantDraftState.forcesExact;
+  const ownerDraftForcesExact = ownerDraftState.forcesExact;
+  const ownerNameDraftForcesExact = ownerNameDraftState.forcesExact;
+  const s3TagsDraftForcesExact = s3TagsDraftState.forcesExact;
+  const tenantDraftEffectiveMatchMode = tenantDraftState.effectiveMode;
+  const ownerDraftEffectiveMatchMode = ownerDraftState.effectiveMode;
+  const ownerNameDraftEffectiveMatchMode = ownerNameDraftState.effectiveMode;
+  const s3TagsDraftEffectiveMatchMode = s3TagsDraftState.effectiveMode;
 
   return {
     contextAppliedIds,
