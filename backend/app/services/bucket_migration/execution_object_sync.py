@@ -21,9 +21,9 @@ from ._shared import (
     _BucketDiffEntry,
     _SyncDiff,
     _VersionReplayWatermarkBuilder,
-    _WorkerLeaseLostError,
 )
 from .execution_runtime import ResolvedContext
+from .execution_signals import WorkerLeaseLostError
 
 
 class _SyncProgressTracker:
@@ -83,7 +83,7 @@ class _SyncProgressTracker:
         state = control_check()
         if state == "lost_lease":
             self.flush(force=True)
-            raise _WorkerLeaseLostError(lost_lease_message)
+            raise WorkerLeaseLostError(lost_lease_message)
         if state in {"pause", "cancel"}:
             self.flush(force=True)
         return state
@@ -175,7 +175,7 @@ class BucketMigrationObjectSyncMixin:
                     if state == "lost_lease":
                         if on_progress is not None:
                             on_progress(force=True)
-                        raise _WorkerLeaseLostError("Worker lease lost while replaying bucket versions")
+                        raise WorkerLeaseLostError("Worker lease lost while replaying bucket versions")
                     if state in {"pause", "cancel"}:
                         if on_progress is not None:
                             on_progress(force=True)

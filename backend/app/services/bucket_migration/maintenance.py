@@ -21,9 +21,9 @@ from app.services.storage_ops_context_resolution import (
 from ._shared import (
     _BucketVersionEntry,
     _json_dumps,
-    _WorkerLeaseLostError,
 )
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER
+from .execution_signals import WorkerLeaseLostError
 from .workflow import require_action
 
 
@@ -132,7 +132,7 @@ class BucketMigrationMaintenanceMixin:
                 else:
                     self._cleanup_failed_target(item, source, target, check)
                 item.cleanup_error = None
-            except _WorkerLeaseLostError:
+            except WorkerLeaseLostError:
                 raise
             except Exception as exc:
                 self.db.rollback()
@@ -186,7 +186,7 @@ class BucketMigrationMaintenanceMixin:
                 )
                 == "lost_lease"
             ):
-                raise _WorkerLeaseLostError("Recovery lease lost")
+                raise WorkerLeaseLostError("Recovery lease lost")
             return "run"
 
         errors = []
@@ -205,7 +205,7 @@ class BucketMigrationMaintenanceMixin:
                         check,
                     )
                 )
-        except _WorkerLeaseLostError:
+        except WorkerLeaseLostError:
             self.db.rollback()
             return
         except Exception as exc:

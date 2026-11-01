@@ -13,10 +13,10 @@ from botocore.exceptions import BotoCoreError, ClientError
 from ._shared import (
     _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
     _RUN_ACTIONS_WAIT_TIMEOUT_SECONDS,
-    _WorkerLeaseLostError,
     _chunked,
 )
 from .execution_runtime import ResolvedContext
+from .execution_signals import WorkerLeaseLostError
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +209,7 @@ class BucketMigrationObjectTransferMixin:
             if state == "lost_lease":
                 if on_progress is not None:
                     on_progress(force=True)
-                raise _WorkerLeaseLostError(lease_lost_message)
+                raise WorkerLeaseLostError(lease_lost_message)
             if state in {"pause", "cancel"}:
                 if on_progress is not None:
                     on_progress(force=True)
@@ -239,7 +239,7 @@ class BucketMigrationObjectTransferMixin:
                 if interrupted_state == "lost_lease":
                     if on_progress is not None:
                         on_progress(force=True)
-                    raise _WorkerLeaseLostError(lease_lost_message)
+                    raise WorkerLeaseLostError(lease_lost_message)
                 if interrupted_state in {"pause", "cancel"}:
                     if on_progress is not None:
                         on_progress(force=True)

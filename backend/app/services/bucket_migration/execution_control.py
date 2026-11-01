@@ -12,10 +12,10 @@ from app.db import BucketMigration, BucketMigrationItem
 from app.utils.time import utcnow
 from ._shared import (
     _DB_ERROR_MESSAGE_MAX_CHARS,
-    _WorkerLeaseLostError,
     _truncate_optional_db_text,
 )
 from .execution_runtime import ResolvedContext
+from .execution_signals import WorkerLeaseLostError
 from .workflow import ACTIVE_STATUSES, FINAL_STATUSES
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,7 @@ class BucketMigrationExecutionControlMixin:
                 control_check=control_check,
             )
             return migration
-        except _WorkerLeaseLostError:
+        except WorkerLeaseLostError:
             self.db.rollback()
             return None
         except Exception as exc:  # noqa: BLE001

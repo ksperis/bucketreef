@@ -14,7 +14,7 @@ from app.services.managed_resource_naming import (
     migration_probe_bucket_name,
 )
 from app.utils.time import utcnow
-from ._shared import _WorkerLeaseLostError
+from .execution_signals import WorkerLeaseLostError
 from .precheck_reporting import create_precheck_report
 from .workflow import require_action
 
@@ -115,7 +115,7 @@ class BucketMigrationPreparationMixin:
             if row.configuration_revision != revision or (
                 worker_id and row.worker_lease_owner != worker_id
             ):
-                raise _WorkerLeaseLostError(
+                raise WorkerLeaseLostError(
                     "Preparation configuration or lease changed"
                 )
             self._assert_migration_creator_access(migration)
@@ -143,7 +143,7 @@ class BucketMigrationPreparationMixin:
                 revision=revision,
                 active_checks=active_checks,
             )
-        except _WorkerLeaseLostError:
+        except WorkerLeaseLostError:
             self.db.rollback()
             raise
         except Exception as exc:  # Recovery information remains durable after failures.
@@ -213,7 +213,7 @@ class BucketMigrationPreparationMixin:
     ):
         migration = self.get_migration(migration_id)
         if worker_id and migration.worker_lease_owner != worker_id:
-            raise _WorkerLeaseLostError("Preparation lease lost") from exc
+            raise WorkerLeaseLostError("Preparation lease lost") from exc
         migration.preparation_status = "blocked"
         migration.precheck_status = "failed"
         migration.checked_revision = None
