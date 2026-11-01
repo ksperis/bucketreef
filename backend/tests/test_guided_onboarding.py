@@ -33,6 +33,7 @@ from app.services import onboarding_service as progress_module
 from app.services import onboarding_setup_service as setup_service
 from app.services import user_associations_service as user_associations_module
 from app.services.managed_resource_naming import onboarding_sample_account_name
+from app.services.onboarding_endpoint_setup_service import OnboardingEndpointSetupService
 from app.services.onboarding_service import OnboardingError, OnboardingService, REQUIRED_FEATURES
 from app.services.s3_connections_service import S3ConnectionsService
 from tests.service_identity_helpers import service_identity
@@ -285,6 +286,49 @@ def test_preview_blocks_locked_ceph_account_when_credentials_and_features_are_mi
         "endpoint_credentials_locked",
         "endpoint_features_locked",
     ]
+
+
+def test_endpoint_prepare_rejects_missing_selected_endpoint(guided, db_session):
+    missing_endpoint_id = (
+        db_session.scalar(sa.select(sa.func.max(StorageEndpoint.id))) or 0
+    ) + 1
+    setup = OnboardingEndpointSetupService(guided)
+    draft = OnboardingDraft(endpoint_id=missing_endpoint_id, manager=True)
+    payload = OnboardingApply(
+        revision=1,
+        confirmed=True,
+        review_token="x" * 64,
+    )
+
+    with pytest.raises(OnboardingError, match="endpoint_unavailable"):
+        setup.prepare(
+            SimpleNamespace(),
+            SimpleNamespace(resources={}),
+            draft,
+            payload,
+        )
+
+
+@pytest.mark.parametrize("option", ["manager", "portal", "supervision", "ceph_admin"])
+def test_endpoint_prepare_rejects_non_ceph_endpoint_for_ceph_workflows(
+    guided, db_session, option
+):
+    ep = endpoint(db_session, provider="other")
+    setup = OnboardingEndpointSetupService(guided)
+    draft = OnboardingDraft(endpoint_id=ep.id, **{option: True})
+    payload = OnboardingApply(
+        revision=1,
+        confirmed=True,
+        review_token="x" * 64,
+    )
+
+    with pytest.raises(OnboardingError, match="ceph_endpoint_required"):
+        setup.prepare(
+            SimpleNamespace(),
+            SimpleNamespace(resources={}),
+            draft,
+            payload,
+        )
 
 
 def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypatch):
