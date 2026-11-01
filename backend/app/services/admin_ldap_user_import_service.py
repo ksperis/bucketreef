@@ -16,7 +16,7 @@ from app.models.admin_ldap_import import (
     LDAPImportSearchItem,
     LDAPImportSearchResponse,
 )
-from app.models.user import ManagerToolAccess, UserUpdate
+from app.models.user import ManagerToolAccess
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPAuthService, LDAPIdentity
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
@@ -195,14 +195,7 @@ class AdminLdapUserImportService:
         self.db.add(external_identity)
 
         associations = UserAssociationsService(self.db)
-        association_update = UserUpdate(
-            account_links=payload.account_links,
-            s3_user_links=payload.s3_user_links,
-            s3_connection_ids=payload.s3_connection_ids,
-            group_ids=payload.group_ids,
-            openstack_cloud_ids=payload.openstack_cloud_ids,
-        )
-        associations.apply_updates(user, association_update)
+        associations.apply_updates(user, payload)
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)

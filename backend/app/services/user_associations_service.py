@@ -18,7 +18,7 @@ from app.db import (
     UserUiGroup,
 )
 from app.db.openstack import OpenStackCloud, cloud_groups, cloud_users
-from app.models.user import AccountMembership, S3UserMembership, UserUpdate
+from app.models.user import AccountMembership, S3UserMembership, UserAssociationsPayload
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
@@ -35,7 +35,7 @@ class UserAssociationsService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def apply_updates(self, user: User, payload: UserUpdate) -> None:
+    def apply_updates(self, user: User, payload: UserAssociationsPayload) -> None:
         if payload.account_links is not None:
             self.set_account_links(user, payload.account_links)
         if payload.s3_user_links is not None:
@@ -50,7 +50,7 @@ class UserAssociationsService:
     def affected_portal_account_ids(
         self,
         user: User,
-        payload: UserUpdate,
+        payload: UserAssociationsPayload,
     ) -> list[int]:
         if payload.account_links is None and payload.group_ids is None:
             return []

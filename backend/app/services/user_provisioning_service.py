@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
 from app.db import User, UserRole, is_admin_ui_role
-from app.models.user import ManagerToolAccess, UserCreate, UserUpdate, validate_password_policy
+from app.models.user import ManagerToolAccess, UserCreate, validate_password_policy
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_query_service import UserQueryService
@@ -67,14 +67,7 @@ class UserProvisioningService:
             self.db.add(user)
             self.db.flush()
 
-            association_update = UserUpdate(
-                account_links=payload.account_links,
-                s3_user_links=payload.s3_user_links,
-                s3_connection_ids=payload.s3_connection_ids,
-                group_ids=payload.group_ids,
-                openstack_cloud_ids=payload.openstack_cloud_ids,
-            )
-            self.associations.apply_updates(user, association_update)
+            self.associations.apply_updates(user, payload)
             self.db.add(user)
             self.db.commit()
         except Exception:
