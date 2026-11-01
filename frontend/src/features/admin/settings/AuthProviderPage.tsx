@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import ErrorState from "../../../components/errors/ErrorState";
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -19,7 +19,6 @@ import {
 } from "../../../auth/useRecentWebAuthnStepUp";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import SettingsWorkflowForm from "../../../components/settings/SettingsWorkflowForm";
-import { SettingsButton } from "../../../components/settings/SettingsControls";
 import { useSettingsDraft } from "../../../components/settings/useSettingsDraft";
 import { extractApiError } from "../../../utils/apiError";
 import { focusFirstInvalidField } from "../../../utils/focusFirstInvalidField";
@@ -37,6 +36,7 @@ import {
 import OidcProviderFields from "./OidcProviderFields";
 import LdapProviderFields from "./LdapProviderFields";
 import { useAdminI18n } from "../adminI18n";
+import useAdminResourceController from "../useAdminResourceController";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -130,13 +130,9 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
   const { providerId } = useParams();
   const navigate = useNavigate();
   const form = useSettingsDraft(adapter.empty);
-  const [provider, setProvider] = useState<P | null>(null);
-  const [loading, setLoading] = useState(Boolean(providerId));
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
-  const [loadFailure, setLoadFailure] = useState<unknown>(null);
-  const [loadAttempt, setLoadAttempt] = useState(0);
   const [completed, setCompleted] = useState(false);
   const active = useRef(true);
   useEffect(() => {
@@ -147,37 +143,33 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
   }, []);
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const accept = form.accept;
-  useEffect(() => {
-    if (!providerId) return;
-    let active = true;
-    setLoading(true);
-    setError(null);
-    setLoadFailure(null);
-    setProvider(null);
-    adapter
-      .load()
-      .then((providers) => {
-        if (!active) return;
-        const selected = providers.find(
-          (item) => item.provider_id === providerId,
-        );
-        if (!selected) {
-          setError(adminText("Provider not found."));
-          return;
-        }
-        setProvider(selected);
-        accept(adapter.toForm(selected));
-      })
-      .catch((err) => {
-        if (active) setLoadFailure(err);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [adapter, providerId, accept, loadAttempt, adminText]);
+  const loadProvider = useCallback(async (): Promise<P | null> => {
+    if (!providerId) return null;
+    const providers = await adapter.load();
+    return providers.find((item) => item.provider_id === providerId) ?? null;
+  }, [adapter, providerId]);
+  const acceptProvider = useCallback((loadedProvider: P | null) => {
+    if (loadedProvider) accept(adapter.toForm(loadedProvider));
+  }, [accept, adapter]);
+  const formatLoadError = useCallback(
+    (failure: unknown) => extractApiError(failure, adminText("Unable to load provider.")),
+    [adminText],
+  );
+  const {
+    resource: loadedProvider,
+    setResource: setProvider,
+    loading,
+    error: loadError,
+    errorCause: loadFailure,
+    refresh: retryLoad,
+  } = useAdminResourceController<P | null>({
+    loadResource: loadProvider,
+    initialResource: null,
+    formatError: formatLoadError,
+    enabled: Boolean(providerId),
+    onLoaded: acceptProvider,
+  });
+  const provider = providerId && !loading && !loadError ? loadedProvider : null;
   const readOnly = isDemo || Boolean(provider && !provider.editable);
   const title = adminText(
     providerId ? (readOnly ? "View {kind} provider" : "Edit {kind} provider") : "Add {kind} provider",
@@ -218,8 +210,8 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
   };
   if (completed) return null;
   if (!loading && providerId && !provider) {
-    return <ErrorState kind={loadFailure ? undefined : "not_found"} error={loadFailure}
-      onRetry={() => setLoadAttempt((attempt) => attempt + 1)}
+    return <ErrorState kind={loadError ? undefined : "not_found"} error={loadFailure}
+      onRetry={retryLoad}
       secondaryAction={{ label: adminText("Back to authentication"), to: backPath }} />;
   }
   return (
@@ -264,9 +256,6 @@ function ProviderEditor<T extends { provider_id: string }, P extends Metadata>({
             </>
           )
         )}
-        {!loading && providerId && !provider && error && <div>
-          <SettingsButton variant="secondary" onClick={() => setLoadAttempt(attempt => attempt + 1)}>{adminText("Retry")}</SettingsButton>
-        </div>}
       </SettingsWorkflowForm>
       {verificationDialog}
     </>

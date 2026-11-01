@@ -86,4 +86,21 @@ describe("useAdminResourceController", () => {
     expect(result.current.resource).toBeNull();
     expect(result.current.error).toBeNull();
   });
+
+  it("keeps the raw load failure alongside the formatted error", async () => {
+    const failure = new Error("request failed");
+    const loadResource = vi.fn().mockRejectedValue(failure);
+    const formatError = vi.fn(() => "Unable to load");
+    const { result } = renderHook(() =>
+      useAdminResourceController({
+        loadResource,
+        initialResource: null,
+        formatError,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe("Unable to load");
+    expect(result.current.errorCause).toBe(failure);
+  });
 });
