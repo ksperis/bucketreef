@@ -14,10 +14,9 @@ import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/ap
 import {
   bucketEditorDraftSignature,
   cloneBucketJsonValue,
-  formatBucketJsonValue,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
-import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
+import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
 import {
   createVisualCorsRule,
   parseCorsRulesJson,
@@ -44,6 +43,11 @@ function normalizeRules(value: unknown): CorsRuleRecord[] {
   );
 }
 
+function parseCorsEditorJson(text: string) {
+  const parsed = parseCorsRulesJson(text);
+  return { draft: parsed.rules, error: parsed.error };
+}
+
 export function useBucketCorsController({
   contextId,
   bucketName,
@@ -54,17 +58,32 @@ export function useBucketCorsController({
 }: UseBucketCorsControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<CorsRuleRecord[]>([]);
-  const [draftRules, setDraftRules] = useState<CorsRuleRecord[]>([]);
-  const [jsonText, setJsonText] = useState("[]");
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
-  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
-  const [editorError, setEditorError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const {
+    closeEditor,
+    draft: draftRules,
+    editorError,
+    editorMode,
+    editorOpen,
+    editorTargetIndex,
+    jsonText,
+    openEditorDraft,
+    replaceDraft,
+    setDraft: setDraftRules,
+    setEditorError,
+    setEditorTargetIndex,
+    setStatus,
+    status,
+    updateEditorMode,
+    updateJsonText,
+  } = useBucketFeatureEditorSession<CorsRuleRecord[]>({
+    initialDraft: [],
+    initialJsonText: "[]",
+    parseJson: parseCorsEditorJson,
+  });
 
   const applyBaseline = useCallback((next: unknown) => {
     setRules(normalizeRules(next));
@@ -104,20 +123,6 @@ export function useBucketCorsController({
     }
   }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
-  const openEditorDraft = useCallback((
-    nextDraft: CorsRuleRecord[],
-    mode: BucketFeatureEditorMode,
-    targetIndex: number | null,
-  ) => {
-    setDraftRules(nextDraft);
-    setJsonText(formatBucketJsonValue(nextDraft));
-    setEditorMode(mode);
-    setEditorTargetIndex(targetIndex);
-    setEditorError(null);
-    setStatus(null);
-    setEditorOpen(true);
-  }, []);
-
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(rules), "visual", null);
   }, [openEditorDraft, rules]);
@@ -134,38 +139,6 @@ export function useBucketCorsController({
     const nextDraft = [...cloneBucketJsonValue(rules), createVisualCorsRule()];
     openEditorDraft(nextDraft, "visual", nextDraft.length - 1);
   }, [openEditorDraft, rules]);
-
-  const closeEditor = useCallback(() => {
-    setEditorOpen(false);
-    setEditorTargetIndex(null);
-    setEditorError(null);
-  }, []);
-
-  const updateJsonText = useCallback((value: string) => {
-    setJsonText(value);
-    setEditorError(null);
-  }, []);
-
-  const updateEditorMode = useCallback(
-    (nextMode: BucketFeatureEditorMode) => {
-      if (nextMode === editorMode) return;
-      setEditorError(null);
-      if (nextMode === "json") {
-        setJsonText(formatBucketJsonValue(draftRules));
-        setEditorMode("json");
-        return;
-      }
-      const parsed = parseCorsRulesJson(jsonText);
-      if (!parsed.rules) {
-        setEditorError(parsed.error);
-        return;
-      }
-      setDraftRules(parsed.rules);
-      setEditorTargetIndex(null);
-      setEditorMode("visual");
-    },
-    [draftRules, editorMode, jsonText],
-  );
 
   const addDraftRule = useCallback(() => {
     setDraftRules((current) => [...current, createVisualCorsRule()]);
@@ -250,11 +223,9 @@ export function useBucketCorsController({
       const savedRules = await persistRules(nextRules);
       if (savedRules === null) return;
       applyBaseline(savedRules);
-      setDraftRules(cloneBucketJsonValue(savedRules));
-      setJsonText(formatBucketJsonValue(savedRules));
+      replaceDraft(cloneBucketJsonValue(savedRules));
       setStatus(savedRules.length === 0 ? "CORS configuration deleted" : "CORS configuration updated");
-      setEditorTargetIndex(null);
-      setEditorOpen(false);
+      closeEditor();
     } catch (saveFailure) {
       setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(
@@ -271,7 +242,9 @@ export function useBucketCorsController({
     enabled,
     jsonText,
     persistRules,
+    replaceDraft,
     saving,
+    closeEditor,
   ]);
 
   const baselineSignature = stableBucketJsonSignature(rules);

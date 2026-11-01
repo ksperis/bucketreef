@@ -11,13 +11,12 @@ import {
   putCephAdminBucketEncryption,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
-import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   bucketEditorDraftSignature,
   cloneBucketJsonValue,
-  formatBucketJsonValue,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
+import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
 import {
   createVisualEncryptionRule,
   parseEncryptionRulesJson,
@@ -44,6 +43,11 @@ function normalizeRules(value: unknown): EncryptionRuleRecord[] {
   );
 }
 
+function parseEncryptionEditorJson(text: string) {
+  const parsed = parseEncryptionRulesJson(text);
+  return { draft: parsed.rules, error: parsed.error };
+}
+
 export function useBucketEncryptionController({
   contextId,
   bucketName,
@@ -54,16 +58,31 @@ export function useBucketEncryptionController({
 }: UseBucketEncryptionControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<EncryptionRuleRecord[]>([]);
-  const [draftRules, setDraftRules] = useState<EncryptionRuleRecord[]>([]);
-  const [jsonText, setJsonText] = useState("[]");
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
-  const [editorError, setEditorError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const {
+    closeEditor,
+    draft: draftRules,
+    editorError,
+    editorMode,
+    editorOpen,
+    jsonText,
+    openEditorDraft,
+    replaceDraft,
+    setDraft: setDraftRules,
+    setEditorError,
+    setEditorOpen,
+    setStatus,
+    status,
+    updateEditorMode,
+    updateJsonText,
+  } = useBucketFeatureEditorSession<EncryptionRuleRecord[]>({
+    initialDraft: [],
+    initialJsonText: "[]",
+    parseJson: parseEncryptionEditorJson,
+  });
 
   const applyBaseline = useCallback((next: unknown) => {
     setRules(normalizeRules(next));
@@ -109,45 +128,8 @@ export function useBucketEncryptionController({
 
   const openEditor = useCallback(() => {
     if (!enabled) return;
-    const nextDraft = cloneBucketJsonValue(rules);
-    setDraftRules(nextDraft);
-    setJsonText(formatBucketJsonValue(nextDraft));
-    setEditorMode("visual");
-    setEditorError(null);
-    setStatus(null);
-    setEditorOpen(true);
-  }, [enabled, rules]);
-
-  const closeEditor = useCallback(() => {
-    setEditorOpen(false);
-    setEditorError(null);
-  }, []);
-
-  const updateJsonText = useCallback((value: string) => {
-    setJsonText(value);
-    setEditorError(null);
-  }, []);
-
-  const updateEditorMode = useCallback(
-    (nextMode: BucketFeatureEditorMode) => {
-      if (nextMode === editorMode) return;
-      setEditorError(null);
-      if (nextMode === "json") {
-        setJsonText(formatBucketJsonValue(draftRules));
-        setEditorMode("json");
-        return;
-      }
-
-      const parsed = parseEncryptionRulesJson(jsonText);
-      if (!parsed.rules) {
-        setEditorError(parsed.error);
-        return;
-      }
-      setDraftRules(parsed.rules);
-      setEditorMode("visual");
-    },
-    [draftRules, editorMode, jsonText],
-  );
+    openEditorDraft(cloneBucketJsonValue(rules), "visual", null);
+  }, [enabled, openEditorDraft, rules]);
 
   const addDraftRule = useCallback(() => {
     setDraftRules((current) => [...current, createVisualEncryptionRule()]);
@@ -203,8 +185,7 @@ export function useBucketEncryptionController({
           await bucketDetailsApi.deleteBucketEncryption(contextId, bucketName);
         }
         applyBaseline([]);
-        setDraftRules([]);
-        setJsonText("[]");
+        replaceDraft([]);
         setStatus("Bucket encryption disabled.");
       } else {
         let saved;
@@ -216,11 +197,10 @@ export function useBucketEncryptionController({
         }
         const savedRules = normalizeRules(saved.rules ?? nextRules);
         applyBaseline(savedRules);
-        setDraftRules(cloneBucketJsonValue(savedRules));
-        setJsonText(formatBucketJsonValue(savedRules));
+        replaceDraft(cloneBucketJsonValue(savedRules));
         setStatus("Bucket encryption updated.");
       }
-      setEditorOpen(false);
+      closeEditor();
     } catch (saveFailure) {
       setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(
@@ -240,7 +220,9 @@ export function useBucketEncryptionController({
     enabled,
     endpointId,
     jsonText,
+    replaceDraft,
     saving,
+    closeEditor,
   ]);
 
   const baselineSignature = stableBucketJsonSignature(rules);

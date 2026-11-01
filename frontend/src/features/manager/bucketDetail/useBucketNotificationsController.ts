@@ -12,14 +12,13 @@ import {
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { createUiDraftId } from "../../../utils/uiDraftId";
-import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   bucketEditorDraftSignature,
   cloneBucketJsonValue,
-  formatBucketJsonValue,
   normalizeNotificationConfiguration,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
+import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
 import {
   addNotificationTopic,
   createVisualNotificationTopic,
@@ -52,6 +51,11 @@ function isEmptyConfiguration(configuration: NotificationConfigurationRecord): b
   return Object.keys(normalizeNotificationConfiguration(configuration)).length === 0;
 }
 
+function parseNotificationEditorJson(text: string) {
+  const parsed = parseNotificationConfigurationJson(text);
+  return { draft: parsed.configuration, error: parsed.error };
+}
+
 export function useBucketNotificationsController({
   contextId,
   bucketName,
@@ -62,17 +66,32 @@ export function useBucketNotificationsController({
 }: UseBucketNotificationsControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [configuration, setConfiguration] = useState<NotificationConfigurationRecord>({});
-  const [draftConfiguration, setDraftConfiguration] = useState<NotificationConfigurationRecord>({});
-  const [jsonText, setJsonText] = useState("{}");
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
-  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
-  const [editorError, setEditorError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const {
+    closeEditor,
+    draft: draftConfiguration,
+    editorError,
+    editorMode,
+    editorOpen,
+    editorTargetIndex,
+    jsonText,
+    openEditorDraft,
+    replaceDraft,
+    setDraft: setDraftConfiguration,
+    setEditorError,
+    setEditorTargetIndex,
+    setStatus,
+    status,
+    updateEditorMode,
+    updateJsonText,
+  } = useBucketFeatureEditorSession<NotificationConfigurationRecord>({
+    initialDraft: {},
+    initialJsonText: "{}",
+    parseJson: parseNotificationEditorJson,
+  });
 
   const applyBaseline = useCallback((value: unknown) => {
     setConfiguration(cloneBucketJsonValue(asConfiguration(value)));
@@ -107,20 +126,6 @@ export function useBucketNotificationsController({
     }
   }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
-  const openEditorDraft = useCallback((
-    nextDraft: NotificationConfigurationRecord,
-    mode: BucketFeatureEditorMode,
-    targetIndex: number | null,
-  ) => {
-    setDraftConfiguration(nextDraft);
-    setJsonText(formatBucketJsonValue(nextDraft));
-    setEditorMode(mode);
-    setEditorTargetIndex(targetIndex);
-    setEditorError(null);
-    setStatus(null);
-    setEditorOpen(true);
-  }, []);
-
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(configuration), "visual", null);
   }, [configuration, openEditorDraft]);
@@ -141,38 +146,6 @@ export function useBucketNotificationsController({
     const nextTopics = notificationTopicConfigurations(nextDraft);
     openEditorDraft(nextDraft, "visual", nextTopics.length - 1);
   }, [configuration, openEditorDraft]);
-
-  const closeEditor = useCallback(() => {
-    setEditorOpen(false);
-    setEditorTargetIndex(null);
-    setEditorError(null);
-  }, []);
-
-  const updateJsonText = useCallback((value: string) => {
-    setJsonText(value);
-    setEditorError(null);
-  }, []);
-
-  const updateEditorMode = useCallback(
-    (nextMode: BucketFeatureEditorMode) => {
-      if (nextMode === editorMode) return;
-      setEditorError(null);
-      if (nextMode === "json") {
-        setJsonText(formatBucketJsonValue(draftConfiguration));
-        setEditorMode("json");
-        return;
-      }
-      const parsed = parseNotificationConfigurationJson(jsonText);
-      if (!parsed.configuration) {
-        setEditorError(parsed.error);
-        return;
-      }
-      setDraftConfiguration(parsed.configuration);
-      setEditorTargetIndex(null);
-      setEditorMode("visual");
-    },
-    [draftConfiguration, editorMode, jsonText],
-  );
 
   const addDraftTopic = useCallback(() => {
     setDraftConfiguration((current) =>
@@ -264,11 +237,9 @@ export function useBucketNotificationsController({
       const savedConfiguration = await persistConfiguration(nextConfiguration);
       if (savedConfiguration === null) return;
       applyBaseline(savedConfiguration);
-      setDraftConfiguration(savedConfiguration);
-      setJsonText(formatBucketJsonValue(savedConfiguration));
+      replaceDraft(savedConfiguration);
       setStatus(isEmptyConfiguration(savedConfiguration) ? "Notifications cleared." : "Notifications updated.");
-      setEditorTargetIndex(null);
-      setEditorOpen(false);
+      closeEditor();
     } catch (saveFailure) {
       setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(
@@ -285,7 +256,9 @@ export function useBucketNotificationsController({
     enabled,
     jsonText,
     persistConfiguration,
+    replaceDraft,
     saving,
+    closeEditor,
   ]);
 
   const configured = !isEmptyConfiguration(configuration);

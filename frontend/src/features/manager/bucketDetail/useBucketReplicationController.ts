@@ -18,12 +18,11 @@ import {
   validateGraphicalReplication,
   validateJsonReplicationConfiguration,
 } from "../bucketReplication";
-import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   bucketEditorDraftSignature,
-  formatBucketJsonValue,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
+import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
 import {
   cloneReplicationConfiguration,
   createReplicationVisualRule,
@@ -51,6 +50,11 @@ function createRuleIds(configuration: Record<string, unknown>): string[] {
   return replicationConfigurationRules(configuration).map(() =>
     createUiDraftId("replication-rule"),
   );
+}
+
+function parseReplicationEditorSessionJson(text: string) {
+  const parsed = parseReplicationEditorJson(text);
+  return { draft: parsed.configuration, error: parsed.error };
 }
 
 function validateEditableRules(
@@ -85,18 +89,33 @@ export function useBucketReplicationController({
 }: UseBucketReplicationControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [configuration, setConfiguration] = useState<Record<string, unknown>>({});
-  const [draftConfiguration, setDraftConfiguration] = useState<Record<string, unknown>>({});
   const [draftRuleIds, setDraftRuleIds] = useState<string[]>([]);
-  const [jsonText, setJsonText] = useState("{}");
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
-  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
-  const [editorError, setEditorError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const {
+    closeEditor,
+    draft: draftConfiguration,
+    editorError,
+    editorMode,
+    editorOpen,
+    editorTargetIndex,
+    jsonText,
+    openEditorDraft: openEditorSessionDraft,
+    replaceDraft,
+    setDraft: setDraftConfiguration,
+    setEditorError,
+    setEditorTargetIndex,
+    setStatus,
+    status,
+    updateEditorMode: updateEditorSessionMode,
+    updateJsonText,
+  } = useBucketFeatureEditorSession<Record<string, unknown>>({
+    initialDraft: {},
+    initialJsonText: "{}",
+    parseJson: parseReplicationEditorSessionJson,
+  });
 
   const applyBaseline = useCallback((next: unknown) => {
     setConfiguration(normalizeReplicationEditorConfiguration(next));
@@ -136,18 +155,12 @@ export function useBucketReplicationController({
 
   const openEditorDraft = useCallback((
     nextDraft: Record<string, unknown>,
-    mode: BucketFeatureEditorMode,
+    mode: "visual" | "json",
     targetIndex: number | null,
   ) => {
-    setDraftConfiguration(nextDraft);
     setDraftRuleIds(createRuleIds(nextDraft));
-    setJsonText(formatBucketJsonValue(nextDraft));
-    setEditorMode(mode);
-    setEditorTargetIndex(targetIndex);
-    setEditorError(null);
-    setStatus(null);
-    setEditorOpen(true);
-  }, []);
+    openEditorSessionDraft(nextDraft, mode, targetIndex);
+  }, [openEditorSessionDraft]);
 
   const openEditor = useCallback(() => {
     openEditorDraft(cloneReplicationConfiguration(configuration), "visual", null);
@@ -171,38 +184,14 @@ export function useBucketReplicationController({
     openEditorDraft(nextDraft, "visual", nextRules.length - 1);
   }, [configuration, openEditorDraft]);
 
-  const closeEditor = useCallback(() => {
-    setEditorOpen(false);
-    setEditorTargetIndex(null);
-    setEditorError(null);
-  }, []);
-
-  const updateJsonText = useCallback((value: string) => {
-    setJsonText(value);
-    setEditorError(null);
-  }, []);
-
   const updateEditorMode = useCallback(
-    (nextMode: BucketFeatureEditorMode) => {
-      if (nextMode === editorMode) return;
-      setEditorError(null);
-      if (nextMode === "json") {
-        setJsonText(formatBucketJsonValue(draftConfiguration));
-        setEditorMode("json");
-        return;
+    (nextMode: "visual" | "json") => {
+      const parsedDraft = updateEditorSessionMode(nextMode);
+      if (nextMode === "visual" && parsedDraft) {
+        setDraftRuleIds(createRuleIds(parsedDraft));
       }
-
-      const parsed = parseReplicationEditorJson(jsonText);
-      if (!parsed.configuration) {
-        setEditorError(parsed.error);
-        return;
-      }
-      setDraftConfiguration(parsed.configuration);
-      setDraftRuleIds(createRuleIds(parsed.configuration));
-      setEditorTargetIndex(null);
-      setEditorMode("visual");
     },
-    [draftConfiguration, editorMode, jsonText],
+    [updateEditorSessionMode],
   );
 
   const updateRole = useCallback((value: string) => {
@@ -362,14 +351,12 @@ export function useBucketReplicationController({
       const savedConfiguration = await persistConfiguration(nextConfiguration);
       if (savedConfiguration === null) return;
       applyBaseline(savedConfiguration);
-      setDraftConfiguration(cloneReplicationConfiguration(savedConfiguration));
+      replaceDraft(cloneReplicationConfiguration(savedConfiguration));
       setDraftRuleIds(createRuleIds(savedConfiguration));
-      setJsonText(formatBucketJsonValue(savedConfiguration));
       setStatus(replicationConfigurationRules(savedConfiguration).length === 0
         ? "Replication configuration cleared."
         : "Replication configuration updated.");
-      setEditorTargetIndex(null);
-      setEditorOpen(false);
+      closeEditor();
     } catch (saveFailure) {
       setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(
@@ -391,7 +378,9 @@ export function useBucketReplicationController({
     endpointId,
     jsonText,
     persistConfiguration,
+    replaceDraft,
     saving,
+    closeEditor,
   ]);
 
   const summaryRules = replicationConfigurationRules(configuration);
