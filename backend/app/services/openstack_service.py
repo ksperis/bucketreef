@@ -256,6 +256,46 @@ class OpenStackService:
             for project in sorted(projects, key=lambda item: (item["name"].casefold(), item["id"]))
         ]
 
+    @staticmethod
+    def _select_project_target(access: dict, target_id: str) -> dict:
+        target = next(
+            (item for item in access["targets"] if item["target_id"] == target_id),
+            None,
+        )
+        if target is None or not target["allowed"]:
+            raise OpenStackError(
+                "endpoint_not_allowed",
+                "S3 region is not available for this project",
+                403,
+            )
+        return target
+
+    @staticmethod
+    def _select_project_credential(access: dict, access_key: str | None) -> dict:
+        keys = access["credentials"]
+        if not keys:
+            raise OpenStackError(
+                "no_ec2_credentials",
+                "Create an EC2 credential for this project in OpenStack",
+            )
+        if access_key is None and len(keys) != 1:
+            raise OpenStackError(
+                "credential_selection_required",
+                "Select an EC2 credential",
+            )
+        key = (
+            next((item for item in keys if item["access"] == access_key), None)
+            if access_key
+            else keys[0]
+        )
+        if key is None:
+            raise OpenStackError(
+                "credential_not_allowed",
+                "EC2 credential is not available for this project",
+                403,
+            )
+        return key
+
     def create_private_connection(
         self,
         user: User,
@@ -270,38 +310,8 @@ class OpenStackService:
         session = self._session(user, auth_id, connection)
         session_id = session.id
         access = self.project_access(user, auth_id, connection_id, project_id)
-        target = next(
-            (item for item in access["targets"] if item["target_id"] == payload.target_id),
-            None,
-        )
-        if target is None or not target["allowed"]:
-            raise OpenStackError(
-                "endpoint_not_allowed",
-                "S3 region is not available for this project",
-                403,
-            )
-        keys = access["credentials"]
-        if not keys:
-            raise OpenStackError(
-                "no_ec2_credentials",
-                "Create an EC2 credential for this project in OpenStack",
-            )
-        if payload.access_key is None and len(keys) != 1:
-            raise OpenStackError(
-                "credential_selection_required",
-                "Select an EC2 credential",
-            )
-        key = (
-            next((item for item in keys if item["access"] == payload.access_key), None)
-            if payload.access_key
-            else keys[0]
-        )
-        if key is None:
-            raise OpenStackError(
-                "credential_not_allowed",
-                "EC2 credential is not available for this project",
-                403,
-            )
+        target = self._select_project_target(access, payload.target_id)
+        key = self._select_project_credential(access, payload.access_key)
 
         self._auth(user, auth_id, lock=True)
         self.db.scalar(
@@ -435,17 +445,8 @@ class OpenStackService:
         session_id = session.id
         access = self.project_access(user, auth_id, connection_id, project_id)
         project = access["project"]
-        target = next((item for item in access["targets"] if item["target_id"] == target_id), None)
-        if target is None or not target["allowed"]:
-            raise OpenStackError("endpoint_not_allowed", "S3 region is not available for this project", 403)
-        keys = access["credentials"]
-        if not keys:
-            raise OpenStackError("no_ec2_credentials", "Create an EC2 credential for this project in OpenStack")
-        if access_key is None and len(keys) != 1:
-            raise OpenStackError("credential_selection_required", "Select an EC2 credential")
-        key = next((key for key in keys if key["access"] == access_key), None) if access_key else keys[0]
-        if not key:
-            raise OpenStackError("credential_not_allowed", "EC2 credential is not available for this project", 403)
+        target = self._select_project_target(access, target_id)
+        key = self._select_project_credential(access, access_key)
         self._auth(user, auth_id, lock=True)
         self.db.scalar(select(OpenStackCloud).where(OpenStackCloud.id == cloud.id).with_for_update().execution_options(populate_existing=True))
         session = self._session(user, auth_id, connection, expected_id=session_id)
