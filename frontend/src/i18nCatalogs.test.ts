@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseI18nCatalog } from "../scripts/i18nCatalogPlugin";
 import adminCatalogs from "bucketreef-i18n/admin";
 import browserCatalogs from "bucketreef-i18n/browser";
 import cephAdminCatalogs from "bucketreef-i18n/cephAdmin";
@@ -85,6 +86,11 @@ const LOCALIZED_TECHNICAL_TERMS: Partial<Record<"fr" | "de" | "zh", ReadonlySet<
 };
 
 describe("compact i18n catalogs", () => {
+  it("rejects duplicate source keys before JSON parsing can overwrite them", () => {
+    expect(() => parseI18nCatalog('{"Repeated":"first","Repeated":"second"}', "test.json"))
+      .toThrow('Duplicate BucketReef i18n catalog keys in test.json: "Repeated"');
+  });
+
   it("reconstructs every source catalog without changing keys or translations", () => {
     const cases = [
       [adminCatalogs, adminFr, adminDe, adminZh],
