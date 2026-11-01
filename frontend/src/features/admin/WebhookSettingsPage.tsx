@@ -5,7 +5,6 @@ import {
   deleteWebhookEndpoint,
   listWebhookEndpoints,
   sendWebhookTest,
-  type WebhookDeliveryStatus,
   type WebhookEndpoint,
 } from "../../api/webhooks";
 import {
@@ -31,14 +30,9 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import { extractApiError } from "../../utils/apiError";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
+import { formatWebhookDate, webhookDeliveryTone } from "./webhookPresentation";
 
 const isDemo = import.meta.env.MODE === "demo";
-
-function formatDate(value: string | null | undefined, intlLocale: string): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(intlLocale);
-}
 
 function targetHost(value: string, text: (message: string) => string): string {
   try {
@@ -46,13 +40,6 @@ function targetHost(value: string, text: (message: string) => string): string {
   } catch {
     return text("Invalid target");
   }
-}
-
-function deliveryTone(status: WebhookDeliveryStatus): "success" | "warning" | "danger" | "neutral" {
-  if (status === "delivered") return "success";
-  if (status === "failed") return "danger";
-  if (status === "retrying") return "warning";
-  return "neutral";
 }
 
 function eventSummary(endpoint: WebhookEndpoint, text: (message: string, values?: Record<string, string | number>) => string): string {
@@ -186,8 +173,8 @@ export default function WebhookSettingsPage() {
       label: adminText("Last delivery"),
       render: (endpoint) => endpoint.last_delivery ? (
         <div className="flex flex-wrap items-center gap-2">
-          <ListBadge tone={deliveryTone(endpoint.last_delivery.status)}>{endpoint.last_delivery.status}</ListBadge>
-          <span>{formatDate(endpoint.last_delivery.delivered_at ?? endpoint.last_delivery.updated_at, intlLocale)}</span>
+          <ListBadge tone={webhookDeliveryTone(endpoint.last_delivery.status)}>{endpoint.last_delivery.status}</ListBadge>
+          <span>{formatWebhookDate(endpoint.last_delivery.delivered_at ?? endpoint.last_delivery.updated_at, intlLocale)}</span>
         </div>
       ) : adminText("Never"),
     },

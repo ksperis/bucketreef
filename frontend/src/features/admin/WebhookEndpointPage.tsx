@@ -14,7 +14,6 @@ import {
   sendWebhookTest,
   updateWebhookEndpoint,
   type WebhookDelivery,
-  type WebhookDeliveryStatus,
   type WebhookEndpoint,
   type WebhookEndpointPayload,
   type WebhookEventDefinition,
@@ -46,6 +45,7 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import { extractApiError } from "../../utils/apiError";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
+import { formatWebhookDate, webhookDeliveryTone } from "./webhookPresentation";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -67,19 +67,6 @@ function endpointForm(endpoint: WebhookEndpoint): WebhookEndpointPayload {
     enabled: endpoint.enabled,
     event_types: [...endpoint.event_types].sort(),
   };
-}
-
-function formatDate(value: string | null | undefined, intlLocale: string): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(intlLocale);
-}
-
-function deliveryTone(status: WebhookDeliveryStatus): "success" | "warning" | "danger" | "neutral" {
-  if (status === "delivered") return "success";
-  if (status === "failed") return "danger";
-  if (status === "retrying") return "warning";
-  return "neutral";
 }
 
 function validateUrl(value: string, text: (message: string) => string): string | undefined {
@@ -353,7 +340,7 @@ export default function WebhookEndpointPage() {
       id: "status",
       label: adminText("Status"),
       primary: true,
-      render: (delivery) => <ListBadge tone={deliveryTone(delivery.status)}>{delivery.status}</ListBadge>,
+      render: (delivery) => <ListBadge tone={webhookDeliveryTone(delivery.status)}>{delivery.status}</ListBadge>,
     },
     {
       id: "event",
@@ -373,7 +360,7 @@ export default function WebhookEndpointPage() {
     {
       id: "time",
       label: adminText("Updated"),
-      render: (delivery) => formatDate(delivery.updated_at, intlLocale),
+      render: (delivery) => formatWebhookDate(delivery.updated_at, intlLocale),
     },
     {
       id: "detail",
