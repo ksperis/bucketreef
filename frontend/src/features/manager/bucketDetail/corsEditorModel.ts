@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { isRecord } from "../../../utils/record";
 
 export type CorsRuleRecord = Record<string, unknown>;
 
@@ -28,10 +29,6 @@ const allowedRuleKeys = new Set([
   "MaxAgeSeconds",
 ]);
 
-function isPlainRecord(value: unknown): value is CorsRuleRecord {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
@@ -45,7 +42,7 @@ function optionalFiniteNumber(value: unknown): boolean {
 }
 
 export function isCorsRuleVisuallyEditable(rule: CorsRuleRecord): boolean {
-  if (!isPlainRecord(rule)) return false;
+  if (!isRecord(rule)) return false;
   if (Object.keys(rule).some((key) => !allowedRuleKeys.has(key))) return false;
   if (rule.ID !== undefined && typeof rule.ID !== "string") return false;
   if (!optionalStringArray(rule, "AllowedOrigins")) return false;
@@ -141,7 +138,7 @@ export function parseCorsRulesJson(
   if (!Array.isArray(parsed)) {
     return { rules: null, error: "CORS JSON must be an array of rules." };
   }
-  if (parsed.some((rule) => !isPlainRecord(rule))) {
+  if (parsed.some((rule) => !isRecord(rule))) {
     return { rules: null, error: "Each CORS rule must be a JSON object." };
   }
   return { rules: parsed as CorsRuleRecord[], error: null };

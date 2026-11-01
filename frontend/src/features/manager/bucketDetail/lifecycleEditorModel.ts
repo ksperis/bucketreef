@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
+import { isRecord } from "../../../utils/record";
 
 export type LifecycleVisualRuleDraft = {
   id: string;
@@ -31,10 +32,6 @@ const topLevelKeys = new Set([
   "NoncurrentVersionTransitions",
 ]);
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]) {
   const allowedKeys = new Set(allowed);
   return Object.keys(value).every((key) => allowedKeys.has(key));
@@ -58,7 +55,7 @@ function isSupportedObject(
   validators: Record<string, (entry: unknown) => boolean>,
 ): boolean {
   if (value === undefined) return true;
-  if (!isPlainRecord(value) || !hasOnlyKeys(value, keys)) return false;
+  if (!isRecord(value) || !hasOnlyKeys(value, keys)) return false;
   return Object.entries(value).every(([key, entry]) => validators[key]?.(entry) ?? false);
 }
 
@@ -70,7 +67,7 @@ function isSupportedTransitionArray(
   if (!Array.isArray(value) || value.length > 1) return false;
   return value.every(
     (entry) =>
-      isPlainRecord(entry) &&
+      isRecord(entry) &&
       hasOnlyKeys(entry, [daysKey, "StorageClass"]) &&
       isOptionalFiniteNumber(entry[daysKey]) &&
       isOptionalString(entry.StorageClass),
@@ -117,11 +114,11 @@ export function isLifecycleRuleVisuallyEditable(rule: LifecycleRuleRecord): bool
 }
 
 function recordValue(value: unknown): Record<string, unknown> | undefined {
-  return isPlainRecord(value) ? value : undefined;
+  return isRecord(value) ? value : undefined;
 }
 
 function firstRecord(value: unknown): Record<string, unknown> | undefined {
-  return Array.isArray(value) && isPlainRecord(value[0]) ? value[0] : undefined;
+  return Array.isArray(value) && isRecord(value[0]) ? value[0] : undefined;
 }
 
 function numberText(value: unknown): string {

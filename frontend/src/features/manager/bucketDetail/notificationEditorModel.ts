@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { isRecord } from "../../../utils/record";
 
 export type NotificationConfigurationRecord = Record<string, unknown>;
 export type NotificationTopicRecord = Record<string, unknown>;
@@ -26,10 +27,6 @@ export const commonNotificationEvents = [
 const supportedTopicKeys = new Set(["Id", "TopicArn", "Events", "Filter"]);
 const supportedTopLevelKeys = new Set(["TopicConfigurations"]);
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function hasOnlyKeys(value: Record<string, unknown>, allowed: ReadonlySet<string>): boolean {
   return Object.keys(value).every((key) => allowed.has(key));
 }
@@ -40,15 +37,15 @@ function isStringArray(value: unknown): value is string[] {
 
 function isSupportedFilter(value: unknown): boolean {
   if (value === undefined) return true;
-  if (!isPlainRecord(value) || !hasOnlyKeys(value, new Set(["Key"]))) return false;
+  if (!isRecord(value) || !hasOnlyKeys(value, new Set(["Key"]))) return false;
   if (value.Key === undefined) return true;
-  if (!isPlainRecord(value.Key) || !hasOnlyKeys(value.Key, new Set(["FilterRules"]))) return false;
+  if (!isRecord(value.Key) || !hasOnlyKeys(value.Key, new Set(["FilterRules"]))) return false;
   if (value.Key.FilterRules === undefined) return true;
   if (!Array.isArray(value.Key.FilterRules)) return false;
 
   const seenNames = new Set<string>();
   for (const rawRule of value.Key.FilterRules) {
-    if (!isPlainRecord(rawRule) || !hasOnlyKeys(rawRule, new Set(["Name", "Value"]))) {
+    if (!isRecord(rawRule) || !hasOnlyKeys(rawRule, new Set(["Name", "Value"]))) {
       return false;
     }
     if (
@@ -68,7 +65,7 @@ export function notificationTopicConfigurations(
 ): NotificationTopicRecord[] {
   const topics = configuration.TopicConfigurations;
   if (!Array.isArray(topics)) return [];
-  return topics.filter(isPlainRecord);
+  return topics.filter(isRecord);
 }
 
 export function hasAdvancedNotificationTopLevel(
@@ -96,12 +93,12 @@ export function hasAdvancedNotificationConfiguration(
   const topics = configuration.TopicConfigurations;
   if (!Array.isArray(topics)) return false;
   return topics.some(
-    (topic) => !isPlainRecord(topic) || !isNotificationTopicVisuallyEditable(topic),
+    (topic) => !isRecord(topic) || !isNotificationTopicVisuallyEditable(topic),
   );
 }
 
 function filterValues(topic: NotificationTopicRecord): { prefix: string; suffix: string } {
-  if (!isPlainRecord(topic.Filter) || !isPlainRecord(topic.Filter.Key)) {
+  if (!isRecord(topic.Filter) || !isRecord(topic.Filter.Key)) {
     return { prefix: "", suffix: "" };
   }
   const rules = topic.Filter.Key.FilterRules;
@@ -109,7 +106,7 @@ function filterValues(topic: NotificationTopicRecord): { prefix: string; suffix:
   let prefix = "";
   let suffix = "";
   rules.forEach((rawRule) => {
-    if (!isPlainRecord(rawRule) || typeof rawRule.Value !== "string") return;
+    if (!isRecord(rawRule) || typeof rawRule.Value !== "string") return;
     if (rawRule.Name === "prefix") prefix = rawRule.Value;
     if (rawRule.Name === "suffix") suffix = rawRule.Value;
   });
@@ -179,7 +176,7 @@ export function updateNotificationTopicAt(
   return {
     ...configuration,
     TopicConfigurations: configuration.TopicConfigurations.map((topic, topicIndex) =>
-      topicIndex === index && isPlainRecord(topic)
+      topicIndex === index && isRecord(topic)
         ? updateNotificationVisualTopic(topic, patch)
         : topic,
     ),
@@ -219,7 +216,7 @@ export function parseNotificationConfigurationJson(
   } catch {
     return { configuration: null, error: "Notification configuration JSON is invalid." };
   }
-  if (!isPlainRecord(parsed)) {
+  if (!isRecord(parsed)) {
     return { configuration: null, error: "Notification configuration must be a JSON object." };
   }
   if (
@@ -230,7 +227,7 @@ export function parseNotificationConfigurationJson(
   }
   if (
     Array.isArray(parsed.TopicConfigurations) &&
-    parsed.TopicConfigurations.some((topic) => !isPlainRecord(topic))
+    parsed.TopicConfigurations.some((topic) => !isRecord(topic))
   ) {
     return {
       configuration: null,
@@ -246,7 +243,7 @@ export function validateNotificationVisualConfiguration(
   if (!Array.isArray(configuration.TopicConfigurations)) return null;
   for (let index = 0; index < configuration.TopicConfigurations.length; index += 1) {
     const topic = configuration.TopicConfigurations[index];
-    if (!isPlainRecord(topic) || !isNotificationTopicVisuallyEditable(topic)) continue;
+    if (!isRecord(topic) || !isNotificationTopicVisuallyEditable(topic)) continue;
     const draft = readNotificationVisualTopic(topic);
     if (!draft.topicArn.trim()) {
       return `Topic notification ${index + 1}: Topic ARN is required.`;
