@@ -467,12 +467,13 @@ def test_ceph_admin_users_stream_emits_progress_result_and_done():
 
 def test_ceph_admin_users_listing_account_include_skips_lookup_when_feature_disabled():
     users_payload = ["alpha"]
+    alpha_payload = _build_user_payload(
+        "alpha",
+        account_name="Inline Account",
+    )
+    alpha_payload["account"] = "RGW-1"
     user_details = {
-        (None, "alpha"): _build_user_payload(
-            "alpha",
-            account_id="RGW-1",
-            account_name="Inline Account",
-        )
+        (None, "alpha"): alpha_payload,
     }
     endpoint = SimpleNamespace(
         id=16,
@@ -500,12 +501,13 @@ def test_ceph_admin_users_listing_account_include_skips_lookup_when_feature_disa
 
 def test_ceph_admin_user_detail_preserves_payload_account_name_when_account_api_disabled():
     users_payload = ["alpha"]
+    alpha_payload = _build_user_payload(
+        "alpha",
+        account_name="Inline Account",
+    )
+    alpha_payload["user"]["account"] = "RGW-1"
     user_details = {
-        (None, "alpha"): _build_user_payload(
-            "alpha",
-            account_id="RGW-1",
-            account_name="Inline Account",
-        )
+        (None, "alpha"): alpha_payload,
     }
     endpoint = SimpleNamespace(
         id=17,

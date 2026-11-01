@@ -258,6 +258,18 @@ def extract_rgw_user_account_aliases(payload: Any) -> set[str]:
     }
 
 
+def extract_rgw_user_account_id(payload: Any) -> str | None:
+    """Resolve the RGW user's account across supported external aliases.
+
+    Read paths accept both ``account_id`` and the provider ``account`` alias,
+    but conflicting values must not be silently preferred.
+    """
+    account_ids = extract_rgw_user_account_aliases(payload)
+    if len(account_ids) > 1:
+        raise ValueError("RGW returned conflicting user account identity fields")
+    return next(iter(account_ids), None)
+
+
 def rgw_user_account_root(payload: Any) -> bool | None:
     """Ceph Squid emits type=root; other supported payloads expose account_root."""
     user = extract_rgw_user_payload(payload)
