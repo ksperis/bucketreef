@@ -18,6 +18,61 @@ logger = logging.getLogger(__name__)
 
 
 class BucketMigrationSchedulingMixin:
+    @staticmethod
+    def _runnable_work_condition():
+        return or_(
+            BucketMigration.status.in_(ACTIVE_STATUSES),
+            BucketMigration.maintenance_status.in_({"queued", "running"}),
+        )
+
+    @staticmethod
+    def _available_lease_condition(now):
+        return or_(
+            BucketMigration.worker_lease_until.is_(None),
+            BucketMigration.worker_lease_until < now,
+        )
+
+    def _runnable_candidate_rows(self, *, now):
+        return self.db.execute(
+            select(
+                BucketMigration.id,
+                BucketMigration.source_context_id,
+                BucketMigration.target_context_id,
+            )
+            .where(
+                self._runnable_work_condition(),
+                self._available_lease_condition(now),
+            )
+            .order_by(BucketMigration.created_at.asc())
+            .limit(50)
+        ).all()
+
+    def _claim_migration_lease(
+        self,
+        migration_id: int,
+        *,
+        worker_id: str,
+        now,
+        lease_until,
+    ) -> bool:
+        updated = self.db.execute(
+            update(BucketMigration)
+            .where(
+                BucketMigration.id == migration_id,
+                self._runnable_work_condition(),
+                self._available_lease_condition(now),
+            )
+            .values(
+                {
+                    BucketMigration.worker_lease_owner: worker_id,
+                    BucketMigration.worker_lease_until: lease_until,
+                    BucketMigration.updated_at: now,
+                }
+            )
+            .execution_options(synchronize_session=False)
+        ).rowcount
+        return updated == 1
+
     def claim_next_runnable_migration_id(
         self, *, worker_id: str, lease_seconds: int
     ) -> Optional[int]:
@@ -30,26 +85,7 @@ class BucketMigrationSchedulingMixin:
         max_active_per_endpoint = max(1, int(limits.max_active_per_endpoint))
         endpoint_usage = self._active_endpoint_usage(now=now)
         endpoint_cache: dict[str, str] = {}
-        candidate_rows = self.db.execute(
-            select(
-                BucketMigration.id,
-                BucketMigration.source_context_id,
-                BucketMigration.target_context_id,
-            )
-            .where(
-                or_(
-                    BucketMigration.status.in_(ACTIVE_STATUSES),
-                    BucketMigration.maintenance_status.in_({"queued", "running"}),
-                ),
-                or_(
-                    BucketMigration.worker_lease_until.is_(None),
-                    BucketMigration.worker_lease_until < now,
-                ),
-            )
-            .order_by(BucketMigration.created_at.asc())
-            .limit(50)
-        ).all()
-        for row in candidate_rows:
+        for row in self._runnable_candidate_rows(now=now):
             migration_id = int(row.id)
             endpoint_keys = self._endpoint_keys_for_contexts(
                 row.source_context_id,
@@ -61,29 +97,12 @@ class BucketMigrationSchedulingMixin:
                 for key in endpoint_keys
             ):
                 continue
-            updated = self.db.execute(
-                update(BucketMigration)
-                .where(
-                    BucketMigration.id == migration_id,
-                    or_(
-                        BucketMigration.status.in_(ACTIVE_STATUSES),
-                        BucketMigration.maintenance_status.in_({"queued", "running"}),
-                    ),
-                    or_(
-                        BucketMigration.worker_lease_until.is_(None),
-                        BucketMigration.worker_lease_until < now,
-                    ),
-                )
-                .values(
-                    {
-                        BucketMigration.worker_lease_owner: worker_id,
-                        BucketMigration.worker_lease_until: lease_until,
-                        BucketMigration.updated_at: now,
-                    }
-                )
-                .execution_options(synchronize_session=False)
-            ).rowcount
-            if updated == 1:
+            if self._claim_migration_lease(
+                migration_id,
+                worker_id=worker_id,
+                now=now,
+                lease_until=lease_until,
+            ):
                 self._commit()
                 if self._claimed_migration_within_endpoint_limit(
                     migration_id,
@@ -113,10 +132,7 @@ class BucketMigrationSchedulingMixin:
                 BucketMigration.source_context_id,
                 BucketMigration.target_context_id,
             ).where(
-                or_(
-                    BucketMigration.status.in_(ACTIVE_STATUSES),
-                    BucketMigration.maintenance_status.in_({"queued", "running"}),
-                ),
+                self._runnable_work_condition(),
                 BucketMigration.worker_lease_until.isnot(None),
                 BucketMigration.worker_lease_until >= now,
             )
@@ -149,10 +165,7 @@ class BucketMigrationSchedulingMixin:
                 BucketMigration.target_context_id,
             )
             .where(
-                or_(
-                    BucketMigration.status.in_(ACTIVE_STATUSES),
-                    BucketMigration.maintenance_status.in_({"queued", "running"}),
-                ),
+                self._runnable_work_condition(),
                 BucketMigration.worker_lease_until.isnot(None),
                 BucketMigration.worker_lease_until >= now,
             )
