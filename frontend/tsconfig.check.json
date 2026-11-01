@@ -31,6 +31,8 @@
     "src/features/manager/**/*.test.tsx",
     "src/features/portal/**/*.test.ts",
     "src/features/portal/**/*.test.tsx",
+    "src/features/shared/**/*.test.ts",
+    "src/features/shared/**/*.test.tsx",
     "src/features/storageOps/**/*.test.ts",
     "src/features/storageOps/**/*.test.tsx",
     "src/hooks/**/*.test.ts",

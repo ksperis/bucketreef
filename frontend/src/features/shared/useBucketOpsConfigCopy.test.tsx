@@ -8,8 +8,17 @@ import {
   DEFAULT_BULK_COPY_FEATURE_SELECTION,
   type BulkConfigClipboard,
 } from "./bucketBulkOperationsModel";
+import {
+  buildBucketLoggingConfiguration,
+  buildBucketProperties,
+  buildBucketPublicAccessBlock,
+} from "../../test/bucketContracts";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import { copyBucketOpsConfigs } from "./bucketOpsConfigCopy";
 import { useBucketOpsConfigCopy } from "./useBucketOpsConfigCopy";
+
+type UseOptions = Parameters<typeof useBucketOpsConfigCopy>[0];
+type CopyOperation = NonNullable<UseOptions["copyOperation"]>;
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -41,7 +50,7 @@ const clipboard: BulkConfigClipboard = {
 };
 
 function createOptions() {
-  const copyOperation = vi.fn(
+  const copyOperation = vi.fn<CopyOperation>(
     async (_input: Parameters<typeof copyBucketOpsConfigs>[0]) => ({
       kind: "success" as const,
       clipboard,
@@ -54,22 +63,28 @@ function createOptions() {
     extractError: (error: unknown) =>
       error instanceof Error ? error.message : String(error),
     features: { ...DEFAULT_BULK_COPY_FEATURE_SELECTION },
-    getBucketCors: vi.fn(async () => ({ rules: [] })),
-    getBucketLifecycle: vi.fn(async () => ({ rules: [] })),
-    getBucketLogging: vi.fn(async () => ({ enabled: false })),
-    getBucketPolicy: vi.fn(async () => ({ policy: null })),
-    getBucketProperties: vi.fn(async () => ({})),
-    getBucketPublicAccessBlock: vi.fn(async () => ({})),
+    getBucketCors: vi.fn<UseOptions["getBucketCors"]>(async () => ({ rules: [] })),
+    getBucketLifecycle: vi.fn<UseOptions["getBucketLifecycle"]>(async () => ({ rules: [] })),
+    getBucketLogging: vi.fn<UseOptions["getBucketLogging"]>(async () =>
+      buildBucketLoggingConfiguration(),
+    ),
+    getBucketPolicy: vi.fn<UseOptions["getBucketPolicy"]>(async () => ({ policy: null })),
+    getBucketProperties: vi.fn<UseOptions["getBucketProperties"]>(async () =>
+      buildBucketProperties(),
+    ),
+    getBucketPublicAccessBlock: vi.fn<UseOptions["getBucketPublicAccessBlock"]>(async () =>
+      buildBucketPublicAccessBlock(),
+    ),
     isStorageOps: false,
-    listBuckets: vi.fn(async () => ({ items: [] })),
-    loadClipboard: vi.fn(() => null),
+    listBuckets: vi.fn<UseOptions["listBuckets"]>(async () => ({ items: [] })),
+    loadClipboard: vi.fn<NonNullable<UseOptions["loadClipboard"]>>(() => null),
     now: () => new Date("2026-08-28T01:00:00.000Z"),
-    persistClipboard: vi.fn(),
+    persistClipboard: vi.fn<NonNullable<UseOptions["persistClipboard"]>>(),
     sourceEndpointId: 7,
     sourceEndpointName: "Primary",
     storageKey: "bucket-ops.copy.primary",
     usageFeatureEnabled: true,
-  };
+  } satisfies UseOptions;
 }
 
 describe("useBucketOpsConfigCopy", () => {
@@ -211,18 +226,16 @@ describe("useBucketOpsConfigCopy", () => {
     options.bucketNames = ["tenant-a:shared"];
     options.listBuckets.mockResolvedValue({
       items: [
-        {
-          name: "shared",
+        buildCephAdminBucket("shared", {
           tenant: "tenant-b",
           quota_max_size_bytes: 2,
           quota_max_objects: 20,
-        },
-        {
-          name: "shared",
+        }),
+        buildCephAdminBucket("shared", {
           tenant: "tenant-a",
           quota_max_size_bytes: 1,
           quota_max_objects: 10,
-        },
+        }),
       ],
     });
     let resolvedQuota: unknown;

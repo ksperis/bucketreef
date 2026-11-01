@@ -6,6 +6,7 @@ import { useState } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ExecutionContext } from "../../api/executionContexts";
+import { buildExecutionContext } from "../../test/executionContexts";
 import {
   defaultAdvancedFilter,
   type AdvancedFilterState,
@@ -26,23 +27,19 @@ function createContext(
   endpointName: string,
   kind: ExecutionContext["kind"] = "account",
 ): ExecutionContext {
-  return {
+  return buildExecutionContext(id, {
     kind,
-    id,
     display_name: displayName,
-    tags: [],
-    endpoint_tags: [],
     endpoint_id: 1,
     endpoint_name: endpointName,
     endpoint_is_default: false,
     endpoint_url: `https://${endpointName.toLowerCase().replaceAll(" ", "-")}.test`,
-    storage_endpoint_capabilities: {},
     capabilities: {
       can_manage_iam: false,
       sts_capable: false,
       admin_api_capable: false,
     },
-  };
+  });
 }
 
 const contexts = [

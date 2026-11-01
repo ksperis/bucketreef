@@ -54,11 +54,11 @@ const space: PortalWorkspaceSpace = {
   region: "eu-west-3",
   createdLabel: "2026-01-01",
   shareCount: 0,
-  icon: { source: "preset", preset: "archive" },
+  icon: { source: "preset", preset: "archive", url: null, updated_at: null },
 };
 
 const baseProps = {
-  accountId: "101",
+  accountId: 101,
   activeView: "preview" as const,
   canCreatePublicLinks: true,
   canModify: true,
@@ -147,7 +147,7 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
     view.rerender(<StorageSpaceObjectDetailsDrawer {...baseProps} activeView="sharing" />);
 
     await waitFor(() => expect(mocks.listLinks).toHaveBeenCalledWith(
-      "101",
+      101,
       "space-1",
       { objectKey: "reports/2026/report.csv", includeRevoked: true },
     ));
@@ -178,7 +178,7 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Create link" }));
 
     await waitFor(() =>
-      expect(mocks.createLink).toHaveBeenCalledWith("101", "space-1", {
+      expect(mocks.createLink).toHaveBeenCalledWith(101, "space-1", {
         object_key: "reports/2026/report.csv",
         label: "report.csv",
         expires_at: null,

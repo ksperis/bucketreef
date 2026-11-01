@@ -17,7 +17,11 @@ describe("BucketOpsQuickFilter", () => {
       <BucketOpsQuickFilter
         controller={{
           quickFilterDraftForcesExact: false,
-          quickFilterFieldState: { fieldClass: "pending-filter" },
+          quickFilterFieldState: {
+            tone: "unsaved",
+            labelClass: "",
+            fieldClass: "pending-filter",
+          },
           quickFilterModeForDisplay: "contains",
           quickFilterPending: true,
           toggleQuickFilterMode,
@@ -44,7 +48,11 @@ describe("BucketOpsQuickFilter", () => {
       <BucketOpsQuickFilter
         controller={{
           quickFilterDraftForcesExact: true,
-          quickFilterFieldState: { fieldClass: "" },
+          quickFilterFieldState: {
+            tone: "neutral",
+            labelClass: "",
+            fieldClass: "",
+          },
           quickFilterModeForDisplay: "exact",
           quickFilterPending: false,
           toggleQuickFilterMode: vi.fn(),

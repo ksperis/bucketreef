@@ -5,12 +5,19 @@
 import { describe, expect, it } from "vitest";
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import {
+  buildCephAdminBucket,
+  buildStorageOpsBucket,
+} from "../../test/cephAdmin";
+import {
   buildBucketExportColumns,
   buildBucketSelectionJsonPayload,
   serializeBucketSelectionCsv,
 } from "./bucketOpsExportModel";
 
-const bucket = (value: CephAdminBucket) => value;
+const bucket = (
+  name: string,
+  overrides: Partial<CephAdminBucket> = {},
+) => buildCephAdminBucket(name, overrides);
 
 describe("bucketOpsExportModel", () => {
   it("builds canonical Ceph Admin export columns", () => {
@@ -29,8 +36,9 @@ describe("bucketOpsExportModel", () => {
       isStorageOps: false,
       useExplicitBucketName: false,
     });
-    const value = bucket({
-      name: "archive",
+    const value = buildStorageOpsBucket("archive", {
+      context_id: "account-1",
+      bucket_name: "archive",
       context_kind: "account",
       owner_suspended: true,
       owner_used_bytes: 25,
@@ -75,8 +83,7 @@ describe("bucketOpsExportModel", () => {
       isStorageOps: true,
       useExplicitBucketName: true,
     });
-    const value = bucket({
-      name: "account-1::encoded",
+    const value = buildStorageOpsBucket("account-1::encoded", {
       bucket_name: "archive",
       ui_tags: [
         { id: 1, label: "Private", color_key: "blue", scope: "standard", visibility: "private" },
@@ -94,7 +101,7 @@ describe("bucketOpsExportModel", () => {
       useExplicitBucketName: false,
     });
     const bucketsByName = new Map([
-      ["alpha", bucket({ name: "alpha", tenant: "a,\"b" })],
+      ["alpha", bucket("alpha", { tenant: "a,\"b" })],
     ]);
     const input = {
       bucketNames: ["alpha", "missing"],

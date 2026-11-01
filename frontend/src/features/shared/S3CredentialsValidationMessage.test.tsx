@@ -17,7 +17,7 @@ describe("S3CredentialsValidationMessage", () => {
       <S3CredentialsValidationMessage
         validation={{
           status: "done",
-          result: { ok: false, severity: "warning", message: "Credentials work, but bucket listing is limited." },
+          result: { ok: false, severity: "warning", code: null, message: "Credentials work, but bucket listing is limited." },
         }}
       />
     );
@@ -28,7 +28,7 @@ describe("S3CredentialsValidationMessage", () => {
       <S3CredentialsValidationMessage
         validation={{
           status: "done",
-          result: { ok: false, severity: "error", message: "Invalid S3 credentials." },
+          result: { ok: false, severity: "error", code: null, message: "Invalid S3 credentials." },
         }}
       />
     );

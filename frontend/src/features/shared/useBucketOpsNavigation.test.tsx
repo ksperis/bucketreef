@@ -5,7 +5,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import {
+  buildCephAdminBucket,
+  buildStorageOpsBucket,
+} from "../../test/cephAdmin";
 import { useBucketOpsNavigation } from "./useBucketOpsNavigation";
 
 const routerMocks = vi.hoisted(() => ({
@@ -22,21 +25,9 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-const storageBucket: CephAdminBucket = {
-  name: "account-1::bucket-a",
-  bucket_name: "bucket-a",
-  context_id: "account-1",
-};
-const storageBucketOtherContext: CephAdminBucket = {
-  name: "account-2::bucket-a",
-  bucket_name: "bucket-a",
-  context_id: "account-2",
-};
-const storageBucketNext: CephAdminBucket = {
-  name: "account-2::bucket-b",
-  bucket_name: "bucket-b",
-  context_id: "account-2",
-};
+const storageBucket = buildStorageOpsBucket("account-1::bucket-a");
+const storageBucketOtherContext = buildStorageOpsBucket("account-2::bucket-a");
+const storageBucketNext = buildStorageOpsBucket("account-2::bucket-b");
 
 describe("useBucketOpsNavigation", () => {
   beforeEach(() => {
@@ -81,7 +72,7 @@ describe("useBucketOpsNavigation", () => {
   });
 
   it("opens Ceph Admin configuration without routing", () => {
-    const cephBucket: CephAdminBucket = { name: "bucket-a", tenant: "tenant_a" };
+    const cephBucket = buildCephAdminBucket("bucket-a", { tenant: "tenant_a" });
     const { result } = renderHook(() =>
       useBucketOpsNavigation({
         items: [cephBucket],
@@ -129,8 +120,8 @@ describe("useBucketOpsNavigation", () => {
   });
 
   it("distinguishes same-name Ceph Admin buckets from different tenants", () => {
-    const tenantA: CephAdminBucket = { name: "bucket-a", tenant: "tenant_a" };
-    const tenantB: CephAdminBucket = { name: "bucket-a", tenant: "tenant_b" };
+    const tenantA = buildCephAdminBucket("bucket-a", { tenant: "tenant_a" });
+    const tenantB = buildCephAdminBucket("bucket-a", { tenant: "tenant_b" });
     const { result } = renderHook(() =>
       useBucketOpsNavigation({
         items: [tenantA, tenantB],

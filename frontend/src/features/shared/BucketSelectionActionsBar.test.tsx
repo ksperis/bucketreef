@@ -59,8 +59,8 @@ describe("BucketSelectionActionsBar progress", () => {
   it("protects configured tags on Escape, keeps them across modes and discards explicitly", async () => {
     render(<StatefulTags />);
     const user = await openTagDraft();
-    await user.click(screen.getByRole("button", { name: "Remove tags", exact: true }));
-    await user.click(screen.getByRole("button", { name: "Add tags", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Remove tags$/ }));
+    await user.click(screen.getByRole("button", { name: /^Add tags$/ }));
     expect(screen.getByRole("button", { name: "Configure UI tag draft, Private" })).toBeInTheDocument();
     // Switching back to the draft reopens its settings before the parent can close.
     await user.keyboard("{Escape}");

@@ -9,6 +9,8 @@ import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import type { BucketUiTagTarget } from "./bucketUiTags";
 import { useBucketOpsRowTags } from "./useBucketOpsRowTags";
 
+type RowTagOptions = Parameters<typeof useBucketOpsRowTags>[0];
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((promiseResolve) => {
@@ -38,12 +40,12 @@ function createOptions() {
   return {
     availableUiTags: [tag(1, "Existing"), tag(2, "Suggested")],
     extractError: (error: unknown) => (error instanceof Error ? error.message : String(error)),
-    persistUiTagChanges: vi.fn(async () => undefined),
-    persistUiTagDefinition: vi.fn(async () => undefined),
-    refreshBuckets: vi.fn(),
+    persistUiTagChanges: vi.fn<RowTagOptions["persistUiTagChanges"]>(async () => undefined),
+    persistUiTagDefinition: vi.fn<RowTagOptions["persistUiTagDefinition"]>(async () => undefined),
+    refreshBuckets: vi.fn<RowTagOptions["refreshBuckets"]>(),
     scopeKey: "ceph-admin:7",
-    setError: vi.fn(),
-  };
+    setError: vi.fn<RowTagOptions["setError"]>(),
+  } satisfies RowTagOptions;
 }
 
 describe("useBucketOpsRowTags", () => {

@@ -4,9 +4,12 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type {
-  CephAdminBucket,
   ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import {
+  buildCephAdminBucket,
+  buildStorageOpsBucket,
+} from "../../test/cephAdmin";
 import { prepareBucketOpsSelectionExport } from "./bucketOpsSelectionExport";
 
 type ExportInput = Parameters<typeof prepareBucketOpsSelectionExport>[0];
@@ -31,7 +34,11 @@ function buildInput(overrides: Partial<ExportInput> = {}): ExportInput {
     fullyResolvedFilteredSelection: false,
     include: ["tags"],
     isStorageOps: false,
-    listBuckets: vi.fn(async () => ({ items: [], has_next: false })),
+    listBuckets: vi.fn<ExportInput["listBuckets"]>(async () => ({
+      items: [],
+      has_next: false,
+      total: 0,
+    })),
     now: fixedNow,
     scopeDisplayName: "Endpoint",
     scopeId: 7,
@@ -62,12 +69,12 @@ describe("prepareBucketOpsSelectionExport", () => {
   });
 
   it("reuses the complete filtered query for a fully resolved CSV selection", async () => {
-    const listBuckets = vi.fn(
+    const listBuckets = vi.fn<ExportInput["listBuckets"]>(
       async (_scopeId: number, _params: ListCephAdminBucketsParams) => ({
         items: [
-          { name: "alpha", tenant: "tenant-a" },
-          { name: "beta", tenant: "tenant-b" },
-        ] satisfies CephAdminBucket[],
+          buildCephAdminBucket("alpha", { tenant: "tenant-a" }),
+          buildCephAdminBucket("beta", { tenant: "tenant-b" }),
+        ],
         has_next: false,
         total: 2,
       }),
@@ -80,7 +87,7 @@ describe("prepareBucketOpsSelectionExport", () => {
         fullyResolvedFilteredSelection: true,
         listBuckets,
         onProgress,
-        visibleBuckets: [{ name: "alpha", tenant: "stale" }],
+        visibleBuckets: [buildCephAdminBucket("alpha", { tenant: "stale" })],
       }),
     );
 
@@ -103,15 +110,16 @@ describe("prepareBucketOpsSelectionExport", () => {
   });
 
   it("loads exact names for partial selections and preserves visible fallbacks", async () => {
-    const listBuckets = vi.fn(
+    const listBuckets = vi.fn<ExportInput["listBuckets"]>(
       async (_scopeId: number, params: ListCephAdminBucketsParams) => {
         const filter = JSON.parse(params.advanced_filter ?? "{}") as {
           rules?: Array<{ value?: string[] }>;
         };
         expect(filter.rules?.[0]?.value).toEqual(["alpha", "beta"]);
         return {
-          items: [{ name: "alpha", tenant: "fresh" }],
+          items: [buildCephAdminBucket("alpha", { tenant: "fresh" })],
           has_next: false,
+          total: 1,
         };
       },
     );
@@ -124,9 +132,9 @@ describe("prepareBucketOpsSelectionExport", () => {
         listBuckets,
         onProgress,
         visibleBuckets: [
-          { name: "alpha", tenant: "stale" },
-          { name: "beta", tenant: "cached" },
-          { name: "other", tenant: "ignored" },
+          buildCephAdminBucket("alpha", { tenant: "stale" }),
+          buildCephAdminBucket("beta", { tenant: "cached" }),
+          buildCephAdminBucket("other", { tenant: "ignored" }),
         ],
       }),
     );
@@ -147,12 +155,13 @@ describe("prepareBucketOpsSelectionExport", () => {
   });
 
   it("keeps homonymous Ceph buckets from different tenants distinct", async () => {
-    const listBuckets = vi.fn(async () => ({
+    const listBuckets = vi.fn<ExportInput["listBuckets"]>(async () => ({
       items: [
-        { name: "shared", tenant: "tenant-a" },
-        { name: "shared", tenant: "tenant-b" },
-      ] satisfies CephAdminBucket[],
+        buildCephAdminBucket("shared", { tenant: "tenant-a" }),
+        buildCephAdminBucket("shared", { tenant: "tenant-b" }),
+      ],
       has_next: false,
+      total: 2,
     }));
 
     const artifact = await prepareBucketOpsSelectionExport(
@@ -174,14 +183,14 @@ describe("prepareBucketOpsSelectionExport", () => {
   });
 
   it("builds JSON with the configured scope key and explicit bucket names", async () => {
-    const listBuckets = vi.fn(async () => ({
+    const listBuckets = vi.fn<ExportInput["listBuckets"]>(async () => ({
       items: [
-        {
-          name: "account-1::encoded",
+        buildStorageOpsBucket("account-1::encoded", {
           bucket_name: "archive",
-        },
-      ] satisfies CephAdminBucket[],
+        }),
+      ],
       has_next: false,
+      total: 1,
     }));
 
     const artifact = await prepareBucketOpsSelectionExport(
@@ -214,7 +223,7 @@ describe("prepareBucketOpsSelectionExport", () => {
 
   it("propagates listing failures without producing a partial artifact", async () => {
     const failure = new Error("listing failed");
-    const listBuckets = vi.fn(async () => {
+    const listBuckets = vi.fn<ExportInput["listBuckets"]>(async () => {
       throw failure;
     });
 

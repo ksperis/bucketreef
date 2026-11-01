@@ -1,6 +1,7 @@
 import type { CephAdminRgwAccount } from "../api/cephAdminAccounts";
 import type { CephAdminBucket } from "../api/cephAdminBuckets";
 import type { CephAdminRgwUser } from "../api/cephAdminUsers";
+import type { StorageOpsBucket } from "../api/storageOps";
 
 export function buildCephAdminAccount(
   accountId = "RGW12345678901234567",
@@ -64,6 +65,22 @@ export function buildCephAdminBucket(
     features: null,
     column_details: null,
     ui_tags: [],
+    ...overrides,
+  };
+}
+
+export function buildStorageOpsBucket(
+  name = "account-1::bucket-a",
+  overrides: Partial<StorageOpsBucket> = {},
+): StorageOpsBucket {
+  const [contextId = "account-1", bucketName = name] = name.split("::", 2);
+  return {
+    ...buildCephAdminBucket(name),
+    context_id: contextId,
+    context_name: contextId,
+    context_kind: "account",
+    bucket_name: bucketName,
+    bucket_identity: bucketName,
     ...overrides,
   };
 }

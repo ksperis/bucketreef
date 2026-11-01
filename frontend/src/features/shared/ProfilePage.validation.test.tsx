@@ -242,7 +242,7 @@ describe("ProfilePage live validation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
     fireEvent.change(screen.getByLabelText("Image source"), { target: { value: "initials" } });
     expect(updateCurrentUserMock).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
 
     await waitFor(() => {
       expect(updateCurrentUserMock).toHaveBeenCalledWith({ avatar_preference: "initials" });
@@ -263,7 +263,7 @@ describe("ProfilePage live validation", () => {
     });
     fireEvent.change(fileInput, { target: { files: [file] } });
     expect(uploadCurrentUserAvatarMock).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
 
     await waitFor(() => {
       expect(uploadCurrentUserAvatarMock).toHaveBeenCalledWith(file);
@@ -272,7 +272,7 @@ describe("ProfilePage live validation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit profile image" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove uploaded image" }));
     expect(deleteCurrentUserAvatarMock).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Save", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
 
     await waitFor(() => {
       expect(deleteCurrentUserAvatarMock).toHaveBeenCalledTimes(1);
@@ -704,8 +704,19 @@ describe("ProfilePage live validation", () => {
 
   it("renders private connection tags and includes them in the filter", async () => {
     listConnectionsMock.mockResolvedValue([
-      makeConnection({ id: 41, name: "connection-a", tags: ["prod", "ops"] }),
-      makeConnection({ id: 42, name: "connection-b", tags: ["test"] }),
+      makeConnection({
+        id: 41,
+        name: "connection-a",
+        tags: [
+          { id: 1, label: "prod", color_key: "blue", scope: "standard" },
+          { id: 2, label: "ops", color_key: "red", scope: "standard" },
+        ],
+      }),
+      makeConnection({
+        id: 42,
+        name: "connection-b",
+        tags: [{ id: 3, label: "test", color_key: "gray", scope: "standard" }],
+      }),
     ]);
 
     render(<ProfilePage showSettingsCards={false} showConnectionsSection />);

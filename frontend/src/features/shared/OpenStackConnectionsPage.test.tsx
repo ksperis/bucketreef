@@ -163,7 +163,7 @@ describe("OpenStack connections", () => {
     await user.selectOptions(screen.getByLabelText("Authentication"), "token");
     expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("User token"), "private-token");
-    await user.click(screen.getByRole("button", { name: "Connect", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Connect$/ }));
     await waitFor(() => expect(api.connectOpenStack).toHaveBeenCalledWith({ cloud_id: 1, method: "token", token: "private-token" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Connect OpenStack cloud" })).not.toBeInTheDocument());
   });

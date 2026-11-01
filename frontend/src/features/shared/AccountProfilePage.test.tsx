@@ -6,6 +6,7 @@ import { createMemoryRouter, Link, MemoryRouter, Route, RouterProvider, Routes, 
 
 import AccountProfilePage from "./AccountProfilePage";
 import { setSessionUserCache } from "../../utils/workspaces";
+import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
 
 const runtimeSurfaces = vi.hoisted(() => ({ browser: true, manager: true }));
 const generalSettings = vi.hoisted(() => ({ openstack_enabled: true }));
@@ -60,11 +61,11 @@ describe("AccountProfilePage", () => {
     setSessionUserCache({
       role: "ui_superadmin",
       authType: "password",
-      effective_access: {
+      effective_access: buildEffectiveUserAccess({
         can_create_manual_private_connections: true,
         can_provision_managed_private_connections: false,
         has_owned_private_connections: false,
-      },
+      }),
     });
   });
 
@@ -97,9 +98,9 @@ describe("AccountProfilePage", () => {
   });
 
   it("offers OpenStack independently of manual S3 connection rights", () => {
-    setSessionUserCache({ role: "ui_user", authType: "password", effective_access: {
+    setSessionUserCache({ role: "ui_user", authType: "password", effective_access: buildEffectiveUserAccess({
       can_create_manual_private_connections: false, can_provision_managed_private_connections: false, has_owned_private_connections: false,
-    } });
+    }) });
     renderPage();
     expect(screen.getByRole("tab", { name: "OpenStack" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Private S3 connections" })).not.toBeInTheDocument();
@@ -152,11 +153,11 @@ describe("AccountProfilePage", () => {
     setSessionUserCache({
       role: "ui_user",
       authType: "password",
-      effective_access: {
+      effective_access: buildEffectiveUserAccess({
         can_create_manual_private_connections: false,
         can_provision_managed_private_connections: false,
         has_owned_private_connections: true,
-      },
+      }),
     });
 
     renderPage();

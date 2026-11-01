@@ -8,29 +8,38 @@ import {
   DEFAULT_BULK_COPY_FEATURE_SELECTION,
   type BulkCopyFeatureSelection,
 } from "./bucketBulkOperationsModel";
+import {
+  buildBucketLoggingConfiguration,
+  buildBucketObjectLockConfiguration,
+  buildBucketProperties,
+  buildBucketPublicAccessBlock,
+} from "../../test/bucketContracts";
 import { copyBucketOpsConfigs } from "./bucketOpsConfigCopy";
+
+type CopyInput = Parameters<typeof copyBucketOpsConfigs>[0];
 
 function createApi() {
   return {
-    fetchBucketQuota: vi.fn(async () => ({ maxSizeBytes: 1024, maxObjects: 5 })),
-    getBucketCors: vi.fn(async () => ({ rules: [{ ID: "cors" }] })),
-    getBucketLifecycle: vi.fn(async () => ({ rules: [{ ID: "lifecycle" }] })),
-    getBucketLogging: vi.fn(async () => ({
+    fetchBucketQuota: vi.fn<CopyInput["fetchBucketQuota"]>(async () => ({ maxSizeBytes: 1024, maxObjects: 5 })),
+    getBucketCors: vi.fn<CopyInput["getBucketCors"]>(async () => ({ rules: [{ ID: "cors" }] })),
+    getBucketLifecycle: vi.fn<CopyInput["getBucketLifecycle"]>(async () => ({ rules: [{ ID: "lifecycle" }] })),
+    getBucketLogging: vi.fn<CopyInput["getBucketLogging"]>(async () => buildBucketLoggingConfiguration({
       enabled: true,
       target_bucket: "logs",
       target_prefix: "audit/",
     })),
-    getBucketPolicy: vi.fn(async () => ({ policy: { Statement: [] } })),
-    getBucketProperties: vi.fn(async () => ({
-      lifecycle_rules: [],
-      object_lock: { enabled: true, mode: "GOVERNANCE", days: 3 },
+    getBucketPolicy: vi.fn<CopyInput["getBucketPolicy"]>(async () => ({ policy: { Statement: [] } })),
+    getBucketProperties: vi.fn<CopyInput["getBucketProperties"]>(async () => buildBucketProperties({
+      object_lock: buildBucketObjectLockConfiguration({
+        enabled: true,
+        mode: "GOVERNANCE",
+        days: 3,
+      }),
       versioning_status: "Enabled",
     })),
-    getBucketPublicAccessBlock: vi.fn(async () => ({
+    getBucketPublicAccessBlock: vi.fn<CopyInput["getBucketPublicAccessBlock"]>(async () => buildBucketPublicAccessBlock({
       block_public_acls: true,
       ignore_public_acls: true,
-      block_public_policy: false,
-      restrict_public_buckets: false,
     })),
   };
 }

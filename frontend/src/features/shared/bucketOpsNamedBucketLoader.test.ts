@@ -4,9 +4,10 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import type { CephAdminBucket, ListCephAdminBucketsParams } from "../../api/cephAdminBuckets";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import { loadBucketOpsBucketsByNames } from "./bucketOpsNamedBucketLoader";
 
-const bucket = (name: string): CephAdminBucket => ({ name });
+const bucket = (name: string): CephAdminBucket => buildCephAdminBucket(name);
 
 const requestedNames = (params: ListCephAdminBucketsParams): string[] => {
   const payload = JSON.parse(params.advanced_filter ?? "{}") as {

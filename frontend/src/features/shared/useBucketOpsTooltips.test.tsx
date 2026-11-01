@@ -6,8 +6,15 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { BucketProperties } from "../../api/bucketContracts";
-import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import {
+  buildBucketLoggingConfiguration,
+  buildBucketObjectLockConfiguration,
+  buildBucketProperties,
+} from "../../test/bucketContracts";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import { useBucketOpsTooltips } from "./useBucketOpsTooltips";
+
+type TooltipOptions = Parameters<typeof useBucketOpsTooltips>[0];
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -21,17 +28,25 @@ function createDeferred<T>() {
 
 function createApi() {
   return {
-    getBucketEncryption: vi.fn(async () => ({ rules: [] })),
-    getBucketLogging: vi.fn(async () => ({ enabled: false })),
-    getBucketNotifications: vi.fn(async () => ({ configuration: {} })),
-    getBucketPolicy: vi.fn(async () => ({ policy: null })),
-    getBucketProperties: vi.fn(async (): Promise<BucketProperties> => ({
-      lifecycle_rules: [],
-      object_lock: { enabled: true, mode: "GOVERNANCE", days: 7 },
+    getBucketEncryption: vi.fn<TooltipOptions["getBucketEncryption"]>(async () => ({ rules: [] })),
+    getBucketLogging: vi.fn<TooltipOptions["getBucketLogging"]>(async () => buildBucketLoggingConfiguration()),
+    getBucketNotifications: vi.fn<TooltipOptions["getBucketNotifications"]>(async () => ({ configuration: {} })),
+    getBucketPolicy: vi.fn<TooltipOptions["getBucketPolicy"]>(async () => ({ policy: null })),
+    getBucketProperties: vi.fn<TooltipOptions["getBucketProperties"]>(async () => buildBucketProperties({
+      object_lock: buildBucketObjectLockConfiguration({
+        enabled: true,
+        mode: "GOVERNANCE",
+        days: 7,
+      }),
       versioning_status: "Enabled",
     })),
-    getBucketWebsite: vi.fn(async () => ({})),
-    listBuckets: vi.fn(async () => ({
+    getBucketWebsite: vi.fn<TooltipOptions["getBucketWebsite"]>(async () => ({
+      index_document: null,
+      error_document: null,
+      redirect_all_requests_to: null,
+      routing_rules: [],
+    })),
+    listBuckets: vi.fn<TooltipOptions["listBuckets"]>(async () => ({
       items: [],
       total: 0,
       page: 1,
@@ -43,17 +58,19 @@ function createApi() {
   };
 }
 
-const bucket: CephAdminBucket = {
-  name: "reports",
+const bucket = buildCephAdminBucket("reports", {
   owner: "owner-a",
   tenant: "tenant-a",
-};
+});
 
 describe("useBucketOpsTooltips", () => {
   it("coalesces owner lookups and caches the resolved display name", async () => {
     const api = createApi();
     api.listBuckets.mockResolvedValue({
-      items: [{ ...bucket, owner_name: "Platform team" }],
+      items: [buildCephAdminBucket("reports", {
+        ...bucket,
+        owner_name: "Platform team",
+      })],
       total: 1,
       page: 1,
       page_size: 5,
@@ -65,6 +82,7 @@ describe("useBucketOpsTooltips", () => {
       useBucketOpsTooltips({
         ...api,
         extractError: (error) => String(error),
+        isStorageOps: false,
         missingScopeError: "Select an endpoint",
         selectedScopeId: 7,
       }),
@@ -106,6 +124,7 @@ describe("useBucketOpsTooltips", () => {
       useBucketOpsTooltips({
         ...api,
         extractError: (error) => String(error),
+        isStorageOps: false,
         missingScopeError: "Select an endpoint",
         selectedScopeId: 7,
       }),
@@ -143,6 +162,7 @@ describe("useBucketOpsTooltips", () => {
       useBucketOpsTooltips({
         ...api,
         extractError: (error) => String(error),
+        isStorageOps: false,
         missingScopeError: "Select an endpoint",
         selectedScopeId: 7,
       }),

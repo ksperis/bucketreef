@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ExecutionContext, ExecutionContextKind } from "../../api/executionContexts";
 import type { TagDefinitionSummary } from "../../api/tags";
+import { buildExecutionContext } from "../../test/executionContexts";
 import { buildBucketOpsStorageScopeProjection } from "./bucketOpsStorageScopeProjection";
 
 const sharedTag: TagDefinitionSummary = {
@@ -29,23 +30,19 @@ function context(
   endpointName: string,
   overrides: Partial<ExecutionContext> = {}
 ): ExecutionContext {
-  return {
+  return buildExecutionContext(id, {
     kind,
-    id,
     display_name: displayName,
-    tags: [],
-    endpoint_tags: [],
     endpoint_name: endpointName,
     endpoint_is_default: false,
     endpoint_url: `https://${endpointName.toLowerCase()}.example.test`,
-    storage_endpoint_capabilities: {},
     capabilities: {
       can_manage_iam: false,
       sts_capable: false,
       admin_api_capable: false,
     },
     ...overrides,
-  };
+  });
 }
 
 function buildProjection(

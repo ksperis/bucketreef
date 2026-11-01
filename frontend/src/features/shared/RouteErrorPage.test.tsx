@@ -6,7 +6,7 @@ import { ApiError } from "../../api/client";
 import RouteErrorPage from "./RouteErrorPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
-function ThrowingRoute({ error }: { error: unknown }) {
+function ThrowingRoute({ error }: { error: unknown }): never {
   throw error;
 }
 

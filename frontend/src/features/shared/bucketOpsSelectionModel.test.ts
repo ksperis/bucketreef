@@ -6,6 +6,10 @@ import { describe, expect, it } from "vitest";
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import {
+  buildCephAdminBucket,
+  buildStorageOpsBucket,
+} from "../../test/cephAdmin";
+import {
   buildBucketOpsSelectionProjection,
   buildStorageOpsBucketTargets,
   getBucketOpsSelectionKey,
@@ -22,7 +26,7 @@ const tag = (id: number, label: string): BucketUiTagDefinition => ({
 const bucket = (
   name: string,
   overrides: Partial<CephAdminBucket> = {},
-): CephAdminBucket => ({ name, ...overrides });
+): CephAdminBucket => buildCephAdminBucket(name, overrides);
 
 const cephKey = (name: string, tenant: string | null = null) =>
   getBucketOpsSelectionKey(bucket(name, { tenant }), false);
@@ -144,7 +148,7 @@ describe("buildBucketOpsSelectionProjection", () => {
     const result = project({
       isStorageOps: true,
       items: [
-        bucket("context-a::encoded-alpha", {
+        buildStorageOpsBucket("context-a::encoded-alpha", {
           bucket_name: "alpha",
           context_id: "context-a",
           context_name: "Account A",

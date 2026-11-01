@@ -10,31 +10,29 @@ import {
   type BulkConfigClipboardBucket,
   type BulkCopyFeatureSelection,
 } from "./bucketBulkOperationsModel";
+import {
+  buildBucketLoggingConfiguration,
+  buildBucketObjectLockConfiguration,
+  buildBucketProperties,
+  buildBucketPublicAccessBlock,
+} from "../../test/bucketContracts";
 import { buildBulkPreviewSections } from "./bucketBulkPreviewModel";
 import { previewBucketOpsConfigPaste } from "./bucketOpsConfigPastePreview";
 
+type PreviewInput = Parameters<typeof previewBucketOpsConfigPaste>[0];
+
 function createApi() {
   return {
-    fetchBucketQuota: vi.fn(async () => ({ maxSizeBytes: null, maxObjects: null })),
-    getBucketCors: vi.fn(async () => ({ rules: [{ ID: "old-cors" }] })),
-    getBucketLifecycle: vi.fn(async () => ({ rules: [{ ID: "old-lifecycle" }] })),
-    getBucketLogging: vi.fn(async () => ({
-      enabled: false,
-      target_bucket: null,
-      target_prefix: null,
-    })),
-    getBucketPolicy: vi.fn(async () => ({ policy: { Statement: [{ Sid: "Old" }] } })),
-    getBucketProperties: vi.fn(async () => ({
-      lifecycle_rules: [],
-      object_lock: { enabled: false },
+    fetchBucketQuota: vi.fn<PreviewInput["fetchBucketQuota"]>(async () => ({ maxSizeBytes: null, maxObjects: null })),
+    getBucketCors: vi.fn<PreviewInput["getBucketCors"]>(async () => ({ rules: [{ ID: "old-cors" }] })),
+    getBucketLifecycle: vi.fn<PreviewInput["getBucketLifecycle"]>(async () => ({ rules: [{ ID: "old-lifecycle" }] })),
+    getBucketLogging: vi.fn<PreviewInput["getBucketLogging"]>(async () => buildBucketLoggingConfiguration()),
+    getBucketPolicy: vi.fn<PreviewInput["getBucketPolicy"]>(async () => ({ policy: { Statement: [{ Sid: "Old" }] } })),
+    getBucketProperties: vi.fn<PreviewInput["getBucketProperties"]>(async () => buildBucketProperties({
+      object_lock: buildBucketObjectLockConfiguration(),
       versioning_status: "Suspended",
     })),
-    getBucketPublicAccessBlock: vi.fn(async () => ({
-      block_public_acls: false,
-      ignore_public_acls: false,
-      block_public_policy: false,
-      restrict_public_buckets: false,
-    })),
+    getBucketPublicAccessBlock: vi.fn<PreviewInput["getBucketPublicAccessBlock"]>(async () => buildBucketPublicAccessBlock()),
   };
 }
 
@@ -152,7 +150,11 @@ describe("previewBucketOpsConfigPaste", () => {
     api.getBucketPolicy.mockResolvedValue({ policy: { Statement: [{ Sid: "Copied" }] } });
     api.getBucketProperties.mockResolvedValue({
       lifecycle_rules: [],
-      object_lock: { enabled: true, mode: "GOVERNANCE", days: 7 },
+      object_lock: buildBucketObjectLockConfiguration({
+        enabled: true,
+        mode: "GOVERNANCE",
+        days: 7,
+      }),
       versioning_status: "Enabled",
     });
     api.getBucketPublicAccessBlock.mockResolvedValue({

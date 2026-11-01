@@ -31,6 +31,7 @@ const snapshot: BucketUsageStatsSnapshot = {
   scope_id: "s3u-1",
   scope_name: "Managed user",
   bucket_name: "bucket-a",
+  bucket_tenant: "",
   scan_mode: "versions",
   version_listing_available: true,
   object_version_count: 3,
