@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal, get_db
+from app.core.database import get_db
 from app.db import User
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregateResponse,
@@ -17,7 +17,7 @@ from app.models.bucket_usage_stats import (
     BucketUsageStatsScopeRequest,
 )
 from app.models.bucket_operation import RgwBucketReference
-from app.routers.bucket_usage_stats_stream import stream_bucket_usage_stats
+from app.routers.bucket_usage_stats_stream import stream_resolved_bucket_usage_stats
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
@@ -29,7 +29,6 @@ from app.services.s3_execution_context import build_ceph_admin_s3_context
 from app.services.rgw_bucket_target import RgwBucketTarget
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
-    BucketUsageStatsOptions,
     BucketUsageStatsResolvedTarget,
     BucketUsageStatsService,
 )
@@ -115,15 +114,10 @@ def stream_ceph_admin_usage_stats_aggregate(
 ) -> StreamingResponse:
     references = _list_ceph_bucket_references(ctx)
     targets = [_target_for_bucket(ctx, reference) for reference in references]
-    service = BucketUsageStatsService(SessionLocal)
-    return stream_bucket_usage_stats(
+    return stream_resolved_bucket_usage_stats(
         request,
-        run_check=lambda progress_callback, cancel_check: service.run(
-            targets,
-            BucketUsageStatsOptions(parallelism=payload.parallelism),
-            progress_callback=progress_callback,
-            cancel_check=cancel_check,
-        ),
+        targets=targets,
+        parallelism=payload.parallelism,
         logger=logger,
         failure_message="Ceph Admin usage stats calculation failed.",
     )
@@ -158,15 +152,10 @@ def stream_ceph_admin_bucket_usage_stats_for_bucket(
         ctx,
         RgwBucketReference(name=bucket_name, tenant=tenant),
     )
-    service = BucketUsageStatsService(SessionLocal)
-    return stream_bucket_usage_stats(
+    return stream_resolved_bucket_usage_stats(
         request,
-        run_check=lambda progress_callback, cancel_check: service.run(
-            [target],
-            BucketUsageStatsOptions(parallelism=1),
-            progress_callback=progress_callback,
-            cancel_check=cancel_check,
-        ),
+        targets=[target],
+        parallelism=1,
         logger=logger,
         failure_message="Ceph Admin bucket usage stats calculation failed.",
     )
@@ -179,17 +168,11 @@ def stream_ceph_admin_bucket_usage_stats(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     _user: User = Depends(get_current_ceph_admin),
 ) -> StreamingResponse:
-    options = BucketUsageStatsOptions(parallelism=payload.parallelism)
     targets = [_target_for_bucket(ctx, reference) for reference in payload.targets]
-    service = BucketUsageStatsService(SessionLocal)
-    return stream_bucket_usage_stats(
+    return stream_resolved_bucket_usage_stats(
         request,
-        run_check=lambda progress_callback, cancel_check: service.run(
-            targets,
-            options,
-            progress_callback=progress_callback,
-            cancel_check=cancel_check,
-        ),
+        targets=targets,
+        parallelism=payload.parallelism,
         logger=logger,
         failure_message="Ceph Admin bucket usage stats calculation failed.",
     )
