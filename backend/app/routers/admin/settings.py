@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from collections.abc import Callable
+from typing import Protocol, TypeVar
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from sqlalchemy.orm import Session
@@ -55,6 +56,16 @@ from app.services.quota_alert_email_service import QuotaAlertEmailService
 from app.services.portal_service import get_portal_service
 
 router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
+
+
+class _IdentityProviderAdminItem(Protocol):
+    provider_id: str
+
+
+_IdentityProviderAdminItemT = TypeVar(
+    "_IdentityProviderAdminItemT",
+    bound=_IdentityProviderAdminItem,
+)
 
 _SENSITIVE_GENERAL_SETTINGS = (
     "ceph_admin_enabled",
@@ -113,6 +124,40 @@ def _delete_identity_provider_settings(
         metadata={"provider_id": normalized_provider_id},
     )
     return IdentityProviderDeleteResult(status="deleted")
+
+
+def _mutate_identity_provider_settings(
+    request: Request,
+    *,
+    current_user: User,
+    db: Session,
+    audit: AuditService,
+    mutate_provider: Callable[[], _IdentityProviderAdminItemT],
+    operation_error: type[Exception],
+    operation_error_status: int,
+    provider_type: str,
+    action: str,
+    metadata: dict[str, object],
+) -> _IdentityProviderAdminItemT:
+    require_admin_sensitive_action(request, db, current_user)
+    try:
+        item = mutate_provider()
+    except IdentityProviderManagedByEnvironmentError as exc:
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+    except operation_error as exc:
+        raise_http_exception_from_exception(operation_error_status, exc)
+    except ValueError as exc:
+        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+
+    audit.record_action(
+        user=current_user,
+        scope="admin",
+        action=f"{provider_type}_provider.{action}",
+        entity_type=f"{provider_type}_provider",
+        entity_id=item.provider_id,
+        metadata=metadata,
+    )
+    return item
 
 
 @router.get("", response_model=AppSettings)
@@ -221,22 +266,16 @@ def create_oidc_provider_settings(
     db: Session = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
 ) -> OIDCProviderAdminItem:
-    require_admin_sensitive_action(request, db, current_user)
-    try:
-        item = create_oidc_provider(db, payload)
-    except IdentityProviderManagedByEnvironmentError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except IdentityProviderAlreadyExistsError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="admin",
-        action="oidc_provider.create",
-        entity_type="oidc_provider",
-        entity_id=item.provider_id,
+    return _mutate_identity_provider_settings(
+        request,
+        current_user=current_user,
+        db=db,
+        audit=audit,
+        mutate_provider=lambda: create_oidc_provider(db, payload),
+        operation_error=IdentityProviderAlreadyExistsError,
+        operation_error_status=status.HTTP_409_CONFLICT,
+        provider_type="oidc",
+        action="create",
         metadata=_provider_audit_metadata(
             payload,
             fields=OIDC_PROVIDER_CONFIG_FIELDS,
@@ -244,7 +283,6 @@ def create_oidc_provider_settings(
             secret_action="set" if payload.client_secret else "none",
         ),
     )
-    return item
 
 
 @router.put("/oidc/providers/{provider_id}", response_model=OIDCProviderAdminItem)
@@ -256,22 +294,16 @@ def update_oidc_provider_settings(
     db: Session = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
 ) -> OIDCProviderAdminItem:
-    require_admin_sensitive_action(request, db, current_user)
-    try:
-        item = update_oidc_provider(db, provider_id, payload)
-    except IdentityProviderManagedByEnvironmentError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except IdentityProviderNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-    except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="admin",
-        action="oidc_provider.update",
-        entity_type="oidc_provider",
-        entity_id=item.provider_id,
+    return _mutate_identity_provider_settings(
+        request,
+        current_user=current_user,
+        db=db,
+        audit=audit,
+        mutate_provider=lambda: update_oidc_provider(db, provider_id, payload),
+        operation_error=IdentityProviderNotFoundError,
+        operation_error_status=status.HTTP_404_NOT_FOUND,
+        provider_type="oidc",
+        action="update",
         metadata=_provider_audit_metadata(
             payload,
             fields=OIDC_PROVIDER_CONFIG_FIELDS,
@@ -282,7 +314,6 @@ def update_oidc_provider_settings(
             ),
         ),
     )
-    return item
 
 
 @router.delete(
@@ -323,22 +354,16 @@ def create_ldap_provider_settings(
     db: Session = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
 ) -> LDAPProviderAdminItem:
-    require_admin_sensitive_action(request, db, current_user)
-    try:
-        item = create_ldap_provider(db, payload)
-    except IdentityProviderManagedByEnvironmentError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except IdentityProviderAlreadyExistsError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="admin",
-        action="ldap_provider.create",
-        entity_type="ldap_provider",
-        entity_id=item.provider_id,
+    return _mutate_identity_provider_settings(
+        request,
+        current_user=current_user,
+        db=db,
+        audit=audit,
+        mutate_provider=lambda: create_ldap_provider(db, payload),
+        operation_error=IdentityProviderAlreadyExistsError,
+        operation_error_status=status.HTTP_409_CONFLICT,
+        provider_type="ldap",
+        action="create",
         metadata=_provider_audit_metadata(
             payload,
             fields=LDAP_PROVIDER_CONFIG_FIELDS,
@@ -346,7 +371,6 @@ def create_ldap_provider_settings(
             secret_action="set" if payload.bind_password else "none",
         ),
     )
-    return item
 
 
 @router.put("/ldap/providers/{provider_id}", response_model=LDAPProviderAdminItem)
@@ -358,22 +382,16 @@ def update_ldap_provider_settings(
     db: Session = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
 ) -> LDAPProviderAdminItem:
-    require_admin_sensitive_action(request, db, current_user)
-    try:
-        item = update_ldap_provider(db, provider_id, payload)
-    except IdentityProviderManagedByEnvironmentError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except IdentityProviderNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-    except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
-
-    audit.record_action(
-        user=current_user,
-        scope="admin",
-        action="ldap_provider.update",
-        entity_type="ldap_provider",
-        entity_id=item.provider_id,
+    return _mutate_identity_provider_settings(
+        request,
+        current_user=current_user,
+        db=db,
+        audit=audit,
+        mutate_provider=lambda: update_ldap_provider(db, provider_id, payload),
+        operation_error=IdentityProviderNotFoundError,
+        operation_error_status=status.HTTP_404_NOT_FOUND,
+        provider_type="ldap",
+        action="update",
         metadata=_provider_audit_metadata(
             payload,
             fields=LDAP_PROVIDER_CONFIG_FIELDS,
@@ -384,7 +402,6 @@ def update_ldap_provider_settings(
             ),
         ),
     )
-    return item
 
 
 @router.delete(
