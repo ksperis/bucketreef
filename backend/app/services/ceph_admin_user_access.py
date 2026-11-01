@@ -19,7 +19,7 @@ from app.utils.storage_endpoint_features import resolve_feature_flags
 def optional_account_lookup_enabled(endpoint: StorageEndpoint) -> bool | None:
     try:
         return resolve_feature_flags(endpoint).account_enabled
-    except Exception:
+    except ValueError:
         return None
 
 

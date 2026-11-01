@@ -6,7 +6,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.services import ceph_admin_user_key_service as module
-from app.services.ceph_admin_user_access import require_user_scope, serialize_access_keys
+from app.services.ceph_admin_user_access import (
+    optional_account_lookup_enabled,
+    require_user_scope,
+    serialize_access_keys,
+)
 from app.services.ceph_admin_user_key_service import CephAdminUserKeyService
 
 
@@ -82,6 +86,31 @@ def test_serialize_access_keys_drops_upstream_secret_material():
 
     assert keys[0].access_key == "AKIA-LISTED"
     assert "secret_key" not in keys[0].model_dump()
+
+
+def test_optional_account_lookup_tolerates_invalid_feature_configuration(monkeypatch):
+    def invalid_features(_endpoint):
+        raise ValueError("invalid features")
+
+    monkeypatch.setattr(
+        "app.services.ceph_admin_user_access.resolve_feature_flags",
+        invalid_features,
+    )
+
+    assert optional_account_lookup_enabled(object()) is None
+
+
+def test_optional_account_lookup_propagates_unexpected_failures(monkeypatch):
+    def unexpected_failure(_endpoint):
+        raise RuntimeError("unexpected failure")
+
+    monkeypatch.setattr(
+        "app.services.ceph_admin_user_access.resolve_feature_flags",
+        unexpected_failure,
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected failure"):
+        optional_account_lookup_enabled(object())
 
 
 def test_require_user_scope_accepts_embedded_tenant_identity():
