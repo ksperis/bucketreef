@@ -3,7 +3,6 @@ import FeatureOverrideField from "../../components/settings/FeatureOverrideField
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { getS3Account, updateS3Account, fetchAccountPortalSettings, updateAccountPortalSettings, type S3Account, type S3AccountSummary } from "../../api/accounts";
 import { hasAccountAccessRole, getAccountAccessRequiredMessage } from "../../api/accountAccess";
-import { getStorageEndpoint, type StorageEndpoint } from "../../api/storageEndpoints";
 import type { PortalAccountSettings } from "../../api/portalAccounts";
 import WorkflowPage, { WorkflowMetadata } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
@@ -32,6 +31,7 @@ import { adminQuotaErrors } from "./useAdminRgwFormValidation";
 import { adminAccountForm, adminAccountPayload, accountQuotaChanged, type AdminAccountForm } from "./adminAccountForm";
 import AdminAccountAssociations, { accountUserAssociations, accountGroupAssociations } from "./AdminAccountAssociations";
 import { useAdminI18n } from "./adminI18n";
+import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 
 type EditTab = "general" | "users" | "groups" | "manager" | "portal";
 type EditorState = { dirty: boolean; busy: boolean };
@@ -86,15 +86,31 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
   const formRef = useRef<HTMLFormElement>(null);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const loadPermissions = useCallback(() => getStorageEndpoint(account.storage_endpoint_id, { include_admin_ops_permissions: true }), [account.storage_endpoint_id]);
-  const permissions = useSettingsRemoteDraft<StorageEndpoint | null>(
-    () => null,
-    loadPermissions,
-    adminText("Unable to check endpoint permissions."),
+  const formatPermissionError = useCallback(
+    (error: unknown) => extractApiError(error, adminText("Unable to check endpoint permissions.")),
+    [adminText]
   );
-  const allowQuotaUpdates = Boolean(account.storage_endpoint_capabilities?.admin && account.rgw_account_id && permissions.draft?.admin_ops_permissions?.accounts_write);
+  const {
+    permissionsByEndpointId,
+    loadingByEndpointId: permissionLoadingByEndpointId,
+    errorByEndpointId: permissionErrorByEndpointId,
+    loadPermissions,
+  } = useAdminEndpointAdminOpsPermissions({ formatError: formatPermissionError });
+  const permissionLoaded = Object.prototype.hasOwnProperty.call(
+    permissionsByEndpointId,
+    account.storage_endpoint_id
+  );
+  const endpointPermissions = permissionsByEndpointId[account.storage_endpoint_id];
+  const permissionLoading =
+    !permissionLoaded || Boolean(permissionLoadingByEndpointId[account.storage_endpoint_id]);
+  const permissionError = permissionErrorByEndpointId[account.storage_endpoint_id] ?? null;
+  useEffect(() => {
+    if (permissionLoaded) return;
+    void loadPermissions(account.storage_endpoint_id);
+  }, [account.storage_endpoint_id, loadPermissions, permissionLoaded]);
+  const allowQuotaUpdates = Boolean(account.storage_endpoint_capabilities?.admin && account.rgw_account_id && endpointPermissions?.accounts_write);
   const { generalSettings } = useGeneralSettings();
-  const allowBucketQuotas = Boolean(permissions.draft?.admin_ops_permissions?.buckets_write);
+  const allowBucketQuotas = Boolean(endpointPermissions?.buckets_write);
   const usageEnabled = Boolean(account.storage_endpoint_capabilities?.usage && account.rgw_account_id);
   const usage = useAdminAccountStats(account.id, usageEnabled);
   const tags = useTagCatalog({ kind: "admin", domain: "admin_managed" }, true);
@@ -215,8 +231,8 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                 objectValue={form.draft.quota_max_objects} disabled={!allowQuotaUpdates} errors={attempted ? quotaErrors : {}}
                 onStorageValueChange={value => update("quota_max_size_gb", value)} onStorageUnitChange={value => update("quota_max_size_unit", value)}
                 onObjectValueChange={value => update("quota_max_objects", value)} />
-              {permissions.loading ? <p role="status">{adminText("Checking endpoint permissions...")}</p> : permissions.loadError ? <UiInlineMessage tone="error" role="alert">
-                {permissions.loadError} <SettingsButton variant="secondary" onClick={permissions.retry}>{adminText("Retry permissions")}</SettingsButton>
+              {permissionLoading ? <p role="status">{adminText("Checking endpoint permissions...")}</p> : permissionError ? <UiInlineMessage tone="error" role="alert">
+                {permissionError} <SettingsButton variant="secondary" onClick={() => void loadPermissions(account.storage_endpoint_id)}>{adminText("Retry permissions")}</SettingsButton>
               </UiInlineMessage> : !allowQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and accounts=write on the endpoint.")}</UiInlineMessage>}
               <SettingsSection title={adminText("Services and monitoring")} description={adminText("Account-specific overrides for shared project services.")} presentation="compact">
                 <FeatureOverrideField title={adminText("Bucket composition statistics")} value={form.draft.allow_bucket_usage_stats}
