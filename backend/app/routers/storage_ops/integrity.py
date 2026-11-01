@@ -13,10 +13,7 @@ from app.db import User
 from app.models.bucket_integrity import BucketIntegrityTargetRequest
 from app.routers.bucket_integrity_stream import stream_resolved_bucket_integrity_check
 from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin
-from app.services.bucket_integrity_service import (
-    BucketIntegrityCheckService,
-    BucketIntegrityResolvedTarget,
-)
+from app.services.bucket_integrity_service import BucketIntegrityResolvedTarget
 from app.services.storage_ops_context_service import storage_ops_context_names
 
 router = APIRouter(prefix="/storage-ops/buckets/integrity-check", tags=["storage-ops-bucket-integrity"])
@@ -46,12 +43,10 @@ def stream_storage_ops_bucket_integrity_check(
         )
         for target in requested_targets
     ]
-    service = BucketIntegrityCheckService()
     return stream_resolved_bucket_integrity_check(
         request,
         payload=payload,
         targets=targets,
-        service=service,
         logger=logger,
         failure_message="Storage Ops bucket integrity check failed.",
     )
