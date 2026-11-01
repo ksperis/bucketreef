@@ -148,6 +148,44 @@ class UserAssociationsService:
             user_ids=[user.id],
             account_ids=[account.id],
         )
+        self._upsert_direct_account_link(
+            user,
+            account,
+            manager_role=manager_role,
+            portal_role=portal_role,
+        )
+
+        after_roles = capture_effective_portal_roles(
+            self.db,
+            user_ids=[user.id],
+            account_ids=[account.id],
+        )
+        try:
+            sync_portal_role_downgrades(
+                self.db,
+                before=before_roles,
+                after=after_roles,
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        sync_portal_role_promotions(
+            self.db,
+            before=before_roles,
+            after=after_roles,
+        )
+        self.db.refresh(user)
+        return user
+
+    def _upsert_direct_account_link(
+        self,
+        user: User,
+        account: S3Account,
+        *,
+        manager_role: ManagerAccountRoleValue | None,
+        portal_role: PortalAccountRoleValue | None,
+    ) -> None:
         link = self.db.scalar(
             select(UserS3Account)
             .where(
@@ -176,29 +214,6 @@ class UserAssociationsService:
         self.db.add(link)
         self.db.add(user)
         self.db.flush()
-
-        after_roles = capture_effective_portal_roles(
-            self.db,
-            user_ids=[user.id],
-            account_ids=[account.id],
-        )
-        try:
-            sync_portal_role_downgrades(
-                self.db,
-                before=before_roles,
-                after=after_roles,
-            )
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-        sync_portal_role_promotions(
-            self.db,
-            before=before_roles,
-            after=after_roles,
-        )
-        self.db.refresh(user)
-        return user
 
     def set_s3_user_links(
         self,
