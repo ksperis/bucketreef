@@ -17,6 +17,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_ids,
     extract_rgw_account_name,
     extract_rgw_user_account_ids,
+    extract_rgw_user_account_aliases,
     extract_rgw_user_bool,
     extract_rgw_user_identity,
     extract_rgw_user_int,
@@ -165,6 +166,15 @@ def test_extract_rgw_user_account_ids_preserves_conflicting_sources():
     assert extract_rgw_user_account_ids(
         {"account_id": " acc-top ", "user": {"account_id": "acc-nested"}}
     ) == {"acc-top", "acc-nested"}
+
+
+def test_extract_rgw_user_account_aliases_collects_external_account_aliases():
+    assert extract_rgw_user_account_aliases(
+        {
+            "account": " RGW00000000000000001 ",
+            "user": {"account_id": "RGW00000000000000002"},
+        }
+    ) == {"RGW00000000000000001", "RGW00000000000000002"}
 
 
 def test_get_supervision_rgw_client_uses_endpoint_url_when_admin_feature_disabled(monkeypatch):

@@ -19,7 +19,11 @@ from app.services.endpoint_read_credentials import resolve_endpoint_read_credent
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client
 from app.utils.normalize import normalize_optional_string
 from app.utils.rgw_identifiers import is_rgw_account_id
-from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
+from app.utils.rgw_payloads import (
+    extract_rgw_user_account_aliases,
+    extract_rgw_user_identity,
+    rgw_qualified_uid,
+)
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
 from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache
 
@@ -135,9 +139,15 @@ class ConnectionIdentityService:
         metrics_enabled: bool,
         usage_enabled: bool,
     ) -> ConnectionIdentityResolution:
-        uid, account_id = _identity_from_rgw_payload(payload)
-        parsed_uid, tenant = extract_rgw_user_identity(payload)
-        uid = parsed_uid or uid
+        uid, tenant = extract_rgw_user_identity(payload)
+        account_ids = {
+            value.upper()
+            for value in extract_rgw_user_account_aliases(payload)
+            if is_rgw_account_id(value)
+        }
+        if len(account_ids) > 1:
+            raise ValueError("RGW returned conflicting account identity fields")
+        account_id = next(iter(account_ids), None)
         if not uid and not account_id:
             return cls._identity_unavailable(
                 "RGW identity is unavailable: unable to resolve RGW identity for this connection.",
@@ -209,11 +219,23 @@ class ConnectionIdentityService:
                 usage_enabled=usage_enabled,
             )
 
-        return cls._identity_from_lookup_payload(
-            payload,
-            metrics_enabled=metrics_enabled,
-            usage_enabled=usage_enabled,
-        )
+        try:
+            return cls._identity_from_lookup_payload(
+                payload,
+                metrics_enabled=metrics_enabled,
+                usage_enabled=usage_enabled,
+            )
+        except ValueError as exc:
+            logger.warning(
+                "Unable to resolve RGW identity for connection id=%s: %s",
+                connection.id,
+                sanitized_error_log_detail(exc),
+            )
+            return cls._identity_unavailable(
+                "RGW identity is unavailable: unable to resolve RGW identity for this connection.",
+                metrics_enabled=metrics_enabled,
+                usage_enabled=usage_enabled,
+            )
 
     def _resolve_identity_uncached(self, connection: S3Connection) -> ConnectionIdentityResolution:
         endpoint = connection.storage_endpoint
@@ -345,33 +367,3 @@ class ConnectionIdentityService:
             endpoint_configuration,
         ], separators=(",", ":"))
         return _CacheKey(scope=scope, fingerprint=sha256(payload.encode("utf-8")).hexdigest())
-
-
-def _identity_from_rgw_payload(payload: object) -> tuple[Optional[str], Optional[str]]:
-    if not isinstance(payload, dict) or payload.get("not_found"):
-        return None, None
-    candidates: list[dict] = [payload]
-    nested_user = payload.get("user")
-    if isinstance(nested_user, dict):
-        candidates.append(nested_user)
-
-    uid: Optional[str] = None
-    account_id: Optional[str] = None
-    for candidate in candidates:
-        uid = normalize_optional_string(
-            candidate.get("uid")
-            or candidate.get("user_id")
-            or (candidate.get("user") if isinstance(candidate.get("user"), str) else None)
-        )
-        if uid:
-            break
-    for candidate in candidates:
-        account_id = normalize_optional_string(
-            candidate.get("account_id")
-            or candidate.get("account")
-        )
-        if account_id:
-            break
-    if account_id:
-        account_id = account_id.upper() if is_rgw_account_id(account_id) else None
-    return uid, account_id

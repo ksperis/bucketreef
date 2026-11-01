@@ -391,6 +391,63 @@ def test_resolve_metrics_identity_uses_runtime_lookup_and_caches(monkeypatch):
     assert calls["count"] == 1
 
 
+def test_resolve_metrics_identity_reads_nested_user_and_account_alias(monkeypatch):
+    endpoint = _ceph_endpoint(name="ceph-nested-identity")
+    connection = _connection(endpoint)
+
+    class _FakeAdmin:
+        def get_user_by_access_key(self, access_key: str, allow_not_found: bool = False):
+            assert access_key == "AKIA-CONN-TEST"
+            assert allow_not_found is True
+            return {
+                "account": "rgw12345678901234567",
+                "user": {"uid": "analytics", "tenant": "team_a"},
+            }
+
+    monkeypatch.setattr(
+        "app.services.connection_identity_service.get_rgw_admin_client",
+        lambda **kwargs: _FakeAdmin(),
+    )
+
+    resolved = ConnectionIdentityService().resolve_metrics_identity(connection)
+
+    assert resolved.eligible is True
+    assert resolved.rgw_user_uid == "analytics"
+    assert resolved.rgw_tenant == "team_a"
+    assert resolved.rgw_account_id == "RGW12345678901234567"
+    assert resolved.iam_identity == "team_a$analytics"
+
+
+def test_resolve_metrics_identity_rejects_conflicting_provider_identity(monkeypatch):
+    endpoint = _ceph_endpoint(name="ceph-conflicting-identity")
+    connection = _connection(endpoint)
+
+    class _FakeAdmin:
+        def get_user_by_access_key(self, access_key: str, allow_not_found: bool = False):
+            assert access_key == "AKIA-CONN-TEST"
+            assert allow_not_found is True
+            return {
+                "uid": "analytics-a",
+                "account_id": "RGW12345678901234567",
+                "user": {
+                    "uid": "analytics-b",
+                    "account": "RGW76543210987654321",
+                },
+            }
+
+    monkeypatch.setattr(
+        "app.services.connection_identity_service.get_rgw_admin_client",
+        lambda **kwargs: _FakeAdmin(),
+    )
+
+    resolved = ConnectionIdentityService().resolve_metrics_identity(connection)
+
+    assert resolved.eligible is False
+    assert resolved.iam_identity is None
+    assert resolved.reason is not None
+    assert "unable to resolve rgw identity" in resolved.reason.lower()
+
+
 def test_metrics_identity_cache_rechecks_when_supervision_leaves_ready(monkeypatch):
     endpoint = _ceph_endpoint(name="ceph-supervision-state")
     connection = _connection(endpoint)

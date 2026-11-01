@@ -211,6 +211,25 @@ def extract_rgw_user_account_ids(payload: Any) -> set[str]:
     }
 
 
+def extract_rgw_user_account_aliases(payload: Any) -> set[str]:
+    """Collect RGW user account identifiers across supported external aliases.
+
+    Some RGW payloads expose the account as ``account`` rather than
+    ``account_id``. Keep all scalar aliases so callers can validate and reject
+    conflicting provider identities instead of silently preferring one field.
+    """
+    if not isinstance(payload, dict):
+        return set()
+    user_payload = extract_rgw_user_payload(payload)
+    return {
+        account_id
+        for record in (payload, user_payload)
+        for field in ("account_id", "account")
+        if not isinstance(record.get(field), (dict, list, tuple, set))
+        if (account_id := normalize_optional_scalar(record.get(field)))
+    }
+
+
 def rgw_user_account_root(payload: Any) -> bool | None:
     """Ceph Squid emits type=root; other supported payloads expose account_root."""
     user = extract_rgw_user_payload(payload)
