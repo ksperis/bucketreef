@@ -18,6 +18,8 @@
     "src/auth/**/*.test.ts",
     "src/auth/**/*.test.tsx",
     "src/features/admin/AuthenticationSettingsPage.test.tsx",
+    "src/features/auth/**/*.test.ts",
+    "src/features/auth/**/*.test.tsx",
     "src/hooks/**/*.test.ts",
     "src/hooks/**/*.test.tsx",
     "src/test/**/*.ts",

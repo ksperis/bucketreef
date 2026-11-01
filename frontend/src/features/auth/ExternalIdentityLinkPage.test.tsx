@@ -5,7 +5,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ExternalIdentityLinkStatus } from "../../api/auth";
 import { LanguageProvider } from "../../components/language";
@@ -82,6 +82,10 @@ describe("ExternalIdentityLinkPage", () => {
     localStorage.clear();
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("verifies the existing local password before showing final confirmation", async () => {
     const user = userEvent.setup();
     mocks.fetchStatus.mockResolvedValue(status("proof", {
@@ -153,10 +157,11 @@ describe("ExternalIdentityLinkPage", () => {
 
   it("polls an administrator request until it reaches an approved terminal state", async () => {
     let poll: TimerHandler | null = null;
-    const interval = vi.spyOn(window, "setInterval").mockImplementation((handler: TimerHandler) => {
-      poll = handler;
+    const interval = vi.fn((handler: TimerHandler, timeout?: number) => {
+      if (timeout === 3000) poll = handler;
       return 17;
     });
+    vi.stubGlobal("setInterval", interval);
     mocks.fetchStatus
       .mockResolvedValueOnce(status("admin_requested"))
       .mockResolvedValueOnce(status("admin_approved"));
@@ -173,7 +178,7 @@ describe("ExternalIdentityLinkPage", () => {
     expect(await screen.findByText(/identity link was approved/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sign in again" })).toBeInTheDocument();
     expect(mocks.fetchStatus).toHaveBeenCalledTimes(2);
-    interval.mockRestore();
+    expect(interval).toHaveBeenCalledWith(expect.any(Function), 3000);
   });
 
   it("shows a rejected administrator request as a terminal state", async () => {
