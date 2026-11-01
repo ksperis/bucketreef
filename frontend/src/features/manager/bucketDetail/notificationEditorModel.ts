@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { isRecord } from "../../../utils/record";
+import { hasOnlyKeys, isRecord, isStringArray } from "../../../utils/record";
 
 export type NotificationConfigurationRecord = Record<string, unknown>;
 export type NotificationTopicRecord = Record<string, unknown>;
@@ -26,14 +26,6 @@ export const commonNotificationEvents = [
 
 const supportedTopicKeys = new Set(["Id", "TopicArn", "Events", "Filter"]);
 const supportedTopLevelKeys = new Set(["TopicConfigurations"]);
-
-function hasOnlyKeys(value: Record<string, unknown>, allowed: ReadonlySet<string>): boolean {
-  return Object.keys(value).every((key) => allowed.has(key));
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
 
 function isSupportedFilter(value: unknown): boolean {
   if (value === undefined) return true;

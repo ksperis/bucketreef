@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { isRecord } from "../../../utils/record";
+import { isRecord, isStringArray } from "../../../utils/record";
 
 export type CorsRuleRecord = Record<string, unknown>;
 
@@ -28,10 +28,6 @@ const allowedRuleKeys = new Set([
   "ExposeHeaders",
   "MaxAgeSeconds",
 ]);
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
 
 function optionalStringArray(rule: CorsRuleRecord, key: string): boolean {
   return rule[key] === undefined || isStringArray(rule[key]);

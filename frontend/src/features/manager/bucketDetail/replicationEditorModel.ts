@@ -8,7 +8,7 @@ import {
   type GraphicalReplicationRule,
   type ReplicationRuleStatus,
 } from "../bucketReplication";
-import { asRecord } from "../../../utils/record";
+import { asRecord, hasOnlyKeys } from "../../../utils/record";
 import { cloneBucketJsonValue } from "./bucketFeatureState";
 
 type ReplicationRuleRecord = Record<string, unknown>;
@@ -26,10 +26,6 @@ const allowedRuleKeys = new Set([
 
 function hasOwn(value: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(value, key);
-}
-
-function hasOnlyKeys(value: ReplicationRuleRecord, allowed: Set<string>): boolean {
-  return Object.keys(value).every((key) => allowed.has(key));
 }
 
 function isStatus(value: unknown): value is ReplicationRuleStatus {

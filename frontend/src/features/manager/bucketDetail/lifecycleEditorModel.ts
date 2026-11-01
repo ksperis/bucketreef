@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
-import { isRecord } from "../../../utils/record";
+import { hasOnlyKeys, isRecord } from "../../../utils/record";
 
 export type LifecycleVisualRuleDraft = {
   id: string;
@@ -31,11 +31,6 @@ const topLevelKeys = new Set([
   "Transitions",
   "NoncurrentVersionTransitions",
 ]);
-
-function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]) {
-  const allowedKeys = new Set(allowed);
-  return Object.keys(value).every((key) => allowedKeys.has(key));
-}
 
 function isOptionalFiniteNumber(value: unknown): boolean {
   return value === undefined || (typeof value === "number" && Number.isFinite(value));

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { isRecord } from "../../../utils/record";
+import { hasOnlyKeys, isRecord } from "../../../utils/record";
 
 export type EncryptionRuleRecord = Record<string, unknown>;
 
@@ -23,10 +23,6 @@ const allowedRuleKeys = new Set([
   "BucketKeyEnabled",
 ]);
 const allowedDefaultEncryptionKeys = new Set(["SSEAlgorithm", "KMSMasterKeyID"]);
-
-function hasOnlyKeys(value: EncryptionRuleRecord, allowed: Set<string>): boolean {
-  return Object.keys(value).every((key) => allowed.has(key));
-}
 
 function isEncryptionAlgorithm(value: unknown): value is EncryptionAlgorithm {
   return (
