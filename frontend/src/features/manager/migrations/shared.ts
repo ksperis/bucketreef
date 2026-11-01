@@ -17,7 +17,6 @@ export function stepLabel(step: string): string {
     apply_read_only: "Protect source",
     sync: "Sync",
     verify: "Final verify",
-    delete_source: "Delete source",
     completed: "Completed",
     skipped: "Skipped",
     rolled_back: "Rolled back",
