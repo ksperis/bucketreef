@@ -310,31 +310,71 @@ class BucketMigrationObjectVerificationMixin:
         size_only_count = 0
         results = _StrongVerificationResults()
         size_only_batch: list[str] = []
-        scan_count_since_control = 0
         source_client = self._context_client(source_ctx)
         target_client = self._context_client(target_ctx)
-
-        def flush_batch() -> bool:
-            nonlocal size_only_batch
-            if not size_only_batch:
-                return True
-            verified_now, failed_now, method_counts_now = self._strong_verify_size_only_objects(
+        try:
+            for key in self._iter_current_size_only_diff_keys(
                 source_ctx,
                 target_ctx,
                 source_bucket=source_bucket,
                 target_bucket=target_bucket,
-                keys=size_only_batch,
-                parallelism_max=worker_count,
-                control_check=control_check,
                 source_client=source_client,
                 target_client=target_client,
-            )
-            size_only_batch = []
-            if verified_now < 0:
-                return False
-            results.merge(verified_now, failed_now, method_counts_now)
-            return True
+                control_check=control_check,
+            ):
+                size_only_count += 1
+                size_only_batch.append(key)
+                if len(size_only_batch) < batch_size:
+                    continue
+                if not self._verify_size_only_candidate_batch(
+                    source_ctx,
+                    target_ctx,
+                    source_bucket=source_bucket,
+                    target_bucket=target_bucket,
+                    keys=size_only_batch,
+                    worker_count=worker_count,
+                    results=results,
+                    control_check=control_check,
+                    source_client=source_client,
+                    target_client=target_client,
+                ):
+                    return -1, 0, [], results.method_counts
+                size_only_batch.clear()
+        except MigrationControlRequested:
+            return -1, 0, [], results.method_counts
 
+        if size_only_batch and not self._verify_size_only_candidate_batch(
+            source_ctx,
+            target_ctx,
+            source_bucket=source_bucket,
+            target_bucket=target_bucket,
+            keys=size_only_batch,
+            worker_count=worker_count,
+            results=results,
+            control_check=control_check,
+            source_client=source_client,
+            target_client=target_client,
+        ):
+            return -1, 0, [], results.method_counts
+        return (
+            size_only_count,
+            results.verified_count,
+            results.failed_keys,
+            results.method_counts,
+        )
+
+    def _iter_current_size_only_diff_keys(
+        self,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
+        *,
+        source_bucket: str,
+        target_bucket: str,
+        source_client: Any,
+        target_client: Any,
+        control_check: Callable[[], str],
+    ):
+        scan_count_since_control = 0
         for entry in self._iter_bucket_diff_entries(
             source_ctx,
             target_ctx,
@@ -350,26 +390,40 @@ class BucketMigrationObjectVerificationMixin:
                     lost_lease_message="Worker lease lost while collecting strong-verification candidates",
                 )
                 if state in {"pause", "cancel"}:
-                    return -1, 0, [], results.method_counts
+                    raise MigrationControlRequested(state)
                 scan_count_since_control = 0
+            if entry.kind == "matched" and entry.compare_by == "size":
+                yield entry.key
 
-            if entry.kind != "matched" or entry.compare_by != "size":
-                continue
-            size_only_count += 1
-            size_only_batch.append(entry.key)
-            if len(size_only_batch) < batch_size:
-                continue
-            if not flush_batch():
-                return -1, 0, [], results.method_counts
-
-        if not flush_batch():
-            return -1, 0, [], results.method_counts
-        return (
-            size_only_count,
-            results.verified_count,
-            results.failed_keys,
-            results.method_counts,
+    def _verify_size_only_candidate_batch(
+        self,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
+        *,
+        source_bucket: str,
+        target_bucket: str,
+        keys: list[str],
+        worker_count: int,
+        results: _StrongVerificationResults,
+        control_check: Callable[[], str],
+        source_client: Any,
+        target_client: Any,
+    ) -> bool:
+        verified_now, failed_now, method_counts_now = self._strong_verify_size_only_objects(
+            source_ctx,
+            target_ctx,
+            source_bucket=source_bucket,
+            target_bucket=target_bucket,
+            keys=keys,
+            parallelism_max=worker_count,
+            control_check=control_check,
+            source_client=source_client,
+            target_client=target_client,
         )
+        if verified_now < 0:
+            return False
+        results.merge(verified_now, failed_now, method_counts_now)
+        return True
 
     def _iter_version_aware_size_only_pairs(
         self,
