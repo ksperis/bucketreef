@@ -4,6 +4,7 @@
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthUser, CurrentSessionResponse } from "../api/auth";
 import { ApiError } from "../api/client";
 import { readStoredUser } from "../utils/workspaces";
 import { fetchCurrentSession } from "../api/auth";
@@ -13,6 +14,92 @@ import { SESSION_ENDED_STORAGE_KEY } from "./sessionEvents";
 vi.mock("../api/auth", () => ({
   fetchCurrentSession: vi.fn(),
 }));
+
+const NO_MANAGER_TOOLS = {
+  bucket_compare: false,
+  bucket_integrity_check: false,
+  bucket_migration: false,
+  bucket_purge: false,
+  feature_rules: false,
+};
+
+function testUser(id: number, email: string, role: AuthUser["role"]): AuthUser {
+  return {
+    id,
+    email,
+    full_name: null,
+    picture_url: null,
+    avatar: {
+      preference: "auto",
+      source: "initials",
+      url: null,
+      initials: email.slice(0, 1).toUpperCase(),
+      updated_at: null,
+    },
+    has_local_password: true,
+    is_active: true,
+    is_admin: role === "ui_admin" || role === "ui_superadmin",
+    role,
+    can_access_ceph_admin: false,
+    can_access_storage_ops: false,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    allow_multisite_endpoint_switching: false,
+    manager_tool_access: { ...NO_MANAGER_TOOLS },
+    browser_advanced_features_enabled: false,
+    ui_language: null,
+    quota_alerts_enabled: false,
+    quota_alerts_global_watch: false,
+    ui_preferences: { theme: null, selected_portal_account_id: null },
+    account_links: [],
+    group_details: [],
+    s3_user_links: [],
+    s3_user_details: [],
+    s3_connection_details: [],
+    openstack_cloud_details: [],
+    effective_access: {
+      can_access_ceph_admin: false,
+      can_access_storage_ops: false,
+      can_create_manual_private_connections: false,
+      can_provision_managed_private_connections: false,
+      allow_multisite_endpoint_switching: false,
+      group_can_provision_managed_private_connections: false,
+      has_owned_private_connections: false,
+      manager_tool_access: { ...NO_MANAGER_TOOLS },
+      group_manager_tool_access: { ...NO_MANAGER_TOOLS },
+      browser_advanced_features_enabled: false,
+      account_links: [],
+      s3_user_details: [],
+      s3_connection_details: [],
+    },
+    last_login_at: null,
+  };
+}
+
+function currentSession(user: AuthUser, id = "test-session"): CurrentSessionResponse {
+  return {
+    authenticated: true,
+    user,
+    session: null,
+    auth_session: {
+      id,
+      principal_type: "user",
+      auth_type: "password",
+      created_at: "2026-09-27T17:00:00Z",
+      last_activity_at: "2026-09-27T17:30:00Z",
+      idle_expires_at: "2026-09-27T18:00:00Z",
+      absolute_expires_at: "2026-09-28T18:00:00Z",
+      mfa_verified_at: null,
+      ip_address: null,
+      user_agent: null,
+      revoked_at: null,
+      revoke_reason: null,
+      current: true,
+      user_id: user.id,
+      s3_session_id: null,
+    },
+  };
+}
 
 function SessionState() {
   const { loading } = useSession();
@@ -56,20 +143,9 @@ describe("SessionProvider OIDC bootstrap", () => {
   });
 
   it("clears the session when another tab broadcasts logout", async () => {
-    vi.mocked(fetchCurrentSession).mockResolvedValueOnce({
-      authenticated: true,
-      user: {
-        id: 1,
-        email: "admin@example.test",
-        role: "ui_admin",
-      },
-      auth_session: {
-        id: "session-1",
-        auth_type: "password",
-        idle_expires_at: "2026-09-27T18:00:00Z",
-        absolute_expires_at: "2026-09-28T18:00:00Z",
-      },
-    });
+    vi.mocked(fetchCurrentSession).mockResolvedValueOnce(
+      currentSession(testUser(1, "admin@example.test", "ui_admin"), "session-1"),
+    );
 
     render(
       <SessionProvider>
@@ -92,11 +168,7 @@ describe("SessionProvider OIDC bootstrap", () => {
 
 
 describe("SessionProvider recovery", () => {
-  const session = {
-    authenticated: true as const,
-    user: { id: 42, email: "reader@example.test", role: "ui_user" as const },
-    auth_session: { id: "test-session", auth_type: "password", idle_expires_at: "2026-09-28T18:00:00Z", absolute_expires_at: "2026-09-29T18:00:00Z" },
-  };
+  const session = currentSession(testUser(42, "reader@example.test", "ui_user"));
   it("preserves an authenticated session after a temporary outage and retries", async () => {
     vi.mocked(fetchCurrentSession).mockReset().mockResolvedValueOnce(session)
       .mockRejectedValueOnce(new ApiError("Unavailable", { response: { status: 503, data: {}, headers: {} } }))

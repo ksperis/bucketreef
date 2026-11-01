@@ -40,7 +40,7 @@ describe("triggerDownload", () => {
   });
 
   it("downloads text through a temporary object URL and cleans it up", () => {
-    const createObjectURL = vi.fn(() => "blob:test");
+    const createObjectURL = vi.fn((_blob: Blob) => "blob:test");
     const revokeObjectURL = vi.fn();
     Object.defineProperties(window.URL, {
       createObjectURL: { configurable: true, value: createObjectURL },
@@ -61,22 +61,24 @@ describe("triggerDownload", () => {
   });
 
   it("downloads a remote URL from the current page without leaving an anchor", () => {
+    const clickedLinks: HTMLAnchorElement[] = [];
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => undefined);
+      .mockImplementation(function captureLink(this: HTMLAnchorElement) {
+        clickedLinks.push(this);
+      });
 
     triggerUrlDownload("report.txt", "https://objects.example.test/report.txt");
 
     expect(click).toHaveBeenCalledOnce();
-    const link = click.mock.instances[0] as HTMLAnchorElement;
-    expect(link.download).toBe("report.txt");
-    expect(link.href).toBe("https://objects.example.test/report.txt");
-    expect(link.rel).toBe("noopener");
+    expect(clickedLinks[0]?.download).toBe("report.txt");
+    expect(clickedLinks[0]?.href).toBe("https://objects.example.test/report.txt");
+    expect(clickedLinks[0]?.rel).toBe("noopener");
     expect(document.querySelector('a[download="report.txt"]')).toBeNull();
   });
 
   it("downloads JSON with the canonical serialization and MIME type", async () => {
-    const createObjectURL = vi.fn(() => "blob:json");
+    const createObjectURL = vi.fn((_blob: Blob) => "blob:json");
     Object.defineProperties(window.URL, {
       createObjectURL: { configurable: true, value: createObjectURL },
       revokeObjectURL: { configurable: true, value: vi.fn() },
@@ -87,7 +89,9 @@ describe("triggerDownload", () => {
 
     triggerJsonDownload("report.json", { answer: 42 });
 
-    const blob = createObjectURL.mock.calls[0]?.[0] as Blob;
+    const blob = createObjectURL.mock.calls[0]?.[0];
+    expect(blob).toBeInstanceOf(Blob);
+    if (!blob) throw new Error("Expected a Blob download");
     expect(blob.type).toBe("application/json");
     const content = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();

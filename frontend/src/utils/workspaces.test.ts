@@ -20,6 +20,8 @@ function effectiveAccess(overrides: Partial<EffectiveUserAccess> = {}): Effectiv
     can_access_storage_ops: false,
     can_create_manual_private_connections: false,
     can_provision_managed_private_connections: false,
+    allow_multisite_endpoint_switching: false,
+    group_can_provision_managed_private_connections: false,
     has_owned_private_connections: false,
     browser_advanced_features_enabled: false,
     account_links: [],
@@ -29,6 +31,10 @@ function effectiveAccess(overrides: Partial<EffectiveUserAccess> = {}): Effectiv
     manager_tool_access: {
       ...NO_MANAGER_TOOLS,
       ...overrides.manager_tool_access,
+    },
+    group_manager_tool_access: {
+      ...NO_MANAGER_TOOLS,
+      ...overrides.group_manager_tool_access,
     },
   };
 }
@@ -42,11 +48,13 @@ function accountLink(
     account_id: accountId,
     manager_role: managerRole,
     portal_role: portalRole,
+    allow_manager_browser_data_access: false,
     provenance: {
       direct_manager_role: managerRole,
       direct_portal_role: portalRole,
       direct_determines_effective_manager_role: Boolean(managerRole),
       direct_determines_effective_portal_role: Boolean(portalRole),
+      direct_allow_manager_browser_data_access: false,
       groups: [],
     },
   };
