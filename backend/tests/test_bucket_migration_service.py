@@ -245,6 +245,64 @@ def _version_details(*, size: int = 1, etag: str | None = None) -> VersionedObje
     )
 
 
+def test_compare_version_timeline_pair_short_circuits_entry_kind_mismatch(db_session):
+    service = BucketMigrationService(db_session)
+    service._versioned_object_details = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: pytest.fail(
+            "Object details must not be read for an entry-kind mismatch"
+        )
+    )
+
+    comparison = service._compare_version_timeline_pair(
+        object(),
+        object(),
+        source_bucket="source",
+        target_bucket="target",
+        key="object.txt",
+        source_timeline=[_version_entry("object.txt", "v1", is_delete_marker=True)],
+        target_timeline=[_version_entry("object.txt", "v2")],
+    )
+
+    assert comparison.equal is False
+    assert comparison.first_difference == {
+        "key": "object.txt",
+        "reason": "entry_kind_mismatch",
+        "source_kind": "delete_marker",
+        "target_kind": "object",
+    }
+
+
+def test_compare_version_timeline_pair_preserves_size_only_version_ids(db_session):
+    service = BucketMigrationService(db_session)
+    details = iter([_version_details(size=10), _version_details(size=10)])
+    service._versioned_object_details = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: next(details)
+    )
+    service._compare_versioned_object_details = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: (True, "size", None)
+    )
+
+    comparison = service._compare_version_timeline_pair(
+        object(),
+        object(),
+        source_bucket="source",
+        target_bucket="target",
+        key="object.txt",
+        source_timeline=[_version_entry("object.txt", "source-v1")],
+        target_timeline=[_version_entry("object.txt", "target-v9")],
+    )
+
+    assert comparison.equal is True
+    assert comparison.first_difference is None
+    assert len(comparison.size_only_pairs) == 1
+    pair = comparison.size_only_pairs[0]
+    assert (pair.key, pair.source_version_id, pair.target_version_id) == (
+        "object.txt",
+        "source-v1",
+        "target-v9",
+    )
+
+
 def _make_bucket_feature_probe_stub(
     *,
     get_bucket_website=None,
