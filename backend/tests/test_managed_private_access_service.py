@@ -324,7 +324,7 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
     service = ManagedPrivateAccessService(db_session)
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     monkeypatch.setattr(
-            "app.services.managed_private_access_sources.validate_user_supplied_s3_endpoint",
+            "app.services.managed_private_access_destination_service.validate_user_supplied_s3_endpoint",
         lambda value, field_name="Endpoint URL": value,
     )
     _disable_capability_probe(monkeypatch)
@@ -499,7 +499,7 @@ def test_custom_connection_destination_must_pass_private_tls_rules(db_session, m
     db_session.add(source)
     db_session.commit()
     monkeypatch.setattr(
-        "app.services.managed_private_access_sources.validate_user_supplied_s3_endpoint",
+        "app.services.managed_private_access_destination_service.validate_user_supplied_s3_endpoint",
         lambda value, field_name="Endpoint URL": value,
     )
 
