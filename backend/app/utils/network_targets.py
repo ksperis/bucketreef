@@ -27,7 +27,7 @@ def resolve_hostname_ips(host: str) -> set[IPAddress]:
     for _, _, _, _, sockaddr in socket.getaddrinfo(normalized_host, None):
         try:
             resolved.add(ipaddress.ip_address(sockaddr[0]))
-        except Exception:  # noqa: BLE001
+        except ValueError:
             continue
     return resolved
 

@@ -8,6 +8,7 @@ import pytest
 
 from app.utils.network_targets import (
     host_matches_allowlist,
+    resolve_hostname_ips,
     url_hostname,
     validate_outbound_url,
 )
@@ -30,6 +31,26 @@ def test_url_hostname_returns_only_the_normalized_hostname():
         == "s3.example.test"
     )
     assert url_hostname("not-a-url") == ""
+
+
+def test_resolve_hostname_ips_ignores_invalid_address_entries(monkeypatch):
+    _set_resolved_ips(monkeypatch, ["not-an-ip", "93.184.216.34"])
+
+    assert {str(address) for address in resolve_hostname_ips("s3.example.test")} == {
+        "93.184.216.34"
+    }
+
+
+def test_resolve_hostname_ips_propagates_unexpected_parser_failures(monkeypatch):
+    _set_resolved_ips(monkeypatch, ["93.184.216.34"])
+
+    def unexpected_failure(_address):
+        raise RuntimeError("unexpected parser failure")
+
+    monkeypatch.setattr("app.utils.network_targets.ipaddress.ip_address", unexpected_failure)
+
+    with pytest.raises(RuntimeError, match="unexpected parser failure"):
+        resolve_hostname_ips("s3.example.test")
 
 
 def test_validate_outbound_url_accepts_public_https_url(monkeypatch):
