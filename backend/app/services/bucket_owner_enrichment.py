@@ -14,7 +14,7 @@ from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_listing import BucketListingSummary
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
-from app.utils.cache import prune_expired_lru_cache
+from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache, prune_expired_lru_cache
 from app.utils.normalize import normalize_optional_string
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_identifiers import is_rgw_account_id
@@ -48,18 +48,12 @@ class BucketOwnerUsage:
     object_count: int | None = None
 
 
-@dataclass
-class _CacheEntry:
-    expires_at: float
-    value: object
-
-
-_ACCOUNT_LIST_CACHE: OrderedDict[int, _CacheEntry] = OrderedDict()
+_ACCOUNT_LIST_CACHE: OrderedDict[int, TtlCacheEntry[object]] = OrderedDict()
 _ACCOUNT_LIST_CACHE_LOCK = Lock()
-_ACCOUNT_DETAIL_CACHE: OrderedDict[tuple[int, str], _CacheEntry] = OrderedDict()
+_ACCOUNT_DETAIL_CACHE: OrderedDict[tuple[int, str], TtlCacheEntry[object]] = OrderedDict()
 _ACCOUNT_DETAIL_CACHE_LOCK = Lock()
 _ACCOUNT_DETAIL_INFLIGHT: dict[tuple[int, str], Future[object]] = {}
-_USER_DETAIL_CACHE: OrderedDict[tuple[int, str | None, str], _CacheEntry] = OrderedDict()
+_USER_DETAIL_CACHE: OrderedDict[tuple[int, str | None, str], TtlCacheEntry[object]] = OrderedDict()
 _USER_DETAIL_CACHE_LOCK = Lock()
 _USER_DETAIL_INFLIGHT: dict[tuple[int, str | None, str], Future[object]] = {}
 
@@ -152,7 +146,7 @@ def apply_bucket_owner_usage_map(
 
 
 def _cache_get(
-    cache: OrderedDict[object, _CacheEntry],
+    cache: OrderedDict[object, TtlCacheEntry[object]],
     lock: Lock,
     key: object,
     *,
@@ -169,7 +163,7 @@ def _cache_get(
 
 
 def _cache_set(
-    cache: OrderedDict[object, _CacheEntry],
+    cache: OrderedDict[object, TtlCacheEntry[object]],
     lock: Lock,
     key: object,
     value: object,
@@ -179,14 +173,14 @@ def _cache_set(
     expires_at = monotonic() + OWNER_DETAILS_CACHE_TTL_SECONDS
     with lock:
         prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
-        cache[key] = _CacheEntry(expires_at=expires_at, value=value)
+        cache[key] = TtlCacheEntry(expires_at=expires_at, value=value)
         cache.move_to_end(key)
         prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
     return value
 
 
 def _get_or_set_inflight_cache(
-    cache: OrderedDict[object, _CacheEntry],
+    cache: OrderedDict[object, TtlCacheEntry[object]],
     lock: Lock,
     inflight: dict[object, Future[object]],
     key: object,
@@ -194,43 +188,21 @@ def _get_or_set_inflight_cache(
     max_entries: int,
     builder: Callable[[], object],
 ) -> object:
-    cached = _cache_get(cache, lock, key, max_entries=max_entries)
-    if cached is not None:
-        return cached
-
-    is_owner = False
-    future: Future[object] | None = None
-    with lock:
-        prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
-        cached = cache.get(key)
-        if cached is not None:
-            cache.move_to_end(key)
-            return cached.value
-        future = inflight.get(key)
-        if future is None:
-            future = Future()
-            inflight[key] = future
-            is_owner = True
-
-    if not is_owner:
-        return future.result()
-
-    try:
-        value = builder()
-        _cache_set(cache, lock, key, value, max_entries=max_entries)
-        future.set_result(value)
-        return value
-    except Exception as exc:
-        future.set_exception(exc)
-        raise
-    finally:
-        with lock:
-            if inflight.get(key) is future:
-                inflight.pop(key, None)
+    return get_or_build_single_flight_cache(
+        cache,
+        inflight,
+        lock,
+        key,
+        builder=builder,
+        ttl_seconds=OWNER_DETAILS_CACHE_TTL_SECONDS,
+        max_entries=max_entries,
+        future_factory=Future,
+        clock=monotonic,
+    )
 
 
 def invalidate_bucket_owner_metadata_cache(endpoint_id: int | None = None) -> None:
-    def invalidate(cache: OrderedDict[object, _CacheEntry], lock: Lock) -> None:
+    def invalidate(cache: OrderedDict[object, TtlCacheEntry[object]], lock: Lock) -> None:
         with lock:
             if endpoint_id is None:
                 cache.clear()

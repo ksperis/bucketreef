@@ -21,7 +21,7 @@ from app.utils.normalize import normalize_optional_string
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
-from app.utils.cache import prune_expired_lru_cache
+from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache
 
 
 logger = logging.getLogger(__name__)
@@ -45,12 +45,6 @@ class ConnectionIdentityResolution:
         return bool(self.iam_identity) and self.reason is None
 
 
-@dataclass
-class _CacheEntry:
-    expires_at: float
-    value: ConnectionIdentityResolution
-
-
 @dataclass(frozen=True)
 class _CacheKey:
     scope: Literal["identity", "metrics"]
@@ -59,7 +53,7 @@ class _CacheKey:
 
 _CACHE_TTL_SECONDS = 60
 _CACHE_MAX_ENTRIES = 512
-_CACHE: OrderedDict[_CacheKey, _CacheEntry] = OrderedDict()
+_CACHE: OrderedDict[_CacheKey, TtlCacheEntry[ConnectionIdentityResolution]] = OrderedDict()
 _INFLIGHT: dict[_CacheKey, Future[ConnectionIdentityResolution]] = {}
 _CACHE_LOCK = Lock()
 
@@ -85,38 +79,17 @@ class ConnectionIdentityService:
         resolver: Callable[[S3Connection], ConnectionIdentityResolution],
     ) -> ConnectionIdentityResolution:
         key = self._cache_key(connection, scope=scope)
-        is_owner = False
-        with _CACHE_LOCK:
-            prune_expired_lru_cache(_CACHE, now=monotonic(), max_entries=_CACHE_MAX_ENTRIES)
-            cached = _CACHE.get(key)
-            if cached is not None:
-                _CACHE.move_to_end(key)
-                return cached.value
-            in_flight = _INFLIGHT.get(key)
-            if in_flight is None:
-                in_flight = Future()
-                _INFLIGHT[key] = in_flight
-                is_owner = True
-
-        if not is_owner:
-            return in_flight.result()
-
-        try:
-            resolved = resolver(connection)
-            with _CACHE_LOCK:
-                if _INFLIGHT.get(key) is in_flight:
-                    _CACHE[key] = _CacheEntry(expires_at=monotonic() + _CACHE_TTL_SECONDS, value=resolved)
-                    _CACHE.move_to_end(key)
-                    prune_expired_lru_cache(_CACHE, now=monotonic(), max_entries=_CACHE_MAX_ENTRIES)
-            in_flight.set_result(resolved)
-            return resolved
-        except BaseException as exc:
-            in_flight.set_exception(exc)
-            raise
-        finally:
-            with _CACHE_LOCK:
-                if _INFLIGHT.get(key) is in_flight:
-                    _INFLIGHT.pop(key, None)
+        return get_or_build_single_flight_cache(
+            _CACHE,
+            _INFLIGHT,
+            _CACHE_LOCK,
+            key,
+            builder=lambda: resolver(connection),
+            ttl_seconds=_CACHE_TTL_SECONDS,
+            max_entries=_CACHE_MAX_ENTRIES,
+            future_factory=Future,
+            clock=monotonic,
+        )
 
     @staticmethod
     def _identity_unavailable(
