@@ -8,6 +8,7 @@ type Args<T> = {
   loadResource: () => Promise<T>;
   initialResource: T;
   formatError: (error: unknown) => string;
+  enabled?: boolean;
   acceptResource?: (resource: T) => boolean;
   onLoaded?: (resource: T) => void;
 };
@@ -16,15 +17,22 @@ export default function useAdminResourceController<T>({
   loadResource,
   initialResource,
   formatError,
+  enabled = true,
   acceptResource,
   onLoaded,
 }: Args<T>) {
   const [resource, setResource] = useState<T>(initialResource);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
 
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      loadGeneration.current += 1;
+      setLoading(false);
+      setError(null);
+      return;
+    }
     const generation = ++loadGeneration.current;
     setLoading(true);
     setError(null);
@@ -40,7 +48,7 @@ export default function useAdminResourceController<T>({
     } finally {
       if (generation === loadGeneration.current) setLoading(false);
     }
-  }, [acceptResource, formatError, loadResource, onLoaded]);
+  }, [acceptResource, enabled, formatError, loadResource, onLoaded]);
 
   useEffect(() => {
     void refresh();
