@@ -72,6 +72,20 @@ def _load_feature_param_snapshot_for_bucket(
     return snapshot
 
 
+def _available_feature_param_keys(
+    snapshots: dict[str, dict[str, object]],
+    required_sources: set[str],
+) -> set[str]:
+    return {
+        key
+        for key, snapshot in snapshots.items()
+        if all(
+            snapshot.get(source, FEATURE_PARAM_UNAVAILABLE) is not FEATURE_PARAM_UNAVAILABLE
+            for source in required_sources
+        )
+    }
+
+
 def load_bucket_feature_param_snapshots(
     buckets: list[BucketListingSummary],
     rules: list[BucketFilterRule],
@@ -135,11 +149,4 @@ def load_bucket_feature_param_snapshots(
                 emit_progress(index)
                 invoke_cancel_check(cancel_check)
 
-    available_keys: set[str] = set()
-    for key, snapshot in snapshots.items():
-        if all(
-            snapshot.get(source, FEATURE_PARAM_UNAVAILABLE) is not FEATURE_PARAM_UNAVAILABLE
-            for source in required_sources
-        ):
-            available_keys.add(key)
-    return snapshots, available_keys
+    return snapshots, _available_feature_param_keys(snapshots, required_sources)

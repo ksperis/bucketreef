@@ -103,3 +103,15 @@ def test_feature_param_snapshot_skips_notifications_when_sns_is_disabled(monkeyp
 
     assert snapshot["notifications"] is FEATURE_PARAM_UNAVAILABLE
     assert service.calls == []
+
+
+def test_available_feature_param_keys_requires_every_requested_source():
+    snapshots = {
+        ":ready": {"props": object(), "policy": object()},
+        ":missing": {"props": object()},
+        ":unavailable": {"props": object(), "policy": FEATURE_PARAM_UNAVAILABLE},
+    }
+
+    available = snapshot_loader._available_feature_param_keys(snapshots, {"props", "policy"})
+
+    assert available == {":ready"}
