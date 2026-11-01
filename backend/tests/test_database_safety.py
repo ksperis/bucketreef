@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import nullcontext
 from datetime import datetime, timezone
 import sqlite3
 from types import SimpleNamespace
@@ -81,6 +82,21 @@ def test_lifespan_runs_configuration_security_checks_before_database_initializat
     asyncio.run(exercise_lifespan())
 
     assert events == ["pre-database", "init-db", "post-database", "serving"]
+
+
+def test_startup_deployment_checks_propagate_invalid_app_settings(monkeypatch):
+    db = object()
+
+    monkeypatch.setattr(main, "SessionLocal", lambda: nullcontext(db))
+
+    def fail_load(actual_db):
+        assert actual_db is db
+        raise ValueError("invalid persisted application settings")
+
+    monkeypatch.setattr(main, "load_app_settings_for_db_readonly", fail_load)
+
+    with pytest.raises(ValueError, match="invalid persisted application settings"):
+        main._run_startup_deployment_checks()
 
 
 def test_configure_sqlite_connection_applies_safe_pragmas():
