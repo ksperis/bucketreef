@@ -14,11 +14,9 @@ import {
   deleteUserAvatar,
   importLdapUser,
   listUsers,
-  searchLdapUsers,
   updateUser,
   uploadUserAvatar,
 } from "../../api/users";
-import { fetchLdapProviders, type LDAPProviderInfo } from "../../api/auth";
 import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
@@ -68,6 +66,7 @@ import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
+import useAdminUserLdapImport from "./useAdminUserLdapImport";
 
 type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
 
@@ -296,17 +295,25 @@ export default function UsersPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [createSource, setCreateSource] = useState<UserCreationSource>("local");
-  const [ldapProviders, setLdapProviders] = useState<LDAPProviderInfo[]>([]);
-  const [ldapProvidersLoading, setLdapProvidersLoading] = useState(false);
-  const [ldapProvidersLoaded, setLdapProvidersLoaded] = useState(false);
-  const [ldapProviderId, setLdapProviderId] = useState("");
-  const [ldapQuery, setLdapQuery] = useState("");
-  const [ldapSearchLoading, setLdapSearchLoading] = useState(false);
-  const [ldapSearchError, setLdapSearchError] = useState<string | null>(null);
-  const [ldapSearchItems, setLdapSearchItems] = useState<LdapImportSearchItem[]>([]);
-  const [ldapSearchTruncated, setLdapSearchTruncated] = useState(false);
-  const [ldapSearchPerformed, setLdapSearchPerformed] = useState(false);
-  const [selectedLdapEntry, setSelectedLdapEntry] = useState<LdapImportSearchItem | null>(null);
+  const {
+    providers: ldapProviders,
+    providersLoading: ldapProvidersLoading,
+    providerId: ldapProviderId,
+    query: ldapQuery,
+    searchLoading: ldapSearchLoading,
+    searchError: ldapSearchError,
+    items: ldapSearchItems,
+    truncated: ldapSearchTruncated,
+    searchPerformed: ldapSearchPerformed,
+    selectedEntry: selectedLdapEntry,
+    ensureProviders: ensureLdapProviders,
+    changeProvider: handleLdapProviderChange,
+    changeQuery: handleLdapQueryChange,
+    clearResults: clearLdapResults,
+    search: handleLdapSearch,
+    select: selectLdapEntry,
+    reset: resetLdapImport,
+  } = useAdminUserLdapImport();
   const [createRoleHelpOpen, setCreateRoleHelpOpen] = useState(false);
   const [editRoleHelpOpen, setEditRoleHelpOpen] = useState(false);
   const {
@@ -482,33 +489,9 @@ export default function UsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const ensureLdapProviders = useCallback(async () => {
-    if (ldapProvidersLoaded || ldapProvidersLoading) return;
-    setLdapProvidersLoading(true);
-    setLdapSearchError(null);
-    try {
-      const providers = await fetchLdapProviders();
-      setLdapProviders(providers);
-      setLdapProvidersLoaded(true);
-      if (providers.length === 1) {
-        setLdapProviderId((current) => current || providers[0].id);
-      }
-    } catch (err) {
-      setLdapSearchError(extractApiError(err, textRef.current("loadLdapProvidersError")));
-    } finally {
-      setLdapProvidersLoading(false);
-    }
-  }, [ldapProvidersLoaded, ldapProvidersLoading]);
-
   useEffect(() => {
     if (showCreateModal) void ensureLdapProviders();
   }, [ensureLdapProviders, showCreateModal]);
-
-  useEffect(() => {
-    if (showCreateModal && ldapProvidersLoaded && ldapProviders.length === 1 && !ldapProviderId) {
-      setLdapProviderId(ldapProviders[0].id);
-    }
-  }, [ldapProviderId, ldapProviders, ldapProvidersLoaded, showCreateModal]);
 
   useEffect(() => {
     if ((showCreateModal && createModalTab === "groups") || (showEditModal && editModalTab === "groups")) {
@@ -568,13 +551,7 @@ export default function UsersPage() {
     setCreateAttempted(false);
     setForm(createFormTemplate());
     setCreateSource("local");
-    setLdapProviderId("");
-    setLdapQuery("");
-    setLdapSearchError(null);
-    setLdapSearchItems([]);
-    setLdapSearchTruncated(false);
-    setLdapSearchPerformed(false);
-    setSelectedLdapEntry(null);
+    resetLdapImport();
     resetCreateAssociations();
     setCreateModalTab("general");
     setCreateRoleHelpOpen(false);
@@ -670,61 +647,17 @@ export default function UsersPage() {
   const handleCreateSourceChange = (source: UserCreationSource) => {
     setCreateSource(source);
     setCreateAttempted(false);
-    setLdapSearchError(null);
-    setLdapSearchItems([]);
-    setLdapSearchTruncated(false);
-    setLdapSearchPerformed(false);
-    setSelectedLdapEntry(null);
+    clearLdapResults();
     if (source === "ldap") {
       setForm((current) => ({ ...current, password: "" }));
       void ensureLdapProviders();
     } else {
-      setLdapQuery("");
-    }
-  };
-
-  const handleLdapProviderChange = (providerId: string) => {
-    setLdapProviderId(providerId);
-    setLdapQuery("");
-    setLdapSearchError(null);
-    setLdapSearchItems([]);
-    setLdapSearchTruncated(false);
-    setLdapSearchPerformed(false);
-    setSelectedLdapEntry(null);
-  };
-
-  const handleLdapQueryChange = (query: string) => {
-    setLdapQuery(query);
-    setLdapSearchError(null);
-    setLdapSearchItems([]);
-    setLdapSearchTruncated(false);
-    setLdapSearchPerformed(false);
-    setSelectedLdapEntry(null);
-  };
-
-  const handleLdapSearch = async () => {
-    const query = ldapQuery.trim();
-    if (!ldapProviderId || query.length < 2 || ldapSearchLoading) return;
-    setLdapSearchLoading(true);
-    setLdapSearchError(null);
-    setLdapSearchPerformed(false);
-    setSelectedLdapEntry(null);
-    try {
-      const result = await searchLdapUsers(ldapProviderId, query);
-      setLdapSearchItems(result.items);
-      setLdapSearchTruncated(result.truncated);
-      setLdapSearchPerformed(true);
-    } catch (err) {
-      setLdapSearchItems([]);
-      setLdapSearchTruncated(false);
-      setLdapSearchError(extractApiError(err, text("ldapSearchFailed")));
-    } finally {
-      setLdapSearchLoading(false);
+      handleLdapQueryChange("");
     }
   };
 
   const handleSelectLdapEntry = (item: LdapImportSearchItem) => {
-    setSelectedLdapEntry(item);
+    selectLdapEntry(item);
     setCreateAttempted(false);
     setActionError(null);
     setForm((current) => ({
