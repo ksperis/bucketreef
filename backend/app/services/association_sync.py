@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from typing import TypeVar
 
 from sqlalchemy import delete, select
@@ -10,6 +10,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 
 
 LinkT = TypeVar("LinkT")
+MetadataT = TypeVar("MetadataT")
 
 
 def sync_simple_association_links(
@@ -43,3 +44,43 @@ def sync_simple_association_links(
         )
     for target_id in sorted(desired_id_set - existing_ids):
         db.add(link_factory(target_id))
+
+
+def sync_metadata_association_links(
+    db: Session,
+    *,
+    link_model: type[LinkT],
+    owner_column: InstrumentedAttribute[int],
+    owner_id: int,
+    target_column: InstrumentedAttribute[int],
+    desired_by_id: Mapping[int, MetadataT],
+    link_factory: Callable[[int, MetadataT], LinkT],
+    update_link: Callable[[LinkT, MetadataT], None],
+    before_create: Callable[[set[int]], None] | None = None,
+    on_create: Callable[[int, MetadataT], None] | None = None,
+) -> None:
+    """Synchronize a many-to-many link table whose rows carry mutable metadata."""
+
+    desired = {int(target_id): metadata for target_id, metadata in desired_by_id.items()}
+    existing = db.scalars(
+        select(link_model).where(owner_column == owner_id)
+    ).all()
+    existing_by_id = {
+        int(getattr(link, target_column.key)): link
+        for link in existing
+    }
+    new_ids = set(desired) - set(existing_by_id)
+    if new_ids and before_create is not None:
+        before_create(new_ids)
+
+    for target_id in set(existing_by_id) - set(desired):
+        db.delete(existing_by_id[target_id])
+
+    for target_id, metadata in desired.items():
+        row = existing_by_id.get(target_id)
+        if row is None:
+            if on_create is not None:
+                on_create(target_id, metadata)
+            row = link_factory(target_id, metadata)
+        update_link(row, metadata)
+        db.add(row)

@@ -14,6 +14,7 @@ from app.db import (
     is_admin_ui_role,
 )
 from app.models.s3_user import S3UserGroupLink, S3UserUserLink
+from app.services.association_sync import sync_metadata_association_links
 from app.services.association_validation import (
     ensure_association_ids_exist,
     load_association_users,
@@ -82,46 +83,56 @@ class S3UserAssociationsService:
         desired: dict[int, bool],
         users_by_id: dict[int, User],
     ) -> None:
-        existing = self.db.scalars(
-            select(UserS3User).where(UserS3User.s3_user_id == s3_user.id)
-        ).all()
-        existing_by_user = {int(link.user_id): link for link in existing}
-        for user_id in set(existing_by_user) - set(desired):
-            self.db.delete(existing_by_user[user_id])
-        for user_id, allow_browser in desired.items():
-            row = existing_by_user.get(user_id)
-            if row is None:
-                user = users_by_id[user_id]
-                if (
-                    user.role != UserRole.UI_USER.value
-                    and not is_admin_ui_role(user.role)
-                ):
-                    user.role = UserRole.UI_USER.value
-                    self.db.add(user)
-                row = UserS3User(user_id=user_id, s3_user_id=s3_user.id)
-            row.allow_manager_browser_data_access = allow_browser
-            self.db.add(row)
+        def promote_user_for_new_link(user_id: int, _allow_browser: bool) -> None:
+            user = users_by_id[user_id]
+            if (
+                user.role != UserRole.UI_USER.value
+                and not is_admin_ui_role(user.role)
+            ):
+                user.role = UserRole.UI_USER.value
+                self.db.add(user)
+
+        sync_metadata_association_links(
+            self.db,
+            link_model=UserS3User,
+            owner_column=UserS3User.s3_user_id,
+            owner_id=s3_user.id,
+            target_column=UserS3User.user_id,
+            desired_by_id=desired,
+            link_factory=lambda user_id, _allow_browser: UserS3User(
+                user_id=user_id,
+                s3_user_id=s3_user.id,
+            ),
+            update_link=lambda row, allow_browser: setattr(
+                row,
+                "allow_manager_browser_data_access",
+                allow_browser,
+            ),
+            on_create=promote_user_for_new_link,
+        )
 
     def _replace_group_links(
         self,
         s3_user: S3User,
         desired: dict[int, bool],
     ) -> None:
-        existing = self.db.scalars(
-            select(UiGroupS3User).where(UiGroupS3User.s3_user_id == s3_user.id)
-        ).all()
-        existing_by_group = {int(link.group_id): link for link in existing}
-        for group_id in set(existing_by_group) - set(desired):
-            self.db.delete(existing_by_group[group_id])
-        for group_id, allow_browser in desired.items():
-            row = existing_by_group.get(group_id)
-            if row is None:
-                row = UiGroupS3User(
-                    group_id=group_id,
-                    s3_user_id=s3_user.id,
-                )
-            row.allow_manager_browser_data_access = allow_browser
-            self.db.add(row)
+        sync_metadata_association_links(
+            self.db,
+            link_model=UiGroupS3User,
+            owner_column=UiGroupS3User.s3_user_id,
+            owner_id=s3_user.id,
+            target_column=UiGroupS3User.group_id,
+            desired_by_id=desired,
+            link_factory=lambda group_id, _allow_browser: UiGroupS3User(
+                group_id=group_id,
+                s3_user_id=s3_user.id,
+            ),
+            update_link=lambda row, allow_browser: setattr(
+                row,
+                "allow_manager_browser_data_access",
+                allow_browser,
+            ),
+        )
 
     def load_links(
         self,
