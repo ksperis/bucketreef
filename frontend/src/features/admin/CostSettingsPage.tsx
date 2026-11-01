@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   fetchCostSettings,
@@ -24,6 +24,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../utils/apiError";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
+import useAdminResourceController from "./useAdminResourceController";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -33,6 +34,15 @@ type EditableEndpointOverride = EditableRateValues & { storage_endpoint_id: numb
 type EditableCostSettings = {
   model: EditableGlobalModel | null;
   endpoint_overrides: EditableEndpointOverride[];
+};
+type CostSettingsResources = {
+  settings: CostSettings;
+  endpoints: StorageEndpoint[];
+};
+
+const initialResources: CostSettingsResources = {
+  settings: { model: null, endpoint_overrides: [] },
+  endpoints: [],
 };
 
 const rateFields: Array<{ key: keyof CostRateValues; label: string; unit: string }> = [
@@ -116,36 +126,40 @@ function toPayload(draft: EditableCostSettings): CostSettings | null {
   return { model, endpoint_overrides: endpointOverrides };
 }
 
+async function loadCostSettingsResources(): Promise<CostSettingsResources> {
+  const [settings, endpoints] = await Promise.all([
+    fetchCostSettings(),
+    listStorageEndpoints(),
+  ]);
+  return { settings, endpoints };
+}
+
 export default function CostSettingsPage() {
   const { text } = useAdminI18n();
   const form = useSettingsDraft<EditableCostSettings>({ model: null, endpoint_overrides: [] });
   const acceptSettings = form.accept;
-  const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([fetchCostSettings(), listStorageEndpoints()])
-      .then(([settings, storageEndpoints]) => {
-        if (cancelled) return;
-        acceptSettings(toEditable(settings));
-        setEndpoints(storageEndpoints);
-        setError(null);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(extractApiError(err, text("Unable to load Cost settings.")));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [acceptSettings, text]);
+  const formatLoadError = useCallback(
+    (cause: unknown) => extractApiError(cause, text("Unable to load Cost settings.")),
+    [text],
+  );
+  const handleResourcesLoaded = useCallback(
+    ({ settings }: CostSettingsResources) => acceptSettings(toEditable(settings)),
+    [acceptSettings],
+  );
+  const {
+    resource: { endpoints },
+    loading,
+    error,
+    setError,
+  } = useAdminResourceController({
+    loadResource: loadCostSettingsResources,
+    initialResource: initialResources,
+    formatError: formatLoadError,
+    onLoaded: handleResourcesLoaded,
+  });
 
   const overrides = useMemo(
     () => new Map(form.draft.endpoint_overrides.map((item) => [item.storage_endpoint_id, item])),
