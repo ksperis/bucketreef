@@ -112,8 +112,8 @@ def extract_rgw_account_name(payload: Any) -> str | None:
     return None
 
 
-def extract_rgw_account_tenant(payload: Any) -> str:
-    """Return the account tenant while rejecting conflicting RGW payload fields."""
+def extract_rgw_account_tenant_optional(payload: Any) -> str | None:
+    """Return an optional account tenant while preserving absent vs explicit-empty."""
     tenants = {
         str(candidate.get("tenant") or "").strip()
         for candidate in _rgw_account_payload_candidates(payload)
@@ -121,7 +121,12 @@ def extract_rgw_account_tenant(payload: Any) -> str:
     }
     if len(tenants) > 1:
         raise ValueError("RGW returned conflicting account tenant identity fields")
-    return next(iter(tenants), "")
+    return next(iter(tenants), None)
+
+
+def extract_rgw_account_tenant(payload: Any) -> str:
+    """Return the account tenant while rejecting conflicting RGW payload fields."""
+    return extract_rgw_account_tenant_optional(payload) or ""
 
 
 def extract_bucket_list(payload: Any) -> list[dict]:

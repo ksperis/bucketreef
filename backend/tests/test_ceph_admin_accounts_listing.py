@@ -181,6 +181,42 @@ def test_ceph_admin_accounts_listing_enriches_page_profile_when_metadata_has_onl
     assert rgw_admin.get_account_calls == 3
 
 
+def test_ceph_admin_accounts_listing_reads_nested_optional_tenant_without_enrichment():
+    accounts_payload = [
+        {
+            "id": "WRAPPER",
+            "account": {
+                "id": "RGW01",
+                "name": "Alpha",
+                "tenant": "research",
+                "email": "alpha@example.test",
+            },
+        }
+    ]
+    ctx, rgw_admin = _build_ctx(
+        endpoint_id=2102,
+        accounts_payload=accounts_payload,
+        account_details={},
+    )
+
+    response = accounts_router.list_rgw_accounts(
+        page=1,
+        page_size=25,
+        search=None,
+        advanced_filter=None,
+        sort_by="account_id",
+        sort_dir="asc",
+        include=[],
+        ctx=ctx,
+    )
+
+    assert len(response.items) == 1
+    assert response.items[0].account_id == "RGW01"
+    assert response.items[0].tenant == "research"
+    assert response.items[0].account_name == "Alpha"
+    assert rgw_admin.get_account_calls == 0
+
+
 def test_ceph_admin_accounts_listing_cache_is_reused_for_quick_filter_changes():
     accounts_payload = [
         {"id": "RGW01", "name": "Alpha"},

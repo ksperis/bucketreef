@@ -17,6 +17,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_ids,
     extract_rgw_account_name,
     extract_rgw_account_payload,
+    extract_rgw_account_tenant_optional,
     extract_rgw_user_account_ids,
     extract_rgw_user_account_aliases,
     extract_rgw_user_caps,
@@ -78,6 +79,22 @@ def test_extract_rgw_account_name_normalizes_supported_aliases():
     assert extract_rgw_account_name(
         {"name": "Wrapper", "account": {"name": " Nested "}}
     ) == "Nested"
+
+
+def test_extract_rgw_account_tenant_optional_preserves_presence_and_nested_payload():
+    assert extract_rgw_account_tenant_optional({"id": "RGW001"}) is None
+    assert extract_rgw_account_tenant_optional({"tenant": None}) == ""
+    assert extract_rgw_account_tenant_optional(
+        {"account": {"id": "RGW001", "tenant": " research "}}
+    ) == "research"
+
+    with pytest.raises(ValueError, match="conflicting account tenant identity"):
+        extract_rgw_account_tenant_optional(
+            {
+                "tenant": "wrapper",
+                "account": {"id": "RGW001", "tenant": "nested"},
+            }
+        )
 
 
 def test_resolve_account_scope_with_account_id():
