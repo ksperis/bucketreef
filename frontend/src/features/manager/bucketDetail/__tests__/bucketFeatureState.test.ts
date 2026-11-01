@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   cloneBucketJsonValue,
+  formatBucketJsonValue,
   jsonTextSignature,
   normalizeNotificationConfiguration,
   resolveFeatureVisualState,
@@ -29,6 +30,12 @@ describe("bucketFeatureState helpers", () => {
       b: 1,
     });
     expect(first).toBe(second);
+  });
+
+  it("formats bucket JSON values for editors", () => {
+    expect(formatBucketJsonValue({ Rules: [{ ID: "rule-1" }] })).toBe(
+      '{\n  "Rules": [\n    {\n      "ID": "rule-1"\n    }\n  ]\n}',
+    );
   });
 
   it("marks invalid json signatures as invalid", () => {

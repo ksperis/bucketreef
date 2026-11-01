@@ -41,6 +41,10 @@ export function cloneBucketJsonValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+export function formatBucketJsonValue(value: unknown): string {
+  return JSON.stringify(value, null, 2);
+}
+
 export function stableBucketJsonSignature(value: unknown): string {
   return JSON.stringify(normalizeBucketJsonValue(value));
 }

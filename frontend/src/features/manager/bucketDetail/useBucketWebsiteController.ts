@@ -15,7 +15,11 @@ import {
   putCephAdminBucketWebsite,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
-import { jsonTextSignature, stableBucketJsonSignature } from "./bucketFeatureState";
+import {
+  formatBucketJsonValue,
+  jsonTextSignature,
+  stableBucketJsonSignature,
+} from "./bucketFeatureState";
 
 type WebsiteMode = "hosting" | "redirect";
 
@@ -56,7 +60,7 @@ function configurationToDraft(config?: BucketWebsiteConfiguration | null): Websi
     mode: (redirect?.host_name ?? "").trim() ? "redirect" : "hosting",
     redirectHost: redirect?.host_name ?? "",
     redirectProtocol: redirect?.protocol ?? "",
-    routingRules: routingRules.length > 0 ? JSON.stringify(routingRules, null, 2) : "[]",
+    routingRules: routingRules.length > 0 ? formatBucketJsonValue(routingRules) : "[]",
   };
 }
 
