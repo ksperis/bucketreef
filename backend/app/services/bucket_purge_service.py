@@ -411,47 +411,71 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                     ),
                     cancel_check=cancel_check,
                 )
-            status: BucketPurgeStatus = "completed" if result.failed_count == 0 else "completed_with_errors"
-            return BucketPurgeBucketResult(
-                bucket_name=target.bucket_name,
-                context_id=target.context_id,
-                context_name=target.context_name,
-                status=status,
-                listed_objects=result.listed_objects,
-                listed_versions=result.listed_versions,
-                deleted_objects=result.deleted_objects,
-                deleted_versions=result.deleted_versions,
-                failed_count=result.failed_count,
-                bucket_deleted=False,
-                duration_seconds=round(monotonic() - started, 3),
-                failures_sample=self._content_purge_failures(target.bucket_name, result),
-            )
+            return self._build_content_purge_result(target, result, started_at=started)
         except BucketPurgeCancelled:
             raise
         except Exception as exc:  # noqa: BLE001
-            return BucketPurgeBucketResult(
-                bucket_name=target.bucket_name,
-                context_id=target.context_id,
-                context_name=target.context_name,
-                status="failed",
-                listed_objects=0,
-                listed_versions=0,
-                deleted_objects=0,
-                deleted_versions=0,
-                failed_count=1,
-                bucket_deleted=False,
-                duration_seconds=round(monotonic() - started, 3),
-                failures_sample=[
-                    BucketPurgeFailure(
-                        bucket_name=target.bucket_name,
-                        stage="list",
-                        message=sanitized_error_log_detail(exc),
-                        key=None,
-                        version_id=None,
-                        count=1,
-                    )
-                ],
+            return self._build_content_purge_failure_result(
+                target,
+                exc,
+                started_at=started,
             )
+
+    def _build_content_purge_result(
+        self,
+        target: BucketPurgeResolvedTarget,
+        result: s3_deletion.BucketContentPurgeResult,
+        *,
+        started_at: float,
+    ) -> BucketPurgeBucketResult:
+        status: BucketPurgeStatus = (
+            "completed" if result.failed_count == 0 else "completed_with_errors"
+        )
+        return BucketPurgeBucketResult(
+            bucket_name=target.bucket_name,
+            context_id=target.context_id,
+            context_name=target.context_name,
+            status=status,
+            listed_objects=result.listed_objects,
+            listed_versions=result.listed_versions,
+            deleted_objects=result.deleted_objects,
+            deleted_versions=result.deleted_versions,
+            failed_count=result.failed_count,
+            bucket_deleted=False,
+            duration_seconds=round(monotonic() - started_at, 3),
+            failures_sample=self._content_purge_failures(target.bucket_name, result),
+        )
+
+    @staticmethod
+    def _build_content_purge_failure_result(
+        target: BucketPurgeResolvedTarget,
+        exc: Exception,
+        *,
+        started_at: float,
+    ) -> BucketPurgeBucketResult:
+        return BucketPurgeBucketResult(
+            bucket_name=target.bucket_name,
+            context_id=target.context_id,
+            context_name=target.context_name,
+            status="failed",
+            listed_objects=0,
+            listed_versions=0,
+            deleted_objects=0,
+            deleted_versions=0,
+            failed_count=1,
+            bucket_deleted=False,
+            duration_seconds=round(monotonic() - started_at, 3),
+            failures_sample=[
+                BucketPurgeFailure(
+                    bucket_name=target.bucket_name,
+                    stage="list",
+                    message=sanitized_error_log_detail(exc),
+                    key=None,
+                    version_id=None,
+                    count=1,
+                )
+            ],
+        )
 
     def _emit_bucket_purge_progress(
         self,
