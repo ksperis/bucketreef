@@ -78,8 +78,8 @@ it("guards dirty navigation and reload, then leaves only after discard", async (
   await user.click(screen.getByRole("button", { name: "Keep editing" }));
   expect(screen.getByRole("textbox", { name: "Bucket name" })).toHaveValue("draft-bucket");
   expect(close).not.toHaveBeenCalled();
-  await user.click(screen.getByRole("link", { name: "Manager", exact: true }));
-  await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+  await user.click(screen.getByRole("link", { name: "Manager" }));
+  await user.click(screen.getByRole("button", { name: "Discard changes" }));
   expect(await screen.findByText("Manager destination")).toBeVisible();
   expect(close).toHaveBeenCalledOnce();
   router.dispose();
@@ -96,9 +96,9 @@ it("locks the draft and navigation during creation and prevents duplicate submis
   expect(screen.getByRole("switch", { name: "Versioning" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Back to buckets" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
-  await user.click(screen.getByRole("link", { name: "Manager", exact: true }));
+  await user.click(screen.getByRole("link", { name: "Manager" }));
   expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Discard changes" })).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "Keep editing" }));
   await act(async () => finish({ created: false }));
   expect(screen.getByRole("textbox", { name: "Bucket name" })).toHaveValue("pending-bucket");

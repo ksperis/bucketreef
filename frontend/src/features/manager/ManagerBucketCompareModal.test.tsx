@@ -9,6 +9,7 @@ import type {
 } from "../../api/managerBuckets";
 import { ApiError } from "../../api/client";
 import type { ExecutionContext } from "../../api/executionContexts";
+import { buildExecutionContext } from "../../test/managerContexts";
 import ManagerBucketCompareModal from "./ManagerBucketCompareModal";
 
 const listBucketsMock = vi.fn<(contextId: string, options?: { with_stats?: boolean }) => Promise<Bucket[]>>();
@@ -34,26 +35,18 @@ vi.mock("../../api/browserTransfers", () => ({
 }));
 
 const contexts: ExecutionContext[] = [
-  {
-    kind: "account",
-    id: "ctx-source",
+  buildExecutionContext("ctx-source", {
     display_name: "Source context",
     endpoint_name: "Source endpoint",
     endpoint_is_default: true,
     endpoint_url: "https://source.example.test",
-    storage_endpoint_capabilities: {},
-    capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
-  },
-  {
-    kind: "account",
-    id: "ctx-target",
+  }),
+  buildExecutionContext("ctx-target", {
     display_name: "Target context",
     endpoint_name: "Target endpoint",
     endpoint_is_default: false,
     endpoint_url: "https://target.example.test",
-    storage_endpoint_capabilities: {},
-    capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
-  },
+  }),
 ];
 
 function buildCompareResult(overrides?: Partial<ManagerBucketCompareResult>): ManagerBucketCompareResult {
@@ -70,6 +63,11 @@ function buildCompareResult(overrides?: Partial<ManagerBucketCompareResult>): Ma
       different_count: 1,
       only_source_count: 2,
       only_target_count: 1,
+      ignored_after_cutoff_count: 0,
+      display_limit: 100,
+      only_source_hidden_count: 0,
+      only_target_hidden_count: 0,
+      different_hidden_count: 0,
       only_source_sample: ["source-only-1", "source-only-2"],
       only_target_sample: ["target-only-1"],
       only_source_details: [
@@ -367,7 +365,6 @@ describe("ManagerBucketCompareModal remediation actions", () => {
       );
     runManagerBucketCompareActionMock.mockResolvedValueOnce(
       buildActionResult({
-        action: "sync_source_only",
         message: "Sync missing done",
       })
     );
@@ -648,7 +645,7 @@ describe("ManagerBucketCompareModal remediation actions", () => {
 
   it("disables remediation buttons while an action is running", async () => {
     compareManagerBucketPairMock.mockResolvedValueOnce(buildCompareResult()).mockResolvedValueOnce(buildCompareResult());
-    let resolveAction: ((value: ManagerBucketCompareActionResult) => void) | null = null;
+    let resolveAction!: (value: ManagerBucketCompareActionResult) => void;
     runManagerBucketCompareActionMock.mockImplementationOnce(
       () =>
         new Promise<ManagerBucketCompareActionResult>((resolve) => {
@@ -664,7 +661,7 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     await waitFor(() => {
       expect(screen.getAllByRole("button", { name: "Running..." }).some((button) => button.hasAttribute("disabled"))).toBe(true);
     });
-    resolveAction?.(buildActionResult());
+    resolveAction(buildActionResult());
     await waitFor(() => {
       expect(compareManagerBucketPairMock).toHaveBeenCalledTimes(2);
     });

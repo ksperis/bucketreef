@@ -15,7 +15,8 @@ import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm
 import UiInput from "../../components/ui/UiInput";
 import { setSessionUserCache, type SessionUser } from "../../utils/workspaces";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
-import type { EffectiveUserAccess, ManagerToolAccess } from "../../api/users";
+import type { ManagerToolAccess } from "../../api/users";
+import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
 
 const useExecutionContextMock = vi.fn();
 const useGeneralSettingsMock = vi.fn();
@@ -156,19 +157,8 @@ const DEFAULT_MANAGER_TOOL_ACCESS: ManagerToolAccess = {
   feature_rules: true,
 };
 
-function managerEffectiveAccess(managerToolAccess: ManagerToolAccess): EffectiveUserAccess {
-  return {
-    can_access_ceph_admin: false,
-    can_access_storage_ops: false,
-    can_create_manual_private_connections: false,
-    can_provision_managed_private_connections: false,
-    has_owned_private_connections: false,
-    manager_tool_access: managerToolAccess,
-    browser_advanced_features_enabled: false,
-    account_links: [],
-    s3_user_details: [],
-    s3_connection_details: [],
-  };
+function managerEffectiveAccess(managerToolAccess: ManagerToolAccess) {
+  return buildEffectiveUserAccess({ manager_tool_access: managerToolAccess });
 }
 
 function setStoredManagerUser({
@@ -913,7 +903,7 @@ it("retains the mounted form until context navigation is confirmed", async () =>
   expect(screen.getByRole("textbox", { name: "Topic name" })).toHaveValue("Unsaved topic");
   expect(router.state.location.search).toBe("?ctx=s3u-1");
   await user.click(screen.getByRole("button", { name: "Manager account selector" }));
-  await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+  await user.click(screen.getByRole("button", { name: "Discard changes" }));
   expect(await screen.findByText("Manager destination")).toBeVisible();
   expect(router.state.location.search).toBe("?ctx=conn-2");
   expect(capturedAccountSelectorProps?.selectedContextId).toBe("conn-2");

@@ -10,6 +10,7 @@ import ManagerBrowserPage from "./ManagerBrowserPage";
 import ManagerDashboard from "./ManagerDashboard";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
+import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
 
 const useExecutionContextMock = vi.fn();
 const useManagerStatsMock = vi.fn();
@@ -204,12 +205,7 @@ function trendText(value: string) {
 function setManagerUser({ bucketPurge = false }: { bucketPurge?: boolean } = {}) {
   setSessionUserCache({
     role: "ui_user",
-    effective_access: {
-      can_access_ceph_admin: false,
-      can_access_storage_ops: false,
-      can_create_manual_private_connections: false,
-      can_provision_managed_private_connections: false,
-      has_owned_private_connections: false,
+    effective_access: buildEffectiveUserAccess({
       manager_tool_access: {
         bucket_compare: false,
         bucket_integrity_check: false,
@@ -217,11 +213,7 @@ function setManagerUser({ bucketPurge = false }: { bucketPurge?: boolean } = {})
         bucket_purge: bucketPurge,
         feature_rules: false,
       },
-      browser_advanced_features_enabled: false,
-      account_links: [],
-      s3_user_details: [],
-      s3_connection_details: [],
-    },
+    }),
   });
 }
 

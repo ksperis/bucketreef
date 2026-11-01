@@ -202,7 +202,7 @@ describe("inline policy draft safety", () => {
     const document = within(form).getByLabelText("Inline policy document (JSON)");
     fireEvent.change(document, { target: { value: '{"pending":true}' } });
     const target = action === "selection" ? screen.getByRole("button", { name: /write-inline/ })
-      : screen.getByRole("button", { name: action === "create" ? "Create new inline policy" : action === "cancel" ? "Cancel" : "Refresh", exact: true });
+      : screen.getByRole("button", { name: action === "create" ? "Create new inline policy" : action === "cancel" ? "Cancel" : "Refresh" });
     fireEvent.click(target);
     let dialog = screen.getByRole("dialog", { name: "Discard changes?" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));

@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { listManagerObjects } from "../../../../api/managerObjects";
 import { useBucketObjectsController } from "../useBucketObjectsController";
 
 const apiMocks = vi.hoisted(() => ({
@@ -31,7 +32,7 @@ function renderObjects(
   );
 }
 
-const emptyListing = {
+const emptyListing: Awaited<ReturnType<typeof listManagerObjects>> = {
   is_truncated: false,
   next_continuation_token: null,
   objects: [],

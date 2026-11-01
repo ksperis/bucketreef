@@ -25,6 +25,8 @@
     "src/features/auth/**/*.test.tsx",
     "src/features/cephAdmin/**/*.test.ts",
     "src/features/cephAdmin/**/*.test.tsx",
+    "src/features/manager/**/*.test.ts",
+    "src/features/manager/**/*.test.tsx",
     "src/features/portal/**/*.test.ts",
     "src/features/portal/**/*.test.tsx",
     "src/features/storageOps/**/*.test.ts",

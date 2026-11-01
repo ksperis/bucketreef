@@ -80,7 +80,7 @@ describe("BucketPolicyFeature", () => {
 
     const section = await screen.findByTestId("bucket-feature-policy");
     await waitFor(() => expect(within(section).getByText("ReadObjects")).toBeInTheDocument());
-    await user.click(within(section).getByRole("button", { name: "JSON", exact: true }));
+    await user.click(within(section).getByRole("button", { name: "JSON" }));
     const dialog = screen.getByRole("dialog", { name: "Edit bucket policy" });
 
     fireEvent.change(within(dialog).getByLabelText("Bucket policy (JSON)"), {
@@ -88,7 +88,7 @@ describe("BucketPolicyFeature", () => {
     });
 
     expect(within(dialog).getByText(/Invalid JSON:/)).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
     expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
   });
 
@@ -117,7 +117,7 @@ describe("BucketPolicyFeature", () => {
     expect(screen.getByRole("dialog", { name: "Edit bucket policy" })).toBeVisible();
 
     await user.click(within(screen.getByRole("dialog", { name: "Edit bucket policy" })).getByRole("button", { name: "Cancel" }));
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
     expect(screen.queryByRole("dialog", { name: "Edit bucket policy" })).not.toBeInTheDocument();
     expect(within(section).getByText("ReadObjects")).toBeInTheDocument();
     expect(apiMocks.putBucketPolicy).not.toHaveBeenCalled();
@@ -148,12 +148,12 @@ describe("BucketPolicyFeature", () => {
     renderPolicyFeature();
 
     const section = await screen.findByTestId("bucket-feature-policy");
-    await waitFor(() => expect(within(section).getByRole("button", { name: "Add statement", exact: true })).toBeEnabled());
+    await waitFor(() => expect(within(section).getByRole("button", { name: "Add statement" })).toBeEnabled());
     expect(within(section).getByText("No bucket policy configured.")).toBeInTheDocument();
     expect(within(section).getByText("0 statements")).toBeInTheDocument();
     expect(within(section).getByRole("table")).toBeInTheDocument();
 
-    await user.click(within(section).getByRole("button", { name: "Add statement", exact: true }));
+    await user.click(within(section).getByRole("button", { name: "Add statement" }));
     expect(screen.getByRole("dialog", { name: "Edit bucket policy" })).toBeVisible();
     expect(screen.getByLabelText("Sid")).toBeInTheDocument();
   });

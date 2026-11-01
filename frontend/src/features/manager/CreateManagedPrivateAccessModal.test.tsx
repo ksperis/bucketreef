@@ -218,7 +218,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     await user.click(screen.getByText("Advanced configuration"));
     await user.type(screen.getByLabelText("Inline policy name"), "unadded-draft");
     for (const dismiss of [
-      () => user.click(within(dialog).getByRole("button", { name: "Cancel", exact: true })),
+      () => user.click(within(dialog).getByRole("button", { name: "Cancel" })),
       () => user.click(within(dialog).getByRole("button", { name: "Close modal" })),
       () => user.keyboard("{Escape}"),
       () => fireEvent.mouseDown(dialog.parentElement!),
@@ -229,8 +229,8 @@ describe("CreateManagedPrivateAccessModal", () => {
       await user.click(screen.getByRole("button", { name: "Keep editing" }));
       expect(screen.getByLabelText("Inline policy name")).toHaveValue("unadded-draft");
     }
-    await user.click(within(dialog).getByRole("button", { name: "Cancel", exact: true }));
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(createIamMock).not.toHaveBeenCalled();
   });
@@ -242,7 +242,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     await user.click(screen.getByText("Advanced configuration"));
     await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
     await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
-    await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog", { name: "Discard changes?" })).not.toBeInTheDocument();
   });

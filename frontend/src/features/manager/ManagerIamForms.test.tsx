@@ -51,7 +51,7 @@ const cases = [
 it.each(cases)("blocks $kind creation while an attempted inline draft has a required-field error", async ({ kind, Page, create }) => {
   render(<MemoryRouter><Page /></MemoryRouter>);
   await screen.findByText(`Existing ${kind}`);
-  fireEvent.click(screen.getByRole("button", { name: `Create ${kind}`, exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: `Create ${kind}` }));
   const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
   fireEvent.change(within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`), { target: { value: "valid-name" } });
   fireEvent.click(within(screen.getByRole("region", { name: "Inline policies (optional)" })).getByRole("button", { name: "Show inline policies" }));
@@ -96,7 +96,7 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
   const open = async () => {
     render(<MemoryRouter><Page /></MemoryRouter>);
     await screen.findByText(`Existing ${kind}`);
-    fireEvent.click(screen.getByRole("button", { name: `Create ${kind}`, exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: `Create ${kind}` }));
     return screen.getByRole("form", { name: `Create IAM ${kind}` });
   };
 
@@ -125,7 +125,7 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
     fireEvent.change(within(form).getByLabelText(nameLabel), { target: { value: "New-identity" } });
     fireEvent.submit(form);
     for (const field of form.querySelectorAll("fieldset input,fieldset textarea,fieldset button")) expect(field).toBeDisabled();
-    expect(within(form).getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
+    expect(within(form).getByRole("button", { name: "Cancel" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: `Back to ${kind}s` }));
     fireEvent.submit(form);
     expect(create).toHaveBeenCalledOnce();
@@ -147,7 +147,7 @@ it.each([
   attach.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
   render(<MemoryRouter><Page /></MemoryRouter>);
   await screen.findByText(`Existing ${kind}`);
-  fireEvent.click(screen.getByRole("button", { name: `Create ${kind}`, exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: `Create ${kind}` }));
   const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
   const name = within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`);
   fireEvent.change(name, { target: { value: "New-identity" } });
@@ -175,7 +175,7 @@ describe("IAM role configuration", () => {
   it("shares JSON validation between creation and editing", async () => {
     render(<MemoryRouter><ManagerRolesPage /></MemoryRouter>);
     await screen.findByText(role.name);
-    fireEvent.click(screen.getByRole("button", { name: "Create role", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Create role" }));
     const form = screen.getByRole("form", { name: "Create IAM role" });
     fireEvent.change(within(form).getByLabelText("Role name"), { target: { value: "New-role" } });
     const document = within(form).getByLabelText("Assume role policy (JSON)");
@@ -304,7 +304,7 @@ it.each(navigationCases)("protects the $kind form through context navigation, pe
     { path: "/next", element: <p>Next workspace page</p> },
   ], { initialEntries: ["/edit?ctx=acc-7"] });
   render(<RouterProvider router={router} />);
-  await user.click(await screen.findByRole("button", { name: action, exact: true }));
+  await user.click(await screen.findByRole("button", { name: action }));
   const form = screen.getByRole("form", { name: formName });
   const field = within(form).getByRole("textbox", { name: fieldName });
   await waitFor(() => expect(field).toBeEnabled());
@@ -320,7 +320,7 @@ it.each(navigationCases)("protects the $kind form through context navigation, pe
   expect(mutate).toHaveBeenCalledOnce();
   await act(async () => { void router.navigate("/next"); });
   expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Discard changes" })).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "Keep editing" }));
   expect(field).toBeDisabled();
   await act(async () => reject(new Error("Temporary IAM failure")));
@@ -339,7 +339,7 @@ it.each(navigationCases)("protects the $kind form through context navigation, pe
 
 it.each([...cases, { kind: "policy", Page: PoliciesPage, create: api.createPolicy }])("immediately marks invalid $kind names and blocks submission until corrected", async ({ kind, Page, create }) => {
   render(<MemoryRouter><Page /></MemoryRouter>);
-  fireEvent.click(await screen.findByRole("button", { name: `Create ${kind}`, exact: true }));
+  fireEvent.click(await screen.findByRole("button", { name: `Create ${kind}` }));
   const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
   const name = within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`);
   expect(name).not.toHaveAttribute("aria-invalid", "true");
@@ -358,7 +358,7 @@ it.each([...cases, { kind: "policy", Page: PoliciesPage, create: api.createPolic
 it.each(cases)("validates $kind inline drafts according to Ceph before creating the principal", async ({ kind, Page, create }) => {
   api.namingProfile = "ceph";
   render(<MemoryRouter><Page /></MemoryRouter>);
-  fireEvent.click(await screen.findByRole("button", { name: `Create ${kind}`, exact: true }));
+  fireEvent.click(await screen.findByRole("button", { name: `Create ${kind}` }));
   const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
   fireEvent.change(within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`), { target: { value: "valid-name" } });
   fireEvent.click(within(screen.getByRole("region", { name: "Inline policies (optional)" })).getByRole("button", { name: "Show inline policies" }));

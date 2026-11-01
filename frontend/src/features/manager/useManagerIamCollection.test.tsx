@@ -1,12 +1,13 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { useManagerIamCollection } from "./useManagerIamCollection";
 
 describe("useManagerIamCollection", () => {
   it("loads items and clears an earlier error", async () => {
     const listItems = vi
-      .fn<(accountId: string) => Promise<string[]>>()
+      .fn<(contextId: S3ExecutionContextSelector) => Promise<string[]>>()
       .mockRejectedValueOnce(new Error("first failure"))
       .mockResolvedValueOnce(["one", "two"]);
     const { result } = renderHook(() => useManagerIamCollection(listItems));
@@ -28,9 +29,9 @@ describe("useManagerIamCollection", () => {
   });
 
   it("loads related items without changing primary loading state", async () => {
-    const listItems = vi.fn<(accountId: string) => Promise<string[]>>().mockResolvedValue([]);
+    const listItems = vi.fn<(contextId: S3ExecutionContextSelector) => Promise<string[]>>().mockResolvedValue([]);
     const listRelatedItems = vi
-      .fn<(accountId: string) => Promise<number[]>>()
+      .fn<(contextId: S3ExecutionContextSelector) => Promise<number[]>>()
       .mockResolvedValueOnce([1, 2])
       .mockRejectedValueOnce(new Error("related failure"));
     const setRelatedItems = vi.fn();

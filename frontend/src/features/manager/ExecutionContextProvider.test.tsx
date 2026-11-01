@@ -9,6 +9,7 @@ import {
   getExecutionDestinationForContext,
 } from "../../api/executionDestinationState";
 import { fetchManagerContext } from "../../api/managerContext";
+import { buildExecutionContext, buildManagerContext } from "../../test/managerContexts";
 import { EXECUTION_CONTEXTS_REFRESH_EVENT } from "../../utils/executionContextRefresh";
 import { ExecutionContextProvider, useExecutionContext } from "./ExecutionContextProvider";
 
@@ -28,26 +29,22 @@ vi.mock("../../api/managerContext", async () => {
 });
 
 const CONTEXTS: ExecutionContext[] = [
-  {
+  buildExecutionContext("conn-1", {
     kind: "connection",
-    id: "conn-1",
     display_name: "Connection 1",
     endpoint_name: "Connection endpoint",
     endpoint_is_default: false,
     endpoint_url: "https://connection.example.test",
-    storage_endpoint_capabilities: {},
     capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
-  },
-  {
+  }),
+  buildExecutionContext("s3u-2", {
     kind: "s3_user",
-    id: "s3u-2",
     display_name: "S3 User 2",
     endpoint_name: "Ceph endpoint",
     endpoint_is_default: true,
     endpoint_url: "https://ceph.example.test",
-    storage_endpoint_capabilities: {},
     capabilities: { can_manage_iam: false, sts_capable: false, admin_api_capable: false },
-  },
+  }),
 ];
 
 function Probe() {
@@ -104,12 +101,11 @@ describe("ExecutionContextProvider", () => {
     listExecutionContextsMock.mockReset();
     fetchManagerContextMock.mockReset();
     listExecutionContextsMock.mockResolvedValue(CONTEXTS);
-    fetchManagerContextMock.mockResolvedValue({
-      access_mode: "admin",
+    fetchManagerContextMock.mockResolvedValue(buildManagerContext({
       iam_identity: "arn:test",
       manager_stats_enabled: true,
       manager_browser_enabled: true,
-    });
+    }));
   });
 
   it("ignores legacy localStorage keys and falls back to the first context", async () => {
@@ -301,10 +297,9 @@ it("clears the naming profile on context switches and ignores stale context resp
   await user.click(screen.getByRole("button", { name: "Switch context" }));
   await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalledWith("s3u-2"));
   expect(screen.getByTestId("naming-profile")).toHaveTextContent("pending");
-  const base = { access_mode: "admin" as const, manager_stats_enabled: false, manager_browser_enabled: false };
-  await act(async () => resolveSecond({ ...base, naming_validation_profile: "standard" }));
+  await act(async () => resolveSecond(buildManagerContext({ naming_validation_profile: "standard" })));
   expect(screen.getByTestId("naming-profile")).toHaveTextContent("standard");
-  await act(async () => resolveFirst({ ...base, naming_validation_profile: "ceph" }));
+  await act(async () => resolveFirst(buildManagerContext({ naming_validation_profile: "ceph" })));
   expect(screen.getByTestId("naming-profile")).toHaveTextContent("standard");
 });
 });

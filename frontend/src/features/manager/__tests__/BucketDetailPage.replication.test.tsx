@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../../api/client";
 import BucketDetailPage from "../BucketDetailPage";
+import { buildEffectiveUserAccess } from "../../../test/effectiveAccess";
 import { setSessionUserCache } from "../../../utils/workspaces";
 
 type ListManagerObjects = typeof import("../../../api/managerObjects").listManagerObjects;
@@ -331,10 +332,10 @@ describe("BucketDetailPage replication state", () => {
     const user = userEvent.setup();
     const router = renderNavigableBucket();
     try {
-      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      await user.click(screen.getByRole("tab", { name: "Permissions" }));
       const section = screen.getByTestId("bucket-feature-cors");
       await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
-      await user.click(within(section).getByRole("button", { name: "JSON", exact: true }));
+      await user.click(within(section).getByRole("button", { name: "JSON" }));
       const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
 
       fireEvent.change(within(dialog).getByLabelText("CORS rules (JSON)"), {
@@ -342,7 +343,7 @@ describe("BucketDetailPage replication state", () => {
       });
 
       expect(within(dialog).getByText(/Invalid JSON:/)).toBeInTheDocument();
-      expect(within(dialog).getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+      expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
       expect(putBucketCorsMock).not.toHaveBeenCalled();
     } finally {
       router.dispose();
@@ -353,11 +354,11 @@ describe("BucketDetailPage replication state", () => {
     const user = userEvent.setup();
     const router = renderNavigableBucket(mode);
     try {
-      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      await user.click(screen.getByRole("tab", { name: "Permissions" }));
       const section = screen.getByTestId("bucket-feature-cors");
       await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
       expect(warnsBeforeUnload()).toBe(false);
-      await user.click(within(section).getByRole("button", { name: "Add rule", exact: true }));
+      await user.click(within(section).getByRole("button", { name: "Add rule" }));
       const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
       await user.click(within(dialog).getByRole("tab", { name: "JSON" }));
       const editor = within(dialog).getByLabelText("CORS rules (JSON)");
@@ -381,7 +382,7 @@ describe("BucketDetailPage replication state", () => {
       }
 
       await act(async () => { void router.navigate(`/${mode}/buckets`); });
-      await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+      await user.click(screen.getByRole("button", { name: "Discard changes" }));
       expect(await screen.findByText("Bucket inventory")).toBeVisible();
       expect(warnsBeforeUnload()).toBe(false);
     } finally { router.dispose(); }
@@ -391,15 +392,15 @@ describe("BucketDetailPage replication state", () => {
     const user = userEvent.setup();
     const router = renderNavigableBucket();
     try {
-      await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+      await user.click(screen.getByRole("tab", { name: "Properties" }));
       const versioning = screen.getByTestId("bucket-feature-versioning");
       await waitFor(() => expect(versioning).toHaveAttribute("aria-busy", "false"));
       await user.click(within(versioning).getByRole("switch", { name: "Enable versioning" }));
 
-      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      await user.click(screen.getByRole("tab", { name: "Permissions" }));
       const cors = screen.getByTestId("bucket-feature-cors");
       await waitFor(() => expect(cors).toHaveAttribute("aria-busy", "false"));
-      await user.click(within(cors).getByRole("button", { name: "Add rule", exact: true }));
+      await user.click(within(cors).getByRole("button", { name: "Add rule" }));
       const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
       await user.click(within(dialog).getByRole("tab", { name: "JSON" }));
       const editor = within(dialog).getByLabelText("CORS rules (JSON)");
@@ -408,17 +409,17 @@ describe("BucketDetailPage replication state", () => {
       const corsReads = getBucketCorsMock.mock.calls.length;
       const policyReads = getBucketPolicyMock.mock.calls.length;
 
-      await user.click(screen.getByRole("button", { name: "Refresh", exact: true }));
+      await user.click(screen.getByRole("button", { name: "Refresh" }));
       expect(getBucketCorsMock).toHaveBeenCalledTimes(corsReads);
       expect(getBucketPolicyMock.mock.calls.length).toBeGreaterThan(policyReads);
       expect(editor).toHaveValue(draft);
       expect(putBucketCorsMock).not.toHaveBeenCalled();
 
-      await user.click(within(dialog).getByRole("button", { name: "Save", exact: true }));
+      await user.click(within(dialog).getByRole("button", { name: "Save" }));
       await waitFor(() => expect(screen.queryByRole("dialog", { name: "Edit CORS rules" })).not.toBeInTheDocument());
       expect(putBucketCorsMock).toHaveBeenCalledWith("acc-1", "demo-bucket", JSON.parse(draft));
 
-      await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+      await user.click(screen.getByRole("tab", { name: "Properties" }));
       const retainedVersioning = screen.getByTestId("bucket-feature-versioning");
       const retainedVersioningSwitch = within(retainedVersioning).getByRole("switch", { name: "Enable versioning" });
       expect(retainedVersioningSwitch).toBeChecked();
@@ -436,23 +437,23 @@ describe("BucketDetailPage replication state", () => {
     const router = renderNavigableBucket("ceph-admin");
     putCephAdminBucketCorsMock.mockRejectedValueOnce(new Error("Temporary failure"));
     try {
-      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      await user.click(screen.getByRole("tab", { name: "Permissions" }));
       const section = screen.getByTestId("bucket-feature-cors");
       await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
-      await user.click(within(section).getByRole("button", { name: "Add rule", exact: true }));
+      await user.click(within(section).getByRole("button", { name: "Add rule" }));
       const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
       await user.click(within(dialog).getByRole("tab", { name: "JSON" }));
       fireEvent.change(within(dialog).getByLabelText("CORS rules (JSON)"), {
         target: { value: '[{"AllowedMethods":["GET"],"AllowedOrigins":["*"]}]' },
       });
-      await user.click(within(dialog).getByRole("button", { name: "Save", exact: true }));
+      await user.click(within(dialog).getByRole("button", { name: "Save" }));
       await waitFor(() => expect(putCephAdminBucketCorsMock).toHaveBeenCalledOnce());
       expect(screen.getByRole("dialog", { name: "Edit CORS rules" })).toBeVisible();
 
       await act(async () => { void router.navigate("/other"); });
       expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeVisible();
       await user.click(screen.getByRole("button", { name: "Keep editing" }));
-      await user.click(within(dialog).getByRole("button", { name: "Save", exact: true }));
+      await user.click(within(dialog).getByRole("button", { name: "Save" }));
       await waitFor(() => expect(screen.queryByRole("dialog", { name: "Edit CORS rules" })).not.toBeInTheDocument());
       await waitFor(() => expect(warnsBeforeUnload()).toBe(false));
       await act(async () => { await router.navigate("/other"); });
@@ -466,22 +467,22 @@ describe("BucketDetailPage replication state", () => {
     putBucketCorsMock.mockReturnValueOnce(new Promise((resolve) => { finishSave = resolve; }));
     const router = renderNavigableBucket();
     try {
-      await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+      await user.click(screen.getByRole("tab", { name: "Permissions" }));
       const section = screen.getByTestId("bucket-feature-cors");
       await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
-      await user.click(within(section).getByRole("button", { name: "Add rule", exact: true }));
+      await user.click(within(section).getByRole("button", { name: "Add rule" }));
       const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
       await user.click(within(dialog).getByRole("tab", { name: "JSON" }));
       fireEvent.change(within(dialog).getByLabelText("CORS rules (JSON)"), {
         target: { value: '[{"AllowedMethods":["GET"],"AllowedOrigins":["*"]}]' },
       });
       const reads = getBucketCorsMock.mock.calls.length;
-      await user.click(within(dialog).getByRole("button", { name: "Save", exact: true }));
-      await user.click(screen.getByRole("button", { name: "Refresh", exact: true }));
+      await user.click(within(dialog).getByRole("button", { name: "Save" }));
+      await user.click(screen.getByRole("button", { name: "Refresh" }));
       expect(getBucketCorsMock).toHaveBeenCalledTimes(reads);
       await act(async () => { void router.navigate("/other"); });
       expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
-      expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Discard changes" })).toBeDisabled();
       expect(warnsBeforeUnload()).toBe(true);
       await user.click(screen.getByRole("button", { name: "Keep editing" }));
       await act(async () => finishSave({ rules: [{ AllowedMethods: ["GET"], AllowedOrigins: ["*"] }] }));
@@ -520,7 +521,7 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+    await user.click(screen.getByRole("tab", { name: "Permissions" }));
     const section = await screen.findByTestId("bucket-feature-cors");
     await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
     expect(within(section).getByText("2 rules")).toBeInTheDocument();
@@ -530,7 +531,7 @@ describe("BucketDetailPage replication state", () => {
     expect(within(section).queryByRole("textbox")).not.toBeInTheDocument();
     expect(within(section).queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
 
-    await user.click(within(section).getAllByRole("button", { name: "Edit", exact: true })[0]);
+    await user.click(within(section).getAllByRole("button", { name: "Edit" })[0]);
     const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
     expect(within(dialog).getByRole("tab", { name: "Visual" })).toHaveAttribute("aria-selected", "true");
     expect(within(dialog).getAllByTestId("cors-visual-rule")).toHaveLength(1);
@@ -549,7 +550,7 @@ describe("BucketDetailPage replication state", () => {
     expect(parsed[1]).toEqual(advancedRule);
 
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
   });
 
   it("keeps an empty CORS summary editable", async () => {
@@ -560,13 +561,13 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+    await user.click(screen.getByRole("tab", { name: "Permissions" }));
     const section = await screen.findByTestId("bucket-feature-cors");
     await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
     expect(within(section).getByText("0 rules")).toBeInTheDocument();
     expect(within(section).getByText("No CORS rules configured on this bucket.")).toBeInTheDocument();
     expect(within(section).getByRole("table")).toBeInTheDocument();
-    expect(within(section).getByRole("button", { name: "Add rule", exact: true })).toBeEnabled();
+    expect(within(section).getByRole("button", { name: "Add rule" })).toBeEnabled();
     expect(within(section).getByRole("button", { name: "JSON" })).toBeEnabled();
   });
 
@@ -580,7 +581,7 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>,
     );
 
-    await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+    await user.click(screen.getByRole("tab", { name: "Permissions" }));
     const publicAccess = await screen.findByTestId("bucket-feature-block-public-access");
     await waitFor(() => expect(publicAccess).toHaveAttribute("aria-busy", "false"));
     await user.click(within(publicAccess).getByRole("button", { name: "Edit" }));
@@ -598,13 +599,13 @@ describe("BucketDetailPage replication state", () => {
         <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole("tab", { name: "Permissions", exact: true }));
+    await user.click(screen.getByRole("tab", { name: "Permissions" }));
     const policySection = screen.getByTestId("bucket-feature-policy");
     await user.click(within(policySection).getByRole("button", { name: "JSON" }));
     const dialog = await screen.findByRole("dialog", { name: "Edit bucket policy" });
-    await user.click(within(dialog).getByRole("tab", { name: "JSON", exact: true }));
+    await user.click(within(dialog).getByRole("tab", { name: "JSON" }));
     const editor = within(dialog).getByRole("textbox");
-    const save = within(dialog).getByRole("button", { name: "Save", exact: true });
+    const save = within(dialog).getByRole("button", { name: "Save" });
     await waitFor(() => expect(editor).toHaveValue(JSON.stringify(policy, null, 2)));
 
     fireEvent.change(editor, { target: { value: '{ "Statement": [], "Version": "2012-10-17" }' } });
@@ -635,7 +636,7 @@ describe("BucketDetailPage replication state", () => {
         <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
     const section = screen.getByTestId("bucket-feature-tags");
     await user.click(within(section).getByRole("button", { name: "Edit" }));
     const dialog = screen.getByRole("dialog", { name: "Edit bucket tags" });
@@ -657,7 +658,7 @@ describe("BucketDetailPage replication state", () => {
         <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole("tab", { name: "Properties", exact: true }));
+    await user.click(screen.getByRole("tab", { name: "Properties" }));
     const section = screen.getByTestId("bucket-feature-object-lock");
     await waitFor(() => expect(section).toHaveAttribute("aria-busy", "false"));
     await user.click(within(section).getByRole("button", { name: "Configure" }));
@@ -772,7 +773,7 @@ describe("BucketDetailPage replication state", () => {
     expect(screen.getByRole("button", { name: "(root)" })).toHaveClass("ui-list-action", "ui-list-action-active");
     expect(screen.getByRole("button", { name: "(root)" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "reports/" })).toHaveClass("ui-list-action");
-    expect(screen.getAllByRole("button", { name: "Refresh", exact: true })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Refresh" })).toHaveLength(1);
     expect(
       screen.getByText("Read-only preview using the selected endpoint's Ceph Admin credentials.")
     ).toBeInTheDocument();
@@ -922,12 +923,7 @@ describe("BucketDetailPage replication state", () => {
     const user = userEvent.setup();
     setSessionUserCache({
       role: "ui_user",
-      effective_access: {
-        can_access_ceph_admin: false,
-        can_access_storage_ops: false,
-        can_create_manual_private_connections: false,
-        can_provision_managed_private_connections: false,
-        has_owned_private_connections: false,
+      effective_access: buildEffectiveUserAccess({
         manager_tool_access: {
           bucket_compare: false,
           bucket_integrity_check: false,
@@ -935,11 +931,7 @@ describe("BucketDetailPage replication state", () => {
           bucket_purge: false,
           feature_rules: false,
         },
-        browser_advanced_features_enabled: false,
-        account_links: [],
-        s3_user_details: [],
-        s3_connection_details: [],
-      },
+      }),
     });
     useExecutionContextMock.mockReturnValue({
       contexts: [{ id: "ceph-account", name: "Ceph account", endpoint_provider: "ceph" }],
@@ -967,12 +959,7 @@ describe("BucketDetailPage replication state", () => {
     const user = userEvent.setup();
     setSessionUserCache({
       role: "ui_user",
-      effective_access: {
-        can_access_ceph_admin: false,
-        can_access_storage_ops: false,
-        can_create_manual_private_connections: false,
-        can_provision_managed_private_connections: false,
-        has_owned_private_connections: false,
+      effective_access: buildEffectiveUserAccess({
         manager_tool_access: {
           bucket_compare: false,
           bucket_integrity_check: false,
@@ -980,11 +967,7 @@ describe("BucketDetailPage replication state", () => {
           bucket_purge: false,
           feature_rules: false,
         },
-        browser_advanced_features_enabled: false,
-        account_links: [],
-        s3_user_details: [],
-        s3_connection_details: [],
-      },
+      }),
     });
 
     render(
@@ -1025,7 +1008,7 @@ describe("BucketDetailPage replication state", () => {
     expect(within(replicationCard).getByRole("table")).toBeInTheDocument();
     expect(within(replicationCard).getByText("No replication rules configured on this bucket.")).toBeInTheDocument();
     expect(within(replicationCard).getByRole("button", { name: "JSON" })).toBeEnabled();
-    expect(within(replicationCard).getByRole("button", { name: "Add rule", exact: true })).toBeEnabled();
+    expect(within(replicationCard).getByRole("button", { name: "Add rule" })).toBeEnabled();
     expect(within(replicationCard).queryByLabelText("Role ARN")).not.toBeInTheDocument();
     expect(
       screen.getByText("Configure Ceph RGW multisite bucket replication across zones within this bucket's zonegroup.")
@@ -1161,10 +1144,10 @@ describe("BucketDetailPage replication state", () => {
     const tagsDialog = screen.getByRole("dialog", { name: "Edit bucket tags" });
     const tagKeyInputs = within(tagsDialog).getAllByPlaceholderText("Tag key");
     const ownerInput = tagKeyInputs[1];
-    const firstTagRow = tagKeyInputs[0].closest("[data-tag-row]");
-    expect(firstTagRow).not.toBeNull();
+    const firstTagRow = tagKeyInputs[0].closest<HTMLElement>("[data-tag-row]");
+    if (!firstTagRow) throw new Error("Expected first bucket tag row");
 
-    await user.click(within(firstTagRow!).getByRole("button", { name: "Remove" }));
+    await user.click(within(firstTagRow).getByRole("button", { name: "Remove" }));
 
     expect(within(tagsDialog).getAllByPlaceholderText("Tag key")[0]).toBe(ownerInput);
     expect(ownerInput).toHaveValue("owner");
@@ -1200,7 +1183,7 @@ describe("BucketDetailPage replication state", () => {
     expect(replicationCard).toHaveAttribute("data-feature-state", "disabled");
     expect(within(replicationCard).getByText("Bucket replication is disabled on this endpoint.")).toBeInTheDocument();
     expect(within(replicationCard).getByRole("button", { name: "JSON" })).toBeDisabled();
-    expect(within(replicationCard).getByRole("button", { name: "Add rule", exact: true })).toBeDisabled();
+    expect(within(replicationCard).getByRole("button", { name: "Add rule" })).toBeDisabled();
     expect(within(replicationCard).queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
     expect(within(replicationCard).queryByLabelText("Role ARN")).not.toBeInTheDocument();
   });
@@ -1439,7 +1422,7 @@ describe("BucketDetailPage replication state", () => {
     const lifecycle = await screen.findByTestId("bucket-feature-lifecycle");
     expect(within(lifecycle).getByText("0 rules")).toBeInTheDocument();
     expect(within(lifecycle).getByRole("table")).toBeInTheDocument();
-    await user.click(within(lifecycle).getByRole("button", { name: "Add rule", exact: true }));
+    await user.click(within(lifecycle).getByRole("button", { name: "Add rule" }));
 
     const dialog = screen.getByRole("dialog", { name: "Edit lifecycle rules" });
     expect(within(dialog).getByRole("tab", { name: "Visual" })).toHaveAttribute("aria-selected", "true");
@@ -1559,7 +1542,7 @@ describe("BucketDetailPage replication state", () => {
     expect(within(dialog).getByLabelText("ID")).toHaveValue("changed-rule");
 
     await user.keyboard("{Escape}");
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
     expect(screen.queryByRole("dialog", { name: "Edit lifecycle rules" })).not.toBeInTheDocument();
     await waitFor(() => expect(editButton).toHaveFocus());
     expect(putCephAdminBucketLifecycleMock).not.toHaveBeenCalled();
@@ -1608,7 +1591,7 @@ describe("BucketDetailPage replication state", () => {
     const notificationsCard = await screen.findByTestId("bucket-feature-notifications");
     expect(notificationsCard).toHaveAttribute("data-feature-state", "disabled");
     expect(within(notificationsCard).getByRole("button", { name: "JSON" })).toBeDisabled();
-    expect(within(notificationsCard).getByRole("button", { name: "Add notification", exact: true })).toBeDisabled();
+    expect(within(notificationsCard).getByRole("button", { name: "Add notification" })).toBeDisabled();
     expect(within(notificationsCard).queryByRole("textbox")).not.toBeInTheDocument();
   });
 
@@ -1705,7 +1688,7 @@ describe("BucketDetailPage replication state", () => {
     await user.click(metricsTab);
 
     expect(await screen.findByText("Current usage and quota")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Refresh", exact: true })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Refresh" })).toHaveLength(1);
     const trafficTitle = screen.getByRole("heading", { name: "Traffic" });
     const inventoryTitle = screen.getByRole("heading", { name: "Inventory statistics" });
     expect(trafficTitle).toHaveClass("ui-section");

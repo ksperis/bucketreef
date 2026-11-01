@@ -193,7 +193,7 @@ describe("ManagerFeatureRulesPage", () => {
       rules: [{ id: "old-rule", type: "lifecycle", title: "old-rule", summary: "old", chips: [], raw: {} }] }];
     listFeatureRuleInventoryMock.mockResolvedValueOnce(inventory);
     const view = renderPage();
-    await userEvent.setup().click(await screen.findByRole("button", { name: "JSON", exact: true }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "JSON" }));
     expect(screen.getByRole("dialog")).toBeVisible();
     let finish!: (value: unknown) => void;
     listFeatureRuleInventoryMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));

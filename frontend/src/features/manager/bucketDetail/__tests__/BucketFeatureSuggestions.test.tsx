@@ -6,6 +6,7 @@ import { listCephAdminBuckets } from "../../../../api/cephAdminBuckets";
 import { listBuckets } from "../../../../api/managerBuckets";
 import { listManagerObjects } from "../../../../api/managerObjects";
 import { listTopics } from "../../../../api/topics";
+import { buildCephAdminBucket } from "../../../../test/cephAdmin";
 import {
   BucketFeatureSuggestionsProvider,
   useBucketFeatureSuggestions,
@@ -72,6 +73,8 @@ beforeEach(() => {
     page: 1,
     page_size: 50,
     has_next: false,
+    stats_available: false,
+    stats_warning: null,
   });
 });
 
@@ -169,11 +172,13 @@ describe("BucketFeatureSuggestionsProvider", () => {
       next_continuation_token: null,
     });
     listCephAdminBucketsMock.mockResolvedValueOnce({
-      items: [{ name: "ceph-target" }],
+      items: [buildCephAdminBucket("ceph-target")],
       total: 1,
       page: 1,
       page_size: 50,
       has_next: false,
+      stats_available: false,
+      stats_warning: null,
     });
 
     function wrapper({ children }: { children: ReactNode }) {
