@@ -62,12 +62,6 @@ export const formatQuotaPercent = (value?: number | null) => {
   return `${value.toFixed(2)}%`;
 };
 
-export const formatOptionalBytes = (value?: number | null) =>
-  value === null || value === undefined ? "-" : formatBytes(value);
-
-export const formatOptionalCount = (value?: number | null) =>
-  value === null || value === undefined ? "-" : formatNumber(value);
-
 export const formatQuotaBytes = (value?: number | null) => {
   const quota = normalizeQuotaLimit(value);
   return quota !== null ? formatBytes(quota) : "-";
