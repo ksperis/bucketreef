@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
@@ -329,6 +329,50 @@ describe("CostPage", () => {
       ),
     );
     expect(mocks.getCostSummary).toHaveBeenLastCalledWith("2026-07", 9);
+  });
+
+  it("ignores subject data from a scope that is no longer selected", async () => {
+    const user = userEvent.setup();
+    let resolveInitialSubjects: ((value: {
+      items: ReturnType<typeof subject>[];
+      total: number;
+      page: number;
+      page_size: number;
+      has_next: boolean;
+    }) => void) | undefined;
+    mocks.getCostSubjects.mockImplementation((_month, endpointId) => {
+      if (endpointId == null) {
+        return new Promise((resolve) => {
+          resolveInitialSubjects = resolve;
+        });
+      }
+      return Promise.resolve({
+        items: [subject(43, "Tenant B", { endpointId: 9, endpointName: "Ceph secondary" })],
+        total: 1,
+        page: 1,
+        page_size: 25,
+        has_next: false,
+      });
+    });
+
+    renderPage();
+    await waitFor(() => expect(mocks.getCostSubjects).toHaveBeenCalledWith(
+      "2026-07", null, "all", 1, 25, "name", "asc", "",
+    ));
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Endpoint" }), "9");
+    expect(await screen.findByText("Tenant B")).toBeInTheDocument();
+
+    await act(async () => resolveInitialSubjects?.({
+      items: [subject(42, "Tenant A")],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    }));
+
+    expect(screen.getByText("Tenant B")).toBeInTheDocument();
+    expect(screen.queryByText("Tenant A")).not.toBeInTheDocument();
   });
 
   it("sorts the Ingress column through the global subject query", async () => {

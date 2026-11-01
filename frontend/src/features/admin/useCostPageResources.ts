@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import {
   getCostAnalytics,
@@ -13,6 +13,14 @@ import {
   type CostSummary,
 } from "../../api/cost";
 import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
+import useAdminResourceController from "./useAdminResourceController";
+
+type CostSubjectsResource = {
+  items: CostSubjectSummary[];
+  total: number;
+};
+
+const emptyCostSubjects: CostSubjectsResource = { items: [], total: 0 };
 
 export function useCostPageResources({
   month,
@@ -43,110 +51,90 @@ export function useCostPageResources({
   subjectsErrorText: string;
   analyticsErrorText: string;
 }) {
-  const [summary, setSummary] = useState<CostSummary | null>(null);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [costDisabled, setCostDisabled] = useState(false);
-  const [subjects, setSubjects] = useState<CostSubjectSummary[]>([]);
-  const [subjectsTotal, setSubjectsTotal] = useState(0);
-  const [subjectsError, setSubjectsError] = useState<string | null>(null);
-  const [subjectsLoading, setSubjectsLoading] = useState(false);
-  const [analytics, setAnalytics] = useState<CostAnalyticsResponse | null>(null);
-  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSummary() {
-      setSummaryLoading(true);
-      setSummaryError(null);
-      setCostDisabled(false);
-      try {
-        const data = await getCostSummary(month, selectedEndpointId);
-        if (!cancelled) setSummary(data);
-      } catch (err) {
-        if (cancelled) return;
-        setSummary(null);
-        setSummaryError(extractApiError(err, summaryErrorText));
-        setCostDisabled(extractApiErrorCode(err) === "cost_disabled");
-      } finally {
-        if (!cancelled) setSummaryLoading(false);
-      }
-    }
-    void loadSummary();
-    return () => {
-      cancelled = true;
-    };
-  }, [month, reloadToken, selectedEndpointId, summaryErrorText]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSubjects() {
-      setSubjectsLoading(true);
-      setSubjectsError(null);
-      try {
-        const data = await getCostSubjects(
-          month,
-          selectedEndpointId,
-          subjectType,
-          page,
-          pageSize,
-          sortBy,
-          sortDir,
-          search,
-        );
-        if (!cancelled) {
-          setSubjects(data.items);
-          setSubjectsTotal(data.total);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setSubjects([]);
-        setSubjectsTotal(0);
-        setSubjectsError(extractApiError(err, subjectsErrorText));
-      } finally {
-        if (!cancelled) setSubjectsLoading(false);
-      }
-    }
-    void loadSubjects();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    month,
-    page,
-    pageSize,
+  const loadSummary = useCallback(
+    () => getCostSummary(month, selectedEndpointId),
+    [month, selectedEndpointId],
+  );
+  const formatSummaryError = useCallback(
+    (error: unknown) => extractApiError(error, summaryErrorText),
+    [summaryErrorText],
+  );
+  const {
+    resource: summary,
+    error: summaryError,
+    errorCause: summaryErrorCause,
+    loading: summaryLoading,
+  } = useAdminResourceController<CostSummary | null>({
+    loadResource: loadSummary,
+    initialResource: null,
+    formatError: formatSummaryError,
     reloadToken,
-    search,
-    selectedEndpointId,
-    sortBy,
-    sortDir,
-    subjectType,
-    subjectsErrorText,
-  ]);
+    resetResourceOnError: true,
+    initialLoading: false,
+  });
+  const costDisabled = extractApiErrorCode(summaryErrorCause) === "cost_disabled";
 
-  useEffect(() => {
-    if (!analyticsEnabled) return;
-    let cancelled = false;
-    async function loadAnalytics() {
-      setAnalyticsLoading(true);
-      setAnalyticsError(null);
-      try {
-        const data = await getCostAnalytics(month, selectedEndpointId, subjectType);
-        if (!cancelled) setAnalytics(data);
-      } catch (err) {
-        if (cancelled) return;
-        setAnalytics(null);
-        setAnalyticsError(extractApiError(err, analyticsErrorText));
-      } finally {
-        if (!cancelled) setAnalyticsLoading(false);
-      }
-    }
-    void loadAnalytics();
-    return () => {
-      cancelled = true;
-    };
-  }, [analyticsEnabled, analyticsErrorText, month, reloadToken, selectedEndpointId, subjectType]);
+  const loadSubjects = useCallback(
+    () => getCostSubjects(
+      month,
+      selectedEndpointId,
+      subjectType,
+      page,
+      pageSize,
+      sortBy,
+      sortDir,
+      search,
+    ),
+    [
+      month,
+      page,
+      pageSize,
+      search,
+      selectedEndpointId,
+      sortBy,
+      sortDir,
+      subjectType,
+    ],
+  );
+  const formatSubjectsError = useCallback(
+    (error: unknown) => extractApiError(error, subjectsErrorText),
+    [subjectsErrorText],
+  );
+  const {
+    resource: subjectsResource,
+    error: subjectsError,
+    loading: subjectsLoading,
+  } = useAdminResourceController<CostSubjectsResource>({
+    loadResource: loadSubjects,
+    initialResource: emptyCostSubjects,
+    formatError: formatSubjectsError,
+    reloadToken,
+    resetResourceOnError: true,
+    initialLoading: false,
+  });
+  const { items: subjects, total: subjectsTotal } = subjectsResource;
+
+  const loadAnalytics = useCallback(
+    () => getCostAnalytics(month, selectedEndpointId, subjectType),
+    [month, selectedEndpointId, subjectType],
+  );
+  const formatAnalyticsError = useCallback(
+    (error: unknown) => extractApiError(error, analyticsErrorText),
+    [analyticsErrorText],
+  );
+  const {
+    resource: analytics,
+    error: analyticsError,
+    loading: analyticsLoading,
+  } = useAdminResourceController<CostAnalyticsResponse | null>({
+    loadResource: loadAnalytics,
+    initialResource: null,
+    formatError: formatAnalyticsError,
+    enabled: analyticsEnabled,
+    reloadToken,
+    resetResourceOnError: true,
+    initialLoading: false,
+  });
 
   return {
     summary,
