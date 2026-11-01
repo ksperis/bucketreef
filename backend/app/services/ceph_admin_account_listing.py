@@ -13,6 +13,11 @@ from app.models.ceph_admin_identity_filters import (
     CephAdminAccountFilterRule,
 )
 from app.services.ceph_admin_account_payloads import (
+    extract_account_email,
+    extract_account_id,
+    extract_account_limit,
+    extract_account_name,
+    extract_account_quota_limits,
     extract_bucket_count,
     extract_user_count,
 )
@@ -42,9 +47,6 @@ from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_rule_matching import match_numeric_rule, match_text_rule
 from app.services.rgw_admin import RGWAdminClient
 from app.utils.cancellation import invoke_cancel_check
-from app.utils.normalize import normalize_optional_scalar
-from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import parse_rgw_int
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 
@@ -117,23 +119,17 @@ def _account_from_entry(entry: object) -> CephAdminRgwAccountSummary | None:
         account_id = str(entry or "").strip()
         return CephAdminRgwAccountSummary(account_id=account_id) if account_id else None
 
-    account_id = str(entry.get("account_id") or entry.get("id") or "").strip()
+    account_id = extract_account_id(entry)
     if not account_id:
         return None
-    limits = entry.get("limits") if isinstance(entry.get("limits"), dict) else {}
-    quota_size, quota_objects = extract_quota_limits(
-        entry,
-        keys=("quota", "account_quota"),
-    )
+    quota_size, quota_objects = extract_account_quota_limits(entry)
     return CephAdminRgwAccountSummary(
         account_id=account_id,
         tenant=(str(entry.get("tenant") or "").strip() if "tenant" in entry else None),
-        account_name=normalize_optional_scalar(
-            entry.get("account_name") or entry.get("name") or entry.get("display_name")
-        ),
-        email=normalize_optional_scalar(entry.get("email") or entry.get("mail")),
-        max_users=parse_rgw_int(entry.get("max_users") or limits.get("max_users")),
-        max_buckets=parse_rgw_int(entry.get("max_buckets") or limits.get("max_buckets")),
+        account_name=extract_account_name(entry),
+        email=extract_account_email(entry),
+        max_users=extract_account_limit(entry, "max_users"),
+        max_buckets=extract_account_limit(entry, "max_buckets"),
         quota_max_size_bytes=quota_size,
         quota_max_objects=quota_objects,
         bucket_count=extract_bucket_count(entry),

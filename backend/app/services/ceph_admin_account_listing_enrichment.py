@@ -8,6 +8,10 @@ from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwAccountSummary
 from app.services.ceph_admin_account_payloads import (
+    extract_account_email,
+    extract_account_limit,
+    extract_account_name,
+    extract_account_quota_limits,
     extract_account_bucket_list,
     extract_bucket_count,
     extract_user_count,
@@ -19,9 +23,7 @@ from app.services.listing_progress import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.normalize import normalize_optional_scalar
-from app.utils.quota_stats import extract_quota_limits
-from app.utils.rgw_payloads import extract_rgw_account_tenant, parse_rgw_int
+from app.utils.rgw_payloads import extract_rgw_account_tenant
 from app.utils.usage_stats import summarize_bucket_usage
 
 
@@ -115,16 +117,13 @@ def _apply_account_detail_payload(
     if "profile" in requested:
         account.tenant = extract_rgw_account_tenant(payload)
         if not account.account_name:
-            account.account_name = normalize_optional_scalar(
-                payload.get("account_name") or payload.get("name") or payload.get("display_name")
-            )
-        account.email = normalize_optional_scalar(payload.get("email") or payload.get("mail"))
+            account.account_name = extract_account_name(payload)
+        account.email = extract_account_email(payload)
     if "limits" in requested:
-        limits = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
-        account.max_users = parse_rgw_int(payload.get("max_users") or limits.get("max_users"))
-        account.max_buckets = parse_rgw_int(payload.get("max_buckets") or limits.get("max_buckets"))
+        account.max_users = extract_account_limit(payload, "max_users")
+        account.max_buckets = extract_account_limit(payload, "max_buckets")
     if "quota" in requested:
-        quota_size, quota_objects = extract_quota_limits(payload, keys=("quota", "account_quota"))
+        quota_size, quota_objects = extract_account_quota_limits(payload)
         account.quota_max_size_bytes = quota_size
         account.quota_max_objects = quota_objects
     if "stats" in requested:

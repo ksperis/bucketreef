@@ -16,6 +16,28 @@ from app.utils.rgw_payloads import (
 )
 
 
+def extract_account_id(
+    payload: dict[str, Any],
+    *,
+    fallback: str | None = None,
+) -> Optional[str]:
+    return (
+        normalize_optional_scalar(payload.get("account_id"))
+        or normalize_optional_scalar(payload.get("id"))
+        or normalize_optional_scalar(fallback)
+    )
+
+
+def extract_account_name(payload: dict[str, Any]) -> Optional[str]:
+    return normalize_optional_scalar(
+        payload.get("account_name") or payload.get("name") or payload.get("display_name")
+    )
+
+
+def extract_account_email(payload: dict[str, Any]) -> Optional[str]:
+    return normalize_optional_scalar(payload.get("email") or payload.get("mail"))
+
+
 def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
     for key in keys:
         parsed = parse_rgw_int(data.get(key))
@@ -96,32 +118,30 @@ def _quota_config(
     )
 
 
-def _account_limit(
-    payload: dict[str, Any],
-    limits_payload: dict[str, Any],
-    key: str,
-) -> Optional[int]:
+def extract_account_limit(payload: dict[str, Any], key: str) -> Optional[int]:
     direct = parse_rgw_int(payload.get(key))
     if direct is not None:
         return direct
+    limits_payload = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
     return parse_rgw_int(limits_payload.get(key))
 
 
+def extract_account_quota_limits(payload: dict[str, Any]) -> tuple[Optional[int], Optional[int]]:
+    return extract_quota_limits(payload, keys=("quota", "account_quota"))
+
+
 def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> CephAdminRgwAccountDetail:
-    account_id = normalize_optional_scalar(payload.get("id") or payload.get("account_id")) or account_id_fallback
-    limits_payload = payload.get("limits") if isinstance(payload.get("limits"), dict) else {}
+    account_id = extract_account_id(payload, fallback=account_id_fallback) or account_id_fallback
     return CephAdminRgwAccountDetail(
         account_id=account_id,
         tenant=extract_rgw_account_tenant(payload),
-        account_name=normalize_optional_scalar(
-            payload.get("name") or payload.get("account_name") or payload.get("display_name")
-        ),
-        email=normalize_optional_scalar(payload.get("email") or payload.get("mail")),
-        max_users=_account_limit(payload, limits_payload, "max_users"),
-        max_buckets=_account_limit(payload, limits_payload, "max_buckets"),
-        max_roles=_account_limit(payload, limits_payload, "max_roles"),
-        max_groups=_account_limit(payload, limits_payload, "max_groups"),
-        max_access_keys=_account_limit(payload, limits_payload, "max_access_keys"),
+        account_name=extract_account_name(payload),
+        email=extract_account_email(payload),
+        max_users=extract_account_limit(payload, "max_users"),
+        max_buckets=extract_account_limit(payload, "max_buckets"),
+        max_roles=extract_account_limit(payload, "max_roles"),
+        max_groups=extract_account_limit(payload, "max_groups"),
+        max_access_keys=extract_account_limit(payload, "max_access_keys"),
         bucket_count=extract_bucket_count(payload),
         user_count=extract_user_count(payload),
         quota=_quota_config(payload, keys=("quota", "account_quota")),
