@@ -6,10 +6,10 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.s3_deletion import purge_bucket_contents
-from ._shared import _ResolvedContext
+from .execution_runtime import ResolvedContext
 
 class BucketMigrationCleanupMixin:
-    def _purge_target_bucket(self, target_ctx: _ResolvedContext, target_bucket: str) -> tuple[int, int]:
+    def _purge_target_bucket(self, target_ctx: ResolvedContext, target_bucket: str) -> tuple[int, int]:
         client = self._context_client(target_ctx)
         try:
             manager_settings = load_app_settings_for_db_readonly(self.db).manager

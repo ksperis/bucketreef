@@ -9,7 +9,7 @@ from urllib.parse import parse_qsl
 from botocore.exceptions import ClientError
 import pytest
 
-from app.services.bucket_migration._shared import _ResolvedContext
+from app.services.bucket_migration.execution_runtime import ResolvedContext
 from app.services.bucket_migration_service import BucketMigrationService
 from tests.execution_context_factory import make_s3_execution_context
 
@@ -27,7 +27,7 @@ EXACT_TAGS = [
 def storage(db_session, monkeypatch):
     service = BucketMigrationService(db_session)
     contexts = [
-        _ResolvedContext(
+        ResolvedContext(
             context_id=str(index),
             execution_context=make_s3_execution_context(id=index, context_id=str(index)),
             endpoint="https://s3.example.test", region="us-east-1",

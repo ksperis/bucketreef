@@ -41,9 +41,9 @@ from app.services.bucket_migration._shared import (
     _BucketVersionEntry,
     _DB_ERROR_MESSAGE_MAX_CHARS,
     _DB_EVENT_MESSAGE_MAX_CHARS,
-    _ResolvedContext,
     _VersionedObjectDetails,
 )
+from app.services.bucket_migration.execution_runtime import ResolvedContext
 from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
@@ -1087,7 +1087,7 @@ def test_source_copy_grant_candidates_use_canonical_account_root_uid(db_session)
     )
     target.rgw_user_uid = "custom-target-root"
     service = BucketMigrationService(db_session)
-    target_ctx = _ResolvedContext(
+    target_ctx = ResolvedContext(
         context_id=str(target.id),
         execution_context=target,
         endpoint="https://target.example.test",
@@ -1115,7 +1115,7 @@ def test_endpoint_capabilities_reject_invalid_persisted_features(db_session):
         "removed_feature": {"enabled": True},
     }
     service = BucketMigrationService(db_session)
-    context = _ResolvedContext(
+    context = ResolvedContext(
         context_id=str(account.id),
         execution_context=account,
         endpoint=account.storage_endpoint.endpoint_url,

@@ -15,12 +15,12 @@ from ._shared import (
     _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS,
     _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
     _MigrationControlRequested,
-    _ResolvedContext,
     _VersionTimelineDiffKey,
     _WorkerLeaseLostError,
     _check_control_state,
     _chunked,
 )
+from .execution_runtime import ResolvedContext
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +107,8 @@ class BucketMigrationObjectVerificationMixin:
     def _strong_verification_clients(
         self,
         thread_local: threading.local,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_client: Any | None = None,
         target_client: Any | None = None,
@@ -125,8 +125,8 @@ class BucketMigrationObjectVerificationMixin:
 
     def _strong_verify_size_only_objects(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -178,8 +178,8 @@ class BucketMigrationObjectVerificationMixin:
 
     def _strong_verify_single_object(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         source_bucket: str,
         target_bucket: str,
         key: str,
@@ -293,8 +293,8 @@ class BucketMigrationObjectVerificationMixin:
 
     def _strong_verify_size_only_candidates_streamed(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -379,8 +379,8 @@ class BucketMigrationObjectVerificationMixin:
 
     def _iter_version_aware_size_only_pairs(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -438,8 +438,8 @@ class BucketMigrationObjectVerificationMixin:
 
     def _strong_verify_version_aware_candidates(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,

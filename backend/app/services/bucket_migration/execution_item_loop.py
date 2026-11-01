@@ -10,9 +10,9 @@ from app.utils.time import utcnow
 
 from ._shared import (
     _ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS,
-    _ResolvedContext,
     _check_control_state,
 )
+from .execution_runtime import ResolvedContext
 
 if TYPE_CHECKING:
     from .execution_item_runner import BucketMigrationItemRunnerMixin
@@ -25,8 +25,8 @@ class _MigrationItemExecutionLoop:
         service: BucketMigrationItemRunnerMixin,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         control_check: Callable[[], str],
     ) -> None:
         self.service = service

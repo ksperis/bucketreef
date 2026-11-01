@@ -22,7 +22,7 @@ from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import is_s3_feature_unsupported
 from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features
 
-from ._shared import _ResolvedContext
+from .execution_runtime import ResolvedContext
 
 
 _ALWAYS_PROBED_FEATURES = frozenset(
@@ -340,7 +340,7 @@ class BucketMigrationInspector:
             return _ALWAYS_PROBED_FEATURES | _COPY_SETTINGS_ONLY_FEATURES
         return _ALWAYS_PROBED_FEATURES
 
-    def _endpoint_capabilities(self, ctx: _ResolvedContext) -> dict[str, bool]:
+    def _endpoint_capabilities(self, ctx: ResolvedContext) -> dict[str, bool]:
         endpoint = ctx.execution_context.storage_endpoint
         if endpoint is None:
             return {}
@@ -366,7 +366,7 @@ class BucketMigrationInspector:
                 f"Unable to inspect versions in bucket '{bucket_name}': {exc}"
             ) from exc
 
-    def scan_bucket_versions(self, ctx: _ResolvedContext, bucket_name: str) -> dict[str, Any]:
+    def scan_bucket_versions(self, ctx: ResolvedContext, bucket_name: str) -> dict[str, Any]:
         client = self._service._context_client(ctx)
         key_marker: str | None = None
         version_marker: str | None = None
@@ -391,7 +391,7 @@ class BucketMigrationInspector:
 
     def inspect_bucket_state(
         self,
-        ctx: _ResolvedContext,
+        ctx: ResolvedContext,
         bucket_name: str,
         *,
         probe_policy: set[str] | frozenset[str] | None = None,
@@ -431,7 +431,7 @@ class BucketMigrationInspector:
 
     def _collect_bucket_state(
         self,
-        ctx: _ResolvedContext,
+        ctx: ResolvedContext,
         bucket_name: str,
         probe: _BucketFeatureProbe,
         *,

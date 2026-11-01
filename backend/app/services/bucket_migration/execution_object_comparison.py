@@ -11,13 +11,13 @@ from ._shared import (
     _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS,
     _BucketDiffEntry,
     _BucketVersionEntry,
-    _ResolvedContext,
     _SyncDiff,
     _VersionAwareDiff,
     _VersionTimelineComparison,
     _VersionTimelineDiffKey,
     _check_control_state,
 )
+from .execution_runtime import ResolvedContext
 
 
 @dataclass
@@ -188,8 +188,8 @@ class BucketMigrationObjectComparisonMixin:
 
     def _compare_versioned_timelines(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -271,8 +271,8 @@ class BucketMigrationObjectComparisonMixin:
 
     def _compare_buckets_version_aware(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -291,8 +291,8 @@ class BucketMigrationObjectComparisonMixin:
 
     def _compare_buckets_streamed(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -367,8 +367,8 @@ class BucketMigrationObjectComparisonMixin:
 
     def _iter_bucket_diff_entries(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,

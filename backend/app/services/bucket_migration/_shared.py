@@ -8,12 +8,9 @@ from datetime import datetime
 from typing import Any, Callable, Optional
 
 from app.core.sensitive_data import sanitize_log_text
-from app.services.s3_execution_context import S3ExecutionTarget
-
 _READ_ONLY_POLICY_SID = "BucketReefMigrationReadOnlyDeny"
 _TARGET_WRITE_LOCK_POLICY_SID = "BucketReefMigrationTargetWriteLockDeny"
 _SOURCE_COPY_GRANT_POLICY_SID = "BucketReefMigrationSourceCopyGrantAllow"
-_MIGRATION_USER_AGENT_MARKER = "bucketreef-migration-worker"
 _SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD = 500
 _SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS = 10.0
 _RUN_ACTIONS_WAIT_TIMEOUT_SECONDS = 5.0
@@ -46,16 +43,6 @@ def _check_control_state(
     if state == "lost_lease":
         raise _WorkerLeaseLostError(lost_lease_message)
     return state
-
-
-@dataclass
-class _ResolvedContext:
-    context_id: str
-    execution_context: S3ExecutionTarget
-    endpoint: Optional[str]
-    region: Optional[str]
-    force_path_style: bool
-    verify_tls: bool
 
 
 @dataclass
@@ -155,13 +142,6 @@ _VERSION_CHECKSUM_FIELDS = (
     "ChecksumCRC32",
     "ChecksumSHA1",
 )
-
-
-@dataclass(frozen=True)
-class _MigrationRuntimeLimits:
-    parallelism_default: int
-    parallelism_max: int
-    max_active_per_endpoint: int
 
 
 def _chunked(items: list[str], size: int) -> list[list[str]]:

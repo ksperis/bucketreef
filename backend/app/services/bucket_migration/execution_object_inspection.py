@@ -13,16 +13,16 @@ from ._shared import (
     _VERSION_CHECKSUM_FIELDS,
     _BucketObjectEntry,
     _BucketVersionEntry,
-    _ResolvedContext,
     _VersionedObjectDetails,
     _VersionReplayWatermarkBuilder,
 )
+from .execution_runtime import ResolvedContext
 
 
 class BucketMigrationObjectInspectionMixin:
     def _iter_bucket_objects(
         self,
-        ctx: _ResolvedContext,
+        ctx: ResolvedContext,
         bucket_name: str,
         *,
         client: Optional[Any] = None,
@@ -132,7 +132,7 @@ class BucketMigrationObjectInspectionMixin:
 
     def _iter_bucket_version_timelines(
         self,
-        ctx: _ResolvedContext,
+        ctx: ResolvedContext,
         bucket_name: str,
         *,
         client: Optional[Any] = None,
