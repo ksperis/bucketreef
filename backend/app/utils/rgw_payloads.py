@@ -200,6 +200,18 @@ def extract_rgw_user_int(
     )
 
 
+def extract_rgw_user_caps(payload: Any, *, top_level_first: bool = True) -> Any:
+    """Return RGW user caps while preserving the provider's native shape."""
+    if not isinstance(payload, dict):
+        return None
+    user_payload = extract_rgw_user_payload(payload)
+    records = (payload, user_payload) if top_level_first else (user_payload, payload)
+    for record in records:
+        if "caps" in record and record.get("caps") is not None:
+            return record.get("caps")
+    return None
+
+
 def extract_rgw_user_account_ids(payload: Any) -> set[str]:
     if not isinstance(payload, dict):
         return set()

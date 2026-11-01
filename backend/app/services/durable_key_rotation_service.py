@@ -20,7 +20,7 @@ from app.db import (
 )
 from app.services.audit_service import AuditService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError, get_rgw_admin_client
-from app.utils.rgw_payloads import require_rgw_user_identity
+from app.utils.rgw_payloads import extract_rgw_user_caps, require_rgw_user_identity
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint, resolve_feature_flags
@@ -196,9 +196,7 @@ class DurableKeyRotationService:
             verify_tls=endpoint.verify_tls,
         )
         checked = client.get_user_by_access_key(access, allow_not_found=True)
-        permissions = admin_ops_permissions_from_caps(
-            checked.get("caps") if isinstance(checked, dict) else None
-        )
+        permissions = admin_ops_permissions_from_caps(extract_rgw_user_caps(checked))
         if not (
             permissions.users_read
             and permissions.accounts_read

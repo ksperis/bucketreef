@@ -11,7 +11,7 @@ from app.db import EndpointServiceIdentity, StorageEndpoint
 from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_admin_identity import extract_ceph_admin_flags
 from app.utils.rgw_caps import parse_rgw_caps_permissions
-from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
+from app.utils.rgw_payloads import extract_rgw_user_caps, extract_rgw_user_identity, rgw_qualified_uid
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
 SERVICE_CAPS = {
@@ -92,7 +92,7 @@ class EndpointServiceIdentityValidationService:
                 raise ValueError("Ceph Admin requires admin=true and system=false.")
             return
         expected = parse_rgw_caps_permissions(SERVICE_CAPS[kind])
-        actual = parse_rgw_caps_permissions(payload.get("caps"))
+        actual = parse_rgw_caps_permissions(extract_rgw_user_caps(payload))
         if is_admin or is_system or actual != expected:
             raise ValueError(
                 f"{kind} identity must have only {SERVICE_CAPS[kind]} and no admin/system flag."

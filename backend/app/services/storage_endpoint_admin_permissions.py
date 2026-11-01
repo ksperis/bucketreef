@@ -8,6 +8,7 @@ from app.db import StorageEndpoint, StorageProvider
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.rgw_caps import parse_rgw_caps_permissions
+from app.utils.rgw_payloads import extract_rgw_user_caps
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ def resolve_storage_endpoint_admin_ops_permissions(
         )
         if not user_payload:
             return _empty_permissions()
-        return admin_ops_permissions_from_caps(user_payload.get("caps"))
+        return admin_ops_permissions_from_caps(extract_rgw_user_caps(user_payload))
     except RGWAdminError as exc:
         logger.warning(
             "Unable to evaluate admin ops permissions for endpoint id=%s name=%s: %s",
@@ -120,7 +121,7 @@ def require_endpoint_permissions(
     from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
     admin = client or get_endpoint_admin_rgw_client(endpoint)
     payload = admin.get_user_by_access_key(endpoint.admin_access_key, allow_not_found=True)
-    permissions = admin_ops_permissions_from_caps(payload.get("caps") if isinstance(payload, dict) else None)
+    permissions = admin_ops_permissions_from_caps(extract_rgw_user_caps(payload))
     missing = [permission for permission in required if not getattr(permissions, permission)]
     if missing:
         raise ValueError("Admin Ops is missing required permissions: " + ", ".join(missing))
