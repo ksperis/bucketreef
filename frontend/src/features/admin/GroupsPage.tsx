@@ -212,56 +212,11 @@ export default function GroupsPage() {
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [attempted, setAttempted] = useState(false);
-  const {
-    search: memberSearch,
-    setSearch: setMemberSearch,
-    open: showMemberPicker,
-    setOpen: setShowMemberPicker,
-    selections: memberSelections,
-    setSelections: setMemberSelections,
-    reset: resetMemberPicker,
-    toggleSelection: toggleMemberSelection,
-  } = useAdminAssociationPickerState();
-  const {
-    search: openStackSearch,
-    setSearch: setOpenStackSearch,
-    open: showOpenStackPicker,
-    setOpen: setShowOpenStackPicker,
-    selections: openStackSelections,
-    setSelections: setOpenStackSelections,
-    reset: resetOpenStackPicker,
-    toggleSelection: toggleOpenStackSelection,
-  } = useAdminAssociationPickerState();
-  const {
-    search: accountSearch,
-    setSearch: setAccountSearch,
-    open: showAccountPicker,
-    setOpen: setShowAccountPicker,
-    selections: accountSelections,
-    setSelections: setAccountSelections,
-    reset: resetAccountPicker,
-    toggleSelection: toggleAccountSelection,
-  } = useAdminAssociationPickerState();
-  const {
-    search: s3UserSearch,
-    setSearch: setS3UserSearch,
-    open: showS3UserPicker,
-    setOpen: setShowS3UserPicker,
-    selections: s3UserSelections,
-    setSelections: setS3UserSelections,
-    reset: resetS3UserPicker,
-    toggleSelection: toggleS3UserSelection,
-  } = useAdminAssociationPickerState();
-  const {
-    search: connectionSearch,
-    setSearch: setConnectionSearch,
-    open: showConnectionPicker,
-    setOpen: setShowConnectionPicker,
-    selections: connectionSelections,
-    setSelections: setConnectionSelections,
-    reset: resetConnectionPicker,
-    toggleSelection: toggleConnectionSelection,
-  } = useAdminAssociationPickerState();
+  const memberPicker = useAdminAssociationPickerState();
+  const openStackPicker = useAdminAssociationPickerState();
+  const accountPicker = useAdminAssociationPickerState();
+  const s3UserPicker = useAdminAssociationPickerState();
+  const connectionPicker = useAdminAssociationPickerState();
   const [accountAccessChoice, setAccountAccessChoice] = useState<
     Record<number, AccountAccessGrant>
   >({});
@@ -375,11 +330,11 @@ export default function GroupsPage() {
     setAttempted(false);
     setModalTab("general");
     setAssociationTab("accounts");
-    resetMemberPicker();
-    resetAccountPicker();
-    resetS3UserPicker();
-    resetConnectionPicker();
-    resetOpenStackPicker();
+    memberPicker.reset();
+    accountPicker.reset();
+    s3UserPicker.reset();
+    connectionPicker.reset();
+    openStackPicker.reset();
     setAccountAccessChoice({});
     setAvatarFile(null);
     setRemoveAvatarImage(false);
@@ -426,8 +381,8 @@ export default function GroupsPage() {
 
   const hasUnsavedChanges = showModal && (
     stableSignature(form) !== initialFormSignature || Boolean(avatarFile) || removeAvatarImage ||
-    memberSelections.length > 0 || accountSelections.length > 0 || s3UserSelections.length > 0 ||
-    connectionSelections.length > 0 || openStackSelections.length > 0 || Object.keys(accountAccessChoice).length > 0
+    memberPicker.selections.length > 0 || accountPicker.selections.length > 0 || s3UserPicker.selections.length > 0 ||
+    connectionPicker.selections.length > 0 || openStackPicker.selections.length > 0 || Object.keys(accountAccessChoice).length > 0
   );
   const closeGuard = useSettingsCloseGuard({
     hasUnsavedChanges,
@@ -514,11 +469,11 @@ export default function GroupsPage() {
         setInitialFormSignature(stableSignature(savedDraft));
         setAvatarFile(null);
         setRemoveAvatarImage(false);
-        setMemberSelections([]);
-        setAccountSelections([]);
-        setS3UserSelections([]);
-        setConnectionSelections([]);
-        setOpenStackSelections([]);
+        memberPicker.setSelections([]);
+        accountPicker.setSelections([]);
+        s3UserPicker.setSelections([]);
+        connectionPicker.setSelections([]);
+        openStackPicker.setSelections([]);
         setAccountAccessChoice({});
       } else {
         closeModal();
@@ -559,19 +514,19 @@ export default function GroupsPage() {
   const showAccountPortalRoleColumn = showPortalRole;
   const userLabelById = new Map(users.map((user) => [user.id, user.email]));
   const availableUsers = users.filter(
-    (user) => !selectedUserIds.has(user.id) && includesQuery(user.email, memberSearch)
+    (user) => !selectedUserIds.has(user.id) && includesQuery(user.email, memberPicker.search)
   );
   const availableAccounts = accounts.filter(
-    (account) => !selectedAccountIds.has(account.id) && includesQuery(account.name, accountSearch)
+    (account) => !selectedAccountIds.has(account.id) && includesQuery(account.name, accountPicker.search)
   );
   const availableS3Users = s3Users.filter(
-    (user) => !selectedS3UserIds.has(user.id) && includesQuery(user.name, s3UserSearch)
+    (user) => !selectedS3UserIds.has(user.id) && includesQuery(user.name, s3UserPicker.search)
   );
   const availableConnections = connections.filter(
-    (connection) => !selectedConnectionIds.has(connection.id) && includesQuery(connection.name, connectionSearch)
+    (connection) => !selectedConnectionIds.has(connection.id) && includesQuery(connection.name, connectionPicker.search)
   );
   const availableOpenStackClouds = openStackClouds.filter(
-    (cloud) => !selectedOpenStackCloudIds.has(cloud.id) && includesQuery(cloud.name, openStackSearch)
+    (cloud) => !selectedOpenStackCloudIds.has(cloud.id) && includesQuery(cloud.name, openStackPicker.search)
   );
   const visibleUsers = availableUsers.slice(0, MAX_VISIBLE_OPTIONS);
   const visibleAccounts = availableAccounts.slice(0, MAX_VISIBLE_OPTIONS);
@@ -584,8 +539,8 @@ export default function GroupsPage() {
       title={text("members")}
       toolbar={{
         countLabel: text("linkedCount", { count: selectedUserIds.size }),
-        actionLabel: showMemberPicker ? text("close") : text("addUiUsers"),
-        onAction: () => setShowMemberPicker((current) => !current),
+        actionLabel: memberPicker.open ? text("close") : text("addUiUsers"),
+        onAction: () => memberPicker.setOpen((current) => !current),
       }}
       headers={[{ label: text("user") }, { label: text("actions"), align: "right" }]}
       hasItems={selectedUserIds.size > 0}
@@ -612,43 +567,43 @@ export default function GroupsPage() {
         </tr>
       ))}
       picker={
-        showMemberPicker ? (
+        memberPicker.open ? (
           <AdminAssociationPickerPanel
             title={text("addUiUsers")}
             hint={text("filterByEmail")}
-            search={memberSearch}
-            onSearchChange={setMemberSearch}
+            search={memberPicker.search}
+            onSearchChange={memberPicker.setSearch}
             searchAriaLabel={text("searchGroupMembers")}
             loading={auxLoading}
             availableCount={availableUsers.length}
             maxVisibleOptions={MAX_VISIBLE_OPTIONS}
-            selectedCount={memberSelections.length}
+            selectedCount={memberPicker.selections.length}
             loadingLabel={text("loadingUsers")}
             emptyLabel={text("noUsersAvailable")}
-            addDisabled={memberSelections.length === 0}
+            addDisabled={memberPicker.selections.length === 0}
             onCancel={() => {
-              setShowMemberPicker(false);
-              setMemberSelections([]);
-              setMemberSearch("");
+              memberPicker.setOpen(false);
+              memberPicker.setSelections([]);
+              memberPicker.setSearch("");
             }}
             onAdd={() => {
               setForm((current) => ({
                 ...current,
-                user_ids: [...new Set([...(current.user_ids ?? []), ...memberSelections])].sort((a, b) => a - b),
+                user_ids: [...new Set([...(current.user_ids ?? []), ...memberPicker.selections])].sort((a, b) => a - b),
               }));
-              setShowMemberPicker(false);
-              setMemberSelections([]);
-              setMemberSearch("");
+              memberPicker.setOpen(false);
+              memberPicker.setSelections([]);
+              memberPicker.setSearch("");
             }}
           >
             {visibleUsers.map((user) => (
               <div
                 key={user.id}
-                className={adminAssociationOptionRowClass(memberSelections.includes(user.id))}
+                className={adminAssociationOptionRowClass(memberPicker.selections.includes(user.id))}
               >
                 <AdminAssociationOptionCheckbox
-                  checked={memberSelections.includes(user.id)}
-                  onChange={() => toggleMemberSelection(user.id)}
+                  checked={memberPicker.selections.includes(user.id)}
+                  onChange={() => memberPicker.toggleSelection(user.id)}
                   inputPosition="end"
                   className="w-full justify-between"
                 >
@@ -669,8 +624,8 @@ export default function GroupsPage() {
           id: "accounts",
           label: text("accounts"),
           count: selectedAccountIds.size,
-          actionLabel: showAccountPicker ? text("close") : text("addAccounts"),
-          onAction: () => setShowAccountPicker((current) => !current),
+          actionLabel: accountPicker.open ? text("close") : text("addAccounts"),
+          onAction: () => accountPicker.setOpen((current) => !current),
           content: (
             <AdminAssociationLinkedTable
               title={text("linkedAccounts")}
@@ -757,22 +712,22 @@ export default function GroupsPage() {
                 );
               })}
               picker={
-                showAccountPicker ? (
+                accountPicker.open ? (
                   <AdminAssociationPickerPanel
                     title={text("addAccounts")}
                     hint={text("searchByName")}
-                    search={accountSearch}
-                    onSearchChange={setAccountSearch}
+                    search={accountPicker.search}
+                    onSearchChange={accountPicker.setSearch}
                     searchAriaLabel={text("searchGroupAccounts")}
                     loading={auxLoading}
                     availableCount={availableAccounts.length}
                     maxVisibleOptions={MAX_VISIBLE_OPTIONS}
-                    selectedCount={accountSelections.length}
+                    selectedCount={accountPicker.selections.length}
                     loadingLabel={text("loadingAccounts")}
                     emptyLabel={text("noAccountsAvailable")}
                     addDisabled={
-                      accountSelections.length === 0 ||
-                      accountSelections.some(
+                      accountPicker.selections.length === 0 ||
+                      accountPicker.selections.some(
                         (accountId) =>
                           !hasAccountAccessRole(
                             accountAccessChoice[accountId] ??
@@ -781,16 +736,16 @@ export default function GroupsPage() {
                       )
                     }
                     onCancel={() => {
-                      setShowAccountPicker(false);
-                      setAccountSelections([]);
-                      setAccountSearch("");
+                      accountPicker.setOpen(false);
+                      accountPicker.setSelections([]);
+                      accountPicker.setSearch("");
                     }}
                     onAdd={() => {
                       setForm((current) => ({
                         ...current,
                         account_links: [
                           ...(current.account_links ?? []),
-                          ...accountSelections.map((accountId) => ({
+                          ...accountPicker.selections.map((accountId) => ({
                             account_id: accountId,
                             ...(accountAccessChoice[accountId] ??
                               defaultAccountAccessGrant(showPortalRole)),
@@ -798,9 +753,9 @@ export default function GroupsPage() {
                           })),
                         ].sort((left, right) => Number(left.account_id) - Number(right.account_id)),
                       }));
-                      setShowAccountPicker(false);
-                      setAccountSelections([]);
-                      setAccountSearch("");
+                      accountPicker.setOpen(false);
+                      accountPicker.setSelections([]);
+                      accountPicker.setSearch("");
                     }}
                   >
                     <AdminAssociationAccessPickerTable
@@ -809,13 +764,13 @@ export default function GroupsPage() {
                       options={visibleAccounts.map((account) => ({
                         id: account.id,
                         label: account.name,
-                        selected: accountSelections.includes(account.id),
+                        selected: accountPicker.selections.includes(account.id),
                         access:
                           accountAccessChoice[account.id] ??
                           defaultAccountAccessGrant(showPortalRole),
                       }))}
                       portalEnabled={showPortalRole}
-                      onToggle={toggleAccountSelection}
+                      onToggle={accountPicker.toggleSelection}
                       onAccessChange={(accountId, value) =>
                         setAccountAccessChoice((current) => ({
                           ...current,
@@ -833,8 +788,8 @@ export default function GroupsPage() {
           id: "s3_users",
           label: text("s3Users"),
           count: selectedS3UserIds.size,
-          actionLabel: showS3UserPicker ? text("close") : text("addRgwUsers"),
-          onAction: () => setShowS3UserPicker((current) => !current),
+          actionLabel: s3UserPicker.open ? text("close") : text("addRgwUsers"),
+          onAction: () => s3UserPicker.setOpen((current) => !current),
           content: (
             <AdminAssociationLinkedTable
               title={text("linkedRgwUsers")}
@@ -880,49 +835,49 @@ export default function GroupsPage() {
                 </tr>
               ))}
               picker={
-                showS3UserPicker ? (
+                s3UserPicker.open ? (
                   <AdminAssociationPickerPanel
                     title={text("addRgwUsers")}
                     hint={text("searchByName")}
-                    search={s3UserSearch}
-                    onSearchChange={setS3UserSearch}
+                    search={s3UserPicker.search}
+                    onSearchChange={s3UserPicker.setSearch}
                     searchAriaLabel={text("searchGroupS3Users")}
                     loading={auxLoading}
                     availableCount={availableS3Users.length}
                     maxVisibleOptions={MAX_VISIBLE_OPTIONS}
-                    selectedCount={s3UserSelections.length}
+                    selectedCount={s3UserPicker.selections.length}
                     loadingLabel={text("loadingRgwUsers")}
                     emptyLabel={text("noRgwUsersAvailable")}
-                    addDisabled={s3UserSelections.length === 0}
+                    addDisabled={s3UserPicker.selections.length === 0}
                     onCancel={() => {
-                      setShowS3UserPicker(false);
-                      setS3UserSelections([]);
-                      setS3UserSearch("");
+                      s3UserPicker.setOpen(false);
+                      s3UserPicker.setSelections([]);
+                      s3UserPicker.setSearch("");
                     }}
                     onAdd={() => {
                       setForm((current) => ({
                         ...current,
                         s3_user_links: [
                           ...(current.s3_user_links ?? []),
-                          ...s3UserSelections.map((s3UserId) => ({
+                          ...s3UserPicker.selections.map((s3UserId) => ({
                             s3_user_id: s3UserId,
                             allow_manager_browser_data_access: false,
                           })),
                         ].sort((a, b) => a.s3_user_id - b.s3_user_id),
                       }));
-                      setShowS3UserPicker(false);
-                      setS3UserSelections([]);
-                      setS3UserSearch("");
+                      s3UserPicker.setOpen(false);
+                      s3UserPicker.setSelections([]);
+                      s3UserPicker.setSearch("");
                     }}
                   >
                     {visibleS3Users.map((s3User) => (
                       <div
                         key={s3User.id}
-                        className={adminAssociationOptionRowClass(s3UserSelections.includes(s3User.id))}
+                        className={adminAssociationOptionRowClass(s3UserPicker.selections.includes(s3User.id))}
                       >
                         <AdminAssociationOptionCheckbox
-                          checked={s3UserSelections.includes(s3User.id)}
-                          onChange={() => toggleS3UserSelection(s3User.id)}
+                          checked={s3UserPicker.selections.includes(s3User.id)}
+                          onChange={() => s3UserPicker.toggleSelection(s3User.id)}
                           inputPosition="end"
                           className="w-full justify-between"
                         >
@@ -940,8 +895,8 @@ export default function GroupsPage() {
           id: "connections",
           label: text("connections"),
           count: selectedConnectionIds.size,
-          actionLabel: showConnectionPicker ? text("close") : text("addS3Connections"),
-          onAction: () => setShowConnectionPicker((current) => !current),
+          actionLabel: connectionPicker.open ? text("close") : text("addS3Connections"),
+          onAction: () => connectionPicker.setOpen((current) => !current),
           hint: text("sharedConnectionsOnly"),
           content: (
             <AdminAssociationLinkedTable
@@ -971,45 +926,45 @@ export default function GroupsPage() {
                 </tr>
               ))}
               picker={
-                showConnectionPicker ? (
+                connectionPicker.open ? (
                   <AdminAssociationPickerPanel
                     title={text("addS3Connections")}
                     hint={text("sharedOnly")}
-                    search={connectionSearch}
-                    onSearchChange={setConnectionSearch}
+                    search={connectionPicker.search}
+                    onSearchChange={connectionPicker.setSearch}
                     searchAriaLabel={text("searchGroupSharedConnections")}
                     loading={auxLoading}
                     availableCount={availableConnections.length}
                     maxVisibleOptions={MAX_VISIBLE_OPTIONS}
-                    selectedCount={connectionSelections.length}
+                    selectedCount={connectionPicker.selections.length}
                     loadingLabel={text("loadingSharedConnections")}
                     emptyLabel={text("noSharedConnectionsAvailable")}
-                    addDisabled={connectionSelections.length === 0}
+                    addDisabled={connectionPicker.selections.length === 0}
                     onCancel={() => {
-                      setShowConnectionPicker(false);
-                      setConnectionSelections([]);
-                      setConnectionSearch("");
+                      connectionPicker.setOpen(false);
+                      connectionPicker.setSelections([]);
+                      connectionPicker.setSearch("");
                     }}
                     onAdd={() => {
                       setForm((current) => ({
                         ...current,
                         s3_connection_ids: [
-                          ...new Set([...(current.s3_connection_ids ?? []), ...connectionSelections]),
+                          ...new Set([...(current.s3_connection_ids ?? []), ...connectionPicker.selections]),
                         ].sort((a, b) => a - b),
                       }));
-                      setShowConnectionPicker(false);
-                      setConnectionSelections([]);
-                      setConnectionSearch("");
+                      connectionPicker.setOpen(false);
+                      connectionPicker.setSelections([]);
+                      connectionPicker.setSearch("");
                     }}
                   >
                     {visibleConnections.map((connection) => (
                       <div
                         key={connection.id}
-                        className={adminAssociationOptionRowClass(connectionSelections.includes(connection.id))}
+                        className={adminAssociationOptionRowClass(connectionPicker.selections.includes(connection.id))}
                       >
                         <AdminAssociationOptionCheckbox
-                          checked={connectionSelections.includes(connection.id)}
-                          onChange={() => toggleConnectionSelection(connection.id)}
+                          checked={connectionPicker.selections.includes(connection.id)}
+                          onChange={() => connectionPicker.toggleSelection(connection.id)}
                           inputPosition="end"
                           className="w-full justify-between"
                         >
@@ -1027,8 +982,8 @@ export default function GroupsPage() {
           id: "openstack",
           label: text("openStack"),
           count: selectedOpenStackCloudIds.size,
-          actionLabel: showOpenStackPicker ? text("close") : text("addOpenStackClouds"),
-          onAction: () => setShowOpenStackPicker((current) => !current),
+          actionLabel: openStackPicker.open ? text("close") : text("addOpenStackClouds"),
+          onAction: () => openStackPicker.setOpen((current) => !current),
           content: (
             <AdminAssociationLinkedTable
               title={text("linkedOpenStackClouds")}
@@ -1057,45 +1012,45 @@ export default function GroupsPage() {
                 </tr>
               ))}
               picker={
-                showOpenStackPicker ? (
+                openStackPicker.open ? (
                   <AdminAssociationPickerPanel
                     title={text("addOpenStackClouds")}
                     hint={text("searchByName")}
-                    search={openStackSearch}
-                    onSearchChange={setOpenStackSearch}
+                    search={openStackPicker.search}
+                    onSearchChange={openStackPicker.setSearch}
                     searchAriaLabel={text("searchGroupOpenStackClouds")}
                     loading={auxLoading}
                     availableCount={availableOpenStackClouds.length}
                     maxVisibleOptions={MAX_VISIBLE_OPTIONS}
-                    selectedCount={openStackSelections.length}
+                    selectedCount={openStackPicker.selections.length}
                     loadingLabel={text("loadingOpenStackClouds")}
                     emptyLabel={text("noOpenStackCloudsAvailable")}
-                    addDisabled={openStackSelections.length === 0}
+                    addDisabled={openStackPicker.selections.length === 0}
                     onCancel={() => {
-                      setShowOpenStackPicker(false);
-                      setOpenStackSelections([]);
-                      setOpenStackSearch("");
+                      openStackPicker.setOpen(false);
+                      openStackPicker.setSelections([]);
+                      openStackPicker.setSearch("");
                     }}
                     onAdd={() => {
                       setForm((current) => ({
                         ...current,
                         openstack_cloud_ids: [
-                          ...new Set([...(current.openstack_cloud_ids ?? []), ...openStackSelections]),
+                          ...new Set([...(current.openstack_cloud_ids ?? []), ...openStackPicker.selections]),
                         ].sort((a, b) => a - b),
                       }));
-                      setShowOpenStackPicker(false);
-                      setOpenStackSelections([]);
-                      setOpenStackSearch("");
+                      openStackPicker.setOpen(false);
+                      openStackPicker.setSelections([]);
+                      openStackPicker.setSearch("");
                     }}
                   >
                     {visibleOpenStackClouds.map((cloud) => (
                       <div
                         key={cloud.id}
-                        className={adminAssociationOptionRowClass(openStackSelections.includes(cloud.id))}
+                        className={adminAssociationOptionRowClass(openStackPicker.selections.includes(cloud.id))}
                       >
                         <AdminAssociationOptionCheckbox
-                          checked={openStackSelections.includes(cloud.id)}
-                          onChange={() => toggleOpenStackSelection(cloud.id)}
+                          checked={openStackPicker.selections.includes(cloud.id)}
+                          onChange={() => openStackPicker.toggleSelection(cloud.id)}
                           inputPosition="end"
                           className="w-full justify-between"
                         >
@@ -1115,10 +1070,10 @@ export default function GroupsPage() {
         setAssociationTab(
           id === "s3_users" || id === "connections" || id === "openstack" ? id : "accounts"
         );
-        setShowAccountPicker(false);
-        setShowS3UserPicker(false);
-        setShowConnectionPicker(false);
-        setShowOpenStackPicker(false);
+        accountPicker.setOpen(false);
+        s3UserPicker.setOpen(false);
+        connectionPicker.setOpen(false);
+        openStackPicker.setOpen(false);
       }}
     />
   );
