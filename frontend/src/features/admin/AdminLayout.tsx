@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import type { AdminPendingRequestCounts } from "../../api/adminNavigation";
 import Layout from "../../components/Layout";
+import type { SidebarSection } from "../../components/Sidebar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { useAdminPendingRequestCounts } from "../../hooks/useAdminPendingRequestCounts";
 import { interpolateText } from "../../i18n";
@@ -51,7 +52,7 @@ export const buildAdminNav = (
   pendingRequestCounts: AdminPendingRequestCounts | null = null,
   showOnboarding = true,
   text: AdminNavText = identityText,
-) => {
+): SidebarSection[] => {
   const identityRequestCount = pendingRequestCounts?.identity_link_requests ?? 0;
   const portalRequestCount = pendingRequestCounts?.portal_requests ?? 0;
   const settingsLinks = [
