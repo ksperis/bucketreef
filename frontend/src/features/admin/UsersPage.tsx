@@ -655,6 +655,14 @@ export default function UsersPage() {
         ? normalizeManagerToolAccess(form.manager_tool_access)
         : { ...DEFAULT_MANAGER_TOOL_ACCESS },
       browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
+      account_links: createAssociations.accounts.selected.map((entry) => ({
+        account_id: Number(entry.id),
+        manager_role: entry.manager_role,
+        portal_role: entry.portal_role,
+        allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
+      })),
+      s3_user_links: createAssociations.s3Users.selected,
+      s3_connection_ids: createAssociations.connections.selected,
       group_ids: createAssociations.groups.selected,
       ...(openStackEnabled ? { openstack_cloud_ids: createAssociations.openStack.selected } : {}),
     };
@@ -677,40 +685,16 @@ export default function UsersPage() {
               allow_multisite_endpoint_switching: payload.allow_multisite_endpoint_switching,
               manager_tool_access: payload.manager_tool_access,
               browser_advanced_features_enabled: payload.browser_advanced_features_enabled,
+              account_links: payload.account_links,
+              s3_user_links: payload.s3_user_links,
+              s3_connection_ids: payload.s3_connection_ids,
               group_ids: payload.group_ids,
               openstack_cloud_ids: payload.openstack_cloud_ids,
-              account_links: createAssociations.accounts.selected.map((entry) => ({
-                account_id: Number(entry.id),
-                manager_role: entry.manager_role,
-                portal_role: entry.portal_role,
-                allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
-              })),
-              s3_user_links: createAssociations.s3Users.selected,
-              s3_connection_ids: createAssociations.connections.selected,
             },
           })
         );
       } else {
-        const created = await runWithStepUp(() => createUser(payload));
-        if (created?.id) {
-          const associationsPayload: UpdateUserPayload = {
-            account_links: createAssociations.accounts.selected.map((entry) => ({
-              account_id: Number(entry.id),
-              manager_role: entry.manager_role,
-              portal_role: entry.portal_role,
-              allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
-            })),
-          };
-          if (createAssociations.s3Users.selected.length > 0) {
-            associationsPayload.s3_user_links = createAssociations.s3Users.selected;
-          }
-          if (createAssociations.connections.selected.length > 0) {
-            associationsPayload.s3_connection_ids = createAssociations.connections.selected;
-          }
-          if (Object.keys(associationsPayload).length > 0) {
-            await runWithStepUp(() => updateUser(created.id, associationsPayload));
-          }
-        }
+        await runWithStepUp(() => createUser(payload));
       }
       setActionMessage(text("userCreated"));
       resetCreateModalState();

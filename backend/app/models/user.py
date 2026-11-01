@@ -129,6 +129,9 @@ class UserCreate(ApiModel):
     allow_multisite_endpoint_switching: bool = False
     manager_tool_access: Optional[ManagerToolAccess] = None
     browser_advanced_features_enabled: bool = False
+    account_links: Optional[list[AccountMembership]] = None
+    s3_user_links: Optional[list[S3UserMembership]] = None
+    s3_connection_ids: Optional[list[int]] = None
     group_ids: Optional[list[int]] = None
     openstack_cloud_ids: Optional[list[int]] = None
 

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
 from app.db import User, UserRole, is_admin_ui_role
-from app.models.user import ManagerToolAccess, UserCreate, validate_password_policy
+from app.models.user import ManagerToolAccess, UserCreate, UserUpdate, validate_password_policy
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_query_service import UserQueryService
@@ -24,57 +24,63 @@ class UserProvisioningService:
         self.associations = UserAssociationsService(db)
 
     def create_user(self, payload: UserCreate) -> User:
-        if self.query.get_by_email(payload.email):
-            raise ValueError("User already exists")
+        try:
+            if self.query.get_by_email(payload.email):
+                raise ValueError("User already exists")
 
-        validate_password_policy(payload.password)
-        role = payload.role or UserRole.UI_USER.value
-        admin_role = is_admin_ui_role(role)
-        manager_role = role in MANAGER_TOOL_ROLES
-        manager_tool_access = payload.manager_tool_access or ManagerToolAccess()
+            validate_password_policy(payload.password)
+            role = payload.role or UserRole.UI_USER.value
+            admin_role = is_admin_ui_role(role)
+            manager_role = role in MANAGER_TOOL_ROLES
+            manager_tool_access = payload.manager_tool_access or ManagerToolAccess()
 
-        user = User(
-            email=payload.email,
-            full_name=payload.full_name,
-            hashed_password=get_password_hash(payload.password),
-            is_active=True,
-            role=role,
-            can_access_ceph_admin=bool(payload.can_access_ceph_admin) if admin_role else False,
-            can_access_storage_ops=(
-                bool(payload.can_access_storage_ops) if manager_role else False
-            ),
-            can_create_manual_private_connections=(
-                bool(payload.can_create_manual_private_connections)
-                if manager_role
-                else False
-            ),
-            can_provision_managed_private_connections=(
-                bool(payload.can_provision_managed_private_connections)
-                if manager_role
-                else False
-            ),
-            allow_multisite_endpoint_switching=(
-                bool(payload.allow_multisite_endpoint_switching)
-                if manager_role
-                else False
-            ),
-            browser_advanced_features_enabled=bool(
-                payload.browser_advanced_features_enabled
-            ),
-            **manager_tool_column_values(manager_tool_access, enabled=manager_role),
-        )
-        self.db.add(user)
-        self.db.flush()
-
-        if payload.group_ids is not None:
-            self.associations.set_group_links(user, payload.group_ids)
-        if payload.openstack_cloud_ids is not None:
-            self.associations.set_openstack_cloud_links(
-                user,
-                payload.openstack_cloud_ids,
+            user = User(
+                email=payload.email,
+                full_name=payload.full_name,
+                hashed_password=get_password_hash(payload.password),
+                is_active=True,
+                role=role,
+                can_access_ceph_admin=bool(payload.can_access_ceph_admin) if admin_role else False,
+                can_access_storage_ops=(
+                    bool(payload.can_access_storage_ops) if manager_role else False
+                ),
+                can_create_manual_private_connections=(
+                    bool(payload.can_create_manual_private_connections)
+                    if manager_role
+                    else False
+                ),
+                can_provision_managed_private_connections=(
+                    bool(payload.can_provision_managed_private_connections)
+                    if manager_role
+                    else False
+                ),
+                allow_multisite_endpoint_switching=(
+                    bool(payload.allow_multisite_endpoint_switching)
+                    if manager_role
+                    else False
+                ),
+                browser_advanced_features_enabled=bool(
+                    payload.browser_advanced_features_enabled
+                ),
+                **manager_tool_column_values(manager_tool_access, enabled=manager_role),
             )
+            self.db.add(user)
+            self.db.flush()
 
-        self.db.commit()
+            association_update = UserUpdate(
+                account_links=payload.account_links,
+                s3_user_links=payload.s3_user_links,
+                s3_connection_ids=payload.s3_connection_ids,
+                group_ids=payload.group_ids,
+                openstack_cloud_ids=payload.openstack_cloud_ids,
+            )
+            self.associations.apply_updates(user, association_update)
+            self.db.add(user)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
         self.db.refresh(user)
         logger.debug(
             "Created user id=%s email=%s role=%s",

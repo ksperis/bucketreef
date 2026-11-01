@@ -265,7 +265,11 @@ def create_user(
             metadata={
                 "email": user.email,
                 "role": user.role,
+                "account_ids": [link.account_id for link in payload.account_links or []],
+                "s3_user_ids": [link.s3_user_id for link in payload.s3_user_links or []],
+                "s3_connection_ids": payload.s3_connection_ids,
                 "group_ids": payload.group_ids,
+                "openstack_cloud_ids": payload.openstack_cloud_ids,
             },
         )
         return users_service.user_to_out(user)
