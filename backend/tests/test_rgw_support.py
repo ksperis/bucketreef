@@ -16,8 +16,12 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_id,
     extract_rgw_account_ids,
     extract_rgw_account_name,
+    extract_rgw_user_account_ids,
+    extract_rgw_user_bool,
     extract_rgw_user_identity,
+    extract_rgw_user_int,
     extract_rgw_user_payload,
+    extract_rgw_user_scalar,
     rgw_qualified_uid,
 )
 
@@ -138,6 +142,29 @@ def test_rgw_qualified_uid_rejects_conflicting_explicit_tenant():
 )
 def test_extract_rgw_user_payload(payload, expected):
     assert extract_rgw_user_payload(payload) == expected
+
+
+def test_extract_rgw_user_values_preserve_nested_false_and_zero():
+    payload = {
+        "display_name": "top-level",
+        "suspended": True,
+        "max_buckets": 99,
+        "user": {
+            "display_name": "nested",
+            "suspended": False,
+            "max_buckets": 0,
+        },
+    }
+
+    assert extract_rgw_user_scalar(payload, "display_name") == "nested"
+    assert extract_rgw_user_bool(payload, "suspended") is False
+    assert extract_rgw_user_int(payload, "max_buckets") == 0
+
+
+def test_extract_rgw_user_account_ids_preserves_conflicting_sources():
+    assert extract_rgw_user_account_ids(
+        {"account_id": " acc-top ", "user": {"account_id": "acc-nested"}}
+    ) == {"acc-top", "acc-nested"}
 
 
 def test_get_supervision_rgw_client_uses_endpoint_url_when_admin_feature_disabled(monkeypatch):

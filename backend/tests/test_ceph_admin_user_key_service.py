@@ -124,6 +124,18 @@ def test_require_user_scope_accepts_embedded_tenant_identity():
     assert payload["user"]["uid"] == "tenant-a$cost-user"
 
 
+def test_require_user_scope_rejects_conflicting_user_identity_fields():
+    class _ScopeRgwAdmin:
+        @staticmethod
+        def get_user(uid, tenant=None, allow_not_found=True):  # noqa: ARG004
+            return {"uid": uid, "user": {"uid": "other-user"}}
+
+    with pytest.raises(HTTPException, match="RGW user identity has changed") as raised:
+        require_user_scope("cost-user", None, None, _ScopeRgwAdmin())
+
+    assert raised.value.status_code == 409
+
+
 def test_require_user_scope_rejects_account_drift():
     class _ScopeRgwAdmin:
         @staticmethod

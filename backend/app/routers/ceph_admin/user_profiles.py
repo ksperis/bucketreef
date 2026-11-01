@@ -34,11 +34,6 @@ from app.services.ceph_admin_user_access import (
 from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 from app.services.ceph_admin_audit import record_ceph_admin_action
-from app.services.ceph_admin_user_payloads import (
-    extract_user_bool,
-    extract_user_int,
-    extract_user_scalar,
-)
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
@@ -49,7 +44,10 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_name,
     extract_rgw_account_tenant,
     extract_rgw_quota_enabled,
+    extract_rgw_user_bool,
+    extract_rgw_user_int,
     extract_rgw_user_payload,
+    extract_rgw_user_scalar,
     parse_rgw_bool,
 )
 from app.utils.usage_stats import summarize_bucket_usage
@@ -89,7 +87,7 @@ def _resolve_user_identity(
     uid_fallback: str,
     tenant_fallback: Optional[str],
 ) -> tuple[Optional[str], str]:
-    uid_raw = extract_user_scalar(payload, "uid") or uid_fallback
+    uid_raw = extract_rgw_user_scalar(payload, "uid") or uid_fallback
     tenant = tenant_fallback
     uid = uid_raw
     if "$" in uid_raw:
@@ -107,7 +105,7 @@ def _build_user_detail(
 ) -> CephAdminRgwUserDetail:
     tenant, uid = _resolve_user_identity(payload, uid_fallback=uid_fallback, tenant_fallback=tenant_fallback)
     user_payload = extract_rgw_user_payload(payload)
-    account_id = extract_user_scalar(payload, "account_id", top_level_first=True)
+    account_id = extract_rgw_user_scalar(payload, "account_id", top_level_first=True)
     quota_size, quota_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
     quota_enabled = extract_rgw_quota_enabled(
         payload,
@@ -123,22 +121,22 @@ def _build_user_detail(
     return CephAdminRgwUserDetail(
         uid=uid,
         tenant=tenant,
-        display_name=extract_user_scalar(payload, "display_name"),
-        email=extract_user_scalar(payload, "email"),
+        display_name=extract_rgw_user_scalar(payload, "display_name"),
+        email=extract_rgw_user_scalar(payload, "email"),
         account_id=account_id,
         account_name=account_name,
-        suspended=extract_user_bool(payload, "suspended"),
+        suspended=extract_rgw_user_bool(payload, "suspended"),
         admin=parse_rgw_bool(user_payload.get("admin") if "admin" in user_payload else payload.get("admin")),
         system=parse_rgw_bool(user_payload.get("system") if "system" in user_payload else payload.get("system")),
-        account_root=extract_user_bool(payload, "account_root"),
-        max_buckets=extract_user_int(payload, "max_buckets"),
-        op_mask=extract_user_scalar(payload, "op_mask"),
-        default_placement=extract_user_scalar(
+        account_root=extract_rgw_user_bool(payload, "account_root"),
+        max_buckets=extract_rgw_user_int(payload, "max_buckets"),
+        op_mask=extract_rgw_user_scalar(payload, "op_mask"),
+        default_placement=extract_rgw_user_scalar(
             payload,
             "default_placement",
             "default_placement_rule",
         ),
-        default_storage_class=extract_user_scalar(payload, "default_storage_class"),
+        default_storage_class=extract_rgw_user_scalar(payload, "default_storage_class"),
         caps=_extract_caps(payload),
         quota=quota,
         keys=keys or [],
@@ -147,11 +145,11 @@ def _build_user_detail(
 
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
     payload = load_user_payload(uid, tenant, ctx.rgw_admin)
-    account_id = extract_user_scalar(payload, "account_id", top_level_first=True)
+    account_id = extract_rgw_user_scalar(payload, "account_id", top_level_first=True)
     account_name = _resolve_account_name(
         account_id,
         ctx,
-        payload_account_name=extract_user_scalar(
+        payload_account_name=extract_rgw_user_scalar(
             payload,
             "account_name",
             top_level_first=True,

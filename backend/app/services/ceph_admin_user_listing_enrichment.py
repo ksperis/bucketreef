@@ -7,11 +7,6 @@ from typing import Any, Callable, Optional
 from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwUserSummary
-from app.services.ceph_admin_user_payloads import (
-    extract_user_bool,
-    extract_user_int,
-    extract_user_scalar,
-)
 from app.services.listing_progress import (
     ListingProgressEmitter,
     interpolate_progress_percent,
@@ -23,6 +18,9 @@ from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_name,
+    extract_rgw_user_bool,
+    extract_rgw_user_int,
+    extract_rgw_user_scalar,
 )
 from app.utils.usage_stats import summarize_bucket_usage
 
@@ -97,7 +95,7 @@ class _UserDetailsEnricher:
         payload: dict[str, Any],
     ) -> None:
         if "account" in self.requested:
-            account_id = extract_user_scalar(
+            account_id = extract_rgw_user_scalar(
                 payload,
                 "account_id",
                 top_level_first=True,
@@ -105,19 +103,19 @@ class _UserDetailsEnricher:
             user.account_id = account_id
             user.account_name = self._resolve_account_name(
                 account_id,
-                extract_user_scalar(
+                extract_rgw_user_scalar(
                     payload,
                     "account_name",
                     top_level_first=True,
                 ),
             )
         if "profile" in self.requested:
-            user.full_name = extract_user_scalar(payload, "display_name")
-            user.email = extract_user_scalar(payload, "email")
+            user.full_name = extract_rgw_user_scalar(payload, "display_name")
+            user.email = extract_rgw_user_scalar(payload, "email")
         if "status" in self.requested:
-            user.suspended = extract_user_bool(payload, "suspended")
+            user.suspended = extract_rgw_user_bool(payload, "suspended")
         if "limits" in self.requested:
-            user.max_buckets = extract_user_int(payload, "max_buckets")
+            user.max_buckets = extract_rgw_user_int(payload, "max_buckets")
         if "quota" in self.requested:
             quota_size, quota_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
             user.quota_max_size_bytes = quota_size

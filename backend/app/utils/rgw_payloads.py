@@ -2,9 +2,11 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 from app.utils.normalize import normalize_optional_scalar, normalize_optional_string
+
+T = TypeVar("T")
 
 
 def parse_rgw_int(value: Any) -> int | None:
@@ -137,6 +139,76 @@ def extract_rgw_user_payload(raw: Any) -> dict[str, Any]:
     if isinstance(user_payload, dict):
         return user_payload
     return raw
+
+
+def _extract_rgw_user_value(
+    payload: Any,
+    keys: tuple[str, ...],
+    parser: Callable[[Any], T | None],
+    *,
+    top_level_first: bool,
+) -> T | None:
+    top_level = payload if isinstance(payload, dict) else {}
+    user_payload = extract_rgw_user_payload(top_level)
+    records = (top_level, user_payload) if top_level_first else (user_payload, top_level)
+    for key in keys:
+        for record in records:
+            value = parser(record.get(key))
+            if value is not None:
+                return value
+    return None
+
+
+def extract_rgw_user_scalar(
+    payload: Any,
+    *keys: str,
+    top_level_first: bool = False,
+) -> str | None:
+    return _extract_rgw_user_value(
+        payload,
+        tuple(keys),
+        normalize_optional_scalar,
+        top_level_first=top_level_first,
+    )
+
+
+def extract_rgw_user_bool(
+    payload: Any,
+    key: str,
+    *,
+    top_level_first: bool = False,
+) -> bool | None:
+    return _extract_rgw_user_value(
+        payload,
+        (key,),
+        parse_rgw_bool,
+        top_level_first=top_level_first,
+    )
+
+
+def extract_rgw_user_int(
+    payload: Any,
+    key: str,
+    *,
+    top_level_first: bool = False,
+) -> int | None:
+    return _extract_rgw_user_value(
+        payload,
+        (key,),
+        parse_rgw_int,
+        top_level_first=top_level_first,
+    )
+
+
+def extract_rgw_user_account_ids(payload: Any) -> set[str]:
+    if not isinstance(payload, dict):
+        return set()
+    user_payload = extract_rgw_user_payload(payload)
+    return {
+        account_id
+        for record in (payload, user_payload)
+        if (account_id := normalize_optional_scalar(record.get("account_id")))
+    }
 
 
 def rgw_user_account_root(payload: Any) -> bool | None:

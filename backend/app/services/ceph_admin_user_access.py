@@ -7,11 +7,10 @@ from typing import Any, Optional
 from fastapi import HTTPException, status
 
 from app.models.ceph_admin import CephAdminRgwAccessKey
-from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
-from app.utils.rgw_payloads import extract_rgw_user_payload
+from app.utils.rgw_payloads import extract_rgw_user_account_ids, extract_rgw_user_identity
 
 
 def serialize_access_keys(entries: list[dict]) -> list[CephAdminRgwAccessKey]:
@@ -79,26 +78,14 @@ def require_user_scope(
 
 
 def _resolved_user_scope(payload: dict[str, Any]) -> tuple[Optional[str], Optional[str], set[str]]:
-    user = extract_rgw_user_payload(payload)
-    raw_uid = normalize_optional_scalar(
-        user.get("uid")
-        or user.get("user_id")
-        or payload.get("uid")
-        or payload.get("user_id")
-    )
-    actual_tenant = normalize_optional_scalar(user.get("tenant") or payload.get("tenant"))
-    if raw_uid and "$" in raw_uid:
-        embedded_tenant, raw_uid = split_tenant_uid(raw_uid)
-        actual_tenant = actual_tenant or embedded_tenant
-    account_values = {
-        value
-        for value in (
-            normalize_optional_scalar(user.get("account_id")),
-            normalize_optional_scalar(payload.get("account_id")),
-        )
-        if value
-    }
-    return raw_uid, actual_tenant, account_values
+    try:
+        actual_uid, actual_tenant = extract_rgw_user_identity(payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="RGW user identity has changed; refresh the user list",
+        ) from exc
+    return actual_uid, actual_tenant, extract_rgw_user_account_ids(payload)
 
 
 def _require_matching_identity(
