@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   deleteWebhookEndpoint,
@@ -30,6 +30,7 @@ import { useConfirmActionDialog } from "../../components/useConfirmActionDialog"
 import { extractApiError } from "../../utils/apiError";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
+import useAdminListController from "./useAdminListController";
 import { formatWebhookDate, webhookDeliveryTone } from "./webhookPresentation";
 
 const isDemo = import.meta.env.MODE === "demo";
@@ -51,30 +52,28 @@ function eventSummary(endpoint: WebhookEndpoint, text: (message: string, values?
 export default function WebhookSettingsPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
-  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const confirmation = useConfirmActionDialog();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setEndpoints(await listWebhookEndpoints());
-    } catch (loadError) {
-      setError(extractApiError(loadError, adminText("Unable to load webhook endpoints.")));
-    } finally {
-      setLoading(false);
-    }
-  }, [adminText]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const formatLoadError = useCallback(
+    (loadError: unknown) =>
+      extractApiError(loadError, adminText("Unable to load webhook endpoints.")),
+    [adminText],
+  );
+  const {
+    items: endpoints,
+    setItems: setEndpoints,
+    loading,
+    error,
+    setError,
+    refresh: load,
+  } = useAdminListController({
+    loadItems: listWebhookEndpoints,
+    formatError: formatLoadError,
+  });
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
