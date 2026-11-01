@@ -31,7 +31,6 @@ from app.services.ceph_admin_user_access import (
     require_user_scope,
     serialize_access_keys,
 )
-from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
@@ -45,6 +44,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_tenant,
     extract_rgw_user_bool,
     extract_rgw_user_caps,
+    extract_rgw_user_identity,
     extract_rgw_user_int,
     extract_rgw_user_payload,
     extract_rgw_user_scalar,
@@ -78,20 +78,6 @@ def _extract_caps(payload: dict[str, Any]) -> list[str]:
     return canonicalize_rgw_caps(extract_rgw_user_caps(payload))
 
 
-def _resolve_user_identity(
-    payload: dict[str, Any],
-    *,
-    uid_fallback: str,
-    tenant_fallback: Optional[str],
-) -> tuple[Optional[str], str]:
-    uid_raw = extract_rgw_user_scalar(payload, "uid") or uid_fallback
-    tenant = tenant_fallback
-    uid = uid_raw
-    if "$" in uid_raw:
-        tenant, uid = split_tenant_uid(uid_raw)
-    return tenant, uid
-
-
 def _build_user_detail(
     payload: dict[str, Any],
     *,
@@ -100,7 +86,9 @@ def _build_user_detail(
     account_name: Optional[str] = None,
     keys: Optional[list[CephAdminRgwAccessKey]] = None,
 ) -> CephAdminRgwUserDetail:
-    tenant, uid = _resolve_user_identity(payload, uid_fallback=uid_fallback, tenant_fallback=tenant_fallback)
+    resolved_uid, resolved_tenant = extract_rgw_user_identity(payload)
+    uid = resolved_uid or uid_fallback
+    tenant = resolved_tenant if resolved_tenant is not None else tenant_fallback
     user_payload = extract_rgw_user_payload(payload)
     account_id = extract_rgw_user_scalar(payload, "account_id", top_level_first=True)
     quota_size, quota_objects = extract_rgw_user_quota_limits(payload)
