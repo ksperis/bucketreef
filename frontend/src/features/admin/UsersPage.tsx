@@ -55,19 +55,18 @@ import {
   clearAdminPrincipalEditRequest,
   readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
-import UserAssociationsTabs from "./UserAssociationsTabs";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
-import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
 import AdminUserProfilePanel from "./AdminUserProfilePanel";
+import AdminUserAssociationEditorPanels, {
+  type AdminUserAssociationEditorResources,
+} from "./AdminUserAssociationEditorPanels";
 import useAdminUserAssociationOptions from "./useAdminUserAssociationOptions";
 import { adminUserEditorSignature, emptyAdminUserEditorSignature } from "./adminUserEditorSignature";
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
-import useAdminUserAssociationDerivedOptions, {
-  MAX_VISIBLE_USER_ASSOCIATION_OPTIONS,
-} from "./useAdminUserAssociationDerivedOptions";
+import useAdminUserAssociationDerivedOptions from "./useAdminUserAssociationDerivedOptions";
 import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminUserLdapImport from "./useAdminUserLdapImport";
@@ -277,6 +276,22 @@ export default function UsersPage() {
     editAssociations,
     associationOptionSources,
   );
+  const associationEditorResources: AdminUserAssociationEditorResources = {
+    accountOptionsById,
+    s3UserLabelById,
+    s3ConnectionLabelById,
+    openStackLabelById,
+    groups,
+    groupsLoaded,
+    groupsLoading,
+    s3AccountsLoading,
+    s3UsersLoading,
+    s3ConnectionsLoading,
+    openStackCloudsLoading,
+    showPortalRole,
+    openStackEnabled,
+    ensureAssociationOptionsForTab,
+  };
   const displayUiRole = (role: UiRole) => {
     if (role === "ui_superadmin") return text("superadmin");
     if (role === "ui_admin") return text("admin");
@@ -1030,99 +1045,12 @@ export default function UsersPage() {
               />
             )}
 
-            {createModalTab === "associations" && (
-              <UserAssociationsTabs
-                activeTab={createAssociations.tab}
-                onTabChange={(nextTab) => {
-                  const tabChanged = nextTab !== createAssociations.tab;
-                  createAssociations.setTab(nextTab);
-                  createAssociations.closePickers();
-                  if (tabChanged) {
-                    void ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
-                  }
-                }}
-                maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
-                showPortalRole={showPortalRole}
-                accounts={{
-                  selected: createAssociations.accounts.selected,
-                  setSelected: createAssociations.accounts.setSelected,
-                  optionsById: accountOptionsById,
-                  available: createAssociationOptions.accounts.available,
-                  visible: createAssociationOptions.accounts.visible,
-                  search: createAssociations.accounts.picker.search,
-                  setSearch: createAssociations.accounts.picker.setSearch,
-                  loading: s3AccountsLoading,
-                  showPanel: createAssociations.accounts.picker.open,
-                  setShowPanel: createAssociations.accounts.picker.setOpen,
-                  selections: createAssociations.accounts.picker.selections,
-                  setSelections: createAssociations.accounts.picker.setSelections,
-                  accountAccessChoice: createAssociations.accounts.accessChoice,
-                  setAccountAccessChoice: createAssociations.accounts.setAccessChoice,
-                  toggleSelection: createAssociations.accounts.picker.toggleSelection,
-                }}
-                s3Users={{
-                  selected: createAssociations.s3Users.selected,
-                  setSelected: createAssociations.s3Users.setSelected,
-                  labelById: s3UserLabelById,
-                  available: createAssociationOptions.s3Users.available,
-                  visible: createAssociationOptions.s3Users.visible,
-                  search: createAssociations.s3Users.picker.search,
-                  setSearch: createAssociations.s3Users.picker.setSearch,
-                  loading: s3UsersLoading,
-                  showPanel: createAssociations.s3Users.picker.open,
-                  setShowPanel: createAssociations.s3Users.picker.setOpen,
-                  selections: createAssociations.s3Users.picker.selections,
-                  setSelections: createAssociations.s3Users.picker.setSelections,
-                  toggleSelection: createAssociations.s3Users.picker.toggleSelection,
-                }}
-                connections={{
-                  selected: createAssociations.connections.selected,
-                  setSelected: createAssociations.connections.setSelected,
-                  labelById: s3ConnectionLabelById,
-                  available: createAssociationOptions.connections.available,
-                  visible: createAssociationOptions.connections.visible,
-                  search: createAssociations.connections.picker.search,
-                  setSearch: createAssociations.connections.picker.setSearch,
-                  loading: s3ConnectionsLoading,
-                  showPanel: createAssociations.connections.picker.open,
-                  setShowPanel: createAssociations.connections.picker.setOpen,
-                  selections: createAssociations.connections.picker.selections,
-                  setSelections: createAssociations.connections.picker.setSelections,
-                  toggleSelection: createAssociations.connections.picker.toggleSelection,
-                }}
-                openstack={openStackEnabled ? {
-                  selected: createAssociations.openStack.selected,
-                  setSelected: createAssociations.openStack.setSelected,
-                  labelById: openStackLabelById,
-                  available: createAssociationOptions.openStack.available,
-                  visible: createAssociationOptions.openStack.visible,
-                  search: createAssociations.openStack.picker.search,
-                  setSearch: createAssociations.openStack.picker.setSearch,
-                  loading: openStackCloudsLoading,
-                  showPanel: createAssociations.openStack.picker.open,
-                  setShowPanel: createAssociations.openStack.picker.setOpen,
-                  selections: createAssociations.openStack.picker.selections,
-                  setSelections: createAssociations.openStack.picker.setSelections,
-                  toggleSelection: createAssociations.openStack.picker.toggleSelection,
-                } : undefined}
-              />
-            )}
-
-            {createModalTab === "groups" && (
-              <UserGroupsSelector
-                groups={groups}
-                groupsLoaded={groupsLoaded}
-                groupsLoading={groupsLoading}
-                maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
-                selectedIds={createAssociations.groups.selected}
-                setSelectedIds={createAssociations.groups.setSelected}
-                search={createAssociations.groups.picker.search}
-                setSearch={createAssociations.groups.picker.setSearch}
-                visibleGroups={createAssociationOptions.groups}
-                showPanel={createAssociations.groups.picker.open}
-                setShowPanel={createAssociations.groups.picker.setOpen}
-                selections={createAssociations.groups.picker.selections}
-                setSelections={createAssociations.groups.picker.setSelections}
+            {(createModalTab === "associations" || createModalTab === "groups") && (
+              <AdminUserAssociationEditorPanels
+                panel={createModalTab}
+                editor={createAssociations}
+                options={createAssociationOptions}
+                resources={associationEditorResources}
               />
             )}
             </WorkflowTabs>
@@ -1291,99 +1219,12 @@ export default function UsersPage() {
               />
             )}
 
-            {editModalTab === "associations" && (
-              <UserAssociationsTabs
-                activeTab={editAssociations.tab}
-                onTabChange={(nextTab) => {
-                  const tabChanged = nextTab !== editAssociations.tab;
-                  editAssociations.setTab(nextTab);
-                  editAssociations.closePickers();
-                  if (tabChanged) {
-                    void ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
-                  }
-                }}
-                maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
-                showPortalRole={showPortalRole}
-                accounts={{
-                  selected: editAssociations.accounts.selected,
-                  setSelected: editAssociations.accounts.setSelected,
-                  optionsById: accountOptionsById,
-                  available: editAssociationOptions.accounts.available,
-                  visible: editAssociationOptions.accounts.visible,
-                  search: editAssociations.accounts.picker.search,
-                  setSearch: editAssociations.accounts.picker.setSearch,
-                  loading: s3AccountsLoading,
-                  showPanel: editAssociations.accounts.picker.open,
-                  setShowPanel: editAssociations.accounts.picker.setOpen,
-                  selections: editAssociations.accounts.picker.selections,
-                  setSelections: editAssociations.accounts.picker.setSelections,
-                  accountAccessChoice: editAssociations.accounts.accessChoice,
-                  setAccountAccessChoice: editAssociations.accounts.setAccessChoice,
-                  toggleSelection: editAssociations.accounts.picker.toggleSelection,
-                }}
-                s3Users={{
-                  selected: editAssociations.s3Users.selected,
-                  setSelected: editAssociations.s3Users.setSelected,
-                  labelById: s3UserLabelById,
-                  available: editAssociationOptions.s3Users.available,
-                  visible: editAssociationOptions.s3Users.visible,
-                  search: editAssociations.s3Users.picker.search,
-                  setSearch: editAssociations.s3Users.picker.setSearch,
-                  loading: s3UsersLoading,
-                  showPanel: editAssociations.s3Users.picker.open,
-                  setShowPanel: editAssociations.s3Users.picker.setOpen,
-                  selections: editAssociations.s3Users.picker.selections,
-                  setSelections: editAssociations.s3Users.picker.setSelections,
-                  toggleSelection: editAssociations.s3Users.picker.toggleSelection,
-                }}
-                connections={{
-                  selected: editAssociations.connections.selected,
-                  setSelected: editAssociations.connections.setSelected,
-                  labelById: s3ConnectionLabelById,
-                  available: editAssociationOptions.connections.available,
-                  visible: editAssociationOptions.connections.visible,
-                  search: editAssociations.connections.picker.search,
-                  setSearch: editAssociations.connections.picker.setSearch,
-                  loading: s3ConnectionsLoading,
-                  showPanel: editAssociations.connections.picker.open,
-                  setShowPanel: editAssociations.connections.picker.setOpen,
-                  selections: editAssociations.connections.picker.selections,
-                  setSelections: editAssociations.connections.picker.setSelections,
-                  toggleSelection: editAssociations.connections.picker.toggleSelection,
-                }}
-                openstack={openStackEnabled ? {
-                  selected: editAssociations.openStack.selected,
-                  setSelected: editAssociations.openStack.setSelected,
-                  labelById: openStackLabelById,
-                  available: editAssociationOptions.openStack.available,
-                  visible: editAssociationOptions.openStack.visible,
-                  search: editAssociations.openStack.picker.search,
-                  setSearch: editAssociations.openStack.picker.setSearch,
-                  loading: openStackCloudsLoading,
-                  showPanel: editAssociations.openStack.picker.open,
-                  setShowPanel: editAssociations.openStack.picker.setOpen,
-                  selections: editAssociations.openStack.picker.selections,
-                  setSelections: editAssociations.openStack.picker.setSelections,
-                  toggleSelection: editAssociations.openStack.picker.toggleSelection,
-                } : undefined}
-              />
-            )}
-
-            {editModalTab === "groups" && (
-              <UserGroupsSelector
-                groups={groups}
-                groupsLoaded={groupsLoaded}
-                groupsLoading={groupsLoading}
-                maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
-                selectedIds={editAssociations.groups.selected}
-                setSelectedIds={editAssociations.groups.setSelected}
-                search={editAssociations.groups.picker.search}
-                setSearch={editAssociations.groups.picker.setSearch}
-                visibleGroups={editAssociationOptions.groups}
-                showPanel={editAssociations.groups.picker.open}
-                setShowPanel={editAssociations.groups.picker.setOpen}
-                selections={editAssociations.groups.picker.selections}
-                setSelections={editAssociations.groups.picker.setSelections}
+            {(editModalTab === "associations" || editModalTab === "groups") && (
+              <AdminUserAssociationEditorPanels
+                panel={editModalTab}
+                editor={editAssociations}
+                options={editAssociationOptions}
+                resources={associationEditorResources}
               />
             )}
 

@@ -4,8 +4,7 @@
  */
 import { useMemo } from "react";
 import type { UiGroupSummary } from "../../api/groups";
-import type { S3UserMembership } from "../../api/users";
-import type { AccountSelection } from "./UserAccountAssociationsPanel";
+import type { AdminUserAssociationEditorState } from "./useAdminUserAssociationEditorState";
 
 export const MAX_VISIBLE_USER_ASSOCIATION_OPTIONS = 10;
 
@@ -14,25 +13,25 @@ type AssociationOption = {
   label: string;
 };
 
-type AssociationEditorState = {
+type AssociationEditorDerivationState = {
   accounts: {
-    selected: AccountSelection[];
+    selected: AdminUserAssociationEditorState["accounts"]["selected"];
     picker: { search: string };
   };
   s3Users: {
-    selected: S3UserMembership[];
+    selected: AdminUserAssociationEditorState["s3Users"]["selected"];
     picker: { search: string };
   };
   connections: {
-    selected: number[];
+    selected: AdminUserAssociationEditorState["connections"]["selected"];
     picker: { search: string };
   };
   openStack: {
-    selected: number[];
+    selected: AdminUserAssociationEditorState["openStack"]["selected"];
     picker: { search: string };
   };
   groups: {
-    selected: number[];
+    selected: AdminUserAssociationEditorState["groups"]["selected"];
     picker: { search: string };
   };
 };
@@ -45,7 +44,7 @@ type AssociationOptionSources = {
   groups: UiGroupSummary[];
 };
 
-type DerivedOptions = {
+export type AdminUserAssociationDerivedOptions = {
   accounts: { available: AssociationOption[]; visible: AssociationOption[] };
   s3Users: { available: AssociationOption[]; visible: AssociationOption[] };
   connections: { available: AssociationOption[]; visible: AssociationOption[] };
@@ -78,10 +77,10 @@ function withVisible(options: AssociationOption[], maxVisibleOptions: number) {
 }
 
 export function deriveAdminUserAssociationOptions(
-  editor: AssociationEditorState,
+  editor: AssociationEditorDerivationState,
   sources: AssociationOptionSources,
   maxVisibleOptions = MAX_VISIBLE_USER_ASSOCIATION_OPTIONS,
-): DerivedOptions {
+): AdminUserAssociationDerivedOptions {
   const accounts = filterOptions(
     sources.accountOptions,
     new Set(editor.accounts.selected.map((account) => Number(account.id))),
@@ -121,7 +120,7 @@ export function deriveAdminUserAssociationOptions(
 }
 
 export default function useAdminUserAssociationDerivedOptions(
-  editor: AssociationEditorState,
+  editor: AdminUserAssociationEditorState,
   sources: AssociationOptionSources,
   maxVisibleOptions = MAX_VISIBLE_USER_ASSOCIATION_OPTIONS,
 ) {

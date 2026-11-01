@@ -83,3 +83,7 @@ export default function useAdminUserAssociationEditorState() {
     reset,
   };
 }
+
+export type AdminUserAssociationEditorState = ReturnType<
+  typeof useAdminUserAssociationEditorState
+>;
