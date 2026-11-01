@@ -6,8 +6,17 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from app.db import StorageEndpoint
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.storage_endpoint_features import resolve_feature_flags
+
+
+def optional_account_lookup_enabled(endpoint: StorageEndpoint) -> bool | None:
+    try:
+        return resolve_feature_flags(endpoint).account_enabled
+    except ValueError:
+        return None
 
 
 def load_account_payload(

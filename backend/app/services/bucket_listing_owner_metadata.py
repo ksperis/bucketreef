@@ -9,6 +9,7 @@ from app.db import StorageEndpoint
 from app.models.bucket_filter import BucketFilterQuery
 from app.models.bucket_listing import BucketListingSummary
 from app.services.bucket_owner_enrichment import BucketOwnerMetadataService, BucketOwnerUsage
+from app.services.ceph_admin_account_access import optional_account_lookup_enabled
 from app.services.listing_progress import (
     ListingProgressEmitter,
     build_listing_progress_callback,
@@ -21,7 +22,6 @@ from app.services.rgw_bucket_metadata import (
 )
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.normalize import normalize_optional_scalar, normalize_text
-from app.utils.storage_endpoint_features import resolve_feature_flags
 
 BUCKET_OWNER_LOOKUP_MAX_WORKERS = 6
 
@@ -104,11 +104,7 @@ def _resolve_account_owner_name(
     ctx: BucketListingAdminContext,
     owner_id: str,
 ) -> tuple[bool, str | None]:
-    try:
-        account_lookup_enabled = resolve_feature_flags(ctx.endpoint).account_enabled
-    except Exception:
-        account_lookup_enabled = None
-    if account_lookup_enabled is False:
+    if optional_account_lookup_enabled(ctx.endpoint) is False:
         return False, None
 
     try:
