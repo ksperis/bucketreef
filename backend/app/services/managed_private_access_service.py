@@ -35,13 +35,18 @@ from app.services.managed_private_access_errors import (
 from app.services.managed_private_access_iam_service import (
     ManagedPrivateAccessIAMService,
 )
+from app.services.managed_private_access_iam_source_service import (
+    ManagedPrivateAccessIAMSourceService,
+)
 from app.services.managed_private_access_lifecycle_service import (
     ManagedPrivateAccessLifecycleService,
 )
 from app.services.managed_private_access_policy_service import (
     ManagedPrivateAccessPolicyService,
 )
-from app.services.managed_private_access_sources import ManagedPrivateAccessSourceResolver
+from app.services.managed_private_access_rgw_user_source_service import (
+    ManagedPrivateAccessRGWUserSourceService,
+)
 from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
@@ -54,12 +59,13 @@ class ManagedPrivateAccessService:
 
     def __init__(self, db: Session) -> None:
         self.access = EffectiveAccessService(db)
-        self.sources = ManagedPrivateAccessSourceResolver(db, self.access)
+        self.iam_sources = ManagedPrivateAccessIAMSourceService(db, self.access)
+        self.rgw_user_sources = ManagedPrivateAccessRGWUserSourceService(db, self.access)
         self.destinations = ManagedPrivateAccessDestinationService(db)
         self.policy = ManagedPrivateAccessPolicyService(
             db,
             access=self.access,
-            sources=self.sources,
+            rgw_user_sources=self.rgw_user_sources,
         )
         connections = S3ConnectionsService(db)
         self.audit = ManagedPrivateAccessAuditService(db)
@@ -95,7 +101,7 @@ class ManagedPrivateAccessService:
     ) -> ManagedPrivateAccessResult:
         self.policy.ensure_managed_private_connection_provisioning_allowed(user)
         validate_inline_policy_requests(payload.inline_policies, "user", context)
-        source = self.sources.resolve_iam_source(user, context)
+        source = self.iam_sources.resolve(user, context)
         destination = self.destinations.resolve(source)
         iam = self.iam.for_context(context)
         self.policy.validate_iam_provisioning_request(iam, payload)
@@ -145,7 +151,7 @@ class ManagedPrivateAccessService:
         payload: ManagedRGWUserPrivateAccessRequest,
     ) -> ManagedPrivateAccessResult:
         self.policy.ensure_managed_private_connection_provisioning_allowed(user)
-        source = self.sources.resolve_rgw_user_source(user, context)
+        source = self.rgw_user_sources.resolve(user, context)
         destination = self.destinations.resolve(source)
         existing_result = self.lifecycle.existing_result_for_source(user, source, payload)
         if existing_result is not None:

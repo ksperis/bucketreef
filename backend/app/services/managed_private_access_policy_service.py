@@ -15,7 +15,9 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessError,
     ManagedPrivateAccessForbidden,
 )
-from app.services.managed_private_access_sources import ManagedPrivateAccessSourceResolver
+from app.services.managed_private_access_rgw_user_source_service import (
+    ManagedPrivateAccessRGWUserSourceService,
+)
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.rgw_iam import RGWIAMService
 from app.services.s3_execution_context import S3ExecutionTarget
@@ -32,11 +34,14 @@ class ManagedPrivateAccessPolicyService:
         db: Session,
         *,
         access: EffectiveAccessService | None = None,
-        sources: ManagedPrivateAccessSourceResolver | None = None,
+        rgw_user_sources: ManagedPrivateAccessRGWUserSourceService | None = None,
     ) -> None:
         self.db = db
         self.access = access or EffectiveAccessService(db)
-        self.sources = sources or ManagedPrivateAccessSourceResolver(db, self.access)
+        self.rgw_user_sources = rgw_user_sources or ManagedPrivateAccessRGWUserSourceService(
+            db,
+            self.access,
+        )
 
     def managed_provisioning_allowed(
         self,
@@ -76,7 +81,7 @@ class ManagedPrivateAccessPolicyService:
                 user,
                 resolved=resolved,
             )
-            self.sources.resolve_rgw_user_source(user, context)
+            self.rgw_user_sources.resolve(user, context)
         except ManagedPrivateAccessError:
             return False
         return True

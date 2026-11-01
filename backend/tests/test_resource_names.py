@@ -218,8 +218,7 @@ def test_private_access_prevalidates_before_claim_or_remote_work():
     service = object.__new__(ManagedPrivateAccessService)
     service.policy = Mock()
     service.policy.ensure_managed_private_connection_provisioning_allowed = Mock()
-    service.sources = Mock()
-    service._claim = Mock()
+    service.iam_sources = Mock()
     service.iam = Mock()
     service.iam.for_context = Mock()
     payload = ManagedIAMPrivateAccessRequest(connection_name="private", access_browser=True, access_manager=False, inline_policies=[{"name": "invalid_under", "document": {}}])
@@ -236,8 +235,7 @@ def test_private_access_prevalidates_before_claim_or_remote_work():
             ),
             payload=payload,
         )
-    assert service.sources.mock_calls == []
-    service._claim.assert_not_called()
+    assert service.iam_sources.mock_calls == []
     service.iam.for_context.assert_not_called()
 
 
