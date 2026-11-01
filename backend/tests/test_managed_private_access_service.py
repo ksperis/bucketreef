@@ -561,7 +561,7 @@ def test_claim_constraint_rejects_concurrent_active_source(db_session):
     user = _user(db_session, email="concurrent@example.test")
     account = _account(db_session, user, _endpoint(db_session))
     service = ManagedPrivateAccessService(db_session)
-    source = service.sources.resolve_iam_source(user, account)
+    source = service.iam_sources.resolve(user, account)
     state = ManagedPrivateAccessStateService(db_session)
 
     state.claim(user, source)
