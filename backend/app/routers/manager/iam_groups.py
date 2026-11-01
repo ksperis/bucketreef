@@ -21,7 +21,12 @@ from app.routers.manager.iam_common import (
     run_audited_iam_mutation,
 )
 from app.services.audit_service import AuditService
-from app.services.manager_iam_support import load_inline_policies, resolve_attached_policy, save_inline_policy
+from app.services.manager_iam_support import (
+    create_iam_group,
+    load_inline_policies,
+    resolve_attached_policy,
+    save_inline_policy,
+)
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
@@ -124,10 +129,7 @@ def create_group(
     validate_inline_policy_requests(payload.inline_policies, "group", context)
     service = get_iam_service_for_context(context)
     try:
-        result = service.create_group(payload.name)
-        if payload.inline_policies:
-            for inline in payload.inline_policies:
-                service.put_group_inline_policy(payload.name, inline.name, inline.document)
+        result = create_iam_group(service, payload)
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -135,7 +137,10 @@ def create_group(
             entity_type="iam_group",
             entity_id=payload.name,
             execution_context=context,
-            metadata={"inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else []},
+            metadata={
+                "policies": payload.policies or [],
+                "inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else [],
+            },
         )
         return result
     except RuntimeError as exc:

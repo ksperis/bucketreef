@@ -23,7 +23,12 @@ from app.routers.manager.iam_common import (
 )
 from app.services.audit_service import AuditService
 from app.services.manager_iam_role_service import update_iam_role
-from app.services.manager_iam_support import load_inline_policies, resolve_attached_policy, save_inline_policy
+from app.services.manager_iam_support import (
+    create_iam_role,
+    load_inline_policies,
+    resolve_attached_policy,
+    save_inline_policy,
+)
 from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 DEFAULT_ASSUME_ROLE = """
@@ -81,16 +86,7 @@ def create_role(
         except json.JSONDecodeError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Assume role policy must be valid JSON") from exc
     try:
-        result = service.create_role(
-            payload.name,
-            assume_policy,
-            path=payload.path,
-            max_session_duration=payload.max_session_duration,
-            tags=payload.tags,
-        )
-        if payload.inline_policies:
-            for inline in payload.inline_policies:
-                service.put_role_inline_policy(payload.name, inline.name, inline.document)
+        result = create_iam_role(service, payload, assume_policy)
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -99,6 +95,7 @@ def create_role(
             entity_id=payload.name,
             execution_context=context,
             metadata={
+                "policies": payload.policies or [],
                 "inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else [],
                 "max_session_duration": payload.max_session_duration,
                 "tag_keys": [tag.key for tag in payload.tags] if payload.tags else [],

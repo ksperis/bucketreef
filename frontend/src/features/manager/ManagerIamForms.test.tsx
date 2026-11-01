@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
   namingProfile: "standard" as "standard" | "ceph" | null,
   users: vi.fn(), groups: vi.fn(), roles: vi.fn(), policies: vi.fn(),
   createUser: vi.fn(), createGroup: vi.fn(), createRole: vi.fn(), createPolicy: vi.fn(),
-  attachGroup: vi.fn(), attachRole: vi.fn(), getRole: vi.fn(), updateRole: vi.fn(),
+  getRole: vi.fn(), updateRole: vi.fn(),
   putRoleTags: vi.fn(), deleteRoleTag: vi.fn(),
 }));
 vi.mock("./ExecutionContextProvider", () => ({
@@ -27,11 +27,11 @@ vi.mock("../../api/managerIamUsers", async (original) => ({
 }));
 vi.mock("../../api/managerIamGroups", async (original) => ({
   ...await original<typeof import("../../api/managerIamGroups")>(),
-  listIamGroups: api.groups, createIamGroup: api.createGroup, attachGroupPolicy: api.attachGroup,
+  listIamGroups: api.groups, createIamGroup: api.createGroup,
 }));
 vi.mock("../../api/managerIamRoles", async (original) => ({
   ...await original<typeof import("../../api/managerIamRoles")>(),
-  listIamRoles: api.roles, createIamRole: api.createRole, attachRolePolicy: api.attachRole,
+  listIamRoles: api.roles, createIamRole: api.createRole,
   getIamRole: api.getRole, updateIamRole: api.updateRole,
   putRoleTags: api.putRoleTags, deleteRoleTag: api.deleteRoleTag,
 }));
@@ -83,8 +83,6 @@ beforeEach(() => {
   api.createGroup.mockResolvedValue({ name: "New-identity" });
   api.createRole.mockResolvedValue({ name: "New-identity" });
   api.createPolicy.mockResolvedValue({ name: "New-identity" });
-  api.attachGroup.mockResolvedValue(policy);
-  api.attachRole.mockResolvedValue(policy);
   api.getRole.mockResolvedValue(role);
   api.updateRole.mockResolvedValue(role);
   api.putRoleTags.mockResolvedValue([]);
@@ -112,7 +110,8 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
     fireEvent.submit(form);
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(create.mock.calls[0][0]).toBe("acc-7");
-    if (kind === "role") expect(create.mock.calls[0][1]).toMatchObject({ name: "New-identity", path: "/", inline_policies: [] });
+    if (kind === "role") expect(create.mock.calls[0][1]).toMatchObject({ name: "New-identity", path: "/", policies: [], inline_policies: [] });
+    else if (kind === "group") expect(create.mock.calls[0][1]).toEqual({ name: "New-identity", policies: [], inline_policies: [] });
     else expect(create.mock.calls[0][1]).toBe("New-identity");
     if (kind === "user") expect(create.mock.calls[0].slice(2)).toEqual([true, [], [], []]);
     await waitFor(() => expect(form).not.toBeInTheDocument());
@@ -140,11 +139,11 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
 });
 
 it.each([
-  { kind: "group", Page: ManagerGroupsPage, attach: api.attachGroup },
-  { kind: "role", Page: ManagerRolesPage, attach: api.attachRole },
-])("keeps the $kind draft frozen until policy attachment finishes", async ({ kind, Page, attach }) => {
-  let resolve!: (value: typeof policy) => void;
-  attach.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+  { kind: "group", Page: ManagerGroupsPage, create: api.createGroup },
+  { kind: "role", Page: ManagerRolesPage, create: api.createRole },
+])("keeps the $kind draft frozen until the create request with policies finishes", async ({ kind, Page, create }) => {
+  let resolve!: (value: { name: string }) => void;
+  create.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
   render(<MemoryRouter><Page /></MemoryRouter>);
   await screen.findByText(`Existing ${kind}`);
   fireEvent.click(screen.getByRole("button", { name: `Create ${kind}` }));
@@ -155,10 +154,13 @@ it.each([
   fireEvent.click(policies.getByRole("button", { name: "Show" }));
   fireEvent.click(policies.getByLabelText("ReadOnly"));
   fireEvent.submit(form);
-  await waitFor(() => expect(attach).toHaveBeenCalledWith("acc-7", "New-identity", policy));
+  await waitFor(() => expect(create).toHaveBeenCalledWith(
+    "acc-7",
+    expect.objectContaining({ name: "New-identity", policies: [policy.arn] }),
+  ));
   expect(name).toBeDisabled();
   expect(within(form).getByRole("button", { name: "Creating..." })).toBeDisabled();
-  await act(async () => resolve(policy));
+  await act(async () => resolve({ name: "New-identity" }));
   await waitFor(() => expect(form).not.toBeInTheDocument());
 });
 
@@ -378,5 +380,6 @@ it.each(cases)("validates $kind inline drafts according to Ceph before creating 
   await waitFor(() => expect(create).toHaveBeenCalledOnce());
   const expectedName = kind === "role" ? "inline_under+score" : "inline:valid";
   if (kind === "role") expect(create.mock.calls[0][1]).toMatchObject({ inline_policies: [{ name: expectedName, document: {} }] });
-  else expect(create.mock.calls[0][kind === "user" ? 5 : 2]).toEqual([{ name: expectedName, document: {} }]);
+  else if (kind === "group") expect(create.mock.calls[0][1]).toMatchObject({ inline_policies: [{ name: expectedName, document: {} }] });
+  else expect(create.mock.calls[0][5]).toEqual([{ name: expectedName, document: {} }]);
 });
