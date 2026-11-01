@@ -190,6 +190,20 @@ class OnboardingEndpointSetupService:
             ceph_admin=ceph_admin,
         )
 
+    def _resolve_endpoint(
+        self,
+        resources,
+        draft,
+        requirements: _EndpointRequirements,
+    ) -> StorageEndpoint | None:
+        endpoint_id = resources.get("endpoint_id") or draft.endpoint_id
+        endpoint = self.db.get(StorageEndpoint, endpoint_id) if endpoint_id else None
+        if endpoint_id and endpoint is None:
+            raise OnboardingError("endpoint_unavailable")
+        if endpoint is not None and requirements.ceph and endpoint.provider != "ceph":
+            raise OnboardingError("ceph_endpoint_required")
+        return endpoint
+
     @staticmethod
     def _validate_endpoint_detection(
         draft,
@@ -214,6 +228,31 @@ class OnboardingEndpointSetupService:
             and detection.credential_checks.ceph_admin.status != "valid"
         ):
             raise OnboardingError("ceph_identity_denied")
+
+    def _detect_endpoint_capabilities(
+        self,
+        draft,
+        payload,
+        endpoint: StorageEndpoint | None,
+        requirements: _EndpointRequirements,
+        credentials: _EndpointCredentials,
+    ):
+        if not requirements.ceph:
+            return None
+        detection = self._detect(
+            draft,
+            endpoint,
+            credentials.admin,
+            credentials.supervision,
+            credentials.ceph_admin,
+        )
+        self._validate_endpoint_detection(
+            draft,
+            payload,
+            requirements,
+            detection,
+        )
+        return detection
 
     @staticmethod
     def _new_endpoint_features(
@@ -481,13 +520,8 @@ class OnboardingEndpointSetupService:
 
     def prepare(self, actor, row, draft, payload):
         resources = row.resources
-        endpoint_id = resources.get("endpoint_id") or draft.endpoint_id
-        endpoint = self.db.get(StorageEndpoint, endpoint_id) if endpoint_id else None
-        if endpoint_id and endpoint is None:
-            raise OnboardingError("endpoint_unavailable")
         requirements = self._endpoint_requirements(draft, payload)
-        if endpoint is not None and requirements.ceph and endpoint.provider != "ceph":
-            raise OnboardingError("ceph_endpoint_required")
+        endpoint = self._resolve_endpoint(resources, draft, requirements)
 
         credentials = self._endpoint_credentials(
             payload,
@@ -501,21 +535,13 @@ class OnboardingEndpointSetupService:
         if endpoint is not None and credentials.supplied and not editable:
             raise OnboardingError("endpoint_credentials_locked")
 
-        detection = None
-        if requirements.ceph:
-            detection = self._detect(
-                draft,
-                endpoint,
-                credentials.admin,
-                credentials.supervision,
-                credentials.ceph_admin,
-            )
-            self._validate_endpoint_detection(
-                draft,
-                payload,
-                requirements,
-                detection,
-            )
+        detection = self._detect_endpoint_capabilities(
+            draft,
+            payload,
+            endpoint,
+            requirements,
+            credentials,
+        )
 
         if endpoint is None:
             endpoint = self._create_endpoint(
