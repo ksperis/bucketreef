@@ -29,7 +29,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.normalize import normalize_optional_string
-from app.utils.rgw_payloads import extract_rgw_account_ids
+from app.utils.rgw_payloads import extract_rgw_account_ids, extract_rgw_user_identity
 
 router = APIRouter()
 
@@ -53,36 +53,21 @@ def _bucket_value(payload: Any, *keys: str) -> Optional[str]:
 def _verified_account_target(payload: Any, expected_id: str) -> bool:
     if not isinstance(payload, dict) or payload.get("not_found") or payload.get("conflict"):
         return False
-    nested = payload.get("account")
-    return extract_rgw_account_ids(payload, nested) == {expected_id}
+    return extract_rgw_account_ids(payload) == {expected_id}
 
 
 def _verified_user_target(payload: Any, expected_uid: str, expected_tenant: Optional[str]) -> bool:
     if not isinstance(payload, dict) or payload.get("not_found") or payload.get("conflict"):
         return False
-    nested = payload.get("user")
-    identities: list[str] = []
-    tenants: set[str] = set()
-    for item in (payload, nested):
-        if not isinstance(item, dict):
-            continue
-        tenant = normalize_optional_string(item.get("tenant"))
-        if tenant:
-            tenants.add(tenant)
-        for key in ("uid", "user_id"):
-            identifier = normalize_optional_string(item.get(key))
-            if identifier:
-                identities.append(identifier)
-                if "$" in identifier:
-                    embedded_tenant, identifier = identifier.split("$", 1)
-                    tenants.add(embedded_tenant)
-                if identifier != expected_uid:
-                    return False
-    if not identities:
+    try:
+        actual_uid, actual_tenant = extract_rgw_user_identity(payload)
+    except ValueError:
+        return False
+    if actual_uid != expected_uid:
         return False
     if expected_tenant:
-        return tenants == {expected_tenant}
-    return not tenants
+        return actual_tenant == expected_tenant
+    return actual_tenant is None
 
 
 def _load_bucket_info(

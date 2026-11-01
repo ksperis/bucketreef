@@ -8,6 +8,7 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.rgw_identifiers import normalize_rgw_identifier
 from app.utils.rgw_payloads import (
+    extract_rgw_user_account_ids,
     require_rgw_user_identity,
     rgw_user_account_root,
     split_rgw_tenant_uid,
@@ -54,12 +55,7 @@ class RgwAccountRootService:
         if not payload or payload.get("not_found"):
             return None
         require_rgw_user_identity(payload, root_uid, tenant)
-        user = payload.get("user") if isinstance(payload.get("user"), dict) else payload
-        account_values = {
-            str(value).strip()
-            for value in (user.get("account_id"), payload.get("account_id"))
-            if value is not None and str(value).strip()
-        }
+        account_values = extract_rgw_user_account_ids(payload)
         if account_values != {account_id}:
             raise ValueError(
                 "RGW root UID belongs to another account or has no verifiable account"
@@ -140,13 +136,8 @@ class RgwAccountRootService:
         )
         if not payload:
             return None
-        user = (
-            payload.get("user")
-            if isinstance(payload.get("user"), dict)
-            else payload
-        )
         if (
-            user.get("account_id") != account_id
+            extract_rgw_user_account_ids(payload) != {account_id}
             or rgw_user_account_root(payload) is not True
         ):
             return None

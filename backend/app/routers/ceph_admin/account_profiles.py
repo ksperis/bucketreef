@@ -89,8 +89,7 @@ def _apply_account_update(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW account update conflicted")
     raise_if_unsupported(result, "RGW account update is not supported on this cluster")
     if isinstance(result, dict):
-        response_account = result.get("account")
-        returned_ids = extract_rgw_account_ids(result, response_account)
+        returned_ids = extract_rgw_account_ids(result)
         if returned_ids and returned_ids != {account_id}:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -147,8 +146,7 @@ def _create_rgw_account_record(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW account already exists")
     raise_if_unsupported(result, "RGW account creation is not supported on this cluster")
 
-    account_payload = result.get("account") if isinstance(result, dict) else None
-    returned_ids = extract_rgw_account_ids(result, account_payload) if isinstance(result, dict) else set()
+    returned_ids = extract_rgw_account_ids(result) if isinstance(result, dict) else set()
     if returned_ids != {account_id}:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
