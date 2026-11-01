@@ -21,6 +21,7 @@ from app.routers.ceph_admin.dependencies import get_ceph_admin_context
 from app.services.ceph_admin_account_access import (
     load_account_payload,
     optional_account_lookup_enabled,
+    resolve_optional_account_name,
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
@@ -38,7 +39,6 @@ from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.rgw_caps import canonicalize_rgw_caps
 from app.utils.rgw_payloads import (
     extract_bucket_list,
-    extract_rgw_account_name,
     extract_rgw_account_tenant,
     extract_rgw_user_caps,
 )
@@ -73,10 +73,11 @@ def _extract_caps(payload: dict[str, Any]) -> list[str]:
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
     payload = load_user_payload(uid, tenant, ctx.rgw_admin)
     fields = extract_user_fields(payload, {"account"})
-    account_name = _resolve_account_name(
+    account_name = resolve_optional_account_name(
         fields.account_id,
-        ctx,
-        payload_account_name=fields.account_name,
+        fields.account_name,
+        ctx.rgw_admin,
+        account_lookup_enabled=optional_account_lookup_enabled(ctx.endpoint),
     )
     return build_user_detail(
         payload,
@@ -144,27 +145,6 @@ def _apply_user_quota_update(
     except RGWAdminError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     raise_if_unsupported(result, "RGW user quota update is not supported on this cluster")
-
-
-def _resolve_account_name(
-    account_id: Optional[str],
-    ctx: CephAdminContext,
-    *,
-    payload_account_name: Optional[str] = None,
-) -> Optional[str]:
-    if not account_id or optional_account_lookup_enabled(ctx.endpoint) is False:
-        return payload_account_name
-    try:
-        account_payload = ctx.rgw_admin.get_account(
-            account_id,
-            allow_not_found=True,
-            allow_not_implemented=True,
-        )
-    except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-    if not isinstance(account_payload, dict) or account_payload.get("not_found"):
-        return payload_account_name
-    return extract_rgw_account_name(account_payload) or payload_account_name
 
 
 def _extract_generated_key_from_payload(
