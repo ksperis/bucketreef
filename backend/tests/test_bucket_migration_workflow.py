@@ -26,7 +26,7 @@ from app.models.bucket_migration import (
     BucketMigrationView,
 )
 from app.services.bucket_migration import maintenance as bucket_migration_maintenance
-from app.services.bucket_migration._shared import _BucketVersionEntry
+from app.services.bucket_migration.execution_object_models import BucketVersionEntry
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.bucket_migration.workflow import available_actions, preparation_state
 from app.services.managed_resource_naming import MIGRATION_PROBE_OBJECT_KEY
@@ -631,7 +631,7 @@ def test_fingerprint_detects_tag_changes_and_preserves_exact_identity(prepared):
 def test_version_aware_fingerprint_uses_exact_version_identity(prepared):
     service, _, _ = prepared
     entries = [
-        _BucketVersionEntry(
+        BucketVersionEntry(
             key=" key ",
             version_id="version-1",
             is_delete_marker=False,
@@ -642,7 +642,7 @@ def test_version_aware_fingerprint_uses_exact_version_identity(prepared):
             storage_class=None,
             order_index=0,
         ),
-        _BucketVersionEntry(
+        BucketVersionEntry(
             key=" key ",
             version_id="delete-marker-1",
             is_delete_marker=True,

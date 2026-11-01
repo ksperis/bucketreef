@@ -38,11 +38,10 @@ from app.models.bucket_migration import (
 )
 from app.models.webhook import WebhookEndpointPayload
 from app.services.bucket_migration._shared import (
-    _BucketVersionEntry,
     _DB_ERROR_MESSAGE_MAX_CHARS,
     _DB_EVENT_MESSAGE_MAX_CHARS,
-    _VersionedObjectDetails,
 )
+from app.services.bucket_migration.execution_object_models import BucketVersionEntry, VersionedObjectDetails
 from app.services.bucket_migration.execution_runtime import ResolvedContext
 from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
@@ -214,8 +213,8 @@ def _version_entry(
     is_latest: bool = True,
     size: int = 1,
     order_index: int = 0,
-) -> _BucketVersionEntry:
-    return _BucketVersionEntry(
+) -> BucketVersionEntry:
+    return BucketVersionEntry(
         key=key,
         version_id=version_id,
         is_delete_marker=is_delete_marker,
@@ -228,8 +227,8 @@ def _version_entry(
     )
 
 
-def _version_details(*, size: int = 1, etag: str | None = None) -> _VersionedObjectDetails:
-    return _VersionedObjectDetails(
+def _version_details(*, size: int = 1, etag: str | None = None) -> VersionedObjectDetails:
+    return VersionedObjectDetails(
         size=size,
         etag=etag,
         compare_by="size",

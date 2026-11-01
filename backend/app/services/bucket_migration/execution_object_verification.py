@@ -14,9 +14,9 @@ from botocore.exceptions import BotoCoreError, ClientError
 from ._shared import (
     _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS,
     _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
-    _VersionTimelineDiffKey,
     _chunked,
 )
+from .execution_object_models import VersionTimelineDiffKey
 from .execution_runtime import ResolvedContext
 from .execution_signals import MigrationControlRequested, WorkerLeaseLostError, check_control_state
 
@@ -447,10 +447,10 @@ class BucketMigrationObjectVerificationMixin:
         size_only_count = 0
         results = _StrongVerificationResults()
         worker_count = max(1, int(parallelism_max))
-        pair_batch: list[_VersionTimelineDiffKey] = []
+        pair_batch: list[VersionTimelineDiffKey] = []
         thread_local = threading.local()
 
-        def _verify_worker(pair: _VersionTimelineDiffKey) -> tuple[bool, str]:
+        def _verify_worker(pair: VersionTimelineDiffKey) -> tuple[bool, str]:
             resolved_source_client, resolved_target_client = self._strong_verification_clients(
                 thread_local,
                 source_ctx,

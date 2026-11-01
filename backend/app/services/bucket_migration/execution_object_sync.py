@@ -18,10 +18,8 @@ from ._shared import (
     _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
     _SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS,
     _SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD,
-    _BucketDiffEntry,
-    _SyncDiff,
-    _VersionReplayWatermarkBuilder,
 )
+from .execution_object_models import BucketDiffEntry, SyncDiff, VersionReplayWatermarkBuilder
 from .execution_runtime import ResolvedContext
 from .execution_signals import WorkerLeaseLostError
 
@@ -102,7 +100,7 @@ class BucketMigrationObjectSyncMixin:
         migration: BucketMigration,
         item: BucketMigrationItem,
         control_check: Callable[[], str],
-    ) -> tuple[int, int, _SyncDiff]:
+    ) -> tuple[int, int, SyncDiff]:
         if self._item_execution_strategy(item) == "version_aware":
             return self._sync_bucket_version_aware(
                 source_ctx,
@@ -137,7 +135,7 @@ class BucketMigrationObjectSyncMixin:
         migration: BucketMigration,
         item: BucketMigrationItem,
         control_check: Callable[[], str],
-    ) -> tuple[int, int, _SyncDiff]:
+    ) -> tuple[int, int, SyncDiff]:
         return _VersionAwareObjectSyncRunner(
             service=self,
             source_ctx=source_ctx,
@@ -164,7 +162,7 @@ class BucketMigrationObjectSyncMixin:
         source_client = self._context_client(source_ctx)
         target_client = self._context_client(target_ctx)
         copied = 0
-        watermark_builder = _VersionReplayWatermarkBuilder()
+        watermark_builder = VersionReplayWatermarkBuilder()
         scan_count_since_control = 0
 
         for _key, timeline in self._iter_bucket_version_timelines(source_ctx, source_bucket, client=source_client):
@@ -307,7 +305,7 @@ class _VersionAwareObjectSyncRunner:
         self.copied = 0
         self.deleted = 0
 
-    def run(self) -> tuple[int, int, _SyncDiff]:
+    def run(self) -> tuple[int, int, SyncDiff]:
         self._select_replay_plan()
         self.service._configuration.set_versioning(
             self.target_bucket,
@@ -444,7 +442,7 @@ class _VersionAwareObjectSyncRunner:
         )
         self.service._commit()
 
-    def _interrupted_result(self) -> tuple[int, int, _SyncDiff]:
+    def _interrupted_result(self) -> tuple[int, int, SyncDiff]:
         return -1, -1, self.service._new_empty_sync_diff()
 
 
@@ -492,7 +490,7 @@ class _CurrentObjectSyncRunner:
         self.copy_grant_stack: ExitStack | None = None
         self.copy_grant_enabled = False
 
-    def run(self) -> tuple[int, int, _SyncDiff]:
+    def run(self) -> tuple[int, int, SyncDiff]:
         source_client = self.service._context_client(self.source_ctx)
         target_client = self.service._context_client(self.target_ctx)
         with ExitStack() as copy_grant_stack:
@@ -529,7 +527,7 @@ class _CurrentObjectSyncRunner:
         self.service._commit()
         return self.copied, self.deleted, self.diff
 
-    def _process_entry(self, entry: _BucketDiffEntry) -> bool:
+    def _process_entry(self, entry: BucketDiffEntry) -> bool:
         self.scan_count_since_control += 1
         if self.scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
             if not self._may_continue():
@@ -543,7 +541,7 @@ class _CurrentObjectSyncRunner:
             return False
         return True
 
-    def _record_diff_entry(self, entry: _BucketDiffEntry) -> tuple[bool, bool]:
+    def _record_diff_entry(self, entry: BucketDiffEntry) -> tuple[bool, bool]:
         if entry.kind == "only_source":
             self.diff.source_count += 1
             self.diff.only_source_count += 1
@@ -660,5 +658,5 @@ class _CurrentObjectSyncRunner:
         self.deleted += deleted_now
         return True
 
-    def _interrupted_result(self) -> tuple[int, int, _SyncDiff]:
+    def _interrupted_result(self) -> tuple[int, int, SyncDiff]:
         return -1, -1, self.diff
