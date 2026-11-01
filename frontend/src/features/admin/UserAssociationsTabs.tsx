@@ -36,7 +36,7 @@ type S3UserAssociationsState = {
   toggleSelection: (id: number) => void;
 };
 
-type ConnectionAssociationsState = {
+type SimpleIdAssociationsState = {
   selected: number[];
   setSelected: Dispatch<SetStateAction<number[]>>;
   labelById: Map<number, string>;
@@ -52,8 +52,6 @@ type ConnectionAssociationsState = {
   toggleSelection: (id: number) => void;
 };
 
-type OpenStackAssociationsState = ConnectionAssociationsState;
-
 type UserAssociationsTabsProps = {
   activeTab: StorageAssociationTab;
   onTabChange: (tab: StorageAssociationTab) => void;
@@ -61,9 +59,78 @@ type UserAssociationsTabsProps = {
   showPortalRole: boolean;
   accounts: UserAccountAssociationsState;
   s3Users: S3UserAssociationsState;
-  connections: ConnectionAssociationsState;
-  openstack?: OpenStackAssociationsState;
+  connections: SimpleIdAssociationsState;
+  openstack?: SimpleIdAssociationsState;
 };
+
+type SimpleIdAssociationsPanelProps = {
+  state: SimpleIdAssociationsState;
+  columns: DataTableColumn<number>[];
+  maxVisibleOptions: number;
+  loadingMessage: string;
+  emptyMessage: string;
+  pickerTitle: string;
+  searchHint: string;
+};
+
+function SimpleIdAssociationsPanel({
+  state,
+  columns,
+  maxVisibleOptions,
+  loadingMessage,
+  emptyMessage,
+  pickerTitle,
+  searchHint,
+}: SimpleIdAssociationsPanelProps) {
+  const resetPicker = () => {
+    state.setShowPanel(false);
+    state.setSelections([]);
+    state.setSearch("");
+  };
+
+  return (
+    <div className="space-y-3">
+      <DataTableShell
+        columns={columns}
+        rows={state.selected}
+        rowKey={(id) => id}
+        status={state.selected.length ? "ready" : "empty"}
+        loadingMessage={loadingMessage}
+        errorMessage={emptyMessage}
+        emptyMessage={emptyMessage}
+        containerClassName={adminAssociationTableContainerClass}
+        responsiveCards
+      />
+      {state.showPanel ? (
+        <AdminAssociationPickerPanel
+          title={pickerTitle}
+          hint={searchHint}
+          search={state.search}
+          onSearchChange={state.setSearch}
+          loading={state.loading}
+          availableCount={state.available.length}
+          maxVisibleOptions={maxVisibleOptions}
+          selectedCount={state.selections.length}
+          loadingLabel={loadingMessage}
+          addDisabled={state.selections.length === 0}
+          onCancel={resetPicker}
+          onAdd={() => {
+            if (state.selections.length === 0) return;
+            state.setSelected((current) => [...current, ...state.selections]);
+            resetPicker();
+          }}
+        >
+          <AdminAssociationCheckboxOptions
+            options={state.visible}
+            selectedIds={state.selections}
+            onToggle={state.toggleSelection}
+            getLabel={(option) => option.label}
+          />
+        </AdminAssociationPickerPanel>
+      ) : null}
+    </div>
+  );
+}
 
 export default function UserAssociationsTabs({
   activeTab,
@@ -263,55 +330,15 @@ export default function UserAssociationsTabs({
           onAction: () => connections.setShowPanel((current) => !current),
           hint: text("sharedConnectionsOnly"),
           content: (
-            <div className="space-y-3">
-              <DataTableShell
-                columns={connectionColumns}
-                rows={connections.selected}
-                rowKey={(id) => id}
-                status={connections.selected.length ? "ready" : "empty"}
-                loadingMessage={text("loadingConnections")}
-                errorMessage={text("noLinkedConnection")}
-                emptyMessage={text("noLinkedConnection")}
-                containerClassName={adminAssociationTableContainerClass}
-                responsiveCards
-              />
-              {connections.showPanel ? (
-                <AdminAssociationPickerPanel
-                  title={text("addConnections")}
-                  hint={text("searchByName")}
-                  search={connections.search}
-                  onSearchChange={connections.setSearch}
-                  loading={connections.loading}
-                  availableCount={connections.available.length}
-                  maxVisibleOptions={maxVisibleOptions}
-                  selectedCount={connections.selections.length}
-                  loadingLabel={text("loadingConnections")}
-                  addDisabled={connections.selections.length === 0}
-                  onCancel={() => {
-                    connections.setShowPanel(false);
-                    connections.setSelections([]);
-                    connections.setSearch("");
-                  }}
-                  onAdd={() => {
-                    if (connections.selections.length === 0) return;
-                    connections.setSelected((current) => [
-                      ...current,
-                      ...connections.selections,
-                    ]);
-                    connections.setSelections([]);
-                    connections.setSearch("");
-                    connections.setShowPanel(false);
-                  }}
-                >
-                  <AdminAssociationCheckboxOptions
-                    options={connections.visible}
-                    selectedIds={connections.selections}
-                    onToggle={connections.toggleSelection}
-                    getLabel={(option) => option.label}
-                  />
-                </AdminAssociationPickerPanel>
-              ) : null}
-            </div>
+            <SimpleIdAssociationsPanel
+              state={connections}
+              columns={connectionColumns}
+              maxVisibleOptions={maxVisibleOptions}
+              loadingMessage={text("loadingConnections")}
+              emptyMessage={text("noLinkedConnection")}
+              pickerTitle={text("addConnections")}
+              searchHint={text("searchByName")}
+            />
           ),
         },
         ...(openstack ? [{
@@ -321,55 +348,15 @@ export default function UserAssociationsTabs({
           actionLabel: text(openstack.showPanel ? "close" : "addOpenStackClouds"),
           onAction: () => openstack.setShowPanel((current) => !current),
           content: (
-            <div className="space-y-3">
-              <DataTableShell
-                columns={openStackColumns}
-                rows={openstack.selected}
-                rowKey={(id) => id}
-                status={openstack.selected.length ? "ready" : "empty"}
-                loadingMessage={text("loadingOpenStackClouds")}
-                errorMessage={text("noLinkedOpenStackCloud")}
-                emptyMessage={text("noLinkedOpenStackCloud")}
-                containerClassName={adminAssociationTableContainerClass}
-                responsiveCards
-              />
-              {openstack.showPanel ? (
-                <AdminAssociationPickerPanel
-                  title={text("addOpenStackClouds")}
-                  hint={text("searchByName")}
-                  search={openstack.search}
-                  onSearchChange={openstack.setSearch}
-                  loading={openstack.loading}
-                  availableCount={openstack.available.length}
-                  maxVisibleOptions={maxVisibleOptions}
-                  selectedCount={openstack.selections.length}
-                  loadingLabel={text("loadingOpenStackClouds")}
-                  addDisabled={openstack.selections.length === 0}
-                  onCancel={() => {
-                    openstack.setShowPanel(false);
-                    openstack.setSelections([]);
-                    openstack.setSearch("");
-                  }}
-                  onAdd={() => {
-                    if (openstack.selections.length === 0) return;
-                    openstack.setSelected((current) => [
-                      ...current,
-                      ...openstack.selections,
-                    ]);
-                    openstack.setSelections([]);
-                    openstack.setSearch("");
-                    openstack.setShowPanel(false);
-                  }}
-                >
-                  <AdminAssociationCheckboxOptions
-                    options={openstack.visible}
-                    selectedIds={openstack.selections}
-                    onToggle={openstack.toggleSelection}
-                    getLabel={(option) => option.label}
-                  />
-                </AdminAssociationPickerPanel>
-              ) : null}
-            </div>
+            <SimpleIdAssociationsPanel
+              state={openstack}
+              columns={openStackColumns}
+              maxVisibleOptions={maxVisibleOptions}
+              loadingMessage={text("loadingOpenStackClouds")}
+              emptyMessage={text("noLinkedOpenStackCloud")}
+              pickerTitle={text("addOpenStackClouds")}
+              searchHint={text("searchByName")}
+            />
           ),
         }] : []),
       ]}
