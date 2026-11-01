@@ -15,9 +15,6 @@ import {
   importS3Users,
   listS3Users,
   updateS3User,
-  type UpdateS3UserPayload,
-  type S3UserGroupLink,
-  type S3UserUserLink,
 } from "../../api/s3Users";
 import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import PageHeader from "../../components/PageHeader";
@@ -63,6 +60,7 @@ import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
+import { adminS3UserForm, adminS3UserPayload, emptyAdminS3UserForm } from "./adminS3UserForm";
 
 type EditTab = "general" | "users" | "groups" | "manager";
 
@@ -137,27 +135,7 @@ export default function S3UsersPage() {
   const [importInitialSignature, setImportInitialSignature] = useState("");
 
   const [editingUser, setEditingUser] = useState<S3User | null>(null);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    email: "",
-    tags: [] as UiTagDefinition[],
-    user_links: [] as S3UserUserLink[],
-    group_links: [] as S3UserGroupLink[],
-    quota_max_size_gb: "",
-    quota_max_size_unit: "GiB",
-    quota_max_objects: "",
-    allow_bucket_quota_management: null as boolean | null,
-    allow_access_key_management: null as boolean | null,
-    allow_access_key_metadata: null as boolean | null,
-    allow_access_key_expiration: null as boolean | null,
-    allow_activity_history: null as boolean | null,
-    allow_rgw_usage_metrics: null as boolean | null,
-    allow_cost_estimation: null as boolean | null,
-    allow_bucket_usage_stats: null as boolean | null,
-    allow_bucket_usage_stats_collection: null as boolean | null,
-    allow_multisite_endpoint_switching: null as boolean | null,
-    allow_managed_private_connection_provisioning: null as boolean | null,
-  });
+  const [editForm, setEditForm] = useState(emptyAdminS3UserForm);
   const [editInitialSignature, setEditInitialSignature] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editBusy, setEditBusy] = useState(false);
@@ -357,34 +335,7 @@ export default function S3UsersPage() {
     void loadPortalUsersIfNeeded();
     void loadGroupsIfNeeded();
     void loadEndpointsIfNeeded();
-    const quota = buildAdminQuotaSizeEditorValue(user.quota_max_size_gb);
-    const nextEditForm = {
-      name: user.name,
-      email: user.email ?? "",
-      tags: normalizeUiTags(user.tags),
-      user_links: user.user_links.map((link) => ({
-        ...link,
-        allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-      })),
-      group_links: user.group_links.map((link) => ({
-        ...link,
-        allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-      })),
-      quota_max_size_gb: quota.value,
-      quota_max_size_unit: quota.unit,
-      quota_max_objects: user.quota_max_objects != null ? String(user.quota_max_objects) : "",
-      allow_bucket_quota_management: user.allow_bucket_quota_management,
-      allow_access_key_management: user.allow_access_key_management,
-      allow_access_key_metadata: user.allow_access_key_metadata,
-      allow_access_key_expiration: user.allow_access_key_expiration,
-      allow_activity_history: user.allow_activity_history,
-      allow_rgw_usage_metrics: user.allow_rgw_usage_metrics,
-      allow_cost_estimation: user.allow_cost_estimation,
-      allow_bucket_usage_stats: user.allow_bucket_usage_stats,
-      allow_bucket_usage_stats_collection: user.allow_bucket_usage_stats_collection,
-      allow_multisite_endpoint_switching: user.allow_multisite_endpoint_switching,
-      allow_managed_private_connection_provisioning: user.allow_managed_private_connection_provisioning,
-    };
+    const nextEditForm = adminS3UserForm(user);
     setEditingUser(user);
     setEditForm(nextEditForm);
     setEditInitialSignature(stableSignature({ editForm: { ...nextEditForm, tags: normalizeUiTags(nextEditForm.tags) } }));
@@ -403,68 +354,9 @@ export default function S3UsersPage() {
     setEditBusy(true);
     setEditError(null);
     try {
-      const payload: UpdateS3UserPayload = {
-        name: editForm.name || undefined,
-        email: editForm.email || undefined,
-        tags: normalizeUiTags(editForm.tags),
-        user_links: editForm.user_links.map(({ user_id, allow_manager_browser_data_access }) => ({
-          user_id,
-          allow_manager_browser_data_access,
-        })),
-        group_links: editForm.group_links.map(({ group_id, allow_manager_browser_data_access }) => ({
-          group_id,
-          allow_manager_browser_data_access,
-        })),
-      };
-      if (canManageManagerFeatures) {
-        payload.allow_bucket_quota_management = editForm.allow_bucket_quota_management;
-        payload.allow_access_key_management = editForm.allow_access_key_management;
-        payload.allow_access_key_metadata = editForm.allow_access_key_metadata;
-        payload.allow_access_key_expiration = editForm.allow_access_key_expiration;
-        payload.allow_activity_history = editForm.allow_activity_history;
-        payload.allow_rgw_usage_metrics = editForm.allow_rgw_usage_metrics;
-        payload.allow_cost_estimation = editForm.allow_cost_estimation;
-        payload.allow_multisite_endpoint_switching = editForm.allow_multisite_endpoint_switching;
-        payload.allow_managed_private_connection_provisioning =
-          editForm.allow_managed_private_connection_provisioning;
-      }
-      payload.allow_bucket_usage_stats = editForm.allow_bucket_usage_stats;
-      payload.allow_bucket_usage_stats_collection = editForm.allow_bucket_usage_stats_collection;
-      if (allowUserQuotaUpdates) {
-        payload.quota_max_size_gb = editForm.quota_max_size_gb !== "" ? Number(editForm.quota_max_size_gb) : null;
-        payload.quota_max_size_unit = editForm.quota_max_size_gb !== "" ? editForm.quota_max_size_unit : null;
-        payload.quota_max_objects = editForm.quota_max_objects !== "" ? Number(editForm.quota_max_objects) : null;
-      }
+      const payload = adminS3UserPayload(editForm, allowUserQuotaUpdates, canManageManagerFeatures);
       const updatedUser = await updateS3User(editingUser.id, payload);
-      const savedQuota = buildAdminQuotaSizeEditorValue(updatedUser.quota_max_size_gb);
-      const savedForm = {
-        ...editForm,
-        name: updatedUser.name,
-        email: updatedUser.email ?? "",
-        tags: normalizeUiTags(updatedUser.tags),
-        user_links: updatedUser.user_links.map((link) => ({
-          ...link,
-          allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-        })),
-        group_links: updatedUser.group_links.map((link) => ({
-          ...link,
-          allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-        })),
-        quota_max_size_gb: updatedUser.quota_max_size_gb != null ? savedQuota.value : "",
-        quota_max_size_unit: savedQuota.unit,
-        quota_max_objects: updatedUser.quota_max_objects != null ? String(updatedUser.quota_max_objects) : "",
-        allow_bucket_quota_management: updatedUser.allow_bucket_quota_management,
-        allow_access_key_management: updatedUser.allow_access_key_management,
-        allow_access_key_metadata: updatedUser.allow_access_key_metadata,
-        allow_access_key_expiration: updatedUser.allow_access_key_expiration,
-        allow_activity_history: updatedUser.allow_activity_history,
-        allow_rgw_usage_metrics: updatedUser.allow_rgw_usage_metrics,
-        allow_cost_estimation: updatedUser.allow_cost_estimation,
-        allow_bucket_usage_stats: updatedUser.allow_bucket_usage_stats,
-        allow_bucket_usage_stats_collection: updatedUser.allow_bucket_usage_stats_collection,
-        allow_multisite_endpoint_switching: updatedUser.allow_multisite_endpoint_switching,
-        allow_managed_private_connection_provisioning: updatedUser.allow_managed_private_connection_provisioning,
-      };
+      const savedForm = adminS3UserForm(updatedUser);
       setEditingUser(updatedUser);
       setEditForm(savedForm);
       portalUserPicker.setSelections([]);
