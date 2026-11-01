@@ -9,6 +9,7 @@ import {
   formatAdvancedFilterSyncLabel,
   progressFromAdvancedSearchEvent,
   resolveQuickTextFilterState,
+  resolveTextFilterInputState,
   resolveTextFilterFieldState,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterDraftSummary,
@@ -18,6 +19,23 @@ import {
 } from "./advancedFilterShared";
 
 describe("advancedFilterShared", () => {
+  it("resolves exact-list text input state centrally", () => {
+    expect(resolveTextFilterInputState(" Alpha, beta, alpha ", "contains")).toEqual({
+      value: "Alpha, beta, alpha",
+      parsed: {
+        values: ["Alpha", "beta"],
+        listProvided: true,
+      },
+      forcesExact: true,
+      effectiveMode: "exact",
+    });
+    expect(resolveTextFilterInputState(" archive ", "contains")).toMatchObject({
+      value: "archive",
+      forcesExact: false,
+      effectiveMode: "contains",
+    });
+  });
+
   it("prioritizes pending field presentation over applied presentation", () => {
     expect(advancedFilterFieldHighlight(true, true)).toEqual({
       labelClass: expect.stringContaining("text-amber-700"),
