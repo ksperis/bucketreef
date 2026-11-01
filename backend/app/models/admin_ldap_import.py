@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from pydantic import EmailStr, Field, model_validator
 
 from app.models.base import ApiModel
-from app.models.user import AccountMembership, ManagerToolAccess, S3UserMembership, UiRole
+from app.models.user import ManagerToolAccess, UiRole, UserAssociationsPayload
 
 
 class LDAPImportMatchedUser(ApiModel):
@@ -33,7 +33,7 @@ class LDAPImportSearchResponse(ApiModel):
     truncated: bool
 
 
-class LDAPImportCreatePayload(ApiModel):
+class LDAPImportCreatePayload(UserAssociationsPayload):
     email: EmailStr
     full_name: Optional[str] = None
     role: UiRole = "ui_user"
@@ -44,11 +44,6 @@ class LDAPImportCreatePayload(ApiModel):
     allow_multisite_endpoint_switching: bool = False
     manager_tool_access: Optional[ManagerToolAccess] = None
     browser_advanced_features_enabled: bool = False
-    account_links: Optional[list[AccountMembership]] = None
-    s3_user_links: Optional[list[S3UserMembership]] = None
-    s3_connection_ids: Optional[list[int]] = None
-    group_ids: Optional[list[int]] = None
-    openstack_cloud_ids: Optional[list[int]] = None
 
 
 class LDAPImportRequest(ApiModel):

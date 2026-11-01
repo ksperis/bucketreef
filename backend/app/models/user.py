@@ -50,6 +50,14 @@ class S3UserMembership(ApiModel):
     allow_manager_browser_data_access: bool = False
 
 
+class UserAssociationsPayload(ApiModel):
+    account_links: Optional[list[AccountMembership]] = None
+    s3_user_links: Optional[list[S3UserMembership]] = None
+    s3_connection_ids: Optional[list[int]] = None
+    group_ids: Optional[list[int]] = None
+    openstack_cloud_ids: Optional[list[int]] = None
+
+
 class EffectiveAccountGroupSource(ApiModel):
     group_id: int
     group_name: str
@@ -117,7 +125,7 @@ class UserAssociationDetail(ApiModel):
     avatar: Optional[UserAvatar]
 
 
-class UserCreate(ApiModel):
+class UserCreate(UserAssociationsPayload):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
@@ -129,11 +137,6 @@ class UserCreate(ApiModel):
     allow_multisite_endpoint_switching: bool = False
     manager_tool_access: Optional[ManagerToolAccess] = None
     browser_advanced_features_enabled: bool = False
-    account_links: Optional[list[AccountMembership]] = None
-    s3_user_links: Optional[list[S3UserMembership]] = None
-    s3_connection_ids: Optional[list[int]] = None
-    group_ids: Optional[list[int]] = None
-    openstack_cloud_ids: Optional[list[int]] = None
 
 
 class UserProfilePreferencesUpdate(ApiModel):
@@ -143,7 +146,7 @@ class UserProfilePreferencesUpdate(ApiModel):
     quota_alerts_global_watch: Optional[bool] = None
 
 
-class UserUpdate(UserProfilePreferencesUpdate):
+class UserUpdate(UserProfilePreferencesUpdate, UserAssociationsPayload):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     password: Optional[str] = None
@@ -156,11 +159,6 @@ class UserUpdate(UserProfilePreferencesUpdate):
     allow_multisite_endpoint_switching: Optional[bool] = None
     manager_tool_access: Optional[ManagerToolAccess] = None
     browser_advanced_features_enabled: Optional[bool] = None
-    account_links: Optional[list[AccountMembership]] = None
-    s3_user_links: Optional[list[S3UserMembership]] = None
-    s3_connection_ids: Optional[list[int]] = None
-    group_ids: Optional[list[int]] = None
-    openstack_cloud_ids: Optional[list[int]] = None
 
 
 class UserSelfUpdate(UserProfilePreferencesUpdate):
