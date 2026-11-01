@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { isRecord } from "../../../utils/record";
 
 export type EncryptionRuleRecord = Record<string, unknown>;
 
@@ -23,10 +24,6 @@ const allowedRuleKeys = new Set([
 ]);
 const allowedDefaultEncryptionKeys = new Set(["SSEAlgorithm", "KMSMasterKeyID"]);
 
-function isPlainRecord(value: unknown): value is EncryptionRuleRecord {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function hasOnlyKeys(value: EncryptionRuleRecord, allowed: Set<string>): boolean {
   return Object.keys(value).every((key) => allowed.has(key));
 }
@@ -39,10 +36,10 @@ function isEncryptionAlgorithm(value: unknown): value is EncryptionAlgorithm {
 }
 
 export function isEncryptionRuleVisuallyEditable(rule: EncryptionRuleRecord): boolean {
-  if (!isPlainRecord(rule) || !hasOnlyKeys(rule, allowedRuleKeys)) return false;
+  if (!isRecord(rule) || !hasOnlyKeys(rule, allowedRuleKeys)) return false;
 
   const defaultEncryption = rule.ApplyServerSideEncryptionByDefault;
-  if (!isPlainRecord(defaultEncryption)) return false;
+  if (!isRecord(defaultEncryption)) return false;
   if (!hasOnlyKeys(defaultEncryption, allowedDefaultEncryptionKeys)) return false;
   if (!isEncryptionAlgorithm(defaultEncryption.SSEAlgorithm)) return false;
 
@@ -74,7 +71,7 @@ export function isEncryptionRuleVisuallyEditable(rule: EncryptionRuleRecord): bo
 export function readEncryptionVisualRule(
   rule: EncryptionRuleRecord,
 ): EncryptionVisualRuleDraft {
-  const defaultEncryption = isPlainRecord(rule.ApplyServerSideEncryptionByDefault)
+  const defaultEncryption = isRecord(rule.ApplyServerSideEncryptionByDefault)
     ? rule.ApplyServerSideEncryptionByDefault
     : {};
   const algorithm = isEncryptionAlgorithm(defaultEncryption.SSEAlgorithm)
@@ -148,7 +145,7 @@ export function parseEncryptionRulesJson(
   if (!Array.isArray(parsed)) {
     return { rules: null, error: "Encryption JSON must be an array of rules." };
   }
-  if (parsed.some((rule) => !isPlainRecord(rule))) {
+  if (parsed.some((rule) => !isRecord(rule))) {
     return { rules: null, error: "Each encryption rule must be a JSON object." };
   }
   return { rules: parsed as EncryptionRuleRecord[], error: null };
