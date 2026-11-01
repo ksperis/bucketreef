@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   patchStorageOpsBucketUiTags: vi.fn(),
   noopAsync: vi.fn(async () => ({})),
   navigate: vi.fn(),
+  selectedEndpointId: 7,
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -93,10 +94,10 @@ vi.mock("../../api/bucketUiTags", () => ({
 
 vi.mock("../cephAdmin/CephAdminEndpointContext", () => ({
   useCephAdminEndpoint: () => ({
-    selectedEndpointId: 7,
+    selectedEndpointId: mocks.selectedEndpointId,
     selectedEndpoint: {
-      id: 7,
-      name: "Archive",
+      id: mocks.selectedEndpointId,
+      name: `Endpoint ${mocks.selectedEndpointId}`,
       capabilities: { metrics: false, static_website: true, sse: true },
       tags: [],
     },
@@ -191,6 +192,7 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
     mocks.patchStorageOpsBucketUiTags.mockResolvedValue({ definitions: [] });
     mocks.noopAsync.mockClear();
     mocks.navigate.mockReset();
+    mocks.selectedEndpointId = 7;
     window.localStorage.clear();
     window.sessionStorage.clear();
   });
@@ -296,6 +298,54 @@ describe("BucketOpsWorkbench Ceph Admin stats fallback", () => {
     expect(mocks.listCephAdminBuckets.mock.calls.map((call) => call[1]?.with_stats)).toEqual([true, false]);
     fireEvent.click(screen.getByRole("button", { name: /Advanced filter/i }));
     expect(await screen.findByText("Bucket stats unavailable")).toBeInTheDocument();
+  });
+
+  it("does not carry unavailable stats state to a different endpoint", async () => {
+    mocks.listCephAdminBuckets.mockImplementation((endpointId, _params) =>
+      Promise.resolve({
+        items: [{ name: `bucket-${endpointId}`, owner: "owner-a" }],
+        total: 1,
+        page: 1,
+        page_size: 25,
+        has_next: false,
+        stats_available: endpointId !== 7,
+        stats_warning: endpointId === 7 ? "Bucket stats unavailable" : null,
+      }),
+    );
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <BucketOpsWorkbench mode="ceph-admin" shell={{ pageDescription: "Ceph buckets" }} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(
+        mocks.listCephAdminBuckets.mock.calls
+          .filter((call) => call[0] === 7)
+          .map((call) => call[1]?.with_stats),
+      ).toEqual([true, false]),
+    );
+
+    mocks.selectedEndpointId = 8;
+    rerender(
+      <MemoryRouter>
+        <BucketOpsWorkbench mode="ceph-admin" shell={{ pageDescription: "Ceph buckets" }} />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(
+        mocks.listCephAdminBuckets.mock.calls.filter((call) => call[0] === 8),
+      ).not.toHaveLength(0),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    const newEndpointStatsRequests = mocks.listCephAdminBuckets.mock.calls
+      .filter((call) => call[0] === 8)
+      .map((call) => call[1]?.with_stats);
+    expect(newEndpointStatsRequests.length).toBeGreaterThan(0);
+    expect(newEndpointStatsRequests.every((withStats) => withStats === true)).toBe(true);
   });
 
   it("falls back to plain listing when an exact quick filter payload is too large for streaming", async () => {

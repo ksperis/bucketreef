@@ -63,6 +63,7 @@ type UseBucketOpsListingResult = {
   advancedProgress: AdvancedSearchProgress;
   error: string | null;
   statsAvailable: boolean | null;
+  statsScopeId: number | null;
   statsWarning: string | null;
   setError: Dispatch<SetStateAction<string | null>>;
   refresh: () => void;
@@ -95,6 +96,7 @@ export function useBucketOpsListing({
   const [advancedProgress, setAdvancedProgress] = useState<AdvancedSearchProgress>(INACTIVE_ADVANCED_PROGRESS);
   const [error, setError] = useState<string | null>(null);
   const [statsAvailable, setStatsAvailable] = useState<boolean | null>(null);
+  const [statsScopeId, setStatsScopeId] = useState<number | null>(null);
   const [statsWarning, setStatsWarning] = useState<string | null>(null);
   const requestSeqRef = useRef(0);
   const requestAbortRef = useRef<AbortController | null>(null);
@@ -133,6 +135,7 @@ export function useBucketOpsListing({
     setAdvancedProgress(INACTIVE_ADVANCED_PROGRESS);
     setError(null);
     if (baseRequiresStats) {
+      setStatsScopeId(selectedScopeId);
       setStatsAvailable(null);
       setStatsWarning(null);
     }
@@ -183,9 +186,11 @@ export function useBucketOpsListing({
       setItems(baseItems);
       setTotal(baseResponse.total);
       if (baseRequiresStats) {
+        setStatsScopeId(selectedScopeId);
         setStatsAvailable(baseResponse.stats_available);
         setStatsWarning(baseResponse.stats_warning);
       } else if (!baseResponse.stats_available) {
+        setStatsScopeId(selectedScopeId);
         setStatsAvailable(false);
       }
       setLoading(false);
@@ -225,9 +230,11 @@ export function useBucketOpsListing({
 
         const detailsByKey = new Map(detailResponse.items.map((bucket) => [bucketRowKey(bucket), bucket]));
         if (detailWithStats) {
+          setStatsScopeId(selectedScopeId);
           setStatsAvailable(detailResponse.stats_available);
           setStatsWarning(detailResponse.stats_warning);
         } else if (!detailResponse.stats_available) {
+          setStatsScopeId(selectedScopeId);
           setStatsAvailable(false);
         }
         setItems(baseItems.map((bucket) => detailsByKey.get(bucketRowKey(bucket)) ?? bucket));
@@ -275,6 +282,7 @@ export function useBucketOpsListing({
       setLoading(false);
       setLoadingDetails(false);
       setAdvancedProgress(INACTIVE_ADVANCED_PROGRESS);
+      setStatsScopeId(null);
       setStatsAvailable(null);
       setStatsWarning(null);
       return;
@@ -297,6 +305,7 @@ export function useBucketOpsListing({
     advancedProgress,
     error,
     statsAvailable,
+    statsScopeId,
     statsWarning,
     setError,
     refresh,
