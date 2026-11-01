@@ -1686,6 +1686,55 @@ def test_start_migration_requires_precheck_passed(db_session):
         assert "Run and pass active checks" in str(exc)
 
 
+def test_precheck_context_resolution_reports_missing_source_and_target_endpoints(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace(
+        context_id="source",
+        endpoint="",
+        region="us-east-1",
+    )
+    target_ctx = SimpleNamespace(
+        context_id="target",
+        endpoint=None,
+        region="eu-west-1",
+    )
+    contexts = {"source": source_ctx, "target": target_ctx}
+    service._resolve_context = lambda context_id: contexts[context_id]  # type: ignore[method-assign]
+    service._is_same_endpoint = lambda *_args, **_kwargs: False  # type: ignore[method-assign]
+    migration = SimpleNamespace(
+        source_context_id="source",
+        target_context_id="target",
+        use_same_endpoint_copy=False,
+    )
+    report: dict[str, object] = {}
+
+    resolved_source, resolved_target, entries = service._precheck_planner._resolve_contexts(
+        migration,
+        report,
+    )
+
+    assert resolved_source is source_ctx
+    assert resolved_target is target_ctx
+    assert [entry["code"] for entry in entries] == [
+        "source_endpoint_missing",
+        "target_endpoint_missing",
+    ]
+    assert [entry["scope"] for entry in entries] == ["source_context", "target_context"]
+    assert report["contexts"] == {
+        "source": {
+            "context_id": "source",
+            "endpoint": "",
+            "region": "us-east-1",
+        },
+        "target": {
+            "context_id": "target",
+            "endpoint": None,
+            "region": "eu-west-1",
+        },
+    }
+    assert report["same_endpoint"] is False
+
+
 def test_run_precheck_interruption_persists_canonical_report(db_session):
     user = _create_user(db_session)
     source = _create_account(

@@ -159,6 +159,15 @@ class BucketMigrationPrecheckPlanner:
             )
             return None, None, entries
 
+        entries.extend(self._missing_endpoint_diagnostics(source_ctx, target_ctx))
+        return source_ctx, target_ctx, entries
+
+    @staticmethod
+    def _missing_endpoint_diagnostics(
+        source_ctx: Any,
+        target_ctx: Any,
+    ) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
         if not source_ctx.endpoint:
             entries.append(
                 build_diagnostic(
@@ -179,7 +188,7 @@ class BucketMigrationPrecheckPlanner:
                     message="Target context endpoint is missing.",
                 )
             )
-        return source_ctx, target_ctx, entries
+        return entries
 
     def _plan_item(
         self,
