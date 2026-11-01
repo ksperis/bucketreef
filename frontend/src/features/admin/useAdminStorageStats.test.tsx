@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../api/client";
@@ -84,5 +84,31 @@ describe("useAdminStorageStats", () => {
     await waitFor(() =>
       expect(denied.result.current.error).toBe("Metrics unavailable."),
     );
+  });
+
+  it("ignores stats returned for an obsolete resource id", async () => {
+    let resolveFirst: ((value: StorageStats) => void) | undefined;
+    const firstStats = { total_objects: 1 } as StorageStats;
+    const secondStats = { total_objects: 2 } as StorageStats;
+    const fetchStats = vi.fn((id: number) => {
+      if (id === 1) {
+        return new Promise<StorageStats>((resolve) => { resolveFirst = resolve; });
+      }
+      return Promise.resolve(secondStats);
+    });
+    const { result, rerender } = renderHook(
+      ({ id }) => useAdminStorageStats({
+        id,
+        fetchStats,
+        unavailableMessage: "Metrics unavailable.",
+      }),
+      { initialProps: { id: 1 as number | null } },
+    );
+
+    rerender({ id: 2 });
+    await waitFor(() => expect(result.current.stats).toBe(secondStats));
+
+    await act(async () => resolveFirst?.(firstStats));
+    expect(result.current.stats).toBe(secondStats);
   });
 });
