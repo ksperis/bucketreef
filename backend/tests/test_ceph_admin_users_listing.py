@@ -598,9 +598,13 @@ def test_build_user_detail_preserves_nested_false_and_zero_values():
         max_buckets=0,
     )
     payload["user"]["account_root"] = False
+    payload["user"]["admin"] = False
+    payload["user"]["system"] = True
     payload["suspended"] = True
     payload["max_buckets"] = 99
     payload["account_root"] = True
+    payload["admin"] = True
+    payload["system"] = False
 
     detail = user_profiles_router._build_user_detail(
         payload,
@@ -613,6 +617,8 @@ def test_build_user_detail_preserves_nested_false_and_zero_values():
     assert detail.suspended is False
     assert detail.max_buckets == 0
     assert detail.account_root is False
+    assert detail.admin is False
+    assert detail.system is True
 
 
 def test_build_user_detail_prefers_nested_quota_and_supports_split_quota_payload():

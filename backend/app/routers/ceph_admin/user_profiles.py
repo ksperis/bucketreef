@@ -46,9 +46,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_user_caps,
     extract_rgw_user_identity,
     extract_rgw_user_int,
-    extract_rgw_user_payload,
     extract_rgw_user_scalar,
-    parse_rgw_bool,
 )
 from app.utils.usage_stats import summarize_bucket_usage
 
@@ -89,7 +87,6 @@ def _build_user_detail(
     resolved_uid, resolved_tenant = extract_rgw_user_identity(payload)
     uid = resolved_uid or uid_fallback
     tenant = resolved_tenant if resolved_tenant is not None else tenant_fallback
-    user_payload = extract_rgw_user_payload(payload)
     account_id = extract_rgw_user_scalar(payload, "account_id", top_level_first=True)
     quota_size, quota_objects = extract_rgw_user_quota_limits(payload)
     quota_enabled = extract_rgw_user_quota_enabled(payload)
@@ -108,8 +105,8 @@ def _build_user_detail(
         account_id=account_id,
         account_name=account_name,
         suspended=extract_rgw_user_bool(payload, "suspended"),
-        admin=parse_rgw_bool(user_payload.get("admin") if "admin" in user_payload else payload.get("admin")),
-        system=parse_rgw_bool(user_payload.get("system") if "system" in user_payload else payload.get("system")),
+        admin=extract_rgw_user_bool(payload, "admin"),
+        system=extract_rgw_user_bool(payload, "system"),
         account_root=extract_rgw_user_bool(payload, "account_root"),
         max_buckets=extract_rgw_user_int(payload, "max_buckets"),
         op_mask=extract_rgw_user_scalar(payload, "op_mask"),
