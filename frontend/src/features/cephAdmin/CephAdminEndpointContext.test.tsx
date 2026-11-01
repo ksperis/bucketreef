@@ -152,7 +152,7 @@ describe("CephAdminEndpointProvider", () => {
       await user.click(screen.getByRole("button", { name: "Keep editing" }));
       expect(router.state.location.search).toBe("?ep=1");
       await user.click(screen.getByRole("button", { name: "Select endpoint 2" }));
-      await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+      await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
       await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("2"));
       expect(router.state.location.search).toBe("?ep=2");
       expect(localStorage.getItem("selectedCephAdminEndpointId")).toBe("2");

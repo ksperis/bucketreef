@@ -22,6 +22,8 @@
     "src/features/admin/AuthenticationSettingsPage.test.tsx",
     "src/features/auth/**/*.test.ts",
     "src/features/auth/**/*.test.tsx",
+    "src/features/cephAdmin/**/*.test.ts",
+    "src/features/cephAdmin/**/*.test.tsx",
     "src/features/storageOps/**/*.test.ts",
     "src/features/storageOps/**/*.test.tsx",
     "src/hooks/**/*.test.ts",

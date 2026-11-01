@@ -1,6 +1,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  buildCephAdminAccount,
+  buildCephAdminBucket,
+  buildCephAdminUser,
+} from "../../test/cephAdmin";
 import CephAdminAdminOpsModal from "./CephAdminAdminOpsModal";
 
 const deleteAccountMock = vi.fn();
@@ -48,13 +53,13 @@ describe("CephAdminAdminOpsModal", () => {
     linkBucketMock.mockResolvedValue(successResult);
     checkIndexMock.mockResolvedValue({ ...successResult, rgw_status_code: 200, result: { existing_header: {} } });
     listUsersMock.mockResolvedValue({
-      items: [{ uid: "alice", tenant: "tenant-a", full_name: "Alice" }],
+      items: [buildCephAdminUser("alice", { tenant: "tenant-a", full_name: "Alice" })],
       total: 1,
       page: 1,
       page_size: 25,
     });
     listAccountsMock.mockResolvedValue({
-      items: [{ account_id: "RGW12345678901234567", account_name: "Analytics" }],
+      items: [buildCephAdminAccount("RGW12345678901234567", { account_name: "Analytics" })],
       total: 1,
       page: 1,
       page_size: 25,
@@ -67,7 +72,7 @@ describe("CephAdminAdminOpsModal", () => {
       <CephAdminAdminOpsModal
         endpointId={7}
         endpointName="Lab"
-        action={{ kind: "delete-account", account: { account_id: "RGW12345678901234567" } }}
+        action={{ kind: "delete-account", account: buildCephAdminAccount("RGW12345678901234567") }}
         onClose={vi.fn()}
         onSuccess={onSuccess}
       />
@@ -91,7 +96,7 @@ describe("CephAdminAdminOpsModal", () => {
     render(
       <CephAdminAdminOpsModal
         endpointId={7}
-        action={{ kind: "delete-user", user: { uid: "alice", tenant: "tenant-a" } }}
+        action={{ kind: "delete-user", user: buildCephAdminUser("alice", { tenant: "tenant-a" }) }}
         onClose={vi.fn()}
         onSuccess={vi.fn()}
       />
@@ -110,7 +115,7 @@ describe("CephAdminAdminOpsModal", () => {
         "alice",
         { confirmation: "PURGE USER tenant-a$alice", purge_data: true },
         "tenant-a",
-        undefined
+        null
       )
     );
   });
@@ -119,7 +124,7 @@ describe("CephAdminAdminOpsModal", () => {
     render(
       <CephAdminAdminOpsModal
         endpointId={7}
-        action={{ kind: "delete-bucket", bucket: { name: "bucket-a", tenant: "tenant-a" } }}
+        action={{ kind: "delete-bucket", bucket: buildCephAdminBucket("bucket-a", { tenant: "tenant-a" }) }}
         onClose={vi.fn()}
         onSuccess={vi.fn()}
       />
@@ -138,7 +143,7 @@ describe("CephAdminAdminOpsModal", () => {
     render(
       <CephAdminAdminOpsModal
         endpointId={7}
-        action={{ kind: "unlink-bucket", bucket: { name: "bucket-a", tenant: "tenant-a" } }}
+        action={{ kind: "unlink-bucket", bucket: buildCephAdminBucket("bucket-a", { tenant: "tenant-a" }) }}
         onClose={vi.fn()}
         onSuccess={vi.fn()}
       />
@@ -158,7 +163,7 @@ describe("CephAdminAdminOpsModal", () => {
     render(
       <CephAdminAdminOpsModal
         endpointId={7}
-        action={{ kind: "index-check", bucket: { name: "bucket-a" } }}
+        action={{ kind: "index-check", bucket: buildCephAdminBucket("bucket-a") }}
         onClose={vi.fn()}
         onSuccess={vi.fn()}
       />
@@ -171,7 +176,7 @@ describe("CephAdminAdminOpsModal", () => {
         7,
         "bucket-a",
         { confirmation: undefined, fix: false, check_objects: false },
-        undefined
+        null
       )
     );
 
@@ -191,7 +196,7 @@ describe("CephAdminAdminOpsModal", () => {
       <CephAdminAdminOpsModal
         endpointId={7}
         endpointName="Lab"
-        action={{ kind: "link-bucket", bucket: { name: "bucket-a" } }}
+        action={{ kind: "link-bucket", bucket: buildCephAdminBucket("bucket-a") }}
         canAccounts
         onClose={vi.fn()}
         onSuccess={vi.fn()}
@@ -216,7 +221,7 @@ describe("CephAdminAdminOpsModal", () => {
           target_type: "user",
           target_id: "tenant-a$alice",
         },
-        undefined
+        null
       )
     );
   });
@@ -225,7 +230,7 @@ describe("CephAdminAdminOpsModal", () => {
     render(
       <CephAdminAdminOpsModal
         endpointId={7}
-        action={{ kind: "link-bucket", bucket: { name: "bucket-a" } }}
+        action={{ kind: "link-bucket", bucket: buildCephAdminBucket("bucket-a") }}
         canAccounts
         onClose={vi.fn()}
         onSuccess={vi.fn()}
@@ -256,7 +261,7 @@ describe("CephAdminAdminOpsModal", () => {
     render(
       <CephAdminAdminOpsModal
         endpointId={7}
-        action={{ kind: "delete-account", account: { account_id: "RGW12345678901234567" } }}
+        action={{ kind: "delete-account", account: buildCephAdminAccount("RGW12345678901234567") }}
         onClose={vi.fn()}
         onSuccess={vi.fn()}
       />
@@ -276,7 +281,7 @@ describe("CephAdminAdminOpsModal", () => {
   it("associates phrase guidance and errors without treating an API failure as an invalid phrase", async () => {
     deleteAccountMock.mockRejectedValueOnce(new Error("Temporary failure"));
     render(<CephAdminAdminOpsModal endpointId={7}
-      action={{ kind: "delete-account", account: { account_id: "RGW12345678901234567" } }}
+      action={{ kind: "delete-account", account: buildCephAdminAccount("RGW12345678901234567") }}
       onClose={vi.fn()} onSuccess={vi.fn()} />);
     const phrase = screen.getByLabelText("Confirmation phrase");
     fireEvent.change(phrase, { target: { value: "DELETE ACCOUNT wrong" } });
@@ -295,7 +300,7 @@ describe("CephAdminAdminOpsModal", () => {
     deleteBucketMock.mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; }));
     const onClose = vi.fn();
     render(<CephAdminAdminOpsModal endpointId={7}
-      action={{ kind: "delete-bucket", bucket: { name: "bucket-a", tenant: "tenant-a" } }}
+      action={{ kind: "delete-bucket", bucket: buildCephAdminBucket("bucket-a", { tenant: "tenant-a" }) }}
       onClose={onClose} onSuccess={vi.fn()} />);
     fireEvent.click(screen.getByText("Advanced options"));
     const purge = screen.getByRole("checkbox", { name: /Purge objects and versions/ });
@@ -329,14 +334,18 @@ describe("CephAdminAdminOpsModal", () => {
     listAccountsMock.mockReturnValue(new Promise((resolve) => { resolveTargets = resolve; }));
     linkBucketMock.mockReturnValue(new Promise((resolve) => { resolveRequest = resolve; }));
     render(<CephAdminAdminOpsModal endpointId={7}
-      action={{ kind: "link-bucket", bucket: { name: "bucket-a" } }}
+      action={{ kind: "link-bucket", bucket: buildCephAdminBucket("bucket-a") }}
       onClose={vi.fn()} onSuccess={vi.fn()} />);
     await screen.findByRole("button", { name: "Alice · tenant-a$alice" });
     const targetType = screen.getByRole("combobox", { name: "Target type" });
     fireEvent.change(targetType, { target: { value: "account" } });
     expect(screen.queryByRole("button", { name: "Alice · tenant-a$alice" })).not.toBeInTheDocument();
     await waitFor(() => expect(listAccountsMock).toHaveBeenCalled());
-    await act(async () => resolveTargets({ items: [{ account_id: "RGW12345678901234567", account_name: "Analytics" }] }));
+    await act(async () =>
+      resolveTargets({
+        items: [buildCephAdminAccount("RGW12345678901234567", { account_name: "Analytics" })],
+      }),
+    );
     const candidate = screen.getByRole("button", { name: "Analytics · RGW12345678901234567" });
     fireEvent.click(candidate);
     expect(candidate).toHaveClass("ui-list-action-active");
@@ -354,7 +363,7 @@ describe("CephAdminAdminOpsModal", () => {
 
   it("keeps unsupported account targets unavailable and explains the capability requirement", async () => {
     render(<CephAdminAdminOpsModal endpointId={7}
-      action={{ kind: "link-bucket", bucket: { name: "bucket-a" } }} canAccounts={false}
+      action={{ kind: "link-bucket", bucket: buildCephAdminBucket("bucket-a") }} canAccounts={false}
       onClose={vi.fn()} onSuccess={vi.fn()} />);
     expect(screen.getByRole("option", { name: "RGW Accounts" })).toBeDisabled();
     expect(screen.getByRole("combobox", { name: "Target type" })).toHaveAccessibleDescription("RGW Accounts require Ceph Squid or later.");

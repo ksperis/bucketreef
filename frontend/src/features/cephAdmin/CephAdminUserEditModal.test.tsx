@@ -35,7 +35,7 @@ describe("RGW user configuration form", () => {
     fireEvent.change(screen.getByLabelText("Display name"), { target: { value: " Alice Ops " } });
     fireEvent.change(screen.getByLabelText("Default placement"), { target: { value: "" } });
     fireEvent.change(screen.getByLabelText("Caps mode"), { target: { value: "add" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Caps", exact: true }), { target: { value: "users=read,write;usage=read\nusers=read,write" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /^Caps$/ }), { target: { value: "users=read,write;usage=read\nusers=read,write" } });
     fireEvent.submit(form);
     await waitFor(() => expect(updateConfig).toHaveBeenCalledWith(7, "alice", expect.objectContaining({
       display_name: "Alice Ops",
@@ -66,7 +66,7 @@ describe("RGW user configuration form", () => {
       fireEvent.change(screen.getByLabelText(label), { target: { value: "" } });
       expect(screen.getByLabelText(label)).not.toHaveAttribute("aria-invalid", "true");
     }
-    fireEvent.change(screen.getByRole("textbox", { name: "Caps", exact: true }), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /^Caps$/ }), { target: { value: "" } });
     fireEvent.submit(form);
     await waitFor(() => expect(updateConfig).toHaveBeenCalledWith(7, "alice", expect.objectContaining({
       max_buckets: null, quota_max_size_bytes: null, quota_max_objects: null, caps: { mode: "replace", values: [] },
@@ -118,7 +118,7 @@ describe("RGW user configuration form", () => {
     const form = await openConfiguration(onClose);
     fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Alice Ops" } });
     fireEvent.submit(form);
-    for (const field of form.querySelectorAll("input, select, textarea")) expect(field).toBeDisabled();
+    for (const field of form.querySelectorAll<HTMLElement>("input, select, textarea")) expect(field).toBeDisabled();
     fireEvent.submit(form);
     fireEvent.click(screen.getByRole("button", { name: "Close details" }));
     expect(updateConfig).toHaveBeenCalledTimes(1);

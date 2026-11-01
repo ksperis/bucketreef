@@ -7,6 +7,7 @@ import type {
   PaginatedCephAdminBucketsResponse,
 } from "../../api/cephAdminBuckets";
 import type { CephAdminEndpoint } from "../../api/cephAdminEndpoints";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import CephAdminBucketCompareModal from "./CephAdminBucketCompareModal";
 
 const listCephAdminBucketsMock = vi.fn<(...args: unknown[]) => Promise<PaginatedCephAdminBucketsResponse>>();
@@ -86,11 +87,13 @@ describe("CephAdminBucketCompareModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listCephAdminBucketsMock.mockResolvedValue({
-      items: [{ name: "bucket-a" }],
+      items: [buildCephAdminBucket("bucket-a")],
       total: 1,
       page: 1,
       page_size: 200,
       has_next: false,
+      stats_available: true,
+      stats_warning: null,
     });
     compareCephAdminBucketPairMock.mockResolvedValue(buildCompareResult());
   });
