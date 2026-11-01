@@ -57,7 +57,7 @@ import {
 } from "../browser/browserIcons";
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime, getBackendRelativeTime } from "../../utils/dateTime";
-import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
+import { formatBytes, formatCheckMode, formatCompactNumber, formatPercentage } from "../../utils/format";
 import { useI18n } from "../../i18n";
 import { onboardingCopy } from "./onboardingCopy";
 import { useOnboardingStatus } from "./useOnboardingStatus";
@@ -98,10 +98,6 @@ function formatEndpointFreshnessWarning(data: WorkspaceEndpointHealthOverviewRes
 function formatLatency(value?: number | null): string {
   if (value == null) return "-";
   return `${Math.round(value)} ms`;
-}
-
-function formatCheckMode(mode?: string | null): string {
-  return (mode || "http").toUpperCase();
 }
 
 function computeMeanAvailability(data: EndpointHealthOverviewResponse | null, scope: AdminDashboardScope | null): number | null {

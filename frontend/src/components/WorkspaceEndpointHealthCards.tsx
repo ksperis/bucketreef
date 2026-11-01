@@ -4,6 +4,7 @@
  */
 import type { WorkspaceEndpointHealthOverviewResponse } from "../api/healthchecks";
 import { formatLocalDateTime } from "../utils/dateTime";
+import { formatCheckMode } from "../utils/format";
 import { WorkspaceDashboardActionLink, WorkspaceStatusCounter, WorkspaceStatusDot, WorkspaceStatusPill } from "./WorkspaceDashboardKit";
 import WorkspaceIncidentsCard from "./WorkspaceIncidentsCard";
 import { useWorkspaceDashboardI18n } from "./workspaceDashboardMessages";
@@ -18,10 +19,6 @@ import {
 function formatLatency(value?: number | null) {
   if (value == null) return "-";
   return `${value} ms`;
-}
-
-function formatCheckMode(mode?: string | null) {
-  return (mode || "http").toUpperCase();
 }
 
 type WorkspaceEndpointHealthCardsProps = {

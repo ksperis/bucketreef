@@ -60,3 +60,7 @@ export function formatPercentage(value?: number | null): string {
   if (value === undefined || value === null || Number.isNaN(value)) return "-";
   return `${value.toFixed(value >= 10 ? 0 : 1)}%`;
 }
+
+export function formatCheckMode(mode?: string | null): string {
+  return (mode || "http").toUpperCase();
+}
