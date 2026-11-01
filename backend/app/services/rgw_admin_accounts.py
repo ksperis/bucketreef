@@ -262,11 +262,8 @@ class RGWAdminAccountOperations:
             if account_name:
                 fallback["account_name"] = account_name
             return fallback
-        detail.setdefault("account_id", detail.get("id") or account_id)
-        detail.setdefault(
-            "account_name",
-            detail.get("name") or detail.get("display_name") or account_name,
-        )
+        detail.setdefault("account_id", extract_rgw_account_id(detail) or account_id)
+        detail.setdefault("account_name", extract_rgw_account_name(detail) or account_name)
         return detail
 
     def list_accounts(self, include_details: bool = True) -> list[Dict[str, Any]]:
