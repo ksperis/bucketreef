@@ -307,21 +307,61 @@ function invalidConnectionPayload<T>(
   return { error, field, payload: null };
 }
 
+type PreparedConnectionTargetPayload = {
+  name: string;
+  parsedEndpointId: number | null;
+};
+
+function prepareConnectionTarget(
+  form: Pick<CreateAdminS3ConnectionForm, "name" | "endpoint_url">,
+  endpointMode: S3ConnectionEndpointMode,
+  endpointId: string,
+  validateEndpoint = true,
+): PreparedConnectionPayload<PreparedConnectionTargetPayload> {
+  const name = form.name.trim();
+  if (!name) {
+    return invalidConnectionPayload("Connection name is required.", "name");
+  }
+  const parsedEndpointId =
+    endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
+  if (validateEndpoint && endpointMode === "preset" && parsedEndpointId === null) {
+    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
+  }
+  if (validateEndpoint && endpointMode === "custom" && !form.endpoint_url.trim()) {
+    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
+  }
+  return { error: null, payload: { name, parsedEndpointId } };
+}
+
+function buildConnectionEndpointPayload<TEmpty extends null | undefined>(
+  form: Pick<
+    CreateAdminS3ConnectionForm,
+    "provider_hint" | "endpoint_url" | "region" | "force_path_style" | "verify_tls"
+  >,
+  endpointMode: S3ConnectionEndpointMode,
+  parsedEndpointId: number | null,
+  emptyValue: TEmpty,
+) {
+  return endpointMode === "preset"
+    ? { storage_endpoint_id: parsedEndpointId }
+    : {
+        storage_endpoint_id: null,
+        provider_hint: form.provider_hint.trim() || emptyValue,
+        endpoint_url: form.endpoint_url.trim(),
+        region: form.region.trim() || emptyValue,
+        force_path_style: form.force_path_style,
+        verify_tls: form.verify_tls,
+      };
+}
+
 export function prepareCreatePrivateConnectionPayload(
   form: CreatePrivateConnectionForm,
   endpointMode: S3ConnectionEndpointMode,
   endpointId: string,
 ): PreparedConnectionPayload<CreateConnectionPayload> {
-  if (!form.name.trim()) {
-    return invalidConnectionPayload("Connection name is required.", "name");
-  }
-  const parsedEndpointId =
-    endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
-  if (endpointMode === "preset" && parsedEndpointId === null) {
-    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
-  }
-  if (endpointMode === "custom" && !form.endpoint_url.trim()) {
-    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
+  const target = prepareConnectionTarget(form, endpointMode, endpointId);
+  if (target.error !== null) {
+    return target;
   }
   if (!form.access_key_id.trim() || !form.secret_access_key.trim()) {
     return invalidConnectionPayload("S3 credentials are required.", "credentials");
@@ -330,21 +370,16 @@ export function prepareCreatePrivateConnectionPayload(
     return invalidConnectionPayload("Enable access to manager and/or browser.", "access");
   }
 
-  const endpointPayload =
-    endpointMode === "preset"
-      ? { storage_endpoint_id: parsedEndpointId }
-      : {
-          storage_endpoint_id: null,
-          provider_hint: form.provider_hint.trim() || undefined,
-          endpoint_url: form.endpoint_url.trim(),
-          region: form.region.trim() || undefined,
-          force_path_style: form.force_path_style,
-          verify_tls: form.verify_tls,
-        };
+  const endpointPayload = buildConnectionEndpointPayload(
+    form,
+    endpointMode,
+    target.payload.parsedEndpointId,
+    undefined,
+  );
   return {
     error: null,
     payload: {
-      name: form.name.trim(),
+      name: target.payload.name,
       tags: normalizeUiTags(form.tags),
       access_key_id: form.access_key_id.trim(),
       secret_access_key: form.secret_access_key,
@@ -360,36 +395,24 @@ export function prepareCreateAdminS3ConnectionPayload(
   endpointMode: S3ConnectionEndpointMode,
   endpointId: string,
 ): PreparedConnectionPayload<CreateAdminS3ConnectionPayload> {
-  if (!form.name.trim()) {
-    return invalidConnectionPayload("Connection name is required.", "name");
-  }
-  const parsedEndpointId =
-    endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
-  if (endpointMode === "preset" && parsedEndpointId === null) {
-    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
-  }
-  if (endpointMode === "custom" && !form.endpoint_url.trim()) {
-    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
+  const target = prepareConnectionTarget(form, endpointMode, endpointId);
+  if (target.error !== null) {
+    return target;
   }
   if (!form.access_key_id.trim() || !form.secret_access_key) {
     return invalidConnectionPayload("S3 credentials are required.", "credentials");
   }
 
-  const endpointPayload =
-    endpointMode === "preset"
-      ? { storage_endpoint_id: parsedEndpointId }
-      : {
-          storage_endpoint_id: null,
-          provider_hint: form.provider_hint.trim() || null,
-          endpoint_url: form.endpoint_url.trim(),
-          region: form.region.trim() || null,
-          force_path_style: form.force_path_style,
-          verify_tls: form.verify_tls,
-        };
+  const endpointPayload = buildConnectionEndpointPayload(
+    form,
+    endpointMode,
+    target.payload.parsedEndpointId,
+    null,
+  );
   return {
     error: null,
     payload: {
-      name: form.name.trim(),
+      name: target.payload.name,
       tags: normalizeUiTags(form.tags),
       access_key_id: form.access_key_id.trim(),
       secret_access_key: form.secret_access_key,
@@ -414,16 +437,9 @@ export function prepareUpdateAdminS3ConnectionPayload({
   linkedGroupIds,
   linkedUserIds,
 }: PrepareAdminS3ConnectionUpdateOptions): PreparedConnectionPayload<UpdateAdminS3ConnectionPayload> {
-  if (!form.name.trim()) {
-    return invalidConnectionPayload("Connection name is required.", "name");
-  }
-  const parsedEndpointId =
-    endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
-  if (endpointMode === "preset" && parsedEndpointId === null) {
-    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
-  }
-  if (endpointMode === "custom" && !form.endpoint_url.trim()) {
-    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
+  const target = prepareConnectionTarget(form, endpointMode, endpointId);
+  if (target.error !== null) {
+    return target;
   }
   const accessKeyId = credentialDraft.access_key_id.trim();
   const secretAccessKey = credentialDraft.secret_access_key.trim();
@@ -434,21 +450,16 @@ export function prepareUpdateAdminS3ConnectionPayload({
     );
   }
 
-  const endpointPayload =
-    endpointMode === "preset"
-      ? { storage_endpoint_id: parsedEndpointId }
-      : {
-          storage_endpoint_id: null,
-          provider_hint: form.provider_hint.trim() || null,
-          endpoint_url: form.endpoint_url.trim(),
-          region: form.region.trim() || null,
-          force_path_style: form.force_path_style,
-          verify_tls: form.verify_tls,
-        };
+  const endpointPayload = buildConnectionEndpointPayload(
+    form,
+    endpointMode,
+    target.payload.parsedEndpointId,
+    null,
+  );
   return {
     error: null,
     payload: {
-      name: form.name.trim(),
+      name: target.payload.name,
       group_ids: normalizeS3ConnectionLinkedIds(linkedGroupIds),
       user_ids: normalizeS3ConnectionLinkedIds(linkedUserIds),
       tags: normalizeUiTags(form.tags),
@@ -476,17 +487,15 @@ export function prepareUpdatePrivateConnectionPayload({
   endpointMode,
   serverManaged,
 }: PreparePrivateConnectionUpdateOptions): PreparedConnectionPayload<UpdateConnectionPayload> {
-  if (!draft.name.trim()) {
-    return invalidConnectionPayload("Connection name is required.", "name");
-  }
   const endpointEditable = canManageCredentials && !serverManaged;
-  const parsedEndpointId =
-    endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
-  if (endpointEditable && endpointMode === "preset" && parsedEndpointId === null) {
-    return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
-  }
-  if (endpointEditable && endpointMode === "custom" && !draft.endpoint_url.trim()) {
-    return invalidConnectionPayload("Endpoint URL is required.", "endpointUrl");
+  const target = prepareConnectionTarget(
+    draft,
+    endpointMode,
+    endpointId,
+    endpointEditable,
+  );
+  if (target.error !== null) {
+    return target;
   }
   if (!draft.access_manager && !draft.access_browser) {
     return invalidConnectionPayload("Enable access to manager and/or browser.", "access");
@@ -505,20 +514,16 @@ export function prepareUpdatePrivateConnectionPayload({
 
   const endpointPayload = !endpointEditable
     ? {}
-    : endpointMode === "preset"
-      ? { storage_endpoint_id: parsedEndpointId }
-      : {
-          storage_endpoint_id: null,
-          provider_hint: draft.provider_hint.trim() || undefined,
-          endpoint_url: draft.endpoint_url.trim(),
-          region: draft.region.trim() || undefined,
-          force_path_style: draft.force_path_style,
-          verify_tls: draft.verify_tls,
-        };
+    : buildConnectionEndpointPayload(
+        draft,
+        endpointMode,
+        target.payload.parsedEndpointId,
+        undefined,
+      );
   return {
     error: null,
     payload: {
-      name: draft.name.trim(),
+      name: target.payload.name,
       tags: normalizeUiTags(draft.tags),
       access_manager: draft.access_manager,
       access_browser: draft.access_browser,
