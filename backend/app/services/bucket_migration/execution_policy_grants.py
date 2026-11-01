@@ -142,6 +142,76 @@ class BucketMigrationPolicyGrantsMixin:
             return
         self._configuration.delete_policy(source_bucket, source_execution_context)
 
+    def _read_source_copy_grant_backup(
+        self,
+        source_bucket: str,
+        source_execution_context: S3ExecutionTarget,
+    ):
+        try:
+            return self._configuration.get_policy(
+                source_bucket,
+                source_execution_context,
+            )
+        except RuntimeError as exc:
+            if self._is_access_denied_error(exc):
+                raise RuntimeError(
+                    "Unable to read source bucket policy for temporary source-read grant. "
+                    f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
+                ) from exc
+            raise
+
+    def _select_source_copy_grant_principal(
+        self,
+        target_client,
+        candidates: list[str],
+        *,
+        source_bucket: str,
+        source_execution_context: S3ExecutionTarget,
+        backup_policy,
+        sample_key: Optional[str],
+        sample_version_id: Optional[str],
+    ) -> tuple[Optional[str], Optional[Exception]]:
+        last_access_error: Optional[Exception] = None
+        for candidate in candidates:
+            policy_doc = self._build_source_copy_grant_policy(
+                source_bucket,
+                backup_policy if isinstance(backup_policy, dict) else None,
+                principal=candidate,
+            )
+            try:
+                self._assert_workflow_lease()
+                self._configuration.put_policy(
+                    source_bucket,
+                    source_execution_context,
+                    policy_doc,
+                )
+            except RuntimeError as exc:
+                if self._is_access_denied_error(exc):
+                    raise RuntimeError(
+                        "Unable to apply temporary source-read grant: access denied on source bucket policy update. "
+                        f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
+                    ) from exc
+                raise
+            if not sample_key:
+                return candidate, None
+            try:
+                head_kwargs: dict[str, Any] = {
+                    "Bucket": source_bucket,
+                    "Key": sample_key,
+                }
+                if sample_version_id:
+                    head_kwargs["VersionId"] = sample_version_id
+                target_client.head_object(**head_kwargs)
+                return candidate, None
+            except (ClientError, BotoCoreError) as exc:
+                if self._is_access_denied_error(exc):
+                    last_access_error = exc
+                    continue
+                raise RuntimeError(
+                    f"Unable to validate temporary source-read grant on sample object '{sample_key}': {exc}"
+                ) from exc
+        return None, last_access_error
+
     @contextmanager
     def _temporary_source_copy_grant(self, source_ctx, target_ctx, *, source_bucket, sample_key=None, sample_version_id=None):
         item = self._preparation_item or self._execution_item
@@ -168,15 +238,10 @@ class BucketMigrationPolicyGrantsMixin:
     ):
         source_execution_context = source_ctx.execution_context
         target_client = self._context_client(target_ctx)
-        try:
-            backup_policy = self._configuration.get_policy(source_bucket, source_execution_context)
-        except RuntimeError as exc:
-            if self._is_access_denied_error(exc):
-                raise RuntimeError(
-                    "Unable to read source bucket policy for temporary source-read grant. "
-                    f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
-                ) from exc
-            raise
+        backup_policy = self._read_source_copy_grant_backup(
+            source_bucket,
+            source_execution_context,
+        )
         candidates = self._source_copy_grant_principal_candidates(target_ctx)
         if not candidates:
             raise RuntimeError(
@@ -184,41 +249,15 @@ class BucketMigrationPolicyGrantsMixin:
                 "Use an account/s3_user target context or grant source read permissions manually."
             )
 
-        selected_principal: Optional[str] = None
-        last_access_error: Optional[Exception] = None
-        for candidate in candidates:
-            policy_doc = self._build_source_copy_grant_policy(
-                source_bucket,
-                backup_policy if isinstance(backup_policy, dict) else None,
-                principal=candidate,
-            )
-            try:
-                self._assert_workflow_lease()
-                self._configuration.put_policy(source_bucket, source_execution_context, policy_doc)
-            except RuntimeError as exc:
-                if self._is_access_denied_error(exc):
-                    raise RuntimeError(
-                        "Unable to apply temporary source-read grant: access denied on source bucket policy update. "
-                        f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
-                    ) from exc
-                raise
-            if not sample_key:
-                selected_principal = candidate
-                break
-            try:
-                head_kwargs: dict[str, Any] = {"Bucket": source_bucket, "Key": sample_key}
-                if sample_version_id:
-                    head_kwargs["VersionId"] = sample_version_id
-                target_client.head_object(**head_kwargs)
-                selected_principal = candidate
-                break
-            except (ClientError, BotoCoreError) as exc:
-                if self._is_access_denied_error(exc):
-                    last_access_error = exc
-                    continue
-                raise RuntimeError(
-                    f"Unable to validate temporary source-read grant on sample object '{sample_key}': {exc}"
-                ) from exc
+        selected_principal, last_access_error = self._select_source_copy_grant_principal(
+            target_client,
+            candidates,
+            source_bucket=source_bucket,
+            source_execution_context=source_execution_context,
+            backup_policy=backup_policy,
+            sample_key=sample_key,
+            sample_version_id=sample_version_id,
+        )
 
         if selected_principal is None:
             try:
