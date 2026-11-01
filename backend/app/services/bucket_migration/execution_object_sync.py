@@ -19,11 +19,11 @@ from ._shared import (
     _SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS,
     _SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD,
     _BucketDiffEntry,
-    _ResolvedContext,
     _SyncDiff,
     _VersionReplayWatermarkBuilder,
     _WorkerLeaseLostError,
 )
+from .execution_runtime import ResolvedContext
 
 
 class _SyncProgressTracker:
@@ -92,8 +92,8 @@ class _SyncProgressTracker:
 class BucketMigrationObjectSyncMixin:
     def _sync_bucket(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -129,8 +129,8 @@ class BucketMigrationObjectSyncMixin:
 
     def _sync_bucket_version_aware(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -151,8 +151,8 @@ class BucketMigrationObjectSyncMixin:
 
     def _replay_bucket_versions(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -263,7 +263,7 @@ class BucketMigrationObjectSyncMixin:
             message="Target bucket versioning finalized to match suspended source state.",
         )
 
-    def _is_same_endpoint(self, source_ctx: _ResolvedContext, target_ctx: _ResolvedContext) -> bool:
+    def _is_same_endpoint(self, source_ctx: ResolvedContext, target_ctx: ResolvedContext) -> bool:
         source_endpoint = normalize_s3_endpoint(source_ctx.endpoint)
         target_endpoint = normalize_s3_endpoint(target_ctx.endpoint)
         return bool(source_endpoint and target_endpoint and source_endpoint == target_endpoint)
@@ -274,8 +274,8 @@ class _VersionAwareObjectSyncRunner:
         self,
         *,
         service: BucketMigrationObjectSyncMixin,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         source_bucket: str,
         target_bucket: str,
         migration: BucketMigration,
@@ -455,8 +455,8 @@ class _CurrentObjectSyncRunner:
         self,
         *,
         service: BucketMigrationObjectSyncMixin,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         source_bucket: str,
         target_bucket: str,
         allow_delete: bool,

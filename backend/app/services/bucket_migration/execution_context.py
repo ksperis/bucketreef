@@ -13,14 +13,14 @@ from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.s3_client import get_s3_client
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_client_options
-from ._shared import _MIGRATION_USER_AGENT_MARKER, _MigrationRuntimeLimits, _ResolvedContext
+from .execution_runtime import MIGRATION_USER_AGENT_MARKER, MigrationRuntimeLimits, ResolvedContext
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
 class BucketMigrationExecutionContextMixin:
-    def _context_client(self, ctx: _ResolvedContext):
+    def _context_client(self, ctx: ResolvedContext):
         from app.services.openstack_execution_guard import guard_openstack_client
         access_key, secret_key = ctx.execution_context.effective_rgw_credentials()
         if not access_key or not secret_key:
@@ -34,11 +34,11 @@ class BucketMigrationExecutionContextMixin:
             region=ctx.region,
             force_path_style=ctx.force_path_style,
             verify_tls=ctx.verify_tls,
-            user_agent_extra=_MIGRATION_USER_AGENT_MARKER,
+            user_agent_extra=MIGRATION_USER_AGENT_MARKER,
             request_profile="long_running",
         ))
 
-    def _load_runtime_limits(self) -> _MigrationRuntimeLimits:
+    def _load_runtime_limits(self) -> MigrationRuntimeLimits:
         env_parallelism_max = max(1, min(int(settings.bucket_migration_parallelism_max or 1), 128))
         env_parallelism_default = env_parallelism_max
         env_max_active = max(1, min(int(settings.bucket_migration_max_active_per_endpoint or 1), 64))
@@ -57,7 +57,7 @@ class BucketMigrationExecutionContextMixin:
                 1,
                 min(int(manager.bucket_migration_max_active_per_endpoint or env_max_active), 64),
             )
-            return _MigrationRuntimeLimits(
+            return MigrationRuntimeLimits(
                 parallelism_default=parallelism_default,
                 parallelism_max=parallelism_max,
                 max_active_per_endpoint=max_active,
@@ -66,17 +66,17 @@ class BucketMigrationExecutionContextMixin:
             logger.exception(
                 "Unable to load app settings for bucket migration runtime limits, falling back to environment values."
             )
-            return _MigrationRuntimeLimits(
+            return MigrationRuntimeLimits(
                 parallelism_default=env_parallelism_default,
                 parallelism_max=env_parallelism_max,
                 max_active_per_endpoint=env_max_active,
             )
 
-    def _resolve_context(self, context_id: str) -> _ResolvedContext:
+    def _resolve_context(self, context_id: str) -> ResolvedContext:
         execution_context = self._context_to_execution_target(context_id)
         endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(execution_context)
         endpoint = normalize_s3_endpoint(endpoint)
-        return _ResolvedContext(
+        return ResolvedContext(
             context_id=context_id,
             execution_context=execution_context,
             endpoint=endpoint,

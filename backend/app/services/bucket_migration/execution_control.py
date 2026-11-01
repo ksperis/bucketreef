@@ -12,10 +12,10 @@ from app.db import BucketMigration, BucketMigrationItem
 from app.utils.time import utcnow
 from ._shared import (
     _DB_ERROR_MESSAGE_MAX_CHARS,
-    _ResolvedContext,
     _WorkerLeaseLostError,
     _truncate_optional_db_text,
 )
+from .execution_runtime import ResolvedContext
 from .workflow import ACTIVE_STATUSES, FINAL_STATUSES
 
 logger = logging.getLogger(__name__)
@@ -84,8 +84,8 @@ class BucketMigrationExecutionControlMixin:
         migration: BucketMigration,
         state: str,
         *,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
     ) -> bool:
         if state == "lost_lease":
             return True
@@ -103,8 +103,8 @@ class BucketMigrationExecutionControlMixin:
         self,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         control_check: Callable[[], str],
     ) -> Optional[BucketMigration]:

@@ -22,8 +22,8 @@ from ._shared import (
     _BucketVersionEntry,
     _json_dumps,
     _WorkerLeaseLostError,
-    _MIGRATION_USER_AGENT_MARKER,
 )
+from .execution_runtime import MIGRATION_USER_AGENT_MARKER
 from .workflow import require_action
 
 
@@ -394,7 +394,7 @@ class BucketMigrationMaintenanceMixin:
                     "Action": deletes,
                     "Condition": {
                         "StringNotLike": {
-                            "aws:UserAgent": f"*{_MIGRATION_USER_AGENT_MARKER}*"
+                            "aws:UserAgent": f"*{MIGRATION_USER_AGENT_MARKER}*"
                         }
                     },
                 }

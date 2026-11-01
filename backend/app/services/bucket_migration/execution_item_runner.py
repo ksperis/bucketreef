@@ -13,10 +13,8 @@ from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import is_s3_access_denied
 from app.utils.time import utcnow
 
-from ._shared import (
-    _ResolvedContext,
-    _check_control_state,
-)
+from ._shared import _check_control_state
+from .execution_runtime import ResolvedContext
 from .execution_item_loop import _MigrationItemExecutionLoop
 from .execution_settings_copy import _BucketSettingsCopyRunner
 from .diagnostics import MigrationPermissionCheckError
@@ -76,8 +74,8 @@ class BucketMigrationItemRunnerMixin:
         self,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         strategy: str,
         control_check: Callable[[], str],
@@ -131,8 +129,8 @@ class BucketMigrationItemRunnerMixin:
         self,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         strategy: str,
         control_check: Callable[[], str],
@@ -215,7 +213,7 @@ class BucketMigrationItemRunnerMixin:
         self,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        target_ctx: _ResolvedContext,
+        target_ctx: ResolvedContext,
     ) -> None:
         self._finalize_target_versioning_state(
             target_ctx.execution_context,
@@ -234,8 +232,8 @@ class BucketMigrationItemRunnerMixin:
         self,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         strategy: str,
     ) -> bool:
@@ -280,7 +278,7 @@ class BucketMigrationItemRunnerMixin:
         self,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        target_ctx: _ResolvedContext,
+        target_ctx: ResolvedContext,
     ) -> None:
         try:
             self._apply_target_write_lock_policy(target_ctx, item.target_bucket, item)
@@ -329,8 +327,8 @@ class BucketMigrationItemRunnerMixin:
         self,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         control_check: Callable[[], str],
     ) -> None:
@@ -369,7 +367,7 @@ class BucketMigrationItemRunnerMixin:
             strategy=strategy,
         ).run()
 
-    def _precheck_can_list_bucket(self, source_ctx: _ResolvedContext, source_bucket: str) -> bool:
+    def _precheck_can_list_bucket(self, source_ctx: ResolvedContext, source_bucket: str) -> bool:
         client = self._context_client(source_ctx)
         try:
             page = client.list_objects_v2(Bucket=source_bucket, MaxKeys=1)
@@ -419,7 +417,7 @@ class BucketMigrationItemRunnerMixin:
 
     def _precheck_version_aware_source_access(
         self,
-        source_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
         source_bucket: str,
         source_profile: Optional[dict[str, Any]],
     ) -> None:
@@ -465,7 +463,7 @@ class BucketMigrationItemRunnerMixin:
                 f"'{source_bucket}': {exc}"
             ) from exc
 
-    def _count_bucket_objects(self, ctx: _ResolvedContext, bucket_name: str) -> int:
+    def _count_bucket_objects(self, ctx: ResolvedContext, bucket_name: str) -> int:
         client = self._context_client(ctx)
         continuation_token: Optional[str] = None
         total = 0
@@ -487,7 +485,7 @@ class BucketMigrationItemRunnerMixin:
 
     def _same_endpoint_copy_probe_candidate(
         self,
-        source_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
         source_bucket: str,
         *,
         strategy: str,
@@ -523,8 +521,8 @@ class BucketMigrationItemRunnerMixin:
 
     def _validate_same_endpoint_copy_target_access(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         source_bucket: str,
         *,
         sample_key: str,
@@ -570,8 +568,8 @@ class BucketMigrationItemRunnerMixin:
 
     def _precheck_same_endpoint_copy_source_access(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         source_bucket: str,
         *,
         auto_grant: bool,
@@ -596,7 +594,7 @@ class BucketMigrationItemRunnerMixin:
             auto_grant=auto_grant,
         )
 
-    def _precheck_bucket_exists(self, target_ctx: _ResolvedContext, target_bucket: str) -> Optional[bool]:
+    def _precheck_bucket_exists(self, target_ctx: ResolvedContext, target_bucket: str) -> Optional[bool]:
         client = self._context_client(target_ctx)
         try:
             client.head_bucket(Bucket=target_bucket)

@@ -13,10 +13,10 @@ from botocore.exceptions import BotoCoreError, ClientError
 from ._shared import (
     _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
     _RUN_ACTIONS_WAIT_TIMEOUT_SECONDS,
-    _ResolvedContext,
     _WorkerLeaseLostError,
     _chunked,
 )
+from .execution_runtime import ResolvedContext
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 class BucketMigrationObjectTransferMixin:
     def _copy_object(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -120,8 +120,8 @@ class BucketMigrationObjectTransferMixin:
 
     def _stream_copy_object(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         target_bucket: str,
@@ -172,7 +172,7 @@ class BucketMigrationObjectTransferMixin:
 
     def _delete_single_object(
         self,
-        target_ctx: _ResolvedContext,
+        target_ctx: ResolvedContext,
         target_bucket: str,
         key: str,
         *,
@@ -250,8 +250,8 @@ class BucketMigrationObjectTransferMixin:
 
     def _run_copy_actions(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         source_bucket: str,
         target_bucket: str,
         keys: list[str],
@@ -296,7 +296,7 @@ class BucketMigrationObjectTransferMixin:
 
     def _run_delete_actions(
         self,
-        target_ctx: _ResolvedContext,
+        target_ctx: ResolvedContext,
         target_bucket: str,
         keys: list[str],
         *,

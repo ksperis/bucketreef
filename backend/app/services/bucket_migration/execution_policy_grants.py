@@ -14,18 +14,17 @@ from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_execution_context import S3ExecutionTarget
 
 from ._shared import (
-    _MIGRATION_USER_AGENT_MARKER,
     _READ_ONLY_POLICY_SID,
     _SOURCE_COPY_GRANT_POLICY_SID,
     _TARGET_WRITE_LOCK_POLICY_SID,
-    _ResolvedContext,
 )
+from .execution_runtime import MIGRATION_USER_AGENT_MARKER, ResolvedContext
 
 logger = logging.getLogger(__name__)
 
 
 class BucketMigrationPolicyGrantsMixin:
-    def _source_copy_grant_principal_candidates(self, target_ctx: _ResolvedContext) -> list[str]:
+    def _source_copy_grant_principal_candidates(self, target_ctx: ResolvedContext) -> list[str]:
         context_id = (target_ctx.context_id or "").strip()
         if context_id.startswith("conn-"):
             return []
@@ -161,8 +160,8 @@ class BucketMigrationPolicyGrantsMixin:
     @contextmanager
     def _temporary_source_copy_grant_unjournaled(
         self,
-        source_ctx: _ResolvedContext,
-        target_ctx: _ResolvedContext,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
         *,
         source_bucket: str,
         sample_key: Optional[str] = None,
@@ -368,7 +367,7 @@ class BucketMigrationPolicyGrantsMixin:
                 ],
                 "Condition": {
                     "StringNotLike": {
-                        "aws:UserAgent": f"*{_MIGRATION_USER_AGENT_MARKER}*",
+                        "aws:UserAgent": f"*{MIGRATION_USER_AGENT_MARKER}*",
                     }
                 },
             }
@@ -524,7 +523,7 @@ class BucketMigrationPolicyGrantsMixin:
                 ) from exc
             raise
 
-    def _apply_target_write_lock_policy(self, target_ctx: _ResolvedContext, target_bucket: str, item: BucketMigrationItem) -> None:
+    def _apply_target_write_lock_policy(self, target_ctx: ResolvedContext, target_bucket: str, item: BucketMigrationItem) -> None:
         self._assert_workflow_lease()
         if item.target_lock_applied:
             return

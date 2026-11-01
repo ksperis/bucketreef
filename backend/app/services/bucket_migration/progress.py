@@ -19,12 +19,12 @@ from ._shared import (
     _bounded_event_metadata,
     _DB_ERROR_MESSAGE_MAX_CHARS,
     _DB_EVENT_MESSAGE_MAX_CHARS,
-    _ResolvedContext,
     _json_dumps,
     _sanitize_event_metadata,
     _truncate_db_text,
     _truncate_optional_db_text,
 )
+from .execution_runtime import ResolvedContext
 from .workflow import ACTIVE_STATUSES, FINAL_STATUSES
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -184,7 +184,7 @@ class BucketMigrationProgressMixin:
     def _release_target_write_locks(
         self,
         migration: BucketMigration,
-        target_ctx: Optional[_ResolvedContext],
+        target_ctx: Optional[ResolvedContext],
         *,
         verify_restored: bool = False,
         preserve_awaiting: bool = False,
@@ -242,7 +242,7 @@ class BucketMigrationProgressMixin:
     def _release_source_read_only_policies(
         self,
         migration: BucketMigration,
-        source_ctx: Optional[_ResolvedContext],
+        source_ctx: Optional[ResolvedContext],
         *,
         verify_restored: bool = False,
     ) -> list[str]:
@@ -311,8 +311,8 @@ class BucketMigrationProgressMixin:
         self,
         migration: BucketMigration,
         *,
-        source_ctx: Optional[_ResolvedContext] = None,
-        target_ctx: Optional[_ResolvedContext] = None,
+        source_ctx: Optional[ResolvedContext] = None,
+        target_ctx: Optional[ResolvedContext] = None,
     ) -> None:
         migration.status = "canceled"
         migration.worker_lease_owner = None
@@ -367,7 +367,7 @@ class BucketMigrationProgressMixin:
         self,
         migration: BucketMigration,
         *,
-        target_ctx: Optional[_ResolvedContext],
+        target_ctx: Optional[ResolvedContext],
     ) -> None:
         migration.status = (
             "completed_with_errors" if migration.failed_items > 0 else "completed"
@@ -400,8 +400,8 @@ class BucketMigrationProgressMixin:
         self,
         migration: BucketMigration,
         *,
-        source_ctx: Optional[_ResolvedContext] = None,
-        target_ctx: Optional[_ResolvedContext] = None,
+        source_ctx: Optional[ResolvedContext] = None,
+        target_ctx: Optional[ResolvedContext] = None,
     ) -> None:
         self._recompute_counters(migration)
         if migration.status == "cancel_requested":
