@@ -7,17 +7,19 @@ from typing import Any, Optional
 from app.models.ceph_admin import CephAdminRgwAccountDetail, CephAdminRgwQuotaConfig
 from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
 from app.utils.normalize import normalize_optional_scalar
-from app.utils.quota_stats import extract_quota_limits, extract_rgw_account_limit
+from app.utils.quota_stats import (
+    extract_rgw_account_bucket_quota_config,
+    extract_rgw_account_limit,
+    extract_rgw_account_quota_config,
+)
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_bucket_count,
     extract_rgw_account_email,
     extract_rgw_account_id,
     extract_rgw_account_name,
-    extract_rgw_account_payload,
     extract_rgw_account_tenant,
     extract_rgw_account_user_count,
-    extract_rgw_quota_enabled,
 )
 
 
@@ -52,13 +54,9 @@ def extract_account_bucket_list(payload: Any, account_id: str) -> list[dict]:
 
 
 def _quota_config(
-    payload: dict[str, Any],
-    *,
-    keys: tuple[str, ...],
+    values: tuple[Optional[bool], Optional[int], Optional[int]],
 ) -> Optional[CephAdminRgwQuotaConfig]:
-    account = extract_rgw_account_payload(payload)
-    max_size_bytes, max_objects = extract_quota_limits(account, keys=keys)
-    enabled = extract_rgw_quota_enabled(account, keys=keys)
+    enabled, max_size_bytes, max_objects = values
     if enabled is None and max_size_bytes is None and max_objects is None:
         return None
     return CephAdminRgwQuotaConfig(
@@ -86,6 +84,6 @@ def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> C
         max_access_keys=extract_rgw_account_limit(payload, "max_access_keys"),
         bucket_count=extract_rgw_account_bucket_count(payload),
         user_count=extract_rgw_account_user_count(payload),
-        quota=_quota_config(payload, keys=("quota", "account_quota")),
-        bucket_quota=_quota_config(payload, keys=("bucket_quota",)),
+        quota=_quota_config(extract_rgw_account_quota_config(payload)),
+        bucket_quota=_quota_config(extract_rgw_account_bucket_quota_config(payload)),
     )

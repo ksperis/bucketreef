@@ -36,7 +36,7 @@ from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.quota_stats import extract_rgw_user_quota_enabled, extract_rgw_user_quota_limits
+from app.utils.quota_stats import extract_rgw_user_quota_config
 from app.utils.rgw_caps import canonicalize_rgw_caps
 from app.utils.rgw_payloads import (
     extract_bucket_list,
@@ -89,8 +89,7 @@ def _build_user_detail(
     uid = resolved_uid or uid_fallback
     tenant = resolved_tenant if resolved_tenant is not None else tenant_fallback
     account_id = extract_rgw_user_account_id(payload)
-    quota_size, quota_objects = extract_rgw_user_quota_limits(payload)
-    quota_enabled = extract_rgw_user_quota_enabled(payload)
+    quota_enabled, quota_size, quota_objects = extract_rgw_user_quota_config(payload)
     quota = None
     if quota_enabled is not None or quota_size is not None or quota_objects is not None:
         quota = CephAdminRgwQuotaConfig(
