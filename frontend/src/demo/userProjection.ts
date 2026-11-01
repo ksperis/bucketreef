@@ -6,7 +6,7 @@ import type {
   UserSummary,
 } from "../api/users";
 import { resolveDemoAccountGrant } from "./http";
-import { settings, type DemoState, type DemoUser } from "./state";
+import { demoGroupsForUser, settings, type DemoState, type DemoUser } from "./state";
 
 const MANAGER_TOOLS = [
   "bucket_compare",
@@ -16,13 +16,9 @@ const MANAGER_TOOLS = [
   "feature_rules",
 ] as const satisfies ReadonlyArray<keyof ManagerToolAccess>;
 
-function groupsForUser(state: DemoState, userId: number) {
-  return state.groups.filter(group => group.user_details.some(member => member.id === userId));
-}
-
 function hasFeatureGrant(
   user: DemoUser,
-  groups: ReturnType<typeof groupsForUser>,
+  groups: ReturnType<typeof demoGroupsForUser>,
   field: keyof Pick<
     DemoUser,
     | "can_access_ceph_admin"
@@ -38,7 +34,7 @@ function hasFeatureGrant(
 
 function managerToolAccess(
   user: DemoUser,
-  groups: ReturnType<typeof groupsForUser>,
+  groups: ReturnType<typeof demoGroupsForUser>,
 ): { effective: ManagerToolAccess; inherited: ManagerToolAccess } {
   const roleSupportsTools = user.role !== "ui_none";
   const effective = {} as ManagerToolAccess;
@@ -106,7 +102,7 @@ function effectiveAccountLinks(state: DemoState, user: DemoUser): EffectiveAccou
 }
 
 function effectiveS3UserDetails(state: DemoState, user: DemoUser) {
-  const groups = groupsForUser(state, user.id);
+  const groups = demoGroupsForUser(state, user.id);
   const ids = new Set([
     ...(user.s3_user_links ?? []).map(link => link.s3_user_id),
     ...groups.flatMap(group => group.s3_user_links.map(link => link.s3_user_id)),
@@ -123,7 +119,7 @@ function effectiveS3UserDetails(state: DemoState, user: DemoUser) {
 }
 
 function effectiveConnectionDetails(state: DemoState, user: DemoUser) {
-  const groupIds = new Set(groupsForUser(state, user.id).map(group => group.id));
+  const groupIds = new Set(demoGroupsForUser(state, user.id).map(group => group.id));
   return state.connections
     .filter(connection => connection.is_shared)
     .filter(connection =>
@@ -134,7 +130,7 @@ function effectiveConnectionDetails(state: DemoState, user: DemoUser) {
 }
 
 function demoEffectiveAccess(state: DemoState, user: DemoUser): EffectiveUserAccess {
-  const groups = groupsForUser(state, user.id);
+  const groups = demoGroupsForUser(state, user.id);
   const roleSupportsTools = user.role !== "ui_none";
   const tools = managerToolAccess(user, groups);
   const groupManagedProvisioning = groups.some(group => group.can_provision_managed_private_connections);

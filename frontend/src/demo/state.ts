@@ -192,6 +192,11 @@ export type DemoState = {
   snapshotInventory: { accountId: number; endpointId: number; bucketName: string; bytes: number; objects: number }[];
   history: { timestamp: string; bytes_in: number; bytes_out: number; ops: number; success_ops: number }[];
 };
+
+export function demoGroupsForUser(state: DemoState, userId: number): UiGroup[] {
+  return state.groups.filter(group => group.user_details.some(member => member.id === userId));
+}
+
 export const settings: AppSettings = {
   general: {
     project_feature_policies: { ...DEFAULT_PROJECT_FEATURE_POLICIES },
