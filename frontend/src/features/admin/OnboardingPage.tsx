@@ -7,11 +7,9 @@ import {
   announceOnboardingStatus,
   applyOnboardingJourney,
   dismissOnboarding,
-  previewOnboardingDraft,
   resumeOnboarding,
   type OnboardingDraft,
   type OnboardingJourney,
-  type OnboardingPreview,
 } from "../../api/onboarding";
 import { validateAdminS3ConnectionCredentials } from "../../api/s3ConnectionsAdmin";
 import {
@@ -47,7 +45,6 @@ import { useI18n } from "../../i18n";
 import {
   extractApiError,
   extractApiErrorCode,
-  isCancelledError,
   isRecentWebAuthnRequired,
 } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
@@ -68,6 +65,7 @@ import {
   SUPERVISION_OPS_COMMAND,
 } from "./storageEndpointCredentialHelp";
 import { useOnboardingStatus } from "./useOnboardingStatus";
+import useOnboardingDraftPreview from "./useOnboardingDraftPreview";
 import useOnboardingJourneyDraft from "./useOnboardingJourneyDraft";
 import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
 import { useAdminI18n } from "./adminI18n";
@@ -272,14 +270,48 @@ export default function OnboardingPage() {
     createOnboardingCredentialDraft,
   );
   const [identityMode, setIdentityMode] = useState<OnboardingIdentityMode>("managed");
-  const [preview, setPreview] = useState<OnboardingPreview | null>(null);
-  const [previewPending, setPreviewPending] = useState(false);
-  const [previewError, setPreviewError] = useState("");
-  const [previewNonce, setPreviewNonce] = useState(0);
   const [validationNonce, setValidationNonce] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [internalNavigation, setInternalNavigation] = useState(false);
+
+  const message = useCallback(
+    (code: string) => {
+      const [key, source] = code.split(":");
+      return `${t(onboardingErrors[key] ?? onboardingErrors.generic)}${source ? ` (${source})` : ""}`;
+    },
+    [t],
+  );
+  const failure = useCallback(
+    (cause: unknown) => {
+      if (isRecentWebAuthnRequired(cause)) return t(copy.signIn);
+      if (isApiError(cause)) {
+        return message(
+          extractApiErrorCode(cause) ??
+            (cause.response?.status === 422 ? "invalid_configuration" : "generic"),
+        );
+      }
+      return message(
+        cause instanceof OnboardingReviewChangedError
+          ? "review_changed"
+          : "generic",
+      );
+    },
+    [message, t],
+  );
+  const {
+    preview,
+    pending: previewPending,
+    error: previewError,
+    syncPreview,
+    invalidatePreview,
+    retryPreview,
+  } = useOnboardingDraftPreview({
+    draft,
+    journeyId: journey?.id,
+    enabled: step !== "connect" && !journey?.configured && !busy,
+    formatError: failure,
+  });
 
   useEffect(() => {
     if (previousStepRef.current === step) return;
@@ -408,37 +440,10 @@ export default function OnboardingPage() {
     },
   });
 
-  const message = useCallback(
-    (code: string) => {
-      const [key, source] = code.split(":");
-      return `${t(onboardingErrors[key] ?? onboardingErrors.generic)}${source ? ` (${source})` : ""}`;
-    },
-    [t],
-  );
-  const failure = useCallback(
-    (cause: unknown) => {
-      if (isRecentWebAuthnRequired(cause)) return t(copy.signIn);
-      if (isApiError(cause)) {
-        return message(
-          extractApiErrorCode(cause) ??
-            (cause.response?.status === 422 ? "invalid_configuration" : "generic"),
-        );
-      }
-      return message(
-        cause instanceof OnboardingReviewChangedError
-          ? "review_changed"
-          : "generic",
-      );
-    },
-    [message, t],
-  );
-
   const store = useCallback((value: OnboardingJourney) => {
     storeJourney(value);
-    setPreview(value.preview);
-    setPreviewPending(false);
-    setPreviewError("");
-  }, [storeJourney]);
+    syncPreview(value.preview);
+  }, [storeJourney, syncPreview]);
 
   useEffect(() => {
     if (!status || status.dismissed || initialized.current) return;
@@ -471,32 +476,6 @@ export default function OnboardingPage() {
     };
   }, [adminText]);
 
-  useEffect(() => {
-    if (step === "connect" || journey?.configured || busy) return;
-    const controller = new AbortController();
-    setPreviewPending(true);
-    setPreviewError("");
-    const timer = window.setTimeout(() => {
-      previewOnboardingDraft(draft, controller.signal, journey?.id)
-        .then((value) => {
-          if (!controller.signal.aborted) {
-            setPreview(value);
-            setPreviewPending(false);
-          }
-        })
-        .catch((cause) => {
-          if (!controller.signal.aborted && !isCancelledError(cause)) {
-            setPreviewError(failure(cause));
-            setPreviewPending(false);
-          }
-        });
-    }, 250);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [busy, draft, failure, journey?.configured, journey?.id, previewNonce, step]);
-
   const clearSecrets = () => setCredentialDraft(createOnboardingCredentialDraft());
 
   const changeCredential = (field: keyof OnboardingCredentialDraft, value: string) => {
@@ -505,31 +484,26 @@ export default function OnboardingPage() {
 
   const change = (patch: Partial<OnboardingDraft>) => {
     changeDraft(patch);
-    setPreview(null);
-    setPreviewPending(step !== "connect");
+    invalidatePreview(step !== "connect");
   };
 
   const selectEndpoint = (value: string) => {
     clearSecrets();
-    setPreview(null);
+    invalidatePreview(step !== "connect");
     if (value === "new") {
       replaceDraft(createOnboardingDraft());
-      setPreviewPending(step !== "connect");
       return;
     }
     const endpointId = Number(value);
     const endpoint = endpoints.find((candidate) => candidate.id === endpointId);
     if (endpoint) {
       replaceDraft(createOnboardingDraft(endpoint));
-      setPreviewPending(step !== "connect");
     }
   };
 
   const persist = async (value = draft) => {
     const saved = await persistJourney(value);
-    setPreview(saved.preview);
-    setPreviewPending(false);
-    setPreviewError("");
+    syncPreview(saved.preview);
     if (status?.complete) {
       const nextStatus = await refreshStatus();
       if (nextStatus) announceOnboardingStatus(nextStatus);
@@ -550,7 +524,7 @@ export default function OnboardingPage() {
       setEndpoints(catalogue);
       const saved = latest?.journeys.find((item) => item.id === getJourneyId());
       if (saved) store(saved);
-      setPreviewNonce((value) => value + 1);
+      retryPreview();
     } finally {
       setBusy(false);
     }
@@ -697,7 +671,7 @@ export default function OnboardingPage() {
             <UiButton
               variant="ghost"
               onClick={() => {
-                setPreviewNonce((value) => value + 1);
+                retryPreview();
                 setValidationNonce((value) => value + 1);
               }}
             >
@@ -1182,7 +1156,7 @@ export default function OnboardingPage() {
                   {previewError && (
                     <UiInlineMessage tone="error">
                       {previewError}{" "}
-                      <UiButton variant="ghost" onClick={() => setPreviewNonce((value) => value + 1)}>
+                      <UiButton variant="ghost" onClick={retryPreview}>
                         {t(copy.retry)}
                       </UiButton>
                     </UiInlineMessage>
