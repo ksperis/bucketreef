@@ -61,11 +61,11 @@ describe("adminS3UserForm", () => {
       allow_access_key_management: true,
     }));
     expect(form.user_links).toEqual([
-      expect.objectContaining({ user_id: 7, allow_manager_browser_data_access: true }),
+      { user_id: 7, allow_manager_browser_data_access: true },
     ]);
   });
 
-  it("builds a privilege-aware update payload and strips display-only link fields", () => {
+  it("builds a privilege-aware update payload from canonical association links", () => {
     const form = {
       ...emptyAdminS3UserForm(),
       name: "Updated",
@@ -77,9 +77,6 @@ describe("adminS3UserForm", () => {
       allow_bucket_usage_stats_collection: false,
       user_links: [{
         user_id: 7,
-        user_email: "ui@example.test",
-        user_full_name: "UI User",
-        user_avatar: null,
         allow_manager_browser_data_access: true,
       }],
     };

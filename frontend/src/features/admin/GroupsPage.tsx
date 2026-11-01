@@ -78,9 +78,9 @@ import {
 import AdminSimpleIdAssociationsPanel, {
   type AdminSimpleIdAssociationsState,
 } from "./AdminSimpleIdAssociationsPanel";
-import AdminS3UserAssociationsPanel, {
-  type AdminS3UserAssociationsState,
-} from "./AdminS3UserAssociationsPanel";
+import AdminRgwUserAccessAssociationsPanel, {
+  type AdminRgwUserAccessAssociationsState,
+} from "./AdminRgwUserAccessAssociationsPanel";
 import AdminAccountAssociationsPanel, {
   type AdminAccountAssociationsState,
   type AdminAccountSelection,
@@ -581,9 +581,18 @@ export default function GroupsPage() {
     setAccountAccessChoice,
     toggleSelection: accountPicker.toggleSelection,
   };
-  const s3UserAssociationState: AdminS3UserAssociationsState = {
+  const s3UserAssociationState: AdminRgwUserAccessAssociationsState<S3UserMembership> = {
     selected: form.s3_user_links ?? [],
     setSelected: setS3UserLinks,
+    getId: (link) => link.s3_user_id,
+    createLink: (id) => ({
+      s3_user_id: id,
+      allow_manager_browser_data_access: false,
+    }),
+    withAccess: (link, allowed) => ({
+      ...link,
+      allow_manager_browser_data_access: allowed,
+    }),
     labelById: s3UserLabelById,
     available: s3UserOptions.available.map((s3User) => ({
       id: s3User.id,
@@ -683,7 +692,7 @@ export default function GroupsPage() {
           actionLabel: s3UserPicker.open ? text("close") : text("addRgwUsers"),
           onAction: () => s3UserPicker.setOpen((current) => !current),
           content: (
-            <AdminS3UserAssociationsPanel
+            <AdminRgwUserAccessAssociationsPanel
               state={s3UserAssociationState}
               maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
               primaryLabel={text("rgwUser")}

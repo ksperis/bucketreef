@@ -1,8 +1,8 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type {
   S3User,
-  S3UserGroupLink,
-  S3UserUserLink,
+  S3UserGroupLinkInput,
+  S3UserUserLinkInput,
   UpdateS3UserPayload,
 } from "../../api/s3Users";
 import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
@@ -13,8 +13,8 @@ export function emptyAdminS3UserForm() {
     name: "",
     email: "",
     tags: [] as UiTagDefinition[],
-    user_links: [] as S3UserUserLink[],
-    group_links: [] as S3UserGroupLink[],
+    user_links: [] as S3UserUserLinkInput[],
+    group_links: [] as S3UserGroupLinkInput[],
     quota_max_size_gb: "",
     quota_max_size_unit: "GiB",
     quota_max_objects: "",
@@ -40,8 +40,14 @@ export function adminS3UserForm(user: S3User): AdminS3UserForm {
     name: user.name,
     email: user.email ?? "",
     tags: normalizeUiTags(user.tags),
-    user_links: user.user_links.map<S3UserUserLink>(link => ({ ...link })),
-    group_links: user.group_links.map<S3UserGroupLink>(link => ({ ...link })),
+    user_links: user.user_links.map<S3UserUserLinkInput>((link) => ({
+      user_id: link.user_id,
+      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
+    })),
+    group_links: user.group_links.map<S3UserGroupLinkInput>((link) => ({
+      group_id: link.group_id,
+      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
+    })),
     quota_max_size_gb: quota.value,
     quota_max_size_unit: quota.unit,
     quota_max_objects: user.quota_max_objects == null ? "" : String(user.quota_max_objects),
@@ -68,14 +74,8 @@ export function adminS3UserPayload(
     name: form.name || undefined,
     email: form.email || undefined,
     tags: normalizeUiTags(form.tags),
-    user_links: form.user_links.map(({ user_id, allow_manager_browser_data_access }) => ({
-      user_id,
-      allow_manager_browser_data_access,
-    })),
-    group_links: form.group_links.map(({ group_id, allow_manager_browser_data_access }) => ({
-      group_id,
-      allow_manager_browser_data_access,
-    })),
+    user_links: form.user_links.map((link) => ({ ...link })),
+    group_links: form.group_links.map((link) => ({ ...link })),
     allow_bucket_usage_stats: form.allow_bucket_usage_stats,
     allow_bucket_usage_stats_collection: form.allow_bucket_usage_stats_collection,
     ...(canManageManagerFeatures ? {

@@ -97,6 +97,15 @@ export default function AdminUserAssociationEditorPanels({
       s3Users={{
         selected: editor.s3Users.selected,
         setSelected: editor.s3Users.setSelected,
+        getId: (link) => link.s3_user_id,
+        createLink: (id) => ({
+          s3_user_id: id,
+          allow_manager_browser_data_access: false,
+        }),
+        withAccess: (link, allowed) => ({
+          ...link,
+          allow_manager_browser_data_access: allowed,
+        }),
         labelById: resources.s3UserLabelById,
         available: options.s3Users.available,
         visible: options.s3Users.visible,

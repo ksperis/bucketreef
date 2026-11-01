@@ -2,22 +2,31 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 
-import type { S3UserMembership } from "../../api/users";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
 import {
   AdminAssociationCheckboxOptions,
   AdminAssociationPickerPanel,
+  AdminAssociationSectionHeader,
   adminAssociationTableContainerClass,
 } from "./AdminAssociationPicker";
 import type { AdminSimpleAssociationOption } from "./AdminSimpleIdAssociationsPanel";
 
-export type AdminS3UserAssociationsState = {
-  selected: S3UserMembership[];
-  setSelected: Dispatch<SetStateAction<S3UserMembership[]>>;
+type AdminRgwUserAccessLink = {
+  allow_manager_browser_data_access: boolean;
+};
+
+export type AdminRgwUserAccessAssociationsState<
+  TLink extends AdminRgwUserAccessLink,
+> = {
+  selected: TLink[];
+  setSelected: Dispatch<SetStateAction<TLink[]>>;
+  getId: (link: TLink) => number;
+  createLink: (id: number) => TLink;
+  withAccess: (link: TLink, allowed: boolean) => TLink;
   labelById: Map<number, string>;
   available: AdminSimpleAssociationOption[];
   visible: AdminSimpleAssociationOption[];
@@ -31,8 +40,10 @@ export type AdminS3UserAssociationsState = {
   toggleSelection: (id: number) => void;
 };
 
-type AdminS3UserAssociationsPanelProps = {
-  state: AdminS3UserAssociationsState;
+type AdminRgwUserAccessAssociationsPanelProps<
+  TLink extends AdminRgwUserAccessLink,
+> = {
+  state: AdminRgwUserAccessAssociationsState<TLink>;
   maxVisibleOptions: number;
   primaryLabel: string;
   actionsLabel: string;
@@ -44,10 +55,17 @@ type AdminS3UserAssociationsPanelProps = {
   fallbackLabel: (id: number) => string;
   searchAriaLabel?: string;
   pickerEmptyMessage?: string;
-  normalizeSelection?: (links: S3UserMembership[]) => S3UserMembership[];
+  normalizeSelection?: (links: TLink[]) => TLink[];
+  section?: {
+    title: string;
+    countLabel: ReactNode;
+    actionLabel: ReactNode;
+  };
 };
 
-export default function AdminS3UserAssociationsPanel({
+export default function AdminRgwUserAccessAssociationsPanel<
+  TLink extends AdminRgwUserAccessLink,
+>({
   state,
   maxVisibleOptions,
   primaryLabel,
@@ -61,19 +79,22 @@ export default function AdminS3UserAssociationsPanel({
   searchAriaLabel,
   pickerEmptyMessage,
   normalizeSelection = (links) => links,
-}: AdminS3UserAssociationsPanelProps) {
+  section,
+}: AdminRgwUserAccessAssociationsPanelProps<TLink>) {
   const resetPicker = () => {
     state.setShowPanel(false);
     state.setSelections([]);
     state.setSearch("");
   };
-  const columns: DataTableColumn<S3UserMembership>[] = [
+  const columns: DataTableColumn<TLink>[] = [
     {
-      id: "user",
+      id: "principal",
       label: primaryLabel,
       primary: true,
-      render: (entry) =>
-        state.labelById.get(entry.s3_user_id) ?? fallbackLabel(entry.s3_user_id),
+      render: (entry) => {
+        const id = state.getId(entry);
+        return state.labelById.get(id) ?? fallbackLabel(id);
+      },
     },
     {
       id: "actions",
@@ -81,8 +102,8 @@ export default function AdminS3UserAssociationsPanel({
       align: "right",
       mobileRole: "actions",
       render: (entry) => {
-        const label =
-          state.labelById.get(entry.s3_user_id) ?? fallbackLabel(entry.s3_user_id);
+        const id = state.getId(entry);
+        const label = state.labelById.get(id) ?? fallbackLabel(id);
         return (
           <ListActions>
             <AdminAssociationAdvancedSettings
@@ -94,11 +115,8 @@ export default function AdminS3UserAssociationsPanel({
               onApply={(allowed) =>
                 state.setSelected((current) =>
                   current.map((item) =>
-                    item.s3_user_id === entry.s3_user_id
-                      ? {
-                          ...item,
-                          allow_manager_browser_data_access: allowed,
-                        }
+                    state.getId(item) === id
+                      ? state.withAccess(item, allowed)
                       : item,
                   ),
                 )
@@ -109,7 +127,7 @@ export default function AdminS3UserAssociationsPanel({
               variant="danger"
               onClick={() =>
                 state.setSelected((current) =>
-                  current.filter((item) => item.s3_user_id !== entry.s3_user_id),
+                  current.filter((item) => state.getId(item) !== id),
                 )
               }
             >
@@ -123,10 +141,18 @@ export default function AdminS3UserAssociationsPanel({
 
   return (
     <div className="space-y-3">
+      {section ? (
+        <AdminAssociationSectionHeader
+          title={section.title}
+          countLabel={section.countLabel}
+          actionLabel={section.actionLabel}
+          onAction={() => state.setShowPanel((current) => !current)}
+        />
+      ) : null}
       <DataTableShell
         columns={columns}
         rows={state.selected}
-        rowKey={(entry) => entry.s3_user_id}
+        rowKey={state.getId}
         status={state.selected.length ? "ready" : "empty"}
         loadingMessage={loadingMessage}
         errorMessage={emptyMessage}
@@ -154,10 +180,7 @@ export default function AdminS3UserAssociationsPanel({
             state.setSelected((current) =>
               normalizeSelection([
                 ...current,
-                ...state.selections.map((s3UserId) => ({
-                  s3_user_id: s3UserId,
-                  allow_manager_browser_data_access: false,
-                })),
+                ...state.selections.map(state.createLink),
               ]),
             );
             resetPicker();
