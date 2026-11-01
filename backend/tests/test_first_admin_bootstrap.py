@@ -122,6 +122,7 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
             ],
         )
     )
+    assert audit.audit_metadata["method"] == "web"
     assert audit.audit_metadata["passkey_enrollment_required"] is False
 
     with pytest.raises(FirstAdminBootstrapUnavailableError):
@@ -266,6 +267,34 @@ def test_create_first_admin_cli_prints_after_session_close(monkeypatch, db_sessi
         == "Created cli-admin@example.com. Passkey enrollment is optional during onboarding; enroll one and enable "
         "'Require passkeys for administrators' before production.\n"
     )
+
+
+def test_create_from_cli_records_bootstrap_provenance_and_operator_audit(db_session):
+    created = FirstAdminBootstrapService(db_session).create_from_cli(
+        email="  CLI-AUDIT@Example.com ",
+        full_name=" CLI Audit ",
+        password=PASSWORD,
+        confirmation="CREATE FIRST ADMIN cli-audit@example.com",
+    )
+
+    user = db_session.get(User, created.user_id)
+    row = db_session.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "operator_create_first_superadmin")
+    ).one()
+
+    assert user is not None
+    assert user.email == "cli-audit@example.com"
+    assert user.full_name == "CLI Audit"
+    assert row is not None
+    assert row.consumed_at is not None
+    assert row.token_digest is None
+    assert row.created_user_id == user.id
+    assert audit.entity_id == str(user.id)
+    assert audit.audit_metadata == {
+        "method": "cli",
+        "passkey_enrollment_required": False,
+    }
 
 
 def test_bootstrap_api_authenticates_admin_without_passkey_by_default(client, db_session):
