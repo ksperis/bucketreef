@@ -26,7 +26,7 @@ SIGNAL_FIELDS = {
     "delegated_ceph_admin_bucket_ui_tags_audit": "CephAdminBucketUiTagsWorkflow = Depends(",
     "delegated_ceph_admin_user_key_audit": "CephAdminUserKeyService(",
     "delegated_purge_stream": "stream_bucket_purge(",
-    "delegated_integrity_stream": "stream_bucket_integrity_check(",
+    "delegated_integrity_stream": "stream_resolved_bucket_integrity_check(",
     "delegated_portal_request_create_audit": "service.create_request(",
     "delegated_portal_request_approve_audit": "service.approve_request(",
     "delegated_portal_request_reject_audit": "service.reject_request(",
@@ -286,6 +286,10 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
                 for call in ast.walk(node)
             )
             for signal_name, helper_name in (
+                (
+                    "delegated_integrity_stream",
+                    "stream_resolved_bucket_integrity_check",
+                ),
                 ("delegated_manager_iam_role_update_audit", "update_iam_role"),
                 (
                     "delegated_admin_identity_provider_delete_audit",
