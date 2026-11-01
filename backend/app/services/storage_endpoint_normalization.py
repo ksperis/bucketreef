@@ -308,16 +308,11 @@ def _normalize_multisite_ids(
     return multisite_ids
 
 
-def normalize_storage_endpoint_state(
+def _normalize_endpoint_feature_policy(
     payload: StorageEndpointCreate,
-) -> NormalizedEndpointState:
-    name = _normalize_name(payload.name)
-    endpoint_url = normalize_s3_endpoint(payload.endpoint_url)
-    if not endpoint_url:
-        raise ValueError("Endpoint URL is required.")
-    provider = normalize_storage_provider(payload.provider)
-    region = _normalize_region(provider, payload.region)
-    realm_id, zonegroup_id, zone_id = _normalize_multisite_ids(payload, provider)
+    provider: StorageProvider,
+    region: Optional[str],
+) -> tuple[dict[str, dict[str, object]], set[str], bool]:
     feature_overrides = (
         payload.features.model_dump(exclude_unset=True)
         if payload.features is not None
@@ -328,24 +323,42 @@ def normalize_storage_endpoint_state(
         feature_overrides,
         region,
     )
-    supervision_access_input, supervision_secret_input = _normalized_credential_pair(
+    supervision_access, supervision_secret = _normalized_credential_pair(
         payload,
         "supervision",
     )
     if (
         provider == StorageProvider.CEPH
         and payload.service_identity_mode == "external"
-        and supervision_access_input
-        and supervision_secret_input
+        and supervision_access
+        and supervision_secret
     ):
         features["healthcheck"]["enabled"] = True
         features["healthcheck"]["mode"] = "s3"
+    required_identities = required_service_identity_kinds(features)
     admin_enabled = bool(features["admin"]["enabled"]) or bool(
         features["account"]["enabled"]
     )
-    required_identities = required_service_identity_kinds(features)
     admin_required = admin_enabled or (
         payload.service_identity_mode == "managed" and bool(required_identities)
+    )
+    return features, required_identities, admin_required
+
+
+def normalize_storage_endpoint_state(
+    payload: StorageEndpointCreate,
+) -> NormalizedEndpointState:
+    name = _normalize_name(payload.name)
+    endpoint_url = normalize_s3_endpoint(payload.endpoint_url)
+    if not endpoint_url:
+        raise ValueError("Endpoint URL is required.")
+    provider = normalize_storage_provider(payload.provider)
+    region = _normalize_region(provider, payload.region)
+    realm_id, zonegroup_id, zone_id = _normalize_multisite_ids(payload, provider)
+    features, required_identities, admin_required = _normalize_endpoint_feature_policy(
+        payload,
+        provider,
+        region,
     )
     credentials = _normalize_ceph_service_credentials(
         payload,

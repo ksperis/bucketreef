@@ -192,6 +192,8 @@ def test_normalize_ceph_external_credentials_preserves_complete_pairs():
         "CEPH-ADMIN",
         "CEPH-ADMIN-SECRET",
     )
+    assert state.features["healthcheck"]["enabled"] is True
+    assert state.features["healthcheck"]["mode"] == "s3"
 
 
 def test_normalize_ceph_credentials_rejects_incomplete_ceph_admin_pair():
