@@ -782,8 +782,7 @@ describe("UsersPage modal tabs", () => {
       expect(createUserMock).toHaveBeenCalledTimes(1);
     });
 
-    expect(updateUserMock).toHaveBeenCalledWith(
-      100,
+    expect(createUserMock).toHaveBeenCalledWith(
       expect.objectContaining({
         account_links: [
           {
@@ -802,11 +801,11 @@ describe("UsersPage modal tabs", () => {
         s3_connection_ids: [21],
       })
     );
+    expect(updateUserMock).not.toHaveBeenCalled();
   }, 10_000);
 
-  it("retries only the association request after user creation step-up", async () => {
-    createUserMock.mockResolvedValueOnce({ id: 100 });
-    updateUserMock
+  it("retries the single create request after user creation step-up", async () => {
+    createUserMock
       .mockRejectedValueOnce(recentWebAuthnRequiredError())
       .mockResolvedValueOnce({ id: 100 });
     renderPage();
@@ -825,11 +824,11 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByRole("tab", { name: "Accounts" })).toBeInTheDocument();
     fireEvent.click(within(verificationDialog).getByRole("button", { name: "Verify with passkey" }));
 
-    await waitFor(() => expect(updateUserMock).toHaveBeenCalledTimes(2));
-    expect(createUserMock).toHaveBeenCalledTimes(1);
-    expect(updateUserMock).toHaveBeenNthCalledWith(2, 100, expect.objectContaining({
+    await waitFor(() => expect(createUserMock).toHaveBeenCalledTimes(2));
+    expect(createUserMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
       account_links: [expect.objectContaining({ account_id: 1 })],
     }));
+    expect(updateUserMock).not.toHaveBeenCalled();
   }, 10_000);
 
   it("does not retry minimal account loading in a loop after an initial failure", async () => {
@@ -1401,8 +1400,7 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
-      expect(updateUserMock).toHaveBeenCalledWith(
-        100,
+      expect(createUserMock).toHaveBeenCalledWith(
         expect.objectContaining({
           account_links: [
             {
@@ -1415,6 +1413,7 @@ describe("UsersPage modal tabs", () => {
         })
       );
     });
+    expect(updateUserMock).not.toHaveBeenCalled();
   });
   it.each([false, true])("freezes the user draft during save and retains it after failure (edit=%s)", async (editing) => {
     const user = { id: 12, email: "draft@example.com", role: "ui_user", account_links: [] };

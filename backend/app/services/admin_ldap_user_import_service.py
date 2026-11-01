@@ -20,11 +20,6 @@ from app.models.user import ManagerToolAccess, UserUpdate
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPAuthService, LDAPIdentity
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
-from app.services.portal_role_sync import (
-    capture_effective_portal_roles,
-    sync_portal_role_downgrades,
-    sync_portal_role_promotions,
-)
 from app.services.user_associations_service import UserAssociationsService
 from app.services.users_service import UsersService
 from app.utils.time import utcnow
@@ -207,23 +202,9 @@ class AdminLdapUserImportService:
             group_ids=payload.group_ids,
             openstack_cloud_ids=payload.openstack_cloud_ids,
         )
-        affected_accounts = associations.affected_portal_account_ids(user, association_update)
-        roles_before = capture_effective_portal_roles(
-            self.db,
-            user_ids=[user.id],
-            account_ids=affected_accounts,
-        )
         associations.apply_updates(user, association_update)
         self.db.add(user)
-        self.db.flush()
-        roles_after = capture_effective_portal_roles(
-            self.db,
-            user_ids=[user.id],
-            account_ids=affected_accounts,
-        )
-        sync_portal_role_downgrades(self.db, before=roles_before, after=roles_after)
         self.db.commit()
-        sync_portal_role_promotions(self.db, before=roles_before, after=roles_after)
         self.db.refresh(user)
         return user
 

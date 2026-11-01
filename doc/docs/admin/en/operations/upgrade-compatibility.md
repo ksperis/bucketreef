@@ -1,5 +1,20 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 atomic UI user creation associations
+
+The internal `POST /api/admin/users` contract now accepts the complete initial
+association set: RGW account links, S3 user links, shared S3 connection IDs,
+UI group IDs, and OpenStack cloud IDs. The bundled frontend sends these links
+with the create request instead of creating the user first and applying a
+follow-up `PATCH`.
+
+Deploy the backend and bundled frontend together. This removes the partial
+creation state where a UI user could be persisted successfully before a later
+association update failed. Initial associations are validated in the same
+database transaction. Portal IAM identities remain lazily provisioned on first
+use, so initial role links do not trigger external IAM synchronization during
+user creation. No database migration is required.
+
 ## 2026-10 LDAP Admin import search filter
 
 Migration `0223_ldap_import_search_filter` adds the optional

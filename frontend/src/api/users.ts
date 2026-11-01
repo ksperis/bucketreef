@@ -142,6 +142,9 @@ export type CreateUserPayload = {
   allow_multisite_endpoint_switching?: boolean;
   manager_tool_access?: ManagerToolAccess | null;
   browser_advanced_features_enabled?: boolean;
+  account_links?: AccountMembership[] | null;
+  s3_user_links?: S3UserMembership[] | null;
+  s3_connection_ids?: number[] | null;
   group_ids?: number[] | null;
   openstack_cloud_ids?: number[] | null;
 };

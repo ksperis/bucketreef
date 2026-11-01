@@ -219,6 +219,70 @@ def test_admin_cannot_assign_group_that_grants_ceph_admin(
     assert "assign groups" in response.json()["detail"]
 
 
+def test_create_user_applies_initial_account_links_in_same_request(
+    client: TestClient,
+    db_session,
+):
+    account = make_s3_account(
+        db_session,
+        name="initial-user-account",
+        rgw_account_id="RGW00000000000000009",
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    response = client.post(
+        "/api/admin/users",
+        json={
+            "email": "created-with-links@example.com",
+            "password": "secret-pass-06",
+            "account_links": [
+                {
+                    "account_id": account.id,
+                    "manager_role": "account_administrator",
+                    "portal_role": None,
+                    "allow_manager_browser_data_access": True,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["account_links"] == [
+        {
+            "account_id": account.id,
+            "manager_role": "account_administrator",
+            "portal_role": None,
+            "allow_manager_browser_data_access": True,
+        }
+    ]
+
+
+def test_create_user_rolls_back_when_initial_association_is_invalid(
+    client: TestClient,
+    db_session,
+):
+    email = "invalid-initial-link@example.com"
+    response = client.post(
+        "/api/admin/users",
+        json={
+            "email": email,
+            "password": "secret-pass-07",
+            "account_links": [
+                {
+                    "account_id": 999999,
+                    "manager_role": "account_administrator",
+                    "portal_role": None,
+                    "allow_manager_browser_data_access": False,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 400, response.text
+    assert db_session.scalar(select(func.count()).select_from(User).where(User.email == email)) == 0
+
+
 def test_superadmin_can_create_superadmin_and_grant_ceph_admin(client: TestClient):
     super_admin_user = User(
         id=1002,
