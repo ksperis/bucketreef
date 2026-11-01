@@ -10,9 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.models.ceph_admin import (
     CephAdminEntityMetrics,
-    CephAdminRgwAccessKey,
     CephAdminRgwGeneratedAccessKey,
-    CephAdminRgwQuotaConfig,
     CephAdminRgwUserConfigUpdate,
     CephAdminRgwUserCreate,
     CephAdminRgwUserCreateResponse,
@@ -31,23 +29,18 @@ from app.services.ceph_admin_user_access import (
     require_user_scope,
     serialize_access_keys,
 )
+from app.services.ceph_admin_user_payloads import build_user_detail, extract_user_fields
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.quota_stats import extract_rgw_user_quota_config
 from app.utils.rgw_caps import canonicalize_rgw_caps
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_name,
     extract_rgw_account_tenant,
-    extract_rgw_user_account_id,
-    extract_rgw_user_bool,
     extract_rgw_user_caps,
-    extract_rgw_user_identity,
-    extract_rgw_user_int,
-    extract_rgw_user_scalar,
 )
 from app.utils.usage_stats import summarize_bucket_usage
 
@@ -77,64 +70,15 @@ def _extract_caps(payload: dict[str, Any]) -> list[str]:
     return canonicalize_rgw_caps(extract_rgw_user_caps(payload))
 
 
-def _build_user_detail(
-    payload: dict[str, Any],
-    *,
-    uid_fallback: str,
-    tenant_fallback: Optional[str],
-    account_name: Optional[str] = None,
-    keys: Optional[list[CephAdminRgwAccessKey]] = None,
-) -> CephAdminRgwUserDetail:
-    resolved_uid, resolved_tenant = extract_rgw_user_identity(payload)
-    uid = resolved_uid or uid_fallback
-    tenant = resolved_tenant if resolved_tenant is not None else tenant_fallback
-    account_id = extract_rgw_user_account_id(payload)
-    quota_enabled, quota_size, quota_objects = extract_rgw_user_quota_config(payload)
-    quota = None
-    if quota_enabled is not None or quota_size is not None or quota_objects is not None:
-        quota = CephAdminRgwQuotaConfig(
-            enabled=quota_enabled,
-            max_size_bytes=quota_size,
-            max_objects=quota_objects,
-        )
-    return CephAdminRgwUserDetail(
-        uid=uid,
-        tenant=tenant,
-        display_name=extract_rgw_user_scalar(payload, "display_name"),
-        email=extract_rgw_user_scalar(payload, "email"),
-        account_id=account_id,
-        account_name=account_name,
-        suspended=extract_rgw_user_bool(payload, "suspended"),
-        admin=extract_rgw_user_bool(payload, "admin"),
-        system=extract_rgw_user_bool(payload, "system"),
-        account_root=extract_rgw_user_bool(payload, "account_root"),
-        max_buckets=extract_rgw_user_int(payload, "max_buckets"),
-        op_mask=extract_rgw_user_scalar(payload, "op_mask"),
-        default_placement=extract_rgw_user_scalar(
-            payload,
-            "default_placement",
-            "default_placement_rule",
-        ),
-        default_storage_class=extract_rgw_user_scalar(payload, "default_storage_class"),
-        caps=_extract_caps(payload),
-        quota=quota,
-        keys=keys or [],
-    )
-
-
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
     payload = load_user_payload(uid, tenant, ctx.rgw_admin)
-    account_id = extract_rgw_user_account_id(payload)
+    fields = extract_user_fields(payload, {"account"})
     account_name = _resolve_account_name(
-        account_id,
+        fields.account_id,
         ctx,
-        payload_account_name=extract_rgw_user_scalar(
-            payload,
-            "account_name",
-            top_level_first=True,
-        ),
+        payload_account_name=fields.account_name,
     )
-    return _build_user_detail(
+    return build_user_detail(
         payload,
         uid_fallback=uid,
         tenant_fallback=tenant,

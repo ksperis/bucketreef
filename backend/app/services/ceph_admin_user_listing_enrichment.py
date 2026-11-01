@@ -7,6 +7,7 @@ from typing import Any, Callable, Optional
 from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwUserSummary
+from app.services.ceph_admin_user_payloads import extract_user_fields
 from app.services.listing_progress import (
     ListingProgressEmitter,
     interpolate_progress_percent,
@@ -14,14 +15,9 @@ from app.services.listing_progress import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.quota_stats import extract_rgw_user_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_name,
-    extract_rgw_user_account_id,
-    extract_rgw_user_bool,
-    extract_rgw_user_int,
-    extract_rgw_user_scalar,
 )
 from app.utils.usage_stats import summarize_bucket_usage
 
@@ -95,28 +91,23 @@ class _UserDetailsEnricher:
         user: CephAdminRgwUserSummary,
         payload: dict[str, Any],
     ) -> None:
+        fields = extract_user_fields(payload, self.requested)
         if "account" in self.requested:
-            account_id = extract_rgw_user_account_id(payload)
-            user.account_id = account_id
+            user.account_id = fields.account_id
             user.account_name = self._resolve_account_name(
-                account_id,
-                extract_rgw_user_scalar(
-                    payload,
-                    "account_name",
-                    top_level_first=True,
-                ),
+                fields.account_id,
+                fields.account_name,
             )
         if "profile" in self.requested:
-            user.full_name = extract_rgw_user_scalar(payload, "display_name")
-            user.email = extract_rgw_user_scalar(payload, "email")
+            user.full_name = fields.display_name
+            user.email = fields.email
         if "status" in self.requested:
-            user.suspended = extract_rgw_user_bool(payload, "suspended")
+            user.suspended = fields.suspended
         if "limits" in self.requested:
-            user.max_buckets = extract_rgw_user_int(payload, "max_buckets")
+            user.max_buckets = fields.max_buckets
         if "quota" in self.requested:
-            quota_size, quota_objects = extract_rgw_user_quota_limits(payload)
-            user.quota_max_size_bytes = quota_size
-            user.quota_max_objects = quota_objects
+            user.quota_max_size_bytes = fields.quota_max_size_bytes
+            user.quota_max_objects = fields.quota_max_objects
         if "usage" in self.requested:
             self._apply_usage(user)
 
