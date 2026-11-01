@@ -57,6 +57,8 @@ describe("CostSettingsPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Cost settings" })).toBeInTheDocument();
     expect(await screen.findByDisplayValue("EUR")).toBeInTheDocument();
+    expect(mocks.fetchCostSettings).toHaveBeenCalledTimes(1);
+    expect(mocks.listStorageEndpoints).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Ceph main")).toBeInTheDocument();
     expect(screen.getByText("Global")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add override" })).toBeInTheDocument();
