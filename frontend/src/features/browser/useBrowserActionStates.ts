@@ -194,12 +194,54 @@ export function useBrowserActionStates({
     [selectionActionStates],
   );
 
+  const toolbar = useMemo(() => {
+    const selectionActive = selectionItems.length > 0;
+    const selectionActions = (
+      selectionActive
+        ? toolbarMoreSelectionOverflowActions
+        : toolbarMoreSelectionFullActions
+    ).filter(
+      (selectionAction) =>
+        selectionActive ||
+        !toolbarMorePathActions.some(
+          (pathAction) => pathAction.id === selectionAction.id,
+        ),
+    );
+
+    return {
+      canUploadFiles: pathActionStates.uploadFiles.enabled,
+      canUploadFolder: pathActionStates.uploadFolder.enabled,
+      canCreateFolder: pathActionStates.newFolder.enabled,
+      canDownload:
+        selectionActionStates.download.visible &&
+        selectionActionStates.download.enabled,
+      canOpen:
+        selectionActionStates.open.visible && selectionActionStates.open.enabled,
+      canCopy:
+        selectionActionStates.copy.visible && selectionActionStates.copy.enabled,
+      canDelete:
+        selectionActionStates.delete.visible &&
+        selectionActionStates.delete.enabled,
+      pathActions: toolbarMorePathActions,
+      selectionActions,
+      selectionFullActions: toolbarMoreSelectionFullActions,
+      hasSelectionActions: selectionActive && selectionActions.length > 0,
+      hasColumnsSection: functionalProfile === "advanced",
+    };
+  }, [
+    functionalProfile,
+    pathActionStates,
+    selectionActionStates,
+    selectionItems,
+    toolbarMorePathActions,
+    toolbarMoreSelectionFullActions,
+    toolbarMoreSelectionOverflowActions,
+  ]);
+
   return {
     pathActionStates,
     selectionActionStates,
     resolveItemActionStates,
-    toolbarMorePathActions,
-    toolbarMoreSelectionFullActions,
-    toolbarMoreSelectionOverflowActions,
+    toolbar,
   };
 }
