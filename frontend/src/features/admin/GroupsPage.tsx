@@ -561,18 +561,14 @@ export default function GroupsPage() {
             emptyLabel={text("noUsersAvailable")}
             addDisabled={memberPicker.selections.length === 0}
             onCancel={() => {
-              memberPicker.setOpen(false);
-              memberPicker.setSelections([]);
-              memberPicker.setSearch("");
+              memberPicker.reset();
             }}
             onAdd={() => {
               setForm((current) => ({
                 ...current,
                 user_ids: [...new Set([...(current.user_ids ?? []), ...memberPicker.selections])].sort((a, b) => a - b),
               }));
-              memberPicker.setOpen(false);
-              memberPicker.setSelections([]);
-              memberPicker.setSearch("");
+              memberPicker.reset();
             }}
           >
             {visibleUsers.map((user) => (
@@ -715,9 +711,7 @@ export default function GroupsPage() {
                       )
                     }
                     onCancel={() => {
-                      accountPicker.setOpen(false);
-                      accountPicker.setSelections([]);
-                      accountPicker.setSearch("");
+                      accountPicker.reset();
                     }}
                     onAdd={() => {
                       setForm((current) => ({
@@ -732,9 +726,7 @@ export default function GroupsPage() {
                           })),
                         ].sort((left, right) => Number(left.account_id) - Number(right.account_id)),
                       }));
-                      accountPicker.setOpen(false);
-                      accountPicker.setSelections([]);
-                      accountPicker.setSearch("");
+                      accountPicker.reset();
                     }}
                   >
                     <AdminAssociationAccessPickerTable
@@ -829,9 +821,7 @@ export default function GroupsPage() {
                     emptyLabel={text("noRgwUsersAvailable")}
                     addDisabled={s3UserPicker.selections.length === 0}
                     onCancel={() => {
-                      s3UserPicker.setOpen(false);
-                      s3UserPicker.setSelections([]);
-                      s3UserPicker.setSearch("");
+                      s3UserPicker.reset();
                     }}
                     onAdd={() => {
                       setForm((current) => ({
@@ -844,9 +834,7 @@ export default function GroupsPage() {
                           })),
                         ].sort((a, b) => a.s3_user_id - b.s3_user_id),
                       }));
-                      s3UserPicker.setOpen(false);
-                      s3UserPicker.setSelections([]);
-                      s3UserPicker.setSearch("");
+                      s3UserPicker.reset();
                     }}
                   >
                     {visibleS3Users.map((s3User) => (
@@ -920,9 +908,7 @@ export default function GroupsPage() {
                     emptyLabel={text("noSharedConnectionsAvailable")}
                     addDisabled={connectionPicker.selections.length === 0}
                     onCancel={() => {
-                      connectionPicker.setOpen(false);
-                      connectionPicker.setSelections([]);
-                      connectionPicker.setSearch("");
+                      connectionPicker.reset();
                     }}
                     onAdd={() => {
                       setForm((current) => ({
@@ -931,9 +917,7 @@ export default function GroupsPage() {
                           ...new Set([...(current.s3_connection_ids ?? []), ...connectionPicker.selections]),
                         ].sort((a, b) => a - b),
                       }));
-                      connectionPicker.setOpen(false);
-                      connectionPicker.setSelections([]);
-                      connectionPicker.setSearch("");
+                      connectionPicker.reset();
                     }}
                   >
                     {visibleConnections.map((connection) => (
@@ -1006,9 +990,7 @@ export default function GroupsPage() {
                     emptyLabel={text("noOpenStackCloudsAvailable")}
                     addDisabled={openStackPicker.selections.length === 0}
                     onCancel={() => {
-                      openStackPicker.setOpen(false);
-                      openStackPicker.setSelections([]);
-                      openStackPicker.setSearch("");
+                      openStackPicker.reset();
                     }}
                     onAdd={() => {
                       setForm((current) => ({
@@ -1017,9 +999,7 @@ export default function GroupsPage() {
                           ...new Set([...(current.openstack_cloud_ids ?? []), ...openStackPicker.selections]),
                         ].sort((a, b) => a - b),
                       }));
-                      openStackPicker.setOpen(false);
-                      openStackPicker.setSelections([]);
-                      openStackPicker.setSearch("");
+                      openStackPicker.reset();
                     }}
                   >
                     {visibleOpenStackClouds.map((cloud) => (
