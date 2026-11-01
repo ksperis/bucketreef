@@ -13,6 +13,8 @@
     "src/components/ui/focusTrap.ts",
     "src/components/__tests__/**/*.test.ts",
     "src/components/__tests__/**/*.test.tsx",
+    "src/demo/**/*.test.ts",
+    "src/demo/**/*.test.tsx",
     "src/api/**/*.test.ts",
     "src/api/**/*.test.tsx",
     "src/auth/**/*.test.ts",
