@@ -488,41 +488,6 @@ class BucketMigrationObjectVerificationMixin:
         pair_batch: list[VersionTimelineDiffKey] = []
         thread_local = threading.local()
 
-        def _verify_worker(pair: VersionTimelineDiffKey) -> tuple[bool, str]:
-            resolved_source_client, resolved_target_client = self._strong_verification_clients(
-                thread_local,
-                source_ctx,
-                target_ctx,
-            )
-            verified, method = self._strong_verify_single_object(
-                source_ctx,
-                target_ctx,
-                source_bucket,
-                target_bucket,
-                pair.key,
-                source_version_id=pair.source_version_id,
-                target_version_id=pair.target_version_id,
-                source_client=resolved_source_client,
-                target_client=resolved_target_client,
-            )
-            return verified, method
-
-        def flush_pair_batch(executor: ThreadPoolExecutor) -> bool:
-            if not pair_batch:
-                return True
-            batch = list(pair_batch)
-            pair_batch.clear()
-            return self._run_strong_verification_batch(
-                executor,
-                batch,
-                worker=_verify_worker,
-                key_for_item=lambda pair: pair.key,
-                results=results,
-                control_check=control_check,
-                failure_log_prefix="Version-aware strong verification failed",
-                lost_lease_message="Worker lease lost while strong-verifying version-aware objects",
-            )
-
         try:
             with ThreadPoolExecutor(
                 max_workers=worker_count,
@@ -539,9 +504,29 @@ class BucketMigrationObjectVerificationMixin:
                     pair_batch.append(pair)
                     if len(pair_batch) < worker_count:
                         continue
-                    if not flush_pair_batch(executor):
+                    if not self._flush_version_aware_verification_batch(
+                        executor,
+                        pair_batch,
+                        thread_local=thread_local,
+                        source_ctx=source_ctx,
+                        target_ctx=target_ctx,
+                        source_bucket=source_bucket,
+                        target_bucket=target_bucket,
+                        results=results,
+                        control_check=control_check,
+                    ):
                         return -1, 0, [], results.method_counts
-                if not flush_pair_batch(executor):
+                if not self._flush_version_aware_verification_batch(
+                    executor,
+                    pair_batch,
+                    thread_local=thread_local,
+                    source_ctx=source_ctx,
+                    target_ctx=target_ctx,
+                    source_bucket=source_bucket,
+                    target_bucket=target_bucket,
+                    results=results,
+                    control_check=control_check,
+                ):
                     return -1, 0, [], results.method_counts
         except MigrationControlRequested:
             return -1, 0, [], results.method_counts
@@ -551,4 +536,51 @@ class BucketMigrationObjectVerificationMixin:
             results.verified_count,
             results.failed_keys,
             results.method_counts,
+        )
+
+    def _flush_version_aware_verification_batch(
+        self,
+        executor: ThreadPoolExecutor,
+        pair_batch: list[VersionTimelineDiffKey],
+        *,
+        thread_local: threading.local,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
+        source_bucket: str,
+        target_bucket: str,
+        results: _StrongVerificationResults,
+        control_check: Callable[[], str],
+    ) -> bool:
+        if not pair_batch:
+            return True
+        batch = list(pair_batch)
+        pair_batch.clear()
+
+        def verify_pair(pair: VersionTimelineDiffKey) -> tuple[bool, str]:
+            resolved_source_client, resolved_target_client = self._strong_verification_clients(
+                thread_local,
+                source_ctx,
+                target_ctx,
+            )
+            return self._strong_verify_single_object(
+                source_ctx,
+                target_ctx,
+                source_bucket,
+                target_bucket,
+                pair.key,
+                source_version_id=pair.source_version_id,
+                target_version_id=pair.target_version_id,
+                source_client=resolved_source_client,
+                target_client=resolved_target_client,
+            )
+
+        return self._run_strong_verification_batch(
+            executor,
+            batch,
+            worker=verify_pair,
+            key_for_item=lambda pair: pair.key,
+            results=results,
+            control_check=control_check,
+            failure_log_prefix="Version-aware strong verification failed",
+            lost_lease_message="Worker lease lost while strong-verifying version-aware objects",
         )
