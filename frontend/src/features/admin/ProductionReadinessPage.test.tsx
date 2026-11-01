@@ -113,4 +113,19 @@ describe("ProductionReadinessPage", () => {
 
     await waitFor(() => expect(fetchProductionReadinessMock).toHaveBeenCalledTimes(2));
   });
+
+  it("keeps the previous report visible when a refresh fails", async () => {
+    fetchProductionReadinessMock
+      .mockResolvedValueOnce(report)
+      .mockRejectedValueOnce(new Error("unavailable"));
+
+    render(<ProductionReadinessPage />);
+    await screen.findByText("Readiness overview");
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(await screen.findByText("unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Readiness overview")).toBeInTheDocument();
+    expect(screen.getByText("Administrator passkey policy")).toBeInTheDocument();
+  });
 });
