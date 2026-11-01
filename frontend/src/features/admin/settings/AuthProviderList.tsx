@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import ConfirmActionDialog from "../../../components/ConfirmActionDialog";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   fetchOidcAdminProviders,
@@ -25,6 +25,7 @@ import UiBadge from "../../../components/ui/UiBadge";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { extractApiError } from "../../../utils/apiError";
 import { useAdminI18n } from "../adminI18n";
+import useAdminListController from "../useAdminListController";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -32,9 +33,6 @@ type Provider = OidcProviderAdminItem | LdapProviderAdminItem;
 export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
   const { text: adminText } = useAdminI18n();
   const navigate = useNavigate();
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [selected, setSelected] = useState<Provider | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,23 +45,21 @@ export default function AuthProviderList({ kind }: { kind: "oidc" | "ldap" }) {
       kind === "oidc" ? fetchOidcAdminProviders() : fetchLdapAdminProviders(),
     [kind],
   );
-  useEffect(() => {
-    let active = true;
-    fetchProviders()
-      .then((value) => {
-        if (active) setProviders(value);
-      })
-      .catch((err) => {
-        if (active)
-          setError(extractApiError(err, adminText("Unable to load {kind} providers.", { kind: name })));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [adminText, fetchProviders, name]);
+  const formatLoadError = useCallback(
+    (error: unknown) =>
+      extractApiError(error, adminText("Unable to load {kind} providers.", { kind: name })),
+    [adminText, name],
+  );
+  const {
+    items: providers,
+    setItems: setProviders,
+    loading,
+    error,
+    setError,
+  } = useAdminListController<Provider>({
+    loadItems: fetchProviders,
+    formatError: formatLoadError,
+  });
   const remove = async () => {
     if (!selected?.editable || pending.current) return;
     pending.current = true;
