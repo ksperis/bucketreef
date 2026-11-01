@@ -37,7 +37,6 @@ import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
   BucketCompareManualMappingEditor,
   CompareVisibleKeysCopyFeedback,
-  bucketComparisonCancelledMessage,
   buildBucketCompareContentSections,
   extractCompareError,
   formatCompareDisplayLimitMessage,
@@ -166,9 +165,7 @@ export default function ManagerBucketCompareModal({
     parallelism,
     setParallelism,
     running,
-    setRunning,
     stopping,
-    setStopping,
     runError,
     setRunError,
     resultSearch,
@@ -185,7 +182,6 @@ export default function ManagerBucketCompareModal({
     selectedConfigFeatures,
     setSelectedConfigFeatures,
     toggleConfigFeature,
-    cancelRequestedRef,
     items,
     progress,
     progressPercent,
@@ -198,9 +194,11 @@ export default function ManagerBucketCompareModal({
     ignoreModifiedAfterIso,
     ignoreModifiedAfterInvalid,
     setItems,
-    setProgress,
     settleRunItem,
-    requestControllersRef,
+    beginRun,
+    executeRunItem,
+    finishRun,
+    stopRun,
     copyFeedback,
     copyVisibleKeys,
   } = useBucketCompareWorkflowState<
@@ -325,12 +323,7 @@ export default function ManagerBucketCompareModal({
       ignoreModifiedAfterIso,
     };
     setLastRunOptions(snapshot);
-    setRunError(null);
-    cancelRequestedRef.current = false;
-    setRunning(true);
-    setStopping(false);
-    setProgress({ completed: 0, total: mappings.length, failed: 0, cancelled: 0 });
-    setItems(
+    beginRun(
       mappings.map((mapping) => ({
         sourceBucket: mapping.sourceBucket,
         targetBucket: mapping.targetBucket,
@@ -344,24 +337,9 @@ export default function ManagerBucketCompareModal({
       await runWithConcurrencySettled(
         mappings,
         safeParallelism,
-        async (mapping, index) => {
-          if (cancelRequestedRef.current) {
-            throw new DOMException("Comparison cancelled", "AbortError");
-          }
-          setItems((prev) =>
-            prev.map((item, itemIdx) =>
-              itemIdx === index
-                ? {
-                    ...item,
-                    status: "running",
-                  }
-                : item
-            )
-          );
-          const controller = new AbortController();
-          requestControllersRef.current.add(controller);
-          try {
-            return await compareManagerBucketPair(
+        (mapping, index) =>
+          executeRunItem(index, (signal) =>
+            compareManagerBucketPair(
               sourceContextId,
               {
                 target_context_id: snapshot.targetContextId,
@@ -372,12 +350,9 @@ export default function ManagerBucketCompareModal({
                 config_features: snapshot.includeConfig ? snapshot.configFeatures : undefined,
                 ignore_modified_after: snapshot.ignoreModifiedAfterIso,
               },
-              { signal: controller.signal }
-            );
-          } finally {
-            requestControllersRef.current.delete(controller);
-          }
-        },
+              { signal },
+            ),
+          ),
         settleRunItem
       );
     } catch (err) {
@@ -395,10 +370,7 @@ export default function ManagerBucketCompareModal({
         )
       );
     } finally {
-      requestControllersRef.current.forEach((controller) => controller.abort());
-      requestControllersRef.current.clear();
-      setRunning(false);
-      setStopping(false);
+      finishRun();
     }
   };
 
@@ -423,38 +395,14 @@ export default function ManagerBucketCompareModal({
   };
 
   const stopComparison = useCallback(() => {
-    if (!running) return;
-    cancelRequestedRef.current = true;
-    setStopping(true);
+    if (!stopRun()) return;
     setPendingAction(null);
-    requestControllersRef.current.forEach((controller) => controller.abort());
-    requestControllersRef.current.clear();
-    setItems((prev) =>
-      prev.map((item) =>
-        item.status === "pending" || item.status === "running"
-          ? {
-              ...item,
-              status: "cancelled",
-              error: bucketComparisonCancelledMessage,
-            }
-          : item
-      )
-    );
-  }, [cancelRequestedRef, requestControllersRef, running, setItems, setStopping]);
+  }, [stopRun]);
 
   const handleClose = useCallback(() => {
     stopComparison();
     onClose();
   }, [onClose, stopComparison]);
-
-  useEffect(() => {
-    const controllers = requestControllersRef.current;
-    return () => {
-      cancelRequestedRef.current = true;
-      controllers.forEach((controller) => controller.abort());
-      controllers.clear();
-    };
-  }, [cancelRequestedRef, requestControllersRef]);
 
   const exportGlobalDiff = () => {
     if (items.length === 0) return;
