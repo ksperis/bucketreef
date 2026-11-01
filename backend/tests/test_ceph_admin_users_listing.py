@@ -13,6 +13,7 @@ from app.routers.ceph_admin import user_profiles as user_profiles_router
 from app.routers.ceph_admin import users as users_router
 from app.services import ceph_admin_user_listing_enrichment as user_listing_enrichment
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
+from app.services.ceph_admin_user_payloads import build_user_detail
 
 
 class FakeRGWAdmin:
@@ -530,7 +531,7 @@ def test_build_user_detail_reads_default_placement_and_storage_class():
     payload["user"]["default_placement"] = "hot-placement"
     payload["user"]["default_storage_class"] = "STANDARD"
 
-    detail = user_profiles_router._build_user_detail(
+    detail = build_user_detail(
         payload,
         uid_fallback="alice",
         tenant_fallback=None,
@@ -550,7 +551,7 @@ def test_build_user_detail_uses_canonical_user_identity_aliases():
         }
     }
 
-    detail = user_profiles_router._build_user_detail(
+    detail = build_user_detail(
         payload,
         uid_fallback="fallback",
         tenant_fallback="fallback-tenant",
@@ -569,7 +570,7 @@ def test_build_user_detail_rejects_conflicting_user_identity_fields():
     }
 
     with pytest.raises(ValueError, match="conflicting tenant identity"):
-        user_profiles_router._build_user_detail(
+        build_user_detail(
             payload,
             uid_fallback="alice",
             tenant_fallback="tenant-a",
@@ -582,7 +583,7 @@ def test_build_user_detail_canonicalizes_semicolon_delimited_caps():
     payload = _build_user_payload("alice")
     payload["user"]["caps"] = "users=read,write;accounts=read,write"
 
-    detail = user_profiles_router._build_user_detail(
+    detail = build_user_detail(
         payload,
         uid_fallback="alice",
         tenant_fallback=None,
@@ -608,7 +609,7 @@ def test_build_user_detail_preserves_nested_false_and_zero_values():
     payload["admin"] = True
     payload["system"] = False
 
-    detail = user_profiles_router._build_user_detail(
+    detail = build_user_detail(
         payload,
         uid_fallback="alice",
         tenant_fallback=None,
@@ -636,7 +637,7 @@ def test_build_user_detail_prefers_nested_quota_and_supports_split_quota_payload
         "max_objects": 10,
     }
 
-    nested_detail = user_profiles_router._build_user_detail(
+    nested_detail = build_user_detail(
         nested_payload,
         uid_fallback="alice",
         tenant_fallback=None,
@@ -650,7 +651,7 @@ def test_build_user_detail_prefers_nested_quota_and_supports_split_quota_payload
         "max_size": 8192,
         "max_objects": 20,
     }
-    split_detail = user_profiles_router._build_user_detail(
+    split_detail = build_user_detail(
         split_payload,
         uid_fallback="bob",
         tenant_fallback=None,
@@ -698,7 +699,7 @@ def test_build_user_detail_ignores_legacy_kebab_case_default_fields():
     payload["user"]["default-placement"] = "legacy-placement"
     payload["user"]["default-storage-class"] = "LEGACY"
 
-    detail = user_profiles_router._build_user_detail(
+    detail = build_user_detail(
         payload,
         uid_fallback="alice",
         tenant_fallback=None,
