@@ -240,6 +240,64 @@ describe("bucket comparison configuration state", () => {
     );
     expect(result.current.progressPercent).toBe(50);
   });
+
+  it("owns comparison run lifecycle and cancellation in the shared workflow", async () => {
+    type TestRunItem = {
+      status: "pending" | "running" | "success" | "failed" | "cancelled";
+      result?: string;
+      error?: string;
+    };
+    const { result } = renderHook(() =>
+      useBucketCompareWorkflowState<"versioning", string, TestRunItem>({
+        targetSelected: true,
+        targetKind: "context",
+        sourceBuckets: ["alpha"],
+        targetBuckets: ["alpha"],
+        sameTargetSelected: false,
+        configFeatures: ["versioning"],
+      })
+    );
+
+    act(() => result.current.beginRun([{ status: "pending" }]));
+    expect(result.current.running).toBe(true);
+    expect(result.current.stopping).toBe(false);
+    expect(result.current.progress).toEqual({
+      completed: 0,
+      total: 1,
+      failed: 0,
+      cancelled: 0,
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.executeRunItem(0, async (signal) => {
+          expect(signal.aborted).toBe(false);
+          return "done";
+        })
+      ).resolves.toBe("done");
+    });
+    expect(result.current.items[0]?.status).toBe("running");
+
+    act(() => result.current.settleRunItem({ status: "fulfilled", value: "done" }, 0));
+    expect(result.current.items[0]).toEqual({ status: "success", result: "done" });
+
+    act(() => result.current.beginRun([{ status: "pending" }]));
+    let stopped = false;
+    act(() => {
+      stopped = result.current.stopRun();
+    });
+    expect(stopped).toBe(true);
+    expect(result.current.stopping).toBe(true);
+    expect(result.current.items[0]).toEqual({
+      status: "cancelled",
+      error: bucketComparisonCancelledMessage,
+    });
+
+    act(() => result.current.finishRun());
+    expect(result.current.running).toBe(false);
+    expect(result.current.stopping).toBe(false);
+    expect(result.current.stopRun()).toBe(false);
+  });
 });
 
 describe("bucket comparison content sections", () => {

@@ -30,7 +30,6 @@ import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
   BucketCompareManualMappingEditor,
-  bucketComparisonCancelledMessage,
   buildBucketCompareContentSections,
   extractCompareError,
   formatCompareDisplayLimitMessage,
@@ -131,9 +130,7 @@ export default function CephAdminBucketCompareModal({
     parallelism,
     setParallelism,
     running,
-    setRunning,
     stopping,
-    setStopping,
     runError,
     setRunError,
     resultSearch,
@@ -150,7 +147,6 @@ export default function CephAdminBucketCompareModal({
     selectedConfigFeatures,
     setSelectedConfigFeatures,
     toggleConfigFeature,
-    cancelRequestedRef,
     items,
     progress,
     progressPercent,
@@ -162,10 +158,11 @@ export default function CephAdminBucketCompareModal({
     hasConfigFeatureSelected,
     ignoreModifiedAfterIso,
     ignoreModifiedAfterInvalid,
-    setItems,
-    setProgress,
     settleRunItem,
-    requestControllersRef,
+    beginRun,
+    executeRunItem,
+    finishRun,
+    stopRun,
     copyFeedback,
     copyVisibleKeys,
   } = useBucketCompareWorkflowState<
@@ -291,76 +288,52 @@ export default function CephAdminBucketCompareModal({
     }
     const safeParallelism = Number.isFinite(parallelism) ? Math.max(1, Math.min(20, Math.floor(parallelism))) : 4;
     const mappings = comparePlan.mappings;
-    setRunError(null);
-    cancelRequestedRef.current = false;
-    setRunning(true);
-    setStopping(false);
-    setProgress({ completed: 0, total: mappings.length, failed: 0, cancelled: 0 });
-    setItems(
-      mappings.map((mapping) => {
-        const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
-        const targetRef = targetReferenceByLabel.get(mapping.targetBucket);
-        if (!sourceRef || !targetRef) {
-          throw new Error("Unable to resolve the selected tenant-aware bucket mapping.");
-        }
-        return {
-          sourceBucket: mapping.sourceBucket,
-          targetBucket: mapping.targetBucket,
-          sourceRef,
-          targetRef,
-          status: "pending" as const,
-        };
-      })
-    );
+    const initialItems = mappings.map((mapping) => {
+      const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
+      const targetRef = targetReferenceByLabel.get(mapping.targetBucket);
+      if (!sourceRef || !targetRef) {
+        throw new Error("Unable to resolve the selected tenant-aware bucket mapping.");
+      }
+      return {
+        sourceBucket: mapping.sourceBucket,
+        targetBucket: mapping.targetBucket,
+        sourceRef,
+        targetRef,
+        status: "pending" as const,
+      };
+    });
+    beginRun(initialItems);
 
-    await runWithConcurrencySettled(
-      mappings,
-      safeParallelism,
-      async (mapping, index) => {
-        if (cancelRequestedRef.current) {
-          throw new DOMException("Comparison cancelled", "AbortError");
-        }
-        setItems((prev) =>
-          prev.map((item, itemIdx) =>
-            itemIdx === index
-              ? {
-                  ...item,
-                  status: "running",
-                }
-              : item
-          )
-        );
-        const controller = new AbortController();
-        requestControllersRef.current.add(controller);
-        try {
-          const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
-          const targetRef = targetReferenceByLabel.get(mapping.targetBucket);
-          if (!sourceRef || !targetRef) {
-            throw new Error("Unable to resolve the selected tenant-aware bucket mapping.");
-          }
-          return await compareCephAdminBucketPair(
-            sourceEndpointId,
-            {
-              target_endpoint_id: targetEndpointId,
-              source: sourceRef,
-              target: targetRef,
-              include_content: includeContent,
-              include_config: includeConfig,
-              config_features: includeConfig ? selectedConfigFeatures : undefined,
-              ignore_modified_after: ignoreModifiedAfterIso,
-            },
-            { signal: controller.signal }
-          );
-        } finally {
-          requestControllersRef.current.delete(controller);
-        }
-      },
-      settleRunItem
-    );
-    requestControllersRef.current.forEach((controller) => controller.abort());
-    requestControllersRef.current.clear();
-    setRunning(false);
-    setStopping(false);
+    try {
+      await runWithConcurrencySettled(
+        mappings,
+        safeParallelism,
+        (mapping, index) =>
+          executeRunItem(index, (signal) => {
+            const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
+            const targetRef = targetReferenceByLabel.get(mapping.targetBucket);
+            if (!sourceRef || !targetRef) {
+              throw new Error("Unable to resolve the selected tenant-aware bucket mapping.");
+            }
+            return compareCephAdminBucketPair(
+              sourceEndpointId,
+              {
+                target_endpoint_id: targetEndpointId,
+                source: sourceRef,
+                target: targetRef,
+                include_content: includeContent,
+                include_config: includeConfig,
+                config_features: includeConfig ? selectedConfigFeatures : undefined,
+                ignore_modified_after: ignoreModifiedAfterIso,
+              },
+              { signal },
+            );
+          }),
+        settleRunItem,
+      );
+    } finally {
+      finishRun();
+    }
   };
 
   const resultSummary = useMemo(() => summarizeBucketCompareRun(items), [items]);
@@ -382,37 +355,13 @@ export default function CephAdminBucketCompareModal({
   };
 
   const stopComparison = useCallback(() => {
-    if (!running) return;
-    cancelRequestedRef.current = true;
-    setStopping(true);
-    requestControllersRef.current.forEach((controller) => controller.abort());
-    requestControllersRef.current.clear();
-    setItems((prev) =>
-      prev.map((item) =>
-        item.status === "pending" || item.status === "running"
-          ? {
-              ...item,
-              status: "cancelled",
-              error: bucketComparisonCancelledMessage,
-            }
-          : item
-      )
-    );
-  }, [cancelRequestedRef, requestControllersRef, running, setItems, setStopping]);
+    stopRun();
+  }, [stopRun]);
 
   const handleClose = useCallback(() => {
     stopComparison();
     onClose();
   }, [onClose, stopComparison]);
-
-  useEffect(() => {
-    const requestControllers = requestControllersRef.current;
-    return () => {
-      cancelRequestedRef.current = true;
-      requestControllers.forEach((controller) => controller.abort());
-      requestControllers.clear();
-    };
-  }, [cancelRequestedRef, requestControllersRef]);
 
   const exportGlobalDiff = () => {
     if (items.length === 0) return;

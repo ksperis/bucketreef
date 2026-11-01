@@ -747,6 +747,77 @@ export const useBucketCompareWorkflowState = <
   const run = useBucketCompareRunState<TResult, TItem>();
   const clipboard = useCompareVisibleKeysClipboard();
   const requestControllersRef = useRef(new Set<AbortController>());
+  const { cancelRequestedRef, setItems, setProgress } = run;
+
+  const abortRequests = useCallback(() => {
+    requestControllersRef.current.forEach((controller) => controller.abort());
+    requestControllersRef.current.clear();
+  }, []);
+
+  const beginRun = useCallback(
+    (initialItems: TItem[]) => {
+      setRunError(null);
+      cancelRequestedRef.current = false;
+      setRunning(true);
+      setStopping(false);
+      setProgress({ completed: 0, total: initialItems.length, failed: 0, cancelled: 0 });
+      setItems(initialItems);
+    },
+    [cancelRequestedRef, setItems, setProgress],
+  );
+
+  const executeRunItem = useCallback(
+    async (index: number, execute: (signal: AbortSignal) => Promise<TResult>): Promise<TResult> => {
+      if (cancelRequestedRef.current) {
+        throw new DOMException("Comparison cancelled", "AbortError");
+      }
+      setItems((current) =>
+        current.map((item, itemIndex) =>
+          itemIndex === index ? ({ ...item, status: "running" } as TItem) : item,
+        ),
+      );
+      const controller = new AbortController();
+      requestControllersRef.current.add(controller);
+      try {
+        return await execute(controller.signal);
+      } finally {
+        requestControllersRef.current.delete(controller);
+      }
+    },
+    [cancelRequestedRef, setItems],
+  );
+
+  const finishRun = useCallback(() => {
+    abortRequests();
+    setRunning(false);
+    setStopping(false);
+  }, [abortRequests]);
+
+  const stopRun = useCallback(() => {
+    if (!running) return false;
+    cancelRequestedRef.current = true;
+    setStopping(true);
+    abortRequests();
+    setItems((current) =>
+      current.map((item) =>
+        item.status === "pending" || item.status === "running"
+          ? ({
+              ...item,
+              status: "cancelled",
+              error: bucketComparisonCancelledMessage,
+            } as TItem)
+          : item,
+      ),
+    );
+    return true;
+  }, [abortRequests, cancelRequestedRef, running, setItems]);
+
+  useEffect(() => {
+    return () => {
+      cancelRequestedRef.current = true;
+      abortRequests();
+    };
+  }, [abortRequests, cancelRequestedRef]);
   const mappingModel = useMemo(
     () =>
       buildBucketCompareMappingModel({
@@ -813,6 +884,10 @@ export const useBucketCompareWorkflowState = <
     hasConfigFeatureSelected,
     ignoreModifiedAfterIso,
     ignoreModifiedAfterInvalid,
+    beginRun,
+    executeRunItem,
+    finishRun,
+    stopRun,
     ...mapping,
     ...config,
     ...run,
