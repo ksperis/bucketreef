@@ -20,11 +20,16 @@ describe("account access roles", () => {
   });
 
   it("requires at least one role", () => {
-    expect(hasAccountAccessRole({ manager_role: null, portal_role: null })).toBe(false);
+    expect(hasAccountAccessRole({
+      manager_role: null,
+      portal_role: null,
+      allow_manager_browser_data_access: false,
+    })).toBe(false);
     expect(
       hasAccountAccessRole({
         manager_role: "account_administrator",
         portal_role: null,
+        allow_manager_browser_data_access: false,
       }),
     ).toBe(true);
   });
