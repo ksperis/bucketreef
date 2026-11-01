@@ -66,6 +66,10 @@ import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 import { adminS3UserForm, adminS3UserPayload, emptyAdminS3UserForm } from "./adminS3UserForm";
+import {
+  deriveAdminAssociationOptions,
+  MAX_VISIBLE_ASSOCIATION_OPTIONS,
+} from "./adminAssociationOptions";
 
 type EditTab = "general" | "users" | "groups" | "manager";
 
@@ -96,7 +100,6 @@ export default function S3UsersPage() {
     initialSort: { field: "name", direction: "asc" },
   });
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
-  const MAX_LINK_OPTIONS = 10;
   const {
     items: storageEndpoints,
     loading: loadingEndpoints,
@@ -220,37 +223,39 @@ export default function S3UsersPage() {
   }, [hasLinkedPortalUsers, loadPortalUsersIfNeeded]);
 
   const portalUserOptions = useMemo(() => portalUsers.map((u) => ({ id: u.id, label: u.email })), [portalUsers]);
-  const portalUserLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    portalUsers.forEach((u) => map.set(u.id, u.email));
-    return map;
-  }, [portalUsers]);
-  const groupLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    uiGroups.forEach((group) => map.set(group.id, group.name));
-    return map;
-  }, [uiGroups]);
-  const availablePortalUsers = useMemo(() => {
-    const query = portalUserPicker.search.trim().toLowerCase();
-    return portalUserOptions.filter(
-      (opt) => !editForm.user_links.some((link) => link.user_id === opt.id) && (!query || opt.label.toLowerCase().includes(query))
-    );
-  }, [portalUserOptions, editForm.user_links, portalUserPicker.search]);
-  const availableGroups = useMemo(() => {
-    const query = groupPicker.search.trim().toLowerCase();
-    return uiGroups
-      .filter(
-        (group) => !editForm.group_links.some((link) => link.group_id === group.id) && (!query || group.name.toLowerCase().includes(query))
-      )
-      .map((group) => ({ id: group.id, label: group.name }));
-  }, [editForm.group_links, groupPicker.search, uiGroups]);
-  const visiblePortalUsers = useMemo(
-    () => availablePortalUsers.slice(0, MAX_LINK_OPTIONS),
-    [availablePortalUsers]
+  const groupOptions = useMemo(
+    () => uiGroups.map((group) => ({ id: group.id, label: group.name })),
+    [uiGroups],
   );
-  const visibleGroups = useMemo(
-    () => availableGroups.slice(0, MAX_LINK_OPTIONS),
-    [availableGroups]
+  const portalUserLabelById = useMemo(
+    () => new Map(portalUserOptions.map((option) => [option.id, option.label] as const)),
+    [portalUserOptions],
+  );
+  const groupLabelById = useMemo(
+    () => new Map(groupOptions.map((option) => [option.id, option.label] as const)),
+    [groupOptions],
+  );
+  const { available: availablePortalUsers, visible: visiblePortalUsers } = useMemo(
+    () =>
+      deriveAdminAssociationOptions({
+        items: portalUserOptions,
+        selectedIds: new Set(editForm.user_links.map((link) => link.user_id)),
+        search: portalUserPicker.search,
+        getId: (option) => option.id,
+        getLabel: (option) => option.label,
+      }),
+    [editForm.user_links, portalUserOptions, portalUserPicker.search],
+  );
+  const { available: availableGroups, visible: visibleGroups } = useMemo(
+    () =>
+      deriveAdminAssociationOptions({
+        items: groupOptions,
+        selectedIds: new Set(editForm.group_links.map((link) => link.group_id)),
+        search: groupPicker.search,
+        getId: (option) => option.id,
+        getLabel: (option) => option.label,
+      }),
+    [editForm.group_links, groupOptions, groupPicker.search],
   );
   const editUserAssociationState: AdminRgwUserAccessAssociationsState<S3UserUserLinkInput> = {
     selected: editForm.user_links,
@@ -870,7 +875,7 @@ export default function S3UsersPage() {
               <div className={adminAssociationPanelClass}>
                 <AdminRgwUserAccessAssociationsPanel
                   state={editUserAssociationState}
-                  maxVisibleOptions={MAX_LINK_OPTIONS}
+                  maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
                   primaryLabel={adminText("User")}
                   actionsLabel={adminText("Actions")}
                   removeLabel={adminText("Remove")}
@@ -893,7 +898,7 @@ export default function S3UsersPage() {
               <div className={adminAssociationPanelClass}>
                 <AdminRgwUserAccessAssociationsPanel
                   state={editGroupAssociationState}
-                  maxVisibleOptions={MAX_LINK_OPTIONS}
+                  maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
                   primaryLabel={adminText("Group")}
                   actionsLabel={adminText("Actions")}
                   removeLabel={adminText("Remove")}
