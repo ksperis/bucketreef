@@ -9,6 +9,7 @@ from app.utils.s3_etag import etag_md5
 
 from .execution_object_models import (
     BucketDiffEntry,
+    BucketObjectEntry,
     BucketVersionEntry,
     SyncDiff,
     VersionAwareDiff,
@@ -382,6 +383,29 @@ class BucketMigrationObjectComparisonMixin:
 
         return diff
 
+    @staticmethod
+    def _compare_current_object_entries(
+        source_entry: BucketObjectEntry,
+        target_entry: BucketObjectEntry,
+    ) -> BucketDiffEntry:
+        source_md5 = etag_md5(source_entry.etag)
+        target_md5 = etag_md5(target_entry.etag)
+        if source_md5 and target_md5:
+            compare_by = "md5"
+            equal = source_md5 == target_md5
+        else:
+            compare_by = "size"
+            equal = source_entry.size == target_entry.size
+        return BucketDiffEntry(
+            kind="matched" if equal else "different",
+            key=source_entry.key,
+            source_size=source_entry.size,
+            target_size=target_entry.size,
+            source_etag=source_entry.etag,
+            target_etag=target_entry.etag,
+            compare_by=compare_by,
+        )
+
     def _iter_bucket_diff_entries(
         self,
         source_ctx: ResolvedContext,
@@ -430,28 +454,7 @@ class BucketMigrationObjectComparisonMixin:
 
             if source_entry is None or target_entry is None:
                 break
-            key = source_entry.key
-            source_size = source_entry.size
-            target_size = target_entry.size
-            source_etag = source_entry.etag
-            target_etag = target_entry.etag
-            source_md5 = etag_md5(source_etag)
-            target_md5 = etag_md5(target_etag)
-            if source_md5 and target_md5:
-                compare_by = "md5"
-                equal = source_md5 == target_md5
-            else:
-                compare_by = "size"
-                equal = source_size == target_size
-            yield BucketDiffEntry(
-                kind="matched" if equal else "different",
-                key=key,
-                source_size=source_size,
-                target_size=target_size,
-                source_etag=source_etag,
-                target_etag=target_etag,
-                compare_by=compare_by,
-            )
+            yield self._compare_current_object_entries(source_entry, target_entry)
             source_entry = next(source_iter, None)
             target_entry = next(target_iter, None)
 

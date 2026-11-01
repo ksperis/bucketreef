@@ -42,6 +42,7 @@ from app.services.bucket_migration.persistence_safety import (
     DB_EVENT_MESSAGE_MAX_CHARS,
 )
 from app.services.bucket_migration.execution_object_models import (
+    BucketObjectEntry,
     BucketVersionEntry,
     VersionedObjectDetails,
     VersionTimelineDiffKey,
@@ -248,6 +249,41 @@ def _version_details(*, size: int = 1, etag: str | None = None) -> VersionedObje
         metadata={},
         tags=(),
     )
+
+
+@pytest.mark.parametrize(
+    "source,target,expected_kind,expected_compare_by",
+    [
+        (
+            BucketObjectEntry(key="object", size=1, etag='"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'),
+            BucketObjectEntry(key="object", size=2, etag='"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'),
+            "matched",
+            "md5",
+        ),
+        (
+            BucketObjectEntry(key="object", size=7, etag='"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-2"'),
+            BucketObjectEntry(key="object", size=8, etag='"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-2"'),
+            "different",
+            "size",
+        ),
+    ],
+)
+def test_compare_current_object_entries_preserves_etag_fallback(
+    db_session,
+    source,
+    target,
+    expected_kind,
+    expected_compare_by,
+):
+    result = BucketMigrationService(db_session)._compare_current_object_entries(source, target)
+
+    assert result.kind == expected_kind
+    assert result.compare_by == expected_compare_by
+    assert result.key == "object"
+    assert result.source_size == source.size
+    assert result.target_size == target.size
+    assert result.source_etag == source.etag
+    assert result.target_etag == target.etag
 
 
 def test_compare_version_timeline_pair_short_circuits_entry_kind_mismatch(db_session):
