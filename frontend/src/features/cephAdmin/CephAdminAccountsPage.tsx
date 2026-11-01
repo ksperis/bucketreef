@@ -41,8 +41,6 @@ import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField
 import {
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
-  buildQuickTextFilterRules,
-  buildTextFieldRules,
   formatAdvancedFilterSyncLabel,
   formatTextFilterSummary,
   resolveTextFilterFieldState,
@@ -50,19 +48,25 @@ import {
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
   renderAdvancedSearchProgress,
-  serializeAdvancedFilterRules,
   shouldShowActiveFilterSummary,
-  type FilterCostLevel,
   type TextMatchMode,
 } from "../shared/advancedFilterShared";
 import {
-  appendNumericFilterRule,
   buildNumericFilterFields,
   buildNumericFilterFieldStates,
   buildNumericFilterSummaryItems,
   numericFilterRangeFieldHighlight,
   type NumericFilterRangeField,
 } from "./filtering/advancedFilterModel";
+import {
+  buildAccountAdvancedFilterPayload,
+  defaultAccountAdvancedFilter,
+  hasAccountAdvancedFilters,
+  resolveAccountAdvancedFilterCost,
+  type AccountActiveFilterSummaryItem,
+  type AccountAdvancedFilterState,
+  type AccountAdvancedNumericField,
+} from "./filtering/accountAdvancedFilterModel";
 import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
 import {
@@ -72,13 +76,6 @@ import { useCephAdminListingTableState } from "./listing/useCephAdminListingTabl
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
 import { useCephAdminAccountConfigurationNavigation } from "./useCephAdminEntityConfigurationNavigation";
-import {
-  appendQuotaAdvancedFilterRules,
-  defaultQuotaAdvancedFilter,
-  hasQuotaAdvancedFilters,
-  type QuotaAdvancedFilterState,
-  type QuotaAdvancedNumericField,
-} from "../shared/quotaAdvancedFilterModel";
 
 type ColumnId =
   | "account_name"
@@ -100,40 +97,6 @@ type SortField =
   | "quota_max_objects"
   | "bucket_count"
   | "user_count";
-
-type AdvancedFilterState = QuotaAdvancedFilterState & {
-  accountName: string;
-  accountNameMatchMode: TextMatchMode;
-  email: string;
-  emailMatchMode: TextMatchMode;
-  minMaxUsers: string;
-  maxMaxUsers: string;
-  minMaxBuckets: string;
-  maxMaxBuckets: string;
-  minBucketCount: string;
-  maxBucketCount: string;
-  minUserCount: string;
-  maxUserCount: string;
-};
-
-type AdvancedTextField = "accountName" | "email";
-type AdvancedNumericField =
-  | "minMaxUsers"
-  | "maxMaxUsers"
-  | "minMaxBuckets"
-  | "maxMaxBuckets"
-  | QuotaAdvancedNumericField
-  | "minBucketCount"
-  | "maxBucketCount"
-  | "minUserCount"
-  | "maxUserCount";
-type AdvancedField = AdvancedTextField | AdvancedNumericField;
-type ActiveFilterRemoveAction = { type: "quick" } | { type: "advanced"; field: AdvancedField };
-type ActiveFilterSummaryItem = {
-  id: string;
-  label: string;
-  remove: ActiveFilterRemoveAction;
-};
 
 const COLUMNS_STORAGE_KEY = "ceph-admin.account_list.columns.v1";
 const defaultVisibleColumns: ColumnId[] = [];
@@ -173,68 +136,6 @@ const SORT_COLUMNS: Array<{ field: SortField; label: string }> = [
   { field: "account_id", label: "Account ID" },
   ...ACCOUNT_COLUMN_GROUPS.flatMap(group => group.options.map(option => ({ field: option.id, label: option.label }))),
 ];
-
-const defaultAdvancedFilter: AdvancedFilterState = {
-  accountName: "",
-  accountNameMatchMode: "contains",
-  email: "",
-  emailMatchMode: "contains",
-  minMaxUsers: "",
-  maxMaxUsers: "",
-  minMaxBuckets: "",
-  maxMaxBuckets: "",
-  ...defaultQuotaAdvancedFilter,
-  minBucketCount: "",
-  maxBucketCount: "",
-  minUserCount: "",
-  maxUserCount: "",
-};
-
-const hasAdvancedFilters = (advanced: AdvancedFilterState | null, allowUsageFilters: boolean) => {
-  if (!advanced) return false;
-  return Boolean(
-    advanced.accountName.trim() ||
-      advanced.email.trim() ||
-      advanced.minMaxUsers.trim() ||
-      advanced.maxMaxUsers.trim() ||
-      advanced.minMaxBuckets.trim() ||
-      advanced.maxMaxBuckets.trim() ||
-      hasQuotaAdvancedFilters(advanced, allowUsageFilters) ||
-      advanced.minBucketCount.trim() ||
-      advanced.maxBucketCount.trim() ||
-      advanced.minUserCount.trim() ||
-      advanced.maxUserCount.trim()
-  );
-};
-
-const buildAdvancedFilterPayload = (
-  advanced: AdvancedFilterState | null,
-  quickSearch: string,
-  quickMatchMode: TextMatchMode,
-  allowUsageFilters: boolean
-) => {
-  const rules: Array<Record<string, unknown>> = [];
-  rules.push(...buildQuickTextFilterRules("account_id", quickSearch, quickMatchMode));
-
-  if (advanced) {
-    rules.push(...buildTextFieldRules("account_name", advanced.accountName, advanced.accountNameMatchMode));
-    rules.push(...buildTextFieldRules("email", advanced.email, advanced.emailMatchMode));
-
-    appendNumericFilterRule(rules, "max_users", "gte", advanced.minMaxUsers);
-    appendNumericFilterRule(rules, "max_users", "lte", advanced.maxMaxUsers);
-    appendNumericFilterRule(rules, "max_buckets", "gte", advanced.minMaxBuckets);
-    appendNumericFilterRule(rules, "max_buckets", "lte", advanced.maxMaxBuckets);
-    appendQuotaAdvancedFilterRules(rules, advanced, allowUsageFilters);
-
-    appendNumericFilterRule(rules, "bucket_count", "gte", advanced.minBucketCount);
-    appendNumericFilterRule(rules, "bucket_count", "lte", advanced.maxBucketCount);
-    appendNumericFilterRule(rules, "user_count", "gte", advanced.minUserCount);
-    appendNumericFilterRule(rules, "user_count", "lte", advanced.maxUserCount);
-  }
-
-  if (rules.length === 0) return undefined;
-  return serializeAdvancedFilterRules(rules);
-};
 
 const rowKey = (account: CephAdminRgwAccount) => account.account_id;
 
@@ -280,9 +181,9 @@ export default function CephAdminAccountsPage() {
     resetAdvancedFilter,
     resetAllFilters,
     removeActiveFilterItem,
-  } = useCephAdminListingFilters<AdvancedFilterState>({
+  } = useCephAdminListingFilters<AccountAdvancedFilterState>({
     endpointId: selectedEndpointId,
-    defaultAdvancedFilter,
+    defaultAdvancedFilter: defaultAccountAdvancedFilter,
     setPage,
   });
 
@@ -311,7 +212,7 @@ export default function CephAdminAccountsPage() {
     pending: quickFilterPending,
   } = resolveCephAdminQuickFilterState(filter, searchValue, quickFilterMode);
   const advancedFilterParam = useMemo(
-    () => buildAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
+    () => buildAccountAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
     [advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics]
   );
 
@@ -354,7 +255,7 @@ export default function CephAdminAccountsPage() {
     appliedMode: advancedApplied?.emailMatchMode,
   });
 
-  const numericRangeFields = useMemo<NumericFilterRangeField<AdvancedNumericField>[]>(() => [
+  const numericRangeFields = useMemo<NumericFilterRangeField<AccountAdvancedNumericField>[]>(() => [
     { label: surfaceText("Max users"), minKey: "minMaxUsers", maxKey: "maxMaxUsers" },
     { label: surfaceText("Max buckets"), minKey: "minMaxBuckets", maxKey: "maxMaxBuckets" },
     { label: surfaceText("Quota bytes"), minKey: "minQuotaBytes", maxKey: "maxQuotaBytes" },
@@ -362,7 +263,7 @@ export default function CephAdminAccountsPage() {
     { label: surfaceText("Bucket count"), minKey: "minBucketCount", maxKey: "maxBucketCount" },
     { label: surfaceText("User count"), minKey: "minUserCount", maxKey: "maxUserCount" },
   ], [surfaceText]);
-  const usageNumericRangeFields = useMemo<NumericFilterRangeField<AdvancedNumericField>[]>(() => [
+  const usageNumericRangeFields = useMemo<NumericFilterRangeField<AccountAdvancedNumericField>[]>(() => [
     { label: surfaceText("Quota usage size %"), minKey: "minQuotaUsageSizePercent", maxKey: "maxQuotaUsageSizePercent" },
     { label: surfaceText("Quota usage objects %"), minKey: "minQuotaUsageObjectPercent", maxKey: "maxQuotaUsageObjectPercent" },
   ], [surfaceText]);
@@ -379,7 +280,7 @@ export default function CephAdminAccountsPage() {
     () => buildNumericFilterFieldStates(advancedDraft, advancedApplied, [...numericFields, ...usageNumericFields]),
     [advancedDraft, advancedApplied, numericFields, usageNumericFields],
   );
-  const numericRangeFieldState = (minKey: AdvancedNumericField, maxKey: AdvancedNumericField) =>
+  const numericRangeFieldState = (minKey: AccountAdvancedNumericField, maxKey: AccountAdvancedNumericField) =>
     numericFilterRangeFieldHighlight(advancedDraft, advancedApplied, minKey, maxKey);
 
   const toggleQuickFilterMode = () => {
@@ -396,11 +297,11 @@ export default function CephAdminAccountsPage() {
   };
 
   const advancedAppliedPayload = useMemo(
-    () => buildAdvancedFilterPayload(advancedApplied, "", "contains", canViewMetrics),
+    () => buildAccountAdvancedFilterPayload(advancedApplied, "", "contains", canViewMetrics),
     [advancedApplied, canViewMetrics]
   );
   const advancedDraftPayload = useMemo(
-    () => buildAdvancedFilterPayload(advancedDraft, "", "contains", canViewMetrics),
+    () => buildAccountAdvancedFilterPayload(advancedDraft, "", "contains", canViewMetrics),
     [advancedDraft, canViewMetrics]
   );
   const hasPendingAdvancedChanges = advancedDraftPayload !== advancedAppliedPayload;
@@ -411,14 +312,14 @@ export default function CephAdminAccountsPage() {
     zIndexClass: "z-[70]",
   });
 
-  const advancedFilterActive = hasAdvancedFilters(advancedApplied, canViewMetrics);
+  const advancedFilterActive = hasAccountAdvancedFilters(advancedApplied, canViewMetrics);
   const activeFilterSummaryItems = useMemo(() => {
-    const items: ActiveFilterSummaryItem[] = [];
+    const items: AccountActiveFilterSummaryItem[] = [];
     if (quickFilterActive) {
       const label = formatTextFilterSummary(surfaceText("Account ID"), searchValue, effectiveQuickFilterMode);
       if (label) items.push({ id: "quick", label, remove: { type: "quick" } });
     }
-    if (advancedApplied && hasAdvancedFilters(advancedApplied, canViewMetrics)) {
+    if (advancedApplied && hasAccountAdvancedFilters(advancedApplied, canViewMetrics)) {
       const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameFilter.appliedMode);
       if (accountNameLabel) items.push({ id: "accountName", label: accountNameLabel, remove: { type: "advanced", field: "accountName" } });
       const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailFilter.appliedMode);
@@ -466,33 +367,24 @@ export default function CephAdminAccountsPage() {
     return items;
   }, [advancedDraft, accountNameFilter.draftMode, emailFilter.draftMode, numericFields, canViewMetrics, usageNumericFields, surfaceText]);
 
-  const advancedDraftTextCount =
-    Number(accountNameFilter.draftValue.length > 0) +
-    Number(emailFilter.draftValue.length > 0);
-  const advancedDraftNumericCount =
-    numericFields.filter(({ key }) => (advancedDraft[key] as string).trim().length > 0).length +
-    (canViewMetrics
-      ? usageNumericFields.filter(({ key }) => (advancedDraft[key] as string).trim().length > 0).length
-      : 0);
-  const advancedDraftActiveCount = advancedDraftTextCount + advancedDraftNumericCount;
-  const advancedDraftGlobalCostLevel: FilterCostLevel = useMemo(() => {
-    if (advancedDraftNumericCount >= 6) return "high";
-    if (advancedDraftNumericCount > 0) return "medium";
-    if (advancedDraftTextCount > 0) return "medium";
-    return "none";
-  }, [advancedDraftNumericCount, advancedDraftTextCount]);
+  const advancedDraftCost = useMemo(
+    () => resolveAccountAdvancedFilterCost(advancedDraft, canViewMetrics),
+    [advancedDraft, canViewMetrics],
+  );
+  const advancedDraftActiveCount = advancedDraftCost.activeCount;
+  const advancedDraftGlobalCostLevel = advancedDraftCost.level;
   const advancedDraftGlobalCostTooltip = useMemo(() => {
     if (advancedDraftGlobalCostLevel === "high") {
       return surfaceText("High cost: many numeric filters are active and may require heavier stats filtering.");
     }
     if (advancedDraftGlobalCostLevel === "medium") {
-      if (advancedDraftTextCount > 0 && advancedDraftNumericCount === 0) {
+      if (advancedDraftCost.textCount > 0 && advancedDraftCost.numericCount === 0) {
         return surfaceText("Medium cost: account profile filters may require per-account detail lookups.");
       }
       return surfaceText("Medium cost: numeric filters are active and rely on usage/quota counters.");
     }
     return surfaceText("No additional filter cost.");
-  }, [advancedDraftGlobalCostLevel, advancedDraftNumericCount, advancedDraftTextCount, surfaceText]);
+  }, [advancedDraftCost.numericCount, advancedDraftCost.textCount, advancedDraftGlobalCostLevel, surfaceText]);
 
   const detailPlaceholder = loadingDetails ? surfaceText("Loading...") : "-";
 
