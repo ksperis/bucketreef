@@ -45,7 +45,11 @@ from app.services.listing_rule_matching import match_numeric_rule, match_text_ru
 from app.services.rgw_admin import RGWAdminClient
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.quota_stats import extract_rgw_account_quota_limits
-from app.utils.rgw_payloads import extract_rgw_account_id, extract_rgw_account_name
+from app.utils.rgw_payloads import (
+    extract_rgw_account_id,
+    extract_rgw_account_name,
+    extract_rgw_account_tenant_optional,
+)
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 
@@ -124,7 +128,7 @@ def _account_from_entry(entry: object) -> CephAdminRgwAccountSummary | None:
     quota_size, quota_objects = extract_rgw_account_quota_limits(entry)
     return CephAdminRgwAccountSummary(
         account_id=account_id,
-        tenant=(str(entry.get("tenant") or "").strip() if "tenant" in entry else None),
+        tenant=extract_rgw_account_tenant_optional(entry),
         account_name=extract_rgw_account_name(entry),
         email=extract_account_email(entry),
         max_users=extract_account_limit(entry, "max_users"),
