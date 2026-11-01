@@ -18,6 +18,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_name,
     extract_rgw_account_payload,
     extract_rgw_account_tenant_optional,
+    extract_rgw_user_account_id,
     extract_rgw_user_account_ids,
     extract_rgw_user_account_aliases,
     extract_rgw_user_caps,
@@ -236,6 +237,20 @@ def test_extract_rgw_user_account_aliases_collects_external_account_aliases():
             "user": {"account_id": "RGW00000000000000002"},
         }
     ) == {"RGW00000000000000001", "RGW00000000000000002"}
+
+
+def test_extract_rgw_user_account_id_accepts_aliases_and_rejects_conflicts():
+    assert extract_rgw_user_account_id(
+        {"user": {"account": " RGW00000000000000001 "}}
+    ) == "RGW00000000000000001"
+
+    with pytest.raises(ValueError, match="conflicting user account identity"):
+        extract_rgw_user_account_id(
+            {
+                "account_id": "RGW00000000000000001",
+                "user": {"account": "RGW00000000000000002"},
+            }
+        )
 
 
 def test_extract_rgw_user_caps_prefers_explicit_top_level_and_falls_back_to_nested():

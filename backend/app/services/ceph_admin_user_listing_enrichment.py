@@ -18,6 +18,7 @@ from app.utils.quota_stats import extract_rgw_user_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_name,
+    extract_rgw_user_account_id,
     extract_rgw_user_bool,
     extract_rgw_user_int,
     extract_rgw_user_scalar,
@@ -95,11 +96,7 @@ class _UserDetailsEnricher:
         payload: dict[str, Any],
     ) -> None:
         if "account" in self.requested:
-            account_id = extract_rgw_user_scalar(
-                payload,
-                "account_id",
-                top_level_first=True,
-            )
+            account_id = extract_rgw_user_account_id(payload)
             user.account_id = account_id
             user.account_name = self._resolve_account_name(
                 account_id,

@@ -42,6 +42,7 @@ from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_name,
     extract_rgw_account_tenant,
+    extract_rgw_user_account_id,
     extract_rgw_user_bool,
     extract_rgw_user_caps,
     extract_rgw_user_identity,
@@ -87,7 +88,7 @@ def _build_user_detail(
     resolved_uid, resolved_tenant = extract_rgw_user_identity(payload)
     uid = resolved_uid or uid_fallback
     tenant = resolved_tenant if resolved_tenant is not None else tenant_fallback
-    account_id = extract_rgw_user_scalar(payload, "account_id", top_level_first=True)
+    account_id = extract_rgw_user_account_id(payload)
     quota_size, quota_objects = extract_rgw_user_quota_limits(payload)
     quota_enabled = extract_rgw_user_quota_enabled(payload)
     quota = None
@@ -124,7 +125,7 @@ def _build_user_detail(
 
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
     payload = load_user_payload(uid, tenant, ctx.rgw_admin)
-    account_id = extract_rgw_user_scalar(payload, "account_id", top_level_first=True)
+    account_id = extract_rgw_user_account_id(payload)
     account_name = _resolve_account_name(
         account_id,
         ctx,
