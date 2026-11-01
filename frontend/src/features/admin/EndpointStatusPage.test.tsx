@@ -166,4 +166,33 @@ describe("EndpointStatusPage incidents table", () => {
       expect(fetchHealthGlobalIncidentsMock).toHaveBeenCalledWith("month", 300);
     });
   });
+
+  it("refreshes every status resource after running healthchecks", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <EndpointStatusPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(fetchHealthLatencyOverviewMock).toHaveBeenCalledTimes(1);
+      expect(fetchHealthOverviewMock).toHaveBeenCalledTimes(1);
+      expect(fetchHealthGlobalIncidentsMock).toHaveBeenCalledTimes(1);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Check now" }));
+
+    await waitFor(() => {
+      expect(runHealthchecksMock).toHaveBeenCalledTimes(1);
+      expect(fetchHealthLatencyOverviewMock).toHaveBeenCalledTimes(2);
+      expect(fetchHealthOverviewMock).toHaveBeenCalledTimes(2);
+      expect(fetchHealthGlobalIncidentsMock).toHaveBeenCalledTimes(2);
+    });
+
+    expect(fetchHealthLatencyOverviewMock).toHaveBeenLastCalledWith("day");
+    expect(fetchHealthOverviewMock).toHaveBeenLastCalledWith("week");
+    expect(fetchHealthGlobalIncidentsMock).toHaveBeenLastCalledWith("half_year", 300);
+    expect(screen.getByText("Healthchecks executed.")).toBeInTheDocument();
+  });
 });
