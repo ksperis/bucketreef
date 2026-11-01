@@ -4,14 +4,14 @@
  */
 import { useCallback, useState } from "react";
 import type { S3UserMembership } from "../../api/users";
-import type { AccountSelection } from "./UserAccountAssociationsPanel";
+import type { AdminAccountSelection } from "./AdminAccountAssociationsPanel";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminStorageAssociationEditorState, {
   type StorageAssociationTab,
 } from "./useAdminStorageAssociationEditorState";
 
 type AssociationEditorSeed = {
-  selectedS3Accounts?: AccountSelection[];
+  selectedS3Accounts?: AdminAccountSelection[];
   selectedS3Users?: S3UserMembership[];
   selectedS3Connections?: number[];
   selectedOpenStackClouds?: number[];
@@ -20,7 +20,7 @@ type AssociationEditorSeed = {
 };
 
 export default function useAdminUserAssociationEditorState() {
-  const [selectedS3Accounts, setSelectedS3Accounts] = useState<AccountSelection[]>([]);
+  const [selectedS3Accounts, setSelectedS3Accounts] = useState<AdminAccountSelection[]>([]);
   const [selectedS3Users, setSelectedS3Users] = useState<S3UserMembership[]>([]);
   const [selectedS3Connections, setSelectedS3Connections] = useState<number[]>([]);
   const [selectedOpenStackClouds, setSelectedOpenStackClouds] = useState<number[]>([]);

@@ -2,11 +2,11 @@
 import type { AccountAccessGrant } from "../../api/accountAccess";
 import type { CreateUserPayload, S3UserMembership, UpdateUserPayload } from "../../api/users";
 import { stableSignature } from "../../utils/stableSignature";
-import type { AccountSelection } from "./UserAccountAssociationsPanel";
+import type { AdminAccountSelection } from "./AdminAccountAssociationsPanel";
 
 type AdminUserEditorSignatureInput = {
   form: CreateUserPayload | UpdateUserPayload;
-  selectedAccounts: AccountSelection[];
+  selectedAccounts: AdminAccountSelection[];
   selectedS3Users: S3UserMembership[];
   selectedS3Connections: number[];
   selectedOpenStackClouds: number[];

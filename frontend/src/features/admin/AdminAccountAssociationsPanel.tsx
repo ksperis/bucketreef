@@ -2,40 +2,39 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
-import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import type { Dispatch, SetStateAction } from "react";
+
 import {
   defaultAccountAccessGrant,
   hasAccountAccessRole,
   type AccountAccessGrant,
 } from "../../api/accountAccess";
 import type { S3AccountSummary } from "../../api/accounts";
-
+import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
+import {
+  AdminAssociationAccessPickerTable,
+  AdminAssociationPickerPanel,
+  adminAssociationTableContainerClass,
+} from "./AdminAssociationPicker";
 import {
   AccountAccessRoleValidationMessage,
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
-import { AdminAssociationAccessPickerTable, AdminAssociationPickerPanel, adminAssociationTableContainerClass } from "./AdminAssociationPicker";
-import { useUserI18n } from "./userMessage";
+import type { AdminSimpleAssociationOption } from "./AdminSimpleIdAssociationsPanel";
 
-export type AccountSelection = AccountAccessGrant & {
+export type AdminAccountSelection = AccountAccessGrant & {
   id: number;
 };
 
-type AccountOption = {
-  id: number;
-  label: string;
-};
-
-export type UserAccountAssociationsState = {
-  selected: AccountSelection[];
-  setSelected: Dispatch<SetStateAction<AccountSelection[]>>;
+export type AdminAccountAssociationsState = {
+  selected: AdminAccountSelection[];
+  setSelected: Dispatch<SetStateAction<AdminAccountSelection[]>>;
   optionsById: Map<number, S3AccountSummary>;
-  available: AccountOption[];
-  visible: AccountOption[];
+  available: AdminSimpleAssociationOption[];
+  visible: AdminSimpleAssociationOption[];
   search: string;
   setSearch: Dispatch<SetStateAction<string>>;
   loading: boolean;
@@ -48,34 +47,51 @@ export type UserAccountAssociationsState = {
   toggleSelection: (id: number) => void;
 };
 
-type UserAccountAssociationsPanelProps = {
-  accounts: UserAccountAssociationsState;
-  maxVisibleOptions: number;
-  showPortalRole: boolean;
+type AdminAccountAssociationsLabels = {
+  account: string;
+  managerRole: string;
+  portalRole: string;
+  actions: string;
+  remove: string;
+  loading: string;
+  empty: string;
+  pickerTitle: string;
+  searchHint: string;
+  availableTitle: string;
+  fallbackLabel: (id: number) => string;
+  searchAriaLabel?: string;
+  pickerEmptyMessage?: string;
 };
 
-export default function UserAccountAssociationsPanel({
+type AdminAccountAssociationsPanelProps = {
+  accounts: AdminAccountAssociationsState;
+  maxVisibleOptions: number;
+  showPortalRole: boolean;
+  labels: AdminAccountAssociationsLabels;
+  normalizeSelection?: (links: AdminAccountSelection[]) => AdminAccountSelection[];
+};
+
+export default function AdminAccountAssociationsPanel({
   accounts,
   maxVisibleOptions,
   showPortalRole,
-}: UserAccountAssociationsPanelProps) {
-  const { text } = useUserI18n();
+  labels,
+  normalizeSelection = (links) => links,
+}: AdminAccountAssociationsPanelProps) {
   const defaultAccess = defaultAccountAccessGrant(showPortalRole);
   const hasInvalidPendingSelection = accounts.selections.some(
     (accountId) =>
       !hasAccountAccessRole(accounts.accountAccessChoice[accountId] ?? defaultAccess),
   );
-  const showPortalColumn = showPortalRole;
-  const columns: DataTableColumn<AccountSelection>[] = [
+  const columns: DataTableColumn<AdminAccountSelection>[] = [
     {
       id: "account",
-      label: text("account"),
+      label: labels.account,
       primary: true,
       render: (entry) => {
         const label =
-          accounts.optionsById.get(Number(entry.id))?.name ??
-          text("accountById", { id: entry.id });
-        const accessErrorId = `user-account-access-${entry.id}-error`;
+          accounts.optionsById.get(entry.id)?.name ?? labels.fallbackLabel(entry.id);
+        const accessErrorId = `admin-account-access-${entry.id}-error`;
         return (
           <>
             {label}
@@ -90,12 +106,11 @@ export default function UserAccountAssociationsPanel({
     },
     {
       id: "manager-role",
-      label: text("managerRole"),
+      label: labels.managerRole,
       render: (entry) => {
         const label =
-          accounts.optionsById.get(Number(entry.id))?.name ??
-          text("accountById", { id: entry.id });
-        const accessErrorId = `user-account-access-${entry.id}-error`;
+          accounts.optionsById.get(entry.id)?.name ?? labels.fallbackLabel(entry.id);
+        const accessErrorId = `admin-account-access-${entry.id}-error`;
         const invalid = !hasAccountAccessRole(entry);
         return (
           <ManagerAccountRoleSelect
@@ -116,15 +131,14 @@ export default function UserAccountAssociationsPanel({
         );
       },
     },
-    ...(showPortalColumn
+    ...(showPortalRole
       ? [{
           id: "portal-role",
-          label: text("portalRole"),
-          render: (entry: AccountSelection) => {
+          label: labels.portalRole,
+          render: (entry: AdminAccountSelection) => {
             const label =
-              accounts.optionsById.get(Number(entry.id))?.name ??
-              text("accountById", { id: entry.id });
-            const accessErrorId = `user-account-access-${entry.id}-error`;
+              accounts.optionsById.get(entry.id)?.name ?? labels.fallbackLabel(entry.id);
+            const accessErrorId = `admin-account-access-${entry.id}-error`;
             const invalid = !hasAccountAccessRole(entry);
             return (
               <PortalAccountRoleSelect
@@ -144,17 +158,16 @@ export default function UserAccountAssociationsPanel({
               />
             );
           },
-        } satisfies DataTableColumn<AccountSelection>]
+        } satisfies DataTableColumn<AdminAccountSelection>]
       : []),
     {
       id: "actions",
-      label: text("actions"),
+      label: labels.actions,
       align: "right",
       mobileRole: "actions",
       render: (entry) => {
         const label =
-          accounts.optionsById.get(Number(entry.id))?.name ??
-          text("accountById", { id: entry.id });
+          accounts.optionsById.get(entry.id)?.name ?? labels.fallbackLabel(entry.id);
         return (
           <ListActions>
             {entry.manager_role ? (
@@ -180,20 +193,26 @@ export default function UserAccountAssociationsPanel({
             ) : null}
             <ListActionButton
               type="button"
+              variant="danger"
               onClick={() =>
                 accounts.setSelected((current) =>
                   current.filter((account) => account.id !== entry.id),
                 )
               }
-              variant="danger"
             >
-              {text("remove")}
+              {labels.remove}
             </ListActionButton>
           </ListActions>
         );
       },
     },
   ];
+
+  const resetPicker = () => {
+    accounts.setShowPanel(false);
+    accounts.setSelections([]);
+    accounts.setSearch("");
+  };
 
   return (
     <div className="space-y-3">
@@ -202,29 +221,27 @@ export default function UserAccountAssociationsPanel({
         rows={accounts.selected}
         rowKey={(entry) => entry.id}
         status={accounts.selected.length ? "ready" : "empty"}
-        loadingMessage={text("loadingAccounts")}
-        errorMessage={text("noLinkedAccount")}
-        emptyMessage={text("noLinkedAccount")}
+        loadingMessage={labels.loading}
+        errorMessage={labels.empty}
+        emptyMessage={labels.empty}
         containerClassName={adminAssociationTableContainerClass}
         responsiveCards
       />
       {accounts.showPanel ? (
         <AdminAssociationPickerPanel
-          title={text("addAccounts")}
-          hint={text("searchByName")}
+          title={labels.pickerTitle}
+          hint={labels.searchHint}
           search={accounts.search}
           onSearchChange={accounts.setSearch}
+          searchAriaLabel={labels.searchAriaLabel}
           loading={accounts.loading}
           availableCount={accounts.available.length}
           maxVisibleOptions={maxVisibleOptions}
           selectedCount={accounts.selections.length}
-          loadingLabel={text("loadingAccounts")}
+          loadingLabel={labels.loading}
+          emptyLabel={labels.pickerEmptyMessage}
           addDisabled={accounts.selections.length === 0 || hasInvalidPendingSelection}
-          onCancel={() => {
-            accounts.setShowPanel(false);
-            accounts.setSelections([]);
-            accounts.setSearch("");
-          }}
+          onCancel={resetPicker}
           onAdd={() => {
             if (accounts.selections.length === 0) return;
             const next = accounts.selections.map((accountId) => ({
@@ -232,17 +249,15 @@ export default function UserAccountAssociationsPanel({
               ...(accounts.accountAccessChoice[accountId] ?? defaultAccess),
               allow_manager_browser_data_access: false,
             }));
-            accounts.setSelected((current) => [...current, ...next]);
-            accounts.setSelections([]);
-            accounts.setSearch("");
-            accounts.setShowPanel(false);
+            accounts.setSelected((current) => normalizeSelection([...current, ...next]));
+            resetPicker();
           }}
         >
           <AdminAssociationAccessPickerTable
-            title={text("availableAccounts")}
-            principalLabel={text("account")}
+            title={labels.availableTitle}
+            principalLabel={labels.account}
             options={accounts.visible.map((option) => {
-              const accountId = Number(option.id);
+              const accountId = option.id;
               return {
                 id: accountId,
                 label: option.label,

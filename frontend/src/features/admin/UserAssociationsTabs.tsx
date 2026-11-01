@@ -9,9 +9,9 @@ import AdminS3UserAssociationsPanel, {
 import AdminSimpleIdAssociationsPanel, {
   type AdminSimpleIdAssociationsState,
 } from "./AdminSimpleIdAssociationsPanel";
-import UserAccountAssociationsPanel, {
-  type UserAccountAssociationsState,
-} from "./UserAccountAssociationsPanel";
+import AdminAccountAssociationsPanel, {
+  type AdminAccountAssociationsState,
+} from "./AdminAccountAssociationsPanel";
 import { useUserI18n } from "./userMessage";
 import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 
@@ -20,7 +20,7 @@ type UserAssociationsTabsProps = {
   onTabChange: (tab: StorageAssociationTab) => void;
   maxVisibleOptions: number;
   showPortalRole: boolean;
-  accounts: UserAccountAssociationsState;
+  accounts: AdminAccountAssociationsState;
   s3Users: AdminS3UserAssociationsState;
   connections: AdminSimpleIdAssociationsState;
   openstack?: AdminSimpleIdAssociationsState;
@@ -47,10 +47,23 @@ export default function UserAssociationsTabs({
           actionLabel: text(accounts.showPanel ? "close" : "addAccounts"),
           onAction: () => accounts.setShowPanel((current) => !current),
           content: (
-            <UserAccountAssociationsPanel
+            <AdminAccountAssociationsPanel
               accounts={accounts}
               maxVisibleOptions={maxVisibleOptions}
               showPortalRole={showPortalRole}
+              labels={{
+                account: text("account"),
+                managerRole: text("managerRole"),
+                portalRole: text("portalRole"),
+                actions: text("actions"),
+                remove: text("remove"),
+                loading: text("loadingAccounts"),
+                empty: text("noLinkedAccount"),
+                pickerTitle: text("addAccounts"),
+                searchHint: text("searchByName"),
+                availableTitle: text("availableAccounts"),
+                fallbackLabel: (id) => text("accountById", { id }),
+              }}
             />
           ),
         },

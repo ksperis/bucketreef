@@ -28,19 +28,12 @@ import {
   uploadGroupAvatar,
   updateGroup,
 } from "../../api/groups";
-import type { AccountMembership, S3UserMembership } from "../../api/users";
+import type { S3UserMembership } from "../../api/users";
 import {
-  defaultAccountAccessGrant,
   getAccountAccessRequiredMessage,
   hasAccountAccessRole,
-  type AccountAccessGrant,
 } from "../../api/accountAccess";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
-import {
-  AccountAccessRoleValidationMessage,
-  ManagerAccountRoleSelect,
-  PortalAccountRoleSelect,
-} from "./AccountAccessRoleSelectors";
 import GroupAvatar from "../../components/GroupAvatar";
 import WorkflowPage, { workflowPageHostClass } from "../../components/WorkflowPage";
 import WorkflowTabs from "../../components/WorkflowTabs";
@@ -53,8 +46,7 @@ import {
   ManagerToolAccessSection,
   WorkspaceAccessSection,
 } from "./AdminAccessSections";
-import { AdminAssociationAccessPickerTable, AdminAssociationLinkedTable, AdminAssociationOptionCheckbox, AdminAssociationTabs, adminAssociationPanelClass, AdminAssociationPickerPanel, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
-import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
+import { AdminAssociationLinkedTable, AdminAssociationOptionCheckbox, AdminAssociationTabs, adminAssociationPanelClass, AdminAssociationPickerPanel, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
   buildManagerToolDefinitions,
@@ -91,6 +83,10 @@ import AdminSimpleIdAssociationsPanel, {
 import AdminS3UserAssociationsPanel, {
   type AdminS3UserAssociationsState,
 } from "./AdminS3UserAssociationsPanel";
+import AdminAccountAssociationsPanel, {
+  type AdminAccountAssociationsState,
+  type AdminAccountSelection,
+} from "./AdminAccountAssociationsPanel";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
@@ -392,15 +388,6 @@ export default function GroupsPage() {
     disabled: saving,
   });
 
-  const updateAccountSelection = (accountId: number, patch: Partial<AccountMembership>) => {
-    setForm((current) => ({
-      ...current,
-      account_links: (current.account_links ?? []).map((link) =>
-        Number(link.account_id) === accountId ? { ...link, ...patch } : link
-      ),
-    }));
-  };
-
   const submitGroup = async (event: FormEvent) => {
     event.preventDefault();
     if (savingRef.current) return;
@@ -504,7 +491,6 @@ export default function GroupsPage() {
   const selectedConnectionIds = new Set(form.s3_connection_ids ?? []);
   const selectedOpenStackCloudIds = new Set(form.openstack_cloud_ids ?? []);
   const selectedAccountIds = new Set((form.account_links ?? []).map((link) => Number(link.account_id)));
-  const showAccountPortalRoleColumn = showPortalRole;
   const userLabelById = new Map(users.map((user) => [user.id, user.email]));
   const userOptions = deriveAdminAssociationOptions({
     items: users,
@@ -549,6 +535,25 @@ export default function GroupsPage() {
           ? value(current.s3_connection_ids ?? [])
           : value,
     }));
+  const setAccountSelections: Dispatch<SetStateAction<AdminAccountSelection[]>> = (value) =>
+    setForm((current) => {
+      const currentSelections: AdminAccountSelection[] = (current.account_links ?? []).map(
+        (link) => ({
+          id: Number(link.account_id),
+          manager_role: link.manager_role,
+          portal_role: link.portal_role,
+          allow_manager_browser_data_access: link.allow_manager_browser_data_access,
+        }),
+      );
+      const next = typeof value === "function" ? value(currentSelections) : value;
+      return {
+        ...current,
+        account_links: next.map(({ id, ...access }) => ({
+          account_id: id,
+          ...access,
+        })),
+      };
+    });
   const setS3UserLinks: Dispatch<SetStateAction<S3UserMembership[]>> = (value) =>
     setForm((current) => ({
       ...current,
@@ -585,6 +590,34 @@ export default function GroupsPage() {
     selections: connectionPicker.selections,
     setSelections: connectionPicker.setSelections,
     toggleSelection: connectionPicker.toggleSelection,
+  };
+  const accountAssociationState: AdminAccountAssociationsState = {
+    selected: (form.account_links ?? []).map((link) => ({
+      id: Number(link.account_id),
+      manager_role: link.manager_role,
+      portal_role: link.portal_role,
+      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
+    })),
+    setSelected: setAccountSelections,
+    optionsById: accountOptionsById,
+    available: accountOptions.available.map((account) => ({
+      id: account.id,
+      label: account.name,
+    })),
+    visible: accountOptions.visible.map((account) => ({
+      id: account.id,
+      label: account.name,
+    })),
+    search: accountPicker.search,
+    setSearch: accountPicker.setSearch,
+    loading: auxLoading,
+    showPanel: accountPicker.open,
+    setShowPanel: accountPicker.setOpen,
+    selections: accountPicker.selections,
+    setSelections: accountPicker.setSelections,
+    accountAccessChoice,
+    setAccountAccessChoice,
+    toggleSelection: accountPicker.toggleSelection,
   };
   const s3UserAssociationState: AdminS3UserAssociationsState = {
     selected: form.s3_user_links ?? [],
@@ -712,155 +745,27 @@ export default function GroupsPage() {
           actionLabel: accountPicker.open ? text("close") : text("addAccounts"),
           onAction: () => accountPicker.setOpen((current) => !current),
           content: (
-            <AdminAssociationLinkedTable
-              title={text("linkedAccounts")}
-              headers={[
-                { label: text("account") },
-                { label: text("managerRole") },
-                ...(showAccountPortalRoleColumn
-                  ? [{ label: text("portalRole") }]
-                  : []),
-                { label: text("actions"), align: "right" as const },
-              ]}
-              hasItems={selectedAccountIds.size > 0}
-              emptyLabel={text("noLinkedAccounts")}
-              rows={(form.account_links ?? []).map((link) => {
-                const accountId = Number(link.account_id);
-                const label = accountOptionsById.get(accountId)?.name ?? text("accountNumber", { id: accountId });
-                const accessErrorId = `group-account-access-${accountId}-error`;
-                const invalid = !hasAccountAccessRole(link);
-                const updateAccess = (value: AccountAccessGrant) =>
-                  updateAccountSelection(accountId, value);
-                return (
-                  <tr key={accountId}>
-                    <td className="ui-table-primary">
-                      {label}
-                      <AccountAccessRoleValidationMessage
-                        id={accessErrorId}
-                        value={link}
-                        portalEnabled={showPortalRole}
-                      />
-                    </td>
-                    <td>
-                      <ManagerAccountRoleSelect
-                        label={label}
-                        portalEnabled={showPortalRole}
-                        value={link}
-                        onChange={updateAccess}
-                        showLabel={false}
-                        invalid={invalid}
-                        describedBy={invalid ? accessErrorId : undefined}
-                      />
-                    </td>
-                    {showAccountPortalRoleColumn ? (
-                      <td>
-                        <PortalAccountRoleSelect
-                          label={label}
-                          portalEnabled={showPortalRole}
-                          value={link}
-                          onChange={updateAccess}
-                          showLabel={false}
-                          invalid={invalid}
-                          describedBy={invalid ? accessErrorId : undefined}
-                        />
-                      </td>
-                    ) : null}
-                    <td className="ui-table-actions-cell w-px text-right">
-                      {link.manager_role ? (
-                        <AdminAssociationAdvancedSettings
-                          targetLabel={label}
-                          associationKind="account"
-                          allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
-                          onApply={(allowed) =>
-                            updateAccountSelection(accountId, {
-                              allow_manager_browser_data_access: allowed,
-                            })
-                          }
-                        />
-                      ) : null}
-                      <ListActionButton
-                        type="button"
-                         variant="danger"
-                        onClick={() =>
-                          setForm((current) => ({
-                            ...current,
-                            account_links: (current.account_links ?? []).filter(
-                              (currentLink) => Number(currentLink.account_id) !== accountId
-                            ),
-                          }))
-                        }
-                      >
-                        {text("remove")}
-                      </ListActionButton>
-                    </td>
-                  </tr>
-                );
-              })}
-              picker={
-                accountPicker.open ? (
-                  <AdminAssociationPickerPanel
-                    title={text("addAccounts")}
-                    hint={text("searchByName")}
-                    search={accountPicker.search}
-                    onSearchChange={accountPicker.setSearch}
-                    searchAriaLabel={text("searchGroupAccounts")}
-                    loading={auxLoading}
-                    availableCount={accountOptions.available.length}
-                    maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-                    selectedCount={accountPicker.selections.length}
-                    loadingLabel={text("loadingAccounts")}
-                    emptyLabel={text("noAccountsAvailable")}
-                    addDisabled={
-                      accountPicker.selections.length === 0 ||
-                      accountPicker.selections.some(
-                        (accountId) =>
-                          !hasAccountAccessRole(
-                            accountAccessChoice[accountId] ??
-                              defaultAccountAccessGrant(showPortalRole),
-                          ),
-                      )
-                    }
-                    onCancel={() => {
-                      accountPicker.reset();
-                    }}
-                    onAdd={() => {
-                      setForm((current) => ({
-                        ...current,
-                        account_links: [
-                          ...(current.account_links ?? []),
-                          ...accountPicker.selections.map((accountId) => ({
-                            account_id: accountId,
-                            ...(accountAccessChoice[accountId] ??
-                              defaultAccountAccessGrant(showPortalRole)),
-                            allow_manager_browser_data_access: false,
-                          })),
-                        ].sort((left, right) => Number(left.account_id) - Number(right.account_id)),
-                      }));
-                      accountPicker.reset();
-                    }}
-                  >
-                    <AdminAssociationAccessPickerTable
-                      title={text("availableAccounts")}
-                      principalLabel={text("account")}
-                      options={accountOptions.visible.map((account) => ({
-                        id: account.id,
-                        label: account.name,
-                        selected: accountPicker.selections.includes(account.id),
-                        access:
-                          accountAccessChoice[account.id] ??
-                          defaultAccountAccessGrant(showPortalRole),
-                      }))}
-                      portalEnabled={showPortalRole}
-                      onToggle={accountPicker.toggleSelection}
-                      onAccessChange={(accountId, value) =>
-                        setAccountAccessChoice((current) => ({
-                          ...current,
-                          [accountId]: value,
-                        }))
-                      }
-                    />
-                  </AdminAssociationPickerPanel>
-                ) : undefined
+            <AdminAccountAssociationsPanel
+              accounts={accountAssociationState}
+              maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
+              showPortalRole={showPortalRole}
+              labels={{
+                account: text("account"),
+                managerRole: text("managerRole"),
+                portalRole: text("portalRole"),
+                actions: text("actions"),
+                remove: text("remove"),
+                loading: text("loadingAccounts"),
+                empty: text("noLinkedAccounts"),
+                pickerTitle: text("addAccounts"),
+                searchHint: text("searchByName"),
+                availableTitle: text("availableAccounts"),
+                fallbackLabel: (id) => text("accountNumber", { id }),
+                searchAriaLabel: text("searchGroupAccounts"),
+                pickerEmptyMessage: text("noAccountsAvailable"),
+              }}
+              normalizeSelection={(links) =>
+                [...links].sort((left, right) => left.id - right.id)
               }
             />
           ),
