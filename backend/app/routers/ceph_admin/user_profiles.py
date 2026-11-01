@@ -37,13 +37,12 @@ from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.quota_stats import extract_quota_limits
+from app.utils.quota_stats import extract_rgw_user_quota_enabled, extract_rgw_user_quota_limits
 from app.utils.rgw_caps import canonicalize_rgw_caps
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_name,
     extract_rgw_account_tenant,
-    extract_rgw_quota_enabled,
     extract_rgw_user_bool,
     extract_rgw_user_caps,
     extract_rgw_user_int,
@@ -104,11 +103,8 @@ def _build_user_detail(
     tenant, uid = _resolve_user_identity(payload, uid_fallback=uid_fallback, tenant_fallback=tenant_fallback)
     user_payload = extract_rgw_user_payload(payload)
     account_id = extract_rgw_user_scalar(payload, "account_id", top_level_first=True)
-    quota_size, quota_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
-    quota_enabled = extract_rgw_quota_enabled(
-        payload,
-        keys=("user_quota", "quota"),
-    )
+    quota_size, quota_objects = extract_rgw_user_quota_limits(payload)
+    quota_enabled = extract_rgw_user_quota_enabled(payload)
     quota = None
     if quota_enabled is not None or quota_size is not None or quota_objects is not None:
         quota = CephAdminRgwQuotaConfig(

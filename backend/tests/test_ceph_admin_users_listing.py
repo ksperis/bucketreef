@@ -579,6 +579,51 @@ def test_build_user_detail_preserves_nested_false_and_zero_values():
     assert detail.account_root is False
 
 
+def test_build_user_detail_prefers_nested_quota_and_supports_split_quota_payload():
+    nested_payload = _build_user_payload("alice")
+    nested_payload["user_quota"] = {
+        "enabled": False,
+        "max_size": 1,
+        "max_objects": 2,
+    }
+    nested_payload["user"]["user_quota"] = {
+        "enabled": True,
+        "max_size": 4096,
+        "max_objects": 10,
+    }
+
+    nested_detail = user_profiles_router._build_user_detail(
+        nested_payload,
+        uid_fallback="alice",
+        tenant_fallback=None,
+        account_name=None,
+        keys=[],
+    )
+
+    split_payload = _build_user_payload("bob")
+    split_payload["user_quota"] = {
+        "enabled": True,
+        "max_size": 8192,
+        "max_objects": 20,
+    }
+    split_detail = user_profiles_router._build_user_detail(
+        split_payload,
+        uid_fallback="bob",
+        tenant_fallback=None,
+        account_name=None,
+        keys=[],
+    )
+
+    assert nested_detail.quota is not None
+    assert nested_detail.quota.enabled is True
+    assert nested_detail.quota.max_size_bytes == 4096
+    assert nested_detail.quota.max_objects == 10
+    assert split_detail.quota is not None
+    assert split_detail.quota.enabled is True
+    assert split_detail.quota.max_size_bytes == 8192
+    assert split_detail.quota.max_objects == 20
+
+
 def test_ceph_admin_user_enrichment_preserves_nested_false_and_zero_values():
     users = [CephAdminRgwUserSummary(uid="alice")]
     payload = _build_user_payload(

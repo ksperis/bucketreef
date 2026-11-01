@@ -100,16 +100,33 @@ def extract_rgw_account_quota_limits(payload: Any) -> Tuple[Optional[int], Optio
     )
 
 
-def extract_rgw_user_quota_limits(payload: Any) -> Tuple[Optional[int], Optional[int]]:
+def _rgw_user_quota_record(payload: Any) -> Optional[Dict[str, Any]]:
     if not isinstance(payload, dict):
-        return None, None
+        return None
     user_payload = extract_rgw_user_payload(payload)
     records = (user_payload, payload) if user_payload is not payload else (payload,)
     keys = ("user_quota", "quota")
     for record in records:
         if _first_quota_payload(record, keys) is not None:
-            return extract_quota_limits(record, keys=keys)
-    return None, None
+            return record
+    return None
+
+
+def extract_rgw_user_quota_enabled(payload: Any) -> Optional[bool]:
+    record = _rgw_user_quota_record(payload)
+    if record is None:
+        return None
+    quota = _first_quota_payload(record, ("user_quota", "quota"))
+    if quota is None:
+        return None
+    return parse_rgw_bool(quota.get("enabled"))
+
+
+def extract_rgw_user_quota_limits(payload: Any) -> Tuple[Optional[int], Optional[int]]:
+    record = _rgw_user_quota_record(payload)
+    if record is None:
+        return None, None
+    return extract_quota_limits(record, keys=("user_quota", "quota"))
 
 
 def bytes_to_gb(value: Optional[int]) -> Optional[float]:

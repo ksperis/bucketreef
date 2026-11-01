@@ -9,6 +9,7 @@ from app.utils.quota_stats import (
     extract_rgw_account_positive_limit,
     extract_rgw_account_quota_limits,
     extract_rgw_user_positive_limit,
+    extract_rgw_user_quota_enabled,
     extract_rgw_user_quota_limits,
     parse_positive_limit,
 )
@@ -120,7 +121,7 @@ def test_extract_rgw_account_limits_prefer_nested_account_payload():
 
 def test_extract_rgw_user_limits_prefer_nested_user_and_support_split_payloads():
     nested_payload = {
-        "user_quota": {"enabled": True, "max_size": 1, "max_objects": 2},
+        "user_quota": {"enabled": False, "max_size": 1, "max_objects": 2},
         "max_buckets": 3,
         "user": {
             "user_quota": {"enabled": True, "max_size": 4096, "max_objects": 10},
@@ -133,6 +134,8 @@ def test_extract_rgw_user_limits_prefer_nested_user_and_support_split_payloads()
     }
 
     assert extract_rgw_user_quota_limits(nested_payload) == (4096, 10)
+    assert extract_rgw_user_quota_enabled(nested_payload) is True
     assert extract_rgw_user_positive_limit(nested_payload, "max_buckets") == 8
     assert extract_rgw_user_quota_limits(split_payload) == (8192, 20)
+    assert extract_rgw_user_quota_enabled(split_payload) is True
     assert extract_rgw_user_positive_limit(split_payload, "max_buckets") == 7
