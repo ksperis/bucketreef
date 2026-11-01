@@ -3,41 +3,9 @@ import { DEFAULT_RUNTIME_SURFACES, type GeneralSettings } from "../api/appSettin
 import { DEFAULT_MANAGER_FEATURE_POLICIES, DEFAULT_PROJECT_COLLECTION_POLICIES, DEFAULT_PROJECT_FEATURE_POLICIES } from "../api/featurePolicies";
 import type { EffectiveUserAccess } from "../api/users";
 import type { WorkspaceAccess } from "../api/executionContexts";
+import { buildEffectiveUserAccess as effectiveAccess } from "../test/effectiveAccess";
 import type { SessionUser } from "./workspaces";
 import { resolveAvailableWorkspacesWithFlags, resolvePostLoginPath, resolvePostLoginPathWithWorkspaceAccess } from "./workspaces";
-
-const NO_MANAGER_TOOLS = {
-  bucket_compare: false,
-  bucket_integrity_check: false,
-  bucket_migration: false,
-  bucket_purge: false,
-  feature_rules: false,
-};
-
-function effectiveAccess(overrides: Partial<EffectiveUserAccess> = {}): EffectiveUserAccess {
-  return {
-    can_access_ceph_admin: false,
-    can_access_storage_ops: false,
-    can_create_manual_private_connections: false,
-    can_provision_managed_private_connections: false,
-    allow_multisite_endpoint_switching: false,
-    group_can_provision_managed_private_connections: false,
-    has_owned_private_connections: false,
-    browser_advanced_features_enabled: false,
-    account_links: [],
-    s3_user_details: [],
-    s3_connection_details: [],
-    ...overrides,
-    manager_tool_access: {
-      ...NO_MANAGER_TOOLS,
-      ...overrides.manager_tool_access,
-    },
-    group_manager_tool_access: {
-      ...NO_MANAGER_TOOLS,
-      ...overrides.group_manager_tool_access,
-    },
-  };
-}
 
 function accountLink(
   accountId: number,

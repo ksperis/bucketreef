@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { RequireManagerFeatureRulesTool } from "./router";
+import { buildEffectiveUserAccess } from "./test/effectiveAccess";
 import { setSessionUserCache } from "./utils/workspaces";
 
 function renderRoute(path: string) {
@@ -23,24 +24,11 @@ function setStoredUser(featureRules: boolean) {
     id: 10,
     email: "manager@example.com",
     role: "ui_user",
-    effective_access: {
-      can_access_ceph_admin: false,
-      can_access_storage_ops: false,
-      can_create_manual_private_connections: false,
-      can_provision_managed_private_connections: false,
-      has_owned_private_connections: false,
+    effective_access: buildEffectiveUserAccess({
       manager_tool_access: {
-        bucket_compare: false,
-        bucket_integrity_check: false,
-        bucket_migration: false,
-        bucket_purge: false,
         feature_rules: featureRules,
       },
-      browser_advanced_features_enabled: false,
-      account_links: [],
-      s3_user_details: [],
-      s3_connection_details: [],
-    },
+    }),
   });
 }
 

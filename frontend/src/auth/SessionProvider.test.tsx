@@ -6,6 +6,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthUser, CurrentSessionResponse } from "../api/auth";
 import { ApiError } from "../api/client";
+import { buildEffectiveUserAccess, buildManagerToolAccess } from "../test/effectiveAccess";
 import { readStoredUser } from "../utils/workspaces";
 import { fetchCurrentSession } from "../api/auth";
 import { SessionProvider, shouldBootstrapSession, useSession } from "./SessionProvider";
@@ -14,14 +15,6 @@ import { SESSION_ENDED_STORAGE_KEY } from "./sessionEvents";
 vi.mock("../api/auth", () => ({
   fetchCurrentSession: vi.fn(),
 }));
-
-const NO_MANAGER_TOOLS = {
-  bucket_compare: false,
-  bucket_integrity_check: false,
-  bucket_migration: false,
-  bucket_purge: false,
-  feature_rules: false,
-};
 
 function testUser(id: number, email: string, role: AuthUser["role"]): AuthUser {
   return {
@@ -45,7 +38,7 @@ function testUser(id: number, email: string, role: AuthUser["role"]): AuthUser {
     can_create_manual_private_connections: false,
     can_provision_managed_private_connections: false,
     allow_multisite_endpoint_switching: false,
-    manager_tool_access: { ...NO_MANAGER_TOOLS },
+    manager_tool_access: buildManagerToolAccess(),
     browser_advanced_features_enabled: false,
     ui_language: null,
     quota_alerts_enabled: false,
@@ -57,21 +50,7 @@ function testUser(id: number, email: string, role: AuthUser["role"]): AuthUser {
     s3_user_details: [],
     s3_connection_details: [],
     openstack_cloud_details: [],
-    effective_access: {
-      can_access_ceph_admin: false,
-      can_access_storage_ops: false,
-      can_create_manual_private_connections: false,
-      can_provision_managed_private_connections: false,
-      allow_multisite_endpoint_switching: false,
-      group_can_provision_managed_private_connections: false,
-      has_owned_private_connections: false,
-      manager_tool_access: { ...NO_MANAGER_TOOLS },
-      group_manager_tool_access: { ...NO_MANAGER_TOOLS },
-      browser_advanced_features_enabled: false,
-      account_links: [],
-      s3_user_details: [],
-      s3_connection_details: [],
-    },
+    effective_access: buildEffectiveUserAccess(),
     last_login_at: null,
   };
 }
