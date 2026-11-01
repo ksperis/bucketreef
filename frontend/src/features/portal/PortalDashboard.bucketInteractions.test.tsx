@@ -1,26 +1,68 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
+import {
+  buildPortalTrafficStats,
+  buildPortalWorkspaceSpace,
+} from "../../test/portal";
 import PortalDashboard from "./PortalDashboard";
+import type { usePortalWorkspaceData } from "./usePortalWorkspaceData";
+
+type PortalDashboardWorkspaceData = Pick<
+  ReturnType<typeof usePortalWorkspaceData>,
+  | "workspace"
+  | "traffic"
+  | "trafficByWindow"
+  | "usage"
+  | "collaborators"
+  | "collaboratorsError"
+  | "usageTrends"
+  | "health"
+  | "healthAlerts"
+  | "loading"
+  | "accountLoading"
+  | "error"
+  | "accountError"
+  | "usageError"
+  | "usageTrendsError"
+  | "trafficLoading"
+  | "usageTrendsLoading"
+  | "trafficError"
+  | "hasAccountContext"
+>;
 
 const mocks = vi.hoisted(() => {
+  let hookResult: PortalDashboardWorkspaceData;
+  return {
+    get hookResult() {
+      return hookResult;
+    },
+    set hookResult(value: PortalDashboardWorkspaceData) {
+      hookResult = value;
+    },
+  };
+});
+
+function buildDashboardWorkspaceData(): PortalDashboardWorkspaceData {
   const trafficStats = (
     window: string,
     bytesIn: number,
     bytesOut: number,
-    series: Array<{ timestamp: string; bytes_in: number; bytes_out: number; ops: number; success_ops: number }>
-  ) => ({
+    series: Array<{ timestamp: string; bytes_in: number; bytes_out: number; ops: number; success_ops: number }>,
+  ) => buildPortalTrafficStats({
     window,
     start: series[0]?.timestamp ?? "2026-06-10T00:00:00Z",
     end: series.at(-1)?.timestamp ?? "2026-06-10T23:59:59Z",
     resolution: "day",
     data_points: series.length,
     series,
-    totals: { bytes_in: bytesIn, bytes_out: bytesOut, ops: 12600, success_ops: 12500 },
-    bucket_rankings: [],
-    user_rankings: [],
-    request_breakdown: [],
-    category_breakdown: [],
+    totals: {
+      bytes_in: bytesIn,
+      bytes_out: bytesOut,
+      ops: 12600,
+      success_ops: 12500,
+      success_rate: 12500 / 12600,
+    },
   });
   const dayTraffic = trafficStats("day", 256, 128, [
     { timestamp: "2026-06-10T00:00:00Z", bytes_in: 256, bytes_out: 128, ops: 600, success_ops: 590 },
@@ -33,7 +75,7 @@ const mocks = vi.hoisted(() => {
     { timestamp: "2026-05-10T00:00:00Z", bytes_in: 256, bytes_out: 256, ops: 400, success_ops: 390 },
     { timestamp: "2026-06-10T00:00:00Z", bytes_in: 768, bytes_out: 768, ops: 500, success_ops: 490 },
   ]);
-  const createHookResult = () => ({
+  return {
     workspace: {
       accountName: "Laurent",
       userEmail: "manager@example.com",
@@ -51,8 +93,7 @@ const mocks = vi.hoisted(() => {
         { label: "Jun 10", value: 180 },
       ],
       spaces: [
-        {
-          id: "research-data",
+        buildPortalWorkspaceSpace("research-data", {
           name: "Research Data",
           internalName: "research-data",
           description: "Research Data shared storage",
@@ -68,7 +109,7 @@ const mocks = vi.hoisted(() => {
           objectCount: 12,
           createdAt: "2026-03-10T10:00:00Z",
           shareCount: 3,
-        },
+        }),
       ],
       activity: [
         {
@@ -115,6 +156,7 @@ const mocks = vi.hoisted(() => {
     },
     health: {
       generated_at: "2026-06-10T10:00:00Z",
+      stale_after_seconds: 300,
       incident_highlight_minutes: 1440,
       endpoint_count: 1,
       up_count: 1,
@@ -130,6 +172,8 @@ const mocks = vi.hoisted(() => {
           checked_at: new Date().toISOString(),
           latency_ms: 25,
           check_mode: "http",
+          check_target_url: null,
+          is_stale: false,
         },
       ],
       incidents: [],
@@ -145,13 +189,8 @@ const mocks = vi.hoisted(() => {
     usageTrendsLoading: false,
     trafficError: null,
     hasAccountContext: true,
-  });
-
-  return {
-    createHookResult,
-    hookResult: createHookResult(),
   };
-});
+}
 
 vi.mock("./usePortalWorkspaceData", () => ({
   usePortalWorkspaceData: () => mocks.hookResult,
@@ -168,7 +207,7 @@ function trendText(value: string) {
 describe("PortalDashboard storage workspace UX", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.hookResult = mocks.createHookResult();
+    mocks.hookResult = buildDashboardWorkspaceData();
   });
 
   it("shows the enterprise portal dashboard structure without manager-only content", () => {
@@ -200,7 +239,9 @@ describe("PortalDashboard storage workspace UX", () => {
       usedObjects: 37,
       spaces: [],
     };
-    mocks.hookResult.usageTrends.buckets.bucket_count = 3;
+    const usageTrends = mocks.hookResult.usageTrends;
+    if (!usageTrends?.buckets) throw new Error("Usage trend fixture is missing bucket data");
+    usageTrends.buckets.bucket_count = 3;
 
     render(
       <MemoryRouter>
@@ -362,10 +403,16 @@ describe("PortalDashboard storage workspace UX", () => {
   });
 
   it("uses day traffic stats for Transfer even when workspace transfer totals are empty", () => {
-    const dayTraffic = {
-      ...mocks.hookResult.traffic,
-      totals: { bytes_in: 2048, bytes_out: 1024, ops: 12, success_ops: 12 },
-    };
+    const dayTraffic = buildPortalTrafficStats({
+      window: "day",
+      totals: {
+        bytes_in: 2048,
+        bytes_out: 1024,
+        ops: 12,
+        success_ops: 12,
+        success_rate: 1,
+      },
+    });
     mocks.hookResult.workspace = {
       ...mocks.hookResult.workspace,
       dataInBytes: null,
@@ -445,13 +492,16 @@ describe("PortalDashboard storage workspace UX", () => {
         },
       ],
     };
-    mocks.hookResult.traffic = {
+    mocks.hookResult.traffic = buildPortalTrafficStats({
+      window: "month",
+      start: "2026-05-10T00:00:00Z",
+      end: "2026-05-17T00:00:00Z",
+      data_points: 2,
       series: [
         { timestamp: "2026-05-10T00:00:00Z", bytes_in: 0, bytes_out: 0, ops: 0, success_ops: 0 },
         { timestamp: "2026-05-17T00:00:00Z", bytes_in: 0, bytes_out: 0, ops: 0, success_ops: 0 },
       ],
-      totals: { bytes_in: 0, bytes_out: 0, ops: 0, success_ops: 0 },
-    };
+    });
     mocks.hookResult.trafficByWindow = {
       day: mocks.hookResult.traffic,
       week: mocks.hookResult.traffic,

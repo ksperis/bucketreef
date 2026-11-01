@@ -9,17 +9,50 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { LanguageProvider } from "../../components/language";
+import {
+  buildPortalState,
+  buildPortalWorkspaceSpace,
+} from "../../test/portal";
 
 import PortalStorageSpacesPage from "./PortalStorageSpacesPage";
 import { setSessionUserCache } from "../../utils/workspaces";
+import type { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
-const mocks = vi.hoisted(() => ({
-  createStorageSpaceMock: vi.fn(),
-  importStorageSpaceMock: vi.fn(),
-  listShareCandidatesMock: vi.fn(),
-  refreshWorkspaceDataMock: vi.fn(),
-  usePortalWorkspaceDataMock: vi.fn(),
-  hookResult: {
+type PortalStorageSpacesHookData = ReturnType<typeof usePortalWorkspaceData>;
+type PortalStorageSpacesWorkspaceData = Omit<Pick<
+  PortalStorageSpacesHookData,
+  | "accountIdForApi"
+  | "workspace"
+  | "state"
+  | "loading"
+  | "accountLoading"
+  | "error"
+  | "accountError"
+  | "hasAccountContext"
+  | "refreshWorkspaceData"
+>, "state"> & {
+  state: NonNullable<PortalStorageSpacesHookData["state"]>;
+};
+
+const mocks = vi.hoisted(() => {
+  let hookResult: PortalStorageSpacesWorkspaceData;
+  return {
+    createStorageSpaceMock: vi.fn(),
+    importStorageSpaceMock: vi.fn(),
+    listShareCandidatesMock: vi.fn(),
+    refreshWorkspaceDataMock: vi.fn(),
+    usePortalWorkspaceDataMock: vi.fn(),
+    get hookResult() {
+      return hookResult;
+    },
+    set hookResult(value: PortalStorageSpacesWorkspaceData) {
+      hookResult = value;
+    },
+  };
+});
+
+function buildStorageSpacesWorkspaceData(): PortalStorageSpacesWorkspaceData {
+  return {
     accountIdForApi: 101,
     workspace: {
       accountName: "Account 1",
@@ -29,8 +62,7 @@ const mocks = vi.hoisted(() => ({
       quotaBytes: 1024,
       quotaObjects: null,
       spaces: [
-        {
-          id: "research-data",
+        buildPortalWorkspaceSpace("research-data", {
           name: "Research Data",
           internalName: "research-data",
           description: "Research Data shared storage",
@@ -64,29 +96,31 @@ const mocks = vi.hoisted(() => ({
             },
           ],
           collaboratorCount: 1,
-          origin: "portal_generic",
-          nameEditable: true,
-          icon: { source: "preset", preset: "archive" },
-        },
+          icon: { source: "preset", preset: "archive", url: null, updated_at: null },
+        }),
       ],
       activity: [],
       alerts: [],
+      usageTrend: [],
+      requestCount: null,
+      dataInBytes: null,
+      dataOutBytes: null,
     },
-    state: {
+    state: buildPortalState({
       portal_role: "portal_manager",
       can_manage_buckets: true,
       can_create_private_storage_spaces: true,
       can_create_team_storage_spaces: true,
       allow_named_bucket_create: false,
-    },
+    }),
     loading: false,
     accountLoading: false,
     error: null,
     accountError: null,
     hasAccountContext: true,
     refreshWorkspaceData: vi.fn(),
-  },
-}));
+  };
+}
 
 vi.mock("../../api/portal", async () => {
   const actual =
@@ -120,7 +154,7 @@ describe("PortalStorageSpacesPage", () => {
     setSessionUserCache(null);
     window.localStorage.clear();
     mocks.usePortalWorkspaceDataMock.mockClear();
-    mocks.hookResult.accountIdForApi = 101;
+    mocks.hookResult = buildStorageSpacesWorkspaceData();
     mocks.createStorageSpaceMock.mockResolvedValue({ id: "created-space" });
     mocks.importStorageSpaceMock.mockResolvedValue({ id: "imported-space" });
     mocks.listShareCandidatesMock.mockResolvedValue([
@@ -134,54 +168,6 @@ describe("PortalStorageSpacesPage", () => {
       },
     ]);
     mocks.hookResult.refreshWorkspaceData = mocks.refreshWorkspaceDataMock;
-    mocks.hookResult.workspace.spaces = [
-      {
-        id: "research-data",
-        name: "Research Data",
-        internalName: "research-data",
-        description: "Research Data shared storage",
-        role: "Manager",
-        status: "Active",
-        access: "Shared",
-        ownerUserId: 7,
-        visibility: "shared",
-        shareScope: "restricted",
-        accountMemberRole: null,
-        region: "eu-west-3",
-        createdLabel: "May 10, 2023",
-        usedBytes: 512,
-        quotaBytes: 1024,
-        objectCount: 12,
-        createdAt: "2026-03-10T10:00:00Z",
-        shareCount: 3,
-        collaborators: [
-          {
-            user_id: 7,
-            email: "owner@example.com",
-            display_name: "Owner Example",
-            role: "Owner",
-            avatar: {
-              preference: "initials",
-              source: "initials",
-              url: null,
-              initials: "OE",
-              updated_at: null,
-            },
-          },
-        ],
-        collaboratorCount: 1,
-        origin: "portal_generic",
-        nameEditable: true,
-        icon: { source: "preset", preset: "archive" },
-      },
-    ];
-    mocks.hookResult.state = {
-      portal_role: "portal_manager",
-      can_manage_buckets: true,
-      can_create_private_storage_spaces: true,
-      can_create_team_storage_spaces: true,
-      allow_named_bucket_create: false,
-    };
   });
 
   it("lists spaces and progressively discloses secondary mobile controls", async () => {
@@ -467,13 +453,13 @@ describe("PortalStorageSpacesPage", () => {
   });
 
   it("ignores the dashboard create query when creation is unavailable", () => {
-    mocks.hookResult.state = {
+    mocks.hookResult.state = buildPortalState({
       portal_role: "portal_user",
       can_manage_buckets: false,
       can_create_private_storage_spaces: false,
       can_create_team_storage_spaces: false,
       allow_named_bucket_create: false,
-    };
+    });
 
     render(
       <MemoryRouter initialEntries={["/portal/storage-spaces?create=1"]}>
@@ -492,7 +478,7 @@ describe("PortalStorageSpacesPage", () => {
     setSessionUserCache({
       id: 1,
       email: "laurent@example.com",
-      display_name: "Laurent",
+      full_name: "Laurent",
       role: "ui_user",
       authType: "password",
       ui_language: "fr",
@@ -588,13 +574,13 @@ describe("PortalStorageSpacesPage", () => {
   });
 
   it("shows the named bucket creation mode only when allowed by portal state", () => {
-    mocks.hookResult.state = {
+    mocks.hookResult.state = buildPortalState({
       portal_role: "portal_manager",
       can_manage_buckets: true,
       can_create_private_storage_spaces: true,
       can_create_team_storage_spaces: true,
       allow_named_bucket_create: true,
-    };
+    });
 
     render(
       <MemoryRouter>
@@ -672,13 +658,13 @@ describe("PortalStorageSpacesPage", () => {
   });
 
   it("allows portal users to create spaces without showing bucket import", () => {
-    mocks.hookResult.state = {
+    mocks.hookResult.state = buildPortalState({
       portal_role: "portal_user",
       can_manage_buckets: false,
       can_create_private_storage_spaces: true,
       can_create_team_storage_spaces: false,
       allow_named_bucket_create: false,
-    };
+    });
 
     render(
       <MemoryRouter>
@@ -695,13 +681,13 @@ describe("PortalStorageSpacesPage", () => {
   });
 
   it("forces private visibility when a portal user creates a space", async () => {
-    mocks.hookResult.state = {
+    mocks.hookResult.state = buildPortalState({
       portal_role: "portal_user",
       can_manage_buckets: false,
       can_create_private_storage_spaces: true,
       can_create_team_storage_spaces: false,
       allow_named_bucket_create: false,
-    };
+    });
 
     render(
       <MemoryRouter>
@@ -889,11 +875,11 @@ describe("PortalStorageSpacesPage", () => {
   });
 
   it("does not fall back to bucket management when space creation is absent", () => {
-    mocks.hookResult.state = {
+    mocks.hookResult.state = buildPortalState({
       portal_role: "portal_manager",
       can_manage_buckets: true,
       allow_named_bucket_create: false,
-    };
+    });
 
     render(
       <MemoryRouter>
@@ -920,13 +906,13 @@ describe("PortalStorageSpacesPage", () => {
   });
 
   it("hides space creation when the portal user setting is disabled", () => {
-    mocks.hookResult.state = {
+    mocks.hookResult.state = buildPortalState({
       portal_role: "portal_user",
       can_manage_buckets: true,
       can_create_private_storage_spaces: false,
       can_create_team_storage_spaces: false,
       allow_named_bucket_create: false,
-    };
+    });
 
     render(
       <MemoryRouter>
@@ -944,13 +930,13 @@ describe("PortalStorageSpacesPage", () => {
 
   it("explains the empty state when a portal user has no spaces and cannot create one", () => {
     mocks.hookResult.workspace.spaces = [];
-    mocks.hookResult.state = {
+    mocks.hookResult.state = buildPortalState({
       portal_role: "portal_user",
       can_manage_buckets: false,
       can_create_private_storage_spaces: false,
       can_create_team_storage_spaces: false,
       allow_named_bucket_create: false,
-    };
+    });
 
     render(
       <MemoryRouter>

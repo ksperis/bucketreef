@@ -34,7 +34,7 @@ afterEach(() => {
 });
 function renderWorkflow(kind: "restore" | "cleanup", enabled = true) {
   const element = kind === "restore"
-    ? <PortalDeletedPrefixRestoreWorkflow accountId={101} spaceId="research" spaceName="Research" target={{ key: " leading//folder/", isPrefix: true }} onClose={mocks.close} onBrowserRefresh={mocks.browser} onWorkspaceRefresh={mocks.refresh} />
+    ? <PortalDeletedPrefixRestoreWorkflow accountId={101} spaceId="research" spaceName="Research" target={{ bucketName: "research", key: " leading//folder/", name: "folder" }} onClose={mocks.close} onBrowserRefresh={mocks.browser} onWorkspaceRefresh={mocks.refresh} />
     : <PortalStorageSpaceHistoryCleanupWorkflow accountId={101} spaceId="research" spaceName="Research" usedBytes={4096} enabled={enabled} onClose={mocks.close} onStart={mocks.start} onCompleted={mocks.completed} onRefresh={mocks.refresh} />;
   const router = createMemoryRouter([
     { path: "/portal/storage-spaces/research", element: <main>{element}</main> },

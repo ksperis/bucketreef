@@ -100,7 +100,7 @@ it("retries a catalogue error and a failed invitation without losing its selecte
   expect(screen.getByRole("checkbox", { name: /Bob/ })).toBeDisabled();
   await act(async () => { void router.navigate("/portal/storage-spaces"); });
   expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /^Discard changes$/ })).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "Keep editing" }));
   await act(async () => finish());
   expect(await screen.findByText("Space view")).toBeVisible();
@@ -144,7 +144,7 @@ it("guards a nested request once, retains failed values and never submits the in
   await user.clear(screen.getByRole("textbox", { name: "People" }));
   expect(screen.getByRole("checkbox", { name: /Bob/ })).toBeChecked();
   await user.click(screen.getByRole("button", { name: "Cancel" }));
-  await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+  await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
   expect(await screen.findByText("Space view")).toBeVisible();
 });
 
@@ -173,7 +173,7 @@ it("protects a membership-request draft even with no selected people and discard
   await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "New person");
   await act(async () => { void router.navigate("/portal/storage-spaces"); });
   expect(screen.getAllByRole("dialog", { name: "Discard changes?" })).toHaveLength(1);
-  await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+  await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
   expect(await screen.findByText("Spaces destination")).toBeVisible();
   expect(mocks.request).not.toHaveBeenCalled();
   expect(mocks.grant).not.toHaveBeenCalled();

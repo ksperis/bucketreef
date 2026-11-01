@@ -1,20 +1,20 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactNode } from "react";
+import type { PortalAccount } from "../../api/portalAccounts";
 import { LanguageProvider } from "../../components/language";
 import { TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS } from "../../components/topbarControlWidths";
+import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
+import { buildPortalAccount } from "../../test/portal";
 import PortalLayout from "./PortalLayout";
 import { setSessionUserCache } from "../../utils/workspaces";
 
 const mocks = vi.hoisted(() => ({
   setSelectedAccountId: vi.fn(),
   selectedPortalRole: "portal_user" as "portal_user" | "portal_manager",
-  portalAccounts: [
-    { id: 101, name: "Helios Retail", tags: [] },
-    { id: 102, name: "Northwind Ops", tags: [] },
-  ],
+  portalAccounts: [] as PortalAccount[],
   getWorkspaceAccess: vi.fn().mockResolvedValue({
     admin: { available: true, context_count: 1 },
     ceph_admin: { available: false, context_count: 0 },
@@ -82,37 +82,24 @@ function setPortalSessionUser({
     role: "ui_admin",
     authType: "password",
     ui_language: uiLanguage,
-    effective_access: {
-      can_access_ceph_admin: false,
-      can_access_storage_ops: false,
-      can_create_manual_private_connections: false,
-      can_provision_managed_private_connections: false,
-      has_owned_private_connections: false,
-      manager_tool_access: {
-        bucket_compare: false,
-        bucket_integrity_check: false,
-        bucket_migration: false,
-        bucket_purge: false,
-        feature_rules: false,
-      },
-      browser_advanced_features_enabled: false,
+    effective_access: buildEffectiveUserAccess({
       account_links: [
         {
           account_id: 101,
           manager_role: "account_administrator",
           portal_role: portalRole,
+          allow_manager_browser_data_access: false,
           provenance: {
             direct_manager_role: "account_administrator",
             direct_portal_role: portalRole,
             direct_determines_effective_manager_role: true,
             direct_determines_effective_portal_role: true,
+            direct_allow_manager_browser_data_access: false,
             groups: [],
           },
         },
       ],
-      s3_user_details: [],
-      s3_connection_details: [],
-    },
+    }),
   });
 }
 
@@ -127,12 +114,9 @@ vi.mock("./PortalAccountContext", () => ({
   usePortalAccountContext: () => ({
     accounts: mocks.portalAccounts,
     selectedAccountId: "101",
-    selectedAccount: {
-      id: 101,
-      name: "Helios Retail",
-      tags: [],
-      portal_role: mocks.selectedPortalRole,
-    },
+    selectedAccount: mocks.portalAccounts[0]
+      ? { ...mocks.portalAccounts[0], portal_role: mocks.selectedPortalRole }
+      : null,
     setSelectedAccountId: mocks.setSelectedAccountId,
     loading: false,
     error: null,
@@ -154,17 +138,20 @@ vi.mock("../../components/ThemeToggle", () => ({
 }));
 
 describe("PortalLayout", () => {
+  beforeEach(() => {
+    mocks.portalAccounts.splice(
+      0,
+      mocks.portalAccounts.length,
+      buildPortalAccount(101, { name: "Helios Retail" }),
+      buildPortalAccount(102, { name: "Northwind Ops" }),
+    );
+  });
+
   afterEach(() => {
     act(() => setSessionUserCache(null));
     window.localStorage.clear();
     vi.clearAllMocks();
     mocks.selectedPortalRole = "portal_user";
-    mocks.portalAccounts.splice(
-      0,
-      mocks.portalAccounts.length,
-      { id: 101, name: "Helios Retail", tags: [] },
-      { id: 102, name: "Northwind Ops", tags: [] },
-    );
   });
 
   it("uses the shared shell with workspace and project selectors in the topbar", async () => {
@@ -272,13 +259,13 @@ describe("PortalLayout", () => {
     mocks.portalAccounts.splice(
       0,
       mocks.portalAccounts.length,
-      { id: 101, name: "Helios Retail", tags: [] },
-      { id: 102, name: "Northwind Ops", tags: [] },
-      { id: "103", name: "Atlas Research", tags: [] },
-      { id: "104", name: "Borealis", tags: [] },
-      { id: "105", name: "Cirrus", tags: [] },
-      { id: "106", name: "Delta", tags: [] },
-      { id: "107", name: "Epsilon", tags: [] },
+      buildPortalAccount(101, { name: "Helios Retail" }),
+      buildPortalAccount(102, { name: "Northwind Ops" }),
+      buildPortalAccount(103, { name: "Atlas Research" }),
+      buildPortalAccount(104, { name: "Borealis" }),
+      buildPortalAccount(105, { name: "Cirrus" }),
+      buildPortalAccount(106, { name: "Delta" }),
+      buildPortalAccount(107, { name: "Epsilon" }),
     );
     setPortalSessionUser();
     render(
@@ -307,13 +294,13 @@ describe("PortalLayout", () => {
     mocks.portalAccounts.splice(
       0,
       mocks.portalAccounts.length,
-      { id: 101, name: "Helios Retail", tags: [] },
-      { id: 102, name: "Northwind Ops", tags: [] },
-      { id: "103", name: "Atlas Research", tags: [] },
-      { id: "104", name: "Borealis", tags: [] },
-      { id: "105", name: "Cirrus", tags: [] },
-      { id: "106", name: "Delta", tags: [] },
-      { id: "107", name: "Epsilon", tags: [] },
+      buildPortalAccount(101, { name: "Helios Retail" }),
+      buildPortalAccount(102, { name: "Northwind Ops" }),
+      buildPortalAccount(103, { name: "Atlas Research" }),
+      buildPortalAccount(104, { name: "Borealis" }),
+      buildPortalAccount(105, { name: "Cirrus" }),
+      buildPortalAccount(106, { name: "Delta" }),
+      buildPortalAccount(107, { name: "Epsilon" }),
     );
     setPortalSessionUser({ uiLanguage: "fr", portalRole: "portal_manager" });
 

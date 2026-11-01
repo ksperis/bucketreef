@@ -12,51 +12,86 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryRouter, RouterProvider, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { ComponentProps } from "react";
+import {
+  buildPortalAccount,
+  buildPortalPublicLink,
+  buildPortalState,
+  buildPortalWorkspaceSpace,
+} from "../../test/portal";
 import PortalStorageSpaceDetailPage from "./PortalStorageSpaceDetailPage";
 import BrowserEmbed from "../browser/BrowserEmbed";
 import StorageSpaceObjectDetailsDrawer from "../shared/StorageSpaceObjectDetailsDrawer";
+import type { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
-const mocks = vi.hoisted(() => ({
-  createPublicLinkMock: vi.fn(),
-  createPortalRequestMock: vi.fn(),
-  deleteStorageSpaceMock: vi.fn(),
-  fetchAccessSummaryMock: vi.fn(),
-  fetchUsageStatsMock: vi.fn(),
-  fetchTrafficMock: vi.fn(),
-  fetchStorageSpaceSettingsMock: vi.fn(),
-  grantShareMock: vi.fn(),
-  listPublicLinksMock: vi.fn(),
-  listShareCandidatesMock: vi.fn(),
-  revokePublicLinkMock: vi.fn(),
-  revokeShareMock: vi.fn(),
-  streamHistoryCleanupMock: vi.fn(),
-  streamDeletedPrefixRestoreMock: vi.fn(),
-  restoreObjectMock: vi.fn(),
-  updateStorageSpaceMock: vi.fn(),
-  updateStorageSpaceSettingsMock: vi.fn(),
-  updateStorageSpaceIconMock: vi.fn(),
-  uploadStorageSpaceIconMock: vi.fn(),
-  updateShareMock: vi.fn(),
-  usePortalWorkspaceDataMock: vi.fn(),
-  generalSettings: {
-    browser_enabled: true,
-    browser_portal_enabled: true,
-  },
-  hookResult: {
+type PortalStorageSpaceDetailHookData = ReturnType<typeof usePortalWorkspaceData>;
+type PortalStorageSpaceDetailWorkspaceData = Omit<Pick<
+  PortalStorageSpaceDetailHookData,
+  | "accountIdForApi"
+  | "state"
+  | "selectedAccount"
+  | "workspace"
+  | "loading"
+  | "accountLoading"
+  | "error"
+  | "accountError"
+  | "hasAccountContext"
+  | "refreshWorkspaceData"
+>, "state"> & {
+  state: NonNullable<PortalStorageSpaceDetailHookData["state"]>;
+};
+
+const mocks = vi.hoisted(() => {
+  let hookResult: PortalStorageSpaceDetailWorkspaceData;
+  return {
+    createPublicLinkMock: vi.fn(),
+    createPortalRequestMock: vi.fn(),
+    deleteStorageSpaceMock: vi.fn(),
+    fetchAccessSummaryMock: vi.fn(),
+    fetchUsageStatsMock: vi.fn(),
+    fetchTrafficMock: vi.fn(),
+    fetchStorageSpaceSettingsMock: vi.fn(),
+    grantShareMock: vi.fn(),
+    listPublicLinksMock: vi.fn(),
+    listShareCandidatesMock: vi.fn(),
+    revokePublicLinkMock: vi.fn(),
+    revokeShareMock: vi.fn(),
+    streamHistoryCleanupMock: vi.fn(),
+    streamDeletedPrefixRestoreMock: vi.fn(),
+    restoreObjectMock: vi.fn(),
+    updateStorageSpaceMock: vi.fn(),
+    updateStorageSpaceSettingsMock: vi.fn(),
+    updateStorageSpaceIconMock: vi.fn(),
+    uploadStorageSpaceIconMock: vi.fn(),
+    updateShareMock: vi.fn(),
+    usePortalWorkspaceDataMock: vi.fn(),
+    generalSettings: {
+      browser_enabled: true,
+      browser_portal_enabled: true,
+    },
+    get hookResult() {
+      return hookResult;
+    },
+    set hookResult(value: PortalStorageSpaceDetailWorkspaceData) {
+      hookResult = value;
+    },
+  };
+});
+
+function buildStorageSpaceDetailWorkspaceData(): PortalStorageSpaceDetailWorkspaceData {
+  return {
     accountIdForApi: 101,
-    state: {
+    state: buildPortalState({
       portal_role: "portal_manager",
       bucket_usage_stats_enabled: true,
       can_create_external_sharing: true,
       storage_space_version_cleanup_enabled: true,
-    },
-    selectedAccount: {
-      id: 101,
+    }),
+    selectedAccount: buildPortalAccount(101, {
       name: "Account 1",
       rgw_account_id: "portal-project",
-      tags: [],
+      portal_role: "portal_manager",
       storage_endpoint_capabilities: { sse: true, sts: true },
-    },
+    }),
     workspace: {
       accountName: "Account 1",
       userEmail: "manager@example.com",
@@ -64,22 +99,20 @@ const mocks = vi.hoisted(() => ({
       usedObjects: 12,
       quotaBytes: 1024,
       quotaObjects: null,
+      requestCount: null,
+      dataInBytes: null,
+      dataOutBytes: null,
       spaces: [
-        {
-          id: "research-data",
+        buildPortalWorkspaceSpace("research-data", {
           name: "Research Data",
           internalName: "research-data-internal",
           description: "Research Data shared storage",
           role: "Manager",
-          contentRole: "Owner",
           canBrowse: true,
           canDelete: true,
-          status: "Active",
-          access: "Shared",
           ownerUserId: 7,
           visibility: "shared",
           shareScope: "restricted",
-          accountMemberRole: null,
           region: "eu-west-3",
           createdLabel: "12 mars 2024",
           usedBytes: 512,
@@ -88,10 +121,8 @@ const mocks = vi.hoisted(() => ({
           createdAt: "2026-03-10T10:00:00Z",
           archivedAt: null,
           shareCount: 3,
-          origin: "portal_generic",
-          nameEditable: true,
-          icon: { source: "preset", preset: "archive" },
-        },
+          icon: { source: "preset", preset: "archive", url: null, updated_at: null },
+        }),
       ],
       activity: [
         {
@@ -106,6 +137,7 @@ const mocks = vi.hoisted(() => ({
         },
       ],
       alerts: [],
+      usageTrend: [],
     },
     loading: false,
     accountLoading: false,
@@ -113,8 +145,8 @@ const mocks = vi.hoisted(() => ({
     accountError: null,
     hasAccountContext: true,
     refreshWorkspaceData: vi.fn(),
-  },
-}));
+  };
+}
 
 const accessSummaryFixture = {
   mode: "restricted" as const,
@@ -146,7 +178,7 @@ const accessSummaryFixture = {
 };
 
 const publicLinksFixture = [
-  {
+  buildPortalPublicLink({
     id: 42,
     storage_space_id: "research-data",
     storage_space_name: "Research Data",
@@ -156,8 +188,8 @@ const publicLinksFixture = [
     status: "Active",
     created_at: "2026-06-01T10:00:00Z",
     expires_at: "2026-09-01T10:00:00Z",
-  },
-  {
+  }),
+  buildPortalPublicLink({
     id: 43,
     storage_space_id: "research-data",
     storage_space_name: "Research Data",
@@ -168,7 +200,7 @@ const publicLinksFixture = [
     created_at: "2026-05-01T10:00:00Z",
     expires_at: null,
     revoked_at: "2026-06-15T10:00:00Z",
-  },
+  }),
 ];
 
 vi.mock("./usePortalWorkspaceData", () => ({
@@ -327,6 +359,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     window.localStorage.clear();
     setSessionUserCache(null);
     mocks.usePortalWorkspaceDataMock.mockClear();
+    mocks.hookResult = buildStorageSpaceDetailWorkspaceData();
     mocks.fetchAccessSummaryMock.mockResolvedValue(accessSummaryFixture);
     mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({
       versioning_enabled: true,
@@ -438,7 +471,7 @@ describe("PortalStorageSpaceDetailPage", () => {
         finished_at: "2026-07-08T10:00:01Z",
       });
     });
-    mocks.createPublicLinkMock.mockResolvedValue({
+    mocks.createPublicLinkMock.mockResolvedValue(buildPortalPublicLink({
       id: 42,
       storage_space_id: "research-data",
       storage_space_name: "Research Data",
@@ -448,7 +481,7 @@ describe("PortalStorageSpaceDetailPage", () => {
       status: "Active",
       created_at: "2026-06-01T10:00:00Z",
       expires_at: null,
-    });
+    }));
     mocks.createPortalRequestMock.mockResolvedValue({ id: 42, status: "pending" });
     mocks.generalSettings.browser_enabled = true;
     mocks.generalSettings.browser_portal_enabled = true;
@@ -460,8 +493,12 @@ describe("PortalStorageSpaceDetailPage", () => {
     mocks.hookResult.workspace.spaces[0].visibility = "shared";
     mocks.hookResult.workspace.spaces[0].canTakeOwnership = false;
     mocks.hookResult.workspace.spaces[0].nameEditable = true;
-    mocks.hookResult.workspace.spaces[0].icon = { source: "preset", preset: "archive" };
-    mocks.hookResult.workspace.spaces[0].contentRole = "Owner";
+    mocks.hookResult.workspace.spaces[0].icon = {
+      source: "preset",
+      preset: "archive",
+      url: null,
+      updated_at: null,
+    };
     mocks.hookResult.workspace.spaces[0].origin = "portal_generic";
     mocks.hookResult.workspace.spaces[0].status = "Active";
     mocks.hookResult.workspace.spaces[0].access = "Shared";
@@ -477,7 +514,6 @@ describe("PortalStorageSpaceDetailPage", () => {
     mocks.hookResult.state.portal_role = "portal_manager";
     mocks.hookResult.state.can_create_external_sharing = true;
     mocks.hookResult.state.storage_space_version_cleanup_enabled = true;
-    mocks.hookResult.refreshWorkspaceData.mockClear();
   });
 
   it("embeds the main Browser with an explicit locked Portal profile", async () => {
@@ -706,7 +742,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     ["Viewer", "Active", "Only owners and managers"],
     ["Editor", "Active", "Only owners and managers"],
     ["Manager", "Archived", "Restore this archived space"],
-  ])(
+  ] as const)(
     "does not load external links for a %s space with %s status",
     async (role, status, expectedMessage) => {
       mocks.hookResult.workspace.spaces[0].role = role;
@@ -1088,7 +1124,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("passes resolved read-only capabilities for Viewer spaces", async () => {
     mocks.hookResult.workspace.spaces[0].role = "Viewer";
-    mocks.hookResult.workspace.spaces[0].contentRole = "Viewer";
 
     await renderPage();
 
@@ -1184,7 +1219,7 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add people" }));
     await screen.findAllByRole("heading", { name: "Add people" });
-    const dialog = document.querySelector(".workflow-page");
+    const dialog = document.querySelector<HTMLElement>(".workflow-page");
     if (!dialog) throw new Error("Add people workflow page not found");
     expect(within(dialog).getByRole("textbox", { name: "People" })).toHaveClass("ui-control");
     expect(await within(dialog).findByText("Editor User")).toBeInTheDocument();
@@ -1215,7 +1250,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Invite people" }));
-    const workflow = document.querySelector(".workflow-page");
+    const workflow = document.querySelector<HTMLElement>(".workflow-page");
     if (!workflow) throw new Error("Add people workflow page not found");
     expect(within(workflow).getByRole("heading", { name: "Add people" })).toBeInTheDocument();
     expect(await within(workflow).findByText("Already invited · Viewer")).toBeInTheDocument();
@@ -1255,7 +1290,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     await renderPage(["/portal/storage-spaces/research-data?tab=collaborators"]);
 
     fireEvent.click(await screen.findByRole("button", { name: "Add people" }));
-    const workflow = document.querySelector(".workflow-page");
+    const workflow = document.querySelector<HTMLElement>(".workflow-page");
     if (!workflow) throw new Error("Add people workflow page not found");
     fireEvent.change(
       await within(workflow).findByPlaceholderText(
@@ -1439,8 +1474,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it("hides permanent deletion from administrative Owners without content ownership", async () => {
-    mocks.hookResult.workspace.spaces[0].contentRole = null;
+  it("hides permanent deletion when deletion capability is denied", async () => {
     mocks.hookResult.workspace.spaces[0].canBrowse = false;
     mocks.hookResult.workspace.spaces[0].canDelete = false;
 
@@ -1474,7 +1508,6 @@ describe("PortalStorageSpaceDetailPage", () => {
   it("keeps metadata management but hides files when content browsing is denied", async () => {
     mocks.hookResult.workspace.spaces[0].visibility = "private";
     mocks.hookResult.workspace.spaces[0].access = "Private";
-    mocks.hookResult.workspace.spaces[0].contentRole = null;
     mocks.hookResult.workspace.spaces[0].canBrowse = false;
 
     await renderPage();
@@ -1611,7 +1644,7 @@ describe("PortalStorageSpaceDetailPage", () => {
   it("ignores a delayed history response from a previous space", async () => {
     let resolveOld!: (value: unknown) => void;
     mocks.fetchStorageSpaceSettingsMock.mockReturnValueOnce(new Promise((resolve) => { resolveOld = resolve; }));
-    const space = mocks.hookResult.workspace.spaces[0] as unknown as ComponentProps<typeof PortalStorageSpaceSettings>["space"];
+    const space = mocks.hookResult.workspace.spaces[0];
     const view = (id: string) => <MemoryRouter><PortalStorageSpaceSettings key={id} accountId={101} space={{ ...space, id }} canConfigureIcon canCreateExternalAccess historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
     const rendered = render(view("old-space"));
     mocks.fetchStorageSpaceSettingsMock.mockResolvedValue({ versioning_enabled: true, versioning_status: "Enabled", lifecycle_enabled: true, version_history_retention_days: 30, can_update: true });
@@ -1622,7 +1655,7 @@ describe("PortalStorageSpaceDetailPage", () => {
   });
 
   it("retains history while refreshing existing space metadata", async () => {
-    const space = mocks.hookResult.workspace.spaces[0] as unknown as ComponentProps<typeof PortalStorageSpaceSettings>["space"];
+    const space = mocks.hookResult.workspace.spaces[0];
     const view = (description: string) => <MemoryRouter><PortalStorageSpaceSettings accountId={101} space={{ ...space, description }} canConfigureIcon canCreateExternalAccess historyCleanupEnabled onDirtyChange={() => undefined} onRefresh={() => undefined} managementActions={() => null} /></MemoryRouter>;
     const rendered = render(view("Before"));
     const retention = await screen.findByRole("spinbutton", { name: "Version history retention" });

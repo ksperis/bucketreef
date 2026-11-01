@@ -365,8 +365,8 @@ describe("PortalRequestsPage", () => {
     await user.click(screen.getByRole("button", { name: "Manage membership" }));
     expect(screen.getByLabelText("Name")).toHaveValue("");
     await user.type(screen.getByLabelText("Name"), "Unsaved person");
-    await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Cancel$/ }));
+    await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
     await user.click(screen.getByRole("button", { name: "Change limit" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByLabelText("New limit")).toHaveValue(null);

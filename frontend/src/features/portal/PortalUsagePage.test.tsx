@@ -2,6 +2,13 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  buildPortalAccount,
+  buildPortalState,
+  buildPortalStorageSpaceSummary,
+  buildPortalTrafficStats,
+  buildPortalWorkspaceSpace,
+} from "../../test/portal";
 import PortalUsagePage from "./PortalUsagePage";
 import type { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
@@ -28,32 +35,56 @@ type PortalUsageWorkspaceData = Pick<
 >;
 
 const mocks = vi.hoisted(() => {
-  const hookResult: PortalUsageWorkspaceData = {
+  let hookResult: PortalUsageWorkspaceData;
+  return {
+    costMock: vi.fn(),
+    usageHistoryMock: vi.fn(),
+    usageStatsMock: vi.fn(),
+    generalSettings: {
+      cost_enabled: true,
+      usage_history_enabled: true,
+    },
+    hookArgs: [] as unknown[],
+    get hookResult() {
+      return hookResult;
+    },
+    set hookResult(value: PortalUsageWorkspaceData) {
+      hookResult = value;
+    },
+  };
+});
+
+function buildWorkspaceData(): PortalUsageWorkspaceData {
+  const internalName = "portal-7be826c3-9f1e-4d4d-a385-7495dd17ee91";
+  return {
     workspace: {
       accountName: "Research Project",
+      userEmail: "manager@example.com",
       spaces: [
-        {
-          id: "research-data",
-          name: "Research Data",
-          internalName: "portal-7be826c3-9f1e-4d4d-a385-7495dd17ee91",
+        buildPortalWorkspaceSpace("research-data", {
+          internalName,
           usedBytes: 512,
           objectCount: 12,
           quotaBytes: 1024,
-        },
+        }),
       ],
+      activity: [],
+      alerts: [],
+      usageTrend: [],
+      requestCount: null,
+      dataInBytes: null,
+      dataOutBytes: null,
       usedBytes: 512,
       usedObjects: 12,
       quotaBytes: 1024,
     },
     storageSpaces: [
-      {
-        id: "research-data",
-        name: "Research Data",
-        role: "Owner",
+      buildPortalStorageSpaceSummary("research-data", {
+        internal_bucket_name: internalName,
         used_bytes: 512,
         object_count: 12,
         quota_max_size_bytes: 1024,
-      },
+      }),
     ],
     usage: {
       used_bytes: 512,
@@ -66,8 +97,12 @@ const mocks = vi.hoisted(() => {
     },
     usageLoading: false,
     usageError: null,
-    state: { quota_max_size_bytes: 1024, bucket_usage_stats_enabled: true, cost_estimation_enabled: true },
-    traffic: {
+    state: buildPortalState({
+      portal_role: "portal_user",
+      bucket_usage_stats_enabled: true,
+      cost_estimation_enabled: true,
+    }),
+    traffic: buildPortalTrafficStats({
       window: "week",
       start: "2026-05-20T00:00:00Z",
       end: "2026-05-21T00:00:00Z",
@@ -78,15 +113,15 @@ const mocks = vi.hoisted(() => {
         { timestamp: "2026-05-21T00:00:00Z", bytes_in: 200, bytes_out: 75, ops: 20, success_ops: 20 },
       ],
       totals: { bytes_in: 300, bytes_out: 125, ops: 30, success_ops: 30, success_rate: 1 },
-      bucket_rankings: [{ bucket: "portal-7be826c3-9f1e-4d4d-a385-7495dd17ee91", bytes_total: 425, bytes_in: 300, bytes_out: 125, ops: 30, success_ops: 30 }],
-      user_rankings: [{ user: "RGW40703637082424546", bytes_total: 425, bytes_in: 300, bytes_out: 125, ops: 30, success_ops: 30 }],
+      bucket_rankings: [{ bucket: internalName, bytes_total: 425, bytes_in: 300, bytes_out: 125, ops: 30, success_ops: 30, success_ratio: 1 }],
+      user_rankings: [{ user: "RGW40703637082424546", bytes_total: 425, bytes_in: 300, bytes_out: 125, ops: 30, success_ops: 30, success_ratio: 1 }],
       request_breakdown: [{ group: "GET", bytes_in: 0, bytes_out: 125, ops: 10 }],
-      category_breakdown: [],
-    },
+    }),
     trafficLoading: false,
     trafficError: null,
     health: {
       generated_at: "2026-05-21T12:00:00Z",
+      stale_after_seconds: 300,
       incident_highlight_minutes: 720,
       endpoint_count: 1,
       up_count: 1,
@@ -102,6 +137,8 @@ const mocks = vi.hoisted(() => {
           checked_at: "2026-05-21T11:59:00Z",
           latency_ms: 32,
           check_mode: "s3",
+          check_target_url: null,
+          is_stale: false,
         },
       ],
       incidents: [],
@@ -113,25 +150,12 @@ const mocks = vi.hoisted(() => {
     accountError: null,
     hasAccountContext: true,
     accountIdForApi: 101,
-    selectedAccount: {
-      id: 101,
+    selectedAccount: buildPortalAccount(101, {
       name: "Research Project",
       rgw_account_id: "RGW40703637082424546",
-      tags: [],
-    },
+    }),
   };
-  return {
-    costMock: vi.fn(),
-    usageHistoryMock: vi.fn(),
-    usageStatsMock: vi.fn(),
-    generalSettings: {
-      cost_enabled: true,
-      usage_history_enabled: true,
-    },
-    hookArgs: [] as unknown[],
-    hookResult,
-  };
-});
+}
 
 vi.mock("../../api/cost", () => ({
   getPortalCostMe: (...args: unknown[]) => mocks.costMock(...args),
@@ -277,68 +301,7 @@ describe("PortalUsagePage", () => {
     mocks.hookArgs.length = 0;
     mocks.generalSettings.cost_enabled = true;
     mocks.generalSettings.usage_history_enabled = true;
-    mocks.hookResult.workspace = {
-      accountName: "Research Project",
-      spaces: [
-        {
-          id: "research-data",
-          name: "Research Data",
-          internalName: "portal-7be826c3-9f1e-4d4d-a385-7495dd17ee91",
-          usedBytes: 512,
-          objectCount: 12,
-          quotaBytes: 1024,
-        },
-      ],
-      usedBytes: 512,
-      usedObjects: 12,
-      quotaBytes: 1024,
-    };
-    mocks.hookResult.storageSpaces = [
-      {
-        id: "research-data",
-        name: "Research Data",
-        role: "Owner",
-        used_bytes: 512,
-        object_count: 12,
-        quota_max_size_bytes: 1024,
-      },
-    ];
-    mocks.hookResult.usage = {
-      used_bytes: 512,
-      used_objects: 12,
-      quota_max_size_bytes: 1024,
-      quota_max_objects: null,
-      max_buckets: null,
-      storage_spaces: [{ id: "research-data", name: "Research Data", used_bytes: 512, object_count: 12, quota_max_size_bytes: null, quota_max_objects: null }],
-      other_storage_space: null,
-    };
-    mocks.hookResult.usageLoading = false;
-    mocks.hookResult.usageError = null;
-    mocks.hookResult.traffic = {
-      window: "week",
-      start: "2026-05-20T00:00:00Z",
-      end: "2026-05-21T00:00:00Z",
-      resolution: "day",
-      data_points: 2,
-      series: [
-        { timestamp: "2026-05-20T00:00:00Z", bytes_in: 100, bytes_out: 50, ops: 10, success_ops: 10 },
-        { timestamp: "2026-05-21T00:00:00Z", bytes_in: 200, bytes_out: 75, ops: 20, success_ops: 20 },
-      ],
-      totals: { bytes_in: 300, bytes_out: 125, ops: 30, success_ops: 30, success_rate: 1 },
-      bucket_rankings: [{ bucket: "portal-7be826c3-9f1e-4d4d-a385-7495dd17ee91", bytes_total: 425, bytes_in: 300, bytes_out: 125, ops: 30, success_ops: 30 }],
-      user_rankings: [{ user: "RGW40703637082424546", bytes_total: 425, bytes_in: 300, bytes_out: 125, ops: 30, success_ops: 30 }],
-      request_breakdown: [{ group: "GET", bytes_in: 0, bytes_out: 125, ops: 10 }],
-      category_breakdown: [],
-    };
-    mocks.hookResult.trafficLoading = false;
-    mocks.hookResult.trafficError = null;
-    mocks.hookResult.selectedAccount = {
-      id: 101,
-      name: "Research Project",
-      rgw_account_id: "RGW40703637082424546",
-      tags: [],
-    };
-    mocks.hookResult.state = { quota_max_size_bytes: 1024, bucket_usage_stats_enabled: true, cost_estimation_enabled: true };
+    mocks.hookResult = buildWorkspaceData();
     mockCost();
     mockUsageComposition();
     mockUsageHistory();
@@ -434,13 +397,22 @@ describe("PortalUsagePage", () => {
 
   it("keeps unavailable usage, traffic and cost states inside their tabs", async () => {
     mocks.hookResult.workspace = {
-      spaces: [{ id: "empty-space", name: "Empty Space", usedBytes: null, objectCount: null, quotaBytes: null }],
+      ...mocks.hookResult.workspace,
+      spaces: [buildPortalWorkspaceSpace("empty-space", {
+        name: "Empty Space",
+        usedBytes: null,
+        objectCount: null,
+        quotaBytes: null,
+      })],
       usedBytes: null,
       usedObjects: null,
       quotaBytes: null,
     };
     mocks.hookResult.storageSpaces = [
-      { id: "empty-space", name: "Empty Space", role: "Viewer", used_bytes: null, object_count: null, quota_max_size_bytes: null },
+      buildPortalStorageSpaceSummary("empty-space", {
+        name: "Empty Space",
+        role: "Viewer",
+      }),
     ];
     mocks.hookResult.usage = {
       used_bytes: null,
@@ -453,7 +425,11 @@ describe("PortalUsagePage", () => {
     };
     mocks.hookResult.traffic = null;
     mocks.hookResult.trafficError = "Traffic data is unavailable.";
-    mocks.hookResult.state = { quota_max_size_bytes: null, bucket_usage_stats_enabled: true, cost_estimation_enabled: true };
+    mocks.hookResult.state = buildPortalState({
+      portal_role: "portal_user",
+      bucket_usage_stats_enabled: true,
+      cost_estimation_enabled: true,
+    });
     mocks.costMock.mockRejectedValue(new Error("cost disabled"));
     mocks.usageStatsMock.mockRejectedValue(new Error("usage stats disabled"));
     mocks.usageHistoryMock.mockResolvedValue({
@@ -512,11 +488,11 @@ describe("PortalUsagePage", () => {
   });
 
   it("hides cost analytics when the Portal project has not opted in", async () => {
-    mocks.hookResult.state = {
-      quota_max_size_bytes: 1024,
+    mocks.hookResult.state = buildPortalState({
+      portal_role: "portal_user",
       bucket_usage_stats_enabled: true,
       cost_estimation_enabled: false,
-    };
+    });
 
     renderPage();
 
