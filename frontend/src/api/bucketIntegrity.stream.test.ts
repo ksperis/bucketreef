@@ -29,7 +29,7 @@ describe("bucket integrity streams", () => {
       'event: result\ndata: {"status":"passed","total_buckets":1,"completed_buckets":1,"listed_count":2,"checked_count":2,"failed_count":0,"bytes_read":24,"started_at":"2026-01-01T00:00:00Z","finished_at":"2026-01-01T00:00:01Z","buckets":[]}\n\n',
       'event: done\ndata: {"request_id":"r1"}\n\n',
     ]);
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
       return new Response(responseBody, {
         status: 200,
         headers: { "content-type": "text/event-stream" },
@@ -62,7 +62,7 @@ describe("bucket integrity streams", () => {
   it("posts ceph admin and storage ops targets to their surfaces", async () => {
     const resultPayload =
       'event: result\ndata: {"status":"completed_with_errors","total_buckets":1,"completed_buckets":1,"listed_count":0,"checked_count":0,"failed_count":1,"bytes_read":0,"started_at":"2026-01-01T00:00:00Z","finished_at":"2026-01-01T00:00:01Z","buckets":[]}\n\n';
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
       return new Response(buildStream([resultPayload, 'event: done\ndata: {"request_id":"r1"}\n\n']), {
         status: 200,
         headers: { "content-type": "text/event-stream" },

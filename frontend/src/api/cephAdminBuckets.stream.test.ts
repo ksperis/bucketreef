@@ -90,7 +90,12 @@ describe("ceph-admin RGW entity listing streams", () => {
   });
 
   it("parses account listing progress and result events", async () => {
-    const progressEvents: Array<{ percent: number; stage: string }> = [];
+    const progressEvents: Array<{
+      percent: number;
+      stage: string;
+      processed: number;
+      total: number;
+    }> = [];
     const responseBody = buildStream([
       "event: progress\n",
       "data: {\"request_id\":\"r3\",\"percent\":65,\"stage\":\"expensive_filters\",\"processed\":1,\"total\":1}\n\n",

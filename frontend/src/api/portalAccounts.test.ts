@@ -59,10 +59,10 @@ describe("portal accounts api", () => {
     } satisfies PortalState;
     mocks.get.mockResolvedValue({ data: state });
 
-    await expect(fetchPortalState("101")).resolves.toBe(state);
+    await expect(fetchPortalState(101)).resolves.toBe(state);
 
     expect(mocks.get).toHaveBeenCalledWith("/portal/state", {
-      params: { account_id: "101" },
+      params: { account_id: 101 },
     });
   });
 
@@ -70,10 +70,10 @@ describe("portal accounts api", () => {
     const settings = { effective: {}, project_override: {}, can_update: true };
     mocks.get.mockResolvedValue({ data: settings });
 
-    await expect(fetchPortalProjectSettings("101")).resolves.toBe(settings);
+    await expect(fetchPortalProjectSettings(101)).resolves.toBe(settings);
 
     expect(mocks.get).toHaveBeenCalledWith("/portal/settings", {
-      params: { account_id: "101" },
+      params: { account_id: 101 },
     });
   });
 
@@ -82,10 +82,10 @@ describe("portal accounts api", () => {
     const settings = { effective: payload, project_override: payload, can_update: true };
     mocks.patch.mockResolvedValue({ data: settings });
 
-    await expect(updatePortalProjectSettings("101", payload)).resolves.toBe(settings);
+    await expect(updatePortalProjectSettings(101, payload)).resolves.toBe(settings);
 
     expect(mocks.patch).toHaveBeenCalledWith("/portal/settings", payload, {
-      params: { account_id: "101" },
+      params: { account_id: 101 },
     });
   });
 });
