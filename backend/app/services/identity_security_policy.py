@@ -2,6 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from collections.abc import Iterable
+from typing import Protocol
+
 from fastapi import HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -37,6 +40,41 @@ _DIRECT_ACCESS_FIELDS = (
     "browser_advanced_features_enabled",
 )
 _GROUP_DIRECT_ACCESS_FIELDS = _DIRECT_ACCESS_FIELDS
+
+
+class _AccountLinkLike(Protocol):
+    account_id: int
+    manager_role: str | None
+    portal_role: str | None
+    allow_manager_browser_data_access: bool
+
+
+class _S3UserLinkLike(Protocol):
+    s3_user_id: int
+    allow_manager_browser_data_access: bool
+
+
+def _account_link_values(
+    links: Iterable[_AccountLinkLike],
+) -> set[tuple[int, str | None, str | None, bool]]:
+    return {
+        (
+            int(link.account_id),
+            link.manager_role,
+            link.portal_role,
+            bool(link.allow_manager_browser_data_access),
+        )
+        for link in links
+    }
+
+
+def _s3_user_link_values(
+    links: Iterable[_S3UserLinkLike],
+) -> set[tuple[int, bool]]:
+    return {
+        (int(link.s3_user_id), bool(link.allow_manager_browser_data_access))
+        for link in links
+    }
 
 
 def _manager_tool_access_enabled(value: ManagerToolAccess | None) -> bool:
@@ -128,39 +166,17 @@ def _account_links_changed(user: User, payload: UserUpdate) -> bool:
         # The association service promotes ui_none to ui_user when account
         # access is persisted, even when the submitted links are unchanged.
         return True
-    persisted = {
-        (
-            int(link.account_id),
-            link.manager_role,
-            link.portal_role,
-            bool(link.allow_manager_browser_data_access),
-        )
-        for link in user.account_links
-    }
-    requested = {
-        (
-            int(link.account_id),
-            link.manager_role,
-            link.portal_role,
-            bool(link.allow_manager_browser_data_access),
-        )
-        for link in payload.account_links
-    }
-    return persisted != requested
+    return _account_link_values(user.account_links) != _account_link_values(
+        payload.account_links
+    )
 
 
 def _s3_user_links_changed(user: User, payload: UserUpdate) -> bool:
     if payload.s3_user_links is None:
         return False
-    persisted = {
-        (int(link.s3_user_id), bool(link.allow_manager_browser_data_access))
-        for link in user.s3_user_links
-    }
-    requested = {
-        (int(link.s3_user_id), bool(link.allow_manager_browser_data_access))
-        for link in payload.s3_user_links
-    }
-    return persisted != requested
+    return _s3_user_link_values(user.s3_user_links) != _s3_user_link_values(
+        payload.s3_user_links
+    )
 
 
 def admin_user_update_requires_step_up(user: User, payload: UserUpdate) -> bool:
@@ -190,39 +206,17 @@ def admin_group_create_requires_step_up(payload: UiGroupCreate) -> bool:
 def _group_account_links_changed(group: UiGroup, payload: UiGroupUpdate) -> bool:
     if payload.account_links is None:
         return False
-    persisted = {
-        (
-            int(link.account_id),
-            link.manager_role,
-            link.portal_role,
-            bool(link.allow_manager_browser_data_access),
-        )
-        for link in group.account_links
-    }
-    requested = {
-        (
-            int(link.account_id),
-            link.manager_role,
-            link.portal_role,
-            bool(link.allow_manager_browser_data_access),
-        )
-        for link in payload.account_links
-    }
-    return persisted != requested
+    return _account_link_values(group.account_links) != _account_link_values(
+        payload.account_links
+    )
 
 
 def _group_s3_user_links_changed(group: UiGroup, payload: UiGroupUpdate) -> bool:
     if payload.s3_user_links is None:
         return False
-    persisted = {
-        (int(link.s3_user_id), bool(link.allow_manager_browser_data_access))
-        for link in group.s3_user_links
-    }
-    requested = {
-        (int(link.s3_user_id), bool(link.allow_manager_browser_data_access))
-        for link in payload.s3_user_links
-    }
-    return persisted != requested
+    return _s3_user_link_values(group.s3_user_links) != _s3_user_link_values(
+        payload.s3_user_links
+    )
 
 
 def admin_group_update_requires_step_up(group: UiGroup, payload: UiGroupUpdate) -> bool:
