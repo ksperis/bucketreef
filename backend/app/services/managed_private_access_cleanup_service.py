@@ -31,7 +31,6 @@ from app.services.managed_private_access_state_service import (
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.rgw_iam import RGWIAMService
 from app.services.s3_connections_service import S3ConnectionsService
-from app.utils.time import utcnow
 
 
 class ManagedPrivateAccessCleanupService:
@@ -51,6 +50,7 @@ class ManagedPrivateAccessCleanupService:
         self.connections = connections or S3ConnectionsService(db)
         iam_resolver = iam or ManagedPrivateAccessIAMService(db)
         state_store = state or ManagedPrivateAccessStateService(db)
+        self.state = state_store
         self.remote = ManagedPrivateAccessRemoteCleanupService(
             db,
             iam=iam_resolver,
@@ -244,9 +244,7 @@ class ManagedPrivateAccessCleanupService:
         user: User,
         pending_message: str,
     ) -> None:
-        provisioning.state = "deleting"
-        provisioning.updated_at = utcnow()
-        self.db.commit()
+        self.state.mark_deleting(provisioning)
         try:
             self.remote.cleanup(provisioning, user=user)
         except Exception as exc:
@@ -285,10 +283,7 @@ class ManagedPrivateAccessCleanupService:
             self._set_cleanup_pending(provisioning, cleanup_error, user=user)
             return
 
-        provisioning.state = "failed"
-        provisioning.cleanup_error = failure
-        provisioning.updated_at = utcnow()
-        self.db.commit()
+        self.state.mark_failed(provisioning, failure)
         self.audit.record(
             user,
             provisioning,
@@ -304,10 +299,7 @@ class ManagedPrivateAccessCleanupService:
         *,
         user: User,
     ) -> None:
-        provisioning.state = "cleanup_pending"
-        provisioning.cleanup_error = error
-        provisioning.updated_at = utcnow()
-        self.db.commit()
+        self.state.mark_cleanup_pending(provisioning, error)
         self.audit.record(
             user,
             provisioning,
