@@ -6,8 +6,7 @@ from __future__ import annotations
 from app.core.domain_errors import BucketMigrationItemNotFoundError
 from app.db import BucketMigration, BucketMigrationItem
 from app.utils.time import utcnow
-from .workflow import require_action
-from ._shared import _RUNNABLE_MIGRATION_STATUSES
+from .workflow import ACTIVE_STATUSES, require_action
 
 
 class BucketMigrationRollbackMixin:
@@ -21,7 +20,7 @@ class BucketMigrationRollbackMixin:
         self._assert_migration_creator_access(migration)
         if migration.workflow_version != 2 or migration.maintenance_status in {"queued", "running"}:
             raise ValueError("Historical or busy migrations cannot be replayed")
-        if migration.status in _RUNNABLE_MIGRATION_STATUSES:
+        if migration.status in ACTIVE_STATUSES:
             raise ValueError("Bucket-level actions are not available while migration is active")
 
     def _retry_step_for_failed_item(self, item: BucketMigrationItem) -> str:

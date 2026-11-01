@@ -25,16 +25,6 @@ _DB_EVENT_MESSAGE_MAX_CHARS = 4_096
 _DB_EVENT_METADATA_MAX_CHARS = 65_536
 _DB_EVENT_METADATA_MAX_DEPTH = 8
 _DB_EVENT_METADATA_MAX_ITEMS = 100
-_RUNNABLE_MIGRATION_STATUSES = ("queued", "running", "pause_requested", "cancel_requested")
-_FINAL_MIGRATION_STATUSES = (
-    "completed",
-    "completed_with_errors",
-    "failed",
-    "canceled",
-    "rolled_back",
-)
-
-
 class _WorkerLeaseLostError(RuntimeError):
     """Raised when a worker loses ownership of a migration lease."""
 

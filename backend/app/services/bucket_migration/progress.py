@@ -19,14 +19,13 @@ from ._shared import (
     _bounded_event_metadata,
     _DB_ERROR_MESSAGE_MAX_CHARS,
     _DB_EVENT_MESSAGE_MAX_CHARS,
-    _FINAL_MIGRATION_STATUSES,
-    _RUNNABLE_MIGRATION_STATUSES,
     _ResolvedContext,
     _json_dumps,
     _sanitize_event_metadata,
     _truncate_db_text,
     _truncate_optional_db_text,
 )
+from .workflow import ACTIVE_STATUSES, FINAL_STATUSES
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -41,7 +40,7 @@ class BucketMigrationProgressMixin:
             .where(
                 BucketMigration.id == migration_id,
                 BucketMigration.worker_lease_owner == worker_id,
-                or_(BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES), BucketMigration.preparation_status == "checking", BucketMigration.maintenance_status.in_({"queued", "running"})),
+                or_(BucketMigration.status.in_(ACTIVE_STATUSES), BucketMigration.preparation_status == "checking", BucketMigration.maintenance_status.in_({"queued", "running"})),
             )
             .values(
                 {
@@ -93,7 +92,7 @@ class BucketMigrationProgressMixin:
                 migration.updated_at = now
                 self._commit()
                 return
-            if migration.status in _FINAL_MIGRATION_STATUSES:
+            if migration.status in FINAL_STATUSES:
                 if worker_id and migration.worker_lease_owner == worker_id:
                     migration.worker_lease_owner = None
                     migration.worker_lease_until = None
