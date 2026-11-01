@@ -30,7 +30,7 @@ export const adminAssociationTableContainerClass = uiTableContainerClass;
 const adminAssociationOptionLabelClass = "flex items-center gap-2 ui-body text-slate-700 dark:text-slate-200";
 const adminAssociationAccountOptionLabelClass =
   "flex min-w-48 items-center gap-2 ui-body text-slate-700 dark:text-slate-200";
-export const adminAssociationOptionRowClass = (selected: boolean) =>
+const adminAssociationOptionRowClass = (selected: boolean) =>
   `flex items-center justify-between rounded-md px-2 py-1 ${
     selected ? "bg-[var(--ui-selected-bg)]" : "hover:bg-[var(--ui-hover)]"
   }`;
@@ -42,7 +42,7 @@ type AdminAssociationOptionCheckboxProps = Omit<
   account?: boolean;
 };
 
-export function AdminAssociationOptionCheckbox({
+function AdminAssociationOptionCheckbox({
   account = false,
   className,
   ...props
