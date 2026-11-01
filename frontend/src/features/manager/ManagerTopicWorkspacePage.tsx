@@ -1,11 +1,12 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { listTopics, type Topic } from "../../api/topics";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageBanner from "../../components/PageBanner";
 import { extractApiError } from "../../utils/apiError";
+import { decodeRouteValue } from "../../utils/routeValues";
 import ManagerResourceWorkspace from "./ManagerResourceWorkspace";
 import TopicAttributesEditor from "./TopicAttributesEditor";
 import TopicPolicyEditor from "./TopicPolicyEditor";
@@ -32,10 +33,7 @@ export default function ManagerTopicWorkspacePage() {
   const snsFeatureEnabled = (
     selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities
   )?.sns !== false;
-  const name = useMemo(() => {
-    if (!topicName) return "";
-    try { return decodeURIComponent(topicName); } catch { return topicName; }
-  }, [topicName]);
+  const name = decodeRouteValue(topicName);
   const [topic, setTopic] = useState<Topic | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

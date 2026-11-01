@@ -4,7 +4,7 @@
  */
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { IamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
@@ -13,6 +13,7 @@ import PageBanner from "../../components/PageBanner";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
+import { decodeRouteValue } from "../../utils/routeValues";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import InlinePolicyEditor from "./InlinePolicyEditor";
 import UiSelect from "../../components/ui/UiSelect";
@@ -112,14 +113,7 @@ export default function ManagerEntityPoliciesPage({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const policyConfirmation = useConfirmActionDialog();
 
-  const decodedEntity = useMemo(() => {
-    if (!rawEntityName) return "";
-    try {
-      return decodeURIComponent(rawEntityName);
-    } catch {
-      return rawEntityName;
-    }
-  }, [rawEntityName]);
+  const decodedEntity = decodeRouteValue(rawEntityName);
 
   const noPoliciesAvailable = available.length === 0;
 

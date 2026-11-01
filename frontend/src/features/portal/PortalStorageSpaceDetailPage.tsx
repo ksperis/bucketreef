@@ -16,6 +16,7 @@ import {
   readClientStorageKey,
   writeClientStorageKey,
 } from "../../utils/clientStorage";
+import { decodeRouteValue } from "../../utils/routeValues";
 import BrowserEmbed from "../browser/BrowserEmbed";
 import StorageSpaceObjectDetailsDrawer from "../shared/StorageSpaceObjectDetailsDrawer";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
@@ -23,10 +24,7 @@ import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalDeletedPrefixRestoreWorkflow from "./PortalDeletedPrefixRestoreWorkflow";
 import PortalPublicLinkRevokeDialog from "./PortalPublicLinkRevokeDialog";
 import PortalPublicLinksTable from "./PortalPublicLinksTable";
-import {
-  decodePortalRouteValue,
-  storageSpacePath,
-} from "./portalWorkspaceModel";
+import { storageSpacePath } from "./portalWorkspaceModel";
 import PortalStorageSpaceStatistics from "./PortalStorageSpaceStatistics";
 import PortalStorageSpaceHistoryCleanupWorkflow from "./PortalStorageSpaceHistoryCleanupWorkflow";
 import PortalStorageSpaceCollaboratorsPanel from "./PortalStorageSpaceCollaboratorsPanel";
@@ -91,7 +89,7 @@ function StorageSpaceDetail() {
     preserveSpaceDataOnRefresh: true,
     includeUsage: activeTab === "statistics",
   });
-  const decodedSpaceId = decodePortalRouteValue(spaceId);
+  const decodedSpaceId = decodeRouteValue(spaceId);
   const space = workspace.spaces.find((item) => item.id === decodedSpaceId) ?? null;
   const historyCleanupEnabled = Boolean(state?.storage_space_version_cleanup_enabled);
   const {

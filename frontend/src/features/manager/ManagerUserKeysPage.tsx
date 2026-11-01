@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { AccessKeyMetadataInput } from "../../api/accessKeyContracts";
@@ -26,6 +26,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
+import { decodeRouteValue } from "../../utils/routeValues";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import AccessKeyMetadataDialog from "./AccessKeyMetadataDialog";
 import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
@@ -214,14 +215,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
     });
   };
 
-  const pageTitle = useMemo(() => {
-    if (!userName) return "";
-    try {
-      return decodeURIComponent(userName);
-    } catch {
-      return userName;
-    }
-  }, [userName]);
+  const pageTitle = decodeRouteValue(userName);
 
   const tableStatus = resolveListTableStatus({
     loading,

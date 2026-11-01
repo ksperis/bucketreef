@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getIamUser, type IAMUser, updateIamUser } from "../../api/managerIamUsers";
 import { getIamGroup, type IAMGroup, updateIamGroup } from "../../api/managerIamGroups";
@@ -12,6 +12,7 @@ import { extractApiError } from "../../utils/apiError";
 import { iamNameFormatError } from "../../utils/resourceNames";
 import { stableSignature } from "../../utils/stableSignature";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { decodeRouteValue } from "../../utils/routeValues";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { iamPathFormatError } from "./iamIdentityForm";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
@@ -28,10 +29,7 @@ export default function ManagerIamIdentityDetailPage({ kind, embedded = false }:
   const needsSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
   const encodedName = kind === "user" ? params.userName : params.groupName;
-  const entityName = useMemo(() => {
-    if (!encodedName) return "";
-    try { return decodeURIComponent(encodedName); } catch { return encodedName; }
-  }, [encodedName]);
+  const entityName = decodeRouteValue(encodedName);
   const [entity, setEntity] = useState<Identity | null>(null);
   const [name, setName] = useState("");
   const [path, setPath] = useState("/");

@@ -134,15 +134,6 @@ export function storageSpacePath(space: Pick<PortalWorkspaceSpace, "id">): strin
   return `/portal/storage-spaces/${encodeURIComponent(space.id)}`;
 }
 
-export function decodePortalRouteValue(value?: string): string {
-  if (!value) return "";
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
 export function buildPortalWorkspaceModel({
   account,
   storageSpaces,

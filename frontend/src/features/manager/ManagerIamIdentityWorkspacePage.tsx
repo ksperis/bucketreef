@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useLocation, useParams } from "react-router-dom";
 
+import { decodeRouteValue } from "../../utils/routeValues";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import ManagerGroupPoliciesPage from "./ManagerGroupPoliciesPage";
 import ManagerGroupUsersPage from "./ManagerGroupUsersPage";
@@ -14,16 +15,11 @@ import { useManagerI18n } from "./managerI18n";
 type UserTab = "general" | "keys" | "groups" | "policies";
 type GroupTab = "general" | "members" | "policies";
 
-function decodeName(value?: string): string {
-  if (!value) return "";
-  try { return decodeURIComponent(value); } catch { return value; }
-}
-
 export default function ManagerIamIdentityWorkspacePage({ kind }: { kind: "user" | "group" }) {
   const { text } = useManagerI18n();
   const location = useLocation();
   const params = useParams<{ userName?: string; groupName?: string }>();
-  const name = decodeName(kind === "user" ? params.userName : params.groupName);
+  const name = decodeRouteValue(kind === "user" ? params.userName : params.groupName);
   const encodedName = encodeURIComponent(name);
   const listRoute = kind === "user" ? "/manager/users" : "/manager/groups";
   const baseRoute = `${listRoute}/${encodedName}`;

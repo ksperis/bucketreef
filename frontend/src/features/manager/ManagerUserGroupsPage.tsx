@@ -14,6 +14,7 @@ import UiButton from "../../components/ui/UiButton";
 import UiSelect from "../../components/ui/UiSelect";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { extractApiError } from "../../utils/apiError";
+import { decodeRouteValue } from "../../utils/routeValues";
 import { useManagerI18n } from "./managerI18n";
 import { useExecutionContext } from "./ExecutionContextProvider";
 
@@ -23,10 +24,7 @@ export default function ManagerUserGroupsPage() {
   const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
-  const decodedUser = useMemo(() => {
-    if (!userName) return "";
-    try { return decodeURIComponent(userName); } catch { return userName; }
-  }, [userName]);
+  const decodedUser = decodeRouteValue(userName);
   const [groups, setGroups] = useState<IAMGroup[]>([]);
   const [allGroups, setAllGroups] = useState<IAMGroup[]>([]);
   const [newGroup, setNewGroup] = useState("");
