@@ -594,6 +594,57 @@ class ExternalIdentityUserService:
         full_name: Optional[str],
         picture_url: Optional[str],
     ) -> ExternalIdentityLinkRequest:
+        now = utcnow()
+        existing = self._find_link_approval_request(
+            provider_type=provider_type,
+            provider_id=provider_id,
+            issuer=issuer,
+            subject=subject,
+        )
+        reusable = self._reuse_active_link_approval_request(
+            existing,
+            user=user,
+            provider_id=provider_id,
+            issuer=issuer,
+            email=email,
+            email_verified=email_verified,
+            request_source=request_source,
+            full_name=full_name,
+            picture_url=picture_url,
+            now=now,
+        )
+        if reusable is not None:
+            return reusable
+
+        request = self._prepare_link_approval_request(
+            existing,
+            user=user,
+            provider_type=provider_type,
+            provider_id=provider_id,
+            issuer=issuer,
+            subject=subject,
+            email=email,
+            email_verified=email_verified,
+            request_source=request_source,
+            full_name=full_name,
+            picture_url=picture_url,
+            now=now,
+        )
+        self.db.add(request)
+        self.db.flush()
+        self._notify_link_request_admins(request, user)
+        self.db.commit()
+        self.db.refresh(request)
+        return request
+
+    def _find_link_approval_request(
+        self,
+        *,
+        provider_type: str,
+        provider_id: str,
+        issuer: Optional[str],
+        subject: str,
+    ) -> ExternalIdentityLinkRequest | None:
         statement = select(ExternalIdentityLinkRequest).where(
             ExternalIdentityLinkRequest.provider_type == provider_type,
             ExternalIdentityLinkRequest.subject == subject,
@@ -602,21 +653,53 @@ class ExternalIdentityUserService:
             statement = statement.where(ExternalIdentityLinkRequest.issuer == issuer)
         else:
             statement = statement.where(ExternalIdentityLinkRequest.provider_id == provider_id)
-        existing = self.db.scalar(statement)
-        now = utcnow()
+        return self.db.scalar(statement)
+
+    def _reuse_active_link_approval_request(
+        self,
+        request: ExternalIdentityLinkRequest | None,
+        *,
+        user: User,
+        provider_id: str,
+        issuer: Optional[str],
+        email: str,
+        email_verified: bool,
+        request_source: Optional[str],
+        full_name: Optional[str],
+        picture_url: Optional[str],
+        now: datetime,
+    ) -> ExternalIdentityLinkRequest | None:
+        if not request or request.status != "pending" or request.expires_at <= now:
+            return None
+        if request.user_id == user.id and request.provider_id == provider_id:
+            request.issuer = issuer
+            request.email = email
+            request.email_verified = bool(email_verified)
+            request.request_source = request_source
+            request.display_name = full_name
+            request.picture_url = picture_url
+            self.db.add(request)
+            self.db.commit()
+            self.db.refresh(request)
+        return request
+
+    def _prepare_link_approval_request(
+        self,
+        existing: ExternalIdentityLinkRequest | None,
+        *,
+        user: User,
+        provider_type: str,
+        provider_id: str,
+        issuer: Optional[str],
+        subject: str,
+        email: str,
+        email_verified: bool,
+        request_source: Optional[str],
+        full_name: Optional[str],
+        picture_url: Optional[str],
+        now: datetime,
+    ) -> ExternalIdentityLinkRequest:
         if existing:
-            if existing.status == "pending" and existing.expires_at > now:
-                if existing.user_id == user.id and existing.provider_id == provider_id:
-                    existing.issuer = issuer
-                    existing.email = email
-                    existing.email_verified = bool(email_verified)
-                    existing.request_source = request_source
-                    existing.display_name = full_name
-                    existing.picture_url = picture_url
-                    self.db.add(existing)
-                    self.db.commit()
-                    self.db.refresh(existing)
-                return existing
             existing.status = "pending"
             existing.created_at = now
             existing.expires_at = now + timedelta(hours=24)
@@ -632,30 +715,23 @@ class ExternalIdentityUserService:
             existing.request_source = request_source
             existing.display_name = full_name
             existing.picture_url = picture_url
-            request = existing
-        else:
-            request = ExternalIdentityLinkRequest(
-                id=str(uuid.uuid4()),
-                user_id=user.id,
-                provider_type=provider_type,
-                provider_id=provider_id,
-                issuer=issuer,
-                subject=subject,
-                email=email,
-                email_verified=bool(email_verified),
-                request_source=request_source,
-                display_name=full_name,
-                picture_url=picture_url,
-                status="pending",
-                created_at=now,
-                expires_at=now + timedelta(hours=24),
-            )
-        self.db.add(request)
-        self.db.flush()
-        self._notify_link_request_admins(request, user)
-        self.db.commit()
-        self.db.refresh(request)
-        return request
+            return existing
+        return ExternalIdentityLinkRequest(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            provider_type=provider_type,
+            provider_id=provider_id,
+            issuer=issuer,
+            subject=subject,
+            email=email,
+            email_verified=bool(email_verified),
+            request_source=request_source,
+            display_name=full_name,
+            picture_url=picture_url,
+            status="pending",
+            created_at=now,
+            expires_at=now + timedelta(hours=24),
+        )
 
     def _notify_link_request_admins(
         self,
