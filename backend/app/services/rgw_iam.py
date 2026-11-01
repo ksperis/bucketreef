@@ -3,7 +3,7 @@
 import json
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from app.models.iam import AccessKey, IAMGroup, IAMRole, IAMTag, IAMUser
 from app.models.policy import Policy
@@ -76,24 +76,45 @@ class RGWIAMService:
             secret_access_key=data.get("SecretAccessKey") if include_secret else None,
         )
 
+    def _list_all(self, operation_name: str, result_key: str, **kwargs) -> list[Any]:
+        items: list[Any] = []
+        marker: str | None = None
+        seen_markers: set[str] = set()
+        while True:
+            request = dict(kwargs)
+            if marker is not None:
+                request["Marker"] = marker
+            response = getattr(self.client, operation_name)(**request)
+            items.extend(response.get(result_key, []) or [])
+            if not response.get("IsTruncated"):
+                return items
+            next_marker = response.get("Marker")
+            if not isinstance(next_marker, str) or not next_marker or next_marker in seen_markers:
+                raise RuntimeError(
+                    f"IAM pagination for {operation_name} returned IsTruncated without a usable Marker"
+                )
+            seen_markers.add(next_marker)
+            marker = next_marker
+
     # Users
     def list_users(self) -> List[IAMUser]:
         try:
-            resp = self.client.list_users()
             users: List[IAMUser] = []
-            for u in resp.get("Users", []):
+            for u in self._list_all("list_users", "Users"):
                 name = u.get("UserName")
                 arn = u.get("Arn")
                 user_id = u.get("UserId")
                 if not name:
                     # Skip malformed entries that don't expose a username
                     continue
-                user_groups = self.client.list_groups_for_user(UserName=name).get("Groups", [])
+                user_groups = self._list_all("list_groups_for_user", "Groups", UserName=name)
                 group_names = [g.get("GroupName") for g in user_groups if g.get("GroupName")]
-                attached = self.client.list_attached_user_policies(UserName=name).get("AttachedPolicies", [])
+                attached = self._list_all(
+                    "list_attached_user_policies", "AttachedPolicies", UserName=name
+                )
                 policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
-                inline_names = self.client.list_user_policies(UserName=name).get("PolicyNames", [])
-                key_metadata = self.client.list_access_keys(UserName=name).get("AccessKeyMetadata", [])
+                inline_names = self._list_all("list_user_policies", "PolicyNames", UserName=name)
+                key_metadata = self._list_all("list_access_keys", "AccessKeyMetadata", UserName=name)
                 users.append(
                     IAMUser(
                         name=name,
@@ -191,10 +212,10 @@ class RGWIAMService:
 
     def list_access_keys(self, user_name: str) -> List[AccessKey]:
         try:
-            resp = self.client.list_access_keys(UserName=user_name)
+            keys = self._list_all("list_access_keys", "AccessKeyMetadata", UserName=user_name)
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list IAM access keys: {exc}") from exc
-        return [self._format_access_key(k) for k in resp.get("AccessKeyMetadata", [])]
+        return [self._format_access_key(k) for k in keys]
 
     def create_access_key(self, user_name: str) -> AccessKey:
         try:
@@ -225,15 +246,17 @@ class RGWIAMService:
 
     def list_user_policies(self, user_name: str) -> List[Policy]:
         try:
-            resp = self.client.list_attached_user_policies(UserName=user_name)
+            policies = self._list_all(
+                "list_attached_user_policies", "AttachedPolicies", UserName=user_name
+            )
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list user policies: {exc}") from exc
-        return [self._policy_from_data(p) for p in resp.get("AttachedPolicies", [])]
+        return [self._policy_from_data(p) for p in policies]
 
     def list_user_inline_policies(self, user_name: str) -> list[str]:
         try:
-            resp = self.client.list_user_policies(UserName=user_name)
-            return [p for p in resp.get("PolicyNames", []) if p]
+            policies = self._list_all("list_user_policies", "PolicyNames", UserName=user_name)
+            return [p for p in policies if p]
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list inline policies for user: {exc}") from exc
 
@@ -283,10 +306,10 @@ class RGWIAMService:
 
     def list_groups_for_user(self, user_name: str) -> List[IAMGroup]:
         try:
-            resp = self.client.list_groups_for_user(UserName=user_name)
+            groups = self._list_all("list_groups_for_user", "Groups", UserName=user_name)
             return [
                 IAMGroup(name=g.get("GroupName"), arn=g.get("Arn"), path=g.get("Path"))
-                for g in resp.get("Groups", [])
+                for g in groups
                 if g.get("GroupName")
             ]
         except (BotoCoreError, ClientError) as exc:
@@ -295,12 +318,13 @@ class RGWIAMService:
     # Groups
     def list_groups(self) -> List[IAMGroup]:
         try:
-            resp = self.client.list_groups()
             groups: List[IAMGroup] = []
-            for g in resp.get("Groups", []):
+            for g in self._list_all("list_groups", "Groups"):
                 name = g.get("GroupName")
                 arn = g.get("Arn")
-                attached = self.client.list_attached_group_policies(GroupName=name).get("AttachedPolicies", [])
+                attached = self._list_all(
+                    "list_attached_group_policies", "AttachedPolicies", GroupName=name
+                )
                 policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
                 groups.append(IAMGroup(name=name, arn=arn, path=g.get("Path"), policies=policy_arns))
             return groups
@@ -335,7 +359,9 @@ class RGWIAMService:
             group = resp.get("Group", {}) or {}
             if not group:
                 return None
-            attached = self.client.list_attached_group_policies(GroupName=name).get("AttachedPolicies", [])
+            attached = self._list_all(
+                "list_attached_group_policies", "AttachedPolicies", GroupName=name
+            )
             policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
             return IAMGroup(
                 name=group.get("GroupName") or name,
@@ -392,15 +418,17 @@ class RGWIAMService:
 
     def list_group_policies(self, group_name: str) -> List[Policy]:
         try:
-            resp = self.client.list_attached_group_policies(GroupName=group_name)
+            policies = self._list_all(
+                "list_attached_group_policies", "AttachedPolicies", GroupName=group_name
+            )
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list group policies: {exc}") from exc
-        return [self._policy_from_data(p) for p in resp.get("AttachedPolicies", [])]
+        return [self._policy_from_data(p) for p in policies]
 
     def list_group_inline_policies(self, group_name: str) -> list[str]:
         try:
-            resp = self.client.list_group_policies(GroupName=group_name)
-            return [p for p in resp.get("PolicyNames", []) if p]
+            policies = self._list_all("list_group_policies", "PolicyNames", GroupName=group_name)
+            return [p for p in policies if p]
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list inline policies for group: {exc}") from exc
 
@@ -451,12 +479,13 @@ class RGWIAMService:
     # Roles
     def list_roles(self) -> List[IAMRole]:
         try:
-            resp = self.client.list_roles()
             roles: List[IAMRole] = []
-            for r in resp.get("Roles", []):
+            for r in self._list_all("list_roles", "Roles"):
                 name = r.get("RoleName")
                 arn = r.get("Arn")
-                attached = self.client.list_attached_role_policies(RoleName=name).get("AttachedPolicies", [])
+                attached = self._list_all(
+                    "list_attached_role_policies", "AttachedPolicies", RoleName=name
+                )
                 policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
                 roles.append(
                     IAMRole(
@@ -504,7 +533,9 @@ class RGWIAMService:
         try:
             resp = self.client.get_role(RoleName=name)
             data = resp.get("Role", {}) or {}
-            attached = self.client.list_attached_role_policies(RoleName=name).get("AttachedPolicies", [])
+            attached = self._list_all(
+                "list_attached_role_policies", "AttachedPolicies", RoleName=name
+            )
             policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
             assume_doc = self._normalize_policy_document(data.get("AssumeRolePolicyDocument"))
             tags = self.list_role_tags(name)
@@ -549,10 +580,10 @@ class RGWIAMService:
 
     def list_role_tags(self, role_name: str) -> list[IAMTag]:
         try:
-            resp = self.client.list_role_tags(RoleName=role_name)
+            tags = self._list_all("list_role_tags", "Tags", RoleName=role_name)
             return [
                 IAMTag(key=tag.get("Key", ""), value=tag.get("Value", ""))
-                for tag in resp.get("Tags", [])
+                for tag in tags
                 if tag.get("Key")
             ]
         except (BotoCoreError, ClientError) as exc:
@@ -589,8 +620,8 @@ class RGWIAMService:
 
     def list_policies(self) -> List[Policy]:
         try:
-            resp = self.client.list_policies(Scope="Local")
-            return [self._policy_from_data(p) for p in resp.get("Policies", [])]
+            policies = self._list_all("list_policies", "Policies", Scope="Local")
+            return [self._policy_from_data(p) for p in policies]
         except (BotoCoreError, ClientError):
             # Ceph RGW Squid/Quincy may not implement ListPolicies; fall back to known managed set
             return self._default_policies.copy()
@@ -644,15 +675,17 @@ class RGWIAMService:
 
     def list_role_policies(self, role_name: str) -> List[Policy]:
         try:
-            resp = self.client.list_attached_role_policies(RoleName=role_name)
+            policies = self._list_all(
+                "list_attached_role_policies", "AttachedPolicies", RoleName=role_name
+            )
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list role policies: {exc}") from exc
-        return [self._policy_from_data(p) for p in resp.get("AttachedPolicies", [])]
+        return [self._policy_from_data(p) for p in policies]
 
     def list_role_inline_policies(self, role_name: str) -> list[str]:
         try:
-            resp = self.client.list_role_policies(RoleName=role_name)
-            return [p for p in resp.get("PolicyNames", []) if p]
+            policies = self._list_all("list_role_policies", "PolicyNames", RoleName=role_name)
+            return [p for p in policies if p]
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list inline policies for role: {exc}") from exc
 
