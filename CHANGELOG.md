@@ -28,6 +28,7 @@
 
 - Apply the normal Alembic upgrade path before starting the matching backend. Migrations `0167` through `0193` withdraw the 0.2.17 Billing expansion, introduce the Cost model and estimation policies, add RGW usage controls, canonicalize bucket-migration state, preserve tenant identity in usage data, and remove retired internal state.
 - Deploy the backend and bundled frontend from the same release. Internal application route and payload changes are coordinated within 0.2.18 and are not considered breaking external contracts.
+- Portal share-candidate application APIs now return paginated responses and accept server-side search and pagination parameters; deploy the matching backend and bundled frontend together.
 - **Breaking change for external Billing integrations:** the Billing Integration API v1 (`/api/integrations/billing/v1`) and `billing:read` token scope introduced in 0.2.17 are removed as BucketReef returns to cost exploration rather than invoicing lifecycle management. Migrations preserve daily usage history but reset incompatible 0.2.17 Billing configuration.
 - **Breaking change for custom deployments:** rename `API_V1_PREFIX` to `API_PREFIX`. The removed `API_V1_PREFIX` variable is no longer read by the backend; the default `/api` path is unchanged.
 

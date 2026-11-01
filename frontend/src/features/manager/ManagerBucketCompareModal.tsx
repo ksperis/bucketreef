@@ -4,11 +4,13 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
+import PaginationControls from "../../components/PaginationControls";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
+import UiInput from "../../components/ui/UiInput";
 import {
   BucketCompareFeedback,
   BucketCompareResult,
@@ -22,7 +24,7 @@ import { proxyDownload } from "../../api/browserTransfers";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import {
   compareManagerBucketPair,
-  listBuckets,
+  listBucketOptions,
   ManagerBucketCompareAction,
   ManagerBucketCompareActionResult,
   ManagerBucketCompareResult,
@@ -32,7 +34,10 @@ import type {
   BucketCompareConfigFeature,
   BucketCompareObjectDetail,
 } from "../../api/bucketCompareContracts";
-import type { ExecutionContext } from "../../api/executionContexts";
+import {
+  listExecutionContextOptions,
+  type ExecutionContext,
+} from "../../api/executionContexts";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
   BucketCompareManualMappingEditor,
@@ -56,6 +61,7 @@ import {
   triggerJsonDownload,
 } from "../../utils/download";
 import { useManagerI18n } from "./managerI18n";
+import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -145,16 +151,46 @@ export default function ManagerBucketCompareModal({
 }: ManagerBucketCompareModalProps) {
   const { text } = useManagerI18n();
   const sortedSourceBuckets = useMemo(() => [...sourceBuckets].sort((a, b) => a.localeCompare(b)), [sourceBuckets]);
-  const targetContextOptions = useMemo(() => contexts, [contexts]);
   const [targetContextId, setTargetContextId] = useState<string | null>(null);
-  const [targetBucketNames, setTargetBucketNames] = useState<string[]>([]);
-  const [targetBucketsLoading, setTargetBucketsLoading] = useState(false);
-  const [targetBucketsError, setTargetBucketsError] = useState<string | null>(null);
   const [lastRunOptions, setLastRunOptions] = useState<CompareRunOptionsSnapshot | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingRemediationAction | null>(null);
   const [downloadFeedback, setDownloadFeedback] = useState<(CompareVisibleKeysCopyFeedback & { id: string }) | null>(null);
   const [downloadInFlight, setDownloadInFlight] = useState<string | null>(null);
   const sameContextSelected = targetContextId === sourceContextId;
+  const loadTargetContexts = useCallback(
+    (query: { page?: number; page_size?: number; search?: string }) =>
+      listExecutionContextOptions("manager", query),
+    [],
+  );
+  const targetContextCatalog = usePaginatedOptions(loadTargetContexts, { initialPageSize: 25 });
+  const selectedTargetContext = useMemo(
+    () => contexts.find((context) => context.id === targetContextId) ?? null,
+    [contexts, targetContextId],
+  );
+  const targetContextOptions = useMemo(() => {
+    const items = [...targetContextCatalog.items];
+    if (selectedTargetContext && !items.some((context) => context.id === selectedTargetContext.id)) {
+      items.unshift(selectedTargetContext);
+    }
+    return items;
+  }, [selectedTargetContext, targetContextCatalog.items]);
+  const loadTargetBuckets = useCallback(
+    (query: { page?: number; page_size?: number; search?: string }) => {
+      if (!targetContextId) {
+        return Promise.resolve({ items: [], total: 0, page: 1, page_size: query.page_size ?? 25, has_next: false });
+      }
+      return listBucketOptions(targetContextId, query);
+    },
+    [targetContextId],
+  );
+  const targetBucketCatalog = usePaginatedOptions(loadTargetBuckets, {
+    enabled: Boolean(targetContextId),
+    initialPageSize: 25,
+  });
+  const targetBucketNames = useMemo(
+    () => targetBucketCatalog.items.map((bucket) => bucket.name),
+    [targetBucketCatalog.items],
+  );
   const {
     mappingMode,
     setMappingMode,
@@ -190,7 +226,6 @@ export default function ManagerBucketCompareModal({
     availableTargetBucketNames,
     resolvedManualMapping,
     comparePlan,
-    missingByName,
     hasScopeSelected,
     hasConfigFeatureSelected,
     ignoreModifiedAfterIso,
@@ -212,6 +247,7 @@ export default function ManagerBucketCompareModal({
     targetKind: "context",
     sourceBuckets: sortedSourceBuckets,
     targetBuckets: targetBucketNames,
+    targetInventoryComplete: false,
     sameTargetSelected: sameContextSelected,
     configFeatures: ALL_CONFIG_FEATURE_KEYS,
   });
@@ -224,53 +260,6 @@ export default function ManagerBucketCompareModal({
     byId.set(sourceContextId, sourceContextName ?? sourceContextId);
     return byId;
   }, [contexts, sourceContextId, sourceContextName]);
-
-  useEffect(() => {
-    if (targetContextOptions.length === 0) {
-      setTargetContextId(null);
-      return;
-    }
-    setTargetContextId((prev) => {
-      if (prev !== null && targetContextOptions.some((context) => context.id === prev)) {
-        return prev;
-      }
-      return null;
-    });
-  }, [targetContextOptions]);
-
-  useEffect(() => {
-    if (!targetContextId) {
-      setTargetBucketNames([]);
-      setTargetBucketsError(text("Select a target context."));
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      setTargetBucketsLoading(true);
-      setTargetBucketsError(null);
-      try {
-        const names = (await listBuckets(targetContextId, { with_stats: false }))
-          .map((bucket) => (bucket.name ?? "").trim())
-          .filter((name): name is string => Boolean(name))
-          .sort((a, b) => a.localeCompare(b));
-        if (cancelled) return;
-        setTargetBucketNames(names);
-        setTargetBucketsError(null);
-      } catch (err) {
-        if (cancelled) return;
-        setTargetBucketNames([]);
-        setTargetBucketsError(extractCompareError(err));
-      } finally {
-        if (!cancelled) {
-          setTargetBucketsLoading(false);
-        }
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [sourceContextId, targetContextId, text]);
 
   const hasActionInFlight = useMemo(() => items.some((item) => Boolean(item.actionRunning)), [items]);
   const runValidationError = resolveBucketCompareRunError({
@@ -651,20 +640,43 @@ export default function ManagerBucketCompareModal({
           targetKind="context"
           sameTarget={sameContextSelected}
           targetSelector={
-            <UiSelect
-              label={text("Target context")}
-              value={targetContextId ?? ""}
-              onChange={(event) => setTargetContextId(event.target.value ? event.target.value : null)}
-              disabled={running || targetContextOptions.length === 0}
-            >
-              {targetContextOptions.length > 0 && <option value="">{text("Select a target context")}</option>}
-              {targetContextOptions.length === 0 && <option value="">{text("No other context available")}</option>}
-              {targetContextOptions.map((context) => (
-                <option key={context.id} value={context.id}>
-                  {context.display_name}
-                </option>
-              ))}
-            </UiSelect>
+            <div className="space-y-2">
+              <UiInput
+                type="search"
+                label={text("Search target contexts")}
+                value={targetContextCatalog.search}
+                onChange={(event) => targetContextCatalog.setSearch(event.target.value)}
+                disabled={running}
+                size="compact"
+              />
+              <UiSelect
+                label={text("Target context")}
+                value={targetContextId ?? ""}
+                onChange={(event) => setTargetContextId(event.target.value ? event.target.value : null)}
+                disabled={running || targetContextCatalog.loading || targetContextOptions.length === 0}
+              >
+                {targetContextOptions.length > 0 && <option value="">{text("Select a target context")}</option>}
+                {targetContextOptions.length === 0 && <option value="">{text("No context on this page")}</option>}
+                {targetContextOptions.map((context) => (
+                  <option key={context.id} value={context.id}>
+                    {context.display_name}
+                  </option>
+                ))}
+              </UiSelect>
+              <PaginationControls
+                page={targetContextCatalog.page}
+                pageSize={targetContextCatalog.pageSize}
+                total={targetContextCatalog.total}
+                onPageChange={targetContextCatalog.setPage}
+                onPageSizeChange={targetContextCatalog.setPageSize}
+                disabled={running || targetContextCatalog.loading}
+              />
+              {targetContextCatalog.error && (
+                <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
+                  {targetContextCatalog.error}
+                </p>
+              )}
+            </div>
           }
           actions={
             <>
@@ -699,31 +711,44 @@ export default function ManagerBucketCompareModal({
           onConfigFeatureChange={toggleConfigFeature}
           running={running}
         >
-          {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">{text("Loading target buckets...")}</p>}
-          {targetBucketsError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{targetBucketsError}</p>}
-          {targetContextId && mappingMode === "by_name" && missingByName.length > 0 && (
-            <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-              {missingByName.length} {text(
-                missingByName.length === 1
-                  ? "target bucket does not exist with the same name."
-                  : "target buckets do not exist with the same name.",
-              )}
-            </p>
-          )}
           {mappingMode === "manual" && (
-            <BucketCompareManualMappingEditor
-              rawMappingText={rawMappingText}
-              onRawMappingTextChange={setRawMappingText}
-              parsedRawMapping={parsedRawMapping}
-              sourceBuckets={sortedSourceBuckets}
-              resolvedManualMapping={resolvedManualMapping}
-              manualMapping={manualMapping}
-              onManualMappingChange={(sourceBucket, targetBucket) =>
-                setManualMapping((prev) => ({ ...prev, [sourceBucket]: targetBucket }))
-              }
-              availableTargetBucketNames={availableTargetBucketNames}
-              disabled={running}
-            />
+            <div className="space-y-3">
+              <UiInput
+                type="search"
+                label={text("Search target buckets")}
+                value={targetBucketCatalog.search}
+                onChange={(event) => targetBucketCatalog.setSearch(event.target.value)}
+                disabled={running || !targetContextId}
+                size="compact"
+              />
+              {targetBucketCatalog.loading && (
+                <p className="ui-caption text-slate-500 dark:text-slate-400">{text("Loading target buckets...")}</p>
+              )}
+              {targetBucketCatalog.error && (
+                <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{targetBucketCatalog.error}</p>
+              )}
+              <BucketCompareManualMappingEditor
+                rawMappingText={rawMappingText}
+                onRawMappingTextChange={setRawMappingText}
+                parsedRawMapping={parsedRawMapping}
+                sourceBuckets={sortedSourceBuckets}
+                resolvedManualMapping={resolvedManualMapping}
+                manualMapping={manualMapping}
+                onManualMappingChange={(sourceBucket, targetBucket) =>
+                  setManualMapping((prev) => ({ ...prev, [sourceBucket]: targetBucket }))
+                }
+                availableTargetBucketNames={availableTargetBucketNames}
+                disabled={running}
+              />
+              <PaginationControls
+                page={targetBucketCatalog.page}
+                pageSize={targetBucketCatalog.pageSize}
+                total={targetBucketCatalog.total}
+                onPageChange={targetBucketCatalog.setPage}
+                onPageSizeChange={targetBucketCatalog.setPageSize}
+                disabled={running || targetBucketCatalog.loading}
+              />
+            </div>
           )}
         </BucketCompareSetup>
         {runError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{runError}</p>}

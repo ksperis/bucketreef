@@ -4,29 +4,46 @@
  */
 import { useCallback } from "react";
 
-import { listMinimalGroups } from "../../api/groups";
-import { listMinimalUsers } from "../../api/users";
-import useLazyListLoader from "../../hooks/useLazyListLoader";
+import { listGroupOptions } from "../../api/groups";
+import { listUserOptions } from "../../api/users";
+import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 
 export default function useAdminPrincipalCatalogs() {
-  const usersLoader = useLazyListLoader(listMinimalUsers);
-  const groupsLoader = useLazyListLoader(listMinimalGroups);
-  const { ensure: ensureUsers } = usersLoader;
-  const { ensure: ensureGroups } = groupsLoader;
+  const usersLoader = usePaginatedOptions(listUserOptions);
+  const groupsLoader = usePaginatedOptions(listGroupOptions);
   const loadUsers = useCallback(
-    () => ensureUsers({ retryOnError: true }),
-    [ensureUsers],
+    async () => usersLoader.refresh(),
+    [usersLoader.refresh],
   );
   const loadGroups = useCallback(
-    () => ensureGroups({ retryOnError: true }),
-    [ensureGroups],
+    async () => groupsLoader.refresh(),
+    [groupsLoader.refresh],
   );
 
   return {
     users: usersLoader.items,
     groups: groupsLoader.items,
     groupsLoading: groupsLoader.loading,
+    usersLoading: usersLoader.loading,
     loadUsers,
     loadGroups,
+    usersPagination: {
+      page: usersLoader.page,
+      pageSize: usersLoader.pageSize,
+      total: usersLoader.total,
+      setPage: usersLoader.setPage,
+      setPageSize: usersLoader.setPageSize,
+      search: usersLoader.search,
+      setSearch: usersLoader.setSearch,
+    },
+    groupsPagination: {
+      page: groupsLoader.page,
+      pageSize: groupsLoader.pageSize,
+      total: groupsLoader.total,
+      setPage: groupsLoader.setPage,
+      setPageSize: groupsLoader.setPageSize,
+      search: groupsLoader.search,
+      setSearch: groupsLoader.setSearch,
+    },
   };
 }

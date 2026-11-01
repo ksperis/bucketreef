@@ -63,6 +63,42 @@ class UserQueryService:
             for row in rows
         ]
 
+    def paginate_user_summaries(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        search: str | None = None,
+    ) -> tuple[list[UserSummary], int]:
+        search_value = search.strip() if isinstance(search, str) else ""
+        statement = select(User)
+        if search_value:
+            pattern = f"%{search_value}%"
+            statement = statement.where(
+                or_(
+                    User.email.ilike(pattern),
+                    func.coalesce(User.full_name, "").ilike(pattern),
+                )
+            )
+        rows, total = paginate_scalars(
+            self.db,
+            statement,
+            order_by=(func.lower(User.email).asc(), User.id.asc()),
+            page=page,
+            page_size=page_size,
+        )
+        avatar_service = UserAvatarService(self.db)
+        return [
+            UserSummary(
+                id=row.id,
+                email=row.email,
+                full_name=row.full_name,
+                avatar=avatar_service.descriptor(row),
+                role=row.role,
+            )
+            for row in rows
+        ], total
+
     @staticmethod
     def _apply_search(
         statement: Select[tuple[User]],

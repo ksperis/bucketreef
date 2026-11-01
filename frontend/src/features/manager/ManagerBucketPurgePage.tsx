@@ -23,11 +23,16 @@ export default function ManagerBucketPurgePage() {
     filter,
     filteredBuckets,
     loading,
+    page,
+    pageSize,
+    total,
     requiresContextSelection,
     selectedBuckets,
     selectedTargets,
     selectAllFiltered,
     setFilter,
+    setPage,
+    setPageSize,
     sourceContext,
     sourceContextId,
     tableStatus,
@@ -72,6 +77,11 @@ export default function ManagerBucketPurgePage() {
           onToggleBucket={toggleBucket}
           onSelectFiltered={selectAllFiltered}
           onClearSelection={clearSelection}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
           tableStatus={tableStatus}
           loadingMessage={text("Loading buckets...")}
           errorMessage={text("Unable to load buckets.")}

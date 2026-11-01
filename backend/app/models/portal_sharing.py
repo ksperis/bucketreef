@@ -10,6 +10,7 @@ from pydantic import AwareDatetime, Field
 
 from app.db import PortalAccountRole
 from app.models.base import ApiModel
+from app.models.pagination import PaginatedResponse
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceAccountMemberRole,
     PortalStorageSpaceGrantRole,
@@ -61,6 +62,10 @@ class PortalStorageSpaceShareCandidate(ApiModel):
     access_source: Literal["direct", "group", "direct_and_group"]
     already_shared: bool
     avatar: Optional[UserAvatar]
+
+
+class PaginatedPortalStorageSpaceShareCandidates(PaginatedResponse):
+    items: list[PortalStorageSpaceShareCandidate]
 
 
 class PortalCollaborator(ApiModel):

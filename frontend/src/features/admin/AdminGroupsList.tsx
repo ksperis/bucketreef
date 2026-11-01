@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import { useMemo } from "react";
 
-import type { S3AccountSummary } from "../../api/accounts";
 import type { UiGroup } from "../../api/groups";
 import DataTableShell, {
   dataTableDefaultActionProps,
@@ -42,7 +41,7 @@ type AdminGroupsListProps = {
   pageSize: number;
   total: number;
   busyId: number | null;
-  accountOptionsById: ReadonlyMap<number, S3AccountSummary>;
+  accountOptionsById: ReadonlyMap<number, { name: string }>;
   s3UserLabelById: ReadonlyMap<number, string>;
   connectionLabelById: ReadonlyMap<number, string>;
   onFilterChange: (value: string) => void;

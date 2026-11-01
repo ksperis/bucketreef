@@ -8,6 +8,8 @@ import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
 
 const createIamMock = vi.fn();
 const createRgwUserMock = vi.fn();
+const listIamGroupsPageMock = vi.fn();
+const listIamPoliciesPageMock = vi.fn();
 const fullAccessPolicyArn = "arn:aws:iam::aws:policy/AmazonS3FullAccess";
 
 vi.mock("../../api/managedPrivateAccess", async () => {
@@ -16,6 +18,22 @@ vi.mock("../../api/managedPrivateAccess", async () => {
     ...actual,
     createManagedIAMPrivateAccess: (...args: unknown[]) => createIamMock(...args),
     createManagedRGWUserPrivateAccess: (...args: unknown[]) => createRgwUserMock(...args),
+  };
+});
+
+vi.mock("../../api/managerIamGroups", async () => {
+  const actual = await vi.importActual<typeof import("../../api/managerIamGroups")>("../../api/managerIamGroups");
+  return {
+    ...actual,
+    listIamGroupsPage: (...args: unknown[]) => listIamGroupsPageMock(...args),
+  };
+});
+
+vi.mock("../../api/managerIamPolicies", async () => {
+  const actual = await vi.importActual<typeof import("../../api/managerIamPolicies")>("../../api/managerIamPolicies");
+  return {
+    ...actual,
+    listIamPoliciesPage: (...args: unknown[]) => listIamPoliciesPageMock(...args),
   };
 });
 
@@ -32,6 +50,14 @@ describe("CreateManagedPrivateAccessModal", () => {
       status: "active",
       connection: { id: 45, name: "Personal RGW", server_managed: true },
     });
+    listIamGroupsPageMock.mockResolvedValue({
+      items: [{ name: "readers" }],
+      next_marker: null,
+    });
+    listIamPoliciesPageMock.mockResolvedValue({
+      items: [{ name: "ReadOnly", arn: "arn:policy:readonly" }],
+      next_marker: null,
+    });
   });
 
   it("submits the compact IAM default with Browser and AmazonS3FullAccess", async () => {
@@ -46,8 +72,6 @@ describe("CreateManagedPrivateAccessModal", () => {
         variant="iam"
         contextId="acc-7"
         contextName="account-test"
-        groups={[{ name: "readers" }]}
-        policies={[{ name: "ReadOnly", arn: "arn:policy:readonly" }]}
         onClose={onClose}
         onCreated={onCreated}
       />
@@ -90,8 +114,6 @@ describe("CreateManagedPrivateAccessModal", () => {
       <CreateManagedPrivateAccessModal
         variant="iam"
         contextId="acc-7"
-        groups={[{ name: "readers" }]}
-        policies={[{ name: "ReadOnly", arn: "arn:policy:readonly" }]}
         onClose={vi.fn()}
         onCreated={vi.fn()}
       />
@@ -103,8 +125,8 @@ describe("CreateManagedPrivateAccessModal", () => {
     const fullAccess = screen.getByRole("checkbox", { name: "AmazonS3FullAccess" });
     expect(fullAccess).toBeChecked();
     await user.click(fullAccess);
-    await user.click(screen.getByText("readers"));
-    await user.click(screen.getByText("ReadOnly"));
+    await user.click(await screen.findByText("readers"));
+    await user.click(await screen.findByText("ReadOnly"));
     await user.type(screen.getByLabelText("Inline policy name"), "audit");
     await user.click(screen.getByRole("button", { name: "Add inline policy" }));
     await user.click(screen.getByRole("checkbox", { name: "Access manager" }));

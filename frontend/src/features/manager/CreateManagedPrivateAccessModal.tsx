@@ -3,11 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import ModalActions from "../../components/ModalActions";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
-import type { IAMGroup } from "../../api/managerIamGroups";
-import type { IamPolicy } from "../../api/managerIamPolicies";
+import { listIamGroupsPage } from "../../api/managerIamGroups";
+import { listIamPoliciesPage } from "../../api/managerIamPolicies";
 import {
   createManagedIAMPrivateAccess,
   createManagedRGWUserPrivateAccess,
@@ -26,6 +26,8 @@ import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefr
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { inlinePolicyNameFormatError, type NamingValidationProfile } from "../../utils/resourceNames";
 import { useManagerI18n } from "./managerI18n";
+import IamCursorPaginationControls from "./IamCursorPaginationControls";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
 
 const AMAZON_S3_FULL_ACCESS_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonS3FullAccess";
 
@@ -36,8 +38,6 @@ type Props = {
   namingValidationProfile?: NamingValidationProfile | null;
   contextId: S3ExecutionContextSelector;
   contextName?: string | null;
-  groups?: IAMGroup[];
-  policies?: IamPolicy[];
   onClose: () => void;
   onCreated: (connectionName: string) => void;
 };
@@ -47,8 +47,6 @@ export default function CreateManagedPrivateAccessModal({
   namingValidationProfile = "standard",
   contextId,
   contextName,
-  groups = [],
-  policies = [],
   onClose,
   onCreated,
 }: Props) {
@@ -75,19 +73,22 @@ export default function CreateManagedPrivateAccessModal({
   const [inlineNameError, setInlineNameError] = useState<string>();
   const [inlineDocumentError, setInlineDocumentError] = useState<string>();
   const [accessError, setAccessError] = useState<string>();
+  const groups = useManagerIamCursorCollection(listIamGroupsPage);
+  const policies = useManagerIamCursorCollection(listIamPoliciesPage);
+
+  useEffect(() => {
+    if (variant !== "iam") return;
+    groups.load(contextId);
+    policies.load(contextId);
+  }, [contextId, groups.load, policies.load, variant]);
 
   const inlineFormatError = inlinePolicyNameFormatError(inlineName.trim(), "user", namingValidationProfile ?? "standard");
   const namingRulesPending = variant === "iam" && namingValidationProfile === null;
   const title = text(variant === "iam" ? "Create my private access" : "Create my private RGW access");
   const selectedInlineNames = useMemo(() => new Set(inlinePolicies.map((policy) => policy.name)), [inlinePolicies]);
   const availablePolicies = useMemo(
-    () => policies.some((policy) => policy.arn === AMAZON_S3_FULL_ACCESS_POLICY_ARN)
-      ? policies
-      : [
-          { name: "AmazonS3FullAccess", arn: AMAZON_S3_FULL_ACCESS_POLICY_ARN },
-          ...policies,
-        ],
-    [policies]
+    () => policies.items.filter((policy) => policy.arn !== AMAZON_S3_FULL_ACCESS_POLICY_ARN),
+    [policies.items]
   );
   const usesDefaultConfiguration = accessBrowser
     && !accessManager
@@ -233,8 +234,16 @@ export default function CreateManagedPrivateAccessModal({
                 <div>
                   <SettingsSection title={text("IAM groups")} presentation="compact">
                     <div className="settings-fields">
-                      {groups.length === 0 && <span className="settings-description">{text("No groups available.")}</span>}
-                      {groups.map((group) => (
+                      <UiInput
+                        label={text("Search groups")}
+                        value={groups.search}
+                        onChange={(event) => groups.setSearch(event.target.value)}
+                        placeholder={text("Search groups by name")}
+                      />
+                      {!groups.loading && groups.items.length === 0 && (
+                        <span className="settings-description">{groups.search.trim() ? text("No matching groups.") : text("No groups available.")}</span>
+                      )}
+                      {groups.items.map((group) => (
                         <UiCheckboxField
                           key={group.name}
                           className="settings-choice min-w-0"
@@ -246,10 +255,39 @@ export default function CreateManagedPrivateAccessModal({
                           <span className="min-w-0 [overflow-wrap:anywhere]">{group.name}</span>
                         </UiCheckboxField>
                       ))}
+                      <IamCursorPaginationControls
+                        page={groups.page}
+                        pageSize={groups.pageSize}
+                        canPrevious={groups.canPrevious}
+                        canNext={groups.canNext}
+                        disabled={groups.loading}
+                        onPrevious={groups.previousPage}
+                        onNext={groups.nextPage}
+                        onPageSizeChange={groups.setPageSize}
+                      />
                     </div>
                   </SettingsSection>
                   <SettingsSection title={text("Managed policies")} presentation="compact">
                     <div className="settings-fields">
+                      <UiCheckboxField
+                        className="settings-choice min-w-0"
+                        checked={selectedPolicies.includes(AMAZON_S3_FULL_ACCESS_POLICY_ARN)}
+                        onChange={(event) => setSelectedPolicies((current) => event.target.checked
+                          ? [...current.filter((arn) => arn !== AMAZON_S3_FULL_ACCESS_POLICY_ARN), AMAZON_S3_FULL_ACCESS_POLICY_ARN]
+                          : current.filter((arn) => arn !== AMAZON_S3_FULL_ACCESS_POLICY_ARN))}
+                        labelProps={{ title: AMAZON_S3_FULL_ACCESS_POLICY_ARN }}
+                      >
+                        <span className="min-w-0 [overflow-wrap:anywhere]">AmazonS3FullAccess</span>
+                      </UiCheckboxField>
+                      <UiInput
+                        label={text("Search policies")}
+                        value={policies.search}
+                        onChange={(event) => policies.setSearch(event.target.value)}
+                        placeholder={text("Search policies by name or ARN")}
+                      />
+                      {!policies.loading && availablePolicies.length === 0 && policies.search.trim() && (
+                        <span className="settings-description">{text("No matching policies.")}</span>
+                      )}
                       {availablePolicies.map((policy) => (
                         <UiCheckboxField
                           key={policy.arn}
@@ -263,6 +301,16 @@ export default function CreateManagedPrivateAccessModal({
                           <span className="min-w-0 [overflow-wrap:anywhere]">{policy.name}</span>
                         </UiCheckboxField>
                       ))}
+                      <IamCursorPaginationControls
+                        page={policies.page}
+                        pageSize={policies.pageSize}
+                        canPrevious={policies.canPrevious}
+                        canNext={policies.canNext}
+                        disabled={policies.loading}
+                        onPrevious={policies.previousPage}
+                        onNext={policies.nextPage}
+                        onPageSizeChange={policies.setPageSize}
+                      />
                     </div>
                   </SettingsSection>
                   <SettingsSection title={text("Inline policies")} presentation="compact">

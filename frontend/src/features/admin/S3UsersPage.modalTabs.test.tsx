@@ -17,8 +17,8 @@ const deleteS3UserMock = vi.fn();
 
 const listStorageEndpointsMock = vi.fn();
 const getStorageEndpointMock = vi.fn();
-const listMinimalUsersMock = vi.fn();
-const listMinimalGroupsMock = vi.fn();
+const listUserOptionsMock = vi.fn();
+const listGroupOptionsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
 const adminS3UserStatsMock = vi.fn();
 let managedTenantCreationEnabled = false;
@@ -100,11 +100,11 @@ vi.mock("../../api/storageEndpoints", () => ({
 }));
 
 vi.mock("../../api/users", () => ({
-  listMinimalUsers: () => listMinimalUsersMock(),
+  listUserOptions: (params?: unknown) => listUserOptionsMock(params),
 }));
 
 vi.mock("../../api/groups", () => ({
-  listMinimalGroups: () => listMinimalGroupsMock(),
+  listGroupOptions: (params?: unknown) => listGroupOptionsMock(params),
 }));
 
 vi.mock("../../api/tags", () => ({
@@ -162,8 +162,20 @@ describe("S3UsersPage modal tabs", () => {
       },
     });
 
-    listMinimalUsersMock.mockResolvedValue([{ id: 33, email: "ui33@example.com" }]);
-    listMinimalGroupsMock.mockResolvedValue([{ id: 31, name: "Storage Group" }]);
+    listUserOptionsMock.mockResolvedValue({
+      items: [{ id: 33, email: "ui33@example.com" }],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
+    listGroupOptionsMock.mockResolvedValue({
+      items: [{ id: 31, name: "Storage Group" }],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
     listAdminTagDefinitionsMock.mockResolvedValue([makeTag(601, "legacy"), makeTag(602, "prod")]);
 
     getS3UserMock.mockResolvedValue({

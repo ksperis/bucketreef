@@ -6,7 +6,7 @@ import ManagerGroupUsersPage from "./ManagerGroupUsersPage";
 
 const useExecutionContextMock = vi.fn();
 const listIamGroupUsersMock = vi.fn();
-const listIamUsersMock = vi.fn();
+const listIamUsersPageMock = vi.fn();
 const removeIamGroupUserMock = vi.fn();
 
 vi.mock("./ExecutionContextProvider", () => ({
@@ -27,7 +27,7 @@ vi.mock("../../api/managerIamUsers", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamUsers")>("../../api/managerIamUsers");
   return {
     ...actual,
-    listIamUsers: (...args: unknown[]) => listIamUsersMock(...args),
+    listIamUsersPage: (...args: unknown[]) => listIamUsersPageMock(...args),
   };
 });
 
@@ -45,7 +45,7 @@ describe("ManagerGroupUsersPage", () => {
   beforeEach(() => {
     useExecutionContextMock.mockReset();
     listIamGroupUsersMock.mockReset();
-    listIamUsersMock.mockReset();
+    listIamUsersPageMock.mockReset();
     removeIamGroupUserMock.mockReset().mockResolvedValue(undefined);
     useExecutionContextMock.mockReturnValue({
       selectedContextKind: "account",
@@ -54,7 +54,7 @@ describe("ManagerGroupUsersPage", () => {
       accessMode: "default",
     });
     listIamGroupUsersMock.mockResolvedValue([]);
-    listIamUsersMock.mockResolvedValue([]);
+    listIamUsersPageMock.mockResolvedValue({ items: [], next_marker: null });
   });
 
   it("renders group members through the shared responsive table", async () => {
@@ -64,16 +64,17 @@ describe("ManagerGroupUsersPage", () => {
         arn: "arn:aws:iam::acc-1:user/alice",
       },
     ]);
-    listIamUsersMock.mockResolvedValue([
-      {
+    listIamUsersPageMock.mockResolvedValue({
+      items: [{
         name: "alice",
         arn: "arn:aws:iam::acc-1:user/alice",
       },
       {
         name: "bob",
         arn: "arn:aws:iam::acc-1:user/bob",
-      },
-    ]);
+      }],
+      next_marker: null,
+    });
 
     renderPage();
 
@@ -90,7 +91,7 @@ describe("ManagerGroupUsersPage", () => {
 
     await waitFor(() => {
       expect(listIamGroupUsersMock).toHaveBeenCalledWith("acc-1", "operators");
-      expect(listIamUsersMock).toHaveBeenCalledWith("acc-1");
+      expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 });
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));

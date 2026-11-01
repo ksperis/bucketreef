@@ -6,6 +6,7 @@ from typing import Any, Optional, List, Literal
 from pydantic import field_validator, model_validator
 
 from app.models.base import ApiModel
+from app.models.pagination import PaginatedResponse
 from app.utils.normalize import normalize_optional_scalar
 
 
@@ -28,6 +29,14 @@ class Bucket(ApiModel):
     quota_max_objects: Optional[int] = None
     tags: Optional[List[BucketTag]] = None
     features: Optional[dict[str, BucketFeatureStatus]] = None
+
+
+class BucketOption(ApiModel):
+    name: str
+
+
+class PaginatedBucketOptionsResponse(PaginatedResponse):
+    items: list[BucketOption]
 
 
 class BucketPublicAccessBlock(ApiModel):

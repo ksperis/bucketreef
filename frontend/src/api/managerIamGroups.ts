@@ -16,6 +16,9 @@ import {
   listEntityInlinePolicies,
   listEntityPolicies,
   listIamEntities,
+  listIamEntityPage,
+  type IamCursorPage,
+  type IamCursorQuery,
   putEntityInlinePolicy,
   updateIamEntity,
 } from "./managerIamEntityClient";
@@ -37,6 +40,13 @@ type CreateGroupPayload = {
 
 export async function listIamGroups(contextId?: S3ExecutionContextSelector): Promise<IAMGroup[]> {
   return listIamEntities<IAMGroup>("groups", contextId);
+}
+
+export async function listIamGroupsPage(
+  contextId: S3ExecutionContextSelector,
+  query: IamCursorQuery = {},
+): Promise<IamCursorPage<IAMGroup>> {
+  return listIamEntityPage<IAMGroup>("groups", contextId, query);
 }
 
 export async function getIamGroup(contextId: S3ExecutionContextSelector, groupName: string): Promise<IAMGroup> {

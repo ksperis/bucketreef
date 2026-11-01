@@ -2,16 +2,43 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect } from "react";
 
-import { listMinimalS3Accounts, type S3AccountSummary } from "../../api/accounts";
-import { listAdminOpenStackClouds, type OpenStackCloud } from "../../api/openstack";
+import { listS3Accounts, type S3AccountSummary } from "../../api/accounts";
 import {
-  listMinimalS3Connections,
+  listAdminOpenStackCloudOptions,
+  type OpenStackCloud,
+} from "../../api/openstack";
+import {
+  listAdminS3Connections,
   type S3ConnectionSummary,
 } from "../../api/s3ConnectionsAdmin";
-import { listMinimalS3Users, type S3UserSummary } from "../../api/s3Users";
-import { listMinimalUsers, type UserSummary } from "../../api/users";
+import { listS3Users, type S3UserSummary } from "../../api/s3Users";
+import type { PaginatedResponse } from "../../api/types";
+import { listUserOptions, type UserSummary } from "../../api/users";
+import usePaginatedOptions, {
+  type PaginatedOptionsQuery,
+} from "../../hooks/usePaginatedOptions";
+
+const loadUsers = async (
+  query: PaginatedOptionsQuery,
+): Promise<PaginatedResponse<UserSummary>> => listUserOptions(query);
+
+const loadAccounts = async (
+  query: PaginatedOptionsQuery,
+): Promise<PaginatedResponse<S3AccountSummary>> => listS3Accounts(query);
+
+const loadS3Users = async (
+  query: PaginatedOptionsQuery,
+): Promise<PaginatedResponse<S3UserSummary>> => listS3Users(query);
+
+const loadConnections = async (
+  query: PaginatedOptionsQuery,
+): Promise<PaginatedResponse<S3ConnectionSummary>> => listAdminS3Connections(query);
+
+const loadOpenStackClouds = async (
+  query: PaginatedOptionsQuery,
+): Promise<PaginatedResponse<OpenStackCloud>> => listAdminOpenStackCloudOptions(query);
 
 type UseAdminGroupAssociationOptions = {
   openStackEnabled: boolean;
@@ -22,43 +49,57 @@ export default function useAdminGroupAssociationOptions({
   openStackEnabled,
   onError,
 }: UseAdminGroupAssociationOptions) {
-  const [users, setUsers] = useState<UserSummary[]>([]);
-  const [accounts, setAccounts] = useState<S3AccountSummary[]>([]);
-  const [s3Users, setS3Users] = useState<S3UserSummary[]>([]);
-  const [connections, setConnections] = useState<S3ConnectionSummary[]>([]);
-  const [openStackClouds, setOpenStackClouds] = useState<OpenStackCloud[]>([]);
-  const [loading, setLoading] = useState(false);
+  const users = usePaginatedOptions(loadUsers, { initialPageSize: 10 });
+  const accounts = usePaginatedOptions(loadAccounts, { initialPageSize: 10 });
+  const s3Users = usePaginatedOptions(loadS3Users, { initialPageSize: 10 });
+  const connections = usePaginatedOptions(loadConnections, { initialPageSize: 10 });
+  const openStackClouds = usePaginatedOptions(loadOpenStackClouds, {
+    enabled: openStackEnabled,
+    initialPageSize: 10,
+  });
 
   const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [nextUsers, nextAccounts, nextS3Users, nextConnections, nextOpenStackClouds] =
-        await Promise.all([
-          listMinimalUsers(),
-          listMinimalS3Accounts(),
-          listMinimalS3Users(),
-          listMinimalS3Connections(),
-          openStackEnabled ? listAdminOpenStackClouds() : Promise.resolve([]),
-        ]);
-      setUsers(nextUsers);
-      setAccounts(nextAccounts);
-      setS3Users(nextS3Users);
-      setConnections(nextConnections);
-      setOpenStackClouds(nextOpenStackClouds);
-    } catch (error) {
-      onError(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [onError, openStackEnabled]);
+    users.refresh();
+    accounts.refresh();
+    s3Users.refresh();
+    connections.refresh();
+    if (openStackEnabled) openStackClouds.refresh();
+  }, [
+    accounts.refresh,
+    connections.refresh,
+    openStackClouds.refresh,
+    openStackEnabled,
+    s3Users.refresh,
+    users.refresh,
+  ]);
+
+  const error =
+    users.error ??
+    accounts.error ??
+    s3Users.error ??
+    connections.error ??
+    (openStackEnabled ? openStackClouds.error : null);
+  useEffect(() => {
+    if (error) onError(error);
+  }, [error, onError]);
 
   return {
-    users,
-    accounts,
-    s3Users,
-    connections,
-    openStackClouds,
-    loading,
+    users: users.items,
+    accounts: accounts.items,
+    s3Users: s3Users.items,
+    connections: connections.items,
+    openStackClouds: openStackClouds.items,
+    loading:
+      users.loading ||
+      accounts.loading ||
+      s3Users.loading ||
+      connections.loading ||
+      (openStackEnabled && openStackClouds.loading),
+    usersCatalog: users,
+    accountsCatalog: accounts,
+    s3UsersCatalog: s3Users,
+    connectionsCatalog: connections,
+    openStackCloudsCatalog: openStackClouds,
     refresh,
   };
 }

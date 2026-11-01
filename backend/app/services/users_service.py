@@ -104,6 +104,19 @@ class UsersService:
     def list_users_minimal(self) -> list[UserSummary]:
         return self.query.list_users_minimal()
 
+    def paginate_user_summaries(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        search: Optional[str] = None,
+    ) -> tuple[list[UserSummary], int]:
+        return self.query.paginate_user_summaries(
+            page=page,
+            page_size=page_size,
+            search=search,
+        )
+
     def paginate_users(
         self,
         page: int,

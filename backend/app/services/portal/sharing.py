@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, or_, select
 
 from app.db import (
     PortalAccountRole,
@@ -12,7 +12,10 @@ from app.db import (
     PortalStorageSpaceGrant,
     PortalStorageSpaceMetadata,
     S3Account,
+    UiGroupS3Account,
     User,
+    UserS3Account,
+    UserUiGroup,
 )
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceGrantRole,
@@ -33,6 +36,7 @@ from app.services.portal.exceptions import (
     PortalNotFoundError,
 )
 from app.services.user_avatar_service import UserAvatarService
+from app.services.sqlalchemy_pagination import paginate_scalars
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:
@@ -364,7 +368,12 @@ class PortalSharingMixin:
         user: User,
         access: "AccountAccess",
         space_id: Optional[str] = None,
-    ) -> list[PortalStorageSpaceShareCandidate]:
+        *,
+        page: int = 1,
+        page_size: int = 25,
+        search: str | None = None,
+        include_already_shared: bool = False,
+    ) -> tuple[list[PortalStorageSpaceShareCandidate], int]:
         metadata: PortalStorageSpaceMetadata | None = None
         excluded_user_ids = {user.id}
         shared_user_ids: set[int] = set()
@@ -385,22 +394,98 @@ class PortalSharingMixin:
                     )
                 ).all()
             )
-        rows = []
-        for user_id, (target, portal_role, sources) in self._portal_account_member_map(access.account).items():
-            if user_id in excluded_user_ids or portal_role != PortalAccountRole.PORTAL_USER.value:
-                continue
-            rows.append(
-                PortalStorageSpaceShareCandidate(
-                    user_id=user_id,
-                    email=target.email,
-                    display_name=target.full_name,
-                    portal_role=portal_role,
-                    access_source=self._portal_access_source(sources),
-                    already_shared=user_id in shared_user_ids,
-                    avatar=None,
-                )
+        direct_user = exists(
+            select(UserS3Account.id).where(
+                UserS3Account.user_id == User.id,
+                UserS3Account.account_id == access.account.id,
+                UserS3Account.portal_role == PortalAccountRole.PORTAL_USER.value,
             )
-        return sorted(rows, key=lambda item: item.email.lower())
+        )
+        group_user = exists(
+            select(UserUiGroup.id)
+            .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
+            .where(
+                UserUiGroup.user_id == User.id,
+                UiGroupS3Account.account_id == access.account.id,
+                UiGroupS3Account.portal_role == PortalAccountRole.PORTAL_USER.value,
+            )
+        )
+        direct_manager = exists(
+            select(UserS3Account.id).where(
+                UserS3Account.user_id == User.id,
+                UserS3Account.account_id == access.account.id,
+                UserS3Account.portal_role == PortalAccountRole.PORTAL_MANAGER.value,
+            )
+        )
+        group_manager = exists(
+            select(UserUiGroup.id)
+            .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
+            .where(
+                UserUiGroup.user_id == User.id,
+                UiGroupS3Account.account_id == access.account.id,
+                UiGroupS3Account.portal_role == PortalAccountRole.PORTAL_MANAGER.value,
+            )
+        )
+        statement = select(User).where(
+            User.is_active.is_(True),
+            or_(direct_user, group_user),
+            ~or_(direct_manager, group_manager),
+            ~User.id.in_(excluded_user_ids),
+        )
+        if shared_user_ids and not include_already_shared:
+            statement = statement.where(~User.id.in_(shared_user_ids))
+        search_value = (search or "").strip()
+        if search_value:
+            pattern = f"%{search_value}%"
+            statement = statement.where(
+                or_(User.email.ilike(pattern), func.coalesce(User.full_name, "").ilike(pattern))
+            )
+        targets, total = paginate_scalars(
+            self.db,
+            statement,
+            order_by=(func.lower(User.email).asc(), User.id.asc()),
+            page=page,
+            page_size=page_size,
+        )
+        direct_ids = set(
+            self.db.scalars(
+                select(UserS3Account.user_id).where(
+                    UserS3Account.account_id == access.account.id,
+                    UserS3Account.portal_role == PortalAccountRole.PORTAL_USER.value,
+                    UserS3Account.user_id.in_([target.id for target in targets] or [-1]),
+                )
+            ).all()
+        )
+        group_ids = set(
+            self.db.scalars(
+                select(UserUiGroup.user_id)
+                .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
+                .where(
+                    UiGroupS3Account.account_id == access.account.id,
+                    UiGroupS3Account.portal_role == PortalAccountRole.PORTAL_USER.value,
+                    UserUiGroup.user_id.in_([target.id for target in targets] or [-1]),
+                )
+            ).all()
+        )
+        rows = [
+            PortalStorageSpaceShareCandidate(
+                user_id=target.id,
+                email=target.email,
+                display_name=target.full_name,
+                portal_role=PortalAccountRole.PORTAL_USER.value,
+                access_source=(
+                    "direct_and_group"
+                    if target.id in direct_ids and target.id in group_ids
+                    else "direct"
+                    if target.id in direct_ids
+                    else "group"
+                ),
+                already_shared=target.id in shared_user_ids,
+                avatar=None,
+            )
+            for target in targets
+        ]
+        return rows, total
 
     def set_storage_space_share(
         self,

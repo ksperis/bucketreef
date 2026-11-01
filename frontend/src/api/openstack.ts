@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import client from "./client";
 import type { S3Connection } from "./connections";
+import type { PaginatedResponse } from "./types";
 
 export type OpenStackCloudWrite = {
   name: string; auth_url: string; enabled: boolean; allow_password: boolean; allow_token: boolean;
@@ -107,6 +108,13 @@ export async function disconnectOpenStack(id: string, forget = false): Promise<v
 }
 export async function listAdminOpenStackClouds(): Promise<OpenStackCloud[]> {
   return (await client.get<OpenStackCloud[]>("/admin/openstack-clouds")).data;
+}
+export async function listAdminOpenStackCloudOptions(params: {
+  page?: number;
+  page_size?: number;
+  search?: string;
+} = {}): Promise<PaginatedResponse<OpenStackCloud>> {
+  return (await client.get<PaginatedResponse<OpenStackCloud>>("/admin/openstack-clouds/options", { params })).data;
 }
 export async function saveOpenStackCloud(payload: OpenStackCloudWrite, id?: number): Promise<OpenStackCloud> {
   return (id == null ? await client.post<OpenStackCloud>("/admin/openstack-clouds", payload) : await client.put<OpenStackCloud>(`/admin/openstack-clouds/${id}`, payload)).data;

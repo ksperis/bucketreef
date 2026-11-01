@@ -6,7 +6,7 @@ import { iamNameFormatError } from "../../utils/resourceNames";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
-import { IamPolicy, createIamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
+import { IamPolicy, createIamPolicy, listIamPoliciesPage } from "../../api/managerIamPolicies";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
@@ -22,7 +22,8 @@ import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
-import { useManagerIamCollection } from "./useManagerIamCollection";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
+import IamCursorPaginationControls from "./IamCursorPaginationControls";
 import { useManagerI18n } from "./managerI18n";
 
 const DEFAULT_POLICY_DOCUMENT = JSON.stringify(
@@ -49,7 +50,6 @@ export default function PoliciesPage() {
   const selectedContext = contexts.find((context) => context.id === selectedContextId) ?? null;
   const createManagedPolicyUnsupported = selectedContext?.endpoint_provider === "ceph";
   const canCreateManagedPolicy = !needsContextSelection && !isS3User && !createManagedPolicyUnsupported;
-  const [policyFilter, setPolicyFilter] = useState("");
   const {
     error,
     items: policies,
@@ -58,7 +58,16 @@ export default function PoliciesPage() {
     setError,
     setItems: setPolicies,
     setLoading,
-  } = useManagerIamCollection(listIamPolicies);
+    search: policyFilter,
+    setSearch: setPolicyFilter,
+    page,
+    pageSize,
+    setPageSize,
+    canPrevious,
+    canNext,
+    previousPage,
+    nextPage,
+  } = useManagerIamCursorCollection(listIamPoliciesPage, { includeDetails: true });
   const [advancedName, setAdvancedName] = useState("");
   const [documentText, setDocumentText] = useState(DEFAULT_POLICY_DOCUMENT);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -136,11 +145,7 @@ export default function PoliciesPage() {
     [advancedName, documentText]
   );
 
-  const filteredPolicies = policies.filter((policy) => {
-    const needle = policyFilter.trim().toLowerCase();
-    if (!needle) return true;
-    return policy.name.toLowerCase().includes(needle) || policy.arn.toLowerCase().includes(needle);
-  });
+  const filteredPolicies = policies;
   const filteredTableStatus = resolveListTableStatus({
     loading,
     error,
@@ -209,6 +214,16 @@ export default function PoliciesPage() {
             emptyMessage={text("No policies.")}
             responsiveCards
             tableLayout="fixed"
+          />
+          <IamCursorPaginationControls
+            page={page}
+            pageSize={pageSize}
+            canPrevious={canPrevious}
+            canNext={canNext}
+            disabled={loading}
+            onPrevious={previousPage}
+            onNext={nextPage}
+            onPageSizeChange={setPageSize}
           />
         </ListPageSection>
       )}

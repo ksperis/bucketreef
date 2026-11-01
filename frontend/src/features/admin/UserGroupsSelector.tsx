@@ -15,12 +15,19 @@ type UserGroupsSelectorProps = {
   selectedIds: number[];
   setSelectedIds: Dispatch<SetStateAction<number[]>>;
   search: string;
-  setSearch: Dispatch<SetStateAction<string>>;
+  setSearch: (value: string) => void;
   visibleGroups: UiGroupSummary[];
   showPanel: boolean;
   setShowPanel: Dispatch<SetStateAction<boolean>>;
   selections: number[];
   setSelections: Dispatch<SetStateAction<number[]>>;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (pageSize: number) => void;
+  };
 };
 
 export default function UserGroupsSelector({
@@ -37,6 +44,7 @@ export default function UserGroupsSelector({
   setShowPanel,
   selections,
   setSelections,
+  pagination,
 }: UserGroupsSelectorProps) {
   const { text } = useUserI18n();
   const groupById = new Map(groups.map((group) => [group.id, group]));
@@ -65,6 +73,7 @@ export default function UserGroupsSelector({
               ? current.filter((selectedId) => selectedId !== id)
               : [...current, id],
           ),
+        pagination,
       }}
       maxVisibleOptions={maxVisibleOptions}
       primaryLabel={text("group")}

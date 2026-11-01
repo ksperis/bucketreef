@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.domain_errors import UiGroupNotFoundError
 from app.db import User, is_superadmin_ui_role
 from app.models.ui_group import (
+    PaginatedUiGroupSummariesResponse,
     PaginatedUiGroupsResponse,
     UiGroupCreate,
     UiGroupOut,
@@ -79,6 +80,28 @@ def list_groups_minimal(
     _: User = Depends(get_current_ui_admin),
 ) -> list[UiGroupSummary]:
     return groups_service.list_groups_minimal()
+
+
+@router.get("/options", response_model=PaginatedUiGroupSummariesResponse)
+def list_group_options(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: Optional[str] = Query(None, max_length=200),
+    groups_service: UiGroupsService = Depends(get_groups_service_dependency),
+    _: User = Depends(get_current_ui_admin),
+) -> PaginatedUiGroupSummariesResponse:
+    items, total = groups_service.paginate_group_summaries(
+        page=page,
+        page_size=page_size,
+        search=search,
+    )
+    return PaginatedUiGroupSummariesResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_next=page * page_size < total,
+    )
 
 
 @router.post("", response_model=UiGroupOut, status_code=status.HTTP_201_CREATED)

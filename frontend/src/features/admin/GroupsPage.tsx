@@ -144,7 +144,11 @@ export default function GroupsPage() {
     s3Users,
     connections,
     openStackClouds,
-    loading: auxLoading,
+    usersCatalog,
+    accountsCatalog,
+    s3UsersCatalog,
+    connectionsCatalog,
+    openStackCloudsCatalog,
     refresh: loadAuxiliaryData,
   } = useAdminGroupAssociationOptions({
     openStackEnabled,
@@ -237,31 +241,35 @@ export default function GroupsPage() {
   };
 
   const accountOptionsById = useMemo(() => {
-    const map = new Map<number, (typeof accounts)[number]>();
+    const map = new Map<number, { name: string }>();
+    editingGroup?.account_details.forEach((account) => map.set(account.id, account));
     accounts.forEach((account) => {
       const id = account.id;
       if (!Number.isNaN(id)) map.set(id, account);
     });
     return map;
-  }, [accounts]);
+  }, [accounts, editingGroup]);
 
   const s3UserLabelById = useMemo(() => {
     const map = new Map<number, string>();
+    editingGroup?.s3_user_details.forEach((user) => map.set(user.id, user.name));
     s3Users.forEach((user) => map.set(user.id, user.name));
     return map;
-  }, [s3Users]);
+  }, [editingGroup, s3Users]);
 
   const connectionLabelById = useMemo(() => {
     const map = new Map<number, string>();
+    editingGroup?.s3_connection_details.forEach((connection) => map.set(connection.id, connection.name));
     connections.forEach((connection) => map.set(connection.id, connection.name));
     return map;
-  }, [connections]);
+  }, [connections, editingGroup]);
 
   const openStackCloudLabelById = useMemo(() => {
     const map = new Map<number, string>();
+    editingGroup?.openstack_cloud_details.forEach((cloud) => map.set(cloud.id, cloud.name));
     openStackClouds.forEach((cloud) => map.set(cloud.id, cloud.name));
     return map;
-  }, [openStackClouds]);
+  }, [editingGroup, openStackClouds]);
 
   const managerToolDefinitions = useMemo(
     () => buildManagerToolDefinitions(generalSettings),
@@ -276,6 +284,11 @@ export default function GroupsPage() {
     setModalTab("general");
     memberPicker.reset();
     storageAssociations.reset();
+    usersCatalog.setSearch("");
+    accountsCatalog.setSearch("");
+    s3UsersCatalog.setSearch("");
+    connectionsCatalog.setSearch("");
+    openStackCloudsCatalog.setSearch("");
     setAvatarFile(null);
     setRemoveAvatarImage(false);
   };
@@ -418,7 +431,9 @@ export default function GroupsPage() {
   const selectedConnectionIds = new Set(form.s3_connection_ids ?? []);
   const selectedOpenStackCloudIds = new Set(form.openstack_cloud_ids ?? []);
   const selectedAccountIds = new Set((form.account_links ?? []).map((link) => Number(link.account_id)));
-  const userLabelById = new Map(users.map((user) => [user.id, user.email]));
+  const userLabelById = new Map<number, string>();
+  editingGroup?.user_details.forEach((user) => userLabelById.set(user.id, user.email));
+  users.forEach((user) => userLabelById.set(user.id, user.email));
   const userOptions = deriveAdminAssociationOptions({
     items: users,
     selectedIds: selectedUserIds,
@@ -518,13 +533,23 @@ export default function GroupsPage() {
       label: connection.name,
     })),
     search: connectionPicker.search,
-    setSearch: connectionPicker.setSearch,
-    loading: auxLoading,
+    setSearch: (value) => {
+      connectionPicker.setSearch(value);
+      connectionsCatalog.setSearch(value);
+    },
+    loading: connectionsCatalog.loading,
     showPanel: connectionPicker.open,
     setShowPanel: connectionPicker.setOpen,
     selections: connectionPicker.selections,
     setSelections: connectionPicker.setSelections,
     toggleSelection: connectionPicker.toggleSelection,
+    pagination: {
+      page: connectionsCatalog.page,
+      pageSize: connectionsCatalog.pageSize,
+      total: connectionsCatalog.total,
+      onPageChange: connectionsCatalog.setPage,
+      onPageSizeChange: connectionsCatalog.setPageSize,
+    },
   };
   const memberAssociationState: AdminSimpleIdAssociationsState = {
     selected: form.user_ids ?? [],
@@ -539,13 +564,23 @@ export default function GroupsPage() {
       label: user.email,
     })),
     search: memberPicker.search,
-    setSearch: memberPicker.setSearch,
-    loading: auxLoading,
+    setSearch: (value) => {
+      memberPicker.setSearch(value);
+      usersCatalog.setSearch(value);
+    },
+    loading: usersCatalog.loading,
     showPanel: memberPicker.open,
     setShowPanel: memberPicker.setOpen,
     selections: memberPicker.selections,
     setSelections: memberPicker.setSelections,
     toggleSelection: memberPicker.toggleSelection,
+    pagination: {
+      page: usersCatalog.page,
+      pageSize: usersCatalog.pageSize,
+      total: usersCatalog.total,
+      onPageChange: usersCatalog.setPage,
+      onPageSizeChange: usersCatalog.setPageSize,
+    },
   };
   const accountAssociationState: AdminAccountAssociationsState = {
     selected: (form.account_links ?? []).map((link) => ({
@@ -565,8 +600,11 @@ export default function GroupsPage() {
       label: account.name,
     })),
     search: accountPicker.search,
-    setSearch: accountPicker.setSearch,
-    loading: auxLoading,
+    setSearch: (value) => {
+      accountPicker.setSearch(value);
+      accountsCatalog.setSearch(value);
+    },
+    loading: accountsCatalog.loading,
     showPanel: accountPicker.open,
     setShowPanel: accountPicker.setOpen,
     selections: accountPicker.selections,
@@ -574,6 +612,13 @@ export default function GroupsPage() {
     accountAccessChoice,
     setAccountAccessChoice,
     toggleSelection: accountPicker.toggleSelection,
+    pagination: {
+      page: accountsCatalog.page,
+      pageSize: accountsCatalog.pageSize,
+      total: accountsCatalog.total,
+      onPageChange: accountsCatalog.setPage,
+      onPageSizeChange: accountsCatalog.setPageSize,
+    },
   };
   const s3UserAssociationState: AdminRgwUserAccessAssociationsState<S3UserMembership> = {
     selected: form.s3_user_links ?? [],
@@ -597,13 +642,23 @@ export default function GroupsPage() {
       label: s3User.name,
     })),
     search: s3UserPicker.search,
-    setSearch: s3UserPicker.setSearch,
-    loading: auxLoading,
+    setSearch: (value) => {
+      s3UserPicker.setSearch(value);
+      s3UsersCatalog.setSearch(value);
+    },
+    loading: s3UsersCatalog.loading,
     showPanel: s3UserPicker.open,
     setShowPanel: s3UserPicker.setOpen,
     selections: s3UserPicker.selections,
     setSelections: s3UserPicker.setSelections,
     toggleSelection: s3UserPicker.toggleSelection,
+    pagination: {
+      page: s3UsersCatalog.page,
+      pageSize: s3UsersCatalog.pageSize,
+      total: s3UsersCatalog.total,
+      onPageChange: s3UsersCatalog.setPage,
+      onPageSizeChange: s3UsersCatalog.setPageSize,
+    },
   };
   const openStackAssociationState: AdminSimpleIdAssociationsState = {
     selected: form.openstack_cloud_ids ?? [],
@@ -612,13 +667,23 @@ export default function GroupsPage() {
     available: openStackOptions.available.map((cloud) => ({ id: cloud.id, label: cloud.name })),
     visible: openStackOptions.visible.map((cloud) => ({ id: cloud.id, label: cloud.name })),
     search: openStackPicker.search,
-    setSearch: openStackPicker.setSearch,
-    loading: auxLoading,
+    setSearch: (value) => {
+      openStackPicker.setSearch(value);
+      openStackCloudsCatalog.setSearch(value);
+    },
+    loading: openStackCloudsCatalog.loading,
     showPanel: openStackPicker.open,
     setShowPanel: openStackPicker.setOpen,
     selections: openStackPicker.selections,
     setSelections: openStackPicker.setSelections,
     toggleSelection: openStackPicker.toggleSelection,
+    pagination: {
+      page: openStackCloudsCatalog.page,
+      pageSize: openStackCloudsCatalog.pageSize,
+      total: openStackCloudsCatalog.total,
+      onPageChange: openStackCloudsCatalog.setPage,
+      onPageSizeChange: openStackCloudsCatalog.setPageSize,
+    },
   };
 
   const renderMembersTab = () => (

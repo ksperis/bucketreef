@@ -1,12 +1,12 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
-from app.models.iam import IAMGroup, IAMGroupCreate, IAMGroupUpdate, IAMUser
+from app.models.iam import IAMGroup, IAMGroupCreate, IAMGroupPage, IAMGroupUpdate, IAMUser
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -58,6 +58,33 @@ def list_groups(
     service = get_iam_service_for_context(context)
     try:
         return [_annotate_managed_group(group) for group in service.list_groups()]
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
+
+
+@router.get("/page", response_model=IAMGroupPage)
+def list_groups_page(
+    marker: str | None = Query(None),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str | None = Query(None, max_length=200),
+    include_details: bool = Query(False),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    _: ManagerActor = Depends(require_iam_capable_manager),
+) -> IAMGroupPage:
+    service = get_iam_service_for_context(context)
+    try:
+        groups, next_marker = service.list_groups_page(
+            marker=marker,
+            max_items=page_size,
+            search=search,
+        )
+        if include_details:
+            for group in groups:
+                group.policies = [policy.arn for policy in service.list_group_policies(group.name)]
+        return IAMGroupPage(
+            items=[_annotate_managed_group(group) for group in groups],
+            next_marker=next_marker,
+        )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

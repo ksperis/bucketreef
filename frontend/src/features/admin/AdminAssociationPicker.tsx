@@ -4,6 +4,7 @@
  */
 import ListToolbar from "../../components/ListToolbar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
+import PaginationControls from "../../components/PaginationControls";
 import { ListActionButton } from "../../components/list/ListControls";
 import { useId, type ReactNode } from "react";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
@@ -347,6 +348,14 @@ type AdminAssociationPickerPanelProps = {
   emptyLabel?: ReactNode;
   addLabel?: ReactNode;
   children: ReactNode;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange?: (pageSize: number) => void;
+    pageSizeOptions?: number[];
+  };
 };
 
 export function AdminAssociationPickerPanel({
@@ -366,6 +375,7 @@ export function AdminAssociationPickerPanel({
   emptyLabel,
   addLabel,
   children,
+  pagination,
 }: AdminAssociationPickerPanelProps) {
   const { text } = useAdminAssociationI18n();
   const resolvedEmptyLabel = emptyLabel ?? text("noResults");
@@ -379,12 +389,23 @@ export function AdminAssociationPickerPanel({
         {loading ? <p className={cx("ui-caption", uiMutedTextClass)}>{loadingLabel}</p> : null}
         {!loading && availableCount === 0 ? <p className={cx("ui-caption", uiMutedTextClass)}>{resolvedEmptyLabel}</p> : null}
         {children}
-        {availableCount > maxVisibleOptions ? (
+        {!pagination && availableCount > maxVisibleOptions ? (
           <p className={cx("ui-caption", uiMutedTextClass)}>
             {text("showingFirstMatches", { count: maxVisibleOptions })}
           </p>
         ) : null}
       </div>
+      {pagination ? (
+        <PaginationControls
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={pagination.total}
+          onPageChange={pagination.onPageChange}
+          onPageSizeChange={pagination.onPageSizeChange}
+          pageSizeOptions={pagination.pageSizeOptions}
+          disabled={loading}
+        />
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className={cx("ui-caption", uiMutedTextClass)}>{text("selectedCount", { count: selectedCount })}</span>
         <div className="flex items-center gap-2">

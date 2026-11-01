@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   type CephAdminBucket,
@@ -28,6 +28,7 @@ import Modal from "../../components/Modal";
 import ModalActions from "../../components/ModalActions";
 import ModalOptions from "../../components/ModalOptions";
 import InlineSummary from "../../components/InlineSummary";
+import PaginationControls from "../../components/PaginationControls";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
@@ -35,6 +36,7 @@ import UiDetails from "../../components/ui/UiDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import usePaginatedOptions, { type PaginatedOptionsQuery } from "../../hooks/usePaginatedOptions";
 import { cx, uiMutedTextClass, uiPanelMutedClass } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
 import { useCephAdminI18n } from "./cephAdminI18n";
@@ -122,11 +124,7 @@ export default function CephAdminAdminOpsModal({
   const [checkObjects, setCheckObjects] = useState(false);
   const [confirmation, setConfirmation] = useState("");
   const [linkTargetType, setLinkTargetType] = useState<"user" | "account">("user");
-  const [linkSearch, setLinkSearch] = useState("");
-  const [linkTargets, setLinkTargets] = useState<LinkTarget[]>([]);
   const [selectedLinkTarget, setSelectedLinkTarget] = useState<LinkTarget | null>(null);
-  const [targetsLoading, setTargetsLoading] = useState(false);
-  const [targetsError, setTargetsError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CephAdminAdminOpsResult | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -195,66 +193,54 @@ export default function CephAdminAdminOpsModal({
     }
   }, [action.kind, fixIndex, purgeData, purgeObjects, surfaceText]);
 
-  useEffect(() => {
-    if (action.kind !== "link-bucket") return;
-    if (linkTargetType === "account" && !canAccounts) {
-      setLinkTargetType("user");
-      return;
-    }
-    let active = true;
-    setTargetsLoading(true);
-    setTargetsError(null);
-    const timer = window.setTimeout(() => {
-      const load = async () => {
-        try {
-          if (linkTargetType === "account") {
-            const response = await listCephAdminAccounts(endpointId, {
-              page: 1,
-              page_size: 25,
-              search: linkSearch.trim() || undefined,
-              sort_by: "account_id",
-              sort_dir: "asc",
-            });
-            if (!active) return;
-            setLinkTargets(
-              response.items.map((account) => ({
-                type: "account",
-                id: account.account_id,
-                label: account.account_name ? `${account.account_name} · ${account.account_id}` : account.account_id,
-              }))
-            );
-          } else {
-            const response = await listCephAdminUsers(endpointId, {
-              page: 1,
-              page_size: 25,
-              search: linkSearch.trim() || undefined,
-              sort_by: "uid",
-              sort_dir: "asc",
-            });
-            if (!active) return;
-            setLinkTargets(
-              response.items.map((user) => ({
-                type: "user",
-                id: userId(user),
-                label: user.full_name ? `${user.full_name} · ${userId(user)}` : userId(user),
-              }))
-            );
-          }
-        } catch (error) {
-          if (!active) return;
-          setLinkTargets([]);
-          setTargetsError(extractApiError(error, "Unable to load RGW link targets."));
-        } finally {
-          if (active) setTargetsLoading(false);
-        }
+  const loadLinkTargets = useCallback(async ({ page, page_size, search }: PaginatedOptionsQuery) => {
+    if (linkTargetType === "account") {
+      if (!canAccounts) {
+        return { items: [], total: 0, page: page ?? 1, page_size: page_size ?? 25, has_next: false };
+      }
+      const response = await listCephAdminAccounts(endpointId, {
+        page,
+        page_size,
+        search,
+        sort_by: "account_id",
+        sort_dir: "asc",
+      });
+      return {
+        ...response,
+        items: response.items.map((account): LinkTarget => ({
+          type: "account",
+          id: account.account_id,
+          label: account.account_name ? `${account.account_name} · ${account.account_id}` : account.account_id,
+        })),
       };
-      void load();
-    }, 250);
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
+    }
+    const response = await listCephAdminUsers(endpointId, {
+      page,
+      page_size,
+      search,
+      sort_by: "uid",
+      sort_dir: "asc",
+    });
+    return {
+      ...response,
+      items: response.items.map((user): LinkTarget => ({
+        type: "user",
+        id: userId(user),
+        label: user.full_name ? `${user.full_name} · ${userId(user)}` : userId(user),
+      })),
     };
-  }, [action.kind, canAccounts, endpointId, linkSearch, linkTargetType]);
+  }, [canAccounts, endpointId, linkTargetType]);
+  const linkTargetCatalog = usePaginatedOptions(loadLinkTargets, {
+    enabled: action.kind === "link-bucket",
+    initialPageSize: 25,
+  });
+
+  useEffect(() => {
+    if (action.kind !== "link-bucket" || linkTargetType !== "account" || canAccounts) return;
+    setLinkTargetType("user");
+    setSelectedLinkTarget(null);
+    linkTargetCatalog.setSearch("");
+  }, [action.kind, canAccounts, linkTargetCatalog.setSearch, linkTargetType]);
 
   const resetOutcome = () => {
     setResult(null);
@@ -456,7 +442,8 @@ export default function CephAdminAdminOpsModal({
               onChange={(event) => {
                 setLinkTargetType(event.target.value as "user" | "account");
                 setSelectedLinkTarget(null);
-                setLinkSearch("");
+                linkTargetCatalog.setSearch("");
+                linkTargetCatalog.setPage(1);
                 resetOutcome();
               }}
             >
@@ -468,23 +455,25 @@ export default function CephAdminAdminOpsModal({
               type="search"
               size="compact"
               disabled={submitting}
-              value={linkSearch}
+              value={linkTargetCatalog.search}
               onChange={(event) => {
-                setLinkSearch(event.target.value);
+                linkTargetCatalog.setSearch(event.target.value);
                 setSelectedLinkTarget(null);
                 resetOutcome();
               }}
               placeholder={linkTargetType === "user" ? surfaceText("Search RGW Users") : surfaceText("Search RGW Accounts")}
             />
             <div role="group" aria-label={surfaceText("RGW link targets")} className={cx(uiPanelMutedClass, "max-h-44 space-y-1 overflow-y-auto p-2")}>
-              {targetsLoading ? (
+              {linkTargetCatalog.loading ? (
                 <p role="status" className={cx("p-2 ui-caption", uiMutedTextClass)}>{surfaceText("Loading targets...")}</p>
-              ) : targetsError ? (
-                <UiInlineMessage tone="error" role="alert">{targetsError}</UiInlineMessage>
-              ) : linkTargets.length === 0 ? (
+              ) : linkTargetCatalog.error ? (
+                <UiInlineMessage tone="error" role="alert">
+                  {extractApiError(linkTargetCatalog.error, "Unable to load RGW link targets.")}
+                </UiInlineMessage>
+              ) : linkTargetCatalog.items.length === 0 ? (
                 <p className={cx("p-2 ui-caption", uiMutedTextClass)}>{surfaceText("No matching target.")}</p>
               ) : (
-                linkTargets.map((candidate) => (
+                linkTargetCatalog.items.map((candidate) => (
                   <ListActionButton
                     key={`${candidate.type}:${candidate.id}`}
                     type="button"
@@ -502,6 +491,14 @@ export default function CephAdminAdminOpsModal({
                 ))
               )}
             </div>
+            <PaginationControls
+              page={linkTargetCatalog.page}
+              pageSize={linkTargetCatalog.pageSize}
+              total={linkTargetCatalog.total}
+              onPageChange={linkTargetCatalog.setPage}
+              onPageSizeChange={linkTargetCatalog.setPageSize}
+              disabled={linkTargetCatalog.loading || submitting}
+            />
           </div>
         )}
 

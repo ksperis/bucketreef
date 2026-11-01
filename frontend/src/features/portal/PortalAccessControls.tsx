@@ -13,6 +13,7 @@ import {
 import type { PortalStorageSpaceShareCandidate } from "../../api/portalSharing";
 import type { PortalRequestedRole } from "../../api/portalRequests";
 import ListToolbar from "../../components/ListToolbar";
+import PaginationControls from "../../components/PaginationControls";
 import PortalCollaboratorRequestDialog from "./PortalCollaboratorRequestDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiBadge from "../../components/ui/UiBadge";
@@ -168,6 +169,11 @@ export function PortalShareCandidatePicker({
   onRequestPerson,
   onRequestDraftStateChange,
   onRetry,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+  onPageSizeChange,
 }: {
   candidates: PortalStorageSpaceShareCandidate[];
   selectedRolesByUserId: Record<number, PortalStorageSpaceGrantRole>;
@@ -181,16 +187,18 @@ export function PortalShareCandidatePicker({
   onRequestPerson?: (payload: { targetName: string; targetEmail: string; portalRole: PortalRequestedRole }) => Promise<void>;
   onRequestDraftStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
   onRetry?: () => void;
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }) {
   const { t } = useI18n();
   const term = query.trim().toLowerCase();
   const [request, setRequest] = useState<{ name: string; email: string } | null>(null);
   const visibleCandidates = candidates.filter((candidate) => {
     if (!includeAlreadyShared && candidate.already_shared) return false;
-    if (!term) return true;
-    return [candidate.email, candidate.display_name, candidate.portal_role]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(term));
+    return true;
   });
   const selectedCount = Object.keys(selectedRolesByUserId).length;
   const openRequestForm = () => {
@@ -289,6 +297,16 @@ export function PortalShareCandidatePicker({
           {requestCta}
         </div>
       )}
+      {typeof page === "number" && typeof pageSize === "number" && typeof total === "number" && onPageChange ? (
+        <PaginationControls
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+          disabled={loading}
+        />
+      ) : null}
       {request && onRequestPerson ? (
         <PortalCollaboratorRequestDialog initialName={request.name} initialEmail={request.email}
           onSubmit={onRequestPerson} onClose={() => setRequest(null)} onDraftStateChange={onRequestDraftStateChange} />

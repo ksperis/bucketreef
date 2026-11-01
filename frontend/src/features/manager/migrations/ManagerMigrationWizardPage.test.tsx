@@ -6,19 +6,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ManagerMigrationWizardPage from "./ManagerMigrationWizardPage";
 
-const listExecutionContextsMock = vi.fn();
-const listBucketsMock = vi.fn();
+const listExecutionContextOptionsMock = vi.fn();
+const listBucketOptionsMock = vi.fn();
 const createManagerMigrationMock = vi.fn();
 const runManagerMigrationPrecheckMock = vi.fn();
 const startManagerMigrationMock = vi.fn();
+let executionContexts: Array<Record<string, unknown>> = [];
 
 vi.mock("../../../api/executionContexts", () => ({
-  listExecutionContexts: (...args: unknown[]) =>
-    listExecutionContextsMock(...args),
+  listExecutionContextOptions: (...args: unknown[]) =>
+    listExecutionContextOptionsMock(...args),
 }));
 
 vi.mock("../../../api/managerBuckets", () => ({
-  listBuckets: (...args: unknown[]) => listBucketsMock(...args),
+  listBucketOptions: (...args: unknown[]) => listBucketOptionsMock(...args),
 }));
 
 vi.mock("../../../api/managerMigrations", async () => {
@@ -39,6 +40,7 @@ vi.mock("../../../api/managerMigrations", async () => {
 vi.mock("../ExecutionContextProvider", () => ({
   useExecutionContext: () => ({
     selectedContextId: "src-ctx",
+    contexts: executionContexts,
   }),
 }));
 
@@ -76,7 +78,7 @@ async function selectBucket(user: ReturnType<typeof userEvent.setup>) {
 describe("ManagerMigrationWizardPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listExecutionContextsMock.mockResolvedValue([
+    executionContexts = [
       {
         id: "src-ctx",
         kind: "account",
@@ -91,10 +93,37 @@ describe("ManagerMigrationWizardPage", () => {
         display_name: "Target",
         endpoint_id: 2,
       },
-    ]);
-    listBucketsMock.mockImplementation((id: string) =>
-      Promise.resolve(id === "src-ctx" ? [{ name: "bucket-a" }] : []),
-    );
+    ];
+    listExecutionContextOptionsMock.mockImplementation(async (
+      _workspace: string,
+      query: { exclude_id?: string; manager_account_admin_only?: boolean; search?: string; page?: number; page_size?: number },
+    ) => {
+      const term = query.search?.trim().toLowerCase() ?? "";
+      const items = executionContexts.filter((entry) => {
+        if (entry.id === query.exclude_id) return false;
+        if (query.manager_account_admin_only && entry.kind === "account" && entry.manager_role !== "account_administrator") return false;
+        return !term || String(entry.display_name ?? "").toLowerCase().includes(term) || String(entry.id ?? "").toLowerCase().includes(term);
+      });
+      return {
+        items,
+        total: items.length,
+        page: query.page ?? 1,
+        page_size: query.page_size ?? 25,
+        has_next: false,
+      };
+    });
+    listBucketOptionsMock.mockImplementation(async (id: string, query: { search?: string; page?: number; page_size?: number }) => {
+      const all = id === "src-ctx" ? [{ name: "bucket-a" }] : [];
+      const term = query.search?.trim().toLowerCase() ?? "";
+      const items = all.filter((bucket) => !term || bucket.name.toLowerCase().includes(term));
+      return {
+        items,
+        total: items.length,
+        page: query.page ?? 1,
+        page_size: query.page_size ?? 25,
+        has_next: false,
+      };
+    });
     createManagerMigrationMock.mockResolvedValue({
       id: 77,
       configuration_revision: 1,
@@ -173,29 +202,29 @@ describe("ManagerMigrationWizardPage", () => {
     expect(screen.getByRole("alert").parentElement).toHaveFocus();
   });
 
-  it("blocks known existing destinations", async () => {
-    listBucketsMock.mockResolvedValue([{ name: "bucket-a" }]);
+  it("defers existing destination validation to the server precheck", async () => {
+    runManagerMigrationPrecheckMock.mockRejectedValue(new Error("Destination already exists. Choose a new name."));
     const user = userEvent.setup();
     setup();
     await selectBucket(user);
-    expect(
-      await screen.findByText("Destination already exists. Choose a new name."),
-    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Check migration" }));
-    expect(createManagerMigrationMock).not.toHaveBeenCalled();
+    expect(createManagerMigrationMock).toHaveBeenCalledTimes(1);
+    expect(runManagerMigrationPrecheckMock).toHaveBeenCalledWith(77, false);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Destination already exists. Choose a new name.");
   });
 
   it("keeps bucket selection and mapping on the same screen", async () => {
-    listBucketsMock.mockImplementation((id: string) =>
-      Promise.resolve(
-        id === "src-ctx" ? [{ name: "bucket-a" }, { name: "logs-prod" }] : [],
-      ),
-    );
+    listBucketOptionsMock.mockImplementation(async (id: string, query: { search?: string; page?: number; page_size?: number }) => {
+      const all = id === "src-ctx" ? [{ name: "bucket-a" }, { name: "logs-prod" }] : [];
+      const term = query.search?.trim().toLowerCase() ?? "";
+      const items = all.filter((bucket) => !term || bucket.name.toLowerCase().includes(term));
+      return { items, total: items.length, page: query.page ?? 1, page_size: query.page_size ?? 25, has_next: false };
+    });
     const user = userEvent.setup();
     setup();
     await screen.findByRole("checkbox", { name: "Select logs-prod" });
     await user.type(screen.getByLabelText("Filter source buckets"), "prod");
-    await user.click(screen.getByRole("button", { name: "Select filtered" }));
+    await user.click(screen.getByRole("button", { name: "Select page" }));
     expect(
       screen.getByRole("textbox", { name: "Destination name for logs-prod" }),
     ).toBeEnabled();
@@ -209,7 +238,7 @@ describe("ManagerMigrationWizardPage", () => {
   });
 
   it("does not implicitly enable grants when selecting storage copy", async () => {
-    listExecutionContextsMock.mockResolvedValue([
+    executionContexts = [
       {
         id: "src-ctx",
         kind: "account",
@@ -224,7 +253,7 @@ describe("ManagerMigrationWizardPage", () => {
         display_name: "Target",
         endpoint_id: 1,
       },
-    ]);
+    ];
     const user = userEvent.setup();
     setup();
     await selectBucket(user);
@@ -249,7 +278,7 @@ describe("ManagerMigrationWizardPage", () => {
   });
 
   it("filters account destinations without administrator access", async () => {
-    listExecutionContextsMock.mockResolvedValue([
+    executionContexts = [
       {
         id: "src-ctx",
         kind: "account",
@@ -270,7 +299,7 @@ describe("ManagerMigrationWizardPage", () => {
         display_name: "Shared connection",
         endpoint_id: 2,
       },
-    ]);
+    ];
     setup();
     await screen.findByRole("option", { name: /Shared connection/ });
     expect(

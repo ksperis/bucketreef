@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import ManagerUserPoliciesPage from "./ManagerUserPoliciesPage";
 
-const listIamPoliciesMock = vi.fn();
+const listIamPoliciesPageMock = vi.fn();
 const listUserPoliciesMock = vi.fn();
 const detachUserPolicyMock = vi.fn();
 
@@ -18,7 +18,7 @@ vi.mock("./ExecutionContextProvider", () => ({
 }));
 
 vi.mock("../../api/managerIamPolicies", () => ({
-  listIamPolicies: (contextId: unknown) => listIamPoliciesMock(contextId),
+  listIamPoliciesPage: (...args: unknown[]) => listIamPoliciesPageMock(...args),
 }));
 
 vi.mock("../../api/managerIamUsers", () => ({
@@ -60,13 +60,14 @@ describe("ManagerUserPoliciesPage list states", () => {
         },
       ])
       .mockRejectedValueOnce(new Error("Refresh policies failed"));
-    listIamPoliciesMock.mockResolvedValue([
-      {
+    listIamPoliciesPageMock.mockResolvedValue({
+      items: [{
         name: "ReadOnlyPolicy",
         arn: "arn:aws:iam::123:policy/ReadOnlyPolicy",
         default_version_id: "v1",
-      },
-    ]);
+      }],
+      next_marker: null,
+    });
 
     renderPage();
 

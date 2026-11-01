@@ -7,7 +7,7 @@ from pydantic import AfterValidator, Field
 from app.models.access_key_metadata import AccessKeyMetadata
 from app.models.base import ApiModel
 from app.utils.resource_names import validate_iam_name
-from app.models.policy import InlinePolicy
+from app.models.policy import InlinePolicy, Policy
 
 
 def validate_iam_path(value: str) -> str:
@@ -145,3 +145,23 @@ class IAMRoleUpdate(ApiModel):
     path: Optional[_IAMPath] = None
     assume_role_policy_document: Optional[Union[dict, str]] = None
     max_session_duration: Optional[int] = Field(default=None, ge=3600, le=43200)
+
+
+class IAMUserPage(ApiModel):
+    items: list[IAMUser]
+    next_marker: Optional[str] = None
+
+
+class IAMGroupPage(ApiModel):
+    items: list[IAMGroup]
+    next_marker: Optional[str] = None
+
+
+class IAMRolePage(ApiModel):
+    items: list[IAMRole]
+    next_marker: Optional[str] = None
+
+
+class IAMPolicyPage(ApiModel):
+    items: list[Policy]
+    next_marker: Optional[str] = None

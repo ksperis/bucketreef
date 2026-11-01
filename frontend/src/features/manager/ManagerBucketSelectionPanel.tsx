@@ -8,6 +8,7 @@ import { ReactNode } from "react";
 import type { Bucket } from "../../api/bucketContracts";
 import ListToolbar from "../../components/ListToolbar";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import PaginationControls from "../../components/PaginationControls";
 import { ListTableStatus } from "../../components/list/listTableStatus";
 
 import UiInput from "../../components/ui/UiInput";
@@ -25,6 +26,11 @@ type ManagerBucketSelectionPanelProps = {
   onToggleBucket: (bucketName: string) => void;
   onSelectFiltered: () => void;
   onClearSelection: () => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
   action?: ReactNode;
   tableStatus: ListTableStatus;
   loadingMessage: string;
@@ -44,6 +50,11 @@ export default function ManagerBucketSelectionPanel({
   onToggleBucket,
   onSelectFiltered,
   onClearSelection,
+  page,
+  pageSize,
+  total,
+  onPageChange,
+  onPageSizeChange,
   action,
   tableStatus,
   loadingMessage,
@@ -76,7 +87,7 @@ export default function ManagerBucketSelectionPanel({
         title={text("Buckets")}
         description={description}
         variant="section"
-        countLabel={countLabel ?? text(buckets.length === 1 ? "{count} result" : "{count} results", { count: buckets.length })}
+        countLabel={countLabel ?? text(total === 1 ? "{count} result" : "{count} results", { count: total })}
         search={
           <UiInput
             type="search"
@@ -97,7 +108,7 @@ export default function ManagerBucketSelectionPanel({
               variant="secondary"
 
             >
-              {text("Select filtered")}
+              {text("Select page")}
             </ListActionButton>
             <ListActionButton
               type="button"
@@ -122,6 +133,14 @@ export default function ManagerBucketSelectionPanel({
         errorMessage={errorMessage}
         emptyMessage={emptyMessage}
         tableLayout="fixed"
+      />
+      <PaginationControls
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+        disabled={tableStatus === "loading"}
       />
     </div>
   );

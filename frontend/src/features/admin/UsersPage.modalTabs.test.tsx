@@ -23,6 +23,7 @@ const listMinimalS3AccountsMock = vi.fn();
 const listMinimalS3UsersMock = vi.fn();
 const listMinimalS3ConnectionsMock = vi.fn();
 const listMinimalGroupsMock = vi.fn();
+const listAdminOpenStackCloudOptionsMock = vi.fn();
 const fetchLdapProvidersMock = vi.fn();
 
 function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
@@ -118,19 +119,23 @@ vi.mock("../../auth/webauthn", () => ({
 }));
 
 vi.mock("../../api/accounts", () => ({
-  listMinimalS3Accounts: () => listMinimalS3AccountsMock(),
+  listS3Accounts: (params?: unknown) => listMinimalS3AccountsMock(params),
 }));
 
 vi.mock("../../api/s3Users", () => ({
-  listMinimalS3Users: () => listMinimalS3UsersMock(),
+  listS3Users: (params?: unknown) => listMinimalS3UsersMock(params),
 }));
 
 vi.mock("../../api/s3ConnectionsAdmin", () => ({
-  listMinimalS3Connections: () => listMinimalS3ConnectionsMock(),
+  listAdminS3Connections: (params?: unknown) => listMinimalS3ConnectionsMock(params),
 }));
 
 vi.mock("../../api/groups", () => ({
-  listMinimalGroups: () => listMinimalGroupsMock(),
+  listGroupOptions: (params?: unknown) => listMinimalGroupsMock(params),
+}));
+
+vi.mock("../../api/openstack", () => ({
+  listAdminOpenStackCloudOptions: (params?: unknown) => listAdminOpenStackCloudOptionsMock(params),
 }));
 
 vi.mock("./UserAuthenticationPanel", () => ({
@@ -169,32 +174,62 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    listMinimalS3AccountsMock.mockResolvedValue([
-      {
+    listMinimalS3AccountsMock.mockResolvedValue({
+      items: [{
         id: 1,
         name: "acc-1",
         rgw_account_id: "RGW-ACC-1",
         user_links: [],
         group_links: [],
-      },
-    ]);
+      }],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
 
-    listMinimalS3UsersMock.mockResolvedValue([canonicalS3UserSummary(11, "s3-user-1")]);
+    listMinimalS3UsersMock.mockResolvedValue({
+      items: [canonicalS3UserSummary(11, "s3-user-1")],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
 
-    listMinimalS3ConnectionsMock.mockResolvedValue([canonicalS3ConnectionSummary(21, "conn-1")]);
+    listMinimalS3ConnectionsMock.mockResolvedValue({
+      items: [canonicalS3ConnectionSummary(21, "conn-1")],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
 
-    listMinimalGroupsMock.mockResolvedValue([
-      {
-        id: 31,
-        name: "storage-operators",
-        description: "Storage operators",
-      },
-      {
-        id: 32,
-        name: "portal-readers",
-        description: "Portal readers",
-      },
-    ]);
+    listMinimalGroupsMock.mockResolvedValue({
+      items: [
+        {
+          id: 31,
+          name: "storage-operators",
+          description: "Storage operators",
+        },
+        {
+          id: 32,
+          name: "portal-readers",
+          description: "Portal readers",
+        },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
+
+    listAdminOpenStackCloudOptionsMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
 
     fetchLdapProvidersMock.mockResolvedValue([
       { id: "corp", display_name: "Corporate directory" },

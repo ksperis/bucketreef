@@ -6,6 +6,7 @@ import client, { timeoutForRequestProfile } from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
 import { withS3ContextParam } from "./accountParams";
 import type { Bucket } from "./bucketContracts";
+import type { PaginatedResponse } from "./types";
 import type {
   BucketCompareConfigDiff,
   BucketCompareConfigFeature,
@@ -33,6 +34,18 @@ export type FeatureRuleInventoryBucket = {
   rules: FeatureRuleInventoryRule[];
   error: string | null;
 };
+
+export type ManagerBucketOption = { name: string };
+
+export async function listBucketOptions(
+  contextId: S3ExecutionContextSelector,
+  query: { page?: number; page_size?: number; search?: string },
+): Promise<PaginatedResponse<ManagerBucketOption>> {
+  const { data } = await client.get<PaginatedResponse<ManagerBucketOption>>(`${MANAGER_BUCKETS_PATH}/options`, {
+    params: withS3ContextParam(query, contextId),
+  });
+  return data;
+}
 
 export async function listBuckets(
   contextId: S3ExecutionContextSelector,

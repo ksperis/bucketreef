@@ -96,6 +96,85 @@ class RGWIAMService:
             seen_markers.add(next_marker)
             marker = next_marker
 
+    def _list_page(
+        self,
+        operation_name: str,
+        result_key: str,
+        *,
+        marker: str | None = None,
+        max_items: int = 25,
+        search: str | None = None,
+        matcher=None,
+        max_requests: int = 20,
+        **kwargs,
+    ) -> tuple[list[Any], str | None]:
+        """Return a bounded IAM page without materializing the full RGW catalog.
+
+        IAM exposes Marker/MaxItems instead of totals. Search therefore advances
+        through bounded native pages until enough matching rows are collected or
+        the request budget is exhausted. MaxItems is reduced to the remaining
+        result capacity so no matching row is skipped between cursors.
+        """
+        items: list[Any] = []
+        current_marker = marker
+        needle = (search or "").strip().lower()
+        request_count = 0
+        seen_markers: set[str] = set()
+        while len(items) < max_items and request_count < max_requests:
+            request = dict(kwargs)
+            request["MaxItems"] = max(1, max_items - len(items))
+            if current_marker:
+                request["Marker"] = current_marker
+            response = getattr(self.client, operation_name)(**request)
+            request_count += 1
+            page_items = response.get(result_key, []) or []
+            if needle and matcher is not None:
+                page_items = [item for item in page_items if matcher(item, needle)]
+            items.extend(page_items)
+            if not response.get("IsTruncated"):
+                return items[:max_items], None
+            next_marker = response.get("Marker")
+            if not isinstance(next_marker, str) or not next_marker or next_marker in seen_markers:
+                raise RuntimeError(
+                    f"IAM pagination for {operation_name} returned IsTruncated without a usable Marker"
+                )
+            seen_markers.add(next_marker)
+            current_marker = next_marker
+        return items[:max_items], current_marker
+
+    @staticmethod
+    def _matches_fields(data: dict, needle: str, *fields: str) -> bool:
+        return any(needle in str(data.get(field) or "").lower() for field in fields)
+
+    def list_users_page(
+        self,
+        *,
+        marker: str | None = None,
+        max_items: int = 25,
+        search: str | None = None,
+    ) -> tuple[list[IAMUser], str | None]:
+        try:
+            rows, next_marker = self._list_page(
+                "list_users",
+                "Users",
+                marker=marker,
+                max_items=max_items,
+                search=search,
+                matcher=lambda row, needle: self._matches_fields(row, needle, "UserName", "Arn", "Path"),
+            )
+            return [
+                IAMUser(
+                    name=row.get("UserName"),
+                    user_id=row.get("UserId"),
+                    arn=row.get("Arn"),
+                    path=row.get("Path"),
+                )
+                for row in rows
+                if row.get("UserName")
+            ], next_marker
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to list IAM users: {exc}") from exc
+
     # Users
     def list_users(self) -> List[IAMUser]:
         try:
@@ -331,6 +410,30 @@ class RGWIAMService:
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list IAM groups: {exc}") from exc
 
+    def list_groups_page(
+        self,
+        *,
+        marker: str | None = None,
+        max_items: int = 25,
+        search: str | None = None,
+    ) -> tuple[list[IAMGroup], str | None]:
+        try:
+            rows, next_marker = self._list_page(
+                "list_groups",
+                "Groups",
+                marker=marker,
+                max_items=max_items,
+                search=search,
+                matcher=lambda row, needle: self._matches_fields(row, needle, "GroupName", "Arn", "Path"),
+            )
+            return [
+                IAMGroup(name=row.get("GroupName"), arn=row.get("Arn"), path=row.get("Path"))
+                for row in rows
+                if row.get("GroupName")
+            ], next_marker
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to list IAM groups: {exc}") from exc
+
     def create_group(self, name: str) -> IAMGroup:
         try:
             resp = self.client.create_group(GroupName=name)
@@ -500,6 +603,35 @@ class RGWIAMService:
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list IAM roles: {exc}") from exc
 
+    def list_roles_page(
+        self,
+        *,
+        marker: str | None = None,
+        max_items: int = 25,
+        search: str | None = None,
+    ) -> tuple[list[IAMRole], str | None]:
+        try:
+            rows, next_marker = self._list_page(
+                "list_roles",
+                "Roles",
+                marker=marker,
+                max_items=max_items,
+                search=search,
+                matcher=lambda row, needle: self._matches_fields(row, needle, "RoleName", "Arn", "Path"),
+            )
+            return [
+                IAMRole(
+                    name=row.get("RoleName"),
+                    arn=row.get("Arn"),
+                    path=row.get("Path"),
+                    max_session_duration=row.get("MaxSessionDuration") or 3600,
+                )
+                for row in rows
+                if row.get("RoleName")
+            ], next_marker
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to list IAM roles: {exc}") from exc
+
     def create_role(
         self,
         name: str,
@@ -625,6 +757,33 @@ class RGWIAMService:
         except (BotoCoreError, ClientError):
             # Ceph RGW Squid/Quincy may not implement ListPolicies; fall back to known managed set
             return self._default_policies.copy()
+
+    def list_policies_page(
+        self,
+        *,
+        marker: str | None = None,
+        max_items: int = 25,
+        search: str | None = None,
+    ) -> tuple[list[Policy], str | None]:
+        try:
+            rows, next_marker = self._list_page(
+                "list_policies",
+                "Policies",
+                marker=marker,
+                max_items=max_items,
+                search=search,
+                matcher=lambda row, needle: self._matches_fields(row, needle, "PolicyName", "Arn", "Path"),
+                Scope="Local",
+            )
+            return [self._policy_from_data(row) for row in rows], next_marker
+        except (BotoCoreError, ClientError):
+            needle = (search or "").strip().lower()
+            policies = [
+                policy
+                for policy in self._default_policies
+                if not needle or needle in policy.name.lower() or needle in policy.arn.lower()
+            ]
+            return policies[:max_items], None
 
     def get_policy(self, policy_arn: str, include_document: bool = False) -> Optional[Policy]:
         try:

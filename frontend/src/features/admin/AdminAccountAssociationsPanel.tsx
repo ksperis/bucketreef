@@ -9,7 +9,6 @@ import {
   hasAccountAccessRole,
   type AccountAccessGrant,
 } from "../../api/accountAccess";
-import type { S3AccountSummary } from "../../api/accounts";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
@@ -32,11 +31,11 @@ export type AdminAccountSelection = AccountAccessGrant & {
 export type AdminAccountAssociationsState = {
   selected: AdminAccountSelection[];
   setSelected: Dispatch<SetStateAction<AdminAccountSelection[]>>;
-  optionsById: Map<number, S3AccountSummary>;
+  optionsById: Map<number, { name: string }>;
   available: AdminSimpleAssociationOption[];
   visible: AdminSimpleAssociationOption[];
   search: string;
-  setSearch: Dispatch<SetStateAction<string>>;
+  setSearch: (value: string) => void;
   loading: boolean;
   showPanel: boolean;
   setShowPanel: Dispatch<SetStateAction<boolean>>;
@@ -45,6 +44,13 @@ export type AdminAccountAssociationsState = {
   accountAccessChoice: Record<number, AccountAccessGrant>;
   setAccountAccessChoice: Dispatch<SetStateAction<Record<number, AccountAccessGrant>>>;
   toggleSelection: (id: number) => void;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (pageSize: number) => void;
+  };
 };
 
 type AdminAccountAssociationsLabels = {
@@ -240,6 +246,7 @@ export default function AdminAccountAssociationsPanel({
           selectedCount={accounts.selections.length}
           loadingLabel={labels.loading}
           emptyLabel={labels.pickerEmptyMessage}
+          pagination={accounts.pagination}
           addDisabled={accounts.selections.length === 0 || hasInvalidPendingSelection}
           onCancel={resetPicker}
           onAdd={() => {

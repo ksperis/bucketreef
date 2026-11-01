@@ -6,7 +6,7 @@ import ManagerGroupPoliciesPage from "./ManagerGroupPoliciesPage";
 import ManagerRolePoliciesPage from "./ManagerRolePoliciesPage";
 import ManagerUserPoliciesPage from "./ManagerUserPoliciesPage";
 
-const listIamPoliciesMock = vi.fn();
+const listIamPoliciesPageMock = vi.fn();
 const listUserPoliciesMock = vi.fn();
 const attachUserPolicyMock = vi.fn();
 const listGroupPoliciesMock = vi.fn();
@@ -31,7 +31,7 @@ vi.mock("../../api/managerIamPolicies", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamPolicies")>("../../api/managerIamPolicies");
   return {
     ...actual,
-    listIamPolicies: (...args: unknown[]) => listIamPoliciesMock(...args),
+    listIamPoliciesPage: (...args: unknown[]) => listIamPoliciesPageMock(...args),
   };
 });
 
@@ -105,7 +105,7 @@ const pages: PageCase[] = [
 describe("manager entity policy pages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listIamPoliciesMock.mockResolvedValue([]);
+    listIamPoliciesPageMock.mockResolvedValue({ items: [], next_marker: null });
     listUserPoliciesMock.mockResolvedValue([]);
     listGroupPoliciesMock.mockResolvedValue([]);
     listRolePoliciesMock.mockResolvedValue([]);
@@ -134,7 +134,7 @@ describe("manager entity policy pages", () => {
 
 it.each(pages)("preserves the $label inline draft while a managed policy is attached", async ({ path, element, attach }) => {
   const policy = { name: "ManagedReadOnly", arn: "arn:aws:iam::acc-1:policy/ManagedReadOnly" };
-  listIamPoliciesMock.mockResolvedValue([policy]);
+  listIamPoliciesPageMock.mockResolvedValue({ items: [policy], next_marker: null });
   for (const list of [listUserPoliciesMock, listGroupPoliciesMock, listRolePoliciesMock]) list.mockResolvedValue([]);
   for (const list of [listUserInlinePoliciesMock, listGroupInlinePoliciesMock, listRoleInlinePoliciesMock]) {
     list.mockResolvedValue([{ name: "readonly-inline", document: {} }]);
@@ -149,9 +149,12 @@ it.each(pages)("preserves the $label inline draft while a managed policy is atta
   const document = screen.getByLabelText("Inline policy document (JSON)");
   fireEvent.change(document, { target: { value: '{"draft":true}' } });
   const form = screen.getByRole("form", { name: "Attach managed policy" });
+  const managedPolicy = within(form).getByLabelText("Managed policy");
+  await waitFor(() => expect(within(form).getByRole("option", { name: "ManagedReadOnly" })).toBeInTheDocument());
+  fireEvent.change(managedPolicy, { target: { value: policy.arn } });
   await waitFor(() => expect(within(form).getByRole("button", { name: "Attach" })).toBeEnabled());
   fireEvent.submit(form);
-  expect(within(form).getByLabelText("Managed policy")).toBeDisabled();
+  expect(managedPolicy).toBeDisabled();
   fireEvent.submit(form);
   expect(attach).toHaveBeenCalledOnce();
   expect(attach).toHaveBeenCalledWith("acc-1", "fixture", policy);

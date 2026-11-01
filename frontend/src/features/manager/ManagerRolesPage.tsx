@@ -13,7 +13,7 @@ import {
   IAMRole,
   createIamRole,
   deleteIamRole,
-  listIamRoles,
+  listIamRolesPage,
 } from "../../api/managerIamRoles";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
@@ -31,7 +31,8 @@ import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagedPolicySelection } from "./useManagedPolicySelection";
-import { useManagerIamCollection } from "./useManagerIamCollection";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
+import IamCursorPaginationControls from "./IamCursorPaginationControls";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
@@ -46,17 +47,24 @@ export default function ManagerRolesPage() {
   const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode, namingValidationProfile } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
-  const [roleFilter, setRoleFilter] = useState("");
   const {
     error,
     items: roles,
     load,
-    loadRelated,
     loading,
     setError,
     setItems: setRoles,
     setLoading,
-  } = useManagerIamCollection(listIamRoles);
+    search: roleFilter,
+    setSearch: setRoleFilter,
+    page,
+    pageSize,
+    setPageSize,
+    canPrevious,
+    canNext,
+    previousPage,
+    nextPage,
+  } = useManagerIamCursorCollection(listIamRolesPage, { includeDetails: true });
   const {
     editorProps: inlinePolicyEditorProps,
     inlineDraftName,
@@ -94,6 +102,14 @@ export default function ManagerRolesPage() {
     loadPolicies,
     policies,
     policySearch,
+    policiesLoading,
+    policyPage,
+    policyPageSize,
+    setPolicyPageSize,
+    canPreviousPolicyPage,
+    canNextPolicyPage,
+    previousPolicyPage,
+    nextPolicyPage,
     resetPolicySelection,
     selectedPolicies,
     setPolicies,
@@ -101,7 +117,7 @@ export default function ManagerRolesPage() {
     setSelectedPolicies,
     setShowPolicyOptions,
     showPolicyOptions,
-  } = useManagedPolicySelection(loadRelated);
+  } = useManagedPolicySelection();
 
   useEffect(() => {
     resetPolicySelection();
@@ -251,15 +267,7 @@ export default function ManagerRolesPage() {
     resetInlinePolicyDraftEditor();
   };
 
-  const filteredRoles = roles.filter((role) => {
-    const needle = roleFilter.trim().toLowerCase();
-    if (!needle) return true;
-    return (
-      role.name.toLowerCase().includes(needle) ||
-      (role.path ?? "").toLowerCase().includes(needle) ||
-      (role.arn ?? "").toLowerCase().includes(needle)
-    );
-  });
+  const filteredRoles = roles;
   const filteredTableStatus = resolveListTableStatus({
     loading,
     error,
@@ -374,6 +382,16 @@ export default function ManagerRolesPage() {
             responsiveCards
             tableLayout="fixed"
           />
+          <IamCursorPaginationControls
+            page={page}
+            pageSize={pageSize}
+            canPrevious={canPrevious}
+            canNext={canNext}
+            disabled={loading}
+            onPrevious={previousPage}
+            onNext={nextPage}
+            onPageSizeChange={setPageSize}
+          />
         </ListPageSection>
       )}
 
@@ -408,7 +426,15 @@ export default function ManagerRolesPage() {
             selectedPolicyArns={selectedPolicies}
             search={policySearch}
             expanded={showPolicyOptions}
+            loading={policiesLoading}
+            page={policyPage}
+            pageSize={policyPageSize}
+            canPrevious={canPreviousPolicyPage}
+            canNext={canNextPolicyPage}
             onSearchChange={setPolicySearch}
+            onPreviousPage={previousPolicyPage}
+            onNextPage={nextPolicyPage}
+            onPageSizeChange={setPolicyPageSize}
             onExpandedChange={setShowPolicyOptions}
             onSelectionChange={setSelectedPolicies}
           />

@@ -127,8 +127,12 @@ export default function S3ConnectionsPage() {
   const {
     users: portalUsers,
     groups: uiGroups,
+    usersLoading: portalUsersLoading,
+    groupsLoading: uiGroupsLoading,
     loadUsers: loadPortalUsers,
     loadGroups,
+    usersPagination,
+    groupsPagination,
   } = useAdminPrincipalCatalogs();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -247,6 +251,14 @@ export default function S3ConnectionsPage() {
     void loadGroups();
   }, [loadGroups, loadPortalUsers]);
 
+  useEffect(() => {
+    usersPagination.setSearch(editUserPicker.search);
+  }, [editUserPicker.search, usersPagination.setSearch]);
+
+  useEffect(() => {
+    groupsPagination.setSearch(editGroupPicker.search);
+  }, [editGroupPicker.search, groupsPagination.setSearch]);
+
   const createValidationPayload = useMemo(
     () =>
       buildS3CredentialsValidationPayload(
@@ -288,8 +300,8 @@ export default function S3ConnectionsPage() {
         search: editUserPicker.search,
         getId: (option) => option.id,
         getLabel: (option) => option.label,
-      }),
-    [editLinkedUserIds, editUserPicker.search, portalUserOptions],
+      }, usersPagination.pageSize),
+    [editLinkedUserIds, editUserPicker.search, portalUserOptions, usersPagination.pageSize],
   );
   const { available: availableEditGroups, visible: visibleAvailableEditGroups } = useMemo(
     () =>
@@ -299,8 +311,8 @@ export default function S3ConnectionsPage() {
         search: editGroupPicker.search,
         getId: (option) => option.id,
         getLabel: (option) => option.label,
-      }),
-    [editGroupPicker.search, editLinkedGroupIds, groupOptions],
+      }, groupsPagination.pageSize),
+    [editGroupPicker.search, editLinkedGroupIds, groupOptions, groupsPagination.pageSize],
   );
   const editUserAssociationState: AdminSimpleIdAssociationsState = {
     selected: editLinkedUserIds,
@@ -310,12 +322,19 @@ export default function S3ConnectionsPage() {
     visible: visibleAvailableEditUsers,
     search: editUserPicker.search,
     setSearch: editUserPicker.setSearch,
-    loading: false,
+    loading: portalUsersLoading,
     showPanel: editUserPicker.open,
     setShowPanel: editUserPicker.setOpen,
     selections: editUserPicker.selections,
     setSelections: editUserPicker.setSelections,
     toggleSelection: editUserPicker.toggleSelection,
+    pagination: {
+      page: usersPagination.page,
+      pageSize: usersPagination.pageSize,
+      total: usersPagination.total,
+      onPageChange: usersPagination.setPage,
+      onPageSizeChange: usersPagination.setPageSize,
+    },
   };
   const editGroupAssociationState: AdminSimpleIdAssociationsState = {
     selected: editLinkedGroupIds,
@@ -325,12 +344,19 @@ export default function S3ConnectionsPage() {
     visible: visibleAvailableEditGroups,
     search: editGroupPicker.search,
     setSearch: editGroupPicker.setSearch,
-    loading: false,
+    loading: uiGroupsLoading,
     showPanel: editGroupPicker.open,
     setShowPanel: editGroupPicker.setOpen,
     selections: editGroupPicker.selections,
     setSelections: editGroupPicker.setSelections,
     toggleSelection: editGroupPicker.toggleSelection,
+    pagination: {
+      page: groupsPagination.page,
+      pageSize: groupsPagination.pageSize,
+      total: groupsPagination.total,
+      onPageChange: groupsPagination.setPage,
+      onPageSizeChange: groupsPagination.setPageSize,
+    },
   };
   const createCurrentSignature = useMemo(
     () =>

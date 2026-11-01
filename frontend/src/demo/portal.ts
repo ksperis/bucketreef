@@ -122,13 +122,29 @@ export function portal(c: DemoRequest): Response | undefined {
     const l = accountGrant(c, account, user.id);
     return { user_id: user.id, email: user.email, display_name: user.full_name, portal_role: l.portal_role, access_source: "direct", member_since: state.initializedAt, can_review_access: manager };
   });
+  const paginatedCandidates = <T extends { email: string; display_name?: string | null }>(items: T[]) => {
+    const search = (c.url.searchParams.get("search") ?? "").trim().toLowerCase();
+    const filtered = search
+      ? items.filter(item => `${item.display_name ?? ""} ${item.email}`.toLowerCase().includes(search))
+      : items;
+    const page = Math.max(1, Number(c.url.searchParams.get("page") ?? "1") || 1);
+    const pageSize = Math.max(1, Number(c.url.searchParams.get("page_size") ?? "25") || 25);
+    const offset = (page - 1) * pageSize;
+    return {
+      items: filtered.slice(offset, offset + pageSize),
+      total: filtered.length,
+      page,
+      page_size: pageSize,
+      has_next: offset + pageSize < filtered.length,
+    };
+  };
   if (path === "/portal/state" && method === "GET") return json({ portal_role: manager ? "portal_manager" : "portal_user", can_manage_buckets: manager, can_create_private_storage_spaces: true, can_create_team_storage_spaces: manager, can_create_external_sharing: false, can_manage_portal_users: manager, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false, allow_named_bucket_create: true, storage_space_version_cleanup_enabled: false, server_access_logging_enabled: true, bucket_usage_stats_enabled: true, cost_estimation_enabled: false });
   if (path === "/portal/settings") {
     if (method !== "GET") throw new DemoError(403, "Project settings are read-only in this demo");
     return json({ effective: resolvePortalSettings(settings.portal), feature_states: {}, project_override: {}, delegated_to_portal_managers: false, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false, can_update: false });
   }
   if (path === "/portal/collaborators" && method === "GET") return json({ summary: { collaborator_count: candidates.length, external_access_key_count: 0 }, collaborators: candidates });
-  if (path === "/portal/share-candidates" && method === "GET") return json(candidates);
+  if (path === "/portal/share-candidates" && method === "GET") return json(paginatedCandidates(candidates));
   const review = path.match(/^\/portal\/collaborators\/(\d+)\/access$/);
   if (review && method === "GET") return json({ collaborator: required(candidates.find(u => u.user_id === Number(review[1]))), can_request_project_removal: manager, can_request_role_change: manager, space_accesses: state.spaces.filter(s => s.accountId === account.id && s.visibility === "shared").map(s => ({ storage_space_id: s.id, storage_space_name: s.name, role: s.account_member_role ?? "Viewer", source: "team", can_revoke: false })) });
   const match = path.match(/^\/portal\/storage-spaces(?:\/([^/]+)(?:\/(settings|shares|share-candidates|access-summary|public-links)(?:\/(\d+))?)?)?$/);
@@ -175,7 +191,13 @@ export function portal(c: DemoRequest): Response | undefined {
     else if (method !== "GET") throw new DemoError(403, "Switch to project manager to change space settings");
     return json({ versioning_enabled: (bucket.config.versioning as { enabled: boolean }).enabled, versioning_status: (bucket.config.versioning as { status: string }).status, lifecycle_enabled: Boolean((bucket.config.lifecycle as { rules: unknown[] }).rules.length), version_history_retention_days: (bucket.config.lifecycle as { rules: { NoncurrentVersionExpiration?: { NoncurrentDays: number } }[] }).rules.find(r => r.NoncurrentVersionExpiration)?.NoncurrentVersionExpiration?.NoncurrentDays ?? 90, can_update: manager && !space.archived_at });
   }
-  if (match[2] === "share-candidates" && method === "GET") return json(candidates.map(u => ({ ...u, already_shared: space.shares.some(s => s.user_id === u.user_id) })));
+  if (match[2] === "share-candidates" && method === "GET") {
+    const includeAlreadyShared = c.url.searchParams.get("include_already_shared") === "true";
+    const shareCandidates = candidates
+      .map(u => ({ ...u, already_shared: space.shares.some(s => s.user_id === u.user_id) }))
+      .filter(u => includeAlreadyShared || !u.already_shared);
+    return json(paginatedCandidates(shareCandidates));
+  }
   if (match[2] === "access-summary" && method === "GET") return json({ mode: space.visibility === "private" ? "private" : space.share_scope === "account" ? "all" : "restricted", default_account_member_role: space.account_member_role,
     owner: space.owner_user_id ? { user_id: space.owner_user_id, email: state.users.find(u => u.id === space.owner_user_id)?.email, role: "Owner", access_source: "owner" } : null,
     effective_member_count: space.share_scope === "account" ? candidates.length : space.shares.length + 1, explicit_shares: space.shares, public_link_count: 1, can_manage_access: writable, can_create_public_links: false });

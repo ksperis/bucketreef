@@ -102,6 +102,9 @@ export function usePortalStorageSpaceProvisioning({
   const [shareCandidatesError, setShareCandidatesError] = useState<string | null>(
     null,
   );
+  const [shareCandidatesPage, setShareCandidatesPage] = useState(1);
+  const [shareCandidatesPageSize, setShareCandidatesPageSize] = useState(25);
+  const [shareCandidatesTotal, setShareCandidatesTotal] = useState(0);
   const createFocusReturnRef = useRef<HTMLElement | null>(null);
   const importFocusReturnRef = useRef<HTMLElement | null>(null);
 
@@ -135,7 +138,7 @@ export function usePortalStorageSpaceProvisioning({
   const selectedImportRestrictedEntries = selectedPortalShares(
     importRestrictedRolesByUserId,
   );
-  const portalMemberCount = shareCandidates.length + 1;
+  const portalMemberCount = shareCandidatesTotal + 1;
   const newNameError =
     effectiveNamingMode === "named_bucket" &&
     newName &&
@@ -223,6 +226,7 @@ export function usePortalStorageSpaceProvisioning({
     setNewAccountMemberRole("Editor");
     setRestrictedRolesByUserId({});
     setShareCandidateQuery("");
+    setShareCandidatesPage(1);
     setCreateError(null);
     setCreateValidationAttempted(false);
     setShowCreate(true);
@@ -250,6 +254,7 @@ export function usePortalStorageSpaceProvisioning({
     setImportAccountMemberRole("Editor");
     setImportRestrictedRolesByUserId({});
     setImportShareCandidateQuery("");
+    setShareCandidatesPage(1);
     setImportError(null);
     setShowImport(true);
   }, [importAccessModes]);
@@ -277,48 +282,66 @@ export function usePortalStorageSpaceProvisioning({
     const needsCandidates =
       (showCreate && effectiveNewAccessMode !== "private") ||
       (showImport && importAccessMode !== "private" && canImport);
+    const activeQuery = showImport ? importShareCandidateQuery : shareCandidateQuery;
     if (!needsCandidates || !accountId) {
       setShareCandidates([]);
+      setShareCandidatesTotal(0);
       setShareCandidatesLoading(false);
       setShareCandidatesError(null);
       return () => {
         cancelled = true;
       };
     }
-    setShareCandidatesLoading(true);
-    setShareCandidatesError(null);
-    listPortalShareCandidates(accountId)
-      .then((candidates) => {
-        if (!cancelled) setShareCandidates(candidates);
+    const handle = window.setTimeout(() => {
+      setShareCandidatesLoading(true);
+      setShareCandidatesError(null);
+      listPortalShareCandidates(accountId, {
+        page: shareCandidatesPage,
+        page_size: shareCandidatesPageSize,
+        ...(activeQuery.trim() ? { search: activeQuery.trim() } : {}),
       })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) {
-          setShareCandidates([]);
-          setShareCandidatesError(
-            extractApiError(
-              err,
-              t({
-                en: "Unable to load people.",
-                fr: "Impossible de charger les personnes.",
-                de: "Personen können nicht geladen werden.",
-                zh: "无法加载人员。",
-              }),
-            ),
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setShareCandidatesLoading(false);
-      });
+        .then((response) => {
+          if (cancelled) return;
+          setShareCandidates(response.items);
+          setShareCandidatesTotal(response.total);
+          const lastPage = Math.max(1, Math.ceil(response.total / shareCandidatesPageSize));
+          if (shareCandidatesPage > lastPage) setShareCandidatesPage(lastPage);
+        })
+        .catch((err) => {
+          console.error(err);
+          if (!cancelled) {
+            setShareCandidates([]);
+            setShareCandidatesTotal(0);
+            setShareCandidatesError(
+              extractApiError(
+                err,
+                t({
+                  en: "Unable to load people.",
+                  fr: "Impossible de charger les personnes.",
+                  de: "Personen können nicht geladen werden.",
+                  zh: "无法加载人员。",
+                }),
+              ),
+            );
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setShareCandidatesLoading(false);
+        });
+    }, 250);
     return () => {
       cancelled = true;
+      window.clearTimeout(handle);
     };
   }, [
     accountId,
     canImport,
     effectiveNewAccessMode,
+    importShareCandidateQuery,
     importAccessMode,
+    shareCandidateQuery,
+    shareCandidatesPage,
+    shareCandidatesPageSize,
     showCreate,
     showImport,
     t,
@@ -416,6 +439,14 @@ export function usePortalStorageSpaceProvisioning({
       loading: shareCandidatesLoading,
       error: shareCandidatesError,
       portalMemberCount,
+      page: shareCandidatesPage,
+      pageSize: shareCandidatesPageSize,
+      total: shareCandidatesTotal,
+      setPage: setShareCandidatesPage,
+      setPageSize: (pageSize: number) => {
+        setShareCandidatesPageSize(pageSize);
+        setShareCandidatesPage(1);
+      },
     },
     create: {
       open: showCreate,
@@ -443,7 +474,10 @@ export function usePortalStorageSpaceProvisioning({
           updateRestrictedRole(current, userId, role),
         ),
       candidateQuery: shareCandidateQuery,
-      setCandidateQuery: setShareCandidateQuery,
+      setCandidateQuery: (value: string) => {
+        setShareCandidateQuery(value);
+        setShareCandidatesPage(1);
+      },
       selectedRestrictedEntries,
       formSignature: createFormSignature,
       busy: createBusy,
@@ -473,7 +507,10 @@ export function usePortalStorageSpaceProvisioning({
           updateRestrictedRole(current, userId, role),
         ),
       candidateQuery: importShareCandidateQuery,
-      setCandidateQuery: setImportShareCandidateQuery,
+      setCandidateQuery: (value: string) => {
+        setImportShareCandidateQuery(value);
+        setShareCandidatesPage(1);
+      },
       selectedRestrictedEntries: selectedImportRestrictedEntries,
       formSignature: importFormSignature,
       busy: importBusy,

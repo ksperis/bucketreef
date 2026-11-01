@@ -1,15 +1,16 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import type { S3AccountSelector } from "../../api/accountParams";
 import type { PortalStorageSpaceGrantRole } from "../../api/portal";
-import { grantPortalStorageSpaceShare, listPortalStorageSpaceShareCandidates, type PortalStorageSpaceShareCandidate } from "../../api/portalSharing";
+import { grantPortalStorageSpaceShare, listPortalStorageSpaceShareCandidates } from "../../api/portalSharing";
 import { createPortalRequest } from "../../api/portalRequests";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
+import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 import { PortalShareCandidatePicker, selectedPortalShares } from "./PortalAccessControls";
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 
@@ -22,27 +23,26 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
   onAdded: (count: number) => Promise<void>;
 }) {
   const { t } = useI18n();
-  const [candidates, setCandidates] = useState<PortalStorageSpaceShareCandidate[]>([]);
-  const [query, setQuery] = useState("");
   const [roles, setRoles] = useState<Record<number, PortalStorageSpaceGrantRole>>({});
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [revision, setRevision] = useState(0);
   const [requestMessage, setRequestMessage] = useState<string | null>(null);
   const [requestDraft, setRequestDraft] = useState({ dirty: false, busy: false });
   const selected = selectedPortalShares(roles);
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setLoadError(null);
-    void listPortalStorageSpaceShareCandidates(accountId, spaceId).then(value => {
-      if (active) setCandidates(value);
-    }).catch(cause => {
-      if (active) setLoadError(extractApiError(cause, t({ en: "Unable to load people.", fr: "Impossible de charger les personnes.", de: "Personen können nicht geladen werden.", zh: "无法加载人员。" })));
-    }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [accountId, spaceId, revision, t]);
+  const loadCandidates = useCallback(
+    (query: { page?: number; page_size?: number; search?: string }) =>
+      listPortalStorageSpaceShareCandidates(accountId, spaceId, {
+        ...query,
+        include_already_shared: true,
+      }),
+    [accountId, spaceId],
+  );
+  const catalogue = usePaginatedOptions(loadCandidates);
+  const loadError = catalogue.error
+    ? extractApiError(
+        new Error(catalogue.error),
+        t({ en: "Unable to load people.", fr: "Impossible de charger les personnes.", de: "Personen können nicht geladen werden.", zh: "无法加载人员。" }),
+      )
+    : null;
   return <SettingsWorkflowForm
     title={t({ en: "Add people", fr: "Ajouter des personnes", de: "Personen hinzufügen", zh: "添加人员" })}
     description={t({
@@ -57,7 +57,7 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
     )}
     backLabel={t({ en: "Back to the space", fr: "Retour à l'espace", de: "Zurück zum Bereich", zh: "返回空间" })}
     contentVariant="plain" dirty={selected.length > 0 || requestDraft.dirty} busy={requestDraft.busy}
-    disabled={disabled || loading || Boolean(loadError) || selected.length === 0} error={error}
+    disabled={disabled || catalogue.loading || Boolean(loadError) || selected.length === 0} error={error}
     onClose={onClose} submitLabel={t({ en: "Add people", fr: "Ajouter", de: "Hinzufügen", zh: "添加人员" })}
     busyLabel={t({ en: "Adding...", fr: "Ajout...", de: "Wird hinzugefügt...", zh: "正在添加…" })}
     onSubmit={async () => {
@@ -79,9 +79,11 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
         de: "Betrachter: ansehen und herunterladen. Bearbeiter: auch hochladen, Ordner erstellen und Dateien entfernen.",
         zh: "查看者：浏览和下载。编辑者：还可上传、创建文件夹和删除文件。",
       })}>
-      <PortalShareCandidatePicker candidates={candidates} selectedRolesByUserId={roles} existingRolesByUserId={existingRoles}
-        query={query} loading={loading} error={loadError} includeAlreadyShared onQueryChange={setQuery}
-        onRetry={() => setRevision(value => value + 1)} onRequestDraftStateChange={setRequestDraft}
+      <PortalShareCandidatePicker candidates={catalogue.items} selectedRolesByUserId={roles} existingRolesByUserId={existingRoles}
+        query={catalogue.search} loading={catalogue.loading} error={loadError} includeAlreadyShared onQueryChange={catalogue.setSearch}
+        page={catalogue.page} pageSize={catalogue.pageSize} total={catalogue.total}
+        onPageChange={catalogue.setPage} onPageSizeChange={catalogue.setPageSize}
+        onRetry={catalogue.refresh} onRequestDraftStateChange={setRequestDraft}
         onRoleChange={(userId, role) => setRoles(current => {
           const next = { ...current };
           if (role) next[userId] = role; else delete next[userId];
@@ -89,7 +91,7 @@ export default function PortalAddPeopleWorkflow({ accountId, spaceId, spaceName,
         })}
         onRequestPerson={async ({ targetName, targetEmail, portalRole }) => {
           const request = await createPortalRequest(accountId, { request_type: "portal_user_access", intent: "add", target_name: targetName, target_email: targetEmail, portal_role: portalRole });
-          if (request.status === "approved") setRevision(value => value + 1);
+          if (request.status === "approved") catalogue.refresh();
           setRequestMessage(request.status === "approved"
             ? portalRole === "portal_manager"
               ? t({

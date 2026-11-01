@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from app.models.base import ApiModel
+from app.models.pagination import PaginatedResponse
 
 
 class OpenStackCloudWrite(ApiModel):
@@ -39,6 +40,10 @@ class OpenStackCloudWrite(ApiModel):
 
 class OpenStackCloudRead(OpenStackCloudWrite):
     id: int
+
+
+class PaginatedOpenStackCloudsResponse(PaginatedResponse):
+    items: list[OpenStackCloudRead]
 
 
 class OpenStackCloudPublic(ApiModel):

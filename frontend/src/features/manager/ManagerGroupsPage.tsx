@@ -8,7 +8,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
-import { IAMGroup, createIamGroup, deleteIamGroup, listIamGroups } from "../../api/managerIamGroups";
+import { IAMGroup, createIamGroup, deleteIamGroup, listIamGroupsPage } from "../../api/managerIamGroups";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
@@ -25,7 +25,8 @@ import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagedPolicySelection } from "./useManagedPolicySelection";
-import { useManagerIamCollection } from "./useManagerIamCollection";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
+import IamCursorPaginationControls from "./IamCursorPaginationControls";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
@@ -38,17 +39,24 @@ export default function ManagerGroupsPage() {
   const { selectedContextKind, contextIdForApi, requiresContextSelection, accessMode, namingValidationProfile } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
-  const [groupFilter, setGroupFilter] = useState("");
   const {
     error,
     items: groups,
     load,
-    loadRelated,
     loading,
     setError,
     setItems: setGroups,
     setLoading,
-  } = useManagerIamCollection(listIamGroups);
+    search: groupFilter,
+    setSearch: setGroupFilter,
+    page,
+    pageSize,
+    setPageSize,
+    canPrevious,
+    canNext,
+    previousPage,
+    nextPage,
+  } = useManagerIamCursorCollection(listIamGroupsPage, { includeDetails: true });
   const {
     editorProps: inlinePolicyEditorProps,
     inlineDraftName,
@@ -76,6 +84,14 @@ export default function ManagerGroupsPage() {
     loadPolicies,
     policies,
     policySearch,
+    policiesLoading,
+    policyPage,
+    policyPageSize,
+    setPolicyPageSize,
+    canPreviousPolicyPage,
+    canNextPolicyPage,
+    previousPolicyPage,
+    nextPolicyPage,
     resetPolicySelection,
     selectedPolicies,
     setPolicies,
@@ -83,7 +99,7 @@ export default function ManagerGroupsPage() {
     setSelectedPolicies,
     setShowPolicyOptions,
     showPolicyOptions,
-  } = useManagedPolicySelection(loadRelated);
+  } = useManagedPolicySelection();
 
   useEffect(() => {
     resetPolicySelection();
@@ -197,11 +213,7 @@ export default function ManagerGroupsPage() {
   };
 
 
-  const filteredGroups = groups.filter((group) => {
-    const needle = groupFilter.trim().toLowerCase();
-    if (!needle) return true;
-    return group.name.toLowerCase().includes(needle) || (group.arn ?? "").toLowerCase().includes(needle);
-  });
+  const filteredGroups = groups;
   const filteredTableStatus = resolveListTableStatus({
     loading,
     error,
@@ -315,6 +327,16 @@ export default function ManagerGroupsPage() {
             responsiveCards
             tableLayout="fixed"
           />
+          <IamCursorPaginationControls
+            page={page}
+            pageSize={pageSize}
+            canPrevious={canPrevious}
+            canNext={canNext}
+            disabled={loading}
+            onPrevious={previousPage}
+            onNext={nextPage}
+            onPageSizeChange={setPageSize}
+          />
         </ListPageSection>
       )}
 
@@ -346,7 +368,15 @@ export default function ManagerGroupsPage() {
             selectedPolicyArns={selectedPolicies}
             search={policySearch}
             expanded={showPolicyOptions}
+            loading={policiesLoading}
+            page={policyPage}
+            pageSize={policyPageSize}
+            canPrevious={canPreviousPolicyPage}
+            canNext={canNextPolicyPage}
             onSearchChange={setPolicySearch}
+            onPreviousPage={previousPolicyPage}
+            onNextPage={nextPolicyPage}
+            onPageSizeChange={setPolicyPageSize}
             onExpandedChange={setShowPolicyOptions}
             onSelectionChange={setSelectedPolicies}
           />

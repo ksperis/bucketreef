@@ -75,6 +75,35 @@ class UiGroupQueryService:
             for row in rows
         ]
 
+    def paginate_group_summaries(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        search: Optional[str] = None,
+    ) -> tuple[list[UiGroupSummary], int]:
+        search_value = search.strip() if isinstance(search, str) else ""
+        statement = select(UiGroup)
+        if search_value:
+            statement = statement.where(UiGroup.name.ilike(f"%{search_value}%"))
+        rows, total = paginate_scalars(
+            self.db,
+            statement,
+            order_by=name_order_by(UiGroup),
+            page=page,
+            page_size=page_size,
+        )
+        avatar_service = UiGroupAvatarService(self.db)
+        return [
+            UiGroupSummary(
+                id=row.id,
+                name=row.name,
+                system_key=row.system_key,
+                avatar=avatar_service.descriptor(row),
+            )
+            for row in rows
+        ], total
+
     @staticmethod
     def _apply_group_search(statement, search_value: str):
         if not search_value:

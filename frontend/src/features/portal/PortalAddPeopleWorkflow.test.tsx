@@ -24,7 +24,23 @@ beforeEach(() => {
   vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
   localStorage.clear();
   setSessionUserCache({ role: "ui_user", authType: "password" });
-  mocks.list.mockResolvedValue(candidates);
+  mocks.list.mockImplementation(async (
+    _accountId: number,
+    _spaceId: string,
+    query: { search?: string; page?: number; page_size?: number },
+  ) => {
+    const term = query.search?.trim().toLowerCase() ?? "";
+    const items = candidates.filter((candidate) =>
+      !term || candidate.display_name.toLowerCase().includes(term) || candidate.email.toLowerCase().includes(term),
+    );
+    return {
+      items,
+      total: items.length,
+      page: query.page ?? 1,
+      page_size: query.page_size ?? 25,
+      has_next: false,
+    };
+  });
   mocks.grant.mockResolvedValue({});
   mocks.request.mockResolvedValue({ id: 73, status: "pending" });
 });
@@ -52,7 +68,7 @@ function renderWorkflow() {
 }
 async function openRequest(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByRole("textbox", { name: "People" }), "missing@example.test");
-  await user.click(screen.getByRole("button", { name: "Request collaborator access" }));
+  await user.click(await screen.findByRole("button", { name: "Request collaborator access" }));
   return screen.getByRole("dialog", { name: "Request collaborator access" });
 }
 
@@ -142,7 +158,7 @@ it("guards a nested request once, retains failed values and never submits the in
   expect(mocks.request).toHaveBeenLastCalledWith(101, { request_type: "portal_user_access", intent: "add", target_name: "Missing person", target_email: "partner@example.test", portal_role: "portal_manager" });
   expect(mocks.grant).not.toHaveBeenCalled();
   await user.clear(screen.getByRole("textbox", { name: "People" }));
-  expect(screen.getByRole("checkbox", { name: /Bob/ })).toBeChecked();
+  expect(await screen.findByRole("checkbox", { name: /Bob/ })).toBeChecked();
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
   expect(await screen.findByText("Space view")).toBeVisible();
@@ -162,7 +178,13 @@ it("refreshes candidates after an immediately delegated collaborator addition", 
   expect(await screen.findByRole("status")).toHaveTextContent(
     "This person was added to the project. Select them to finish adding them to Research.",
   );
-  expect(mocks.list).toHaveBeenCalledTimes(2);
+  expect(mocks.list).toHaveBeenCalledTimes(3);
+  expect(mocks.list).toHaveBeenLastCalledWith(101, "research", {
+    page: 1,
+    page_size: 25,
+    search: "missing@example.test",
+    include_already_shared: true,
+  });
 });
 
 it("protects a membership-request draft even with no selected people and discards both on navigation", async () => {
@@ -180,12 +202,24 @@ it("protects a membership-request draft even with no selected people and discard
 });
 
 it("ignores a catalogue result after the owning workflow has closed", async () => {
-  let finish!: (value: typeof candidates) => void;
+  let finish!: (value: {
+    items: typeof candidates;
+    total: number;
+    page: number;
+    page_size: number;
+    has_next: boolean;
+  }) => void;
   mocks.list.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   const user = userEvent.setup();
   renderWorkflow();
   await user.click(screen.getByRole("button", { name: "Back to the space" }));
-  await act(async () => finish(candidates));
+  await act(async () => finish({
+    items: candidates,
+    total: candidates.length,
+    page: 1,
+    page_size: 25,
+    has_next: false,
+  }));
   expect(screen.getByText("Space view")).toBeVisible();
   expect(screen.queryByText("Bob")).not.toBeInTheDocument();
 });

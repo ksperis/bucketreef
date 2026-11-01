@@ -25,13 +25,20 @@ export type AdminSimpleIdAssociationsState = {
   available: AdminSimpleAssociationOption[];
   visible: AdminSimpleAssociationOption[];
   search: string;
-  setSearch: Dispatch<SetStateAction<string>>;
+  setSearch: (value: string) => void;
   loading: boolean;
   showPanel: boolean;
   setShowPanel: Dispatch<SetStateAction<boolean>>;
   selections: number[];
   setSelections: Dispatch<SetStateAction<number[]>>;
   toggleSelection: (id: number) => void;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (pageSize: number) => void;
+  };
 };
 
 type AdminSimpleIdAssociationsPanelProps = {
@@ -138,6 +145,7 @@ export default function AdminSimpleIdAssociationsPanel({
           selectedCount={state.selections.length}
           loadingLabel={loadingMessage}
           emptyLabel={pickerEmptyMessage}
+          pagination={state.pagination}
           addDisabled={state.selections.length === 0}
           onCancel={resetPicker}
           onAdd={() => {

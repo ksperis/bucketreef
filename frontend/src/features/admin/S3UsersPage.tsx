@@ -81,9 +81,12 @@ export default function S3UsersPage() {
   const {
     users: portalUsers,
     groups: uiGroups,
+    usersLoading: portalUsersLoading,
     groupsLoading: uiGroupsLoading,
     loadUsers: loadPortalUsersIfNeeded,
     loadGroups: loadGroupsIfNeeded,
+    usersPagination,
+    groupsPagination,
   } = useAdminPrincipalCatalogs();
   const {
     filter,
@@ -222,6 +225,14 @@ export default function S3UsersPage() {
     void loadPortalUsersIfNeeded();
   }, [hasLinkedPortalUsers, loadPortalUsersIfNeeded]);
 
+  useEffect(() => {
+    usersPagination.setSearch(portalUserPicker.search);
+  }, [portalUserPicker.search, usersPagination.setSearch]);
+
+  useEffect(() => {
+    groupsPagination.setSearch(groupPicker.search);
+  }, [groupPicker.search, groupsPagination.setSearch]);
+
   const portalUserOptions = useMemo(() => portalUsers.map((u) => ({ id: u.id, label: u.email })), [portalUsers]);
   const groupOptions = useMemo(
     () => uiGroups.map((group) => ({ id: group.id, label: group.name })),
@@ -243,8 +254,8 @@ export default function S3UsersPage() {
         search: portalUserPicker.search,
         getId: (option) => option.id,
         getLabel: (option) => option.label,
-      }),
-    [editForm.user_links, portalUserOptions, portalUserPicker.search],
+      }, usersPagination.pageSize),
+    [editForm.user_links, portalUserOptions, portalUserPicker.search, usersPagination.pageSize],
   );
   const { available: availableGroups, visible: visibleGroups } = useMemo(
     () =>
@@ -254,8 +265,8 @@ export default function S3UsersPage() {
         search: groupPicker.search,
         getId: (option) => option.id,
         getLabel: (option) => option.label,
-      }),
-    [editForm.group_links, groupOptions, groupPicker.search],
+      }, groupsPagination.pageSize),
+    [editForm.group_links, groupOptions, groupPicker.search, groupsPagination.pageSize],
   );
   const editUserAssociationState: AdminRgwUserAccessAssociationsState<S3UserUserLinkInput> = {
     selected: editForm.user_links,
@@ -281,12 +292,19 @@ export default function S3UsersPage() {
     visible: visiblePortalUsers,
     search: portalUserPicker.search,
     setSearch: portalUserPicker.setSearch,
-    loading: false,
+    loading: portalUsersLoading,
     showPanel: portalUserPicker.open,
     setShowPanel: portalUserPicker.setOpen,
     selections: portalUserPicker.selections,
     setSelections: portalUserPicker.setSelections,
     toggleSelection: portalUserPicker.toggleSelection,
+    pagination: {
+      page: usersPagination.page,
+      pageSize: usersPagination.pageSize,
+      total: usersPagination.total,
+      onPageChange: usersPagination.setPage,
+      onPageSizeChange: usersPagination.setPageSize,
+    },
   };
   const editGroupAssociationState: AdminRgwUserAccessAssociationsState<S3UserGroupLinkInput> = {
     selected: editForm.group_links,
@@ -325,6 +343,13 @@ export default function S3UsersPage() {
     selections: groupPicker.selections,
     setSelections: groupPicker.setSelections,
     toggleSelection: groupPicker.toggleSelection,
+    pagination: {
+      page: groupsPagination.page,
+      pageSize: groupsPagination.pageSize,
+      total: groupsPagination.total,
+      onPageChange: groupsPagination.setPage,
+      onPageSizeChange: groupsPagination.setPageSize,
+    },
   };
   const cephEndpoints = useMemo(() => storageEndpoints.filter((ep) => ep.provider === "ceph"), [storageEndpoints]);
   const adminCephEndpoints = useMemo(

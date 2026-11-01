@@ -163,23 +163,23 @@ vi.mock("../../api/groups", () => ({
 }));
 
 vi.mock("../../api/users", () => ({
-  listMinimalUsers: () => listMinimalUsersMock(),
+  listUserOptions: (params?: unknown) => listMinimalUsersMock(params),
 }));
 
 vi.mock("../../api/accounts", () => ({
-  listMinimalS3Accounts: () => listMinimalS3AccountsMock(),
+  listS3Accounts: (params?: unknown) => listMinimalS3AccountsMock(params),
 }));
 
 vi.mock("../../api/s3Users", () => ({
-  listMinimalS3Users: () => listMinimalS3UsersMock(),
+  listS3Users: (params?: unknown) => listMinimalS3UsersMock(params),
 }));
 
 vi.mock("../../api/s3ConnectionsAdmin", () => ({
-  listMinimalS3Connections: () => listMinimalS3ConnectionsMock(),
+  listAdminS3Connections: (params?: unknown) => listMinimalS3ConnectionsMock(params),
 }));
 
 vi.mock("../../api/openstack", () => ({
-  listAdminOpenStackClouds: () => listAdminOpenStackCloudsMock(),
+  listAdminOpenStackCloudOptions: (params?: unknown) => listAdminOpenStackCloudsMock(params),
 }));
 
 function renderPage() {
@@ -200,16 +200,44 @@ describe("GroupsPage", () => {
       page_size: 25,
       has_next: false,
     });
-    listMinimalUsersMock.mockResolvedValue([
-      { id: 2, email: "alice@example.com" },
-      { id: 3, email: "bob@example.com" },
-    ]);
-    listMinimalS3AccountsMock.mockResolvedValue([
-      { id: 1, name: "acc-1", rgw_account_id: "RGW-ACC-1", user_links: [], group_links: [] },
-    ]);
-    listMinimalS3UsersMock.mockResolvedValue([canonicalS3UserSummary(11, "s3-user-1")]);
-    listMinimalS3ConnectionsMock.mockResolvedValue([canonicalS3ConnectionSummary(21, "shared-conn")]);
-    listAdminOpenStackCloudsMock.mockResolvedValue([]);
+    listMinimalUsersMock.mockResolvedValue({
+      items: [
+        { id: 2, email: "alice@example.com" },
+        { id: 3, email: "bob@example.com" },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
+    listMinimalS3AccountsMock.mockResolvedValue({
+      items: [{ id: 1, name: "acc-1", rgw_account_id: "RGW-ACC-1", user_links: [], group_links: [] }],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
+    listMinimalS3UsersMock.mockResolvedValue({
+      items: [canonicalS3UserSummary(11, "s3-user-1")],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
+    listMinimalS3ConnectionsMock.mockResolvedValue({
+      items: [canonicalS3ConnectionSummary(21, "shared-conn")],
+      total: 1,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
+    listAdminOpenStackCloudsMock.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
     createGroupMock.mockResolvedValue({ id: 50, name: "ops-group" });
     updateGroupMock.mockResolvedValue({ id: 50, name: "ops-group-updated" });
     deleteGroupMock.mockResolvedValue(undefined);
@@ -369,9 +397,9 @@ describe("GroupsPage", () => {
     expect(screen.queryByText("Account #99")).not.toBeInTheDocument();
     expect(screen.queryByText("S3 User #88")).not.toBeInTheDocument();
     expect(screen.queryByText("Connection #77")).not.toBeInTheDocument();
-    expect(listMinimalS3AccountsMock).not.toHaveBeenCalled();
-    expect(listMinimalS3UsersMock).not.toHaveBeenCalled();
-    expect(listMinimalS3ConnectionsMock).not.toHaveBeenCalled();
+    expect(listMinimalS3AccountsMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
+    expect(listMinimalS3UsersMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
+    expect(listMinimalS3ConnectionsMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
   });
 
   it("limits visible member avatars and reports hidden members", async () => {
@@ -445,12 +473,12 @@ describe("GroupsPage", () => {
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
 
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
-      name: "Manager role for Account #99",
+      name: "Manager role for production-account",
     });
     expect(managerRoleSelect).toHaveValue("");
     expect(managerRoleSelect).toBeEnabled();
     expect(
-      screen.queryByRole("combobox", { name: "Portal role for Account #99" }),
+      screen.queryByRole("combobox", { name: "Portal role for production-account" }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));

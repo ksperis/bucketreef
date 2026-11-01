@@ -1,11 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Bucket } from "../../api/bucketContracts";
 import type { ExecutionContext } from "../../api/executionContexts";
 import { buildExecutionContext } from "../../test/executionContexts";
 import { useManagerBucketSelection } from "./useManagerBucketSelection";
 
-const listBucketsMock = vi.fn();
+const listBucketOptionsMock = vi.fn();
 
 const primaryContext = buildExecutionContext("context-1", {
   display_name: "Primary account",
@@ -27,7 +26,7 @@ let accountContext = {
 };
 
 vi.mock("../../api/managerBuckets", () => ({
-  listBuckets: (...args: unknown[]) => listBucketsMock(...args),
+  listBucketOptions: (...args: unknown[]) => listBucketOptionsMock(...args),
 }));
 
 vi.mock("./ExecutionContextProvider", () => ({
@@ -36,7 +35,7 @@ vi.mock("./ExecutionContextProvider", () => ({
 
 describe("useManagerBucketSelection", () => {
   beforeEach(() => {
-    listBucketsMock.mockReset();
+    listBucketOptionsMock.mockReset();
     accountContext = {
       contexts: [primaryContext, secondaryContext],
       selectedContextId: primaryContext.id,
@@ -45,18 +44,24 @@ describe("useManagerBucketSelection", () => {
   });
 
   it("loads, sorts, filters, and selects bucket targets for the active context", async () => {
-    listBucketsMock.mockResolvedValue([
-      { name: "zeta" },
-      { name: "alpha" },
-    ] satisfies Bucket[]);
+    listBucketOptionsMock.mockImplementation(async (_contextId: string, query: { search?: string; page?: number; page_size?: number }) => {
+      const allItems = [{ name: "alpha" }, { name: "zeta" }];
+      const term = query.search?.trim().toLowerCase() ?? "";
+      const items = allItems.filter((bucket) => !term || bucket.name.includes(term));
+      return { items, total: items.length, page: query.page ?? 1, page_size: query.page_size ?? 25, has_next: false };
+    });
     const { result } = renderHook(() => useManagerBucketSelection());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(listBucketsMock).toHaveBeenCalledWith(primaryContext.id, { with_stats: false });
+    expect(listBucketOptionsMock).toHaveBeenCalledWith(primaryContext.id, { page: 1, page_size: 25 });
     expect(result.current.filteredBuckets.map((bucket) => bucket.name)).toEqual(["alpha", "zeta"]);
 
     act(() => result.current.setFilter("ALP"));
-    expect(result.current.filteredBuckets.map((bucket) => bucket.name)).toEqual(["alpha"]);
+    await waitFor(() => expect(listBucketOptionsMock).toHaveBeenLastCalledWith(
+      primaryContext.id,
+      { page: 1, page_size: 25, search: "ALP" },
+    ));
+    await waitFor(() => expect(result.current.filteredBuckets.map((bucket) => bucket.name)).toEqual(["alpha"]));
 
     act(() => result.current.selectAllFiltered());
     expect([...result.current.selectedBuckets]).toEqual(["alpha"]);
@@ -73,10 +78,10 @@ describe("useManagerBucketSelection", () => {
     expect(result.current.selectedBuckets.size).toBe(0);
   });
 
-  it("prunes unavailable selections when the execution context changes", async () => {
-    listBucketsMock
-      .mockResolvedValueOnce([{ name: "alpha" }, { name: "shared" }] satisfies Bucket[])
-      .mockResolvedValueOnce([{ name: "shared" }, { name: "zeta" }] satisfies Bucket[]);
+  it("clears selections when the execution context changes", async () => {
+    listBucketOptionsMock
+      .mockResolvedValueOnce({ items: [{ name: "alpha" }, { name: "shared" }], total: 2, page: 1, page_size: 25, has_next: false })
+      .mockResolvedValueOnce({ items: [{ name: "shared" }, { name: "zeta" }], total: 2, page: 1, page_size: 25, has_next: false });
     const { result, rerender } = renderHook(() => useManagerBucketSelection());
 
     await waitFor(() => expect(result.current.filteredBuckets).toHaveLength(2));
@@ -91,16 +96,13 @@ describe("useManagerBucketSelection", () => {
     };
     rerender();
 
-    await waitFor(() => expect(listBucketsMock).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect([...result.current.selectedBuckets]).toEqual(["shared"]));
-    expect(result.current.selectedTargets[0]).toMatchObject({
-      contextId: secondaryContext.id,
-      contextName: secondaryContext.display_name,
-    });
+    await waitFor(() => expect(listBucketOptionsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.selectedBuckets.size).toBe(0));
+    expect(result.current.selectedTargets).toEqual([]);
   });
 
   it("clears buckets and reports the canonical load error", async () => {
-    listBucketsMock.mockRejectedValue(new Error("network failure"));
+    listBucketOptionsMock.mockRejectedValue(new Error("network failure"));
     const { result, rerender } = renderHook(() => useManagerBucketSelection());
 
     await waitFor(() => expect(result.current.error).toBe("network failure"));

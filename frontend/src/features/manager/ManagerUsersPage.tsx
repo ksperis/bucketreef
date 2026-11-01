@@ -14,9 +14,9 @@ import {
   IAMUser,
   createIamUser,
   deleteIamUser,
-  listIamUsers,
+  listIamUsersPage,
 } from "../../api/managerIamUsers";
-import { IAMGroup, listIamGroups } from "../../api/managerIamGroups";
+import { listIamGroupsPage } from "../../api/managerIamGroups";
 import ListPageSection from "../../components/list/ListPageSection";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageEmptyState from "../../components/PageEmptyState";
@@ -37,7 +37,8 @@ import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagedPolicySelection } from "./useManagedPolicySelection";
-import { useManagerIamCollection } from "./useManagerIamCollection";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
+import IamCursorPaginationControls from "./IamCursorPaginationControls";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
@@ -65,12 +66,35 @@ export default function ManagerUsersPage() {
     error,
     items: users,
     load,
-    loadRelated,
     loading,
     setError,
     setItems: setUsers,
     setLoading,
-  } = useManagerIamCollection(listIamUsers);
+    search: filter,
+    setSearch: setFilter,
+    page,
+    pageSize,
+    setPageSize,
+    canPrevious,
+    canNext,
+    previousPage,
+    nextPage,
+  } = useManagerIamCursorCollection(listIamUsersPage, { includeDetails: true });
+  const {
+    items: groups,
+    load: loadGroups,
+    loading: groupsLoading,
+    setItems: setGroups,
+    search: groupSearch,
+    setSearch: setGroupSearch,
+    page: groupPage,
+    pageSize: groupPageSize,
+    setPageSize: setGroupPageSize,
+    canPrevious: canPreviousGroupPage,
+    canNext: canNextGroupPage,
+    previousPage: previousGroupPage,
+    nextPage: nextGroupPage,
+  } = useManagerIamCursorCollection(listIamGroupsPage);
   const {
     editorProps: inlinePolicyEditorProps,
     inlineDraftName,
@@ -86,10 +110,8 @@ export default function ManagerUsersPage() {
   const [createdForUser, setCreatedForUser] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [groups, setGroups] = useState<IAMGroup[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
-  const [filter, setFilter] = useState("");
   const groupOptionsId = useId();
   const [showGroupOptions, setShowGroupOptions] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -109,16 +131,18 @@ export default function ManagerUsersPage() {
     direction: "asc",
   });
 
-  const loadGroups = useCallback(
-    (contextId: S3ExecutionContextSelector) =>
-      loadRelated(contextId, listIamGroups, setGroups),
-    [loadRelated],
-  );
-
   const {
     loadPolicies,
     policies,
+    policiesLoading,
     policySearch,
+    policyPage,
+    policyPageSize,
+    setPolicyPageSize,
+    canPreviousPolicyPage,
+    canNextPolicyPage,
+    previousPolicyPage,
+    nextPolicyPage,
     resetPolicySelection,
     selectedPolicies,
     setPolicies,
@@ -126,7 +150,7 @@ export default function ManagerUsersPage() {
     setSelectedPolicies,
     setShowPolicyOptions,
     showPolicyOptions,
-  } = useManagedPolicySelection(loadRelated);
+  } = useManagedPolicySelection();
 
   useEffect(() => {
     resetPolicySelection();
@@ -164,15 +188,11 @@ export default function ManagerUsersPage() {
   }, [selectedGroups.length]);
 
   const filteredUsers = useMemo(() => {
-    const query = filter.trim().toLowerCase();
-    const items = query
-      ? users.filter((u) => u.name.toLowerCase().includes(query) || (u.arn ?? "").toLowerCase().includes(query))
-      : users;
-    const sorted = [...items].sort((a, b) => {
+    const sorted = [...users].sort((a, b) => {
       return compareByNullableField(a, b, sort.field, sort.direction);
     });
     return sorted;
-  }, [users, filter, sort]);
+  }, [users, sort]);
 
   const advancedCurrentSignature = useMemo(
     () =>
@@ -523,6 +543,16 @@ export default function ManagerUsersPage() {
             sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
             tableLayout="fixed"
           />
+          <IamCursorPaginationControls
+            page={page}
+            pageSize={pageSize}
+            canPrevious={canPrevious}
+            canNext={canNext}
+            disabled={loading}
+            onPrevious={previousPage}
+            onNext={nextPage}
+            onPageSizeChange={setPageSize}
+          />
         </ListPageSection>
       )}
 
@@ -558,7 +588,15 @@ export default function ManagerUsersPage() {
                 </SettingsButton>
               </div>
               <div id={groupOptionsId} hidden={!showGroupOptions} className={showGroupOptions ? "settings-fields" : undefined}>
-                {groups.length === 0 && <p className="settings-description">{text("No groups available.")}</p>}
+                <UiInput
+                  label={text("Search groups")}
+                  value={groupSearch}
+                  onChange={(event) => setGroupSearch(event.target.value)}
+                  placeholder={text("Search groups by name")}
+                />
+                {!groupsLoading && groups.length === 0 && (
+                  <p className="settings-description">{groupSearch.trim() ? text("No matching groups.") : text("No groups available.")}</p>
+                )}
                 <div className="grid gap-x-4 sm:grid-cols-2">
                   {groups.map((group) => (
                     <UiCheckboxField key={group.name} checked={selectedGroups.includes(group.name)}
@@ -569,6 +607,16 @@ export default function ManagerUsersPage() {
                     </UiCheckboxField>
                   ))}
                 </div>
+                <IamCursorPaginationControls
+                  page={groupPage}
+                  pageSize={groupPageSize}
+                  canPrevious={canPreviousGroupPage}
+                  canNext={canNextGroupPage}
+                  disabled={groupsLoading}
+                  onPrevious={previousGroupPage}
+                  onNext={nextGroupPage}
+                  onPageSizeChange={setGroupPageSize}
+                />
               </div>
             </div>
           </SettingsSection>
@@ -581,7 +629,15 @@ export default function ManagerUsersPage() {
             selectedPolicyArns={selectedPolicies}
             search={policySearch}
             expanded={showPolicyOptions}
+            loading={policiesLoading}
+            page={policyPage}
+            pageSize={policyPageSize}
+            canPrevious={canPreviousPolicyPage}
+            canNext={canNextPolicyPage}
             onSearchChange={setPolicySearch}
+            onPreviousPage={previousPolicyPage}
+            onNextPage={nextPolicyPage}
+            onPageSizeChange={setPolicyPageSize}
             onExpandedChange={setShowPolicyOptions}
             onSelectionChange={setSelectedPolicies}
           />
@@ -595,8 +651,6 @@ export default function ManagerUsersPage() {
           variant="iam"
           contextId={contextIdForApi}
           contextName={selectedContextName}
-          groups={groups}
-          policies={policies}
           onClose={() => setShowPrivateAccessModal(false)}
           onCreated={(name) => {
             setActionMessage(`Private connection ${name} created without exposing its secret.`);

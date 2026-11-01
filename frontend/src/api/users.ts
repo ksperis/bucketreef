@@ -240,6 +240,15 @@ export async function listMinimalUsers(): Promise<UserSummary[]> {
   return data;
 }
 
+export async function listUserOptions(params: {
+  page?: number;
+  page_size?: number;
+  search?: string;
+} = {}): Promise<PaginatedResponse<UserSummary>> {
+  const { data } = await client.get<PaginatedResponse<UserSummary>>("/admin/users/options", { params });
+  return data;
+}
+
 export async function createUser(payload: CreateUserPayload): Promise<User> {
   const { data } = await client.post<User>("/admin/users", payload);
   return data;

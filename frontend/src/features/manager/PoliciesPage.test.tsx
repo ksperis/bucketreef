@@ -6,7 +6,7 @@ import PoliciesPage from "./PoliciesPage";
 const api = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn() }));
 const context = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 vi.mock("./ExecutionContextProvider", () => ({ useExecutionContext: () => context.value }));
-vi.mock("../../api/managerIamPolicies", () => ({ listIamPolicies: api.list, createIamPolicy: api.create }));
+vi.mock("../../api/managerIamPolicies", () => ({ listIamPoliciesPage: api.list, createIamPolicy: api.create }));
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -14,7 +14,10 @@ beforeEach(() => {
     contexts: [], selectedContextId: "acc-7", selectedContextKind: "account",
     contextIdForApi: "acc-7", requiresContextSelection: true, accessMode: "default",
   };
-  api.list.mockResolvedValue([{ name: "ReadOnly", arn: "arn:aws:iam::acc-7:policy/ReadOnly" }]);
+  api.list.mockResolvedValue({
+    items: [{ name: "ReadOnly", arn: "arn:aws:iam::acc-7:policy/ReadOnly" }],
+    next_marker: null,
+  });
   api.create.mockResolvedValue({ name: "New-policy" });
 });
 async function open() {
