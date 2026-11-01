@@ -25,7 +25,11 @@ describe("useAdminResourceController", () => {
     await waitFor(() => expect(result.current.resource).toEqual({ id: 1 }));
     expect(result.current.loading).toBe(false);
 
-    await act(async () => result.current.refresh());
+    let refreshed: { id: number } | null | undefined;
+    await act(async () => {
+      refreshed = await result.current.refresh();
+    });
+    expect(refreshed).toEqual({ id: 2 });
     expect(result.current.resource).toEqual({ id: 2 });
 
     act(() => result.current.setResource({ id: 3 }));

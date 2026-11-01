@@ -64,6 +64,7 @@ export default function useAdminResourceController<T>({
       setError(null);
       setErrorCause(null);
       onLoaded?.(nextResource);
+      return nextResource;
     } catch (cause) {
       if (generation !== loadGeneration.current) return;
       if (resetResourceOnError) setResource(initialResourceRef.current);

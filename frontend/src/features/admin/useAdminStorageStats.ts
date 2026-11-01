@@ -53,7 +53,10 @@ export function useAdminStorageStats({
     formatError,
     enabled: active,
   });
+  const reload = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
   const stats = active && !loading && !error ? resource : null;
 
-  return { stats, loading, error, reload: refresh };
+  return { stats, loading, error, reload };
 }
