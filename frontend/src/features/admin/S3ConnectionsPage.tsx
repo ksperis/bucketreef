@@ -62,6 +62,10 @@ import useAdminPaginationState from "./useAdminPaginationState";
 import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 import useAdminS3ConnectionsListController from "./useAdminS3ConnectionsListController";
+import {
+  deriveAdminAssociationOptions,
+  MAX_VISIBLE_ASSOCIATION_OPTIONS,
+} from "./adminAssociationOptions";
 
 type EditTab = "general" | "users" | "groups";
 
@@ -159,7 +163,6 @@ export default function S3ConnectionsPage() {
   const [editLinkedGroupIds, setEditLinkedGroupIds] = useState<number[]>([]);
   const editUserPicker = useAdminAssociationPickerState();
   const editGroupPicker = useAdminAssociationPickerState();
-  const maxLinkOptions = 10;
 
   const [deleteTarget, setDeleteTarget] = useState<S3ConnectionAdminItem | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -268,34 +271,44 @@ export default function S3ConnectionsPage() {
   });
 
   const defaultEndpoint = storageEndpoints.find((ep) => ep.is_default);
-  const portalUserLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    portalUsers.forEach((user) => map.set(user.id, user.email));
-    return map;
-  }, [portalUsers]);
-  const groupLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    uiGroups.forEach((group) => map.set(group.id, group.name));
-    return map;
-  }, [uiGroups]);
-  const availableEditUsers = useMemo(() => {
-    const query = editUserPicker.search.trim().toLowerCase();
-    const selectedIds = new Set(editLinkedUserIds);
-    return portalUsers
-      .filter((user) => !selectedIds.has(user.id))
-      .filter((user) => !query || user.email.toLowerCase().includes(query))
-      .map((user) => ({ id: user.id, label: user.email }));
-  }, [editLinkedUserIds, editUserPicker.search, portalUsers]);
-  const availableEditGroups = useMemo(() => {
-    const query = editGroupPicker.search.trim().toLowerCase();
-    const selectedIds = new Set(editLinkedGroupIds);
-    return uiGroups
-      .filter((group) => !selectedIds.has(group.id))
-      .filter((group) => !query || group.name.toLowerCase().includes(query))
-      .map((group) => ({ id: group.id, label: group.name }));
-  }, [editGroupPicker.search, editLinkedGroupIds, uiGroups]);
-  const visibleAvailableEditUsers = useMemo(() => availableEditUsers.slice(0, maxLinkOptions), [availableEditUsers, maxLinkOptions]);
-  const visibleAvailableEditGroups = useMemo(() => availableEditGroups.slice(0, maxLinkOptions), [availableEditGroups, maxLinkOptions]);
+  const portalUserOptions = useMemo(
+    () => portalUsers.map((user) => ({ id: user.id, label: user.email })),
+    [portalUsers],
+  );
+  const groupOptions = useMemo(
+    () => uiGroups.map((group) => ({ id: group.id, label: group.name })),
+    [uiGroups],
+  );
+  const portalUserLabelById = useMemo(
+    () => new Map(portalUserOptions.map((option) => [option.id, option.label] as const)),
+    [portalUserOptions],
+  );
+  const groupLabelById = useMemo(
+    () => new Map(groupOptions.map((option) => [option.id, option.label] as const)),
+    [groupOptions],
+  );
+  const { available: availableEditUsers, visible: visibleAvailableEditUsers } = useMemo(
+    () =>
+      deriveAdminAssociationOptions({
+        items: portalUserOptions,
+        selectedIds: new Set(editLinkedUserIds),
+        search: editUserPicker.search,
+        getId: (option) => option.id,
+        getLabel: (option) => option.label,
+      }),
+    [editLinkedUserIds, editUserPicker.search, portalUserOptions],
+  );
+  const { available: availableEditGroups, visible: visibleAvailableEditGroups } = useMemo(
+    () =>
+      deriveAdminAssociationOptions({
+        items: groupOptions,
+        selectedIds: new Set(editLinkedGroupIds),
+        search: editGroupPicker.search,
+        getId: (option) => option.id,
+        getLabel: (option) => option.label,
+      }),
+    [editGroupPicker.search, editLinkedGroupIds, groupOptions],
+  );
   const editUserAssociationState: AdminSimpleIdAssociationsState = {
     selected: editLinkedUserIds,
     setSelected: setEditLinkedUserIds,
@@ -681,7 +694,7 @@ export default function S3ConnectionsPage() {
             {showEditUsersTab && (
               <AdminSimpleIdAssociationsPanel
                 state={editUserAssociationState}
-                maxVisibleOptions={maxLinkOptions}
+                maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
                 primaryLabel={adminText("User")}
                 actionsLabel={adminText("Actions")}
                 removeLabel={adminText("Remove")}
@@ -703,7 +716,7 @@ export default function S3ConnectionsPage() {
             {showEditGroupsTab && (
               <AdminSimpleIdAssociationsPanel
                 state={editGroupAssociationState}
-                maxVisibleOptions={maxLinkOptions}
+                maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
                 primaryLabel={adminText("Group")}
                 actionsLabel={adminText("Actions")}
                 removeLabel={adminText("Remove")}
