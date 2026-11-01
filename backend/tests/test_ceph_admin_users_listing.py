@@ -18,7 +18,7 @@ from app.services.ceph_admin_identity_listing_cache import invalidate_users_list
 class FakeRGWAdmin:
     def __init__(
         self,
-        users_payload: list[str],
+        users_payload: list[object],
         user_details: dict[tuple[str | None, str], dict],
         bucket_payloads: dict[str, list[dict]] | None = None,
     ):
@@ -70,7 +70,7 @@ def clear_users_listing_cache():
 
 def _build_ctx(
     endpoint_id: int,
-    users_payload: list[str],
+    users_payload: list[object],
     user_details: dict[tuple[str | None, str], dict],
     *,
     endpoint: object | None = None,
@@ -157,6 +157,32 @@ def test_ceph_admin_users_listing_cache_is_reused_across_pages():
 
     assert [item.uid for item in first.items] == ["alpha", "beta"]
     assert [item.uid for item in second.items] == ["delta", "gamma"]
+    assert rgw_admin.list_users_calls == 1
+
+
+def test_ceph_admin_users_listing_uses_canonical_metadata_identity_fields():
+    users_payload = [
+        {"user": "tenant-a$alice"},
+        {"uid": "bob"},
+        {"id": "legacy-id"},
+    ]
+    ctx, rgw_admin = _build_ctx(endpoint_id=1101, users_payload=users_payload, user_details={})
+
+    response = users_router.list_rgw_users(
+        page=1,
+        page_size=25,
+        search=None,
+        advanced_filter=None,
+        sort_by="uid",
+        sort_dir="asc",
+        include=[],
+        ctx=ctx,
+    )
+
+    assert [(item.uid, item.tenant) for item in response.items] == [
+        ("alice", "tenant-a"),
+        ("bob", None),
+    ]
     assert rgw_admin.list_users_calls == 1
 
 

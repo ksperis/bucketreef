@@ -57,13 +57,23 @@ def extract_rgw_quota_enabled(
     return None
 
 
+def extract_rgw_account_payload(payload: Any) -> dict[str, Any]:
+    """Return the effective RGW account payload, preferring a nested envelope."""
+    if not isinstance(payload, dict):
+        return {}
+    nested = payload.get("account")
+    if isinstance(nested, dict):
+        return nested
+    return payload
+
+
 def _rgw_account_payload_candidates(payload: Any) -> tuple[dict[str, Any], ...]:
     if not isinstance(payload, dict):
         return ()
-    nested = payload.get("account")
-    if isinstance(nested, dict):
-        return nested, payload
-    return (payload,)
+    effective = extract_rgw_account_payload(payload)
+    if effective is payload:
+        return (payload,)
+    return effective, payload
 
 
 def extract_rgw_account_ids(*records: object) -> set[str]:
@@ -304,6 +314,15 @@ def extract_rgw_user_identity(payload: Any) -> tuple[str | None, str | None]:
     if len(uids) > 1:
         raise ValueError("RGW returned conflicting user identity fields")
     return next(iter(uids), None), next(iter(tenants), None)
+
+
+def extract_rgw_user_listing_identity(entry: Any) -> tuple[str | None, str | None]:
+    """Normalize an RGW user-list entry using the canonical user identity fields."""
+    if isinstance(entry, str):
+        return extract_rgw_user_identity({"user": entry})
+    if isinstance(entry, dict):
+        return extract_rgw_user_identity(entry)
+    return None, None
 
 
 def rgw_qualified_uid(uid: str, tenant: str | None = None) -> str:
