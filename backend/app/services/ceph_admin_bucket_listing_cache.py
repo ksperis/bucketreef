@@ -12,7 +12,7 @@ from typing import Callable
 from app.models.bucket_listing import BucketListingSummary
 from app.services.bucket_listing_owner_metadata import BucketListingAdminContext
 from app.services.bucket_owner_enrichment import BucketOwnerUsage
-from app.utils.cache import prune_expired_lru_cache
+from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache, prune_expired_lru_cache
 from app.utils.rgw_payloads import extract_bucket_list
 
 
@@ -40,12 +40,6 @@ class CephAdminBucketListingSnapshot:
     owner_usage_by_key: dict[str, BucketOwnerUsage] | None = None
 
 
-@dataclass
-class _BucketListCacheEntry:
-    expires_at: float
-    listing: CephAdminBucketListingSnapshot
-
-
 @dataclass(frozen=True)
 class _RgwBucketPayloadCacheKey:
     endpoint_id: int
@@ -58,7 +52,10 @@ class _RgwBucketPayloadCacheEntry:
     entries: list[dict]
 
 
-_BUCKET_LIST_CACHE: OrderedDict[CephAdminBucketListCacheKey, _BucketListCacheEntry] = OrderedDict()
+_BUCKET_LIST_CACHE: OrderedDict[
+    CephAdminBucketListCacheKey,
+    TtlCacheEntry[CephAdminBucketListingSnapshot],
+] = OrderedDict()
 _BUCKET_LIST_INFLIGHT: dict[CephAdminBucketListCacheKey, Future[CephAdminBucketListingSnapshot]] = {}
 _RGW_BUCKET_PAYLOAD_CACHE: OrderedDict[_RgwBucketPayloadCacheKey, _RgwBucketPayloadCacheEntry] = OrderedDict()
 _RGW_BUCKET_PAYLOAD_INFLIGHT: dict[int, Event] = {}
@@ -137,51 +134,17 @@ def get_cached_bucket_listing(
     key: CephAdminBucketListCacheKey,
     builder: Callable[[], CephAdminBucketListingSnapshot],
 ) -> CephAdminBucketListingSnapshot:
-    now = monotonic()
-    is_owner = False
-    with _CACHE_LOCK:
-        prune_expired_lru_cache(
-            _BUCKET_LIST_CACHE,
-            now=now,
-            max_entries=BUCKET_LIST_CACHE_MAX_ENTRIES,
-        )
-        cached = _BUCKET_LIST_CACHE.get(key)
-        if cached is not None:
-            _BUCKET_LIST_CACHE.move_to_end(key)
-            return cached.listing
-        in_flight = _BUCKET_LIST_INFLIGHT.get(key)
-        if in_flight is None:
-            in_flight = Future()
-            _BUCKET_LIST_INFLIGHT[key] = in_flight
-            is_owner = True
-
-    if not is_owner:
-        return in_flight.result()
-
-    try:
-        listing = builder()
-        expires_at = monotonic() + BUCKET_LIST_CACHE_TTL_SECONDS
-        with _CACHE_LOCK:
-            if _BUCKET_LIST_INFLIGHT.get(key) is in_flight:
-                _BUCKET_LIST_CACHE[key] = _BucketListCacheEntry(
-                    expires_at=expires_at,
-                    listing=listing,
-                )
-                _BUCKET_LIST_CACHE.move_to_end(key)
-                prune_expired_lru_cache(
-                    _BUCKET_LIST_CACHE,
-                    now=monotonic(),
-                    max_entries=BUCKET_LIST_CACHE_MAX_ENTRIES,
-                )
-        in_flight.set_result(listing)
-        return listing
-    except Exception as exc:
-        in_flight.set_exception(exc)
-        raise
-    finally:
-        with _CACHE_LOCK:
-            if _BUCKET_LIST_INFLIGHT.get(key) is in_flight:
-                _BUCKET_LIST_INFLIGHT.pop(key, None)
+    return get_or_build_single_flight_cache(
+        _BUCKET_LIST_CACHE,
+        _BUCKET_LIST_INFLIGHT,
+        _CACHE_LOCK,
+        key,
+        builder=builder,
+        ttl_seconds=BUCKET_LIST_CACHE_TTL_SECONDS,
+        max_entries=BUCKET_LIST_CACHE_MAX_ENTRIES,
+        future_factory=Future,
+        clock=monotonic,
+    )
 
 
 def invalidate_bucket_listing_cache(endpoint_id: int) -> None:
