@@ -11,11 +11,7 @@ import {
 } from "../../auth/useRecentWebAuthnStepUp";
 import {
   createStorageEndpoint,
-  deleteStorageEndpoint,
-  fetchStorageEndpointsMeta,
   getStorageEndpoint,
-  listStorageEndpoints,
-  setDefaultStorageEndpoint,
   updateStorageEndpoint,
   updateStorageEndpointTags,
   reconcileEndpointIdentities,
@@ -66,6 +62,7 @@ import {
   resolveCredentialCheckView,
 } from "./StorageEndpointValidationStatus";
 import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
+import useAdminStorageEndpointsListController from "./useAdminStorageEndpointsListController";
 
 type EndpointEditorTab = "general" | "credentials" | "capabilities";
 
@@ -91,16 +88,31 @@ export default function StorageEndpointsPage() {
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const currentUser = useMemo(() => readStoredUser(), []);
   const canEditEndpoints = isSuperAdminRole(currentUser?.role);
-  const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
-  const [envManaged, setEnvManaged] = useState(false);
-  const [metadataReady, setMetadataReady] = useState(false);
   const mutationPending = useRef(false);
+  const {
+    endpoints,
+    envManaged,
+    metadataReady,
+    loading,
+    error,
+    actionMessage,
+    setActionMessage,
+    defaultError,
+    defaultBusyId,
+    deleteTarget,
+    deleteError,
+    deleteBusy,
+    loadEndpoints,
+    upsertEndpoint,
+    openDelete,
+    closeDelete,
+    handleDelete,
+    handleSetDefault,
+  } = useAdminStorageEndpointsListController({ canEditEndpoints, mutationPending });
   const createdEndpointAwaitingTagRetry = useRef(false);
   const detectedFeatureDefaultsApplied = useRef({ account: false, usage: false, metrics: false });
   const closingEndpointId = useRef<number | null>(null);
   const [listFilters, setListFilters] = useState<EndpointListFilters>({ query: "", mode: "contains", provider: "all" });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<EndpointEditorTab>("general");
   const [form, setForm] = useState<FormState>(EMPTY_STORAGE_ENDPOINT_FORM);
@@ -111,12 +123,6 @@ export default function StorageEndpointsPage() {
   const [validationShown, setValidationShown] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [readOnlyEndpointDetail, setReadOnlyEndpointDetail] = useState<StorageEndpoint | null>(null);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [defaultError, setDefaultError] = useState<string | null>(null);
-  const [defaultBusyId, setDefaultBusyId] = useState<number | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<StorageEndpoint | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
   const {
     catalog: endpointTagCatalog,
     loading: endpointTagCatalogLoading,
@@ -134,25 +140,6 @@ export default function StorageEndpointsPage() {
     setEditingId(null);
     setReadOnlyEndpointDetail(null);
   }, []);
-
-  const loadEndpoints = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setMetadataReady(false);
-    const [data, meta] = await Promise.allSettled([listStorageEndpoints(), fetchStorageEndpointsMeta()]);
-    if (data.status === "fulfilled") setEndpoints(data.value);
-    if (meta.status === "fulfilled") {
-      setEnvManaged(Boolean(meta.value.managed_by_env));
-      setMetadataReady(true);
-    }
-    if (data.status === "rejected") setError(extractLocalizedError(data.reason));
-    else if (meta.status === "rejected") setError(text("managementModeUnavailable", { error: extractLocalizedError(meta.reason) }));
-    setLoading(false);
-  }, [extractLocalizedError, text]);
-
-  useEffect(() => {
-    loadEndpoints();
-  }, [loadEndpoints]);
 
   const cephMode = useMemo(() => form.provider === "ceph", [form.provider]);
   const cephAdminConfigEnabled = Boolean(generalSettings.ceph_admin_enabled);
@@ -517,43 +504,6 @@ export default function StorageEndpointsPage() {
   const fieldErrors = validationShown && !configurationReadOnly
     ? buildStorageEndpointSubmission(form, editingId !== null, editingEndpoint?.service_identities).errors ?? {} : {};
 
-  const handleDelete = async () => {
-    if (!metadataReady || envManaged || !canEditEndpoints || mutationPending.current) return;
-    if (!deleteTarget?.is_editable) return;
-    mutationPending.current = true;
-    setDeleteBusy(true);
-    setDeleteError(null);
-    try {
-      await deleteStorageEndpoint(deleteTarget.id);
-      setDeleteTarget(null);
-      setActionMessage(text("endpointDeleted"));
-      await loadEndpoints();
-    } catch (err) {
-      setDeleteError(extractLocalizedError(err));
-    } finally {
-      mutationPending.current = false;
-      setDeleteBusy(false);
-    }
-  };
-
-  const handleSetDefault = async (endpoint: StorageEndpoint) => {
-    if (!metadataReady || envManaged || !canEditEndpoints || mutationPending.current) return;
-    if (endpoint.is_default) return;
-    mutationPending.current = true;
-    setDefaultError(null);
-    setDefaultBusyId(endpoint.id);
-    try {
-      await setDefaultStorageEndpoint(endpoint.id);
-      setActionMessage(text("defaultEndpointUpdated"));
-      await loadEndpoints();
-    } catch (err) {
-      setDefaultError(extractLocalizedError(err));
-    } finally {
-      mutationPending.current = false;
-      setDefaultBusyId(null);
-    }
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!metadataReady || !canEditEndpoints || mutationPending.current) return;
@@ -587,7 +537,7 @@ export default function StorageEndpointsPage() {
         // Configuration and tags have separate API commits. Retain the saved identity
         // and rebase the configuration before attempting tags, including on create.
         const committedEndpoint = savedEndpoint;
-        setEndpoints(previous => [...previous.filter(endpoint => endpoint.id !== committedEndpoint.id), committedEndpoint]);
+        upsertEndpoint(committedEndpoint);
         setEditingId(targetId);
         setFormBaseline(savedForm);
         setForm({ ...savedForm, tags: normalizedTags });
@@ -619,7 +569,7 @@ export default function StorageEndpointsPage() {
         try {
           const reconciled = await runWithStepUp(() => reconcileEndpointIdentities(targetId));
           const reconciledForm = createFormFromEndpoint(reconciled);
-          setEndpoints(previous => [...previous.filter(endpoint => endpoint.id !== reconciled.id), reconciled]);
+          upsertEndpoint(reconciled);
           setForm(reconciledForm);
           setFormBaseline(reconciledForm);
           setActionMessage(text(editingId === null ? "endpointAddedIdentitiesCreated" : "endpointUpdatedIdentitiesCreated"));
@@ -833,7 +783,7 @@ export default function StorageEndpointsPage() {
         envManaged={envManaged} metadataReady={metadataReady} canEdit={canEditEndpoints}
         defaultBusyId={defaultBusyId} deleteBusy={deleteBusy} filters={listFilters}
         onFiltersChange={setListFilters} onOpen={startEdit} onSetDefault={handleSetDefault}
-        onDelete={(endpoint) => { setDeleteTarget(endpoint); setDeleteError(null); }}
+        onDelete={openDelete}
         onRetry={() => void loadEndpoints()} />
         </>
       ) : null}
@@ -876,7 +826,7 @@ export default function StorageEndpointsPage() {
                 setSaving(true);
                 void runWithStepUp(() => reconcileEndpointIdentities(editingId)).then(async reconciled => {
                   const reconciledForm = createFormFromEndpoint(reconciled);
-                  setEndpoints(previous => [...previous.filter(endpoint => endpoint.id !== reconciled.id), reconciled]);
+                  upsertEndpoint(reconciled);
                   setForm(reconciledForm);
                   setFormBaseline(reconciledForm);
                   await loadEndpoints();
@@ -908,7 +858,7 @@ export default function StorageEndpointsPage() {
           processingLabel={text("deleting")}
           loading={deleteBusy}
           error={deleteError}
-          onCancel={() => setDeleteTarget(null)}
+          onCancel={closeDelete}
           onConfirm={() => void handleDelete()}
         />
       )}
