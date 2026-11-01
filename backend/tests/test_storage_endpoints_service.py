@@ -431,6 +431,21 @@ def test_update_and_serialize_ceph_multisite_topology(db_session):
     assert endpoint.zone_id == "zone-a"
 
 
+def test_normalize_ceph_multisite_topology_requires_all_ids_together():
+    with pytest.raises(
+        ValueError,
+        match="Realm ID, zonegroup ID, and zone ID must be configured together",
+    ):
+        normalize_storage_endpoint_state(
+            StorageEndpointCreate(
+                name="Incomplete multisite",
+                endpoint_url="https://incomplete-multisite.example.test",
+                provider=StorageProvider.CEPH,
+                realm_id="realm-a",
+            )
+        )
+
+
 def test_update_ceph_endpoint_requires_runtime_identity(db_session):
     endpoint = StorageEndpoint(
         name="ceph-missing-runtime",

@@ -292,6 +292,22 @@ def _normalize_ceph_service_credentials(
     return _flatten_credential_pairs(pairs)
 
 
+def _normalize_multisite_ids(
+    payload: StorageEndpointCreate,
+    provider: StorageProvider,
+) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    if provider != StorageProvider.CEPH:
+        return None, None, None
+
+    realm_id = normalize_optional_string(payload.realm_id)
+    zonegroup_id = normalize_optional_string(payload.zonegroup_id)
+    zone_id = normalize_optional_string(payload.zone_id)
+    multisite_ids = (realm_id, zonegroup_id, zone_id)
+    if any(multisite_ids) and not all(multisite_ids):
+        raise ValueError("Realm ID, zonegroup ID, and zone ID must be configured together.")
+    return multisite_ids
+
+
 def normalize_storage_endpoint_state(
     payload: StorageEndpointCreate,
 ) -> NormalizedEndpointState:
@@ -301,12 +317,7 @@ def normalize_storage_endpoint_state(
         raise ValueError("Endpoint URL is required.")
     provider = normalize_storage_provider(payload.provider)
     region = _normalize_region(provider, payload.region)
-    realm_id = normalize_optional_string(payload.realm_id) if provider == StorageProvider.CEPH else None
-    zonegroup_id = normalize_optional_string(payload.zonegroup_id) if provider == StorageProvider.CEPH else None
-    zone_id = normalize_optional_string(payload.zone_id) if provider == StorageProvider.CEPH else None
-    multisite_ids = (realm_id, zonegroup_id, zone_id)
-    if any(multisite_ids) and not all(multisite_ids):
-        raise ValueError("Realm ID, zonegroup ID, and zone ID must be configured together.")
+    realm_id, zonegroup_id, zone_id = _normalize_multisite_ids(payload, provider)
     feature_overrides = (
         payload.features.model_dump(exclude_unset=True)
         if payload.features is not None
