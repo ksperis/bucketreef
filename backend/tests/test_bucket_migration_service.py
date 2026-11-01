@@ -3447,6 +3447,36 @@ def test_strong_verify_current_candidate_scan_stops_before_flushing_on_pause(db_
     verifier.assert_not_called()
 
 
+def test_strong_verify_streamed_dispatches_version_aware_strategy(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace(context_id="src")
+    target_ctx = SimpleNamespace(context_id="target")
+    expected = (3, 2, ["failed"], {"head_checksum": 1, "stream_sha256": 1})
+    verifier = Mock(return_value=expected)
+    service._strong_verify_version_aware_candidates = verifier  # type: ignore[method-assign]
+    control_check = lambda: "run"
+
+    result = service._strong_verify_size_only_candidates_streamed(
+        source_ctx,
+        target_ctx,
+        source_bucket="bucket-a",
+        target_bucket="bucket-b",
+        strategy="version_aware",
+        parallelism_max=4,
+        control_check=control_check,
+    )
+
+    assert result == expected
+    verifier.assert_called_once_with(
+        source_ctx,
+        target_ctx,
+        source_bucket="bucket-a",
+        target_bucket="bucket-b",
+        parallelism_max=4,
+        control_check=control_check,
+    )
+
+
 def test_strong_verify_version_aware_candidates_streams_pairs_in_batches(db_session):
     service = BucketMigrationService(db_session)
     source_ctx = SimpleNamespace(context_id="src")

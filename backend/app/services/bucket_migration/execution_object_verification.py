@@ -305,6 +305,25 @@ class BucketMigrationObjectVerificationMixin:
                 parallelism_max=parallelism_max,
                 control_check=control_check,
             )
+        return self._strong_verify_current_candidates_streamed(
+            source_ctx,
+            target_ctx,
+            source_bucket=source_bucket,
+            target_bucket=target_bucket,
+            parallelism_max=parallelism_max,
+            control_check=control_check,
+        )
+
+    def _strong_verify_current_candidates_streamed(
+        self,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
+        *,
+        source_bucket: str,
+        target_bucket: str,
+        parallelism_max: int,
+        control_check: Callable[[], str],
+    ) -> tuple[int, int, list[str], dict[str, int]]:
         worker_count = max(1, int(parallelism_max))
         batch_size = max(worker_count, worker_count * RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER)
         size_only_count = 0
