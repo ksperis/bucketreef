@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ExecutionContext } from "../../api/executionContexts";
+import { buildExecutionContext } from "../../test/executionContexts";
 import {
   resolveBrowserWorkspaceAccountDestination,
   resolveBrowserWorkspaceContext,
@@ -7,23 +8,17 @@ import {
 
 const executionContext = (
   overrides: Partial<ExecutionContext>,
-): ExecutionContext => ({
-  kind: "account",
-  id: "101",
-  display_name: "Project 101",
-  tags: [],
-  endpoint_tags: [],
-  endpoint_name: "Primary",
-  endpoint_is_default: true,
-  endpoint_url: "https://s3.example.test",
-  storage_endpoint_capabilities: {},
-  capabilities: {
-    can_manage_iam: true,
-    sts_capable: false,
-    admin_api_capable: true,
-  },
-  ...overrides,
-});
+): ExecutionContext =>
+  buildExecutionContext("101", {
+    display_name: "Project 101",
+    endpoint_name: "Primary",
+    capabilities: {
+      can_manage_iam: true,
+      sts_capable: false,
+      admin_api_capable: true,
+    },
+    ...overrides,
+  });
 
 describe("resolveBrowserWorkspaceContext", () => {
   it("resolves the standalone Browser vocabulary and sidebar", () => {

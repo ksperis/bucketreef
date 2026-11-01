@@ -11,13 +11,12 @@ type OperationDetailItem<TStatus extends string> = {
 };
 
 function updateMatchingOperationDetails<
-  TStatus extends string,
-  TItem extends OperationDetailItem<TStatus>,
+  TItem extends OperationDetailItem<string>,
 >(
   records: Record<string, TItem[]>,
   operationId: string,
   matches: (item: TItem) => boolean,
-  status: TStatus,
+  status: TItem["status"],
   errorMessage?: string,
 ): Record<string, TItem[]> {
   const items = records[operationId];
@@ -40,13 +39,12 @@ function updateMatchingOperationDetails<
 }
 
 export function updateOperationDetailById<
-  TStatus extends string,
-  TItem extends OperationDetailItem<TStatus>,
+  TItem extends OperationDetailItem<string>,
 >(
   records: Record<string, TItem[]>,
   operationId: string,
   detailId: string,
-  status: TStatus,
+  status: TItem["status"],
   errorMessage?: string,
 ): Record<string, TItem[]> {
   return updateMatchingOperationDetails(
@@ -59,13 +57,12 @@ export function updateOperationDetailById<
 }
 
 export function updateOperationDetailsByKey<
-  TStatus extends string,
-  TItem extends OperationDetailItem<TStatus>,
+  TItem extends OperationDetailItem<string>,
 >(
   records: Record<string, TItem[]>,
   operationId: string,
   keys: string[],
-  status: TStatus,
+  status: TItem["status"],
   errorMessage?: string,
 ): Record<string, TItem[]> {
   const keySet = new Set(keys);
@@ -86,7 +83,7 @@ export function cancelPendingOperationDetails<
   activeStatus: TItem["status"],
   cancelledStatus: TItem["status"],
 ): Record<string, TItem[]> {
-  return updateMatchingOperationDetails<TItem["status"], TItem>(
+  return updateMatchingOperationDetails<TItem>(
     records,
     operationId,
     (item) => item.status === "queued" || item.status === activeStatus,

@@ -61,7 +61,12 @@ describe("BrowserWorkspaceSidebar", () => {
             bucket: {
               name: "research-data",
               display_name: "Research data",
-              icon: { source: "preset", preset: "media" },
+              icon: {
+                source: "preset",
+                preset: "media",
+                url: null,
+                updated_at: null,
+              },
             },
             access: { status: "available", detail: null },
           },

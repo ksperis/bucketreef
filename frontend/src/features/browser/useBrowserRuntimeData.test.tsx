@@ -44,8 +44,11 @@ function usage(usedBytes: number): BrowserUsageSummary {
   return {
     available: true,
     source: "account",
+    label: null,
     used_bytes: usedBytes,
     object_count: 3,
+    quota_max_size_bytes: null,
+    quota_max_objects: null,
   };
 }
 

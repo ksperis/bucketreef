@@ -13,7 +13,7 @@ function props(): ComponentProps<typeof BrowserOperationsModal> {
     showFailedOperations: false, filtersAllInactive: false,
     onToggleActive: vi.fn(), onToggleQueued: vi.fn(), onToggleCompleted: vi.fn(), onToggleFailed: vi.fn(),
     visibleDownloadGroups: [], visibleDeleteGroups: [], visibleCopyGroups: [], visibleUploadGroups: [],
-    visibleOtherOperations: [{ id: "restore-one", kind: "restore", status: "restoring", label: "Restore object",
+    visibleOtherOperations: [{ id: "restore-one", kind: "other", label: "Restore object",
       path: "bucket/ spaced//key ", progress: 35, cancelable: true }],
     operationSortIndexById: {}, uploadGroupSortIndexById: {}, operationSortFallback: 10,
     isGroupExpanded: () => false, toggleGroupExpanded: vi.fn(), getSectionVisibleCount: () => 10,
@@ -32,7 +32,7 @@ describe("Browser operations overview", () => {
     expect(failedFilter).toHaveAttribute("aria-pressed", "false");
     failedFilter.focus(); await user.keyboard(" "); expect(value.onToggleFailed).toHaveBeenCalledOnce();
     expect(screen.getByRole("progressbar", { name: "Restore object" })).toHaveAttribute("aria-valuenow", "35");
-    await user.click(screen.getByRole("button", { name: "Stop", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Stop" }));
     expect(value.cancelOperation).toHaveBeenCalledWith("restore-one");
     await user.click(screen.getByRole("button", { name: "Export operation details (JSON)" }));
     expect(value.onDownloadOperationDetails).toHaveBeenCalledWith("other", "restore-one");
@@ -41,7 +41,7 @@ describe("Browser operations overview", () => {
     ]} />);
     expect(screen.getByRole("button", { name: "Failed 1" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Fixture failure")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Stop", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear completed/failed" }));
     expect(value.onClearFinishedOperations).toHaveBeenCalledOnce();
     await user.keyboard("{Escape}"); expect(value.onClose).toHaveBeenCalledOnce();

@@ -9,7 +9,8 @@ import {
   getExecutionDestinationForContext,
 } from "../../api/executionDestinationState";
 import { fetchManagerContext } from "../../api/managerContext";
-import { buildExecutionContext, buildManagerContext } from "../../test/managerContexts";
+import { buildExecutionContext } from "../../test/executionContexts";
+import { buildManagerContext } from "../../test/managerContexts";
 import { EXECUTION_CONTEXTS_REFRESH_EVENT } from "../../utils/executionContextRefresh";
 import { ExecutionContextProvider, useExecutionContext } from "./ExecutionContextProvider";
 

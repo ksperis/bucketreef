@@ -33,6 +33,10 @@ function version(key: string, versionId: string): BrowserObjectVersion {
     version_id: versionId,
     is_latest: versionId === "v3",
     is_delete_marker: false,
+    last_modified: null,
+    size: null,
+    etag: null,
+    storage_class: null,
   };
 }
 

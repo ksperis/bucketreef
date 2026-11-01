@@ -39,8 +39,17 @@ function resolveDetails() {
     cors_rules: [{}],
   });
   api.getBucketPolicy.mockResolvedValue({ policy: null });
-  api.getBucketLogging.mockResolvedValue({ enabled: false });
-  api.getBucketWebsite.mockResolvedValue({ index_document: "index.html" });
+  api.getBucketLogging.mockResolvedValue({
+    enabled: false,
+    target_bucket: null,
+    target_prefix: null,
+  });
+  api.getBucketWebsite.mockResolvedValue({
+    index_document: "index.html",
+    error_document: null,
+    redirect_all_requests_to: null,
+    routing_rules: [],
+  });
 }
 
 describe("BrowserBucketDetailsContent", () => {

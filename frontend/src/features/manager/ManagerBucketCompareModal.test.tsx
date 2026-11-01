@@ -9,7 +9,7 @@ import type {
 } from "../../api/managerBuckets";
 import { ApiError } from "../../api/client";
 import type { ExecutionContext } from "../../api/executionContexts";
-import { buildExecutionContext } from "../../test/managerContexts";
+import { buildExecutionContext } from "../../test/executionContexts";
 import ManagerBucketCompareModal from "./ManagerBucketCompareModal";
 
 const listBucketsMock = vi.fn<(contextId: string, options?: { with_stats?: boolean }) => Promise<Bucket[]>>();

@@ -15,8 +15,13 @@ describe("sseCustomerKeyActions", () => {
 
   it("generates and immediately activates SSE-C key for the selected scope", () => {
     vi.spyOn(globalThis.crypto, "getRandomValues").mockImplementation((array) => {
-      for (let index = 0; index < array.length; index += 1) {
-        array[index] = (index + 13) % 256;
+      const bytes = new Uint8Array(
+        array.buffer,
+        array.byteOffset,
+        array.byteLength,
+      );
+      for (let index = 0; index < bytes.length; index += 1) {
+        bytes[index] = (index + 13) % 256;
       }
       return array;
     });

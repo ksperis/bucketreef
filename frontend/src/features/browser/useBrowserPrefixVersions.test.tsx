@@ -26,6 +26,10 @@ function version(versionId: string): BrowserObjectVersion {
     version_id: versionId,
     is_latest: versionId === "v2",
     is_delete_marker: false,
+    last_modified: null,
+    size: null,
+    etag: null,
+    storage_class: null,
   };
 }
 

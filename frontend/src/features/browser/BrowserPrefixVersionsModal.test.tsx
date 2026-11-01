@@ -23,15 +23,15 @@ describe("Browser prefix versions dialog", () => {
     const user = userEvent.setup(); const value = props(); render(<BrowserPrefixVersionsModal {...value} />);
     expect(screen.getByText("3 loaded")).toBeVisible();
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
-    expect(screen.getAllByRole("button", { name: "Download", exact: true })).toHaveLength(2);
-    await user.click(screen.getAllByRole("button", { name: "Download", exact: true })[0]);
+    expect(screen.getAllByRole("button", { name: "Download" })).toHaveLength(2);
+    await user.click(screen.getAllByRole("button", { name: "Download" })[0]);
     expect(value.onDownloadVersion).toHaveBeenCalledWith(oldVersion);
-    expect(screen.getAllByRole("button", { name: "Restore", exact: true })).toHaveLength(1);
-    await user.click(screen.getByRole("button", { name: "Restore", exact: true }));
+    expect(screen.getAllByRole("button", { name: "Restore" })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Restore" }));
     expect(value.onRestoreVersion).toHaveBeenCalledWith(oldVersion);
-    await user.click(screen.getByRole("button", { name: "Delete marker", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Delete marker" }));
     expect(value.onDeleteVersion).toHaveBeenCalledWith(marker);
-    await user.click(screen.getAllByRole("button", { name: "Delete version", exact: true })[1]);
+    await user.click(screen.getAllByRole("button", { name: "Delete version" })[1]);
     expect(value.onDeleteVersion).toHaveBeenLastCalledWith(latestVersion);
     await user.click(screen.getByRole("button", { name: "Export JSON" }));
     expect(triggerJsonDownload).toHaveBeenLastCalledWith(expect.stringMatching(/\.json$/), expect.objectContaining({

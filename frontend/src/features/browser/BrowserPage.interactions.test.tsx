@@ -12,7 +12,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   useEffect,
   useState,
-  type ComponentProps,
   type ReactNode,
 } from "react";
 import BrowserEmbed from "./BrowserEmbed";
@@ -21,6 +20,8 @@ import { setSessionUserCache } from "../../utils/workspaces";
 import { ApiError } from "../../api/client";
 import type { BucketWebsiteConfiguration } from "../../api/bucketContracts";
 import type { ExecutionContext } from "../../api/executionContexts";
+import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
+import { buildExecutionContext } from "../../test/executionContexts";
 import {
   BROWSER_ROOT_CONTEXT_SELECTIONS_STORAGE_KEY,
   BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY,
@@ -30,6 +31,7 @@ import {
   BROWSER_EMBEDDED_COLUMN_WIDTHS_STORAGE_KEY,
 } from "./browserEmbeddedColumnsState";
 import { OBJECT_PREVIEW_MAX_BYTES } from "../shared/ObjectPreview";
+import type { BrowserPageProps } from "./browserPageContract";
 
 const searchBrowserBucketsMock = vi.fn();
 const fetchBrowserUsageSummaryMock = vi.fn();
@@ -306,23 +308,17 @@ function LocationProbe() {
 }
 
 function makeExecutionContext(overrides: Partial<ExecutionContext>): ExecutionContext {
-  return {
+  return buildExecutionContext("101", {
     kind: "portal_account",
-    id: "101",
     display_name: "Research account",
-    tags: [],
-    endpoint_tags: [],
     endpoint_name: "Default endpoint",
-    endpoint_is_default: true,
-    endpoint_url: "https://s3.example.test",
-    storage_endpoint_capabilities: {},
     capabilities: {
       can_manage_iam: false,
       sts_capable: false,
       admin_api_capable: false,
     },
     ...overrides,
-  };
+  });
 }
 
 function setBrowserContext(overrides: Partial<typeof browserContextMock.value> = {}) {
@@ -347,15 +343,15 @@ type RenderPageOptions = {
   allowFoldersPanel?: boolean;
   contextIdForApi?: string;
   hasContext?: boolean;
-  executionContextKind?: ComponentProps<typeof BrowserPage>["executionContextKind"];
-  workspaceSurface?: ComponentProps<typeof BrowserPage>["workspaceSurface"];
-  functionalProfile?: ComponentProps<typeof BrowserPage>["functionalProfile"];
+  executionContextKind?: BrowserPageProps["executionContextKind"];
+  workspaceSurface?: BrowserPageProps["workspaceSurface"];
+  functionalProfile?: BrowserPageProps["functionalProfile"];
   canCreatePublicLinks?: boolean;
   lockedBucketName?: string;
   lockedBucketLabel?: string;
-  storageEndpointCapabilities?: ComponentProps<typeof BrowserPage>["storageEndpointCapabilities"];
-  onOpenObjectDetails?: ComponentProps<typeof BrowserPage>["onOpenObjectDetails"];
-  deletedObjectsOptions?: ComponentProps<typeof BrowserPage>["deletedObjectsOptions"];
+  storageEndpointCapabilities?: BrowserPageProps["storageEndpointCapabilities"];
+  onOpenObjectDetails?: BrowserPageProps["onOpenObjectDetails"];
+  deletedObjectsOptions?: BrowserPageProps["deletedObjectsOptions"];
 };
 
 function renderPageElement({
@@ -425,7 +421,7 @@ function renderEmbeddedPage({
 }: {
   initialEntry?: string;
   contextIdForApi?: string;
-  executionContextKind?: ComponentProps<typeof BrowserPage>["executionContextKind"];
+  executionContextKind?: BrowserPageProps["executionContextKind"];
 } = {}) {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -1197,7 +1193,9 @@ describe("BrowserPage interactions", () => {
     setSessionUserCache({
       id: 42,
       role: "ui_user",
-      effective_access: { browser_advanced_features_enabled: false },
+      effective_access: buildEffectiveUserAccess({
+        browser_advanced_features_enabled: false,
+      }),
     });
     seedBrowserRootUiState({
       layout: { showFolders: true },
@@ -2266,7 +2264,7 @@ describe("BrowserPage interactions", () => {
 
   it("loads lazy metadata columns without blocking the listing", async () => {
     const user = userEvent.setup();
-    let resolveColumns: (() => void) | null = null;
+    let resolveColumns!: () => void;
     fetchBrowserObjectColumnsMock.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -2329,7 +2327,7 @@ describe("BrowserPage interactions", () => {
     });
     expect(screen.getByRole("button", { name: "Open file a.txt" })).toBeInTheDocument();
 
-    resolveColumns?.();
+    resolveColumns();
     await waitFor(() => {
       const plainCount = screen.queryAllByText("text/plain").length;
       const csvCount = screen.queryAllByText("text/csv").length;
@@ -3248,6 +3246,8 @@ describe("BrowserPage interactions", () => {
           matches: query === "(max-width: 1023px)",
           media: query,
           onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
           addEventListener: vi.fn(),
           removeEventListener: vi.fn(),
           dispatchEvent: vi.fn(),
@@ -3272,6 +3272,8 @@ describe("BrowserPage interactions", () => {
             query === "(max-width: 1023px)",
           media: query,
           onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
           addEventListener: vi.fn(),
           removeEventListener: vi.fn(),
           dispatchEvent: vi.fn(),
@@ -5039,7 +5041,7 @@ describe("BrowserPage interactions", () => {
     renderPage();
     await user.click(await screen.findByRole("button", { name: "Open file b.txt" }));
     listBrowserObjectsMock.mockResolvedValue({ prefix: "", objects: [], prefixes: [], is_truncated: false, next_continuation_token: null });
-    await user.click(within(getContextToolbar()).getByRole("button", { name: "Refresh", exact: true }));
+    await user.click(within(getContextToolbar()).getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(screen.queryByRole("button", { name: "Open file b.txt" })).not.toBeInTheDocument());
     expect(document.querySelector("[aria-current='true']")).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Loaded files" })).not.toBeInTheDocument();
@@ -6016,7 +6018,7 @@ describe("BrowserPage interactions", () => {
     await user.type(within(modal).getByPlaceholderText("Content-Type"), "text/plain");
     await user.click(within(modal).getByRole("button", { name: "Apply changes" }));
 
-    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket", exact: true });
+    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket" });
     const selectedBucket = bucketSelector.textContent;
     fireEvent(window, new PopStateEvent("popstate", {
       state: { browserPage: true, bucketName: "other-bucket", prefix: "other/" },
@@ -6133,7 +6135,7 @@ describe("BrowserPage interactions", () => {
     });
     await user.click(within(modal).getByRole("button", { name: "Run restore" }));
 
-    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket", exact: true });
+    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket" });
     const selectedBucket = bucketSelector.textContent;
     fireEvent(window, new PopStateEvent("popstate", {
       state: { browserPage: true, bucketName: "other-bucket", prefix: "other/" },
@@ -6185,7 +6187,7 @@ describe("BrowserPage interactions", () => {
     await user.type(within(modal).getByPlaceholderText("e.g. 3"), "1");
     await user.click(within(modal).getByRole("button", { name: "Run cleanup" }));
 
-    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket", exact: true });
+    const bucketSelector = within(getContextPanel()).getByRole("button", { name: "Select bucket" });
     const selectedBucket = bucketSelector.textContent;
     fireEvent(window, new PopStateEvent("popstate", {
       state: { browserPage: true, bucketName: "other-bucket", prefix: "other/" },

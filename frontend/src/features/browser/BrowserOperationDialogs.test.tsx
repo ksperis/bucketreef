@@ -50,9 +50,9 @@ function Draft({ kind, onApply = vi.fn() }: { kind: Kind; onApply?: () => Promis
 }
 async function edit(kind: Kind, user: ReturnType<typeof userEvent.setup>) {
   if (kind === "attributes") {
-    await user.click(screen.getByRole("checkbox", { name: "Metadata headers", exact: true }));
-    await user.type(screen.getByRole("textbox", { name: "Content-Type", exact: true }), "text/plain");
-    return screen.getByRole("textbox", { name: "Content-Type", exact: true });
+    await user.click(screen.getByRole("checkbox", { name: "Metadata headers" }));
+    await user.type(screen.getByRole("textbox", { name: "Content-Type" }), "text/plain");
+    return screen.getByRole("textbox", { name: "Content-Type" });
   }
   if (kind === "restore") {
     const field = screen.getByLabelText("Target date", { exact: true });
@@ -85,7 +85,7 @@ describe("Browser operation dialogs", () => {
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect((field as HTMLInputElement).value).toBe(value);
     await user.click(screen.getByRole("button", { name: "Change context" }));
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Discard changes" }));
     await screen.findByText("Executor: conn-two");
     expect(router.state.location.search).toBe("?ctx=conn-two");
     expect(localStorage.getItem("selectedBrowserExecutionContextId")).toBe("conn-two");
@@ -107,17 +107,17 @@ describe("Browser operation dialogs", () => {
     fireEvent.submit(form);
     expect(onApply).toHaveBeenCalledOnce();
     expect(field).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Close", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
     await user.keyboard("{Escape}");
     expect(screen.getByRole("dialog", { name: titles[kind] })).toBeVisible();
     await act(async () => { void router.navigate("/next"); });
     expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Discard changes" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     await act(async () => resolve());
     expect(field).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(field).toBeEnabled();
     router.dispose();
@@ -128,13 +128,13 @@ describe("Browser operation dialogs", () => {
     render(<Draft kind="attributes" />);
     await edit("attributes", user);
     for (const name of ["Tags (key=value per line)", "Storage class", "ACL", "Legal hold", "Retention"]) {
-      await user.click(screen.getByRole("checkbox", { name, exact: true }));
+      await user.click(screen.getByRole("checkbox", { name }));
     }
     for (const name of ["Cache-Control", "Content-Disposition", "Content-Encoding", "Content-Language", "Expires", "Custom metadata", "Tags", "Storage class", "ACL", "Legal hold status", "Retention mode", "Retain until"]) {
       expect(screen.getByLabelText(name, { exact: true, selector: "input:not([type=checkbox]),textarea,select" })).toBeVisible();
     }
-    await user.click(screen.getByRole("checkbox", { name: "Metadata headers", exact: true }));
-    await user.click(screen.getByRole("checkbox", { name: "Metadata headers", exact: true }));
+    await user.click(screen.getByRole("checkbox", { name: "Metadata headers" }));
+    await user.click(screen.getByRole("checkbox", { name: "Metadata headers" }));
     expect(screen.getByRole("textbox", { name: "Content-Type" })).toHaveValue("text/plain");
   });
 
