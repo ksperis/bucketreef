@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
   Area,
@@ -30,6 +30,7 @@ import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
+import useAdminResourceController from "./useAdminResourceController";
 import {
   formatCostCoverage,
   formatCostCoverageBreakdown,
@@ -69,38 +70,25 @@ export default function CostSubjectDetailPage() {
     endpointId > 0 &&
     /^\d{4}-\d{2}$/.test(month);
 
-  const [detail, setDetail] = useState<AdminCostSubjectDetail | null>(null);
-  const [loading, setLoading] = useState(validRequest);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!validRequest || !subjectType) {
-      setLoading(false);
-      setDetail(null);
-      return;
-    }
-    const resolvedSubjectType = subjectType;
-    let cancelled = false;
-    async function loadDetail() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getCostSubjectDetail(month, endpointId, resolvedSubjectType, subjectId);
-        if (!cancelled) setDetail(data);
-      } catch (err) {
-        if (!cancelled) {
-          setDetail(null);
-          setError(extractApiError(err, adminText("Unable to load cost detail.")));
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void loadDetail();
-    return () => {
-      cancelled = true;
-    };
-  }, [adminText, endpointId, month, subjectId, subjectType, validRequest]);
+  const loadDetail = useCallback((): Promise<AdminCostSubjectDetail | null> => {
+    if (!subjectType) return Promise.resolve(null);
+    return getCostSubjectDetail(month, endpointId, subjectType, subjectId);
+  }, [endpointId, month, subjectId, subjectType]);
+  const formatLoadError = useCallback(
+    (failure: unknown) => extractApiError(failure, adminText("Unable to load cost detail.")),
+    [adminText],
+  );
+  const {
+    resource: loadedDetail,
+    loading,
+    error,
+  } = useAdminResourceController<AdminCostSubjectDetail | null>({
+    loadResource: loadDetail,
+    initialResource: null,
+    formatError: formatLoadError,
+    enabled: validRequest,
+  });
+  const detail = validRequest && !error ? loadedDetail : null;
 
   const dailySeries = useMemo(
     () =>

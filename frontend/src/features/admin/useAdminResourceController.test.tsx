@@ -55,4 +55,35 @@ describe("useAdminResourceController", () => {
     expect(result.current.resource).toEqual({ id: 2 });
     expect(result.current.error).toBeNull();
   });
+
+  it("does not load while disabled and invalidates an in-flight response when disabled", async () => {
+    let resolveLoad: ((value: { id: number }) => void) | undefined;
+    const loadResource = vi.fn(
+      () => new Promise<{ id: number }>((resolve) => { resolveLoad = resolve; }),
+    );
+    const formatError = vi.fn(() => "Unable to load");
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useAdminResourceController({
+        loadResource,
+        initialResource: null as { id: number } | null,
+        formatError,
+        enabled,
+      }),
+      { initialProps: { enabled: false } },
+    );
+
+    expect(result.current.loading).toBe(false);
+    expect(loadResource).not.toHaveBeenCalled();
+
+    rerender({ enabled: true });
+    await waitFor(() => expect(loadResource).toHaveBeenCalledTimes(1));
+    expect(result.current.loading).toBe(true);
+
+    rerender({ enabled: false });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => resolveLoad?.({ id: 1 }));
+
+    expect(result.current.resource).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
 });
