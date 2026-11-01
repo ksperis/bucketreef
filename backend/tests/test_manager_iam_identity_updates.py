@@ -290,8 +290,24 @@ def test_group_create_orchestration_rolls_back_after_policy_failure():
         "create_group",
         "attach_group_policy",
         "put_group_inline_policy",
-        "delete_group_inline_policy",
         "detach_group_policy",
+        "delete_group",
+    ]
+
+
+def test_group_create_orchestration_does_not_undo_failed_policy_attachment():
+    service = _CreateIdentityService(fail_on="attach_group_policy")
+    payload = IAMGroupCreate(
+        name="researchers",
+        policies=["arn:policy/read"],
+    )
+
+    with pytest.raises(RuntimeError, match="attach_group_policy failed"):
+        manager_iam_support.create_iam_group(service, payload)
+
+    assert [call[0] for call in service.calls] == [
+        "create_group",
+        "attach_group_policy",
         "delete_group",
     ]
 
@@ -397,7 +413,6 @@ def test_role_create_orchestration_rolls_back_after_policy_failure():
         "create_role",
         "attach_role_policy",
         "put_role_inline_policy",
-        "delete_role_inline_policy",
         "detach_role_policy",
         "delete_role",
     ]

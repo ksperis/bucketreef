@@ -281,18 +281,22 @@ def _configure_created_iam_identity(
     delete_inline_policy_fn: Callable[[str, str], None],
     delete_entity_fn: Callable[[str], None],
 ) -> _IAMEntity:
+    attached_policies: list[str] = []
+    inline_policy_names: list[str] = []
     try:
         for policy_arn in policies:
             attach_policy_fn(entity_name, policy_arn)
+            attached_policies.append(policy_arn)
         for inline in inline_policies:
             put_inline_policy_fn(entity_name, inline.name, inline.document)
+            inline_policy_names.append(inline.name)
     except RuntimeError as exc:
         try:
             _rollback_created_iam_identity(
                 entity_label=entity_label,
                 entity_name=entity_name,
-                policies=policies,
-                inline_policy_names=[inline.name for inline in inline_policies],
+                policies=attached_policies,
+                inline_policy_names=inline_policy_names,
                 detach_policy_fn=detach_policy_fn,
                 delete_inline_policy_fn=delete_inline_policy_fn,
                 delete_entity_fn=delete_entity_fn,
