@@ -116,7 +116,7 @@ def test_pending_request_counts_follow_status_expiry_and_role_visibility(client,
     db_session.commit()
 
     admin = _user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: admin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: admin
     admin_response = client.get("/api/admin/navigation/pending-requests")
 
     assert admin_response.status_code == 200
@@ -126,7 +126,7 @@ def test_pending_request_counts_follow_status_expiry_and_role_visibility(client,
     }
 
     superadmin = _user(db_session, email="superadmin@example.org", role=UserRole.UI_SUPERADMIN.value)
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: superadmin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: superadmin
     superadmin_response = client.get("/api/admin/navigation/pending-requests")
 
     assert superadmin_response.status_code == 200
@@ -137,7 +137,7 @@ def test_pending_request_counts_follow_status_expiry_and_role_visibility(client,
 
 
 def test_pending_request_counts_require_admin_authentication(client):
-    app.dependency_overrides.pop(dependencies.get_current_super_admin)
+    app.dependency_overrides.pop(dependencies.get_current_ui_admin)
 
     response = client.get("/api/admin/navigation/pending-requests")
 

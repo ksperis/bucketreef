@@ -15,7 +15,7 @@ from app.models.ui_group import (
     UiGroupSummary,
     UiGroupUpdate,
 )
-from app.routers.dependencies import get_audit_service, get_current_super_admin
+from app.routers.dependencies import get_audit_service, get_current_ui_admin
 from app.services.audit_service import AuditService
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.identity_security_policy import (
@@ -60,7 +60,7 @@ def list_groups(
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> PaginatedUiGroupsResponse:
     items, total = groups_service.paginate_groups(
         page=page,
@@ -76,7 +76,7 @@ def list_groups(
 @router.get("/minimal", response_model=list[UiGroupSummary])
 def list_groups_minimal(
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> list[UiGroupSummary]:
     return groups_service.list_groups_minimal()
 
@@ -86,7 +86,7 @@ def create_group(
     request: Request,
     payload: UiGroupCreate,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UiGroupOut:
     _require_superadmin_for_privileged_grant(
@@ -124,7 +124,7 @@ def update_group(
     group_id: int,
     payload: UiGroupUpdate,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UiGroupOut:
     _require_superadmin_for_privileged_grant(
@@ -156,7 +156,7 @@ async def upload_group_avatar(
     group_id: int,
     file: UploadFile = File(...),
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> UiGroupOut:
@@ -183,7 +183,7 @@ async def upload_group_avatar(
 def delete_group_avatar(
     group_id: int,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> UiGroupOut:
@@ -204,7 +204,7 @@ def delete_group_avatar(
 @router.get("/{group_id}/avatar")
 def read_group_avatar(
     group_id: int,
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> Response:
     try:
@@ -226,7 +226,7 @@ def read_group_avatar(
 def delete_group(
     group_id: int,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     try:

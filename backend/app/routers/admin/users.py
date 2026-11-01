@@ -18,7 +18,7 @@ from app.models.user import (
 from app.models.admin_ldap_import import LDAPImportRequest, LDAPImportSearchResponse
 from app.routers.dependencies import (
     get_audit_service,
-    get_current_super_admin,
+    get_current_ui_admin,
     get_users_service_dependency,
 )
 from app.services.audit_service import AuditService
@@ -131,7 +131,7 @@ def list_users(
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
     users_service: UsersService = Depends(get_users_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> PaginatedUsersResponse:
     require_admin_interactive_session(request, db, current_user)
@@ -150,7 +150,7 @@ def list_users(
 def list_users_minimal(
     request: Request,
     users_service: UsersService = Depends(get_users_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> list[UserSummary]:
     require_admin_interactive_session(request, db, current_user)
@@ -163,7 +163,7 @@ def search_ldap_users_for_import(
     provider_id: str = Query(..., min_length=1, max_length=128),
     q: str = Query(..., min_length=2, max_length=256),
     users_service: UsersService = Depends(get_users_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
 ) -> LDAPImportSearchResponse:
     session = require_admin_interactive_session(request, users_service.db, current_user)
     try:
@@ -183,7 +183,7 @@ def import_ldap_user(
     payload: LDAPImportRequest,
     users_service: UsersService = Depends(get_users_service_dependency),
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UserOut:
     if payload.action == "create":
@@ -236,7 +236,7 @@ def create_user(
     payload: UserCreate,
     users_service: UsersService = Depends(get_users_service_dependency),
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UserOut:
     ensure_actor_can_assign_role(
@@ -284,7 +284,7 @@ def update_user(
     payload: UserUpdate,
     users_service: UsersService = Depends(get_users_service_dependency),
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UserOut:
     target = users_service.get_by_id(user_id)
@@ -340,7 +340,7 @@ async def upload_user_avatar(
     user_id: int,
     file: UploadFile = File(...),
     users_service: UsersService = Depends(get_users_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UserOut:
     target = _avatar_target(request, user_id, users_service, current_user)
@@ -361,7 +361,7 @@ def delete_user_avatar(
     request: Request,
     user_id: int,
     users_service: UsersService = Depends(get_users_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UserOut:
     target = _avatar_target(request, user_id, users_service, current_user)
@@ -377,7 +377,7 @@ def delete_user(
     request: Request,
     user_id: int,
     users_service: UsersService = Depends(get_users_service_dependency),
-    current_user: DbUser = Depends(get_current_super_admin),
+    current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     if current_user.id == user_id:

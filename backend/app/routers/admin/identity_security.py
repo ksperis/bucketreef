@@ -21,7 +21,7 @@ from app.models.identity_security import (
 from app.models.user import UserUpdate, validate_password_policy
 from app.routers.dependencies import (
     get_audit_service,
-    get_current_super_admin,
+    get_current_ui_admin,
     get_users_service_dependency,
 )
 from app.services.admin_identity_security_service import AdminIdentitySecurityService
@@ -51,7 +51,7 @@ def get_user_security(
     user_id: int,
     include_revoked: bool = Query(True),
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
 ) -> AdminUserSecurity:
     require_admin_interactive_session(request, db, actor)
     return AdminIdentitySecurityService(db).user_security(
@@ -66,7 +66,7 @@ def reset_user_mfa(
     request: Request,
     user_id: int,
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> AdminMfaResetResponse:
     require_admin_sensitive_action(request, db, actor)
@@ -105,7 +105,7 @@ def set_user_password(
     user_id: int,
     payload: AdminSetPasswordRequest,
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     users: UsersService = Depends(get_users_service_dependency),
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
@@ -140,7 +140,7 @@ def add_user_external_identity(
     user_id: int,
     payload: AdminExternalIdentityRequest,
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> AdminExternalIdentityInfo:
     require_admin_sensitive_action(request, db, actor)
@@ -177,7 +177,7 @@ def revoke_user_external_identity(
     user_id: int,
     identity_id: str,
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_sensitive_action(request, db, actor)
@@ -206,7 +206,7 @@ def restore_user_external_identity(
     user_id: int,
     identity_id: str,
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> AdminExternalIdentityInfo:
     require_admin_sensitive_action(request, db, actor)
@@ -233,7 +233,7 @@ def revoke_user_session(
     user_id: int,
     session_id: str,
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_interactive_session(request, db, actor)
@@ -257,7 +257,7 @@ def list_identity_link_requests(
     request: Request,
     include_decided: bool = Query(False),
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
 ) -> list[ExternalIdentityLinkRequestInfo]:
     require_admin_interactive_session(request, db, actor)
     return AdminIdentitySecurityService(db).list_link_requests(
@@ -275,7 +275,7 @@ def decide_identity_link_request(
     request_id: str,
     payload: LinkDecisionRequest,
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> ExternalIdentityLinkDecisionResponse:
     require_admin_interactive_session(request, db, actor)
@@ -314,7 +314,7 @@ def list_global_sessions(
     request: Request,
     include_revoked: bool = Query(False),
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
 ) -> list[AdminSessionInfo]:
     require_admin_interactive_session(request, db, actor)
     return AdminIdentitySecurityService(db).list_global_sessions(
@@ -328,7 +328,7 @@ def revoke_global_session(
     request: Request,
     session_id: str,
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_interactive_session(request, db, actor)

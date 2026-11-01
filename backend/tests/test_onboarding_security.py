@@ -21,7 +21,7 @@ from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 def test_apply_requires_authorized_recent_interactive_session(db_session, client, monkeypatch, mode):
     # Keep only the isolated test database dependency. Exercise the production
     # role, cookie, CSRF, token-scope and sensitive-action checks unchanged.
-    app.dependency_overrides.pop(dependencies.get_current_super_admin, None)
+    app.dependency_overrides.pop(dependencies.get_current_ui_admin, None)
     app.dependency_overrides.pop(dependencies.get_current_account_admin, None)
     role = {"user": UserRole.UI_USER.value, "admin": UserRole.UI_ADMIN.value}.get(mode, UserRole.UI_SUPERADMIN.value)
     user = User(email="onboarding-security@example.test", hashed_password="test-only", role=role, is_active=True)

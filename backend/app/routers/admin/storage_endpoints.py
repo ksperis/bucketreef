@@ -16,7 +16,7 @@ from app.models.storage_endpoint import (
     StorageEndpointTagsUpdate,
     StorageEndpointUpdate,
 )
-from app.routers.dependencies import get_audit_service, get_current_super_admin, get_current_ui_superadmin
+from app.routers.dependencies import get_audit_service, get_current_ui_admin, get_current_ui_superadmin
 from app.services.audit_service import AuditService
 from app.services.healthcheck_background_service import run_initial_healthchecks
 from app.services.identity_security_policy import (
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def get_service(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> StorageEndpointsService:
     return get_storage_endpoints_service(db, actor=current_user)
 
@@ -42,7 +42,7 @@ def get_service(
 def list_storage_endpoints(
     include_admin_ops_permissions: bool = Query(False),
     service: StorageEndpointsService = Depends(get_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> list[StorageEndpoint]:
     return service.list_endpoints(include_admin_ops_permissions=include_admin_ops_permissions)
 
@@ -50,7 +50,7 @@ def list_storage_endpoints(
 @router.get("/meta", response_model=StorageEndpointMeta)
 def get_storage_endpoints_meta(
     service: StorageEndpointsService = Depends(get_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> StorageEndpointMeta:
     return StorageEndpointMeta(managed_by_env=service.env_endpoints_locked())
 
@@ -74,7 +74,7 @@ def get_storage_endpoint(
     endpoint_id: int,
     include_admin_ops_permissions: bool = Query(True),
     service: StorageEndpointsService = Depends(get_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> StorageEndpoint:
     try:
         return service.get_endpoint(endpoint_id, include_admin_ops_permissions=include_admin_ops_permissions)

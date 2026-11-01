@@ -21,7 +21,7 @@ from app.models.s3_user import (
 )
 from app.routers.dependencies import (
     get_audit_service,
-    get_current_super_admin,
+    get_current_ui_admin,
 )
 from app.services.s3_users_service import S3UsersService, get_s3_users_service
 from app.services.audit_service import AuditService
@@ -48,7 +48,7 @@ def list_s3_users(
     sort_dir: str = Query("asc"),
     include_quota: bool = Query(False, description="Include RGW quota information (slower)."),
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> PaginatedS3UsersResponse:
     items, total = service.paginate_users(
         page=page,
@@ -72,7 +72,7 @@ def list_s3_users(
 @router.get("/minimal", response_model=list[S3UserSummary])
 def list_s3_users_minimal(
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> list[S3UserSummary]:
     return service.list_users_minimal()
 
@@ -81,7 +81,7 @@ def list_s3_users_minimal(
 def create_s3_user(
     payload: S3UserCreate,
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3User:
     try:
@@ -105,7 +105,7 @@ def get_s3_user(
     include_buckets: bool = Query(False, description="Include bucket count computed from the user's interface key"),
     include_quota: bool = Query(False, description="Include RGW quota information (slower)."),
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> S3User:
     try:
         return service.get_user(user_id, include_buckets=include_buckets, include_quota=include_quota)
@@ -117,7 +117,7 @@ def get_s3_user(
 def import_s3_users(
     payload: list[S3UserImport],
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> list[S3User]:
     try:
@@ -140,7 +140,7 @@ def update_s3_user(
     user_id: int,
     payload: S3UserUpdate,
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3User:
     try:
@@ -162,7 +162,7 @@ def update_s3_user(
 def rotate_s3_user_keys(
     user_id: int,
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3User:
     try:
@@ -184,7 +184,7 @@ def rotate_s3_user_keys(
 def list_s3_user_keys(
     user_id: int,
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> list[S3UserAccessKey]:
     try:
         return service.list_keys(user_id)
@@ -196,7 +196,7 @@ def list_s3_user_keys(
 def create_s3_user_access_key(
     user_id: int,
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3UserGeneratedKey:
     try:
@@ -220,7 +220,7 @@ def update_s3_user_access_key_status(
     access_key: str,
     payload: S3UserAccessKeyStatusChange,
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3UserAccessKey:
     try:
@@ -243,7 +243,7 @@ def delete_s3_user_access_key(
     user_id: int,
     access_key: str,
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     try:
@@ -265,7 +265,7 @@ def delete_s3_user(
     user_id: int,
     delete_rgw: bool = Query(False, description="Also delete the RGW user backing this entry"),
     service: S3UsersService = Depends(get_admin_s3_users_service),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
     try:

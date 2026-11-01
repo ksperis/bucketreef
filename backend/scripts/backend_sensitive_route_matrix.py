@@ -222,7 +222,7 @@ def _direct_observed_guard(body: str) -> str:
         return RECENT_WEBAUTHN
     if "require_admin_interactive_session(" in body or "get_current_ui_superadmin" in body:
         return INTERACTIVE_UI
-    if "get_current_super_admin" in body:
+    if "get_current_ui_admin" in body:
         return ADMIN_AUTH
     return "missing"
 

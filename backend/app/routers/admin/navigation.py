@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.admin_navigation import AdminPendingRequestCounts
-from app.routers.dependencies import get_current_super_admin
+from app.routers.dependencies import get_current_ui_admin
 from app.services.admin_navigation_service import AdminNavigationService
 
 
@@ -18,6 +18,6 @@ router = APIRouter(prefix="/admin/navigation", tags=["admin-navigation"])
 @router.get("/pending-requests", response_model=AdminPendingRequestCounts)
 def get_pending_request_counts(
     db: Session = Depends(get_db),
-    actor: User = Depends(get_current_super_admin),
+    actor: User = Depends(get_current_ui_admin),
 ) -> AdminPendingRequestCounts:
     return AdminNavigationService.pending_request_counts(db, actor)

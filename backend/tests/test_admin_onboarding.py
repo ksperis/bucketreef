@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError
 from app.db import AppSetting, User, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
-from app.routers.dependencies import get_current_super_admin, get_current_ui_superadmin
+from app.routers.dependencies import get_current_ui_admin, get_current_ui_superadmin
 from app.routers.admin import onboarding
 from app.services.onboarding_service import OnboardingError
 
@@ -29,7 +29,7 @@ def test_status_and_dismiss_api_do_not_set_global_completion(db_session, client)
     user = _admin(db_session)
     db_session.add(AppSetting(key="default", payload=AppSettings().model_dump(mode="json")))
     db_session.commit()
-    app.dependency_overrides[get_current_super_admin] = lambda: user
+    app.dependency_overrides[get_current_ui_admin] = lambda: user
     initial = client.get("/api/admin/onboarding")
     assert initial.status_code == 200
     assert initial.json()["complete"] is False
@@ -99,7 +99,7 @@ def test_onboarding_domain_errors_use_shared_secret_redaction(code):
 ])
 def test_invalid_onboarding_requests_do_not_echo_input(db_session, client, caplog, method, path, payload):
     user = _admin(db_session)
-    app.dependency_overrides[get_current_super_admin] = lambda: user
+    app.dependency_overrides[get_current_ui_admin] = lambda: user
     app.dependency_overrides[get_current_ui_superadmin] = lambda: user
     response = getattr(client, method)("/api/admin/onboarding" + path, json=payload)
     assert response.status_code == 422

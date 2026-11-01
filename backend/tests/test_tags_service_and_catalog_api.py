@@ -157,7 +157,7 @@ def test_admin_tag_definitions_api_respects_domain_permissions(client: TestClien
         ("rgw-a", "violet", "standard")
     ]
 
-    app.dependency_overrides[dependencies.get_current_super_admin] = lambda: _ui_admin(5001, "admin@example.test")
+    app.dependency_overrides[dependencies.get_current_ui_admin] = lambda: _ui_admin(5001, "admin@example.test")
     admin_endpoint_resp = client.get("/api/admin/tag-definitions", params={"domain": "endpoint"})
     assert admin_endpoint_resp.status_code == 403, admin_endpoint_resp.text
 

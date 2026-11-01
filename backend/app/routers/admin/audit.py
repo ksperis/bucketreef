@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.db import User
 from app.models.audit import AuditLogEntry, AuditLogListResponse
-from app.routers.dependencies import get_audit_service, get_current_super_admin
+from app.routers.dependencies import get_audit_service, get_current_ui_admin
 from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/admin/audit", tags=["admin-audit"])
@@ -23,7 +23,7 @@ def list_audit_logs(
     context_kind: Optional[str] = Query(None, description="Filter by execution-context kind"),
     context_id: Optional[str] = Query(None, description="Filter by execution-context id"),
     search: Optional[str] = Query(None, description="Search by actor, action, or target"),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuditLogListResponse:
     effective_limit = min(max(limit, 1), 500)

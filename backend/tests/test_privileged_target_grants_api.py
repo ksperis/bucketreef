@@ -37,7 +37,7 @@ def test_ui_admin_can_grant_account_bucket_quota_target(client: TestClient, db_s
     db_session.commit()
     db_session.refresh(account)
 
-    app.dependency_overrides[dependencies.get_current_super_admin] = _ui_admin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = _ui_admin
 
     response = client.patch(
         f"/api/admin/accounts/{account.id}",
@@ -55,7 +55,7 @@ def test_ui_admin_can_update_account_without_changing_privileged_target(client: 
     db_session.commit()
     db_session.refresh(account)
 
-    app.dependency_overrides[dependencies.get_current_super_admin] = _ui_admin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = _ui_admin
 
     response = client.patch(
         f"/api/admin/accounts/{account.id}",
@@ -81,7 +81,7 @@ def test_ui_admin_can_grant_s3_user_privileged_targets(client: TestClient, db_se
     db_session.commit()
     db_session.refresh(s3_user)
 
-    app.dependency_overrides[dependencies.get_current_super_admin] = _ui_admin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = _ui_admin
 
     response = client.patch(
         f"/api/admin/s3-users/{s3_user.id}",
@@ -110,7 +110,7 @@ def test_ui_admin_can_update_s3_user_without_changing_privileged_targets(client:
     db_session.commit()
     db_session.refresh(s3_user)
 
-    app.dependency_overrides[dependencies.get_current_super_admin] = _ui_admin
+    app.dependency_overrides[dependencies.get_current_ui_admin] = _ui_admin
 
     response = client.patch(
         f"/api/admin/s3-users/{s3_user.id}",

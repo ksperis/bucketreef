@@ -106,7 +106,7 @@ def get_current_user(actor: ManagerActor = Depends(get_current_actor)) -> User:
     return actor
 
 
-def get_current_super_admin(user: User = Depends(get_current_user)) -> User:
+def get_current_ui_admin(user: User = Depends(get_current_user)) -> User:
     if not is_admin_ui_role(user.role):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
     return user

@@ -28,7 +28,7 @@ from app.models.s3_connection_admin import (
     S3ConnectionAdminUpdate,
     S3ConnectionSummary,
 )
-from app.routers.dependencies import get_audit_service, get_current_super_admin
+from app.routers.dependencies import get_audit_service, get_current_ui_admin
 from app.services.audit_service import AuditService
 from app.services.admin_s3_connections_read_service import AdminS3ConnectionsReadService
 from app.services.identity_security_policy import (
@@ -70,7 +70,7 @@ def list_s3_connections(
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> PaginatedS3ConnectionsResponse:
     _ = current_user
     return AdminS3ConnectionsReadService(db).list(
@@ -86,7 +86,7 @@ def list_s3_connections(
 @router.get("/minimal", response_model=list[S3ConnectionSummary])
 def list_s3_connections_minimal(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
 ) -> list[S3ConnectionSummary]:
     _ = current_user
     return AdminS3ConnectionsReadService(db).list_minimal()
@@ -96,7 +96,7 @@ def list_s3_connections_minimal(
 def validate_s3_connection_credentials(
     payload: S3ConnectionCredentialsValidationRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_super_admin),
+    _: User = Depends(get_current_ui_admin),
 ) -> S3ConnectionCredentialsValidationResult:
     service = S3ConnectionValidationService(db)
     try:
@@ -110,7 +110,7 @@ def create_s3_connection(
     request: Request,
     payload: S3ConnectionAdminCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> S3ConnectionAdminItem:
     service = S3ConnectionsService(db)
@@ -160,7 +160,7 @@ def update_s3_connection(
     connection_id: int,
     payload: S3ConnectionAdminUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> S3ConnectionAdminItem:
     service = S3ConnectionsService(db)
@@ -208,7 +208,7 @@ def update_s3_connection(
 def delete_s3_connection(
     connection_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_super_admin),
+    current_user: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
 ) -> Response:
     service = S3ConnectionsService(db)
