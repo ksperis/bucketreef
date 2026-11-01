@@ -36,6 +36,8 @@ const payload: OidcProviderAdminPayload = {
   icon_url: null,
   use_pkce: true,
   use_nonce: true,
+  linking_policy: "manual",
+  trusted_email_domains: [],
   client_secret: "secret",
   clear_client_secret: false,
 };
@@ -48,6 +50,7 @@ const ldapPayload: LdapProviderAdminPayload = {
   bind_password: "secret",
   user_base_dn: "ou=people,dc=example,dc=test",
   user_filter: "(uid={username})",
+  import_search_filter: null,
   email_attribute: "mail",
   name_attribute: "displayName",
   subject_attribute: null,
@@ -58,7 +61,7 @@ const ldapPayload: LdapProviderAdminPayload = {
   timeout_seconds: 5,
   enabled: true,
   allow_insecure: false,
-  allow_email_linking: false,
+  linking_policy: "manual",
   clear_bind_password: false,
 };
 

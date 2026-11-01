@@ -217,9 +217,9 @@ export LDAP_PROVIDERS__corp__subject_attribute="entryUUID"
 - `bind_dn` and `bind_password` are optional, but must be configured together. When both are omitted, BucketReef searches the directory anonymously before binding as the matched user; the directory ACLs must allow anonymous access to the configured user attributes.
 - Use `ldaps://` or `ldap://` with `start_tls=true`. Plain LDAP without STARTTLS is rejected unless `allow_insecure=true`, which should be limited to isolated labs.
 - Set `allow_legacy_tls=true` only for LDAP servers that require TLS cipher suites excluded by the modern Python/OpenSSL defaults. This enables the OpenSSL `DEFAULT` cipher set for that provider; enabling modern ECDHE suites on the server remains preferable.
-- `tls_verify=false` and `allow_email_linking=true` are allowed for compatibility and planned migrations, but they emit startup security warnings.
+- `tls_verify=false`, `allow_insecure=true`, and `allow_legacy_tls=true` are explicit transport-security exceptions and emit startup security warnings.
 - First LDAP sign-in creates an active external UI user with role `ui_none` and no storage access. An administrator must grant the intended role and bindings.
-- If LDAP returns an email already used by a local account, login is refused by default. Set `allow_email_linking=true` only for a planned migration where that takeover is intended.
+- UI-managed LDAP providers default to `linking_policy=reauthenticate`; environment-managed providers default to `manual` unless configured otherwise. When LDAP returns an email already used by a BucketReef account, the incoming directory identity is verified first, then `reauthenticate` requires proof of the existing account while `manual` sends the link for administrator approval. LDAP does not auto-link accounts by email.
 - The login page hides the Directory tab when no LDAP providers are enabled. Additional environment providers can be defined by repeating the prefix (`LDAP_PROVIDERS__ad__...`, `LDAP_PROVIDERS__openldap__...`).
 
 ## Included endpoints (MVP)
