@@ -15,7 +15,7 @@ from app.services.bucket_ui_tags_service import (
     BucketUiTagsService,
     PhysicalBucketTarget,
 )
-from app.services.storage_ops_bucket_listing_service import (
+from app.services.storage_ops_context_resolution import (
     resolve_storage_ops_context_tenant,
 )
 from ._shared import (

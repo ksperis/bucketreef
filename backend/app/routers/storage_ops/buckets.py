@@ -28,9 +28,9 @@ from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadat
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.listing_progress import ListingProgressSnapshot
-from app.services.storage_ops_bucket_listing_service import (
+from app.services.storage_ops_bucket_listing_service import compute_storage_ops_bucket_listing
+from app.services.storage_ops_context_resolution import (
     build_storage_ops_context_refs,
-    compute_storage_ops_bucket_listing,
     resolve_storage_ops_contexts,
 )
 from app.services.storage_ops_context_service import list_storage_ops_contexts

@@ -20,7 +20,7 @@ from app.services.bucket_ui_tags_service import (
 )
 from app.services.buckets_service import BucketsService
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.storage_ops_bucket_listing_service import (
+from app.services.storage_ops_context_resolution import (
     StorageOpsContextRef,
     resolve_storage_ops_context_tenant,
 )

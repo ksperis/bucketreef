@@ -20,6 +20,8 @@ from app.models.storage_ops import PaginatedStorageOpsBucketsResponse, StorageOp
 from app.routers import dependencies
 from app.routers.storage_ops import buckets as storage_ops_router
 from app.services import storage_ops_bucket_listing_service as storage_ops_listing_service
+from app.services import storage_ops_context_bucket_listing as storage_ops_context_listing
+from app.services import storage_ops_context_resolution
 from app.services import storage_ops_bucket_filtering as storage_ops_filtering
 from app.services import storage_ops_context_service
 from app.services.bucket_listing_enrichment import _BucketEnricher
@@ -27,6 +29,7 @@ from app.services import app_settings_service, effective_access_service
 from app.services.connection_identity_service import ConnectionIdentityResolution
 from app.services.listing_progress import ListingProgressSnapshot
 from app.services.s3_execution_context import S3ExecutionContext
+from app.services.storage_ops_bucket_listing_request import prepare_storage_ops_bucket_listing_request
 from app.main import app
 from tests.execution_context_factory import make_execution_context
 from tests.s3_connection_factory import custom_endpoint_fields
@@ -371,7 +374,7 @@ def test_storage_ops_listing_aggregates_contexts_and_exposes_context_fields(clie
         assert "endpoint_id" in first
         assert "bucket_name" in first
         assert "bucket_identity" in first
-        assert first["bucket_identity"] == storage_ops_listing_service.build_storage_ops_bucket_identity(
+        assert first["bucket_identity"] == storage_ops_context_resolution.build_storage_ops_bucket_identity(
             first["endpoint_id"], first["tenant"], first["bucket_name"]
         )
     finally:
@@ -701,8 +704,8 @@ def test_storage_ops_advanced_filter_parsing_accepts_context_fields():
 
 
 def test_storage_ops_bucket_identity_is_endpoint_scoped_and_shared_across_contexts():
-    primary_identity = storage_ops_listing_service.build_storage_ops_bucket_identity(7, None, "shared")
-    archive_identity = storage_ops_listing_service.build_storage_ops_bucket_identity(8, None, "shared")
+    primary_identity = storage_ops_context_resolution.build_storage_ops_bucket_identity(7, None, "shared")
+    archive_identity = storage_ops_context_resolution.build_storage_ops_bucket_identity(8, None, "shared")
     assert primary_identity
     assert archive_identity
     assert primary_identity != archive_identity
@@ -1185,21 +1188,21 @@ def test_storage_ops_context_id_prefilter_skips_non_matching_contexts(client, mo
 
 def test_storage_ops_context_prefilter_applies_context_only_match_any():
     refs = [
-        storage_ops_listing_service.StorageOpsContextRef(
+        storage_ops_context_resolution.StorageOpsContextRef(
             context_id="1",
             context_name="Account A",
             context_kind="account",
             endpoint_id=7,
             endpoint_name="Primary",
         ),
-        storage_ops_listing_service.StorageOpsContextRef(
+        storage_ops_context_resolution.StorageOpsContextRef(
             context_id="conn-2",
             context_name="Connection B",
             context_kind="connection",
             endpoint_id=8,
             endpoint_name="Archive",
         ),
-        storage_ops_listing_service.StorageOpsContextRef(
+        storage_ops_context_resolution.StorageOpsContextRef(
             context_id="s3u-3",
             context_name="User C",
             context_kind="s3_user",
@@ -1217,7 +1220,7 @@ def test_storage_ops_context_prefilter_applies_context_only_match_any():
         }
     )
 
-    filtered = storage_ops_listing_service._filter_context_refs_by_advanced_filter(
+    filtered = storage_ops_context_resolution.filter_storage_ops_context_refs_by_advanced_filter(
         refs,
         parsed_filter,
     )
@@ -1334,7 +1337,7 @@ def test_storage_ops_applies_cheap_field_prefilter_before_feature_enrichment(cli
 
     monkeypatch.setattr(storage_ops_router, "list_storage_ops_contexts", fake_list_storage_ops_contexts)
     monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
-    monkeypatch.setattr(storage_ops_listing_service, "enrich_buckets", fake_enrich_buckets)
+    monkeypatch.setattr(storage_ops_context_listing, "enrich_buckets", fake_enrich_buckets)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1427,8 +1430,8 @@ def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
         rgw_access_key="AKIA_TEST",
         rgw_secret_key="SECRET_TEST",
     )
-    context = storage_ops_listing_service.StorageOpsResolvedContext(
-        ref=storage_ops_listing_service.StorageOpsContextRef(
+    context = storage_ops_context_resolution.StorageOpsResolvedContext(
+        ref=storage_ops_context_resolution.StorageOpsContextRef(
             context_id="1",
             context_name="Account A",
             context_kind="account",
@@ -1462,13 +1465,13 @@ def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
             )
         return enriched
 
-    monkeypatch.setattr(storage_ops_listing_service, "enrich_buckets", fake_enrich_buckets)
+    monkeypatch.setattr(storage_ops_context_listing, "enrich_buckets", fake_enrich_buckets)
     monkeypatch.setattr(
-        storage_ops_listing_service,
+        storage_ops_context_listing,
         "get_cached_bucket_listing_for_context",
         lambda **kwargs: kwargs["builder"](),
     )
-    query = storage_ops_listing_service.prepare_storage_ops_bucket_listing_request(
+    query = prepare_storage_ops_bucket_listing_request(
         filter=None,
         advanced_filter=parsed_filter.model_dump_json(),
         include=[],
@@ -1476,7 +1479,7 @@ def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
         sort_by="name",
     )
 
-    result = storage_ops_listing_service.list_storage_ops_context_buckets(
+    result = storage_ops_context_listing.list_storage_ops_context_buckets(
         context=context,
         service=FakeBucketsService(),
         query=query,
@@ -1504,8 +1507,8 @@ def test_storage_ops_notification_param_filter_uses_shared_snapshot_matching(mon
         rgw_access_key="AKIA_TEST",
         rgw_secret_key="SECRET_TEST",
     )
-    context = storage_ops_listing_service.StorageOpsResolvedContext(
-        ref=storage_ops_listing_service.StorageOpsContextRef(
+    context = storage_ops_context_resolution.StorageOpsResolvedContext(
+        ref=storage_ops_context_resolution.StorageOpsContextRef(
             context_id="1",
             context_name="Account A",
             context_kind="account",
@@ -1534,11 +1537,11 @@ def test_storage_ops_notification_param_filter_uses_shared_snapshot_matching(mon
             )
 
     monkeypatch.setattr(
-        storage_ops_listing_service,
+        storage_ops_context_listing,
         "get_cached_bucket_listing_for_context",
         lambda **kwargs: kwargs["builder"](),
     )
-    query = storage_ops_listing_service.prepare_storage_ops_bucket_listing_request(
+    query = prepare_storage_ops_bucket_listing_request(
         filter=None,
         advanced_filter=parsed_filter.model_dump_json(),
         include=[],
@@ -1546,7 +1549,7 @@ def test_storage_ops_notification_param_filter_uses_shared_snapshot_matching(mon
         sort_by="name",
     )
 
-    result = storage_ops_listing_service.list_storage_ops_context_buckets(
+    result = storage_ops_context_listing.list_storage_ops_context_buckets(
         context=context,
         service=FakeBucketsService(),
         query=query,
@@ -1640,8 +1643,8 @@ def test_storage_ops_owner_quota_and_usage_use_context_principal_and_resolve_con
 
     monkeypatch.setattr(storage_ops_router, "list_storage_ops_contexts", fake_list_storage_ops_contexts)
     monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
-    monkeypatch.setattr(storage_ops_listing_service.ConnectionIdentityService, "resolve_rgw_identity", fake_resolve_rgw_identity)
-    monkeypatch.setattr(storage_ops_listing_service.BucketOwnerMetadataService, "enrich_buckets", fake_enrich_buckets)
+    monkeypatch.setattr(storage_ops_context_resolution.ConnectionIdentityService, "resolve_rgw_identity", fake_resolve_rgw_identity)
+    monkeypatch.setattr(storage_ops_context_listing.BucketOwnerMetadataService, "enrich_buckets", fake_enrich_buckets)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1843,7 +1846,7 @@ def test_storage_ops_bucket_listing_filters_by_owner_suspended_status(client, mo
 
     monkeypatch.setattr(storage_ops_router, "list_storage_ops_contexts", fake_list_storage_ops_contexts)
     monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
-    monkeypatch.setattr(storage_ops_listing_service.BucketOwnerMetadataService, "enrich_buckets", fake_enrich_buckets)
+    monkeypatch.setattr(storage_ops_context_listing.BucketOwnerMetadataService, "enrich_buckets", fake_enrich_buckets)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user
@@ -1899,7 +1902,7 @@ def test_storage_ops_owner_identity_failures_leave_owner_quota_fields_null(clien
 
     monkeypatch.setattr(storage_ops_router, "list_storage_ops_contexts", fake_list_storage_ops_contexts)
     monkeypatch.setattr(storage_ops_router, "get_s3_execution_context", fake_get_s3_execution_context)
-    monkeypatch.setattr(storage_ops_listing_service.ConnectionIdentityService, "resolve_rgw_identity", fake_resolve_rgw_identity)
+    monkeypatch.setattr(storage_ops_context_resolution.ConnectionIdentityService, "resolve_rgw_identity", fake_resolve_rgw_identity)
 
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = _admin_user

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import User
 from app.models.execution_context import ExecutionContext
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
-from app.services.storage_ops_bucket_listing_service import (
+from app.services.storage_ops_context_resolution import (
     StorageOpsContextRef,
     build_storage_ops_context_refs,
 )

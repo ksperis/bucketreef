@@ -14,7 +14,7 @@ from app.services import s3_bucket_access, s3_bucket_metadata, s3_client, s3_del
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
 from app.services.portal.exceptions import PortalForbiddenError
 from app.services.rgw_iam import RGWIAMService
-from app.services.storage_ops_bucket_listing_service import resolve_storage_ops_context_tenant
+from app.services.storage_ops_context_resolution import resolve_storage_ops_context_tenant
 from app.utils.account_roles import PortalAccountRoleValue
 from app.utils.normalize import normalize_string_list
 
