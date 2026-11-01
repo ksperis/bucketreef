@@ -79,9 +79,12 @@ import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminGroupAssociationOptions from "./useAdminGroupAssociationOptions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminStorageAssociationEditorState from "./useAdminStorageAssociationEditorState";
+import {
+  deriveAdminAssociationOptions,
+  MAX_VISIBLE_ASSOCIATION_OPTIONS,
+} from "./adminAssociationOptions";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
-const MAX_VISIBLE_OPTIONS = 10;
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
   { value: "users", label: "team" },
   { value: "building", label: "organization" },
@@ -89,9 +92,6 @@ const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMes
   { value: "briefcase", label: "operations" },
   { value: "academic", label: "research" },
 ];
-function includesQuery(label: string, query: string): boolean {
-  return !query || label.toLowerCase().includes(query.trim().toLowerCase());
-}
 
 function emptyGroupForm(): UiGroupPayload {
   return {
@@ -492,26 +492,41 @@ export default function GroupsPage() {
   const selectedAccountIds = new Set((form.account_links ?? []).map((link) => Number(link.account_id)));
   const showAccountPortalRoleColumn = showPortalRole;
   const userLabelById = new Map(users.map((user) => [user.id, user.email]));
-  const availableUsers = users.filter(
-    (user) => !selectedUserIds.has(user.id) && includesQuery(user.email, memberPicker.search)
-  );
-  const availableAccounts = accounts.filter(
-    (account) => !selectedAccountIds.has(account.id) && includesQuery(account.name, accountPicker.search)
-  );
-  const availableS3Users = s3Users.filter(
-    (user) => !selectedS3UserIds.has(user.id) && includesQuery(user.name, s3UserPicker.search)
-  );
-  const availableConnections = connections.filter(
-    (connection) => !selectedConnectionIds.has(connection.id) && includesQuery(connection.name, connectionPicker.search)
-  );
-  const availableOpenStackClouds = openStackClouds.filter(
-    (cloud) => !selectedOpenStackCloudIds.has(cloud.id) && includesQuery(cloud.name, openStackPicker.search)
-  );
-  const visibleUsers = availableUsers.slice(0, MAX_VISIBLE_OPTIONS);
-  const visibleAccounts = availableAccounts.slice(0, MAX_VISIBLE_OPTIONS);
-  const visibleS3Users = availableS3Users.slice(0, MAX_VISIBLE_OPTIONS);
-  const visibleConnections = availableConnections.slice(0, MAX_VISIBLE_OPTIONS);
-  const visibleOpenStackClouds = availableOpenStackClouds.slice(0, MAX_VISIBLE_OPTIONS);
+  const userOptions = deriveAdminAssociationOptions({
+    items: users,
+    selectedIds: selectedUserIds,
+    search: memberPicker.search,
+    getId: (user) => user.id,
+    getLabel: (user) => user.email,
+  });
+  const accountOptions = deriveAdminAssociationOptions({
+    items: accounts,
+    selectedIds: selectedAccountIds,
+    search: accountPicker.search,
+    getId: (account) => account.id,
+    getLabel: (account) => account.name,
+  });
+  const s3UserOptions = deriveAdminAssociationOptions({
+    items: s3Users,
+    selectedIds: selectedS3UserIds,
+    search: s3UserPicker.search,
+    getId: (user) => user.id,
+    getLabel: (user) => user.name,
+  });
+  const connectionOptions = deriveAdminAssociationOptions({
+    items: connections,
+    selectedIds: selectedConnectionIds,
+    search: connectionPicker.search,
+    getId: (connection) => connection.id,
+    getLabel: (connection) => connection.name,
+  });
+  const openStackOptions = deriveAdminAssociationOptions({
+    items: openStackClouds,
+    selectedIds: selectedOpenStackCloudIds,
+    search: openStackPicker.search,
+    getId: (cloud) => cloud.id,
+    getLabel: (cloud) => cloud.name,
+  });
 
   const renderMembersTab = () => (
     <AdminAssociationLinkedTable
@@ -554,8 +569,8 @@ export default function GroupsPage() {
             onSearchChange={memberPicker.setSearch}
             searchAriaLabel={text("searchGroupMembers")}
             loading={auxLoading}
-            availableCount={availableUsers.length}
-            maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+            availableCount={userOptions.available.length}
+            maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
             selectedCount={memberPicker.selections.length}
             loadingLabel={text("loadingUsers")}
             emptyLabel={text("noUsersAvailable")}
@@ -571,7 +586,7 @@ export default function GroupsPage() {
               memberPicker.reset();
             }}
           >
-            {visibleUsers.map((user) => (
+            {userOptions.visible.map((user) => (
               <div
                 key={user.id}
                 className={adminAssociationOptionRowClass(memberPicker.selections.includes(user.id))}
@@ -695,8 +710,8 @@ export default function GroupsPage() {
                     onSearchChange={accountPicker.setSearch}
                     searchAriaLabel={text("searchGroupAccounts")}
                     loading={auxLoading}
-                    availableCount={availableAccounts.length}
-                    maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                    availableCount={accountOptions.available.length}
+                    maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
                     selectedCount={accountPicker.selections.length}
                     loadingLabel={text("loadingAccounts")}
                     emptyLabel={text("noAccountsAvailable")}
@@ -732,7 +747,7 @@ export default function GroupsPage() {
                     <AdminAssociationAccessPickerTable
                       title={text("availableAccounts")}
                       principalLabel={text("account")}
-                      options={visibleAccounts.map((account) => ({
+                      options={accountOptions.visible.map((account) => ({
                         id: account.id,
                         label: account.name,
                         selected: accountPicker.selections.includes(account.id),
@@ -814,8 +829,8 @@ export default function GroupsPage() {
                     onSearchChange={s3UserPicker.setSearch}
                     searchAriaLabel={text("searchGroupS3Users")}
                     loading={auxLoading}
-                    availableCount={availableS3Users.length}
-                    maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                    availableCount={s3UserOptions.available.length}
+                    maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
                     selectedCount={s3UserPicker.selections.length}
                     loadingLabel={text("loadingRgwUsers")}
                     emptyLabel={text("noRgwUsersAvailable")}
@@ -837,7 +852,7 @@ export default function GroupsPage() {
                       s3UserPicker.reset();
                     }}
                   >
-                    {visibleS3Users.map((s3User) => (
+                    {s3UserOptions.visible.map((s3User) => (
                       <div
                         key={s3User.id}
                         className={adminAssociationOptionRowClass(s3UserPicker.selections.includes(s3User.id))}
@@ -901,8 +916,8 @@ export default function GroupsPage() {
                     onSearchChange={connectionPicker.setSearch}
                     searchAriaLabel={text("searchGroupSharedConnections")}
                     loading={auxLoading}
-                    availableCount={availableConnections.length}
-                    maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                    availableCount={connectionOptions.available.length}
+                    maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
                     selectedCount={connectionPicker.selections.length}
                     loadingLabel={text("loadingSharedConnections")}
                     emptyLabel={text("noSharedConnectionsAvailable")}
@@ -920,7 +935,7 @@ export default function GroupsPage() {
                       connectionPicker.reset();
                     }}
                   >
-                    {visibleConnections.map((connection) => (
+                    {connectionOptions.visible.map((connection) => (
                       <div
                         key={connection.id}
                         className={adminAssociationOptionRowClass(connectionPicker.selections.includes(connection.id))}
@@ -983,8 +998,8 @@ export default function GroupsPage() {
                     onSearchChange={openStackPicker.setSearch}
                     searchAriaLabel={text("searchGroupOpenStackClouds")}
                     loading={auxLoading}
-                    availableCount={availableOpenStackClouds.length}
-                    maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                    availableCount={openStackOptions.available.length}
+                    maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
                     selectedCount={openStackPicker.selections.length}
                     loadingLabel={text("loadingOpenStackClouds")}
                     emptyLabel={text("noOpenStackCloudsAvailable")}
@@ -1002,7 +1017,7 @@ export default function GroupsPage() {
                       openStackPicker.reset();
                     }}
                   >
-                    {visibleOpenStackClouds.map((cloud) => (
+                    {openStackOptions.visible.map((cloud) => (
                       <div
                         key={cloud.id}
                         className={adminAssociationOptionRowClass(openStackPicker.selections.includes(cloud.id))}

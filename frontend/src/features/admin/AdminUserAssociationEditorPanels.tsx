@@ -7,7 +7,7 @@ import type { UiGroupSummary } from "../../api/groups";
 import UserAssociationsTabs from "./UserAssociationsTabs";
 import UserGroupsSelector from "./UserGroupsSelector";
 import type { AdminUserAssociationDerivedOptions } from "./useAdminUserAssociationDerivedOptions";
-import { MAX_VISIBLE_USER_ASSOCIATION_OPTIONS } from "./useAdminUserAssociationDerivedOptions";
+import { MAX_VISIBLE_ASSOCIATION_OPTIONS } from "./adminAssociationOptions";
 import type { AdminUserAssociationEditorState } from "./useAdminUserAssociationEditorState";
 import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 
@@ -50,7 +50,7 @@ export default function AdminUserAssociationEditorPanels({
         groups={resources.groups}
         groupsLoaded={resources.groupsLoaded}
         groupsLoading={resources.groupsLoading}
-        maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
+        maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
         selectedIds={editor.groups.selected}
         setSelectedIds={editor.groups.setSelected}
         search={editor.groups.picker.search}
@@ -75,7 +75,7 @@ export default function AdminUserAssociationEditorPanels({
           void resources.ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
         }
       }}
-      maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
+      maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
       showPortalRole={resources.showPortalRole}
       accounts={{
         selected: editor.accounts.selected,
