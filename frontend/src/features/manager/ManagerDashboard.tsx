@@ -43,6 +43,7 @@ import {
 import {
   WORKSPACE_TRAFFIC_TREND_WINDOWS as TRAFFIC_TREND_WINDOWS,
   buildWorkspaceDashboardKpis,
+  formatWorkspaceOptionalBytes,
   formatWorkspaceProjectedFull,
   formatWorkspaceSignedBytesDelta,
   selectWorkspaceTrafficTrend,
@@ -118,10 +119,6 @@ function localizeTrendBaseline<T extends ManagerUsageTrendBaseline | null | unde
   return { ...baseline, label: text(baseline.label) } as T;
 }
 
-function formatOptionalBytes(value?: number | null): string {
-  return value == null ? "" : formatBytes(value);
-}
-
 function formatLatency(value?: number | null): string {
   if (value == null) return "-";
   return `${Math.round(value)} ms`;
@@ -188,7 +185,7 @@ function StorageOverviewCard({
 }) {
   const { text, intlLocale } = useManagerI18n();
   const usagePercent = unavailableReason ? null : clampedPercentageOf(usedBytes, quotaBytes);
-  const storageValue = unavailableReason ? "" : formatOptionalBytes(usedBytes);
+  const storageValue = unavailableReason ? "" : formatWorkspaceOptionalBytes(usedBytes);
   const quotaValue = unavailableReason || quotaBytes == null ? "" : formatBytes(quotaBytes);
   const chartPoints = useMemo(
     () => (unavailableReason ? [] : buildWorkspaceStorageEvolutionPoints(usedBytes, trendBaseline, referenceDate)),

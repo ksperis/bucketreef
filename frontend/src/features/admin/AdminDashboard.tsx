@@ -45,6 +45,7 @@ import {
 } from "../../components/WorkspaceDashboardKit";
 import WorkspaceIncidentsCard from "../../components/WorkspaceIncidentsCard";
 import WorkspaceDashboardInfo from "../../components/WorkspaceDashboardInfo";
+import { formatWorkspaceOptionalBytes } from "../../components/workspaceDashboardKpis";
 import UiBadge from "../../components/ui/UiBadge";
 import {
   cx,
@@ -57,7 +58,7 @@ import {
 } from "../browser/browserIcons";
 import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime, getBackendRelativeTime } from "../../utils/dateTime";
-import { formatBytes, formatCheckMode, formatCompactNumber, formatPercentage } from "../../utils/format";
+import { formatCheckMode, formatCompactNumber, formatPercentage } from "../../utils/format";
 import { useI18n } from "../../i18n";
 import { onboardingCopy } from "./onboardingCopy";
 import { useOnboardingStatus } from "./useOnboardingStatus";
@@ -123,10 +124,6 @@ function formatAuditAction(log: AuditLogEntry, text: AdminDashboardText): string
 
 function trafficOpsSeries(traffic: AdminDashboardTraffic | null): number[] {
   return (traffic?.series ?? []).map((point) => point.ops).filter((value): value is number => value != null && Number.isFinite(value));
-}
-
-function formatOptionalBytes(value?: number | null): string {
-  return value == null ? "" : formatBytes(value);
 }
 
 function formatOptionalCompactNumber(value?: number | null): string {
@@ -300,7 +297,7 @@ function StorageTrafficSummary({
     },
     {
       label: text("storedData"),
-      value: storageLoading ? "..." : formatOptionalBytes(storageReason ? null : storageTotals?.used_bytes ?? null),
+      value: storageLoading ? "..." : formatWorkspaceOptionalBytes(storageReason ? null : storageTotals?.used_bytes ?? null),
       tone: "emerald",
     },
     {
