@@ -132,8 +132,40 @@ class BucketMigrationObjectComparisonMixin:
 
         size_only_pairs: list[VersionTimelineDiffKey] = []
         for source_entry, target_entry in zip(source_timeline, target_timeline):
-            if bool(source_entry.is_delete_marker) != bool(target_entry.is_delete_marker):
-                return VersionTimelineComparison(
+            comparison, size_only_pair = self._compare_version_timeline_entry_pair(
+                source_client,
+                target_client,
+                source_bucket=source_bucket,
+                target_bucket=target_bucket,
+                key=key,
+                source_entry=source_entry,
+                target_entry=target_entry,
+            )
+            if comparison is not None:
+                return comparison
+            if size_only_pair is not None:
+                size_only_pairs.append(size_only_pair)
+
+        return VersionTimelineComparison(
+            equal=True,
+            first_difference=None,
+            size_only_pairs=tuple(size_only_pairs),
+        )
+
+    def _compare_version_timeline_entry_pair(
+        self,
+        source_client: Any,
+        target_client: Any,
+        *,
+        source_bucket: str,
+        target_bucket: str,
+        key: str,
+        source_entry: BucketVersionEntry,
+        target_entry: BucketVersionEntry,
+    ) -> tuple[VersionTimelineComparison | None, VersionTimelineDiffKey | None]:
+        if bool(source_entry.is_delete_marker) != bool(target_entry.is_delete_marker):
+            return (
+                VersionTimelineComparison(
                     equal=False,
                     first_difference={
                         "key": key,
@@ -141,25 +173,31 @@ class BucketMigrationObjectComparisonMixin:
                         "source_kind": "delete_marker" if source_entry.is_delete_marker else "object",
                         "target_kind": "delete_marker" if target_entry.is_delete_marker else "object",
                     },
-                )
-            if source_entry.is_delete_marker:
-                continue
+                ),
+                None,
+            )
+        if source_entry.is_delete_marker:
+            return None, None
 
-            source_details = self._versioned_object_details(
-                source_client,
-                source_bucket,
-                key,
-                version_id=source_entry.version_id,
-            )
-            target_details = self._versioned_object_details(
-                target_client,
-                target_bucket,
-                key,
-                version_id=target_entry.version_id,
-            )
-            equal, compare_by, reason = self._compare_versioned_object_details(source_details, target_details)
-            if not equal:
-                return VersionTimelineComparison(
+        source_details = self._versioned_object_details(
+            source_client,
+            source_bucket,
+            key,
+            version_id=source_entry.version_id,
+        )
+        target_details = self._versioned_object_details(
+            target_client,
+            target_bucket,
+            key,
+            version_id=target_entry.version_id,
+        )
+        equal, compare_by, reason = self._compare_versioned_object_details(
+            source_details,
+            target_details,
+        )
+        if not equal:
+            return (
+                VersionTimelineComparison(
                     equal=False,
                     first_difference={
                         "key": key,
@@ -170,20 +208,18 @@ class BucketMigrationObjectComparisonMixin:
                         "source_etag": source_details.etag,
                         "target_etag": target_details.etag,
                     },
-                )
-            if compare_by == "size":
-                size_only_pairs.append(
-                    VersionTimelineDiffKey(
-                        key=key,
-                        source_version_id=source_entry.version_id,
-                        target_version_id=target_entry.version_id,
-                    )
-                )
-
-        return VersionTimelineComparison(
-            equal=True,
-            first_difference=None,
-            size_only_pairs=tuple(size_only_pairs),
+                ),
+                None,
+            )
+        if compare_by != "size":
+            return None, None
+        return (
+            None,
+            VersionTimelineDiffKey(
+                key=key,
+                source_version_id=source_entry.version_id,
+                target_version_id=target_entry.version_id,
+            ),
         )
 
     def _compare_versioned_timelines(
