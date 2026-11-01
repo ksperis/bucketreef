@@ -197,12 +197,17 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
     [isStorageOps, cephSelectedEndpoint]
   );
   const cephAdminBrowserEnabled = !isStorageOps && generalSettings.browser_enabled && generalSettings.browser_ceph_admin_enabled;
-  const [cephBucketStatsAvailable, setCephBucketStatsAvailable] = useState<boolean | null>(null);
-  const [cephBucketStatsEndpointId, setCephBucketStatsEndpointId] = useState<number | null>(null);
+  const [cephBucketStatsState, setCephBucketStatsState] = useState<{
+    endpointId: number | null;
+    available: boolean | null;
+  }>({
+    endpointId: null,
+    available: null,
+  });
   const usageFeatureEnabled =
     isStorageOps ||
-    cephBucketStatsEndpointId !== selectedEndpointId ||
-    cephBucketStatsAvailable !== false;
+    cephBucketStatsState.endpointId !== selectedEndpointId ||
+    cephBucketStatsState.available !== false;
   const staticWebsiteFeatureEnabled = isStorageOps ? true : selectedEndpoint?.capabilities?.static_website === true;
   const snsFeatureEnabled = isStorageOps ? true : selectedEndpoint?.capabilities?.sns === true;
   const sseFeatureEnabled = isStorageOps ? true : selectedEndpoint?.capabilities?.sse !== false;
@@ -468,6 +473,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
     advancedProgress,
     error,
     statsAvailable,
+    statsScopeId,
     statsWarning,
     setError,
     refresh: refreshBuckets,
@@ -633,19 +639,31 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
 
   useEffect(() => {
     if (isStorageOps) {
-      setCephBucketStatsAvailable(true);
-      setCephBucketStatsEndpointId(STORAGE_OPS_SCOPE_ID);
+      setCephBucketStatsState({
+        endpointId: STORAGE_OPS_SCOPE_ID,
+        available: true,
+      });
       return;
     }
-    setCephBucketStatsAvailable(null);
-    setCephBucketStatsEndpointId(null);
+    setCephBucketStatsState({
+      endpointId: null,
+      available: null,
+    });
   }, [isStorageOps, selectedEndpointId]);
 
   useEffect(() => {
-    if (isStorageOps || statsAvailable === null) return;
-    setCephBucketStatsAvailable(statsAvailable);
-    setCephBucketStatsEndpointId(selectedEndpointId ?? null);
-  }, [isStorageOps, selectedEndpointId, statsAvailable]);
+    if (
+      isStorageOps ||
+      statsAvailable === null ||
+      statsScopeId !== selectedEndpointId
+    ) {
+      return;
+    }
+    setCephBucketStatsState({
+      endpointId: statsScopeId,
+      available: statsAvailable,
+    });
+  }, [isStorageOps, selectedEndpointId, statsAvailable, statsScopeId]);
 
   const toggleSort = (field: SortField) => {
     if (!usageFeatureEnabled && isStatsSortField(field)) return;
