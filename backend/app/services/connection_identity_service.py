@@ -110,6 +110,26 @@ class ConnectionIdentityService:
             reason=reason,
         )
 
+    @classmethod
+    def _identity_lookup_failed(
+        cls,
+        connection: S3Connection,
+        exc: Exception,
+        *,
+        metrics_enabled: bool,
+        usage_enabled: bool,
+    ) -> ConnectionIdentityResolution:
+        logger.warning(
+            "Unable to resolve RGW identity for connection id=%s: %s",
+            connection.id,
+            sanitized_error_log_detail(exc),
+        )
+        return cls._identity_unavailable(
+            "RGW identity is unavailable: unable to resolve RGW identity for this connection.",
+            metrics_enabled=metrics_enabled,
+            usage_enabled=usage_enabled,
+        )
+
     @staticmethod
     def _persisted_identity(
         connection: S3Connection,
@@ -208,13 +228,9 @@ class ConnectionIdentityService:
             )
             payload = rgw_admin.get_user_by_access_key(access_key, allow_not_found=True)
         except RGWAdminError as exc:
-            logger.warning(
-                "Unable to resolve RGW identity for connection id=%s: %s",
-                connection.id,
-                sanitized_error_log_detail(exc),
-            )
-            return cls._identity_unavailable(
-                "RGW identity is unavailable: unable to resolve RGW identity for this connection.",
+            return cls._identity_lookup_failed(
+                connection,
+                exc,
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
             )
@@ -226,13 +242,9 @@ class ConnectionIdentityService:
                 usage_enabled=usage_enabled,
             )
         except ValueError as exc:
-            logger.warning(
-                "Unable to resolve RGW identity for connection id=%s: %s",
-                connection.id,
-                sanitized_error_log_detail(exc),
-            )
-            return cls._identity_unavailable(
-                "RGW identity is unavailable: unable to resolve RGW identity for this connection.",
+            return cls._identity_lookup_failed(
+                connection,
+                exc,
                 metrics_enabled=metrics_enabled,
                 usage_enabled=usage_enabled,
             )
