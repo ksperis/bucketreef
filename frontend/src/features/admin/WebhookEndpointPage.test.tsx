@@ -194,6 +194,48 @@ describe("WebhookEndpointPage", () => {
     expect(mocks.listDeliveries.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("ignores a stale delivery response after navigating to another endpoint", async () => {
+    let resolveFirstDeliveries!: (value: WebhookDelivery[]) => void;
+    const firstDeliveries = new Promise<WebhookDelivery[]>((resolve) => {
+      resolveFirstDeliveries = resolve;
+    });
+    const secondEndpoint: WebhookEndpoint = {
+      ...importedEndpoint,
+      id: 10,
+      name: "Second webhook",
+      url: "https://second.example.net/callback",
+    };
+    const secondDelivery: WebhookDelivery = {
+      ...delivery,
+      id: 23,
+      last_http_status: 429,
+      last_error: "HTTP 429",
+    };
+    mocks.getEndpoint.mockImplementation(async (id: number) => (
+      id === secondEndpoint.id ? secondEndpoint : importedEndpoint
+    ));
+    mocks.listDeliveries.mockImplementation((id: number) => (
+      id === importedEndpoint.id ? firstDeliveries : Promise.resolve([secondDelivery])
+    ));
+
+    const router = renderPage("/admin/webhook-settings/9");
+    await waitFor(() => expect(mocks.listDeliveries).toHaveBeenCalledWith(9, undefined));
+
+    await act(async () => {
+      await router.navigate("/admin/webhook-settings/10");
+    });
+
+    expect(await screen.findByRole("heading", { name: "Edit webhook: Second webhook" })).toBeInTheDocument();
+    expect(await screen.findByText("HTTP 429")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveFirstDeliveries([delivery]);
+    });
+
+    await waitFor(() => expect(screen.queryByText("HTTP 503")).not.toBeInTheDocument());
+    expect(screen.getByText("HTTP 429")).toBeInTheDocument();
+  });
+
   it("switches from wildcard to explicit event filters and protects dirty navigation", async () => {
     mocks.createEndpoint.mockResolvedValue({
       id: 14,

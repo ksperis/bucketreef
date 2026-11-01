@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import ErrorState from "../../components/errors/ErrorState";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -101,6 +101,7 @@ export default function WebhookEndpointPage() {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [deliveriesLoading, setDeliveriesLoading] = useState(false);
   const [deliveriesError, setDeliveriesError] = useState<string | null>(null);
+  const deliveriesLoadGeneration = useRef(0);
   const [error, setError] = useState<string | null>(invalidEndpointId ? "Webhook endpoint not found." : null);
   const [message, setMessage] = useState<string | null>(initialRouteState?.message ?? null);
   const [eventSearch, setEventSearch] = useState("");
@@ -115,6 +116,10 @@ export default function WebhookEndpointPage() {
 
   useEffect(() => {
     setCompleted(false);
+    deliveriesLoadGeneration.current += 1;
+    setDeliveries([]);
+    setDeliveriesLoading(false);
+    setDeliveriesError(null);
   }, [endpointId]);
 
   useEffect(() => {
@@ -130,14 +135,18 @@ export default function WebhookEndpointPage() {
   }, [initialRouteState?.message, initialRouteState?.signingSecret, location.pathname, navigate]);
 
   const loadDeliveries = useCallback(async (id: number) => {
+    const generation = ++deliveriesLoadGeneration.current;
     setDeliveriesLoading(true);
     setDeliveriesError(null);
     try {
-      setDeliveries(await listWebhookDeliveries(id));
+      const loadedDeliveries = await listWebhookDeliveries(id);
+      if (generation !== deliveriesLoadGeneration.current) return;
+      setDeliveries(loadedDeliveries);
     } catch (loadError) {
+      if (generation !== deliveriesLoadGeneration.current) return;
       setDeliveriesError(extractApiError(loadError, adminText("Unable to load webhook deliveries.")));
     } finally {
-      setDeliveriesLoading(false);
+      if (generation === deliveriesLoadGeneration.current) setDeliveriesLoading(false);
     }
   }, [adminText]);
 
