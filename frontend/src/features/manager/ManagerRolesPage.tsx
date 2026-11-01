@@ -11,7 +11,6 @@ import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import {
   IAMTag,
   IAMRole,
-  attachRolePolicy,
   createIamRole,
   deleteIamRole,
   listIamRoles,
@@ -167,16 +166,9 @@ export default function ManagerRolesPage() {
         assume_role_policy_document: advancedPolicy.document,
         max_session_duration: advancedMaxSessionDuration,
         tags: advancedTags,
+        policies: selectedPolicies,
         inline_policies: inlineDrafts,
       });
-      if (selectedPolicies.length > 0) {
-        for (const arn of selectedPolicies) {
-          const policy = policies.find((p) => p.arn === arn);
-          if (policy) {
-            await attachRolePolicy(contextIdForApi, roleName, policy);
-          }
-        }
-      }
       setAdvancedName("");
       setAdvancedPath(DEFAULT_ROLE_PATH);
       setAdvancedMaxSessionDuration(3600);

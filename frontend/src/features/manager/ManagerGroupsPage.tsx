@@ -8,7 +8,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
-import { IAMGroup, attachGroupPolicy, createIamGroup, deleteIamGroup, listIamGroups } from "../../api/managerIamGroups";
+import { IAMGroup, createIamGroup, deleteIamGroup, listIamGroups } from "../../api/managerIamGroups";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
@@ -125,15 +125,11 @@ export default function ManagerGroupsPage() {
     setActionMessage(null);
     try {
       const groupName = advancedName.trim();
-      await createIamGroup(contextIdForApi, groupName, inlineDrafts);
-      if (selectedPolicies.length > 0) {
-        for (const arn of selectedPolicies) {
-          const policy = policies.find((p) => p.arn === arn);
-          if (policy) {
-            await attachGroupPolicy(contextIdForApi, groupName, policy);
-          }
-        }
-      }
+      await createIamGroup(contextIdForApi, {
+        name: groupName,
+        policies: selectedPolicies,
+        inline_policies: inlineDrafts,
+      });
       setAdvancedName("");
       resetPolicySelection();
       resetInlinePolicyDraftEditor();

@@ -165,6 +165,162 @@ class _RoleService:
         self.role.tags = [tag for tag in self.role.tags or [] if tag.key not in keys]
 
 
+class _CreateIdentityService:
+    def __init__(self, fail_on: str | None = None) -> None:
+        self.fail_on = fail_on
+        self.calls: list[tuple[str, tuple, dict]] = []
+
+    def _record(self, operation: str, *args, **kwargs) -> None:
+        self.calls.append((operation, args, kwargs))
+        if self.fail_on == operation:
+            raise RuntimeError(f"{operation} failed")
+
+    def create_group(self, name: str) -> IAMGroup:
+        self._record("create_group", name)
+        return IAMGroup(name=name)
+
+    def attach_group_policy(self, name: str, policy_arn: str) -> None:
+        self._record("attach_group_policy", name, policy_arn)
+
+    def put_group_inline_policy(self, name: str, policy_name: str, document: dict) -> None:
+        self._record("put_group_inline_policy", name, policy_name, document)
+
+    def delete_group_inline_policy(self, name: str, policy_name: str) -> None:
+        self._record("delete_group_inline_policy", name, policy_name)
+
+    def detach_group_policy(self, name: str, policy_arn: str) -> None:
+        self._record("detach_group_policy", name, policy_arn)
+
+    def delete_group(self, name: str) -> None:
+        self._record("delete_group", name)
+
+    def create_role(self, name: str, assume_policy, **kwargs) -> IAMRole:
+        self._record("create_role", name, assume_policy, **kwargs)
+        return IAMRole(name=name)
+
+    def attach_role_policy(self, name: str, policy_arn: str) -> None:
+        self._record("attach_role_policy", name, policy_arn)
+
+    def put_role_inline_policy(self, name: str, policy_name: str, document: dict) -> None:
+        self._record("put_role_inline_policy", name, policy_name, document)
+
+    def delete_role_inline_policy(self, name: str, policy_name: str) -> None:
+        self._record("delete_role_inline_policy", name, policy_name)
+
+    def detach_role_policy(self, name: str, policy_arn: str) -> None:
+        self._record("detach_role_policy", name, policy_arn)
+
+    def delete_role(self, name: str) -> None:
+        self._record("delete_role", name)
+
+
+def test_group_create_orchestration_applies_all_policies_and_audits(monkeypatch):
+    service = _CreateIdentityService()
+    audit = _Audit()
+    context = _context()
+    payload = IAMGroupCreate(
+        name="researchers",
+        policies=["arn:policy/read"],
+        inline_policies=[InlinePolicy(name="local-read", document={"Statement": []})],
+    )
+    monkeypatch.setattr(iam_groups, "get_iam_service_for_context", lambda _context: service)
+
+    result = iam_groups.create_group(
+        payload,
+        context=context,
+        current_user=object(),
+        audit_service=audit,
+    )
+
+    assert result.name == "researchers"
+    assert [call[0] for call in service.calls] == [
+        "create_group",
+        "attach_group_policy",
+        "put_group_inline_policy",
+    ]
+    assert audit.calls[0]["metadata"] == {
+        "policies": ["arn:policy/read"],
+        "inline_policies": ["local-read"],
+    }
+
+
+def test_group_create_orchestration_rolls_back_after_policy_failure():
+    service = _CreateIdentityService(fail_on="put_group_inline_policy")
+    payload = IAMGroupCreate(
+        name="researchers",
+        policies=["arn:policy/read"],
+        inline_policies=[InlinePolicy(name="local-read", document={})],
+    )
+
+    with pytest.raises(RuntimeError, match="put_group_inline_policy failed"):
+        manager_iam_support.create_iam_group(service, payload)
+
+    assert [call[0] for call in service.calls] == [
+        "create_group",
+        "attach_group_policy",
+        "put_group_inline_policy",
+        "delete_group_inline_policy",
+        "detach_group_policy",
+        "delete_group",
+    ]
+
+
+def test_role_create_orchestration_applies_all_policies_and_audits(monkeypatch):
+    service = _CreateIdentityService()
+    audit = _Audit()
+    context = _context()
+    payload = IAMRoleCreate(
+        name="reader",
+        path="/service/",
+        max_session_duration=7200,
+        tags=[IAMTag(key="team", value="storage")],
+        policies=["arn:policy/read"],
+        inline_policies=[InlinePolicy(name="local-read", document={"Statement": []})],
+    )
+    monkeypatch.setattr(iam_roles, "get_iam_service_for_context", lambda _context: service)
+
+    result = iam_roles.create_role(
+        payload,
+        context=context,
+        current_user=object(),
+        audit_service=audit,
+    )
+
+    assert result.name == "reader"
+    assert [call[0] for call in service.calls] == [
+        "create_role",
+        "attach_role_policy",
+        "put_role_inline_policy",
+    ]
+    assert audit.calls[0]["metadata"] == {
+        "policies": ["arn:policy/read"],
+        "inline_policies": ["local-read"],
+        "max_session_duration": 7200,
+        "tag_keys": ["team"],
+    }
+
+
+def test_role_create_orchestration_rolls_back_after_policy_failure():
+    service = _CreateIdentityService(fail_on="put_role_inline_policy")
+    payload = IAMRoleCreate(
+        name="reader",
+        policies=["arn:policy/read"],
+        inline_policies=[InlinePolicy(name="local-read", document={})],
+    )
+
+    with pytest.raises(RuntimeError, match="put_role_inline_policy failed"):
+        manager_iam_support.create_iam_role(service, payload, {"Statement": []})
+
+    assert [call[0] for call in service.calls] == [
+        "create_role",
+        "attach_role_policy",
+        "put_role_inline_policy",
+        "delete_role_inline_policy",
+        "detach_role_policy",
+        "delete_role",
+    ]
+
+
 def test_user_detail_rehydrates_provider_relationships(monkeypatch):
     service = _UserService()
     monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)

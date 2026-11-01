@@ -29,6 +29,12 @@ export type IAMGroup = {
   management_source?: string | null;
 };
 
+type CreateGroupPayload = {
+  name: string;
+  policies?: string[];
+  inline_policies?: InlinePolicy[];
+};
+
 export async function listIamGroups(contextId?: S3ExecutionContextSelector): Promise<IAMGroup[]> {
   return listIamEntities<IAMGroup>("groups", contextId);
 }
@@ -47,10 +53,9 @@ export async function updateIamGroup(
 
 export async function createIamGroup(
   contextId: S3ExecutionContextSelector,
-  name: string,
-  inlinePolicies?: InlinePolicy[]
+  payload: CreateGroupPayload,
 ): Promise<IAMGroup> {
-  return createIamEntity<IAMGroup>("groups", contextId, { name, inline_policies: inlinePolicies });
+  return createIamEntity<IAMGroup, CreateGroupPayload>("groups", contextId, payload);
 }
 
 export async function deleteIamGroup(contextId: S3ExecutionContextSelector, name: string): Promise<void> {

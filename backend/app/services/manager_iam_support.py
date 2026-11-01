@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,7 +15,16 @@ from app.core.domain_errors import (
     ResourceConflictError,
 )
 from app.db import AccountIAMUser
-from app.models.iam import IAMUser, IAMUserCreate, IAMUserUpdate, IAMUserWithKey
+from app.models.iam import (
+    IAMGroup,
+    IAMGroupCreate,
+    IAMRole,
+    IAMRoleCreate,
+    IAMUser,
+    IAMUserCreate,
+    IAMUserUpdate,
+    IAMUserWithKey,
+)
 from app.models.policy import InlinePolicy, Policy
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.managed_private_access_query_service import (
@@ -34,6 +43,9 @@ class ManagerIAMUserUpdateResult:
     previous_name: str | None
     name_updated: bool
     path_updated: bool
+
+
+_IAMEntity = TypeVar("_IAMEntity")
 
 
 def managed_iam_user_source(
@@ -150,6 +162,116 @@ def create_iam_user(
     for inline in payload.inline_policies or []:
         service.put_user_inline_policy(payload.name, inline.name, inline.document)
     return IAMUserWithKey(**created_user.model_dump(), access_key=created_key)
+
+
+def _rollback_created_iam_identity(
+    *,
+    entity_label: str,
+    entity_name: str,
+    policies: list[str],
+    inline_policy_names: list[str],
+    detach_policy_fn: Callable[[str, str], None],
+    delete_inline_policy_fn: Callable[[str, str], None],
+    delete_entity_fn: Callable[[str], None],
+) -> None:
+    failures: list[str] = []
+    for policy_name in reversed(inline_policy_names):
+        try:
+            delete_inline_policy_fn(entity_name, policy_name)
+        except RuntimeError as exc:
+            failures.append(str(exc))
+    for policy_arn in reversed(policies):
+        try:
+            detach_policy_fn(entity_name, policy_arn)
+        except RuntimeError as exc:
+            failures.append(str(exc))
+    try:
+        delete_entity_fn(entity_name)
+    except RuntimeError as exc:
+        failures.append(str(exc))
+    if failures:
+        raise RuntimeError(
+            f"Unable to fully roll back created {entity_label} {entity_name}: "
+            + "; ".join(failures)
+        )
+
+
+def _configure_created_iam_identity(
+    result: _IAMEntity,
+    *,
+    entity_label: str,
+    entity_name: str,
+    policies: list[str],
+    inline_policies: list[InlinePolicy],
+    attach_policy_fn: Callable[[str, str], None],
+    put_inline_policy_fn: Callable[[str, str, dict[str, Any]], None],
+    detach_policy_fn: Callable[[str, str], None],
+    delete_inline_policy_fn: Callable[[str, str], None],
+    delete_entity_fn: Callable[[str], None],
+) -> _IAMEntity:
+    try:
+        for policy_arn in policies:
+            attach_policy_fn(entity_name, policy_arn)
+        for inline in inline_policies:
+            put_inline_policy_fn(entity_name, inline.name, inline.document)
+    except RuntimeError as exc:
+        try:
+            _rollback_created_iam_identity(
+                entity_label=entity_label,
+                entity_name=entity_name,
+                policies=policies,
+                inline_policy_names=[inline.name for inline in inline_policies],
+                detach_policy_fn=detach_policy_fn,
+                delete_inline_policy_fn=delete_inline_policy_fn,
+                delete_entity_fn=delete_entity_fn,
+            )
+        except RuntimeError as rollback_exc:
+            raise RuntimeError(f"{exc}; {rollback_exc}") from exc
+        raise
+    return result
+
+
+def create_iam_group(
+    service: RGWIAMService,
+    payload: IAMGroupCreate,
+) -> IAMGroup:
+    return _configure_created_iam_identity(
+        service.create_group(payload.name),
+        entity_label="IAM group",
+        entity_name=payload.name,
+        policies=list(payload.policies or []),
+        inline_policies=list(payload.inline_policies or []),
+        attach_policy_fn=service.attach_group_policy,
+        put_inline_policy_fn=service.put_group_inline_policy,
+        detach_policy_fn=service.detach_group_policy,
+        delete_inline_policy_fn=service.delete_group_inline_policy,
+        delete_entity_fn=service.delete_group,
+    )
+
+
+def create_iam_role(
+    service: RGWIAMService,
+    payload: IAMRoleCreate,
+    assume_policy: Any,
+) -> IAMRole:
+    return _configure_created_iam_identity(
+        service.create_role(
+            payload.name,
+            assume_policy,
+            path=payload.path,
+            max_session_duration=payload.max_session_duration,
+            tags=payload.tags,
+        ),
+        entity_label="IAM role",
+        entity_name=payload.name,
+        policies=list(payload.policies or []),
+        inline_policies=list(payload.inline_policies or []),
+        attach_policy_fn=service.attach_role_policy,
+        put_inline_policy_fn=service.put_role_inline_policy,
+        detach_policy_fn=service.detach_role_policy,
+        delete_inline_policy_fn=service.delete_role_inline_policy,
+        delete_entity_fn=service.delete_role,
+    )
 
 
 def validate_inline_policy_name(payload: InlinePolicy, policy_name: str) -> None:

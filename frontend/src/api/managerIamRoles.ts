@@ -37,6 +37,7 @@ type CreateRolePayload = {
   assume_role_policy_document?: Record<string, unknown> | string;
   max_session_duration?: number;
   tags?: IAMTag[];
+  policies?: string[];
   inline_policies?: InlinePolicy[];
 };
 

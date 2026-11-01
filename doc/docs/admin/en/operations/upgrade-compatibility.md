@@ -458,6 +458,17 @@ complete IAM sub-resources such as inline policies and role tags.
 The bundled frontend has been updated with the API cutover. No database
 migration is required.
 
+## 2026-11 Manager IAM group and role creation is backend-orchestrated
+
+Manager IAM group and role create payloads now carry selected managed-policy
+ARNs together with inline policies. The backend applies the complete create-time
+configuration and compensates a failed policy step by removing the requested
+policies before deleting the newly created group or role. The bundled frontend
+no longer fans out separate policy-attachment requests after creation.
+
+Deploy the bundled frontend and backend together. No database migration is
+required.
+
 ## 2026-10 Ceph Admin account and user config updates use PATCH
 
 Ceph Admin account and user configuration updates now use
