@@ -845,7 +845,6 @@ export default function BrowserPage({
   const selectionInfo = getSelectionInfo(selectionItems);
   const selectionFiles = selectionInfo.files;
   const selectionPrimary = selectionInfo.primary;
-  const canSelectionActions = selectionInfo.items.length > 0;
 
   const rowPadding = compactMode ? "!py-0.5" : "py-2.5";
   const rowHeightClasses = compactMode ? "h-9" : "h-16";
@@ -916,9 +915,20 @@ export default function BrowserPage({
     pathActionStates,
     selectionActionStates,
     resolveItemActionStates,
-    toolbarMorePathActions,
-    toolbarMoreSelectionFullActions,
-    toolbarMoreSelectionOverflowActions,
+    toolbar: {
+      canUploadFiles: toolbarCanUploadFiles,
+      canUploadFolder: toolbarCanUploadFolder,
+      canCreateFolder: toolbarCanCreateFolder,
+      canDownload: toolbarCanDownload,
+      canOpen: toolbarCanOpen,
+      canCopy: toolbarCanCopy,
+      canDelete: toolbarCanDelete,
+      pathActions: toolbarPathActions,
+      selectionActions: toolbarSelectionActions,
+      selectionFullActions: toolbarSelectionFullActions,
+      hasSelectionActions: hasToolbarSelectionActions,
+      hasColumnsSection: hasToolbarColumnsSection,
+    },
   } = useBrowserActionStates({
     bucketName,
     hasExecutionContext,
@@ -1543,35 +1553,8 @@ export default function BrowserPage({
     ? "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden"
     : "relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden pb-3";
   const toolbarSelectionSummary = text("{count} selected", { count: selectedCount.toLocaleString(intlLocale) });
-  const toolbarCanUploadFiles = pathActionStates.uploadFiles.enabled;
-  const toolbarCanUploadFolder = pathActionStates.uploadFolder.enabled;
-  const toolbarCanCreateFolder = pathActionStates.newFolder.enabled;
-  const toolbarCanDownload =
-    selectionActionStates.download.visible &&
-    selectionActionStates.download.enabled;
-  const toolbarCanOpen =
-    selectionActionStates.open.visible && selectionActionStates.open.enabled;
-  const toolbarCanCopy =
-    selectionActionStates.copy.visible && selectionActionStates.copy.enabled;
-  const toolbarCanDelete =
-    selectionActionStates.delete.visible &&
-    selectionActionStates.delete.enabled;
-  const toolbarPathActions = toolbarMorePathActions;
-  const toolbarSelectionActions = (
-    isActionBarVisible
-      ? toolbarMoreSelectionOverflowActions
-      : toolbarMoreSelectionFullActions
-  ).filter(
-    (selectionAction) =>
-      isActionBarVisible ||
-      !toolbarPathActions.some((pathAction) => pathAction.id === selectionAction.id),
-  );
-  const hasToolbarSelectionActions =
-    canSelectionActions && toolbarSelectionActions.length > 0;
   const hasToolbarOperationsAction = hasOperationsPanelContent;
   const hasToolbarStatusSection = Boolean(accessBadge) || hasToolbarOperationsAction;
-  const hasToolbarColumnsSection =
-    resolvedFunctionalProfile === "advanced";
   const toolbarColumnsSummary = text("{count}/{total} visible", { count: effectiveVisibleColumns.length, total: COLUMN_DEFINITIONS.length });
   const handleToolbarDownload = () => {
     runSelectionAction("download");
@@ -1963,7 +1946,7 @@ export default function BrowserPage({
       </div>
       {isMobileViewport && selectedCount > 0 && (
         <BrowserMobileSelectionActions
-          actions={toolbarMoreSelectionFullActions}
+          actions={toolbarSelectionFullActions}
           canDownload={toolbarCanDownload}
           canOpen={toolbarCanOpen}
           onDownload={handleToolbarDownload}
