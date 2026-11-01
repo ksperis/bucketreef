@@ -30,6 +30,8 @@ import {
 import { buildAccessAuditHref } from "./accessAuditLink";
 import { useAdminI18n } from "./adminI18n";
 
+export type S3ConnectionBulkStatusAction = "activate" | "disable";
+
 type Props = {
   items: S3ConnectionAdminItem[];
   storageEndpoints: StorageEndpoint[];
@@ -44,8 +46,7 @@ type Props = {
   resolvedFilteredSelectableIds: number[] | null;
   statusBusyId: number | null;
   selectAllFilteredBusy: boolean;
-  bulkActivateBusy: boolean;
-  bulkDisableBusy: boolean;
+  bulkStatusAction: S3ConnectionBulkStatusAction | null;
   bulkDeleteBusy: boolean;
   onFilterChange: (value: string) => void;
   onQuickFilterModeChange: (mode: TextMatchMode) => void;
@@ -56,8 +57,7 @@ type Props = {
   onToggleStatus: (connection: S3ConnectionAdminItem) => void | Promise<void>;
   onEdit: (connection: S3ConnectionAdminItem) => void;
   onDelete: (connection: S3ConnectionAdminItem) => void;
-  onBulkActivate: () => void | Promise<void>;
-  onBulkDisable: () => void | Promise<void>;
+  onBulkStatusChange: (action: S3ConnectionBulkStatusAction) => void | Promise<void>;
   onBulkDelete: () => void;
 };
 
@@ -75,8 +75,7 @@ export default function AdminS3ConnectionsList({
   resolvedFilteredSelectableIds,
   statusBusyId,
   selectAllFilteredBusy,
-  bulkActivateBusy,
-  bulkDisableBusy,
+  bulkStatusAction,
   bulkDeleteBusy,
   onFilterChange,
   onQuickFilterModeChange,
@@ -87,8 +86,7 @@ export default function AdminS3ConnectionsList({
   onToggleStatus,
   onEdit,
   onDelete,
-  onBulkActivate,
-  onBulkDisable,
+  onBulkStatusChange,
   onBulkDelete,
 }: Props) {
   const { text: adminText } = useAdminI18n();
@@ -124,7 +122,7 @@ export default function AdminS3ConnectionsList({
   const headerIndeterminate = resolvedFilteredSelectableIds !== null
     ? selectedOnFilteredCount > 0 && !allSelectedOnFiltered
     : selectedOnPageIds.length > 0 && !allSelectedOnPage;
-  const bulkBusy = bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy || selectAllFilteredBusy;
+  const bulkBusy = bulkStatusAction !== null || bulkDeleteBusy || selectAllFilteredBusy;
 
   useEffect(() => {
     if (!selectionHeaderRef.current) return;
@@ -160,7 +158,7 @@ export default function AdminS3ConnectionsList({
           aria-label={adminText("Select all filtered connections")}
           checked={headerChecked}
           onChange={(event) => void onSelectAllFiltered(event.target.checked)}
-          disabled={loading || selectAllFilteredBusy || total === 0 || bulkActivateBusy || bulkDisableBusy || bulkDeleteBusy}
+          disabled={loading || selectAllFilteredBusy || total === 0 || bulkStatusAction !== null || bulkDeleteBusy}
         />
       ),
       render: (connection) => (
@@ -339,11 +337,11 @@ export default function AdminS3ConnectionsList({
             {hiddenSelectedCount > 0 ? ` (${hiddenSelectedCount} not visible)` : ""}
           </span>
           <ListActions>
-            <ListActionButton type="button" onClick={() => void onBulkActivate()} disabled={bulkBusy}>
-              {bulkActivateBusy ? "Activating..." : "Activate selected"}
+            <ListActionButton type="button" onClick={() => void onBulkStatusChange("activate")} disabled={bulkBusy}>
+              {bulkStatusAction === "activate" ? "Activating..." : "Activate selected"}
             </ListActionButton>
-            <ListActionButton type="button" onClick={() => void onBulkDisable()} disabled={bulkBusy}>
-              {bulkDisableBusy ? "Disabling..." : "Disable selected"}
+            <ListActionButton type="button" onClick={() => void onBulkStatusChange("disable")} disabled={bulkBusy}>
+              {bulkStatusAction === "disable" ? "Disabling..." : "Disable selected"}
             </ListActionButton>
             <ListActionButton type="button" variant="danger" onClick={onBulkDelete} disabled={bulkBusy}>
               {adminText("Delete selected")}

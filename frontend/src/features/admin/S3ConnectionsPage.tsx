@@ -61,7 +61,9 @@ import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard"
 import { useAdminI18n } from "./adminI18n";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminPaginationState from "./useAdminPaginationState";
-import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
+import AdminS3ConnectionsList, {
+  type S3ConnectionBulkStatusAction,
+} from "./AdminS3ConnectionsList";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 
 type EditTab = "general" | "users" | "groups";
@@ -139,8 +141,7 @@ export default function S3ConnectionsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [statusBusyId, setStatusBusyId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [bulkActivateBusy, setBulkActivateBusy] = useState(false);
-  const [bulkDisableBusy, setBulkDisableBusy] = useState(false);
+  const [bulkStatusAction, setBulkStatusAction] = useState<S3ConnectionBulkStatusAction | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
   const [selectAllFilteredBusy, setSelectAllFilteredBusy] = useState(false);
@@ -575,65 +576,52 @@ export default function S3ConnectionsPage() {
     }
   };
 
-  const submitBulkDisable = async () => {
-    if (selectedIds.length === 0) return;
-    setBulkDisableBusy(true);
-    setError(null);
-    setActionMessage(null);
-    const results = await Promise.allSettled(
-      selectedIds.map((connectionId) => updateAdminS3Connection(connectionId, { is_active: false }))
-    );
-    const failedIds = selectedIds.filter((_, index) => results[index].status === "rejected");
-    const successCount = selectedIds.length - failedIds.length;
-    setSelectedIds(failedIds);
-    if (successCount > 0) {
-      await fetchItems();
-    }
-    if (failedIds.length > 0) {
-      setError(`${failedIds.length} connection${failedIds.length > 1 ? "s" : ""} could not be disabled.`);
-    }
-    setActionMessage(
-      `${successCount} connection${successCount > 1 ? "s" : ""} disabled.` +
-        (failedIds.length > 0 ? ` ${failedIds.length} failed.` : "")
-    );
-    setBulkDisableBusy(false);
-  };
-
-  const submitBulkActivate = async () => {
-    if (selectedIds.length === 0) return;
-    setBulkActivateBusy(true);
+  const submitBulkStatusChange = async (action: S3ConnectionBulkStatusAction) => {
+    if (selectedIds.length === 0 || bulkStatusAction !== null) return;
+    const connectionIds = [...selectedIds];
+    setBulkStatusAction(action);
     setError(null);
     setActionMessage(null);
     const failedIds: number[] = [];
-    for (const connectionId of selectedIds) {
-      try {
-        const connection = items.find((item) => item.id === connectionId);
-        await runWithStepUp(() => connection?.execution_status === "remediation_required"
-          ? updateAdminS3Connection(connectionId, {
-              remediation_action: "activate_manager",
-            })
-          : updateAdminS3Connection(connectionId, { is_active: true }));
-      } catch (err) {
-        if (isRecentWebAuthnVerificationCancelled(err)) {
-          setBulkActivateBusy(false);
-          return;
+    try {
+      if (action === "disable") {
+        const results = await Promise.allSettled(
+          connectionIds.map((connectionId) => updateAdminS3Connection(connectionId, { is_active: false }))
+        );
+        connectionIds.forEach((connectionId, index) => {
+          if (results[index].status === "rejected") failedIds.push(connectionId);
+        });
+      } else {
+        for (const connectionId of connectionIds) {
+          try {
+            const connection = items.find((item) => item.id === connectionId);
+            await runWithStepUp(() => connection?.execution_status === "remediation_required"
+              ? updateAdminS3Connection(connectionId, {
+                  remediation_action: "activate_manager",
+                })
+              : updateAdminS3Connection(connectionId, { is_active: true }));
+          } catch (err) {
+            if (isRecentWebAuthnVerificationCancelled(err)) return;
+            failedIds.push(connectionId);
+          }
         }
-        failedIds.push(connectionId);
       }
+      const successCount = connectionIds.length - failedIds.length;
+      const completedAction = action === "activate" ? "activated" : "disabled";
+      setSelectedIds(failedIds);
+      if (successCount > 0) {
+        await fetchItems();
+      }
+      if (failedIds.length > 0) {
+        setError(`${failedIds.length} connection${failedIds.length > 1 ? "s" : ""} could not be ${completedAction}.`);
+      }
+      setActionMessage(
+        `${successCount} connection${successCount > 1 ? "s" : ""} ${completedAction}.` +
+          (failedIds.length > 0 ? ` ${failedIds.length} failed.` : "")
+      );
+    } finally {
+      setBulkStatusAction(null);
     }
-    const successCount = selectedIds.length - failedIds.length;
-    setSelectedIds(failedIds);
-    if (successCount > 0) {
-      await fetchItems();
-    }
-    if (failedIds.length > 0) {
-      setError(`${failedIds.length} connection${failedIds.length > 1 ? "s" : ""} could not be activated.`);
-    }
-    setActionMessage(
-      `${successCount} connection${successCount > 1 ? "s" : ""} activated.` +
-        (failedIds.length > 0 ? ` ${failedIds.length} failed.` : "")
-    );
-    setBulkActivateBusy(false);
   };
 
   const submitBulkDelete = async () => {
@@ -693,8 +681,7 @@ export default function S3ConnectionsPage() {
         }
         statusBusyId={statusBusyId}
         selectAllFilteredBusy={selectAllFilteredBusy}
-        bulkActivateBusy={bulkActivateBusy}
-        bulkDisableBusy={bulkDisableBusy}
+        bulkStatusAction={bulkStatusAction}
         bulkDeleteBusy={bulkDeleteBusy}
         onFilterChange={(value) => {
           handleFilterChange(value);
@@ -718,8 +705,7 @@ export default function S3ConnectionsPage() {
         onToggleStatus={submitToggleConnectionStatus}
         onEdit={openEdit}
         onDelete={setDeleteTarget}
-        onBulkActivate={submitBulkActivate}
-        onBulkDisable={submitBulkDisable}
+        onBulkStatusChange={submitBulkStatusChange}
         onBulkDelete={() => setBulkDeleteOpen(true)}
       />
 
