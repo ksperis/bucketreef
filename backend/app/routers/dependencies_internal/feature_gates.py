@@ -25,7 +25,11 @@ from app.services.feature_policy_service import (
     project_usage_resource,
 )
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES
-from app.services.manager_ceph_management_access_service import ManagerCephManagementAccessService
+from app.services.manager_ceph_management_access_service import (
+    ManagerCephManagementAccessService,
+    ManagerCephManagementDecision,
+    ManagerCephManagementOperation,
+)
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.services.rgw_supervision import has_supervision_credentials
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -286,6 +290,20 @@ def require_manager_feature_rules_enabled(user: User = Depends(get_current_user)
     return user
 
 
+def _manager_ceph_management_decision(
+    operation: ManagerCephManagementOperation,
+    context: S3ExecutionTarget,
+    user: User | None,
+    db: Session,
+) -> ManagerCephManagementDecision:
+    return ManagerCephManagementAccessService(db).evaluate(
+        operation,
+        surface="manager",
+        actor=user,
+        execution_context=context,
+    )
+
+
 def is_manager_bucket_quota_available(
     context: S3ExecutionTarget,
     user: Optional[User] = None,
@@ -293,12 +311,7 @@ def is_manager_bucket_quota_available(
 ) -> bool:
     if db is None:
         return False
-    return ManagerCephManagementAccessService(db).evaluate(
-        "bucket_quota",
-        surface="manager",
-        actor=user,
-        execution_context=context,
-    ).allowed
+    return _manager_ceph_management_decision("bucket_quota", context, user, db).allowed
 
 
 def require_manager_bucket_quota(
@@ -306,12 +319,7 @@ def require_manager_bucket_quota(
     context: S3ExecutionTarget = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> S3ExecutionTarget:
-    decision = ManagerCephManagementAccessService(db).evaluate(
-        "bucket_quota",
-        surface="manager",
-        actor=user,
-        execution_context=context,
-    )
+    decision = _manager_ceph_management_decision("bucket_quota", context, user, db)
     if not decision.allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=decision.reason)
     return context
@@ -324,12 +332,7 @@ def is_manager_rgw_access_key_management_available(
 ) -> bool:
     if db is None:
         return False
-    return ManagerCephManagementAccessService(db).evaluate(
-        "rgw_access_keys",
-        surface="manager",
-        actor=user,
-        execution_context=context,
-    ).allowed
+    return _manager_ceph_management_decision("rgw_access_keys", context, user, db).allowed
 
 
 def require_manager_rgw_access_key_management(
@@ -337,12 +340,7 @@ def require_manager_rgw_access_key_management(
     context: S3ExecutionTarget = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> S3ExecutionTarget:
-    decision = ManagerCephManagementAccessService(db).evaluate(
-        "rgw_access_keys",
-        surface="manager",
-        actor=user,
-        execution_context=context,
-    )
+    decision = _manager_ceph_management_decision("rgw_access_keys", context, user, db)
     if not decision.allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=decision.reason)
     return context
