@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { formatBytesAxis, formatSpacedCompactNumber } from "./format";
+import { formatBytesAxis, formatCheckMode, formatSpacedCompactNumber } from "./format";
 
 describe("formatSpacedCompactNumber", () => {
   it.each([
@@ -36,5 +36,14 @@ describe("formatBytesAxis", () => {
 
   it("keeps very large values capped at terabytes", () => {
     expect(formatBytesAxis(1024 ** 5)).toBe("1024 TB");
+  });
+});
+
+describe("formatCheckMode", () => {
+  it("normalizes configured and missing healthcheck modes", () => {
+    expect(formatCheckMode("s3")).toBe("S3");
+    expect(formatCheckMode("http")).toBe("HTTP");
+    expect(formatCheckMode(null)).toBe("HTTP");
+    expect(formatCheckMode(undefined)).toBe("HTTP");
   });
 });

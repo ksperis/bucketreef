@@ -53,10 +53,6 @@ export function formatPercent(value?: number | null) {
   return `${value.toFixed(1)}%`;
 }
 
-export function formatCheckMode(mode?: string | null) {
-  return (mode || "http").toUpperCase();
-}
-
 export function toTimestampMs(value: string) {
   const parsed = new Date(value).getTime();
   if (Number.isNaN(parsed)) return null;
