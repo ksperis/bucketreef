@@ -326,12 +326,12 @@ class BucketMigrationObjectVerificationMixin:
                 size_only_batch.append(key)
                 if len(size_only_batch) < batch_size:
                     continue
-                if not self._verify_size_only_candidate_batch(
+                if not self._flush_current_verification_batch(
                     source_ctx,
                     target_ctx,
                     source_bucket=source_bucket,
                     target_bucket=target_bucket,
-                    keys=size_only_batch,
+                    batch=size_only_batch,
                     worker_count=worker_count,
                     results=results,
                     control_check=control_check,
@@ -339,16 +339,15 @@ class BucketMigrationObjectVerificationMixin:
                     target_client=target_client,
                 ):
                     return -1, 0, [], results.method_counts
-                size_only_batch.clear()
         except MigrationControlRequested:
             return -1, 0, [], results.method_counts
 
-        if size_only_batch and not self._verify_size_only_candidate_batch(
+        if not self._flush_current_verification_batch(
             source_ctx,
             target_ctx,
             source_bucket=source_bucket,
             target_bucket=target_bucket,
-            keys=size_only_batch,
+            batch=size_only_batch,
             worker_count=worker_count,
             results=results,
             control_check=control_check,
@@ -362,6 +361,38 @@ class BucketMigrationObjectVerificationMixin:
             results.failed_keys,
             results.method_counts,
         )
+
+    def _flush_current_verification_batch(
+        self,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
+        *,
+        source_bucket: str,
+        target_bucket: str,
+        batch: list[str],
+        worker_count: int,
+        results: _StrongVerificationResults,
+        control_check: Callable[[], str],
+        source_client: Any,
+        target_client: Any,
+    ) -> bool:
+        if not batch:
+            return True
+        if not self._verify_size_only_candidate_batch(
+            source_ctx,
+            target_ctx,
+            source_bucket=source_bucket,
+            target_bucket=target_bucket,
+            keys=batch,
+            worker_count=worker_count,
+            results=results,
+            control_check=control_check,
+            source_client=source_client,
+            target_client=target_client,
+        ):
+            return False
+        batch.clear()
+        return True
 
     def _iter_current_size_only_diff_keys(
         self,
