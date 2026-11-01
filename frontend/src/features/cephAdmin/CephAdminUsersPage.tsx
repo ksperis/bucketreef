@@ -65,7 +65,10 @@ import {
 } from "./filtering/advancedFilterModel";
 import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
-import { resolveCephAdminQuickFilterState } from "./listing/cephAdminListingViewState";
+import {
+  resolveCephAdminQuickFilterState,
+  resolveCephAdminTextFilterFieldState,
+} from "./listing/cephAdminListingViewState";
 import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
@@ -341,61 +344,36 @@ export default function CephAdminUsersPage() {
     accountScopeLoaded,
   });
 
-  const tenantAppliedValue = (advancedApplied?.tenant ?? "").trim();
-  const accountIdAppliedValue = (advancedApplied?.accountId ?? "").trim();
-  const accountNameAppliedValue = (advancedApplied?.accountName ?? "").trim();
-  const fullNameAppliedValue = (advancedApplied?.fullName ?? "").trim();
-  const emailAppliedValue = (advancedApplied?.email ?? "").trim();
-  const tenantDraftValue = advancedDraft.tenant.trim();
-  const accountIdDraftValue = advancedDraft.accountId.trim();
-  const accountNameDraftValue = advancedDraft.accountName.trim();
-  const fullNameDraftValue = advancedDraft.fullName.trim();
-  const emailDraftValue = advancedDraft.email.trim();
-
-  const tenantAppliedParsed = parseExactListInput(advancedApplied?.tenant ?? "");
-  const tenantDraftParsed = parseExactListInput(advancedDraft.tenant);
-  const accountIdAppliedParsed = parseExactListInput(advancedApplied?.accountId ?? "");
-  const accountIdDraftParsed = parseExactListInput(advancedDraft.accountId);
-  const accountNameAppliedParsed = parseExactListInput(advancedApplied?.accountName ?? "");
-  const accountNameDraftParsed = parseExactListInput(advancedDraft.accountName);
-  const fullNameAppliedParsed = parseExactListInput(advancedApplied?.fullName ?? "");
-  const fullNameDraftParsed = parseExactListInput(advancedDraft.fullName);
-  const emailAppliedParsed = parseExactListInput(advancedApplied?.email ?? "");
-  const emailDraftParsed = parseExactListInput(advancedDraft.email);
-
-  const tenantDraftForcesExact = tenantDraftParsed.listProvided && tenantDraftParsed.values.length > 0;
-  const accountIdDraftForcesExact = accountIdDraftParsed.listProvided && accountIdDraftParsed.values.length > 0;
-  const accountNameDraftForcesExact = accountNameDraftParsed.listProvided && accountNameDraftParsed.values.length > 0;
-  const fullNameDraftForcesExact = fullNameDraftParsed.listProvided && fullNameDraftParsed.values.length > 0;
-  const emailDraftForcesExact = emailDraftParsed.listProvided && emailDraftParsed.values.length > 0;
-
-  const tenantAppliedMode: TextMatchMode = tenantAppliedParsed.listProvided && tenantAppliedParsed.values.length > 0 ? "exact" : (advancedApplied?.tenantMatchMode ?? "contains");
-  const accountIdAppliedMode: TextMatchMode =
-    accountIdAppliedParsed.listProvided && accountIdAppliedParsed.values.length > 0 ? "exact" : (advancedApplied?.accountIdMatchMode ?? "contains");
-  const accountNameAppliedMode: TextMatchMode =
-    accountNameAppliedParsed.listProvided && accountNameAppliedParsed.values.length > 0 ? "exact" : (advancedApplied?.accountNameMatchMode ?? "contains");
-  const fullNameAppliedMode: TextMatchMode =
-    fullNameAppliedParsed.listProvided && fullNameAppliedParsed.values.length > 0 ? "exact" : (advancedApplied?.fullNameMatchMode ?? "contains");
-  const emailAppliedMode: TextMatchMode = emailAppliedParsed.listProvided && emailAppliedParsed.values.length > 0 ? "exact" : (advancedApplied?.emailMatchMode ?? "contains");
-  const tenantDraftMode: TextMatchMode = tenantDraftForcesExact ? "exact" : advancedDraft.tenantMatchMode;
-  const accountIdDraftMode: TextMatchMode = accountIdDraftForcesExact ? "exact" : advancedDraft.accountIdMatchMode;
-  const accountNameDraftMode: TextMatchMode = accountNameDraftForcesExact ? "exact" : advancedDraft.accountNameMatchMode;
-  const fullNameDraftMode: TextMatchMode = fullNameDraftForcesExact ? "exact" : advancedDraft.fullNameMatchMode;
-  const emailDraftMode: TextMatchMode = emailDraftForcesExact ? "exact" : advancedDraft.emailMatchMode;
-
-  const tenantPending = tenantDraftValue !== tenantAppliedValue || (tenantDraftValue.length > 0 && tenantDraftMode !== tenantAppliedMode);
-  const accountIdPending =
-    accountIdDraftValue !== accountIdAppliedValue || (accountIdDraftValue.length > 0 && accountIdDraftMode !== accountIdAppliedMode);
-  const accountNamePending =
-    accountNameDraftValue !== accountNameAppliedValue || (accountNameDraftValue.length > 0 && accountNameDraftMode !== accountNameAppliedMode);
-  const fullNamePending = fullNameDraftValue !== fullNameAppliedValue || (fullNameDraftValue.length > 0 && fullNameDraftMode !== fullNameAppliedMode);
-  const emailPending = emailDraftValue !== emailAppliedValue || (emailDraftValue.length > 0 && emailDraftMode !== emailAppliedMode);
-
-  const tenantFieldState = advancedFilterFieldHighlight(Boolean(tenantAppliedValue), tenantPending);
-  const accountIdFieldState = advancedFilterFieldHighlight(Boolean(accountIdAppliedValue), accountIdPending);
-  const accountNameFieldState = advancedFilterFieldHighlight(Boolean(accountNameAppliedValue), accountNamePending);
-  const fullNameFieldState = advancedFilterFieldHighlight(Boolean(fullNameAppliedValue), fullNamePending);
-  const emailFieldState = advancedFilterFieldHighlight(Boolean(emailAppliedValue), emailPending);
+  const tenantFilter = resolveCephAdminTextFilterFieldState({
+    draftValue: advancedDraft.tenant,
+    draftMode: advancedDraft.tenantMatchMode,
+    appliedValue: advancedApplied?.tenant,
+    appliedMode: advancedApplied?.tenantMatchMode,
+  });
+  const accountIdFilter = resolveCephAdminTextFilterFieldState({
+    draftValue: advancedDraft.accountId,
+    draftMode: advancedDraft.accountIdMatchMode,
+    appliedValue: advancedApplied?.accountId,
+    appliedMode: advancedApplied?.accountIdMatchMode,
+  });
+  const accountNameFilter = resolveCephAdminTextFilterFieldState({
+    draftValue: advancedDraft.accountName,
+    draftMode: advancedDraft.accountNameMatchMode,
+    appliedValue: advancedApplied?.accountName,
+    appliedMode: advancedApplied?.accountNameMatchMode,
+  });
+  const fullNameFilter = resolveCephAdminTextFilterFieldState({
+    draftValue: advancedDraft.fullName,
+    draftMode: advancedDraft.fullNameMatchMode,
+    appliedValue: advancedApplied?.fullName,
+    appliedMode: advancedApplied?.fullNameMatchMode,
+  });
+  const emailFilter = resolveCephAdminTextFilterFieldState({
+    draftValue: advancedDraft.email,
+    draftMode: advancedDraft.emailMatchMode,
+    appliedValue: advancedApplied?.email,
+    appliedMode: advancedApplied?.emailMatchMode,
+  });
 
   const suspendedAppliedValue = advancedApplied?.suspended ?? "any";
   const suspendedDraftValue = advancedDraft.suspended;
@@ -469,15 +447,15 @@ export default function CephAdminUsersPage() {
       if (label) items.push({ id: "quick", label, remove: { type: "quick" } });
     }
     if (advancedApplied && hasAdvancedFilters(advancedApplied, canViewMetrics)) {
-      const tenantLabel = formatTextFilterSummary(surfaceText("Tenant"), advancedApplied.tenant, tenantAppliedMode);
+      const tenantLabel = formatTextFilterSummary(surfaceText("Tenant"), advancedApplied.tenant, tenantFilter.appliedMode);
       if (tenantLabel) items.push({ id: "tenant", label: tenantLabel, remove: { type: "advanced", field: "tenant" } });
-      const accountIdLabel = formatTextFilterSummary(surfaceText("Account ID"), advancedApplied.accountId, accountIdAppliedMode);
+      const accountIdLabel = formatTextFilterSummary(surfaceText("Account ID"), advancedApplied.accountId, accountIdFilter.appliedMode);
       if (accountIdLabel) items.push({ id: "accountId", label: accountIdLabel, remove: { type: "advanced", field: "accountId" } });
-      const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameAppliedMode);
+      const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameFilter.appliedMode);
       if (accountNameLabel) items.push({ id: "accountName", label: accountNameLabel, remove: { type: "advanced", field: "accountName" } });
-      const fullNameLabel = formatTextFilterSummary(surfaceText("Full name"), advancedApplied.fullName, fullNameAppliedMode);
+      const fullNameLabel = formatTextFilterSummary(surfaceText("Full name"), advancedApplied.fullName, fullNameFilter.appliedMode);
       if (fullNameLabel) items.push({ id: "fullName", label: fullNameLabel, remove: { type: "advanced", field: "fullName" } });
-      const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailAppliedMode);
+      const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailFilter.appliedMode);
       if (emailLabel) items.push({ id: "email", label: emailLabel, remove: { type: "advanced", field: "email" } });
       if (advancedApplied.suspended !== "any") {
         items.push({
@@ -500,11 +478,11 @@ export default function CephAdminUsersPage() {
     effectiveQuickFilterMode,
     advancedApplied,
     canViewMetrics,
-    tenantAppliedMode,
-    accountIdAppliedMode,
-    accountNameAppliedMode,
-    fullNameAppliedMode,
-    emailAppliedMode,
+    tenantFilter.appliedMode,
+    accountIdFilter.appliedMode,
+    accountNameFilter.appliedMode,
+    fullNameFilter.appliedMode,
+    emailFilter.appliedMode,
     numericFields,
     usageNumericFields,
     surfaceText,
@@ -520,15 +498,15 @@ export default function CephAdminUsersPage() {
 
   const advancedDraftSummaryItems = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [];
-    const tenantLabel = formatTextFilterSummary(surfaceText("Tenant"), advancedDraft.tenant, tenantDraftMode);
+    const tenantLabel = formatTextFilterSummary(surfaceText("Tenant"), advancedDraft.tenant, tenantFilter.draftMode);
     if (tenantLabel) items.push({ id: "draft-tenant", label: tenantLabel });
-    const accountIdLabel = formatTextFilterSummary(surfaceText("Account ID"), advancedDraft.accountId, accountIdDraftMode);
+    const accountIdLabel = formatTextFilterSummary(surfaceText("Account ID"), advancedDraft.accountId, accountIdFilter.draftMode);
     if (accountIdLabel) items.push({ id: "draft-accountId", label: accountIdLabel });
-    const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedDraft.accountName, accountNameDraftMode);
+    const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedDraft.accountName, accountNameFilter.draftMode);
     if (accountNameLabel) items.push({ id: "draft-accountName", label: accountNameLabel });
-    const fullNameLabel = formatTextFilterSummary(surfaceText("Full name"), advancedDraft.fullName, fullNameDraftMode);
+    const fullNameLabel = formatTextFilterSummary(surfaceText("Full name"), advancedDraft.fullName, fullNameFilter.draftMode);
     if (fullNameLabel) items.push({ id: "draft-fullName", label: fullNameLabel });
-    const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedDraft.email, emailDraftMode);
+    const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedDraft.email, emailFilter.draftMode);
     if (emailLabel) items.push({ id: "draft-email", label: emailLabel });
     if (advancedDraft.suspended !== "any") {
       items.push({
@@ -547,29 +525,29 @@ export default function CephAdminUsersPage() {
   }, [
     advancedDraft,
     canViewMetrics,
-    tenantDraftMode,
-    accountIdDraftMode,
-    accountNameDraftMode,
-    fullNameDraftMode,
-    emailDraftMode,
+    tenantFilter.draftMode,
+    accountIdFilter.draftMode,
+    accountNameFilter.draftMode,
+    fullNameFilter.draftMode,
+    emailFilter.draftMode,
     numericFields,
     usageNumericFields,
     surfaceText,
   ]);
 
   const advancedDraftTextCount =
-    Number(tenantDraftValue.length > 0) +
-    Number(accountIdDraftValue.length > 0) +
-    Number(accountNameDraftValue.length > 0) +
-    Number(fullNameDraftValue.length > 0) +
-    Number(emailDraftValue.length > 0) +
+    Number(tenantFilter.draftValue.length > 0) +
+    Number(accountIdFilter.draftValue.length > 0) +
+    Number(accountNameFilter.draftValue.length > 0) +
+    Number(fullNameFilter.draftValue.length > 0) +
+    Number(emailFilter.draftValue.length > 0) +
     Number(suspendedDraftValue !== "any");
-  const advancedDraftDirectTextCount = Number(tenantDraftValue.length > 0);
+  const advancedDraftDirectTextCount = Number(tenantFilter.draftValue.length > 0);
   const advancedDraftEnrichedTextCount =
-    Number(accountIdDraftValue.length > 0) +
-    Number(accountNameDraftValue.length > 0) +
-    Number(fullNameDraftValue.length > 0) +
-    Number(emailDraftValue.length > 0) +
+    Number(accountIdFilter.draftValue.length > 0) +
+    Number(accountNameFilter.draftValue.length > 0) +
+    Number(fullNameFilter.draftValue.length > 0) +
+    Number(emailFilter.draftValue.length > 0) +
     Number(suspendedDraftValue !== "any");
   const advancedDraftNumericCount =
     numericFields.filter(({ key }) => (advancedDraft[key] as string).trim().length > 0).length +
@@ -925,9 +903,9 @@ export default function CephAdminUsersPage() {
                                   label: surfaceText("Tenant"),
                                   value: advancedDraft.tenant,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("tenantMatchMode", value),
-                                  mode: tenantDraftMode,
-                                  locked: tenantDraftForcesExact,
-                                  fieldState: tenantFieldState,
+                                  mode: tenantFilter.draftMode,
+                                  locked: tenantFilter.draftForcesExact,
+                                  fieldState: tenantFilter.fieldState,
                                   placeholder: "tenant-a, tenant-b",
                                   costLevel: "low" as const,
                                   costTooltip: surfaceText("Low cost: tenant filters run on direct user metadata."),
@@ -937,9 +915,9 @@ export default function CephAdminUsersPage() {
                                   label: surfaceText("Account ID"),
                                   value: advancedDraft.accountId,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("accountIdMatchMode", value),
-                                  mode: accountIdDraftMode,
-                                  locked: accountIdDraftForcesExact,
-                                  fieldState: accountIdFieldState,
+                                  mode: accountIdFilter.draftMode,
+                                  locked: accountIdFilter.draftForcesExact,
+                                  fieldState: accountIdFilter.fieldState,
                                   placeholder: "RGW123..., RGW456...",
                                   costLevel: "medium" as const,
                                   costTooltip: surfaceText("Medium cost: account ID filters require per-user account details."),
@@ -949,9 +927,9 @@ export default function CephAdminUsersPage() {
                                   label: surfaceText("Account name"),
                                   value: advancedDraft.accountName,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("accountNameMatchMode", value),
-                                  mode: accountNameDraftMode,
-                                  locked: accountNameDraftForcesExact,
-                                  fieldState: accountNameFieldState,
+                                  mode: accountNameFilter.draftMode,
+                                  locked: accountNameFilter.draftForcesExact,
+                                  fieldState: accountNameFilter.fieldState,
                                   placeholder: "Backup, Analytics",
                                   costLevel: "medium" as const,
                                   costTooltip: surfaceText("Medium cost: account name filters require account lookups."),
@@ -961,9 +939,9 @@ export default function CephAdminUsersPage() {
                                   label: surfaceText("Full name"),
                                   value: advancedDraft.fullName,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("fullNameMatchMode", value),
-                                  mode: fullNameDraftMode,
-                                  locked: fullNameDraftForcesExact,
-                                  fieldState: fullNameFieldState,
+                                  mode: fullNameFilter.draftMode,
+                                  locked: fullNameFilter.draftForcesExact,
+                                  fieldState: fullNameFilter.fieldState,
                                   placeholder: "John Doe",
                                   costLevel: "medium" as const,
                                   costTooltip: surfaceText("Medium cost: full name filters require per-user profile lookups."),
@@ -973,9 +951,9 @@ export default function CephAdminUsersPage() {
                                   label: surfaceText("Email"),
                                   value: advancedDraft.email,
                                   setMode: (value: TextMatchMode) => updateAdvancedMatchMode("emailMatchMode", value),
-                                  mode: emailDraftMode,
-                                  locked: emailDraftForcesExact,
-                                  fieldState: emailFieldState,
+                                  mode: emailFilter.draftMode,
+                                  locked: emailFilter.draftForcesExact,
+                                  fieldState: emailFilter.fieldState,
                                   placeholder: "user@example.com",
                                   costLevel: "medium" as const,
                                   costTooltip: surfaceText("Medium cost: email filters require per-user profile lookups."),

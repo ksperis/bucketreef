@@ -54,7 +54,6 @@ import {
   type TextMatchMode,
 } from "../shared/advancedFilterShared";
 import {
-  advancedFilterFieldHighlight,
   appendNumericFilterRule,
   buildNumericFilterFields,
   buildNumericFilterFieldStates,
@@ -64,7 +63,10 @@ import {
 } from "./filtering/advancedFilterModel";
 import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
-import { resolveCephAdminQuickFilterState } from "./listing/cephAdminListingViewState";
+import {
+  resolveCephAdminQuickFilterState,
+  resolveCephAdminTextFilterFieldState,
+} from "./listing/cephAdminListingViewState";
 import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
@@ -341,37 +343,18 @@ export default function CephAdminAccountsPage() {
     selectedEndpointId,
   });
 
-  const accountNameAppliedValue = (advancedApplied?.accountName ?? "").trim();
-  const emailAppliedValue = (advancedApplied?.email ?? "").trim();
-  const accountNameDraftValue = advancedDraft.accountName.trim();
-  const emailDraftValue = advancedDraft.email.trim();
-
-  const accountNameAppliedParsed = parseExactListInput(advancedApplied?.accountName ?? "");
-  const accountNameDraftParsed = parseExactListInput(advancedDraft.accountName);
-  const emailAppliedParsed = parseExactListInput(advancedApplied?.email ?? "");
-  const emailDraftParsed = parseExactListInput(advancedDraft.email);
-  const accountNameDraftForcesExact = accountNameDraftParsed.listProvided && accountNameDraftParsed.values.length > 0;
-  const emailDraftForcesExact = emailDraftParsed.listProvided && emailDraftParsed.values.length > 0;
-
-  const accountNameAppliedMode: TextMatchMode =
-    accountNameAppliedParsed.listProvided && accountNameAppliedParsed.values.length > 0
-      ? "exact"
-      : (advancedApplied?.accountNameMatchMode ?? "contains");
-  const accountNameDraftMode: TextMatchMode =
-    accountNameDraftParsed.listProvided && accountNameDraftParsed.values.length > 0
-      ? "exact"
-      : advancedDraft.accountNameMatchMode;
-  const emailAppliedMode: TextMatchMode =
-    emailAppliedParsed.listProvided && emailAppliedParsed.values.length > 0 ? "exact" : (advancedApplied?.emailMatchMode ?? "contains");
-  const emailDraftMode: TextMatchMode =
-    emailDraftParsed.listProvided && emailDraftParsed.values.length > 0 ? "exact" : advancedDraft.emailMatchMode;
-
-  const accountNamePending =
-    accountNameDraftValue !== accountNameAppliedValue || (accountNameDraftValue.length > 0 && accountNameDraftMode !== accountNameAppliedMode);
-  const emailPending = emailDraftValue !== emailAppliedValue || (emailDraftValue.length > 0 && emailDraftMode !== emailAppliedMode);
-
-  const accountNameFieldState = advancedFilterFieldHighlight(Boolean(accountNameAppliedValue), accountNamePending);
-  const emailFieldState = advancedFilterFieldHighlight(Boolean(emailAppliedValue), emailPending);
+  const accountNameFilter = resolveCephAdminTextFilterFieldState({
+    draftValue: advancedDraft.accountName,
+    draftMode: advancedDraft.accountNameMatchMode,
+    appliedValue: advancedApplied?.accountName,
+    appliedMode: advancedApplied?.accountNameMatchMode,
+  });
+  const emailFilter = resolveCephAdminTextFilterFieldState({
+    draftValue: advancedDraft.email,
+    draftMode: advancedDraft.emailMatchMode,
+    appliedValue: advancedApplied?.email,
+    appliedMode: advancedApplied?.emailMatchMode,
+  });
 
   const numericRangeFields = useMemo<NumericFilterRangeField<AdvancedNumericField>[]>(() => [
     { label: surfaceText("Max users"), minKey: "minMaxUsers", maxKey: "maxMaxUsers" },
@@ -438,9 +421,9 @@ export default function CephAdminAccountsPage() {
       if (label) items.push({ id: "quick", label, remove: { type: "quick" } });
     }
     if (advancedApplied && hasAdvancedFilters(advancedApplied, canViewMetrics)) {
-      const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameAppliedMode);
+      const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameFilter.appliedMode);
       if (accountNameLabel) items.push({ id: "accountName", label: accountNameLabel, remove: { type: "advanced", field: "accountName" } });
-      const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailAppliedMode);
+      const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailFilter.appliedMode);
       if (emailLabel) items.push({ id: "email", label: emailLabel, remove: { type: "advanced", field: "email" } });
       buildNumericFilterSummaryItems(
         advancedApplied,
@@ -456,8 +439,8 @@ export default function CephAdminAccountsPage() {
     effectiveQuickFilterMode,
     advancedApplied,
     canViewMetrics,
-    accountNameAppliedMode,
-    emailAppliedMode,
+    accountNameFilter.appliedMode,
+    emailFilter.appliedMode,
     numericFields,
     usageNumericFields,
     surfaceText,
@@ -473,9 +456,9 @@ export default function CephAdminAccountsPage() {
 
   const advancedDraftSummaryItems = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [];
-    const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedDraft.accountName, accountNameDraftMode);
+    const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedDraft.accountName, accountNameFilter.draftMode);
     if (accountNameLabel) items.push({ id: "draft-accountName", label: accountNameLabel });
-    const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedDraft.email, emailDraftMode);
+    const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedDraft.email, emailFilter.draftMode);
     if (emailLabel) items.push({ id: "draft-email", label: emailLabel });
     items.push(
       ...buildNumericFilterSummaryItems(
@@ -485,9 +468,11 @@ export default function CephAdminAccountsPage() {
       ).map(({ id, label }) => ({ id, label })),
     );
     return items;
-  }, [advancedDraft, accountNameDraftMode, emailDraftMode, numericFields, canViewMetrics, usageNumericFields, surfaceText]);
+  }, [advancedDraft, accountNameFilter.draftMode, emailFilter.draftMode, numericFields, canViewMetrics, usageNumericFields, surfaceText]);
 
-  const advancedDraftTextCount = Number(accountNameDraftValue.length > 0) + Number(emailDraftValue.length > 0);
+  const advancedDraftTextCount =
+    Number(accountNameFilter.draftValue.length > 0) +
+    Number(emailFilter.draftValue.length > 0);
   const advancedDraftNumericCount =
     numericFields.filter(({ key }) => (advancedDraft[key] as string).trim().length > 0).length +
     (canViewMetrics
@@ -812,9 +797,9 @@ export default function CephAdminAccountsPage() {
                                 label={surfaceText("Account name")}
                                 costLevel="medium"
                                 costTooltip={surfaceText("Medium cost: account name filters may require per-account profile lookups.")}
-                                fieldState={accountNameFieldState}
-                                forcesExact={accountNameDraftForcesExact}
-                                matchMode={accountNameDraftMode}
+                                fieldState={accountNameFilter.fieldState}
+                                forcesExact={accountNameFilter.draftForcesExact}
+                                matchMode={accountNameFilter.draftMode}
                                 onChange={(value) => updateAdvancedField("accountName", value)}
                                 onMatchModeChange={(value) => updateAdvancedMatchMode("accountNameMatchMode", value)}
                                 placeholder={surfaceText("account-a, account-b")}
@@ -825,9 +810,9 @@ export default function CephAdminAccountsPage() {
                                 label={surfaceText("Email")}
                                 costLevel="medium"
                                 costTooltip={surfaceText("Medium cost: email filters may require per-account profile lookups.")}
-                                fieldState={emailFieldState}
-                                forcesExact={emailDraftForcesExact}
-                                matchMode={emailDraftMode}
+                                fieldState={emailFilter.fieldState}
+                                forcesExact={emailFilter.draftForcesExact}
+                                matchMode={emailFilter.draftMode}
                                 onChange={(value) => updateAdvancedField("email", value)}
                                 onMatchModeChange={(value) => updateAdvancedMatchMode("emailMatchMode", value)}
                                 placeholder="ops@example.com"

@@ -62,3 +62,40 @@ export function resolveCephAdminQuickFilterState(
     pending,
   };
 }
+
+export function resolveCephAdminTextFilterFieldState({
+  draftValue,
+  draftMode,
+  appliedValue = "",
+  appliedMode = "contains",
+}: {
+  draftValue: string;
+  draftMode: TextMatchMode;
+  appliedValue?: string | null;
+  appliedMode?: TextMatchMode | null;
+}) {
+  const normalizedDraft = draftValue.trim();
+  const normalizedApplied = (appliedValue ?? "").trim();
+  const draftParsed = parseExactListInput(draftValue);
+  const appliedParsed = parseExactListInput(appliedValue ?? "");
+  const draftForcesExact = draftParsed.listProvided && draftParsed.values.length > 0;
+  const appliedForcesExact =
+    appliedParsed.listProvided && appliedParsed.values.length > 0;
+  const resolvedDraftMode: TextMatchMode = draftForcesExact ? "exact" : draftMode;
+  const resolvedAppliedMode: TextMatchMode = appliedForcesExact
+    ? "exact"
+    : (appliedMode ?? "contains");
+  const pending =
+    normalizedDraft !== normalizedApplied ||
+    (normalizedDraft.length > 0 && resolvedDraftMode !== resolvedAppliedMode);
+
+  return {
+    appliedValue: normalizedApplied,
+    draftValue: normalizedDraft,
+    draftForcesExact,
+    appliedMode: resolvedAppliedMode,
+    draftMode: resolvedDraftMode,
+    pending,
+    fieldState: advancedFilterFieldHighlight(Boolean(normalizedApplied), pending),
+  };
+}

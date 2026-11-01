@@ -4,6 +4,7 @@ import {
   loadCephAdminVisibleColumns,
   persistCephAdminVisibleColumns,
   resolveCephAdminQuickFilterState,
+  resolveCephAdminTextFilterFieldState,
 } from "./cephAdminListingViewState";
 
 describe("Ceph Admin listing view state", () => {
@@ -69,5 +70,31 @@ describe("Ceph Admin listing view state", () => {
     expect(state.active).toBe(true);
     expect(state.pending).toBe(true);
     expect(state.fieldState.fieldClass).not.toBe("");
+  });
+
+  it("resolves advanced text field modes and pending state", () => {
+    const listState = resolveCephAdminTextFilterFieldState({
+      draftValue: " alice, bob ",
+      draftMode: "contains",
+      appliedValue: "alice,bob",
+      appliedMode: "contains",
+    });
+
+    expect(listState.draftValue).toBe("alice, bob");
+    expect(listState.appliedValue).toBe("alice,bob");
+    expect(listState.draftForcesExact).toBe(true);
+    expect(listState.draftMode).toBe("exact");
+    expect(listState.appliedMode).toBe("exact");
+    expect(listState.pending).toBe(true);
+    expect(listState.fieldState.fieldClass).toContain("border-amber-400");
+
+    const appliedState = resolveCephAdminTextFilterFieldState({
+      draftValue: "alice",
+      draftMode: "exact",
+      appliedValue: " alice ",
+      appliedMode: "exact",
+    });
+    expect(appliedState.pending).toBe(false);
+    expect(appliedState.fieldState.fieldClass).toContain("border-emerald-400");
   });
 });
