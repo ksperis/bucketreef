@@ -123,8 +123,6 @@ export default function StorageEndpointsPage() {
     error: endpointTagCatalogError,
   } = useTagCatalog({ kind: "admin", domain: "endpoint" }, Boolean(showForm && canEditEndpoints));
 
-  const invalidateCredentialChecks = useCallback(() => undefined, []);
-
   const resetForm = useCallback(() => {
     createdEndpointAwaitingTagRetry.current = false;
     detectedFeatureDefaultsApplied.current = { account: false, usage: false, metrics: false };
@@ -371,7 +369,6 @@ export default function StorageEndpointsPage() {
   );
 
   const handleProviderChange = (provider: StorageProvider) => {
-    invalidateCredentialChecks();
     setForm((prev) => {
       const awsRegion = AWS_DEFAULT_REGION;
       const awsCoordinates = awsCoordinatesForRegion(awsRegion);
@@ -395,7 +392,6 @@ export default function StorageEndpointsPage() {
   };
 
   const handleRegionChange = (region: string) => {
-    invalidateCredentialChecks();
     setForm((prev) => {
       if (prev.provider !== "aws") {
         return { ...prev, region };
@@ -864,7 +860,7 @@ export default function StorageEndpointsPage() {
             {activeTab === "general" && <StorageEndpointConnectionFields form={form} setForm={setForm}
               readOnly={configurationReadOnly} canEditTags={canEditEndpoints} busy={saving}
               catalog={endpointTagCatalog} catalogLoading={endpointTagCatalogLoading} errors={fieldErrors}
-              onProviderChange={handleProviderChange} onRegionChange={handleRegionChange} invalidateChecks={invalidateCredentialChecks}
+              onProviderChange={handleProviderChange} onRegionChange={handleRegionChange}
               validationStatus={!configurationReadOnly && cephMode && endpointUrl ? (
                 <EndpointHttpStatusBadge checking={featureDetectBusy} check={detection?.http_check} />
               ) : undefined} />}
@@ -889,7 +885,7 @@ export default function StorageEndpointsPage() {
                   .catch(cause => { if (!isRecentWebAuthnVerificationCancelled(cause)) setFormError(extractLocalizedError(cause)); })
                   .finally(() => { mutationPending.current = false; setSaving(false); });
               } : undefined}
-              errors={fieldErrors} invalidateChecks={invalidateCredentialChecks} detection={detection} checks={{
+              errors={fieldErrors} detection={detection} checks={{
                 ceph_admin: cephAdminCredentialCheck,
                 runtime: runtimeCredentialCheck,
                 admin: adminCredentialCheck,
@@ -897,7 +893,7 @@ export default function StorageEndpointsPage() {
               }} />}
             {activeTab === "capabilities" && <StorageEndpointCapabilitiesFields features={form.features} provider={form.provider}
               region={form.region} readOnly={configurationReadOnly} updateFeatures={updateFeatures}
-              invalidateChecks={invalidateCredentialChecks} detecting={featureDetectBusy} detectionError={featureDetectError}
+              detecting={featureDetectBusy} detectionError={featureDetectError}
               warnings={featureDetectWarnings} usageUnavailable={showUsageLogUnavailableWarning} signedProbeBlockedReason={signedProbeBlockedReason}
               detectedCapabilities={detection ? { account: detection.account, usage: detection.usage, metrics: detection.metrics } : null} />}
           </div>

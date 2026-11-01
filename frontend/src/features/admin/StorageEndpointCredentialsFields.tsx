@@ -32,7 +32,6 @@ type Props = {
   errors: EndpointFieldErrors;
   checks: Partial<Record<CredentialKind, CredentialCheckView | null>>;
   detection?: StorageEndpointFeatureDetectionResult | null;
-  invalidateChecks: () => void;
   identities?: StorageEndpoint["service_identities"];
   usersWrite?: boolean;
   onReconcile?: () => void;
@@ -42,7 +41,7 @@ type Props = {
 };
 
 /** Each operational identity has its own credentials and validation. */
-function CredentialFields({ kind, label, required = false, form, setForm, readOnly, editing, errors, invalidateChecks, storedAdminAccessKey }: Props & {
+function CredentialFields({ kind, label, required = false, form, setForm, readOnly, editing, errors, storedAdminAccessKey }: Props & {
   kind: CredentialKind;
   label: string;
   required?: boolean;
@@ -62,7 +61,6 @@ function CredentialFields({ kind, label, required = false, form, setForm, readOn
     ? text("leaveSecretEmpty")
     : required ? text("enterSecretForIdentity") : undefined;
   const change = (field: typeof access | typeof secret, value: string) => {
-    invalidateChecks();
     setForm(previous => ({ ...previous, [field]: value }));
   };
   return <div className="settings-fields">
@@ -238,7 +236,6 @@ export default function StorageEndpointCredentialsFields(props: Props) {
         <SettingsSelect label={text("identityManagement")} value={form.service_identity_mode} disabled={props.readOnly}
           onChange={event => {
             const mode = event.target.value as FormState["service_identity_mode"];
-            props.invalidateChecks();
             props.setForm(previous => ({ ...previous, service_identity_mode: mode,
               ...(mode === "external" && previous.service_identity_mode === "managed" ? {
                 runtime_access_key: "", runtime_secret_key: "", has_runtime_secret: false,

@@ -23,7 +23,6 @@ describe("StorageEndpointConnectionFields RGW multisite", () => {
         errors={{}}
         onProviderChange={() => {}}
         onRegionChange={() => {}}
-        invalidateChecks={() => {}}
       />;
     }
 
