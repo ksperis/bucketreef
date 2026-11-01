@@ -19,7 +19,9 @@ from app.services.managed_private_access_errors import (
     ManagedPrivateAccessConflict,
     ManagedPrivateAccessError,
 )
-from app.services.managed_private_access_sources import ManagedPrivateAccessDestination
+from app.services.managed_private_access_destination_service import (
+    ManagedPrivateAccessDestination,
+)
 from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )

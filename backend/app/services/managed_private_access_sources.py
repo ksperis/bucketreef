@@ -11,7 +11,6 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account, S3Connection, S3User, StorageProvider, User
 from app.models.feature_policy import resolve_feature_policy
 from app.services.app_settings_service import load_app_settings_for_db_readonly
@@ -26,9 +25,6 @@ from app.services.rgw_admin import RGWAdminError
 from app.utils.rgw_payloads import rgw_qualified_uid
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
-from app.services.s3_connection_endpoint_planner import S3ConnectionEndpointPlan
-from app.utils.s3_connection_endpoint import resolve_connection_details
-from app.utils.s3_endpoint import validate_user_supplied_s3_endpoint
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 RemotePrincipalType = Literal["iam_user", "rgw_user"]
@@ -41,9 +37,6 @@ class ManagedPrivateAccessSource:
     remote_principal_type: RemotePrincipalType
     remote_principal_identifier: str
     iam_username: str | None
-
-
-ManagedPrivateAccessDestination = S3ConnectionEndpointPlan
 
 
 def _source_ids(context: S3ExecutionTarget) -> tuple[int | None, int | None, int | None]:
@@ -212,73 +205,6 @@ class ManagedPrivateAccessSourceResolver:
             return rgw_qualified_uid(s3_user.rgw_user_uid, resolve_target_tenant(s3_user))
         except (ValueError, RGWAdminError) as exc:
             raise ManagedPrivateAccessError("The RGW User tenant could not be verified") from exc
-
-    def derive_destination(
-        self,
-        source: ManagedPrivateAccessSource,
-    ) -> ManagedPrivateAccessDestination:
-        if source.kind == "account":
-            row = self.db.scalar(
-                select(S3Account).where(S3Account.id == source.identifier)
-            )
-            return self._stored_source_destination(
-                row,
-                error_message="The source account has no usable storage endpoint",
-            )
-        if source.kind == "s3_user":
-            row = self.db.scalar(
-                select(S3User).where(S3User.id == source.identifier)
-            )
-            return self._stored_source_destination(
-                row,
-                error_message="The source RGW User has no usable storage endpoint",
-            )
-        return self._connection_destination(source.identifier)
-
-    @staticmethod
-    def _stored_source_destination(
-        row: S3Account | S3User | None,
-        *,
-        error_message: str,
-    ) -> ManagedPrivateAccessDestination:
-        endpoint_id = row.storage_endpoint_id if row is not None else None
-        if endpoint_id is None or row is None or row.storage_endpoint is None:
-            raise ManagedPrivateAccessError(error_message)
-        return ManagedPrivateAccessDestination.managed(endpoint_id)
-
-    def _connection_destination(self, connection_id: int) -> ManagedPrivateAccessDestination:
-        connection = self.db.scalar(
-            select(S3Connection).where(S3Connection.id == connection_id)
-        )
-        if connection is None:
-            raise ManagedPrivateAccessError("Source connection not found")
-        if connection.storage_endpoint_id is not None:
-            if connection.storage_endpoint is None:
-                raise ManagedPrivateAccessError(
-                    "The source connection endpoint is unavailable"
-                )
-            return ManagedPrivateAccessDestination.managed(connection.storage_endpoint_id)
-        details = resolve_connection_details(connection)
-        try:
-            endpoint_url = validate_user_supplied_s3_endpoint(
-                (details.endpoint_url or "").strip(),
-                field_name="Endpoint URL",
-            )
-        except ValueError as exc:
-            raise ManagedPrivateAccessError(
-                sanitized_error_log_detail(exc)
-            ) from exc
-        if not details.verify_tls:
-            raise ManagedPrivateAccessError(
-                "Managed private access requires TLS verification"
-            )
-        return ManagedPrivateAccessDestination.custom(
-            endpoint_url,
-            details.region,
-            details.force_path_style,
-            details.verify_tls,
-            details.provider,
-        )
 
     @staticmethod
     def _iam_username(user_id: int, source_kind: str, source_id: int) -> str:

@@ -25,6 +25,9 @@ from app.services.managed_private_access_connection_service import (
 from app.services.managed_private_access_credential_service import (
     ManagedPrivateAccessCredentialService,
 )
+from app.services.managed_private_access_destination_service import (
+    ManagedPrivateAccessDestinationService,
+)
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessConflict,
     ManagedPrivateAccessError,
@@ -52,6 +55,7 @@ class ManagedPrivateAccessService:
     def __init__(self, db: Session) -> None:
         self.access = EffectiveAccessService(db)
         self.sources = ManagedPrivateAccessSourceResolver(db, self.access)
+        self.destinations = ManagedPrivateAccessDestinationService(db)
         self.policy = ManagedPrivateAccessPolicyService(
             db,
             access=self.access,
@@ -92,7 +96,7 @@ class ManagedPrivateAccessService:
         self.policy.ensure_managed_private_connection_provisioning_allowed(user)
         validate_inline_policy_requests(payload.inline_policies, "user", context)
         source = self.sources.resolve_iam_source(user, context)
-        destination = self.sources.derive_destination(source)
+        destination = self.destinations.resolve(source)
         iam = self.iam.for_context(context)
         self.policy.validate_iam_provisioning_request(iam, payload)
         existing_result = self.lifecycle.existing_result_for_source(user, source, payload)
@@ -142,7 +146,7 @@ class ManagedPrivateAccessService:
     ) -> ManagedPrivateAccessResult:
         self.policy.ensure_managed_private_connection_provisioning_allowed(user)
         source = self.sources.resolve_rgw_user_source(user, context)
-        destination = self.sources.derive_destination(source)
+        destination = self.destinations.resolve(source)
         existing_result = self.lifecycle.existing_result_for_source(user, source, payload)
         if existing_result is not None:
             return existing_result
