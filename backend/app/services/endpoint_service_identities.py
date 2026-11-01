@@ -31,7 +31,7 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
 from app.services.rgw_endpoint_clients import get_endpoint_bootstrap_rgw_client
 from app.services.storage_endpoint_admin_permissions import admin_ops_permissions_from_caps
-from app.utils.rgw_payloads import extract_rgw_user_identity, rgw_qualified_uid
+from app.utils.rgw_payloads import extract_rgw_user_caps, extract_rgw_user_identity, rgw_qualified_uid
 from app.utils.time import utcnow
 
 INSTALLATION_KEY = "endpoint-service-identity-installation"
@@ -124,7 +124,7 @@ class EndpointServiceIdentityService:
         payload = admin.get_user_by_access_key(endpoint.admin_access_key, allow_not_found=True)
         if not isinstance(payload, dict):
             raise ValueError("Admin Ops access key is not recognized by RGW.")
-        permissions = admin_ops_permissions_from_caps(payload.get("caps"))
+        permissions = admin_ops_permissions_from_caps(extract_rgw_user_caps(payload))
         if not permissions.users_read or not permissions.accounts_read:
             raise ValueError("Admin Ops requires users=read and accounts=read.")
         return admin, permissions

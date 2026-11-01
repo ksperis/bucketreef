@@ -146,3 +146,31 @@ def test_returns_empty_permissions_when_rgw_lookup_fails():
     assert permissions.buckets_write is False
     assert permissions.accounts_read is False
     assert permissions.accounts_write is False
+
+
+def test_resolves_nested_rgw_caps_payload():
+    class FakeRGWClient:
+        def get_user_by_access_key(
+            self,
+            access_key: str,
+            allow_not_found: bool = False,
+        ):
+            assert access_key == "AKIA-ADMIN"
+            assert allow_not_found is True
+            return {
+                "user": {
+                    "caps": "users=read,write;accounts=read,write;buckets=read"
+                }
+            }
+
+    permissions = resolve_storage_endpoint_admin_ops_permissions(
+        _endpoint(),
+        provider=StorageProvider.CEPH,
+        client_factory=lambda **_kwargs: FakeRGWClient(),
+    )
+
+    assert permissions.users_read is True
+    assert permissions.users_write is True
+    assert permissions.accounts_read is True
+    assert permissions.accounts_write is True
+    assert permissions.buckets_read is True

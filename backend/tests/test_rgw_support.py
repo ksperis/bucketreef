@@ -18,6 +18,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_name,
     extract_rgw_user_account_ids,
     extract_rgw_user_account_aliases,
+    extract_rgw_user_caps,
     extract_rgw_user_bool,
     extract_rgw_user_identity,
     extract_rgw_user_int,
@@ -175,6 +176,13 @@ def test_extract_rgw_user_account_aliases_collects_external_account_aliases():
             "user": {"account_id": "RGW00000000000000002"},
         }
     ) == {"RGW00000000000000001", "RGW00000000000000002"}
+
+
+def test_extract_rgw_user_caps_prefers_explicit_top_level_and_falls_back_to_nested():
+    assert extract_rgw_user_caps({"caps": "", "user": {"caps": "users=read"}}) == ""
+    assert extract_rgw_user_caps({"caps": None, "user": {"caps": ["users=read"]}}) == [
+        "users=read"
+    ]
 
 
 def test_get_supervision_rgw_client_uses_endpoint_url_when_admin_feature_disabled(monkeypatch):

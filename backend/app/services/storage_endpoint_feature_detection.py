@@ -29,6 +29,7 @@ from app.services.storage_endpoint_admin_permissions import (
     admin_ops_permissions_from_caps,
 )
 from app.utils.normalize import normalize_optional_string
+from app.utils.rgw_payloads import extract_rgw_user_caps
 from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
@@ -330,7 +331,7 @@ class StorageEndpointFeatureDetector:
                     result.admin = True
                     if isinstance(admin_payload, dict):
                         result.admin_ops_permissions = admin_ops_permissions_from_caps(
-                            admin_payload.get("caps")
+                            extract_rgw_user_caps(admin_payload)
                         )
                     result.credential_checks.admin = StorageEndpointCredentialCheck(
                         status="valid",

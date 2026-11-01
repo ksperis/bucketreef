@@ -45,6 +45,7 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_tenant,
     extract_rgw_quota_enabled,
     extract_rgw_user_bool,
+    extract_rgw_user_caps,
     extract_rgw_user_int,
     extract_rgw_user_payload,
     extract_rgw_user_scalar,
@@ -75,10 +76,7 @@ USER_QUOTA_FIELDS = frozenset({"quota_enabled", "quota_max_size_bytes", "quota_m
 
 
 def _extract_caps(payload: dict[str, Any]) -> list[str]:
-    values = payload.get("caps")
-    if values is None and isinstance(payload.get("user"), dict):
-        values = payload["user"].get("caps")
-    return canonicalize_rgw_caps(values)
+    return canonicalize_rgw_caps(extract_rgw_user_caps(payload))
 
 
 def _resolve_user_identity(
