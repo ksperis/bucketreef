@@ -8,6 +8,12 @@ from typing import Any, Optional
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import normalize_account_key
+from app.utils.rgw_payloads import (
+    extract_rgw_account_payload,
+    extract_rgw_account_tenant,
+    extract_rgw_user_listing_identity,
+    rgw_qualified_uid,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +56,8 @@ class S3AccountRgwUsersService:
             return None, None
         if not account_info:
             return 0, []
-        info, user_list = self._embedded_account_user_list(account_info)
+        info = extract_rgw_account_payload(account_info)
+        user_list = info.get("user_list", info.get("users"))
         if not isinstance(user_list, list):
             # Standard Ceph AccountInfo does not embed the account's users.
             # Do not scan the endpoint-wide user inventory here: account
@@ -60,19 +67,16 @@ class S3AccountRgwUsersService:
             # while deletion proves that no non-root users remain through IAM.
             return None, None
         resolved_root_uid = root_uid or self.account_roots.root_uid(account_identifier)
-        deduped = self._clean_account_user_uids(
-            user_list,
-            root_uid=resolved_root_uid,
-            account_tenant=str(info.get("tenant") or ""),
-        )
+        try:
+            deduped = self._clean_account_user_uids(
+                user_list,
+                root_uid=resolved_root_uid,
+                account_tenant=extract_rgw_account_tenant(account_info),
+            )
+        except ValueError as exc:
+            logger.debug("Unable to normalize RGW account users for %s: %s", account_identifier, exc)
+            return None, None
         return len(deduped), deduped
-
-    @staticmethod
-    def _embedded_account_user_list(account_info: dict[str, Any]) -> tuple[dict[str, Any], Any]:
-        info = account_info.get("account")
-        if not isinstance(info, dict):
-            info = account_info
-        return info, info.get("user_list", info.get("users"))
 
     @staticmethod
     def _clean_account_user_uids(
@@ -81,12 +85,18 @@ class S3AccountRgwUsersService:
         root_uid: str,
         account_tenant: str,
     ) -> list[str]:
+        normalized_root_uid = root_uid.strip()
+        root_aliases = {normalized_root_uid}
+        if account_tenant and "$" not in normalized_root_uid:
+            root_aliases.add(rgw_qualified_uid(normalized_root_uid, account_tenant))
+
         cleaned: list[str] = []
         for entry in user_list:
-            uid = str(entry.get("uid", entry.get("user_id", ""))) if isinstance(entry, dict) else str(entry or "")
+            uid, tenant = extract_rgw_user_listing_identity(entry)
             if not uid:
                 continue
-            if uid == root_uid or uid == f"{account_tenant}${root_uid}":
+            qualified_uid = rgw_qualified_uid(uid, tenant)
+            if qualified_uid in root_aliases:
                 continue
-            cleaned.append(uid)
+            cleaned.append(qualified_uid)
         return sorted(set(cleaned))

@@ -26,7 +26,6 @@ from app.services.ceph_admin_identity_listing_support import (
     run_identity_listing_pipeline,
 )
 from app.services.ceph_admin_user_listing_enrichment import enrich_users
-from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_progress import (
     ListingProgressEmitter,
@@ -39,7 +38,7 @@ from app.services.listing_rule_matching import (
 )
 from app.services.rgw_admin import RGWAdminClient
 from app.utils.cancellation import invoke_cancel_check
-from app.utils.rgw_payloads import parse_rgw_bool
+from app.utils.rgw_payloads import extract_rgw_user_listing_identity, parse_rgw_bool
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 
@@ -138,15 +137,10 @@ def _includes_for_user_fields(fields: set[str]) -> set[str]:
 
 
 def _user_from_entry(entry: object) -> CephAdminRgwUserSummary | None:
-    if isinstance(entry, dict):
-        raw_uid = entry.get("user") or entry.get("uid") or entry.get("id")
-    else:
-        raw_uid = entry
-    uid = str(raw_uid or "").strip()
+    uid, tenant = extract_rgw_user_listing_identity(entry)
     if not uid:
         return None
-    tenant, user_uid = split_tenant_uid(uid)
-    return CephAdminRgwUserSummary(uid=user_uid if tenant else uid, tenant=tenant)
+    return CephAdminRgwUserSummary(uid=uid, tenant=tenant)
 
 
 def _user_sort_key(

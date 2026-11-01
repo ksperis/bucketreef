@@ -219,6 +219,33 @@ def test_account_rgw_users_paths(db_session):
     assert service.rgw_users.resolve("RGW1", None, admin) == (2, ["alice", "bob"])
 
 
+def test_account_rgw_users_normalizes_nested_account_user_identities(db_session):
+    service, admin = _service(db_session)
+    admin.account_payload = {
+        "account": {
+            "tenant": "tenant-a",
+            "user_list": [
+                {"uid": "tenant-a$rgw1-admin"},
+                {"uid": "alice", "tenant": "tenant-a"},
+                {"user_id": "tenant-a$bob"},
+                {"id": "legacy-id"},
+            ],
+        }
+    }
+
+    assert service.rgw_users.resolve("RGW1", None, admin, root_uid="rgw1-admin") == (
+        2,
+        ["tenant-a$alice", "tenant-a$bob"],
+    )
+
+
+def test_account_rgw_users_returns_unknown_for_conflicting_user_identity(db_session):
+    service, admin = _service(db_session)
+    admin.account_payload = {"user_list": [{"uid": "alice", "user_id": "bob"}]}
+
+    assert service.rgw_users.resolve("RGW1", None, admin) == (None, None)
+
+
 def test_account_rgw_users_does_not_scan_endpoint_inventory(db_session):
     service, admin = _service(db_session)
     admin.account_payload = {"id": "RGW1", "tenant": ""}

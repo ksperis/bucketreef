@@ -16,12 +16,14 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_id,
     extract_rgw_account_ids,
     extract_rgw_account_name,
+    extract_rgw_account_payload,
     extract_rgw_user_account_ids,
     extract_rgw_user_account_aliases,
     extract_rgw_user_caps,
     extract_rgw_user_bool,
     extract_rgw_user_identity,
     extract_rgw_user_int,
+    extract_rgw_user_listing_identity,
     extract_rgw_user_payload,
     extract_rgw_user_scalar,
     rgw_qualified_uid,
@@ -60,6 +62,13 @@ def test_extract_rgw_account_id_prefers_nested_account_payload():
     assert extract_rgw_account_id(
         {"id": "RGW001", "account": {"account_id": " RGW002 "}}
     ) == "RGW002"
+
+
+def test_extract_rgw_account_payload_prefers_nested_account_envelope():
+    nested = {"id": "RGW002", "user_list": ["alice"]}
+    assert extract_rgw_account_payload({"id": "RGW001", "account": nested}) is nested
+    assert extract_rgw_account_payload({"id": "RGW001"}) == {"id": "RGW001"}
+    assert extract_rgw_account_payload(None) == {}
 
 
 def test_extract_rgw_account_name_normalizes_supported_aliases():
@@ -141,6 +150,25 @@ def test_extract_rgw_user_identity_rejects_empty_embedded_tenant():
 def test_extract_rgw_user_identity_rejects_conflicting_fields(payload, message):
     with pytest.raises(ValueError, match=message):
         extract_rgw_user_identity(payload)
+
+
+@pytest.mark.parametrize(
+    ("entry", "expected"),
+    [
+        ("tenant-a$alice", ("alice", "tenant-a")),
+        ({"user": "tenant-b$bob"}, ("bob", "tenant-b")),
+        ({"uid": "carol", "tenant": "tenant-c"}, ("carol", "tenant-c")),
+        ({"id": "legacy-id"}, (None, None)),
+        (42, (None, None)),
+    ],
+)
+def test_extract_rgw_user_listing_identity_uses_canonical_fields(entry, expected):
+    assert extract_rgw_user_listing_identity(entry) == expected
+
+
+def test_extract_rgw_user_listing_identity_rejects_conflicting_fields():
+    with pytest.raises(ValueError, match="conflicting user identity"):
+        extract_rgw_user_listing_identity({"user": "alice", "uid": "bob"})
 
 
 def test_rgw_qualified_uid_rejects_conflicting_explicit_tenant():
