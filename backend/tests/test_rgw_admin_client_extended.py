@@ -720,6 +720,19 @@ def test_misc_admin_helpers_and_quota_paths(monkeypatch):
     monkeypatch.setattr(client, "get_user", lambda *args, **kwargs: {"not_found": True})
     assert client.get_user_quota("alice", tenant="RGW1") == (None, None)
 
+    monkeypatch.setattr(
+        client,
+        "get_user",
+        lambda *args, **kwargs: {
+            "user_quota": {"enabled": True, "max_size": 1, "max_objects": 2},
+            "user": {
+                "uid": "RGW1$alice",
+                "user_quota": {"enabled": True, "max_size": 4096, "max_objects": 10},
+            },
+        },
+    )
+    assert client.get_user_quota("alice", tenant="RGW1") == (4096, 10)
+
     factory_client = get_rgw_admin_client(
         access_key="AKIA-TEST",
         secret_key="SECRET-TEST",
