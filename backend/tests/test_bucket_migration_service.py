@@ -37,9 +37,9 @@ from app.models.bucket_migration import (
     BucketMigrationUpdateRequest,
 )
 from app.models.webhook import WebhookEndpointPayload
-from app.services.bucket_migration._shared import (
-    _DB_ERROR_MESSAGE_MAX_CHARS,
-    _DB_EVENT_MESSAGE_MAX_CHARS,
+from app.services.bucket_migration.persistence_safety import (
+    DB_ERROR_MESSAGE_MAX_CHARS,
+    DB_EVENT_MESSAGE_MAX_CHARS,
 )
 from app.services.bucket_migration.execution_object_models import BucketVersionEntry, VersionedObjectDetails
 from app.services.bucket_migration.execution_runtime import ResolvedContext

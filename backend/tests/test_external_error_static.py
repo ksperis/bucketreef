@@ -11,8 +11,8 @@ APPROVED_SANITIZERS = {
     "sanitize_log_text",
     "sanitize_persisted_error",
     "sanitized_error_log_detail",
-    "_truncate_db_text",
-    "_truncate_optional_db_text",
+    "truncate_db_text",
+    "truncate_optional_db_text",
 }
 APPROVED_RESPONSE_BODY_READERS = {"_parse_operation_payload"}
 

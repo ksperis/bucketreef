@@ -10,9 +10,9 @@ from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.utils.time import utcnow
-from ._shared import (
-    _DB_ERROR_MESSAGE_MAX_CHARS,
-    _truncate_optional_db_text,
+from .persistence_safety import (
+    DB_ERROR_MESSAGE_MAX_CHARS,
+    truncate_optional_db_text,
 )
 from .execution_runtime import ResolvedContext
 from .execution_signals import WorkerLeaseLostError
@@ -142,9 +142,9 @@ class BucketMigrationExecutionControlMixin:
                 return migration
             error_detail = sanitized_error_log_detail(exc)
             failed_item.status = "failed"
-            failed_item.error_message = _truncate_optional_db_text(
+            failed_item.error_message = truncate_optional_db_text(
                 error_detail,
-                max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
+                max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
             )
             failed_item.finished_at = utcnow()
             failed_item.updated_at = utcnow()
