@@ -14,7 +14,7 @@ from app.models.app_settings import AppSettings
 from app.models.bucket_purge import bucket_purge_confirmation_phrase
 from app.models.session import ManagerSessionPrincipal, SessionCapabilities
 from app.routers.dependencies_internal import feature_gates
-from app.routers import dependencies
+from app.routers import bucket_integrity_stream as bucket_integrity_stream_router, dependencies
 from app.routers.manager import integrity, purge, stats
 from app.routers.manager.access import require_bucket_management_context
 from app.services.connection_identity_service import ConnectionIdentityResolution
@@ -232,7 +232,7 @@ def test_http_routes_reject_missing_or_denied_capabilities_before_storage_work(c
 
     app.dependency_overrides[stats.get_buckets_service] = lambda: SimpleNamespace(list_buckets=unexpected_storage_work)
     monkeypatch.setattr(stats, "TrafficService", unexpected_storage_work)
-    monkeypatch.setattr(integrity, "BucketIntegrityCheckService", unexpected_storage_work)
+    monkeypatch.setattr(bucket_integrity_stream_router, "BucketIntegrityCheckService", unexpected_storage_work)
     monkeypatch.setattr(purge, "BucketPurgeService", unexpected_storage_work)
     if route in {"overview", "traffic"}:
         response = client.get(f"/api/manager/stats/{route}")
