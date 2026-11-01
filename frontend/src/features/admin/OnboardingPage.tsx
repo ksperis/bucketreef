@@ -13,8 +13,6 @@ import {
 } from "../../api/onboarding";
 import { validateAdminS3ConnectionCredentials } from "../../api/s3ConnectionsAdmin";
 import {
-  listStorageEndpoints,
-  type StorageEndpoint,
   type StorageEndpointCredentialCheck,
 } from "../../api/storageEndpoints";
 import { useSession } from "../../auth/SessionProvider";
@@ -43,7 +41,6 @@ import {
 } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
 import {
-  extractApiError,
   extractApiErrorCode,
   isRecentWebAuthnRequired,
 } from "../../utils/apiError";
@@ -66,6 +63,7 @@ import {
 } from "./storageEndpointCredentialHelp";
 import { useOnboardingStatus } from "./useOnboardingStatus";
 import useOnboardingDraftPreview from "./useOnboardingDraftPreview";
+import useOnboardingEndpointCatalogue from "./useOnboardingEndpointCatalogue";
 import useOnboardingJourneyDraft from "./useOnboardingJourneyDraft";
 import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
 import { useAdminI18n } from "./adminI18n";
@@ -264,8 +262,11 @@ export default function OnboardingPage() {
     replaceDraft,
     getJourneyId,
   } = useOnboardingJourneyDraft();
-  const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
-  const [endpointListError, setEndpointListError] = useState("");
+  const {
+    endpoints,
+    error: endpointListError,
+    refresh: refreshEndpoints,
+  } = useOnboardingEndpointCatalogue(adminText("Unable to load configured endpoints."));
   const [credentialDraft, setCredentialDraft] = useState<OnboardingCredentialDraft>(
     createOnboardingCredentialDraft,
   );
@@ -455,27 +456,6 @@ export default function OnboardingPage() {
     }
   }, [status, store]);
 
-  useEffect(() => {
-    let active = true;
-    listStorageEndpoints()
-      .then((value) => {
-        if (active) {
-          setEndpoints(value);
-          setEndpointListError("");
-        }
-      })
-      .catch((cause) => {
-        if (active) {
-          setEndpointListError(
-            extractApiError(cause, adminText("Unable to load configured endpoints.")),
-          );
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [adminText]);
-
   const clearSecrets = () => setCredentialDraft(createOnboardingCredentialDraft());
 
   const changeCredential = (field: keyof OnboardingCredentialDraft, value: string) => {
@@ -520,8 +500,7 @@ export default function OnboardingPage() {
     } catch (cause) {
       if (isRecentWebAuthnVerificationCancelled(cause)) return;
       setError(failure(cause));
-      const [latest, catalogue] = await Promise.all([refreshStatus(), listStorageEndpoints()]);
-      setEndpoints(catalogue);
+      const [latest] = await Promise.all([refreshStatus(), refreshEndpoints()]);
       const saved = latest?.journeys.find((item) => item.id === getJourneyId());
       if (saved) store(saved);
       retryPreview();
