@@ -77,7 +77,7 @@ type BuildWorkspaceDashboardKpisConfig = {
   transfer: WorkspaceKpiTransferConfig;
 };
 
-function formatWorkspaceOptionalBytes(value?: number | null): string {
+export function formatWorkspaceOptionalBytes(value?: number | null): string {
   return value == null ? "" : formatBytes(value);
 }
 
