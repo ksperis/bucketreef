@@ -1503,6 +1503,60 @@ def test_detect_features_sanitizes_ceph_admin_validation_errors(db_session, monk
     )
 
 
+def test_detect_features_accepts_nested_ceph_admin_identity(db_session, monkeypatch):
+    class FakeRGWClient:
+        def get_user_by_access_key(self, *_args, **_kwargs):
+            return {
+                "admin": True,
+                "system": False,
+                "user": {"uid": "ceph-admin"},
+            }
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **_kwargs: FakeRGWClient(),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            ceph_admin_access_key="CEPH-AK",
+            ceph_admin_secret_key="CEPH-SK",
+        )
+    )
+
+    assert result.credential_checks.ceph_admin.status == "valid"
+
+
+def test_detect_features_rejects_conflicting_ceph_admin_identity(db_session, monkeypatch):
+    class FakeRGWClient:
+        def get_user_by_access_key(self, *_args, **_kwargs):
+            return {
+                "user_id": "ceph-admin-a",
+                "admin": True,
+                "system": False,
+                "user": {"uid": "ceph-admin-b"},
+            }
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **_kwargs: FakeRGWClient(),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            ceph_admin_access_key="CEPH-AK",
+            ceph_admin_secret_key="CEPH-SK",
+        )
+    )
+
+    assert result.credential_checks.ceph_admin.status == "denied"
+    assert result.credential_checks.ceph_admin.message == (
+        "RGW returned conflicting user identity fields"
+    )
+
+
 @pytest.mark.parametrize(
     "error,expected_status,expected_message",
     [
