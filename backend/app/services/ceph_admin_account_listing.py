@@ -12,10 +12,6 @@ from app.models.ceph_admin_identity_filters import (
     CephAdminAccountFilterQuery,
     CephAdminAccountFilterRule,
 )
-from app.services.ceph_admin_account_payloads import (
-    extract_bucket_count,
-    extract_user_count,
-)
 from app.services.ceph_admin_identity_listing_cache import (
     EndpointListCacheKey,
     get_cached_accounts_listing,
@@ -44,10 +40,12 @@ from app.services.rgw_admin import RGWAdminClient
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.quota_stats import extract_rgw_account_limit, extract_rgw_account_quota_limits
 from app.utils.rgw_payloads import (
+    extract_rgw_account_bucket_count,
     extract_rgw_account_email,
     extract_rgw_account_id,
     extract_rgw_account_name,
     extract_rgw_account_tenant_optional,
+    extract_rgw_account_user_count,
 )
 from app.utils.usage_stats import compute_usage_ratio_percent
 
@@ -134,8 +132,8 @@ def _account_from_entry(entry: object) -> CephAdminRgwAccountSummary | None:
         max_buckets=extract_rgw_account_limit(entry, "max_buckets"),
         quota_max_size_bytes=quota_size,
         quota_max_objects=quota_objects,
-        bucket_count=extract_bucket_count(entry),
-        user_count=extract_user_count(entry),
+        bucket_count=extract_rgw_account_bucket_count(entry),
+        user_count=extract_rgw_account_user_count(entry),
     )
 
 

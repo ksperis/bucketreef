@@ -9,8 +9,6 @@ from fastapi import status
 from app.models.ceph_admin import CephAdminRgwAccountSummary
 from app.services.ceph_admin_account_payloads import (
     extract_account_bucket_list,
-    extract_bucket_count,
-    extract_user_count,
 )
 from app.services.listing_progress import (
     ListingProgressEmitter,
@@ -21,9 +19,11 @@ from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.quota_stats import extract_rgw_account_limit, extract_rgw_account_quota_limits
 from app.utils.rgw_payloads import (
+    extract_rgw_account_bucket_count,
     extract_rgw_account_email,
     extract_rgw_account_name,
     extract_rgw_account_tenant,
+    extract_rgw_account_user_count,
 )
 from app.utils.usage_stats import summarize_bucket_usage
 
@@ -128,8 +128,8 @@ def _apply_account_detail_payload(
         account.quota_max_size_bytes = quota_size
         account.quota_max_objects = quota_objects
     if "stats" in requested:
-        account.bucket_count = extract_bucket_count(payload)
-        account.user_count = extract_user_count(payload)
+        account.bucket_count = extract_rgw_account_bucket_count(payload)
+        account.user_count = extract_rgw_account_user_count(payload)
     if "usage" in requested:
         _usage, total_bytes, total_objects, _count = summarize_bucket_usage(
             extract_account_bucket_list(buckets_payload, account.account_id)

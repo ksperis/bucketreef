@@ -120,6 +120,42 @@ def extract_rgw_account_email(payload: Any) -> str | None:
     return None
 
 
+def _extract_rgw_count(data: dict[str, Any], keys: tuple[str, ...]) -> int | None:
+    for key in keys:
+        parsed = parse_rgw_int(data.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def extract_rgw_account_bucket_count(payload: Any) -> int | None:
+    account = extract_rgw_account_payload(payload)
+    direct = _extract_rgw_count(account, ("bucket_count", "num_buckets", "buckets_count"))
+    if direct is not None:
+        return direct
+    stats = account.get("stats")
+    if isinstance(stats, dict):
+        from_stats = _extract_rgw_count(stats, ("bucket_count", "num_buckets", "buckets_count"))
+        if from_stats is not None:
+            return from_stats
+    buckets = account.get("bucket_list") or account.get("buckets")
+    return len(buckets) if isinstance(buckets, list) else None
+
+
+def extract_rgw_account_user_count(payload: Any) -> int | None:
+    account = extract_rgw_account_payload(payload)
+    direct = _extract_rgw_count(account, ("user_count", "users_count", "num_users", "users"))
+    if direct is not None:
+        return direct
+    stats = account.get("stats")
+    if isinstance(stats, dict):
+        from_stats = _extract_rgw_count(stats, ("user_count", "users_count", "num_users"))
+        if from_stats is not None:
+            return from_stats
+    users = account.get("user_list")
+    return len(users) if isinstance(users, list) else None
+
+
 def extract_rgw_account_tenant_optional(payload: Any) -> str | None:
     """Return an optional account tenant while preserving absent vs explicit-empty."""
     tenants = {

@@ -10,50 +10,15 @@ from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits, extract_rgw_account_limit
 from app.utils.rgw_payloads import (
     extract_bucket_list,
+    extract_rgw_account_bucket_count,
     extract_rgw_account_email,
     extract_rgw_account_id,
     extract_rgw_account_name,
     extract_rgw_account_payload,
     extract_rgw_account_tenant,
+    extract_rgw_account_user_count,
     extract_rgw_quota_enabled,
-    parse_rgw_int,
 )
-
-
-def extract_count(data: dict[str, Any], keys: tuple[str, ...]) -> Optional[int]:
-    for key in keys:
-        parsed = parse_rgw_int(data.get(key))
-        if parsed is not None:
-            return parsed
-    return None
-
-
-def extract_bucket_count(payload: dict[str, Any]) -> Optional[int]:
-    account = extract_rgw_account_payload(payload)
-    direct = extract_count(account, ("bucket_count", "num_buckets", "buckets_count"))
-    if direct is not None:
-        return direct
-    stats = account.get("stats")
-    if isinstance(stats, dict):
-        from_stats = extract_count(stats, ("bucket_count", "num_buckets", "buckets_count"))
-        if from_stats is not None:
-            return from_stats
-    buckets = account.get("bucket_list") or account.get("buckets")
-    return len(buckets) if isinstance(buckets, list) else None
-
-
-def extract_user_count(payload: dict[str, Any]) -> Optional[int]:
-    account = extract_rgw_account_payload(payload)
-    direct = extract_count(account, ("user_count", "users_count", "num_users", "users"))
-    if direct is not None:
-        return direct
-    stats = account.get("stats")
-    if isinstance(stats, dict):
-        from_stats = extract_count(stats, ("user_count", "users_count", "num_users"))
-        if from_stats is not None:
-            return from_stats
-    users = account.get("user_list")
-    return len(users) if isinstance(users, list) else None
 
 
 def extract_account_bucket_list(payload: Any, account_id: str) -> list[dict]:
@@ -119,8 +84,8 @@ def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> C
         max_roles=extract_rgw_account_limit(payload, "max_roles"),
         max_groups=extract_rgw_account_limit(payload, "max_groups"),
         max_access_keys=extract_rgw_account_limit(payload, "max_access_keys"),
-        bucket_count=extract_bucket_count(payload),
-        user_count=extract_user_count(payload),
+        bucket_count=extract_rgw_account_bucket_count(payload),
+        user_count=extract_rgw_account_user_count(payload),
         quota=_quota_config(payload, keys=("quota", "account_quota")),
         bucket_quota=_quota_config(payload, keys=("bucket_quota",)),
     )
