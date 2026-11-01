@@ -13,9 +13,9 @@ import {
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
+  bucketEditorDraftSignature,
   cloneBucketJsonValue,
   formatBucketJsonValue,
-  jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import {
@@ -245,10 +245,7 @@ export function useBucketEncryptionController({
 
   const baselineSignature = stableBucketJsonSignature(rules);
   const draftSignature = useMemo(
-    () =>
-      editorMode === "json"
-        ? jsonTextSignature(jsonText, draftRules).signature
-        : stableBucketJsonSignature(draftRules),
+    () => bucketEditorDraftSignature(editorMode, jsonText, draftRules),
     [draftRules, editorMode, jsonText],
   );
   const dirty = editorOpen && draftSignature !== baselineSignature;

@@ -13,9 +13,9 @@ import {
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
+  bucketEditorDraftSignature,
   cloneBucketJsonValue,
   formatBucketJsonValue,
-  jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import {
@@ -356,9 +356,7 @@ export function useBucketPolicyController({
   const statements = useMemo(() => policyStatements(policy), [policy]);
   const baselineSignature = stableBucketJsonSignature(policy);
   const draftSignature = useMemo(
-    () => editorMode === "json"
-      ? jsonTextSignature(jsonText, draftPolicy).signature
-      : stableBucketJsonSignature(draftPolicy),
+    () => bucketEditorDraftSignature(editorMode, jsonText, draftPolicy),
     [draftPolicy, editorMode, jsonText],
   );
   const dirty = editorOpen && draftSignature !== baselineSignature;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bucketEditorDraftSignature,
   cloneBucketJsonValue,
   formatBucketJsonValue,
   jsonTextSignature,
@@ -54,6 +55,20 @@ describe("bucketFeatureState helpers", () => {
 
     const resetDraft = jsonTextSignature(JSON.stringify(snapshot), snapshot);
     expect(resetDraft.signature).toBe(stableBucketJsonSignature(snapshot));
+  });
+
+  it("resolves editor draft signatures consistently across visual and json modes", () => {
+    const visualDraft = { Rules: [{ ID: "rule-1" }] };
+
+    expect(bucketEditorDraftSignature("visual", "{ invalid", visualDraft)).toBe(
+      stableBucketJsonSignature(visualDraft),
+    );
+    expect(bucketEditorDraftSignature("json", "", visualDraft, {})).toBe(
+      stableBucketJsonSignature({}),
+    );
+    expect(bucketEditorDraftSignature("json", '{"Rules":[{"ID":"rule-2"}]}', visualDraft)).toBe(
+      stableBucketJsonSignature({ Rules: [{ ID: "rule-2" }] }),
+    );
   });
 
   it("prioritizes visual state unsaved over configured", () => {

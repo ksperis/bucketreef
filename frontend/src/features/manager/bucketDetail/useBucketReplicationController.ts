@@ -20,8 +20,8 @@ import {
 } from "../bucketReplication";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
+  bucketEditorDraftSignature,
   formatBucketJsonValue,
-  jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import {
@@ -406,10 +406,7 @@ export function useBucketReplicationController({
   );
   const baselineSignature = stableBucketJsonSignature(configuration);
   const draftSignature = useMemo(
-    () =>
-      editorMode === "json"
-        ? jsonTextSignature(jsonText, {}).signature
-        : stableBucketJsonSignature(draftConfiguration),
+    () => bucketEditorDraftSignature(editorMode, jsonText, draftConfiguration, {}),
     [draftConfiguration, editorMode, jsonText],
   );
   const parsedJson =
