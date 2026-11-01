@@ -13,12 +13,14 @@ from app.utils.rgw_identifiers import (
     validate_rgw_account_name,
 )
 from app.utils.rgw_payloads import (
+    extract_rgw_account_bucket_count,
     extract_rgw_account_email,
     extract_rgw_account_id,
     extract_rgw_account_ids,
     extract_rgw_account_name,
     extract_rgw_account_payload,
     extract_rgw_account_tenant_optional,
+    extract_rgw_account_user_count,
     extract_rgw_user_account_id,
     extract_rgw_user_account_ids,
     extract_rgw_user_account_aliases,
@@ -92,6 +94,21 @@ def test_extract_rgw_account_email_normalizes_aliases_and_prefers_nested_payload
             "account": {"mail": " nested@example.test "},
         }
     ) == "nested@example.test"
+
+
+def test_extract_rgw_account_counts_preserve_aliases_fallbacks_and_nested_precedence():
+    assert extract_rgw_account_bucket_count({"num_buckets": "0", "stats": {"bucket_count": 9}}) == 0
+    assert extract_rgw_account_bucket_count({"stats": {"buckets_count": "4"}}) == 4
+    assert extract_rgw_account_bucket_count({"bucket_list": [{}, {}]}) == 2
+    assert extract_rgw_account_user_count({"users_count": "0", "user_list": ["alice"]}) == 0
+    assert extract_rgw_account_user_count({"stats": {"num_users": "3"}}) == 3
+    assert extract_rgw_account_user_count({"user_list": ["root", "alice"]}) == 2
+    assert extract_rgw_account_bucket_count(
+        {"bucket_count": 99, "account": {"bucket_count": 2}}
+    ) == 2
+    assert extract_rgw_account_user_count(
+        {"user_count": 99, "account": {"user_list": ["root", "alice", "bob"]}}
+    ) == 3
 
 
 def test_extract_rgw_account_tenant_optional_preserves_presence_and_nested_payload():
