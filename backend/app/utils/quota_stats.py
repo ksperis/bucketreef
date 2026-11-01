@@ -2,7 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Any, Dict, Optional, Tuple
 
-from app.utils.rgw_payloads import extract_rgw_account_payload, parse_rgw_bool, parse_rgw_int
+from app.utils.rgw_payloads import (
+    extract_rgw_account_payload,
+    extract_rgw_user_payload,
+    parse_rgw_bool,
+    parse_rgw_int,
+)
 
 
 def parse_positive_limit(value: Any) -> Optional[int]:
@@ -32,6 +37,18 @@ def extract_positive_limit(payload: Any, key: str) -> Optional[int]:
 
 def extract_rgw_account_positive_limit(payload: Any, key: str) -> Optional[int]:
     return extract_positive_limit(extract_rgw_account_payload(payload), key)
+
+
+def extract_rgw_user_positive_limit(payload: Any, key: str) -> Optional[int]:
+    if not isinstance(payload, dict):
+        return None
+    user_payload = extract_rgw_user_payload(payload)
+    records = (user_payload, payload) if user_payload is not payload else (payload,)
+    for record in records:
+        parsed = parse_positive_limit(record.get(key))
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def _first_quota_payload(
@@ -81,6 +98,18 @@ def extract_rgw_account_quota_limits(payload: Any) -> Tuple[Optional[int], Optio
         extract_rgw_account_payload(payload),
         keys=("quota", "account_quota"),
     )
+
+
+def extract_rgw_user_quota_limits(payload: Any) -> Tuple[Optional[int], Optional[int]]:
+    if not isinstance(payload, dict):
+        return None, None
+    user_payload = extract_rgw_user_payload(payload)
+    records = (user_payload, payload) if user_payload is not payload else (payload,)
+    keys = ("user_quota", "quota")
+    for record in records:
+        if _first_quota_payload(record, keys) is not None:
+            return extract_quota_limits(record, keys=keys)
+    return None, None
 
 
 def bytes_to_gb(value: Optional[int]) -> Optional[float]:

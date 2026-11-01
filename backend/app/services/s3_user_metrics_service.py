@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import S3User
 from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
-from app.utils.quota_stats import bytes_to_gb, extract_quota_limits, parse_positive_limit
+from app.utils.quota_stats import (
+    bytes_to_gb,
+    extract_rgw_user_positive_limit,
+    extract_rgw_user_quota_limits,
+)
 from app.utils.rgw_payloads import (
     extract_bucket_list,
-    extract_rgw_user_payload,
     require_rgw_user_identity,
 )
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -21,15 +24,6 @@ from app.utils.usage_stats import aggregate_bucket_usage
 
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_max_buckets(payload: Any) -> Optional[int]:
-    user_payload = extract_rgw_user_payload(payload)
-    return parse_positive_limit(
-        user_payload.get("max_buckets")
-        or (payload.get("max_buckets") if isinstance(payload, dict) else None)
-    )
-
 
 class S3UserMetricsService:
     """Read RGW usage, quota, and limits for a persisted S3 user."""
@@ -127,8 +121,9 @@ class S3UserMetricsService:
         except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to fetch S3 user limits for %s: %s", s3_user.rgw_user_uid, exc)
             return None, None, None
-        max_size_bytes, max_objects = extract_quota_limits(
-            payload,
-            keys=("user_quota", "quota"),
+        max_size_bytes, max_objects = extract_rgw_user_quota_limits(payload)
+        return (
+            bytes_to_gb(max_size_bytes),
+            max_objects,
+            extract_rgw_user_positive_limit(payload, "max_buckets"),
         )
-        return bytes_to_gb(max_size_bytes), max_objects, _extract_max_buckets(payload)

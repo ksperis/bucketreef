@@ -14,7 +14,7 @@ from app.services.listing_progress import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.quota_stats import extract_quota_limits
+from app.utils.quota_stats import extract_rgw_user_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_name,
@@ -117,7 +117,7 @@ class _UserDetailsEnricher:
         if "limits" in self.requested:
             user.max_buckets = extract_rgw_user_int(payload, "max_buckets")
         if "quota" in self.requested:
-            quota_size, quota_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
+            quota_size, quota_objects = extract_rgw_user_quota_limits(payload)
             user.quota_max_size_bytes = quota_size
             user.quota_max_objects = quota_objects
         if "usage" in self.requested:

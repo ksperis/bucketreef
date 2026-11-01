@@ -3251,7 +3251,15 @@ def test_ceph_admin_owner_quota_filter_for_user_owner_is_deduplicated_and_cached
                 "uid": "user-a",
                 "tenant": "tenant-a",
                 "display_name": "User A",
-                "user_quota": {"enabled": True, "max_size": 8192, "max_objects": 64},
+                "user_quota": {"enabled": True, "max_size": 1, "max_objects": 1},
+                "user": {
+                    "uid": "tenant-a$user-a",
+                    "user_quota": {
+                        "enabled": True,
+                        "max_size": 8192,
+                        "max_objects": 64,
+                    },
+                },
             }
         },
     )
