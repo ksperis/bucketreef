@@ -20,7 +20,7 @@ import {
   type S3UserUserLink,
 } from "../../api/s3Users";
 import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
-import { getStorageEndpoint, listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
+import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import { listMinimalUsers, type UserSummary } from "../../api/users";
 import PageHeader from "../../components/PageHeader";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
@@ -63,6 +63,7 @@ import { useAdminI18n } from "./adminI18n";
 import AdminS3UsersList, { type AdminS3UsersSortField } from "./AdminS3UsersList";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
+import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 
 type EditTab = "general" | "users" | "groups" | "manager";
 
@@ -99,10 +100,16 @@ export default function S3UsersPage() {
   const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
   const [loadingEndpoints, setLoadingEndpoints] = useState(false);
   const [endpointsLoaded, setEndpointsLoaded] = useState(false);
-  const [endpointUsersWrite, setEndpointUsersWrite] = useState<Record<number, boolean>>({});
-  const [endpointBucketsWrite, setEndpointBucketsWrite] = useState<Record<number, boolean>>({});
-  const [endpointPermissionLoading, setEndpointPermissionLoading] = useState<Record<number, boolean>>({});
-  const [endpointPermissionErrors, setEndpointPermissionErrors] = useState<Record<number, string | null>>({});
+  const formatEndpointPermissionError = useCallback(
+    (error: unknown) => extractApiError(error, adminText("Unexpected error")),
+    [adminText]
+  );
+  const {
+    permissionsByEndpointId: endpointPermissions,
+    loadingByEndpointId: endpointPermissionLoading,
+    errorByEndpointId: endpointPermissionErrors,
+    loadPermissions: loadEndpointPermissions,
+  } = useAdminEndpointAdminOpsPermissions({ formatError: formatEndpointPermissionError });
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -282,27 +289,6 @@ export default function S3UsersPage() {
     void loadPortalUsersIfNeeded();
   }, [hasLinkedPortalUsers, loadPortalUsersIfNeeded]);
 
-  const fetchEndpointUsersWritePermission = useCallback(
-    async (endpointId: number) => {
-      if (!Number.isFinite(endpointId) || endpointId <= 0) return;
-      if (endpointPermissionLoading[endpointId]) return;
-      setEndpointPermissionLoading((prev) => ({ ...prev, [endpointId]: true }));
-      try {
-        const endpoint = await getStorageEndpoint(endpointId, { include_admin_ops_permissions: true });
-        setEndpointUsersWrite((prev) => ({ ...prev, [endpointId]: endpoint.admin_ops_permissions.users_write }));
-        setEndpointBucketsWrite((prev) => ({ ...prev, [endpointId]: endpoint.admin_ops_permissions.buckets_write }));
-        setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: null }));
-      } catch (err) {
-        setEndpointUsersWrite((prev) => ({ ...prev, [endpointId]: false }));
-        setEndpointBucketsWrite((prev) => ({ ...prev, [endpointId]: false }));
-        setEndpointPermissionErrors((prev) => ({ ...prev, [endpointId]: extractApiError(err, adminText("Unexpected error")) }));
-      } finally {
-        setEndpointPermissionLoading((prev) => ({ ...prev, [endpointId]: false }));
-      }
-    },
-    [adminText, endpointPermissionLoading]
-  );
-
   const portalUserOptions = useMemo(() => portalUsers.map((u) => ({ id: u.id, label: u.email })), [portalUsers]);
   const portalUserLabelById = useMemo(() => {
     const map = new Map<number, string>();
@@ -340,8 +326,12 @@ export default function S3UsersPage() {
     [cephEndpoints]
   );
   const editingEndpointId = editingUser?.storage_endpoint_id ?? null;
-  const allowUserQuotaUpdates = editingEndpointId ? endpointUsersWrite[editingEndpointId] === true : false;
-  const editingEndpointCanWriteBuckets = editingEndpointId ? endpointBucketsWrite[editingEndpointId] === true : false;
+  const allowUserQuotaUpdates = editingEndpointId
+    ? endpointPermissions[editingEndpointId]?.users_write === true
+    : false;
+  const editingEndpointCanWriteBuckets = editingEndpointId
+    ? endpointPermissions[editingEndpointId]?.buckets_write === true
+    : false;
   const editPermissionLoading = editingEndpointId ? Boolean(endpointPermissionLoading[editingEndpointId]) : false;
   const editPermissionError = editingEndpointId ? endpointPermissionErrors[editingEndpointId] ?? null : null;
 
@@ -365,24 +355,24 @@ export default function S3UsersPage() {
     if (!createForm.storage_endpoint_id) return;
     const endpointId = Number(createForm.storage_endpoint_id);
     if (!Number.isFinite(endpointId) || endpointId <= 0) return;
-    if (Object.prototype.hasOwnProperty.call(endpointUsersWrite, endpointId)) return;
-    void fetchEndpointUsersWritePermission(endpointId);
-  }, [showCreateModal, createForm.storage_endpoint_id, endpointUsersWrite, fetchEndpointUsersWritePermission]);
+    if (Object.prototype.hasOwnProperty.call(endpointPermissions, endpointId)) return;
+    void loadEndpointPermissions(endpointId);
+  }, [showCreateModal, createForm.storage_endpoint_id, endpointPermissions, loadEndpointPermissions]);
 
   useEffect(() => {
     if (!showImportModal) return;
     if (!importEndpointId) return;
     const endpointId = Number(importEndpointId);
     if (!Number.isFinite(endpointId) || endpointId <= 0) return;
-    if (Object.prototype.hasOwnProperty.call(endpointUsersWrite, endpointId)) return;
-    void fetchEndpointUsersWritePermission(endpointId);
-  }, [showImportModal, importEndpointId, endpointUsersWrite, fetchEndpointUsersWritePermission]);
+    if (Object.prototype.hasOwnProperty.call(endpointPermissions, endpointId)) return;
+    void loadEndpointPermissions(endpointId);
+  }, [showImportModal, importEndpointId, endpointPermissions, loadEndpointPermissions]);
 
   useEffect(() => {
     if (!editingEndpointId) return;
-    if (Object.prototype.hasOwnProperty.call(endpointUsersWrite, editingEndpointId)) return;
-    void fetchEndpointUsersWritePermission(editingEndpointId);
-  }, [editingEndpointId, endpointUsersWrite, fetchEndpointUsersWritePermission]);
+    if (Object.prototype.hasOwnProperty.call(endpointPermissions, editingEndpointId)) return;
+    void loadEndpointPermissions(editingEndpointId);
+  }, [editingEndpointId, endpointPermissions, loadEndpointPermissions]);
 
   const loadEditQuota = async (userId: number) => {
     try {
@@ -641,8 +631,12 @@ export default function S3UsersPage() {
   const selectedImportEndpointId = importEndpointId ? Number(importEndpointId) : null;
   const createPermissionLoading = selectedCreateEndpointId ? Boolean(endpointPermissionLoading[selectedCreateEndpointId]) : false;
   const importPermissionLoading = selectedImportEndpointId ? Boolean(endpointPermissionLoading[selectedImportEndpointId]) : false;
-  const createEndpointCanWrite = selectedCreateEndpointId ? endpointUsersWrite[selectedCreateEndpointId] === true : false;
-  const importEndpointCanWrite = selectedImportEndpointId ? endpointUsersWrite[selectedImportEndpointId] === true : false;
+  const createEndpointCanWrite = selectedCreateEndpointId
+    ? endpointPermissions[selectedCreateEndpointId]?.users_write === true
+    : false;
+  const importEndpointCanWrite = selectedImportEndpointId
+    ? endpointPermissions[selectedImportEndpointId]?.users_write === true
+    : false;
   const createPermissionError = selectedCreateEndpointId ? endpointPermissionErrors[selectedCreateEndpointId] ?? null : null;
   const importPermissionError = selectedImportEndpointId ? endpointPermissionErrors[selectedImportEndpointId] ?? null : null;
   const createCurrentSignature = useMemo(
@@ -943,7 +937,7 @@ export default function S3UsersPage() {
                 />
                     {editPermissionLoading ? <p role="status">{adminText("Checking endpoint permissions...")}</p>
                       : editPermissionError ? <UiInlineMessage tone="error" role="alert">
-                        {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void fetchEndpointUsersWritePermission(editingEndpointId)}>{adminText("Retry permissions")}</SettingsButton>
+                        {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void loadEndpointPermissions(editingEndpointId)}>{adminText("Retry permissions")}</SettingsButton>
                       </UiInlineMessage>
                         : !allowUserQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and users=write on the endpoint.")}</UiInlineMessage>}
                     <SettingsSection title={adminText("Services and monitoring")} description={adminText("RGW User-specific overrides for shared Manager services.")} presentation="compact">
