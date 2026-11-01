@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from app.core.sensitive_data import sanitized_error_log_detail
 
@@ -192,40 +192,11 @@ class BucketMigrationPrecheckPlanner:
         probe_policy: Any,
         same_endpoint_copy_enabled: bool,
     ) -> PlannedPrecheckItem:
-        checks: list[dict[str, Any]] = []
-
-        def add_check(
-            *,
-            code: str,
-            severity: str,
-            blocking: bool,
-            scope: str,
-            message: str,
-            details: Optional[dict[str, Any]] = None,
-            permission: str | None = None,
-        ) -> None:
-            checks.append(
-                build_diagnostic(
-                    code=code,
-                    severity=severity,
-                    blocking=blocking,
-                    scope=scope,
-                    message=message,
-                    details=details,
-                    permission=permission,
-                )
-            )
-            target_scope = scope.startswith("target")
-            checks[-1]["context_id"] = (
-                target_ctx.context_id if target_scope else source_ctx.context_id
-            )
-            checks[-1]["bucket"] = (
-                item.target_bucket if target_scope else item.source_bucket
-            )
-            if permission:
-                checks[-1][
-                    "remediation"
-                ] = f"Allow {permission} for this execution identity, then run checks again."
+        checks, add_check = self._create_item_check_collector(
+            source_ctx,
+            target_ctx,
+            item,
+        )
 
         source = self._item_inspector.inspect_source_bucket(
             source_ctx,
@@ -280,6 +251,48 @@ class BucketMigrationPrecheckPlanner:
             checks=checks,
             copy_bucket_settings=bool(migration.copy_bucket_settings),
         )
+
+    @staticmethod
+    def _create_item_check_collector(
+        source_ctx: Any,
+        target_ctx: Any,
+        item: Any,
+    ) -> tuple[list[dict[str, Any]], Callable[..., None]]:
+        checks: list[dict[str, Any]] = []
+
+        def add_check(
+            *,
+            code: str,
+            severity: str,
+            blocking: bool,
+            scope: str,
+            message: str,
+            details: dict[str, Any] | None = None,
+            permission: str | None = None,
+        ) -> None:
+            check = build_diagnostic(
+                code=code,
+                severity=severity,
+                blocking=blocking,
+                scope=scope,
+                message=message,
+                details=details,
+                permission=permission,
+            )
+            target_scope = scope.startswith("target")
+            check["context_id"] = (
+                target_ctx.context_id if target_scope else source_ctx.context_id
+            )
+            check["bucket"] = (
+                item.target_bucket if target_scope else item.source_bucket
+            )
+            if permission:
+                check["remediation"] = (
+                    f"Allow {permission} for this execution identity, then run checks again."
+                )
+            checks.append(check)
+
+        return checks, add_check
 
     def _store_item_plan(
         self,
