@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
 import {
+  advancedFilterFieldHighlight,
   advancedFilterControlClass,
   advancedFilterFieldCardClass,
   advancedFilterSummaryChipClass,
@@ -8,6 +9,7 @@ import {
   formatAdvancedFilterSyncLabel,
   progressFromAdvancedSearchEvent,
   resolveQuickTextFilterState,
+  resolveTextFilterFieldState,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
@@ -16,6 +18,47 @@ import {
 } from "./advancedFilterShared";
 
 describe("advancedFilterShared", () => {
+  it("prioritizes pending field presentation over applied presentation", () => {
+    expect(advancedFilterFieldHighlight(true, true)).toEqual({
+      labelClass: expect.stringContaining("text-amber-700"),
+      fieldClass: expect.stringContaining("border-amber-400"),
+    });
+    expect(advancedFilterFieldHighlight(true, false)).toEqual({
+      labelClass: expect.stringContaining("text-emerald-700"),
+      fieldClass: expect.stringContaining("border-emerald-400"),
+    });
+    expect(advancedFilterFieldHighlight(false, false)).toEqual({
+      labelClass: "",
+      fieldClass: "",
+    });
+  });
+
+  it("resolves shared advanced text field modes and pending state", () => {
+    const listState = resolveTextFilterFieldState({
+      draftValue: " alice, bob ",
+      draftMode: "contains",
+      appliedValue: "alice,bob",
+      appliedMode: "contains",
+    });
+
+    expect(listState.draftValue).toBe("alice, bob");
+    expect(listState.appliedValue).toBe("alice,bob");
+    expect(listState.draftForcesExact).toBe(true);
+    expect(listState.draftMode).toBe("exact");
+    expect(listState.appliedMode).toBe("exact");
+    expect(listState.pending).toBe(true);
+    expect(listState.fieldState.fieldClass).toContain("border-amber-400");
+
+    const appliedState = resolveTextFilterFieldState({
+      draftValue: "alice",
+      draftMode: "exact",
+      appliedValue: " alice ",
+      appliedMode: "exact",
+    });
+    expect(appliedState.pending).toBe(false);
+    expect(appliedState.fieldState.fieldClass).toContain("border-emerald-400");
+  });
+
   it("derives quick text filter modes from draft and applied list input", () => {
     expect(
       resolveQuickTextFilterState({

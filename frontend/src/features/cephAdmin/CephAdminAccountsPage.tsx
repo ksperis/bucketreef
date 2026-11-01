@@ -45,6 +45,7 @@ import {
   formatAdvancedFilterSyncLabel,
   formatTextFilterSummary,
   parseExactListInput,
+  resolveTextFilterFieldState,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
@@ -65,7 +66,6 @@ import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilte
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
 import {
   resolveCephAdminQuickFilterState,
-  resolveCephAdminTextFilterFieldState,
 } from "./listing/cephAdminListingViewState";
 import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
@@ -343,13 +343,13 @@ export default function CephAdminAccountsPage() {
     selectedEndpointId,
   });
 
-  const accountNameFilter = resolveCephAdminTextFilterFieldState({
+  const accountNameFilter = resolveTextFilterFieldState({
     draftValue: advancedDraft.accountName,
     draftMode: advancedDraft.accountNameMatchMode,
     appliedValue: advancedApplied?.accountName,
     appliedMode: advancedApplied?.accountNameMatchMode,
   });
-  const emailFilter = resolveCephAdminTextFilterFieldState({
+  const emailFilter = resolveTextFilterFieldState({
     draftValue: advancedDraft.email,
     draftMode: advancedDraft.emailMatchMode,
     appliedValue: advancedApplied?.email,
