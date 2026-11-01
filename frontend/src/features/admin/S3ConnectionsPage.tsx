@@ -2,7 +2,6 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   isRecentWebAuthnVerificationCancelled,
@@ -31,7 +30,10 @@ import { extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { collectPaginatedItems } from "../../utils/pagination";
 import { normalizeUiTags } from "../../utils/uiTags";
-import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationPanelClass } from "./AdminAssociationPicker";
+import { adminAssociationPanelClass } from "./AdminAssociationPicker";
+import AdminSimpleIdAssociationsPanel, {
+  type AdminSimpleIdAssociationsState,
+} from "./AdminSimpleIdAssociationsPanel";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
 import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
@@ -287,22 +289,6 @@ export default function S3ConnectionsPage() {
     uiGroups.forEach((group) => map.set(group.id, group.name));
     return map;
   }, [uiGroups]);
-  const linkedEditUsers = useMemo(
-    () =>
-      editLinkedUserIds.map((id) => ({
-        id,
-        label: portalUserLabelById.get(id) ?? `User #${id}`,
-      })),
-    [editLinkedUserIds, portalUserLabelById]
-  );
-  const linkedEditGroups = useMemo(
-    () =>
-      editLinkedGroupIds.map((id) => ({
-        id,
-        label: groupLabelById.get(id) ?? `Group #${id}`,
-      })),
-    [editLinkedGroupIds, groupLabelById]
-  );
   const availableEditUsers = useMemo(() => {
     const query = editUserPicker.search.trim().toLowerCase();
     const selectedIds = new Set(editLinkedUserIds);
@@ -316,10 +302,41 @@ export default function S3ConnectionsPage() {
     const selectedIds = new Set(editLinkedGroupIds);
     return uiGroups
       .filter((group) => !selectedIds.has(group.id))
-      .filter((group) => !query || group.name.toLowerCase().includes(query));
+      .filter((group) => !query || group.name.toLowerCase().includes(query))
+      .map((group) => ({ id: group.id, label: group.name }));
   }, [editGroupPicker.search, editLinkedGroupIds, uiGroups]);
   const visibleAvailableEditUsers = useMemo(() => availableEditUsers.slice(0, maxLinkOptions), [availableEditUsers, maxLinkOptions]);
   const visibleAvailableEditGroups = useMemo(() => availableEditGroups.slice(0, maxLinkOptions), [availableEditGroups, maxLinkOptions]);
+  const editUserAssociationState: AdminSimpleIdAssociationsState = {
+    selected: editLinkedUserIds,
+    setSelected: setEditLinkedUserIds,
+    labelById: portalUserLabelById,
+    available: availableEditUsers,
+    visible: visibleAvailableEditUsers,
+    search: editUserPicker.search,
+    setSearch: editUserPicker.setSearch,
+    loading: false,
+    showPanel: editUserPicker.open,
+    setShowPanel: editUserPicker.setOpen,
+    selections: editUserPicker.selections,
+    setSelections: editUserPicker.setSelections,
+    toggleSelection: editUserPicker.toggleSelection,
+  };
+  const editGroupAssociationState: AdminSimpleIdAssociationsState = {
+    selected: editLinkedGroupIds,
+    setSelected: setEditLinkedGroupIds,
+    labelById: groupLabelById,
+    available: availableEditGroups,
+    visible: visibleAvailableEditGroups,
+    search: editGroupPicker.search,
+    setSearch: editGroupPicker.setSearch,
+    loading: false,
+    showPanel: editGroupPicker.open,
+    setShowPanel: editGroupPicker.setOpen,
+    selections: editGroupPicker.selections,
+    setSelections: editGroupPicker.setSelections,
+    toggleSelection: editGroupPicker.toggleSelection,
+  };
   const createCurrentSignature = useMemo(
     () =>
       buildCreateS3ConnectionSignature(
@@ -862,129 +879,47 @@ export default function S3ConnectionsPage() {
             )}
 
             {showEditUsersTab && (
-              <div className="settings-stack">
-                <AdminAssociationLinkedTable
-                  title={adminText("Linked UI users")}
-                  toolbar={{
-                    countLabel: adminText("{count} linked", { count: linkedEditUsers.length }),
-                    actionLabel: adminText(editUserPicker.open ? "Close" : "Add UI users"),
-                    onAction: () => editUserPicker.setOpen((prev) => !prev),
-                  }}
-                  headers={[
-                    { label: adminText("User") },
-                    { label: adminText("Actions"), align: "right" },
-                  ]}
-                  hasItems={linkedEditUsers.length > 0}
-                  emptyLabel={adminText("No linked users yet.")}
-                  rows={linkedEditUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td className="ui-table-primary">{user.label}</td>
-                      <td className="ui-table-actions-cell w-px text-right">
-                        <ListActionButton
-                          type="button"
-                          onClick={() => setEditLinkedUserIds((prev) => prev.filter((id) => id !== user.id))}
-                          variant="danger"
-                        >
-                          {adminText("Remove")}
-                        </ListActionButton>
-                      </td>
-                    </tr>
-                  ))}
-                />
-                {editUserPicker.open && (
-                  <AdminAssociationPickerPanel
-                    title={adminText("Add UI users")}
-                    hint={adminText("(filter by email)")}
-                    search={editUserPicker.search}
-                    onSearchChange={editUserPicker.setSearch}
-                    searchAriaLabel="Search UI users"
-                    loading={false}
-                    availableCount={availableEditUsers.length}
-                    maxVisibleOptions={maxLinkOptions}
-                    selectedCount={editUserPicker.selections.length}
-                    loadingLabel="Loading UI users..."
-                    onCancel={editUserPicker.reset}
-                    onAdd={() => {
-                      if (editUserPicker.selections.length === 0) return;
-                      setEditLinkedUserIds((prev) =>
-                        normalizeS3ConnectionLinkedIds([...prev, ...editUserPicker.selections]),
-                      );
-                      editUserPicker.reset();
-                    }}
-                    addDisabled={editUserPicker.selections.length === 0}
-                  >
-                    <AdminAssociationCheckboxOptions
-                      options={visibleAvailableEditUsers}
-                      selectedIds={editUserPicker.selections}
-                      onToggle={editUserPicker.toggleSelection}
-                      getLabel={(option) => option.label}
-                    />
-                  </AdminAssociationPickerPanel>
-                )}
-              </div>
+              <AdminSimpleIdAssociationsPanel
+                state={editUserAssociationState}
+                maxVisibleOptions={maxLinkOptions}
+                primaryLabel={adminText("User")}
+                actionsLabel={adminText("Actions")}
+                removeLabel={adminText("Remove")}
+                loadingMessage="Loading UI users..."
+                emptyMessage={adminText("No linked users yet.")}
+                pickerTitle={adminText("Add UI users")}
+                searchHint={adminText("(filter by email)")}
+                fallbackLabel={(id) => `User #${id}`}
+                searchAriaLabel="Search UI users"
+                normalizeSelection={normalizeS3ConnectionLinkedIds}
+                section={{
+                  title: adminText("Linked UI users"),
+                  countLabel: adminText("{count} linked", { count: editLinkedUserIds.length }),
+                  actionLabel: adminText(editUserPicker.open ? "Close" : "Add UI users"),
+                }}
+              />
             )}
 
             {showEditGroupsTab && (
-              <div className="settings-stack">
-                <AdminAssociationLinkedTable
-                  title={adminText("Linked UI groups")}
-                  toolbar={{
-                    countLabel: adminText("{count} linked", { count: linkedEditGroups.length }),
-                    actionLabel: adminText(editGroupPicker.open ? "Close" : "Add UI groups"),
-                    onAction: () => editGroupPicker.setOpen((prev) => !prev),
-                  }}
-                  headers={[
-                    { label: adminText("Group") },
-                    { label: adminText("Actions"), align: "right" },
-                  ]}
-                  hasItems={linkedEditGroups.length > 0}
-                  emptyLabel={adminText("No linked groups yet.")}
-                  rows={linkedEditGroups.map((group) => (
-                    <tr key={group.id}>
-                      <td className="ui-table-primary">{group.label}</td>
-                      <td className="ui-table-actions-cell w-px text-right">
-                        <ListActionButton
-                          type="button"
-                          onClick={() => setEditLinkedGroupIds((prev) => prev.filter((id) => id !== group.id))}
-                          variant="danger"
-                        >
-                          {adminText("Remove")}
-                        </ListActionButton>
-                      </td>
-                    </tr>
-                  ))}
-                />
-                {editGroupPicker.open && (
-                  <AdminAssociationPickerPanel
-                    title={adminText("Add UI groups")}
-                    hint={adminText("(filter by name)")}
-                    search={editGroupPicker.search}
-                    onSearchChange={editGroupPicker.setSearch}
-                    searchAriaLabel="Search UI groups"
-                    loading={false}
-                    availableCount={availableEditGroups.length}
-                    maxVisibleOptions={maxLinkOptions}
-                    selectedCount={editGroupPicker.selections.length}
-                    loadingLabel="Loading UI groups..."
-                    onCancel={editGroupPicker.reset}
-                    onAdd={() => {
-                      if (editGroupPicker.selections.length === 0) return;
-                      setEditLinkedGroupIds((prev) =>
-                        normalizeS3ConnectionLinkedIds([...prev, ...editGroupPicker.selections]),
-                      );
-                      editGroupPicker.reset();
-                    }}
-                    addDisabled={editGroupPicker.selections.length === 0}
-                  >
-                    <AdminAssociationCheckboxOptions
-                      options={visibleAvailableEditGroups}
-                      selectedIds={editGroupPicker.selections}
-                      onToggle={editGroupPicker.toggleSelection}
-                      getLabel={(group) => group.name}
-                    />
-                  </AdminAssociationPickerPanel>
-                )}
-              </div>
+              <AdminSimpleIdAssociationsPanel
+                state={editGroupAssociationState}
+                maxVisibleOptions={maxLinkOptions}
+                primaryLabel={adminText("Group")}
+                actionsLabel={adminText("Actions")}
+                removeLabel={adminText("Remove")}
+                loadingMessage="Loading UI groups..."
+                emptyMessage={adminText("No linked groups yet.")}
+                pickerTitle={adminText("Add UI groups")}
+                searchHint={adminText("(filter by name)")}
+                fallbackLabel={(id) => `Group #${id}`}
+                searchAriaLabel="Search UI groups"
+                normalizeSelection={normalizeS3ConnectionLinkedIds}
+                section={{
+                  title: adminText("Linked UI groups"),
+                  countLabel: adminText("{count} linked", { count: editLinkedGroupIds.length }),
+                  actionLabel: adminText(editGroupPicker.open ? "Close" : "Add UI groups"),
+                }}
+              />
             )}
             </WorkflowTabs>
 
