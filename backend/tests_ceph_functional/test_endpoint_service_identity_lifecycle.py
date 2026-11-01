@@ -12,6 +12,7 @@ from app.db import Base, StorageEndpoint
 from app.services.endpoint_service_identities import EndpointServiceIdentityService
 from app.services.rgw_admin import get_rgw_admin_client
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
+from app.utils.storage_endpoint_features import normalize_features
 
 pytestmark = [
     pytest.mark.ceph_functional,
@@ -41,7 +42,10 @@ def test_restricted_admin_ops_creates_and_revokes_runtime_supervision(ceph_test_
         endpoint = StorageEndpoint(name="Isolated qualification", endpoint_url=config.rgw_admin_endpoint, provider="ceph",
                                    region=config.rgw_admin_region, verify_tls=config.rgw_verify_tls,
                                    admin_access_key=credentials[0]["access_key"], admin_secret_key=credentials[0]["secret_key"],
-                                   features_config="features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
+                                   features=normalize_features("ceph", {
+                                       "admin": {"enabled": True},
+                                       "metrics": {"enabled": True},
+                                   }, config.rgw_admin_region))
         db.add(endpoint); db.commit()
         service.reconcile(endpoint)
         for kind in ("runtime", "supervision"):
