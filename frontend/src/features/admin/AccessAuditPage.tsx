@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ACCESS_AUDIT_RIGHTS,
@@ -29,6 +29,7 @@ import AccessAuditTable from "./AccessAuditTable";
 import { useAccessAuditI18n } from "./accessAuditMessage";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import useAdminPaginationState from "./useAdminPaginationState";
+import useAdminPaginatedResourceController from "./useAdminPaginatedResourceController";
 
 type AllOr<T extends string> = "all" | T;
 
@@ -64,12 +65,7 @@ export default function AccessAuditPage() {
   const [targetId, setTargetId] = useState<number | undefined>(() => positiveInt(searchParams.get("target_id")));
   const [sortBy, setSortBy] = useState<AccessAuditSortBy>("user");
   const [sortDir, setSortDir] = useState<AccessAuditSortDir>("asc");
-  const [rows, setRows] = useState<AccessAuditRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [failure, setFailure] = useState<{ cause: unknown; fallbackKey: "loadError" | "exportError" } | null>(null);
   const [exporting, setExporting] = useState(false);
-  const error = failure ? extractApiError(failure.cause, text(failure.fallbackKey)) : null;
 
   const query = useMemo(() => ({
     search: search.trim() || undefined,
@@ -82,6 +78,26 @@ export default function AccessAuditPage() {
     sort_by: sortBy,
     sort_dir: sortDir,
   }), [groupId, right, scope, search, sortBy, sortDir, source, targetId, userId]);
+  const loadAccessAuditPage = useCallback(
+    () => listAccessAudit({ ...query, page, page_size: pageSize }),
+    [page, pageSize, query],
+  );
+  const formatAccessAuditLoadError = useCallback(
+    (cause: unknown) => extractApiError(cause, text("loadError")),
+    [text],
+  );
+  const {
+    items: rows,
+    total,
+    loading,
+    error,
+    setError,
+  } = useAdminPaginatedResourceController<AccessAuditRow>({
+    loadPage: loadAccessAuditPage,
+    ensurePageInRange,
+    formatError: formatAccessAuditLoadError,
+    resetResourceOnError: true,
+  });
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -95,27 +111,6 @@ export default function AccessAuditPage() {
     setSearchParams(params, { replace: true });
   }, [query, setSearchParams]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setFailure(null);
-    listAccessAudit({ ...query, page, page_size: pageSize })
-      .then((response) => {
-        if (cancelled) return;
-        if (!ensurePageInRange(response.total)) return;
-        setRows(response.items);
-        setTotal(response.total);
-      })
-      .catch((cause) => {
-        if (cancelled) return;
-        setRows([]);
-        setTotal(0);
-        setFailure({ cause, fallbackKey: "loadError" });
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [ensurePageInRange, page, pageSize, query]);
-
   function handleSort(field: AccessAuditSortBy) {
     resetPage();
     if (field === sortBy) setSortDir((current) => current === "asc" ? "desc" : "asc");
@@ -124,11 +119,11 @@ export default function AccessAuditPage() {
 
   async function handleExport() {
     setExporting(true);
-    setFailure(null);
+    setError(null);
     try {
       triggerBlobDownload("access-audit.csv", await downloadAccessAuditCsv(query));
     } catch (cause) {
-      setFailure({ cause, fallbackKey: "exportError" });
+      setError(extractApiError(cause, text("exportError")));
     } finally {
       setExporting(false);
     }
