@@ -26,6 +26,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
+import { formatLocalDateTime } from "../../utils/dateTime";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { useAdminI18n } from "./adminI18n";
 
@@ -42,12 +43,6 @@ export default function S3UserKeysPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<CreatedS3UserAccessKey | null>(null);
   const keyConfirmation = useConfirmActionDialog();
-
-  const formatDate = (value?: string | null) => {
-    if (!value) return "-";
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(intlLocale);
-  };
 
   const loadUser = useCallback(async () => {
     if (!Number.isFinite(numericUserId)) return;
@@ -206,7 +201,7 @@ export default function S3UserKeysPage() {
       cellClassName: "text-slate-700 dark:text-slate-200",
       render: (key) => adminText(key.is_active ? "Active" : "Disabled"),
     },
-    { id: "created", label: adminText("Created on"), render: (key) => formatDate(key.created_at) },
+    { id: "created", label: adminText("Created on"), render: (key) => formatLocalDateTime(key.created_at, intlLocale) },
     {
       id: "usage",
       label: adminText("Usage"),

@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { HealthCheckStatus } from "../../api/healthchecks";
 import type { UiLanguage } from "../../components/language";
 import { intlLocale } from "../../i18n";
+import { formatLocalDateTime } from "../../utils/dateTime";
 import { endpointStatusText, useEndpointStatusText } from "./endpointStatusMessages";
 
 export function formatStatusLabel(status: HealthCheckStatus, locale: UiLanguage = "en") {
@@ -26,9 +27,7 @@ export function StatusPill({ status }: { status: HealthCheckStatus }) {
 }
 
 export function formatTimestamp(value: string, locale?: UiLanguage) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(intlLocale(locale ?? "en"));
+  return formatLocalDateTime(value, intlLocale(locale ?? "en"));
 }
 
 export function formatChartTime(value: number, locale?: UiLanguage) {

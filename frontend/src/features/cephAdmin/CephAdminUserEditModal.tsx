@@ -40,6 +40,7 @@ import UsageTile from "../../components/UsageTile";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 
 import { extractApiError } from "../../utils/apiError";
+import { formatLocalDateTime } from "../../utils/dateTime";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { stableSignature } from "../../utils/stableSignature";
@@ -76,12 +77,6 @@ const keyActive = (key: CephAdminRgwAccessKey): boolean => {
   if (["disabled", "inactive", "suspended"].includes(status)) return false;
   if (["active", "enabled"].includes(status)) return true;
   return true;
-};
-
-const formatDate = (value?: string | null) => {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 };
 
 export default function CephAdminUserEditModal({
@@ -619,7 +614,7 @@ export default function CephAdminUserEditModal({
           {
             id: "created",
             label: surfaceText("Created"),
-            render: (key) => formatDate(key.created_at),
+            render: (key) => formatLocalDateTime(key.created_at),
           },
           {
             id: "actions",

@@ -30,6 +30,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { toolbarCompactToggleClasses } from "../../components/toolbarControlClasses";
 import { extractApiError } from "../../utils/apiError";
 import { copyTextToClipboard } from "../../utils/clipboard";
+import { formatLocalDateTime } from "../../utils/dateTime";
 import { stableSignature } from "../../utils/stableSignature";
 import { useAdminI18n } from "./adminI18n";
 
@@ -48,13 +49,6 @@ const API_SCOPES = [
   "browser:read", "browser:write", "portal:read", "portal:write", "ceph-admin:read", "ceph-admin:write",
   "storage-ops:read", "storage-ops:write",
 ];
-
-function formatDate(value: string | null | undefined, intlLocale: string): string {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString(intlLocale);
-}
 
 function resolveTokenStatus(token: ApiTokenInfo): TokenStatus {
   if (token.revoked_at) return "revoked";
@@ -296,17 +290,17 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
     {
       id: "created",
       label: "Created",
-      render: (token) => formatDate(token.created_at, intlLocale),
+      render: (token) => formatLocalDateTime(token.created_at, intlLocale),
     },
     {
       id: "expires",
       label: "Expires",
-      render: (token) => formatDate(token.expires_at, intlLocale),
+      render: (token) => formatLocalDateTime(token.expires_at, intlLocale),
     },
     {
       id: "last-used",
       label: "Last used",
-      render: (token) => formatDate(token.last_used_at, intlLocale),
+      render: (token) => formatLocalDateTime(token.last_used_at, intlLocale),
     },
     {
       id: "status",

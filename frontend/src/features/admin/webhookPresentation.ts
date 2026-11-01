@@ -1,13 +1,12 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { WebhookDeliveryStatus } from "../../api/webhooks";
+import { formatLocalDateTime } from "../../utils/dateTime";
 
 export function formatWebhookDate(
   value: string | null | undefined,
   intlLocale: string,
 ): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(intlLocale);
+  return formatLocalDateTime(value, intlLocale);
 }
 
 export function webhookDeliveryTone(
