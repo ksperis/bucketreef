@@ -88,6 +88,13 @@ class FirstAdminBootstrapService:
     def _has_users(self) -> bool:
         return int(self.db.scalar(select(func.count(User.id))) or 0) != 0
 
+    def _passkey_enrollment_required(self) -> bool:
+        return bool(
+            load_app_settings_for_db_readonly(
+                self.db
+            ).general.require_passkey_for_admins
+        )
+
     def is_available(self) -> bool:
         now = utcnow()
         if self._has_users():
@@ -193,9 +200,7 @@ class FirstAdminBootstrapService:
             raise FirstAdminBootstrapUnavailableError(
                 "First administrator bootstrap is unavailable"
             )
-        passkey_enrollment_required = bool(
-            load_app_settings_for_db_readonly(self.db).general.require_passkey_for_admins
-        )
+        passkey_enrollment_required = self._passkey_enrollment_required()
 
         changed = self.db.execute(
             update(FirstAdminBootstrap)
@@ -214,39 +219,17 @@ class FirstAdminBootstrapService:
                 "First administrator bootstrap is unavailable"
             )
 
-        user = self._new_user(normalized_email, full_name, password)
-        self.db.add(user)
-        try:
-            self.db.flush()
-            self.db.execute(
-                update(FirstAdminBootstrap)
-                .where(FirstAdminBootstrap.id == FIRST_ADMIN_BOOTSTRAP_ID)
-                .values(created_user_id=user.id)
-            )
-            user_id = int(user.id)
-            self.db.commit()
-        except IntegrityError as exc:
-            self.db.rollback()
-            raise FirstAdminBootstrapUnavailableError(
-                "First administrator bootstrap is unavailable"
-            ) from exc
-
-        user = self.db.get(User, user_id)
-        AuditService(self.db).record_action(
-            user=user,
-            scope="security",
+        return self._complete_admin_creation(
+            normalized_email=normalized_email,
+            full_name=full_name,
+            password=password,
             action="first_admin_bootstrap_completed",
-            entity_type="user",
-            entity_id=str(user_id),
-            metadata={
-                "method": "web",
-                "passkey_enrollment_required": passkey_enrollment_required,
-            },
+            method="web",
+            passkey_enrollment_required=passkey_enrollment_required,
             ip_address=ip_address,
             user_agent=user_agent,
             request_id=request_id,
         )
-        return CreatedFirstAdmin(user_id=user_id, email=normalized_email)
 
     def create_from_cli(
         self,
@@ -268,9 +251,7 @@ class FirstAdminBootstrapService:
                 "The database already contains users; "
                 "create administrators through the UI"
             )
-        passkey_enrollment_required = bool(
-            load_app_settings_for_db_readonly(self.db).general.require_passkey_for_admins
-        )
+        passkey_enrollment_required = self._passkey_enrollment_required()
 
         now = utcnow()
         row = self.db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
@@ -298,8 +279,37 @@ class FirstAdminBootstrapService:
                         "First administrator bootstrap is unavailable"
                     )
 
-            user = self._new_user(normalized_email, full_name, password)
-            self.db.add(user)
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise FirstAdminBootstrapUnavailableError(
+                "First administrator bootstrap is unavailable"
+            ) from exc
+
+        return self._complete_admin_creation(
+            normalized_email=normalized_email,
+            full_name=full_name,
+            password=password,
+            action="operator_create_first_superadmin",
+            method="cli",
+            passkey_enrollment_required=passkey_enrollment_required,
+        )
+
+    def _complete_admin_creation(
+        self,
+        *,
+        normalized_email: str,
+        full_name: Optional[str],
+        password: str,
+        action: str,
+        method: str,
+        passkey_enrollment_required: bool,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> CreatedFirstAdmin:
+        user = self._new_user(normalized_email, full_name, password)
+        self.db.add(user)
+        try:
             self.db.flush()
             self.db.execute(
                 update(FirstAdminBootstrap)
@@ -318,13 +328,16 @@ class FirstAdminBootstrapService:
         AuditService(self.db).record_action(
             user=user,
             scope="security",
-            action="operator_create_first_superadmin",
+            action=action,
             entity_type="user",
             entity_id=str(user_id),
             metadata={
-                "method": "cli",
+                "method": method,
                 "passkey_enrollment_required": passkey_enrollment_required,
             },
+            ip_address=ip_address,
+            user_agent=user_agent,
+            request_id=request_id,
         )
         return CreatedFirstAdmin(user_id=user_id, email=normalized_email)
 
