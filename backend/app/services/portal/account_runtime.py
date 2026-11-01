@@ -11,7 +11,10 @@ from app.db import PortalStorageSpaceMetadata, S3Account
 from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
-from app.utils.quota_stats import extract_positive_limit, extract_quota_limits
+from app.utils.quota_stats import (
+    extract_rgw_account_positive_limit,
+    extract_rgw_account_quota_limits,
+)
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
@@ -81,8 +84,12 @@ class PortalAccountRuntimeMixin:
         except RGWAdminError as exc:
             logger.warning("Unable to fetch portal account limits for %s: %s", account.rgw_account_id, exc)
             return None, None, None
-        max_size_bytes, max_objects = extract_quota_limits(payload, keys=("quota", "account_quota"))
-        return max_size_bytes, max_objects, extract_positive_limit(payload, "max_buckets")
+        max_size_bytes, max_objects = extract_rgw_account_quota_limits(payload)
+        return (
+            max_size_bytes,
+            max_objects,
+            extract_rgw_account_positive_limit(payload, "max_buckets"),
+        )
 
     def _admin_bucket_list(self, account: S3Account, admin: Optional[RGWAdminClient] = None) -> list[dict]:
         rgw_admin = admin or self._runtime_read_for_account(account)

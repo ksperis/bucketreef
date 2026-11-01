@@ -21,7 +21,13 @@ class _AccountLimitsAdmin:
         self.account_calls += 1
         return {
             "id": account_id,
-            "limits": {"max_buckets": 5},
+            "quota": {"enabled": True, "max_size": 1, "max_objects": 1},
+            "limits": {"max_buckets": 1},
+            "account": {
+                "id": account_id,
+                "quota": {"enabled": True, "max_size": 4096, "max_objects": 10},
+                "limits": {"max_buckets": 5},
+            },
         }
 
     def get_account_quota(self, account_id: str) -> tuple[int, int]:
@@ -34,7 +40,7 @@ def test_account_limits_do_not_repeat_lookup_without_embedded_quota(db_session, 
     admin = _AccountLimitsAdmin()
     monkeypatch.setattr(service, "_runtime_for_account", lambda _account: admin)
 
-    assert service._account_limits(account) == (None, None, 5)
+    assert service._account_limits(account) == (4096, 10, 5)
     assert admin.account_calls == 1
 
 

@@ -8,7 +8,11 @@ from typing import Optional
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.utils.quota_stats import bytes_to_gb, extract_positive_limit, extract_quota_limits
+from app.utils.quota_stats import (
+    bytes_to_gb,
+    extract_rgw_account_positive_limit,
+    extract_rgw_account_quota_limits,
+)
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.usage_stats import aggregate_bucket_usage
 
@@ -87,12 +91,12 @@ class S3AccountMetricsService:
         except RGWAdminError as exc:
             logger.warning("Unable to fetch account limits for %s: %s", account.rgw_account_id, exc)
             return None, None, None, None, None, None
-        max_size_bytes, max_objects = extract_quota_limits(payload, keys=("quota", "account_quota"))
+        max_size_bytes, max_objects = extract_rgw_account_quota_limits(payload)
         return (
             bytes_to_gb(max_size_bytes),
             max_objects,
-            extract_positive_limit(payload, "max_buckets"),
-            extract_positive_limit(payload, "max_users"),
-            extract_positive_limit(payload, "max_roles"),
-            extract_positive_limit(payload, "max_groups"),
+            extract_rgw_account_positive_limit(payload, "max_buckets"),
+            extract_rgw_account_positive_limit(payload, "max_users"),
+            extract_rgw_account_positive_limit(payload, "max_roles"),
+            extract_rgw_account_positive_limit(payload, "max_groups"),
         )
