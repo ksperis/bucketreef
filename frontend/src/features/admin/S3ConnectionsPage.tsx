@@ -125,24 +125,8 @@ export default function S3ConnectionsPage() {
   const [editTab, setEditTab] = useState<EditTab>("general");
   const [editLinkedUserIds, setEditLinkedUserIds] = useState<number[]>([]);
   const [editLinkedGroupIds, setEditLinkedGroupIds] = useState<number[]>([]);
-  const {
-    search: editUserSearch,
-    setSearch: setEditUserSearch,
-    open: showEditUserPanel,
-    setOpen: setShowEditUserPanel,
-    selections: editUserSelections,
-    reset: resetEditUserPicker,
-    toggleSelection: toggleEditUserSelection,
-  } = useAdminAssociationPickerState();
-  const {
-    search: editGroupSearch,
-    setSearch: setEditGroupSearch,
-    open: showEditGroupPanel,
-    setOpen: setShowEditGroupPanel,
-    selections: editGroupSelections,
-    reset: resetEditGroupPicker,
-    toggleSelection: toggleEditGroupSelection,
-  } = useAdminAssociationPickerState();
+  const editUserPicker = useAdminAssociationPickerState();
+  const editGroupPicker = useAdminAssociationPickerState();
   const maxLinkOptions = 10;
 
   const [deleteTarget, setDeleteTarget] = useState<S3ConnectionAdminItem | null>(null);
@@ -171,20 +155,20 @@ export default function S3ConnectionsPage() {
     Boolean(showCreateModal || editing)
   );
 
-  const resetEditUsersState = useCallback(() => {
+  const resetEditUsersState = () => {
     setEditTab("general");
     setEditLinkedUserIds([]);
     setEditLinkedGroupIds([]);
-    resetEditUserPicker();
-    resetEditGroupPicker();
-  }, [resetEditGroupPicker, resetEditUserPicker]);
-  const closeEditModal = useCallback(() => {
+    editUserPicker.reset();
+    editGroupPicker.reset();
+  };
+  const closeEditModal = () => {
     setEditing(null);
     setEditError(null);
     setEditCredentials({ access_key_id: "", secret_access_key: "" });
     setEditInitialSignature("");
     resetEditUsersState();
-  }, [resetEditUsersState]);
+  };
 
   const resetCreateForm = () => {
     const nextForm = createDefaultAdminS3ConnectionForm();
@@ -336,20 +320,20 @@ export default function S3ConnectionsPage() {
     [editLinkedGroupIds, groupLabelById]
   );
   const availableEditUsers = useMemo(() => {
-    const query = editUserSearch.trim().toLowerCase();
+    const query = editUserPicker.search.trim().toLowerCase();
     const selectedIds = new Set(editLinkedUserIds);
     return portalUsers
       .filter((user) => !selectedIds.has(user.id))
       .filter((user) => !query || user.email.toLowerCase().includes(query))
       .map((user) => ({ id: user.id, label: user.email }));
-  }, [editLinkedUserIds, editUserSearch, portalUsers]);
+  }, [editLinkedUserIds, editUserPicker.search, portalUsers]);
   const availableEditGroups = useMemo(() => {
-    const query = editGroupSearch.trim().toLowerCase();
+    const query = editGroupPicker.search.trim().toLowerCase();
     const selectedIds = new Set(editLinkedGroupIds);
     return uiGroups
       .filter((group) => !selectedIds.has(group.id))
       .filter((group) => !query || group.name.toLowerCase().includes(query));
-  }, [editGroupSearch, editLinkedGroupIds, uiGroups]);
+  }, [editGroupPicker.search, editLinkedGroupIds, uiGroups]);
   const visibleAvailableEditUsers = useMemo(() => availableEditUsers.slice(0, maxLinkOptions), [availableEditUsers, maxLinkOptions]);
   const visibleAvailableEditGroups = useMemo(() => availableEditGroups.slice(0, maxLinkOptions), [availableEditGroups, maxLinkOptions]);
   const createCurrentSignature = useMemo(
@@ -473,8 +457,8 @@ export default function S3ConnectionsPage() {
     setEditTab(initialTab);
     setEditLinkedUserIds(nextLinkedUserIds);
     setEditLinkedGroupIds(nextLinkedGroupIds);
-    resetEditUserPicker();
-    resetEditGroupPicker();
+    editUserPicker.reset();
+    editGroupPicker.reset();
     const nextCredentialDraft = { access_key_id: "", secret_access_key: "" };
     setEditCredentials(nextCredentialDraft);
     setEditInitialSignature(
@@ -899,8 +883,8 @@ export default function S3ConnectionsPage() {
                   title={adminText("Linked UI users")}
                   toolbar={{
                     countLabel: adminText("{count} linked", { count: linkedEditUsers.length }),
-                    actionLabel: adminText(showEditUserPanel ? "Close" : "Add UI users"),
-                    onAction: () => setShowEditUserPanel((prev) => !prev),
+                    actionLabel: adminText(editUserPicker.open ? "Close" : "Add UI users"),
+                    onAction: () => editUserPicker.setOpen((prev) => !prev),
                   }}
                   headers={[
                     { label: adminText("User") },
@@ -923,32 +907,32 @@ export default function S3ConnectionsPage() {
                     </tr>
                   ))}
                 />
-                {showEditUserPanel && (
+                {editUserPicker.open && (
                   <AdminAssociationPickerPanel
                     title={adminText("Add UI users")}
                     hint={adminText("(filter by email)")}
-                    search={editUserSearch}
-                    onSearchChange={setEditUserSearch}
+                    search={editUserPicker.search}
+                    onSearchChange={editUserPicker.setSearch}
                     searchAriaLabel="Search UI users"
                     loading={false}
                     availableCount={availableEditUsers.length}
                     maxVisibleOptions={maxLinkOptions}
-                    selectedCount={editUserSelections.length}
+                    selectedCount={editUserPicker.selections.length}
                     loadingLabel="Loading UI users..."
-                    onCancel={resetEditUserPicker}
+                    onCancel={editUserPicker.reset}
                     onAdd={() => {
-                      if (editUserSelections.length === 0) return;
+                      if (editUserPicker.selections.length === 0) return;
                       setEditLinkedUserIds((prev) =>
-                        normalizeS3ConnectionLinkedIds([...prev, ...editUserSelections]),
+                        normalizeS3ConnectionLinkedIds([...prev, ...editUserPicker.selections]),
                       );
-                      resetEditUserPicker();
+                      editUserPicker.reset();
                     }}
-                    addDisabled={editUserSelections.length === 0}
+                    addDisabled={editUserPicker.selections.length === 0}
                   >
                     <AdminAssociationCheckboxOptions
                       options={visibleAvailableEditUsers}
-                      selectedIds={editUserSelections}
-                      onToggle={toggleEditUserSelection}
+                      selectedIds={editUserPicker.selections}
+                      onToggle={editUserPicker.toggleSelection}
                       getLabel={(option) => option.label}
                     />
                   </AdminAssociationPickerPanel>
@@ -962,8 +946,8 @@ export default function S3ConnectionsPage() {
                   title={adminText("Linked UI groups")}
                   toolbar={{
                     countLabel: adminText("{count} linked", { count: linkedEditGroups.length }),
-                    actionLabel: adminText(showEditGroupPanel ? "Close" : "Add UI groups"),
-                    onAction: () => setShowEditGroupPanel((prev) => !prev),
+                    actionLabel: adminText(editGroupPicker.open ? "Close" : "Add UI groups"),
+                    onAction: () => editGroupPicker.setOpen((prev) => !prev),
                   }}
                   headers={[
                     { label: adminText("Group") },
@@ -986,32 +970,32 @@ export default function S3ConnectionsPage() {
                     </tr>
                   ))}
                 />
-                {showEditGroupPanel && (
+                {editGroupPicker.open && (
                   <AdminAssociationPickerPanel
                     title={adminText("Add UI groups")}
                     hint={adminText("(filter by name)")}
-                    search={editGroupSearch}
-                    onSearchChange={setEditGroupSearch}
+                    search={editGroupPicker.search}
+                    onSearchChange={editGroupPicker.setSearch}
                     searchAriaLabel="Search UI groups"
                     loading={false}
                     availableCount={availableEditGroups.length}
                     maxVisibleOptions={maxLinkOptions}
-                    selectedCount={editGroupSelections.length}
+                    selectedCount={editGroupPicker.selections.length}
                     loadingLabel="Loading UI groups..."
-                    onCancel={resetEditGroupPicker}
+                    onCancel={editGroupPicker.reset}
                     onAdd={() => {
-                      if (editGroupSelections.length === 0) return;
+                      if (editGroupPicker.selections.length === 0) return;
                       setEditLinkedGroupIds((prev) =>
-                        normalizeS3ConnectionLinkedIds([...prev, ...editGroupSelections]),
+                        normalizeS3ConnectionLinkedIds([...prev, ...editGroupPicker.selections]),
                       );
-                      resetEditGroupPicker();
+                      editGroupPicker.reset();
                     }}
-                    addDisabled={editGroupSelections.length === 0}
+                    addDisabled={editGroupPicker.selections.length === 0}
                   >
                     <AdminAssociationCheckboxOptions
                       options={visibleAvailableEditGroups}
-                      selectedIds={editGroupSelections}
-                      onToggle={toggleEditGroupSelection}
+                      selectedIds={editGroupPicker.selections}
+                      onToggle={editGroupPicker.toggleSelection}
                       getLabel={(group) => group.name}
                     />
                   </AdminAssociationPickerPanel>
