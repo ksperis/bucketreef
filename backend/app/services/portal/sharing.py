@@ -199,6 +199,58 @@ class PortalSharingMixin:
         user_ids.update(user_id for user_id in grant_user_ids if user_id is not None)
         return user_ids
 
+    def _storage_space_access_mode(
+        self,
+        metadata: PortalStorageSpaceMetadata,
+    ) -> str:
+        if self._metadata_visibility(metadata) != "shared":
+            return "private"
+        return "all" if self._metadata_share_scope(metadata) == "account" else "restricted"
+
+    def _storage_space_explicit_shares(
+        self,
+        actor: User,
+        metadata: PortalStorageSpaceMetadata,
+        *,
+        storage_space_id: str,
+        storage_space_name: str,
+    ) -> list[PortalStorageSpaceShare]:
+        rows = self.db.execute(
+            select(PortalStorageSpaceGrant, User)
+            .join(User, User.id == PortalStorageSpaceGrant.user_id)
+            .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
+        ).all()
+        shares = [
+            self._storage_space_share_card(
+                actor,
+                target,
+                storage_space_id,
+                storage_space_name,
+                grant.role,
+            )
+            for grant, target in rows
+            if grant.role in {"Viewer", "Editor"}
+        ]
+        return sorted(shares, key=lambda item: item.email.lower())
+
+    def _storage_space_public_link_count(
+        self,
+        account_id: int,
+        bucket_name: str,
+    ) -> int:
+        return int(
+            self.db.scalar(
+                select(func.count())
+                .select_from(DBPortalPublicLink)
+                .where(
+                    DBPortalPublicLink.account_id == account_id,
+                    DBPortalPublicLink.bucket_name == bucket_name,
+                    DBPortalPublicLink.revoked_at.is_(None),
+                )
+            )
+            or 0
+        )
+
     def get_storage_space_access_summary(
         self,
         user: User,
@@ -227,44 +279,22 @@ class PortalSharingMixin:
             and metadata.archived_at is None
             and self._metadata_visibility(metadata) == "shared"
         )
-        mode = "private"
-        if self._metadata_visibility(metadata) == "shared":
-            mode = "all" if self._metadata_share_scope(metadata) == "account" else "restricted"
-        explicit_share_rows = self.db.execute(
-            select(PortalStorageSpaceGrant, User)
-            .join(User, User.id == PortalStorageSpaceGrant.user_id)
-            .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
-        ).all()
-        explicit_shares = [
-            self._storage_space_share_card(
-                user,
-                target,
-                storage_space.id,
-                storage_space.name,
-                grant.role,
-            )
-            for grant, target in explicit_share_rows
-            if grant.role in {"Viewer", "Editor"}
-        ]
-        public_link_count = int(
-            self.db.scalar(
-                select(func.count())
-                .select_from(DBPortalPublicLink)
-                .where(
-                    DBPortalPublicLink.account_id == access.account.id,
-                    DBPortalPublicLink.bucket_name == bucket_name,
-                    DBPortalPublicLink.revoked_at.is_(None),
-                )
-            )
-            or 0
+        explicit_shares = self._storage_space_explicit_shares(
+            user,
+            metadata,
+            storage_space_id=storage_space.id,
+            storage_space_name=storage_space.name,
         )
         return PortalStorageSpaceAccessSummary(
-            mode=mode,
+            mode=self._storage_space_access_mode(metadata),
             default_account_member_role=self._metadata_account_member_role(metadata),
             owner=self._storage_space_owner_person(metadata, access.account),
             effective_member_count=len(self._storage_space_effective_access_user_ids(metadata)),
-            explicit_shares=sorted(explicit_shares, key=lambda item: item.email.lower()),
-            public_link_count=public_link_count,
+            explicit_shares=explicit_shares,
+            public_link_count=self._storage_space_public_link_count(
+                access.account.id,
+                bucket_name,
+            ),
             can_manage_access=can_manage_access,
             can_create_public_links=bool(
                 metadata.archived_at is None
