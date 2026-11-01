@@ -331,6 +331,11 @@ class BucketMigrationMaintenanceMixin:
             raise RuntimeError(
                 "Destination provenance is missing; source deletion is blocked"
             )
+        receipt = self._verify_source_cleanup_contents(item, source, target, check)
+        self._delete_verified_source_bucket(item, source, receipt=receipt, check=check)
+        self._finalize_verified_source_cleanup(item, target)
+
+    def _verify_source_cleanup_contents(self, item, source, target, check) -> dict | None:
         # Deletion always verifies the complete history, even if the original
         # transfer only needed current objects. Newly enabled versioning cannot
         # hide extra source versions from the cleanup check.
@@ -370,33 +375,40 @@ class BucketMigrationMaintenanceMixin:
                 "verified_at": utcnow().isoformat(),
             }
             self._commit()
+        return receipt
+
+    def _build_source_cleanup_policy(self, item) -> dict:
+        policy = self._build_read_only_policy(
+            item.source_bucket, item.source_policy_backup
+        )
+        deny = policy["Statement"][-1]
+        deletes = [
+            action for action in deny["Action"] if action.startswith("s3:Delete")
+        ]
+        deny["Action"] = [
+            action for action in deny["Action"] if action not in deletes
+        ]
+        policy["Statement"].append(
+            {
+                **deny,
+                "Sid": "BucketReefCleanupDeleteProtection",
+                "Action": deletes,
+                "Condition": {
+                    "StringNotLike": {
+                        "aws:UserAgent": f"*{MIGRATION_USER_AGENT_MARKER}*"
+                    }
+                },
+            }
+        )
+        return policy
+
+    def _delete_verified_source_bucket(self, item, source, *, receipt, check) -> None:
         check()
         source_exists = self._precheck_bucket_exists(source, item.source_bucket)
         if source_exists is None:
             raise RuntimeError("Source existence could not be verified")
         if source_exists:
-            policy = self._build_read_only_policy(
-                item.source_bucket, item.source_policy_backup
-            )
-            deny = policy["Statement"][-1]
-            deletes = [
-                action for action in deny["Action"] if action.startswith("s3:Delete")
-            ]
-            deny["Action"] = [
-                action for action in deny["Action"] if action not in deletes
-            ]
-            policy["Statement"].append(
-                {
-                    **deny,
-                    "Sid": "BucketReefCleanupDeleteProtection",
-                    "Action": deletes,
-                    "Condition": {
-                        "StringNotLike": {
-                            "aws:UserAgent": f"*{MIGRATION_USER_AGENT_MARKER}*"
-                        }
-                    },
-                }
-            )
+            policy = self._build_source_cleanup_policy(item)
             if receipt:
                 current_policy = self._configuration.get_policy(
                     item.source_bucket, source.execution_context
@@ -411,6 +423,8 @@ class BucketMigrationMaintenanceMixin:
         if self._precheck_bucket_exists(source, item.source_bucket) is not False:
             raise RuntimeError("Source removal could not be verified")
         self._remove_deleted_bucket_ui_tags(source, item.source_bucket)
+
+    def _finalize_verified_source_cleanup(self, item, target) -> None:
         item.source_deleted = True
         item.read_only_applied = False
         item.source_policy_backup = None
