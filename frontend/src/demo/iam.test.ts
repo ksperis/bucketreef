@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import { describe, expect, it } from "vitest";
 
+import { buildIamAccessKey } from "../test/accessKeys";
 import { currentUser, type DemoRequest } from "./http";
 import { iam } from "./iam";
 import { createSeed } from "./state";
@@ -44,7 +45,7 @@ describe("demo IAM mutations", () => {
   it("updates an IAM user with PATCH while keeping its dependent demo state addressable", async () => {
     const state = createSeed();
     const user = state.iam[state.accounts[0].id].users[0];
-    state.iam[state.accounts[0].id].keys[user.name] = [{ access_key_id: "DEMO1", status: "Active" }];
+    state.iam[state.accounts[0].id].keys[user.name] = [buildIamAccessKey("DEMO1")];
     const oldName = user.name;
     const path = `/manager/iam/users/${encodeURIComponent(oldName)}`;
 
@@ -84,7 +85,7 @@ describe("demo IAM mutations", () => {
   it("updates access-key status only through the canonical status subroute", async () => {
     const state = createSeed();
     const user = state.iam[state.accounts[0].id].users[0];
-    const key = { access_key_id: "DEMO-STATUS", status: "Active" };
+    const key = buildIamAccessKey("DEMO-STATUS");
     state.iam[state.accounts[0].id].keys[user.name] = [key];
     const keyPath = `/manager/iam/users/${encodeURIComponent(user.name)}/keys/${key.access_key_id}`;
 
