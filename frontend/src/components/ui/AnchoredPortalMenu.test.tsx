@@ -53,7 +53,7 @@ describe("AnchoredPortalMenu", () => {
     act(() => { notifyResize(); frame(1); });
     expect(menu.style.top).toBe("60px");
     unmount();
-    expect(disconnect).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalledTimes(1);
   });
 
   it("positions right-center content beside the anchor and falls back to the left edge", () => {

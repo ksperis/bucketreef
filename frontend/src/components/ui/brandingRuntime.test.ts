@@ -36,7 +36,7 @@ describe("brandingRuntime", () => {
 
   it("bootstraps from cache first, then refreshes from API", async () => {
     window.localStorage.setItem("branding.primary_color", "#112233");
-    fetchBrandingSettingsMock.mockResolvedValue({ primary_color: "#445566" });
+    fetchBrandingSettingsMock.mockResolvedValue({ primary_color: "#445566", login_logo_url: null });
 
     await bootstrapBranding();
 

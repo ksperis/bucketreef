@@ -32,12 +32,14 @@ function installSystemTheme(initialMatches = false) {
         },
         media: query,
         onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
         addEventListener: (_event: string, listener: () => void) =>
           listeners.add(listener),
         removeEventListener: (_event: string, listener: () => void) =>
           listeners.delete(listener),
         dispatchEvent: vi.fn(),
-      }) as MediaQueryList,
+      }),
   });
   return {
     listeners,

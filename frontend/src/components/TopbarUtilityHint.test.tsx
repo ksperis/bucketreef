@@ -20,6 +20,6 @@ describe("TopbarUtilityHint", () => {
     expect(screen.queryByText("Switch theme")).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.keyDown(trigger, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

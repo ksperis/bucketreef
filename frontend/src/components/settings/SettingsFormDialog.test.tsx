@@ -47,7 +47,7 @@ describe("SettingsFormDialog", () => {
     const dismiss = async () => {
       if (action === "Escape") await user.keyboard("{Escape}");
       else if (action === "Backdrop") fireEvent.mouseDown(document.querySelector(".modal-surface")!);
-      else await user.click(screen.getByRole("button", { name: action, exact: true }));
+      else await user.click(screen.getByRole("button", { name: new RegExp(`^${action}$`) }));
     };
     await dismiss();
     expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeVisible();
@@ -55,7 +55,7 @@ describe("SettingsFormDialog", () => {
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(screen.getByLabelText("Email")).toHaveValue("person@example.org");
     await dismiss();
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
     expect(onClose).toHaveBeenCalledOnce();
   });
 
@@ -74,7 +74,7 @@ describe("SettingsFormDialog", () => {
     fireEvent.submit(screen.getByRole("form", { name: "Invite" }));
     expect(onSubmit).toHaveBeenCalledOnce();
     expect(screen.getByLabelText("Email")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Close", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Close$/ })).toBeDisabled();
     await user.keyboard("{Escape}");
     fireEvent.mouseDown(document.querySelector(".modal-surface")!);
     expect(onClose).not.toHaveBeenCalled();
@@ -117,9 +117,9 @@ describe("SettingsFormDialog", () => {
     await act(async () => { void router.navigate("/next"); });
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(router.state.location.pathname).toBe("/edit");
-    if (action === "close") await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    if (action === "close") await user.click(screen.getByRole("button", { name: /^Cancel$/ }));
     else await act(async () => { void router.navigate("/next"); });
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
     expect(await screen.findByText(action === "close" ? "Closed" : "Next page")).toBeVisible();
     expect(router.state.location.search).toBe("");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -137,7 +137,7 @@ describe("SettingsFormDialog", () => {
     render(<RouterProvider router={router} />);
     await act(async () => { void router.navigate("/next"); });
     expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Discard changes$/ })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(router.state.location.pathname).toBe("/edit");
     expect(warn).not.toHaveBeenCalled();

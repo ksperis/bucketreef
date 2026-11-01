@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import WorkflowTabs from "./WorkflowTabs";
 
 function EditorTabs() {
-  const [activeTab, setActiveTab] = useState<"general" | "access">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "hidden" | "access">("general");
   return (
     <WorkflowTabs
       activeTab={activeTab}
@@ -22,7 +22,7 @@ function EditorTabs() {
         { id: "access", label: "Access" },
       ]}
     >
-      {activeTab === "general" ? "General settings" : "Access settings"}
+      {{ general: "General settings", hidden: "Hidden settings", access: "Access settings" }[activeTab]}
     </WorkflowTabs>
   );
 }

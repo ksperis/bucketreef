@@ -32,6 +32,6 @@ describe("workspace drawer anchor", () => {
     act(() => { notifyResize(); frame(1); });
     expect(content.style.getPropertyValue("--workspace-content-top")).toBe("142px");
     unmount();
-    expect(disconnect).toHaveBeenCalledOnce();
+    expect(disconnect).toHaveBeenCalledTimes(1);
   });
 });

@@ -44,13 +44,13 @@ it("submits by Enter, freezes the draft and guards breadcrumbs until the operati
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   await user.click(screen.getByRole("link", { name: "All settings" }));
   expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /^Discard changes$/ })).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "Keep editing" }));
   expect(router.state.location.pathname).toBe("/edit");
   await act(async () => resolve());
   expect(screen.getByRole("textbox", { name: "Name" })).toBeEnabled();
   await user.click(screen.getByRole("link", { name: "All settings" }));
-  await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+  await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
   expect(await screen.findByText("List destination")).toBeVisible();
   expect(close).toHaveBeenCalledWith("navigation");
   router.dispose();
@@ -142,7 +142,7 @@ it("keeps consultation non-submittable and closes without a draft confirmation",
   expect(save).not.toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: "Save provider" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Close", exact: true }));
+  await user.click(screen.getByRole("button", { name: /^Close$/ }));
   expect(close).toHaveBeenCalledOnce();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   router.dispose();
