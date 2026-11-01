@@ -3192,7 +3192,16 @@ def test_ceph_admin_owner_quota_columns_use_cached_account_listing_across_pages(
             {
                 "account_id": owner_id,
                 "name": "Account One",
-                "account_quota": {"enabled": True, "max_size": 4096, "max_objects": 42},
+                "account_quota": {"enabled": True, "max_size": 1, "max_objects": 1},
+                "account": {
+                    "account_id": owner_id,
+                    "name": "Account One",
+                    "account_quota": {
+                        "enabled": True,
+                        "max_size": 4096,
+                        "max_objects": 42,
+                    },
+                },
             }
         ],
     )
