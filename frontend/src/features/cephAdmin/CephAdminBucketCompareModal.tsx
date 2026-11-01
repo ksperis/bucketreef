@@ -18,7 +18,6 @@ import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import { collectPaginatedItems } from "../../utils/pagination";
-import { roundedClampedPercentageOf } from "../../utils/numbers";
 import {
   CephAdminBucketCompareResult,
   compareCephAdminBucketPair,
@@ -33,14 +32,12 @@ import {
   BucketCompareManualMappingEditor,
   bucketComparisonCancelledMessage,
   buildBucketCompareContentSections,
-  buildBucketCompareMappingModel,
   extractCompareError,
   formatCompareDisplayLimitMessage,
   formatUnknown,
   getChangedTone,
   getObjectParentPrefix,
   matchesBucketCompareRunFilters,
-  parseOptionalIsoDateTime,
   renderDiffLines,
   summarizeBucketCompareRun,
   useBucketCompareWorkflowState,
@@ -156,6 +153,15 @@ export default function CephAdminBucketCompareModal({
     cancelRequestedRef,
     items,
     progress,
+    progressPercent,
+    availableTargetBucketNames,
+    resolvedManualMapping,
+    comparePlan,
+    missingByName,
+    hasScopeSelected,
+    hasConfigFeatureSelected,
+    ignoreModifiedAfterIso,
+    ignoreModifiedAfterInvalid,
     setItems,
     setProgress,
     settleRunItem,
@@ -167,6 +173,8 @@ export default function CephAdminBucketCompareModal({
     CephAdminBucketCompareResult,
     CompareRunItem
   >({
+    targetSelected: Boolean(targetEndpointId),
+    targetKind: "endpoint",
     sourceBuckets: sortedSourceBuckets,
     targetBuckets: targetBucketNames,
     sameTargetSelected: sameEndpointSelected,
@@ -242,43 +250,6 @@ export default function CephAdminBucketCompareModal({
     };
   }, [sourceEndpointId, targetEndpointId, surfaceText]);
 
-  const {
-    availableTargetBucketNames,
-    resolvedManualMapping,
-    comparePlan,
-    missingByName,
-  } = useMemo(
-    () =>
-      buildBucketCompareMappingModel({
-        targetSelected: Boolean(targetEndpointId),
-        targetKind: "endpoint",
-        sourceBuckets: sortedSourceBuckets,
-        targetBuckets: targetBucketNames,
-        sameTargetSelected: sameEndpointSelected,
-        mappingMode,
-        rawMapping: parsedRawMapping.mapping,
-        manualMapping,
-      }),
-    [
-      manualMapping,
-      mappingMode,
-      parsedRawMapping.mapping,
-      sameEndpointSelected,
-      sortedSourceBuckets,
-      targetBucketNames,
-      targetEndpointId,
-    ]
-  );
-  const progressPercent = useMemo(() => {
-    return roundedClampedPercentageOf(progress.completed, progress.total) ?? 0;
-  }, [progress.completed, progress.total]);
-  const hasScopeSelected = includeContent || includeConfig;
-  const hasConfigFeatureSelected = selectedConfigFeatures.length > 0;
-  const ignoreModifiedAfterIso = useMemo(
-    () => parseOptionalIsoDateTime(ignoreModifiedAfter),
-    [ignoreModifiedAfter],
-  );
-  const ignoreModifiedAfterInvalid = Boolean(ignoreModifiedAfter.trim()) && !ignoreModifiedAfterIso;
   const canRunComparison =
     !running &&
     !comparePlan.error &&

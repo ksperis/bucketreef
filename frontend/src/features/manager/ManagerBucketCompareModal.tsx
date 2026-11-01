@@ -20,7 +20,6 @@ import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { proxyDownload } from "../../api/browserTransfers";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
-import { roundedClampedPercentageOf } from "../../utils/numbers";
 import {
   compareManagerBucketPair,
   listBuckets,
@@ -40,14 +39,12 @@ import {
   CompareVisibleKeysCopyFeedback,
   bucketComparisonCancelledMessage,
   buildBucketCompareContentSections,
-  buildBucketCompareMappingModel,
   extractCompareError,
   formatCompareDisplayLimitMessage,
   formatUnknown,
   getChangedTone,
   getObjectParentPrefix,
   matchesBucketCompareRunFilters,
-  parseOptionalIsoDateTime,
   renderDiffLines,
   summarizeBucketCompareRun,
   useBucketCompareWorkflowState,
@@ -191,6 +188,15 @@ export default function ManagerBucketCompareModal({
     cancelRequestedRef,
     items,
     progress,
+    progressPercent,
+    availableTargetBucketNames,
+    resolvedManualMapping,
+    comparePlan,
+    missingByName,
+    hasScopeSelected,
+    hasConfigFeatureSelected,
+    ignoreModifiedAfterIso,
+    ignoreModifiedAfterInvalid,
     setItems,
     setProgress,
     settleRunItem,
@@ -202,6 +208,8 @@ export default function ManagerBucketCompareModal({
     ManagerBucketCompareResult,
     CompareRunItem
   >({
+    targetSelected: Boolean(targetContextId),
+    targetKind: "context",
     sourceBuckets: sortedSourceBuckets,
     targetBuckets: targetBucketNames,
     sameTargetSelected: sameContextSelected,
@@ -264,43 +272,6 @@ export default function ManagerBucketCompareModal({
     };
   }, [sourceContextId, targetContextId, text]);
 
-  const {
-    availableTargetBucketNames,
-    resolvedManualMapping,
-    comparePlan,
-    missingByName,
-  } = useMemo(
-    () =>
-      buildBucketCompareMappingModel({
-        targetSelected: Boolean(targetContextId),
-        targetKind: "context",
-        sourceBuckets: sortedSourceBuckets,
-        targetBuckets: targetBucketNames,
-        sameTargetSelected: sameContextSelected,
-        mappingMode,
-        rawMapping: parsedRawMapping.mapping,
-        manualMapping,
-      }),
-    [
-      manualMapping,
-      mappingMode,
-      parsedRawMapping.mapping,
-      sameContextSelected,
-      sortedSourceBuckets,
-      targetBucketNames,
-      targetContextId,
-    ]
-  );
-  const progressPercent = useMemo(() => {
-    return roundedClampedPercentageOf(progress.completed, progress.total) ?? 0;
-  }, [progress.completed, progress.total]);
-  const hasScopeSelected = includeContent || includeConfig;
-  const hasConfigFeatureSelected = selectedConfigFeatures.length > 0;
-  const ignoreModifiedAfterIso = useMemo(
-    () => parseOptionalIsoDateTime(ignoreModifiedAfter),
-    [ignoreModifiedAfter],
-  );
-  const ignoreModifiedAfterInvalid = Boolean(ignoreModifiedAfter.trim()) && !ignoreModifiedAfterIso;
   const hasActionInFlight = useMemo(() => items.some((item) => Boolean(item.actionRunning)), [items]);
   const canRunComparison =
     !running &&
