@@ -16,10 +16,9 @@ import type { LifecycleRuleRecord } from "../bucketLifecycle";
 import {
   bucketEditorDraftSignature,
   cloneBucketJsonValue,
-  formatBucketJsonValue,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
-import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
+import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
 import {
   createVisualLifecycleRule,
   parseLifecycleRulesJson,
@@ -45,6 +44,11 @@ function normalizeRules(value: unknown): LifecycleRuleRecord[] {
   );
 }
 
+function parseLifecycleEditorJson(text: string) {
+  const parsed = parseLifecycleRulesJson(text);
+  return { draft: parsed.rules, error: parsed.error };
+}
+
 export function useBucketLifecycleController({
   contextId,
   bucketName,
@@ -55,21 +59,36 @@ export function useBucketLifecycleController({
 }: UseBucketLifecycleControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<LifecycleRuleRecord[]>([]);
-  const [draftRules, setDraftRules] = useState<LifecycleRuleRecord[]>([]);
-  const [jsonText, setJsonText] = useState("[]");
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
-  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [lastRemovedRule, setLastRemovedRule] = useState<{
     index: number;
     rule: LifecycleRuleRecord;
   } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
-  const [editorError, setEditorError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const {
+    closeEditor: closeEditorSession,
+    draft: draftRules,
+    editorError,
+    editorMode,
+    editorOpen,
+    editorTargetIndex,
+    jsonText,
+    openEditorDraft: openEditorSessionDraft,
+    replaceDraft,
+    setDraft: setDraftRules,
+    setEditorError,
+    setEditorTargetIndex,
+    setStatus,
+    status,
+    updateEditorMode: updateEditorSessionMode,
+    updateJsonText: updateSessionJsonText,
+  } = useBucketFeatureEditorSession<LifecycleRuleRecord[]>({
+    initialDraft: [],
+    initialJsonText: "[]",
+    parseJson: parseLifecycleEditorJson,
+  });
 
   const applyBaseline = useCallback((next: unknown) => {
     setRules(normalizeRules(next));
@@ -109,18 +128,12 @@ export function useBucketLifecycleController({
 
   const openEditorDraft = useCallback((
     nextDraft: LifecycleRuleRecord[],
-    mode: BucketFeatureEditorMode,
+    mode: "visual" | "json",
     targetIndex: number | null,
   ) => {
-    setDraftRules(nextDraft);
-    setJsonText(formatBucketJsonValue(nextDraft));
-    setEditorMode(mode);
-    setEditorTargetIndex(targetIndex);
     setLastRemovedRule(null);
-    setEditorError(null);
-    setStatus(null);
-    setEditorOpen(true);
-  }, []);
+    openEditorSessionDraft(nextDraft, mode, targetIndex);
+  }, [openEditorSessionDraft]);
 
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(rules), "visual", null);
@@ -143,38 +156,23 @@ export function useBucketLifecycleController({
   }, [openEditorDraft, rules]);
 
   const closeEditor = useCallback(() => {
-    setEditorOpen(false);
-    setEditorTargetIndex(null);
-    setEditorError(null);
+    closeEditorSession();
     setLastRemovedRule(null);
-  }, []);
+  }, [closeEditorSession]);
 
   const updateJsonText = useCallback((value: string) => {
-    setJsonText(value);
-    setEditorError(null);
+    updateSessionJsonText(value);
     setLastRemovedRule(null);
-  }, []);
+  }, [updateSessionJsonText]);
 
   const updateEditorMode = useCallback(
-    (nextMode: BucketFeatureEditorMode) => {
-      if (nextMode === editorMode) return;
-      setEditorError(null);
-      if (nextMode === "json") {
-        setJsonText(formatBucketJsonValue(draftRules));
-        setEditorMode("json");
-        return;
+    (nextMode: "visual" | "json") => {
+      const parsedDraft = updateEditorSessionMode(nextMode);
+      if (nextMode === "visual" && parsedDraft) {
+        setLastRemovedRule(null);
       }
-      const parsed = parseLifecycleRulesJson(jsonText);
-      if (!parsed.rules) {
-        setEditorError(parsed.error);
-        return;
-      }
-      setDraftRules(parsed.rules);
-      setEditorTargetIndex(null);
-      setLastRemovedRule(null);
-      setEditorMode("visual");
     },
-    [draftRules, editorMode, jsonText],
+    [updateEditorSessionMode],
   );
 
   const addDraftRule = useCallback(() => {
@@ -295,12 +293,9 @@ export function useBucketLifecycleController({
       const savedRules = await persistRules(nextRules);
       if (savedRules === null) return;
       applyBaseline(savedRules);
-      setDraftRules(cloneBucketJsonValue(savedRules));
-      setJsonText(formatBucketJsonValue(savedRules));
+      replaceDraft(cloneBucketJsonValue(savedRules));
       setStatus(savedRules.length === 0 ? "Lifecycle deleted" : "Lifecycle updated");
-      setLastRemovedRule(null);
-      setEditorTargetIndex(null);
-      setEditorOpen(false);
+      closeEditor();
     } catch (saveFailure) {
       setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(extractApiError(saveFailure, "Invalid or unsaved lifecycle."));
@@ -315,7 +310,9 @@ export function useBucketLifecycleController({
     enabled,
     jsonText,
     persistRules,
+    replaceDraft,
     saving,
+    closeEditor,
   ]);
 
   const baselineSignature = stableBucketJsonSignature(rules);

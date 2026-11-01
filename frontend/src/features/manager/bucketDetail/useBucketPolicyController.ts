@@ -11,13 +11,12 @@ import {
   putCephAdminBucketPolicy,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
-import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
   bucketEditorDraftSignature,
   cloneBucketJsonValue,
-  formatBucketJsonValue,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
+import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
 import {
   createVisualPolicyStatement,
   isPolicyConfigurationEmpty,
@@ -46,6 +45,11 @@ function normalizePolicy(value: unknown): PolicyDocumentRecord {
   return value as PolicyDocumentRecord;
 }
 
+function parsePolicyEditorJson(text: string) {
+  const parsed = parsePolicyJson(text);
+  return { draft: parsed.policy, error: parsed.error };
+}
+
 function nextStatementSid(policy: PolicyDocumentRecord): string {
   const statements = policyStatements(policy);
   const existing = new Set(
@@ -68,18 +72,34 @@ export function useBucketPolicyController({
 }: UseBucketPolicyControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [policy, setPolicy] = useState<PolicyDocumentRecord>({});
-  const [draftPolicy, setDraftPolicy] = useState<PolicyDocumentRecord>({});
-  const [jsonText, setJsonText] = useState("{}");
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editorMode, setEditorMode] = useState<BucketFeatureEditorMode>("visual");
-  const [editorTargetIndex, setEditorTargetIndex] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
-  const [editorError, setEditorError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const {
+    closeEditor,
+    draft: draftPolicy,
+    editorError,
+    editorMode,
+    editorOpen,
+    editorTargetIndex,
+    jsonText,
+    openEditorDraft,
+    replaceDraft,
+    setDraft: setDraftPolicy,
+    setEditorError,
+    setEditorTargetIndex,
+    setStatus,
+    status,
+    updateEditorMode,
+    updateJsonText,
+  } = useBucketFeatureEditorSession<PolicyDocumentRecord>({
+    initialDraft: {},
+    initialJsonText: "{}",
+    parseJson: parsePolicyEditorJson,
+    clearTargetOnVisual: false,
+  });
 
   const applyBaseline = useCallback((next: unknown) => {
     setPolicy(cloneBucketJsonValue(normalizePolicy(next)));
@@ -112,20 +132,6 @@ export function useBucketPolicyController({
     }
   }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
 
-  const openEditorDraft = useCallback((
-    nextDraft: PolicyDocumentRecord,
-    mode: BucketFeatureEditorMode,
-    targetIndex: number | null,
-  ) => {
-    setDraftPolicy(nextDraft);
-    setJsonText(formatBucketJsonValue(nextDraft));
-    setEditorMode(mode);
-    setEditorTargetIndex(targetIndex);
-    setEditorError(null);
-    setStatus(null);
-    setEditorOpen(true);
-  }, []);
-
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(policy), "visual", null);
   }, [openEditorDraft, policy]);
@@ -147,34 +153,6 @@ export function useBucketPolicyController({
     );
     openEditorDraft(withNewStatement, "visual", statements.length);
   }, [openEditorDraft, policy]);
-
-  const closeEditor = useCallback(() => {
-    setEditorOpen(false);
-    setEditorTargetIndex(null);
-    setEditorError(null);
-  }, []);
-
-  const updateJsonText = useCallback((value: string) => {
-    setJsonText(value);
-    setEditorError(null);
-  }, []);
-
-  const updateEditorMode = useCallback((nextMode: BucketFeatureEditorMode) => {
-    if (nextMode === editorMode) return;
-    setEditorError(null);
-    if (nextMode === "json") {
-      setJsonText(formatBucketJsonValue(draftPolicy));
-      setEditorMode("json");
-      return;
-    }
-    const parsed = parsePolicyJson(jsonText);
-    if (!parsed.policy) {
-      setEditorError(parsed.error);
-      return;
-    }
-    setDraftPolicy(cloneBucketJsonValue(parsed.policy));
-    setEditorMode("visual");
-  }, [draftPolicy, editorMode, jsonText]);
 
   const addDraftStatement = useCallback(() => {
     setDraftPolicy((current) => withPolicyStatements(
@@ -308,11 +286,9 @@ export function useBucketPolicyController({
       const savedPolicy = await persistPolicy(nextPolicy);
       if (savedPolicy === null) return;
       applyBaseline(savedPolicy);
-      setDraftPolicy(cloneBucketJsonValue(savedPolicy));
-      setJsonText(formatBucketJsonValue(savedPolicy));
+      replaceDraft(cloneBucketJsonValue(savedPolicy));
       setStatus(isPolicyConfigurationEmpty(savedPolicy) ? "Bucket policy deleted" : "Bucket policy updated");
-      setEditorTargetIndex(null);
-      setEditorOpen(false);
+      closeEditor();
     } catch (saveFailure) {
       setFeatureUnsupported(isApiFeatureUnsupportedError(saveFailure));
       setEditorError(extractApiError(saveFailure, "Unable to update the bucket policy."));
@@ -327,7 +303,9 @@ export function useBucketPolicyController({
     enabled,
     jsonText,
     persistPolicy,
+    replaceDraft,
     saving,
+    closeEditor,
   ]);
 
   // Kept for the current page-level destructive-action contract. The Policy
