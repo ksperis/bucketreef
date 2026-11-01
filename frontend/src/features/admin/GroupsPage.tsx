@@ -78,9 +78,9 @@ import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminGroupAssociationOptions from "./useAdminGroupAssociationOptions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
+import useAdminStorageAssociationEditorState from "./useAdminStorageAssociationEditorState";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
-type AssociationTab = "accounts" | "s3_users" | "connections" | "openstack";
 const MAX_VISIBLE_OPTIONS = 10;
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
   { value: "users", label: "team" },
@@ -214,7 +214,6 @@ export default function GroupsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<UiGroup | null>(null);
   const [modalTab, setModalTab] = useState<GroupModalTab>("general");
-  const [associationTab, setAssociationTab] = useState<AssociationTab>("accounts");
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<UiGroup | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [form, setForm] = useState<UiGroupPayload>(emptyGroupForm);
@@ -223,13 +222,15 @@ export default function GroupsPage() {
   const savingRef = useRef(false);
   const [attempted, setAttempted] = useState(false);
   const memberPicker = useAdminAssociationPickerState();
-  const openStackPicker = useAdminAssociationPickerState();
-  const accountPicker = useAdminAssociationPickerState();
-  const s3UserPicker = useAdminAssociationPickerState();
-  const connectionPicker = useAdminAssociationPickerState();
-  const [accountAccessChoice, setAccountAccessChoice] = useState<
-    Record<number, AccountAccessGrant>
-  >({});
+  const storageAssociations = useAdminStorageAssociationEditorState();
+  const associationTab = storageAssociations.tab;
+  const setAssociationTab = storageAssociations.setTab;
+  const accountPicker = storageAssociations.accounts.picker;
+  const s3UserPicker = storageAssociations.s3Users.picker;
+  const connectionPicker = storageAssociations.connections.picker;
+  const openStackPicker = storageAssociations.openStack.picker;
+  const accountAccessChoice = storageAssociations.accounts.accessChoice;
+  const setAccountAccessChoice = storageAssociations.accounts.setAccessChoice;
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [removeAvatarImage, setRemoveAvatarImage] = useState(false);
   const avatarFileUrl = useMemo(
@@ -317,13 +318,8 @@ export default function GroupsPage() {
     setInitialFormSignature(stableSignature(draft));
     setAttempted(false);
     setModalTab("general");
-    setAssociationTab("accounts");
     memberPicker.reset();
-    accountPicker.reset();
-    s3UserPicker.reset();
-    connectionPicker.reset();
-    openStackPicker.reset();
-    setAccountAccessChoice({});
+    storageAssociations.reset();
     setAvatarFile(null);
     setRemoveAvatarImage(false);
   };
@@ -344,7 +340,6 @@ export default function GroupsPage() {
     setForm(draft);
     setInitialFormSignature(stableSignature(draft));
     setModalTab("general");
-    setAssociationTab("accounts");
     setActionError(null);
     setActionMessage(null);
     setShowModal(true);
@@ -458,11 +453,7 @@ export default function GroupsPage() {
         setAvatarFile(null);
         setRemoveAvatarImage(false);
         memberPicker.setSelections([]);
-        accountPicker.setSelections([]);
-        s3UserPicker.setSelections([]);
-        connectionPicker.setSelections([]);
-        openStackPicker.setSelections([]);
-        setAccountAccessChoice({});
+        storageAssociations.clearPendingSelections();
       } else {
         closeModal();
       }
@@ -1058,10 +1049,7 @@ export default function GroupsPage() {
         setAssociationTab(
           id === "s3_users" || id === "connections" || id === "openstack" ? id : "accounts"
         );
-        accountPicker.setOpen(false);
-        s3UserPicker.setOpen(false);
-        connectionPicker.setOpen(false);
-        openStackPicker.setOpen(false);
+        storageAssociations.closePickers();
       }}
     />
   );

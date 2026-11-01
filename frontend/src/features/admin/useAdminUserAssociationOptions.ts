@@ -5,7 +5,7 @@ import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { listMinimalS3Connections, type S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
 import { listMinimalS3Users, type S3UserSummary } from "../../api/s3Users";
 import { listAdminOpenStackClouds, type OpenStackCloud } from "../../api/openstack";
-import type { AssociationTab } from "./UserAssociationsTabs";
+import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 type EnsureOptions = { retryOnError?: boolean };
@@ -59,7 +59,7 @@ export default function useAdminUserAssociationOptions() {
   }, [ensureS3Accounts]);
 
   const ensureAssociationOptionsForTab = useCallback(
-    async (tab: AssociationTab, options?: EnsureOptions) => {
+    async (tab: StorageAssociationTab, options?: EnsureOptions) => {
       if (tab === "accounts") {
         await ensureS3Accounts(options);
         return;
