@@ -56,12 +56,18 @@ import {
   type CostAnalyticsResponse,
   type CostCollectionError,
   type CostCollectionResult,
-  type CostCoverage,
   type CostSubjectSummary,
   type CostSummary,
 } from "../../api/cost";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
+import {
+  formatCostCoverage,
+  formatCostCoverageBreakdown,
+  formatCostCurrency,
+  hasPartialCostSources,
+  isLowCostCoverage,
+} from "./costPresentation";
 
 type SubjectType = "all" | "account" | "s3_user";
 type CostTab = "subjects" | "analytics";
@@ -104,52 +110,6 @@ function parseSubjectType(value: string | null): SubjectType {
 
 function parseSortBy(value: string | null): CostSortBy {
   return SORT_OPTIONS.some((option) => option.value === value) ? (value as CostSortBy) : "name";
-}
-
-function formatCurrency(
-  value: number | null | undefined,
-  currency: string | null | undefined,
-  intlLocale: string,
-): string {
-  if (value === undefined || value === null) return "-";
-  const code = currency || "EUR";
-  return `${new Intl.NumberFormat(intlLocale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)} ${code}`;
-}
-
-function formatCoverage(
-  coverage: CostCoverage | null | undefined,
-  text: ReturnType<typeof useAdminI18n>["text"],
-): string {
-  if (!coverage) return "-";
-  return text("{percent}% ({collected}/{total} days)", {
-    percent: Math.round(coverage.coverage_ratio * 100),
-    collected: coverage.days_collected,
-    total: coverage.days_in_month,
-  });
-}
-
-function formatCoverageBreakdown(
-  coverage: CostCoverage | null | undefined,
-  text: ReturnType<typeof useAdminI18n>["text"],
-): string {
-  if (!coverage) return text("Coverage unavailable");
-  const storageDays = coverage.storage_days_collected ?? coverage.days_collected;
-  const usageDays = coverage.usage_days_collected ?? coverage.days_collected;
-  return text("Storage {storage}d · Usage {usage}d", { storage: storageDays, usage: usageDays });
-}
-
-function hasPartialCostSources(coverage?: CostCoverage | null): boolean {
-  if (!coverage) return false;
-  const storageDays = coverage.storage_days_collected ?? coverage.days_collected;
-  const usageDays = coverage.usage_days_collected ?? coverage.days_collected;
-  return storageDays !== usageDays;
-}
-
-function isLowCoverage(coverage?: CostCoverage | null): boolean {
-  return Boolean(coverage && coverage.days_collected > 0 && coverage.coverage_ratio < 0.8);
 }
 
 function formatCollectionIssue(entry: CostCollectionError): string {
@@ -364,7 +324,7 @@ export default function CostPage() {
   const canCollect = Boolean(collectDay && !collectLoading && !costDisabled);
   const collectionErrors = collectResult?.errors ?? [];
   const noCostModel = Boolean(summary && summary.coverage.days_collected > 0 && !summary.cost);
-  const lowCoverage = isLowCoverage(summary?.coverage);
+  const lowCoverage = isLowCostCoverage(summary?.coverage);
   const partialSources = hasPartialCostSources(summary?.coverage);
 
   const stats = useMemo(() => {
@@ -381,13 +341,13 @@ export default function CostPage() {
       {
         label: adminText("Coverage"),
         value: coverage != null ? `${Math.round(coverage * 100)}%` : "-",
-        hint: formatCoverageBreakdown(summary?.coverage, adminText),
+        hint: formatCostCoverageBreakdown(summary?.coverage, adminText),
       },
       {
         label: adminText("Estimated cost"),
         value:
           summary?.cost?.total_cost != null
-            ? formatCurrency(summary.cost.total_cost, summary.cost.currency, intlLocale)
+            ? formatCostCurrency(summary.cost.total_cost, summary.cost.currency, intlLocale)
             : "-",
         hint:
           summary?.cost?.pricing_source === "endpoint_override"
@@ -525,7 +485,7 @@ export default function CostPage() {
       field: "cost",
       render: (subject) =>
         subject.cost?.total_cost != null
-          ? formatCurrency(subject.cost.total_cost, subject.cost.currency, intlLocale)
+          ? formatCostCurrency(subject.cost.total_cost, subject.cost.currency, intlLocale)
           : "-",
     },
     {
@@ -718,14 +678,14 @@ export default function CostPage() {
           {lowCoverage ? (
             <PageBanner tone="warning">
               {adminText("Cost coverage is partial for this month: {coverage}. Treat estimated cost as provisional.", {
-                coverage: formatCoverage(summary?.coverage, adminText),
+                coverage: formatCostCoverage(summary?.coverage, adminText),
               })}
             </PageBanner>
           ) : null}
           {partialSources ? (
             <PageBanner tone="warning">
               {adminText("Storage and usage sources do not cover the same number of days ({coverage}).", {
-                coverage: formatCoverageBreakdown(summary?.coverage, adminText),
+                coverage: formatCostCoverageBreakdown(summary?.coverage, adminText),
               })}
             </PageBanner>
           ) : null}
@@ -808,17 +768,17 @@ export default function CostPage() {
             <PageTabPanel idPrefix="admin-cost" tabId="analytics" className="mt-4 space-y-4">
               {analyticsLoading ? <PageBanner tone="info">{adminText("Loading cost analytics...")}</PageBanner> : null}
               {analyticsError ? <PageBanner tone="error">{analyticsError}</PageBanner> : null}
-              {analytics && isLowCoverage(analytics.summary.coverage) ? (
+              {analytics && isLowCostCoverage(analytics.summary.coverage) ? (
                 <PageBanner tone="warning">
                   {adminText("Analytics coverage is partial for this filtered scope: {coverage}. Values are provisional.", {
-                    coverage: formatCoverage(analytics.summary.coverage, adminText),
+                    coverage: formatCostCoverage(analytics.summary.coverage, adminText),
                   })}
                 </PageBanner>
               ) : null}
               {analytics && hasPartialCostSources(analytics.summary.coverage) ? (
                 <PageBanner tone="warning">
                   {adminText("Analytics combines sources with different coverage ({coverage}).", {
-                    coverage: formatCoverageBreakdown(analytics.summary.coverage, adminText),
+                    coverage: formatCostCoverageBreakdown(analytics.summary.coverage, adminText),
                   })}
                 </PageBanner>
               ) : null}
@@ -837,7 +797,7 @@ export default function CostPage() {
                                 <Cell key={entry.name} fill={COMPONENT_COLORS[index % COMPONENT_COLORS.length]} />
                               ))}
                             </Pie>
-                            <Tooltip formatter={(value) => formatCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
+                            <Tooltip formatter={(value) => formatCostCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
@@ -856,7 +816,7 @@ export default function CostPage() {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis type="number" tick={{ fontSize: 11 }} />
                             <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
-                            <Tooltip formatter={(value) => formatCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
+                            <Tooltip formatter={(value) => formatCostCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
                             <Bar dataKey="cost" fill="#2563eb" cursor="pointer" />
                           </BarChart>
                         </ResponsiveContainer>
@@ -875,7 +835,7 @@ export default function CostPage() {
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                           <YAxis tick={{ fontSize: 11 }} />
-                          <Tooltip formatter={(value) => formatCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
+                          <Tooltip formatter={(value) => formatCostCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
                           <Area type="monotone" dataKey="storage" stackId="cost" fill="#2563eb" stroke="#2563eb" />
                           <Area type="monotone" dataKey="egress" stackId="cost" fill="#f97316" stroke="#f97316" />
                           <Area type="monotone" dataKey="ingress" stackId="cost" fill="#14b8a6" stroke="#14b8a6" />
@@ -895,7 +855,7 @@ export default function CostPage() {
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis type="number" tick={{ fontSize: 11 }} />
                             <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 11 }} />
-                            <Tooltip formatter={(value) => formatCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
+                            <Tooltip formatter={(value) => formatCostCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
                             <Bar dataKey="cost" fill="#0f766e" cursor="pointer" />
                           </BarChart>
                         </ResponsiveContainer>
@@ -921,7 +881,7 @@ export default function CostPage() {
                                 <Cell key={entry.name} fill={CONCENTRATION_COLORS[index % CONCENTRATION_COLORS.length]} />
                               ))}
                             </Pie>
-                            <Tooltip formatter={(value) => formatCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
+                            <Tooltip formatter={(value) => formatCostCurrency(Number(value), analytics.summary.cost?.currency, intlLocale)} />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>

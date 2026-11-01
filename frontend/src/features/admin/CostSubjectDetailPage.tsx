@@ -19,7 +19,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getCostSubjectDetail, type AdminCostSubjectDetail, type CostCoverage } from "../../api/cost";
+import { getCostSubjectDetail, type AdminCostSubjectDetail } from "../../api/cost";
 import { ListActionLink } from "../../components/list/ListControls";
 import InlineSummary from "../../components/InlineSummary";
 import { MetricsLegendList } from "../../components/MetricsCard";
@@ -30,52 +30,13 @@ import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
-
-function formatCurrency(
-  value: number | null | undefined,
-  currency: string | null | undefined,
-  intlLocale: string,
-): string {
-  if (value === undefined || value === null) return "-";
-  const code = currency || "EUR";
-  return `${new Intl.NumberFormat(intlLocale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value)} ${code}`;
-}
-
-function formatCoverage(
-  coverage: CostCoverage | null | undefined,
-  text: ReturnType<typeof useAdminI18n>["text"],
-): string {
-  if (!coverage) return "-";
-  return text("{percent}% ({collected}/{total} days)", {
-    percent: Math.round(coverage.coverage_ratio * 100),
-    collected: coverage.days_collected,
-    total: coverage.days_in_month,
-  });
-}
-
-function formatCoverageBreakdown(
-  coverage: CostCoverage | null | undefined,
-  text: ReturnType<typeof useAdminI18n>["text"],
-): string {
-  if (!coverage) return text("Coverage unavailable");
-  const storageDays = coverage.storage_days_collected ?? coverage.days_collected;
-  const usageDays = coverage.usage_days_collected ?? coverage.days_collected;
-  return text("Storage {storage}d · Usage {usage}d", { storage: storageDays, usage: usageDays });
-}
-
-function hasPartialCostSources(coverage?: CostCoverage | null): boolean {
-  if (!coverage) return false;
-  const storageDays = coverage.storage_days_collected ?? coverage.days_collected;
-  const usageDays = coverage.usage_days_collected ?? coverage.days_collected;
-  return storageDays !== usageDays;
-}
-
-function isLowCoverage(coverage?: CostCoverage | null): boolean {
-  return Boolean(coverage && coverage.days_collected > 0 && coverage.coverage_ratio < 0.8);
-}
+import {
+  formatCostCoverage,
+  formatCostCoverageBreakdown,
+  formatCostCurrency,
+  hasPartialCostSources,
+  isLowCostCoverage,
+} from "./costPresentation";
 
 const COMPONENT_COLORS = ["#2563eb", "#f97316", "#14b8a6", "#8b5cf6"];
 const CHART_AXIS_COLOR = "#94A3B8";
@@ -87,7 +48,7 @@ const CHART_TOOLTIP_STYLE = {
 
 function signedCurrency(value: number, currency: string | null | undefined, intlLocale: string): string {
   const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  return `${sign}${formatCurrency(Math.abs(value), currency, intlLocale)}`;
+  return `${sign}${formatCostCurrency(Math.abs(value), currency, intlLocale)}`;
 }
 
 export default function CostSubjectDetailPage() {
@@ -233,7 +194,7 @@ export default function CostSubjectDetailPage() {
         label: adminText("Estimated cost"),
         value:
           detail?.cost?.total_cost != null
-            ? formatCurrency(detail.cost.total_cost, detail.cost.currency, intlLocale)
+            ? formatCostCurrency(detail.cost.total_cost, detail.cost.currency, intlLocale)
             : "-",
       },
       {
@@ -255,8 +216,8 @@ export default function CostSubjectDetailPage() {
       },
       {
         label: adminText("Coverage"),
-        value: formatCoverage(detail?.coverage, adminText),
-        hint: formatCoverageBreakdown(detail?.coverage, adminText),
+        value: formatCostCoverage(detail?.coverage, adminText),
+        hint: formatCostCoverageBreakdown(detail?.coverage, adminText),
       },
     ],
     [adminText, detail, intlLocale, previousMonthComparison],
@@ -287,17 +248,17 @@ export default function CostSubjectDetailPage() {
 
       {!loading && detail ? (
         <div className="space-y-4">
-          {isLowCoverage(detail.coverage) ? (
+          {isLowCostCoverage(detail.coverage) ? (
             <PageBanner tone="warning">
               {adminText("Cost coverage is partial for this subject: {coverage}. Treat estimated cost as provisional.", {
-                coverage: formatCoverage(detail.coverage, adminText),
+                coverage: formatCostCoverage(detail.coverage, adminText),
               })}
             </PageBanner>
           ) : null}
           {hasPartialCostSources(detail.coverage) ? (
             <PageBanner tone="warning">
               {adminText("This subject has partial source coverage: {coverage}.", {
-                coverage: formatCoverageBreakdown(detail.coverage, adminText),
+                coverage: formatCostCoverageBreakdown(detail.coverage, adminText),
               })}
             </PageBanner>
           ) : null}
@@ -330,7 +291,7 @@ export default function CostSubjectDetailPage() {
                         </Pie>
                         <Tooltip
                           contentStyle={CHART_TOOLTIP_STYLE}
-                          formatter={(value) => formatCurrency(Number(value), detail.cost?.currency, intlLocale)}
+                          formatter={(value) => formatCostCurrency(Number(value), detail.cost?.currency, intlLocale)}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -340,7 +301,7 @@ export default function CostSubjectDetailPage() {
                       key: entry.name,
                       label: entry.name,
                       color: COMPONENT_COLORS[index % COMPONENT_COLORS.length],
-                      value: formatCurrency(entry.value, detail.cost?.currency, intlLocale),
+                      value: formatCostCurrency(entry.value, detail.cost?.currency, intlLocale),
                       meta: new Intl.NumberFormat(intlLocale, { style: "percent", maximumFractionDigits: 1 }).format(entry.share),
                     }))}
                   />
@@ -392,7 +353,7 @@ export default function CostSubjectDetailPage() {
                     <YAxis stroke={CHART_AXIS_COLOR} tick={{ fontSize: 11 }} />
                     <Tooltip
                       contentStyle={CHART_TOOLTIP_STYLE}
-                      formatter={(value) => formatCurrency(Number(value), detail.cost?.currency, intlLocale)}
+                      formatter={(value) => formatCostCurrency(Number(value), detail.cost?.currency, intlLocale)}
                     />
                     <Legend wrapperStyle={{ fontSize: 11 }} />
                     <Area type="monotone" dataKey="storage" name={adminText("Storage")} stackId="cost" fill="#2563eb" stroke="#2563eb" connectNulls={false} />
