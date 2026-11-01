@@ -76,9 +76,9 @@ describe("EndpointStatusDetailPage latency chart", () => {
       check_type: "availability",
       scope: "endpoint",
       series: [
-        { timestamp: "2026-03-04T00:00:00.000Z", status: "degraded", latency_ms: null, http_status: 503, check_mode: "http" },
-        { timestamp: "2026-03-04T00:20:00.000Z", status: "down", latency_ms: null, http_status: null, check_mode: "http" },
-        { timestamp: "2026-03-04T00:40:00.000Z", status: "down", latency_ms: null, http_status: null, check_mode: "http" },
+        { timestamp: "2026-03-04T00:00:00.000Z", status: "degraded", latency_ms: null, http_status: 503, check_mode: "http", check_type: "availability", scope: "endpoint" },
+        { timestamp: "2026-03-04T00:20:00.000Z", status: "down", latency_ms: null, http_status: null, check_mode: "http", check_type: "availability", scope: "endpoint" },
+        { timestamp: "2026-03-04T00:40:00.000Z", status: "down", latency_ms: null, http_status: null, check_mode: "http", check_type: "availability", scope: "endpoint" },
       ],
       daily: [],
     };

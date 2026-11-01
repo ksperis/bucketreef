@@ -20,10 +20,10 @@ function buildSeries(overrides?: Partial<EndpointHealthSeries>): EndpointHealthS
     check_type: "availability",
     scope: "endpoint",
     series: [
-      { timestamp: "2026-03-01T00:00:00.000Z", status: "up", latency_ms: 101, http_status: 200 },
-      { timestamp: "2026-03-01T00:05:00.000Z", status: "degraded", latency_ms: 2500, http_status: 503 },
-      { timestamp: "2026-03-01T00:10:00.000Z", status: "down", latency_ms: null, http_status: null },
-      { timestamp: "2026-03-01T00:15:00.000Z", status: "down", latency_ms: null, http_status: null },
+      { timestamp: "2026-03-01T00:00:00.000Z", status: "up", latency_ms: 101, http_status: 200, check_mode: "http", check_type: "availability", scope: "endpoint" },
+      { timestamp: "2026-03-01T00:05:00.000Z", status: "degraded", latency_ms: 2500, http_status: 503, check_mode: "http", check_type: "availability", scope: "endpoint" },
+      { timestamp: "2026-03-01T00:10:00.000Z", status: "down", latency_ms: null, http_status: null, check_mode: "http", check_type: "availability", scope: "endpoint" },
+      { timestamp: "2026-03-01T00:15:00.000Z", status: "down", latency_ms: null, http_status: null, check_mode: "http", check_type: "availability", scope: "endpoint" },
     ],
     daily: [
       { day: "2026-03-01", ok_count: 4, degraded_count: 1, down_count: 3, avg_latency_ms: 830, p95_latency_ms: 2200 },

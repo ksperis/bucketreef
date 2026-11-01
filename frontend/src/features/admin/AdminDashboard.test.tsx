@@ -62,6 +62,7 @@ function buildGeneralSettings(overrides: Partial<GeneralSettings> = {}): General
     allow_managed_rgw_tenant_creation: false,
     documentation_base_url: "https://docs.bucketreef.ksperis.com",
     manager_enabled: true,
+    openstack_enabled: false,
     ceph_admin_enabled: false,
     storage_ops_enabled: false,
     browser_enabled: true,
@@ -657,7 +658,7 @@ describe("AdminDashboard feature summary", () => {
     expect(within(dashboard).getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual([
       "Endpoint Health", "Ongoing / Recent Incidents", "Storage & traffic", "Administration", "Recent activity", "Infrastructure map", "Enabled features",
     ]);
-    const endpointRegion = screen.getByRole("region", { name: "Endpoint Health", exact: true });
+    const endpointRegion = screen.getByRole("region", { name: "Endpoint Health" });
     expect(await within(endpointRegion).findByText(/1\/9 endpoint\(s\) have stale healthcheck data after 10m/)).toBeInTheDocument();
     const staleEndpointRow = within(endpointRegion).getByText("INRAE-eprod-debug").closest("li");
     expect(staleEndpointRow).not.toBeNull();
@@ -689,7 +690,7 @@ describe("AdminDashboard feature summary", () => {
     const summary = await mocks.fetchAdminSummary();
     mocks.fetchAdminSummary.mockRejectedValueOnce(new Error("Counters could not be loaded"));
     await renderDashboard();
-    const admin = screen.getByRole("region", { name: "Administration", exact: true });
+    const admin = screen.getByRole("region", { name: "Administration" });
     expect(await within(admin).findByText("Counters could not be loaded")).toBeInTheDocument();
     expect(within(admin).getAllByText("—")).toHaveLength(6);
     expect(within(admin).queryByText("UI: 0 · S3: 0")).not.toBeInTheDocument();
@@ -717,9 +718,9 @@ describe("AdminDashboard feature summary", () => {
     mocks.fetchOnboardingStatus.mockResolvedValue({ dismissed: false, complete: false, journeys: [], can_configure: true, source: "standard" });
     mocks.dismissOnboarding.mockRejectedValueOnce(new Error("Unable to dismiss setup"));
     await renderDashboard();
-    fireEvent.click(screen.getByRole("button", { name: "Hide setup", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Hide setup" }));
     expect(await screen.findByText("Unable to dismiss setup")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hide setup", exact: true })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Hide setup" })).toBeEnabled();
     expect(screen.getByRole("link", { name: "Start setup" })).toBeInTheDocument();
   });
 
@@ -739,7 +740,7 @@ describe("AdminDashboard feature summary", () => {
     const summary = screen.getByRole("region", { name: "Storage & traffic" });
     expect(await within(summary).findByText("98%")).toBeInTheDocument();
     expect(within(summary).queryByText("Current samples unavailable")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Endpoint Health", exact: true })).toHaveTextContent("Current samples unavailable");
+    expect(screen.getByRole("region", { name: "Endpoint Health" })).toHaveTextContent("Current samples unavailable");
   });
 
 

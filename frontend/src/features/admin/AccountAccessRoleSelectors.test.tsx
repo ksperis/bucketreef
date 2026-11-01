@@ -9,7 +9,7 @@ describe("AccountAccessRoleSelectors", () => {
       <AccountAccessRoleSelectors
         label="Research Archive"
         portalEnabled
-        value={{ manager_role: null, portal_role: "portal_user" }}
+        value={{ manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
       />,
     );
@@ -23,7 +23,7 @@ describe("AccountAccessRoleSelectors", () => {
       <AccountAccessRoleSelectors
         label="Research Archive"
         portalEnabled
-        value={{ manager_role: "account_administrator", portal_role: "portal_user" }}
+        value={{ manager_role: "account_administrator", portal_role: "portal_user", allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
       />,
     );
@@ -41,7 +41,7 @@ describe("AccountAccessRoleSelectors", () => {
       <AccountAccessRoleSelectors
         label="Research Archive"
         portalEnabled={false}
-        value={{ manager_role: null, portal_role: "portal_manager" }}
+        value={{ manager_role: null, portal_role: "portal_manager", allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
       />,
     );
@@ -67,7 +67,7 @@ describe("AccountAccessRoleSelectors", () => {
       <AccountAccessRoleSelectors
         label="Research Archive"
         portalEnabled
-        value={{ manager_role: "account_administrator", portal_role: null }}
+        value={{ manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false }}
         onChange={onChange}
       />,
     );
@@ -87,7 +87,7 @@ describe("AccountAccessRoleSelectors", () => {
       <AccountAccessRoleSelectors
         label="Empty association"
         portalEnabled
-        value={{ manager_role: null, portal_role: null }}
+        value={{ manager_role: null, portal_role: null, allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
       />,
     );
@@ -99,7 +99,7 @@ describe("AccountAccessRoleSelectors", () => {
       <AccountAccessRoleSelectors
         label="Selected empty association"
         portalEnabled
-        value={{ manager_role: null, portal_role: null }}
+        value={{ manager_role: null, portal_role: null, allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
         showValidation
       />,
@@ -115,7 +115,7 @@ describe("AccountAccessRoleSelectors", () => {
       <AccountAccessRoleSelectors
         label="Empty association"
         portalEnabled={false}
-        value={{ manager_role: "account_administrator", portal_role: null }}
+        value={{ manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false }}
         onChange={onChange}
       />,
     );

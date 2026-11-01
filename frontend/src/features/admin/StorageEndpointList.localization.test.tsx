@@ -1,8 +1,8 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { StorageEndpoint } from "../../api/storageEndpoints";
 import { LanguageProvider, useLanguage, type UiLanguage } from "../../components/language";
+import { buildStorageEndpoint } from "../../test/storageEndpoints";
 import StorageEndpointList from "./StorageEndpointList";
 
 function LanguageControls() {
@@ -12,27 +12,18 @@ function LanguageControls() {
   ))}</>;
 }
 
-function makeEndpoint(id: number): StorageEndpoint {
-  return {
-    id,
+function makeEndpoint(id: number) {
+  return buildStorageEndpoint(id, {
     name: `Endpoint ${id}`,
     endpoint_url: `https://s3-${id}.example.test`,
     region: "eu-west-1",
-    force_path_style: false,
-    verify_tls: true,
-    provider: "ceph",
-    has_admin_secret: false,
     features: {
       admin: { enabled: true }, account: { enabled: true }, sts: { enabled: false }, usage: { enabled: false },
       metrics: { enabled: false }, static_website: { enabled: false }, iam: { enabled: false }, sns: { enabled: false },
       sse: { enabled: false }, replication: { enabled: false }, healthcheck: { enabled: true, mode: "http" },
     },
     is_default: id === 1,
-    is_editable: true,
-    tags: [],
-    created_at: "2026-01-01T00:00:00Z",
-    updated_at: "2026-01-01T00:00:00Z",
-  };
+  });
 }
 
 describe("StorageEndpointList localization", () => {

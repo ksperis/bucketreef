@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import { describe, expect, it } from "vitest";
+import { buildStorageServiceIdentity } from "../../test/storageEndpoints";
 import { createEmptyForm } from "./storageEndpointFormModel";
 import { buildStorageEndpointSubmission } from "./storageEndpointSubmission";
 
@@ -88,8 +89,8 @@ describe("feature-dependent Ceph service credentials", () => {
     const form = createEmptyForm();
     Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: "external" });
     const result = buildStorageEndpointSubmission(form, true, [
-      { kind: "runtime", mode: "managed", status: "ready", credentials_configured: true },
-      { kind: "supervision", mode: "managed", status: "ready", credentials_configured: true },
+      buildStorageServiceIdentity("runtime", { credentials_configured: true }),
+      buildStorageServiceIdentity("supervision", { credentials_configured: true }),
     ]);
     expect(result.errors).toHaveProperty("runtime_access_key");
     expect(result.errors).toHaveProperty("supervision_access_key");

@@ -10,10 +10,10 @@ import type {
   OnboardingStatus,
 } from "../../api/onboarding";
 import type {
-  StorageEndpoint,
   StorageEndpointFeatureDetectionPayload,
   StorageEndpointFeatureDetectionResult,
 } from "../../api/storageEndpoints";
+import { buildStorageEndpoint, buildStorageServiceIdentity } from "../../test/storageEndpoints";
 import OnboardingPage from "./OnboardingPage";
 
 const mocks = vi.hoisted(() => ({
@@ -67,37 +67,31 @@ const createdAt = "2026-09-22T12:00:00Z";
 let status: OnboardingStatus;
 let lastJourney: OnboardingJourney | null;
 
-const cephEndpoint = {
-  id: 3,
+const cephEndpoint = buildStorageEndpoint(3, {
   name: "Lab Ceph",
   endpoint_url: "https://s3.example.test",
   region: "default",
   force_path_style: true,
-  verify_tls: true,
-  provider: "ceph",
   service_identities: [
-    { kind: "runtime", mode: "managed", status: "ready", credentials_configured: true },
-    { kind: "supervision", mode: "managed", status: "ready", credentials_configured: false },
+    buildStorageServiceIdentity("runtime", { credentials_configured: true }),
+    buildStorageServiceIdentity("supervision"),
   ],
   admin_access_key: "admin-key",
   has_admin_secret: true,
-  features: {},
   is_default: true,
-  is_editable: true,
-  tags: [],
   created_at: createdAt,
   updated_at: createdAt,
-} as StorageEndpoint;
+});
 
-const cephEndpointWithExternalIdentities = {
+const cephEndpointWithExternalIdentities = buildStorageEndpoint(cephEndpoint.id, {
   ...cephEndpoint,
   service_identities: [
-    { kind: "runtime", mode: "external", status: "pending", credentials_configured: false },
-    { kind: "supervision", mode: "external", status: "pending", credentials_configured: false },
+    buildStorageServiceIdentity("runtime", { mode: "external", status: "not_provisioned" }),
+    buildStorageServiceIdentity("supervision", { mode: "external", status: "not_provisioned" }),
   ],
-} as StorageEndpoint;
+});
 
-const awsEndpoint = {
+const awsEndpoint = buildStorageEndpoint(4, {
   ...cephEndpoint,
   id: 4,
   name: "External S3",
@@ -105,7 +99,7 @@ const awsEndpoint = {
   provider: "other",
   admin_access_key: null,
   has_admin_secret: false,
-} as StorageEndpoint;
+});
 
 function previewFor(draft: OnboardingDraft): OnboardingPreview {
   const features: string[] = [];
@@ -149,6 +143,8 @@ function detectionFor(
       buckets_write: false,
       accounts_read: Boolean(payload.admin_access_key),
       accounts_write: Boolean(payload.admin_access_key),
+      usage_read: false,
+      usage_write: false,
     },
     http_check: {
       status: "valid",
@@ -458,7 +454,16 @@ describe("simplified onboarding", () => {
   });
 
   it("reuses complete stored endpoint credentials instead of asking for them again", async () => {
-    mocks.listStorageEndpoints.mockResolvedValue([{ ...cephEndpoint, service_identities: [...cephEndpoint.service_identities!, { kind: "ceph_admin", mode: "external", status: "ready", credentials_configured: true }] }]);
+    mocks.listStorageEndpoints.mockResolvedValue([{
+      ...cephEndpoint,
+      service_identities: [
+        ...cephEndpoint.service_identities,
+        buildStorageServiceIdentity("ceph_admin", {
+          mode: "external",
+          credentials_configured: true,
+        }),
+      ],
+    }]);
     renderPage();
     fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), { target: { value: "3" } });
     await continueWhenReady();
@@ -479,8 +484,8 @@ describe("simplified onboarding", () => {
     mocks.listStorageEndpoints.mockResolvedValue([{
       ...cephEndpoint, admin_access_key: null, has_admin_secret: false,
       service_identities: [
-        { kind: "runtime", mode, status: "not_provisioned", credentials_configured: false },
-        { kind: "supervision", mode, status: "not_provisioned", credentials_configured: false },
+        buildStorageServiceIdentity("runtime", { mode, status: "not_provisioned" }),
+        buildStorageServiceIdentity("supervision", { mode, status: "not_provisioned" }),
       ],
     }]);
     renderPage();
