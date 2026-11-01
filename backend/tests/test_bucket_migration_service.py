@@ -41,8 +41,13 @@ from app.services.bucket_migration.persistence_safety import (
     DB_ERROR_MESSAGE_MAX_CHARS,
     DB_EVENT_MESSAGE_MAX_CHARS,
 )
-from app.services.bucket_migration.execution_object_models import BucketVersionEntry, VersionedObjectDetails
+from app.services.bucket_migration.execution_object_models import (
+    BucketVersionEntry,
+    VersionedObjectDetails,
+    VersionTimelineDiffKey,
+)
 from app.services.bucket_migration.execution_runtime import ResolvedContext
+from app.services.bucket_migration.execution_signals import MigrationControlRequested
 from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
@@ -3304,6 +3309,36 @@ def test_strong_verify_version_aware_candidates_streams_pairs_in_batches(db_sess
         (f"common-{index:03d}", f"sv-{index:03d}", f"tv-{index:03d}")
         for index in range(5)
     ]
+
+
+def test_strong_verify_version_aware_pause_does_not_flush_partial_batch(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace(context_id="src")
+    target_ctx = SimpleNamespace(context_id="target")
+
+    def pairs(*_args, **_kwargs):
+        yield VersionTimelineDiffKey(
+            key="pending",
+            source_version_id="source-v1",
+            target_version_id="target-v1",
+        )
+        raise MigrationControlRequested("pause")
+
+    service._iter_version_aware_size_only_pairs = pairs  # type: ignore[method-assign]
+    verifier = Mock(side_effect=AssertionError("partial batch must not be flushed after pause"))
+    service._strong_verify_single_object = verifier  # type: ignore[method-assign]
+
+    result = service._strong_verify_version_aware_candidates(
+        source_ctx,
+        target_ctx,
+        source_bucket="bucket-a",
+        target_bucket="bucket-b",
+        parallelism_max=2,
+        control_check=lambda: "run",
+    )
+
+    assert result == (-1, 0, [], {"head_checksum": 0, "stream_sha256": 0})
+    verifier.assert_not_called()
 
 
 def test_replay_bucket_versions_returns_incremental_watermark(db_session):
