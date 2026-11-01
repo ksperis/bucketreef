@@ -25,7 +25,7 @@ from app.services.healthcheck_common import (
     EndpointCheckTarget,
     HealthCheckProfile,
     HealthCheckResult,
-    _compute_status,
+    compute_status,
     resolve_healthcheck_profile,
 )
 from app.services.endpoint_health_notifications_service import (
@@ -230,7 +230,7 @@ class HealthCheckService:
         error_message: Optional[str],
         baseline_latency_ms: Optional[int],
     ) -> tuple[HealthCheckStatus, Optional[str]]:
-        status = _compute_status(http_status, latency_ms, error_message)
+        status = compute_status(http_status, latency_ms, error_message)
         relative_latency_degraded = self._is_latency_substantially_degraded(
             latency_ms,
             baseline_latency_ms,

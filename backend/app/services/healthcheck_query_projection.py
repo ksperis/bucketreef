@@ -13,7 +13,11 @@ from app.db import (
     HealthCheckStatus,
     StorageEndpoint,
 )
-from app.services.healthcheck_common import _coerce_check_mode, _percentile, resolve_healthcheck_profile
+from app.services.healthcheck_common import (
+    coerce_check_mode,
+    percentile,
+    resolve_healthcheck_profile,
+)
 
 
 def incident_duration_minutes(row: EndpointHealthStatusSegment) -> int | None:
@@ -34,7 +38,7 @@ def workspace_endpoint_snapshot(
         status = str(latest_scope.status or HealthCheckStatus.UNKNOWN.value)
         checked_at = latest_scope.checked_at.isoformat()
         latency_ms = latest_scope.latency_ms
-        check_mode = _coerce_check_mode(latest_scope.check_mode)
+        check_mode = coerce_check_mode(latest_scope.check_mode)
     else:
         status = HealthCheckStatus.UNKNOWN.value
         checked_at = now.isoformat()
@@ -87,7 +91,7 @@ def workspace_incident_payload(
         "start": row.started_at.isoformat(),
         "end": end_time.isoformat() if end_time else None,
         "duration_minutes": incident_duration_minutes(row),
-        "check_mode": _coerce_check_mode(row.check_mode),
+        "check_mode": coerce_check_mode(row.check_mode),
         "ongoing": end_time is None,
         "recent": end_time is not None and end_time >= incident_cutoff,
     }
@@ -195,7 +199,7 @@ class _DailyHealthAccumulator:
             else None
         )
         p95_latency_ms = (
-            _percentile(self.p95_values, 0.95) if self.p95_values else None
+            percentile(self.p95_values, 0.95) if self.p95_values else None
         )
         return {
             "day": self.day,
