@@ -18,10 +18,8 @@ from app.services.bucket_ui_tags_service import (
 from app.services.storage_ops_context_resolution import (
     resolve_storage_ops_context_tenant,
 )
-from ._shared import (
-    _BucketVersionEntry,
-    _json_dumps,
-)
+from ._shared import _json_dumps
+from .execution_object_models import BucketVersionEntry
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER
 from .execution_signals import WorkerLeaseLostError
 from .workflow import require_action
@@ -239,12 +237,12 @@ class BucketMigrationMaintenanceMixin:
         *,
         check,
     ) -> dict[str, object]:
-        marker = isinstance(entry, _BucketVersionEntry) and entry.is_delete_marker
+        marker = isinstance(entry, BucketVersionEntry) and entry.is_delete_marker
         value: dict[str, object] = {"key": entry.key, "delete_marker": marker}
         if marker:
             return value
 
-        version_id = entry.version_id if isinstance(entry, _BucketVersionEntry) else None
+        version_id = entry.version_id if isinstance(entry, BucketVersionEntry) else None
         identity = {"Bucket": bucket, "Key": entry.key}
         if version_id:
             identity["VersionId"] = version_id

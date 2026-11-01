@@ -9,12 +9,12 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.utils.s3_etag import etag_md5
 
-from ._shared import (
-    _VERSION_CHECKSUM_FIELDS,
-    _BucketObjectEntry,
-    _BucketVersionEntry,
-    _VersionedObjectDetails,
-    _VersionReplayWatermarkBuilder,
+from .execution_object_models import (
+    VERSION_CHECKSUM_FIELDS,
+    BucketObjectEntry,
+    BucketVersionEntry,
+    VersionReplayWatermarkBuilder,
+    VersionedObjectDetails,
 )
 from .execution_runtime import ResolvedContext
 
@@ -43,7 +43,7 @@ class BucketMigrationObjectInspectionMixin:
                     continue
                 etag_raw = entry.get("ETag")
                 etag = etag_raw.strip().strip('"') if isinstance(etag_raw, str) else None
-                yield _BucketObjectEntry(
+                yield BucketObjectEntry(
                     key=key,
                     size=int(entry.get("Size") or 0),
                     etag=etag or None,
@@ -64,14 +64,14 @@ class BucketMigrationObjectInspectionMixin:
             return None
         return self._normalize_datetime(value).isoformat()
 
-    def _version_group_sort_key(self, entry: _BucketVersionEntry) -> tuple[str, float, int]:
+    def _version_group_sort_key(self, entry: BucketVersionEntry) -> tuple[str, float, int]:
         return (
             entry.key,
             -self._normalize_datetime(entry.last_modified).timestamp(),
             entry.order_index,
         )
 
-    def _version_replay_sort_key(self, entry: _BucketVersionEntry) -> tuple[float, int, int]:
+    def _version_replay_sort_key(self, entry: BucketVersionEntry) -> tuple[float, int, int]:
         # list_object_versions returns reverse-chronological entries within a key,
         # while replay/verification needs oldest -> newest. When a backend rounds
         # several recreated entries to the same second, keep objects before delete
@@ -89,14 +89,14 @@ class BucketMigrationObjectInspectionMixin:
         *,
         is_delete_marker: bool,
         order_index: int,
-    ) -> Optional[_BucketVersionEntry]:
+    ) -> Optional[BucketVersionEntry]:
         key = raw.get("Key")
         version_id = raw.get("VersionId")
         if not isinstance(key, str) or not key or not isinstance(version_id, str) or not version_id:
             return None
         etag_raw = raw.get("ETag")
         etag = etag_raw.strip().strip('"') if isinstance(etag_raw, str) else None
-        return _BucketVersionEntry(
+        return BucketVersionEntry(
             key=key,
             version_id=version_id,
             is_delete_marker=is_delete_marker,
@@ -112,8 +112,8 @@ class BucketMigrationObjectInspectionMixin:
         self,
         page: dict[str, Any],
         order_index: int,
-    ) -> tuple[list[_BucketVersionEntry], int]:
-        entries: list[_BucketVersionEntry] = []
+    ) -> tuple[list[BucketVersionEntry], int]:
+        entries: list[BucketVersionEntry] = []
         for collection_name, is_delete_marker in (
             ("Versions", False),
             ("DeleteMarkers", True),
@@ -142,7 +142,7 @@ class BucketMigrationObjectInspectionMixin:
         version_marker: Optional[str] = None
         order_index = 0
         buffered_key: Optional[str] = None
-        buffered_entries: list[_BucketVersionEntry] = []
+        buffered_entries: list[BucketVersionEntry] = []
 
         while True:
             kwargs: dict[str, Any] = {"Bucket": bucket_name}
@@ -174,13 +174,13 @@ class BucketMigrationObjectInspectionMixin:
         if buffered_key is not None:
             yield buffered_key, sorted(buffered_entries, key=self._version_replay_sort_key)
 
-    def _version_watermark_signature(self, entry: _BucketVersionEntry) -> tuple[str, str, bool]:
+    def _version_watermark_signature(self, entry: BucketVersionEntry) -> tuple[str, str, bool]:
         return (entry.key, entry.version_id, bool(entry.is_delete_marker))
 
     def _add_version_replay_watermark_entry(
         self,
-        builder: _VersionReplayWatermarkBuilder,
-        entry: _BucketVersionEntry,
+        builder: VersionReplayWatermarkBuilder,
+        entry: BucketVersionEntry,
     ) -> None:
         entry_dt = self._normalize_datetime(entry.last_modified)
         tie_entry = {
@@ -197,7 +197,7 @@ class BucketMigrationObjectInspectionMixin:
 
     def _finish_version_replay_watermark(
         self,
-        builder: _VersionReplayWatermarkBuilder,
+        builder: VersionReplayWatermarkBuilder,
     ) -> Optional[dict[str, Any]]:
         if builder.latest_dt is None:
             return None
@@ -206,7 +206,7 @@ class BucketMigrationObjectInspectionMixin:
             "tie_entries": list(builder.tie_entries),
         }
 
-    def _entry_is_after_watermark(self, entry: _BucketVersionEntry, watermark: Optional[dict[str, Any]]) -> bool:
+    def _entry_is_after_watermark(self, entry: BucketVersionEntry, watermark: Optional[dict[str, Any]]) -> bool:
         if not isinstance(watermark, dict):
             return True
         raw_last_modified = watermark.get("last_modified")
@@ -289,7 +289,7 @@ class BucketMigrationObjectInspectionMixin:
 
     def _checksums_from_head_response(self, response: dict[str, Any]) -> dict[str, str]:
         checksums: dict[str, str] = {}
-        for field in _VERSION_CHECKSUM_FIELDS:
+        for field in VERSION_CHECKSUM_FIELDS:
             value = response.get(field)
             if isinstance(value, str) and value.strip():
                 checksums[field] = value.strip()
@@ -302,17 +302,17 @@ class BucketMigrationObjectInspectionMixin:
         key: str,
         *,
         version_id: Optional[str],
-    ) -> _VersionedObjectDetails:
+    ) -> VersionedObjectDetails:
         head = self._head_object_with_version(client, bucket_name, key, version_id=version_id)
         checksums = self._checksums_from_head_response(head)
         etag_raw = head.get("ETag")
         etag = etag_raw.strip().strip('"') if isinstance(etag_raw, str) else None
-        shared_checksum_compare = next((field for field in _VERSION_CHECKSUM_FIELDS if field in checksums), None)
+        shared_checksum_compare = next((field for field in VERSION_CHECKSUM_FIELDS if field in checksums), None)
         compare_by = shared_checksum_compare.lower() if shared_checksum_compare else (
             "md5" if etag_md5(etag) else "size"
         )
         metadata = head.get("Metadata") if isinstance(head.get("Metadata"), dict) else {}
-        return _VersionedObjectDetails(
+        return VersionedObjectDetails(
             size=int(head.get("ContentLength") or 0),
             etag=etag or None,
             compare_by=compare_by,
@@ -330,10 +330,10 @@ class BucketMigrationObjectInspectionMixin:
 
     def _compare_versioned_object_details(
         self,
-        source_details: _VersionedObjectDetails,
-        target_details: _VersionedObjectDetails,
+        source_details: VersionedObjectDetails,
+        target_details: VersionedObjectDetails,
     ) -> tuple[bool, str, Optional[str]]:
-        for field in _VERSION_CHECKSUM_FIELDS:
+        for field in VERSION_CHECKSUM_FIELDS:
             source_value = source_details.checksums.get(field)
             target_value = target_details.checksums.get(field)
             if source_value and target_value:

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, Optional
 
 from app.core.sensitive_data import sanitize_log_text
@@ -22,105 +20,6 @@ _DB_EVENT_MESSAGE_MAX_CHARS = 4_096
 _DB_EVENT_METADATA_MAX_CHARS = 65_536
 _DB_EVENT_METADATA_MAX_DEPTH = 8
 _DB_EVENT_METADATA_MAX_ITEMS = 100
-
-
-@dataclass
-class _SyncDiff:
-    source_count: int
-    target_count: int
-    matched_count: int
-    different_count: int
-    only_source_count: int
-    only_target_count: int
-    sample: dict[str, Any]
-
-
-@dataclass(frozen=True)
-class _BucketObjectEntry:
-    key: str
-    size: int
-    etag: Optional[str]
-
-
-@dataclass(frozen=True)
-class _BucketDiffEntry:
-    kind: str
-    key: str
-    source_size: int
-    target_size: int
-    source_etag: Optional[str]
-    target_etag: Optional[str]
-    compare_by: str
-
-
-@dataclass(frozen=True)
-class _BucketVersionEntry:
-    key: str
-    version_id: str
-    is_delete_marker: bool
-    is_latest: bool
-    last_modified: Optional[datetime]
-    size: int
-    etag: Optional[str]
-    storage_class: Optional[str]
-    order_index: int
-
-
-@dataclass
-class _VersionReplayWatermarkBuilder:
-    latest_dt: Optional[datetime] = None
-    tie_entries: list[dict[str, Any]] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class _VersionedObjectDetails:
-    size: int
-    etag: Optional[str]
-    compare_by: str
-    checksums: dict[str, str]
-    content_type: Optional[str]
-    cache_control: Optional[str]
-    content_disposition: Optional[str]
-    content_encoding: Optional[str]
-    content_language: Optional[str]
-    expires: Optional[str]
-    storage_class: Optional[str]
-    metadata: dict[str, str]
-    tags: tuple[tuple[str, str], ...]
-
-
-@dataclass(frozen=True)
-class _VersionTimelineDiffKey:
-    key: str
-    source_version_id: Optional[str]
-    target_version_id: Optional[str]
-
-
-@dataclass(frozen=True)
-class _VersionAwareDiff:
-    source_count: int
-    target_count: int
-    matched_count: int
-    different_count: int
-    only_source_count: int
-    only_target_count: int
-    sample: dict[str, Any]
-    size_only_pairs: tuple[_VersionTimelineDiffKey, ...] = ()
-
-
-@dataclass(frozen=True)
-class _VersionTimelineComparison:
-    equal: bool
-    first_difference: Optional[dict[str, Any]]
-    size_only_pairs: tuple[_VersionTimelineDiffKey, ...] = ()
-
-
-_VERSION_CHECKSUM_FIELDS = (
-    "ChecksumSHA256",
-    "ChecksumCRC32C",
-    "ChecksumCRC32",
-    "ChecksumSHA1",
-)
 
 
 def _chunked(items: list[str], size: int) -> list[list[str]]:
