@@ -3334,6 +3334,42 @@ def test_strong_verify_current_candidates_filters_and_batches_size_matches(db_se
     assert verified_batches == [["a", "b"]]
 
 
+def test_strong_verify_current_candidates_flushes_full_and_tail_batches(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace(context_id="src")
+    target_ctx = SimpleNamespace(context_id="target")
+    service._context_client = lambda _ctx: object()  # type: ignore[method-assign]
+    service._iter_bucket_diff_entries = lambda *_args, **_kwargs: iter(  # type: ignore[method-assign]
+        [
+            SimpleNamespace(kind="matched", key=key, compare_by="size")
+            for key in ("a", "b", "c")
+        ]
+    )
+    verified_batches: list[list[str]] = []
+
+    def fake_strong_verify(*_args, keys, **_kwargs):
+        verified_batches.append(list(keys))
+        return len(keys), [], {"head_checksum": len(keys), "stream_sha256": 0}
+
+    service._strong_verify_size_only_objects = fake_strong_verify  # type: ignore[method-assign]
+
+    with patch(
+        "app.services.bucket_migration.execution_object_verification.RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER",
+        2,
+    ):
+        result = service._strong_verify_size_only_candidates_streamed(
+            source_ctx,
+            target_ctx,
+            source_bucket="bucket-a",
+            target_bucket="bucket-b",
+            parallelism_max=1,
+            control_check=lambda: "run",
+        )
+
+    assert result == (3, 3, [], {"head_checksum": 3, "stream_sha256": 0})
+    assert verified_batches == [["a", "b"], ["c"]]
+
+
 def test_strong_verify_current_candidate_scan_stops_before_flushing_on_pause(db_session):
     service = BucketMigrationService(db_session)
     source_ctx = SimpleNamespace(context_id="src")
