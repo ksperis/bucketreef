@@ -56,4 +56,26 @@ describe("useLazyListLoader", () => {
     expect(result.current.items).toEqual(["recovered"]);
     expect(result.current.loaded).toBe(true);
   });
+
+  it("ignores a load failure after the consumer unmounts", async () => {
+    let rejectLoad: ((error: Error) => void) | undefined;
+    const loader = vi.fn(
+      () =>
+        new Promise<string[]>((_, reject) => {
+          rejectLoad = reject;
+        }),
+    );
+    const onError = vi.fn();
+    const { result, unmount } = renderHook(() => useLazyListLoader<string>(loader, onError));
+
+    let pendingLoad: Promise<void> | undefined;
+    act(() => {
+      pendingLoad = result.current.ensure();
+    });
+    unmount();
+    rejectLoad?.(new Error("late failure"));
+    await pendingLoad;
+
+    expect(onError).not.toHaveBeenCalled();
+  });
 });
