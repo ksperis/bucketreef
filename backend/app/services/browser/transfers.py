@@ -14,10 +14,18 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.browser import BrowserStsCredentials, SseCustomerContext, StsStatus
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.s3_object_download import S3ObjectDownload
-from ._shared import _resolve_endpoint
+from app.utils.s3_endpoint import resolve_s3_client_options
+
 from .sts import BrowserStsRequestError, request_browser_sts_session
 
 settings = get_settings()
+
+
+def _resolve_endpoint(context: S3ExecutionTarget) -> str:
+    endpoint, _, _, _ = resolve_s3_client_options(context)
+    if not endpoint:
+        raise RuntimeError("S3 endpoint is not configured for this context")
+    return endpoint
 
 
 class BrowserTransfersMixin:

@@ -15,8 +15,7 @@ from app.services.sts_service import get_session_token
 from app.utils.cache import prune_expired_lru_cache
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_sts_endpoint
-
-from ._shared import _normalize_expiration
+from app.utils.time import assume_utc
 
 STS_SESSION_DURATION_SECONDS = 900
 STS_CACHE_TTL_BUFFER = timedelta(minutes=2)
@@ -33,7 +32,9 @@ class CachedStsCredentials:
 
     @property
     def expires_at(self) -> float:
-        return (_normalize_expiration(self.expiration) - STS_CACHE_TTL_BUFFER).timestamp()
+        expiration = assume_utc(self.expiration)
+        assert expiration is not None
+        return (expiration - STS_CACHE_TTL_BUFFER).timestamp()
 
 
 _STS_CACHE: OrderedDict[StsCacheKey, CachedStsCredentials] = OrderedDict()
@@ -119,11 +120,13 @@ def request_browser_sts_session(
     except RuntimeError as exc:
         raise BrowserStsRequestError(sanitized_error_log_detail(exc)) from exc
 
+    normalized_expiration = assume_utc(expiration)
+    assert normalized_expiration is not None
     credentials = CachedStsCredentials(
         access_key_id=access,
         secret_access_key=secret,
         session_token=token,
-        expiration=_normalize_expiration(expiration),
+        expiration=normalized_expiration,
     )
     _store_sts_credentials(cache_key, credentials)
     return BrowserStsSession(credentials=credentials, region=region)

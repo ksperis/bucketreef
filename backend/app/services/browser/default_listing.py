@@ -15,7 +15,9 @@ from app.services.object_listing_identity import (
     recursive_prefixes_for_key,
 )
 
-from ._shared import OBJECT_LIST_SCAN_PAGE_BUDGET, OBJECT_LIST_SCAN_TIME_BUDGET_MS
+
+_OBJECT_LIST_SCAN_PAGE_BUDGET = 20
+_OBJECT_LIST_SCAN_TIME_BUDGET_MS = 1200
 
 
 @dataclass(frozen=True)
@@ -259,8 +261,8 @@ class DefaultObjectListingLoader:
         while True:
             elapsed_ms = int((monotonic() - scan_start) * 1000)
             if (
-                pages_scanned >= OBJECT_LIST_SCAN_PAGE_BUDGET
-                or elapsed_ms >= OBJECT_LIST_SCAN_TIME_BUDGET_MS
+                pages_scanned >= _OBJECT_LIST_SCAN_PAGE_BUDGET
+                or elapsed_ms >= _OBJECT_LIST_SCAN_TIME_BUDGET_MS
             ):
                 break
             response = self._request_page(
