@@ -27,11 +27,10 @@ import DataTableShell, {
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { extractApiError } from "../../utils/apiError";
-import { formatCheckMode } from "../../utils/format";
+import { formatCheckMode, formatLatency } from "../../utils/format";
 import { clampPercentage } from "../../utils/numbers";
 import {
   EndpointTimelineBar,
-  formatLatency,
   formatPercent,
   formatStatusLabel,
   formatTimestamp,

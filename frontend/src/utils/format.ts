@@ -64,3 +64,8 @@ export function formatPercentage(value?: number | null): string {
 export function formatCheckMode(mode?: string | null): string {
   return (mode || "http").toUpperCase();
 }
+
+export function formatLatency(value?: number | null): string {
+  if (value == null) return "-";
+  return `${value} ms`;
+}

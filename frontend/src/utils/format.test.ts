@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { formatBytesAxis, formatCheckMode, formatSpacedCompactNumber } from "./format";
+import { formatBytesAxis, formatCheckMode, formatLatency, formatSpacedCompactNumber } from "./format";
 
 describe("formatSpacedCompactNumber", () => {
   it.each([
@@ -45,5 +45,14 @@ describe("formatCheckMode", () => {
     expect(formatCheckMode("http")).toBe("HTTP");
     expect(formatCheckMode(null)).toBe("HTTP");
     expect(formatCheckMode(undefined)).toBe("HTTP");
+  });
+});
+
+describe("formatLatency", () => {
+  it("preserves endpoint latency precision and formats missing values", () => {
+    expect(formatLatency(12.5)).toBe("12.5 ms");
+    expect(formatLatency(0)).toBe("0 ms");
+    expect(formatLatency(null)).toBe("-");
+    expect(formatLatency(undefined)).toBe("-");
   });
 });
