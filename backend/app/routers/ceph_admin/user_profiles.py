@@ -34,19 +34,23 @@ from app.services.ceph_admin_user_access import (
 from app.services.ceph_admin_user_identity import split_tenant_uid
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 from app.services.ceph_admin_audit import record_ceph_admin_action
+from app.services.ceph_admin_user_payloads import (
+    extract_user_bool,
+    extract_user_int,
+    extract_user_scalar,
+)
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_caps import canonicalize_rgw_caps
 from app.utils.rgw_payloads import (
     extract_bucket_list,
+    extract_rgw_account_name,
     extract_rgw_account_tenant,
     extract_rgw_quota_enabled,
     extract_rgw_user_payload,
     parse_rgw_bool,
-    parse_rgw_int,
 )
 from app.utils.usage_stats import summarize_bucket_usage
 
@@ -72,17 +76,6 @@ USER_UPDATE_CLEAR_VALUES: dict[str, Any] = {
 USER_QUOTA_FIELDS = frozenset({"quota_enabled", "quota_max_size_bytes", "quota_max_objects"})
 
 
-def _extract_user_setting(payload: dict[str, Any], user_payload: dict[str, Any], *keys: str) -> Optional[str]:
-    for key in keys:
-        value = normalize_optional_scalar(user_payload.get(key))
-        if value is not None:
-            return value
-        value = normalize_optional_scalar(payload.get(key))
-        if value is not None:
-            return value
-    return None
-
-
 def _extract_caps(payload: dict[str, Any]) -> list[str]:
     values = payload.get("caps")
     if values is None and isinstance(payload.get("user"), dict):
@@ -96,8 +89,7 @@ def _resolve_user_identity(
     uid_fallback: str,
     tenant_fallback: Optional[str],
 ) -> tuple[Optional[str], str]:
-    user_payload = extract_rgw_user_payload(payload)
-    uid_raw = normalize_optional_scalar(user_payload.get("uid") or payload.get("uid")) or uid_fallback
+    uid_raw = extract_user_scalar(payload, "uid") or uid_fallback
     tenant = tenant_fallback
     uid = uid_raw
     if "$" in uid_raw:
@@ -113,9 +105,9 @@ def _build_user_detail(
     account_name: Optional[str] = None,
     keys: Optional[list[CephAdminRgwAccessKey]] = None,
 ) -> CephAdminRgwUserDetail:
-    user_payload = extract_rgw_user_payload(payload)
     tenant, uid = _resolve_user_identity(payload, uid_fallback=uid_fallback, tenant_fallback=tenant_fallback)
-    account_id = normalize_optional_scalar(payload.get("account_id") or user_payload.get("account_id"))
+    user_payload = extract_rgw_user_payload(payload)
+    account_id = extract_user_scalar(payload, "account_id", top_level_first=True)
     quota_size, quota_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
     quota_enabled = extract_rgw_quota_enabled(
         payload,
@@ -131,23 +123,22 @@ def _build_user_detail(
     return CephAdminRgwUserDetail(
         uid=uid,
         tenant=tenant,
-        display_name=normalize_optional_scalar(user_payload.get("display_name") or payload.get("display_name")),
-        email=normalize_optional_scalar(user_payload.get("email") or payload.get("email")),
+        display_name=extract_user_scalar(payload, "display_name"),
+        email=extract_user_scalar(payload, "email"),
         account_id=account_id,
         account_name=account_name,
-        suspended=parse_rgw_bool(user_payload.get("suspended") or payload.get("suspended")),
+        suspended=extract_user_bool(payload, "suspended"),
         admin=parse_rgw_bool(user_payload.get("admin") if "admin" in user_payload else payload.get("admin")),
         system=parse_rgw_bool(user_payload.get("system") if "system" in user_payload else payload.get("system")),
-        account_root=parse_rgw_bool(user_payload.get("account_root") or payload.get("account_root")),
-        max_buckets=parse_rgw_int(user_payload.get("max_buckets") or payload.get("max_buckets")),
-        op_mask=normalize_optional_scalar(user_payload.get("op_mask") or payload.get("op_mask")),
-        default_placement=_extract_user_setting(
+        account_root=extract_user_bool(payload, "account_root"),
+        max_buckets=extract_user_int(payload, "max_buckets"),
+        op_mask=extract_user_scalar(payload, "op_mask"),
+        default_placement=extract_user_scalar(
             payload,
-            user_payload,
             "default_placement",
             "default_placement_rule",
         ),
-        default_storage_class=_extract_user_setting(payload, user_payload, "default_storage_class"),
+        default_storage_class=extract_user_scalar(payload, "default_storage_class"),
         caps=_extract_caps(payload),
         quota=quota,
         keys=keys or [],
@@ -156,12 +147,15 @@ def _build_user_detail(
 
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
     payload = load_user_payload(uid, tenant, ctx.rgw_admin)
-    user_values = extract_rgw_user_payload(payload)
-    account_id = normalize_optional_scalar(payload.get("account_id") or user_values.get("account_id"))
+    account_id = extract_user_scalar(payload, "account_id", top_level_first=True)
     account_name = _resolve_account_name(
         account_id,
         ctx,
-        payload_account_name=normalize_optional_scalar(payload.get("account_name") or user_values.get("account_name")),
+        payload_account_name=extract_user_scalar(
+            payload,
+            "account_name",
+            top_level_first=True,
+        ),
     )
     return _build_user_detail(
         payload,
@@ -249,9 +243,7 @@ def _resolve_account_name(
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     if not isinstance(account_payload, dict) or account_payload.get("not_found"):
         return payload_account_name
-    return normalize_optional_scalar(
-        account_payload.get("name") or account_payload.get("display_name") or account_payload.get("account_name")
-    ) or payload_account_name
+    return extract_rgw_account_name(account_payload) or payload_account_name
 
 
 def _extract_generated_key_from_payload(

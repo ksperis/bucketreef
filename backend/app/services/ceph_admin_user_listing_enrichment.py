@@ -7,6 +7,11 @@ from typing import Any, Callable, Optional
 from fastapi import status
 
 from app.models.ceph_admin import CephAdminRgwUserSummary
+from app.services.ceph_admin_user_payloads import (
+    extract_user_bool,
+    extract_user_int,
+    extract_user_scalar,
+)
 from app.services.listing_progress import (
     ListingProgressEmitter,
     interpolate_progress_percent,
@@ -14,13 +19,10 @@ from app.services.listing_progress import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.normalize import normalize_optional_scalar
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_payloads import (
     extract_bucket_list,
-    extract_rgw_user_payload,
-    parse_rgw_bool,
-    parse_rgw_int,
+    extract_rgw_account_name,
 )
 from app.utils.usage_stats import summarize_bucket_usage
 
@@ -86,32 +88,36 @@ class _UserDetailsEnricher:
             raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
         if not payload or payload.get("not_found"):
             return user
-        user_payload = extract_rgw_user_payload(payload)
-        self._apply_payload(user, payload, user_payload)
+        self._apply_payload(user, payload)
         return user
 
     def _apply_payload(
         self,
         user: CephAdminRgwUserSummary,
         payload: dict[str, Any],
-        user_payload: dict[str, Any],
     ) -> None:
         if "account" in self.requested:
-            account_id = normalize_optional_scalar(payload.get("account_id") or user_payload.get("account_id"))
+            account_id = extract_user_scalar(
+                payload,
+                "account_id",
+                top_level_first=True,
+            )
             user.account_id = account_id
             user.account_name = self._resolve_account_name(
                 account_id,
-                normalize_optional_scalar(payload.get("account_name") or user_payload.get("account_name")),
+                extract_user_scalar(
+                    payload,
+                    "account_name",
+                    top_level_first=True,
+                ),
             )
         if "profile" in self.requested:
-            user.full_name = normalize_optional_scalar(
-                user_payload.get("display_name") or payload.get("display_name")
-            )
-            user.email = normalize_optional_scalar(user_payload.get("email") or payload.get("email"))
+            user.full_name = extract_user_scalar(payload, "display_name")
+            user.email = extract_user_scalar(payload, "email")
         if "status" in self.requested:
-            user.suspended = parse_rgw_bool(user_payload.get("suspended") or payload.get("suspended"))
+            user.suspended = extract_user_bool(payload, "suspended")
         if "limits" in self.requested:
-            user.max_buckets = parse_rgw_int(user_payload.get("max_buckets") or payload.get("max_buckets"))
+            user.max_buckets = extract_user_int(payload, "max_buckets")
         if "quota" in self.requested:
             quota_size, quota_objects = extract_quota_limits(payload, keys=("user_quota", "quota"))
             user.quota_max_size_bytes = quota_size
@@ -137,9 +143,7 @@ class _UserDetailsEnricher:
                     )
                 except RGWAdminError as exc:
                     raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-            self.account_name_by_id[account_id] = normalize_optional_scalar(
-                account_payload.get("name") if isinstance(account_payload, dict) else None
-            )
+            self.account_name_by_id[account_id] = extract_rgw_account_name(account_payload)
         return self.account_name_by_id.get(account_id) or payload_account_name
 
     def _apply_usage(self, user: CephAdminRgwUserSummary) -> None:

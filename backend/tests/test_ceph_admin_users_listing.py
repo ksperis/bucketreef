@@ -529,6 +529,55 @@ def test_build_user_detail_canonicalizes_semicolon_delimited_caps():
     assert detail.caps == ["users=read,write", "accounts=read,write"]
 
 
+def test_build_user_detail_preserves_nested_false_and_zero_values():
+    payload = _build_user_payload(
+        "alice",
+        suspended=False,
+        max_buckets=0,
+    )
+    payload["user"]["account_root"] = False
+    payload["suspended"] = True
+    payload["max_buckets"] = 99
+    payload["account_root"] = True
+
+    detail = user_profiles_router._build_user_detail(
+        payload,
+        uid_fallback="alice",
+        tenant_fallback=None,
+        account_name=None,
+        keys=[],
+    )
+
+    assert detail.suspended is False
+    assert detail.max_buckets == 0
+    assert detail.account_root is False
+
+
+def test_ceph_admin_user_enrichment_preserves_nested_false_and_zero_values():
+    users = [CephAdminRgwUserSummary(uid="alice")]
+    payload = _build_user_payload(
+        "alice",
+        suspended=False,
+        max_buckets=0,
+    )
+    payload["suspended"] = True
+    payload["max_buckets"] = 99
+    rgw_admin = FakeRGWAdmin(
+        users_payload=[],
+        user_details={(None, "alice"): payload},
+    )
+
+    enriched = user_listing_enrichment.enrich_users(
+        users,
+        {"status", "limits"},
+        rgw_admin,
+        account_lookup_enabled=True,
+    )
+
+    assert enriched[0].suspended is False
+    assert enriched[0].max_buckets == 0
+
+
 def test_build_user_detail_ignores_legacy_kebab_case_default_fields():
     payload = _build_user_payload("alice")
     payload["user"]["default-placement"] = "legacy-placement"
