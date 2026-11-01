@@ -1,5 +1,8 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
-import type { OnboardingDraft } from "../../api/onboarding";
+import type {
+  OnboardingApplyCredentials,
+  OnboardingDraft,
+} from "../../api/onboarding";
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
 import type {
   StorageEndpoint,
@@ -20,6 +23,34 @@ export type OnboardingCredentialDraft = {
   privateAccessKey: string;
   privateSecretKey: string;
 };
+
+export function createOnboardingDraft(
+  endpoint: Pick<StorageEndpoint, "id" | "provider"> | null = null,
+): OnboardingDraft {
+  const cephDefaults = endpoint ? endpoint.provider === "ceph" : true;
+  return {
+    version: 2,
+    endpoint_id: endpoint?.id ?? null,
+    endpoint_url: "",
+    region: "",
+    force_path_style: true,
+    manager: cephDefaults,
+    portal: false,
+    private_connection: false,
+    ceph_admin: false,
+    supervision: cephDefaults,
+  };
+}
+
+export function countOnboardingSelections(draft: OnboardingDraft): number {
+  return [
+    draft.manager,
+    draft.portal,
+    draft.private_connection,
+    draft.ceph_admin,
+    draft.supervision,
+  ].filter(Boolean).length;
+}
 
 type ServiceIdentityKind = "runtime" | "supervision" | "ceph_admin";
 
@@ -203,6 +234,48 @@ export function buildOnboardingPrivateValidationPayload({
     verify_tls: state.validationVerifyTls,
     access_key_id: accessKey,
     secret_access_key: secretKey,
+  };
+}
+
+export function buildOnboardingApplyCredentials({
+  draft,
+  identityMode,
+  state,
+  credentials,
+}: {
+  draft: OnboardingDraft;
+  identityMode: OnboardingIdentityMode;
+  state: OnboardingEndpointState;
+  credentials: OnboardingCredentialDraft;
+}): OnboardingApplyCredentials {
+  return {
+    admin_access_key: state.needsAdmin ? credentials.adminAccessKey || undefined : undefined,
+    admin_secret_key: state.needsAdmin ? credentials.adminSecretKey || undefined : undefined,
+    supervision_access_key:
+      identityMode === "external" && state.needsSupervision
+        ? credentials.supervisionAccessKey || undefined
+        : undefined,
+    supervision_secret_key:
+      identityMode === "external" && state.needsSupervision
+        ? credentials.supervisionSecretKey || undefined
+        : undefined,
+    service_identity_mode: identityMode,
+    runtime_access_key:
+      identityMode === "external" && state.needsRuntime
+        ? credentials.runtimeAccessKey || undefined
+        : undefined,
+    runtime_secret_key:
+      identityMode === "external" && state.needsRuntime
+        ? credentials.runtimeSecretKey || undefined
+        : undefined,
+    ceph_admin_access_key: draft.ceph_admin
+      ? credentials.cephAdminAccessKey || undefined
+      : undefined,
+    ceph_admin_secret_key: draft.ceph_admin
+      ? credentials.cephAdminSecretKey || undefined
+      : undefined,
+    private_access_key: credentials.privateAccessKey || undefined,
+    private_secret_key: credentials.privateSecretKey || undefined,
   };
 }
 
