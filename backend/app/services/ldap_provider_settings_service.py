@@ -15,6 +15,11 @@ from app.models.ldap import (
     LDAPProviderAdminPayload,
     LDAPProviderFieldLock,
 )
+from app.services.identity_provider_mutations import (
+    create_identity_provider,
+    delete_identity_provider,
+    update_identity_provider,
+)
 from app.services.identity_provider_repository import IdentityProviderRepository
 from app.services.identity_provider_resolution import (
     list_effective_identity_providers,
@@ -79,12 +84,13 @@ def resolve_ldap_provider_map(
 
 def create_ldap_provider(db: Session, payload: LDAPProviderAdminPayload) -> LDAPProviderAdminItem:
     _validate_production_payload(payload)
-    provider_id = normalize_ldap_provider_id(payload.provider_id)
-    provider = _provider_repository(db).create(
-        provider_id,
-        lambda current: _apply_payload(current, payload, replace_secret=True),
+    return create_identity_provider(
+        _provider_repository(db),
+        payload.provider_id,
+        normalize_provider_id=normalize_ldap_provider_id,
+        apply=lambda current: _apply_payload(current, payload, replace_secret=True),
+        to_item=_ui_provider_item,
     )
-    return _ui_provider_item(provider)
 
 
 def update_ldap_provider(
@@ -93,20 +99,22 @@ def update_ldap_provider(
     payload: LDAPProviderAdminPayload,
 ) -> LDAPProviderAdminItem:
     _validate_production_payload(payload)
-    normalized_id = normalize_ldap_provider_id(provider_id)
-    payload_id = normalize_ldap_provider_id(payload.provider_id)
-    if payload_id != normalized_id:
-        raise ValueError("provider_id cannot be changed")
-    provider = _provider_repository(db).update(
-        normalized_id,
-        lambda current: _apply_payload(current, payload, replace_secret=False),
+    return update_identity_provider(
+        _provider_repository(db),
+        provider_id,
+        payload.provider_id,
+        normalize_provider_id=normalize_ldap_provider_id,
+        apply=lambda current: _apply_payload(current, payload, replace_secret=False),
+        to_item=_ui_provider_item,
     )
-    return _ui_provider_item(provider)
 
 
 def delete_ldap_provider(db: Session, provider_id: str) -> None:
-    normalized_id = normalize_ldap_provider_id(provider_id)
-    _provider_repository(db).delete(normalized_id)
+    delete_identity_provider(
+        _provider_repository(db),
+        provider_id,
+        normalize_provider_id=normalize_ldap_provider_id,
+    )
 
 
 def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, LDAPProviderSettings]:
