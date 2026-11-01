@@ -5,6 +5,7 @@ import json
 import time
 import asyncio
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -37,7 +38,10 @@ from app.routers.ceph_admin import dependencies as ceph_admin_dependencies
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.listing_progress import ListingCancelled, ListingProgressSnapshot
 from app.services import bucket_listing_enrichment
-from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
+from app.services.bucket_owner_enrichment import (
+    BucketOwnerMetadataService,
+    invalidate_bucket_owner_metadata_cache,
+)
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services import rgw_bucket_metadata
 from app.services.rgw_admin import RGWAdminError
@@ -1341,6 +1345,71 @@ def test_ceph_admin_bucket_listing_owner_name_lookup_deduplicates_same_owner():
     assert [item.owner_name for item in response.items] == ["Owner-RGW00000000000000001"] * 3
     assert rgw_admin.get_bucket_info_calls == 0
     assert rgw_admin.get_account_calls == 1
+
+
+@pytest.mark.parametrize("owner_kind", ["account", "user"])
+@pytest.mark.parametrize("invalidate_all", [False, True])
+@pytest.mark.parametrize("old_finishes_first", [False, True])
+def test_owner_metadata_cache_invalidation_detaches_pending_detail_load(
+    owner_kind,
+    invalidate_all,
+    old_finishes_first,
+):
+    started = [threading.Event(), threading.Event()]
+    release = [threading.Event(), threading.Event()]
+    calls: list[int] = []
+    calls_lock = threading.Lock()
+
+    class BlockingOwnerRGWAdmin:
+        def _load(self):
+            with calls_lock:
+                generation = len(calls)
+                calls.append(generation)
+            started[generation].set()
+            assert release[generation].wait(timeout=5)
+            if owner_kind == "account":
+                return {"id": "RGW00000000000000001", "name": f"generation-{generation}"}
+            return {"uid": "user-a", "display_name": f"generation-{generation}"}
+
+        def get_account(self, *args, **kwargs):  # noqa: ARG002
+            return self._load()
+
+        def get_user(self, *args, **kwargs):  # noqa: ARG002
+            return self._load()
+
+    service = BucketOwnerMetadataService(
+        endpoint_id=17,
+        rgw_admin=BlockingOwnerRGWAdmin(),
+    )
+
+    def read_detail():
+        if owner_kind == "account":
+            payload = service._get_account_detail("RGW00000000000000001")
+            return payload["name"]
+        payload = service._get_user_detail("user-a", tenant=None)
+        return payload["display_name"]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        old = pool.submit(read_detail)
+        try:
+            assert started[0].wait(timeout=2)
+            invalidate_bucket_owner_metadata_cache(None if invalidate_all else 17)
+            fresh = pool.submit(read_detail)
+            assert started[1].wait(timeout=2)
+            if old_finishes_first:
+                release[0].set()
+                assert old.result(timeout=2) == "generation-0"
+            release[1].set()
+            assert fresh.result(timeout=2) == "generation-1"
+            if not old_finishes_first:
+                release[0].set()
+                assert old.result(timeout=2) == "generation-0"
+            assert read_detail() == "generation-1"
+        finally:
+            for event in release:
+                event.set()
+
+    assert calls == [0, 1]
 
 
 def test_ceph_admin_bucket_listing_owner_name_skips_account_lookup_when_feature_disabled():

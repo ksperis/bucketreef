@@ -96,3 +96,22 @@ def get_or_build_single_flight_cache(
         with lock:
             if inflight.get(key) is future:
                 inflight.pop(key, None)
+
+
+def invalidate_single_flight_cache(
+    cache: OrderedDict[_KeyT, TtlCacheEntry[_ValueT]],
+    inflight: dict[_KeyT, Future[_ValueT]],
+    lock: Lock,
+    *,
+    predicate: Callable[[_KeyT], bool] | None = None,
+) -> None:
+    """Detach matching cached and in-flight generations under the same lock."""
+    with lock:
+        if predicate is None:
+            cache.clear()
+            inflight.clear()
+            return
+        for entries in (cache, inflight):
+            invalid_keys = [key for key in entries if predicate(key)]
+            for key in invalid_keys:
+                entries.pop(key, None)
