@@ -228,6 +228,16 @@ def test_manager_iam_role_audit_signal_requires_exact_helper(tmp_path):
     [
         (
             "app/routers/admin/settings.py",
+            (
+                "create_oidc_provider_settings",
+                "update_oidc_provider_settings",
+                "create_ldap_provider_settings",
+                "update_ldap_provider_settings",
+            ),
+            "delegated_admin_identity_provider_mutation_audit",
+        ),
+        (
+            "app/routers/admin/settings.py",
             ("delete_oidc_provider_settings", "delete_ldap_provider_settings"),
             "delegated_admin_identity_provider_delete_audit",
         ),
@@ -289,6 +299,10 @@ def test_backend_audit_matrix_tracks_shared_audit_helpers(relative_file, functio
 @pytest.mark.parametrize(
     ("helper_name", "signal"),
     [
+        (
+            "_mutate_identity_provider_settings",
+            "delegated_admin_identity_provider_mutation_audit",
+        ),
         (
             "_delete_identity_provider_settings",
             "delegated_admin_identity_provider_delete_audit",

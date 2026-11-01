@@ -40,6 +40,7 @@ SIGNAL_FIELDS = {
     "delegated_access_key_expiration_audit": "AccessKeyExpirationService(db).run_due(",
     "delegated_auth_attempt_audit": "AuthAttemptContext.from_request(",
     "delegated_manager_iam_role_update_audit": "update_iam_role(",
+    "delegated_admin_identity_provider_mutation_audit": "_mutate_identity_provider_settings(",
     "delegated_admin_identity_provider_delete_audit": "_delete_identity_provider_settings(",
     "delegated_manager_iam_mutation_audit": "run_audited_iam_mutation(",
     "delegated_bucket_migration_action_audit": "_run_migration_action(",
@@ -68,6 +69,7 @@ DELEGATED_AUDIT_SIGNALS = frozenset(
         "delegated_access_key_expiration_audit",
         "delegated_auth_attempt_audit",
         "delegated_manager_iam_role_update_audit",
+        "delegated_admin_identity_provider_mutation_audit",
         "delegated_admin_identity_provider_delete_audit",
         "delegated_manager_iam_mutation_audit",
         "delegated_bucket_migration_action_audit",
@@ -296,6 +298,10 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
                     "stream_resolved_bucket_integrity_check",
                 ),
                 ("delegated_manager_iam_role_update_audit", "update_iam_role"),
+                (
+                    "delegated_admin_identity_provider_mutation_audit",
+                    "_mutate_identity_provider_settings",
+                ),
                 (
                     "delegated_admin_identity_provider_delete_audit",
                     "_delete_identity_provider_settings",

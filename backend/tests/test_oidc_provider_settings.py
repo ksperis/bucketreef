@@ -445,3 +445,39 @@ def test_admin_oidc_api_locks_environment_managed_provider(client, db_session, m
     assert client.post("/api/admin/settings/oidc/providers", json=mutation).status_code == 409
     assert client.put("/api/admin/settings/oidc/providers/google", json=mutation).status_code == 409
     assert client.delete("/api/admin/settings/oidc/providers/google").status_code == 409
+
+
+def test_admin_oidc_api_maps_persisted_provider_conflicts_and_missing_updates(
+    client,
+    db_session,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.services.oidc_provider_settings_service.get_settings",
+        lambda: Settings(oidc_providers={}, oidc_state_ttl_seconds=60),
+    )
+    app.dependency_overrides[dependencies.get_current_user] = _superadmin_user
+    app.dependency_overrides.pop(dependencies.get_current_ui_superadmin, None)
+    _authenticate_superadmin(client, db_session)
+
+    payload = {
+        "provider_id": "ui",
+        "display_name": "UI Provider",
+        "discovery_url": "https://issuer.example.test/.well-known/openid-configuration",
+        "client_id": "client-id",
+        "redirect_uri": "https://app.example.test/auth/callback",
+        "scopes": ["openid", "email"],
+        "prompt": None,
+        "enabled": True,
+        "icon_url": None,
+        "use_pkce": True,
+        "use_nonce": True,
+        "linking_policy": "manual",
+        "trusted_email_domains": [],
+    }
+    assert client.post("/api/admin/settings/oidc/providers", json=payload).status_code == 201
+    assert client.post("/api/admin/settings/oidc/providers", json=payload).status_code == 409
+
+    missing_payload = {**payload, "provider_id": "missing"}
+    response = client.put("/api/admin/settings/oidc/providers/missing", json=missing_payload)
+    assert response.status_code == 404, response.text
