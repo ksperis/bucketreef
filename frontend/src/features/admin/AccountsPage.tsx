@@ -14,7 +14,7 @@ import {
   importS3Accounts,
   listS3Accounts,
 } from "../../api/accounts";
-import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
+import { listStorageEndpoints } from "../../api/storageEndpoints";
 import ActiveFiltersBar from "../../components/ActiveFiltersBar";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -41,6 +41,7 @@ import UiTagBadgeList from "../../components/UiTagBadgeList";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 
 import { useTagCatalog } from "../../hooks/useTagCatalog";
+import useLazyListLoader from "../../hooks/useLazyListLoader";
 import {
   AssociationPrincipalStack,
   type AssociationPrincipalItem,
@@ -103,9 +104,11 @@ export default function S3AccountsPage() {
     storage_endpoint_id: "",
   });
   const [createInitialSignature, setCreateInitialSignature] = useState("");
-  const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
-  const [loadingEndpoints, setLoadingEndpoints] = useState(false);
-  const [endpointsLoaded, setEndpointsLoaded] = useState(false);
+  const {
+    items: storageEndpoints,
+    loading: loadingEndpoints,
+    ensure: ensureStorageEndpoints,
+  } = useLazyListLoader(listStorageEndpoints, console.error);
   const [importTenantEndpointId, setImportTenantEndpointId] = useState<string>("");
   const [importInitialSignature, setImportInitialSignature] = useState("");
   const [editingS3Account, setEditingS3Account] = useState<S3AccountSummary | null>(null);
@@ -207,19 +210,10 @@ export default function S3AccountsPage() {
   };
   const quickFilterActive = filter.trim().length > 0;
 
-  const loadEndpointsIfNeeded = useCallback(async () => {
-    if (endpointsLoaded || loadingEndpoints) return;
-    setLoadingEndpoints(true);
-    try {
-      const data = await listStorageEndpoints();
-      setStorageEndpoints(data);
-      setEndpointsLoaded(true);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingEndpoints(false);
-    }
-  }, [endpointsLoaded, loadingEndpoints]);
+  const loadEndpointsIfNeeded = useCallback(
+    () => ensureStorageEndpoints({ retryOnError: true }),
+    [ensureStorageEndpoints],
+  );
 
   useEffect(() => {
     fetchS3Accounts();
