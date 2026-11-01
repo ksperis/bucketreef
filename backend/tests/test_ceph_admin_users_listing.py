@@ -77,7 +77,16 @@ def _build_ctx(
     bucket_payloads: dict[str, list[dict]] | None = None,
 ):
     rgw_admin = FakeRGWAdmin(users_payload=users_payload, user_details=user_details, bucket_payloads=bucket_payloads)
-    ctx = SimpleNamespace(endpoint=endpoint or SimpleNamespace(id=endpoint_id), rgw_admin=rgw_admin)
+    ctx = SimpleNamespace(
+        endpoint=endpoint
+        or SimpleNamespace(
+            id=endpoint_id,
+            provider="ceph",
+            region=None,
+            features={},
+        ),
+        rgw_admin=rgw_admin,
+    )
     return ctx, rgw_admin
 
 

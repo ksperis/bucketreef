@@ -123,7 +123,12 @@ class FakeAccountsAdmin:
 
 def _ctx(endpoint_id: int, rgw_admin: object) -> SimpleNamespace:
     return SimpleNamespace(
-        endpoint=SimpleNamespace(id=endpoint_id),
+        endpoint=SimpleNamespace(
+            id=endpoint_id,
+            provider="ceph",
+            region=None,
+            features={"account": {"enabled": True}},
+        ),
         rgw_admin=rgw_admin,
         actor=None,
         audit_service=None,
