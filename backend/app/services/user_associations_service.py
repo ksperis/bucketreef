@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
@@ -22,6 +22,7 @@ from app.models.user import AccountMembership, S3UserMembership, UserAssociation
 from app.services.association_sync import (
     sync_metadata_association_links,
     sync_simple_association_links,
+    sync_table_association_links,
 )
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.portal_role_sync import (
@@ -273,28 +274,16 @@ class UserAssociationsService:
             cleaned_ids,
             entity_label="OpenStack clouds",
         )
-        existing_ids = {
-            int(cloud_id)
-            for cloud_id in self.db.scalars(
-                select(cloud_users.c.cloud_id).where(cloud_users.c.user_id == user.id)
-            ).all()
-        }
-        changed_ids = existing_ids ^ cleaned_ids
+        changed_ids = sync_table_association_links(
+            self.db,
+            table=cloud_users,
+            owner_column=cloud_users.c.user_id,
+            owner_id=user.id,
+            target_column=cloud_users.c.cloud_id,
+            desired_ids=cleaned_ids,
+        )
         if not changed_ids:
             return
-        to_remove = existing_ids - cleaned_ids
-        to_add = cleaned_ids - existing_ids
-        if to_remove:
-            self.db.execute(
-                delete(cloud_users).where(
-                    cloud_users.c.user_id == user.id,
-                    cloud_users.c.cloud_id.in_(to_remove),
-                )
-            )
-        for cloud_id in to_add:
-            self.db.execute(
-                cloud_users.insert().values(cloud_id=cloud_id, user_id=user.id)
-            )
         openstack.invalidate_user_access({int(user.id)}, changed_ids)
 
     def set_group_links(self, user: User, target_ids: list[int]) -> None:

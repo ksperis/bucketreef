@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import UiGroupNotFoundError
@@ -29,6 +29,7 @@ from app.models.user import (
 from app.services.association_sync import (
     sync_metadata_association_links,
     sync_simple_association_links,
+    sync_table_association_links,
 )
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.manager_tool_access import manager_tool_column_values
@@ -371,28 +372,16 @@ class UiGroupsService:
             cleaned_ids,
             entity_label="OpenStack clouds",
         )
-        existing_ids = {
-            int(cloud_id)
-            for cloud_id in self.db.scalars(
-                select(cloud_groups.c.cloud_id).where(cloud_groups.c.group_id == group.id)
-            ).all()
-        }
-        changed_ids = existing_ids ^ cleaned_ids
+        changed_ids = sync_table_association_links(
+            self.db,
+            table=cloud_groups,
+            owner_column=cloud_groups.c.group_id,
+            owner_id=group.id,
+            target_column=cloud_groups.c.cloud_id,
+            desired_ids=cleaned_ids,
+        )
         if not changed_ids:
             return
-        to_remove = existing_ids - cleaned_ids
-        to_add = cleaned_ids - existing_ids
-        if to_remove:
-            self.db.execute(
-                delete(cloud_groups).where(
-                    cloud_groups.c.group_id == group.id,
-                    cloud_groups.c.cloud_id.in_(to_remove),
-                )
-            )
-        for cloud_id in to_add:
-            self.db.execute(
-                cloud_groups.insert().values(cloud_id=cloud_id, group_id=group.id)
-            )
 
         if group.system_key == ALL_USERS_SYSTEM_KEY:
             service.invalidate_cloud_access(changed_ids)
