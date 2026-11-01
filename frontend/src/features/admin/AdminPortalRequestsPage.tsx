@@ -49,6 +49,7 @@ import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { AssociationRoleTooltip, uiPrincipalRoleLabel } from "./AssociationSummary";
 import { buildAdminPrincipalEditHref } from "./adminPrincipalEditLink";
 import { useAdminI18n } from "./adminI18n";
+import useAdminListController from "./useAdminListController";
 
 type StatusFilter = PortalAdminRequestStatus | "all";
 type TypeFilter = PortalAdminRequestType | "all";
@@ -57,7 +58,6 @@ type BusyAction = string | null;
 export default function AdminPortalRequestsPage() {
   const { text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
-  const [requests, setRequests] = useState<PortalAdminRequest[]>([]);
   const {
     items: accounts,
     refresh: refreshAccounts,
@@ -72,8 +72,6 @@ export default function AdminPortalRequestsPage() {
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [messageDrafts, setMessageDrafts] = useState<Record<number, string>>({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
 
@@ -87,35 +85,46 @@ export default function AdminPortalRequestsPage() {
     [requesters],
   );
 
-  const loadRequests = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listAdminPortalRequests({
+  const fetchRequests = useCallback(
+    () =>
+      listAdminPortalRequests({
         status: statusFilter,
         request_type: typeFilter,
         account_id: accountFilter === "all" ? "all" : Number(accountFilter),
         search,
         limit: 200,
-      });
-      setRequests(data);
-      setExpandedId((current) => (current && data.some((request) => request.id === current) ? current : null));
-    } catch (err) {
-      console.error(err);
-      setError(extractApiError(err, adminText("Unable to load Portal requests.")));
-    } finally {
-      setLoading(false);
-    }
-  }, [accountFilter, adminText, search, statusFilter, typeFilter]);
+      }),
+    [accountFilter, search, statusFilter, typeFilter],
+  );
+  const formatLoadError = useCallback(
+    (error: unknown) => {
+      console.error(error);
+      return extractApiError(error, adminText("Unable to load Portal requests."));
+    },
+    [adminText],
+  );
+  const {
+    items: requests,
+    setItems: setRequests,
+    loading,
+    error,
+    setError,
+    refresh: loadRequests,
+  } = useAdminListController<PortalAdminRequest>({
+    loadItems: fetchRequests,
+    formatError: formatLoadError,
+  });
 
   useEffect(() => {
-    void loadRequests();
-  }, [loadRequests]);
+    setExpandedId((current) => (
+      current && requests.some((request) => request.id === current) ? current : null
+    ));
+  }, [requests]);
 
-  const updateRequest = (updated: PortalAdminRequest) => {
+  const updateRequest = useCallback((updated: PortalAdminRequest) => {
     setRequests((current) => current.map((request) => (request.id === updated.id ? updated : request)));
     setExpandedId(updated.id);
-  };
+  }, [setRequests]);
 
   const runAction = useCallback(async (
     request: PortalAdminRequest,
@@ -142,7 +151,7 @@ export default function AdminPortalRequestsPage() {
     } finally {
       setBusy(null);
     }
-  }, [adminText, loadRequests, messageDrafts]);
+  }, [adminText, loadRequests, messageDrafts, setError, updateRequest]);
 
   const columns = useMemo<Array<DataTableColumn<PortalAdminRequest>>>(
     () => [
