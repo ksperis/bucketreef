@@ -8,7 +8,11 @@ from typing import Any, Callable
 from app.core.sensitive_data import sanitized_error_log_detail
 
 from .precheck_inspection import BucketMigrationInspector
-from .precheck_item_inspection import BucketMigrationItemInspector
+from .precheck_item_inspection import (
+    BucketMigrationItemInspector,
+    SourceBucketInspection,
+    TargetBucketInspection,
+)
 from .precheck_reporting import (
     SUPPORTED_BUCKET_SETTINGS,
     UNSUPPORTED_BUCKET_SETTINGS,
@@ -206,21 +210,13 @@ class BucketMigrationPrecheckPlanner:
             target_ctx,
             item,
         )
-
-        source = self._item_inspector.inspect_source_bucket(
+        source, target = self._inspect_item_buckets(
             source_ctx,
-            item,
-            probe_policy=probe_policy,
-            add_check=add_check,
-        )
-        target = self._item_inspector.inspect_target_bucket(
             target_ctx,
             item,
             probe_policy=probe_policy,
             add_check=add_check,
         )
-        item.source_count = source.object_count
-        item.target_count = target.object_count
         source_plan = self._plan_source_bucket(
             source_ctx,
             item,
@@ -260,6 +256,31 @@ class BucketMigrationPrecheckPlanner:
             checks=checks,
             copy_bucket_settings=bool(migration.copy_bucket_settings),
         )
+
+    def _inspect_item_buckets(
+        self,
+        source_ctx: Any,
+        target_ctx: Any,
+        item: Any,
+        *,
+        probe_policy: Any,
+        add_check: Callable[..., None],
+    ) -> tuple[SourceBucketInspection, TargetBucketInspection]:
+        source = self._item_inspector.inspect_source_bucket(
+            source_ctx,
+            item,
+            probe_policy=probe_policy,
+            add_check=add_check,
+        )
+        target = self._item_inspector.inspect_target_bucket(
+            target_ctx,
+            item,
+            probe_policy=probe_policy,
+            add_check=add_check,
+        )
+        item.source_count = source.object_count
+        item.target_count = target.object_count
+        return source, target
 
     @staticmethod
     def _create_item_check_collector(
