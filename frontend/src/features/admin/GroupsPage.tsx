@@ -28,7 +28,7 @@ import {
   uploadGroupAvatar,
   updateGroup,
 } from "../../api/groups";
-import { AccountMembership } from "../../api/users";
+import type { AccountMembership, S3UserMembership } from "../../api/users";
 import {
   defaultAccountAccessGrant,
   getAccountAccessRequiredMessage,
@@ -88,6 +88,9 @@ import {
 import AdminSimpleIdAssociationsPanel, {
   type AdminSimpleIdAssociationsState,
 } from "./AdminSimpleIdAssociationsPanel";
+import AdminS3UserAssociationsPanel, {
+  type AdminS3UserAssociationsState,
+} from "./AdminS3UserAssociationsPanel";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
@@ -546,6 +549,14 @@ export default function GroupsPage() {
           ? value(current.s3_connection_ids ?? [])
           : value,
     }));
+  const setS3UserLinks: Dispatch<SetStateAction<S3UserMembership[]>> = (value) =>
+    setForm((current) => ({
+      ...current,
+      s3_user_links:
+        typeof value === "function"
+          ? value(current.s3_user_links ?? [])
+          : value,
+    }));
   const setOpenStackCloudIds: Dispatch<SetStateAction<number[]>> = (value) =>
     setForm((current) => ({
       ...current,
@@ -574,6 +585,27 @@ export default function GroupsPage() {
     selections: connectionPicker.selections,
     setSelections: connectionPicker.setSelections,
     toggleSelection: connectionPicker.toggleSelection,
+  };
+  const s3UserAssociationState: AdminS3UserAssociationsState = {
+    selected: form.s3_user_links ?? [],
+    setSelected: setS3UserLinks,
+    labelById: s3UserLabelById,
+    available: s3UserOptions.available.map((s3User) => ({
+      id: s3User.id,
+      label: s3User.name,
+    })),
+    visible: s3UserOptions.visible.map((s3User) => ({
+      id: s3User.id,
+      label: s3User.name,
+    })),
+    search: s3UserPicker.search,
+    setSearch: s3UserPicker.setSearch,
+    loading: auxLoading,
+    showPanel: s3UserPicker.open,
+    setShowPanel: s3UserPicker.setOpen,
+    selections: s3UserPicker.selections,
+    setSelections: s3UserPicker.setSelections,
+    toggleSelection: s3UserPicker.toggleSelection,
   };
   const openStackAssociationState: AdminSimpleIdAssociationsState = {
     selected: form.openstack_cloud_ids ?? [],
@@ -840,98 +872,21 @@ export default function GroupsPage() {
           actionLabel: s3UserPicker.open ? text("close") : text("addRgwUsers"),
           onAction: () => s3UserPicker.setOpen((current) => !current),
           content: (
-            <AdminAssociationLinkedTable
-              title={text("linkedRgwUsers")}
-              headers={[{ label: text("rgwUser") }, { label: text("actions"), align: "right" }]}
-              hasItems={selectedS3UserIds.size > 0}
-              emptyLabel={text("noLinkedRgwUsers")}
-              rows={(form.s3_user_links ?? []).map((link) => (
-                <tr key={link.s3_user_id}>
-                  <td className="ui-table-primary">
-                    {s3UserLabelById.get(link.s3_user_id) ?? text("rgwUserNumber", { id: link.s3_user_id })}
-                  </td>
-                  <td className="ui-table-actions-cell w-px text-right">
-                    <AdminAssociationAdvancedSettings
-                      targetLabel={s3UserLabelById.get(link.s3_user_id) ?? text("rgwUserNumber", { id: link.s3_user_id })}
-                      associationKind="rgw_user"
-                      allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
-                      onApply={(allowed) =>
-                        setForm((current) => ({
-                          ...current,
-                          s3_user_links: (current.s3_user_links ?? []).map((item) =>
-                            item.s3_user_id === link.s3_user_id
-                              ? { ...item, allow_manager_browser_data_access: allowed }
-                              : item
-                          ),
-                        }))
-                      }
-                    />
-                    <ListActionButton
-                      type="button"
-                       variant="danger"
-                      onClick={() =>
-                        setForm((current) => ({
-                          ...current,
-                          s3_user_links: (current.s3_user_links ?? []).filter(
-                            (item) => item.s3_user_id !== link.s3_user_id
-                          ),
-                        }))
-                      }
-                    >
-                      {text("remove")}
-                    </ListActionButton>
-                  </td>
-                </tr>
-              ))}
-              picker={
-                s3UserPicker.open ? (
-                  <AdminAssociationPickerPanel
-                    title={text("addRgwUsers")}
-                    hint={text("searchByName")}
-                    search={s3UserPicker.search}
-                    onSearchChange={s3UserPicker.setSearch}
-                    searchAriaLabel={text("searchGroupS3Users")}
-                    loading={auxLoading}
-                    availableCount={s3UserOptions.available.length}
-                    maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-                    selectedCount={s3UserPicker.selections.length}
-                    loadingLabel={text("loadingRgwUsers")}
-                    emptyLabel={text("noRgwUsersAvailable")}
-                    addDisabled={s3UserPicker.selections.length === 0}
-                    onCancel={() => {
-                      s3UserPicker.reset();
-                    }}
-                    onAdd={() => {
-                      setForm((current) => ({
-                        ...current,
-                        s3_user_links: [
-                          ...(current.s3_user_links ?? []),
-                          ...s3UserPicker.selections.map((s3UserId) => ({
-                            s3_user_id: s3UserId,
-                            allow_manager_browser_data_access: false,
-                          })),
-                        ].sort((a, b) => a.s3_user_id - b.s3_user_id),
-                      }));
-                      s3UserPicker.reset();
-                    }}
-                  >
-                    {s3UserOptions.visible.map((s3User) => (
-                      <div
-                        key={s3User.id}
-                        className={adminAssociationOptionRowClass(s3UserPicker.selections.includes(s3User.id))}
-                      >
-                        <AdminAssociationOptionCheckbox
-                          checked={s3UserPicker.selections.includes(s3User.id)}
-                          onChange={() => s3UserPicker.toggleSelection(s3User.id)}
-                          inputPosition="end"
-                          className="w-full justify-between"
-                        >
-                          <span>{s3User.name}</span>
-                        </AdminAssociationOptionCheckbox>
-                      </div>
-                    ))}
-                  </AdminAssociationPickerPanel>
-                ) : undefined
+            <AdminS3UserAssociationsPanel
+              state={s3UserAssociationState}
+              maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
+              primaryLabel={text("rgwUser")}
+              actionsLabel={text("actions")}
+              removeLabel={text("remove")}
+              loadingMessage={text("loadingRgwUsers")}
+              emptyMessage={text("noLinkedRgwUsers")}
+              pickerTitle={text("addRgwUsers")}
+              searchHint={text("searchByName")}
+              fallbackLabel={(id) => text("rgwUserNumber", { id })}
+              searchAriaLabel={text("searchGroupS3Users")}
+              pickerEmptyMessage={text("noRgwUsersAvailable")}
+              normalizeSelection={(links) =>
+                [...links].sort((a, b) => a.s3_user_id - b.s3_user_id)
               }
             />
           ),
