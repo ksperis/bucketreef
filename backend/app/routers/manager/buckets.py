@@ -51,7 +51,7 @@ from app.services.bucket_listing_cache import (
 )
 from app.services.bucket_listing_shared import parse_includes
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
-from app.services.storage_ops_bucket_listing_service import resolve_storage_ops_context_tenant
+from app.services.storage_ops_context_resolution import resolve_storage_ops_context_tenant
 from app.services.manager_bucket_compare_service import (
     InvalidManagerBucketComparisonError,
     compare_manager_buckets,

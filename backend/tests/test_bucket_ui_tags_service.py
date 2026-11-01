@@ -31,10 +31,8 @@ from app.services.bucket_ui_tags_service import (
 from app.services.ceph_admin_bucket_listing_service import compute_ceph_admin_bucket_listing
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.rgw_admin import RGWAdminError
-from app.services.storage_ops_bucket_listing_service import (
-    StorageOpsContextRef,
-    compute_storage_ops_bucket_listing,
-)
+from app.services.storage_ops_bucket_listing_service import compute_storage_ops_bucket_listing
+from app.services.storage_ops_context_resolution import StorageOpsContextRef
 from app.services.users_service import UsersService
 from app.services.audit_service import AuditService
 from app.services.buckets_service import get_buckets_service

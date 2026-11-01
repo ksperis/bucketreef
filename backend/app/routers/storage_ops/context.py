@@ -7,7 +7,7 @@ from collections.abc import Callable
 from fastapi import HTTPException, status
 
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.storage_ops_bucket_listing_service import StorageOpsContextRef
+from app.services.storage_ops_context_resolution import StorageOpsContextRef
 
 
 def resolve_storage_ops_context(
