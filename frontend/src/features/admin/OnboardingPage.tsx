@@ -60,7 +60,6 @@ import {
   AdminOpsPermissionsBadges,
   CredentialStatusBadge,
   EndpointHttpStatusBadge,
-  hasAccountProvisioningPermissions,
   SupervisionValidationBadges,
 } from "./StorageEndpointValidationStatus";
 import {
@@ -80,6 +79,7 @@ import {
   countOnboardingSelections,
   createOnboardingDraft,
   resolveOnboardingEndpointState,
+  resolveOnboardingReadiness,
   serviceIdentity,
   type OnboardingCredentialDraft,
   type OnboardingIdentityMode,
@@ -387,8 +387,6 @@ export default function OnboardingPage() {
     payload: endpointValidationPayload,
     retryKey: validationNonce,
   });
-  const endpointReachable =
-    endpointValidation.result?.http_check?.status === "valid";
   const adminCredentialCheck =
     endpointValidation.result?.credential_checks?.admin ?? EMPTY_CREDENTIAL_CHECK;
   const supervisionCredentialCheck =
@@ -412,6 +410,28 @@ export default function OnboardingPage() {
     enabled: Boolean(privateValidationPayload),
     payload: privateValidationPayload,
     validate: validateAdminS3ConnectionCredentials,
+  });
+  const {
+    endpointReachable,
+    invalidSelection,
+    validationPending,
+    canReview,
+    canApply,
+  } = resolveOnboardingReadiness({
+    draft,
+    identityMode,
+    state: endpointState,
+    credentials: credentialDraft,
+    endpointValidation,
+    privateValidation: {
+      status: privateValidation.status,
+      ok: privateValidation.result?.ok === true,
+    },
+    preview: {
+      value: preview,
+      pending: previewPending,
+      error: previewError,
+    },
   });
 
   const message = useCallback(
@@ -579,72 +599,6 @@ export default function OnboardingPage() {
       await persist();
       setStep("credentials");
     });
-
-  const invalidSelection =
-    !isCeph && (draft.manager || draft.portal || draft.ceph_admin || draft.supervision);
-  const adminCredentialsPartial =
-    adminCredentialsRequired && Boolean(adminAccessKey) !== Boolean(adminSecretKey);
-  const supervisionCredentialsPartial =
-    supervisionCredentialsRequired &&
-    Boolean(supervisionAccessKey) !== Boolean(supervisionSecretKey);
-  const runtimeCredentialsPartial =
-    runtimeCredentialsRequired &&
-    Boolean(runtimeAccessKey) !== Boolean(runtimeSecretKey);
-  const adminCredentialsMissing =
-    adminCredentialsRequired && (!adminAccessKey || !adminSecretKey);
-  const supervisionCredentialsMissing =
-    supervisionCredentialsRequired && (!supervisionAccessKey || !supervisionSecretKey);
-  const runtimeCredentialsMissing =
-    runtimeCredentialsRequired && (!runtimeAccessKey || !runtimeSecretKey);
-  const privateCredentialsMissing =
-    draft.private_connection && (!privateAccessKey || !privateSecretKey);
-  const adminOpsPermissionsReady = hasAccountProvisioningPermissions(
-    endpointValidation.result?.admin_ops_permissions,
-  );
-  const adminValidationReady =
-    !needsAdmin ||
-    (adminCredentialCheck.status === "valid" &&
-      endpointValidation.result?.admin === true &&
-      (!(draft.manager || draft.portal) || (endpointValidation.result?.account === true && adminOpsPermissionsReady)));
-  const supervisionValidationReady =
-    !needsSupervision || identityMode === "managed" ||
-    (supervisionCredentialCheck.status === "valid" &&
-      endpointValidation.result?.metrics === true);
-  const cephAdminValidationReady =
-    !draft.ceph_admin || (cephAdminCredentialCheck.status === "valid" &&
-      Boolean(cephAdminAccessKey) === Boolean(cephAdminSecretKey) &&
-      (Boolean(cephAdminAccessKey && cephAdminSecretKey) || storedCephAdminCredentials));
-  const runtimeValidationReady = identityMode === "managed" || !needsRuntime || runtimeCredentialCheck.status === "valid";
-  const privateValidationReady =
-    !draft.private_connection ||
-    (privateValidation.status === "done" && privateValidation.result?.ok === true);
-  const validationPending =
-    endpointValidation.status === "loading" ||
-    (draft.private_connection && privateValidation.status === "loading");
-  const canReview =
-    endpointReachable &&
-    endpointValidation.status === "done" &&
-    !endpointValidation.error &&
-    hasSelection &&
-    !invalidSelection &&
-    !adminCredentialsPartial &&
-    !supervisionCredentialsPartial &&
-    !runtimeCredentialsPartial &&
-    !adminCredentialsMissing &&
-    !supervisionCredentialsMissing &&
-    !runtimeCredentialsMissing &&
-    !privateCredentialsMissing &&
-    adminValidationReady &&
-    supervisionValidationReady &&
-    cephAdminValidationReady && runtimeValidationReady &&
-    privateValidationReady &&
-    !validationPending;
-  const canApply =
-    canReview &&
-    Boolean(preview) &&
-    !previewPending &&
-    !previewError &&
-    preview!.blockers.length === 0;
 
   const goReview = () =>
     run(async () => {

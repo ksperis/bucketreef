@@ -1,11 +1,13 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import { describe, expect, it } from "vitest";
 import type { OnboardingDraft } from "../../api/onboarding";
+import type { StorageEndpointFeatureDetectionResult } from "../../api/storageEndpoints";
 import {
   buildOnboardingApplyCredentials,
   countOnboardingSelections,
   createOnboardingDraft,
   resolveOnboardingEndpointState,
+  resolveOnboardingReadiness,
   type OnboardingCredentialDraft,
 } from "./onboardingFormModel";
 
@@ -21,6 +23,77 @@ const credentials: OnboardingCredentialDraft = {
   privateAccessKey: "private-access",
   privateSecretKey: "private-secret",
 };
+
+function validDetection(): StorageEndpointFeatureDetectionResult {
+  return {
+    admin: true,
+    account: true,
+    usage: true,
+    metrics: true,
+    warnings: [],
+    http_check: { status: "valid", status_code: 200 },
+    admin_ops_permissions: {
+      users_read: true,
+      users_write: true,
+      buckets_read: false,
+      buckets_write: false,
+      accounts_read: true,
+      accounts_write: true,
+      usage_read: false,
+      usage_write: false,
+    },
+    credential_checks: {
+      admin: { status: "valid" },
+      supervision: { status: "valid" },
+      runtime: { status: "valid" },
+      ceph_admin: { status: "valid" },
+    },
+  };
+}
+
+function readinessFor({
+  draft = createOnboardingDraft(),
+  identityMode = "managed",
+  applyCredentials = credentials,
+  detection = validDetection(),
+  blockers = [],
+}: {
+  draft?: OnboardingDraft;
+  identityMode?: "managed" | "external";
+  applyCredentials?: OnboardingCredentialDraft;
+  detection?: StorageEndpointFeatureDetectionResult;
+  blockers?: string[];
+} = {}) {
+  return resolveOnboardingReadiness({
+    draft,
+    identityMode,
+    state: resolveOnboardingEndpointState({
+      draft,
+      selectedEndpoint: null,
+      identityMode,
+    }),
+    credentials: applyCredentials,
+    endpointValidation: {
+      status: "done",
+      result: detection,
+      error: null,
+    },
+    privateValidation: {
+      status: "done",
+      ok: true,
+    },
+    preview: {
+      value: {
+        features: [],
+        changes: [],
+        blockers,
+        review_token: "review-token",
+      },
+      pending: false,
+      error: "",
+    },
+  });
+}
 
 describe("onboarding form model", () => {
   it("owns provider-sensitive draft defaults", () => {
@@ -120,5 +193,39 @@ describe("onboarding form model", () => {
       private_access_key: "private-access",
       private_secret_key: "private-secret",
     });
+  });
+
+  it("centralizes readiness and account provisioning permissions", () => {
+    expect(readinessFor()).toEqual({
+      endpointReachable: true,
+      invalidSelection: false,
+      validationPending: false,
+      canReview: true,
+      canApply: true,
+    });
+
+    const detection = validDetection();
+    detection.admin_ops_permissions.accounts_write = false;
+    expect(readinessFor({ detection })).toEqual(
+      expect.objectContaining({ canReview: false, canApply: false }),
+    );
+  });
+
+  it("blocks review for incomplete required external credentials", () => {
+    expect(
+      readinessFor({
+        identityMode: "external",
+        applyCredentials: {
+          ...credentials,
+          runtimeSecretKey: "",
+        },
+      }),
+    ).toEqual(expect.objectContaining({ canReview: false, canApply: false }));
+  });
+
+  it("keeps preview blockers separate from review readiness", () => {
+    expect(readinessFor({ blockers: ["configuration_changed"] })).toEqual(
+      expect.objectContaining({ canReview: true, canApply: false }),
+    );
   });
 });
