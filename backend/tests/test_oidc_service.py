@@ -16,6 +16,7 @@ from app.db import OidcAuthorizationCode, OidcLoginState
 from app.services.oidc_service import (
     OIDCAuthenticationError,
     OIDCConfigurationError,
+    OIDCLinkContinuationRequiredError,
     OIDCProviderNotFoundError,
     OIDCStateError,
     OidcService,
@@ -499,6 +500,80 @@ def test_complete_login_rejects_replayed_authorization_code(db_session, monkeypa
     assert db_session.scalar(
         select(OidcLoginState).where(OidcLoginState.state == second["state"])
     ) is None
+
+
+@pytest.mark.parametrize(
+    ("purpose", "expected_method"),
+    [("link_identity", "record"), ("link_proof", "verify")],
+)
+def test_complete_login_routes_link_continuations(
+    db_session,
+    monkeypatch,
+    purpose,
+    expected_method,
+):
+    service, users = _service(db_session)
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {
+            "issuer": OIDC_ISSUER,
+            "authorization_endpoint": "https://issuer.example.test/auth",
+            "token_endpoint": "https://issuer.example.test/token",
+        },
+    )
+    started = service.start_login(
+        "google",
+        "/profile",
+        purpose=purpose,
+        link_attempt_id="link-attempt-1",
+        browser_secret_hash="browser-hash",
+    )
+    monkeypatch.setattr(service, "_exchange_authorization_code", lambda *args, **kwargs: {})
+    identity = {
+        "subject": "external-subject",
+        "email": "linked@example.test",
+        "email_verified": True,
+        "full_name": "Linked User",
+        "picture_url": None,
+    }
+    monkeypatch.setattr(
+        service,
+        "_identity_from_token_payload",
+        lambda *args, **kwargs: identity,
+    )
+    calls: list[tuple[str, dict]] = []
+
+    class _FakeLinkService:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def record_oidc_identity(self, **kwargs):
+            calls.append(("record", kwargs))
+
+        def verify_oidc_proof(self, **kwargs):
+            calls.append(("verify", kwargs))
+
+    monkeypatch.setattr(
+        "app.services.external_identity_link_service.ExternalIdentityLinkService",
+        _FakeLinkService,
+    )
+
+    with pytest.raises(OIDCLinkContinuationRequiredError) as caught:
+        service.complete_login(
+            "google",
+            "link-code",
+            started["state"],
+            browser_secret_hash="browser-hash",
+        )
+
+    assert caught.value.attempt_id == "link-attempt-1"
+    assert calls[0][0] == expected_method
+    assert calls[0][1]["attempt_id"] == "link-attempt-1"
+    assert calls[0][1]["provider_id"] == "google"
+    assert calls[0][1]["issuer"] == OIDC_ISSUER
+    assert calls[0][1]["subject"] == "external-subject"
+    assert users.calls == []
 
 
 def test_metadata_and_jwks_caching(db_session, monkeypatch):

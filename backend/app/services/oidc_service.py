@@ -12,7 +12,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, NoReturn, Optional
 from urllib.parse import urlencode, urlparse
 
 import requests
@@ -208,30 +208,13 @@ class OidcService:
         )
 
         if login_state.purpose != "login":
-            if not login_state.link_attempt_id:
-                raise OIDCStateError("OIDC link state is incomplete")
-            from app.services.external_identity_link_service import ExternalIdentityLinkService
-
-            link_service = ExternalIdentityLinkService(self.db, settings=self.settings)
-            if login_state.purpose == "link_identity":
-                link_service.record_oidc_identity(
-                    attempt_id=login_state.link_attempt_id,
-                    browser_secret_hash=browser_secret_hash,
-                    provider_id=provider_key,
-                    issuer=issuer,
-                    **identity,
-                )
-            elif login_state.purpose == "link_proof":
-                link_service.verify_oidc_proof(
-                    attempt_id=login_state.link_attempt_id,
-                    browser_secret_hash=browser_secret_hash,
-                    provider_id=provider_key,
-                    issuer=issuer,
-                    subject=identity["subject"],
-                )
-            else:
-                raise OIDCStateError("Unsupported OIDC state purpose")
-            raise OIDCLinkContinuationRequiredError(login_state.link_attempt_id)
+            self._complete_link_continuation(
+                login_state,
+                provider_key=provider_key,
+                issuer=issuer,
+                identity=identity,
+                browser_secret_hash=browser_secret_hash,
+            )
 
         user, created = self.users_service.get_or_create_oidc_user(
             provider=provider_key,
@@ -245,6 +228,40 @@ class OidcService:
 
         user = self.users_service.mark_last_login(user)
         return user, login_state.redirect_path, created
+
+    def _complete_link_continuation(
+        self,
+        login_state: _ClaimedLoginState,
+        *,
+        provider_key: str,
+        issuer: str,
+        identity: dict[str, Any],
+        browser_secret_hash: Optional[str],
+    ) -> NoReturn:
+        if not login_state.link_attempt_id:
+            raise OIDCStateError("OIDC link state is incomplete")
+        from app.services.external_identity_link_service import ExternalIdentityLinkService
+
+        link_service = ExternalIdentityLinkService(self.db, settings=self.settings)
+        if login_state.purpose == "link_identity":
+            link_service.record_oidc_identity(
+                attempt_id=login_state.link_attempt_id,
+                browser_secret_hash=browser_secret_hash,
+                provider_id=provider_key,
+                issuer=issuer,
+                **identity,
+            )
+        elif login_state.purpose == "link_proof":
+            link_service.verify_oidc_proof(
+                attempt_id=login_state.link_attempt_id,
+                browser_secret_hash=browser_secret_hash,
+                provider_id=provider_key,
+                issuer=issuer,
+                subject=identity["subject"],
+            )
+        else:
+            raise OIDCStateError("Unsupported OIDC state purpose")
+        raise OIDCLinkContinuationRequiredError(login_state.link_attempt_id)
 
     def _claim_login_state(
         self,
