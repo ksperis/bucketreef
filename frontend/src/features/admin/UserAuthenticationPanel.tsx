@@ -26,6 +26,7 @@ import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
 import { securityDate } from "../shared/securityPresentation";
+import useAdminResourceController from "./useAdminResourceController";
 import { useUserI18n } from "./userMessage";
 
 type PendingAction =
@@ -51,10 +52,21 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   const { locale, text } = useUserI18n();
   const textRef = useRef(text);
   textRef.current = text;
-  const [security, setSecurity] = useState<AdminUserSecurity | null>(null);
-  const [loading, setLoading] = useState(true);
-  const loadGeneration = useRef(0);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadSecurity = useCallback(() => getAdminUserSecurity(userId), [userId]);
+  const formatLoadError = useCallback(
+    (failure: unknown) => extractApiError(failure, textRef.current("loadAuthenticationError")),
+    [],
+  );
+  const {
+    resource: security,
+    loading,
+    error: loadError,
+    refresh: load,
+  } = useAdminResourceController<AdminUserSecurity | null>({
+    loadResource: loadSecurity,
+    initialResource: null,
+    formatError: formatLoadError,
+  });
   const [error, setError] = useState<string | null>(null);
   const [errorContext, setErrorContext] = useState<"password" | "identity" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -100,25 +112,6 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   const dirty = Boolean(password || passwordConfirmation || providerId || oidcIssuer || subject || identityEmail);
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
-
-  const load = useCallback(async () => {
-    const generation = ++loadGeneration.current;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const details = await getAdminUserSecurity(userId);
-      if (generation === loadGeneration.current) setSecurity(details);
-    } catch (loadFailure) {
-      if (generation === loadGeneration.current) setLoadError(extractApiError(loadFailure, textRef.current("loadAuthenticationError")));
-    } finally {
-      if (generation === loadGeneration.current) setLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    void load();
-    return () => { loadGeneration.current += 1; };
-  }, [load]);
 
   const runAction = async (action: () => Promise<void>, success: string, requiresStepUp = true) => {
     if (disabled || busyRef.current) return false;
