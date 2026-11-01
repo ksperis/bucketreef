@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyRotationResponse,
   KeyRotationResultItem,
@@ -35,6 +35,7 @@ import {
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
 import { useAdminI18n } from "./adminI18n";
+import useAdminResourceController from "./useAdminResourceController";
 
 type RotationTypeOption = {
   value: KeyRotationType;
@@ -181,12 +182,9 @@ function resultTableColumns(adminText: ReturnType<typeof useAdminI18n>["text"]):
 export default function KeyRotationPage() {
   const { text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [result, setResult] = useState<KeyRotationResponse | null>(null);
-  const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [selectedEndpointIds, setSelectedEndpointIds] = useState<number[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<KeyRotationType[]>([
     "endpoint_admin",
@@ -201,38 +199,37 @@ export default function KeyRotationPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pending = useRef(false);
   const active = useRef(true);
+  const formatLoadError = useCallback(
+    (error: unknown) => extractApiError(error, adminText("Unable to run key rotation.")),
+    [adminText],
+  );
+  const initializeEndpointSelection = useCallback((loadedEndpoints: StorageEndpoint[]) => {
+    setSelectedEndpointIds(
+      loadedEndpoints
+        .filter((endpoint) => isEndpointEligible(
+          endpoint,
+          ROTATION_TYPE_OPTIONS.map((option) => option.value),
+        ))
+        .map((endpoint) => endpoint.id),
+    );
+  }, []);
+  const {
+    resource: endpoints,
+    loading,
+    error,
+    setError,
+  } = useAdminResourceController<StorageEndpoint[]>({
+    loadResource: listStorageEndpoints,
+    initialResource: [],
+    formatError: formatLoadError,
+    onLoaded: initializeEndpointSelection,
+  });
   useEffect(() => {
     active.current = true;
     return () => {
       active.current = false;
     };
   }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const loadedEndpoints = await listStorageEndpoints();
-        if (!mounted) return;
-        setEndpoints(loadedEndpoints);
-        const eligibleIds = loadedEndpoints
-          .filter((endpoint) => isEndpointEligible(endpoint, ROTATION_TYPE_OPTIONS.map(option => option.value)))
-          .map((endpoint) => endpoint.id);
-        setSelectedEndpointIds(eligibleIds);
-      } catch (err) {
-        if (!mounted) return;
-        setError(extractApiError(err, adminText("Unable to run key rotation.")));
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [adminText]);
 
   const eligibleEndpoints = useMemo(
     () => endpoints.filter((endpoint) => isEndpointEligible(endpoint, selectedTypes)),
