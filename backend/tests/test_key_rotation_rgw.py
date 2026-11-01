@@ -34,9 +34,17 @@ def test_resolve_identity_from_access_key_normalizes_rgw_payloads(payload, expec
 
 
 def test_resolve_identity_from_access_key_rejects_conflicting_tenant():
-    with pytest.raises(ValueError, match="conflicting tenants"):
+    with pytest.raises(ValueError, match="conflicting tenant identity"):
         RgwAccessKeyRotator().resolve_identity_from_access_key(
             _Admin({"uid": "tenant-a$alice", "tenant": "tenant-b"}),
+            "access",
+        )
+
+
+def test_resolve_identity_from_access_key_rejects_conflicting_user_fields():
+    with pytest.raises(ValueError, match="conflicting user identity"):
+        RgwAccessKeyRotator().resolve_identity_from_access_key(
+            _Admin({"uid": "alice", "user": {"uid": "bob"}}),
             "access",
         )
 
