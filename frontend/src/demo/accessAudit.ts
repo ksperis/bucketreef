@@ -7,7 +7,7 @@ import {
 } from "../api/accessAudit";
 import type { UiGroup } from "../api/groups";
 import { resolveDemoAccountGrant } from "./http";
-import type { DemoState, DemoUser } from "./state";
+import { demoGroupsForUser, type DemoState, type DemoUser } from "./state";
 
 type AuditSource = AccessAuditRight["sources"][number];
 type AuditTarget = AccessAuditRow["target"];
@@ -27,10 +27,6 @@ function directSource(): AuditSource {
 
 function groupSource(group: UiGroup): AuditSource {
   return { kind: "group", group_id: group.id, group_name: group.name };
-}
-
-function groupsForUser(state: DemoState, userId: number): UiGroup[] {
-  return state.groups.filter(group => group.user_details.some(member => member.id === userId));
 }
 
 function flagSources(
@@ -200,7 +196,7 @@ function addConnectionRows(rows: Map<string, AccessAuditRow>, state: DemoState, 
 export function buildDemoAccessAuditRows(state: DemoState): AccessAuditRow[] {
   const rows = new Map<string, AccessAuditRow>();
   for (const user of state.users) {
-    const groups = groupsForUser(state, user.id);
+    const groups = demoGroupsForUser(state, user.id);
     addPlatformRows(rows, user, groups);
     addAccountRows(rows, state, user);
     addS3UserRows(rows, state, user, groups);
