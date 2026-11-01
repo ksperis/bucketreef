@@ -2,21 +2,18 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { listBuckets } from "../../api/managerBuckets";
+import { listBucketOptions } from "../../api/managerBuckets";
 import type { Bucket } from "../../api/bucketContracts";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
+import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 import { useExecutionContext } from "./ExecutionContextProvider";
 
 export function useManagerBucketSelection() {
   const { contexts, selectedContextId, requiresContextSelection } = useExecutionContext();
   const sourceContextId = selectedContextId ?? "";
-  const [buckets, setBuckets] = useState<Bucket[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
   const [selectedBuckets, setSelectedBuckets] = useState<Set<string>>(new Set());
 
   const sourceContext = useMemo(
@@ -24,43 +21,28 @@ export function useManagerBucketSelection() {
     [contexts, sourceContextId]
   );
 
-  useEffect(() => {
-    if (!sourceContextId) {
-      setBuckets([]);
-      setSelectedBuckets(new Set());
-      return;
-    }
-    let canceled = false;
-    setLoading(true);
-    setError(null);
-    listBuckets(sourceContextId, { with_stats: false })
-      .then((items) => {
-        if (canceled) return;
-        const sorted = [...items].sort((left, right) => left.name.localeCompare(right.name));
-        setBuckets(sorted);
-        setSelectedBuckets((current) => {
-          const availableNames = new Set(sorted.map((bucket) => bucket.name));
-          return new Set([...current].filter((bucketName) => availableNames.has(bucketName)));
-        });
-      })
-      .catch((requestError) => {
-        if (canceled) return;
-        setError(extractApiError(requestError, "Unable to load buckets."));
-        setBuckets([]);
-      })
-      .finally(() => {
-        if (!canceled) setLoading(false);
-      });
-    return () => {
-      canceled = true;
-    };
-  }, [sourceContextId]);
+  const loadBucketOptions = useCallback(
+    async (query: { page?: number; page_size?: number; search?: string }) => {
+      try {
+        return await listBucketOptions(sourceContextId, query);
+      } catch (requestError) {
+        throw new Error(extractApiError(requestError, "Unable to load buckets."));
+      }
+    },
+    [sourceContextId],
+  );
+  const catalog = usePaginatedOptions(loadBucketOptions, {
+    enabled: Boolean(sourceContextId),
+    initialPageSize: 25,
+  });
+  const filteredBuckets = useMemo<Bucket[]>(
+    () => catalog.items.map((bucket) => ({ name: bucket.name })),
+    [catalog.items],
+  );
 
-  const filteredBuckets = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
-    if (!needle) return buckets;
-    return buckets.filter((bucket) => bucket.name.toLowerCase().includes(needle));
-  }, [buckets, filter]);
+  useEffect(() => {
+    setSelectedBuckets(new Set());
+  }, [sourceContextId]);
 
   const selectedBucketList = useMemo(
     () => [...selectedBuckets].sort((left, right) => left.localeCompare(right)),
@@ -102,23 +84,28 @@ export function useManagerBucketSelection() {
   };
 
   const tableStatus = resolveListTableStatus({
-    loading,
-    error,
+    loading: catalog.loading,
+    error: catalog.error,
     rowCount: filteredBuckets.length,
   });
 
   return {
     clearSelection,
-    error,
-    filter,
+    error: catalog.error,
+    filter: catalog.search,
     filteredBuckets,
-    loading,
+    loading: catalog.loading,
+    page: catalog.page,
+    pageSize: catalog.pageSize,
+    total: catalog.total,
     requiresContextSelection,
     selectedBucketList,
     selectedBuckets,
     selectedTargets,
     selectAllFiltered,
-    setFilter,
+    setFilter: catalog.setSearch,
+    setPage: catalog.setPage,
+    setPageSize: catalog.setPageSize,
     sourceContext,
     sourceContextId,
     tableStatus,

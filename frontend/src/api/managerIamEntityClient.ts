@@ -8,6 +8,18 @@ import { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 
 type IamEntitySegment = "users" | "groups" | "roles";
 
+export type IamCursorPage<T> = {
+  items: T[];
+  next_marker: string | null;
+};
+
+export type IamCursorQuery = {
+  marker?: string | null;
+  page_size?: number;
+  search?: string;
+  include_details?: boolean;
+};
+
 function segmentBasePath(segment: IamEntitySegment): string {
   return `/manager/iam/${segment}`;
 }
@@ -22,6 +34,24 @@ function withContext(contextId?: S3ExecutionContextSelector) {
 
 export async function listIamEntities<T>(segment: IamEntitySegment, contextId?: S3ExecutionContextSelector): Promise<T[]> {
   const { data } = await client.get<T[]>(segmentBasePath(segment), withContext(contextId));
+  return data;
+}
+
+export async function listIamEntityPage<T>(
+  segment: IamEntitySegment,
+  contextId: S3ExecutionContextSelector,
+  query: IamCursorQuery = {},
+): Promise<IamCursorPage<T>> {
+  const params = withS3ContextParam(
+    {
+      ...(query.marker ? { marker: query.marker } : {}),
+      ...(query.page_size ? { page_size: query.page_size } : {}),
+      ...(query.search?.trim() ? { search: query.search.trim() } : {}),
+      ...(query.include_details ? { include_details: true } : {}),
+    },
+    contextId,
+  );
+  const { data } = await client.get<IamCursorPage<T>>(`${segmentBasePath(segment)}/page`, { params });
   return data;
 }
 

@@ -5,8 +5,9 @@
 import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { listMinimalS3Accounts } from "../../api/accounts";
+import { listS3Accounts, type S3AccountSummary } from "../../api/accounts";
 import { listMinimalUsers } from "../../api/users";
+import type { PaginatedResponse } from "../../api/types";
 import {
   addAdminPortalRequestMessage,
   approveAdminPortalRequest,
@@ -24,12 +25,14 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
+import PaginationControls from "../../components/PaginationControls";
 import UserAvatar from "../../components/UserAvatar";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import UiTextarea from "../../components/ui/UiTextarea";
 import useLazyListLoader from "../../hooks/useLazyListLoader";
+import usePaginatedOptions, { type PaginatedOptionsQuery } from "../../hooks/usePaginatedOptions";
 import {
   cx,
   uiDividerClass,
@@ -55,13 +58,14 @@ type StatusFilter = PortalAdminRequestStatus | "all";
 type TypeFilter = PortalAdminRequestType | "all";
 type BusyAction = string | null;
 
+const loadAccountOptions = async (
+  query: PaginatedOptionsQuery,
+): Promise<PaginatedResponse<S3AccountSummary>> => listS3Accounts(query);
+
 export default function AdminPortalRequestsPage() {
   const { text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
-  const {
-    items: accounts,
-    refresh: refreshAccounts,
-  } = useLazyListLoader(listMinimalS3Accounts);
+  const accountCatalog = usePaginatedOptions(loadAccountOptions, { initialPageSize: 25 });
   const {
     items: requesters,
     refresh: refreshRequesters,
@@ -69,6 +73,7 @@ export default function AdminPortalRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [accountFilter, setAccountFilter] = useState("all");
+  const [selectedAccountOption, setSelectedAccountOption] = useState<S3AccountSummary | null>(null);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [messageDrafts, setMessageDrafts] = useState<Record<number, string>>({});
@@ -76,9 +81,18 @@ export default function AdminPortalRequestsPage() {
   const [busy, setBusy] = useState<BusyAction>(null);
 
   useEffect(() => {
-    void refreshAccounts();
     void refreshRequesters();
-  }, [refreshAccounts, refreshRequesters]);
+  }, [refreshRequesters]);
+
+  const accountOptions = useMemo(() => {
+    if (
+      selectedAccountOption &&
+      !accountCatalog.items.some((account) => account.id === selectedAccountOption.id)
+    ) {
+      return [selectedAccountOption, ...accountCatalog.items];
+    }
+    return accountCatalog.items;
+  }, [accountCatalog.items, selectedAccountOption]);
 
   const requestersById = useMemo(
     () => new Map(requesters.map((requester) => [requester.id, requester])),
@@ -326,20 +340,47 @@ export default function AdminPortalRequestsPage() {
                 <option value="account_quota_change">{adminText("Storage quota")}</option>
                 <option value="portal_setting_change">{adminText("Project setting")}</option>
               </UiSelect>
-              <UiSelect
-                label={adminText("Account")}
-                aria-label={adminText("Filter by account")}
-                value={accountFilter}
-                onChange={(event) => setAccountFilter(event.target.value)}
-                size="compact"
-              >
-                <option value="all">{adminText("All accounts")}</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </UiSelect>
+              <div className="grid min-w-[240px] gap-2">
+                <UiInput
+                  label={adminText("Account search")}
+                  aria-label={adminText("Search accounts")}
+                  type="search"
+                  value={accountCatalog.search}
+                  onChange={(event) => accountCatalog.setSearch(event.target.value)}
+                  size="compact"
+                  placeholder={adminText("Search accounts")}
+                />
+                <UiSelect
+                  label={adminText("Account")}
+                  aria-label={adminText("Filter by account")}
+                  value={accountFilter}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setAccountFilter(nextValue);
+                    setSelectedAccountOption(
+                      nextValue === "all"
+                        ? null
+                        : accountOptions.find((account) => String(account.id) === nextValue) ?? null,
+                    );
+                  }}
+                  size="compact"
+                >
+                  <option value="all">{adminText("All accounts")}</option>
+                  {accountOptions.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </UiSelect>
+                <PaginationControls
+                  page={accountCatalog.page}
+                  pageSize={accountCatalog.pageSize}
+                  total={accountCatalog.total}
+                  onPageChange={accountCatalog.setPage}
+                  onPageSizeChange={accountCatalog.setPageSize}
+                  disabled={accountCatalog.loading}
+                />
+              </div>
             </>
           }
           actions={

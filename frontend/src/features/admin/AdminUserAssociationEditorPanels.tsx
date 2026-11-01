@@ -23,6 +23,51 @@ export type AdminUserAssociationEditorResources = {
   s3UsersLoading: boolean;
   s3ConnectionsLoading: boolean;
   openStackCloudsLoading: boolean;
+  accountCatalog: {
+    search: string;
+    setSearch: (value: string) => void;
+    page: number;
+    pageSize: number;
+    total: number;
+    setPage: (page: number) => void;
+    setPageSize: (pageSize: number) => void;
+  };
+  s3UserCatalog: {
+    search: string;
+    setSearch: (value: string) => void;
+    page: number;
+    pageSize: number;
+    total: number;
+    setPage: (page: number) => void;
+    setPageSize: (pageSize: number) => void;
+  };
+  s3ConnectionCatalog: {
+    search: string;
+    setSearch: (value: string) => void;
+    page: number;
+    pageSize: number;
+    total: number;
+    setPage: (page: number) => void;
+    setPageSize: (pageSize: number) => void;
+  };
+  openStackCatalog: {
+    search: string;
+    setSearch: (value: string) => void;
+    page: number;
+    pageSize: number;
+    total: number;
+    setPage: (page: number) => void;
+    setPageSize: (pageSize: number) => void;
+  };
+  groupCatalog: {
+    search: string;
+    setSearch: (value: string) => void;
+    page: number;
+    pageSize: number;
+    total: number;
+    setPage: (page: number) => void;
+    setPageSize: (pageSize: number) => void;
+  };
   showPortalRole: boolean;
   openStackEnabled: boolean;
   ensureAssociationOptionsForTab: (
@@ -54,12 +99,22 @@ export default function AdminUserAssociationEditorPanels({
         selectedIds={editor.groups.selected}
         setSelectedIds={editor.groups.setSelected}
         search={editor.groups.picker.search}
-        setSearch={editor.groups.picker.setSearch}
+        setSearch={(value) => {
+          editor.groups.picker.setSearch(value);
+          resources.groupCatalog.setSearch(value);
+        }}
         visibleGroups={options.groups}
         showPanel={editor.groups.picker.open}
         setShowPanel={editor.groups.picker.setOpen}
         selections={editor.groups.picker.selections}
         setSelections={editor.groups.picker.setSelections}
+        pagination={{
+          page: resources.groupCatalog.page,
+          pageSize: resources.groupCatalog.pageSize,
+          total: resources.groupCatalog.total,
+          onPageChange: resources.groupCatalog.setPage,
+          onPageSizeChange: resources.groupCatalog.setPageSize,
+        }}
       />
     );
   }
@@ -84,7 +139,10 @@ export default function AdminUserAssociationEditorPanels({
         available: options.accounts.available,
         visible: options.accounts.visible,
         search: editor.accounts.picker.search,
-        setSearch: editor.accounts.picker.setSearch,
+        setSearch: (value) => {
+          editor.accounts.picker.setSearch(value);
+          resources.accountCatalog.setSearch(value);
+        },
         loading: resources.s3AccountsLoading,
         showPanel: editor.accounts.picker.open,
         setShowPanel: editor.accounts.picker.setOpen,
@@ -93,6 +151,13 @@ export default function AdminUserAssociationEditorPanels({
         accountAccessChoice: editor.accounts.accessChoice,
         setAccountAccessChoice: editor.accounts.setAccessChoice,
         toggleSelection: editor.accounts.picker.toggleSelection,
+        pagination: {
+          page: resources.accountCatalog.page,
+          pageSize: resources.accountCatalog.pageSize,
+          total: resources.accountCatalog.total,
+          onPageChange: resources.accountCatalog.setPage,
+          onPageSizeChange: resources.accountCatalog.setPageSize,
+        },
       }}
       s3Users={{
         selected: editor.s3Users.selected,
@@ -110,13 +175,23 @@ export default function AdminUserAssociationEditorPanels({
         available: options.s3Users.available,
         visible: options.s3Users.visible,
         search: editor.s3Users.picker.search,
-        setSearch: editor.s3Users.picker.setSearch,
+        setSearch: (value) => {
+          editor.s3Users.picker.setSearch(value);
+          resources.s3UserCatalog.setSearch(value);
+        },
         loading: resources.s3UsersLoading,
         showPanel: editor.s3Users.picker.open,
         setShowPanel: editor.s3Users.picker.setOpen,
         selections: editor.s3Users.picker.selections,
         setSelections: editor.s3Users.picker.setSelections,
         toggleSelection: editor.s3Users.picker.toggleSelection,
+        pagination: {
+          page: resources.s3UserCatalog.page,
+          pageSize: resources.s3UserCatalog.pageSize,
+          total: resources.s3UserCatalog.total,
+          onPageChange: resources.s3UserCatalog.setPage,
+          onPageSizeChange: resources.s3UserCatalog.setPageSize,
+        },
       }}
       connections={{
         selected: editor.connections.selected,
@@ -125,13 +200,23 @@ export default function AdminUserAssociationEditorPanels({
         available: options.connections.available,
         visible: options.connections.visible,
         search: editor.connections.picker.search,
-        setSearch: editor.connections.picker.setSearch,
+        setSearch: (value) => {
+          editor.connections.picker.setSearch(value);
+          resources.s3ConnectionCatalog.setSearch(value);
+        },
         loading: resources.s3ConnectionsLoading,
         showPanel: editor.connections.picker.open,
         setShowPanel: editor.connections.picker.setOpen,
         selections: editor.connections.picker.selections,
         setSelections: editor.connections.picker.setSelections,
         toggleSelection: editor.connections.picker.toggleSelection,
+        pagination: {
+          page: resources.s3ConnectionCatalog.page,
+          pageSize: resources.s3ConnectionCatalog.pageSize,
+          total: resources.s3ConnectionCatalog.total,
+          onPageChange: resources.s3ConnectionCatalog.setPage,
+          onPageSizeChange: resources.s3ConnectionCatalog.setPageSize,
+        },
       }}
       openstack={resources.openStackEnabled ? {
         selected: editor.openStack.selected,
@@ -140,13 +225,23 @@ export default function AdminUserAssociationEditorPanels({
         available: options.openStack.available,
         visible: options.openStack.visible,
         search: editor.openStack.picker.search,
-        setSearch: editor.openStack.picker.setSearch,
+        setSearch: (value) => {
+          editor.openStack.picker.setSearch(value);
+          resources.openStackCatalog.setSearch(value);
+        },
         loading: resources.openStackCloudsLoading,
         showPanel: editor.openStack.picker.open,
         setShowPanel: editor.openStack.picker.setOpen,
         selections: editor.openStack.picker.selections,
         setSelections: editor.openStack.picker.setSelections,
         toggleSelection: editor.openStack.picker.toggleSelection,
+        pagination: {
+          page: resources.openStackCatalog.page,
+          pageSize: resources.openStackCatalog.pageSize,
+          total: resources.openStackCatalog.total,
+          onPageChange: resources.openStackCatalog.setPage,
+          onPageSizeChange: resources.openStackCatalog.setPageSize,
+        },
       } : undefined}
     />
   );

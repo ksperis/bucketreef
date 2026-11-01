@@ -245,6 +245,34 @@ describe("CephAdminAdminOpsModal", () => {
     expect(screen.getByText("LINK BUCKET bucket-a TO RGW12345678901234567")).toBeInTheDocument();
   });
 
+  it("pages through RGW link targets without losing the selected target", async () => {
+    listUsersMock.mockImplementation(async (_endpointId: number, params: { page?: number }) => {
+      const page = params.page ?? 1;
+      return {
+        items: [buildCephAdminUser(page === 1 ? "alice" : "bob", { full_name: page === 1 ? "Alice" : "Bob" })],
+        total: 30,
+        page,
+        page_size: 25,
+      };
+    });
+    render(
+      <CephAdminAdminOpsModal
+        endpointId={7}
+        action={{ kind: "link-bucket", bucket: buildCephAdminBucket("bucket-a") }}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />
+    );
+
+    const alice = await screen.findByRole("button", { name: "Alice · alice" });
+    fireEvent.click(alice);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByRole("button", { name: "Bob · bob" })).toBeInTheDocument();
+    expect(screen.getByText("LINK BUCKET bucket-a TO alice")).toBeInTheDocument();
+    expect(listUsersMock).toHaveBeenLastCalledWith(7, expect.objectContaining({ page: 2, page_size: 25 }));
+  });
+
   it("shows structured RGW failures and leaves retry available", async () => {
     deleteAccountMock.mockRejectedValue({
       response: {

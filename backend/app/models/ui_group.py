@@ -106,3 +106,7 @@ class UiGroupOut(ApiModel):
 
 class PaginatedUiGroupsResponse(PaginatedResponse):
     items: list[UiGroupOut]
+
+
+class PaginatedUiGroupSummariesResponse(PaginatedResponse):
+    items: list[UiGroupSummary]

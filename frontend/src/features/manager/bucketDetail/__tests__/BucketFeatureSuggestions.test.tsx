@@ -3,7 +3,7 @@ import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listCephAdminBucketObjects } from "../../../../api/cephAdminBucketDetails";
 import { listCephAdminBuckets } from "../../../../api/cephAdminBuckets";
-import { listBuckets } from "../../../../api/managerBuckets";
+import { listBucketOptions } from "../../../../api/managerBuckets";
 import { listManagerObjects } from "../../../../api/managerObjects";
 import { listTopics } from "../../../../api/topics";
 import { buildCephAdminBucket } from "../../../../test/cephAdmin";
@@ -19,7 +19,7 @@ vi.mock("../../../../api/cephAdminBuckets", () => ({
   listCephAdminBuckets: vi.fn(),
 }));
 vi.mock("../../../../api/managerBuckets", () => ({
-  listBuckets: vi.fn(),
+  listBucketOptions: vi.fn(),
 }));
 vi.mock("../../../../api/managerObjects", () => ({
   listManagerObjects: vi.fn(),
@@ -30,7 +30,7 @@ vi.mock("../../../../api/topics", () => ({
 
 const listManagerObjectsMock = vi.mocked(listManagerObjects);
 const listCephAdminBucketObjectsMock = vi.mocked(listCephAdminBucketObjects);
-const listBucketsMock = vi.mocked(listBuckets);
+const listBucketOptionsMock = vi.mocked(listBucketOptions);
 const listCephAdminBucketsMock = vi.mocked(listCephAdminBuckets);
 const listTopicsMock = vi.mocked(listTopics);
 
@@ -58,7 +58,13 @@ beforeEach(() => {
     is_truncated: false,
     next_continuation_token: null,
   });
-  listBucketsMock.mockResolvedValue([]);
+  listBucketOptionsMock.mockResolvedValue({
+    items: [],
+    total: 0,
+    page: 1,
+    page_size: 50,
+    has_next: false,
+  });
   listTopicsMock.mockResolvedValue([]);
   listCephAdminBucketObjectsMock.mockResolvedValue({
     prefix: "",
@@ -123,10 +129,18 @@ describe("BucketFeatureSuggestionsProvider", () => {
   });
 
   it("loads buckets and topics lazily, caches catalogue requests, and swallows suggestion errors", async () => {
-    listBucketsMock.mockResolvedValue([
-      { name: "logs-target" },
-      { name: "archive-target" },
-    ]);
+    listBucketOptionsMock.mockImplementation(async (_contextId, query) => {
+      const allItems = [{ name: "logs-target" }, { name: "archive-target" }];
+      const term = query.search?.trim().toLowerCase() ?? "";
+      const items = allItems.filter((bucket) => !term || bucket.name.includes(term));
+      return {
+        items,
+        total: items.length,
+        page: query.page ?? 1,
+        page_size: query.page_size ?? 50,
+        has_next: false,
+      };
+    });
     listTopicsMock.mockResolvedValue([
       {
         name: "events-main",
@@ -140,17 +154,20 @@ describe("BucketFeatureSuggestionsProvider", () => {
       wrapper: managerWrapper,
     });
 
-    expect(listBucketsMock).not.toHaveBeenCalled();
+    expect(listBucketOptionsMock).not.toHaveBeenCalled();
     expect(listTopicsMock).not.toHaveBeenCalled();
 
     const buckets = await result.current.buckets.loadSuggestions!("");
     const bucketArns = await result.current.destinationBucketArns.loadSuggestions!("arn:aws:s3:::logs");
     expect(buckets.map((entry) => entry.value)).toEqual(["logs-target", "archive-target"]);
-    expect(bucketArns.map((entry) => entry.value)).toEqual([
-      "arn:aws:s3:::logs-target",
-      "arn:aws:s3:::archive-target",
-    ]);
-    expect(listBucketsMock).toHaveBeenCalledTimes(1);
+    expect(bucketArns.map((entry) => entry.value)).toEqual(["arn:aws:s3:::logs-target"]);
+    await result.current.destinationBucketArns.loadSuggestions!("arn:aws:s3:::logs");
+    expect(listBucketOptionsMock).toHaveBeenCalledTimes(2);
+    expect(listBucketOptionsMock).toHaveBeenLastCalledWith("acc-1", {
+      search: "logs",
+      page: 1,
+      page_size: 50,
+    });
 
     const topics = await result.current.topicArns.loadSuggestions!("");
     await result.current.topicArns.loadSuggestions!("events");

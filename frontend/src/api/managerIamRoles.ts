@@ -15,6 +15,9 @@ import {
   listEntityInlinePolicies,
   listEntityPolicies,
   listIamEntities,
+  listIamEntityPage,
+  type IamCursorPage,
+  type IamCursorQuery,
   putEntityInlinePolicy,
   updateIamEntity,
 } from "./managerIamEntityClient";
@@ -49,6 +52,13 @@ type UpdateRolePayload = {
 
 export async function listIamRoles(contextId?: S3ExecutionContextSelector): Promise<IAMRole[]> {
   return listIamEntities<IAMRole>("roles", contextId);
+}
+
+export async function listIamRolesPage(
+  contextId: S3ExecutionContextSelector,
+  query: IamCursorQuery = {},
+): Promise<IamCursorPage<IAMRole>> {
+  return listIamEntityPage<IAMRole>("roles", contextId, query);
 }
 
 export async function getIamRole(contextId: S3ExecutionContextSelector, roleName: string): Promise<IAMRole> {

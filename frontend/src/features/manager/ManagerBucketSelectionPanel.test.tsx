@@ -9,6 +9,8 @@ describe("ManagerBucketSelectionPanel", () => {
     const onToggleBucket = vi.fn();
     const onSelectFiltered = vi.fn();
     const onClearSelection = vi.fn();
+    const onPageChange = vi.fn();
+    const onPageSizeChange = vi.fn();
 
     render(
       <ManagerBucketSelectionPanel
@@ -21,6 +23,11 @@ describe("ManagerBucketSelectionPanel", () => {
         onToggleBucket={onToggleBucket}
         onSelectFiltered={onSelectFiltered}
         onClearSelection={onClearSelection}
+        page={1}
+        pageSize={25}
+        total={42}
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
         tableStatus="ready"
         loadingMessage="Loading buckets..."
         errorMessage="Unable to load buckets."
@@ -38,8 +45,10 @@ describe("ManagerBucketSelectionPanel", () => {
     fireEvent.change(filter, { target: { value: "alp" } });
     expect(onFilterChange).toHaveBeenCalledWith("alp");
 
-    fireEvent.click(screen.getByRole("button", { name: "Select filtered" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select page" }));
     expect(onSelectFiltered).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(onPageChange).toHaveBeenCalledWith(2);
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(onClearSelection).toHaveBeenCalled();
 

@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from app.db import User
 from app.models.access_context import AccountAccess
 from app.models.portal_sharing import (
+    PaginatedPortalStorageSpaceShareCandidates,
     PortalPublicLink,
     PortalPublicLinkCreate,
     PortalStorageSpaceShare,
@@ -150,33 +151,62 @@ def portal_storage_space_shares(
         raise_portal_error(exc)
 
 
-@router.get("/share-candidates", response_model=list[PortalStorageSpaceShareCandidate])
+@router.get("/share-candidates", response_model=PaginatedPortalStorageSpaceShareCandidates)
 def portal_share_candidates(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str | None = Query(None, max_length=200),
+    include_already_shared: bool = Query(False),
     access: AccountAccess = Depends(get_portal_account_access),
     service: PortalService = Depends(get_portal_service_dependency),
-) -> list[PortalStorageSpaceShareCandidate]:
+) -> PaginatedPortalStorageSpaceShareCandidates:
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     if not access.capabilities.can_manage_portal_users:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager rights required for this account")
     try:
-        return service.list_storage_space_share_candidates(actor, access)
+        items, total = service.list_storage_space_share_candidates(
+            actor,
+            access,
+            page=page,
+            page_size=page_size,
+            search=search,
+            include_already_shared=include_already_shared,
+        )
+        return PaginatedPortalStorageSpaceShareCandidates(
+            items=items, total=total, page=page, page_size=page_size, has_next=page * page_size < total
+        )
     except RuntimeError as exc:
         raise_portal_error(exc)
 
 
-@router.get("/storage-spaces/{space_id}/share-candidates", response_model=list[PortalStorageSpaceShareCandidate])
+@router.get("/storage-spaces/{space_id}/share-candidates", response_model=PaginatedPortalStorageSpaceShareCandidates)
 def portal_storage_space_share_candidates(
     space_id: str,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str | None = Query(None, max_length=200),
+    include_already_shared: bool = Query(False),
     access: AccountAccess = Depends(get_portal_account_access),
     service: PortalService = Depends(get_portal_service_dependency),
-) -> list[PortalStorageSpaceShareCandidate]:
+) -> PaginatedPortalStorageSpaceShareCandidates:
     actor = access.actor
     if not isinstance(actor, User):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
-        return service.list_storage_space_share_candidates(actor, access, space_id)
+        items, total = service.list_storage_space_share_candidates(
+            actor,
+            access,
+            space_id,
+            page=page,
+            page_size=page_size,
+            search=search,
+            include_already_shared=include_already_shared,
+        )
+        return PaginatedPortalStorageSpaceShareCandidates(
+            items=items, total=total, page=page, page_size=page_size, has_next=page * page_size < total
+        )
     except RuntimeError as exc:
         raise_portal_error(exc)
 

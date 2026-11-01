@@ -145,17 +145,23 @@ export default function UsersPage() {
     s3AccountsLoading,
     refreshS3Accounts,
     ensureS3Accounts,
+    s3AccountsCatalog,
     s3Users,
     s3UsersLoading,
+    s3UsersCatalog,
     s3Connections,
     s3ConnectionsLoading,
+    s3ConnectionsCatalog,
     groups,
     groupsLoaded,
     groupsLoading,
     ensureGroups,
+    groupsCatalog,
     openStackClouds,
     openStackCloudsLoading,
+    openStackCloudsCatalog,
     ensureAssociationOptionsForTab,
+    resetAssociationOptionSearches,
   } = useAdminUserAssociationOptions();
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -306,6 +312,11 @@ export default function UsersPage() {
     s3UsersLoading,
     s3ConnectionsLoading,
     openStackCloudsLoading,
+    accountCatalog: s3AccountsCatalog,
+    s3UserCatalog: s3UsersCatalog,
+    s3ConnectionCatalog: s3ConnectionsCatalog,
+    openStackCatalog: openStackCloudsCatalog,
+    groupCatalog: groupsCatalog,
     showPortalRole,
     openStackEnabled,
     ensureAssociationOptionsForTab,
@@ -393,6 +404,7 @@ export default function UsersPage() {
     setCreateSource("local");
     resetLdapImport();
     createAssociations.reset();
+    resetAssociationOptionSearches();
     setCreateModalTab("general");
     setCreateRoleHelpOpen(false);
     setCreateInitialSignature(emptyCreateSignature());
@@ -614,6 +626,7 @@ export default function UsersPage() {
     }
     const nextEditForm = adminUserEditForm(user);
     setEditAttempted(false);
+    resetAssociationOptionSearches();
     setEditingUser(user);
     setEditForm(nextEditForm);
     const selectedAccounts = (user.account_links ?? []).map((link) => ({

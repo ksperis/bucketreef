@@ -7,7 +7,7 @@ import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
-import { IAMUser, listIamUsers } from "../../api/managerIamUsers";
+import { IAMUser, listIamUsersPage } from "../../api/managerIamUsers";
 import { addIamGroupUser, listIamGroupUsers, removeIamGroupUser } from "../../api/managerIamGroups";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
@@ -20,7 +20,10 @@ import { decodeRouteValue } from "../../utils/routeValues";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import UiButton from "../../components/ui/UiButton";
 import UiSelect from "../../components/ui/UiSelect";
+import UiInput from "../../components/ui/UiInput";
 import { useManagerI18n } from "./managerI18n";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
+import IamCursorPaginationControls from "./IamCursorPaginationControls";
 
 export default function ManagerGroupUsersPage({ embedded = false }: { embedded?: boolean }) {
   const { text } = useManagerI18n();
@@ -30,13 +33,13 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
   const isS3User = selectedContextKind === "s3_user";
 
   const [users, setUsers] = useState<IAMUser[]>([]);
-  const [allUsers, setAllUsers] = useState<IAMUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newUser, setNewUser] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const memberConfirmation = useConfirmActionDialog();
+  const userOptions = useManagerIamCursorCollection(listIamUsersPage);
 
   const decodedGroup = decodeRouteValue(groupName);
 
@@ -44,34 +47,31 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
     setLoading(true);
     setError(null);
     try {
-      const [members, existingUsers] = await Promise.all([
-        listIamGroupUsers(contextId, targetGroup),
-        listIamUsers(contextId),
-      ]);
+      const members = await listIamGroupUsers(contextId, targetGroup);
       setUsers(members);
-      setAllUsers(existingUsers);
+      userOptions.load(contextId);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userOptions.load]);
 
   useEffect(() => {
     if (isS3User || needsContextSelection) {
       setUsers([]);
-      setAllUsers([]);
+      userOptions.setItems([]);
       setLoading(false);
       return;
     }
     if (groupName) {
       load(contextIdForApi, groupName);
     }
-  }, [contextIdForApi, isS3User, needsContextSelection, groupName, accessMode, load]);
+  }, [accessMode, contextIdForApi, groupName, isS3User, load, needsContextSelection, userOptions.setItems]);
 
   const availableUsers = useMemo(
-    () => allUsers.filter((u) => !users.some((member) => member.name === u.name)),
-    [allUsers, users]
+    () => userOptions.items.filter((u) => !users.some((member) => member.name === u.name)),
+    [userOptions.items, users]
   );
   const noAvailableUsers = availableUsers.length === 0;
 
@@ -204,7 +204,7 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
       )}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
-      {noAvailableUsers && (
+      {noAvailableUsers && !userOptions.loading && !userOptions.search.trim() && !userOptions.canPrevious && !userOptions.canNext && (
         <PageBanner tone="warning">{text("No IAM users available to add. Create one before managing this group.")}</PageBanner>
       )}
 
@@ -212,6 +212,12 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
         onSubmit={handleAdd}
         className="space-y-3 ui-surface-card p-4"
       >
+        <UiInput
+          label={text("Search IAM users")}
+          value={userOptions.search}
+          onChange={(event) => { setNewUser(""); userOptions.setSearch(event.target.value); }}
+          placeholder={text("Search users by name")}
+        />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <UiSelect
             label={text("IAM user")}
@@ -235,6 +241,16 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
             {text("Add")}
           </UiButton>
         </div>
+        <IamCursorPaginationControls
+          page={userOptions.page}
+          pageSize={userOptions.pageSize}
+          canPrevious={userOptions.canPrevious}
+          canNext={userOptions.canNext}
+          disabled={userOptions.loading}
+          onPrevious={() => { setNewUser(""); userOptions.previousPage(); }}
+          onNext={() => { setNewUser(""); userOptions.nextPage(); }}
+          onPageSizeChange={(size) => { setNewUser(""); userOptions.setPageSize(size); }}
+        />
         <p className="ui-caption text-slate-500 dark:text-slate-400">
           {text("Users come from IAM. Add them here to attach them to the group.")}
         </p>

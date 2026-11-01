@@ -8,9 +8,9 @@ import PoliciesPage from "./PoliciesPage";
 import ManagerRolesPage from "./ManagerRolesPage";
 
 const useExecutionContextMock = vi.fn();
-const listIamGroupsMock = vi.fn();
-const listIamRolesMock = vi.fn();
-const listIamPoliciesMock = vi.fn();
+const listIamGroupsPageMock = vi.fn();
+const listIamRolesPageMock = vi.fn();
+const listIamPoliciesPageMock = vi.fn();
 const deleteIamGroupMock = vi.fn();
 const deleteIamRoleMock = vi.fn();
 
@@ -25,7 +25,7 @@ vi.mock("../../api/managerIamGroups", async () => {
     attachGroupPolicy: vi.fn(),
     createIamGroup: vi.fn(),
     deleteIamGroup: (...args: unknown[]) => deleteIamGroupMock(...args),
-    listIamGroups: (...args: unknown[]) => listIamGroupsMock(...args),
+    listIamGroupsPage: (...args: unknown[]) => listIamGroupsPageMock(...args),
   };
 });
 
@@ -37,7 +37,7 @@ vi.mock("../../api/managerIamRoles", async () => {
     createIamRole: vi.fn(),
     deleteIamRole: (...args: unknown[]) => deleteIamRoleMock(...args),
     getIamRole: vi.fn(),
-    listIamRoles: (...args: unknown[]) => listIamRolesMock(...args),
+    listIamRolesPage: (...args: unknown[]) => listIamRolesPageMock(...args),
     updateIamRole: vi.fn(),
   };
 });
@@ -47,7 +47,7 @@ vi.mock("../../api/managerIamPolicies", async () => {
   return {
     ...actual,
     createIamPolicy: vi.fn(),
-    listIamPolicies: (...args: unknown[]) => listIamPoliciesMock(...args),
+    listIamPoliciesPage: (...args: unknown[]) => listIamPoliciesPageMock(...args),
   };
 });
 
@@ -58,9 +58,9 @@ function renderManagerPage(element: ReactElement) {
 describe("Manager IAM inventory tables", () => {
   beforeEach(() => {
     useExecutionContextMock.mockReset();
-    listIamGroupsMock.mockReset();
-    listIamRolesMock.mockReset();
-    listIamPoliciesMock.mockReset();
+    listIamGroupsPageMock.mockReset();
+    listIamRolesPageMock.mockReset();
+    listIamPoliciesPageMock.mockReset();
     deleteIamGroupMock.mockReset();
     deleteIamRoleMock.mockReset();
     useExecutionContextMock.mockReturnValue({
@@ -80,19 +80,20 @@ describe("Manager IAM inventory tables", () => {
       iamIdentity: null,
       sessionAccountName: null,
     });
-    listIamGroupsMock.mockResolvedValue([]);
-    listIamRolesMock.mockResolvedValue([]);
-    listIamPoliciesMock.mockResolvedValue([]);
+    listIamGroupsPageMock.mockResolvedValue({ items: [], next_marker: null });
+    listIamRolesPageMock.mockResolvedValue({ items: [], next_marker: null });
+    listIamPoliciesPageMock.mockResolvedValue({ items: [], next_marker: null });
   });
 
   it("renders groups through the shared responsive inventory table", async () => {
-    listIamGroupsMock.mockResolvedValue([
-      {
+    listIamGroupsPageMock.mockResolvedValue({
+      items: [{
         name: "operators",
         arn: "arn:aws:iam::acc-1:group/operators",
         policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
-      },
-    ]);
+      }],
+      next_marker: null,
+    });
 
     renderManagerPage(<ManagerGroupsPage />);
 
@@ -110,8 +111,8 @@ describe("Manager IAM inventory tables", () => {
     expect(groupEdit.closest("td")).toHaveClass("w-44");
 
     await waitFor(() => {
-      expect(listIamGroupsMock).toHaveBeenCalledWith("acc-1");
-      expect(listIamPoliciesMock).toHaveBeenCalledWith("acc-1");
+      expect(listIamGroupsPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25, include_details: true });
+      expect(listIamPoliciesPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 });
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
@@ -122,14 +123,15 @@ describe("Manager IAM inventory tables", () => {
   });
 
   it("renders roles through the shared responsive inventory table", async () => {
-    listIamRolesMock.mockResolvedValue([
-      {
+    listIamRolesPageMock.mockResolvedValue({
+      items: [{
         name: "app-reader",
         path: "/application/",
         arn: "arn:aws:iam::acc-1:role/app-reader",
         policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
-      },
-    ]);
+      }],
+      next_marker: null,
+    });
 
     renderManagerPage(<ManagerRolesPage />);
 
@@ -148,8 +150,8 @@ describe("Manager IAM inventory tables", () => {
     expect(roleEdit.closest("td")).toHaveClass("w-44");
 
     await waitFor(() => {
-      expect(listIamRolesMock).toHaveBeenCalledWith("acc-1");
-      expect(listIamPoliciesMock).toHaveBeenCalledWith("acc-1");
+      expect(listIamRolesPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25, include_details: true });
+      expect(listIamPoliciesPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 });
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
@@ -160,13 +162,15 @@ describe("Manager IAM inventory tables", () => {
   });
 
   it("renders policies through the shared responsive inventory table", async () => {
-    listIamPoliciesMock.mockResolvedValue([
-      {
+    const readOnlyPolicy = {
         name: "ReadOnlyAccess",
         arn: "arn:aws:iam::aws:policy/ReadOnlyAccess",
         default_version_id: "v1",
-      },
-    ]);
+      };
+    listIamPoliciesPageMock.mockImplementation(async (_contextId: unknown, query?: { search?: string }) => ({
+      items: query?.search === "missing" ? [] : [readOnlyPolicy],
+      next_marker: null,
+    }));
 
     renderManagerPage(<PoliciesPage />);
 
@@ -174,14 +178,25 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByLabelText("Search")).toHaveAttribute("type", "search");
     expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", "Search by name or ARN");
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "missing" } });
-    expect(screen.queryByText("ReadOnlyAccess")).not.toBeInTheDocument();
+    await waitFor(() => expect(listIamPoliciesPageMock).toHaveBeenCalledWith("acc-1", {
+      marker: null,
+      page_size: 25,
+      search: "missing",
+      include_details: true,
+    }));
+    await waitFor(() => expect(screen.queryByText("ReadOnlyAccess")).not.toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "readonly" } });
-    expect(screen.getByText("ReadOnlyAccess")).toBeInTheDocument();
+    expect(await screen.findByText("ReadOnlyAccess")).toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(screen.getByText("arn:aws:iam::aws:policy/ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "ARN");
     expect(screen.getByText("v1").closest("td")).toHaveAttribute("data-label", "Version");
 
-    expect(listIamPoliciesMock).toHaveBeenCalledWith("acc-1");
+    expect(listIamPoliciesPageMock).toHaveBeenCalledWith("acc-1", {
+      marker: null,
+      page_size: 25,
+      search: "readonly",
+      include_details: true,
+    });
   });
 });

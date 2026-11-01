@@ -741,6 +741,7 @@ export const useBucketCompareWorkflowState = <
   targetKind,
   sourceBuckets,
   targetBuckets,
+  targetInventoryComplete = true,
   sameTargetSelected,
   configFeatures,
 }: {
@@ -748,6 +749,7 @@ export const useBucketCompareWorkflowState = <
   targetKind: "endpoint" | "context";
   sourceBuckets: string[];
   targetBuckets: string[];
+  targetInventoryComplete?: boolean;
   sameTargetSelected: boolean;
   configFeatures: readonly TFeature[];
 }) => {
@@ -857,6 +859,7 @@ export const useBucketCompareWorkflowState = <
         targetKind,
         sourceBuckets,
         targetBuckets,
+        targetInventoryComplete,
         sameTargetSelected,
         mappingMode,
         rawMapping: mapping.parsedRawMapping.mapping,
@@ -869,6 +872,7 @@ export const useBucketCompareWorkflowState = <
       sameTargetSelected,
       sourceBuckets,
       targetBuckets,
+      targetInventoryComplete,
       targetKind,
       targetSelected,
     ]
@@ -932,6 +936,7 @@ export const buildBucketCompareMappingModel = ({
   targetKind,
   sourceBuckets,
   targetBuckets,
+  targetInventoryComplete = true,
   sameTargetSelected,
   mappingMode,
   rawMapping,
@@ -941,6 +946,7 @@ export const buildBucketCompareMappingModel = ({
   targetKind: "endpoint" | "context";
   sourceBuckets: string[];
   targetBuckets: string[];
+  targetInventoryComplete?: boolean;
   sameTargetSelected: boolean;
   mappingMode: "by_name" | "manual";
   rawMapping: ReadonlyMap<string, string>;
@@ -1016,7 +1022,7 @@ export const buildBucketCompareMappingModel = ({
 
   const targetBucketNames = new Set(targetBuckets);
   const missingByName =
-    mappingMode === "by_name"
+    targetInventoryComplete && mappingMode === "by_name"
       ? sourceBuckets.filter((name) => !targetBucketNames.has(name))
       : [];
 

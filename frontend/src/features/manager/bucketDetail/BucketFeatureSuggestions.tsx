@@ -17,7 +17,7 @@ import { listCephAdminBucketObjects } from "../../../api/cephAdminBucketDetails"
 import { listCephAdminBuckets } from "../../../api/cephAdminBuckets";
 import { searchBrowserBuckets } from "../../../api/browserBuckets";
 import { listBrowserObjects } from "../../../api/browserObjects";
-import { listBuckets } from "../../../api/managerBuckets";
+import { listBucketOptions } from "../../../api/managerBuckets";
 import { listManagerObjects } from "../../../api/managerObjects";
 import { listTopics } from "../../../api/topics";
 import type {
@@ -226,7 +226,7 @@ export function BucketFeatureSuggestionsProvider({
   const browserScope = useBrowserBucketDetailsScope();
   const generationRef = useRef(0);
   const objectCacheRef = useRef(new Map<string, Promise<ObjectListingShape>>());
-  const managerBucketsRef = useRef<Promise<string[]> | null>(null);
+  const managerBucketsRef = useRef(new Map<string, Promise<string[]>>());
   const browserBucketsRef = useRef(new Map<string, Promise<string[]>>());
   const cephBucketsRef = useRef(new Map<string, Promise<string[]>>());
   const topicsRef = useRef<Promise<SettingsAutocompleteSuggestion[]> | null>(null);
@@ -236,7 +236,7 @@ export function BucketFeatureSuggestionsProvider({
   useEffect(() => {
     generationRef.current += 1;
     objectCacheRef.current.clear();
-    managerBucketsRef.current = null;
+    managerBucketsRef.current.clear();
     browserBucketsRef.current.clear();
     cephBucketsRef.current.clear();
     topicsRef.current = null;
@@ -382,17 +382,22 @@ export function BucketFeatureSuggestionsProvider({
         return request;
       }
 
-      if (!managerBucketsRef.current) {
-        managerBucketsRef.current = listBuckets(contextId, { with_stats: false })
-          .then((data) =>
-            generationRef.current === generation ? data.map((bucket) => bucket.name) : [],
-          )
-          .catch(() => {
-            if (generationRef.current === generation) managerBucketsRef.current = null;
-            return [];
-          });
-      }
-      return managerBucketsRef.current;
+      const cached = managerBucketsRef.current.get(query);
+      if (cached) return cached;
+      const request = listBucketOptions(contextId, {
+        search: query,
+        page: 1,
+        page_size: 50,
+      })
+        .then((data) =>
+          generationRef.current === generation ? data.items.map((bucket) => bucket.name) : [],
+        )
+        .catch(() => {
+          if (generationRef.current === generation) managerBucketsRef.current.delete(query);
+          return [];
+        });
+      managerBucketsRef.current.set(query, request);
+      return request;
     },
     [contextId, cephAdmin, browserScope, enabled, endpointId],
   );

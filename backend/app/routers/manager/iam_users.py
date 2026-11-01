@@ -1,13 +1,13 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.access_context import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
-from app.models.iam import AccessKey, AccessKeyStatusChange, IAMUser, IAMUserCreate, IAMUserUpdate, IAMUserWithKey
+from app.models.iam import AccessKey, AccessKeyStatusChange, IAMUser, IAMUserCreate, IAMUserPage, IAMUserUpdate, IAMUserWithKey
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -74,6 +74,33 @@ def list_users(
         for item in users:
             _annotate_managed_user(db, context, item)
         return users
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
+
+
+@router.get("/page", response_model=IAMUserPage)
+def list_users_page(
+    marker: str | None = Query(None),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str | None = Query(None, max_length=200),
+    include_details: bool = Query(False),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    db: Session = Depends(get_db),
+    _: ManagerActor = Depends(require_iam_capable_manager),
+) -> IAMUserPage:
+    service = get_iam_service_for_context(context)
+    try:
+        users, next_marker = service.list_users_page(
+            marker=marker,
+            max_items=page_size,
+            search=search,
+        )
+        if include_details:
+            users = [load_iam_user_details(service, user) for user in users]
+        return IAMUserPage(
+            items=[_annotate_managed_user(db, context, user) for user in users],
+            next_marker=next_marker,
+        )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

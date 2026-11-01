@@ -27,7 +27,7 @@ vi.mock("../../api/managerIamUsers", async (original) => ({
 
 vi.mock("../../api/managerIamGroups", async (original) => ({
   ...await original<typeof import("../../api/managerIamGroups")>(),
-  listIamGroups: api.listGroups,
+  listIamGroupsPage: api.listGroups,
   addIamGroupUser: api.addUser,
   removeIamGroupUser: api.removeUser,
 }));
@@ -50,10 +50,13 @@ describe("ManagerUserGroupsPage", () => {
     memberships.clear();
     memberships.add("operators");
     api.getUser.mockImplementation(async () => ({ name: "alice", groups: [...memberships] }));
-    api.listGroups.mockResolvedValue([
-      { name: "operators", arn: "arn:aws:iam::acc-1:group/operators" },
-      { name: "auditors", arn: "arn:aws:iam::acc-1:group/auditors" },
-    ]);
+    api.listGroups.mockResolvedValue({
+      items: [
+        { name: "operators", arn: "arn:aws:iam::acc-1:group/operators" },
+        { name: "auditors", arn: "arn:aws:iam::acc-1:group/auditors" },
+      ],
+      next_marker: null,
+    });
     api.addUser.mockImplementation(async (_account, group) => { memberships.add(group); });
     api.removeUser.mockImplementation(async (_account, group) => { memberships.delete(group); });
   });

@@ -217,3 +217,7 @@ class UserOut(ApiModel):
 
 class PaginatedUsersResponse(PaginatedResponse):
     items: list[UserOut]
+
+
+class PaginatedUserSummariesResponse(PaginatedResponse):
+    items: list[UserSummary]

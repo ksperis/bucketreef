@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.db import User as DbUser
 from app.db import UserRole, is_superadmin_ui_role
 from app.models.user import (
+    PaginatedUserSummariesResponse,
     PaginatedUsersResponse,
     UserCreate,
     UserOut,
@@ -155,6 +156,31 @@ def list_users_minimal(
 ) -> list[UserSummary]:
     require_admin_interactive_session(request, db, current_user)
     return users_service.list_users_minimal()
+
+
+@router.get("/options", response_model=PaginatedUserSummariesResponse)
+def list_user_options(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: Optional[str] = Query(None, max_length=200),
+    users_service: UsersService = Depends(get_users_service_dependency),
+    current_user: DbUser = Depends(get_current_ui_admin),
+    db: Session = Depends(get_db),
+) -> PaginatedUserSummariesResponse:
+    require_admin_interactive_session(request, db, current_user)
+    items, total = users_service.paginate_user_summaries(
+        page=page,
+        page_size=page_size,
+        search=search,
+    )
+    return PaginatedUserSummariesResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_next=page * page_size < total,
+    )
 
 
 @router.get("/ldap/search", response_model=LDAPImportSearchResponse)

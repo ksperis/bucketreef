@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -12,6 +12,7 @@ import {
 import DataTableShell from "../../../components/list/DataTableShell";
 import { ListActionButton } from "../../../components/list/ListControls";
 import { resolveListTableStatus } from "../../../components/list/listTableStatus";
+import PaginationControls from "../../../components/PaginationControls";
 import SettingsWorkflowForm from "../../../components/settings/SettingsWorkflowForm";
 import { SettingsChoiceRow } from "../../../components/settings/SettingsLayout";
 import { WorkflowSection } from "../../../components/WorkflowPage";
@@ -20,9 +21,10 @@ import UiDetails from "../../../components/ui/UiDetails";
 import UiInput from "../../../components/ui/UiInput";
 import UiSelect from "../../../components/ui/UiSelect";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
+import { listExecutionContextOptions } from "../../../api/executionContexts";
+import usePaginatedOptions from "../../../hooks/usePaginatedOptions";
 import { useExecutionContext } from "../ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "../managerBreadcrumbs";
-import { useManagerContexts } from "../useManagerContexts";
 import { useCrossEndpointSelection, useManagerSourceBuckets } from "./hooks";
 import { extractError } from "./shared";
 import { MigrationStages, targetNameError } from "./MigrationWorkflow";
@@ -35,17 +37,33 @@ export default function ManagerMigrationWizardPage() {
   const editId = /^\d+$/.test(params.get("from") ?? "")
     ? Number(params.get("from"))
     : null;
-  const { selectedContextId } = useExecutionContext();
+  const { selectedContextId, contexts } = useExecutionContext();
   const [sourceId, setSourceId] = useState(selectedContextId ?? "");
-  const { contexts, contextsLoading, contextsError } = useManagerContexts();
-  const { sourceBuckets, bucketsLoading, bucketsError } =
-    useManagerSourceBuckets(sourceId);
+  const {
+    sourceBuckets,
+    bucketsLoading,
+    bucketsError,
+    filter,
+    setFilter,
+    page: sourcePage,
+    setPage: setSourcePage,
+    pageSize: sourcePageSize,
+    setPageSize: setSourcePageSize,
+    total: sourceBucketTotal,
+  } = useManagerSourceBuckets(sourceId);
   const [targetId, setTargetId] = useState("");
-  const { sourceBuckets: targetBuckets, bucketsError: targetInventoryError } =
-    useManagerSourceBuckets(targetId);
+  const loadTargetContexts = useCallback(
+    (query: { page?: number; page_size?: number; search?: string }) =>
+      listExecutionContextOptions("manager", {
+        ...query,
+        exclude_id: sourceId || undefined,
+        manager_account_admin_only: true,
+      }),
+    [sourceId],
+  );
+  const targetContextCatalog = usePaginatedOptions(loadTargetContexts, { initialPageSize: 25 });
   const [selected, setSelected] = useState<string[]>([]);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState("");
   const [prefix, setPrefix] = useState("");
   const [suffix, setSuffix] = useState("");
   const [mode, setMode] = useState<"pre_sync" | "one_shot">("pre_sync");
@@ -63,6 +81,13 @@ export default function ManagerMigrationWizardPage() {
   const errorRef = useRef<HTMLDivElement>(null);
   const source = contexts.find((entry) => entry.id === sourceId) ?? null;
   const target = contexts.find((entry) => entry.id === targetId) ?? null;
+  const targetContextOptions = useMemo(() => {
+    const items = [...targetContextCatalog.items];
+    if (target && !items.some((entry) => entry.id === target.id)) {
+      items.unshift(target);
+    }
+    return items;
+  }, [target, targetContextCatalog.items]);
   const crossEndpoint = useCrossEndpointSelection(source, target);
   const contextChanged = Boolean(sourceId && selectedContextId !== sourceId);
   const translatedTargetNameError = (name: string) => {
@@ -81,9 +106,6 @@ export default function ManagerMigrationWizardPage() {
           .length > 1
           ? text("Each destination name must be unique.")
           : null) ||
-        (targetBuckets.some((bucket) => bucket.name === target_bucket)
-          ? text("Destination already exists. Choose a new name.")
-          : null) ||
         (!crossEndpoint && target && target_bucket === source_bucket
           ? text("Source and destination names must differ on the same storage.")
           : null),
@@ -96,7 +118,7 @@ export default function ManagerMigrationWizardPage() {
           ...sourceBuckets.map((bucket) => bucket.name),
           ...selected,
         ]),
-      ].filter((name) => name.toLowerCase().includes(filter.toLowerCase())),
+      ].filter((name) => name.toLowerCase().includes(filter.trim().toLowerCase())),
     [sourceBuckets, selected, filter],
   );
 
@@ -218,7 +240,7 @@ export default function ManagerMigrationWizardPage() {
       width="wide"
       dirty={dirty}
       busy={busy}
-      loading={loading || contextsLoading}
+      loading={loading}
       completed={completed}
       disabled={contextChanged || Boolean(editId && !revision)}
       submitLabel={text("Check migration")}
@@ -249,8 +271,8 @@ export default function ManagerMigrationWizardPage() {
           </UiInlineMessage>
         )}
       </div>
-      {contextsError && (
-        <UiInlineMessage tone="error">{text(contextsError)}</UiInlineMessage>
+      {targetContextCatalog.error && (
+        <UiInlineMessage tone="error">{text(targetContextCatalog.error)}</UiInlineMessage>
       )}
       {contextChanged && (
         <UiInlineMessage tone="warning">
@@ -269,31 +291,37 @@ export default function ManagerMigrationWizardPage() {
               value={source?.display_name ?? sourceId}
               readOnly
             />
-            <UiSelect
-              label={text("Destination context")}
-              value={targetId}
-              onChange={(event) => setTargetId(event.target.value)}
-            >
-              <option value="">{text("Select a destination")}</option>
-              {contexts
-                .filter(
-                  (entry) =>
-                    entry.id !== sourceId &&
-                    (entry.kind !== "account" ||
-                      entry.manager_role === "account_administrator"),
-                )
-                .map((entry) => (
+            <div className="space-y-2">
+              <UiInput
+                type="search"
+                label={text("Search destination contexts")}
+                value={targetContextCatalog.search}
+                onChange={(event) => targetContextCatalog.setSearch(event.target.value)}
+                size="compact"
+              />
+              <UiSelect
+                label={text("Destination context")}
+                value={targetId}
+                onChange={(event) => setTargetId(event.target.value)}
+                disabled={targetContextCatalog.loading || targetContextOptions.length === 0}
+              >
+                <option value="">{text("Select a destination")}</option>
+                {targetContextOptions.map((entry) => (
                   <option key={entry.id} value={entry.id}>
                     {entry.display_name} ({entry.id})
                   </option>
                 ))}
-            </UiSelect>
+              </UiSelect>
+              <PaginationControls
+                page={targetContextCatalog.page}
+                pageSize={targetContextCatalog.pageSize}
+                total={targetContextCatalog.total}
+                onPageChange={targetContextCatalog.setPage}
+                onPageSizeChange={targetContextCatalog.setPageSize}
+                disabled={targetContextCatalog.loading}
+              />
+            </div>
           </div>
-          {targetInventoryError && (
-            <UiInlineMessage tone="warning">
-              {text("Destination inventory is unavailable. Existing names will be\n              checked by the server.")}
-            </UiInlineMessage>
-          )}
         </WorkflowSection>
         <WorkflowSection
           title={text("Buckets and destination names")}
@@ -309,11 +337,16 @@ export default function ManagerMigrationWizardPage() {
             <ListActionButton
               variant="secondary"
               onClick={() => {
-                setSelected([...new Set([...selected, ...rows])]);
+                setSelected([
+                  ...new Set([
+                    ...selected,
+                    ...sourceBuckets.map((bucket) => bucket.name),
+                  ]),
+                ]);
                 setDirty(true);
               }}
             >
-              {text("Select filtered")}
+              {text("Select page")}
             </ListActionButton>
             <ListActionButton
               variant="secondary"
@@ -325,7 +358,7 @@ export default function ManagerMigrationWizardPage() {
               {text("Clear selection")}
             </ListActionButton>
             <span className="ui-caption">
-              {selected.length} {text("selected /")} {sourceBuckets.length}
+              {selected.length} {text("selected /")} {sourceBucketTotal}
             </span>
           </div>
           <UiDetails>
@@ -402,6 +435,14 @@ export default function ManagerMigrationWizardPage() {
                 ),
               },
             ]}
+          />
+          <PaginationControls
+            page={sourcePage}
+            pageSize={sourcePageSize}
+            total={sourceBucketTotal}
+            onPageChange={setSourcePage}
+            onPageSizeChange={setSourcePageSize}
+            disabled={bucketsLoading}
           />
         </WorkflowSection>
         <WorkflowSection

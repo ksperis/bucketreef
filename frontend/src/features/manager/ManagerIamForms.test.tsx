@@ -23,20 +23,20 @@ vi.mock("./ExecutionContextProvider", () => ({
 }));
 vi.mock("../../api/managerIamUsers", async (original) => ({
   ...await original<typeof import("../../api/managerIamUsers")>(),
-  listIamUsers: api.users, createIamUser: api.createUser,
+  listIamUsersPage: api.users, createIamUser: api.createUser,
 }));
 vi.mock("../../api/managerIamGroups", async (original) => ({
   ...await original<typeof import("../../api/managerIamGroups")>(),
-  listIamGroups: api.groups, createIamGroup: api.createGroup,
+  listIamGroupsPage: api.groups, createIamGroup: api.createGroup,
 }));
 vi.mock("../../api/managerIamRoles", async (original) => ({
   ...await original<typeof import("../../api/managerIamRoles")>(),
-  listIamRoles: api.roles, createIamRole: api.createRole,
+  listIamRolesPage: api.roles, createIamRole: api.createRole,
   getIamRole: api.getRole, updateIamRole: api.updateRole,
   putRoleTags: api.putRoleTags, deleteRoleTag: api.deleteRoleTag,
 }));
 vi.mock("../../api/managerIamPolicies", async (original) => ({
-  ...await original<typeof import("../../api/managerIamPolicies")>(), listIamPolicies: api.policies, createIamPolicy: api.createPolicy,
+  ...await original<typeof import("../../api/managerIamPolicies")>(), listIamPoliciesPage: api.policies, createIamPolicy: api.createPolicy,
 }));
 
 const policy = { name: "ReadOnly", arn: "arn:aws:iam::acc-7:policy/ReadOnly" };
@@ -75,10 +75,10 @@ beforeEach(() => {
   vi.resetAllMocks();
   api.namingProfile = "standard";
   vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
-  api.users.mockResolvedValue([{ name: "Existing user", has_keys: true }]);
-  api.groups.mockResolvedValue([{ name: "Existing group" }]);
-  api.roles.mockResolvedValue([role]);
-  api.policies.mockResolvedValue([policy]);
+  api.users.mockResolvedValue({ items: [{ name: "Existing user", has_keys: true }], next_marker: null });
+  api.groups.mockResolvedValue({ items: [{ name: "Existing group" }], next_marker: null });
+  api.roles.mockResolvedValue({ items: [role], next_marker: null });
+  api.policies.mockResolvedValue({ items: [policy], next_marker: null });
   api.createUser.mockResolvedValue({ name: "New-identity" });
   api.createGroup.mockResolvedValue({ name: "New-identity" });
   api.createRole.mockResolvedValue({ name: "New-identity" });

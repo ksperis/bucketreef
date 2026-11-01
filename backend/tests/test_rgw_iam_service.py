@@ -473,6 +473,44 @@ def test_iam_list_operations_follow_markers_until_complete(monkeypatch):
     ]
 
 
+def test_iam_user_page_search_advances_native_cursor_without_skipping_matches(monkeypatch):
+    fake = _FakeIAMClient()
+    calls: list[dict] = []
+
+    def list_users(**kwargs):
+        calls.append(dict(kwargs))
+        marker = kwargs.get("Marker")
+        if marker is None:
+            return {
+                "Users": [{"UserName": "alice", "UserId": "uid-alice", "Arn": "arn:alice"}],
+                "IsTruncated": True,
+                "Marker": "page-2",
+            }
+        if marker == "page-2":
+            return {
+                "Users": [{"UserName": "bob-prod", "UserId": "uid-bob", "Arn": "arn:bob"}],
+                "IsTruncated": True,
+                "Marker": "page-3",
+            }
+        assert marker == "page-3"
+        return {
+            "Users": [{"UserName": "carol-prod", "UserId": "uid-carol", "Arn": "arn:carol"}],
+            "IsTruncated": False,
+        }
+
+    fake.list_users = list_users
+    service, _ = _service(monkeypatch, fake)
+
+    users, next_marker = service.list_users_page(max_items=1, search="prod")
+
+    assert [user.name for user in users] == ["bob-prod"]
+    assert next_marker == "page-3"
+    assert calls == [
+        {"MaxItems": 1},
+        {"MaxItems": 1, "Marker": "page-2"},
+    ]
+
+
 def test_iam_pagination_rejects_truncated_page_without_next_marker(monkeypatch):
     service, fake = _service(monkeypatch)
     monkeypatch.setattr(

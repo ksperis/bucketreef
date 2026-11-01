@@ -4,36 +4,23 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
-import { listIamPolicies, type IamPolicy } from "../../api/managerIamPolicies";
+import { listIamPoliciesPage } from "../../api/managerIamPolicies";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
 
-type RelatedLoader = <RelatedItem>(
-  contextId: S3ExecutionContextSelector,
-  listRelatedItems: (contextId: S3ExecutionContextSelector) => Promise<RelatedItem[]>,
-  setRelatedItems: (items: RelatedItem[]) => void,
-) => Promise<void>;
-
-export function useManagedPolicySelection(loadRelated: RelatedLoader) {
-  const [policies, setPolicies] = useState<IamPolicy[]>([]);
+export function useManagedPolicySelection() {
+  const collection = useManagerIamCursorCollection(listIamPoliciesPage);
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
-  const [policySearch, setPolicySearch] = useState("");
   const [showPolicyOptions, setShowPolicyOptions] = useState(false);
 
   const loadPolicies = useCallback((contextId: S3ExecutionContextSelector) => {
-    setPolicies([]);
-    return loadRelated(contextId, listIamPolicies, setPolicies);
-  }, [loadRelated]);
+    collection.load(contextId);
+  }, [collection.load]);
 
   const resetPolicySelection = useCallback(() => {
     setSelectedPolicies([]);
-    setPolicySearch("");
+    collection.setSearch("");
     setShowPolicyOptions(false);
-  }, []);
-
-  useEffect(() => {
-    setSelectedPolicies((current) =>
-      current.filter((arn) => policies.some((policy) => policy.arn === arn)),
-    );
-  }, [policies]);
+  }, [collection.setSearch]);
 
   useEffect(() => {
     if (selectedPolicies.length > 0) {
@@ -43,12 +30,21 @@ export function useManagedPolicySelection(loadRelated: RelatedLoader) {
 
   return {
     loadPolicies,
-    policies,
-    policySearch,
+    policies: collection.items,
+    policiesLoading: collection.loading,
+    policiesError: collection.error,
+    policySearch: collection.search,
+    setPolicySearch: collection.setSearch,
+    policyPage: collection.page,
+    policyPageSize: collection.pageSize,
+    setPolicyPageSize: collection.setPageSize,
+    canPreviousPolicyPage: collection.canPrevious,
+    canNextPolicyPage: collection.canNext,
+    previousPolicyPage: collection.previousPage,
+    nextPolicyPage: collection.nextPage,
     resetPolicySelection,
     selectedPolicies,
-    setPolicies,
-    setPolicySearch,
+    setPolicies: collection.setItems,
     setSelectedPolicies,
     setShowPolicyOptions,
     showPolicyOptions,

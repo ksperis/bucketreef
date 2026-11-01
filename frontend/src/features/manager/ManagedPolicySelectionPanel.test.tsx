@@ -22,7 +22,15 @@ const renderPanel = (
     selectedPolicyArns: [],
     search: "",
     expanded: true,
+    loading: false,
+    page: 1,
+    pageSize: 25,
+    canPrevious: false,
+    canNext: false,
     onSearchChange: vi.fn(),
+    onPreviousPage: vi.fn(),
+    onNextPage: vi.fn(),
+    onPageSizeChange: vi.fn(),
     onExpandedChange: vi.fn(),
     onSelectionChange: vi.fn(),
     ...overrides,
@@ -46,7 +54,7 @@ describe("ManagedPolicySelectionPanel", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 
-  it("filters policies by name or ARN", async () => {
+  it("delegates remote policy search to the parent", async () => {
     const user = userEvent.setup();
     const onSearchChange = vi.fn();
     const { rerender, props } = renderPanel({ onSearchChange });
@@ -57,7 +65,7 @@ describe("ManagedPolicySelectionPanel", () => {
     );
     expect(onSearchChange).toHaveBeenCalled();
 
-    rerender(<ManagedPolicySelectionPanel {...props} search="tenant" />);
+    rerender(<ManagedPolicySelectionPanel {...props} search="tenant" policies={[policies[1]]} />);
     expect(screen.queryByText("ReadOnlyAccess")).not.toBeInTheDocument();
     expect(screen.getByText("StorageAdmin")).toBeInTheDocument();
   });
@@ -90,8 +98,6 @@ describe("ManagedPolicySelectionPanel", () => {
 
     expect(screen.getByText("No policies available.")).toBeInTheDocument();
     expect(screen.getByText("Policies can also be attached later.")).toBeInTheDocument();
-    expect(
-      screen.queryByPlaceholderText("Search policies by name or ARN")
-    ).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search policies by name or ARN")).toBeInTheDocument();
   });
 });

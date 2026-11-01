@@ -6,6 +6,7 @@ from pydantic import Field
 
 from app.models.base import ApiModel
 from app.models.feature_policy import FeatureState
+from app.models.pagination import PaginatedResponse
 from app.models.tagging import TagDefinitionSummary
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
@@ -61,6 +62,19 @@ class ExecutionContext(ApiModel):
     endpoint_tags: list[TagDefinitionSummary]
     capabilities: ExecutionContextCapabilities
     openstack: Optional[OpenStackExecutionContextMetadata] = None
+
+
+class ExecutionContextOption(ApiModel):
+    kind: Literal["account", "connection", "s3_user", "portal_account", "openstack_project"]
+    id: str
+    display_name: str
+    manager_role: Optional[ManagerAccountRoleValue]
+    endpoint_id: Optional[int]
+    endpoint_url: str
+
+
+class PaginatedExecutionContextOptionsResponse(PaginatedResponse):
+    items: list[ExecutionContextOption]
 
 
 class ManagerContext(ApiModel):

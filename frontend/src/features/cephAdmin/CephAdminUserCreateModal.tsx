@@ -5,13 +5,14 @@
 import { useI18n } from "../../i18n";
 import { rgwUserNameErrorText } from "../../utils/rgwUserNameMessages";
 import { rgwUserUidFormatError, rgwTenantFormatError } from "../../utils/resourceNames";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import {
   CephAdminRgwUserDetail,
   createCephAdminUser,
   CreateCephAdminUserPayload,
 } from "../../api/cephAdminUsers";
 import { listCephAdminAccounts } from "../../api/cephAdminAccounts";
+import PaginationControls from "../../components/PaginationControls";
 import AddS3ConnectionFromKeyModal from "../../components/AddS3ConnectionFromKeyModal";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
@@ -21,6 +22,7 @@ import PageBanner from "../../components/PageBanner";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
+import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 import { CephAdminUserProfileFields, CephAdminUserFlags, CephAdminUserCapsFields } from "./CephAdminUserFormFields";
 import { parseCephAdminUserCaps, validateCephAdminUserLimits, type CephAdminUserCapsMode } from "./cephAdminUserForm";
 import { extractApiError } from "../../utils/apiError";
@@ -57,11 +59,8 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
     []
   );
   const { locale } = useI18n();
-  const [accounts, setAccounts] = useState<AccountOption[]>([]);
-  const [accountsLoading, setAccountsLoading] = useState(false);
-  const [accountsError, setAccountsError] = useState<string | null>(null);
-
   const [selectedAccountId, setSelectedAccountId] = useState("");
+  const [selectedAccountOption, setSelectedAccountOption] = useState<AccountOption | null>(null);
   const [uid, setUid] = useState("");
   const [tenant, setTenant] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -123,47 +122,46 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
     ]
   );
   const [initialSignature, setInitialSignature] = useState(currentSignature);
-  useEffect(() => {
-    let cancelled = false;
-    const loadAccounts = async () => {
-      setAccountsLoading(true);
-      setAccountsError(null);
-      try {
-        const response = await listCephAdminAccounts(endpointId, {
-          page: 1,
-          page_size: 200,
-          sort_by: "account_id",
-          sort_dir: "asc",
-          include: ["profile"],
-        });
-        if (cancelled) return;
-        const options = response.items
-          .map((item) => ({ account_id: item.account_id, account_name: item.account_name, tenant: item.tenant ?? "" }))
-          .filter((item) => item.account_id)
-          .sort((a, b) => {
-            const aLabel = `${a.account_name ?? ""} ${a.account_id}`.trim().toLowerCase();
-            const bLabel = `${b.account_name ?? ""} ${b.account_id}`.trim().toLowerCase();
-            return aLabel.localeCompare(bLabel);
-          });
-        setAccounts(options);
-      } catch (err) {
-        if (cancelled) return;
-        setAccountsError(extractApiError(err, surfaceText("Unexpected error")));
-      } finally {
-        if (!cancelled) {
-          setAccountsLoading(false);
-        }
-      }
+  const loadAccountOptions = useCallback(async ({ page, page_size, search }: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+  }) => {
+    const response = await listCephAdminAccounts(endpointId, {
+      page,
+      page_size,
+      search,
+      sort_by: "account_id",
+      sort_dir: "asc",
+      include: ["profile"],
+    });
+    return {
+      ...response,
+      items: response.items.map((item) => ({
+        account_id: item.account_id,
+        account_name: item.account_name,
+        tenant: item.tenant ?? "",
+      })),
     };
-    void loadAccounts();
-    return () => {
-      cancelled = true;
-    };
-  }, [endpointId, surfaceText]);
+  }, [endpointId]);
+  const accountCatalog = usePaginatedOptions(loadAccountOptions, { initialPageSize: 25 });
+  const accounts = useMemo(() => {
+    const current = accountCatalog.items.filter((item) => item.account_id);
+    if (
+      selectedAccountOption &&
+      !current.some((item) => item.account_id === selectedAccountOption.account_id)
+    ) {
+      return [selectedAccountOption, ...current];
+    }
+    return current;
+  }, [accountCatalog.items, selectedAccountOption]);
 
   const selectedAccount = useMemo(
-    () => accounts.find((account) => account.account_id === selectedAccountId) ?? null,
-    [accounts, selectedAccountId],
+    () =>
+      selectedAccountOption?.account_id === selectedAccountId
+        ? selectedAccountOption
+        : accounts.find((account) => account.account_id === selectedAccountId) ?? null,
+    [accounts, selectedAccountId, selectedAccountOption],
   );
   const effectiveTenant = selectedAccount ? selectedAccount.tenant : tenant.trim();
 
@@ -261,7 +259,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
       onClose={onClose}
     >
       {status && <PageBanner tone="success">{status}</PageBanner>}
-      {accountsError && <PageBanner tone="warning">{surfaceText("Unable to load account list:")}{accountsError}</PageBanner>}
+      {accountCatalog.error && <PageBanner tone="warning">{surfaceText("Unable to load account list:")}{accountCatalog.error}</PageBanner>}
       {generatedKey && (
         <OneTimeSecretPanel
           title={surfaceText("Access key created")}
@@ -284,8 +282,19 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
       <SettingsSection title={surfaceText("Identity")} presentation="compact">
         <div className="settings-stack">
           <div className="settings-fields md:grid-cols-2">
+            <UiInput
+              label={surfaceText("Search accounts")}
+              value={accountCatalog.search}
+              onChange={(event) => accountCatalog.setSearch(event.target.value)}
+              disabled={saving}
+              fieldClassName="md:col-span-2"
+            />
             <UiSelect label={surfaceText("Account (optional)")} value={selectedAccountId}
-              onChange={(event) => setSelectedAccountId(event.target.value)} disabled={accountsLoading}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setSelectedAccountId(nextId);
+                setSelectedAccountOption(accounts.find((account) => account.account_id === nextId) ?? null);
+              }} disabled={accountCatalog.loading}
               fieldClassName="md:col-span-2" hint={selectedAccountId ? surfaceText("The new user will be the account root.") : undefined}>
               <option value="">{surfaceText("No account")}</option>
               {accounts.map((account) => <option key={account.account_id} value={account.account_id}>
@@ -293,6 +302,16 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
                 {account.tenant ? ` · ${account.tenant}` : ""}
               </option>)}
             </UiSelect>
+            <div className="md:col-span-2">
+              <PaginationControls
+                page={accountCatalog.page}
+                pageSize={accountCatalog.pageSize}
+                total={accountCatalog.total}
+                onPageChange={accountCatalog.setPage}
+                onPageSizeChange={accountCatalog.setPageSize}
+                disabled={accountCatalog.loading || saving}
+              />
+            </div>
             <UiInput label={surfaceText("UID")} required value={uid} onChange={(event) => setUid(event.target.value)} error={fieldErrors.uid} />
             <UiInput label={surfaceText("Tenant")} value={effectiveTenant} disabled={Boolean(selectedAccount)}
               onChange={(event) => setTenant(event.target.value)}

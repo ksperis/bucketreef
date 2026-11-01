@@ -3,7 +3,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import { useParams } from "react-router-dom";
 
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
-import { addIamGroupUser, listIamGroups, removeIamGroupUser, type IAMGroup } from "../../api/managerIamGroups";
+import { addIamGroupUser, listIamGroupsPage, removeIamGroupUser, type IAMGroup } from "../../api/managerIamGroups";
 import { getIamUser } from "../../api/managerIamUsers";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { ListActionButton } from "../../components/list/ListControls";
@@ -12,11 +12,14 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import PageBanner from "../../components/PageBanner";
 import UiButton from "../../components/ui/UiButton";
 import UiSelect from "../../components/ui/UiSelect";
+import UiInput from "../../components/ui/UiInput";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { extractApiError } from "../../utils/apiError";
 import { decodeRouteValue } from "../../utils/routeValues";
 import { useManagerI18n } from "./managerI18n";
 import { useExecutionContext } from "./ExecutionContextProvider";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
+import IamCursorPaginationControls from "./IamCursorPaginationControls";
 
 export default function ManagerUserGroupsPage() {
   const { text } = useManagerI18n();
@@ -26,45 +29,41 @@ export default function ManagerUserGroupsPage() {
   const isS3User = selectedContextKind === "s3_user";
   const decodedUser = decodeRouteValue(userName);
   const [groups, setGroups] = useState<IAMGroup[]>([]);
-  const [allGroups, setAllGroups] = useState<IAMGroup[]>([]);
   const [newGroup, setNewGroup] = useState("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const membershipConfirmation = useConfirmActionDialog();
+  const groupOptions = useManagerIamCursorCollection(listIamGroupsPage);
 
   const load = useCallback(async (contextId: S3ExecutionContextSelector, targetUser: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [user, availableGroups] = await Promise.all([
-        getIamUser(contextId, targetUser),
-        listIamGroups(contextId),
-      ]);
-      const membership = new Set(user.groups ?? []);
-      setAllGroups(availableGroups);
-      setGroups(availableGroups.filter((group) => membership.has(group.name)));
+      const user = await getIamUser(contextId, targetUser);
+      setGroups((user.groups ?? []).map((name) => ({ name })));
+      groupOptions.load(contextId);
     } catch (err) {
       setError(extractApiError(err, text("Unable to load IAM groups.")));
     } finally {
       setLoading(false);
     }
-  }, [text]);
+  }, [groupOptions.load, text]);
 
   useEffect(() => {
     if (!userName || needsContextSelection || isS3User) {
       setGroups([]);
-      setAllGroups([]);
+      groupOptions.setItems([]);
       setLoading(false);
       return;
     }
     void load(contextIdForApi, userName);
-  }, [accessMode, contextIdForApi, isS3User, load, needsContextSelection, userName]);
+  }, [accessMode, contextIdForApi, groupOptions.setItems, isS3User, load, needsContextSelection, userName]);
 
   const availableGroups = useMemo(
-    () => allGroups.filter((group) => !groups.some((current) => current.name === group.name)),
-    [allGroups, groups],
+    () => groupOptions.items.filter((group) => !groups.some((current) => current.name === group.name)),
+    [groupOptions.items, groups],
   );
 
   useEffect(() => {
@@ -147,10 +146,16 @@ export default function ManagerUserGroupsPage() {
     <div className="space-y-4">
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
-      {availableGroups.length === 0 && (
+      {availableGroups.length === 0 && !groupOptions.loading && !groupOptions.search.trim() && !groupOptions.canPrevious && !groupOptions.canNext && (
         <PageBanner tone="warning">{text("No IAM groups available to add. Create one before managing this user.")}</PageBanner>
       )}
       <form onSubmit={handleAdd} className="space-y-3 ui-surface-card p-4">
+        <UiInput
+          label={text("Search IAM groups")}
+          value={groupOptions.search}
+          onChange={(event) => { setNewGroup(""); groupOptions.setSearch(event.target.value); }}
+          placeholder={text("Search groups by name")}
+        />
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <UiSelect
             label={text("IAM group")}
@@ -166,6 +171,16 @@ export default function ManagerUserGroupsPage() {
             {text("Add")}
           </UiButton>
         </div>
+        <IamCursorPaginationControls
+          page={groupOptions.page}
+          pageSize={groupOptions.pageSize}
+          canPrevious={groupOptions.canPrevious}
+          canNext={groupOptions.canNext}
+          disabled={groupOptions.loading}
+          onPrevious={() => { setNewGroup(""); groupOptions.previousPage(); }}
+          onNext={() => { setNewGroup(""); groupOptions.nextPage(); }}
+          onPageSizeChange={(size) => { setNewGroup(""); groupOptions.setPageSize(size); }}
+        />
         <p className="ui-caption text-slate-500 dark:text-slate-400">
           {text("Add the user to an existing IAM group to inherit that group's permissions.")}
         </p>

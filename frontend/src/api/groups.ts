@@ -102,6 +102,15 @@ export async function listMinimalGroups(): Promise<UiGroupSummary[]> {
   return data;
 }
 
+export async function listGroupOptions(params: {
+  page?: number;
+  page_size?: number;
+  search?: string;
+} = {}): Promise<PaginatedResponse<UiGroupSummary>> {
+  const { data } = await client.get<PaginatedResponse<UiGroupSummary>>("/admin/groups/options", { params });
+  return data;
+}
+
 export async function createGroup(payload: UiGroupPayload): Promise<UiGroup> {
   const { data } = await client.post<UiGroup>("/admin/groups", payload);
   return data;

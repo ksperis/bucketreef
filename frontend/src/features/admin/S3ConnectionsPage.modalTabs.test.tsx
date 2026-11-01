@@ -12,8 +12,8 @@ const updateAdminS3ConnectionMock = vi.fn();
 const deleteAdminS3ConnectionMock = vi.fn();
 const validateAdminS3ConnectionCredentialsMock = vi.fn();
 
-const listMinimalUsersMock = vi.fn();
-const listMinimalGroupsMock = vi.fn();
+const listUserOptionsMock = vi.fn();
+const listGroupOptionsMock = vi.fn();
 const listStorageEndpointsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
 
@@ -50,11 +50,11 @@ vi.mock("../../api/s3ConnectionsAdmin", () => ({
 }));
 
 vi.mock("../../api/users", () => ({
-  listMinimalUsers: () => listMinimalUsersMock(),
+  listUserOptions: (params?: unknown) => listUserOptionsMock(params),
 }));
 
 vi.mock("../../api/groups", () => ({
-  listMinimalGroups: () => listMinimalGroupsMock(),
+  listGroupOptions: (params?: unknown) => listGroupOptionsMock(params),
 }));
 
 vi.mock("../../api/storageEndpoints", () => ({
@@ -123,16 +123,28 @@ describe("S3ConnectionsPage modal tabs", () => {
       has_next: false,
     });
 
-    listMinimalUsersMock.mockResolvedValue([
-      { id: 11, email: "u11@example.com" },
-      { id: 12, email: "u12@example.com" },
-      { id: 13, email: "u13@example.com" },
-      { id: 99, email: "owner@example.com" },
-    ]);
-    listMinimalGroupsMock.mockResolvedValue([
-      { id: 31, name: "Storage Operators" },
-      { id: 32, name: "Data Readers" },
-    ]);
+    listUserOptionsMock.mockResolvedValue({
+      items: [
+        { id: 11, email: "u11@example.com" },
+        { id: 12, email: "u12@example.com" },
+        { id: 13, email: "u13@example.com" },
+        { id: 99, email: "owner@example.com" },
+      ],
+      total: 4,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
+    listGroupOptionsMock.mockResolvedValue({
+      items: [
+        { id: 31, name: "Storage Operators" },
+        { id: 32, name: "Data Readers" },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
 
     listStorageEndpointsMock.mockResolvedValue([]);
     listAdminTagDefinitionsMock.mockResolvedValue([makeTag(701, "shared", "sky"), makeTag(702, "prod")]);

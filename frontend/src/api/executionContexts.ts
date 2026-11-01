@@ -5,6 +5,7 @@
 import client, { timeoutForRequestProfile } from "./client";
 import type { ManagerAccountRole, PortalAccountRole } from "./accountAccess";
 import type { TagDefinitionSummary } from "./tags";
+import type { PaginatedResponse } from "./types";
 
 export type ExecutionContextKind = "account" | "connection" | "s3_user" | "portal_account" | "openstack_project";
 
@@ -56,6 +57,11 @@ export type ExecutionContext = {
   } | null;
 };
 
+export type ExecutionContextOption = Pick<
+  ExecutionContext,
+  "kind" | "id" | "display_name" | "manager_role" | "endpoint_id" | "endpoint_url"
+>;
+
 type ExecutionWorkspace = "manager" | "browser";
 
 export async function listExecutionContexts(
@@ -66,6 +72,25 @@ export async function listExecutionContexts(
       params: workspace ? { workspace } : undefined,
       signal: options?.signal,
       timeout: timeoutForRequestProfile("interactive"),
+  });
+  return data;
+}
+
+export async function listExecutionContextOptions(
+  workspace: ExecutionWorkspace,
+  query: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    exclude_id?: string;
+    manager_account_admin_only?: boolean;
+  },
+  options?: { signal?: AbortSignal },
+): Promise<PaginatedResponse<ExecutionContextOption>> {
+  const { data } = await client.get<PaginatedResponse<ExecutionContextOption>>("/me/execution-contexts/options", {
+    params: { workspace, ...query },
+    signal: options?.signal,
+    timeout: timeoutForRequestProfile("interactive"),
   });
   return data;
 }

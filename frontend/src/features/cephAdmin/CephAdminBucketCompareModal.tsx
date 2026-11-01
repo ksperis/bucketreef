@@ -4,10 +4,12 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
+import PaginationControls from "../../components/PaginationControls";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
 import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
+import UiInput from "../../components/ui/UiInput";
 import {
   BucketCompareFeedback,
   BucketCompareResult,
@@ -17,7 +19,6 @@ import {
 import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
-import { collectPaginatedItems } from "../../utils/pagination";
 import {
   CephAdminBucketCompareResult,
   compareCephAdminBucketPair,
@@ -48,6 +49,7 @@ import {
   triggerJsonDownload,
 } from "../../utils/download";
 import { useCephAdminI18n } from "./cephAdminI18n";
+import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 
 type CompareRunItem = {
   sourceBucket: string;
@@ -86,6 +88,16 @@ function bucketReferenceLabel(reference: RgwBucketReference): string {
   return normalized.tenant ? `${normalized.tenant}/${normalized.name}` : normalized.name;
 }
 
+function bucketReferenceFromLabel(label: string): RgwBucketReference {
+  const normalized = label.trim();
+  const separator = normalized.indexOf("/");
+  if (separator <= 0) return { name: normalized, tenant: "" };
+  return normalizeBucketReference({
+    tenant: normalized.slice(0, separator),
+    name: normalized.slice(separator + 1),
+  });
+}
+
 export default function CephAdminBucketCompareModal({
   sourceEndpointId,
   sourceEndpointName,
@@ -110,16 +122,32 @@ export default function CephAdminBucketCompareModal({
   );
   const targetEndpointOptions = useMemo(() => endpoints, [endpoints]);
   const [targetEndpointId, setTargetEndpointId] = useState<number | null>(null);
-  const [targetBucketReferences, setTargetBucketReferences] = useState<RgwBucketReference[]>([]);
-  const [targetBucketNames, setTargetBucketNames] = useState<string[]>([]);
-  const targetReferenceByLabel = useMemo(
-    () => new Map(targetBucketReferences.map((reference) => [bucketReferenceLabel(reference), reference])),
-    [targetBucketReferences],
-  );
-  const [targetBucketsLoading, setTargetBucketsLoading] = useState(false);
-  const [targetBucketsError, setTargetBucketsError] = useState<string | null>(null);
   const [pendingExplore, setPendingExplore] = useState<PendingExploreNavigation | null>(null);
   const sameEndpointSelected = targetEndpointId === sourceEndpointId;
+  const loadTargetBucketOptions = useCallback(
+    (query: { page?: number; page_size?: number; search?: string }) => {
+      if (!targetEndpointId) {
+        return Promise.resolve({ items: [], total: 0, page: 1, page_size: query.page_size ?? 25, has_next: false });
+      }
+      return listCephAdminBuckets(targetEndpointId, {
+        page: query.page,
+        page_size: query.page_size,
+        filter: query.search,
+        sort_by: "name",
+        sort_dir: "asc",
+        with_stats: false,
+      });
+    },
+    [targetEndpointId],
+  );
+  const targetBucketCatalog = usePaginatedOptions(loadTargetBucketOptions, {
+    enabled: Boolean(targetEndpointId),
+    initialPageSize: 25,
+  });
+  const targetBucketNames = useMemo(
+    () => targetBucketCatalog.items.map((bucket) => bucketReferenceLabel({ name: bucket.name, tenant: bucket.tenant ?? "" })),
+    [targetBucketCatalog.items],
+  );
   const {
     mappingMode,
     setMappingMode,
@@ -155,7 +183,6 @@ export default function CephAdminBucketCompareModal({
     availableTargetBucketNames,
     resolvedManualMapping,
     comparePlan,
-    missingByName,
     hasScopeSelected,
     hasConfigFeatureSelected,
     ignoreModifiedAfterIso,
@@ -176,6 +203,7 @@ export default function CephAdminBucketCompareModal({
     targetKind: "endpoint",
     sourceBuckets: sortedSourceBuckets,
     targetBuckets: targetBucketNames,
+    targetInventoryComplete: false,
     sameTargetSelected: sameEndpointSelected,
     configFeatures: ALL_CONFIG_FEATURE_KEYS,
   });
@@ -193,61 +221,6 @@ export default function CephAdminBucketCompareModal({
       return null;
     });
   }, [targetEndpointOptions]);
-
-  useEffect(() => {
-    if (!targetEndpointId) {
-      setTargetBucketReferences([]);
-      setTargetBucketNames([]);
-      setTargetBucketsError(surfaceText("Select a target endpoint."));
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      setTargetBucketsLoading(true);
-      setTargetBucketsError(null);
-      try {
-        const references: RgwBucketReference[] = [];
-        const seen = new Set<string>();
-        const targetBuckets = await collectPaginatedItems((page) =>
-          listCephAdminBuckets(targetEndpointId, {
-            page,
-            page_size: 200,
-            sort_by: "name",
-            sort_dir: "asc",
-            with_stats: false,
-          }),
-        );
-        targetBuckets.forEach((bucket) => {
-          const name = (bucket.name ?? "").trim();
-          if (!name) return;
-          const reference = normalizeBucketReference({ name, tenant: bucket.tenant ?? "" });
-          const key = JSON.stringify([reference.tenant ?? "", reference.name]);
-          if (seen.has(key)) return;
-          seen.add(key);
-          references.push(reference);
-        });
-        if (cancelled) return;
-        references.sort((left, right) => bucketReferenceLabel(left).localeCompare(bucketReferenceLabel(right)));
-        setTargetBucketReferences(references);
-        const names = references.map(bucketReferenceLabel);
-        setTargetBucketNames(names);
-        setTargetBucketsError(null);
-      } catch (err) {
-        if (cancelled) return;
-        setTargetBucketReferences([]);
-        setTargetBucketNames([]);
-        setTargetBucketsError(extractCompareError(err));
-      } finally {
-        if (!cancelled) {
-          setTargetBucketsLoading(false);
-        }
-      }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [sourceEndpointId, targetEndpointId, surfaceText]);
 
   const runValidationError = resolveBucketCompareRunError({
     targetSelected: Boolean(targetEndpointId),
@@ -284,8 +257,8 @@ export default function CephAdminBucketCompareModal({
     const mappings = comparePlan.mappings;
     const initialItems = mappings.map((mapping) => {
       const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
-      const targetRef = targetReferenceByLabel.get(mapping.targetBucket);
-      if (!sourceRef || !targetRef) {
+      const targetRef = bucketReferenceFromLabel(mapping.targetBucket);
+      if (!sourceRef || !targetRef.name) {
         throw new Error("Unable to resolve the selected tenant-aware bucket mapping.");
       }
       return {
@@ -305,8 +278,8 @@ export default function CephAdminBucketCompareModal({
         (mapping, index) =>
           executeRunItem(index, (signal) => {
             const sourceRef = sourceReferenceByLabel.get(mapping.sourceBucket);
-            const targetRef = targetReferenceByLabel.get(mapping.targetBucket);
-            if (!sourceRef || !targetRef) {
+            const targetRef = bucketReferenceFromLabel(mapping.targetBucket);
+            if (!sourceRef || !targetRef.name) {
               throw new Error("Unable to resolve the selected tenant-aware bucket mapping.");
             }
             return compareCephAdminBucketPair(
@@ -472,30 +445,48 @@ export default function CephAdminBucketCompareModal({
           onConfigFeatureChange={toggleConfigFeature}
           running={running}
         >
-          {targetBucketsLoading && <p className="ui-caption text-slate-500 dark:text-slate-400">{surfaceText("Loading target buckets...")}</p>}
-          {targetBucketsError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{targetBucketsError}</p>}
-          {mappingMode === "by_name" && missingByName.length > 0 && (
-            <p className="ui-caption font-semibold text-amber-700 dark:text-amber-200">
-              {missingByName.length} {surfaceText(
-                missingByName.length === 1
-                  ? "target bucket does not exist with the same name."
-                  : "target buckets do not exist with the same name.",
-              )}</p>
-          )}
           {mappingMode === "manual" && (
-            <BucketCompareManualMappingEditor
-              rawMappingText={rawMappingText}
-              onRawMappingTextChange={setRawMappingText}
-              parsedRawMapping={parsedRawMapping}
-              sourceBuckets={sortedSourceBuckets}
-              resolvedManualMapping={resolvedManualMapping}
-              manualMapping={manualMapping}
-              onManualMappingChange={(sourceBucket, targetBucket) =>
-                setManualMapping((prev) => ({ ...prev, [sourceBucket]: targetBucket }))
-              }
-              availableTargetBucketNames={availableTargetBucketNames}
-              disabled={running}
-            />
+            <div className="space-y-3">
+              <UiInput
+                type="search"
+                label={surfaceText("Search target buckets")}
+                value={targetBucketCatalog.search}
+                onChange={(event) => targetBucketCatalog.setSearch(event.target.value)}
+                disabled={running || !targetEndpointId}
+                size="compact"
+              />
+              {targetBucketCatalog.loading && (
+                <p className="ui-caption text-slate-500 dark:text-slate-400">
+                  {surfaceText("Loading target buckets...")}
+                </p>
+              )}
+              {targetBucketCatalog.error && (
+                <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">
+                  {targetBucketCatalog.error}
+                </p>
+              )}
+              <BucketCompareManualMappingEditor
+                rawMappingText={rawMappingText}
+                onRawMappingTextChange={setRawMappingText}
+                parsedRawMapping={parsedRawMapping}
+                sourceBuckets={sortedSourceBuckets}
+                resolvedManualMapping={resolvedManualMapping}
+                manualMapping={manualMapping}
+                onManualMappingChange={(sourceBucket, targetBucket) =>
+                  setManualMapping((prev) => ({ ...prev, [sourceBucket]: targetBucket }))
+                }
+                availableTargetBucketNames={availableTargetBucketNames}
+                disabled={running}
+              />
+              <PaginationControls
+                page={targetBucketCatalog.page}
+                pageSize={targetBucketCatalog.pageSize}
+                total={targetBucketCatalog.total}
+                onPageChange={targetBucketCatalog.setPage}
+                onPageSizeChange={targetBucketCatalog.setPageSize}
+                disabled={running || targetBucketCatalog.loading}
+              />
+            </div>
           )}
         </BucketCompareSetup>
         {runError && <p className="ui-caption font-semibold text-rose-600 dark:text-rose-200">{runError}</p>}

@@ -2,7 +2,6 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Bucket } from "../../api/bucketContracts";
 import type {
   ManagerBucketCompareActionResult,
   ManagerBucketCompareResult,
@@ -12,7 +11,8 @@ import type { ExecutionContext } from "../../api/executionContexts";
 import { buildExecutionContext } from "../../test/executionContexts";
 import ManagerBucketCompareModal from "./ManagerBucketCompareModal";
 
-const listBucketsMock = vi.fn<(contextId: string, options?: { with_stats?: boolean }) => Promise<Bucket[]>>();
+const listBucketOptionsMock = vi.fn();
+const listExecutionContextOptionsMock = vi.fn();
 const compareManagerBucketPairMock = vi.fn();
 const runManagerBucketCompareActionMock = vi.fn();
 const proxyDownloadMock = vi.fn();
@@ -24,9 +24,17 @@ vi.mock("../../api/managerBuckets", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerBuckets")>("../../api/managerBuckets");
   return {
     ...actual,
-    listBuckets: (contextId: string, options?: { with_stats?: boolean }) => listBucketsMock(contextId, options),
+    listBucketOptions: (...args: unknown[]) => listBucketOptionsMock(...args),
     compareManagerBucketPair: (...args: unknown[]) => compareManagerBucketPairMock(...args),
     runManagerBucketCompareAction: (...args: unknown[]) => runManagerBucketCompareActionMock(...args),
+  };
+});
+
+vi.mock("../../api/executionContexts", async () => {
+  const actual = await vi.importActual<typeof import("../../api/executionContexts")>("../../api/executionContexts");
+  return {
+    ...actual,
+    listExecutionContextOptions: (...args: unknown[]) => listExecutionContextOptionsMock(...args),
   };
 });
 
@@ -138,9 +146,10 @@ async function runInitialComparison() {
 
   const targetContextSelect = screen.getByLabelText("Target context");
   expect(screen.getByLabelText("Mapping mode")).toBeInTheDocument();
+  await screen.findByRole("option", { name: "Target context" });
   await user.selectOptions(targetContextSelect, "ctx-target");
   await waitFor(() => {
-    expect(listBucketsMock).toHaveBeenCalled();
+    expect(listBucketOptionsMock).toHaveBeenCalled();
   });
   await waitFor(() => {
     expect(screen.getByRole("button", { name: /run comparison/i })).toBeEnabled();
@@ -229,13 +238,39 @@ describe("ManagerBucketCompareModal remediation actions", () => {
       configurable: true,
       value: clipboardWriteTextMock,
     });
-    listBucketsMock.mockResolvedValue([{ name: "bucket-a" } as Bucket]);
+    listExecutionContextOptionsMock.mockResolvedValue({
+      items: contexts.map(({ kind, id, display_name, manager_role, endpoint_id, endpoint_url }) => ({
+        kind,
+        id,
+        display_name,
+        manager_role,
+        endpoint_id,
+        endpoint_url,
+      })),
+      total: contexts.length,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+    listBucketOptionsMock.mockResolvedValue({
+      items: [{ name: "bucket-a" }],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
     compareManagerBucketPairMock.mockResolvedValue(buildCompareResult());
     runManagerBucketCompareActionMock.mockResolvedValue(buildActionResult());
   });
 
-  it("shows missing target buckets only after selecting a target context", async () => {
-    listBucketsMock.mockResolvedValueOnce([]);
+  it("does not infer missing target buckets from a partial paginated inventory", async () => {
+    listBucketOptionsMock.mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
     const user = userEvent.setup();
     render(
       <ManagerBucketCompareModal
@@ -249,9 +284,12 @@ describe("ManagerBucketCompareModal remediation actions", () => {
 
     expect(screen.queryByText(/target bucket does not exist with the same name/i)).not.toBeInTheDocument();
 
+    await screen.findByRole("option", { name: "Target context" });
     await user.selectOptions(screen.getByLabelText("Target context"), "ctx-target");
 
-    expect(await screen.findByText(/1 target bucket does not exist with the same name/i)).toBeInTheDocument();
+    await waitFor(() => expect(listBucketOptionsMock).toHaveBeenCalled());
+    expect(screen.queryByText(/target bucket does not exist with the same name/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /run comparison/i })).toBeEnabled();
   });
 
   it("keeps pair progress indeterminate until the comparison settles", async () => {
@@ -415,6 +453,7 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     );
 
     const [targetContextSelect] = screen.getAllByRole("combobox");
+    await screen.findByRole("option", { name: "Target context" });
     await user.selectOptions(targetContextSelect, "ctx-target");
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /run comparison/i })).toBeEnabled();
@@ -601,6 +640,7 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     );
 
     const [targetContextSelect] = screen.getAllByRole("combobox");
+    await screen.findByRole("option", { name: "Target context" });
     await user.selectOptions(targetContextSelect, "ctx-target");
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /run comparison/i })).toBeEnabled();

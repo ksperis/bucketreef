@@ -4,9 +4,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { listBuckets } from "../../../api/managerBuckets";
+import { listBucketOptions } from "../../../api/managerBuckets";
 import type { Bucket } from "../../../api/bucketContracts";
 import { type ExecutionContext } from "../../../api/executionContexts";
+import usePaginatedOptions from "../../../hooks/usePaginatedOptions";
 import {
   getManagerMigration,
   listManagerMigrations,
@@ -17,43 +18,36 @@ import {
 import { extractError, normalizeEndpointUrl } from "./shared";
 
 export function useManagerSourceBuckets(sourceContextId: string) {
-  const [sourceBuckets, setSourceBuckets] = useState<Bucket[]>([]);
-  const [bucketsLoading, setBucketsLoading] = useState(false);
-  const [bucketsError, setBucketsError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!sourceContextId) {
-      setSourceBuckets([]);
-      setBucketsError(null);
-      setBucketsLoading(false);
-      return;
-    }
-    let canceled = false;
-    setBucketsLoading(true);
-    setBucketsError(null);
-    listBuckets(sourceContextId, { with_stats: false })
-      .then((items) => {
-        if (canceled) return;
-        setSourceBuckets([...items].sort((a, b) => a.name.localeCompare(b.name)));
-      })
-      .catch((error) => {
-        if (canceled) return;
-        setBucketsError(extractError(error));
-        setSourceBuckets([]);
-      })
-      .finally(() => {
-        if (!canceled) setBucketsLoading(false);
-      });
-
-    return () => {
-      canceled = true;
-    };
-  }, [sourceContextId]);
+  const loadBucketOptions = useCallback(
+    async (query: { page?: number; page_size?: number; search?: string }) => {
+      try {
+        return await listBucketOptions(sourceContextId, query);
+      } catch (error) {
+        throw new Error(extractError(error));
+      }
+    },
+    [sourceContextId],
+  );
+  const catalog = usePaginatedOptions(loadBucketOptions, {
+    enabled: Boolean(sourceContextId),
+    initialPageSize: 25,
+  });
+  const sourceBuckets = useMemo<Bucket[]>(
+    () => catalog.items.map((bucket) => ({ name: bucket.name })),
+    [catalog.items],
+  );
 
   return {
     sourceBuckets,
-    bucketsLoading,
-    bucketsError,
+    bucketsLoading: catalog.loading,
+    bucketsError: catalog.error,
+    filter: catalog.search,
+    setFilter: catalog.setSearch,
+    page: catalog.page,
+    setPage: catalog.setPage,
+    pageSize: catalog.pageSize,
+    setPageSize: catalog.setPageSize,
+    total: catalog.total,
   };
 }
 

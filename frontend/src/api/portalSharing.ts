@@ -11,6 +11,7 @@ import type {
   PortalStorageSpaceGrantRole,
   PortalStorageSpaceRole,
 } from "./portal";
+import type { PaginatedResponse } from "./types";
 import type { UserAvatarDescriptor } from "./users";
 
 export type PortalStorageSpaceShareDirection = "with_me" | "by_me";
@@ -57,6 +58,13 @@ export type PortalStorageSpaceShareCandidate = {
   avatar: UserAvatarDescriptor | null;
 };
 
+export type PortalShareCandidatesQuery = {
+  page?: number;
+  page_size?: number;
+  search?: string;
+  include_already_shared?: boolean;
+};
+
 export type PortalPublicLink = {
   id: number;
   storage_space_id: string;
@@ -85,10 +93,11 @@ export async function fetchPortalStorageSpaceAccessSummary(
 
 export async function listPortalShareCandidates(
   accountId: S3AccountSelector,
-): Promise<PortalStorageSpaceShareCandidate[]> {
-  const { data } = await client.get<PortalStorageSpaceShareCandidate[]>(
+  query: PortalShareCandidatesQuery = {},
+): Promise<PaginatedResponse<PortalStorageSpaceShareCandidate>> {
+  const { data } = await client.get<PaginatedResponse<PortalStorageSpaceShareCandidate>>(
     "/portal/share-candidates",
-    { params: withS3AccountParam(undefined, accountId) },
+    { params: withS3AccountParam(query, accountId) },
   );
   return data;
 }
@@ -96,10 +105,11 @@ export async function listPortalShareCandidates(
 export async function listPortalStorageSpaceShareCandidates(
   accountId: S3AccountSelector,
   spaceId: string,
-): Promise<PortalStorageSpaceShareCandidate[]> {
-  const { data } = await client.get<PortalStorageSpaceShareCandidate[]>(
+  query: PortalShareCandidatesQuery = {},
+): Promise<PaginatedResponse<PortalStorageSpaceShareCandidate>> {
+  const { data } = await client.get<PaginatedResponse<PortalStorageSpaceShareCandidate>>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/share-candidates`,
-    { params: withS3AccountParam(undefined, accountId) },
+    { params: withS3AccountParam(query, accountId) },
   );
   return data;
 }

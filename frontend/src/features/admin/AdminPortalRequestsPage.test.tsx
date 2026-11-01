@@ -7,7 +7,7 @@ import AdminPortalRequestsPage from "./AdminPortalRequestsPage";
 import type { PortalAdminRequest } from "../../api/portalRequests";
 
 const mocks = vi.hoisted(() => ({
-  listMinimalS3Accounts: vi.fn(),
+  listS3Accounts: vi.fn(),
   listMinimalUsers: vi.fn(),
   listAdminPortalRequests: vi.fn(),
   approveAdminPortalRequest: vi.fn(),
@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../api/accounts", () => ({
-  listMinimalS3Accounts: mocks.listMinimalS3Accounts,
+  listS3Accounts: mocks.listS3Accounts,
 }));
 
 vi.mock("../../api/users", () => ({
@@ -65,9 +65,12 @@ function renderPage() {
 describe("AdminPortalRequestsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.listMinimalS3Accounts.mockResolvedValue([
-      { id: 101, name: "Research Account", rgw_account_id: "RGW-RESEARCH", tags: [] },
-    ]);
+    mocks.listS3Accounts.mockResolvedValue({
+      items: [{ id: 101, name: "Research Account", rgw_account_id: "RGW-RESEARCH", tags: [] }],
+      total: 1,
+      page: 1,
+      page_size: 25,
+    });
     mocks.listMinimalUsers.mockResolvedValue([
       {
         id: 1,
@@ -168,6 +171,32 @@ describe("AdminPortalRequestsPage", () => {
         search: "",
         limit: 200,
       });
+    });
+  });
+
+  it("searches and pages account filter options server-side", async () => {
+    mocks.listS3Accounts.mockImplementation(async (params: { page?: number; search?: string }) => {
+      const page = params.page ?? 1;
+      return {
+        items: [{ id: page, name: page === 1 ? "Account One" : "Account Two", tags: [] }],
+        total: 30,
+        page,
+        page_size: 25,
+      };
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByRole("option", { name: "Account One" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("option", { name: "Account Two" })).toBeInTheDocument();
+    expect(mocks.listS3Accounts).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, page_size: 25 }));
+
+    await user.type(screen.getByRole("searchbox", { name: "Search accounts" }), "research");
+    await waitFor(() => {
+      expect(mocks.listS3Accounts).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 1, page_size: 25, search: "research" }),
+      );
     });
   });
 });

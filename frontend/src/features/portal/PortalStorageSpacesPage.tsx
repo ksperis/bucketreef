@@ -98,6 +98,11 @@ export default function PortalStorageSpacesPage() {
       loading: shareCandidatesLoading,
       error: shareCandidatesError,
       portalMemberCount,
+      page: shareCandidatesPage,
+      pageSize: shareCandidatesPageSize,
+      total: shareCandidatesTotal,
+      setPage: setShareCandidatesPage,
+      setPageSize: setShareCandidatesPageSize,
     },
     create: {
       open: showCreate,
@@ -652,6 +657,11 @@ export default function PortalStorageSpacesPage() {
               query={shareCandidateQuery}
               loading={shareCandidatesLoading}
               error={shareCandidatesError}
+              page={shareCandidatesPage}
+              pageSize={shareCandidatesPageSize}
+              total={shareCandidatesTotal}
+              onPageChange={setShareCandidatesPage}
+              onPageSizeChange={setShareCandidatesPageSize}
               onQueryChange={setShareCandidateQuery}
               onRoleChange={setCreateRestrictedRole}
             />
@@ -759,6 +769,11 @@ export default function PortalStorageSpacesPage() {
               query={importShareCandidateQuery}
               loading={shareCandidatesLoading}
               error={shareCandidatesError}
+              page={shareCandidatesPage}
+              pageSize={shareCandidatesPageSize}
+              total={shareCandidatesTotal}
+              onPageChange={setShareCandidatesPage}
+              onPageSizeChange={setShareCandidatesPageSize}
               onQueryChange={setImportShareCandidateQuery}
               onRoleChange={setImportRestrictedRole}
             />

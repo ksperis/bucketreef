@@ -7,7 +7,7 @@ import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
-import { IamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
+import { IamPolicy, listIamPoliciesPage } from "../../api/managerIamPolicies";
 import PageShell from "../../components/PageShell";
 import PageBanner from "../../components/PageBanner";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
@@ -17,10 +17,13 @@ import { decodeRouteValue } from "../../utils/routeValues";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import InlinePolicyEditor from "./InlinePolicyEditor";
 import UiSelect from "../../components/ui/UiSelect";
+import UiInput from "../../components/ui/UiInput";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
+import IamCursorPaginationControls from "./IamCursorPaginationControls";
+import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
 
 type ManagerPolicyEntityType = "user" | "group" | "role";
 
@@ -105,54 +108,48 @@ export default function ManagerEntityPoliciesPage({
   const isS3User = selectedContextKind === "s3_user";
 
   const [attached, setAttached] = useState<IamPolicy[]>([]);
-  const [available, setAvailable] = useState<IamPolicy[]>([]);
   const [selectedArn, setSelectedArn] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const policyConfirmation = useConfirmActionDialog();
+  const availablePolicies = useManagerIamCursorCollection(listIamPoliciesPage);
 
   const decodedEntity = decodeRouteValue(rawEntityName);
-
-  const noPoliciesAvailable = available.length === 0;
 
   const load = useCallback(async (contextId: S3ExecutionContextSelector, entityName: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [attachedPolicies, allPolicies] = await Promise.all([
-        listPoliciesForEntity(contextId, entityName),
-        listIamPolicies(contextId),
-      ]);
+      const attachedPolicies = await listPoliciesForEntity(contextId, entityName);
       setAttached(attachedPolicies);
-      setAvailable(allPolicies);
-      const firstFree = allPolicies.find((policy) => !attachedPolicies.some((candidate) => candidate.arn === policy.arn));
-      setSelectedArn(firstFree?.arn ?? "");
+      availablePolicies.load(contextId);
+      setSelectedArn("");
     } catch (err) {
       setError(extractApiError(err, text("Unexpected error")));
     } finally {
       setLoading(false);
     }
-  }, [listPoliciesForEntity, text]);
+  }, [availablePolicies.load, listPoliciesForEntity, text]);
 
   useEffect(() => {
     if (isS3User) {
       setAttached([]);
-      setAvailable([]);
+      availablePolicies.setItems([]);
       setLoading(false);
       return;
     }
     if (needsContextSelection) {
       setAttached([]);
-      setAvailable([]);
+      availablePolicies.setItems([]);
       setLoading(false);
       return;
     }
     if (rawEntityName) {
       load(contextIdForApi, rawEntityName);
     }
-  }, [accessMode, contextIdForApi, isS3User, load, needsContextSelection, rawEntityName]);
+  }, [accessMode, availablePolicies.setItems, contextIdForApi, isS3User, load, needsContextSelection, rawEntityName]);
 
   const handleRefresh = () => {
     if (needsContextSelection || !rawEntityName) return;
@@ -162,7 +159,7 @@ export default function ManagerEntityPoliciesPage({
   const handleAttach = async (event: FormEvent) => {
     event.preventDefault();
     if (needsContextSelection || !rawEntityName || !selectedArn || busy !== null || loading) return;
-    const policy = available.find((candidate) => candidate.arn === selectedArn);
+    const policy = availablePolicies.items.find((candidate) => candidate.arn === selectedArn);
     if (!policy) return;
     setBusy("attach");
     setError(null);
@@ -252,7 +249,9 @@ export default function ManagerEntityPoliciesPage({
     return <div className="ui-body text-slate-600">{text("Select a context before managing {entities}.", { entities: pluralLabel })}</div>;
   }
 
-  const options = available.map((policy) => ({ value: policy.arn, label: policy.name }));
+  const options = availablePolicies.items
+    .filter((policy) => !attached.some((candidate) => candidate.arn === policy.arn))
+    .map((policy) => ({ value: policy.arn, label: policy.name }));
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: attached.length });
   const attachedPolicyColumns: Array<DataTableColumn<IamPolicy>> = [
     {
@@ -307,10 +306,6 @@ export default function ManagerEntityPoliciesPage({
       )}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
-      {noPoliciesAvailable && (
-        <PageBanner tone="warning">{text("No IAM policies available. Create one before attaching to this {entity}.", { entity: singularLabel })}</PageBanner>
-      )}
-
       <div className="settings-compact settings-stack">
         <InlinePolicyEditor
           entityType={entityType}
@@ -328,10 +323,19 @@ export default function ManagerEntityPoliciesPage({
         <SettingsSection presentation="compact" title={text("Attached policies")} description={text("Attach/detach managed policies for this {entity}.", { entity: singularLabel })}>
           <div className="settings-stack">
             <form aria-label={text("Attach managed policy")} onSubmit={handleAttach} className="settings-fields">
+              <UiInput
+                label={text("Search policies")}
+                value={availablePolicies.search}
+                onChange={(event) => {
+                  setSelectedArn("");
+                  availablePolicies.setSearch(event.target.value);
+                }}
+                placeholder={text("Search policies by name or ARN")}
+              />
               <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end">
                 <div className="min-w-0 flex-1">
                   <UiSelect label={text("Managed policy")} value={selectedArn} onChange={(event) => setSelectedArn(event.target.value)}
-                    disabled={busy !== null || loading}>
+                    disabled={busy !== null || loading || availablePolicies.loading}>
                     <option value="">{text("Select a policy to attach")}</option>
                     {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </UiSelect>
@@ -340,6 +344,23 @@ export default function ManagerEntityPoliciesPage({
                   {text(busy === "attach" ? "Attaching..." : "Attach")}
                 </SettingsButton>
               </div>
+              {!availablePolicies.loading && options.length === 0 && (
+                <p className="settings-description">
+                  {availablePolicies.search.trim()
+                    ? text("No matching policies.")
+                    : text("No IAM policies available to attach to this {entity}.", { entity: singularLabel })}
+                </p>
+              )}
+              <IamCursorPaginationControls
+                page={availablePolicies.page}
+                pageSize={availablePolicies.pageSize}
+                canPrevious={availablePolicies.canPrevious}
+                canNext={availablePolicies.canNext}
+                disabled={availablePolicies.loading}
+                onPrevious={() => { setSelectedArn(""); availablePolicies.previousPage(); }}
+                onNext={() => { setSelectedArn(""); availablePolicies.nextPage(); }}
+                onPageSizeChange={(size) => { setSelectedArn(""); availablePolicies.setPageSize(size); }}
+              />
               <p className="settings-description">{text("Policies must be created first in the Policies tab.")}</p>
             </form>
             <DataTableShell

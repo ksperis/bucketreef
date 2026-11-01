@@ -29,11 +29,16 @@ export default function ManagerBucketComparePage() {
     filter,
     filteredBuckets,
     loading: bucketsLoading,
+    page,
+    pageSize,
+    total,
     requiresContextSelection,
     selectedBucketList,
     selectedBuckets,
     selectAllFiltered,
     setFilter,
+    setPage,
+    setPageSize,
     sourceContext,
     sourceContextId,
     tableStatus,
@@ -86,6 +91,11 @@ export default function ManagerBucketComparePage() {
           onToggleBucket={toggleBucket}
           onSelectFiltered={selectAllFiltered}
           onClearSelection={clearSelection}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
           tableStatus={tableStatus}
           loadingMessage={text("Loading source buckets...")}
           errorMessage={text("Unable to load buckets.")}

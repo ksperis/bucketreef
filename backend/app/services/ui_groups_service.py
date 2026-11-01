@@ -227,6 +227,19 @@ class UiGroupsService:
     def list_groups_minimal(self) -> list[UiGroupSummary]:
         return self.queries.list_groups_minimal()
 
+    def paginate_group_summaries(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        search: Optional[str] = None,
+    ) -> tuple[list[UiGroupSummary], int]:
+        return self.queries.paginate_group_summaries(
+            page=page,
+            page_size=page_size,
+            search=search,
+        )
+
     def paginate_groups(
         self,
         *,

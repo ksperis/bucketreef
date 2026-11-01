@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ManagerUsersPage from "./ManagerUsersPage";
 
 const useExecutionContextMock = vi.fn();
-const listIamUsersMock = vi.fn();
-const listIamGroupsMock = vi.fn();
-const listIamPoliciesMock = vi.fn();
+const listIamUsersPageMock = vi.fn();
+const listIamGroupsPageMock = vi.fn();
+const listIamPoliciesPageMock = vi.fn();
 const createIamUserMock = vi.fn();
 const deleteIamUserMock = vi.fn();
 
@@ -19,7 +19,7 @@ vi.mock("../../api/managerIamUsers", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamUsers")>("../../api/managerIamUsers");
   return {
     ...actual,
-    listIamUsers: (...args: unknown[]) => listIamUsersMock(...args),
+    listIamUsersPage: (...args: unknown[]) => listIamUsersPageMock(...args),
     createIamUser: (...args: unknown[]) => createIamUserMock(...args),
     deleteIamUser: (...args: unknown[]) => deleteIamUserMock(...args),
   };
@@ -29,7 +29,7 @@ vi.mock("../../api/managerIamGroups", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamGroups")>("../../api/managerIamGroups");
   return {
     ...actual,
-    listIamGroups: (...args: unknown[]) => listIamGroupsMock(...args),
+    listIamGroupsPage: (...args: unknown[]) => listIamGroupsPageMock(...args),
   };
 });
 
@@ -37,16 +37,16 @@ vi.mock("../../api/managerIamPolicies", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamPolicies")>("../../api/managerIamPolicies");
   return {
     ...actual,
-    listIamPolicies: (...args: unknown[]) => listIamPoliciesMock(...args),
+    listIamPoliciesPage: (...args: unknown[]) => listIamPoliciesPageMock(...args),
   };
 });
 
 describe("ManagerUsersPage", () => {
   beforeEach(() => {
     useExecutionContextMock.mockReset();
-    listIamUsersMock.mockReset();
-    listIamGroupsMock.mockReset();
-    listIamPoliciesMock.mockReset();
+    listIamUsersPageMock.mockReset();
+    listIamGroupsPageMock.mockReset();
+    listIamPoliciesPageMock.mockReset();
     createIamUserMock.mockReset();
     deleteIamUserMock.mockReset();
     useExecutionContextMock.mockReturnValue({
@@ -66,9 +66,9 @@ describe("ManagerUsersPage", () => {
       iamIdentity: null,
       sessionAccountName: null,
     });
-    listIamUsersMock.mockResolvedValue([]);
-    listIamGroupsMock.mockResolvedValue([]);
-    listIamPoliciesMock.mockResolvedValue([]);
+    listIamUsersPageMock.mockResolvedValue({ items: [], next_marker: null });
+    listIamGroupsPageMock.mockResolvedValue({ items: [], next_marker: null });
+    listIamPoliciesPageMock.mockResolvedValue({ items: [], next_marker: null });
   });
 
   it("shows an empty state without a page-level context strip for managed S3 user contexts", async () => {
@@ -82,9 +82,9 @@ describe("ManagerUsersPage", () => {
     expect(screen.queryByText("Execution context")).not.toBeInTheDocument();
     expect(screen.queryByText("IAM is not available for standalone S3 users. Select an S3 Account (tenant) to continue.")).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(listIamUsersMock).toHaveBeenCalledWith("s3u-1");
-      expect(listIamGroupsMock).toHaveBeenCalledWith("s3u-1");
-      expect(listIamPoliciesMock).toHaveBeenCalledWith("s3u-1");
+      expect(listIamUsersPageMock).toHaveBeenCalledWith("s3u-1", { marker: null, page_size: 25, include_details: true });
+      expect(listIamGroupsPageMock).toHaveBeenCalledWith("s3u-1", { marker: null, page_size: 25 });
+      expect(listIamPoliciesPageMock).toHaveBeenCalledWith("s3u-1", { marker: null, page_size: 25 });
     });
   });
 
@@ -106,16 +106,18 @@ describe("ManagerUsersPage", () => {
       iamIdentity: null,
       sessionAccountName: null,
     });
-    listIamUsersMock.mockResolvedValue([
-      {
-        name: "alice",
-        arn: "arn:aws:iam::acc-1:user/alice",
-        groups: ["operators"],
-        policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
-        inline_policies: [],
-        has_keys: true,
-      },
-    ]);
+    const alice = {
+      name: "alice",
+      arn: "arn:aws:iam::acc-1:user/alice",
+      groups: ["operators"],
+      policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
+      inline_policies: [],
+      has_keys: true,
+    };
+    listIamUsersPageMock.mockImplementation(async (_contextId: unknown, query?: { search?: string }) => ({
+      items: query?.search === "missing" ? [] : [alice],
+      next_marker: null,
+    }));
 
     render(
       <MemoryRouter>
@@ -127,9 +129,21 @@ describe("ManagerUsersPage", () => {
     expect(screen.getByLabelText("Search")).toHaveAttribute("type", "search");
     expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", "Search by name or ARN");
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "missing" } });
-    expect(screen.queryByText("alice")).not.toBeInTheDocument();
+    await waitFor(() => expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", {
+      marker: null,
+      page_size: 25,
+      search: "missing",
+      include_details: true,
+    }));
+    await waitFor(() => expect(screen.queryByText("alice")).not.toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Search"), { target: { value: "alice" } });
-    expect(screen.getByText("alice")).toBeInTheDocument();
+    await waitFor(() => expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", {
+      marker: null,
+      page_size: 25,
+      search: "alice",
+      include_details: true,
+    }));
+    expect(await screen.findByText("alice")).toBeInTheDocument();
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     expect(screen.getByRole("columnheader", { name: "Name" })).toHaveAttribute("aria-sort", "ascending");
     expect(screen.getByText("alice").closest("td")).toHaveAttribute("data-mobile-primary", "true");
@@ -167,9 +181,9 @@ describe("ManagerUsersPage", () => {
       iamIdentity: null,
       sessionAccountName: null,
     });
-    listIamUsersMock.mockResolvedValue([]);
-    listIamGroupsMock.mockResolvedValue([]);
-    listIamPoliciesMock.mockResolvedValue([]);
+    listIamUsersPageMock.mockResolvedValue({ items: [], next_marker: null });
+    listIamGroupsPageMock.mockResolvedValue({ items: [], next_marker: null });
+    listIamPoliciesPageMock.mockResolvedValue({ items: [], next_marker: null });
 
     render(
       <MemoryRouter>
@@ -178,9 +192,9 @@ describe("ManagerUsersPage", () => {
     );
 
     await waitFor(() => {
-      expect(listIamUsersMock).toHaveBeenCalledWith("acc-1");
-      expect(listIamGroupsMock).toHaveBeenCalledWith("acc-1");
-      expect(listIamPoliciesMock).toHaveBeenCalledWith("acc-1");
+      expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25, include_details: true });
+      expect(listIamGroupsPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 });
+      expect(listIamPoliciesPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 });
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Create user" }));
@@ -223,9 +237,9 @@ describe("ManagerUsersPage", () => {
     );
 
     await waitFor(() => {
-      expect(listIamUsersMock).toHaveBeenCalledWith("acc-1");
-      expect(listIamGroupsMock).toHaveBeenCalledWith("acc-1");
-      expect(listIamPoliciesMock).toHaveBeenCalledWith("acc-1");
+      expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25, include_details: true });
+      expect(listIamGroupsPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 });
+      expect(listIamPoliciesPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 });
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Create user" }));
@@ -266,7 +280,7 @@ describe("ManagerUsersPage", () => {
     );
 
     await waitFor(() => {
-      expect(listIamUsersMock).toHaveBeenCalledWith("acc-1");
+      expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25, include_details: true });
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Create user" }));
@@ -303,7 +317,7 @@ describe("ManagerUsersPage", () => {
       </MemoryRouter>
     );
 
-    await waitFor(() => expect(listIamUsersMock).toHaveBeenCalledWith("acc-1"));
+    await waitFor(() => expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25, include_details: true }));
     fireEvent.click(screen.getByRole("button", { name: "Create my private access" }));
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -323,8 +337,8 @@ describe("ManagerUsersPage", () => {
       iamIdentity: null,
       sessionAccountName: null,
     });
-    listIamUsersMock.mockResolvedValue([
-      {
+    listIamUsersPageMock.mockResolvedValue({
+      items: [{
         name: "bkr-private-u7-acc1",
         arn: "arn:aws:iam::acc-1:user/bkr-private-u7-acc1",
         groups: ["operators"],
@@ -333,8 +347,9 @@ describe("ManagerUsersPage", () => {
         has_keys: true,
         is_private_access_managed: true,
         managed_connection_id: 77,
-      },
-    ]);
+      }],
+      next_marker: null,
+    });
 
     render(
       <MemoryRouter>

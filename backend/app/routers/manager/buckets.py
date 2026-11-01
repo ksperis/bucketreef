@@ -10,7 +10,13 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, get_db
 from app.db import User
 from app.models.access_context import ManagerActor
-from app.models.bucket import Bucket, BucketCreate, BucketQuotaUpdate
+from app.models.bucket import (
+    Bucket,
+    BucketCreate,
+    BucketOption,
+    BucketQuotaUpdate,
+    PaginatedBucketOptionsResponse,
+)
 from app.models.manager_bucket_compare import (
     ManagerBucketCompareActionRequest,
     ManagerBucketCompareActionResult,
@@ -121,6 +127,46 @@ def list_buckets(
         )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
+
+
+@router.get("/options", response_model=PaginatedBucketOptionsResponse)
+def list_bucket_options(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str = Query("", max_length=256),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
+    service: BucketsService = Depends(get_buckets_service),
+    _: ManagerActor = Depends(get_current_account_admin),
+) -> PaginatedBucketOptionsResponse:
+    try:
+        buckets = get_cached_bucket_listing_for_context(
+            context=context,
+            include=set(),
+            with_stats=False,
+            builder=lambda: service.list_buckets(context, include=set(), with_stats=False),
+        )
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
+
+    needle = search.strip().casefold()
+    names = sorted(
+        {
+            bucket.name
+            for bucket in buckets
+            if bucket.name and (not needle or needle in bucket.name.casefold())
+        },
+        key=str.casefold,
+    )
+    total = len(names)
+    start = (page - 1) * page_size
+    items = [BucketOption(name=name) for name in names[start : start + page_size]]
+    return PaginatedBucketOptionsResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_next=page * page_size < total,
+    )
 
 
 @router.get("/{bucket_name}/stats", response_model=Bucket)

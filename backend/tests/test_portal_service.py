@@ -5054,12 +5054,26 @@ def test_storage_space_share_candidates_use_effective_portal_members(monkeypatch
     )
     owner_access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 
-    candidates = service.list_storage_space_share_candidates(owner, owner_access, "research-data")
+    candidates, total = service.list_storage_space_share_candidates(
+        owner,
+        owner_access,
+        "research-data",
+        include_already_shared=True,
+    )
 
+    assert total == 1
     assert [(candidate.email, candidate.portal_role, candidate.access_source, candidate.already_shared) for candidate in candidates] == [
         ("direct-candidates@example.com", "portal_user", "direct", True),
     ]
     assert all(candidate.email != outsider.email for candidate in candidates)
+
+    available, available_total = service.list_storage_space_share_candidates(
+        owner,
+        owner_access,
+        "research-data",
+    )
+    assert available_total == 0
+    assert available == []
 
 
 def test_portal_collaborators_summarize_effective_members_and_visible_external_access(monkeypatch, db_session):

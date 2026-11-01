@@ -20,8 +20,8 @@ const updateAccountPortalSettingsMock = vi.fn();
 const listStorageEndpointsMock = vi.fn();
 const getStorageEndpointMock = vi.fn();
 
-const listMinimalUsersMock = vi.fn();
-const listMinimalGroupsMock = vi.fn();
+const listUserOptionsMock = vi.fn();
+const listGroupOptionsMock = vi.fn();
 const listAdminTagDefinitionsMock = vi.fn();
 const adminAccountStatsMock = vi.fn();
 let portalEnabled = false;
@@ -162,11 +162,11 @@ vi.mock("../../api/storageEndpoints", () => ({
 }));
 
 vi.mock("../../api/users", () => ({
-  listMinimalUsers: () => listMinimalUsersMock(),
+  listUserOptions: (params?: unknown) => listUserOptionsMock(params),
 }));
 
 vi.mock("../../api/groups", () => ({
-  listMinimalGroups: () => listMinimalGroupsMock(),
+  listGroupOptions: (params?: unknown) => listGroupOptionsMock(params),
 }));
 
 vi.mock("../../api/tags", () => ({
@@ -237,14 +237,26 @@ describe("AccountsPage modal tabs", () => {
       },
     });
 
-    listMinimalUsersMock.mockResolvedValue([
-      { id: 7, email: "ui7@example.com" },
-      { id: 8, email: "ui8@example.com" },
-    ]);
-    listMinimalGroupsMock.mockResolvedValue([
-      { id: 31, name: "Research Group" },
-      { id: 32, name: "Archive Group" },
-    ]);
+    listUserOptionsMock.mockResolvedValue({
+      items: [
+        { id: 7, email: "ui7@example.com" },
+        { id: 8, email: "ui8@example.com" },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
+    listGroupOptionsMock.mockResolvedValue({
+      items: [
+        { id: 31, name: "Research Group" },
+        { id: 32, name: "Archive Group" },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 10,
+      has_next: false,
+    });
     listAdminTagDefinitionsMock.mockResolvedValue([makeTag(501, "gold", "amber"), makeTag(502, "prod")]);
 
     getS3AccountMock.mockResolvedValue(makeAccountDetail());
@@ -497,7 +509,7 @@ describe("AccountsPage modal tabs", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Add UI users" }));
     expect(screen.getByRole("searchbox", { name: "Search UI users" })).toHaveClass("ui-list-control");
-    const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
+    const managerRoleSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
       name: "Manager role for ui7@example.com",
     });
     const portalRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
@@ -554,7 +566,7 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.getByText("No linked groups yet.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
     expect(screen.getByRole("searchbox", { name: "Search UI groups" })).toHaveClass("ui-list-control");
-    const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
+    const managerRoleSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
       name: "Manager role for Research Group",
     });
     const portalRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
@@ -1575,8 +1587,8 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it.each([
-    { kind: "users", label: "ui7@example.com", mock: listMinimalUsersMock },
-    { kind: "groups", label: "Research Group", mock: listMinimalGroupsMock },
+    { kind: "users", label: "ui7@example.com", mock: listUserOptionsMock },
+    { kind: "groups", label: "Research Group", mock: listGroupOptionsMock },
   ])("recovers the $kind catalogue and protects selected additions before they are applied", async ({ kind, label, mock }) => {
     mock.mockRejectedValueOnce(new Error("Catalogue unavailable"));
     renderPage();
