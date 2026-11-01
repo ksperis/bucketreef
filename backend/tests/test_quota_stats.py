@@ -6,6 +6,7 @@ import pytest
 from app.utils.quota_stats import (
     extract_positive_limit,
     extract_quota_limits,
+    extract_rgw_account_limit,
     extract_rgw_account_positive_limit,
     extract_rgw_account_quota_limits,
     extract_rgw_user_positive_limit,
@@ -117,6 +118,19 @@ def test_extract_rgw_account_limits_prefer_nested_account_payload():
 
     assert extract_rgw_account_quota_limits(payload) == (4096, 10)
     assert extract_rgw_account_positive_limit(payload, "max_buckets") == 8
+
+
+def test_extract_rgw_account_limit_preserves_direct_zero_and_nested_envelope():
+    payload = {
+        "max_users": 99,
+        "account": {
+            "max_users": 0,
+            "limits": {"max_users": 8, "max_buckets": "20"},
+        },
+    }
+
+    assert extract_rgw_account_limit(payload, "max_users") == 0
+    assert extract_rgw_account_limit(payload, "max_buckets") == 20
 
 
 def test_extract_rgw_user_limits_prefer_nested_user_and_support_split_payloads():

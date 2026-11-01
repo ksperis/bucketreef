@@ -14,7 +14,6 @@ from app.models.ceph_admin_identity_filters import (
 )
 from app.services.ceph_admin_account_payloads import (
     extract_account_email,
-    extract_account_limit,
     extract_bucket_count,
     extract_user_count,
 )
@@ -44,7 +43,7 @@ from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_rule_matching import match_numeric_rule, match_text_rule
 from app.services.rgw_admin import RGWAdminClient
 from app.utils.cancellation import invoke_cancel_check
-from app.utils.quota_stats import extract_rgw_account_quota_limits
+from app.utils.quota_stats import extract_rgw_account_limit, extract_rgw_account_quota_limits
 from app.utils.rgw_payloads import (
     extract_rgw_account_id,
     extract_rgw_account_name,
@@ -131,8 +130,8 @@ def _account_from_entry(entry: object) -> CephAdminRgwAccountSummary | None:
         tenant=extract_rgw_account_tenant_optional(entry),
         account_name=extract_rgw_account_name(entry),
         email=extract_account_email(entry),
-        max_users=extract_account_limit(entry, "max_users"),
-        max_buckets=extract_account_limit(entry, "max_buckets"),
+        max_users=extract_rgw_account_limit(entry, "max_users"),
+        max_buckets=extract_rgw_account_limit(entry, "max_buckets"),
         quota_max_size_bytes=quota_size,
         quota_max_objects=quota_objects,
         bucket_count=extract_bucket_count(entry),
