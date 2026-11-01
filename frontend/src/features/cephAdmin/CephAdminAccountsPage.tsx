@@ -69,6 +69,13 @@ import { useCephAdminListingTableState } from "./listing/useCephAdminListingTabl
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
 import { useCephAdminAccountConfigurationNavigation } from "./useCephAdminEntityConfigurationNavigation";
+import {
+  appendQuotaAdvancedFilterRules,
+  defaultQuotaAdvancedFilter,
+  hasQuotaAdvancedFilters,
+  type QuotaAdvancedFilterState,
+  type QuotaAdvancedNumericField,
+} from "../shared/quotaAdvancedFilterModel";
 
 type ColumnId =
   | "account_name"
@@ -91,7 +98,7 @@ type SortField =
   | "bucket_count"
   | "user_count";
 
-type AdvancedFilterState = {
+type AdvancedFilterState = QuotaAdvancedFilterState & {
   accountName: string;
   accountNameMatchMode: TextMatchMode;
   email: string;
@@ -100,14 +107,6 @@ type AdvancedFilterState = {
   maxMaxUsers: string;
   minMaxBuckets: string;
   maxMaxBuckets: string;
-  minQuotaBytes: string;
-  maxQuotaBytes: string;
-  minQuotaObjects: string;
-  maxQuotaObjects: string;
-  minQuotaUsageSizePercent: string;
-  maxQuotaUsageSizePercent: string;
-  minQuotaUsageObjectPercent: string;
-  maxQuotaUsageObjectPercent: string;
   minBucketCount: string;
   maxBucketCount: string;
   minUserCount: string;
@@ -120,14 +119,7 @@ type AdvancedNumericField =
   | "maxMaxUsers"
   | "minMaxBuckets"
   | "maxMaxBuckets"
-  | "minQuotaBytes"
-  | "maxQuotaBytes"
-  | "minQuotaObjects"
-  | "maxQuotaObjects"
-  | "minQuotaUsageSizePercent"
-  | "maxQuotaUsageSizePercent"
-  | "minQuotaUsageObjectPercent"
-  | "maxQuotaUsageObjectPercent"
+  | QuotaAdvancedNumericField
   | "minBucketCount"
   | "maxBucketCount"
   | "minUserCount"
@@ -188,14 +180,7 @@ const defaultAdvancedFilter: AdvancedFilterState = {
   maxMaxUsers: "",
   minMaxBuckets: "",
   maxMaxBuckets: "",
-  minQuotaBytes: "",
-  maxQuotaBytes: "",
-  minQuotaObjects: "",
-  maxQuotaObjects: "",
-  minQuotaUsageSizePercent: "",
-  maxQuotaUsageSizePercent: "",
-  minQuotaUsageObjectPercent: "",
-  maxQuotaUsageObjectPercent: "",
+  ...defaultQuotaAdvancedFilter,
   minBucketCount: "",
   maxBucketCount: "",
   minUserCount: "",
@@ -211,15 +196,7 @@ const hasAdvancedFilters = (advanced: AdvancedFilterState | null, allowUsageFilt
       advanced.maxMaxUsers.trim() ||
       advanced.minMaxBuckets.trim() ||
       advanced.maxMaxBuckets.trim() ||
-      advanced.minQuotaBytes.trim() ||
-      advanced.maxQuotaBytes.trim() ||
-      advanced.minQuotaObjects.trim() ||
-      advanced.maxQuotaObjects.trim() ||
-      (allowUsageFilters &&
-        (advanced.minQuotaUsageSizePercent.trim() ||
-          advanced.maxQuotaUsageSizePercent.trim() ||
-          advanced.minQuotaUsageObjectPercent.trim() ||
-          advanced.maxQuotaUsageObjectPercent.trim())) ||
+      hasQuotaAdvancedFilters(advanced, allowUsageFilters) ||
       advanced.minBucketCount.trim() ||
       advanced.maxBucketCount.trim() ||
       advanced.minUserCount.trim() ||
@@ -247,17 +224,7 @@ const buildAdvancedFilterPayload = (
     appendNumericFilterRule(rules, "max_users", "lte", advanced.maxMaxUsers);
     appendNumericFilterRule(rules, "max_buckets", "gte", advanced.minMaxBuckets);
     appendNumericFilterRule(rules, "max_buckets", "lte", advanced.maxMaxBuckets);
-
-    appendNumericFilterRule(rules, "quota_max_size_bytes", "gte", advanced.minQuotaBytes);
-    appendNumericFilterRule(rules, "quota_max_size_bytes", "lte", advanced.maxQuotaBytes);
-    appendNumericFilterRule(rules, "quota_max_objects", "gte", advanced.minQuotaObjects);
-    appendNumericFilterRule(rules, "quota_max_objects", "lte", advanced.maxQuotaObjects);
-    if (allowUsageFilters) {
-      appendNumericFilterRule(rules, "quota_usage_size_percent", "gte", advanced.minQuotaUsageSizePercent);
-      appendNumericFilterRule(rules, "quota_usage_size_percent", "lte", advanced.maxQuotaUsageSizePercent);
-      appendNumericFilterRule(rules, "quota_usage_object_percent", "gte", advanced.minQuotaUsageObjectPercent);
-      appendNumericFilterRule(rules, "quota_usage_object_percent", "lte", advanced.maxQuotaUsageObjectPercent);
-    }
+    appendQuotaAdvancedFilterRules(rules, advanced, allowUsageFilters);
 
     appendNumericFilterRule(rules, "bucket_count", "gte", advanced.minBucketCount);
     appendNumericFilterRule(rules, "bucket_count", "lte", advanced.maxBucketCount);
