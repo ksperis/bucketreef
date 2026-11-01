@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import select
@@ -110,13 +110,7 @@ class ExternalIdentityUserService:
         reason: Optional[str] = None,
     ) -> ExternalIdentityLinkRequest:
         now = utcnow()
-        request = self.db.scalar(
-            select(ExternalIdentityLinkRequest)
-            .where(ExternalIdentityLinkRequest.id == request_id)
-            .with_for_update()
-        )
-        if not request or request.status != "pending" or request.expires_at <= now:
-            raise ValueError("External identity link request is unavailable")
+        request = self._require_pending_link_request(request_id, now)
         request.status = "approved" if approve else "rejected"
         request.decided_at = now
         request.decided_by_user_id = superadmin.id
@@ -125,29 +119,71 @@ class ExternalIdentityUserService:
         if not user:
             raise ValueError("Target user no longer exists")
         if approve:
-            if self._find_mapping(
-                request.provider_type,
-                request.provider_id,
-                request.subject,
-                issuer=request.issuer,
-                include_revoked=True,
-            ):
-                raise ValueError("External identity is already linked")
-            identity = ExternalIdentity(
-                id=str(uuid.uuid4()),
-                user_id=request.user_id,
-                provider_type=request.provider_type,
-                provider_id=request.provider_id,
-                issuer=request.issuer,
-                subject=request.subject,
-                email=request.email,
-                email_verified=bool(request.email_verified),
-                created_at=now,
-                link_source="manual_approval",
+            self._create_approved_identity(request, user, now)
+        self._sync_link_attempt_decision(request, approve=approve)
+        request.decision_source = "administrator"
+        self.db.add(request)
+        self._notify_link_request_decision(request, user, now, approve=approve)
+        self.db.commit()
+        if approve:
+            AuthSessionService(self.db).revoke_all_for_user(
+                user,
+                "external_identity_changed",
+                increment_version=False,
             )
-            user.auth_version += 1
-            self.db.add_all([identity, user])
-        attempt_conditions = [
+        self.db.refresh(request)
+        return request
+
+    def _require_pending_link_request(
+        self,
+        request_id: str,
+        now: datetime,
+    ) -> ExternalIdentityLinkRequest:
+        request = self.db.scalar(
+            select(ExternalIdentityLinkRequest)
+            .where(ExternalIdentityLinkRequest.id == request_id)
+            .with_for_update()
+        )
+        if not request or request.status != "pending" or request.expires_at <= now:
+            raise ValueError("External identity link request is unavailable")
+        return request
+
+    def _create_approved_identity(
+        self,
+        request: ExternalIdentityLinkRequest,
+        user: User,
+        now: datetime,
+    ) -> None:
+        if self._find_mapping(
+            request.provider_type,
+            request.provider_id,
+            request.subject,
+            issuer=request.issuer,
+            include_revoked=True,
+        ):
+            raise ValueError("External identity is already linked")
+        identity = ExternalIdentity(
+            id=str(uuid.uuid4()),
+            user_id=request.user_id,
+            provider_type=request.provider_type,
+            provider_id=request.provider_id,
+            issuer=request.issuer,
+            subject=request.subject,
+            email=request.email,
+            email_verified=bool(request.email_verified),
+            created_at=now,
+            link_source="manual_approval",
+        )
+        user.auth_version += 1
+        self.db.add_all([identity, user])
+
+    def _sync_link_attempt_decision(
+        self,
+        request: ExternalIdentityLinkRequest,
+        *,
+        approve: bool,
+    ) -> None:
+        conditions = [
             ExternalIdentityLinkAttempt.user_id == request.user_id,
             ExternalIdentityLinkAttempt.provider_type == request.provider_type,
             ExternalIdentityLinkAttempt.provider_id == request.provider_id,
@@ -155,15 +191,22 @@ class ExternalIdentityUserService:
             ExternalIdentityLinkAttempt.status == "admin_requested",
         ]
         if request.provider_type == "oidc":
-            attempt_conditions.append(ExternalIdentityLinkAttempt.issuer == request.issuer)
+            conditions.append(ExternalIdentityLinkAttempt.issuer == request.issuer)
         link_attempts = self.db.scalars(
-            select(ExternalIdentityLinkAttempt).where(*attempt_conditions)
+            select(ExternalIdentityLinkAttempt).where(*conditions)
         ).all()
         for attempt in link_attempts:
             attempt.status = "admin_approved" if approve else "admin_rejected"
             self.db.add(attempt)
-        self.db.add(request)
-        request.decision_source = "administrator"
+
+    def _notify_link_request_decision(
+        self,
+        request: ExternalIdentityLinkRequest,
+        user: User,
+        now: datetime,
+        *,
+        approve: bool,
+    ) -> None:
         UserNotificationsService(self.db).create_notifications(
             user_ids=[user.id],
             notification_type="identity_changed",
@@ -188,15 +231,6 @@ class ExternalIdentityUserService:
             },
             created_at=now,
         )
-        self.db.commit()
-        if approve:
-            AuthSessionService(self.db).revoke_all_for_user(
-                user,
-                "external_identity_changed",
-                increment_version=False,
-            )
-        self.db.refresh(request)
-        return request
 
     def revoke_identity(self, identity_id: str, *, reason: str = "identity_revoked") -> ExternalIdentity:
         identity = self.db.get(ExternalIdentity, identity_id)
