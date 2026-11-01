@@ -261,6 +261,40 @@ def test_run_aggregates_multiple_bucket_results_and_completed_progress(monkeypat
     assert completed[-1].total_entries_final is True
 
 
+def test_run_records_client_open_failure_as_list_failure(monkeypatch):
+    monkeypatch.setattr(
+        bucket_purge_service.BucketsService,
+        "list_buckets",
+        lambda *_args, **_kwargs: [],
+    )
+
+    def fail_client(*_args, **_kwargs):
+        raise RuntimeError("client setup failed")
+
+    monkeypatch.setattr(BucketPurgeService, "_build_client", fail_client)
+
+    result = BucketPurgeService().run(
+        [
+            BucketPurgeResolvedTarget(
+                context=SimpleNamespace(),
+                bucket_name="bucket-failed",
+                context_id="account-1",
+            )
+        ],
+        BucketPurgeOptions(),
+    )
+
+    assert result.status == "failed"
+    assert result.failed_count == 1
+    assert result.buckets[0].status == "failed"
+    failure = result.buckets[0].failures_sample[0]
+    assert (failure.stage, failure.message, failure.count) == (
+        "list",
+        "client setup failed",
+        1,
+    )
+
+
 def test_delete_bucket_with_purge_reports_bucket_not_empty_race(monkeypatch):
     class DeleteClient:
         def close(self):
