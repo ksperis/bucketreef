@@ -84,29 +84,54 @@ def _quota_max_size_bytes(quota: Dict[str, Any]) -> Optional[int]:
     return max_size_kb * 1024 if max_size_kb is not None else None
 
 
+def extract_quota_config(
+    payload: Optional[Dict[str, Any]],
+    *,
+    keys: Tuple[str, ...] = ("quota", "user_quota", "account_quota"),
+) -> Tuple[Optional[bool], Optional[int], Optional[int]]:
+    if not isinstance(payload, dict):
+        return None, None, None
+    quota = _first_quota_payload(payload, keys)
+    if quota is None:
+        return None, None, None
+
+    enabled = parse_rgw_bool(quota.get("enabled"))
+    if enabled is False:
+        return False, None, None
+
+    return enabled, _quota_max_size_bytes(quota), _positive_rgw_int(quota.get("max_objects"))
+
+
 def extract_quota_limits(
     payload: Optional[Dict[str, Any]],
     *,
     keys: Tuple[str, ...] = ("quota", "user_quota", "account_quota"),
 ) -> Tuple[Optional[int], Optional[int]]:
-    if not isinstance(payload, dict):
-        return None, None
-    quota = _first_quota_payload(payload, keys)
-    if quota is None:
-        return None, None
-
-    enabled = parse_rgw_bool(quota.get("enabled"))
-    if enabled is False:
-        return None, None
-
-    return _quota_max_size_bytes(quota), _positive_rgw_int(quota.get("max_objects"))
+    _enabled, max_size_bytes, max_objects = extract_quota_config(payload, keys=keys)
+    return max_size_bytes, max_objects
 
 
-def extract_rgw_account_quota_limits(payload: Any) -> Tuple[Optional[int], Optional[int]]:
-    return extract_quota_limits(
+def extract_rgw_account_quota_config(
+    payload: Any,
+) -> Tuple[Optional[bool], Optional[int], Optional[int]]:
+    return extract_quota_config(
         extract_rgw_account_payload(payload),
         keys=("quota", "account_quota"),
     )
+
+
+def extract_rgw_account_bucket_quota_config(
+    payload: Any,
+) -> Tuple[Optional[bool], Optional[int], Optional[int]]:
+    return extract_quota_config(
+        extract_rgw_account_payload(payload),
+        keys=("bucket_quota",),
+    )
+
+
+def extract_rgw_account_quota_limits(payload: Any) -> Tuple[Optional[int], Optional[int]]:
+    _enabled, max_size_bytes, max_objects = extract_rgw_account_quota_config(payload)
+    return max_size_bytes, max_objects
 
 
 def _rgw_user_quota_record(payload: Any) -> Optional[Dict[str, Any]]:
@@ -121,21 +146,23 @@ def _rgw_user_quota_record(payload: Any) -> Optional[Dict[str, Any]]:
     return None
 
 
-def extract_rgw_user_quota_enabled(payload: Any) -> Optional[bool]:
+def extract_rgw_user_quota_config(
+    payload: Any,
+) -> Tuple[Optional[bool], Optional[int], Optional[int]]:
     record = _rgw_user_quota_record(payload)
     if record is None:
-        return None
-    quota = _first_quota_payload(record, ("user_quota", "quota"))
-    if quota is None:
-        return None
-    return parse_rgw_bool(quota.get("enabled"))
+        return None, None, None
+    return extract_quota_config(record, keys=("user_quota", "quota"))
+
+
+def extract_rgw_user_quota_enabled(payload: Any) -> Optional[bool]:
+    enabled, _max_size_bytes, _max_objects = extract_rgw_user_quota_config(payload)
+    return enabled
 
 
 def extract_rgw_user_quota_limits(payload: Any) -> Tuple[Optional[int], Optional[int]]:
-    record = _rgw_user_quota_record(payload)
-    if record is None:
-        return None, None
-    return extract_quota_limits(record, keys=("user_quota", "quota"))
+    _enabled, max_size_bytes, max_objects = extract_rgw_user_quota_config(payload)
+    return max_size_bytes, max_objects
 
 
 def bytes_to_gb(value: Optional[int]) -> Optional[float]:
