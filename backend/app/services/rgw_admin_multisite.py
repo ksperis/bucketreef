@@ -213,6 +213,39 @@ def _max_entries(value: int) -> int:
 class RGWAdminMultisiteOperations:
     """Strictly read-only RGW multisite diagnostics."""
 
+    @staticmethod
+    def _multisite_success_result(
+        response: Any,
+        *,
+        projector: Callable[[Mapping[str, Any]], dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        raw_content = getattr(response, "content", b"") or b""
+        if isinstance(raw_content, str):
+            raw_content = raw_content.encode("utf-8")
+        if len(raw_content) > _MULTISITE_MAX_BODY_BYTES:
+            raise RGWAdminError(
+                "RGW multisite response exceeds the 4 MiB parsing limit",
+                status_code=getattr(response, "status_code", None),
+                error_code="ResponseTooLarge",
+            )
+        if not raw_content:
+            return {}
+        try:
+            payload = json.loads(raw_content, parse_constant=_reject_json_constant)
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise RGWAdminError(
+                "Unexpected or incomplete RGW multisite JSON response",
+                status_code=response.status_code,
+                error_code="InvalidJSON",
+            ) from exc
+        if not isinstance(payload, dict):
+            raise RGWAdminError(
+                "Unexpected RGW multisite JSON root type",
+                status_code=response.status_code,
+                error_code="InvalidJSON",
+            )
+        return projector(payload) if projector is not None else payload
+
     def _multisite_get(
         self,
         operation_name: str,
@@ -241,16 +274,6 @@ class RGWAdminMultisiteOperations:
             max_response_bytes=_MULTISITE_MAX_BODY_BYTES,
         )
 
-        raw_content = getattr(response, "content", b"") or b""
-        if isinstance(raw_content, str):
-            raw_content = raw_content.encode("utf-8")
-        if len(raw_content) > _MULTISITE_MAX_BODY_BYTES:
-            raise RGWAdminError(
-                "RGW multisite response exceeds the 4 MiB parsing limit",
-                status_code=getattr(response, "status_code", None),
-                error_code="ResponseTooLarge",
-            )
-
         if response.status_code >= 400 and operation_name == "zone_configuration":
             # /admin/config?type=zone may expose the multisite system_key in
             # provider-generated error payloads. Never feed that body into the
@@ -266,24 +289,7 @@ class RGWAdminMultisiteOperations:
                 allow_not_found=False,
                 allow_not_implemented=False,
             )
-
-        if not raw_content:
-            return {}
-        try:
-            payload = json.loads(raw_content, parse_constant=_reject_json_constant)
-        except (UnicodeDecodeError, ValueError) as exc:
-            raise RGWAdminError(
-                "Unexpected or incomplete RGW multisite JSON response",
-                status_code=response.status_code,
-                error_code="InvalidJSON",
-            ) from exc
-        if not isinstance(payload, dict):
-            raise RGWAdminError(
-                "Unexpected RGW multisite JSON root type",
-                status_code=response.status_code,
-                error_code="InvalidJSON",
-            )
-        return projector(payload) if projector is not None else payload
+        return self._multisite_success_result(response, projector=projector)
 
     def get_zone_configuration(self) -> dict[str, Any]:
         return self._multisite_get(

@@ -305,6 +305,23 @@ def test_body_over_four_mib_is_rejected_before_json_parse(monkeypatch) -> None:
     assert raised.value.error_code == "ResponseTooLarge"
 
 
+def test_empty_success_body_does_not_invoke_projector() -> None:
+    projector_called = False
+
+    def projector(_payload):
+        nonlocal projector_called
+        projector_called = True
+        return {"unexpected": True}
+
+    result = RGWAdminMultisiteOperations._multisite_success_result(
+        _Response(content=b""),
+        projector=projector,
+    )
+
+    assert result == {}
+    assert projector_called is False
+
+
 @pytest.mark.parametrize(
     ("filename", "expected_key", "expected_value"),
     [
