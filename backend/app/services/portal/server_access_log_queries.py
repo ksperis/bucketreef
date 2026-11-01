@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from contextlib import closing
 from datetime import date as date_cls
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
@@ -36,7 +36,13 @@ from app.services.portal.server_access_log_records import (
     utc_dates_for_local_range,
 )
 from app.services.rgw_principal_scope import resolve_target_tenant
-from app.utils.rgw_payloads import require_rgw_user_identity
+from app.utils.rgw_payloads import (
+    extract_rgw_user_account_aliases,
+    extract_rgw_user_identity,
+    extract_rgw_user_scalar,
+    require_rgw_user_identity,
+    rgw_qualified_uid,
+)
 from app.services.rgw_admin import RGWAdminClient, get_rgw_admin_client
 from app.utils.aws_errors import aws_error_code
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
@@ -54,17 +60,6 @@ def _portal_requester_detail(value: Optional[str]) -> Optional[str]:
     if len(value) <= 8:
         return value
     return f"{value[:4]}...{value[-4:]}"
-
-
-def _first_rgw_identity_value(
-    candidates: list[dict[str, Any]],
-    extractor: Callable[[dict[str, Any]], Any],
-) -> Optional[str]:
-    for candidate in candidates:
-        value = dash_to_none(extractor(candidate))
-        if value:
-            return value
-    return None
 
 
 def _rgw_user_requester_identity(
@@ -207,26 +202,18 @@ class PortalServerAccessLogQueriesMixin:
     ) -> Optional[PortalServerAccessRequesterIdentity]:
         if not isinstance(payload, dict) or payload.get("not_found"):
             return None
-        candidates: list[dict[str, Any]] = [payload]
-        user_payload = payload.get("user")
-        if isinstance(user_payload, dict):
-            candidates.append(user_payload)
-        uid = _first_rgw_identity_value(
-            candidates,
-            lambda candidate: candidate.get("uid")
-            or candidate.get("user_id")
-            or (candidate.get("user") if isinstance(candidate.get("user"), str) else None),
-        )
-        account_id = _first_rgw_identity_value(
-            candidates,
-            lambda candidate: candidate.get("account_id") or candidate.get("account"),
-        )
-        display_name = _first_rgw_identity_value(
-            candidates,
-            lambda candidate: candidate.get("display_name") or candidate.get("name") or candidate.get("email"),
-        )
+        uid, tenant = extract_rgw_user_identity(payload)
+        account_ids = extract_rgw_user_account_aliases(payload)
+        if len(account_ids) > 1:
+            raise ValueError("RGW returned conflicting account identity fields")
+        account_id = next(iter(account_ids), None)
+        display_name = extract_rgw_user_scalar(payload, "display_name", "name", "email")
         if uid:
-            return _rgw_user_requester_identity(uid, account_id, display_name)
+            return _rgw_user_requester_identity(
+                rgw_qualified_uid(uid, tenant),
+                account_id,
+                display_name,
+            )
         if account_id:
             return _rgw_account_requester_identity(account_id)
         return None
