@@ -141,6 +141,27 @@ def test_ci_endpoint_payload_can_use_env_storage_endpoints():
     assert env["CEPH_TEST_RGW_VERIFY_TLS"] == "true"
 
 
+def test_ci_env_derivation_ignores_removed_admin_endpoint_aliases():
+    env = {
+        "ENV_STORAGE_ENDPOINTS": json.dumps(
+            [
+                {
+                    "name": "s3-z1",
+                    "endpoint_url": "https://s3-z1.example.test",
+                    "provider": "ceph",
+                    "admin_endpoint": "https://obsolete-admin.example.test",
+                    "admin_endpoint_url": "https://obsolete-admin-url.example.test",
+                    "is_default": True,
+                }
+            ]
+        )
+    }
+
+    run_ci._derive_ceph_test_env_from_storage_endpoints(env)
+
+    assert env["CEPH_TEST_RGW_ADMIN_ENDPOINT"] == "https://s3-z1.example.test"
+
+
 def _verifier_settings(**overrides):
     values = {
         "rgw_admin_endpoint": "https://admin.example.test",
