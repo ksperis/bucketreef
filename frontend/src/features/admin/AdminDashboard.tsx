@@ -56,7 +56,7 @@ import {
   RefreshIcon,
 } from "../browser/browserIcons";
 import { extractApiError } from "../../utils/apiError";
-import { formatLocalDateTime, getBackendElapsedTime } from "../../utils/dateTime";
+import { formatLocalDateTime, getBackendRelativeTime } from "../../utils/dateTime";
 import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
 import { useI18n } from "../../i18n";
 import { onboardingCopy } from "./onboardingCopy";
@@ -69,13 +69,12 @@ const ADMIN_INCIDENT_HISTORY_MINUTES = 7 * 24 * 60;
 const MAX_ENDPOINT_ROWS = 8;
 
 function formatRelativeTime(value: string | null | undefined, text: AdminDashboardText, now = Date.now()): string {
-  const elapsed = getBackendElapsedTime(value, now);
-  if (!elapsed) return text("dateUnavailable");
-  const { minutes, hours, days } = elapsed;
-  if (minutes < 1) return text("justNow");
-  if (minutes < 60) return text("minutesAgo", { count: minutes });
-  if (hours < 24) return text("hoursAgo", { count: hours });
-  return text("daysAgo", { count: days });
+  const relative = getBackendRelativeTime(value, now);
+  if (!relative) return text("dateUnavailable");
+  if (relative.unit === "now") return text("justNow");
+  if (relative.unit === "minutes") return text("minutesAgo", { count: relative.count });
+  if (relative.unit === "hours") return text("hoursAgo", { count: relative.count });
+  return text("daysAgo", { count: relative.count });
 }
 
 function formatStaleThreshold(seconds: number | undefined, text: AdminDashboardText): string | null {

@@ -4,7 +4,7 @@
  */
 import { intlLocale, type I18nMessage } from "../../i18n";
 import type { UiLanguage } from "../../components/language";
-import { getBackendElapsedTime } from "../../utils/dateTime";
+import { getBackendRelativeTime } from "../../utils/dateTime";
 import type {
   PortalStorageSpaceVisibility,
 } from "../../api/portal";
@@ -113,14 +113,13 @@ export function portalTrendPeriodLabel(label: string | null | undefined, t: TFun
 
 export function portalTimeAgoLabel(value?: string | null, locale: UiLanguage = "en", t?: TFunction): string {
   if (!value) return "-";
-  const elapsed = getBackendElapsedTime(value);
-  if (!elapsed) return value;
-  const { parsed, milliseconds, minutes, hours, days } = elapsed;
-  if (milliseconds < 60_000) return t?.({ en: "Now", fr: "Maintenant", de: "Jetzt", zh: "现在" }) ?? "Now";
-  if (minutes < 60) return t?.({ en: `${minutes}m ago`, fr: `il y a ${minutes} min`, de: `vor ${minutes} Min.`, zh: `${minutes} 分钟前` }) ?? `${minutes}m ago`;
-  if (hours < 24) return t?.({ en: `${hours}h ago`, fr: `il y a ${hours} h`, de: `vor ${hours} Std.`, zh: `${hours} 小时前` }) ?? `${hours}h ago`;
-  if (days < 7) return t?.({ en: `${days}d ago`, fr: `il y a ${days} j`, de: `vor ${days} Tg.`, zh: `${days} 天前` }) ?? `${days}d ago`;
-  return parsed.toLocaleDateString(intlLocale(locale), { month: "short", day: "numeric" });
+  const relative = getBackendRelativeTime(value);
+  if (!relative) return value;
+  if (relative.unit === "now") return t?.({ en: "Now", fr: "Maintenant", de: "Jetzt", zh: "现在" }) ?? "Now";
+  if (relative.unit === "minutes") return t?.({ en: `${relative.count}m ago`, fr: `il y a ${relative.count} min`, de: `vor ${relative.count} Min.`, zh: `${relative.count} 分钟前` }) ?? `${relative.count}m ago`;
+  if (relative.unit === "hours") return t?.({ en: `${relative.count}h ago`, fr: `il y a ${relative.count} h`, de: `vor ${relative.count} Std.`, zh: `${relative.count} 小时前` }) ?? `${relative.count}h ago`;
+  if (relative.count < 7) return t?.({ en: `${relative.count}d ago`, fr: `il y a ${relative.count} j`, de: `vor ${relative.count} Tg.`, zh: `${relative.count} 天前` }) ?? `${relative.count}d ago`;
+  return relative.parsed.toLocaleDateString(intlLocale(locale), { month: "short", day: "numeric" });
 }
 
 export function portalDateLabel(

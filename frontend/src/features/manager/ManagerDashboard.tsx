@@ -56,7 +56,7 @@ import {
   uiMutedTextClass,
 } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
-import { formatLocalDateTime, getBackendElapsedTime } from "../../utils/dateTime";
+import { formatLocalDateTime, getBackendRelativeTime } from "../../utils/dateTime";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
 import { clampedPercentageOf } from "../../utils/numbers";
 import {
@@ -102,13 +102,12 @@ type ActivityRow = {
 type ManagerTextFunction = (message: string, values?: Record<string, string | number>) => string;
 
 function formatRelativeTime(value: string | null | undefined, text: ManagerTextFunction, now = Date.now()): string {
-  const elapsed = getBackendElapsedTime(value, now);
-  if (!elapsed) return "";
-  const { minutes, hours, days } = elapsed;
-  if (minutes < 1) return text("just now");
-  if (minutes < 60) return text("{count}m ago", { count: minutes });
-  if (hours < 24) return text("{count}h ago", { count: hours });
-  return text("{count}d ago", { count: days });
+  const relative = getBackendRelativeTime(value, now);
+  if (!relative) return "";
+  if (relative.unit === "now") return text("just now");
+  if (relative.unit === "minutes") return text("{count}m ago", { count: relative.count });
+  if (relative.unit === "hours") return text("{count}h ago", { count: relative.count });
+  return text("{count}d ago", { count: relative.count });
 }
 
 function localizeTrendBaseline<T extends ManagerUsageTrendBaseline | null | undefined>(
