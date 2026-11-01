@@ -33,6 +33,7 @@ import { copyTextToClipboard } from "../../utils/clipboard";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { stableSignature } from "../../utils/stableSignature";
 import { useAdminI18n } from "./adminI18n";
+import useAdminListController from "./useAdminListController";
 
 const isDemo = import.meta.env.MODE === "demo";
 
@@ -71,9 +72,6 @@ type ApiTokensPageProps = {
 
 export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageProps) {
   const { intlLocale, text: adminText } = useAdminI18n();
-  const [tokens, setTokens] = useState<ApiTokenInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -98,12 +96,29 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
   const [busyTokenId, setBusyTokenId] = useState<string | null>(null);
   const [revealedToken, setRevealedToken] = useState<RevealedToken | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
-  const loadGeneration = useRef(0);
   const revokeConfirmation = useConfirmActionDialog();
   const {
     runWithStepUp,
     verificationDialog,
   } = useRecentWebAuthnStepUp();
+
+  const loadTokenItems = useCallback(
+    () => listApiTokens(includeRevoked),
+    [includeRevoked],
+  );
+  const formatLoadError = useCallback(
+    (error: unknown) => extractApiError(error, adminText("Unable to complete request.")),
+    [adminText],
+  );
+  const {
+    items: tokens,
+    loading,
+    error: loadError,
+    refresh: loadTokens,
+  } = useAdminListController<ApiTokenInfo>({
+    loadItems: loadTokenItems,
+    formatError: formatLoadError,
+  });
 
   const apiBase = useMemo(() => {
     const configured = (import.meta.env.VITE_API_URL || "/api").replace(/\/+$/, "");
@@ -123,25 +138,6 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
     error: loadError,
     rowCount: sortedTokens.length,
   });
-
-  const loadTokens = useCallback(async () => {
-    const generation = ++loadGeneration.current;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const data = await listApiTokens(includeRevoked);
-      if (generation === loadGeneration.current) setTokens(data);
-    } catch (loadError) {
-      if (generation === loadGeneration.current) setLoadError(extractApiError(loadError, adminText("Unable to complete request.")));
-    } finally {
-      if (generation === loadGeneration.current) setLoading(false);
-    }
-  }, [adminText, includeRevoked]);
-
-  useEffect(() => {
-    void loadTokens();
-    return () => { loadGeneration.current += 1; };
-  }, [loadTokens]);
 
   const resetCreateForm = () => {
     setTokenName("");
