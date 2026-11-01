@@ -7,7 +7,7 @@ from typing import Any, Optional
 from app.models.ceph_admin import CephAdminRgwAccountDetail, CephAdminRgwQuotaConfig
 from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
 from app.utils.normalize import normalize_optional_scalar
-from app.utils.quota_stats import extract_quota_limits
+from app.utils.quota_stats import extract_quota_limits, extract_rgw_account_limit
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_id,
@@ -107,15 +107,6 @@ def _quota_config(
     )
 
 
-def extract_account_limit(payload: dict[str, Any], key: str) -> Optional[int]:
-    account = extract_rgw_account_payload(payload)
-    direct = parse_rgw_int(account.get(key))
-    if direct is not None:
-        return direct
-    limits_payload = account.get("limits") if isinstance(account.get("limits"), dict) else {}
-    return parse_rgw_int(limits_payload.get(key))
-
-
 def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> CephAdminRgwAccountDetail:
     account_id = (
         extract_rgw_account_id(payload)
@@ -127,11 +118,11 @@ def build_account_detail(payload: dict[str, Any], account_id_fallback: str) -> C
         tenant=extract_rgw_account_tenant(payload),
         account_name=extract_rgw_account_name(payload),
         email=extract_account_email(payload),
-        max_users=extract_account_limit(payload, "max_users"),
-        max_buckets=extract_account_limit(payload, "max_buckets"),
-        max_roles=extract_account_limit(payload, "max_roles"),
-        max_groups=extract_account_limit(payload, "max_groups"),
-        max_access_keys=extract_account_limit(payload, "max_access_keys"),
+        max_users=extract_rgw_account_limit(payload, "max_users"),
+        max_buckets=extract_rgw_account_limit(payload, "max_buckets"),
+        max_roles=extract_rgw_account_limit(payload, "max_roles"),
+        max_groups=extract_rgw_account_limit(payload, "max_groups"),
+        max_access_keys=extract_rgw_account_limit(payload, "max_access_keys"),
         bucket_count=extract_bucket_count(payload),
         user_count=extract_user_count(payload),
         quota=_quota_config(payload, keys=("quota", "account_quota")),

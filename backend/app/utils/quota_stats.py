@@ -39,6 +39,15 @@ def extract_rgw_account_positive_limit(payload: Any, key: str) -> Optional[int]:
     return extract_positive_limit(extract_rgw_account_payload(payload), key)
 
 
+def extract_rgw_account_limit(payload: Any, key: str) -> Optional[int]:
+    account = extract_rgw_account_payload(payload)
+    direct = parse_rgw_int(account.get(key))
+    if direct is not None:
+        return direct
+    limits_payload = account.get("limits") if isinstance(account.get("limits"), dict) else {}
+    return parse_rgw_int(limits_payload.get(key))
+
+
 def extract_rgw_user_positive_limit(payload: Any, key: str) -> Optional[int]:
     if not isinstance(payload, dict):
         return None
