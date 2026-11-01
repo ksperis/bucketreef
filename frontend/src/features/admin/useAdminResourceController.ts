@@ -24,6 +24,7 @@ export default function useAdminResourceController<T>({
   const [resource, setResource] = useState<T>(initialResource);
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const [errorCause, setErrorCause] = useState<unknown>(null);
   const loadGeneration = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -31,11 +32,13 @@ export default function useAdminResourceController<T>({
       loadGeneration.current += 1;
       setLoading(false);
       setError(null);
+      setErrorCause(null);
       return;
     }
     const generation = ++loadGeneration.current;
     setLoading(true);
     setError(null);
+    setErrorCause(null);
     try {
       const nextResource = await loadResource();
       if (generation !== loadGeneration.current) return;
@@ -44,6 +47,7 @@ export default function useAdminResourceController<T>({
       onLoaded?.(nextResource);
     } catch (cause) {
       if (generation !== loadGeneration.current) return;
+      setErrorCause(cause);
       setError(formatError(cause));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);
@@ -62,6 +66,7 @@ export default function useAdminResourceController<T>({
     setResource,
     loading,
     error,
+    errorCause,
     setError,
     refresh,
   };
