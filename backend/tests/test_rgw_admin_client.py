@@ -56,7 +56,14 @@ def test_list_accounts_with_include_details_fetches_per_account_details(monkeypa
 
     def fake_get_account(account_id: str, allow_not_found: bool = True):
         detail_calls.append(account_id)
-        return {"id": account_id, "name": f"Name-{account_id}", "email": f"{account_id.lower()}@example.test"}
+        return {
+            "name": "Wrong wrapper name",
+            "account": {
+                "id": account_id,
+                "name": f"Name-{account_id}",
+            },
+            "email": f"{account_id.lower()}@example.test",
+        }
 
     monkeypatch.setattr(client, "get_account", fake_get_account)
 
@@ -67,6 +74,7 @@ def test_list_accounts_with_include_details_fetches_per_account_details(monkeypa
     assert captured["params"] == {"format": "json"}
     assert detail_calls == ["RGW01", "RGW02"]
     assert [item["account_id"] for item in payload] == ["RGW01", "RGW02"]
+    assert [item["account_name"] for item in payload] == ["Name-RGW01", "Name-RGW02"]
     assert [item["email"] for item in payload] == ["rgw01@example.test", "rgw02@example.test"]
 
 
