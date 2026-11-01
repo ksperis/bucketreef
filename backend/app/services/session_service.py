@@ -18,6 +18,12 @@ from app.models.session import ManagerSessionPrincipal, SessionCapabilities
 from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_iam import get_iam_client
+from app.utils.rgw_payloads import (
+    extract_rgw_user_account_aliases,
+    extract_rgw_user_identity,
+    extract_rgw_user_scalar,
+    rgw_user_account_root,
+)
 from app.utils.s3_endpoint import normalize_s3_endpoint
 
 logger = logging.getLogger(__name__)
@@ -117,15 +123,17 @@ class SessionService:
         account_name = owner_name
         user_uid = None
         if user_info:
-            account_id = (
-                user_info.get("account_id")
-                or user_info.get("account")
-                or user_info.get("tenant")
-                or account_id
-            )
-            user_uid = user_info.get("user_id") or user_info.get("uid") or user_info.get("display_name")
-            account_name = user_info.get("account_name") or account_name
-            if str(user_info.get("account_root")).lower() in {"true", "1", "yes"}:
+            try:
+                account_ids = extract_rgw_user_account_aliases(user_info)
+                if len(account_ids) > 1:
+                    raise ValueError("RGW returned conflicting account identity fields")
+                user_uid, _tenant = extract_rgw_user_identity(user_info)
+                account_root = rgw_user_account_root(user_info)
+            except ValueError as exc:
+                raise SessionIntrospectionError("RGW returned inconsistent identity data") from exc
+            account_id = next(iter(account_ids), account_id)
+            account_name = extract_rgw_user_scalar(user_info, "account_name") or account_name
+            if account_root is True:
                 actor_type = "account_root"
         return actor_type, account_id, account_name, user_uid
 

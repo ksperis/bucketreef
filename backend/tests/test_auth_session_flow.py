@@ -55,7 +55,8 @@ def _mock_external(monkeypatch, *, iam_allowed: bool) -> None:
         def get_user_by_access_key(self, *args, **kwargs):
             return {
                 "account_id": "RGW00000000000000001",
-                "display_name": "iam-user",
+                "uid": "iam-user",
+                "display_name": "IAM user",
                 "account_root": False,
             }
 
@@ -116,6 +117,62 @@ def test_login_s3_disables_iam_capability_when_iam_client_denied(monkeypatch, cl
     assert db_session.scalar(
         select(S3Account).where(S3Account.rgw_account_id == "RGW00000000000000001")
     ) is None
+
+
+def test_session_identity_uses_canonical_nested_rgw_identity():
+    resolved = session_module.SessionService._resolve_session_identity(
+        "RGW00000000000000001",
+        "owner-name",
+        {
+            "user": {
+                "uid": "iam-user",
+                "account": "RGW00000000000000002",
+                "account_name": "Research account",
+                "type": "root",
+            }
+        },
+    )
+
+    assert resolved == (
+        "account_root",
+        "RGW00000000000000002",
+        "Research account",
+        "iam-user",
+    )
+
+
+def test_session_identity_does_not_treat_tenant_or_display_name_as_identity():
+    resolved = session_module.SessionService._resolve_session_identity(
+        "RGW00000000000000001",
+        "owner-name",
+        {"tenant": "research", "display_name": "Friendly label"},
+    )
+
+    assert resolved == (
+        "account_user",
+        "RGW00000000000000001",
+        "owner-name",
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "user_info",
+    [
+        {
+            "account_id": "RGW00000000000000001",
+            "user": {"account": "RGW00000000000000002"},
+        },
+        {"uid": "alice", "user": {"uid": "bob"}},
+    ],
+)
+def test_session_identity_rejects_conflicting_rgw_identity_fields(user_info):
+    with pytest.raises(session_module.SessionIntrospectionError, match="inconsistent identity"):
+        session_module.SessionService._resolve_session_identity(
+            "RGW00000000000000001",
+            "owner-name",
+            user_info,
+        )
 
 
 @pytest.mark.parametrize(
