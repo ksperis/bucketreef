@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useState, type FormEvent } from "react";
 import { deleteOpenStackCloud, listAdminOpenStackClouds, saveOpenStackCloud, type OpenStackCloud, type OpenStackCloudWrite } from "../../api/openstack";
 import { useRecentWebAuthnStepUp } from "../../auth/useRecentWebAuthnStepUp";
 import PageHeader from "../../components/PageHeader";
@@ -13,29 +13,32 @@ import ListPageSection from "../../components/list/ListPageSection";
 import { ListActions, ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { extractApiError } from "../../utils/apiError";
 import { useOpenStackI18n } from "../shared/openstackMessages";
+import useAdminListController from "./useAdminListController";
 
 const emptyCloud = (): OpenStackCloudWrite => ({ name: "", auth_url: "", enabled: false, allow_password: true, allow_token: true, managed_endpoints_only: false, default_domain: null });
 
 export default function OpenStackCloudsPage() {
   const { text } = useOpenStackI18n();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
-  const [clouds, setClouds] = useState<OpenStackCloud[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<OpenStackCloudWrite | null>(null);
   const [initial, setInitial] = useState("");
   const [editingId, setEditingId] = useState<number | undefined>();
   const [pendingDelete, setPendingDelete] = useState<OpenStackCloud | null>(null);
   const dirty = draft !== null && JSON.stringify(draft) !== initial;
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setClouds(await listAdminOpenStackClouds());
-    } catch (failure) { setError(extractApiError(failure, text("error"))); }
-    finally { setLoading(false); }
+  const formatLoadError = useCallback((failure: unknown) => {
+    return extractApiError(failure, text("error"));
   }, [text]);
-  useEffect(() => { void load(); }, [load]);
+  const {
+    items: clouds,
+    loading,
+    error,
+    setError,
+    refresh: load,
+  } = useAdminListController<OpenStackCloud>({
+    loadItems: listAdminOpenStackClouds,
+    formatError: formatLoadError,
+  });
   const edit = (cloud?: OpenStackCloud) => {
     const next = cloud ? { ...cloud } : emptyCloud();
     if ("id" in next) delete (next as Partial<OpenStackCloud>).id;
