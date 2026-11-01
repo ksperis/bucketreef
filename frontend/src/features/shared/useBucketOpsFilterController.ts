@@ -17,7 +17,10 @@ import {
   type FeatureDetailFilterKey,
   type FeatureDetailFilters,
 } from "../cephAdmin/filtering/bucketAdvancedFilter";
-import { parseExactListInput } from "./advancedFilterShared";
+import {
+  resolveQuickTextFilterState,
+  type TextMatchMode,
+} from "./advancedFilterShared";
 import {
   buildAdvancedFilterPayload,
   buildAdvancedFilterSecondarySectionState,
@@ -32,7 +35,6 @@ import {
   type FeatureFilterState,
   type FeatureKey,
   type OwnerNameScope,
-  type TextMatchMode,
 } from "./bucketOpsAdvancedFilterModel";
 import { buildBucketOpsAdvancedFilterUiProjection } from "./bucketOpsAdvancedFilterUiProjection";
 import type { BucketListState } from "./bucketOpsListState";
@@ -122,27 +124,22 @@ export function useBucketOpsFilterController({
     );
   const advancedFilterWasOpenRef = useRef(false);
 
-  const quickFilterDraftParsed = useMemo(
-    () => parseExactListInput(filter),
-    [filter],
+  const quickFilterState = useMemo(
+    () =>
+      resolveQuickTextFilterState({
+        draftValue: filter,
+        appliedValue: filterValue,
+        mode: quickFilterMode,
+      }),
+    [filter, filterValue, quickFilterMode],
   );
-  const quickFilterAppliedParsed = useMemo(
-    () => parseExactListInput(filterValue),
-    [filterValue],
-  );
-  const quickFilterDraftForcesExact =
-    quickFilterDraftParsed.listProvided &&
-    quickFilterDraftParsed.values.length > 0;
-  const quickFilterAppliedForcesExact =
-    quickFilterAppliedParsed.listProvided &&
-    quickFilterAppliedParsed.values.length > 0;
-  const quickFilterModeForDisplay: TextMatchMode = quickFilterDraftForcesExact
-    ? "exact"
-    : quickFilterMode;
-  const effectiveQuickFilterMode: TextMatchMode =
-    quickFilterAppliedForcesExact ? "exact" : quickFilterMode;
-  const effectiveQuickSearchValue =
-    effectiveQuickFilterMode === "contains" ? filterValue : "";
+  const {
+    appliedParsed: quickFilterAppliedParsed,
+    draftForcesExact: quickFilterDraftForcesExact,
+    effectiveMode: effectiveQuickFilterMode,
+    effectiveSearchValue: effectiveQuickSearchValue,
+    modeForDisplay: quickFilterModeForDisplay,
+  } = quickFilterState;
   const advancedFilterParam = useMemo(
     () =>
       buildAdvancedFilterPayload(

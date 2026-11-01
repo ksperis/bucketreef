@@ -7,6 +7,7 @@ import {
   advancedFilterSyncBadgeClass,
   formatAdvancedFilterSyncLabel,
   progressFromAdvancedSearchEvent,
+  resolveQuickTextFilterState,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
@@ -15,6 +16,40 @@ import {
 } from "./advancedFilterShared";
 
 describe("advancedFilterShared", () => {
+  it("derives quick text filter modes from draft and applied list input", () => {
+    expect(
+      resolveQuickTextFilterState({
+        draftValue: " alpha, beta ",
+        appliedValue: "alpha, beta",
+        mode: "contains",
+      }),
+    ).toMatchObject({
+      active: true,
+      draftForcesExact: true,
+      effectiveMode: "exact",
+      effectiveSearchValue: "",
+      modeForDisplay: "exact",
+      pending: false,
+    });
+  });
+
+  it("keeps a scalar contains filter as the effective quick search", () => {
+    expect(
+      resolveQuickTextFilterState({
+        draftValue: "archive",
+        appliedValue: " archive ",
+        mode: "contains",
+      }),
+    ).toMatchObject({
+      active: true,
+      draftForcesExact: false,
+      effectiveMode: "contains",
+      effectiveSearchValue: " archive ",
+      modeForDisplay: "contains",
+      pending: false,
+    });
+  });
+
   it("normalizes advanced-search progress events consistently", () => {
     expect(
       progressFromAdvancedSearchEvent({

@@ -272,6 +272,41 @@ export const parseExactListInput = (value: string): ParsedExactListInput => {
   return { values, listProvided: true };
 };
 
+export const resolveQuickTextFilterState = ({
+  draftValue,
+  appliedValue,
+  mode,
+}: {
+  draftValue: string;
+  appliedValue: string;
+  mode: TextMatchMode;
+}) => {
+  const draftParsed = parseExactListInput(draftValue);
+  const appliedParsed = parseExactListInput(appliedValue);
+  const draftForcesExact =
+    draftParsed.listProvided && draftParsed.values.length > 0;
+  const appliedForcesExact =
+    appliedParsed.listProvided && appliedParsed.values.length > 0;
+  const modeForDisplay: TextMatchMode = draftForcesExact ? "exact" : mode;
+  const effectiveMode: TextMatchMode = appliedForcesExact ? "exact" : mode;
+  const effectiveSearchValue =
+    effectiveMode === "contains" ? appliedValue : "";
+  const normalizedDraft = draftValue.trim();
+  const normalizedApplied = appliedValue.trim();
+  const pending = normalizedDraft !== normalizedApplied;
+
+  return {
+    active: normalizedApplied.length > 0,
+    appliedParsed,
+    draftParsed,
+    draftForcesExact,
+    effectiveMode,
+    effectiveSearchValue,
+    modeForDisplay,
+    pending,
+  };
+};
+
 export const buildTextFieldRules = (field: string, rawValue: string, mode: TextMatchMode): Array<Record<string, unknown>> => {
   const parsed = parseExactListInput(rawValue);
   if (parsed.values.length === 0) return [];
