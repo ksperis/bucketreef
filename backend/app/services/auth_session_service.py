@@ -7,7 +7,7 @@ from app.services.openstack_sessions import erase_openstack_sessions
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import delete, func, or_, select, update
@@ -161,17 +161,37 @@ class AuthSessionService:
 
     def rotate(self, raw_token: str) -> SessionCredentials:
         now = utcnow()
-        token_hash = hash_refresh_token(raw_token or "")
+        current = self._require_refresh_token(raw_token)
+        session, user, s3_session = self._require_refresh_principal(current, now)
+        self._claim_refresh_token(current, now)
+        return self._issue_rotated_credentials(
+            current,
+            session,
+            user=user,
+            s3_session=s3_session,
+            now=now,
+        )
+
+    def _require_refresh_token(self, raw_token: str) -> RefreshToken:
         current = self.db.scalar(
-            select(RefreshToken).where(RefreshToken.token_hash == token_hash).limit(1)
+            select(RefreshToken)
+            .where(RefreshToken.token_hash == hash_refresh_token(raw_token or ""))
+            .limit(1)
         )
         if current is None:
             raise AuthSessionError("Invalid refresh token")
         if current.used_at is not None or current.revoked_at is not None:
             self.revoke_family(current.family_id, "refresh_replay")
             raise RefreshReplayError("Refresh token replay detected")
+        return current
+
+    def _require_refresh_principal(
+        self,
+        current: RefreshToken,
+        now: datetime,
+    ) -> tuple[AuthSession, Optional[User], Optional[S3Session]]:
         session = self.db.get(AuthSession, current.auth_session_id)
-        if not self._is_session_active(session, now) or current.expires_at <= now:
+        if session is None or not self._is_session_active(session, now) or current.expires_at <= now:
             self.revoke_session(current.auth_session_id, "expired")
             raise AuthSessionError("Session expired")
         if session.user_id is not None:
@@ -179,14 +199,14 @@ class AuthSessionService:
             if not user or not user.is_active or user.auth_version != session.auth_version:
                 self.revoke_session(session.id, "principal_changed")
                 raise AuthSessionError("User is unavailable")
-            s3_session = None
-        else:
-            user = None
-            s3_session = self.db.get(S3Session, session.s3_session_id)
-            if not self._is_s3_session_active(s3_session, now):
-                self.revoke_session(session.id, "s3_session_expired")
-                raise AuthSessionError("S3 session expired")
+            return session, user, None
+        s3_session = self.db.get(S3Session, session.s3_session_id)
+        if not self._is_s3_session_active(s3_session, now):
+            self.revoke_session(session.id, "s3_session_expired")
+            raise AuthSessionError("S3 session expired")
+        return session, None, s3_session
 
+    def _claim_refresh_token(self, current: RefreshToken, now: datetime) -> None:
         claimed = self.db.execute(
             update(RefreshToken)
             .where(
@@ -201,6 +221,15 @@ class AuthSessionService:
             self.revoke_family(current.family_id, "refresh_replay")
             raise RefreshReplayError("Refresh token replay detected")
 
+    def _issue_rotated_credentials(
+        self,
+        current: RefreshToken,
+        session: AuthSession,
+        *,
+        user: Optional[User],
+        s3_session: Optional[S3Session],
+        now: datetime,
+    ) -> SessionCredentials:
         next_raw = create_refresh_token()
         next_csrf = secrets.token_urlsafe(32)
         next_row = RefreshToken(
