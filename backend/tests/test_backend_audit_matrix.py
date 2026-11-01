@@ -257,6 +257,21 @@ def test_manager_iam_role_audit_signal_requires_exact_helper(tmp_path):
             ),
             "delegated_bucket_migration_action_audit",
         ),
+        (
+            "app/routers/manager/integrity.py",
+            ("stream_manager_bucket_integrity_check",),
+            "delegated_integrity_stream",
+        ),
+        (
+            "app/routers/ceph_admin/integrity.py",
+            ("stream_ceph_admin_bucket_integrity_check",),
+            "delegated_integrity_stream",
+        ),
+        (
+            "app/routers/storage_ops/integrity.py",
+            ("stream_storage_ops_bucket_integrity_check",),
+            "delegated_integrity_stream",
+        ),
     ],
 )
 def test_backend_audit_matrix_tracks_shared_audit_helpers(relative_file, functions, signal):
@@ -280,6 +295,7 @@ def test_backend_audit_matrix_tracks_shared_audit_helpers(relative_file, functio
         ),
         ("run_audited_iam_mutation", "delegated_manager_iam_mutation_audit"),
         ("_run_migration_action", "delegated_bucket_migration_action_audit"),
+        ("stream_resolved_bucket_integrity_check", "delegated_integrity_stream"),
     ],
 )
 def test_shared_audit_signal_requires_exact_helper(tmp_path, helper_name, signal):
