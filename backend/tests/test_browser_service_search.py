@@ -10,7 +10,7 @@ from fastapi import HTTPException
 
 from app.db import S3Account, StorageEndpoint
 from app.models.portal_storage_spaces import PortalStorageSpaceIcon
-from app.services.browser import _shared as browser_shared
+from app.services.browser import cache as browser_cache
 from app.services.browser import sorted_listing
 from app.services.browser_service import BrowserService
 from app.services.s3_execution_context import S3ExecutionContext
@@ -43,11 +43,11 @@ def test_recursive_operation_manifests_include_empty_folder_markers_without_poll
 
 @pytest.fixture(autouse=True)
 def _clear_browser_caches():
-    browser_shared._OBJECT_LIST_CACHE.invalidate_where(lambda _key: True)
-    browser_shared._BUCKET_LIST_CACHE.invalidate_where(lambda _key: True)
-    browser_shared._OBJECT_SORT_SNAPSHOT_CACHE.invalidate_where(lambda _key: True)
-    browser_shared._OBJECT_LAZY_HEAD_CACHE.invalidate_where(lambda _key: True)
-    browser_shared._OBJECT_LAZY_TAGS_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.OBJECT_LIST_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.BUCKET_LIST_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.OBJECT_SORT_SNAPSHOT_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.OBJECT_LAZY_HEAD_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.OBJECT_LAZY_TAGS_CACHE.invalidate_where(lambda _key: True)
 
 
 def test_listportal_storage_spaces_includes_descriptions():

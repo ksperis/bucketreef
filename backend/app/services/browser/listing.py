@@ -18,12 +18,11 @@ from app.models.browser import (
 from app.services.s3_execution_context import S3ExecutionTarget
 
 from ._shared import (
-    _OBJECT_LIST_CACHE,
-    _OBJECT_SORT_SNAPSHOT_CACHE,
     _decode_sorted_cursor,
     _encode_sorted_cursor,
     _sorted_snapshot_signature,
 )
+from .cache import OBJECT_LIST_CACHE, OBJECT_SORT_SNAPSHOT_CACHE
 from .default_listing import DefaultObjectListingLoader, DefaultObjectScanOptions
 from .sorted_listing import (
     SortedObjectScanOptions,
@@ -110,7 +109,7 @@ class BrowserListingMixin:
             recursive=recursive,
             include_folder_markers=include_folder_markers,
         )
-        cached = _OBJECT_LIST_CACHE.get(object_cache_key)
+        cached = OBJECT_LIST_CACHE.get(object_cache_key)
         if cached is not None:
             logger.debug("Browser object cache hit: context=%s bucket=%s", context_cache_key, bucket_name)
             return cached.model_copy(deep=True)
@@ -141,7 +140,7 @@ class BrowserListingMixin:
                 or recursive
             ),
         )
-        _OBJECT_LIST_CACHE.set(object_cache_key, result.model_copy(deep=True))
+        OBJECT_LIST_CACHE.set(object_cache_key, result.model_copy(deep=True))
         logger.debug("Browser object cache miss: context=%s bucket=%s", context_cache_key, bucket_name)
         return result
 
@@ -179,7 +178,7 @@ class BrowserListingMixin:
             sort_by=sort_by,
             sort_dir=sort_dir,
         )
-        cached = _OBJECT_SORT_SNAPSHOT_CACHE.get(snapshot_cache_key)
+        cached = OBJECT_SORT_SNAPSHOT_CACHE.get(snapshot_cache_key)
         if cached is not None:
             return cached
 
@@ -204,7 +203,7 @@ class BrowserListingMixin:
             clean_etag=self._clean_etag,
             normalize_datetime=self._normalize_datetime_value,
         ).build()
-        _OBJECT_SORT_SNAPSHOT_CACHE.set(snapshot_cache_key, snapshot)
+        OBJECT_SORT_SNAPSHOT_CACHE.set(snapshot_cache_key, snapshot)
         return snapshot
 
     def list_objects(
