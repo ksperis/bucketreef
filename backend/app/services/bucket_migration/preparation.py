@@ -429,79 +429,36 @@ class BucketMigrationPreparationMixin:
         strategy: str,
     ) -> None:
         probe = migration_probe_bucket_name(migration.id)
+        policy_tested = bool(
+            migration.lock_target_writes or migration.copy_bucket_settings
+        )
         self._journal_preparation_effect(
             item,
             "probe_bucket",
             {
                 "context_id": target_ctx.context_id,
                 "bucket": probe,
-                "policy_tested": bool(
-                    migration.lock_target_writes or migration.copy_bucket_settings
-                ),
+                "policy_tested": policy_tested,
             },
         )
         error = None
         try:
-            self._buckets.create_bucket(
-                probe,
-                target_ctx.execution_context,
-                versioning=strategy == "version_aware",
-                location_constraint=target_ctx.region,
-                object_lock_enabled=False,
+            self._run_destination_probe(
+                migration,
+                item,
+                source_ctx,
+                target_ctx,
+                probe=probe,
+                source_profile=source_profile,
+                strategy=strategy,
             )
-            if migration.copy_bucket_settings:
-                self._copy_bucket_settings(
-                    source_ctx.execution_context,
-                    item.source_bucket,
-                    target_ctx.execution_context,
-                    probe,
-                    migration,
-                    item,
-                    strategy=strategy,
-                )
-            if migration.lock_target_writes:
-                policy = self._configuration.get_policy(probe, target_ctx.execution_context)
-                self._configuration.put_policy(
-                    probe,
-                    target_ctx.execution_context,
-                    self._build_target_write_lock_policy(probe, policy),
-                )
-            client = self._context_client(target_ctx)
-            identity = self._probe_destination_object_access(client, probe)
-            self._probe_destination_multipart_access(client, probe)
-            if migration.use_same_endpoint_copy:
-                self._probe_same_endpoint_copy(
-                    migration,
-                    item,
-                    source_ctx,
-                    target_ctx,
-                    client,
-                    probe,
-                    source_profile=source_profile,
-                )
-            client.delete_object(**identity)
-            if strategy == "version_aware":
-                marker = client.delete_object(
-                    Bucket=probe, Key=MIGRATION_PROBE_OBJECT_KEY
-                )
-                if not marker.get("VersionId"):
-                    raise RuntimeError(
-                        "Destination did not create the expected versioned delete marker"
-                    )
-                client.delete_object(
-                    Bucket=probe,
-                    Key=MIGRATION_PROBE_OBJECT_KEY,
-                    VersionId=marker["VersionId"],
-                )
         except Exception as exc:
             error = exc
         try:
             self._cleanup_destination_probe_bucket(
                 target_ctx,
                 probe,
-                policy_tested=bool(
-                    migration.lock_target_writes or migration.copy_bucket_settings
-                ),
+                policy_tested=policy_tested,
             )
             self._clear_preparation_effect(item, "probe_bucket")
         except Exception as cleanup_error:
@@ -510,6 +467,87 @@ class BucketMigrationPreparationMixin:
             ) from error
         if error:
             raise error
+
+    def _run_destination_probe(
+        self,
+        migration,
+        item,
+        source_ctx,
+        target_ctx,
+        *,
+        probe: str,
+        source_profile: Optional[dict[str, Any]],
+        strategy: str,
+    ) -> None:
+        self._buckets.create_bucket(
+            probe,
+            target_ctx.execution_context,
+            versioning=strategy == "version_aware",
+            location_constraint=target_ctx.region,
+            object_lock_enabled=False,
+        )
+        if migration.copy_bucket_settings:
+            self._copy_bucket_settings(
+                source_ctx.execution_context,
+                item.source_bucket,
+                target_ctx.execution_context,
+                probe,
+                migration,
+                item,
+                strategy=strategy,
+            )
+        if migration.lock_target_writes:
+            policy = self._configuration.get_policy(
+                probe,
+                target_ctx.execution_context,
+            )
+            self._configuration.put_policy(
+                probe,
+                target_ctx.execution_context,
+                self._build_target_write_lock_policy(probe, policy),
+            )
+
+        client = self._context_client(target_ctx)
+        identity = self._probe_destination_object_access(client, probe)
+        self._probe_destination_multipart_access(client, probe)
+        if migration.use_same_endpoint_copy:
+            self._probe_same_endpoint_copy(
+                migration,
+                item,
+                source_ctx,
+                target_ctx,
+                client,
+                probe,
+                source_profile=source_profile,
+            )
+        self._remove_destination_probe_objects(
+            client,
+            probe,
+            identity,
+            version_aware=strategy == "version_aware",
+        )
+
+    @staticmethod
+    def _remove_destination_probe_objects(
+        client,
+        probe: str,
+        identity: dict[str, Any],
+        *,
+        version_aware: bool,
+    ) -> None:
+        client.delete_object(**identity)
+        if not version_aware:
+            return
+        marker = client.delete_object(Bucket=probe, Key=MIGRATION_PROBE_OBJECT_KEY)
+        if not marker.get("VersionId"):
+            raise RuntimeError(
+                "Destination did not create the expected versioned delete marker"
+            )
+        client.delete_object(
+            Bucket=probe,
+            Key=MIGRATION_PROBE_OBJECT_KEY,
+            VersionId=marker["VersionId"],
+        )
 
     def _revalidate_transfer_preconditions(self, migration, *, items=None) -> None:
         self._assert_migration_creator_access(migration)
