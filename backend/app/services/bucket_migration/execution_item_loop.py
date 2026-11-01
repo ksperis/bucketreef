@@ -8,11 +8,9 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 from app.db import BucketMigration, BucketMigrationItem
 from app.utils.time import utcnow
 
-from ._shared import (
-    _ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS,
-)
 from .execution_runtime import ResolvedContext
 from .execution_signals import check_control_state
+from .execution_tuning import ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS
 
 if TYPE_CHECKING:
     from .execution_item_runner import BucketMigrationItemRunnerMixin
@@ -67,7 +65,7 @@ class _MigrationItemExecutionLoop:
         now_mono = time.monotonic()
         if (
             now_mono - self.last_heartbeat_persist
-        ) < _ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS:
+        ) < ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS:
             return
         heartbeat_at = utcnow()
         self.migration.last_heartbeat_at = heartbeat_at

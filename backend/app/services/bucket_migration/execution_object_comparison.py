@@ -7,7 +7,6 @@ from typing import Any, Callable, Optional
 
 from app.utils.s3_etag import etag_md5
 
-from ._shared import _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS
 from .execution_object_models import (
     BucketDiffEntry,
     BucketVersionEntry,
@@ -18,6 +17,7 @@ from .execution_object_models import (
 )
 from .execution_runtime import ResolvedContext
 from .execution_signals import check_control_state
+from .execution_tuning import DIFF_CONTROL_CHECK_INTERVAL_OBJECTS
 
 
 @dataclass
@@ -321,7 +321,7 @@ class BucketMigrationObjectComparisonMixin:
             target_client=target_client,
         ):
             scan_count_since_control += 1
-            if scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
+            if scan_count_since_control >= DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
                 state = check_control_state(
                     control_check,
                     lost_lease_message="Worker lease lost while comparing bucket content",

@@ -10,13 +10,13 @@ from urllib.parse import urlencode
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from ._shared import (
-    _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
-    _RUN_ACTIONS_WAIT_TIMEOUT_SECONDS,
-    _chunked,
-)
 from .execution_runtime import ResolvedContext
 from .execution_signals import WorkerLeaseLostError
+from .execution_tuning import (
+    RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
+    RUN_ACTIONS_WAIT_TIMEOUT_SECONDS,
+    chunked,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -202,9 +202,9 @@ class BucketMigrationObjectTransferMixin:
         worker_count = max(1, min(int(parallelism_max), len(keys)))
         chunk_size = max(
             worker_count,
-            worker_count * _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
+            worker_count * RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
         )
-        for chunk in _chunked(keys, chunk_size):
+        for chunk in chunked(keys, chunk_size):
             state = control_check()
             if state == "lost_lease":
                 if on_progress is not None:
@@ -224,7 +224,7 @@ class BucketMigrationObjectTransferMixin:
                 while pending:
                     done, pending = wait(
                         pending,
-                        timeout=_RUN_ACTIONS_WAIT_TIMEOUT_SECONDS,
+                        timeout=RUN_ACTIONS_WAIT_TIMEOUT_SECONDS,
                     )
                     state = control_check()
                     if state == "lost_lease":

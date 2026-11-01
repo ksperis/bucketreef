@@ -9,21 +9,11 @@ from app.core.sensitive_data import sanitize_log_text
 _READ_ONLY_POLICY_SID = "BucketReefMigrationReadOnlyDeny"
 _TARGET_WRITE_LOCK_POLICY_SID = "BucketReefMigrationTargetWriteLockDeny"
 _SOURCE_COPY_GRANT_POLICY_SID = "BucketReefMigrationSourceCopyGrantAllow"
-_SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD = 500
-_SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS = 10.0
-_RUN_ACTIONS_WAIT_TIMEOUT_SECONDS = 5.0
-_RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER = 32
-_ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS = 10.0
-_DIFF_CONTROL_CHECK_INTERVAL_OBJECTS = 5_000
 _DB_ERROR_MESSAGE_MAX_CHARS = 16_384
 _DB_EVENT_MESSAGE_MAX_CHARS = 4_096
 _DB_EVENT_METADATA_MAX_CHARS = 65_536
 _DB_EVENT_METADATA_MAX_DEPTH = 8
 _DB_EVENT_METADATA_MAX_ITEMS = 100
-
-
-def _chunked(items: list[str], size: int) -> list[list[str]]:
-    return [items[i : i + size] for i in range(0, len(items), size)]
 
 
 def _json_dumps(value: Any) -> str:
