@@ -14,7 +14,7 @@ import { useStorageEndpointI18n } from "./storageEndpointMessages";
 
 export default function StorageEndpointConnectionFields({
   form, setForm, readOnly, canEditTags, busy, catalog, catalogLoading, errors,
-  onProviderChange, onRegionChange, invalidateChecks,
+  onProviderChange, onRegionChange,
   validationStatus,
 }: {
   form: FormState;
@@ -27,7 +27,6 @@ export default function StorageEndpointConnectionFields({
   errors: EndpointFieldErrors;
   onProviderChange: (value: StorageProvider) => void;
   onRegionChange: (value: string) => void;
-  invalidateChecks: () => void;
   validationStatus?: ReactNode;
 }) {
   const { text } = useStorageEndpointI18n();
@@ -56,7 +55,7 @@ export default function StorageEndpointConnectionFields({
           <UiInput label={text("s3EndpointUrl")} required value={aws ? awsS3EndpointForRegion(form.region) : form.endpoint_url}
             readOnly={readOnly || aws} placeholder={aws ? undefined : text("s3EndpointPlaceholder")} error={errors.endpoint_url}
             hint={aws ? text("derivedFromAwsRegion") : undefined}
-            onChange={event => { if (!aws) { invalidateChecks(); setForm(previous => ({ ...previous, endpoint_url: event.target.value })); } }} />
+            onChange={event => { if (!aws) setForm(previous => ({ ...previous, endpoint_url: event.target.value })); }} />
           <UiInput label={text("optionalRegion")} value={form.region} readOnly={readOnly} placeholder="us-east-1"
             onChange={event => onRegionChange(event.target.value)} />
         </div>
@@ -66,7 +65,7 @@ export default function StorageEndpointConnectionFields({
           onChange={value => setForm(previous => ({ ...previous, force_path_style: value }))} />} />
         <SettingsItem title={text("insecureSsl")} compact action={<SettingsSwitch
           ariaLabel={text("insecureSsl")} checked={!form.verify_tls} disabled={readOnly}
-          onChange={value => { invalidateChecks(); setForm(previous => ({ ...previous, verify_tls: !value })); }} />} />
+          onChange={value => setForm(previous => ({ ...previous, verify_tls: !value }))} />} />
         {!form.verify_tls && <UiInlineMessage tone="warning">
           {text("tlsValidationDisabled")}
         </UiInlineMessage>}

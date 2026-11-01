@@ -9,7 +9,7 @@ import { awsIamEndpointForRegion, awsStsEndpointForRegion, type FeaturesState, t
 import { useStorageEndpointI18n } from "./storageEndpointMessages";
 
 export default function StorageEndpointCapabilitiesFields({
-  features, provider, region, readOnly, updateFeatures, invalidateChecks,
+  features, provider, region, readOnly, updateFeatures,
   detecting, detectionError, warnings, usageUnavailable, signedProbeBlockedReason, detectedCapabilities,
 }: {
   features: FeaturesState;
@@ -17,7 +17,6 @@ export default function StorageEndpointCapabilitiesFields({
   region: string;
   readOnly: boolean;
   updateFeatures: (updater: (current: FeaturesState) => FeaturesState) => void;
-  invalidateChecks: () => void;
   detecting: boolean;
   detectionError: string | null;
   warnings: string[];
@@ -68,7 +67,7 @@ export default function StorageEndpointCapabilitiesFields({
           {toggle("replication", text("bucketReplicationEnabled"), false, true, readOnlyReason)}
         </div>
         <UiInput label={text("cephAdminEndpointOverride")} value={features.admin.endpoint} readOnly={readOnly}
-          placeholder="https://rgw-admin.example.com" onChange={event => { invalidateChecks(); updateFeatures(current => ({
+          placeholder="https://rgw-admin.example.com" onChange={event => { updateFeatures(current => ({
             ...current, admin: { ...current.admin, endpoint: event.target.value },
           })); }} />
       </div>
