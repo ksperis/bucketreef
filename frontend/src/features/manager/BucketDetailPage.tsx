@@ -59,6 +59,7 @@ import {
 } from "./bucketDetail";
 import {
   buildBucketDetailBreadcrumbs,
+  resolveBucketDetailFeatureAvailability,
   resolveBucketDetailSurface,
   resolveBucketDetailTabs,
   type BucketDetailTabId,
@@ -234,6 +235,16 @@ function BucketDetailPageContent({
   const endpointId = selectedEndpointId ?? null;
   const hasCephContext = Boolean(endpointId);
   const hasContext = isCephAdmin ? hasCephContext : hasManagerExecutionContext;
+  const effectiveStorageEndpointCapabilities = isCephAdmin
+    ? selectedEndpoint?.capabilities
+    : (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities);
+  const featureAvailability = resolveBucketDetailFeatureAvailability({
+    mode,
+    isCephEndpoint,
+    capabilities: effectiveStorageEndpointCapabilities,
+    managerStatsEnabled,
+    managerBucketQuotaEnabled,
+  });
   const managerBrowserAvailable =
     generalSettings.browser_enabled &&
     generalSettings.browser_manager_enabled &&
@@ -377,7 +388,7 @@ function BucketDetailPageContent({
     load: loadBucketTags,
     loading: bucketTagsLoading,
   } = bucketTagsController;
-  const quotaFeatureEnabled = isCephAdmin ? isCephEndpoint : Boolean(isCephEndpoint && managerBucketQuotaEnabled);
+  const quotaFeatureEnabled = featureAvailability.quota;
   const showQuotaTab = !hideQuotaTab && (isCephAdmin || Boolean(quotaFeatureEnabled && hasManagerExecutionContext));
   const showObjectsTab = !hideObjectsTab;
   const availableTabs = useMemo(() => {
@@ -389,12 +400,7 @@ function BucketDetailPageContent({
       onActiveTabChange(availableTabs[0] ?? "overview");
     }
   }, [activeTab, availableTabs, onActiveTabChange]);
-  const staticWebsiteEnabled = useMemo(() => {
-    if (isCephAdmin) {
-      return selectedEndpoint?.capabilities?.static_website === true;
-    }
-    return (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.static_website === true;
-  }, [isCephAdmin, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
+  const staticWebsiteEnabled = featureAvailability.staticWebsite;
   const websiteController = useBucketWebsiteController({
     contextId,
     bucketName,
@@ -410,12 +416,7 @@ function BucketDetailPageContent({
     load: loadWebsite,
     loading: websiteLoading,
   } = websiteController;
-  const sseFeatureEnabled = useMemo(() => {
-    if (isCephAdmin) {
-      return selectedEndpoint?.capabilities?.sse === true;
-    }
-    return (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.sse === true;
-  }, [isCephAdmin, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
+  const sseFeatureEnabled = featureAvailability.sse;
   const encryptionController = useBucketEncryptionController({
     contextId,
     bucketName,
@@ -474,19 +475,8 @@ function BucketDetailPageContent({
     loading: objectsLoading,
     refresh: refreshObjects,
   } = objectsController;
-  const snsFeatureEnabled = useMemo(() => {
-    if (isCephAdmin) {
-      return selectedEndpoint?.capabilities?.sns === true;
-    }
-    return (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.sns !== false;
-  }, [isCephAdmin, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
-  const replicationFeatureEnabled = useMemo(() => {
-    if (!isCephEndpoint) return false;
-    if (isCephAdmin) {
-      return selectedEndpoint?.capabilities?.replication === true;
-    }
-    return (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.replication === true;
-  }, [isCephAdmin, isCephEndpoint, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
+  const snsFeatureEnabled = featureAvailability.sns;
+  const replicationFeatureEnabled = featureAvailability.replication;
   const replicationController = useBucketReplicationController({
     contextId,
     bucketName,
@@ -502,15 +492,8 @@ function BucketDetailPageContent({
     load: loadReplication,
     loading: replicationLoading,
   } = replicationController;
-  const usageFeatureEnabled = useMemo(() => {
-    if (isCephAdmin) {
-      return selectedEndpoint?.capabilities?.metrics ?? true;
-    }
-    return Boolean(managerStatsEnabled) && (
-      (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities)?.metrics ?? true
-    );
-  }, [isCephAdmin, managerStatsEnabled, selectedContext, selectedEndpoint, selectedStorageEndpointCapabilities]);
-  const canViewLiveBucketMetrics = Boolean(isCephEndpoint && usageFeatureEnabled);
+  const usageFeatureEnabled = featureAvailability.usage;
+  const canViewLiveBucketMetrics = featureAvailability.liveMetrics;
   const userRole = getUserRole();
   const isAdmin = isAdminLikeRole(userRole);
   const canEditQuota =
