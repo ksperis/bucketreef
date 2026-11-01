@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from app.db import User
 from app.models.access_context import ManagerActor
 from app.models.bucket_integrity import BucketIntegrityBucketRequest
-from app.routers.bucket_integrity_stream import stream_bucket_integrity_check
+from app.routers.bucket_integrity_stream import stream_resolved_bucket_integrity_check
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_account_admin,
@@ -19,7 +19,6 @@ from app.routers.dependencies import (
 from app.routers.manager.access import require_bucket_management_context
 from app.services.bucket_integrity_service import (
     BucketIntegrityCheckService,
-    BucketIntegrityOptions,
     BucketIntegrityResolvedTarget,
 )
 from app.services.s3_execution_context import S3ExecutionContext
@@ -38,13 +37,6 @@ def stream_manager_bucket_integrity_check(
 ) -> StreamingResponse:
     bucket_names = payload.buckets
     require_bucket_management_context(context)
-    options = BucketIntegrityOptions(
-        parallelism=payload.parallelism,
-        all_versions=payload.all_versions,
-        check_mode=payload.check_mode,
-        since=payload.since,
-        max_mb_per_object=payload.max_mb_per_object,
-    )
     targets = [
         BucketIntegrityResolvedTarget(
             context=context,
@@ -55,14 +47,11 @@ def stream_manager_bucket_integrity_check(
         for bucket_name in bucket_names
     ]
     service = BucketIntegrityCheckService()
-    return stream_bucket_integrity_check(
+    return stream_resolved_bucket_integrity_check(
         request,
-        run_check=lambda progress_callback, cancel_check: service.run(
-            targets,
-            options,
-            progress_callback=progress_callback,
-            cancel_check=cancel_check,
-        ),
+        payload=payload,
+        targets=targets,
+        service=service,
         logger=logger,
         failure_message="Manager bucket integrity check failed.",
     )

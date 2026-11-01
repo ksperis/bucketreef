@@ -273,13 +273,12 @@ def test_ceph_admin_integrity_route_uses_dedicated_endpoint_credentials(monkeypa
     captured: dict[str, object] = {}
 
     class FakeService:
-        def run(self, targets, options, *, progress_callback=None, cancel_check=None):
-            captured["targets"] = targets
-            captured["options"] = options
-            return _result()
+        pass
 
-    def fake_stream(request, *, run_check, logger, failure_message):
-        captured["stream_result"] = run_check(lambda progress: None, lambda: None)
+    def fake_stream(request, *, payload, targets, service, logger, failure_message):
+        captured["payload"] = payload
+        captured["targets"] = targets
+        captured["service"] = service
         return "stream"
 
     endpoint = StorageEndpoint(
@@ -297,7 +296,7 @@ def test_ceph_admin_integrity_route_uses_dedicated_endpoint_credentials(monkeypa
         secret_key="admin-sk",
     )
     monkeypatch.setattr(ceph_integrity, "BucketIntegrityCheckService", FakeService)
-    monkeypatch.setattr(ceph_integrity, "stream_bucket_integrity_check", fake_stream)
+    monkeypatch.setattr(ceph_integrity, "stream_resolved_bucket_integrity_check", fake_stream)
 
     response = ceph_integrity.stream_ceph_admin_bucket_integrity_check(
         payload=BucketIntegrityRgwTargetRequest(
@@ -313,20 +312,20 @@ def test_ceph_admin_integrity_route_uses_dedicated_endpoint_credentials(monkeypa
     assert target.request_bucket_name == "tenant_a:bucket-a"
     assert target.context_id == "ceph-admin-7"
     assert target.context.effective_rgw_credentials() == ("admin-ak", "admin-sk")
-    assert captured["options"].check_mode == "head"
+    assert captured["payload"].check_mode == "head"
+    assert isinstance(captured["service"], FakeService)
 
 
 def test_storage_ops_integrity_route_resolves_authorized_manager_contexts(monkeypatch):
     captured: dict[str, object] = {}
 
     class FakeService:
-        def run(self, targets, options, *, progress_callback=None, cancel_check=None):
-            captured["targets"] = targets
-            captured["options"] = options
-            return _result()
+        pass
 
-    def fake_stream(request, *, run_check, logger, failure_message):
-        captured["stream_result"] = run_check(lambda progress: None, lambda: None)
+    def fake_stream(request, *, payload, targets, service, logger, failure_message):
+        captured["payload"] = payload
+        captured["targets"] = targets
+        captured["service"] = service
         return "stream"
 
     def fake_get_s3_execution_context(*, request, context_ref, actor, db):
@@ -334,7 +333,7 @@ def test_storage_ops_integrity_route_resolves_authorized_manager_contexts(monkey
         return SimpleNamespace(name=f"Account {context_ref}")
 
     monkeypatch.setattr(storage_ops_integrity, "BucketIntegrityCheckService", FakeService)
-    monkeypatch.setattr(storage_ops_integrity, "stream_bucket_integrity_check", fake_stream)
+    monkeypatch.setattr(storage_ops_integrity, "stream_resolved_bucket_integrity_check", fake_stream)
     monkeypatch.setattr(
         storage_ops_integrity,
         "storage_ops_context_names",
@@ -358,4 +357,5 @@ def test_storage_ops_integrity_route_resolves_authorized_manager_contexts(monkey
     assert target.bucket_name == "bucket-a"
     assert target.context_id == "s3u-1"
     assert target.context_name == "S3 User 1"
-    assert captured["options"].check_mode == "get"
+    assert captured["payload"].check_mode == "get"
+    assert isinstance(captured["service"], FakeService)
