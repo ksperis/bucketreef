@@ -150,6 +150,7 @@ function buildLdapProvider(overrides: Partial<LdapProviderAdminItem> = {}): Ldap
     bind_dn: "cn=bucketreef,ou=svc,dc=example,dc=test",
     user_base_dn: "ou=people,dc=example,dc=test",
     user_filter: "(uid={username})",
+    import_search_filter: null,
     email_attribute: "mail",
     name_attribute: "displayName",
     subject_attribute: null,
@@ -160,7 +161,7 @@ function buildLdapProvider(overrides: Partial<LdapProviderAdminItem> = {}): Ldap
     timeout_seconds: 5,
     enabled: true,
     allow_insecure: false,
-    allow_email_linking: false,
+    linking_policy: "manual",
     source: "ui",
     editable: true,
     field_locks: {},
@@ -179,6 +180,7 @@ function buildEnvLdapProvider(): LdapProviderAdminItem {
       "bind_password",
       "user_base_dn",
       "user_filter",
+      "import_search_filter",
       "email_attribute",
       "name_attribute",
       "subject_attribute",
@@ -189,7 +191,7 @@ function buildEnvLdapProvider(): LdapProviderAdminItem {
       "timeout_seconds",
       "enabled",
       "allow_insecure",
-      "allow_email_linking",
+      "linking_policy",
     ].map((field) => [field, { forced: true, source: `LDAP_PROVIDERS__CORP__${field.toUpperCase()}` }])
   );
   return buildLdapProvider({
@@ -729,10 +731,10 @@ describe("AuthenticationSettingsPage", () => {
     expect(saveMock).toHaveBeenCalledOnce();
     expect(nameField).toBeDisabled();
     expect(screen.getByLabelText(secret)).toBeDisabled();
-    expect(screen.getByRole("switch", { name: "Enabled", exact: true })).toBeDisabled();
+    expect(screen.getByRole("switch", { name: "Enabled" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Back to authentication" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
-    await user.click(screen.getByRole("link", { name: "Admin", exact: true }));
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await user.click(screen.getByRole("link", { name: "Admin" }));
     const busyDialog = screen.getByRole("dialog", { name: "Operation in progress" });
     expect(within(busyDialog).getByRole("button", { name: "Discard changes" })).toBeDisabled();
     await user.click(within(busyDialog).getByRole("button", { name: "Keep editing" }));
