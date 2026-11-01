@@ -47,7 +47,6 @@ import {
 } from "./AdminAccessSections";
 import { AdminAssociationTabs, adminAssociationPanelClass } from "./AdminAssociationPicker";
 import {
-  DEFAULT_MANAGER_TOOL_ACCESS,
   buildManagerToolDefinitions,
   normalizeManagerToolAccess,
   type ManagerToolKey,
@@ -86,6 +85,11 @@ import AdminAccountAssociationsPanel, {
   type AdminAccountAssociationsState,
   type AdminAccountSelection,
 } from "./AdminAccountAssociationsPanel";
+import {
+  adminGroupForm,
+  adminGroupPayload,
+  emptyAdminGroupForm,
+} from "./adminGroupForm";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
@@ -95,57 +99,6 @@ const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMes
   { value: "briefcase", label: "operations" },
   { value: "academic", label: "research" },
 ];
-
-function emptyGroupForm(): UiGroupPayload {
-  return {
-    name: "",
-    description: "",
-    avatar_source: "initials",
-    avatar_icon: null,
-    can_access_ceph_admin: false,
-    can_access_storage_ops: false,
-    can_create_manual_private_connections: false,
-    can_provision_managed_private_connections: false,
-    allow_multisite_endpoint_switching: false,
-    browser_advanced_features_enabled: false,
-    manager_tool_access: { ...DEFAULT_MANAGER_TOOL_ACCESS },
-    user_ids: [],
-    account_links: [],
-    s3_user_links: [],
-    s3_connection_ids: [],
-    openstack_cloud_ids: [],
-  };
-}
-
-function groupFormFromGroup(group: UiGroup): UiGroupPayload {
-  return {
-    name: group.name,
-    description: group.description ?? "",
-    avatar_source: group.avatar.source,
-    avatar_icon: group.avatar.icon,
-    can_access_ceph_admin: group.can_access_ceph_admin,
-    can_access_storage_ops: group.can_access_storage_ops,
-    can_create_manual_private_connections: group.can_create_manual_private_connections,
-    can_provision_managed_private_connections: group.can_provision_managed_private_connections,
-    allow_multisite_endpoint_switching: group.allow_multisite_endpoint_switching,
-    browser_advanced_features_enabled: group.browser_advanced_features_enabled,
-    manager_tool_access: group.manager_tool_access,
-    user_ids: group.user_details.map((user) => Number(user.id)),
-    account_links:
-      group.account_links.map((link) => ({
-        account_id: Number(link.account_id),
-        manager_role: link.manager_role,
-        portal_role: link.portal_role,
-        allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-      })),
-    s3_user_links: group.s3_user_links.map((link) => ({
-      s3_user_id: Number(link.s3_user_id),
-      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-    })),
-    s3_connection_ids: group.s3_connection_details.map((connection) => Number(connection.id)),
-    openstack_cloud_ids: (group.openstack_cloud_details ?? []).map((cloud) => Number(cloud.id)),
-  };
-}
 
 export default function GroupsPage() {
   const { locale, text } = useGroupsI18n();
@@ -219,8 +172,8 @@ export default function GroupsPage() {
   const [modalTab, setModalTab] = useState<GroupModalTab>("general");
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<UiGroup | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [form, setForm] = useState<UiGroupPayload>(emptyGroupForm);
-  const [initialFormSignature, setInitialFormSignature] = useState(() => stableSignature(emptyGroupForm()));
+  const [form, setForm] = useState<UiGroupPayload>(emptyAdminGroupForm);
+  const [initialFormSignature, setInitialFormSignature] = useState(() => stableSignature(emptyAdminGroupForm()));
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [attempted, setAttempted] = useState(false);
@@ -322,7 +275,7 @@ export default function GroupsPage() {
   }, [fetchGroups]);
 
   const resetForm = () => {
-    const draft = emptyGroupForm();
+    const draft = emptyAdminGroupForm();
     setForm(draft);
     setInitialFormSignature(stableSignature(draft));
     setAttempted(false);
@@ -345,7 +298,7 @@ export default function GroupsPage() {
   const openEditModal = (group: UiGroup) => {
     resetForm();
     setEditingGroup(group);
-    const draft = groupFormFromGroup(group);
+    const draft = adminGroupForm(group);
     setForm(draft);
     setInitialFormSignature(stableSignature(draft));
     setModalTab("general");
@@ -405,30 +358,11 @@ export default function GroupsPage() {
       setActionError(getAccountAccessRequiredMessage(showPortalRole));
       return;
     }
-    const payload: UiGroupPayload = {
-      name,
-      description: form.description || null,
-      avatar_source: avatarFile ? undefined : form.avatar_source,
-      avatar_icon: form.avatar_icon,
-      can_access_ceph_admin: Boolean(form.can_access_ceph_admin),
-      can_access_storage_ops: Boolean(form.can_access_storage_ops),
-      can_create_manual_private_connections: Boolean(form.can_create_manual_private_connections),
-      can_provision_managed_private_connections: Boolean(form.can_provision_managed_private_connections),
-      allow_multisite_endpoint_switching: Boolean(form.allow_multisite_endpoint_switching),
-      browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
-      manager_tool_access: normalizeManagerToolAccess(form.manager_tool_access),
-      ...(editingGroup?.system_key ? {} : { user_ids: form.user_ids ?? [] }),
-      account_links:
-        form.account_links?.map((link) => ({
-          account_id: Number(link.account_id),
-          manager_role: link.manager_role,
-          portal_role: link.portal_role,
-          allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-        })) ?? [],
-      s3_user_links: form.s3_user_links ?? [],
-      s3_connection_ids: form.s3_connection_ids ?? [],
-      ...(openStackEnabled ? { openstack_cloud_ids: form.openstack_cloud_ids ?? [] } : {}),
-    };
+    const payload = adminGroupPayload(form, {
+      includeMembers: !editingGroup?.system_key,
+      openStackEnabled,
+      avatarUploadPending: Boolean(avatarFile),
+    });
     savingRef.current = true;
     setSaving(true);
     try {
@@ -446,7 +380,7 @@ export default function GroupsPage() {
         savedGroup = await deleteGroupAvatar(savedGroup.id);
       }
       if (editingGroup) {
-        const savedDraft = groupFormFromGroup(savedGroup);
+        const savedDraft = adminGroupForm(savedGroup);
         setEditingGroup(savedGroup);
         setForm(savedDraft);
         setInitialFormSignature(stableSignature(savedDraft));
