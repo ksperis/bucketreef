@@ -12,12 +12,11 @@ from app.db import BucketMigration, BucketMigrationItem
 from app.utils.time import utcnow
 from ._shared import (
     _DB_ERROR_MESSAGE_MAX_CHARS,
-    _FINAL_MIGRATION_STATUSES,
-    _RUNNABLE_MIGRATION_STATUSES,
     _ResolvedContext,
     _WorkerLeaseLostError,
     _truncate_optional_db_text,
 )
+from .workflow import ACTIVE_STATUSES, FINAL_STATUSES
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -42,12 +41,12 @@ class BucketMigrationExecutionControlMixin:
                 return None
             migration = self.get_migration(migration.id)
 
-        if migration.status in {*_FINAL_MIGRATION_STATUSES, "awaiting_cutover"}:
+        if migration.status in {*FINAL_STATUSES, "awaiting_cutover"}:
             if self._clear_owned_worker_lease(migration, worker_id=worker_id):
                 self._commit()
             return None
 
-        if migration.status in _RUNNABLE_MIGRATION_STATUSES:
+        if migration.status in ACTIVE_STATUSES:
             now = utcnow()
             if migration.status not in {"pause_requested", "cancel_requested"}:
                 self.db.execute(
@@ -175,7 +174,7 @@ class BucketMigrationExecutionControlMixin:
             return
         if migration.workflow_version != 2:
             raise ValueError("Historical migrations cannot be replayed")
-        if migration.status not in _RUNNABLE_MIGRATION_STATUSES:
+        if migration.status not in ACTIVE_STATUSES:
             return
 
         migration = self._prepare_migration_run(
@@ -240,6 +239,6 @@ class BucketMigrationExecutionControlMixin:
         self.db.refresh(migration)
         self._assert_workflow_lease()
         self._finalize_or_wait_cutover(migration, source_ctx=source_ctx, target_ctx=target_ctx)
-        if migration.status not in _RUNNABLE_MIGRATION_STATUSES:
+        if migration.status not in ACTIVE_STATUSES:
             self._clear_owned_worker_lease(migration, worker_id=worker_id)
         self._commit()

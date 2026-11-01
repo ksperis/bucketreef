@@ -24,8 +24,7 @@ from app.db import (
     QuotaUsageDaily,
     QuotaUsageHourly,
 )
-from app.services.bucket_migration._shared import _FINAL_MIGRATION_STATUSES
-from app.services.bucket_migration.workflow import ACTIVE_STATUSES
+from app.services.bucket_migration.workflow import ACTIVE_STATUSES, FINAL_STATUSES
 
 
 _CostQuotaReference = Literal[
@@ -97,7 +96,7 @@ class ResourceDeletionPurgeService:
                 )
                 .limit(1)
             ) is not None
-            if busy or migration.status not in {*_FINAL_MIGRATION_STATUSES, "draft"} or protected:
+            if busy or migration.status not in {*FINAL_STATUSES, "draft"} or protected:
                 raise ValueError(
                     f"Execution context {context_id} is still used by bucket migration "
                     f"{migration.id}, which cannot be deleted safely in its current state"

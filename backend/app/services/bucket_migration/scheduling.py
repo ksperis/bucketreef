@@ -12,7 +12,7 @@ from app.db import BucketMigration
 from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.time import utcnow
 
-from ._shared import _RUNNABLE_MIGRATION_STATUSES
+from .workflow import ACTIVE_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class BucketMigrationSchedulingMixin:
             )
             .where(
                 or_(
-                    BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                    BucketMigration.status.in_(ACTIVE_STATUSES),
                     BucketMigration.maintenance_status.in_({"queued", "running"}),
                 ),
                 or_(
@@ -66,7 +66,7 @@ class BucketMigrationSchedulingMixin:
                 .where(
                     BucketMigration.id == migration_id,
                     or_(
-                        BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                        BucketMigration.status.in_(ACTIVE_STATUSES),
                         BucketMigration.maintenance_status.in_({"queued", "running"}),
                     ),
                     or_(
@@ -114,7 +114,7 @@ class BucketMigrationSchedulingMixin:
                 BucketMigration.target_context_id,
             ).where(
                 or_(
-                    BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                    BucketMigration.status.in_(ACTIVE_STATUSES),
                     BucketMigration.maintenance_status.in_({"queued", "running"}),
                 ),
                 BucketMigration.worker_lease_until.isnot(None),
@@ -150,7 +150,7 @@ class BucketMigrationSchedulingMixin:
             )
             .where(
                 or_(
-                    BucketMigration.status.in_(_RUNNABLE_MIGRATION_STATUSES),
+                    BucketMigration.status.in_(ACTIVE_STATUSES),
                     BucketMigration.maintenance_status.in_({"queued", "running"}),
                 ),
                 BucketMigration.worker_lease_until.isnot(None),

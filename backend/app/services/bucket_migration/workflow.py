@@ -10,7 +10,18 @@ from app.db import BucketMigration
 from app.utils.time import utcnow
 
 PRECHECK_MAX_AGE = timedelta(minutes=15)
-ACTIVE_STATUSES = {"queued", "running", "pause_requested", "cancel_requested"}
+ACTIVE_STATUSES = frozenset(
+    {"queued", "running", "pause_requested", "cancel_requested"}
+)
+FINAL_STATUSES = frozenset(
+    {
+        "completed",
+        "completed_with_errors",
+        "failed",
+        "canceled",
+        "rolled_back",
+    }
+)
 _ActionRule = tuple[bool, str]
 
 
@@ -39,14 +50,7 @@ class _WorkflowFacts:
             recovery=any(item.preparation_effects for item in items),
             modern=migration.workflow_version == 2,
             draft=migration.status == "draft",
-            results=migration.status
-            in {
-                "completed",
-                "completed_with_errors",
-                "failed",
-                "canceled",
-                "rolled_back",
-            },
+            results=migration.status in FINAL_STATUSES,
             has_failed_items=any(item.status == "failed" for item in items),
             has_access_protection=any(
                 item.read_only_applied or item.target_lock_applied for item in items

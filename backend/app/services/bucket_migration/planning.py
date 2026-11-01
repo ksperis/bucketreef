@@ -7,8 +7,6 @@ from datetime import datetime
 
 from sqlalchemy import update
 
-from .workflow import require_action
-
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem, User
 from app.models.bucket_migration import (
@@ -19,10 +17,8 @@ from app.models.bucket_migration import (
 from app.utils.resource_names import validate_s3_bucket_name
 from app.utils.time import utcnow
 
-from ._shared import (
-    _FINAL_MIGRATION_STATUSES,
-)
 from .precheck_reporting import build_diagnostic
+from .workflow import FINAL_STATUSES, require_action
 
 
 @dataclass(frozen=True)
@@ -377,7 +373,7 @@ class BucketMigrationPlanningMixin:
         return migration
     def delete_migration(self, migration_id: int) -> None:
         migration = self.get_migration(migration_id)
-        if migration.status not in {*_FINAL_MIGRATION_STATUSES, "draft"}:
+        if migration.status not in {*FINAL_STATUSES, "draft"}:
             raise ValueError(
                 "Migration can only be deleted from a final status or from draft"
             )
