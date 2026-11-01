@@ -2,13 +2,14 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { ListActions, ListActionButton } from "../../components/list/ListControls";
 import {
   AdminAssociationCheckboxOptions,
   AdminAssociationPickerPanel,
+  AdminAssociationSectionHeader,
   adminAssociationTableContainerClass,
 } from "./AdminAssociationPicker";
 
@@ -47,6 +48,11 @@ type AdminSimpleIdAssociationsPanelProps = {
   searchAriaLabel?: string;
   pickerEmptyMessage?: string;
   normalizeSelection?: (ids: number[]) => number[];
+  section?: {
+    title: string;
+    countLabel: ReactNode;
+    actionLabel: ReactNode;
+  };
 };
 
 export default function AdminSimpleIdAssociationsPanel({
@@ -63,6 +69,7 @@ export default function AdminSimpleIdAssociationsPanel({
   searchAriaLabel,
   pickerEmptyMessage,
   normalizeSelection = (ids) => ids,
+  section,
 }: AdminSimpleIdAssociationsPanelProps) {
   const resetPicker = () => {
     state.setShowPanel(false);
@@ -99,6 +106,14 @@ export default function AdminSimpleIdAssociationsPanel({
 
   return (
     <div className="space-y-3">
+      {section ? (
+        <AdminAssociationSectionHeader
+          title={section.title}
+          countLabel={section.countLabel}
+          actionLabel={section.actionLabel}
+          onAction={() => state.setShowPanel((current) => !current)}
+        />
+      ) : null}
       <DataTableShell
         columns={columns}
         rows={state.selected}

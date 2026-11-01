@@ -2,7 +2,6 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton } from "../../components/list/ListControls";
 import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
@@ -46,7 +45,7 @@ import {
   ManagerToolAccessSection,
   WorkspaceAccessSection,
 } from "./AdminAccessSections";
-import { AdminAssociationLinkedTable, AdminAssociationOptionCheckbox, AdminAssociationTabs, adminAssociationPanelClass, AdminAssociationPickerPanel, adminAssociationOptionRowClass } from "./AdminAssociationPicker";
+import { AdminAssociationTabs, adminAssociationPanelClass } from "./AdminAssociationPicker";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
   buildManagerToolDefinitions,
@@ -535,6 +534,14 @@ export default function GroupsPage() {
           ? value(current.s3_connection_ids ?? [])
           : value,
     }));
+  const setUserIds: Dispatch<SetStateAction<number[]>> = (value) =>
+    setForm((current) => ({
+      ...current,
+      user_ids:
+        typeof value === "function"
+          ? value(current.user_ids ?? [])
+          : value,
+    }));
   const setAccountSelections: Dispatch<SetStateAction<AdminAccountSelection[]>> = (value) =>
     setForm((current) => {
       const currentSelections: AdminAccountSelection[] = (current.account_links ?? []).map(
@@ -590,6 +597,27 @@ export default function GroupsPage() {
     selections: connectionPicker.selections,
     setSelections: connectionPicker.setSelections,
     toggleSelection: connectionPicker.toggleSelection,
+  };
+  const memberAssociationState: AdminSimpleIdAssociationsState = {
+    selected: form.user_ids ?? [],
+    setSelected: setUserIds,
+    labelById: userLabelById,
+    available: userOptions.available.map((user) => ({
+      id: user.id,
+      label: user.email,
+    })),
+    visible: userOptions.visible.map((user) => ({
+      id: user.id,
+      label: user.email,
+    })),
+    search: memberPicker.search,
+    setSearch: memberPicker.setSearch,
+    loading: auxLoading,
+    showPanel: memberPicker.open,
+    setShowPanel: memberPicker.setOpen,
+    selections: memberPicker.selections,
+    setSelections: memberPicker.setSelections,
+    toggleSelection: memberPicker.toggleSelection,
   };
   const accountAssociationState: AdminAccountAssociationsState = {
     selected: (form.account_links ?? []).map((link) => ({
@@ -657,81 +685,25 @@ export default function GroupsPage() {
   };
 
   const renderMembersTab = () => (
-    <AdminAssociationLinkedTable
-      title={text("members")}
-      toolbar={{
+    <AdminSimpleIdAssociationsPanel
+      state={memberAssociationState}
+      maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
+      primaryLabel={text("user")}
+      actionsLabel={text("actions")}
+      removeLabel={text("remove")}
+      loadingMessage={text("loadingUsers")}
+      emptyMessage={text("noLinkedUsers")}
+      pickerTitle={text("addUiUsers")}
+      searchHint={text("filterByEmail")}
+      fallbackLabel={(id) => text("userNumber", { id })}
+      searchAriaLabel={text("searchGroupMembers")}
+      pickerEmptyMessage={text("noUsersAvailable")}
+      normalizeSelection={(ids) => [...new Set(ids)].sort((left, right) => left - right)}
+      section={{
+        title: text("members"),
         countLabel: text("linkedCount", { count: selectedUserIds.size }),
         actionLabel: memberPicker.open ? text("close") : text("addUiUsers"),
-        onAction: () => memberPicker.setOpen((current) => !current),
       }}
-      headers={[{ label: text("user") }, { label: text("actions"), align: "right" }]}
-      hasItems={selectedUserIds.size > 0}
-      emptyLabel={text("noLinkedUsers")}
-      rows={(form.user_ids ?? []).map((userId) => (
-        <tr key={userId}>
-          <td className="ui-table-primary">
-            {userLabelById.get(userId) ?? text("userNumber", { id: userId })}
-          </td>
-          <td className="ui-table-actions-cell w-px text-right">
-            <ListActionButton
-              type="button"
-               variant="danger"
-              onClick={() =>
-                setForm((current) => ({
-                  ...current,
-                  user_ids: (current.user_ids ?? []).filter((id) => id !== userId),
-                }))
-              }
-            >
-              {text("remove")}
-            </ListActionButton>
-          </td>
-        </tr>
-      ))}
-      picker={
-        memberPicker.open ? (
-          <AdminAssociationPickerPanel
-            title={text("addUiUsers")}
-            hint={text("filterByEmail")}
-            search={memberPicker.search}
-            onSearchChange={memberPicker.setSearch}
-            searchAriaLabel={text("searchGroupMembers")}
-            loading={auxLoading}
-            availableCount={userOptions.available.length}
-            maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-            selectedCount={memberPicker.selections.length}
-            loadingLabel={text("loadingUsers")}
-            emptyLabel={text("noUsersAvailable")}
-            addDisabled={memberPicker.selections.length === 0}
-            onCancel={() => {
-              memberPicker.reset();
-            }}
-            onAdd={() => {
-              setForm((current) => ({
-                ...current,
-                user_ids: [...new Set([...(current.user_ids ?? []), ...memberPicker.selections])].sort((a, b) => a - b),
-              }));
-              memberPicker.reset();
-            }}
-          >
-            {userOptions.visible.map((user) => (
-              <div
-                key={user.id}
-                className={adminAssociationOptionRowClass(memberPicker.selections.includes(user.id))}
-              >
-                <AdminAssociationOptionCheckbox
-                  checked={memberPicker.selections.includes(user.id)}
-                  onChange={() => memberPicker.toggleSelection(user.id)}
-                  inputPosition="end"
-                  className="w-full justify-between"
-                >
-                  <span>{user.email}</span>
-                </AdminAssociationOptionCheckbox>
-              </div>
-            ))}
-          </AdminAssociationPickerPanel>
-        ) : undefined
-      }
     />
   );
 
