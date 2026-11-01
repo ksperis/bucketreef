@@ -4,13 +4,11 @@
  */
 import { iamNameFormatError } from "../../utils/resourceNames";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
-import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { IAMGroup, attachGroupPolicy, createIamGroup, deleteIamGroup, listIamGroups } from "../../api/managerIamGroups";
-import { IamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
@@ -26,6 +24,7 @@ import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
+import { useManagedPolicySelection } from "./useManagedPolicySelection";
 import { useManagerIamCollection } from "./useManagerIamCollection";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
@@ -61,10 +60,6 @@ export default function ManagerGroupsPage() {
   const [advancedName, setAdvancedName] = useState("");
   const [advancedValidationAttempted, setAdvancedValidationAttempted] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [policies, setPolicies] = useState<IamPolicy[]>([]);
-  const [policySearch, setPolicySearch] = useState("");
-  const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
-  const [showPolicyOptions, setShowPolicyOptions] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
@@ -77,13 +72,21 @@ export default function ManagerGroupsPage() {
     })
   );
 
-  const loadPolicies = useCallback(
-    (contextId: S3ExecutionContextSelector) =>
-      loadRelated(contextId, listIamPolicies, setPolicies),
-    [loadRelated],
-  );
+  const {
+    loadPolicies,
+    policies,
+    policySearch,
+    resetPolicySelection,
+    selectedPolicies,
+    setPolicies,
+    setPolicySearch,
+    setSelectedPolicies,
+    setShowPolicyOptions,
+    showPolicyOptions,
+  } = useManagedPolicySelection(loadRelated);
 
   useEffect(() => {
+    resetPolicySelection();
     if (needsContextSelection) {
       setGroups([]);
       setPolicies([]);
@@ -93,13 +96,7 @@ export default function ManagerGroupsPage() {
     load(contextIdForApi);
     loadPolicies(contextIdForApi);
     resetInlinePolicyDraftEditor();
-  }, [contextIdForApi, needsContextSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, setGroups, setLoading]);
-
-  useEffect(() => {
-    if (selectedPolicies.length > 0) {
-      setShowPolicyOptions(true);
-    }
-  }, [selectedPolicies.length]);
+  }, [contextIdForApi, needsContextSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, resetPolicySelection, setGroups, setLoading, setPolicies]);
 
   const advancedCurrentSignature = useMemo(
     () =>
@@ -138,9 +135,7 @@ export default function ManagerGroupsPage() {
         }
       }
       setAdvancedName("");
-      setSelectedPolicies([]);
-      setPolicySearch("");
-      setShowPolicyOptions(false);
+      resetPolicySelection();
       resetInlinePolicyDraftEditor();
       setShowCreateForm(false);
       setActionMessage(text("Group created"));
@@ -184,9 +179,7 @@ export default function ManagerGroupsPage() {
     setError(null);
     setAdvancedValidationAttempted(false);
     setAdvancedName("");
-    setSelectedPolicies([]);
-    setPolicySearch("");
-    setShowPolicyOptions(false);
+    resetPolicySelection();
     resetInlinePolicyDraftEditor();
     setShowCreateForm(true);
     setAdvancedInitialSignature(
@@ -203,9 +196,7 @@ export default function ManagerGroupsPage() {
   const closeCreateForm = () => {
     setShowCreateForm(false);
     setAdvancedName("");
-    setSelectedPolicies([]);
-    setPolicySearch("");
-    setShowPolicyOptions(false);
+    resetPolicySelection();
     resetInlinePolicyDraftEditor();
   };
 

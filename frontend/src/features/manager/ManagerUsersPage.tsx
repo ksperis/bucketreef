@@ -17,7 +17,6 @@ import {
   listIamUsers,
 } from "../../api/managerIamUsers";
 import { IAMGroup, listIamGroups } from "../../api/managerIamGroups";
-import { IamPolicy, listIamPolicies } from "../../api/managerIamPolicies";
 import ListPageSection from "../../components/list/ListPageSection";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageEmptyState from "../../components/PageEmptyState";
@@ -37,6 +36,7 @@ import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
+import { useManagedPolicySelection } from "./useManagedPolicySelection";
 import { useManagerIamCollection } from "./useManagerIamCollection";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
@@ -88,14 +88,10 @@ export default function ManagerUsersPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [groups, setGroups] = useState<IAMGroup[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [policies, setPolicies] = useState<IamPolicy[]>([]);
-  const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
-  const [policySearch, setPolicySearch] = useState("");
   const [showPrivateAccessModal, setShowPrivateAccessModal] = useState(false);
   const [filter, setFilter] = useState("");
   const groupOptionsId = useId();
   const [showGroupOptions, setShowGroupOptions] = useState(false);
-  const [showPolicyOptions, setShowPolicyOptions] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
     stableSignature({
@@ -119,13 +115,21 @@ export default function ManagerUsersPage() {
     [loadRelated],
   );
 
-  const loadPolicies = useCallback(
-    (contextId: S3ExecutionContextSelector) =>
-      loadRelated(contextId, listIamPolicies, setPolicies),
-    [loadRelated],
-  );
+  const {
+    loadPolicies,
+    policies,
+    policySearch,
+    resetPolicySelection,
+    selectedPolicies,
+    setPolicies,
+    setPolicySearch,
+    setSelectedPolicies,
+    setShowPolicyOptions,
+    showPolicyOptions,
+  } = useManagedPolicySelection(loadRelated);
 
   useEffect(() => {
+    resetPolicySelection();
     if (needsContextSelection) {
       setUsers([]);
       setGroups([]);
@@ -137,10 +141,7 @@ export default function ManagerUsersPage() {
     loadGroups(contextIdForApi);
     loadPolicies(contextIdForApi);
     setSelectedGroups([]);
-    setSelectedPolicies([]);
-    setPolicySearch("");
     setShowGroupOptions(false);
-    setShowPolicyOptions(false);
     resetInlinePolicyDraftEditor();
   }, [
     contextIdForApi,
@@ -149,26 +150,18 @@ export default function ManagerUsersPage() {
     loadGroups,
     loadPolicies,
     needsContextSelection,
+    resetPolicySelection,
     resetInlinePolicyDraftEditor,
     setLoading,
+    setPolicies,
     setUsers,
   ]);
-
-  useEffect(() => {
-    setSelectedPolicies((prev) => prev.filter((arn) => policies.some((p) => p.arn === arn)));
-  }, [policies]);
 
   useEffect(() => {
     if (selectedGroups.length > 0) {
       setShowGroupOptions(true);
     }
   }, [selectedGroups.length]);
-
-  useEffect(() => {
-    if (selectedPolicies.length > 0) {
-      setShowPolicyOptions(true);
-    }
-  }, [selectedPolicies.length]);
 
   const filteredUsers = useMemo(() => {
     const query = filter.trim().toLowerCase();
@@ -238,10 +231,8 @@ export default function ManagerUsersPage() {
       );
       setAdvancedName("");
       setSelectedGroups([]);
-      setSelectedPolicies([]);
-      setPolicySearch("");
       setShowGroupOptions(false);
-      setShowPolicyOptions(false);
+      resetPolicySelection();
       resetInlinePolicyDraftEditor();
       setShowCreateForm(false);
       if (createKey && created.access_key) {
@@ -291,10 +282,8 @@ export default function ManagerUsersPage() {
     setAdvancedName("");
     setCreateKey(true);
     setSelectedGroups([]);
-    setSelectedPolicies([]);
-    setPolicySearch("");
     setShowGroupOptions(false);
-    setShowPolicyOptions(false);
+    resetPolicySelection();
     resetInlinePolicyDraftEditor();
     setShowCreateForm(true);
     setAdvancedInitialSignature(
@@ -315,10 +304,8 @@ export default function ManagerUsersPage() {
     setAdvancedName("");
     setCreateKey(true);
     setSelectedGroups([]);
-    setSelectedPolicies([]);
-    setPolicySearch("");
     setShowGroupOptions(false);
-    setShowPolicyOptions(false);
+    resetPolicySelection();
     resetInlinePolicyDraftEditor();
   };
 
