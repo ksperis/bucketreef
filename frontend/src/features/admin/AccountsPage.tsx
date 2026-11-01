@@ -57,6 +57,7 @@ import { buildAccessAuditHref } from "./accessAuditLink";
 import { useAdminI18n } from "./adminI18n";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
+import useAdminPaginatedListController from "./useAdminPaginatedListController";
 
 type SortField = "name" | "rgw_account_id";
 export default function S3AccountsPage() {
@@ -65,10 +66,6 @@ export default function S3AccountsPage() {
   const { generalSettings } = useGeneralSettings();
   const portalEnabled = generalSettings.portal_enabled;
   const managedTenantCreationEnabled = generalSettings.allow_managed_rgw_tenant_creation;
-  const [accounts, setS3Accounts] = useState<S3Account[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [totalAccounts, setTotalAccounts] = useState(0);
   const [creating, setCreating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -169,36 +166,37 @@ export default function S3AccountsPage() {
     loadPermissions: loadEndpointPermissions,
   } = useAdminEndpointAdminOpsPermissions({ formatError: extractError });
 
-  const fetchS3Accounts = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const quick = filter.trim();
-      const response = await listS3Accounts({
-        page,
-        page_size: pageSize,
-        search: quick || undefined,
-        search_exact: quickFilterMode === "exact",
-        sort_by: sort.field,
-        sort_dir: sort.direction,
-        include_quota: false,
-        include_rgw_details: false,
-      });
-      if (!ensurePageInRange(response.total)) return;
-      setS3Accounts(response.items);
-      setTotalAccounts(response.total);
-    } catch (err) {
-      console.error(err);
-      const failure = classifyApiError(err, adminText("Unable to load accounts."));
-      if (failure.status === 403) {
-        setError(adminText("Access restricted to administrators."));
-      } else {
-        setError(adminText("Unable to load accounts."));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [adminText, ensurePageInRange, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
+  const loadAccountsPage = useCallback(() => {
+    const quick = filter.trim();
+    return listS3Accounts({
+      page,
+      page_size: pageSize,
+      search: quick || undefined,
+      search_exact: quickFilterMode === "exact",
+      sort_by: sort.field,
+      sort_dir: sort.direction,
+      include_quota: false,
+      include_rgw_details: false,
+    });
+  }, [filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
+  const formatAccountsLoadError = useCallback((err: unknown) => {
+    console.error(err);
+    const failure = classifyApiError(err, adminText("Unable to load accounts."));
+    return failure.status === 403
+      ? adminText("Access restricted to administrators.")
+      : adminText("Unable to load accounts.");
+  }, [adminText]);
+  const {
+    items: accounts,
+    loading,
+    error,
+    total: totalAccounts,
+    refresh: fetchS3Accounts,
+  } = useAdminPaginatedListController({
+    loadPage: loadAccountsPage,
+    ensurePageInRange,
+    formatError: formatAccountsLoadError,
+  });
 
   const clearAllFilters = () => {
     handleFilterChange("");
@@ -214,10 +212,6 @@ export default function S3AccountsPage() {
     () => ensureStorageEndpoints({ retryOnError: true }),
     [ensureStorageEndpoints],
   );
-
-  useEffect(() => {
-    fetchS3Accounts();
-  }, [fetchS3Accounts]);
 
   useEffect(() => {
     if (storageEndpoints.length === 0) return;

@@ -61,6 +61,7 @@ import { useAdminS3UserStats } from "./useAdminS3UserStats";
 import { useAdminI18n } from "./adminI18n";
 import AdminS3UsersList, { type AdminS3UsersSortField } from "./AdminS3UsersList";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
+import useAdminPaginatedListController from "./useAdminPaginatedListController";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
@@ -73,7 +74,6 @@ export default function S3UsersPage() {
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { generalSettings } = useGeneralSettings();
   const managedTenantCreationEnabled = generalSettings.allow_managed_rgw_tenant_creation;
-  const [users, setUsers] = useState<S3User[]>([]);
   const {
     users: portalUsers,
     groups: uiGroups,
@@ -81,8 +81,6 @@ export default function S3UsersPage() {
     loadUsers: loadPortalUsersIfNeeded,
     loadGroups: loadGroupsIfNeeded,
   } = useAdminPrincipalCatalogs();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const {
     filter,
     sort,
@@ -97,7 +95,6 @@ export default function S3UsersPage() {
   } = useAdminPaginatedListState<AdminS3UsersSortField>({
     initialSort: { field: "name", direction: "asc" },
   });
-  const [totalUsers, setTotalUsers] = useState(0);
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
   const MAX_LINK_OPTIONS = 10;
   const {
@@ -179,33 +176,33 @@ export default function S3UsersPage() {
     Boolean(showCreateModal || editingUser)
   );
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const quick = filter.trim();
-      const response = await listS3Users({
-        page,
-        page_size: pageSize,
-        search: quick || undefined,
-        search_exact: quickFilterMode === "exact",
-        sort_by: sort.field,
-        sort_dir: sort.direction,
-        include_quota: false,
-      });
-      if (!ensurePageInRange(response.total)) return;
-      setUsers(response.items);
-      setTotalUsers(response.total);
-    } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
-    } finally {
-      setLoading(false);
-    }
-  }, [adminText, ensurePageInRange, filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  const loadUsersPage = useCallback(() => {
+    const quick = filter.trim();
+    return listS3Users({
+      page,
+      page_size: pageSize,
+      search: quick || undefined,
+      search_exact: quickFilterMode === "exact",
+      sort_by: sort.field,
+      sort_dir: sort.direction,
+      include_quota: false,
+    });
+  }, [filter, quickFilterMode, page, pageSize, sort.direction, sort.field]);
+  const formatUsersLoadError = useCallback(
+    (loadError: unknown) => extractApiError(loadError, adminText("Unexpected error")),
+    [adminText],
+  );
+  const {
+    items: users,
+    loading,
+    error,
+    total: totalUsers,
+    refresh: fetchUsers,
+  } = useAdminPaginatedListController({
+    loadPage: loadUsersPage,
+    ensurePageInRange,
+    formatError: formatUsersLoadError,
+  });
 
   const loadEndpointsIfNeeded = useCallback(
     () => ensureStorageEndpoints({ retryOnError: true }),

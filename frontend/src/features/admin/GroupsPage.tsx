@@ -70,6 +70,7 @@ import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminGroupAssociationOptions from "./useAdminGroupAssociationOptions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
+import useAdminPaginatedListController from "./useAdminPaginatedListController";
 import useAdminStorageAssociationEditorState from "./useAdminStorageAssociationEditorState";
 import {
   deriveAdminAssociationOptions,
@@ -128,9 +129,6 @@ export default function GroupsPage() {
   );
   const requestedEditHandledRef = useRef(false);
   const openEditRef = useRef<(group: UiGroup) => void>(() => undefined);
-  const [groups, setGroups] = useState<UiGroup[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const handleAssociationOptionsError = useCallback(
@@ -166,7 +164,28 @@ export default function GroupsPage() {
     initialFilter: principalEditRequest?.search ?? "",
     initialSort: { field: "name", direction: "asc" },
   });
-  const [totalGroups, setTotalGroups] = useState(0);
+  const loadGroupsPage = useCallback(() => listGroups({
+    page,
+    page_size: pageSize,
+    search: filter.trim() || undefined,
+    sort_by: sort.field,
+    sort_dir: sort.direction,
+  }), [filter, page, pageSize, sort.direction, sort.field]);
+  const formatGroupsLoadError = useCallback(
+    (loadError: unknown) => extractApiError(loadError, errorTextRef.current("loadGroupsError")),
+    [],
+  );
+  const {
+    items: groups,
+    loading,
+    error,
+    total: totalGroups,
+    refresh: fetchGroups,
+  } = useAdminPaginatedListController({
+    loadPage: loadGroupsPage,
+    ensurePageInRange,
+    formatError: formatGroupsLoadError,
+  });
   const [showModal, setShowModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<UiGroup | null>(null);
   const [modalTab, setModalTab] = useState<GroupModalTab>("general");
@@ -248,31 +267,6 @@ export default function GroupsPage() {
     () => buildManagerToolDefinitions(generalSettings),
     [generalSettings]
   );
-
-  const fetchGroups = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await listGroups({
-        page,
-        page_size: pageSize,
-        search: filter.trim() || undefined,
-        sort_by: sort.field,
-        sort_dir: sort.direction,
-      });
-      if (!ensurePageInRange(response.total)) return;
-      setGroups(response.items);
-      setTotalGroups(response.total);
-    } catch (err) {
-      setError(extractApiError(err, errorTextRef.current("loadGroupsError")));
-    } finally {
-      setLoading(false);
-    }
-  }, [ensurePageInRange, filter, page, pageSize, sort.direction, sort.field]);
-
-  useEffect(() => {
-    fetchGroups();
-  }, [fetchGroups]);
 
   const resetForm = () => {
     const draft = emptyAdminGroupForm();

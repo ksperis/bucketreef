@@ -67,6 +67,7 @@ import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorS
 import useAdminUserAssociationDerivedOptions from "./useAdminUserAssociationDerivedOptions";
 import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
+import useAdminPaginatedListController from "./useAdminPaginatedListController";
 import useAdminUserLdapImport from "./useAdminUserLdapImport";
 import {
   adminUserCreatePayload,
@@ -138,7 +139,6 @@ export default function UsersPage() {
   );
   const requestedEditHandledRef = useRef(false);
   const startEditRef = useRef<(user: User) => void>(() => undefined);
-  const [users, setUsers] = useState<User[]>([]);
   const {
     accounts,
     s3AccountsLoaded,
@@ -157,8 +157,6 @@ export default function UsersPage() {
     openStackCloudsLoading,
     ensureAssociationOptionsForTab,
   } = useAdminUserAssociationOptions();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const createFormTemplate = emptyAdminUserCreateForm;
@@ -226,7 +224,32 @@ export default function UsersPage() {
     initialFilter: principalEditRequest?.search ?? "",
     initialSort: { field: "name", direction: "asc" },
   });
-  const [totalUsers, setTotalUsers] = useState(0);
+  const loadUsersPage = useCallback(() => {
+    const searchValue = filter.trim();
+    return listUsers({
+      page,
+      page_size: pageSize,
+      search: searchValue || undefined,
+      sort_by: sort.field,
+      sort_dir: sort.direction,
+    });
+  }, [filter, page, pageSize, sort.direction, sort.field]);
+  const formatUsersLoadError = useCallback(
+    (loadError: unknown) => extractApiError(loadError, textRef.current("loadError")),
+    [],
+  );
+  const {
+    items: users,
+    loading,
+    error,
+    total: totalUsers,
+    refresh: fetchUsers,
+    updateItem: updateUserInList,
+  } = useAdminPaginatedListController({
+    loadPage: loadUsersPage,
+    ensurePageInRange,
+    formatError: formatUsersLoadError,
+  });
   const accountOptions = useMemo(() => accounts.map((a) => ({ id: a.id, label: a.name })), [accounts]);
   const accountOptionsById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account] as const)),
@@ -305,32 +328,6 @@ export default function UsersPage() {
   const createCanGrantStorageOps = currentIsAdminLike && createTargetSupportsStorageOps;
   const editCanGrantCephAdmin = currentIsSuperAdmin && editTargetSupportsCephAdmin;
   const editCanGrantStorageOps = currentIsAdminLike && editTargetSupportsStorageOps;
-
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const searchValue = filter.trim();
-      const response = await listUsers({
-        page,
-        page_size: pageSize,
-        search: searchValue || undefined,
-        sort_by: sort.field,
-        sort_dir: sort.direction,
-      });
-      if (!ensurePageInRange(response.total)) return;
-      setUsers(response.items);
-      setTotalUsers(response.total);
-    } catch (err) {
-      setError(extractApiError(err, textRef.current("loadError")));
-    } finally {
-      setLoading(false);
-    }
-  }, [ensurePageInRange, filter, page, pageSize, sort.direction, sort.field]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
 
   useEffect(() => {
     if (showCreateModal) void ensureLdapProviders();
@@ -1034,7 +1031,7 @@ export default function UsersPage() {
                   const updated = draft.file && draft.preference === "uploaded" ? await uploadUserAvatar(editingUser.id, draft.file)
                     : draft.remove ? await deleteUserAvatar(editingUser.id) : await updateUser(editingUser.id, { avatar_preference: draft.preference });
                   setEditingUser(current => current ? { ...current, avatar: updated.avatar } : current);
-                  setUsers(current => current.map(user => user.id === editingUser.id ? { ...user, avatar: updated.avatar } : user));
+                  updateUserInList(editingUser.id, (user) => ({ ...user, avatar: updated.avatar }));
                   if (currentUserId === editingUser.id) setSessionUserCache({ ...(readStoredUser() ?? {}), avatar: updated.avatar });
                   setActionMessage(adminProfileText("imageSaved"));
                 }}
