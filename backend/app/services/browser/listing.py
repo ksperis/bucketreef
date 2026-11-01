@@ -2,6 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
 import logging
 from fastapi import HTTPException
 from typing import Callable, Optional
@@ -17,11 +20,6 @@ from app.models.browser import (
 )
 from app.services.s3_execution_context import S3ExecutionTarget
 
-from ._shared import (
-    _decode_sorted_cursor,
-    _encode_sorted_cursor,
-    _sorted_snapshot_signature,
-)
 from .cache import OBJECT_LIST_CACHE, OBJECT_SORT_SNAPSHOT_CACHE
 from .default_listing import DefaultObjectListingLoader, DefaultObjectScanOptions
 from .sorted_listing import (
@@ -31,6 +29,41 @@ from .sorted_listing import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _sorted_snapshot_signature(parts: tuple[object, ...]) -> str:
+    serialized = json.dumps(parts, separators=(",", ":"), default=str)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _encode_sorted_cursor(*, prefixes_offset: int, objects_offset: int, signature: str) -> str:
+    payload = {
+        "v": 1,
+        "mode": "sorted",
+        "po": max(0, int(prefixes_offset)),
+        "oo": max(0, int(objects_offset)),
+        "sig": signature,
+    }
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+    return encoded.rstrip("=")
+
+
+def _decode_sorted_cursor(token: Optional[str]) -> Optional[dict[str, object]]:
+    if not token:
+        return None
+    padded = token + "=" * (-len(token) % 4)
+    try:
+        decoded = base64.urlsafe_b64decode(padded.encode("ascii"))
+        payload = json.loads(decoded.decode("utf-8"))
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("mode") != "sorted" or payload.get("v") != 1:
+        return None
+    return payload
 
 
 class BrowserListingMixin:

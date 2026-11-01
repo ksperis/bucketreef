@@ -26,8 +26,8 @@ from app.models.browser import (
     SseCustomerContext,
 )
 from app.services.s3_execution_context import S3ExecutionTarget
+from app.utils.aws_errors import aws_error_code
 
-from ._shared import _is_object_lock_unavailable
 from .cache import (
     OBJECT_LAZY_HEAD_CACHE,
     OBJECT_LAZY_TAGS_CACHE,
@@ -47,6 +47,15 @@ _METADATA_COPY_STRING_FIELDS = (
 
 _ALL_USERS_ACL_URI = "http://acs.amazonaws.com/groups/global/AllUsers"
 _AUTHENTICATED_USERS_ACL_URI = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
+_OBJECT_LOCK_UNAVAILABLE_CODES = {
+    "nosuchobjectlockconfiguration",
+    "objectlockconfigurationnotfounderror",
+    "invalidrequest",
+}
+
+
+def _is_object_lock_unavailable(exc: ClientError) -> bool:
+    return aws_error_code(exc, lowercase=True) in _OBJECT_LOCK_UNAVAILABLE_CODES
 
 
 def _object_version_reference(

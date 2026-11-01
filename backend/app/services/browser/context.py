@@ -31,8 +31,8 @@ from app.services.s3_execution_context import (
 from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 from app.utils.aws_errors import aws_error_code
+from app.utils.time import assume_utc
 
-from ._shared import _normalize_expiration
 from .cache import (
     BUCKET_LIST_CACHE,
     OBJECT_LAZY_HEAD_CACHE,
@@ -316,9 +316,7 @@ class BrowserContextMixin:
         )
 
     def _normalize_datetime_value(self, value: Optional[datetime]) -> Optional[datetime]:
-        if value is None:
-            return None
-        return _normalize_expiration(value)
+        return assume_utc(value)
 
     def _normalize_restore_status(self, value: object) -> Optional[str]:
         text = str(value or "").strip()
