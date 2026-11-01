@@ -51,7 +51,7 @@ export type OnboardingJourney = {
   updated_at: string;
 };
 
-type OnboardingApplyCredentials = {
+export type OnboardingApplyCredentials = {
   service_identity_mode?: "managed" | "external";
   runtime_access_key?: string;
   runtime_secret_key?: string;

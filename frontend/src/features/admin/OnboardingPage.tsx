@@ -74,8 +74,11 @@ import { useOnboardingStatus } from "./useOnboardingStatus";
 import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
 import { useAdminI18n } from "./adminI18n";
 import {
+  buildOnboardingApplyCredentials,
   buildOnboardingEndpointValidationPayload,
   buildOnboardingPrivateValidationPayload,
+  countOnboardingSelections,
+  createOnboardingDraft,
   resolveOnboardingEndpointState,
   serviceIdentity,
   type OnboardingCredentialDraft,
@@ -90,19 +93,6 @@ class OnboardingReviewChangedError extends Error {
     this.name = "OnboardingReviewChangedError";
   }
 }
-
-const initialDraft = (): OnboardingDraft => ({
-  version: 2,
-  endpoint_id: null,
-  endpoint_url: "",
-  region: "",
-  force_path_style: true,
-  manager: true,
-  portal: false,
-  private_connection: false,
-  ceph_admin: false,
-  supervision: true,
-});
 
 const EMPTY_CREDENTIAL_CHECK: StorageEndpointCredentialCheck = {
   status: "not_configured",
@@ -234,16 +224,6 @@ function CredentialSection({
   );
 }
 
-function selectedOptionCount(draft: OnboardingDraft): number {
-  return [
-    draft.manager,
-    draft.portal,
-    draft.private_connection,
-    draft.ceph_admin,
-    draft.supervision,
-  ].filter(Boolean).length;
-}
-
 function SelectionCount({ count, label }: { count: number; label: string }) {
   return (
     <div className="flex justify-end">
@@ -277,8 +257,8 @@ export default function OnboardingPage() {
   const workflowTopRef = useRef<HTMLDivElement>(null);
   const previousStepRef = useRef<Step>(step);
   const [journey, setJourney] = useState<OnboardingJourney | null>(null);
-  const [draft, setDraft] = useState<OnboardingDraft>(initialDraft);
-  const [baseline, setBaseline] = useState(() => JSON.stringify(initialDraft()));
+  const [draft, setDraft] = useState<OnboardingDraft>(createOnboardingDraft);
+  const [baseline, setBaseline] = useState(() => JSON.stringify(createOnboardingDraft()));
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [endpointListError, setEndpointListError] = useState("");
   const [adminAccessKey, setAdminAccessKey] = useState("");
@@ -357,7 +337,7 @@ export default function OnboardingPage() {
     supervisionCredentialsRequired,
     runtimeCredentialsRequired,
   } = endpointState;
-  const selectionCount = selectedOptionCount(draft);
+  const selectionCount = countOnboardingSelections(draft);
   const hasSelection = selectionCount > 0;
   const credentialDraft = useMemo<OnboardingCredentialDraft>(
     () => ({
@@ -549,33 +529,12 @@ export default function OnboardingPage() {
     clearSecrets();
     setPreview(null);
     if (value === "new") {
-      change({
-        endpoint_id: null,
-        endpoint_url: "",
-        region: "",
-        force_path_style: true,
-        manager: true,
-        portal: false,
-        private_connection: false,
-        ceph_admin: false,
-        supervision: true,
-      });
+      change(createOnboardingDraft());
       return;
     }
     const endpointId = Number(value);
     const endpoint = endpoints.find((candidate) => candidate.id === endpointId);
-    const cephDefaults = endpoint?.provider === "ceph";
-    change({
-      endpoint_id: endpointId,
-      endpoint_url: "",
-      region: "",
-      force_path_style: true,
-      manager: cephDefaults,
-      portal: false,
-      private_connection: false,
-      ceph_admin: false,
-      supervision: cephDefaults,
-    });
+    if (endpoint) change(createOnboardingDraft(endpoint));
   };
 
   const persist = async (value = draft) => {
@@ -701,19 +660,15 @@ export default function OnboardingPage() {
       const saved = await persist();
       if (saved.preview.review_token !== reviewed) throw new OnboardingReviewChangedError();
       const result = await runWithStepUp(() =>
-        applyOnboardingJourney(saved, {
-          admin_access_key: needsAdmin ? adminAccessKey || undefined : undefined,
-          admin_secret_key: needsAdmin ? adminSecretKey || undefined : undefined,
-          supervision_access_key: identityMode === "external" && needsSupervision ? supervisionAccessKey || undefined : undefined,
-          supervision_secret_key: identityMode === "external" && needsSupervision ? supervisionSecretKey || undefined : undefined,
-          service_identity_mode: identityMode,
-          runtime_access_key: identityMode === "external" && needsRuntime ? runtimeAccessKey || undefined : undefined,
-          runtime_secret_key: identityMode === "external" && needsRuntime ? runtimeSecretKey || undefined : undefined,
-          ceph_admin_access_key: draft.ceph_admin ? cephAdminAccessKey || undefined : undefined,
-          ceph_admin_secret_key: draft.ceph_admin ? cephAdminSecretKey || undefined : undefined,
-          private_access_key: privateAccessKey || undefined,
-          private_secret_key: privateSecretKey || undefined,
-        }),
+        applyOnboardingJourney(
+          saved,
+          buildOnboardingApplyCredentials({
+            draft,
+            identityMode,
+            state: endpointState,
+            credentials: credentialDraft,
+          }),
+        ),
       );
       store(result);
       clearSecrets();
