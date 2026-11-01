@@ -9,7 +9,6 @@ import {
   dismissOnboarding,
   previewOnboardingDraft,
   resumeOnboarding,
-  saveOnboardingJourney,
   type OnboardingDraft,
   type OnboardingJourney,
   type OnboardingPreview,
@@ -52,7 +51,6 @@ import {
   isRecentWebAuthnRequired,
 } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
-import { createRuntimeId } from "../../utils/runtimeId";
 import S3CredentialsValidationMessage from "../shared/S3CredentialsValidationMessage";
 import { useLiveS3CredentialsValidation } from "../shared/useLiveS3CredentialsValidation";
 import { onboardingActions, onboardingCopy as copy, onboardingErrors } from "./onboardingCopy";
@@ -70,6 +68,7 @@ import {
   SUPERVISION_OPS_COMMAND,
 } from "./storageEndpointCredentialHelp";
 import { useOnboardingStatus } from "./useOnboardingStatus";
+import useOnboardingJourneyDraft from "./useOnboardingJourneyDraft";
 import { useStorageEndpointLiveValidation } from "./useStorageEndpointLiveValidation";
 import { useAdminI18n } from "./adminI18n";
 import {
@@ -254,13 +253,19 @@ export default function OnboardingPage() {
   });
 
   const initialized = useRef(false);
-  const id = useRef<string>(createRuntimeId());
   const [step, setStep] = useState<Step>("connect");
   const workflowTopRef = useRef<HTMLDivElement>(null);
   const previousStepRef = useRef<Step>(step);
-  const [journey, setJourney] = useState<OnboardingJourney | null>(null);
-  const [draft, setDraft] = useState<OnboardingDraft>(createOnboardingDraft);
-  const [baseline, setBaseline] = useState(() => JSON.stringify(createOnboardingDraft()));
+  const {
+    journey,
+    draft,
+    dirtyDraft,
+    storeJourney,
+    persistJourney,
+    changeDraft,
+    replaceDraft,
+    getJourneyId,
+  } = useOnboardingJourneyDraft();
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [endpointListError, setEndpointListError] = useState("");
   const [credentialDraft, setCredentialDraft] = useState<OnboardingCredentialDraft>(
@@ -284,7 +289,6 @@ export default function OnboardingPage() {
     workflowTop.scrollIntoView({ block: "start" });
   }, [step]);
 
-  const dirtyDraft = JSON.stringify(draft) !== baseline;
   const dirtySecrets = hasOnboardingCredentialValues(credentialDraft);
   const dirty = dirtyDraft || dirtySecrets;
   const {
@@ -430,14 +434,11 @@ export default function OnboardingPage() {
   );
 
   const store = useCallback((value: OnboardingJourney) => {
-    id.current = value.id;
-    setJourney(value);
-    setDraft(value.draft);
-    setBaseline(JSON.stringify(value.draft));
+    storeJourney(value);
     setPreview(value.preview);
     setPreviewPending(false);
     setPreviewError("");
-  }, []);
+  }, [storeJourney]);
 
   useEffect(() => {
     if (!status || status.dismissed || initialized.current) return;
@@ -503,7 +504,7 @@ export default function OnboardingPage() {
   };
 
   const change = (patch: Partial<OnboardingDraft>) => {
-    setDraft((current) => ({ ...current, ...patch }));
+    changeDraft(patch);
     setPreview(null);
     setPreviewPending(step !== "connect");
   };
@@ -512,17 +513,23 @@ export default function OnboardingPage() {
     clearSecrets();
     setPreview(null);
     if (value === "new") {
-      change(createOnboardingDraft());
+      replaceDraft(createOnboardingDraft());
+      setPreviewPending(step !== "connect");
       return;
     }
     const endpointId = Number(value);
     const endpoint = endpoints.find((candidate) => candidate.id === endpointId);
-    if (endpoint) change(createOnboardingDraft(endpoint));
+    if (endpoint) {
+      replaceDraft(createOnboardingDraft(endpoint));
+      setPreviewPending(step !== "connect");
+    }
   };
 
   const persist = async (value = draft) => {
-    const saved = await saveOnboardingJourney(id.current, value, journey?.revision);
-    store(saved);
+    const saved = await persistJourney(value);
+    setPreview(saved.preview);
+    setPreviewPending(false);
+    setPreviewError("");
     if (status?.complete) {
       const nextStatus = await refreshStatus();
       if (nextStatus) announceOnboardingStatus(nextStatus);
@@ -541,7 +548,7 @@ export default function OnboardingPage() {
       setError(failure(cause));
       const [latest, catalogue] = await Promise.all([refreshStatus(), listStorageEndpoints()]);
       setEndpoints(catalogue);
-      const saved = latest?.journeys.find((item) => item.id === id.current);
+      const saved = latest?.journeys.find((item) => item.id === getJourneyId());
       if (saved) store(saved);
       setPreviewNonce((value) => value + 1);
     } finally {
