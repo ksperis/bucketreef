@@ -43,6 +43,8 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 _DailyCostRow = TypeVar("_DailyCostRow", CostUsageDaily, CostStorageDaily)
+_COST_USAGE_SOURCE = "rgw_admin_usage"
+_COST_STORAGE_SOURCE = "rgw_admin_bucket_stats"
 
 
 @dataclass(frozen=True)
@@ -405,7 +407,9 @@ class CostCollector:
             row.collected_at = collected_at
 
         self._upsert_daily_row(
-            find_existing=lambda: self._find_usage_row(
+            find_existing=lambda: self._find_daily_row(
+                CostUsageDaily,
+                source=_COST_USAGE_SOURCE,
                 day=day,
                 endpoint_id=endpoint_id,
                 s3_account_id=s3_account_id,
@@ -420,7 +424,7 @@ class CostCollector:
                 bytes_out=bytes_out,
                 ops_total=ops_total,
                 ops_breakdown=stored_breakdown,
-                source="rgw_admin_usage",
+                source=_COST_USAGE_SOURCE,
                 collected_at=collected_at,
             ),
             update_existing=update_existing,
@@ -446,7 +450,9 @@ class CostCollector:
             row.collected_at = collected_at
 
         self._upsert_daily_row(
-            find_existing=lambda: self._find_storage_row(
+            find_existing=lambda: self._find_daily_row(
+                CostStorageDaily,
+                source=_COST_STORAGE_SOURCE,
                 day=day,
                 endpoint_id=endpoint_id,
                 s3_account_id=s3_account_id,
@@ -460,7 +466,7 @@ class CostCollector:
                 total_bytes=total_bytes,
                 total_objects=total_objects,
                 by_bucket=stored_by_bucket,
-                source="rgw_admin_bucket_stats",
+                source=_COST_STORAGE_SOURCE,
                 collected_at=collected_at,
             ),
             update_existing=update_existing,
@@ -490,42 +496,24 @@ class CostCollector:
                 update_existing(existing, collected_at)
         self.db.commit()
 
-    def _find_usage_row(
+    def _find_daily_row(
         self,
+        model: type[_DailyCostRow],
         *,
+        source: str,
         day: date,
         endpoint_id: int,
         s3_account_id: Optional[int],
         s3_user_id: Optional[int],
-    ) -> CostUsageDaily | None:
+    ) -> _DailyCostRow | None:
         return self.db.scalar(
-            select(CostUsageDaily)
+            select(model)
             .where(
-                CostUsageDaily.day == day,
-                CostUsageDaily.storage_endpoint_id == endpoint_id,
-                CostUsageDaily.s3_account_id == s3_account_id,
-                CostUsageDaily.s3_user_id == s3_user_id,
-                CostUsageDaily.source == "rgw_admin_usage",
-            )
-            .limit(1)
-        )
-
-    def _find_storage_row(
-        self,
-        *,
-        day: date,
-        endpoint_id: int,
-        s3_account_id: Optional[int],
-        s3_user_id: Optional[int],
-    ) -> CostStorageDaily | None:
-        return self.db.scalar(
-            select(CostStorageDaily)
-            .where(
-                CostStorageDaily.day == day,
-                CostStorageDaily.storage_endpoint_id == endpoint_id,
-                CostStorageDaily.s3_account_id == s3_account_id,
-                CostStorageDaily.s3_user_id == s3_user_id,
-                CostStorageDaily.source == "rgw_admin_bucket_stats",
+                model.day == day,
+                model.storage_endpoint_id == endpoint_id,
+                model.s3_account_id == s3_account_id,
+                model.s3_user_id == s3_user_id,
+                model.source == source,
             )
             .limit(1)
         )
