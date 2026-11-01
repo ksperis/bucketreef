@@ -108,7 +108,7 @@ describe("bucket feature autocomplete integrations", () => {
     const user = userEvent.setup();
     render(<CorsHarness />);
 
-    await user.click(screen.getByRole("button", { name: "Add rule", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
     const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
     const allowedHeader = within(dialog).getByRole("combobox", { name: "Add allowed header" });
     await user.type(allowedHeader, "Content");
@@ -125,7 +125,7 @@ describe("bucket feature autocomplete integrations", () => {
     const user = userEvent.setup();
     const cors = render(<CorsHarness />);
 
-    await user.click(screen.getByRole("button", { name: "Add rule", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
     let dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
     const ruleId = within(dialog).getByLabelText("Rule ID (optional)");
     await user.click(ruleId);
@@ -135,7 +135,7 @@ describe("bucket feature autocomplete integrations", () => {
 
     cors.unmount();
     render(<NotificationsHarness />);
-    await user.click(screen.getByRole("button", { name: "Add notification", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Add notification" }));
     dialog = screen.getByRole("dialog", { name: "Edit bucket notifications" });
     const notificationId = within(dialog).getByLabelText("ID (optional)");
     await user.click(notificationId);
@@ -178,7 +178,7 @@ describe("bucket feature autocomplete integrations", () => {
     const user = userEvent.setup();
     render(<ReplicationHarness />);
 
-    await user.click(screen.getByRole("button", { name: "Add rule", exact: true }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
     const dialog = screen.getByRole("dialog", { name: "Edit replication configuration" });
     const prefix = within(dialog).getByRole("combobox", { name: "Prefix / filter" });
     await user.type(prefix, "logs");

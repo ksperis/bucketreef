@@ -270,7 +270,7 @@ describe("ManagerUsersPage", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Create user" }));
-    const dialog = screen.getByRole("heading", { name: "Create IAM user" }).closest(".workflow-page");
+    const dialog = screen.getByRole("heading", { name: "Create IAM user" }).closest<HTMLElement>(".workflow-page");
     if (!dialog) throw new Error("Create IAM user workflow page not found");
     fireEvent.change(within(dialog).getByPlaceholderText("User name"), { target: { value: "bob" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Create user" }));

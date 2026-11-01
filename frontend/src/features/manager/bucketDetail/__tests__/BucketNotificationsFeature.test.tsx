@@ -103,7 +103,7 @@ describe("BucketNotificationsFeature", () => {
     expect(within(card).getByText("0 topic notifications")).toBeInTheDocument();
     expect(within(card).getByText("No notifications configured on this bucket.")).toBeInTheDocument();
     expect(within(card).getByRole("table")).toBeInTheDocument();
-    expect(within(card).getByRole("button", { name: "Add notification", exact: true })).toBeEnabled();
+    expect(within(card).getByRole("button", { name: "Add notification" })).toBeEnabled();
   });
 
   it("renders supported topics as editable cards and advanced topics as read-only", async () => {

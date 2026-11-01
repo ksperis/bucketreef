@@ -105,7 +105,7 @@ describe("BucketLifecycleFeature", () => {
     expect(within(section).getByRole("table")).toBeInTheDocument();
     expect(within(section).getByText("0 rules")).toBeInTheDocument();
     expect(within(section).getByText("No rules configured on this bucket.")).toBeInTheDocument();
-    await user.click(within(section).getByRole("button", { name: "Add rule", exact: true }));
+    await user.click(within(section).getByRole("button", { name: "Add rule" }));
 
     const dialog = screen.getByRole("dialog", { name: "Edit lifecycle rules" });
     expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();

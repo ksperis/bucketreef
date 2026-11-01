@@ -285,7 +285,14 @@ describe("ManagerMigrationDetailPage", () => {
         items: [
           {
             item_id: 103,
+            state: "blocked",
             blocking: true,
+            warnings: 0,
+            settings_copied: [],
+            settings_omitted: [],
+            source_bucket: "bucket-failed",
+            strategy: "current_only",
+            source_object_count: null,
             checks: [
               {
                 code: "source_tags",
@@ -341,7 +348,7 @@ describe("ManagerMigrationDetailPage", () => {
       preparation_status: "blocked",
       preparation_active_checks: false,
       available_actions: { precheck: enabled },
-      precheck_report: buildPrecheckReport({ status: "failed", errors: 1 }),
+      precheck_report: buildPrecheckReport({ errors: 1 }),
     });
     await user.click(screen.getByRole("button", { name: "Run active checks" }));
     const dialog = screen.getByRole("dialog");

@@ -2,26 +2,17 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bucket } from "../../api/bucketContracts";
 import type { ExecutionContext } from "../../api/executionContexts";
+import { buildExecutionContext } from "../../test/managerContexts";
 import { useManagerBucketSelection } from "./useManagerBucketSelection";
 
 const listBucketsMock = vi.fn();
 
-const primaryContext = {
-  kind: "account",
-  id: "context-1",
+const primaryContext = buildExecutionContext("context-1", {
   display_name: "Primary account",
-  tags: [],
-  endpoint_tags: [],
   endpoint_name: "Primary endpoint",
   endpoint_is_default: true,
   endpoint_url: "https://primary.example.test",
-  storage_endpoint_capabilities: {},
-  capabilities: {
-    can_manage_iam: true,
-    sts_capable: true,
-    admin_api_capable: true,
-  },
-} satisfies ExecutionContext;
+}) satisfies ExecutionContext;
 
 const secondaryContext = {
   ...primaryContext,
