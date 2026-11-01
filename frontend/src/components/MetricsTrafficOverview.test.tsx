@@ -26,16 +26,17 @@ const traffic: ManagerTrafficStats = {
   start: "2026-07-24T00:00:00Z",
   end: "2026-07-30T00:00:00Z",
   resolution: "daily",
+  bucket_filter: null,
   data_points: 1,
   series: [
     { timestamp: "2026-07-30T00:00:00Z", bytes_in: 128, bytes_out: 64, ops: 2, success_ops: 2 },
   ],
   totals: { bytes_in: 128, bytes_out: 64, ops: 2, success_ops: 2, success_rate: 1 },
   bucket_rankings: [
-    { bucket: "bucket-a", bytes_in: 128, bytes_out: 64, bytes_total: 192, ops: 2, success_ratio: 1 },
+    { bucket: "bucket-a", bytes_in: 128, bytes_out: 64, bytes_total: 192, ops: 2, success_ops: 2, success_ratio: 1 },
   ],
   user_rankings: [
-    { user: "project-a", bytes_in: 128, bytes_out: 64, bytes_total: 192, ops: 2, success_ratio: 1 },
+    { user: "project-a", bytes_in: 128, bytes_out: 64, bytes_total: 192, ops: 2, success_ops: 2, success_ratio: 1 },
   ],
   request_breakdown: [],
   category_breakdown: [],
