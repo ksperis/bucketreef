@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial
 from typing import Any
 
@@ -14,7 +14,12 @@ from app.db import User
 from app.models.bucket_purge import BucketPurgeProgress, BucketPurgeResult
 from app.routers.sse_worker import stream_status_operation
 from app.services.bucket_purge_audit import BucketPurgeAuditLifecycle, record_bucket_purge_audit
-from app.services.bucket_purge_service import BucketPurgeCancelled
+from app.services.bucket_purge_service import (
+    BucketPurgeCancelled,
+    BucketPurgeOptions,
+    BucketPurgeResolvedTarget,
+    BucketPurgeService,
+)
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -74,4 +79,34 @@ def stream_audited_bucket_purge(
         on_result=audit.on_result,
         on_cancel=audit.on_cancel,
         on_error=audit.on_error,
+    )
+
+
+def stream_audited_resolved_bucket_purge(
+    request: Request,
+    *,
+    user: User,
+    scope: str,
+    base_metadata: Mapping[str, Any],
+    targets: Sequence[BucketPurgeResolvedTarget],
+    options: BucketPurgeOptions,
+    logger: logging.Logger,
+    failure_message: str,
+    execution_context: S3ExecutionContext | None = None,
+) -> StreamingResponse:
+    service = BucketPurgeService()
+    return stream_audited_bucket_purge(
+        request,
+        user=user,
+        scope=scope,
+        base_metadata=base_metadata,
+        execution_context=execution_context,
+        run_purge=lambda progress_callback, cancel_check: service.run(
+            list(targets),
+            options,
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
+        ),
+        logger=logger,
+        failure_message=failure_message,
     )
