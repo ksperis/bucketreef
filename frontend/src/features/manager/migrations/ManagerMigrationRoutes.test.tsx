@@ -16,10 +16,24 @@ const streamManagerMigrationMock = vi.fn();
 
 vi.mock("../../../api/executionContexts", () => ({
   listExecutionContexts: (...args: unknown[]) => listExecutionContextsMock(...args),
+  listExecutionContextOptions: async () => ({
+    items: [{ id: "tgt-ctx", display_name: "Target", endpoint_id: 2 }],
+    total: 1,
+    page: 1,
+    page_size: 25,
+    has_next: false,
+  }),
 }));
 
 vi.mock("../../../api/managerBuckets", () => ({
   listBuckets: (...args: unknown[]) => listBucketsMock(...args),
+  listBucketOptions: async () => ({
+    items: [{ name: "bucket-a" }],
+    total: 1,
+    page: 1,
+    page_size: 25,
+    has_next: false,
+  }),
 }));
 
 vi.mock("../../../api/managerMigrations", async () => {
@@ -47,6 +61,10 @@ vi.mock("../ExecutionContextProvider", () => ({
   useExecutionContext: () => ({
     selectedContextId: "src-ctx",
     requiresContextSelection: true,
+    contexts: [
+      { id: "src-ctx", display_name: "Source", endpoint_id: 1 },
+      { id: "tgt-ctx", display_name: "Target", endpoint_id: 2 },
+    ],
   }),
 }));
 

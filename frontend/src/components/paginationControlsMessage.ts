@@ -8,6 +8,7 @@ const m = sharedMessage;
 export const paginationControlsMessage = {
   previous: m("Previous", "上一页"),
   next: m("Next", "下一页"),
+  pageNumber: m("Page {page}", "第 {page} 页"),
   pageResult: m("Page {page} of {pages} · {total} result", "第 {page} 页，共 {pages} 页 · {total} 条结果"),
   pageResults: m("Page {page} of {pages} · {total} results", "第 {page} 页，共 {pages} 页 · {total} 条结果"),
   pageSize: m("Page size", "每页条数"),

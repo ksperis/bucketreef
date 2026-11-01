@@ -418,24 +418,43 @@ describe("PortalStorageSpaceDetailPage", () => {
       restored_from_version_id: "v1",
       message: "Restored",
     });
-    mocks.listShareCandidatesMock.mockResolvedValue([
-      {
-        user_id: 12,
-        email: "viewer@example.com",
-        display_name: null,
-        portal_role: "portal_user",
-        access_source: "direct",
-        already_shared: true,
-      },
-      {
-        user_id: 13,
-        email: "editor@example.com",
-        display_name: "Editor User",
-        portal_role: "portal_user",
-        access_source: "group",
-        already_shared: false,
-      },
-    ]);
+    mocks.listShareCandidatesMock.mockImplementation(async (
+      _accountId: number,
+      _spaceId: string,
+      query: { search?: string; page?: number; page_size?: number } = {},
+    ) => {
+      const candidates = [
+        {
+          user_id: 12,
+          email: "viewer@example.com",
+          display_name: null,
+          portal_role: "portal_user",
+          access_source: "direct",
+          already_shared: true,
+        },
+        {
+          user_id: 13,
+          email: "editor@example.com",
+          display_name: "Editor User",
+          portal_role: "portal_user",
+          access_source: "group",
+          already_shared: false,
+        },
+      ];
+      const term = query.search?.trim().toLowerCase() ?? "";
+      const items = candidates.filter((candidate) =>
+        !term
+        || candidate.email.toLowerCase().includes(term)
+        || (candidate.display_name?.toLowerCase().includes(term) ?? false),
+      );
+      return {
+        items,
+        total: items.length,
+        page: query.page ?? 1,
+        page_size: query.page_size ?? 25,
+        has_next: false,
+      };
+    });
     mocks.grantShareMock.mockResolvedValue({ id: "research-data:13" });
     mocks.listPublicLinksMock.mockResolvedValue(publicLinksFixture);
     mocks.revokePublicLinkMock.mockResolvedValue([
@@ -1299,7 +1318,7 @@ describe("PortalStorageSpaceDetailPage", () => {
       { target: { value: "missing@example.org" } },
     );
     fireEvent.click(
-      within(workflow).getByRole("button", {
+      await within(workflow).findByRole("button", {
         name: "Request collaborator access",
       }),
     );

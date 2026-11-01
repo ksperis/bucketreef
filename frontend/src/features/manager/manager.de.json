@@ -1192,6 +1192,7 @@
   "Select {bucket}": "Wählen Sie {bucket}",
   "{count} result": "{count} Ergebnis",
   "{count} results": "{count} Ergebnisse",
+  "{count} shown on this page": "{count} auf dieser Seite angezeigt",
   "{context} · Select source buckets to compare across manager contexts.": "{context} · Wählen Sie Quell-Buckets zum Vergleich zwischen Manager-Kontexten.",
   "{context} · Select buckets to purge.": "{context} · Wählen Sie Buckets zum Bereinigen.",
   "{context} · Select buckets to check.": "{context} · Wählen Sie Buckets zur Überprüfung.",

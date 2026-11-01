@@ -521,7 +521,7 @@ export default function ManagerUsersPage() {
           variant="page"
           mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
             title={text("Users")}
-            countLabel={text(filteredUsers.length === 1 ? "{count} result" : "{count} results", { count: filteredUsers.length })}
+            countLabel={text("{count} shown on this page", { count: filteredUsers.length })}
             search={
               <ManagerToolbarSearch
                 value={filter}

@@ -48,6 +48,7 @@ const fixtures = vi.hoisted(() => ({
 vi.mock("../../api/users", () => ({
   listUsers: async () => ({ items: [fixtures.user], total: 1, page: 1, page_size: 25, has_next: false }),
   listMinimalUsers: async () => [fixtures.user],
+  listUserOptions: async () => ({ items: [fixtures.user], total: 1, page: 1, page_size: 25, has_next: false }),
   updateUser: fixtures.updateUser,
   uploadUserAvatar: fixtures.uploadAvatar,
   deleteUserAvatar: fixtures.deleteAvatar,
@@ -58,6 +59,7 @@ vi.mock("../../api/users", () => ({
 vi.mock("../../api/groups", () => ({
   listGroups: async () => ({ items: [fixtures.group], total: 1, page: 1, page_size: 25, has_next: false }),
   listMinimalGroups: async () => [fixtures.group],
+  listGroupOptions: async () => ({ items: [fixtures.group], total: 1, page: 1, page_size: 25, has_next: false }),
   updateGroup: fixtures.updateGroup,
   createGroup: vi.fn(),
   deleteGroup: vi.fn(),

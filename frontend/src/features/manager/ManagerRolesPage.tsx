@@ -362,7 +362,7 @@ export default function ManagerRolesPage() {
       ) : (
         <ListPageSection variant="page"
             title={text("Roles")}
-            countLabel={text(filteredRoles.length === 1 ? "{count} result" : "{count} results", { count: filteredRoles.length })}
+            countLabel={text("{count} shown on this page", { count: filteredRoles.length })}
             search={
               <ManagerToolbarSearch
                 value={roleFilter}

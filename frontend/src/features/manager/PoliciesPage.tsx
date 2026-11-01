@@ -195,7 +195,7 @@ export default function PoliciesPage() {
       ) : (
         <ListPageSection variant="page"
             title={text("Policies")}
-            countLabel={text(filteredPolicies.length === 1 ? "{count} result" : "{count} results", { count: filteredPolicies.length })}
+            countLabel={text("{count} shown on this page", { count: filteredPolicies.length })}
             search={
               <ManagerToolbarSearch
                 value={policyFilter}

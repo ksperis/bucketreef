@@ -224,6 +224,8 @@
   "Save configuration": "保存",
   "Search RGW Accounts": "搜索 RGW Accounts",
   "Search RGW Users": "搜索 RGW 用户",
+  "Search accounts": "搜索账户",
+  "Search target buckets": "搜索目标 Bucket",
   "Search targets": "搜索目标",
   "Secret is shown only once.": "Secret 仅显示一次。",
   "Select Ceph endpoint": "选择 Ceph Endpoint",

@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { UiGroupSummary } from "../../api/groups";
@@ -7,16 +7,16 @@ import type { UserSummary } from "../../api/users";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 
 const mocks = vi.hoisted(() => ({
-  listMinimalUsers: vi.fn(),
-  listMinimalGroups: vi.fn(),
+  listUserOptions: vi.fn(),
+  listGroupOptions: vi.fn(),
 }));
 
 vi.mock("../../api/users", () => ({
-  listMinimalUsers: mocks.listMinimalUsers,
+  listUserOptions: mocks.listUserOptions,
 }));
 
 vi.mock("../../api/groups", () => ({
-  listMinimalGroups: mocks.listMinimalGroups,
+  listGroupOptions: mocks.listGroupOptions,
 }));
 
 const user: UserSummary = {
@@ -44,42 +44,44 @@ describe("useAdminPrincipalCatalogs", () => {
     vi.clearAllMocks();
   });
 
-  it("loads and caches the user and group catalogues", async () => {
-    mocks.listMinimalUsers.mockResolvedValue([user]);
-    mocks.listMinimalGroups.mockResolvedValue([group]);
+  it("loads paginated user and group catalogues and refreshes them on demand", async () => {
+    mocks.listUserOptions.mockResolvedValue({ items: [user], total: 1, page: 1, page_size: 25, has_next: false });
+    mocks.listGroupOptions.mockResolvedValue({ items: [group], total: 1, page: 1, page_size: 25, has_next: false });
     const { result } = renderHook(() => useAdminPrincipalCatalogs());
 
-    await act(async () => {
-      await Promise.all([result.current.loadUsers(), result.current.loadGroups()]);
+    await waitFor(() => {
+      expect(result.current.users).toEqual([user]);
+      expect(result.current.groups).toEqual([group]);
     });
-
-    expect(result.current.users).toEqual([user]);
-    expect(result.current.groups).toEqual([group]);
     expect(result.current.groupsLoading).toBe(false);
+    expect(mocks.listUserOptions).toHaveBeenCalledWith({ page: 1, page_size: 25 });
+    expect(mocks.listGroupOptions).toHaveBeenCalledWith({ page: 1, page_size: 25 });
 
     await act(async () => {
       await Promise.all([result.current.loadUsers(), result.current.loadGroups()]);
     });
-    expect(mocks.listMinimalUsers).toHaveBeenCalledTimes(1);
-    expect(mocks.listMinimalGroups).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mocks.listUserOptions).toHaveBeenCalledTimes(2);
+      expect(mocks.listGroupOptions).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("retries a failed catalogue load on the next request", async () => {
-    mocks.listMinimalUsers
+    mocks.listUserOptions
       .mockRejectedValueOnce(new Error("unavailable"))
-      .mockResolvedValueOnce([user]);
-    mocks.listMinimalGroups.mockResolvedValue([]);
+      .mockResolvedValueOnce({ items: [user], total: 1, page: 1, page_size: 25, has_next: false });
+    mocks.listGroupOptions.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 25, has_next: false });
     const { result } = renderHook(() => useAdminPrincipalCatalogs());
 
-    await act(async () => {
-      await result.current.loadUsers();
+    await waitFor(() => {
+      expect(mocks.listUserOptions).toHaveBeenCalledTimes(1);
     });
     expect(result.current.users).toEqual([]);
 
     await act(async () => {
       await result.current.loadUsers();
     });
-    expect(result.current.users).toEqual([user]);
-    expect(mocks.listMinimalUsers).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(result.current.users).toEqual([user]));
+    expect(mocks.listUserOptions).toHaveBeenCalledTimes(2);
   });
 });
