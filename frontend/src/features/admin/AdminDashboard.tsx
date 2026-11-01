@@ -3,27 +3,19 @@ import AdminDashboardMap, { type AdminDashboardMapMarker } from "./components/Ad
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState } from "react";
-import { listAuditLogs, type AuditLogEntry } from "../../api/audit";
+import { useMemo, useState } from "react";
+import type { AuditLogEntry } from "../../api/audit";
 import {
-  fetchHealthOverview,
-  fetchHealthWorkspaceOverview,
   type EndpointHealthOverviewResponse,
   type WorkspaceEndpointHealthEntry,
   type WorkspaceEndpointHealthOverviewResponse,
 } from "../../api/healthchecks";
 import { dismissOnboarding, type OnboardingStatus } from "../../api/onboarding";
-import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
 import {
   type AdminDashboardStorage,
   type AdminDashboardScope,
   type AdminDashboardCoverage,
-  type AdminSummary,
   type AdminDashboardTraffic,
-  fetchAdminDashboardScope,
-  fetchAdminDashboardStorage,
-  fetchAdminSummary,
-  fetchAdminDashboardTraffic,
 } from "../../api/stats";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import PageBanner from "../../components/PageBanner";
@@ -61,12 +53,12 @@ import { formatLocalDateTime, getBackendRelativeTime } from "../../utils/dateTim
 import { formatCheckMode, formatCompactNumber, formatPercentage } from "../../utils/format";
 import { useI18n } from "../../i18n";
 import { onboardingCopy } from "./onboardingCopy";
+import { useAdminDashboardResources } from "./useAdminDashboardResources";
 import { useOnboardingStatus } from "./useOnboardingStatus";
 import { adminDashboardSourceText, useAdminDashboardI18n } from "./adminDashboardMessages";
 
 type AdminDashboardText = ReturnType<typeof useAdminDashboardI18n>["text"];
 
-const ADMIN_INCIDENT_HISTORY_MINUTES = 7 * 24 * 60;
 const MAX_ENDPOINT_ROWS = 8;
 
 function formatRelativeTime(value: string | null | undefined, text: AdminDashboardText, now = Date.now()): string {
@@ -374,239 +366,50 @@ function RecentActivityCard({ logs, loading, unavailableReason }: {
 
 export default function AdminDashboard() {
   const { text, translateText } = useAdminDashboardI18n();
-  const [summary, setSummary] = useState<AdminSummary | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [onboardingActionError, setOnboardingActionError] = useState<string | null>(null);
-  const [workspaceHealth, setWorkspaceHealth] = useState<WorkspaceEndpointHealthOverviewResponse | null>(null);
-  const [workspaceHealthLoading, setWorkspaceHealthLoading] = useState(false);
-  const [workspaceHealthError, setWorkspaceHealthError] = useState<string | null>(null);
-  const [mapEndpoints, setMapEndpoints] = useState<StorageEndpoint[]>([]);
-  const [mapEndpointsLoading, setMapEndpointsLoading] = useState(false);
-  const [mapEndpointsError, setMapEndpointsError] = useState<string | null>(null);
-  const [healthOverview, setHealthOverview] = useState<EndpointHealthOverviewResponse | null>(null);
-  const [healthOverviewLoading, setHealthOverviewLoading] = useState(false);
-  const [healthOverviewError, setHealthOverviewError] = useState<string | null>(null);
-  const [dashboardScope, setDashboardScope] = useState<AdminDashboardScope | null>(null);
-  const [scopeLoading, setScopeLoading] = useState(true);
-  const [scopeError, setScopeError] = useState<string | null>(null);
-  const [storage, setStorage] = useState<AdminDashboardStorage | null>(null);
-  const [storageLoading, setStorageLoading] = useState(true);
-  const [storageError, setStorageError] = useState<string | null>(null);
-  const [traffic, setTraffic] = useState<AdminDashboardTraffic | null>(null);
-  const [trafficLoading, setTrafficLoading] = useState(true);
-  const [trafficError, setTrafficError] = useState<string | null>(null);
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  const [auditLoading, setAuditLoading] = useState(true);
-  const [auditError, setAuditError] = useState<string | null>(null);
   const [dismissBusy, setDismissBusy] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const { generalSettings } = useGeneralSettings();
   const {
     status: onboarding,
     error: onboardingStatusError,
     setStatus: setOnboarding,
   } = useOnboardingStatus();
-
-  useEffect(() => {
-    let cancelled = false;
-    setSummaryLoading(true);
-    fetchAdminSummary()
-      .then((data) => {
-        if (cancelled) return;
-        setSummary(data);
-        setSummaryError(null);
-        setLastUpdated(new Date());
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setSummary(null);
-        setSummaryError(extractApiError(err, adminDashboardSourceText("loadOverviewError")));
-      })
-      .finally(() => {
-        if (!cancelled) setSummaryLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshNonce]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setScopeLoading(true);
-    setScopeError(null);
-    setDashboardScope(null);
-    fetchAdminDashboardScope()
-      .then((data) => { if (!cancelled) setDashboardScope(data); })
-      .catch((err) => { if (!cancelled) setScopeError(extractApiError(err, adminDashboardSourceText("loadScopeError"))); })
-      .finally(() => { if (!cancelled) setScopeLoading(false); });
-    return () => { cancelled = true; };
-  }, [refreshNonce]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setStorageLoading(true);
-    setStorageError(null);
-    fetchAdminDashboardStorage()
-      .then((data) => {
-        if (cancelled) return;
-        setStorage(data);
-        setLastUpdated(new Date());
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setStorage(null);
-        setStorageError(extractApiError(err, adminDashboardSourceText("storageUnavailable")));
-      })
-      .finally(() => {
-        if (!cancelled) setStorageLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshNonce]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setTrafficLoading(true);
-    setTrafficError(null);
-    fetchAdminDashboardTraffic()
-      .then((data) => {
-        if (cancelled) return;
-        setTraffic(data);
-        setLastUpdated(new Date());
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setTraffic(null);
-        setTrafficError(extractApiError(err, adminDashboardSourceText("trafficUnavailable")));
-      })
-      .finally(() => {
-        if (!cancelled) setTrafficLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshNonce]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setAuditLoading(true);
-    setAuditError(null);
-    listAuditLogs({ limit: 6 })
-      .then((data) => {
-        if (cancelled) return;
-        setAuditLogs(data.logs);
-        setLastUpdated(new Date());
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setAuditLogs([]);
-        setAuditError(extractApiError(err, adminDashboardSourceText("loadActivityError")));
-      })
-      .finally(() => {
-        if (!cancelled) setAuditLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshNonce]);
-
-  useEffect(() => {
-    if (!generalSettings.endpoint_status_enabled) {
-      setWorkspaceHealth(null);
-      setWorkspaceHealthError(null);
-      setWorkspaceHealthLoading(false);
-      setHealthOverview(null);
-      setHealthOverviewError(null);
-      setHealthOverviewLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setWorkspaceHealthLoading(true);
-    setWorkspaceHealthError(null);
-    fetchHealthWorkspaceOverview(undefined, ADMIN_INCIDENT_HISTORY_MINUTES)
-      .then((data) => {
-        if (cancelled) return;
-        setWorkspaceHealth(data);
-        setLastUpdated(new Date());
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setWorkspaceHealth(null);
-        setWorkspaceHealthError(extractApiError(err, adminDashboardSourceText("loadHealthError")));
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setWorkspaceHealthLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [generalSettings.endpoint_status_enabled, refreshNonce]);
+  const {
+    summary,
+    summaryLoading,
+    summaryError,
+    workspaceHealth,
+    workspaceHealthLoading,
+    workspaceHealthError,
+    mapEndpoints,
+    mapEndpointsLoading,
+    mapEndpointsError,
+    healthOverview,
+    healthOverviewLoading,
+    healthOverviewError,
+    dashboardScope,
+    scopeLoading,
+    scopeError,
+    storage,
+    storageLoading,
+    storageError,
+    traffic,
+    trafficLoading,
+    trafficError,
+    auditLogs,
+    auditLoading,
+    auditError,
+    lastUpdated,
+  } = useAdminDashboardResources({
+    endpointStatusEnabled: generalSettings.endpoint_status_enabled,
+    refreshNonce,
+  });
 
   const endpointFreshnessWarning = useMemo(
     () => (workspaceHealth ? formatEndpointFreshnessWarning(workspaceHealth, text) : null),
     [workspaceHealth, text],
   );
-
-  useEffect(() => {
-    if (!generalSettings.endpoint_status_enabled) {
-      setMapEndpoints([]);
-      setMapEndpointsError(null);
-      setMapEndpointsLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setMapEndpointsLoading(true);
-    setMapEndpointsError(null);
-    listStorageEndpoints()
-      .then((data) => {
-        if (cancelled) return;
-        setMapEndpoints(data);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setMapEndpoints([]);
-        setMapEndpointsError(extractApiError(err, adminDashboardSourceText("loadMapError")));
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setMapEndpointsLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [generalSettings.endpoint_status_enabled, refreshNonce]);
-
-  useEffect(() => {
-    if (!generalSettings.endpoint_status_enabled) return;
-    let cancelled = false;
-    setHealthOverviewLoading(true);
-    setHealthOverviewError(null);
-    fetchHealthOverview("week")
-      .then((data) => {
-        if (cancelled) return;
-        setHealthOverview(data);
-        setLastUpdated(new Date());
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setHealthOverview(null);
-        setHealthOverviewError(extractApiError(err, adminDashboardSourceText("healthHistoryUnavailable")));
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setHealthOverviewLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [generalSettings.endpoint_status_enabled, refreshNonce]);
 
   const handleDismissOnboarding = async () => {
     if (!onboarding) return;
