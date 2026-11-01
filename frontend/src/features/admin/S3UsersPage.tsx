@@ -161,26 +161,8 @@ export default function S3UsersPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [editTab, setEditTab] = useState<EditTab>("general");
-  const {
-    search: portalUserSearch,
-    setSearch: setPortalUserSearch,
-    open: showEditPortalUserPanel,
-    setOpen: setShowEditPortalUserPanel,
-    selections: editPortalUserSelections,
-    setSelections: setEditPortalUserSelections,
-    reset: resetEditPortalUserPicker,
-    toggleSelection: toggleEditPortalUserSelection,
-  } = useAdminAssociationPickerState();
-  const {
-    search: groupSearch,
-    setSearch: setGroupSearch,
-    open: showEditGroupPanel,
-    setOpen: setShowEditGroupPanel,
-    selections: editGroupSelections,
-    setSelections: setEditGroupSelections,
-    reset: resetEditGroupPicker,
-    toggleSelection: toggleEditGroupSelection,
-  } = useAdminAssociationPickerState();
+  const portalUserPicker = useAdminAssociationPickerState();
+  const groupPicker = useAdminAssociationPickerState();
   const [deleteBusyId, setDeleteBusyId] = useState<number | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -301,17 +283,17 @@ export default function S3UsersPage() {
     return map;
   }, [uiGroups]);
   const availablePortalUsers = useMemo(() => {
-    const query = portalUserSearch.trim().toLowerCase();
+    const query = portalUserPicker.search.trim().toLowerCase();
     return portalUserOptions.filter(
       (opt) => !editForm.user_links.some((link) => link.user_id === opt.id) && (!query || opt.label.toLowerCase().includes(query))
     );
-  }, [portalUserOptions, editForm.user_links, portalUserSearch]);
+  }, [portalUserOptions, editForm.user_links, portalUserPicker.search]);
   const availableGroups = useMemo(() => {
-    const query = groupSearch.trim().toLowerCase();
+    const query = groupPicker.search.trim().toLowerCase();
     return uiGroups.filter(
       (group) => !editForm.group_links.some((link) => link.group_id === group.id) && (!query || group.name.toLowerCase().includes(query))
     );
-  }, [editForm.group_links, groupSearch, uiGroups]);
+  }, [editForm.group_links, groupPicker.search, uiGroups]);
   const visiblePortalUsers = useMemo(
     () => availablePortalUsers.slice(0, MAX_LINK_OPTIONS),
     [availablePortalUsers]
@@ -432,8 +414,8 @@ export default function S3UsersPage() {
     setEditInitialSignature(stableSignature({ editForm: { ...nextEditForm, tags: normalizeUiTags(nextEditForm.tags) } }));
     setEditError(null);
     setEditTab("general");
-    resetEditPortalUserPicker();
-    resetEditGroupPicker();
+    portalUserPicker.reset();
+    groupPicker.reset();
     if (user.quota_max_size_gb == null && user.quota_max_objects == null) {
       void loadEditQuota(user.id);
     }
@@ -509,8 +491,8 @@ export default function S3UsersPage() {
       };
       setEditingUser(updatedUser);
       setEditForm(savedForm);
-      setEditPortalUserSelections([]);
-      setEditGroupSelections([]);
+      portalUserPicker.setSelections([]);
+      groupPicker.setSelections([]);
       setEditInitialSignature(stableSignature({ editForm: { ...savedForm, tags: normalizeUiTags(savedForm.tags) } }));
       await fetchUsers();
       setActionMessage(adminText("User updated."));
@@ -660,12 +642,8 @@ export default function S3UsersPage() {
   const closeEditModal = () => {
     setEditingUser(null);
     setEditTab("general");
-    setPortalUserSearch("");
-    setGroupSearch("");
-    setShowEditPortalUserPanel(false);
-    setShowEditGroupPanel(false);
-    setEditPortalUserSelections([]);
-    setEditGroupSelections([]);
+    portalUserPicker.reset();
+    groupPicker.reset();
     setEditInitialSignature("");
   };
   const editCurrentSignature = useMemo(
@@ -961,8 +939,8 @@ export default function S3UsersPage() {
                   title={adminText("Linked UI users")}
                   toolbar={{
                     countLabel: adminText("{count} linked", { count: editForm.user_links.length }),
-                    actionLabel: adminText(showEditPortalUserPanel ? "Close" : "Add UI users"),
-                    onAction: () => setShowEditPortalUserPanel((prev) => !prev),
+                    actionLabel: adminText(portalUserPicker.open ? "Close" : "Add UI users"),
+                    onAction: () => portalUserPicker.setOpen((prev) => !prev),
                   }}
                   headers={[
                     { label: adminText("User") },
@@ -1007,26 +985,26 @@ export default function S3UsersPage() {
                     </tr>
                   ))}
                 />
-                {showEditPortalUserPanel && (
+                {portalUserPicker.open && (
                   <AdminAssociationPickerPanel
                     title={adminText("Add UI users")}
                     hint={adminText("(filter by email)")}
-                    search={portalUserSearch}
-                    onSearchChange={setPortalUserSearch}
+                    search={portalUserPicker.search}
+                    onSearchChange={portalUserPicker.setSearch}
                     searchAriaLabel="Search UI users"
                     loading={false}
                     availableCount={availablePortalUsers.length}
                     maxVisibleOptions={MAX_LINK_OPTIONS}
-                    selectedCount={editPortalUserSelections.length}
+                    selectedCount={portalUserPicker.selections.length}
                     loadingLabel="Loading UI users..."
-                    onCancel={resetEditPortalUserPicker}
+                    onCancel={portalUserPicker.reset}
                     onAdd={() => {
-                      if (editPortalUserSelections.length === 0) return;
+                      if (portalUserPicker.selections.length === 0) return;
                       setEditForm((prev) => ({
                         ...prev,
                         user_links: [
                           ...prev.user_links,
-                          ...editPortalUserSelections.map((userId) => {
+                          ...portalUserPicker.selections.map((userId) => {
                             const user = portalUsers.find((candidate) => candidate.id === userId);
                             return {
                               user_id: userId,
@@ -1038,14 +1016,14 @@ export default function S3UsersPage() {
                           }),
                         ],
                       }));
-                      resetEditPortalUserPicker();
+                      portalUserPicker.reset();
                     }}
-                    addDisabled={editPortalUserSelections.length === 0}
+                    addDisabled={portalUserPicker.selections.length === 0}
                   >
                     <AdminAssociationCheckboxOptions
                       options={visiblePortalUsers}
-                      selectedIds={editPortalUserSelections}
-                      onToggle={toggleEditPortalUserSelection}
+                      selectedIds={portalUserPicker.selections}
+                      onToggle={portalUserPicker.toggleSelection}
                       getLabel={(option) => option.label}
                     />
                   </AdminAssociationPickerPanel>
@@ -1059,12 +1037,12 @@ export default function S3UsersPage() {
                   title={adminText("Linked UI groups")}
                   toolbar={{
                     countLabel: `${editForm.group_links.length} linked${uiGroupsLoading ? " · loading..." : ""}`,
-                    actionLabel: adminText(showEditGroupPanel ? "Close" : "Add UI groups"),
+                    actionLabel: adminText(groupPicker.open ? "Close" : "Add UI groups"),
                     onAction: () => {
-                      if (!showEditGroupPanel) {
+                      if (!groupPicker.open) {
                         void loadGroupsIfNeeded();
                       }
-                      setShowEditGroupPanel((prev) => !prev);
+                      groupPicker.setOpen((prev) => !prev);
                     },
                   }}
                   headers={[
@@ -1110,26 +1088,26 @@ export default function S3UsersPage() {
                     </tr>
                   ))}
                 />
-                {showEditGroupPanel && (
+                {groupPicker.open && (
                   <AdminAssociationPickerPanel
                     title={adminText("Add UI groups")}
                     hint={adminText("(filter by name)")}
-                    search={groupSearch}
-                    onSearchChange={setGroupSearch}
+                    search={groupPicker.search}
+                    onSearchChange={groupPicker.setSearch}
                     searchAriaLabel="Search UI groups"
                     loading={uiGroupsLoading}
                     availableCount={availableGroups.length}
                     maxVisibleOptions={MAX_LINK_OPTIONS}
-                    selectedCount={editGroupSelections.length}
+                    selectedCount={groupPicker.selections.length}
                     loadingLabel="Loading UI groups..."
-                    onCancel={resetEditGroupPicker}
+                    onCancel={groupPicker.reset}
                     onAdd={() => {
-                      if (editGroupSelections.length === 0) return;
+                      if (groupPicker.selections.length === 0) return;
                       setEditForm((prev) => ({
                         ...prev,
                         group_links: [
                           ...prev.group_links,
-                          ...editGroupSelections.map((groupId) => {
+                          ...groupPicker.selections.map((groupId) => {
                             const group = uiGroups.find((candidate) => candidate.id === groupId);
                             return {
                               group_id: groupId,
@@ -1140,14 +1118,14 @@ export default function S3UsersPage() {
                           }),
                         ],
                       }));
-                      resetEditGroupPicker();
+                      groupPicker.reset();
                     }}
-                    addDisabled={editGroupSelections.length === 0}
+                    addDisabled={groupPicker.selections.length === 0}
                   >
                     <AdminAssociationCheckboxOptions
                       options={visibleGroups}
-                      selectedIds={editGroupSelections}
-                      onToggle={toggleEditGroupSelection}
+                      selectedIds={groupPicker.selections}
+                      onToggle={groupPicker.toggleSelection}
                       getLabel={(group) => group.name}
                     />
                   </AdminAssociationPickerPanel>
