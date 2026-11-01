@@ -158,6 +158,45 @@ class BucketMigrationExecutionControlMixin:
             self._commit()
             return migration
 
+    def _run_migration_items(
+        self,
+        migration: BucketMigration,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
+        *,
+        worker_id: Optional[str],
+        control_check: Callable[[], str],
+    ) -> Optional[BucketMigration]:
+        for item in migration.items:
+            self.db.refresh(migration)
+            self._assert_migration_creator_access(migration)
+            state = control_check()
+            if self._stop_for_control_state(
+                migration,
+                state,
+                source_ctx=source_ctx,
+                target_ctx=target_ctx,
+            ):
+                return None
+
+            if item.status in {"completed", "rolled_back", "skipped", "failed", "canceled"}:
+                continue
+            if migration.mode == "pre_sync" and migration.status == "awaiting_cutover":
+                if self._clear_owned_worker_lease(migration, worker_id=worker_id):
+                    self._commit()
+                return None
+
+            migration = self._execute_migration_item(
+                migration,
+                item,
+                source_ctx,
+                target_ctx,
+                control_check=control_check,
+            )
+            if migration is None:
+                return None
+        return migration
+
     def run_migration(
         self,
         migration_id: int,
@@ -197,34 +236,15 @@ class BucketMigrationExecutionControlMixin:
                 lease_seconds=effective_lease_seconds,
             )
 
-        for item in migration.items:
-            self.db.refresh(migration)
-            self._assert_migration_creator_access(migration)
-            state = control_check()
-            if self._stop_for_control_state(
-                migration,
-                state,
-                source_ctx=source_ctx,
-                target_ctx=target_ctx,
-            ):
-                return
-
-            if item.status in {"completed", "rolled_back", "skipped", "failed", "canceled"}:
-                continue
-            if migration.mode == "pre_sync" and migration.status == "awaiting_cutover":
-                if self._clear_owned_worker_lease(migration, worker_id=worker_id):
-                    self._commit()
-                return
-
-            migration = self._execute_migration_item(
-                migration,
-                item,
-                source_ctx,
-                target_ctx,
-                control_check=control_check,
-            )
-            if migration is None:
-                return
+        migration = self._run_migration_items(
+            migration,
+            source_ctx,
+            target_ctx,
+            worker_id=worker_id,
+            control_check=control_check,
+        )
+        if migration is None:
+            return
 
         self.db.refresh(migration)
         self._assert_workflow_lease()
