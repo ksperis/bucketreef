@@ -5,7 +5,9 @@ import type { StorageEndpointFeatureDetectionResult } from "../../api/storageEnd
 import {
   buildOnboardingApplyCredentials,
   countOnboardingSelections,
+  createOnboardingCredentialDraft,
   createOnboardingDraft,
+  hasOnboardingCredentialValues,
   resolveOnboardingEndpointState,
   resolveOnboardingReadiness,
   type OnboardingCredentialDraft,
@@ -96,6 +98,24 @@ function readinessFor({
 }
 
 describe("onboarding form model", () => {
+  it("owns the complete credential draft lifecycle", () => {
+    const empty = createOnboardingCredentialDraft();
+    expect(empty).toEqual({
+      adminAccessKey: "",
+      adminSecretKey: "",
+      supervisionAccessKey: "",
+      supervisionSecretKey: "",
+      cephAdminAccessKey: "",
+      cephAdminSecretKey: "",
+      runtimeAccessKey: "",
+      runtimeSecretKey: "",
+      privateAccessKey: "",
+      privateSecretKey: "",
+    });
+    expect(hasOnboardingCredentialValues(empty)).toBe(false);
+    expect(hasOnboardingCredentialValues({ ...empty, privateSecretKey: "secret" })).toBe(true);
+  });
+
   it("owns provider-sensitive draft defaults", () => {
     expect(createOnboardingDraft()).toEqual({
       version: 2,

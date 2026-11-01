@@ -77,7 +77,9 @@ import {
   buildOnboardingEndpointValidationPayload,
   buildOnboardingPrivateValidationPayload,
   countOnboardingSelections,
+  createOnboardingCredentialDraft,
   createOnboardingDraft,
+  hasOnboardingCredentialValues,
   resolveOnboardingEndpointState,
   resolveOnboardingReadiness,
   serviceIdentity,
@@ -261,17 +263,10 @@ export default function OnboardingPage() {
   const [baseline, setBaseline] = useState(() => JSON.stringify(createOnboardingDraft()));
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [endpointListError, setEndpointListError] = useState("");
-  const [adminAccessKey, setAdminAccessKey] = useState("");
-  const [adminSecretKey, setAdminSecretKey] = useState("");
-  const [supervisionAccessKey, setSupervisionAccessKey] = useState("");
-  const [supervisionSecretKey, setSupervisionSecretKey] = useState("");
-  const [cephAdminAccessKey, setCephAdminAccessKey] = useState("");
-  const [cephAdminSecretKey, setCephAdminSecretKey] = useState("");
-  const [runtimeAccessKey, setRuntimeAccessKey] = useState("");
-  const [runtimeSecretKey, setRuntimeSecretKey] = useState("");
+  const [credentialDraft, setCredentialDraft] = useState<OnboardingCredentialDraft>(
+    createOnboardingCredentialDraft,
+  );
   const [identityMode, setIdentityMode] = useState<OnboardingIdentityMode>("managed");
-  const [privateAccessKey, setPrivateAccessKey] = useState("");
-  const [privateSecretKey, setPrivateSecretKey] = useState("");
   const [preview, setPreview] = useState<OnboardingPreview | null>(null);
   const [previewPending, setPreviewPending] = useState(false);
   const [previewError, setPreviewError] = useState("");
@@ -290,19 +285,20 @@ export default function OnboardingPage() {
   }, [step]);
 
   const dirtyDraft = JSON.stringify(draft) !== baseline;
-  const dirtySecrets = Boolean(
-    adminAccessKey ||
-      adminSecretKey ||
-      supervisionAccessKey ||
-      supervisionSecretKey ||
-      cephAdminAccessKey ||
-      cephAdminSecretKey ||
-      runtimeAccessKey ||
-      runtimeSecretKey ||
-      privateAccessKey ||
-      privateSecretKey,
-  );
+  const dirtySecrets = hasOnboardingCredentialValues(credentialDraft);
   const dirty = dirtyDraft || dirtySecrets;
+  const {
+    adminAccessKey,
+    adminSecretKey,
+    supervisionAccessKey,
+    supervisionSecretKey,
+    cephAdminAccessKey,
+    cephAdminSecretKey,
+    runtimeAccessKey,
+    runtimeSecretKey,
+    privateAccessKey,
+    privateSecretKey,
+  } = credentialDraft;
   const selectedEndpoint = useMemo(
     () => endpoints.find((endpoint) => endpoint.id === draft.endpoint_id) ?? null,
     [draft.endpoint_id, endpoints],
@@ -339,32 +335,6 @@ export default function OnboardingPage() {
   } = endpointState;
   const selectionCount = countOnboardingSelections(draft);
   const hasSelection = selectionCount > 0;
-  const credentialDraft = useMemo<OnboardingCredentialDraft>(
-    () => ({
-      adminAccessKey,
-      adminSecretKey,
-      supervisionAccessKey,
-      supervisionSecretKey,
-      cephAdminAccessKey,
-      cephAdminSecretKey,
-      runtimeAccessKey,
-      runtimeSecretKey,
-      privateAccessKey,
-      privateSecretKey,
-    }),
-    [
-      adminAccessKey,
-      adminSecretKey,
-      cephAdminAccessKey,
-      cephAdminSecretKey,
-      privateAccessKey,
-      privateSecretKey,
-      runtimeAccessKey,
-      runtimeSecretKey,
-      supervisionAccessKey,
-      supervisionSecretKey,
-    ],
-  );
   const endpointValidationPayload = useMemo(
     () =>
       buildOnboardingEndpointValidationPayload({
@@ -526,17 +496,10 @@ export default function OnboardingPage() {
     };
   }, [busy, draft, failure, journey?.configured, journey?.id, previewNonce, step]);
 
-  const clearSecrets = () => {
-    setAdminAccessKey("");
-    setAdminSecretKey("");
-    setSupervisionAccessKey("");
-    setSupervisionSecretKey("");
-    setCephAdminAccessKey("");
-    setCephAdminSecretKey("");
-    setRuntimeAccessKey("");
-    setRuntimeSecretKey("");
-    setPrivateAccessKey("");
-    setPrivateSecretKey("");
+  const clearSecrets = () => setCredentialDraft(createOnboardingCredentialDraft());
+
+  const changeCredential = (field: keyof OnboardingCredentialDraft, value: string) => {
+    setCredentialDraft((current) => ({ ...current, [field]: value }));
   };
 
   const change = (patch: Partial<OnboardingDraft>) => {
@@ -943,8 +906,8 @@ export default function OnboardingPage() {
                     command={ADMIN_OPS_FULL_COMMAND}
                     commandHelp={t(copy.rgwCommandHelp)}
                     storedLabel={t(copy.storedCredentials)}
-                    onAccessChange={setAdminAccessKey}
-                    onSecretChange={setAdminSecretKey}
+                    onAccessChange={(value) => changeCredential("adminAccessKey", value)}
+                    onSecretChange={(value) => changeCredential("adminSecretKey", value)}
                     validation={
                       <>
                         <CredentialStatusBadge
@@ -1005,8 +968,8 @@ export default function OnboardingPage() {
                     command={SUPERVISION_OPS_COMMAND}
                     commandHelp={t(copy.rgwCommandHelp)}
                     storedLabel={t(copy.storedCredentials)}
-                    onAccessChange={setSupervisionAccessKey}
-                    onSecretChange={setSupervisionSecretKey}
+                    onAccessChange={(value) => changeCredential("supervisionAccessKey", value)}
+                    onSecretChange={(value) => changeCredential("supervisionSecretKey", value)}
                     validation={
                       <>
                         <CredentialStatusBadge
@@ -1044,8 +1007,8 @@ export default function OnboardingPage() {
                     command={RUNTIME_READ_OPS_COMMAND}
                     commandHelp={t(copy.rgwCommandHelp)}
                     storedLabel={t(copy.storedCredentials)}
-                    onAccessChange={setRuntimeAccessKey}
-                    onSecretChange={setRuntimeSecretKey}
+                    onAccessChange={(value) => changeCredential("runtimeAccessKey", value)}
+                    onSecretChange={(value) => changeCredential("runtimeSecretKey", value)}
                     validation={
                       <CredentialStatusBadge
                         status={
@@ -1065,7 +1028,8 @@ export default function OnboardingPage() {
                   accessKey={cephAdminAccessKey} secretKey={cephAdminSecretKey}
                   required={!storedCephAdminCredentials} stored={storedCephAdminCredentials}
                   command={CEPH_ADMIN_COMMAND} commandHelp={t(copy.rgwCommandHelp)} storedLabel={t(copy.storedCredentials)}
-                  onAccessChange={setCephAdminAccessKey} onSecretChange={setCephAdminSecretKey}
+                  onAccessChange={(value) => changeCredential("cephAdminAccessKey", value)}
+                  onSecretChange={(value) => changeCredential("cephAdminSecretKey", value)}
                   validation={<CredentialStatusBadge status={endpointValidation.status === "loading" ? "checking" : cephAdminCredentialCheck.status} message={cephAdminCredentialCheck.message} />}
                 />}
                 {draft.private_connection && (
@@ -1082,8 +1046,8 @@ export default function OnboardingPage() {
                     commandHelp={t(copy.rgwCommandHelp)}
                     storedLabel={t(copy.storedCredentials)}
                     extraHelp={isCeph ? t(copy.privatePermissionsHelp) : undefined}
-                    onAccessChange={setPrivateAccessKey}
-                    onSecretChange={setPrivateSecretKey}
+                    onAccessChange={(value) => changeCredential("privateAccessKey", value)}
+                    onSecretChange={(value) => changeCredential("privateSecretKey", value)}
                     validation={
                       privateValidation.status !== "idle" ? (
                         <S3CredentialsValidationMessage validation={privateValidation} />

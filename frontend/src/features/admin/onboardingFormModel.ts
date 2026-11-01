@@ -26,6 +26,25 @@ export type OnboardingCredentialDraft = {
   privateSecretKey: string;
 };
 
+export function createOnboardingCredentialDraft(): OnboardingCredentialDraft {
+  return {
+    adminAccessKey: "",
+    adminSecretKey: "",
+    supervisionAccessKey: "",
+    supervisionSecretKey: "",
+    cephAdminAccessKey: "",
+    cephAdminSecretKey: "",
+    runtimeAccessKey: "",
+    runtimeSecretKey: "",
+    privateAccessKey: "",
+    privateSecretKey: "",
+  };
+}
+
+export function hasOnboardingCredentialValues(credentials: OnboardingCredentialDraft): boolean {
+  return Object.values(credentials).some(Boolean);
+}
+
 export function createOnboardingDraft(
   endpoint: Pick<StorageEndpoint, "id" | "provider"> | null = null,
 ): OnboardingDraft {
