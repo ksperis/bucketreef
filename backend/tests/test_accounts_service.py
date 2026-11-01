@@ -164,6 +164,75 @@ def test_import_root_resolution_uses_account_tenant_for_unqualified_account_user
     assert calls == [("custom-root", "research"), ("custom-root", "research")]
 
 
+def test_import_root_resolution_uses_canonical_dict_user_identity():
+    account_id = "RGW12345678901234567"
+    calls: list[tuple[str, str | None]] = []
+
+    class Admin:
+        def get_user(self, uid, tenant=None, allow_not_found=False):
+            calls.append((uid, tenant))
+            return {
+                "uid": f"{tenant}${uid}",
+                "tenant": tenant,
+                "account_id": account_id,
+                "account_root": True,
+            }
+
+    resolved = RgwAccountRootService().resolve_import_identity(
+        Admin(),
+        {
+            "account": {
+                "id": account_id,
+                "tenant": "research",
+                "user_list": [{"user_id": "custom-root", "tenant": "research"}],
+            }
+        },
+        account_id,
+        None,
+    )
+
+    assert resolved == ("custom-root", "research")
+    assert calls == [("custom-root", "research"), ("custom-root", "research")]
+
+
+def test_import_root_resolution_rejects_conflicting_candidate_identity():
+    account_id = "RGW12345678901234567"
+
+    class Admin:
+        def get_user(self, *args, **kwargs):
+            raise AssertionError("conflicting identity must fail before user lookup")
+
+    with pytest.raises(ValueError, match="conflicting user identity"):
+        RgwAccountRootService().resolve_import_identity(
+            Admin(),
+            {
+                "account": {
+                    "id": account_id,
+                    "tenant": "research",
+                    "user_list": [{"uid": "root-a", "user_id": "root-b"}],
+                }
+            },
+            account_id,
+            None,
+        )
+
+
+def test_import_root_resolution_rejects_malformed_account_user_list():
+    account_id = "RGW12345678901234567"
+
+    class Admin:
+        def list_user_ids(self):
+            raise AssertionError("malformed embedded inventory must not fall back to endpoint scan")
+
+    with pytest.raises(ValueError, match="account user list is malformed"):
+        RgwAccountRootService().resolve_import_identity(
+            Admin(),
+            {"account": {"id": account_id, "tenant": "research", "user_list": {"uid": "root"}}},
+            account_id,
+            None,
+        )
+
+
 class FakeRGWAdmin:
     def get_user_by_access_key(self, access_key, **kwargs):
         return {"caps": "users=read,write;accounts=read,write"}
