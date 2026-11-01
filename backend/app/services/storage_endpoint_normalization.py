@@ -38,6 +38,7 @@ _CREDENTIAL_FIELD_PAIRS = (
     ("supervision_access_key", "supervision_secret_key"),
     ("ceph_admin_access_key", "ceph_admin_secret_key"),
 )
+_CREDENTIAL_KINDS = ("admin", "runtime", "supervision", "ceph_admin")
 _PRESERVE_EXISTING_ON_NULL_UPDATE_FIELDS = frozenset(
     {
         "features",
@@ -199,6 +200,46 @@ def _normalized_credential_pair(
     )
 
 
+def _normalized_credential_pairs(
+    payload: StorageEndpointCreate,
+) -> dict[str, tuple[str | None, str | None]]:
+    return {
+        kind: _normalized_credential_pair(payload, kind)
+        for kind in _CREDENTIAL_KINDS
+    }
+
+
+def _validate_complete_credential_pairs(
+    pairs: dict[str, tuple[str | None, str | None]],
+) -> None:
+    for kind, (access, secret) in pairs.items():
+        if bool(access) != bool(secret):
+            raise ValueError(
+                f"External {kind} credentials require a complete pair."
+            )
+
+
+def _flatten_credential_pairs(
+    pairs: dict[str, tuple[str | None, str | None]],
+) -> dict[str, str | None]:
+    return {
+        field: value
+        for kind, pair in pairs.items()
+        for field, value in zip(
+            (f"{kind}_access_key", f"{kind}_secret_key"),
+            pair,
+        )
+    }
+
+
+def _empty_credential_values() -> dict[str, str | None]:
+    return {
+        field: None
+        for field_pair in _CREDENTIAL_FIELD_PAIRS
+        for field in field_pair
+    }
+
+
 def _normalize_ceph_service_credentials(
     payload: StorageEndpointCreate,
     *,
@@ -206,14 +247,9 @@ def _normalize_ceph_service_credentials(
     required_identities: set[str],
     admin_required: bool,
 ) -> dict[str, str | None]:
-    admin_access, admin_secret = _normalized_credential_pair(payload, "admin")
-    runtime_access, runtime_secret = _normalized_credential_pair(payload, "runtime")
-    supervision_access, supervision_secret = _normalized_credential_pair(
-        payload, "supervision"
-    )
-    ceph_admin_access, ceph_admin_secret = _normalized_credential_pair(
-        payload, "ceph_admin"
-    )
+    pairs = _normalized_credential_pairs(payload)
+    admin_access, admin_secret = pairs["admin"]
+    supervision_access, supervision_secret = pairs["supervision"]
 
     (
         admin_access,
@@ -230,19 +266,13 @@ def _normalize_ceph_service_credentials(
         payload.service_identity_mode == "external"
         and "supervision" in required_identities,
     )
+    pairs["admin"] = (admin_access, admin_secret)
+    pairs["supervision"] = (supervision_access, supervision_secret)
 
     if provider != StorageProvider.CEPH:
-        return {
-            "admin_access_key": None,
-            "admin_secret_key": None,
-            "runtime_access_key": None,
-            "runtime_secret_key": None,
-            "supervision_access_key": None,
-            "supervision_secret_key": None,
-            "ceph_admin_access_key": None,
-            "ceph_admin_secret_key": None,
-        }
+        return _empty_credential_values()
 
+    runtime_access, runtime_secret = pairs["runtime"]
     if (
         payload.service_identity_mode == "external"
         and "runtime" in required_identities
@@ -252,32 +282,14 @@ def _normalize_ceph_service_credentials(
             "External service identities require Runtime access key and secret key."
         )
 
-    pairs = {
-        "admin": (admin_access, admin_secret),
-        "runtime": (runtime_access, runtime_secret),
-        "supervision": (supervision_access, supervision_secret),
-        "ceph_admin": (ceph_admin_access, ceph_admin_secret),
-    }
-    for kind, (access, secret) in pairs.items():
-        if bool(access) != bool(secret):
-            raise ValueError(
-                f"External {kind} credentials require a complete pair."
-            )
+    _validate_complete_credential_pairs(pairs)
+    ceph_admin_access, ceph_admin_secret = pairs["ceph_admin"]
     if payload.ceph_admin_allowed and (
         not ceph_admin_access or not ceph_admin_secret
     ):
         raise ValueError("Allowing Ceph Admin requires its access key and secret key.")
 
-    return {
-        "admin_access_key": admin_access,
-        "admin_secret_key": admin_secret,
-        "runtime_access_key": runtime_access,
-        "runtime_secret_key": runtime_secret,
-        "supervision_access_key": supervision_access,
-        "supervision_secret_key": supervision_secret,
-        "ceph_admin_access_key": ceph_admin_access,
-        "ceph_admin_secret_key": ceph_admin_secret,
-    }
+    return _flatten_credential_pairs(pairs)
 
 
 def normalize_storage_endpoint_state(

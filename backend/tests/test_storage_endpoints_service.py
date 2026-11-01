@@ -38,6 +38,7 @@ from app.models.storage_endpoint import (
     StorageEndpointUpdate,
 )
 from app.services.rgw_admin import RGWAdminError
+from app.services.storage_endpoint_normalization import normalize_storage_endpoint_state
 from app.services.storage_endpoints_service import StorageEndpointsService
 from app.utils.storage_endpoint_features import (
     AWS_DEFAULT_REGION,
@@ -147,6 +148,94 @@ def test_ceph_admin_credentials_are_write_only_endpoint_inputs(model):
     assert parsed.ceph_admin_access_key == "LEGACY-AK"
     assert parsed.ceph_admin_secret_key.get_secret_value() == "LEGACY-SK"
     assert "LEGACY-SK" not in repr(parsed)
+
+
+def test_normalize_ceph_external_credentials_preserves_complete_pairs():
+    state = normalize_storage_endpoint_state(
+        StorageEndpointCreate(
+            name="External credentials",
+            endpoint_url="https://external-credentials.example.test",
+            provider=StorageProvider.CEPH,
+            service_identity_mode="external",
+            admin_access_key="ADMIN",
+            admin_secret_key="ADMIN-SECRET",
+            runtime_access_key="RUNTIME",
+            runtime_secret_key="RUNTIME-SECRET",
+            supervision_access_key="SUPERVISION",
+            supervision_secret_key="SUPERVISION-SECRET",
+            ceph_admin_access_key="CEPH-ADMIN",
+            ceph_admin_secret_key="CEPH-ADMIN-SECRET",
+            ceph_admin_allowed=True,
+            features=parse_features_config(
+                "features:\n"
+                "  admin:\n"
+                "    enabled: true\n"
+                "  metrics:\n"
+                "    enabled: true\n"
+            ),
+        )
+    )
+
+    assert (state.admin_access_key, state.admin_secret_key) == (
+        "ADMIN",
+        "ADMIN-SECRET",
+    )
+    assert (state.runtime_access_key, state.runtime_secret_key) == (
+        "RUNTIME",
+        "RUNTIME-SECRET",
+    )
+    assert (state.supervision_access_key, state.supervision_secret_key) == (
+        "SUPERVISION",
+        "SUPERVISION-SECRET",
+    )
+    assert (state.ceph_admin_access_key, state.ceph_admin_secret_key) == (
+        "CEPH-ADMIN",
+        "CEPH-ADMIN-SECRET",
+    )
+
+
+def test_normalize_ceph_credentials_rejects_incomplete_ceph_admin_pair():
+    with pytest.raises(
+        ValueError,
+        match="External ceph_admin credentials require a complete pair",
+    ):
+        normalize_storage_endpoint_state(
+            StorageEndpointCreate(
+                name="Incomplete Ceph Admin",
+                endpoint_url="https://incomplete-ceph-admin.example.test",
+                provider=StorageProvider.CEPH,
+                ceph_admin_access_key="CEPH-ADMIN",
+            )
+        )
+
+
+def test_normalize_non_ceph_endpoint_discards_service_credentials():
+    state = normalize_storage_endpoint_state(
+        StorageEndpointCreate(
+            name="Other provider",
+            endpoint_url="https://other-provider.example.test",
+            provider=StorageProvider.OTHER,
+            admin_access_key="ADMIN",
+            admin_secret_key="ADMIN-SECRET",
+            runtime_access_key="RUNTIME",
+            runtime_secret_key="RUNTIME-SECRET",
+            supervision_access_key="SUPERVISION",
+            supervision_secret_key="SUPERVISION-SECRET",
+            ceph_admin_access_key="CEPH-ADMIN",
+            ceph_admin_secret_key="CEPH-ADMIN-SECRET",
+            ceph_admin_allowed=True,
+        )
+    )
+
+    assert state.admin_access_key is None
+    assert state.admin_secret_key is None
+    assert state.runtime_access_key is None
+    assert state.runtime_secret_key is None
+    assert state.supervision_access_key is None
+    assert state.supervision_secret_key is None
+    assert state.ceph_admin_access_key is None
+    assert state.ceph_admin_secret_key is None
+    assert state.ceph_admin_allowed is False
 
 
 def test_list_endpoints_skips_admin_ops_permissions_by_default(db_session, monkeypatch):
