@@ -324,6 +324,17 @@ def test_bucket_link_accepts_verified_tenant_user_representations(user_info):
     assert bucket_admin_ops._verified_user_target(user_info, "alice", "tenant-a")
 
 
+@pytest.mark.parametrize(
+    "user_info",
+    [
+        {"uid": "alice", "user": {"uid": "bob"}},
+        {"uid": "tenant-a$alice", "tenant": "tenant-b"},
+    ],
+)
+def test_bucket_link_rejects_conflicting_user_identity_fields(user_info):
+    assert not bucket_admin_ops._verified_user_target(user_info, "alice", "tenant-a")
+
+
 def test_bucket_link_missing_target_retains_not_found_response():
     ctx, _ = _context()
     with pytest.raises(HTTPException) as raised:

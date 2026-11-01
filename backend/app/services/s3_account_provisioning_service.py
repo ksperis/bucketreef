@@ -24,7 +24,11 @@ from app.services.s3_account_rgw_context_service import S3AccountRgwContextServi
 from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
 from app.services.tags_service import TagsService
 from app.utils.rgw_identifiers import generate_rgw_account_id
-from app.utils.rgw_payloads import extract_rgw_account_ids, extract_rgw_account_tenant
+from app.utils.rgw_payloads import (
+    extract_rgw_account_ids,
+    extract_rgw_account_name,
+    extract_rgw_account_tenant,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -70,8 +74,7 @@ class S3AccountProvisioningService:
             )
         if not isinstance(result, dict):
             raise ValueError("RGW did not confirm the created account identity")
-        account_payload = result.get("account")
-        returned_ids = extract_rgw_account_ids(result, account_payload)
+        returned_ids = extract_rgw_account_ids(result)
         if returned_ids != {expected_id}:
             raise ValueError("RGW did not confirm the requested account identity")
 
@@ -219,13 +222,8 @@ class S3AccountProvisioningService:
         payload: S3AccountCreate,
         rgw_account_id: str,
     ) -> None:
-        nested_account = remote.get("account")
-        remote_ids = extract_rgw_account_ids(remote, nested_account)
-        remote_name = None
-        for record in (nested_account, remote):
-            if isinstance(record, dict) and record.get("name") is not None:
-                remote_name = record.get("name")
-                break
+        remote_ids = extract_rgw_account_ids(remote)
+        remote_name = extract_rgw_account_name(remote)
         if (
             remote_name != payload.name
             or remote_ids != {rgw_account_id}

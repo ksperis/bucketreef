@@ -44,9 +44,21 @@ def test_extract_rgw_account_ids_ignores_empty_values_and_normalizes_scalars():
     ) == {"42"}
 
 
+def test_extract_rgw_account_ids_reads_nested_account_payloads_and_preserves_conflicts():
+    assert extract_rgw_account_ids(
+        {"id": "RGW001", "account": {"account_id": "RGW002"}}
+    ) == {"RGW001", "RGW002"}
+
+
 def test_extract_rgw_account_id_prefers_account_id_alias():
     assert extract_rgw_account_id(
         {"account_id": " RGW002 ", "id": "RGW001"}
+    ) == "RGW002"
+
+
+def test_extract_rgw_account_id_prefers_nested_account_payload():
+    assert extract_rgw_account_id(
+        {"id": "RGW001", "account": {"account_id": " RGW002 "}}
     ) == "RGW002"
 
 
@@ -54,6 +66,9 @@ def test_extract_rgw_account_name_normalizes_supported_aliases():
     assert extract_rgw_account_name({"account_name": " Account "}) == "Account"
     assert extract_rgw_account_name({"name": " Name "}) == "Name"
     assert extract_rgw_account_name({"display_name": " Display "}) == "Display"
+    assert extract_rgw_account_name(
+        {"name": "Wrapper", "account": {"name": " Nested "}}
+    ) == "Nested"
 
 
 def test_resolve_account_scope_with_account_id():

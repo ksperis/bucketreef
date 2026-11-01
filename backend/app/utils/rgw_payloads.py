@@ -57,6 +57,15 @@ def extract_rgw_quota_enabled(
     return None
 
 
+def _rgw_account_payload_candidates(payload: Any) -> tuple[dict[str, Any], ...]:
+    if not isinstance(payload, dict):
+        return ()
+    nested = payload.get("account")
+    if isinstance(nested, dict):
+        return nested, payload
+    return (payload,)
+
+
 def extract_rgw_account_ids(*records: object) -> set[str]:
     """Collect account identifiers from RGW response records.
 
@@ -66,9 +75,9 @@ def extract_rgw_account_ids(*records: object) -> set[str]:
     return {
         account_id
         for record in records
-        if isinstance(record, dict)
+        for candidate in _rgw_account_payload_candidates(record)
         for field in ("id", "account_id")
-        if (account_id := normalize_optional_scalar(record.get(field)))
+        if (account_id := normalize_optional_scalar(candidate.get(field)))
     }
 
 
@@ -78,34 +87,26 @@ def extract_rgw_account_id(payload: Any) -> str | None:
     Use :func:`extract_rgw_account_ids` when all aliases must be compared so a
     conflicting provider identity can be rejected.
     """
-    if not isinstance(payload, dict):
-        return None
-    for field in ("account_id", "id"):
-        if account_id := normalize_optional_scalar(payload.get(field)):
-            return account_id
+    for record in _rgw_account_payload_candidates(payload):
+        for field in ("account_id", "id"):
+            if account_id := normalize_optional_scalar(record.get(field)):
+                return account_id
     return None
 
 
 def extract_rgw_account_name(payload: Any) -> str | None:
-    if not isinstance(payload, dict):
-        return None
-    for field in ("account_name", "name", "display_name"):
-        if account_name := normalize_optional_string(payload.get(field)):
-            return account_name
+    for record in _rgw_account_payload_candidates(payload):
+        for field in ("account_name", "name", "display_name"):
+            if account_name := normalize_optional_string(record.get(field)):
+                return account_name
     return None
 
 
 def extract_rgw_account_tenant(payload: Any) -> str:
     """Return the account tenant while rejecting conflicting RGW payload fields."""
-    if not isinstance(payload, dict):
-        return ""
-    candidates = [payload]
-    nested = payload.get("account")
-    if isinstance(nested, dict):
-        candidates.append(nested)
     tenants = {
         str(candidate.get("tenant") or "").strip()
-        for candidate in candidates
+        for candidate in _rgw_account_payload_candidates(payload)
         if "tenant" in candidate
     }
     if len(tenants) > 1:

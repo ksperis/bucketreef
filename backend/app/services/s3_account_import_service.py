@@ -14,6 +14,7 @@ from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
+from app.utils.rgw_payloads import extract_rgw_account_name
 
 
 @dataclass(frozen=True)
@@ -128,14 +129,7 @@ class S3AccountImportService:
         rgw_info = admin.get_account(item.rgw_account_id, allow_not_found=True)
         if not rgw_info or rgw_info.get("not_found"):
             raise ValueError(f"S3Account {item.rgw_account_id} not found in RGW")
-        account_info = (
-            rgw_info.get("account")
-            if isinstance(rgw_info.get("account"), dict)
-            else rgw_info
-        )
-        account_name = str(
-            account_info.get("name") or item.name or item.rgw_account_id
-        )
+        account_name = extract_rgw_account_name(rgw_info) or item.name or item.rgw_account_id
         root_uid, rgw_tenant = self.account_roots.resolve_import_identity(
             admin,
             rgw_info,
