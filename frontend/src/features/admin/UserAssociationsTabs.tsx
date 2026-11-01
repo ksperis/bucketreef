@@ -13,8 +13,7 @@ import UserAccountAssociationsPanel, {
   type UserAccountAssociationsState,
 } from "./UserAccountAssociationsPanel";
 import { useUserI18n } from "./userMessage";
-
-export type AssociationTab = "accounts" | "s3_users" | "connections" | "openstack";
+import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 
 type AssociationOption = {
   id: number;
@@ -56,8 +55,8 @@ type ConnectionAssociationsState = {
 type OpenStackAssociationsState = ConnectionAssociationsState;
 
 type UserAssociationsTabsProps = {
-  activeTab: AssociationTab;
-  onTabChange: (tab: AssociationTab) => void;
+  activeTab: StorageAssociationTab;
+  onTabChange: (tab: StorageAssociationTab) => void;
   maxVisibleOptions: number;
   showPortalRole: boolean;
   accounts: UserAccountAssociationsState;

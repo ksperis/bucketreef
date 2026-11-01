@@ -3,11 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { AccountAccessGrant } from "../../api/accountAccess";
 import type { S3UserMembership } from "../../api/users";
 import type { AccountSelection } from "./UserAccountAssociationsPanel";
-import type { AssociationTab } from "./UserAssociationsTabs";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
+import useAdminStorageAssociationEditorState, {
+  type StorageAssociationTab,
+} from "./useAdminStorageAssociationEditorState";
 
 type AssociationEditorSeed = {
   selectedS3Accounts?: AccountSelection[];
@@ -15,7 +16,7 @@ type AssociationEditorSeed = {
   selectedS3Connections?: number[];
   selectedOpenStackClouds?: number[];
   selectedGroups?: number[];
-  associationsTab?: AssociationTab;
+  associationsTab?: StorageAssociationTab;
 };
 
 export default function useAdminUserAssociationEditorState() {
@@ -24,24 +25,18 @@ export default function useAdminUserAssociationEditorState() {
   const [selectedS3Connections, setSelectedS3Connections] = useState<number[]>([]);
   const [selectedOpenStackClouds, setSelectedOpenStackClouds] = useState<number[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<number[]>([]);
-  const [accountAccessChoice, setAccountAccessChoice] = useState<
-    Record<number, AccountAccessGrant>
-  >({});
-  const [associationsTab, setAssociationsTab] = useState<AssociationTab>("accounts");
-  const accountPicker = useAdminAssociationPickerState();
-  const s3UserPicker = useAdminAssociationPickerState();
-  const connectionPicker = useAdminAssociationPickerState();
-  const openStackPicker = useAdminAssociationPickerState();
+  const storageAssociations = useAdminStorageAssociationEditorState();
   const groupPicker = useAdminAssociationPickerState();
+  const clearStoragePendingSelections =
+    storageAssociations.clearPendingSelections;
+  const resetStorageAssociations = storageAssociations.reset;
+  const setGroupSelections = groupPicker.setSelections;
+  const resetGroupPicker = groupPicker.reset;
 
   const clearPendingSelections = useCallback(() => {
-    accountPicker.setSelections([]);
-    s3UserPicker.setSelections([]);
-    connectionPicker.setSelections([]);
-    openStackPicker.setSelections([]);
-    groupPicker.setSelections([]);
-    setAccountAccessChoice({});
-  }, [accountPicker, connectionPicker, groupPicker, openStackPicker, s3UserPicker]);
+    clearStoragePendingSelections();
+    setGroupSelections([]);
+  }, [clearStoragePendingSelections, setGroupSelections]);
 
   const reset = useCallback((seed: AssociationEditorSeed = {}) => {
     setSelectedS3Accounts(seed.selectedS3Accounts ?? []);
@@ -49,45 +44,41 @@ export default function useAdminUserAssociationEditorState() {
     setSelectedS3Connections(seed.selectedS3Connections ?? []);
     setSelectedOpenStackClouds(seed.selectedOpenStackClouds ?? []);
     setSelectedGroups(seed.selectedGroups ?? []);
-    setAccountAccessChoice({});
-    setAssociationsTab(seed.associationsTab ?? "accounts");
-    accountPicker.reset();
-    s3UserPicker.reset();
-    connectionPicker.reset();
-    openStackPicker.reset();
-    groupPicker.reset();
-  }, [accountPicker, connectionPicker, groupPicker, openStackPicker, s3UserPicker]);
+    resetStorageAssociations(seed.associationsTab);
+    resetGroupPicker();
+  }, [resetGroupPicker, resetStorageAssociations]);
 
   return {
     accounts: {
       selected: selectedS3Accounts,
       setSelected: setSelectedS3Accounts,
-      accessChoice: accountAccessChoice,
-      setAccessChoice: setAccountAccessChoice,
-      picker: accountPicker,
+      accessChoice: storageAssociations.accounts.accessChoice,
+      setAccessChoice: storageAssociations.accounts.setAccessChoice,
+      picker: storageAssociations.accounts.picker,
     },
     s3Users: {
       selected: selectedS3Users,
       setSelected: setSelectedS3Users,
-      picker: s3UserPicker,
+      picker: storageAssociations.s3Users.picker,
     },
     connections: {
       selected: selectedS3Connections,
       setSelected: setSelectedS3Connections,
-      picker: connectionPicker,
+      picker: storageAssociations.connections.picker,
     },
     openStack: {
       selected: selectedOpenStackClouds,
       setSelected: setSelectedOpenStackClouds,
-      picker: openStackPicker,
+      picker: storageAssociations.openStack.picker,
     },
     groups: {
       selected: selectedGroups,
       setSelected: setSelectedGroups,
       picker: groupPicker,
     },
-    tab: associationsTab,
-    setTab: setAssociationsTab,
+    tab: storageAssociations.tab,
+    setTab: storageAssociations.setTab,
+    closePickers: storageAssociations.closePickers,
     clearPendingSelections,
     reset,
   };

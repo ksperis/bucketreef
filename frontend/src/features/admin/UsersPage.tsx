@@ -55,7 +55,7 @@ import {
   clearAdminPrincipalEditRequest,
   readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
-import UserAssociationsTabs, { type AssociationTab } from "./UserAssociationsTabs";
+import UserAssociationsTabs from "./UserAssociationsTabs";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserGroupsSelector from "./UserGroupsSelector";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
@@ -65,6 +65,7 @@ import { adminUserEditorSignature, emptyAdminUserEditorSignature } from "./admin
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
+import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminUserLdapImport from "./useAdminUserLdapImport";
 
@@ -769,7 +770,7 @@ export default function UsersPage() {
     const hasS3Users = nextSelectedS3Users.length > 0;
     const hasConnections = nextSelectedS3Connections.length > 0;
     const hasOpenStack = nextSelectedOpenStackClouds.length > 0;
-    const initialAssociationsTab: AssociationTab = hasAccounts
+    const initialAssociationsTab: StorageAssociationTab = hasAccounts
       ? "accounts"
       : hasS3Users
         ? "s3_users"
@@ -1102,10 +1103,7 @@ export default function UsersPage() {
                 onTabChange={(nextTab) => {
                   const tabChanged = nextTab !== createAssociations.tab;
                   createAssociations.setTab(nextTab);
-                  createAssociations.accounts.picker.setOpen(false);
-                  createAssociations.s3Users.picker.setOpen(false);
-                  createAssociations.connections.picker.setOpen(false);
-                  createAssociations.openStack.picker.setOpen(false);
+                  createAssociations.closePickers();
                   if (tabChanged) {
                     void ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
                   }
@@ -1366,10 +1364,7 @@ export default function UsersPage() {
                 onTabChange={(nextTab) => {
                   const tabChanged = nextTab !== editAssociations.tab;
                   editAssociations.setTab(nextTab);
-                  editAssociations.accounts.picker.setOpen(false);
-                  editAssociations.s3Users.picker.setOpen(false);
-                  editAssociations.connections.picker.setOpen(false);
-                  editAssociations.openStack.picker.setOpen(false);
+                  editAssociations.closePickers();
                   if (tabChanged) {
                     void ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
                   }
