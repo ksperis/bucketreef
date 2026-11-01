@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   collectUsageHistory,
   listUsageHistory,
@@ -39,6 +39,11 @@ import { useUsageHistoryI18n, type UsageHistoryText } from "../../components/usa
 import type { UiLanguage } from "../../components/language";
 import { intlLocale } from "../../i18n";
 import { ADMIN_PAGE_CONTRACTS, WORKSPACE_CONTRACTS } from "../../navigation/workspacePages";
+import useAdminResourceController from "./useAdminResourceController";
+
+function formatUsageHistoryApiError(error: unknown): string {
+  return extractApiError(error, "");
+}
 
 function dateDaysAgo(days: number): string {
   const now = new Date();
@@ -199,93 +204,54 @@ export default function UsageHistoryPage() {
   const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
-  const [endpointsLoading, setEndpointsLoading] = useState(false);
-  const [endpointsError, setEndpointsError] = useState<string | null>(null);
-
-  const [history, setHistory] = useState<UsageHistoryResponse | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
-
   const [collectLoading, setCollectLoading] = useState(false);
   const [collectResult, setCollectResult] = useState<Awaited<ReturnType<typeof collectUsageHistory>> | null>(null);
   const [collectError, setCollectError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadEndpoints() {
-      if (!generalSettings.usage_history_enabled) return;
-      setEndpointsLoading(true);
-      setEndpointsError(null);
-      try {
-        const data = await listStorageEndpoints();
-        if (!cancelled) {
-          setEndpoints(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setEndpoints([]);
-          setEndpointsError(extractApiError(err, ""));
-        }
-      } finally {
-        if (!cancelled) {
-          setEndpointsLoading(false);
-        }
-      }
-    }
-    void loadEndpoints();
-    return () => {
-      cancelled = true;
-    };
-  }, [generalSettings.usage_history_enabled]);
+  const usageHistoryEnabled = generalSettings.usage_history_enabled;
+  const loadEndpoints = useCallback(() => listStorageEndpoints(), []);
+  const {
+    resource: endpoints,
+    loading: endpointsLoading,
+    error: endpointsError,
+  } = useAdminResourceController<StorageEndpoint[]>({
+    loadResource: loadEndpoints,
+    initialResource: [],
+    formatError: formatUsageHistoryApiError,
+    enabled: usageHistoryEnabled,
+    resetResourceOnError: true,
+    resetResourceWhenDisabled: true,
+    initialLoading: false,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadHistory() {
-      if (!generalSettings.usage_history_enabled) return;
-      setHistoryLoading(true);
-      setHistoryError(null);
-      try {
-        const data = await listUsageHistory({
-          granularity,
-          endpointId: selectedEndpointId,
-          subjectType,
-          start: startDate,
-          end: endDate,
-          page: 1,
-          pageSize: 100,
-          sortBy,
-          sortDir,
-        });
-        if (!cancelled) {
-          setHistory(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setHistory(null);
-          setHistoryError(extractApiError(err, ""));
-        }
-      } finally {
-        if (!cancelled) {
-          setHistoryLoading(false);
-        }
-      }
-    }
-    void loadHistory();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    endDate,
-    generalSettings.usage_history_enabled,
-    granularity,
+  const loadHistory = useCallback(
+    () => listUsageHistory({
+      granularity,
+      endpointId: selectedEndpointId,
+      subjectType,
+      start: startDate,
+      end: endDate,
+      page: 1,
+      pageSize: 100,
+      sortBy,
+      sortDir,
+    }),
+    [endDate, granularity, selectedEndpointId, sortBy, sortDir, startDate, subjectType],
+  );
+  const {
+    resource: history,
+    loading: historyLoading,
+    error: historyError,
+  } = useAdminResourceController<UsageHistoryResponse | null>({
+    loadResource: loadHistory,
+    initialResource: null,
+    formatError: formatUsageHistoryApiError,
+    enabled: usageHistoryEnabled,
     reloadToken,
-    selectedEndpointId,
-    sortBy,
-    sortDir,
-    startDate,
-    subjectType,
-  ]);
+    resetResourceOnError: true,
+    resetResourceWhenDisabled: true,
+    initialLoading: false,
+  });
 
   const endpointsErrorMessage = endpointsError == null ? null : endpointsError || text("loadEndpointsError");
   const historyErrorMessage = historyError == null ? null : historyError || text("loadHistoryError");

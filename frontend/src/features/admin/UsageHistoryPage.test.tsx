@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeneralSettings } from "../../api/appSettings";
@@ -170,6 +170,33 @@ describe("UsageHistoryPage", () => {
     await waitFor(() => expect(mocks.listUsageHistory).toHaveBeenLastCalledWith(expect.objectContaining({
       endpointId: 7, granularity: "hourly", subjectType: "s3_user", start: "2026-06-01", end: "2026-06-08", sortBy: "ratio", sortDir: "asc",
     })));
+  });
+
+  it("ignores history data from a scope that is no longer selected", async () => {
+    let resolveInitialHistory: ((value: UsageHistoryResponse) => void) | undefined;
+    mocks.listUsageHistory.mockImplementation((options: { endpointId: number | null }) => {
+      if (options.endpointId == null) {
+        return new Promise<UsageHistoryResponse>((resolve) => {
+          resolveInitialHistory = resolve;
+        });
+      }
+      const current = makeHistory();
+      current.items[0] = { ...current.items[0], subject_name: "Tenant B" };
+      return Promise.resolve(current);
+    });
+
+    renderPage();
+    await waitFor(() => expect(mocks.listUsageHistory).toHaveBeenCalledWith(
+      expect.objectContaining({ endpointId: null }),
+    ));
+
+    fireEvent.change(screen.getByLabelText("Endpoint"), { target: { value: "7" } });
+    expect(await screen.findByText("Tenant B")).toBeInTheDocument();
+
+    await act(async () => resolveInitialHistory?.(makeHistory()));
+
+    expect(screen.getByText("Tenant B")).toBeInTheDocument();
+    expect(screen.queryByText("Tenant A")).not.toBeInTheDocument();
   });
 
   it("sorts usage history from the shared table headers", async () => {
