@@ -1723,6 +1723,60 @@ def test_ceph_admin_bucket_listing_owner_name_filter_is_strict_for_account_name_
     assert [item.name for item in response.items] == []
 
 
+def test_ceph_admin_bucket_listing_owner_name_reads_nested_account_name():
+    payload = [
+        {"name": "bucket-account", "owner": "RGW00000000000000001"},
+        {"name": "bucket-other", "owner": "RGW00000000000000002"},
+    ]
+    ctx, _ = _build_ctx(endpoint_id=186, payload=payload)
+
+    class NestedAccountAdmin(FakeRGWAdmin):
+        def get_account(
+            self,
+            owner_id: str,
+            allow_not_found: bool = True,
+            allow_not_implemented: bool = False,
+        ):
+            return {
+                "name": "Wrong wrapper name",
+                "account": {
+                    "id": owner_id,
+                    "name": f"Owner-{owner_id}",
+                },
+            }
+
+        def get_user(self, uid: str, tenant: str | None = None, allow_not_found: bool = True):
+            return None
+
+    ctx = replace(ctx, rgw_admin=NestedAccountAdmin(payload))
+    advanced_filter = json.dumps(
+        {
+            "match": "all",
+            "rules": [
+                {
+                    "field": "owner_name",
+                    "op": "contains",
+                    "value": "owner-rgw00000000000000001",
+                }
+            ],
+        }
+    )
+
+    response = buckets_router.list_buckets(
+        page=1,
+        page_size=25,
+        filter=None,
+        advanced_filter=advanced_filter,
+        sort_by="name",
+        sort_dir="asc",
+        include=[],
+        with_stats=False,
+        ctx=ctx,
+    )
+
+    assert [item.name for item in response.items] == ["bucket-account"]
+
+
 def test_ceph_admin_bucket_listing_owner_name_filter_loads_owner_metadata_when_bulk_without_stats():
     class NamesOnlyWithoutStatsAdmin:
         def __init__(self):
