@@ -12,8 +12,6 @@ import {
 import {
   csvEscape,
   formatBucketColumnDetail,
-  formatOptionalBytes,
-  formatOptionalCount,
   formatOwnerSuspended,
   formatQuotaBytes,
   formatQuotaObjects,
@@ -76,7 +74,7 @@ const STATIC_BUCKET_EXPORT_COLUMNS: Partial<
   },
   owner_used_bytes: {
     label: "Owner used",
-    getValue: (bucket) => formatOptionalBytes(bucket.owner_used_bytes),
+    getValue: (bucket) => formatBytes(bucket.owner_used_bytes),
   },
   owner_quota_max_size_bytes: {
     label: "Owner quota",
@@ -89,7 +87,7 @@ const STATIC_BUCKET_EXPORT_COLUMNS: Partial<
   },
   owner_object_count: {
     label: "Owner objects",
-    getValue: (bucket) => formatOptionalCount(bucket.owner_object_count),
+    getValue: (bucket) => formatNumber(bucket.owner_object_count),
   },
   owner_quota_max_objects: {
     label: "Owner object quota",

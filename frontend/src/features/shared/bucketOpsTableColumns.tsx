@@ -14,8 +14,6 @@ import {
 } from "./bucketOpsListState";
 import {
   formatBucketColumnDetail,
-  formatOptionalBytes,
-  formatOptionalCount,
   formatOwnerSuspended,
   formatQuotaBytes,
   formatQuotaObjects,
@@ -139,7 +137,7 @@ export function buildBucketOpsDataColumns({
       field: null,
       expensive: true,
       headerClassName: "w-36",
-      render: (bucket) => formatOptionalBytes(bucket.owner_used_bytes),
+      render: (bucket) => formatBytes(bucket.owner_used_bytes),
     },
     {
       id: "owner_quota_max_size_bytes",
@@ -211,7 +209,7 @@ export function buildBucketOpsDataColumns({
       field: null,
       expensive: true,
       headerClassName: "w-36",
-      render: (bucket) => formatOptionalCount(bucket.owner_object_count),
+      render: (bucket) => formatNumber(bucket.owner_object_count),
     },
     {
       id: "owner_quota_max_objects",
