@@ -16,6 +16,7 @@ from app.routers.auth_common import (
     AuthAttemptContext,
     _finish_user_primary_auth,
     external_identity_link_response,
+    external_identity_reauthentication_response,
     settings,
 )
 from app.routers.auth_cookies import (
@@ -135,24 +136,9 @@ def complete_oidc_login(
             request_origin=request_origin,
             browser_secret_hash=external_identity_browser_binding_hash(request),
         )
-    except ExternalIdentityReauthenticationRequiredError as exc:
-        attempt.clear_rate_limit()
-        return AuthenticationResponse(
-            status="link_reauthentication_required",
-            user=None,
-            session=None,
-            redirect_path=None,
-            recovery_codes=None,
-            link_attempt_id=exc.attempt_id,
-        )
-    except OIDCLinkContinuationRequiredError as exc:
-        attempt.clear_rate_limit()
-        return AuthenticationResponse(
-            status="link_reauthentication_required",
-            user=None,
-            session=None,
-            redirect_path=None,
-            recovery_codes=None,
+    except (ExternalIdentityReauthenticationRequiredError, OIDCLinkContinuationRequiredError) as exc:
+        return external_identity_reauthentication_response(
+            attempt=attempt,
             link_attempt_id=exc.attempt_id,
         )
     except ExternalIdentityLinkRequiredError as exc:
