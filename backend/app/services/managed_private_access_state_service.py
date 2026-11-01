@@ -57,6 +57,17 @@ class ManagedPrivateAccessStateService:
         provisioning.updated_at = utcnow()
         self.db.commit()
 
+    def mark_deleting(self, provisioning: ManagedPrivateAccess) -> None:
+        provisioning.state = "deleting"
+        provisioning.updated_at = utcnow()
+        self.db.commit()
+
+    def mark_cleanup_pending(self, provisioning: ManagedPrivateAccess, error: str) -> None:
+        provisioning.state = "cleanup_pending"
+        provisioning.cleanup_error = error
+        provisioning.updated_at = utcnow()
+        self.db.commit()
+
     @staticmethod
     def string_list(value: object) -> list[str]:
         if not isinstance(value, list):
