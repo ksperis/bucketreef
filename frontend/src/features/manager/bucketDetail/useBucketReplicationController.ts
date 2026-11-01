@@ -151,7 +151,7 @@ export function useBucketReplicationController({
     } finally {
       setLoading(false);
     }
-  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, setStatus]);
 
   const openEditorDraft = useCallback((
     nextDraft: Record<string, unknown>,
@@ -197,7 +197,7 @@ export function useBucketReplicationController({
   const updateRole = useCallback((value: string) => {
     setDraftConfiguration((current) => ({ ...current, Role: value }));
     setEditorError(null);
-  }, []);
+  }, [setDraftConfiguration, setEditorError]);
 
   const updateRule = useCallback(
     (uiId: string, patch: ReplicationVisualRulePatch) => {
@@ -216,7 +216,7 @@ export function useBucketReplicationController({
       });
       setEditorError(null);
     },
-    [draftRuleIds],
+    [draftRuleIds, setDraftConfiguration, setEditorError],
   );
 
   const addRule = useCallback(() => {
@@ -233,7 +233,7 @@ export function useBucketReplicationController({
     ]);
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, []);
+  }, [setDraftConfiguration, setEditorError, setEditorTargetIndex]);
 
   const removeRule = useCallback(
     (uiId: string) => {
@@ -250,7 +250,7 @@ export function useBucketReplicationController({
       );
       setEditorError(null);
     },
-    [draftRuleIds],
+    [draftRuleIds, setDraftConfiguration, setEditorError],
   );
 
   const persistConfiguration = useCallback(async (nextConfiguration: Record<string, unknown>) => {
@@ -289,7 +289,7 @@ export function useBucketReplicationController({
     } finally {
       setSaving(false);
     }
-  }, [applyBaseline, persistConfiguration, saving]);
+  }, [applyBaseline, persistConfiguration, saving, setStatus]);
 
   const removeRuleDirect = useCallback((index: number) => {
     const nextConfiguration = cloneReplicationConfiguration(configuration);
@@ -381,6 +381,9 @@ export function useBucketReplicationController({
     replaceDraft,
     saving,
     closeEditor,
+    setDraftConfiguration,
+    setEditorError,
+    setStatus,
   ]);
 
   const summaryRules = replicationConfigurationRules(configuration);
