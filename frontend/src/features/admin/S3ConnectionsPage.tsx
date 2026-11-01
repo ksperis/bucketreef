@@ -26,8 +26,6 @@ import {
   updateAdminS3Connection,
   validateAdminS3ConnectionCredentials,
 } from "../../api/s3ConnectionsAdmin";
-import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
-import { listMinimalUsers, type UserSummary } from "../../api/users";
 import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
 import { extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
@@ -62,6 +60,7 @@ import { useAdminI18n } from "./adminI18n";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminPaginationState from "./useAdminPaginationState";
 import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
+import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 
 type EditTab = "general" | "users" | "groups";
 
@@ -88,8 +87,12 @@ export default function S3ConnectionsPage() {
 
   const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
   const [loadingEndpoints, setLoadingEndpoints] = useState(false);
-  const [portalUsers, setPortalUsers] = useState<UserSummary[]>([]);
-  const [uiGroups, setUiGroups] = useState<UiGroupSummary[]>([]);
+  const {
+    users: portalUsers,
+    groups: uiGroups,
+    loadUsers: loadPortalUsers,
+    loadGroups,
+  } = useAdminPrincipalCatalogs();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -253,28 +256,9 @@ export default function S3ConnectionsPage() {
   }, []);
 
   useEffect(() => {
-    const loadPortalUsers = async () => {
-      try {
-        const data = await listMinimalUsers();
-        setPortalUsers(data);
-      } catch {
-        setPortalUsers([]);
-      }
-    };
-    loadPortalUsers();
-  }, []);
-
-  useEffect(() => {
-    const loadGroups = async () => {
-      try {
-        const data = await listMinimalGroups();
-        setUiGroups(data);
-      } catch {
-        setUiGroups([]);
-      }
-    };
-    loadGroups();
-  }, []);
+    void loadPortalUsers();
+    void loadGroups();
+  }, [loadGroups, loadPortalUsers]);
 
   const createValidationPayload = useMemo(
     () =>

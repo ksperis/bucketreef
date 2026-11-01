@@ -19,9 +19,7 @@ import {
   type S3UserGroupLink,
   type S3UserUserLink,
 } from "../../api/s3Users";
-import { listMinimalGroups, type UiGroupSummary } from "../../api/groups";
 import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
-import { listMinimalUsers, type UserSummary } from "../../api/users";
 import PageHeader from "../../components/PageHeader";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import SettingsForm from "../../components/settings/SettingsForm";
@@ -64,6 +62,7 @@ import AdminS3UsersList, { type AdminS3UsersSortField } from "./AdminS3UsersList
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
+import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 
 type EditTab = "general" | "users" | "groups" | "manager";
 
@@ -73,11 +72,13 @@ export default function S3UsersPage() {
   const { generalSettings } = useGeneralSettings();
   const managedTenantCreationEnabled = generalSettings.allow_managed_rgw_tenant_creation;
   const [users, setUsers] = useState<S3User[]>([]);
-  const [portalUsers, setPortalUsers] = useState<UserSummary[]>([]);
-  const [portalUsersLoaded, setPortalUsersLoaded] = useState(false);
-  const [uiGroups, setUiGroups] = useState<UiGroupSummary[]>([]);
-  const [uiGroupsLoaded, setUiGroupsLoaded] = useState(false);
-  const [uiGroupsLoading, setUiGroupsLoading] = useState(false);
+  const {
+    users: portalUsers,
+    groups: uiGroups,
+    groupsLoading: uiGroupsLoading,
+    loadUsers: loadPortalUsersIfNeeded,
+    loadGroups: loadGroupsIfNeeded,
+  } = useAdminPrincipalCatalogs();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const {
@@ -221,31 +222,6 @@ export default function S3UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  const loadPortalUsersIfNeeded = useCallback(async () => {
-    if (portalUsersLoaded) return;
-    try {
-      const data = await listMinimalUsers();
-      setPortalUsers(data);
-      setPortalUsersLoaded(true);
-    } catch {
-      setPortalUsers([]);
-    }
-  }, [portalUsersLoaded]);
-
-  const loadGroupsIfNeeded = useCallback(async () => {
-    if (uiGroupsLoaded || uiGroupsLoading) return;
-    setUiGroupsLoading(true);
-    try {
-      const data = await listMinimalGroups();
-      setUiGroups(data);
-      setUiGroupsLoaded(true);
-    } catch {
-      setUiGroups([]);
-    } finally {
-      setUiGroupsLoading(false);
-    }
-  }, [uiGroupsLoaded, uiGroupsLoading]);
 
   const loadEndpointsIfNeeded = useCallback(async () => {
     if (endpointsLoaded || loadingEndpoints) return;
