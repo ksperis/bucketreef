@@ -69,7 +69,7 @@ class HealthCheckResult:
     check_mode: Literal["http", "s3"]
 
 
-def _percentile(values: list[int], percentile: float) -> Optional[int]:
+def percentile(values: list[int], percentile: float) -> Optional[int]:
     if not values:
         return None
     sorted_values = sorted(values)
@@ -85,7 +85,7 @@ def _percentile(values: list[int], percentile: float) -> Optional[int]:
     return int(round(d0 + d1))
 
 
-def _compute_status(
+def compute_status(
     http_status: Optional[int],
     latency_ms: Optional[int],
     error_message: Optional[str],
@@ -102,13 +102,13 @@ def _compute_status(
     return HealthCheckStatus.UP
 
 
-def _coerce_check_mode(value: object) -> Literal["http", "s3"]:
+def coerce_check_mode(value: object) -> Literal["http", "s3"]:
     return "s3" if str(value or "").strip().lower() == "s3" else "http"
 
 
 def resolve_healthcheck_profile(endpoint: StorageEndpoint) -> HealthCheckProfile:
     features = normalize_features(endpoint.provider, endpoint.features)
     healthcheck_cfg = features["healthcheck"]
-    mode = _coerce_check_mode(healthcheck_cfg["mode"])
+    mode = coerce_check_mode(healthcheck_cfg["mode"])
     target_url = str(healthcheck_cfg["url"] or endpoint.endpoint_url or "").strip()
     return HealthCheckProfile(mode=mode, target_url=target_url)

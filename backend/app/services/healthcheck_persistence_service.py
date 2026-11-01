@@ -24,7 +24,7 @@ from app.services.healthcheck_common import (
     DEFAULT_ROLLUP_RESOLUTION_SECONDS,
     DEFAULT_SCOPE,
     HealthCheckResult,
-    _percentile,
+    percentile,
 )
 from app.utils.time import utcnow
 
@@ -267,7 +267,7 @@ class HealthCheckPersistenceService:
         entry.unknown_count = counts.get(HealthCheckStatus.UNKNOWN.value, 0)
         entry.latency_sample_count = len(latencies)
         entry.latency_avg_ms = int(round(sum(latencies) / len(latencies))) if latencies else None
-        entry.latency_p95_ms = _percentile(latencies, 0.95) if latencies else None
+        entry.latency_p95_ms = percentile(latencies, 0.95) if latencies else None
         entry.updated_at = utcnow()
 
     def _prune_history(self) -> None:
