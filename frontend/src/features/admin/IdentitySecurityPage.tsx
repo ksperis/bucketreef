@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { ListActionButton } from "../../components/list/ListControls";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   adminRevokeSession,
@@ -29,6 +29,7 @@ import { extractApiError } from "../../utils/apiError";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { uiPrincipalRoleLabel } from "./AssociationSummary";
 import { useIdentitySecurityI18n, type IdentitySecurityMessageKey, type IdentitySecurityText } from "./identitySecurityMessage";
+import useAdminResourceController from "./useAdminResourceController";
 
 type PendingLinkDecision = {
   request: ExternalLinkRequest;
@@ -36,6 +37,10 @@ type PendingLinkDecision = {
 };
 
 type IdentitySecurityView = "requests" | "sessions";
+type IdentitySecurityResource = {
+  sessions: AdminSecuritySession[];
+  requests: ExternalLinkRequest[];
+};
 
 const AUTH_TYPE_LABELS: Record<string, IdentitySecurityMessageKey> = {
   ldap: "ldap",
@@ -90,10 +95,6 @@ export default function IdentitySecurityPage() {
   const textRef = useRef(text);
   textRef.current = text;
   const [activeView, setActiveView] = useState<IdentitySecurityView>("requests");
-  const [sessions, setSessions] = useState<AdminSecuritySession[]>([]);
-  const [requests, setRequests] = useState<ExternalLinkRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pendingLinkDecision, setPendingLinkDecision] = useState<PendingLinkDecision | null>(null);
   const [pendingSession, setPendingSession] = useState<AdminSecuritySession | null>(null);
@@ -108,24 +109,28 @@ export default function IdentitySecurityPage() {
   }), [locale, text]);
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp(stepUpLabels);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [nextSessions, nextRequests] = await Promise.all([
-        listAdminSessions(),
-        listExternalLinkRequests(),
-      ]);
-      setSessions(nextSessions);
-      setRequests(nextRequests);
-    } catch (loadError) {
-      setError(extractApiError(loadError, textRef.current("loadError")));
-    } finally {
-      setLoading(false);
-    }
+  const loadSecurity = useCallback(async (): Promise<IdentitySecurityResource> => {
+    const [sessions, requests] = await Promise.all([
+      listAdminSessions(),
+      listExternalLinkRequests(),
+    ]);
+    return { sessions, requests };
   }, []);
-
-  useEffect(() => { void load(); }, [load]);
+  const formatLoadError = useCallback(
+    (failure: unknown) => extractApiError(failure, textRef.current("loadError")),
+    [],
+  );
+  const {
+    resource: { sessions, requests },
+    loading,
+    error,
+    setError,
+    refresh: load,
+  } = useAdminResourceController<IdentitySecurityResource>({
+    loadResource: loadSecurity,
+    initialResource: { sessions: [], requests: [] },
+    formatError: formatLoadError,
+  });
 
   const decide = async () => {
     if (!pendingLinkDecision) return;
