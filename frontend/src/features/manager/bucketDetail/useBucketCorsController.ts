@@ -12,9 +12,9 @@ import {
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import {
+  bucketEditorDraftSignature,
   cloneBucketJsonValue,
   formatBucketJsonValue,
-  jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
@@ -276,10 +276,7 @@ export function useBucketCorsController({
 
   const baselineSignature = stableBucketJsonSignature(rules);
   const draftSignature = useMemo(
-    () =>
-      editorMode === "json"
-        ? jsonTextSignature(jsonText, draftRules).signature
-        : stableBucketJsonSignature(draftRules),
+    () => bucketEditorDraftSignature(editorMode, jsonText, draftRules),
     [draftRules, editorMode, jsonText],
   );
   const dirty = editorOpen && draftSignature !== baselineSignature;

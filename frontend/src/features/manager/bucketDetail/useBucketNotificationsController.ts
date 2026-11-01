@@ -14,9 +14,9 @@ import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/ap
 import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
 import {
+  bucketEditorDraftSignature,
   cloneBucketJsonValue,
   formatBucketJsonValue,
-  jsonTextSignature,
   normalizeNotificationConfiguration,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
@@ -299,10 +299,7 @@ export function useBucketNotificationsController({
   );
   const baselineSignature = stableBucketJsonSignature(configuration);
   const draftSignature = useMemo(
-    () =>
-      editorMode === "json"
-        ? jsonTextSignature(jsonText, draftConfiguration).signature
-        : stableBucketJsonSignature(draftConfiguration),
+    () => bucketEditorDraftSignature(editorMode, jsonText, draftConfiguration),
     [draftConfiguration, editorMode, jsonText],
   );
   const dirty = editorOpen && draftSignature !== baselineSignature;

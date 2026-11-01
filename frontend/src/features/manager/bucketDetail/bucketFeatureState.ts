@@ -66,6 +66,17 @@ export function jsonTextSignature(
   }
 }
 
+export function bucketEditorDraftSignature(
+  editorMode: "visual" | "json",
+  jsonText: string,
+  visualDraft: unknown,
+  jsonFallback: unknown = visualDraft,
+): string {
+  return editorMode === "json"
+    ? jsonTextSignature(jsonText, jsonFallback).signature
+    : stableBucketJsonSignature(visualDraft);
+}
+
 export function resolveFeatureVisualState(params: {
   disabled?: boolean;
   configured: boolean;

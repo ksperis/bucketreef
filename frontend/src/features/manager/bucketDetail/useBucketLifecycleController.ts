@@ -14,9 +14,9 @@ import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/ap
 import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
 import {
+  bucketEditorDraftSignature,
   cloneBucketJsonValue,
   formatBucketJsonValue,
-  jsonTextSignature,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import type { BucketFeatureEditorMode } from "./BucketFeatureEditorDialog";
@@ -320,10 +320,7 @@ export function useBucketLifecycleController({
 
   const baselineSignature = stableBucketJsonSignature(rules);
   const draftSignature = useMemo(
-    () =>
-      editorMode === "json"
-        ? jsonTextSignature(jsonText, draftRules).signature
-        : stableBucketJsonSignature(draftRules),
+    () => bucketEditorDraftSignature(editorMode, jsonText, draftRules),
     [draftRules, editorMode, jsonText],
   );
   const dirty = editorOpen && draftSignature !== baselineSignature;
