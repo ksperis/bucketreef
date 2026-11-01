@@ -615,6 +615,40 @@ def test_changing_openstack_group_membership_invalidates_session(
     assert session.token is None
 
 
+def test_changing_group_openstack_cloud_links_invalidates_member_session(
+    db_session,
+    setup_cloud,
+):
+    from app.db.openstack import cloud_groups
+    from app.models.ui_group import UiGroupUpdate
+    from app.services.ui_groups_service import UiGroupsService
+
+    user, _, cloud = setup_cloud
+    group = UiGroup(name="OpenStack cloud membership")
+    db_session.add(group)
+    db_session.flush()
+    db_session.add(UserUiGroup(user_id=user.id, group_id=group.id))
+    db_session.commit()
+
+    connect(db_session, setup_cloud)
+    session = db_session.scalar(select(OpenStackSession))
+    assert session is not None and session.token is not None
+
+    UiGroupsService(db_session).update_group(
+        group.id,
+        UiGroupUpdate(openstack_cloud_ids=[cloud.id]),
+    )
+    db_session.refresh(session)
+
+    assert session.token is None
+    assert db_session.scalar(
+        select(cloud_groups.c.cloud_id).where(
+            cloud_groups.c.group_id == group.id,
+            cloud_groups.c.cloud_id == cloud.id,
+        )
+    ) == cloud.id
+
+
 def test_catalog_target_change_requires_explicit_reactivation(db_session, setup_cloud, monkeypatch):
     service, user, auth, _, ctx = connect(db_session, setup_cloud)
     credential = db_session.scalar(select(OpenStackProjectCredential))
