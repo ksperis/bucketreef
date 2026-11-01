@@ -8,7 +8,10 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.rgw_identifiers import normalize_rgw_identifier
 from app.utils.rgw_payloads import (
+    extract_rgw_account_payload,
+    extract_rgw_account_tenant,
     extract_rgw_user_account_ids,
+    extract_rgw_user_listing_identity,
     require_rgw_user_identity,
     rgw_user_account_root,
     split_rgw_tenant_uid,
@@ -72,11 +75,12 @@ class RgwAccountRootService:
         override: str | None,
     ) -> tuple[str, str]:
         """Discover a pre-existing account root, including a custom tenant-qualified UID."""
-        account_info = info.get("account") if isinstance(info.get("account"), dict) else info
-        tenant = str(account_info.get("tenant") or "").strip()
+        account_info = extract_rgw_account_payload(info)
+        tenant = extract_rgw_account_tenant(info)
+        tenant_declared = "tenant" in account_info
         if override:
             uid, selected_tenant = split_rgw_tenant_uid(override, tenant)
-            if "tenant" in account_info and selected_tenant != tenant:
+            if tenant_declared and selected_tenant != tenant:
                 raise ValueError("Root UID tenant does not match the RGW account tenant")
             return uid, selected_tenant
 
@@ -84,6 +88,8 @@ class RgwAccountRootService:
         account_scoped_candidates = candidates is not None
         if candidates is None:
             candidates = admin.list_user_ids()
+        elif not isinstance(candidates, list):
+            raise ValueError("RGW account user list is malformed")
 
         roots: set[tuple[str, str]] = set()
         for candidate in candidates:
@@ -92,7 +98,7 @@ class RgwAccountRootService:
                 candidate,
                 account_id=account_id,
                 tenant=tenant,
-                tenant_declared="tenant" in account_info,
+                tenant_declared=tenant_declared,
                 account_scoped_candidates=account_scoped_candidates,
             )
             if root is not None:
@@ -115,17 +121,11 @@ class RgwAccountRootService:
         tenant_declared: bool,
         account_scoped_candidates: bool,
     ) -> tuple[str, str] | None:
-        raw_uid = (
-            candidate.get("uid", candidate.get("user_id"))
-            if isinstance(candidate, dict)
-            else candidate
-        )
-        if not isinstance(raw_uid, str) or not raw_uid.strip():
+        uid, listed_tenant = extract_rgw_user_listing_identity(candidate)
+        if not uid:
             return None
 
-        uid, candidate_tenant = split_rgw_tenant_uid(raw_uid)
-        if "$" not in raw_uid:
-            candidate_tenant = tenant if account_scoped_candidates else ""
+        candidate_tenant = listed_tenant or (tenant if account_scoped_candidates else "")
         if tenant_declared and candidate_tenant != tenant:
             return None
 
