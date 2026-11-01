@@ -8,6 +8,7 @@ import {
 } from "../../../utils/clientStorage";
 import {
   parseExactListInput,
+  resolveQuickTextFilterState,
   type TextMatchMode,
 } from "../../shared/advancedFilterShared";
 import { advancedFilterFieldHighlight } from "../filtering/advancedFilterModel";
@@ -39,27 +40,15 @@ export function resolveCephAdminQuickFilterState(
   appliedValue: string,
   mode: TextMatchMode,
 ) {
-  const draftParsed = parseExactListInput(draftValue);
-  const appliedParsed = parseExactListInput(appliedValue);
-  const draftForcesExact = draftParsed.listProvided && draftParsed.values.length > 0;
-  const appliedForcesExact = appliedParsed.listProvided && appliedParsed.values.length > 0;
-  const modeForDisplay: TextMatchMode = draftForcesExact ? "exact" : mode;
-  const effectiveMode: TextMatchMode = appliedForcesExact ? "exact" : mode;
-  const effectiveSearchValue = effectiveMode === "contains" ? appliedValue : "";
-  const normalizedDraft = draftValue.trim();
-  const normalizedApplied = appliedValue.trim();
-  const pending = normalizedDraft !== normalizedApplied;
+  const state = resolveQuickTextFilterState({
+    draftValue,
+    appliedValue,
+    mode,
+  });
 
   return {
-    active: normalizedApplied.length > 0,
-    appliedParsed,
-    draftParsed,
-    draftForcesExact,
-    effectiveMode,
-    effectiveSearchValue,
-    fieldState: advancedFilterFieldHighlight(normalizedApplied.length > 0, pending),
-    modeForDisplay,
-    pending,
+    ...state,
+    fieldState: advancedFilterFieldHighlight(state.active, state.pending),
   };
 }
 
