@@ -374,30 +374,87 @@ class PortalSharingMixin:
         search: str | None = None,
         include_already_shared: bool = False,
     ) -> tuple[list[PortalStorageSpaceShareCandidate], int]:
-        metadata: PortalStorageSpaceMetadata | None = None
+        excluded_user_ids, shared_user_ids = self._storage_space_share_candidate_scope(
+            user,
+            access,
+            space_id,
+        )
+        statement = self._storage_space_share_candidate_statement(
+            account_id=access.account.id,
+            excluded_user_ids=excluded_user_ids,
+            shared_user_ids=shared_user_ids,
+            include_already_shared=include_already_shared,
+            search=search,
+        )
+        targets, total = paginate_scalars(
+            self.db,
+            statement,
+            order_by=(func.lower(User.email).asc(), User.id.asc()),
+            page=page,
+            page_size=page_size,
+        )
+        direct_ids, group_ids = self._storage_space_share_candidate_access_sources(
+            access.account.id,
+            targets,
+        )
+        return [
+            PortalStorageSpaceShareCandidate(
+                user_id=target.id,
+                email=target.email,
+                display_name=target.full_name,
+                portal_role=PortalAccountRole.PORTAL_USER.value,
+                access_source=self._storage_space_share_candidate_source(
+                    target.id,
+                    direct_ids,
+                    group_ids,
+                ),
+                already_shared=target.id in shared_user_ids,
+                avatar=None,
+            )
+            for target in targets
+        ], total
+
+    def _storage_space_share_candidate_scope(
+        self,
+        user: User,
+        access: "AccountAccess",
+        space_id: Optional[str],
+    ) -> tuple[set[int], set[int]]:
         excluded_user_ids = {user.id}
         shared_user_ids: set[int] = set()
-        if space_id:
-            bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
-            if not bucket_name:
-                raise PortalNotFoundError("Storage space not found or not allowed.")
-            self._require_storage_space_manager(user, access, bucket_name)
-            metadata = self._require_storage_space_active(access.account, bucket_name)
-            if metadata is None:
-                raise RuntimeError("Storage space metadata is missing.")
-            if metadata.owner_user_id is not None:
-                excluded_user_ids.add(metadata.owner_user_id)
-            shared_user_ids = set(
-                self.db.scalars(
-                    select(PortalStorageSpaceGrant.user_id).where(
-                        PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id
-                    )
-                ).all()
-            )
+        if not space_id:
+            return excluded_user_ids, shared_user_ids
+        bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
+        if not bucket_name:
+            raise PortalNotFoundError("Storage space not found or not allowed.")
+        self._require_storage_space_manager(user, access, bucket_name)
+        metadata = self._require_storage_space_active(access.account, bucket_name)
+        if metadata is None:
+            raise RuntimeError("Storage space metadata is missing.")
+        if metadata.owner_user_id is not None:
+            excluded_user_ids.add(metadata.owner_user_id)
+        shared_user_ids = set(
+            self.db.scalars(
+                select(PortalStorageSpaceGrant.user_id).where(
+                    PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id
+                )
+            ).all()
+        )
+        return excluded_user_ids, shared_user_ids
+
+    def _storage_space_share_candidate_statement(
+        self,
+        *,
+        account_id: int,
+        excluded_user_ids: set[int],
+        shared_user_ids: set[int],
+        include_already_shared: bool,
+        search: str | None,
+    ):
         direct_user = exists(
             select(UserS3Account.id).where(
                 UserS3Account.user_id == User.id,
-                UserS3Account.account_id == access.account.id,
+                UserS3Account.account_id == account_id,
                 UserS3Account.portal_role == PortalAccountRole.PORTAL_USER.value,
             )
         )
@@ -406,14 +463,14 @@ class PortalSharingMixin:
             .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
             .where(
                 UserUiGroup.user_id == User.id,
-                UiGroupS3Account.account_id == access.account.id,
+                UiGroupS3Account.account_id == account_id,
                 UiGroupS3Account.portal_role == PortalAccountRole.PORTAL_USER.value,
             )
         )
         direct_manager = exists(
             select(UserS3Account.id).where(
                 UserS3Account.user_id == User.id,
-                UserS3Account.account_id == access.account.id,
+                UserS3Account.account_id == account_id,
                 UserS3Account.portal_role == PortalAccountRole.PORTAL_MANAGER.value,
             )
         )
@@ -422,7 +479,7 @@ class PortalSharingMixin:
             .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
             .where(
                 UserUiGroup.user_id == User.id,
-                UiGroupS3Account.account_id == access.account.id,
+                UiGroupS3Account.account_id == account_id,
                 UiGroupS3Account.portal_role == PortalAccountRole.PORTAL_MANAGER.value,
             )
         )
@@ -440,19 +497,20 @@ class PortalSharingMixin:
             statement = statement.where(
                 or_(User.email.ilike(pattern), func.coalesce(User.full_name, "").ilike(pattern))
             )
-        targets, total = paginate_scalars(
-            self.db,
-            statement,
-            order_by=(func.lower(User.email).asc(), User.id.asc()),
-            page=page,
-            page_size=page_size,
-        )
+        return statement
+
+    def _storage_space_share_candidate_access_sources(
+        self,
+        account_id: int,
+        targets: list[User],
+    ) -> tuple[set[int], set[int]]:
+        target_ids = [target.id for target in targets] or [-1]
         direct_ids = set(
             self.db.scalars(
                 select(UserS3Account.user_id).where(
-                    UserS3Account.account_id == access.account.id,
+                    UserS3Account.account_id == account_id,
                     UserS3Account.portal_role == PortalAccountRole.PORTAL_USER.value,
-                    UserS3Account.user_id.in_([target.id for target in targets] or [-1]),
+                    UserS3Account.user_id.in_(target_ids),
                 )
             ).all()
         )
@@ -461,31 +519,25 @@ class PortalSharingMixin:
                 select(UserUiGroup.user_id)
                 .join(UiGroupS3Account, UiGroupS3Account.group_id == UserUiGroup.group_id)
                 .where(
-                    UiGroupS3Account.account_id == access.account.id,
+                    UiGroupS3Account.account_id == account_id,
                     UiGroupS3Account.portal_role == PortalAccountRole.PORTAL_USER.value,
-                    UserUiGroup.user_id.in_([target.id for target in targets] or [-1]),
+                    UserUiGroup.user_id.in_(target_ids),
                 )
             ).all()
         )
-        rows = [
-            PortalStorageSpaceShareCandidate(
-                user_id=target.id,
-                email=target.email,
-                display_name=target.full_name,
-                portal_role=PortalAccountRole.PORTAL_USER.value,
-                access_source=(
-                    "direct_and_group"
-                    if target.id in direct_ids and target.id in group_ids
-                    else "direct"
-                    if target.id in direct_ids
-                    else "group"
-                ),
-                already_shared=target.id in shared_user_ids,
-                avatar=None,
-            )
-            for target in targets
-        ]
-        return rows, total
+        return direct_ids, group_ids
+
+    @staticmethod
+    def _storage_space_share_candidate_source(
+        user_id: int,
+        direct_ids: set[int],
+        group_ids: set[int],
+    ) -> str:
+        if user_id in direct_ids and user_id in group_ids:
+            return "direct_and_group"
+        if user_id in direct_ids:
+            return "direct"
+        return "group"
 
     def set_storage_space_share(
         self,
