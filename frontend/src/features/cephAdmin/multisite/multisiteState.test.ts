@@ -1,6 +1,10 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { describe, expect, it } from "vitest";
 
+import type {
+  MultisiteObservation,
+  MultisiteTopology,
+} from "../../../api/cephMultisite";
 import type { MultisiteEndpointOption, MultisiteReplicationRoute } from "./multisiteUtils";
 import { getBucketReplicationRoutes, recordsToCsv } from "./multisiteUtils";
 import { initialBucketScopeForm, resolveBucketScope } from "./multisiteBucketScope";
@@ -14,6 +18,51 @@ const endpointOptions: MultisiteEndpointOption[] = [
 const routes: MultisiteReplicationRoute[] = [
   { source: endpointOptions[0], destination: endpointOptions[1] },
 ];
+
+function observation<T>(data: T): MultisiteObservation<T> {
+  return {
+    availability: "available",
+    data,
+    collected_at: "2026-11-01T08:00:00Z",
+    last_success_at: "2026-11-01T08:00:00Z",
+    stale: false,
+    reason_code: null,
+    provenance: {
+      endpoint_id: 11,
+      realm_id: "realm-a",
+      local_zone_id: "zone-a",
+      source_zone_id: null,
+      operation: "test",
+      http_status: 200,
+      duration_ms: 1,
+      collection_id: "test-collection",
+    },
+  };
+}
+
+function topologyWithZones(zones: NonNullable<MultisiteTopology["period"]["data"]>["zones"]): MultisiteTopology {
+  return {
+    local_zone: observation({
+      id: "zone-a",
+      name: "A",
+      realm_id: "realm-a",
+      placements: [],
+      storage_classes: [],
+    }),
+    period: observation({
+      id: "period-a",
+      realm_id: "realm-a",
+      epoch: "1",
+      realm_epoch: "1",
+      master_zone: "zone-a",
+      zones,
+      details: {},
+    }),
+    realm: null,
+    configured: true,
+    configuration_reason: null,
+  };
+}
 
 describe("multisite frontend state helpers", () => {
   it("keeps source and destination bucket identities distinct, including tenants", () => {
@@ -62,10 +111,7 @@ describe("multisite frontend state helpers", () => {
   });
 
   it("derives bucket source and destination roles from the multisite topology", () => {
-    const topology = {
-      period: {
-        data: {
-          zones: [
+    const topology = topologyWithZones([
             {
               id: "zone-a", name: "A", zonegroup_id: "zg", zonegroup_name: "ZG", metadata_master: true,
               read_only: false, sync_from_all: true, sync_from: [], policy_requires_confirmation: false,
@@ -76,10 +122,7 @@ describe("multisite frontend state helpers", () => {
               read_only: true, sync_from_all: true, sync_from: [], policy_requires_confirmation: false,
               endpoints: [{ id: 12, name: "Destination", diagnostic: true }], diagnostic_endpoint_id: 12,
             },
-          ],
-        },
-      },
-    } as Parameters<typeof getBucketReplicationRoutes>[0];
+          ]);
 
     expect(getBucketReplicationRoutes(topology)).toEqual([
       { source: endpointOptions[0], destination: endpointOptions[1] },
@@ -87,10 +130,7 @@ describe("multisite frontend state helpers", () => {
   });
 
   it("honors explicit sync-from restrictions when deriving bucket routes", () => {
-    const topology = {
-      period: {
-        data: {
-          zones: [
+    const topology = topologyWithZones([
             {
               id: "zone-a", name: "A", zonegroup_id: "zg", zonegroup_name: "ZG", metadata_master: true,
               read_only: false, sync_from_all: false, sync_from: [], policy_requires_confirmation: false,
@@ -101,10 +141,7 @@ describe("multisite frontend state helpers", () => {
               read_only: false, sync_from_all: false, sync_from: ["zone-a"], policy_requires_confirmation: false,
               endpoints: [{ id: 12, name: "Destination", diagnostic: true }], diagnostic_endpoint_id: 12,
             },
-          ],
-        },
-      },
-    } as Parameters<typeof getBucketReplicationRoutes>[0];
+          ]);
 
     expect(getBucketReplicationRoutes(topology)).toEqual([
       { source: endpointOptions[0], destination: endpointOptions[1] },

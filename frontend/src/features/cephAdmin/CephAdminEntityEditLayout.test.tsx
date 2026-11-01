@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
 import CephAdminAccountEditModal from "./CephAdminAccountEditModal";
 import CephAdminUserEditModal from "./CephAdminUserEditModal";
 import { setSessionUserCache } from "../../utils/workspaces";
@@ -157,7 +158,7 @@ describe("Ceph Admin entity editor layout", () => {
   it("hides Add as S3 Connection in RGW user key management without manual permission", async () => {
     setSessionUserCache({
       role: "ui_superadmin",
-      effective_access: { can_create_manual_private_connections: false },
+      effective_access: buildEffectiveUserAccess({ can_create_manual_private_connections: false }),
     });
     render(
       <MemoryRouter>

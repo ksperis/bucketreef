@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { requireHTMLElement } from "../../test/dom";
 import CephAdminAccountCreateModal from "./CephAdminAccountCreateModal";
 
 const createCephAdminAccountMock = vi.fn();
@@ -24,20 +25,23 @@ describe("CephAdminAccountCreateModal", () => {
     const onCreated = vi.fn();
     render(<CephAdminAccountCreateModal endpointId={7} onClose={vi.fn()} onCreated={onCreated} />);
 
-    const dialog = screen.getByRole("heading", { name: "Create account" }).closest(".workflow-page");
-    if (!dialog) {
-      throw new Error("Create account workflow page not found");
-    }
+    const dialog = requireHTMLElement(
+      screen.getByRole("heading", { name: "Create account" }).closest(".workflow-page"),
+      "Create account workflow page not found",
+    );
     expect(within(dialog).getByLabelText("Account name")).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Tenant")).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Email")).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Max access keys")).toHaveClass("ui-control");
 
-    const accountQuotaSection = within(dialog).getByText("Account quota").closest("section");
-    const bucketQuotaSection = within(dialog).getByText("Bucket quota").closest("section");
-    if (!accountQuotaSection || !bucketQuotaSection) {
-      throw new Error("Quota sections not found");
-    }
+    const accountQuotaSection = requireHTMLElement(
+      within(dialog).getByText("Account quota").closest("section"),
+      "Account quota section not found",
+    );
+    const bucketQuotaSection = requireHTMLElement(
+      within(dialog).getByText("Bucket quota").closest("section"),
+      "Bucket quota section not found",
+    );
 
     expect(within(accountQuotaSection).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(accountQuotaSection).getByLabelText("Unit")).toHaveClass("ui-control");
@@ -170,7 +174,7 @@ describe("CephAdminAccountCreateModal", () => {
     const form = screen.getByRole("form", { name: "Create RGW account" });
     fireEvent.change(screen.getByLabelText("Account name"), { target: { value: "Analytics" } });
     fireEvent.submit(form);
-    for (const field of form.querySelectorAll("input,select")) expect(field).toBeDisabled();
+    for (const field of form.querySelectorAll<HTMLElement>("input,select")) expect(field).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     fireEvent.submit(form);
     fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));

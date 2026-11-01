@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
+import { requireHTMLElement } from "../../test/dom";
 import CephAdminUserCreateModal from "./CephAdminUserCreateModal";
 import { setSessionUserCache } from "../../utils/workspaces";
 
@@ -20,7 +22,7 @@ describe("CephAdminUserCreateModal", () => {
     vi.clearAllMocks();
     setSessionUserCache({
       role: "ui_superadmin",
-      effective_access: { can_create_manual_private_connections: true },
+      effective_access: buildEffectiveUserAccess({ can_create_manual_private_connections: true }),
     });
     listCephAdminAccountsMock.mockResolvedValue({
       items: [
@@ -45,22 +47,22 @@ describe("CephAdminUserCreateModal", () => {
     const onCreated = vi.fn();
     render(<CephAdminUserCreateModal endpointId={7} onClose={vi.fn()} onCreated={onCreated} />);
 
-    const dialog = screen.getByRole("heading", { name: "Create user" }).closest(".workflow-page");
-    if (!dialog) {
-      throw new Error("Create user workflow page not found");
-    }
+    const dialog = requireHTMLElement(
+      screen.getByRole("heading", { name: "Create user" }).closest(".workflow-page"),
+      "Create user workflow page not found",
+    );
     const accountSelect = within(dialog).getByLabelText("Account (optional)");
     expect(accountSelect).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("UID")).toHaveClass("ui-control");
-    expect(within(dialog).getByRole("textbox", { name: "Caps", exact: true })).toHaveClass("ui-control");
+    expect(within(dialog).getByRole("textbox", { name: /^Caps$/ })).toHaveClass("ui-control");
     expect(within(dialog).getByLabelText("Admin")).toBeDisabled();
 
     await screen.findByRole("option", { name: "Analytics (RGW000000000000001)" });
 
-    const userQuotaSection = within(dialog).getByText("User quota").closest("section");
-    if (!userQuotaSection) {
-      throw new Error("User quota section not found");
-    }
+    const userQuotaSection = requireHTMLElement(
+      within(dialog).getByText("User quota").closest("section"),
+      "User quota section not found",
+    );
     expect(within(userQuotaSection).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(userQuotaSection).getByLabelText("Unit")).toHaveClass("ui-control");
     expect(within(userQuotaSection).getByLabelText("Object quota")).toHaveClass("ui-control");
@@ -73,7 +75,7 @@ describe("CephAdminUserCreateModal", () => {
     fireEvent.change(within(userQuotaSection).getByLabelText("Storage quota"), { target: { value: "3" } });
     fireEvent.change(within(userQuotaSection).getByLabelText("Object quota"), { target: { value: "1200" } });
     fireEvent.change(within(dialog).getByLabelText("Caps mode"), { target: { value: "add" } });
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "Caps", exact: true }), {
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /^Caps$/ }), {
       target: { value: "users=read\nusage=read\nusers=read" },
     });
 
@@ -121,10 +123,10 @@ describe("CephAdminUserCreateModal", () => {
 
     render(<CephAdminUserCreateModal endpointId={7} onClose={vi.fn()} />);
 
-    const dialog = screen.getByRole("heading", { name: "Create user" }).closest(".workflow-page");
-    if (!dialog) {
-      throw new Error("Create user workflow page not found");
-    }
+    const dialog = requireHTMLElement(
+      screen.getByRole("heading", { name: "Create user" }).closest(".workflow-page"),
+      "Create user workflow page not found",
+    );
     fireEvent.change(within(dialog).getByLabelText("UID"), { target: { value: "bob" } });
     fireEvent.change(within(dialog).getByLabelText("Display name"), { target: { value: "Bob Ops" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Create user" }));
@@ -140,7 +142,7 @@ describe("CephAdminUserCreateModal", () => {
   it("hides Add as S3 Connection without manual creation permission", async () => {
     setSessionUserCache({
       role: "ui_superadmin",
-      effective_access: { can_create_manual_private_connections: false },
+      effective_access: buildEffectiveUserAccess({ can_create_manual_private_connections: false }),
     });
     createCephAdminUserMock.mockResolvedValue({
       detail: { uid: "carol", display_name: "Carol Ops", caps: [], keys: [] },
@@ -148,8 +150,10 @@ describe("CephAdminUserCreateModal", () => {
     });
 
     render(<CephAdminUserCreateModal endpointId={7} onClose={vi.fn()} />);
-    const dialog = screen.getByRole("heading", { name: "Create user" }).closest(".workflow-page");
-    if (!dialog) throw new Error("Create user workflow page not found");
+    const dialog = requireHTMLElement(
+      screen.getByRole("heading", { name: "Create user" }).closest(".workflow-page"),
+      "Create user workflow page not found",
+    );
     fireEvent.change(within(dialog).getByLabelText("UID"), { target: { value: "carol" } });
     fireEvent.change(within(dialog).getByLabelText("Display name"), { target: { value: "Carol Ops" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Create user" }));
@@ -208,7 +212,7 @@ describe("CephAdminUserCreateModal", () => {
     const form = screen.getByRole("form", { name: "Create RGW user" });
     fireEvent.change(screen.getByLabelText("UID"), { target: { value: "alice" } });
     fireEvent.submit(form);
-    for (const field of form.querySelectorAll("input, select, textarea")) expect(field).toBeDisabled();
+    for (const field of form.querySelectorAll<HTMLElement>("input, select, textarea")) expect(field).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Back to users" }));
     fireEvent.submit(form);
@@ -231,11 +235,11 @@ it("marks invalid qualified UID immediately, then accepts Unicode and additional
   fireEvent.change(uid, { target: { value: "bad-tenant$user" } });
   expect(uid).toHaveAttribute("aria-invalid", "true");
   expect(uid).toHaveAccessibleDescription(/Tenant must contain only ASCII/);
-  fireEvent.click(screen.getByRole("button", { name: "Create user", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: /^Create user$/ }));
   expect(createCephAdminUserMock).not.toHaveBeenCalled();
   fireEvent.change(uid, { target: { value: "tenant$ns$é-user$tail" } });
   expect(uid).not.toHaveAttribute("aria-invalid", "true");
-  fireEvent.click(screen.getByRole("button", { name: "Create user", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: /^Create user$/ }));
   await waitFor(() => expect(createCephAdminUserMock).toHaveBeenCalledWith(7, expect.objectContaining({ uid: "tenant$ns$é-user$tail" })));
 });
 });
