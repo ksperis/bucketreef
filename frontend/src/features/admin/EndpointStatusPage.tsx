@@ -3,16 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActionButton } from "../../components/list/ListControls";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  EndpointHealthGlobalIncident,
-  EndpointHealthLatencyOverviewEndpoint,
-  EndpointHealthOverviewEndpoint,
-  fetchHealthGlobalIncidents,
-  fetchHealthLatencyOverview,
-  fetchHealthOverview,
   runHealthchecks,
+  type EndpointHealthGlobalIncident,
+  type EndpointHealthLatencyOverviewEndpoint,
   type HealthCheckStatus,
 } from "../../api/healthchecks";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -37,6 +33,7 @@ import {
   StatusPill,
 } from "./endpointStatusShared";
 import { useEndpointStatusText } from "./endpointStatusMessages";
+import { useEndpointStatusResources } from "./useEndpointStatusResources";
 
 type WindowOption = { value: "day" | "week" | "month" };
 type IncidentWindowOption = { value: "month" | "quarter" | "half_year" };
@@ -87,81 +84,34 @@ export default function EndpointStatusPage() {
   const { text, locale } = useEndpointStatusText();
   const navigate = useNavigate();
 
-  const [latencyEndpoints, setLatencyEndpoints] = useState<EndpointHealthLatencyOverviewEndpoint[]>([]);
-  const [latencyUpdatedAt, setLatencyUpdatedAt] = useState<string | null>(null);
-  const [latencyLoading, setLatencyLoading] = useState<boolean>(true);
-  const [latencyError, setLatencyError] = useState<string | null>(null);
-
   const [timelineWindow, setTimelineWindow] = useState<WindowOption["value"]>("week");
-  const [timelineEndpoints, setTimelineEndpoints] = useState<EndpointHealthOverviewEndpoint[]>([]);
-  const [timelineStart, setTimelineStart] = useState<string | null>(null);
-  const [timelineEnd, setTimelineEnd] = useState<string | null>(null);
-  const [timelineLoading, setTimelineLoading] = useState<boolean>(true);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
-
   const [incidentWindow, setIncidentWindow] = useState<IncidentWindowOption["value"]>("half_year");
-  const [globalIncidents, setGlobalIncidents] = useState<EndpointHealthGlobalIncident[]>([]);
-  const [globalIncidentsTotal, setGlobalIncidentsTotal] = useState<number>(0);
-  const [incidentsLoading, setIncidentsLoading] = useState<boolean>(true);
-  const [incidentsError, setIncidentsError] = useState<string | null>(null);
-
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [runLoading, setRunLoading] = useState<boolean>(false);
   const [statusFilter, setStatusFilter] = useState<HealthCheckStatus | "all">("all");
-
-  const loadLatencyOverview = useCallback(async () => {
-    setLatencyLoading(true);
-    setLatencyError(null);
-    try {
-      const payload = await fetchHealthLatencyOverview("day");
-      setLatencyEndpoints(payload.endpoints);
-      setLatencyUpdatedAt(payload.generated_at);
-    } catch (err) {
-      setLatencyEndpoints([]);
-      setLatencyError(extractApiError(err, text("latencyOverviewFailed")));
-    } finally {
-      setLatencyLoading(false);
-    }
-  }, [text]);
-
-  const loadTimelineOverview = useCallback(async (windowValue: WindowOption["value"]) => {
-    setTimelineLoading(true);
-    setTimelineError(null);
-    try {
-      const payload = await fetchHealthOverview(windowValue);
-      setTimelineEndpoints(payload.endpoints);
-      setTimelineStart(payload.start);
-      setTimelineEnd(payload.end);
-    } catch (err) {
-      setTimelineEndpoints([]);
-      setTimelineStart(null);
-      setTimelineEnd(null);
-      setTimelineError(extractApiError(err, text("timelineOverviewFailed")));
-    } finally {
-      setTimelineLoading(false);
-    }
-  }, [text]);
-
-  const loadGlobalIncidents = useCallback(async (windowValue: IncidentWindowOption["value"]) => {
-    setIncidentsLoading(true);
-    setIncidentsError(null);
-    try {
-      const payload = await fetchHealthGlobalIncidents(windowValue, 300);
-      setGlobalIncidents(payload.incidents);
-      setGlobalIncidentsTotal(payload.total);
-    } catch (err) {
-      setGlobalIncidents([]);
-      setGlobalIncidentsTotal(0);
-      setIncidentsError(extractApiError(err, text("globalIncidentsFailed")));
-    } finally {
-      setIncidentsLoading(false);
-    }
-  }, [text]);
-
-  const loadAll = useCallback(async () => {
-    await Promise.all([loadLatencyOverview(), loadTimelineOverview(timelineWindow), loadGlobalIncidents(incidentWindow)]);
-  }, [incidentWindow, loadGlobalIncidents, loadLatencyOverview, loadTimelineOverview, timelineWindow]);
+  const {
+    latencyEndpoints,
+    latencyUpdatedAt,
+    latencyLoading,
+    latencyError,
+    timelineEndpoints,
+    timelineStart,
+    timelineEnd,
+    timelineLoading,
+    timelineError,
+    globalIncidents,
+    globalIncidentsTotal,
+    incidentsLoading,
+    incidentsError,
+    refresh,
+  } = useEndpointStatusResources({
+    timelineWindow,
+    incidentWindow,
+    latencyErrorText: text("latencyOverviewFailed"),
+    timelineErrorText: text("timelineOverviewFailed"),
+    incidentsErrorText: text("globalIncidentsFailed"),
+  });
 
   const handleRunNow = useCallback(async () => {
     if (runLoading) return;
@@ -171,25 +121,13 @@ export default function EndpointStatusPage() {
     try {
       await runHealthchecks();
       setActionMessage(text("healthchecksExecuted"));
-      await loadAll();
+      await refresh();
     } catch (err) {
       setActionError(extractApiError(err, text("healthchecksRunFailed")));
     } finally {
       setRunLoading(false);
     }
-  }, [loadAll, runLoading, text]);
-
-  useEffect(() => {
-    loadLatencyOverview();
-  }, [loadLatencyOverview]);
-
-  useEffect(() => {
-    loadTimelineOverview(timelineWindow);
-  }, [timelineWindow, loadTimelineOverview]);
-
-  useEffect(() => {
-    loadGlobalIncidents(incidentWindow);
-  }, [incidentWindow, loadGlobalIncidents]);
+  }, [refresh, runLoading, text]);
 
   const stats = useMemo(() => buildStatusCounts(latencyEndpoints), [latencyEndpoints]);
   const filteredLatencyEndpoints = useMemo(
@@ -321,7 +259,7 @@ export default function EndpointStatusPage() {
       breadcrumbs={adminPageBreadcrumbs("endpoint-status").map((breadcrumb, index) => ({ ...breadcrumb, label: text(index === 0 ? "admin" : "title") }))}
       actions={[
         { label: runLoading ? text("running") : text("checkNow"), onClick: handleRunNow, disabled: import.meta.env.MODE === "demo" },
-        { label: text("refresh"), onClick: loadAll, variant: "ghost" },
+        { label: text("refresh"), onClick: refresh, variant: "ghost" },
       ]}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
