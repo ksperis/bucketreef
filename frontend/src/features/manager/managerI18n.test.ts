@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { describe, expect, it } from "vitest";
-import { managerIntlLocale, managerText } from "./managerI18n";
+import { managerText } from "./managerI18n";
 
 describe("Manager i18n", () => {
   it("uses French translations and interpolates values", () => {
@@ -64,10 +64,4 @@ describe("Manager i18n", () => {
     expect(managerText("Unknown Manager copy", "zh")).toBe("Unknown Manager copy");
   });
 
-  it("maps Manager formatting to the supported locale", () => {
-    expect(managerIntlLocale("fr")).toBe("fr-FR");
-    expect(managerIntlLocale("en")).toBe("en-US");
-    expect(managerIntlLocale("de")).toBe("de-DE");
-    expect(managerIntlLocale("zh")).toBe("zh-CN");
-  });
 });

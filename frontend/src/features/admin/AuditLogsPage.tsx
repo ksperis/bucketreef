@@ -14,9 +14,9 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import UiBadge from "../../components/ui/UiBadge";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
+import { intlLocale } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { useAuditLogsI18n, type AuditLogsText } from "./auditLogsMessage";
-import { adminIntlLocale } from "./adminI18n";
 import type { UiLanguage } from "../../components/language";
 
 type RoleFilter = "all" | "ui_superadmin" | "ui_admin" | "ui_user" | "ui_none";
@@ -88,7 +88,7 @@ function StatusBadge({ status, text }: { status: AuditStatus; text: AuditLogsTex
 function formatAuditDate(value: string, locale: UiLanguage) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString(adminIntlLocale(locale));
+  return parsed.toLocaleString(intlLocale(locale));
 }
 
 function executionContextKindLabel(kind: string | null | undefined, text: AuditLogsText): string {

@@ -12,6 +12,7 @@ import { ListActions, ListActionButton, ListActionLink, ListBadge } from "../../
 import TableSortControls from "../../components/list/TableSortControls";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
+import { intlLocale } from "../../i18n";
 import { isAdminLikeRole } from "../../utils/workspaces";
 import {
   CompactAssociationSummary,
@@ -21,7 +22,6 @@ import {
 import { buildAccessAuditHref } from "./accessAuditLink";
 import type { UsersText } from "./usersMessage";
 import type { UiLanguage } from "../../components/language";
-import { adminIntlLocale } from "./adminI18n";
 
 export type AdminUsersSortField = "name" | "role" | "accounts" | "last_login_at";
 
@@ -77,7 +77,7 @@ export default function AdminUsersList({
   const formatLastLogin = (value?: string | null) => {
     if (!value) return "-";
     const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(adminIntlLocale(locale));
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString(intlLocale(locale));
   };
 
   const renderAssociationSummary = (user: User) => {

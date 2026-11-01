@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { ADMIN_PAGE_CONTRACTS } from "../../navigation/workspacePages";
-import { adminIntlLocale, adminText } from "./adminI18n";
+import { adminText } from "./adminI18n";
 
 const adminSourceDirectory = dirname(fileURLToPath(import.meta.url));
 const translatedAttributeNames = new Set([
@@ -348,11 +348,5 @@ describe("Admin i18n", () => {
     expect(collectRawAdminCopy()).toEqual([]);
   });
 
-  it("maps Admin formatting to the selected locale", () => {
-    expect(adminIntlLocale("en")).toBe("en-US");
-    expect(adminIntlLocale("fr")).toBe("fr-FR");
-    expect(adminIntlLocale("de")).toBe("de-DE");
-    expect(adminIntlLocale("zh")).toBe("zh-CN");
-  });
 });
 

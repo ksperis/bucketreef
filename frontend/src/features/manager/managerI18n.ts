@@ -23,10 +23,6 @@ export function managerText(
   return interpolateText(lookupCatalogMessage(message, locale, MANAGER_CATALOGS) ?? message, values);
 }
 
-export function managerIntlLocale(locale: UiLanguage): string {
-  return intlLocale(locale);
-}
-
 export function useManagerI18n() {
   const { locale } = useI18n();
   const text = useCallback(
@@ -36,7 +32,7 @@ export function useManagerI18n() {
 
   return {
     locale,
-    intlLocale: managerIntlLocale(locale),
+    intlLocale: intlLocale(locale),
     text,
   };
 }

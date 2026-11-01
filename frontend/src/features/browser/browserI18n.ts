@@ -26,10 +26,6 @@ export function browserText(
 
 export const defaultBrowserText: BrowserTextFn = (message, values) => browserText(message, "en", values);
 
-export function browserIntlLocale(locale: UiLanguage): string {
-  return intlLocale(locale);
-}
-
 export function useBrowserI18n() {
   const { locale } = useI18n();
   const text = useCallback<BrowserTextFn>(
@@ -39,7 +35,7 @@ export function useBrowserI18n() {
 
   return {
     locale,
-    intlLocale: browserIntlLocale(locale),
+    intlLocale: intlLocale(locale),
     text,
   };
 }
