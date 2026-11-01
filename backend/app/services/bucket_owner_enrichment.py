@@ -23,7 +23,11 @@ from app.utils.cache import (
 from app.utils.normalize import normalize_optional_string
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_identifiers import is_rgw_account_id
-from app.utils.rgw_payloads import extract_rgw_account_id, extract_rgw_account_name
+from app.utils.rgw_payloads import (
+    extract_rgw_account_id,
+    extract_rgw_account_name,
+    extract_rgw_user_scalar,
+)
 
 OWNER_DETAILS_CACHE_TTL_SECONDS = 30.0
 OWNER_ACCOUNT_LIST_CACHE_MAX_ENTRIES = 32
@@ -470,7 +474,7 @@ class BucketOwnerMetadataService:
         if not isinstance(payload, dict):
             return BucketOwnerMetadata()
         user_payload = _nested_payload(payload, "user")
-        owner_name = normalize_optional_string(payload.get("display_name")) if include_name else None
+        owner_name = extract_rgw_user_scalar(payload, "display_name") if include_name else None
         suspended = None
         if include_suspended:
             suspended = _parse_owner_suspended(
