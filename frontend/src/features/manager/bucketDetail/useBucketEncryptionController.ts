@@ -124,7 +124,7 @@ export function useBucketEncryptionController({
     } finally {
       setLoading(false);
     }
-  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, setEditorOpen, setStatus]);
 
   const openEditor = useCallback(() => {
     if (!enabled) return;
@@ -134,12 +134,12 @@ export function useBucketEncryptionController({
   const addDraftRule = useCallback(() => {
     setDraftRules((current) => [...current, createVisualEncryptionRule()]);
     setEditorError(null);
-  }, []);
+  }, [setDraftRules, setEditorError]);
 
   const removeDraftRule = useCallback((index: number) => {
     setDraftRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
     setEditorError(null);
-  }, []);
+  }, [setDraftRules, setEditorError]);
 
   const updateDraftRule = useCallback(
     (index: number, patch: EncryptionVisualRulePatch) => {
@@ -150,7 +150,7 @@ export function useBucketEncryptionController({
       );
       setEditorError(null);
     },
-    [],
+    [setDraftRules, setEditorError],
   );
 
   const saveDraft = useCallback(async () => {
@@ -223,6 +223,9 @@ export function useBucketEncryptionController({
     replaceDraft,
     saving,
     closeEditor,
+    setDraftRules,
+    setEditorError,
+    setStatus,
   ]);
 
   const baselineSignature = stableBucketJsonSignature(rules);

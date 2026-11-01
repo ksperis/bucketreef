@@ -124,7 +124,7 @@ export function useBucketNotificationsController({
     } finally {
       setLoading(false);
     }
-  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, setStatus]);
 
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(configuration), "visual", null);
@@ -156,19 +156,19 @@ export function useBucketNotificationsController({
     );
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, []);
+  }, [setDraftConfiguration, setEditorError, setEditorTargetIndex]);
 
   const removeDraftTopic = useCallback((index: number) => {
     setDraftConfiguration((current) => removeNotificationTopicAt(current, index));
     setEditorError(null);
-  }, []);
+  }, [setDraftConfiguration, setEditorError]);
 
   const updateDraftTopic = useCallback(
     (index: number, patch: NotificationVisualTopicPatch) => {
       setDraftConfiguration((current) => updateNotificationTopicAt(current, index, patch));
       setEditorError(null);
     },
-    [],
+    [setDraftConfiguration, setEditorError],
   );
 
   const persistConfiguration = useCallback(async (
@@ -209,7 +209,7 @@ export function useBucketNotificationsController({
     } finally {
       setSaving(false);
     }
-  }, [applyBaseline, configuration, persistConfiguration, saving]);
+  }, [applyBaseline, configuration, persistConfiguration, saving, setStatus]);
 
   const saveDraft = useCallback(async () => {
     if (!bucketName || !enabled || saving) return;
@@ -259,6 +259,9 @@ export function useBucketNotificationsController({
     replaceDraft,
     saving,
     closeEditor,
+    setDraftConfiguration,
+    setEditorError,
+    setStatus,
   ]);
 
   const configured = !isEmptyConfiguration(configuration);

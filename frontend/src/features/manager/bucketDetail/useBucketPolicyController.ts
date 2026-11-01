@@ -130,7 +130,7 @@ export function useBucketPolicyController({
     } finally {
       setLoading(false);
     }
-  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, setStatus]);
 
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(policy), "visual", null);
@@ -161,7 +161,7 @@ export function useBucketPolicyController({
     ));
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, []);
+  }, [setDraftPolicy, setEditorError, setEditorTargetIndex]);
 
   const removeDraftStatement = useCallback((index: number) => {
     setDraftPolicy((current) => withPolicyStatements(
@@ -169,7 +169,7 @@ export function useBucketPolicyController({
       policyStatements(current).filter((_, statementIndex) => statementIndex !== index),
     ));
     setEditorError(null);
-  }, []);
+  }, [setDraftPolicy, setEditorError]);
 
   const updateDraftStatement = useCallback((
     index: number,
@@ -184,7 +184,7 @@ export function useBucketPolicyController({
       ),
     ));
     setEditorError(null);
-  }, []);
+  }, [setDraftPolicy, setEditorError]);
 
   const updateDraftCondition = useCallback((
     statementIndex: number,
@@ -201,7 +201,7 @@ export function useBucketPolicyController({
       ),
     ));
     setEditorError(null);
-  }, []);
+  }, [setDraftPolicy, setEditorError]);
 
   const removeDraftCondition = useCallback((
     statementIndex: number,
@@ -217,7 +217,7 @@ export function useBucketPolicyController({
       ),
     ));
     setEditorError(null);
-  }, []);
+  }, [setDraftPolicy, setEditorError]);
 
   const persistPolicy = useCallback(async (nextPolicy: PolicyDocumentRecord) => {
     if (!bucketName || !enabled) return null;
@@ -258,7 +258,7 @@ export function useBucketPolicyController({
     } finally {
       setSaving(false);
     }
-  }, [applyBaseline, persistPolicy, policy, saving]);
+  }, [applyBaseline, persistPolicy, policy, saving, setStatus]);
 
   const saveDraft = useCallback(async () => {
     if (!bucketName || !enabled || saving) return;
@@ -306,6 +306,9 @@ export function useBucketPolicyController({
     replaceDraft,
     saving,
     closeEditor,
+    setDraftPolicy,
+    setEditorError,
+    setStatus,
   ]);
 
   // Kept for the current page-level destructive-action contract. The Policy
@@ -329,7 +332,7 @@ export function useBucketPolicyController({
     } finally {
       setDeleting(false);
     }
-  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, setStatus]);
 
   const statements = useMemo(() => policyStatements(policy), [policy]);
   const baselineSignature = stableBucketJsonSignature(policy);

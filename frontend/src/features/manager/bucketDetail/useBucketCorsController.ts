@@ -121,7 +121,7 @@ export function useBucketCorsController({
     } finally {
       setLoading(false);
     }
-  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, setStatus]);
 
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(rules), "visual", null);
@@ -144,12 +144,12 @@ export function useBucketCorsController({
     setDraftRules((current) => [...current, createVisualCorsRule()]);
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, []);
+  }, [setDraftRules, setEditorError, setEditorTargetIndex]);
 
   const removeDraftRule = useCallback((index: number) => {
     setDraftRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
     setEditorError(null);
-  }, []);
+  }, [setDraftRules, setEditorError]);
 
   const updateDraftRule = useCallback((index: number, patch: CorsVisualRulePatch) => {
     setDraftRules((current) =>
@@ -158,7 +158,7 @@ export function useBucketCorsController({
       ),
     );
     setEditorError(null);
-  }, []);
+  }, [setDraftRules, setEditorError]);
 
   const persistRules = useCallback(async (nextRules: CorsRuleRecord[]) => {
     if (!bucketName || !enabled || (cephAdmin && !endpointId)) return null;
@@ -194,7 +194,7 @@ export function useBucketCorsController({
     } finally {
       setSaving(false);
     }
-  }, [applyBaseline, persistRules, rules, saving]);
+  }, [applyBaseline, persistRules, rules, saving, setStatus]);
 
   const saveDraft = useCallback(async () => {
     if (!bucketName || !enabled || saving) return;
@@ -245,6 +245,9 @@ export function useBucketCorsController({
     replaceDraft,
     saving,
     closeEditor,
+    setDraftRules,
+    setEditorError,
+    setStatus,
   ]);
 
   const baselineSignature = stableBucketJsonSignature(rules);

@@ -124,7 +124,7 @@ export function useBucketLifecycleController({
     } finally {
       setLoading(false);
     }
-  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId]);
+  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, setStatus]);
 
   const openEditorDraft = useCallback((
     nextDraft: LifecycleRuleRecord[],
@@ -182,7 +182,7 @@ export function useBucketLifecycleController({
     ]);
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, []);
+  }, [setDraftRules, setEditorError, setEditorTargetIndex]);
 
   const removeDraftRule = useCallback((index: number) => {
     const removedRule = draftRules[index];
@@ -190,7 +190,7 @@ export function useBucketLifecycleController({
     setLastRemovedRule({ index, rule: cloneBucketJsonValue([removedRule])[0] });
     setDraftRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
     setEditorError(null);
-  }, [draftRules]);
+  }, [draftRules, setDraftRules, setEditorError]);
 
   const restoreLastRemovedRule = useCallback(() => {
     if (!lastRemovedRule) return;
@@ -201,7 +201,7 @@ export function useBucketLifecycleController({
     });
     setLastRemovedRule(null);
     setEditorError(null);
-  }, [lastRemovedRule]);
+  }, [lastRemovedRule, setDraftRules, setEditorError]);
 
   const updateDraftRule = useCallback((index: number, patch: LifecycleVisualRulePatch) => {
     setDraftRules((current) =>
@@ -210,7 +210,7 @@ export function useBucketLifecycleController({
       ),
     );
     setEditorError(null);
-  }, []);
+  }, [setDraftRules, setEditorError]);
 
   const persistRules = useCallback(async (nextRules: LifecycleRuleRecord[]) => {
     if (!bucketName || !enabled || (cephAdmin && !endpointId)) return null;
@@ -247,7 +247,7 @@ export function useBucketLifecycleController({
     } finally {
       setSaving(false);
     }
-  }, [applyBaseline, persistRules, saving]);
+  }, [applyBaseline, persistRules, saving, setStatus]);
 
   const removeRuleDirect = useCallback((index: number) => {
     void persistDirectRules(
@@ -313,6 +313,9 @@ export function useBucketLifecycleController({
     replaceDraft,
     saving,
     closeEditor,
+    setDraftRules,
+    setEditorError,
+    setStatus,
   ]);
 
   const baselineSignature = stableBucketJsonSignature(rules);
