@@ -104,11 +104,11 @@ export function useBrowserActionStates({
     ],
   );
 
-  const selectionActionStates = useMemo(
-    () =>
+  const resolveSelectionActionStates = useCallback(
+    (items: BrowserItem[]) =>
       resolveBrowserActions({
         scope: "selection",
-        items: selectionItems,
+        items,
         bucketName,
         hasExecutionContext,
         versioningEnabled,
@@ -128,9 +128,12 @@ export function useBrowserActionStates({
       copyUrlDisabledReason,
       functionalProfile,
       hasExecutionContext,
-      selectionItems,
       versioningEnabled,
     ],
+  );
+  const selectionActionStates = useMemo(
+    () => resolveSelectionActionStates(selectionItems),
+    [resolveSelectionActionStates, selectionItems],
   );
 
   const resolveItemActionStates = useCallback(
@@ -241,6 +244,7 @@ export function useBrowserActionStates({
   return {
     pathActionStates,
     selectionActionStates,
+    resolveSelectionActionStates,
     resolveItemActionStates,
     toolbar,
   };
