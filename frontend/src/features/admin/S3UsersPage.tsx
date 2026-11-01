@@ -3,11 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
-import { ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   S3User,
+  type S3UserGroupLinkInput,
+  type S3UserUserLinkInput,
   createS3User,
   deleteS3User,
   getS3User,
@@ -49,8 +50,10 @@ import { stableSignature } from "../../utils/stableSignature";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import { AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, adminAssociationPanelClass } from "./AdminAssociationPicker";
-import AdminAssociationAdvancedSettings from "./AdminAssociationAdvancedSettings";
+import { adminAssociationPanelClass } from "./AdminAssociationPicker";
+import AdminRgwUserAccessAssociationsPanel, {
+  type AdminRgwUserAccessAssociationsState,
+} from "./AdminRgwUserAccessAssociationsPanel";
 import AdminQuotaFields from "./AdminQuotaFields";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
@@ -244,9 +247,11 @@ export default function S3UsersPage() {
   }, [portalUserOptions, editForm.user_links, portalUserPicker.search]);
   const availableGroups = useMemo(() => {
     const query = groupPicker.search.trim().toLowerCase();
-    return uiGroups.filter(
-      (group) => !editForm.group_links.some((link) => link.group_id === group.id) && (!query || group.name.toLowerCase().includes(query))
-    );
+    return uiGroups
+      .filter(
+        (group) => !editForm.group_links.some((link) => link.group_id === group.id) && (!query || group.name.toLowerCase().includes(query))
+      )
+      .map((group) => ({ id: group.id, label: group.name }));
   }, [editForm.group_links, groupPicker.search, uiGroups]);
   const visiblePortalUsers = useMemo(
     () => availablePortalUsers.slice(0, MAX_LINK_OPTIONS),
@@ -256,6 +261,75 @@ export default function S3UsersPage() {
     () => availableGroups.slice(0, MAX_LINK_OPTIONS),
     [availableGroups]
   );
+  const editUserAssociationState: AdminRgwUserAccessAssociationsState<S3UserUserLinkInput> = {
+    selected: editForm.user_links,
+    setSelected: (value) =>
+      setEditForm((current) => ({
+        ...current,
+        user_links:
+          typeof value === "function"
+            ? value(current.user_links)
+            : value,
+      })),
+    getId: (link) => link.user_id,
+    createLink: (id) => ({
+      user_id: id,
+      allow_manager_browser_data_access: false,
+    }),
+    withAccess: (link, allowed) => ({
+      ...link,
+      allow_manager_browser_data_access: allowed,
+    }),
+    labelById: portalUserLabelById,
+    available: availablePortalUsers,
+    visible: visiblePortalUsers,
+    search: portalUserPicker.search,
+    setSearch: portalUserPicker.setSearch,
+    loading: false,
+    showPanel: portalUserPicker.open,
+    setShowPanel: portalUserPicker.setOpen,
+    selections: portalUserPicker.selections,
+    setSelections: portalUserPicker.setSelections,
+    toggleSelection: portalUserPicker.toggleSelection,
+  };
+  const editGroupAssociationState: AdminRgwUserAccessAssociationsState<S3UserGroupLinkInput> = {
+    selected: editForm.group_links,
+    setSelected: (value) =>
+      setEditForm((current) => ({
+        ...current,
+        group_links:
+          typeof value === "function"
+            ? value(current.group_links)
+            : value,
+      })),
+    getId: (link) => link.group_id,
+    createLink: (id) => ({
+      group_id: id,
+      allow_manager_browser_data_access: false,
+    }),
+    withAccess: (link, allowed) => ({
+      ...link,
+      allow_manager_browser_data_access: allowed,
+    }),
+    labelById: groupLabelById,
+    available: availableGroups,
+    visible: visibleGroups,
+    search: groupPicker.search,
+    setSearch: groupPicker.setSearch,
+    loading: uiGroupsLoading,
+    showPanel: groupPicker.open,
+    setShowPanel: (value) =>
+      groupPicker.setOpen((current) => {
+        const next = typeof value === "function" ? value(current) : value;
+        if (next && !current) {
+          void loadGroupsIfNeeded();
+        }
+        return next;
+      }),
+    selections: groupPicker.selections,
+    setSelections: groupPicker.setSelections,
+    toggleSelection: groupPicker.toggleSelection,
+  };
   const cephEndpoints = useMemo(() => storageEndpoints.filter((ep) => ep.provider === "ceph"), [storageEndpoints]);
   const adminCephEndpoints = useMemo(
     () => cephEndpoints.filter((ep) => Boolean(ep.capabilities.admin)),
@@ -802,202 +876,48 @@ export default function S3UsersPage() {
                 )}
 
             {showEditUsersTab && (
-              <div className={`${adminAssociationPanelClass} space-y-3`}>
-                <AdminAssociationLinkedTable
-                  title={adminText("Linked UI users")}
-                  toolbar={{
+              <div className={adminAssociationPanelClass}>
+                <AdminRgwUserAccessAssociationsPanel
+                  state={editUserAssociationState}
+                  maxVisibleOptions={MAX_LINK_OPTIONS}
+                  primaryLabel={adminText("User")}
+                  actionsLabel={adminText("Actions")}
+                  removeLabel={adminText("Remove")}
+                  loadingMessage="Loading UI users..."
+                  emptyMessage={adminText("No linked users yet.")}
+                  pickerTitle={adminText("Add UI users")}
+                  searchHint={adminText("(filter by email)")}
+                  fallbackLabel={(id) => `User #${id}`}
+                  searchAriaLabel="Search UI users"
+                  section={{
+                    title: adminText("Linked UI users"),
                     countLabel: adminText("{count} linked", { count: editForm.user_links.length }),
                     actionLabel: adminText(portalUserPicker.open ? "Close" : "Add UI users"),
-                    onAction: () => portalUserPicker.setOpen((prev) => !prev),
                   }}
-                  headers={[
-                    { label: adminText("User") },
-                    { label: adminText("Actions"), align: "right" },
-                  ]}
-                  hasItems={editForm.user_links.length > 0}
-                  emptyLabel={adminText("No linked users yet.")}
-                  rows={editForm.user_links.map((link) => (
-                    <tr key={link.user_id}>
-                      <td className="ui-table-primary">
-                        {portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
-                      </td>
-                      <td className="ui-table-actions-cell w-px text-right">
-                        <AdminAssociationAdvancedSettings
-                          targetLabel={portalUserLabelById.get(link.user_id) ?? `User #${link.user_id}`}
-                          associationKind="rgw_user"
-                          allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
-                          onApply={(allowed) =>
-                            setEditForm((prev) => ({
-                              ...prev,
-                              user_links: prev.user_links.map((item) =>
-                                item.user_id === link.user_id
-                                  ? { ...item, allow_manager_browser_data_access: allowed }
-                                  : item
-                              ),
-                            }))
-                          }
-                        />
-                        <ListActionButton
-                          type="button"
-                          onClick={() =>
-                            setEditForm((prev) => ({
-                              ...prev,
-                              user_links: prev.user_links.filter((item) => item.user_id !== link.user_id),
-                            }))
-                          }
-                          variant="danger"
-                        >
-                          {adminText("Remove")}
-                        </ListActionButton>
-                      </td>
-                    </tr>
-                  ))}
                 />
-                {portalUserPicker.open && (
-                  <AdminAssociationPickerPanel
-                    title={adminText("Add UI users")}
-                    hint={adminText("(filter by email)")}
-                    search={portalUserPicker.search}
-                    onSearchChange={portalUserPicker.setSearch}
-                    searchAriaLabel="Search UI users"
-                    loading={false}
-                    availableCount={availablePortalUsers.length}
-                    maxVisibleOptions={MAX_LINK_OPTIONS}
-                    selectedCount={portalUserPicker.selections.length}
-                    loadingLabel="Loading UI users..."
-                    onCancel={portalUserPicker.reset}
-                    onAdd={() => {
-                      if (portalUserPicker.selections.length === 0) return;
-                      setEditForm((prev) => ({
-                        ...prev,
-                        user_links: [
-                          ...prev.user_links,
-                          ...portalUserPicker.selections.map((userId) => {
-                            const user = portalUsers.find((candidate) => candidate.id === userId);
-                            return {
-                              user_id: userId,
-                              user_email: user?.email ?? null,
-                              user_full_name: user?.full_name ?? null,
-                              user_avatar: user?.avatar ?? null,
-                              allow_manager_browser_data_access: false,
-                            };
-                          }),
-                        ],
-                      }));
-                      portalUserPicker.reset();
-                    }}
-                    addDisabled={portalUserPicker.selections.length === 0}
-                  >
-                    <AdminAssociationCheckboxOptions
-                      options={visiblePortalUsers}
-                      selectedIds={portalUserPicker.selections}
-                      onToggle={portalUserPicker.toggleSelection}
-                      getLabel={(option) => option.label}
-                    />
-                  </AdminAssociationPickerPanel>
-                )}
               </div>
             )}
 
             {showEditGroupsTab && (
-              <div className={`${adminAssociationPanelClass} space-y-3`}>
-                <AdminAssociationLinkedTable
-                  title={adminText("Linked UI groups")}
-                  toolbar={{
+              <div className={adminAssociationPanelClass}>
+                <AdminRgwUserAccessAssociationsPanel
+                  state={editGroupAssociationState}
+                  maxVisibleOptions={MAX_LINK_OPTIONS}
+                  primaryLabel={adminText("Group")}
+                  actionsLabel={adminText("Actions")}
+                  removeLabel={adminText("Remove")}
+                  loadingMessage="Loading UI groups..."
+                  emptyMessage={adminText("No linked groups yet.")}
+                  pickerTitle={adminText("Add UI groups")}
+                  searchHint={adminText("(filter by name)")}
+                  fallbackLabel={(id) => `Group #${id}`}
+                  searchAriaLabel="Search UI groups"
+                  section={{
+                    title: adminText("Linked UI groups"),
                     countLabel: `${editForm.group_links.length} linked${uiGroupsLoading ? " · loading..." : ""}`,
                     actionLabel: adminText(groupPicker.open ? "Close" : "Add UI groups"),
-                    onAction: () => {
-                      if (!groupPicker.open) {
-                        void loadGroupsIfNeeded();
-                      }
-                      groupPicker.setOpen((prev) => !prev);
-                    },
                   }}
-                  headers={[
-                    { label: adminText("Group") },
-                    { label: adminText("Actions"), align: "right" },
-                  ]}
-                  hasItems={editForm.group_links.length > 0}
-                  emptyLabel={adminText("No linked groups yet.")}
-                  rows={editForm.group_links.map((link) => (
-                    <tr key={link.group_id}>
-                      <td className="ui-table-primary">
-                        {groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
-                      </td>
-                      <td className="ui-table-actions-cell w-px text-right">
-                        <AdminAssociationAdvancedSettings
-                          targetLabel={groupLabelById.get(link.group_id) ?? `Group #${link.group_id}`}
-                          associationKind="rgw_user"
-                          allowManagerBrowserDataAccess={link.allow_manager_browser_data_access}
-                          onApply={(allowed) =>
-                            setEditForm((prev) => ({
-                              ...prev,
-                              group_links: prev.group_links.map((item) =>
-                                item.group_id === link.group_id
-                                  ? { ...item, allow_manager_browser_data_access: allowed }
-                                  : item
-                              ),
-                            }))
-                          }
-                        />
-                        <ListActionButton
-                          type="button"
-                          onClick={() =>
-                            setEditForm((prev) => ({
-                              ...prev,
-                              group_links: prev.group_links.filter((item) => item.group_id !== link.group_id),
-                            }))
-                          }
-                          variant="danger"
-                        >
-                          {adminText("Remove")}
-                        </ListActionButton>
-                      </td>
-                    </tr>
-                  ))}
                 />
-                {groupPicker.open && (
-                  <AdminAssociationPickerPanel
-                    title={adminText("Add UI groups")}
-                    hint={adminText("(filter by name)")}
-                    search={groupPicker.search}
-                    onSearchChange={groupPicker.setSearch}
-                    searchAriaLabel="Search UI groups"
-                    loading={uiGroupsLoading}
-                    availableCount={availableGroups.length}
-                    maxVisibleOptions={MAX_LINK_OPTIONS}
-                    selectedCount={groupPicker.selections.length}
-                    loadingLabel="Loading UI groups..."
-                    onCancel={groupPicker.reset}
-                    onAdd={() => {
-                      if (groupPicker.selections.length === 0) return;
-                      setEditForm((prev) => ({
-                        ...prev,
-                        group_links: [
-                          ...prev.group_links,
-                          ...groupPicker.selections.map((groupId) => {
-                            const group = uiGroups.find((candidate) => candidate.id === groupId);
-                            return {
-                              group_id: groupId,
-                              group_name: group?.name ?? null,
-                              group_avatar: group?.avatar ?? null,
-                              allow_manager_browser_data_access: false,
-                            };
-                          }),
-                        ],
-                      }));
-                      groupPicker.reset();
-                    }}
-                    addDisabled={groupPicker.selections.length === 0}
-                  >
-                    <AdminAssociationCheckboxOptions
-                      options={visibleGroups}
-                      selectedIds={groupPicker.selections}
-                      onToggle={groupPicker.toggleSelection}
-                      getLabel={(group) => group.name}
-                    />
-                  </AdminAssociationPickerPanel>
-                )}
               </div>
             )}
 

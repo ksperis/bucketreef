@@ -2,10 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { S3UserMembership } from "../../api/users";
 import { AdminAssociationTabs } from "./AdminAssociationPicker";
-import AdminS3UserAssociationsPanel, {
-  type AdminS3UserAssociationsState,
-} from "./AdminS3UserAssociationsPanel";
+import AdminRgwUserAccessAssociationsPanel, {
+  type AdminRgwUserAccessAssociationsState,
+} from "./AdminRgwUserAccessAssociationsPanel";
 import AdminSimpleIdAssociationsPanel, {
   type AdminSimpleIdAssociationsState,
 } from "./AdminSimpleIdAssociationsPanel";
@@ -21,7 +22,7 @@ type UserAssociationsTabsProps = {
   maxVisibleOptions: number;
   showPortalRole: boolean;
   accounts: AdminAccountAssociationsState;
-  s3Users: AdminS3UserAssociationsState;
+  s3Users: AdminRgwUserAccessAssociationsState<S3UserMembership>;
   connections: AdminSimpleIdAssociationsState;
   openstack?: AdminSimpleIdAssociationsState;
 };
@@ -74,7 +75,7 @@ export default function UserAssociationsTabs({
           actionLabel: text(s3Users.showPanel ? "close" : "addUsers"),
           onAction: () => s3Users.setShowPanel((current) => !current),
           content: (
-            <AdminS3UserAssociationsPanel
+            <AdminRgwUserAccessAssociationsPanel
               state={s3Users}
               maxVisibleOptions={maxVisibleOptions}
               primaryLabel={text("user")}
