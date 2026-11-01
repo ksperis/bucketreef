@@ -21,6 +21,13 @@ import {
   parseExactListInput,
   serializeAdvancedFilterRules,
 } from "./advancedFilterShared";
+import {
+  defaultQuotaAdvancedFilter,
+  quotaAdvancedFilterRules,
+  quotaAdvancedNumericFields,
+  type QuotaAdvancedFilterState,
+  type QuotaAdvancedNumericField,
+} from "./quotaAdvancedFilterModel";
 
 export type { TextMatchMode } from "../../utils/textMatch";
 
@@ -43,14 +50,7 @@ export type AdvancedNumericField =
   | "maxUsedBytes"
   | "minObjects"
   | "maxObjects"
-  | "minQuotaBytes"
-  | "maxQuotaBytes"
-  | "minQuotaObjects"
-  | "maxQuotaObjects"
-  | "minQuotaUsageSizePercent"
-  | "maxQuotaUsageSizePercent"
-  | "minQuotaUsageObjectPercent"
-  | "maxQuotaUsageObjectPercent"
+  | QuotaAdvancedNumericField
   | "minOwnerUsedBytes"
   | "maxOwnerUsedBytes"
   | "minOwnerObjects"
@@ -85,7 +85,7 @@ export type ActiveFilterSummaryItem = {
 export type AdvancedFilterSecondarySectionId = "metrics" | "featureStates" | "featureDetails";
 export type AdvancedFilterSecondarySectionState = Record<AdvancedFilterSecondarySectionId, boolean>;
 
-export type AdvancedFilterState = {
+export type AdvancedFilterState = QuotaAdvancedFilterState & {
   contextIds: string[];
   endpointNames: string[];
   tenant: string;
@@ -102,14 +102,6 @@ export type AdvancedFilterState = {
   maxUsedBytes: string;
   minObjects: string;
   maxObjects: string;
-  minQuotaBytes: string;
-  maxQuotaBytes: string;
-  minQuotaObjects: string;
-  maxQuotaObjects: string;
-  minQuotaUsageSizePercent: string;
-  maxQuotaUsageSizePercent: string;
-  minQuotaUsageObjectPercent: string;
-  maxQuotaUsageObjectPercent: string;
   minOwnerUsedBytes: string;
   maxOwnerUsedBytes: string;
   minOwnerObjects: string;
@@ -157,14 +149,7 @@ export const defaultAdvancedFilter: AdvancedFilterState = {
   maxUsedBytes: "",
   minObjects: "",
   maxObjects: "",
-  minQuotaBytes: "",
-  maxQuotaBytes: "",
-  minQuotaObjects: "",
-  maxQuotaObjects: "",
-  minQuotaUsageSizePercent: "",
-  maxQuotaUsageSizePercent: "",
-  minQuotaUsageObjectPercent: "",
-  maxQuotaUsageObjectPercent: "",
+  ...defaultQuotaAdvancedFilter,
   minOwnerUsedBytes: "",
   maxOwnerUsedBytes: "",
   minOwnerObjects: "",
@@ -249,14 +234,7 @@ export const BUCKET_STATS_NUMERIC_FILTER_FIELDS: AdvancedNumericField[] = [
   "maxUsedBytes",
   "minObjects",
   "maxObjects",
-  "minQuotaBytes",
-  "maxQuotaBytes",
-  "minQuotaObjects",
-  "maxQuotaObjects",
-  "minQuotaUsageSizePercent",
-  "maxQuotaUsageSizePercent",
-  "minQuotaUsageObjectPercent",
-  "maxQuotaUsageObjectPercent",
+  ...quotaAdvancedNumericFields,
 ];
 export const OWNER_QUOTA_NUMERIC_FILTER_FIELDS: AdvancedNumericField[] = [
   "minOwnerQuotaBytes",
@@ -320,14 +298,12 @@ const numericRules: NumericRule[] = [
   { stateField: "maxUsedBytes", apiField: "used_bytes", op: "lte", requiresStats: true },
   { stateField: "minObjects", apiField: "object_count", op: "gte", requiresStats: true },
   { stateField: "maxObjects", apiField: "object_count", op: "lte", requiresStats: true },
-  { stateField: "minQuotaBytes", apiField: "quota_max_size_bytes", op: "gte", requiresStats: true },
-  { stateField: "maxQuotaBytes", apiField: "quota_max_size_bytes", op: "lte", requiresStats: true },
-  { stateField: "minQuotaObjects", apiField: "quota_max_objects", op: "gte", requiresStats: true },
-  { stateField: "maxQuotaObjects", apiField: "quota_max_objects", op: "lte", requiresStats: true },
-  { stateField: "minQuotaUsageSizePercent", apiField: "quota_usage_size_percent", op: "gte", requiresStats: true },
-  { stateField: "maxQuotaUsageSizePercent", apiField: "quota_usage_size_percent", op: "lte", requiresStats: true },
-  { stateField: "minQuotaUsageObjectPercent", apiField: "quota_usage_object_percent", op: "gte", requiresStats: true },
-  { stateField: "maxQuotaUsageObjectPercent", apiField: "quota_usage_object_percent", op: "lte", requiresStats: true },
+  ...quotaAdvancedFilterRules.map(({ stateField, apiField, op }) => ({
+    stateField,
+    apiField,
+    op,
+    requiresStats: true,
+  })),
   { stateField: "minOwnerUsedBytes", apiField: "owner_used_bytes", op: "gte", requiresStats: true },
   { stateField: "maxOwnerUsedBytes", apiField: "owner_used_bytes", op: "lte", requiresStats: true },
   { stateField: "minOwnerObjects", apiField: "owner_object_count", op: "gte", requiresStats: true },

@@ -70,6 +70,13 @@ import { useCephAdminListingTableState } from "./listing/useCephAdminListingTabl
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
 import { useCephAdminUserConfigurationNavigation } from "./useCephAdminEntityConfigurationNavigation";
+import {
+  appendQuotaAdvancedFilterRules,
+  defaultQuotaAdvancedFilter,
+  hasQuotaAdvancedFilters,
+  type QuotaAdvancedFilterState,
+  type QuotaAdvancedNumericField,
+} from "../shared/quotaAdvancedFilterModel";
 
 type ColumnId =
   | "tenant"
@@ -94,7 +101,7 @@ type SortField =
 
 type AdvancedStatusFilter = "any" | "active" | "suspended";
 
-type AdvancedFilterState = {
+type AdvancedFilterState = QuotaAdvancedFilterState & {
   tenant: string;
   tenantMatchMode: TextMatchMode;
   accountId: string;
@@ -107,14 +114,6 @@ type AdvancedFilterState = {
   emailMatchMode: TextMatchMode;
   minMaxBuckets: string;
   maxMaxBuckets: string;
-  minQuotaBytes: string;
-  maxQuotaBytes: string;
-  minQuotaObjects: string;
-  maxQuotaObjects: string;
-  minQuotaUsageSizePercent: string;
-  maxQuotaUsageSizePercent: string;
-  minQuotaUsageObjectPercent: string;
-  maxQuotaUsageObjectPercent: string;
   suspended: AdvancedStatusFilter;
 };
 
@@ -122,14 +121,7 @@ type AdvancedTextField = "tenant" | "accountId" | "accountName" | "fullName" | "
 type AdvancedNumericField =
   | "minMaxBuckets"
   | "maxMaxBuckets"
-  | "minQuotaBytes"
-  | "maxQuotaBytes"
-  | "minQuotaObjects"
-  | "maxQuotaObjects"
-  | "minQuotaUsageSizePercent"
-  | "maxQuotaUsageSizePercent"
-  | "minQuotaUsageObjectPercent"
-  | "maxQuotaUsageObjectPercent";
+  | QuotaAdvancedNumericField;
 type AdvancedField = AdvancedTextField | AdvancedNumericField | "suspended";
 type ActiveFilterRemoveAction = { type: "quick" } | { type: "advanced"; field: AdvancedField };
 type ActiveFilterSummaryItem = {
@@ -184,14 +176,7 @@ const defaultAdvancedFilter: AdvancedFilterState = {
   emailMatchMode: "contains",
   minMaxBuckets: "",
   maxMaxBuckets: "",
-  minQuotaBytes: "",
-  maxQuotaBytes: "",
-  minQuotaObjects: "",
-  maxQuotaObjects: "",
-  minQuotaUsageSizePercent: "",
-  maxQuotaUsageSizePercent: "",
-  minQuotaUsageObjectPercent: "",
-  maxQuotaUsageObjectPercent: "",
+  ...defaultQuotaAdvancedFilter,
   suspended: "any",
 };
 
@@ -205,15 +190,7 @@ const hasAdvancedFilters = (advanced: AdvancedFilterState | null, allowUsageFilt
       advanced.email.trim() ||
       advanced.minMaxBuckets.trim() ||
       advanced.maxMaxBuckets.trim() ||
-      advanced.minQuotaBytes.trim() ||
-      advanced.maxQuotaBytes.trim() ||
-      advanced.minQuotaObjects.trim() ||
-      advanced.maxQuotaObjects.trim() ||
-      (allowUsageFilters &&
-        (advanced.minQuotaUsageSizePercent.trim() ||
-          advanced.maxQuotaUsageSizePercent.trim() ||
-          advanced.minQuotaUsageObjectPercent.trim() ||
-          advanced.maxQuotaUsageObjectPercent.trim())) ||
+      hasQuotaAdvancedFilters(advanced, allowUsageFilters) ||
       advanced.suspended !== "any"
   );
 };
@@ -238,16 +215,7 @@ const buildAdvancedFilterPayload = (
     rules.push(...buildTextFieldRules("email", advanced.email, advanced.emailMatchMode));
     appendNumericFilterRule(rules, "max_buckets", "gte", advanced.minMaxBuckets);
     appendNumericFilterRule(rules, "max_buckets", "lte", advanced.maxMaxBuckets);
-    appendNumericFilterRule(rules, "quota_max_size_bytes", "gte", advanced.minQuotaBytes);
-    appendNumericFilterRule(rules, "quota_max_size_bytes", "lte", advanced.maxQuotaBytes);
-    appendNumericFilterRule(rules, "quota_max_objects", "gte", advanced.minQuotaObjects);
-    appendNumericFilterRule(rules, "quota_max_objects", "lte", advanced.maxQuotaObjects);
-    if (allowUsageFilters) {
-      appendNumericFilterRule(rules, "quota_usage_size_percent", "gte", advanced.minQuotaUsageSizePercent);
-      appendNumericFilterRule(rules, "quota_usage_size_percent", "lte", advanced.maxQuotaUsageSizePercent);
-      appendNumericFilterRule(rules, "quota_usage_object_percent", "gte", advanced.minQuotaUsageObjectPercent);
-      appendNumericFilterRule(rules, "quota_usage_object_percent", "lte", advanced.maxQuotaUsageObjectPercent);
-    }
+    appendQuotaAdvancedFilterRules(rules, advanced, allowUsageFilters);
 
     if (advanced.suspended === "active") {
       rules.push({ field: "suspended", op: "eq", value: false });
