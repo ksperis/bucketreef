@@ -6,8 +6,8 @@ import pytest
 
 from app.db import S3Account, StorageEndpoint
 from app.services import browser_service
-from app.services.browser import _shared as browser_shared
 from app.services.browser import buckets as browser_buckets
+from app.services.browser import cache as browser_cache
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -21,11 +21,11 @@ def _account() -> S3Account:
 
 
 def _reset_browser_caches() -> None:
-    browser_shared._BUCKET_LIST_CACHE.invalidate_where(lambda _key: True)
-    browser_shared._OBJECT_LIST_CACHE.invalidate_where(lambda _key: True)
-    browser_shared._OBJECT_SORT_SNAPSHOT_CACHE.invalidate_where(lambda _key: True)
-    browser_shared._OBJECT_LAZY_HEAD_CACHE.invalidate_where(lambda _key: True)
-    browser_shared._OBJECT_LAZY_TAGS_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.BUCKET_LIST_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.OBJECT_LIST_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.OBJECT_SORT_SNAPSHOT_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.OBJECT_LAZY_HEAD_CACHE.invalidate_where(lambda _key: True)
+    browser_cache.OBJECT_LAZY_TAGS_CACHE.invalidate_where(lambda _key: True)
 
 
 def test_bucket_cache_reused_between_pages(monkeypatch):

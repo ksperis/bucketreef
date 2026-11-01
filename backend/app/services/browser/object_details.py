@@ -27,12 +27,12 @@ from app.models.browser import (
 )
 from app.services.s3_execution_context import S3ExecutionTarget
 
-from ._shared import (
-    _OBJECT_LAZY_HEAD_CACHE,
-    _OBJECT_LAZY_TAGS_CACHE,
-    _ObjectLazyHeadCacheValue,
-    _ObjectLazyTagsCacheValue,
-    _is_object_lock_unavailable,
+from ._shared import _is_object_lock_unavailable
+from .cache import (
+    OBJECT_LAZY_HEAD_CACHE,
+    OBJECT_LAZY_TAGS_CACHE,
+    ObjectLazyHeadCacheValue,
+    ObjectLazyTagsCacheValue,
 )
 
 
@@ -302,7 +302,7 @@ class BrowserObjectDetailsMixin:
         key: str,
         *,
         sse_customer: Optional[SseCustomerContext] = None,
-    ) -> _ObjectLazyHeadCacheValue:
+    ) -> ObjectLazyHeadCacheValue:
         context_cache_key = self._context_cache_key(context)
         cache_key = self._object_lazy_head_cache_key(
             context_cache_key=context_cache_key,
@@ -310,7 +310,7 @@ class BrowserObjectDetailsMixin:
             key=key,
             sse_customer=sse_customer,
         )
-        cached = _OBJECT_LAZY_HEAD_CACHE.get(cache_key)
+        cached = OBJECT_LAZY_HEAD_CACHE.get(cache_key)
         if cached is not None:
             return cached
 
@@ -320,7 +320,7 @@ class BrowserObjectDetailsMixin:
         try:
             resp = client.head_object(**kwargs)
             metadata = resp.get("Metadata") or {}
-            result = _ObjectLazyHeadCacheValue(
+            result = ObjectLazyHeadCacheValue(
                 content_type=resp.get("ContentType"),
                 metadata_count=len(metadata),
                 cache_control=resp.get("CacheControl"),
@@ -329,7 +329,7 @@ class BrowserObjectDetailsMixin:
                 available=True,
             )
         except (ClientError, BotoCoreError):
-            result = _ObjectLazyHeadCacheValue(
+            result = ObjectLazyHeadCacheValue(
                 content_type=None,
                 metadata_count=None,
                 cache_control=None,
@@ -337,7 +337,7 @@ class BrowserObjectDetailsMixin:
                 restore_status=None,
                 available=False,
             )
-        _OBJECT_LAZY_HEAD_CACHE.set(cache_key, result)
+        OBJECT_LAZY_HEAD_CACHE.set(cache_key, result)
         return result
 
     def _get_object_lazy_tags_columns(
@@ -345,14 +345,14 @@ class BrowserObjectDetailsMixin:
         bucket_name: str,
         context: S3ExecutionTarget,
         key: str,
-    ) -> _ObjectLazyTagsCacheValue:
+    ) -> ObjectLazyTagsCacheValue:
         context_cache_key = self._context_cache_key(context)
         cache_key = self._object_lazy_tags_cache_key(
             context_cache_key=context_cache_key,
             bucket_name=bucket_name,
             key=key,
         )
-        cached = _OBJECT_LAZY_TAGS_CACHE.get(cache_key)
+        cached = OBJECT_LAZY_TAGS_CACHE.get(cache_key)
         if cached is not None:
             return cached
 
@@ -360,19 +360,19 @@ class BrowserObjectDetailsMixin:
         kwargs = {"Bucket": bucket_name, "Key": key}
         try:
             resp = client.get_object_tagging(**kwargs)
-            result = _ObjectLazyTagsCacheValue(
+            result = ObjectLazyTagsCacheValue(
                 tags_count=len(resp.get("TagSet") or []),
                 available=True,
             )
         except (ClientError, BotoCoreError):
-            result = _ObjectLazyTagsCacheValue(tags_count=None, available=False)
-        _OBJECT_LAZY_TAGS_CACHE.set(cache_key, result)
+            result = ObjectLazyTagsCacheValue(tags_count=None, available=False)
+        OBJECT_LAZY_TAGS_CACHE.set(cache_key, result)
         return result
 
     @staticmethod
     def _lazy_column_status(
         requested: bool,
-        value: _ObjectLazyHeadCacheValue | _ObjectLazyTagsCacheValue | None,
+        value: ObjectLazyHeadCacheValue | ObjectLazyTagsCacheValue | None,
     ) -> str:
         return "ready" if not requested or (value is not None and value.available) else "error"
 

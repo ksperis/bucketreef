@@ -16,8 +16,8 @@ from app.models.browser import (
     ObjectRestoreRequest,
     ObjectTag,
 )
-from app.services.browser import _shared
 from app.services.browser import buckets as browser_buckets
+from app.services.browser import cache as browser_cache
 from app.services.browser import versions as browser_versions
 from app.services.browser_service import BrowserService
 from app.services.s3_deletion import DeleteObjectsError
@@ -25,19 +25,19 @@ from tests.execution_context_factory import make_s3_execution_context
 
 
 OBJECT_CACHES = (
-    _shared._OBJECT_LIST_CACHE,
-    _shared._OBJECT_SORT_SNAPSHOT_CACHE,
-    _shared._OBJECT_LAZY_HEAD_CACHE,
-    _shared._OBJECT_LAZY_TAGS_CACHE,
+    browser_cache.OBJECT_LIST_CACHE,
+    browser_cache.OBJECT_SORT_SNAPSHOT_CACHE,
+    browser_cache.OBJECT_LAZY_HEAD_CACHE,
+    browser_cache.OBJECT_LAZY_TAGS_CACHE,
 )
 
 
 @pytest.fixture(autouse=True)
 def clear_caches():
-    for cache in (*OBJECT_CACHES, _shared._BUCKET_LIST_CACHE):
+    for cache in (*OBJECT_CACHES, browser_cache.BUCKET_LIST_CACHE):
         cache.invalidate_where(lambda _key: True)
     yield
-    for cache in (*OBJECT_CACHES, _shared._BUCKET_LIST_CACHE):
+    for cache in (*OBJECT_CACHES, browser_cache.BUCKET_LIST_CACHE):
         cache.invalidate_where(lambda _key: True)
 
 
@@ -114,7 +114,7 @@ def _assert_invalidated(entries, affected):
     for label, cached_entries in entries.items():
         for cache, key, value in cached_entries:
             assert cache.get(key) is (None if label in affected else value), label
-            if cache is _shared._OBJECT_SORT_SNAPSHOT_CACHE:
+            if cache is browser_cache.OBJECT_SORT_SNAPSHOT_CACHE:
                 assert value.close.call_count == int(label in affected)
 
 
@@ -342,8 +342,8 @@ def test_bucket_creation_expires_bucket_list_after_partial_configuration(monkeyp
     entries = _seed_scoped_caches(service, account)
     account_key = service._context_cache_key(account)
     other_key = service._context_cache_key(make_s3_execution_context(context_id="2", id=2))
-    _shared._BUCKET_LIST_CACHE.set(account_key, [])
-    _shared._BUCKET_LIST_CACHE.set(other_key, [])
+    browser_cache.BUCKET_LIST_CACHE.set(account_key, [])
+    browser_cache.BUCKET_LIST_CACHE.set(other_key, [])
     create = Mock()
     versioning = Mock()
     failure = RuntimeError("storage mutation failed")
@@ -367,6 +367,6 @@ def test_bucket_creation_expires_bucket_list_after_partial_configuration(monkeyp
     attempted = outcome != "config_failed"
     assert create.call_count == int(attempted)
     assert versioning.call_count == int(outcome in {"success", "versioning_failed"})
-    assert _shared._BUCKET_LIST_CACHE.get(account_key) == (None if attempted else [])
-    assert _shared._BUCKET_LIST_CACHE.get(other_key) == []
+    assert browser_cache.BUCKET_LIST_CACHE.get(account_key) == (None if attempted else [])
+    assert browser_cache.BUCKET_LIST_CACHE.get(other_key) == []
     _assert_invalidated(entries, {"target"} if attempted else set())

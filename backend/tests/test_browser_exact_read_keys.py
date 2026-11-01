@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError
 
 from app.main import app
 from app.routers import browser, dependencies
-from app.services.browser import _shared
+from app.services.browser import cache as browser_cache
 from app.services.browser_service import BrowserService
 from tests.execution_context_factory import make_s3_execution_context
 
@@ -26,10 +26,10 @@ def storage(monkeypatch, client):
     monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: sdk)
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
     app.dependency_overrides[browser.get_browser_service] = lambda: service
-    for cache in (_shared._OBJECT_LAZY_HEAD_CACHE, _shared._OBJECT_LAZY_TAGS_CACHE):
+    for cache in (browser_cache.OBJECT_LAZY_HEAD_CACHE, browser_cache.OBJECT_LAZY_TAGS_CACHE):
         cache.invalidate_where(lambda _key: True)
     yield sdk
-    for cache in (_shared._OBJECT_LAZY_HEAD_CACHE, _shared._OBJECT_LAZY_TAGS_CACHE):
+    for cache in (browser_cache.OBJECT_LAZY_HEAD_CACHE, browser_cache.OBJECT_LAZY_TAGS_CACHE):
         cache.invalidate_where(lambda _key: True)
 
 

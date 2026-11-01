@@ -32,13 +32,13 @@ from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 from app.utils.aws_errors import aws_error_code
 
-from ._shared import (
-    _BUCKET_LIST_CACHE,
-    _OBJECT_LAZY_HEAD_CACHE,
-    _OBJECT_LAZY_TAGS_CACHE,
-    _OBJECT_LIST_CACHE,
-    _OBJECT_SORT_SNAPSHOT_CACHE,
-    _normalize_expiration,
+from ._shared import _normalize_expiration
+from .cache import (
+    BUCKET_LIST_CACHE,
+    OBJECT_LAZY_HEAD_CACHE,
+    OBJECT_LAZY_TAGS_CACHE,
+    OBJECT_LIST_CACHE,
+    OBJECT_SORT_SNAPSHOT_CACHE,
 )
 from .sts import browser_sts_enabled, request_browser_sts_session
 
@@ -339,23 +339,23 @@ class BrowserContextMixin:
     def invalidate_bucket_list_cache(self, context_key: str) -> None:
         if not context_key:
             return
-        removed = _BUCKET_LIST_CACHE.invalidate_where(lambda key: key == context_key)
+        removed = BUCKET_LIST_CACHE.invalidate_where(lambda key: key == context_key)
         if removed > 0:
             logger.debug("Browser bucket cache invalidated: context=%s entries=%s", context_key, removed)
 
     def invalidate_object_list_cache(self, context_key: str, bucket_name: str) -> None:
         if not context_key or not bucket_name:
             return
-        removed = _OBJECT_LIST_CACHE.invalidate_where(
+        removed = OBJECT_LIST_CACHE.invalidate_where(
             lambda key: len(key) >= 2 and key[0] == context_key and key[1] == bucket_name
         )
-        removed += _OBJECT_SORT_SNAPSHOT_CACHE.invalidate_where(
+        removed += OBJECT_SORT_SNAPSHOT_CACHE.invalidate_where(
             lambda key: len(key) >= 2 and key[0] == context_key and key[1] == bucket_name
         )
-        removed += _OBJECT_LAZY_HEAD_CACHE.invalidate_where(
+        removed += OBJECT_LAZY_HEAD_CACHE.invalidate_where(
             lambda key: len(key) >= 2 and key[0] == context_key and key[1] == bucket_name
         )
-        removed += _OBJECT_LAZY_TAGS_CACHE.invalidate_where(
+        removed += OBJECT_LAZY_TAGS_CACHE.invalidate_where(
             lambda key: len(key) >= 2 and key[0] == context_key and key[1] == bucket_name
         )
         if removed > 0:

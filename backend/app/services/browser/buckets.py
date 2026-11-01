@@ -11,7 +11,7 @@ from app.models.browser import BrowserBucket, PaginatedBrowserBucketsResponse
 from app.services.s3_client import create_bucket as s3_create_bucket
 from app.services.s3_client import set_bucket_versioning as s3_set_bucket_versioning
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
-from ._shared import _BUCKET_LIST_CACHE
+from .cache import BUCKET_LIST_CACHE
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class BrowserBucketsMixin:
             else None
         )
         context_key = self._context_cache_key(context)
-        cached = _BUCKET_LIST_CACHE.get(context_key)
+        cached = BUCKET_LIST_CACHE.get(context_key)
         if cached is not None:
             logger.debug("Browser bucket cache hit: context=%s count=%s", context_key, len(cached))
             if allowed_portal_buckets is not None:
@@ -88,7 +88,7 @@ class BrowserBucketsMixin:
                 continue
             buckets.append(BrowserBucket(name=name, creation_date=bucket.get("CreationDate")))
         buckets.sort(key=lambda bucket: bucket.name)
-        _BUCKET_LIST_CACHE.set(context_key, buckets)
+        BUCKET_LIST_CACHE.set(context_key, buckets)
         logger.debug("Browser bucket cache miss: context=%s count=%s", context_key, len(buckets))
         if allowed_portal_buckets is not None:
             return [bucket for bucket in buckets if bucket.name in allowed_portal_buckets]
