@@ -4,9 +4,12 @@
  */
 import { useMemo } from "react";
 import type { UiGroupSummary } from "../../api/groups";
+import {
+  deriveAdminAssociationOptions,
+  filterAdminAssociationOptions,
+  MAX_VISIBLE_ASSOCIATION_OPTIONS,
+} from "./adminAssociationOptions";
 import type { AdminUserAssociationEditorState } from "./useAdminUserAssociationEditorState";
-
-export const MAX_VISIBLE_USER_ASSOCIATION_OPTIONS = 10;
 
 type AssociationOption = {
   id: number;
@@ -52,77 +55,62 @@ export type AdminUserAssociationDerivedOptions = {
   groups: UiGroupSummary[];
 };
 
-function normalizedSearch(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function filterOptions(
-  options: AssociationOption[],
-  selectedIds: ReadonlySet<number>,
-  search: string,
-) {
-  const query = normalizedSearch(search);
-  return options.filter(
-    (option) =>
-      !selectedIds.has(Number(option.id)) &&
-      (!query || option.label.toLowerCase().includes(query)),
-  );
-}
-
-function withVisible(options: AssociationOption[], maxVisibleOptions: number) {
-  return {
-    available: options,
-    visible: options.slice(0, maxVisibleOptions),
-  };
-}
-
 export function deriveAdminUserAssociationOptions(
   editor: AssociationEditorDerivationState,
   sources: AssociationOptionSources,
-  maxVisibleOptions = MAX_VISIBLE_USER_ASSOCIATION_OPTIONS,
+  maxVisibleOptions = MAX_VISIBLE_ASSOCIATION_OPTIONS,
 ): AdminUserAssociationDerivedOptions {
-  const accounts = filterOptions(
-    sources.accountOptions,
-    new Set(editor.accounts.selected.map((account) => Number(account.id))),
-    editor.accounts.picker.search,
-  );
-  const s3Users = filterOptions(
-    sources.s3UserOptions,
-    new Set(editor.s3Users.selected.map((link) => link.s3_user_id)),
-    editor.s3Users.picker.search,
-  );
-  const connections = filterOptions(
-    sources.s3ConnectionOptions,
-    new Set(editor.connections.selected),
-    editor.connections.picker.search,
-  );
-  const openStack = filterOptions(
-    sources.openStackOptions,
-    new Set(editor.openStack.selected),
-    editor.openStack.picker.search,
-  );
-  const groupSearch = normalizedSearch(editor.groups.picker.search);
-  const selectedGroupIds = new Set(editor.groups.selected);
-  const groups = sources.groups.filter(
-    (group) =>
-      !group.system_key &&
-      !selectedGroupIds.has(group.id) &&
-      (!groupSearch || group.name.toLowerCase().includes(groupSearch)),
+  const deriveOptions = (
+    items: AssociationOption[],
+    selectedIds: ReadonlySet<number>,
+    search: string,
+  ) => deriveAdminAssociationOptions(
+    {
+      items,
+      selectedIds,
+      search,
+      getId: (option) => Number(option.id),
+      getLabel: (option) => option.label,
+    },
+    maxVisibleOptions,
   );
 
   return {
-    accounts: withVisible(accounts, maxVisibleOptions),
-    s3Users: withVisible(s3Users, maxVisibleOptions),
-    connections: withVisible(connections, maxVisibleOptions),
-    openStack: withVisible(openStack, maxVisibleOptions),
-    groups,
+    accounts: deriveOptions(
+      sources.accountOptions,
+      new Set(editor.accounts.selected.map((account) => Number(account.id))),
+      editor.accounts.picker.search,
+    ),
+    s3Users: deriveOptions(
+      sources.s3UserOptions,
+      new Set(editor.s3Users.selected.map((link) => link.s3_user_id)),
+      editor.s3Users.picker.search,
+    ),
+    connections: deriveOptions(
+      sources.s3ConnectionOptions,
+      new Set(editor.connections.selected),
+      editor.connections.picker.search,
+    ),
+    openStack: deriveOptions(
+      sources.openStackOptions,
+      new Set(editor.openStack.selected),
+      editor.openStack.picker.search,
+    ),
+    groups: filterAdminAssociationOptions({
+      items: sources.groups,
+      selectedIds: new Set(editor.groups.selected),
+      search: editor.groups.picker.search,
+      getId: (group) => group.id,
+      getLabel: (group) => group.name,
+      include: (group) => !group.system_key,
+    }),
   };
 }
 
 export default function useAdminUserAssociationDerivedOptions(
   editor: AdminUserAssociationEditorState,
   sources: AssociationOptionSources,
-  maxVisibleOptions = MAX_VISIBLE_USER_ASSOCIATION_OPTIONS,
+  maxVisibleOptions = MAX_VISIBLE_ASSOCIATION_OPTIONS,
 ) {
   const accountSelected = editor.accounts.selected;
   const accountSearch = editor.accounts.picker.search;
