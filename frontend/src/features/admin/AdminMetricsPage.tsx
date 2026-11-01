@@ -8,19 +8,8 @@ import {
   streamAdminUsageStatsAggregate,
   type BucketUsageStatsAggregate,
 } from "../../api/bucketUsageStats";
-import {
-  AdminStorageStats,
-  AdminTrafficStats,
-  TrafficWindow,
-  fetchAdminStorage,
-  fetchAdminTraffic,
-} from "../../api/stats";
-import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
-import {
-  fetchAdminUsageHistoryTrends,
-  type UsageHistoryTrendResponse,
-  type UsageHistoryTrendWindow,
-} from "../../api/usageHistory";
+import type { TrafficWindow } from "../../api/stats";
+import type { UsageHistoryTrendWindow } from "../../api/usageHistory";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { MetricsCard } from "../../components/MetricsCard";
 import MetricsTrafficOverview, { MetricsSnapshotCard, MetricsSummaryCard } from "../../components/MetricsTrafficOverview";
@@ -36,6 +25,7 @@ import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import BucketUsageStatsAggregateCard from "../shared/BucketUsageStatsAggregateCard";
 import { adminMetricsSourceText, useAdminMetricsI18n } from "./adminMetricsMessage";
+import { useAdminMetricsResources } from "./useAdminMetricsResources";
 
 type AdminMetricsTab = "storage" | "usage-composition" | "usage-history" | "traffic";
 
@@ -43,181 +33,33 @@ export default function AdminMetricsPage() {
   const { text, translateText } = useAdminMetricsI18n();
   const { generalSettings } = useGeneralSettings();
   const [activeTab, setActiveTab] = useState<AdminMetricsTab>("storage");
-  const [storage, setStorage] = useState<AdminStorageStats | null>(null);
-  const [storageError, setStorageError] = useState<string | null>(null);
-  const [storageLoading, setStorageLoading] = useState<boolean>(true);
-
-  const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
-  const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(null);
-  const [endpointLoading, setEndpointLoading] = useState<boolean>(true);
-  const [endpointError, setEndpointError] = useState<string | null>(null);
-
-  const [traffic, setTraffic] = useState<AdminTrafficStats | null>(null);
-  const [trafficError, setTrafficError] = useState<string | null>(null);
-  const [trafficLoading, setTrafficLoading] = useState<boolean>(false);
-
   const [window, setWindow] = useState<TrafficWindow>("week");
   const [usageHistoryWindow, setUsageHistoryWindow] = useState<UsageHistoryTrendWindow>("month");
-  const [usageHistoryTrends, setUsageHistoryTrends] = useState<UsageHistoryTrendResponse | null>(null);
-  const [usageHistoryLoading, setUsageHistoryLoading] = useState<boolean>(false);
-  const [usageHistoryError, setUsageHistoryError] = useState<string | null>(null);
+  const {
+    storage,
+    storageError,
+    storageLoading,
+    endpoints,
+    selectedEndpointId,
+    setSelectedEndpointId,
+    endpointLoading,
+    endpointError,
+    traffic,
+    trafficError,
+    trafficLoading,
+    usageHistoryTrends,
+    usageHistoryLoading,
+    usageHistoryError,
+  } = useAdminMetricsResources({
+    usageHistoryEnabled: generalSettings.usage_history_enabled,
+    trafficWindow: window,
+    usageHistoryWindow,
+  });
   const [usageStatsAggregate, setUsageStatsAggregate] = useState<BucketUsageStatsAggregate | null>(null);
   const [usageStatsLoading, setUsageStatsLoading] = useState(false);
   const [usageStatsError, setUsageStatsError] = useState<string | null>(null);
   const [usageStatsRecalculating, setUsageStatsRecalculating] = useState(false);
   const usageStatsAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadEndpoints() {
-      setEndpointLoading(true);
-      setEndpointError(null);
-      try {
-        const data = await listStorageEndpoints();
-        if (cancelled) {
-          return;
-        }
-        const cephEndpoints = data.filter((endpoint) => endpoint.provider === "ceph");
-        setEndpoints(cephEndpoints);
-        if (cephEndpoints.length === 0) {
-          setSelectedEndpointId(null);
-          setEndpointError(adminMetricsSourceText("noEndpointError"));
-        } else {
-          const preferred = cephEndpoints.find((ep) => ep.is_default) || cephEndpoints[0];
-          setSelectedEndpointId((current) => current ?? preferred.id);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setEndpoints([]);
-          setSelectedEndpointId(null);
-          setEndpointError(extractApiError(err, adminMetricsSourceText("loadEndpointsError")));
-        }
-      } finally {
-        if (!cancelled) {
-          setEndpointLoading(false);
-        }
-      }
-    }
-    loadEndpoints();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadStorage() {
-      if (endpointLoading) {
-        return;
-      }
-      if (selectedEndpointId == null) {
-        setStorage(null);
-        setStorageLoading(false);
-        return;
-      }
-      setStorage(null);
-      setStorageLoading(true);
-      setStorageError(null);
-      try {
-        const data = await fetchAdminStorage(selectedEndpointId);
-        if (!cancelled) {
-          setStorage(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setStorageError(extractApiError(err, adminMetricsSourceText("loadStorageError")));
-          setStorage(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setStorageLoading(false);
-        }
-      }
-    }
-    loadStorage();
-    return () => {
-      cancelled = true;
-    };
-  }, [endpointLoading, selectedEndpointId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadTraffic() {
-      if (endpointLoading) {
-        return;
-      }
-      if (selectedEndpointId == null) {
-        setTraffic(null);
-        setTrafficLoading(false);
-        return;
-      }
-      setTraffic(null);
-      setTrafficLoading(true);
-      setTrafficError(null);
-      try {
-        const data = await fetchAdminTraffic(window, selectedEndpointId);
-        if (!cancelled) {
-          setTraffic(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setTrafficError(extractApiError(err, adminMetricsSourceText("loadTrafficError")));
-          setTraffic(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setTrafficLoading(false);
-        }
-      }
-    }
-    loadTraffic();
-    return () => {
-      cancelled = true;
-    };
-  }, [endpointLoading, selectedEndpointId, window]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadUsageHistoryTrends() {
-      if (!generalSettings.usage_history_enabled || endpointLoading) {
-        setUsageHistoryTrends(null);
-        setUsageHistoryLoading(false);
-        setUsageHistoryError(null);
-        return;
-      }
-      if (selectedEndpointId == null) {
-        setUsageHistoryTrends(null);
-        setUsageHistoryLoading(false);
-        return;
-      }
-      setUsageHistoryTrends(null);
-      setUsageHistoryLoading(true);
-      setUsageHistoryError(null);
-      try {
-        const data = await fetchAdminUsageHistoryTrends({
-          window: usageHistoryWindow,
-          endpointId: selectedEndpointId,
-          subjectType: "all",
-        });
-        if (!cancelled) {
-          setUsageHistoryTrends(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setUsageHistoryTrends(null);
-          setUsageHistoryError(extractApiError(err, adminMetricsSourceText("loadHistoryError")));
-        }
-      } finally {
-        if (!cancelled) {
-          setUsageHistoryLoading(false);
-        }
-      }
-    }
-    loadUsageHistoryTrends();
-    return () => {
-      cancelled = true;
-    };
-  }, [endpointLoading, generalSettings.usage_history_enabled, selectedEndpointId, usageHistoryWindow]);
 
   const loadUsageStatsAggregate = useCallback(async () => {
     if (endpointLoading || selectedEndpointId == null) {
