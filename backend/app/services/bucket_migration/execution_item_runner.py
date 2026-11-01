@@ -13,7 +13,7 @@ from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import is_s3_access_denied
 from app.utils.time import utcnow
 
-from ._shared import _check_control_state
+from .execution_signals import check_control_state
 from .execution_runtime import ResolvedContext
 from .execution_item_loop import _MigrationItemExecutionLoop
 from .execution_settings_copy import _BucketSettingsCopyRunner
@@ -49,7 +49,7 @@ class BucketMigrationItemRunnerMixin:
         item: BucketMigrationItem,
         control_check: Callable[[], str],
     ) -> None:
-        state = _check_control_state(
+        state = check_control_state(
             control_check,
             lost_lease_message=f"Worker lease lost for migration {migration.id}",
         )

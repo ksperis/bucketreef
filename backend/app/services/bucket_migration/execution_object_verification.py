@@ -14,13 +14,11 @@ from botocore.exceptions import BotoCoreError, ClientError
 from ._shared import (
     _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS,
     _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
-    _MigrationControlRequested,
     _VersionTimelineDiffKey,
-    _WorkerLeaseLostError,
-    _check_control_state,
     _chunked,
 )
 from .execution_runtime import ResolvedContext
+from .execution_signals import MigrationControlRequested, WorkerLeaseLostError, check_control_state
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +69,7 @@ class BucketMigrationObjectVerificationMixin:
         failure_log_prefix: str,
         lost_lease_message: str,
     ) -> bool:
-        state = _check_control_state(
+        state = check_control_state(
             control_check,
             lost_lease_message=lost_lease_message,
         )
@@ -101,7 +99,7 @@ class BucketMigrationObjectVerificationMixin:
                 results.record(key, verified=verified, method=method)
 
         if interrupted_state == "lost_lease":
-            raise _WorkerLeaseLostError(lost_lease_message)
+            raise WorkerLeaseLostError(lost_lease_message)
         return interrupted_state not in {"pause", "cancel"}
 
     def _strong_verification_clients(
@@ -279,7 +277,7 @@ class BucketMigrationObjectVerificationMixin:
                 if not chunk:
                     break
                 hasher.update(chunk)
-        except _WorkerLeaseLostError:
+        except WorkerLeaseLostError:
             raise
         except (ClientError, BotoCoreError, RuntimeError) as exc:
             raise RuntimeError(f"Unable to compute SHA-256 for '{key}' in bucket '{bucket_name}': {exc}") from exc
@@ -351,7 +349,7 @@ class BucketMigrationObjectVerificationMixin:
         ):
             scan_count_since_control += 1
             if scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
-                state = _check_control_state(
+                state = check_control_state(
                     control_check,
                     lost_lease_message="Worker lease lost while collecting strong-verification candidates",
                 )
@@ -397,14 +395,14 @@ class BucketMigrationObjectVerificationMixin:
         while source_item is not None or target_item is not None:
             scanned_keys += 1
             if scanned_keys % 200 == 0:
-                state = _check_control_state(
+                state = check_control_state(
                     control_check,
                     lost_lease_message=(
                         "Worker lease lost while collecting version-aware strong-verification candidates"
                     ),
                 )
                 if state in {"pause", "cancel"}:
-                    raise _MigrationControlRequested(state)
+                    raise MigrationControlRequested(state)
 
             if source_item is None:
                 target_item = next(target_iter, None)
@@ -507,7 +505,7 @@ class BucketMigrationObjectVerificationMixin:
                         return -1, 0, [], results.method_counts
                 if not flush_pair_batch(executor):
                     return -1, 0, [], results.method_counts
-        except _MigrationControlRequested:
+        except MigrationControlRequested:
             return -1, 0, [], results.method_counts
 
         return (

@@ -10,9 +10,9 @@ from app.utils.time import utcnow
 
 from ._shared import (
     _ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS,
-    _check_control_state,
 )
 from .execution_runtime import ResolvedContext
+from .execution_signals import check_control_state
 
 if TYPE_CHECKING:
     from .execution_item_runner import BucketMigrationItemRunnerMixin
@@ -77,7 +77,7 @@ class _MigrationItemExecutionLoop:
         self.last_heartbeat_persist = now_mono
 
     def _may_continue(self) -> bool:
-        state = _check_control_state(
+        state = check_control_state(
             self.control_check,
             lost_lease_message=f"Worker lease lost for migration {self.migration.id}",
         )

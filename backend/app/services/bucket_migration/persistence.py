@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.db import BucketMigration, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
-from ._shared import _WorkerLeaseLostError
+from .execution_signals import WorkerLeaseLostError
 
 
 class BucketMigrationPersistenceMixin:
@@ -30,7 +30,7 @@ class BucketMigrationPersistenceMixin:
             ).where(BucketMigration.id == self._workflow_migration_id)
         ).one()
         if row.worker_lease_owner != worker_id or not row.worker_lease_until or row.worker_lease_until < utcnow():
-            raise _WorkerLeaseLostError("Migration worker lease lost")
+            raise WorkerLeaseLostError("Migration worker lease lost")
 
     def _commit(self) -> None:
         self.db.commit()

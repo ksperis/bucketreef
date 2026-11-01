@@ -15,9 +15,9 @@ from ._shared import (
     _VersionAwareDiff,
     _VersionTimelineComparison,
     _VersionTimelineDiffKey,
-    _check_control_state,
 )
 from .execution_runtime import ResolvedContext
+from .execution_signals import check_control_state
 
 
 @dataclass
@@ -208,7 +208,7 @@ class BucketMigrationObjectComparisonMixin:
         while source_item is not None or target_item is not None:
             scanned_keys += 1
             if scanned_keys % 200 == 0:
-                state = _check_control_state(
+                state = check_control_state(
                     control_check,
                     lost_lease_message="Worker lease lost while comparing version-aware timelines",
                 )
@@ -322,7 +322,7 @@ class BucketMigrationObjectComparisonMixin:
         ):
             scan_count_since_control += 1
             if scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
-                state = _check_control_state(
+                state = check_control_state(
                     control_check,
                     lost_lease_message="Worker lease lost while comparing bucket content",
                 )
