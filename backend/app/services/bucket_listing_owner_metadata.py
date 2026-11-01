@@ -22,7 +22,7 @@ from app.services.rgw_bucket_metadata import (
 )
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.normalize import normalize_optional_scalar, normalize_text
-from app.utils.rgw_payloads import extract_rgw_user_scalar
+from app.utils.rgw_payloads import extract_rgw_account_payload, extract_rgw_user_scalar
 
 BUCKET_OWNER_LOOKUP_MAX_WORKERS = 6
 
@@ -119,7 +119,7 @@ def _resolve_account_owner_name(
     if not isinstance(payload, dict) or payload.get("not_found"):
         return False, None
     # Strict account owner-name resolution: only RGW account "name" is accepted.
-    return True, normalize_optional_scalar(payload.get("name"))
+    return True, normalize_optional_scalar(extract_rgw_account_payload(payload).get("name"))
 
 
 def _resolve_user_owner_name(
