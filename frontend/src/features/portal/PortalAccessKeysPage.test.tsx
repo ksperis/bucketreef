@@ -611,9 +611,9 @@ describe("PortalAccessKeysPage", () => {
     await user.click(screen.getByRole("button", { name: "Back to tool access" }));
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(screen.getByRole("textbox", { name: "External user" })).toHaveValue("External partner");
-    await user.click(within(getCreateWorkflowPage()).getByRole("link", { name: "Portal", exact: true }));
+    await user.click(within(getCreateWorkflowPage()).getByRole("link", { name: /^Portal$/ }));
     expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Discard changes", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Discard changes$/ }));
     expect(await screen.findByText("Portal destination")).toBeVisible();
     expect(mocks.createPortalAccessKey).not.toHaveBeenCalled();
     router.dispose();
@@ -645,9 +645,9 @@ describe("PortalAccessKeysPage", () => {
     expect(screen.getByRole("textbox", { name: "External user" })).toBeDisabled();
     expect(screen.getByRole("radio", { name: "For myself" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Back to tool access" })).toBeDisabled();
-    await user.click(within(getCreateWorkflowPage()).getByRole("link", { name: "Portal", exact: true }));
+    await user.click(within(getCreateWorkflowPage()).getByRole("link", { name: /^Portal$/ }));
     expect(screen.getByRole("dialog", { name: "Operation in progress" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Discard changes", exact: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Discard changes$/ })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     await act(async () => reject(new Error("Create temporarily unavailable")));
     expect(screen.getAllByText("Create temporarily unavailable")).toHaveLength(1);

@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_PORTAL_FEATURE_POLICIES } from "../../api/featurePolicies";
 import type { PortalProjectSettings } from "../../api/portalAccounts";
 import { LanguageProvider } from "../../components/language";
 import { setSessionUserCache } from "../../utils/workspaces";
@@ -35,6 +36,8 @@ vi.mock("./PortalAccountContext", () => ({
 }));
 const project: PortalProjectSettings = {
   effective: {
+    feature_policies: DEFAULT_PORTAL_FEATURE_POLICIES,
+    cost_estimation_enabled: false,
     browser_access_enabled: true,
     allow_private_storage_space_create: true,
     allow_portal_named_bucket_create: false,

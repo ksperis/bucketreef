@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPortalAccount,
+  buildPortalStorageSpaceSummary,
+} from "../../test/portal";
+import {
   buildPortalWorkspaceModel,
   decodePortalRouteValue,
 } from "./portalWorkspaceModel";
@@ -16,14 +20,12 @@ describe("portal route decoding", () => {
 describe("buildPortalWorkspaceModel", () => {
   it("uses canonical storage spaces as the workspace source", () => {
     const workspace = buildPortalWorkspaceModel({
-      account: { id: 101, name: "Account 101", tags: [] },
+      account: buildPortalAccount(101, { name: "Account 101" }),
       storageSpaces: [
-        {
-          id: "research-data",
+        buildPortalStorageSpaceSummary("research-data", {
           name: "Research Data",
           role: "Manager",
           can_delete: true,
-          status: "Active",
           owner_user_id: 7,
           visibility: "shared",
           region: "eu-west-3",
@@ -33,7 +35,7 @@ describe("buildPortalWorkspaceModel", () => {
           internal_bucket_name: "research-data",
           origin: "portal_generic",
           name_editable: true,
-        },
+        }),
       ],
       usage: null,
       userEmail: "manager@example.com",
@@ -60,7 +62,7 @@ describe("buildPortalWorkspaceModel", () => {
 
   it("keeps an empty canonical storage space list empty", () => {
     const workspace = buildPortalWorkspaceModel({
-      account: { id: 101, name: "Account 101", tags: [] },
+      account: buildPortalAccount(101, { name: "Account 101" }),
       storageSpaces: [],
       usage: null,
       userEmail: null,
@@ -77,17 +79,15 @@ describe("buildPortalWorkspaceModel", () => {
 
   it("prefers PortalUsage quotas and per-space usage when API data is available", () => {
     const workspace = buildPortalWorkspaceModel({
-      account: { id: 101, name: "Account 101", tags: [] },
+      account: buildPortalAccount(101, { name: "Account 101" }),
       storageSpaces: [
-        {
-          id: "research-data",
+        buildPortalStorageSpaceSummary("research-data", {
           name: "Research Data",
           role: "Owner",
-          status: "Active",
           visibility: "private",
           used_bytes: null,
           object_count: null,
-        },
+        }),
       ],
       usage: {
         used_bytes: 900,
@@ -124,22 +124,18 @@ describe("buildPortalWorkspaceModel", () => {
 
   it("uses the explicit visibility field independently from operational status", () => {
     const workspace = buildPortalWorkspaceModel({
-      account: { id: 101, name: "Account 101", tags: [] },
+      account: buildPortalAccount(101, { name: "Account 101" }),
       storageSpaces: [
-        {
-          id: "shared-space",
+        buildPortalStorageSpaceSummary("shared-space", {
           name: "Shared Space",
           role: "Viewer",
-          status: "Active",
           visibility: "shared",
-        },
-        {
-          id: "private-space",
+        }),
+        buildPortalStorageSpaceSummary("private-space", {
           name: "Private Space",
           role: "Manager",
-          status: "Active",
           visibility: "private",
-        },
+        }),
       ],
       usage: null,
       userEmail: "manager@example.com",

@@ -1,19 +1,16 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { buildPortalPublicLink } from "../../test/portal";
 import PortalPublicLinksTable from "./PortalPublicLinksTable";
 
-const publicLink = {
-  id: 1,
+const publicLink = buildPortalPublicLink({
   storage_space_id: "space-1",
   storage_space_name: "Research data",
   object_key: "reports/2026/report.csv",
-  object_name: "report.csv",
   url: "https://storage.example.test/public-links/a-very-long-public-link-token-that-must-not-overlap-actions/download",
   created_at: "2026-08-01T10:00:00Z",
-  expires_at: null,
-  status: "Active",
-};
+});
 
 describe("PortalPublicLinksTable", () => {
   it("constrains long URLs before the action buttons in drawer layouts", () => {

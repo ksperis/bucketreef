@@ -3,11 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildPortalWorkspaceSpace } from "../../test/portal";
 import PortalActivityPanel from "./PortalActivityPanel";
 import type { PortalWorkspaceActivityItem, PortalWorkspaceSpace } from "./portalWorkspaceModel";
 
 const mocks = vi.hoisted(() => ({
-  spaces: [] as Array<Pick<PortalWorkspaceSpace, "id" | "name">>,
+  spaces: [] as PortalWorkspaceSpace[],
   activity: [] as PortalWorkspaceActivityItem[],
 }));
 
@@ -22,8 +23,8 @@ function renderPage() {
 describe("PortalActivityPanel", () => {
   beforeEach(() => {
     mocks.spaces = [
-      { id: "research-data", name: "Research Data" },
-      { id: "lab-exchange", name: "Lab Exchange" },
+      buildPortalWorkspaceSpace("research-data"),
+      buildPortalWorkspaceSpace("lab-exchange", { name: "Lab Exchange" }),
     ];
     mocks.activity = [
       {
