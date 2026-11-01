@@ -7,11 +7,10 @@ import {
   writeClientJsonToKey,
 } from "../../../utils/clientStorage";
 import {
-  parseExactListInput,
+  advancedFilterFieldHighlight,
   resolveQuickTextFilterState,
   type TextMatchMode,
 } from "../../shared/advancedFilterShared";
-import { advancedFilterFieldHighlight } from "../filtering/advancedFilterModel";
 
 export function loadCephAdminVisibleColumns<ColumnId extends string>(
   storageKey: string,
@@ -49,42 +48,5 @@ export function resolveCephAdminQuickFilterState(
   return {
     ...state,
     fieldState: advancedFilterFieldHighlight(state.active, state.pending),
-  };
-}
-
-export function resolveCephAdminTextFilterFieldState({
-  draftValue,
-  draftMode,
-  appliedValue = "",
-  appliedMode = "contains",
-}: {
-  draftValue: string;
-  draftMode: TextMatchMode;
-  appliedValue?: string | null;
-  appliedMode?: TextMatchMode | null;
-}) {
-  const normalizedDraft = draftValue.trim();
-  const normalizedApplied = (appliedValue ?? "").trim();
-  const draftParsed = parseExactListInput(draftValue);
-  const appliedParsed = parseExactListInput(appliedValue ?? "");
-  const draftForcesExact = draftParsed.listProvided && draftParsed.values.length > 0;
-  const appliedForcesExact =
-    appliedParsed.listProvided && appliedParsed.values.length > 0;
-  const resolvedDraftMode: TextMatchMode = draftForcesExact ? "exact" : draftMode;
-  const resolvedAppliedMode: TextMatchMode = appliedForcesExact
-    ? "exact"
-    : (appliedMode ?? "contains");
-  const pending =
-    normalizedDraft !== normalizedApplied ||
-    (normalizedDraft.length > 0 && resolvedDraftMode !== resolvedAppliedMode);
-
-  return {
-    appliedValue: normalizedApplied,
-    draftValue: normalizedDraft,
-    draftForcesExact,
-    appliedMode: resolvedAppliedMode,
-    draftMode: resolvedDraftMode,
-    pending,
-    fieldState: advancedFilterFieldHighlight(Boolean(normalizedApplied), pending),
   };
 }

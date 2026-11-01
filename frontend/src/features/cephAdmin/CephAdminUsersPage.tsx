@@ -40,12 +40,14 @@ import AdvancedFilterNumberRangeField from "../shared/AdvancedFilterNumberRangeF
 import AdvancedFilterSelectField from "../shared/AdvancedFilterSelectField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
+  advancedFilterFieldHighlight,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   buildTextFieldRules,
   formatAdvancedFilterSyncLabel,
   formatTextFilterSummary,
   parseExactListInput,
+  resolveTextFilterFieldState,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterCostBadge,
   renderAdvancedFilterRuleCountBadge,
@@ -55,7 +57,6 @@ import {
   type TextMatchMode,
 } from "../shared/advancedFilterShared";
 import {
-  advancedFilterFieldHighlight,
   appendNumericFilterRule,
   buildNumericFilterFields,
   buildNumericFilterFieldStates,
@@ -67,7 +68,6 @@ import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilte
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
 import {
   resolveCephAdminQuickFilterState,
-  resolveCephAdminTextFilterFieldState,
 } from "./listing/cephAdminListingViewState";
 import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
@@ -344,31 +344,31 @@ export default function CephAdminUsersPage() {
     accountScopeLoaded,
   });
 
-  const tenantFilter = resolveCephAdminTextFilterFieldState({
+  const tenantFilter = resolveTextFilterFieldState({
     draftValue: advancedDraft.tenant,
     draftMode: advancedDraft.tenantMatchMode,
     appliedValue: advancedApplied?.tenant,
     appliedMode: advancedApplied?.tenantMatchMode,
   });
-  const accountIdFilter = resolveCephAdminTextFilterFieldState({
+  const accountIdFilter = resolveTextFilterFieldState({
     draftValue: advancedDraft.accountId,
     draftMode: advancedDraft.accountIdMatchMode,
     appliedValue: advancedApplied?.accountId,
     appliedMode: advancedApplied?.accountIdMatchMode,
   });
-  const accountNameFilter = resolveCephAdminTextFilterFieldState({
+  const accountNameFilter = resolveTextFilterFieldState({
     draftValue: advancedDraft.accountName,
     draftMode: advancedDraft.accountNameMatchMode,
     appliedValue: advancedApplied?.accountName,
     appliedMode: advancedApplied?.accountNameMatchMode,
   });
-  const fullNameFilter = resolveCephAdminTextFilterFieldState({
+  const fullNameFilter = resolveTextFilterFieldState({
     draftValue: advancedDraft.fullName,
     draftMode: advancedDraft.fullNameMatchMode,
     appliedValue: advancedApplied?.fullName,
     appliedMode: advancedApplied?.fullNameMatchMode,
   });
-  const emailFilter = resolveCephAdminTextFilterFieldState({
+  const emailFilter = resolveTextFilterFieldState({
     draftValue: advancedDraft.email,
     draftMode: advancedDraft.emailMatchMode,
     appliedValue: advancedApplied?.email,

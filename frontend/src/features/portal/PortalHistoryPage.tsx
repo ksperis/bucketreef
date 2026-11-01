@@ -38,12 +38,13 @@ import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
 import AdvancedFilterSelectField from "../shared/AdvancedFilterSelectField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
+  advancedFilterFieldHighlight,
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
   buildTextFieldRules,
   formatAdvancedFilterSyncLabel,
   formatTextFilterSummary,
-  parseExactListInput,
+  resolveTextFilterFieldState,
   renderAdvancedFilterDraftSummary,
   renderAdvancedFilterRuleCountBadge,
   serializeAdvancedFilterRules,
@@ -387,42 +388,24 @@ export default function PortalHistoryPage() {
     setServerLogAdvancedDraft((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  const activeFieldClass =
-    "border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200/70 dark:border-emerald-400/70 dark:bg-emerald-500/15 dark:ring-emerald-500/25";
-  const activeLabelClass = "text-emerald-700 dark:text-emerald-200";
-  const pendingFieldClass =
-    "border-amber-400 bg-amber-50 ring-2 ring-amber-300/70 dark:border-amber-400/70 dark:bg-amber-500/20 dark:ring-amber-500/25";
-  const pendingLabelClass = "text-amber-700 dark:text-amber-300";
-  const fieldHighlight = (isApplied: boolean, isPending: boolean) => {
-    if (isPending) return { labelClass: pendingLabelClass, fieldClass: pendingFieldClass };
-    if (isApplied) return { labelClass: activeLabelClass, fieldClass: activeFieldClass };
-    return { labelClass: "", fieldClass: "" };
-  };
-
-  const pathAppliedValue = (serverLogAdvancedApplied?.path ?? "").trim();
-  const identityAppliedValue = (serverLogAdvancedApplied?.identity ?? "").trim();
-  const pathDraftValue = serverLogAdvancedDraft.path.trim();
-  const identityDraftValue = serverLogAdvancedDraft.identity.trim();
-  const pathAppliedParsed = useMemo(() => parseExactListInput(serverLogAdvancedApplied?.path ?? ""), [serverLogAdvancedApplied]);
-  const pathDraftParsed = useMemo(() => parseExactListInput(serverLogAdvancedDraft.path), [serverLogAdvancedDraft.path]);
-  const identityAppliedParsed = useMemo(() => parseExactListInput(serverLogAdvancedApplied?.identity ?? ""), [serverLogAdvancedApplied]);
-  const identityDraftParsed = useMemo(() => parseExactListInput(serverLogAdvancedDraft.identity), [serverLogAdvancedDraft.identity]);
-  const pathAppliedMode: TextMatchMode =
-    pathAppliedParsed.listProvided && pathAppliedParsed.values.length > 0 ? "exact" : (serverLogAdvancedApplied?.pathMatchMode ?? "contains");
-  const identityAppliedMode: TextMatchMode =
-    identityAppliedParsed.listProvided && identityAppliedParsed.values.length > 0 ? "exact" : (serverLogAdvancedApplied?.identityMatchMode ?? "contains");
-  const pathDraftForcesExact = pathDraftParsed.listProvided && pathDraftParsed.values.length > 0;
-  const identityDraftForcesExact = identityDraftParsed.listProvided && identityDraftParsed.values.length > 0;
-  const pathDraftMode: TextMatchMode = pathDraftForcesExact ? "exact" : serverLogAdvancedDraft.pathMatchMode;
-  const identityDraftMode: TextMatchMode = identityDraftForcesExact ? "exact" : serverLogAdvancedDraft.identityMatchMode;
-  const pathPending = pathDraftValue !== pathAppliedValue || (pathDraftValue.length > 0 && pathDraftMode !== pathAppliedMode);
-  const identityPending = identityDraftValue !== identityAppliedValue || (identityDraftValue.length > 0 && identityDraftMode !== identityAppliedMode);
+  const pathFilter = resolveTextFilterFieldState({
+    draftValue: serverLogAdvancedDraft.path,
+    draftMode: serverLogAdvancedDraft.pathMatchMode,
+    appliedValue: serverLogAdvancedApplied?.path,
+    appliedMode: serverLogAdvancedApplied?.pathMatchMode,
+  });
+  const identityFilter = resolveTextFilterFieldState({
+    draftValue: serverLogAdvancedDraft.identity,
+    draftMode: serverLogAdvancedDraft.identityMatchMode,
+    appliedValue: serverLogAdvancedApplied?.identity,
+    appliedMode: serverLogAdvancedApplied?.identityMatchMode,
+  });
   const actionPending = serverLogAdvancedDraft.action !== (serverLogAdvancedApplied?.action ?? "");
   const resultPending = serverLogAdvancedDraft.result !== (serverLogAdvancedApplied?.result ?? "");
-  const actionFieldState = fieldHighlight(Boolean(serverLogAdvancedApplied?.action), actionPending);
-  const resultFieldState = fieldHighlight(Boolean(serverLogAdvancedApplied?.result), resultPending);
-  const pathFieldState = fieldHighlight(Boolean(pathAppliedValue), pathPending);
-  const identityFieldState = fieldHighlight(Boolean(identityAppliedValue), identityPending);
+  const actionFieldState = advancedFilterFieldHighlight(Boolean(serverLogAdvancedApplied?.action), actionPending);
+  const resultFieldState = advancedFilterFieldHighlight(Boolean(serverLogAdvancedApplied?.result), resultPending);
+  const pathFieldState = pathFilter.fieldState;
+  const identityFieldState = identityFilter.fieldState;
 
   const applyServerLogAdvancedFilter = useCallback(() => {
     setServerLogAdvancedApplied(serverLogAdvancedDraft);
@@ -471,15 +454,15 @@ export default function PortalHistoryPage() {
       });
     }
     const pathLabel = serverLogAdvancedApplied
-      ? formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedApplied.path, pathAppliedMode)
+      ? formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedApplied.path, pathFilter.appliedMode)
       : null;
     if (pathLabel) items.push({ id: "path", label: pathLabel, remove: { type: "advanced", field: "path" } });
     const identityLabel = serverLogAdvancedApplied
-      ? formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedApplied.identity, identityAppliedMode)
+      ? formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedApplied.identity, identityFilter.appliedMode)
       : null;
     if (identityLabel) items.push({ id: "identity", label: identityLabel, remove: { type: "advanced", field: "identity" } });
     return items;
-  }, [identityAppliedMode, pathAppliedMode, serverLogActionLabel, serverLogAdvancedApplied, serverLogResultLabel, t]);
+  }, [identityFilter.appliedMode, pathFilter.appliedMode, serverLogActionLabel, serverLogAdvancedApplied, serverLogResultLabel, t]);
 
   const serverLogAdvancedDraftSummaryItems = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [];
@@ -495,12 +478,12 @@ export default function PortalHistoryPage() {
         label: `${t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" })}: ${serverLogResultLabel(serverLogAdvancedDraft.result)}`,
       });
     }
-    const pathLabel = formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedDraft.path, pathDraftMode);
+    const pathLabel = formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedDraft.path, pathFilter.draftMode);
     if (pathLabel) items.push({ id: "path", label: pathLabel });
-    const identityLabel = formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedDraft.identity, identityDraftMode);
+    const identityLabel = formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedDraft.identity, identityFilter.draftMode);
     if (identityLabel) items.push({ id: "identity", label: identityLabel });
     return items;
-  }, [identityDraftMode, pathDraftMode, serverLogActionLabel, serverLogAdvancedDraft, serverLogResultLabel, t]);
+  }, [identityFilter.draftMode, pathFilter.draftMode, serverLogActionLabel, serverLogAdvancedDraft, serverLogResultLabel, t]);
   const serverLogAdvancedDraftActiveCount = serverLogAdvancedDraftSummaryItems.length;
 
   useEffect(() => {
@@ -804,8 +787,8 @@ export default function PortalHistoryPage() {
                           className="md:col-span-2"
                           label={t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" })}
                           fieldState={pathFieldState}
-                          forcesExact={pathDraftForcesExact}
-                          matchMode={pathDraftMode}
+                          forcesExact={pathFilter.draftForcesExact}
+                          matchMode={pathFilter.draftMode}
                           onChange={(value) => updateServerLogAdvancedField("path", value)}
                           onMatchModeChange={(value) => updateServerLogAdvancedMatchMode("pathMatchMode", value)}
                           containsLabel="~"
@@ -819,8 +802,8 @@ export default function PortalHistoryPage() {
                           className="md:col-span-4"
                           label={t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" })}
                           fieldState={identityFieldState}
-                          forcesExact={identityDraftForcesExact}
-                          matchMode={identityDraftMode}
+                          forcesExact={identityFilter.draftForcesExact}
+                          matchMode={identityFilter.draftMode}
                           onChange={(value) => updateServerLogAdvancedField("identity", value)}
                           onMatchModeChange={(value) => updateServerLogAdvancedMatchMode("identityMatchMode", value)}
                           containsLabel="~"
