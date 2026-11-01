@@ -174,6 +174,60 @@ class BucketMigrationObjectInspectionMixin:
         if buffered_key is not None:
             yield buffered_key, sorted(buffered_entries, key=self._version_replay_sort_key)
 
+    def _iter_merged_version_timelines(
+        self,
+        source_ctx: ResolvedContext,
+        target_ctx: ResolvedContext,
+        *,
+        source_bucket: str,
+        target_bucket: str,
+        source_client: Optional[Any] = None,
+        target_client: Optional[Any] = None,
+    ):
+        source_iter = iter(
+            self._iter_bucket_version_timelines(
+                source_ctx,
+                source_bucket,
+                client=source_client,
+            )
+        )
+        target_iter = iter(
+            self._iter_bucket_version_timelines(
+                target_ctx,
+                target_bucket,
+                client=target_client,
+            )
+        )
+        source_item = next(source_iter, None)
+        target_item = next(target_iter, None)
+
+        while source_item is not None or target_item is not None:
+            if source_item is None:
+                target_key, target_timeline = target_item
+                yield "only_target", target_key, None, target_timeline
+                target_item = next(target_iter, None)
+                continue
+            if target_item is None:
+                source_key, source_timeline = source_item
+                yield "only_source", source_key, source_timeline, None
+                source_item = next(source_iter, None)
+                continue
+
+            source_key, source_timeline = source_item
+            target_key, target_timeline = target_item
+            if source_key < target_key:
+                yield "only_source", source_key, source_timeline, None
+                source_item = next(source_iter, None)
+                continue
+            if target_key < source_key:
+                yield "only_target", target_key, None, target_timeline
+                target_item = next(target_iter, None)
+                continue
+
+            yield "both", source_key, source_timeline, target_timeline
+            source_item = next(source_iter, None)
+            target_item = next(target_iter, None)
+
     def _version_watermark_signature(self, entry: BucketVersionEntry) -> tuple[str, str, bool]:
         return (entry.key, entry.version_id, bool(entry.is_delete_marker))
 

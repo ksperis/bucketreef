@@ -436,13 +436,16 @@ class BucketMigrationObjectVerificationMixin:
     ):
         source_client = self._context_client(source_ctx)
         target_client = self._context_client(target_ctx)
-        source_iter = iter(self._iter_bucket_version_timelines(source_ctx, source_bucket, client=source_client))
-        target_iter = iter(self._iter_bucket_version_timelines(target_ctx, target_bucket, client=target_client))
-        source_item = next(source_iter, None)
-        target_item = next(target_iter, None)
         scanned_keys = 0
 
-        while source_item is not None or target_item is not None:
+        for kind, key, source_timeline, target_timeline in self._iter_merged_version_timelines(
+            source_ctx,
+            target_ctx,
+            source_bucket=source_bucket,
+            target_bucket=target_bucket,
+            source_client=source_client,
+            target_client=target_client,
+        ):
             scanned_keys += 1
             if scanned_keys % 200 == 0:
                 state = check_control_state(
@@ -454,20 +457,7 @@ class BucketMigrationObjectVerificationMixin:
                 if state in {"pause", "cancel"}:
                     raise MigrationControlRequested(state)
 
-            if source_item is None:
-                target_item = next(target_iter, None)
-                continue
-            if target_item is None:
-                source_item = next(source_iter, None)
-                continue
-
-            source_key, source_timeline = source_item
-            target_key, target_timeline = target_item
-            if source_key < target_key:
-                source_item = next(source_iter, None)
-                continue
-            if target_key < source_key:
-                target_item = next(target_iter, None)
+            if kind != "both":
                 continue
 
             comparison = self._compare_version_timeline_pair(
@@ -475,14 +465,12 @@ class BucketMigrationObjectVerificationMixin:
                 target_client,
                 source_bucket=source_bucket,
                 target_bucket=target_bucket,
-                key=source_key,
+                key=key,
                 source_timeline=source_timeline,
                 target_timeline=target_timeline,
             )
             if comparison.equal:
                 yield from comparison.size_only_pairs
-            source_item = next(source_iter, None)
-            target_item = next(target_iter, None)
 
     def _strong_verify_version_aware_candidates(
         self,
