@@ -5,8 +5,8 @@
 import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { listMinimalS3Accounts, type S3AccountSummary } from "../../api/accounts";
-import { listMinimalUsers, type UserSummary } from "../../api/users";
+import { listMinimalS3Accounts } from "../../api/accounts";
+import { listMinimalUsers } from "../../api/users";
 import {
   addAdminPortalRequestMessage,
   approveAdminPortalRequest,
@@ -29,6 +29,7 @@ import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import UiTextarea from "../../components/ui/UiTextarea";
+import useLazyListLoader from "../../hooks/useLazyListLoader";
 import {
   cx,
   uiDividerClass,
@@ -57,8 +58,14 @@ export default function AdminPortalRequestsPage() {
   const { text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const [requests, setRequests] = useState<PortalAdminRequest[]>([]);
-  const [accounts, setAccounts] = useState<S3AccountSummary[]>([]);
-  const [requesters, setRequesters] = useState<UserSummary[]>([]);
+  const {
+    items: accounts,
+    refresh: refreshAccounts,
+  } = useLazyListLoader(listMinimalS3Accounts);
+  const {
+    items: requesters,
+    refresh: refreshRequesters,
+  } = useLazyListLoader(listMinimalUsers);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [accountFilter, setAccountFilter] = useState("all");
@@ -71,25 +78,9 @@ export default function AdminPortalRequestsPage() {
   const [busy, setBusy] = useState<BusyAction>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    listMinimalS3Accounts()
-      .then((items) => {
-        if (!cancelled) setAccounts(items);
-      })
-      .catch(() => {
-        if (!cancelled) setAccounts([]);
-      });
-    listMinimalUsers()
-      .then((items) => {
-        if (!cancelled) setRequesters(items);
-      })
-      .catch(() => {
-        if (!cancelled) setRequesters([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void refreshAccounts();
+    void refreshRequesters();
+  }, [refreshAccounts, refreshRequesters]);
 
   const requestersById = useMemo(
     () => new Map(requesters.map((requester) => [requester.id, requester])),
