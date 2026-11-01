@@ -44,7 +44,9 @@ import {
   getChangedTone,
   getObjectParentPrefix,
   matchesBucketCompareRunFilters,
+  normalizeBucketCompareParallelism,
   renderDiffLines,
+  resolveBucketCompareRunError,
   summarizeBucketCompareRun,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
@@ -271,14 +273,24 @@ export default function ManagerBucketCompareModal({
   }, [sourceContextId, targetContextId, text]);
 
   const hasActionInFlight = useMemo(() => items.some((item) => Boolean(item.actionRunning)), [items]);
+  const runValidationError = resolveBucketCompareRunError({
+    targetSelected: Boolean(targetContextId),
+    hasScopeSelected,
+    includeConfig,
+    hasConfigFeatureSelected,
+    ignoreModifiedAfterInvalid,
+    planError: comparePlan.error,
+    messages: {
+      targetRequired: text("Select a target context."),
+      scopeRequired: text("Select at least one comparison scope: content and/or configuration."),
+      configFeatureRequired: text("Select at least one configuration feature or disable configuration scope."),
+      invalidCutoff: text("Enter a valid modified-after cutoff or clear the field."),
+    },
+  });
   const canRunComparison =
     !running &&
     !hasActionInFlight &&
-    !comparePlan.error &&
-    Boolean(targetContextId) &&
-    hasScopeSelected &&
-    (!includeConfig || hasConfigFeatureSelected) &&
-    !ignoreModifiedAfterInvalid;
+    !runValidationError;
 
   const buildManagerBrowserHref = useCallback((contextId: string, bucket: string, key: string) => {
     const params = new URLSearchParams();
@@ -293,27 +305,11 @@ export default function ManagerBucketCompareModal({
     : "Manager Browser is disabled for this surface.";
 
   const runCompare = async () => {
-    if (!targetContextId) {
-      setRunError(text("Select a target context."));
+    if (runValidationError || !targetContextId) {
+      setRunError(runValidationError ?? text("Select a target context."));
       return;
     }
-    if (!hasScopeSelected) {
-      setRunError(text("Select at least one comparison scope: content and/or configuration."));
-      return;
-    }
-    if (includeConfig && !hasConfigFeatureSelected) {
-      setRunError(text("Select at least one configuration feature or disable configuration scope."));
-      return;
-    }
-    if (ignoreModifiedAfterInvalid) {
-      setRunError(text("Enter a valid modified-after cutoff or clear the field."));
-      return;
-    }
-    if (comparePlan.error) {
-      setRunError(comparePlan.error);
-      return;
-    }
-    const safeParallelism = Number.isFinite(parallelism) ? Math.max(1, Math.min(20, Math.floor(parallelism))) : 4;
+    const safeParallelism = normalizeBucketCompareParallelism(parallelism);
     const mappings = comparePlan.mappings;
     const snapshot: CompareRunOptionsSnapshot = {
       targetContextId,
