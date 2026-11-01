@@ -17,6 +17,8 @@ const version = (deleteMarker = false): BrowserObjectVersion => ({
   is_delete_marker: deleteMarker,
   last_modified: "2026-03-01T10:00:00Z",
   size: 12,
+  etag: null,
+  storage_class: null,
 });
 
 function createOptions() {

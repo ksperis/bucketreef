@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ExecutionContext } from "../../api/executionContexts";
+import type { ExecutionContext } from "../../api/executionContexts";
+import { buildExecutionContext } from "../../test/executionContexts";
 import {
   clearExecutionDestinationState,
   getExecutionDestinationForContext,
@@ -18,10 +19,10 @@ vi.mock("../../api/executionContexts", () => ({
 }));
 
 const CONTEXTS: ExecutionContext[] = [
-  {
+  buildExecutionContext("conn-1", {
     kind: "connection",
-    id: "conn-1",
     display_name: "Connection 1",
+    connection_scope: "shared",
     endpoint_name: "Connection endpoint",
     endpoint_id: 10,
     endpoint_is_default: false,
@@ -55,17 +56,16 @@ const CONTEXTS: ExecutionContext[] = [
       },
     ],
     capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
-  },
-  {
+  }),
+  buildExecutionContext("s3u-2", {
     kind: "s3_user",
-    id: "s3u-2",
     display_name: "S3 User 2",
     endpoint_name: "Ceph endpoint",
     endpoint_is_default: true,
     endpoint_url: "https://ceph.example.test",
     storage_endpoint_capabilities: {},
     capabilities: { can_manage_iam: false, sts_capable: false, admin_api_capable: false },
-  },
+  }),
 ];
 
 function Probe() {

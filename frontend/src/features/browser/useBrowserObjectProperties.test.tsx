@@ -53,9 +53,16 @@ function metadata(key: string, versionId: string): ObjectMetadata {
   return {
     key,
     size: 12,
+    etag: null,
+    last_modified: null,
     content_type: "text/plain",
     cache_control: "max-age=60",
+    content_disposition: null,
+    content_encoding: null,
+    content_language: null,
+    expires: null,
     storage_class: "STANDARD_IA",
+    restore_status: null,
     metadata: { project: "reef" },
     version_id: versionId,
   };

@@ -14,6 +14,10 @@ const version: BrowserObjectVersion = {
   version_id: "version-a",
   is_latest: false,
   is_delete_marker: false,
+  last_modified: null,
+  size: null,
+  etag: null,
+  storage_class: null,
 };
 
 const metadataDraft = {

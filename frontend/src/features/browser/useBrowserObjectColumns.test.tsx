@@ -52,7 +52,7 @@ describe("useBrowserObjectColumns", () => {
         clientX: 320,
         preventDefault,
         stopPropagation,
-      } as ReactPointerEvent<HTMLDivElement>);
+      } as unknown as ReactPointerEvent<HTMLDivElement>);
     });
     expect(document.body.style.cursor).toBe("col-resize");
 

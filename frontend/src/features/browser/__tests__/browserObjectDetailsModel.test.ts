@@ -16,7 +16,7 @@ describe("browserObjectDetailsModel", () => {
       normalizeObjectDetailPairs([
         { key: " content-type ", value: "text/plain" },
         { key: " ", value: "ignored" },
-        { key: "owner", value: null },
+        { key: "owner", value: "" },
       ])
     ).toEqual({
       "content-type": "text/plain",

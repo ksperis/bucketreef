@@ -47,7 +47,9 @@ describe("browserOperationDetailState", () => {
   });
 
   it("updates matching keys and leaves other operations untouched", () => {
-    const other = [{ id: "other", key: "a", label: "a", status: "queued" }] satisfies DownloadDetailItem[];
+    const other: DownloadDetailItem[] = [
+      { id: "other", key: "a", label: "a", status: "queued" },
+    ];
     const source = { ...records, other };
 
     const result = updateOperationDetailsByKey(

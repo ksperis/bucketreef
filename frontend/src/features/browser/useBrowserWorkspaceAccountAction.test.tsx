@@ -3,27 +3,22 @@ import type { PropsWithChildren } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { ExecutionContext } from "../../api/executionContexts";
+import { buildExecutionContext } from "../../test/executionContexts";
 import { useBrowserWorkspaceAccountAction } from "./useBrowserWorkspaceAccountAction";
 
 const executionContext = (
   overrides: Partial<ExecutionContext>,
-): ExecutionContext => ({
-  kind: "account",
-  id: "101",
-  display_name: "Project 101",
-  tags: [],
-  endpoint_tags: [],
-  endpoint_name: "Primary",
-  endpoint_is_default: true,
-  endpoint_url: "https://s3.example.test",
-  storage_endpoint_capabilities: {},
-  capabilities: {
-    can_manage_iam: true,
-    sts_capable: false,
-    admin_api_capable: true,
-  },
-  ...overrides,
-});
+): ExecutionContext =>
+  buildExecutionContext("101", {
+    display_name: "Project 101",
+    endpoint_name: "Primary",
+    capabilities: {
+      can_manage_iam: true,
+      sts_capable: false,
+      admin_api_capable: true,
+    },
+    ...overrides,
+  });
 
 function wrapper({ children }: PropsWithChildren) {
   return <MemoryRouter initialEntries={["/browser"]}>{children}</MemoryRouter>;

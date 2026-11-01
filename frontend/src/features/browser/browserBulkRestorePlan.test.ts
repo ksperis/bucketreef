@@ -31,6 +31,9 @@ function version(
     is_latest: options.latest ?? false,
     is_delete_marker: options.deleted ?? false,
     last_modified: modified,
+    size: null,
+    etag: null,
+    storage_class: null,
   };
 }
 

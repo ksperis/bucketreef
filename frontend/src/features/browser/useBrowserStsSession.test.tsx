@@ -62,10 +62,9 @@ describe("useBrowserStsSession", () => {
       expect(result.current.credentials?.access_key_id).toBe("key-1");
     });
 
-    let cachedCredentials: StsCredentials | null = null;
-    await act(async () => {
-      cachedCredentials = await result.current.ensureCredentials();
-    });
+    const cachedCredentials = await act(async () =>
+      result.current.ensureCredentials(),
+    );
 
     expect(cachedCredentials?.access_key_id).toBe("key-1");
     expect(apiMocks.getBrowserStsCredentials).toHaveBeenCalledTimes(1);

@@ -74,7 +74,12 @@ describe("saved Browser locations", () => {
             {
               name: "reports",
               display_name: "Research Data",
-              icon: { source: "preset", preset: "media" },
+              icon: {
+                source: "preset",
+                preset: "media",
+                url: null,
+                updated_at: null,
+              },
             },
           ],
         ])}

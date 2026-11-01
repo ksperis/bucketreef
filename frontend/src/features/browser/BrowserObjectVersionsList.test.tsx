@@ -12,6 +12,7 @@ const version: BrowserObjectVersion = {
   last_modified: "2026-03-10T09:10:11Z",
   size: 42,
   etag: "etag-a",
+  storage_class: null,
 };
 
 const baseProps = {

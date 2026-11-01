@@ -183,7 +183,7 @@ describe("BrowserPage multipart uploads modal", () => {
       within(menu).getByRole("menuitem", { name: "Multipart uploads" }),
     );
 
-    expect(await screen.findByRole("dialog", { name: "Multipart uploads", exact: true })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Multipart uploads" })).toBeInTheDocument();
     expect(screen.getByText("Bucket bucket-1 · In-progress multipart uploads.")).toBeInTheDocument();
 
     await waitFor(() => {

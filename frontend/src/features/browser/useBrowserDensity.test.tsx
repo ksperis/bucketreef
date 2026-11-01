@@ -68,7 +68,11 @@ describe("useBrowserDensity", () => {
           densityOverride,
           isMainBrowserPath: false,
         }),
-      { initialProps: { densityOverride: undefined } },
+      {
+        initialProps: {
+          densityOverride: undefined,
+        } as DensityOverrideProps,
+      },
     );
 
     expect(result.current.canConfigure).toBe(false);

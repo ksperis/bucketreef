@@ -30,7 +30,7 @@ describe("Browser locale changes", () => {
       <BrowserObjectFactsSection bucketName="Bucket" item={item} metadata={null} />
       <BrowserObjectColumnValue item={item} columnId="size" />
       <BrowserDirectItemActionButton
-        action={{ id: "download", label: "Download", visible: true, enabled: false, disabledReason: "Wait for the current operation to finish." }}
+        action={{ id: "download", section: "selection", label: "Download", visible: true, enabled: false, disabledReason: "Wait for the current operation to finish." }}
         itemName={item.name} onSelect={vi.fn()}
       />
     </LanguageProvider>);
