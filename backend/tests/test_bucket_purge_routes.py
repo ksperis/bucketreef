@@ -184,7 +184,7 @@ def test_manager_purge_route_streams_progress_and_result(monkeypatch):
         can_manage_buckets=True,
     )
     app.dependency_overrides[manager_purge.get_current_account_admin] = lambda: SimpleNamespace(id=1)
-    monkeypatch.setattr(manager_purge, "BucketPurgeService", FakeService)
+    monkeypatch.setattr(bucket_purge_stream, "BucketPurgeService", FakeService)
     monkeypatch.setattr(bucket_purge_stream, "record_bucket_purge_audit", lambda **kwargs: audit_calls.append(kwargs))
     try:
         with TestClient(app) as client:
@@ -333,14 +333,9 @@ def test_bucket_purge_audit_lifecycle_records_cancel_error_and_failed_result():
 def test_ceph_admin_purge_route_uses_dedicated_endpoint_credentials(monkeypatch):
     captured: dict[str, object] = {}
 
-    class FakeService:
-        def run(self, targets, options, *, progress_callback=None, cancel_check=None):
-            captured["targets"] = targets
-            captured["options"] = options
-            return _result()
-
-    def fake_stream(request, *, run_purge, logger, failure_message, **kwargs):
-        captured["stream_result"] = run_purge(lambda progress: None, lambda: None)
+    def fake_stream(request, *, targets, options, **kwargs):
+        captured["targets"] = list(targets)
+        captured["options"] = options
         return "stream"
 
     endpoint = StorageEndpoint(
@@ -357,8 +352,7 @@ def test_ceph_admin_purge_route_uses_dedicated_endpoint_credentials(monkeypatch)
         access_key="admin-ak",
         secret_key="admin-sk",
     )
-    monkeypatch.setattr(ceph_purge, "BucketPurgeService", FakeService)
-    monkeypatch.setattr(ceph_purge, "stream_audited_bucket_purge", fake_stream)
+    monkeypatch.setattr(ceph_purge, "stream_audited_resolved_bucket_purge", fake_stream)
 
     response = ceph_purge.stream_ceph_admin_bucket_purge(
         payload=BucketPurgeRgwTargetRequest(
@@ -383,22 +377,16 @@ def test_ceph_admin_purge_route_uses_dedicated_endpoint_credentials(monkeypatch)
 def test_storage_ops_purge_route_resolves_authorized_manager_contexts(monkeypatch):
     captured: dict[str, object] = {}
 
-    class FakeService:
-        def run(self, targets, options, *, progress_callback=None, cancel_check=None):
-            captured["targets"] = targets
-            captured["options"] = options
-            return _result()
-
-    def fake_stream(request, *, run_purge, logger, failure_message, **kwargs):
-        captured["stream_result"] = run_purge(lambda progress: None, lambda: None)
+    def fake_stream(request, *, targets, options, **kwargs):
+        captured["targets"] = list(targets)
+        captured["options"] = options
         return "stream"
 
     def fake_get_s3_execution_context(*, request, context_ref, actor, db):
         captured.setdefault("account_refs", []).append(context_ref)
         return SimpleNamespace(name=f"Account {context_ref}")
 
-    monkeypatch.setattr(storage_ops_purge, "BucketPurgeService", FakeService)
-    monkeypatch.setattr(storage_ops_purge, "stream_audited_bucket_purge", fake_stream)
+    monkeypatch.setattr(storage_ops_purge, "stream_audited_resolved_bucket_purge", fake_stream)
     monkeypatch.setattr(
         storage_ops_purge,
         "storage_ops_context_names",

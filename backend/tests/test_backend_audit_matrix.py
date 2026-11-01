@@ -296,6 +296,7 @@ def test_backend_audit_matrix_tracks_shared_audit_helpers(relative_file, functio
         ("run_audited_iam_mutation", "delegated_manager_iam_mutation_audit"),
         ("_run_migration_action", "delegated_bucket_migration_action_audit"),
         ("stream_resolved_bucket_integrity_check", "delegated_integrity_stream"),
+        ("stream_audited_resolved_bucket_purge", "delegated_purge_stream"),
     ],
 )
 def test_shared_audit_signal_requires_exact_helper(tmp_path, helper_name, signal):

@@ -110,8 +110,8 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
         payload = {"buckets": ["bucket-a"]}
     else:
         module = purge if operation == "purge" else buckets
-        monkeypatch.setattr(module, "BucketPurgeService", FakeService)
         if operation == "purge":
+            monkeypatch.setattr(bucket_purge_stream, "BucketPurgeService", FakeService)
             monkeypatch.setattr(bucket_purge_stream, "stream_bucket_purge", fake_stream)
             monkeypatch.setattr(
                 bucket_purge_stream,
@@ -119,6 +119,7 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
                 lambda **kwargs: audit_calls.append(kwargs),
             )
         else:
+            monkeypatch.setattr(module, "BucketPurgeService", FakeService)
             monkeypatch.setattr(module, "stream_bucket_purge", fake_stream)
             monkeypatch.setattr(module, "record_bucket_purge_audit", lambda **kwargs: audit_calls.append(kwargs))
         app.dependency_overrides[module.require_bucket_purge_enabled] = lambda: actor

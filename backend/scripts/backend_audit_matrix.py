@@ -209,8 +209,13 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
             end_lineno = getattr(node, "end_lineno", node.lineno)
             body = "\n".join(lines[node.lineno - 1 : end_lineno])
             signals = {name: marker in body for name, marker in SIGNAL_FIELDS.items()}
-            signals["delegated_purge_stream"] = signals["delegated_purge_stream"] or (
-                "stream_audited_bucket_purge(" in body
+            signals["delegated_purge_stream"] = any(
+                _calls_named_function(node, helper_name)
+                for helper_name in (
+                    "stream_bucket_purge",
+                    "stream_audited_bucket_purge",
+                    "stream_audited_resolved_bucket_purge",
+                )
             )
             signals["delegated_bucket_config_mutation_audit"] = signals[
                 "delegated_bucket_config_mutation_audit"
