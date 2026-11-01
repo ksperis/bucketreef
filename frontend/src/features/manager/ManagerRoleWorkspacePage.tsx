@@ -2,6 +2,7 @@
 import { useLocation, useParams } from "react-router-dom";
 
 import PageEmptyState from "../../components/PageEmptyState";
+import { decodeRouteValue } from "../../utils/routeValues";
 import ManagerResourceWorkspace from "./ManagerResourceWorkspace";
 import ManagerRoleEditor from "./ManagerRoleEditor";
 import ManagerRolePoliciesPage from "./ManagerRolePoliciesPage";
@@ -18,10 +19,7 @@ export default function ManagerRoleWorkspacePage() {
   const { selectedContextKind, contextIdForApi, requiresContextSelection } = useExecutionContext();
   const needsSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
-  const name = (() => {
-    if (!roleName) return "";
-    try { return decodeURIComponent(roleName); } catch { return roleName; }
-  })();
+  const name = decodeRouteValue(roleName);
 
   if (needsSelection) {
     return (

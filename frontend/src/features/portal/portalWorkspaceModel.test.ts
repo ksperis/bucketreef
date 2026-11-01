@@ -5,17 +5,7 @@ import {
 } from "../../test/portal";
 import {
   buildPortalWorkspaceModel,
-  decodePortalRouteValue,
 } from "./portalWorkspaceModel";
-
-describe("portal route decoding", () => {
-  it("decodes route values and preserves malformed input", () => {
-    expect(decodePortalRouteValue("Research%20Data")).toBe("Research Data");
-    expect(decodePortalRouteValue("invalid%2")).toBe("invalid%2");
-    expect(decodePortalRouteValue()).toBe("");
-  });
-
-});
 
 describe("buildPortalWorkspaceModel", () => {
   it("uses canonical storage spaces as the workspace source", () => {

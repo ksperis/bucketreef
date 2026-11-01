@@ -16,6 +16,7 @@ import PageBanner from "../../components/PageBanner";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
+import { decodeRouteValue } from "../../utils/routeValues";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import UiButton from "../../components/ui/UiButton";
 import UiSelect from "../../components/ui/UiSelect";
@@ -37,14 +38,7 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const memberConfirmation = useConfirmActionDialog();
 
-  const decodedGroup = useMemo(() => {
-    if (!groupName) return "";
-    try {
-      return decodeURIComponent(groupName);
-    } catch {
-      return groupName;
-    }
-  }, [groupName]);
+  const decodedGroup = decodeRouteValue(groupName);
 
   const load = useCallback(async (contextId: S3ExecutionContextSelector, targetGroup: string) => {
     setLoading(true);
