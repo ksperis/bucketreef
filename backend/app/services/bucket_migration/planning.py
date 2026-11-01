@@ -22,6 +22,7 @@ from app.utils.time import utcnow
 from ._shared import (
     _FINAL_MIGRATION_STATUSES,
 )
+from .precheck_reporting import build_diagnostic
 
 
 @dataclass(frozen=True)
@@ -410,14 +411,12 @@ class BucketMigrationPlanningMixin:
         migration: BucketMigration,
         exc: ValueError,
     ) -> None:
-        from .precheck import _check_entry
-
         migration.preparation_status = "stale"
         migration.checked_revision = None
         migration.precheck_status = "failed"
         report = dict(migration.precheck_report or {})
         report["checks"] = [
-            _check_entry(
+            build_diagnostic(
                 code="start_precondition_changed",
                 severity="error",
                 blocking=True,

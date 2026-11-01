@@ -2,34 +2,28 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from app.core.sensitive_data import sanitized_error_log_detail, sanitize_error_detail
-from app.models.bucket_migration import BucketMigrationDiagnostic
+from app.core.sensitive_data import sanitized_error_log_detail
 
 from .diagnostics import MigrationPermissionCheckError
 from .precheck_inspection import BucketMigrationInspector
+from .precheck_reporting import (
+    SUPPORTED_BUCKET_SETTINGS,
+    UNSUPPORTED_BUCKET_SETTINGS,
+    PlannedPrecheckItem,
+    PrecheckAggregation,
+    build_diagnostic,
+    build_planned_item_report,
+    create_precheck_report,
+    finalize_context_failure_report,
+    finalize_precheck_report,
+    planned_item_state,
+)
 from .precheck_rules import BucketMigrationPrecheckRules
 
 
-_SUPPORTED_BUCKET_SETTINGS = (
-    "versioning",
-    "object_lock",
-    "encryption",
-    "public_access_block",
-    "lifecycle",
-    "cors",
-    "tags",
-    "access_logging",
-    "bucket_policy",
-)
-_UNSUPPORTED_BUCKET_SETTINGS = (
-    "acl",
-    "website",
-    "notifications",
-    "replication",
-)
 _FEATURE_LABELS = {
     "versioning": "Versioning",
     "object_lock": "Object lock",
@@ -67,20 +61,6 @@ _FEATURE_AVAILABILITY_CHECKS: dict[str, tuple[str, str, bool, str]] = {
 }
 
 
-def new_precheck_report(*, checked_at: Any) -> dict[str, Any]:
-    return {
-        "status": "passed",
-        "checked_at": checked_at.isoformat(),
-        "contexts": {},
-        "items": [],
-        "errors": 0,
-        "warnings": 0,
-        "summary": {},
-        "capabilities": {},
-        "unsupported_features": [],
-    }
-
-
 @dataclass(frozen=True)
 class _SourceInspection:
     access_ok: bool
@@ -101,147 +81,8 @@ class _SourcePlan:
     unsupported_features: frozenset[str]
 
 
-@dataclass(frozen=True)
-class _PlannedItem:
-    report: dict[str, Any]
-    infos: int
-    warnings: int
-    blocking_errors: int
-    unsupported_features: frozenset[str]
-
-
-@dataclass
-class _PrecheckAggregation:
-    infos: int = 0
-    warnings: int = 0
-    blocking_errors: int = 0
-    unsupported_features: set[str] = field(default_factory=set)
-
-    def add(self, planned: _PlannedItem) -> None:
-        self.infos += planned.infos
-        self.warnings += planned.warnings
-        self.blocking_errors += planned.blocking_errors
-        self.unsupported_features.update(planned.unsupported_features)
-
-
-def _check_entry(
-    *,
-    code: str,
-    severity: str,
-    blocking: bool,
-    scope: str,
-    message: str,
-    details: Optional[dict[str, Any]] = None,
-    permission: str | None = None,
-) -> dict[str, Any]:
-    return BucketMigrationDiagnostic(
-        **{
-            "code": code,
-            "severity": severity,
-            "blocking": bool(blocking),
-            "scope": scope,
-            "message": sanitized_error_log_detail(message),
-            "remediation": (
-                (
-                    "Choose a new destination name."
-                    if code == "target_exists"
-                    else "Review the indicated context permissions or configuration, then run checks again."
-                )
-                if blocking
-                else None
-            ),
-            "impact": (
-                "Copy cannot start until this check is resolved." if blocking else None
-            ),
-            "permission": permission,
-            "context_id": None,
-            "bucket": None,
-            "details": sanitize_error_detail(details) if details else None,
-        }
-    ).model_dump(mode="json")
-
-
-def _count_entries(entries: list[dict[str, Any]]) -> dict[str, int]:
-    summary = {"errors": 0, "warnings": 0, "infos": 0, "blocking_errors": 0}
-    for entry in entries:
-        severity = str(entry.get("severity") or "").strip().lower()
-        if severity == "error":
-            summary["errors"] += 1
-            if bool(entry.get("blocking")):
-                summary["blocking_errors"] += 1
-        elif severity == "warning":
-            summary["warnings"] += 1
-        else:
-            summary["infos"] += 1
-    return summary
-
-
 def _feature_label(feature: str) -> str:
     return _FEATURE_LABELS.get(feature, feature.replace("_", " ").strip().title())
-
-
-def _planned_bucket_settings(
-    *,
-    profile: dict[str, Any] | None,
-    strategy: str,
-    copy_bucket_settings: bool,
-) -> tuple[list[str], list[str]]:
-    configured = (profile or {}).get("supported_settings", {})
-    availability = (profile or {}).get("feature_availability", {})
-    copied = [
-        name
-        for name in _SUPPORTED_BUCKET_SETTINGS
-        if copy_bucket_settings
-        and configured.get(name)
-        and availability.get(name, {}).get("state", "available") == "available"
-    ]
-    if strategy == "version_aware" and "versioning" not in copied:
-        copied.insert(0, "versioning")
-    omitted = [
-        name
-        for name in (*_SUPPORTED_BUCKET_SETTINGS, *_UNSUPPORTED_BUCKET_SETTINGS)
-        if name not in copied
-    ]
-    return copied, omitted
-
-
-def _planned_item_result(
-    *,
-    item: Any,
-    source: _SourceInspection,
-    target: _TargetInspection,
-    source_plan: _SourcePlan,
-    checks: list[dict[str, Any]],
-    copy_bucket_settings: bool,
-) -> _PlannedItem:
-    counts = _count_entries(checks)
-    settings_copied, settings_omitted = _planned_bucket_settings(
-        profile=source.profile,
-        strategy=source_plan.strategy,
-        copy_bucket_settings=copy_bucket_settings,
-    )
-    return _PlannedItem(
-        report={
-            "item_id": item.id,
-            "source_bucket": item.source_bucket,
-            "target_bucket": item.target_bucket,
-            "strategy": source_plan.strategy,
-            "settings_copied": settings_copied,
-            "settings_omitted": settings_omitted,
-            "blocking": any(entry["blocking"] for entry in checks),
-            "source_object_count": source.object_count,
-            "target_object_count": target.object_count,
-            "source_profile": source.profile,
-            "target_profile": target.profile,
-            "checks": checks,
-            "errors": counts["errors"],
-            "warnings": counts["warnings"],
-        },
-        infos=counts["infos"],
-        warnings=counts["warnings"],
-        blocking_errors=counts["blocking_errors"],
-        unsupported_features=source_plan.unsupported_features,
-    )
 
 
 class BucketMigrationPrecheckPlanner:
@@ -258,8 +99,8 @@ class BucketMigrationPrecheckPlanner:
             "version_aware_available": True,
             "same_endpoint": bool(same_endpoint),
             "same_endpoint_copy_requested": bool(same_endpoint_copy_requested),
-            "supported_bucket_settings": list(_SUPPORTED_BUCKET_SETTINGS),
-            "unsupported_bucket_settings": list(_UNSUPPORTED_BUCKET_SETTINGS),
+            "supported_bucket_settings": list(SUPPORTED_BUCKET_SETTINGS),
+            "unsupported_bucket_settings": list(UNSUPPORTED_BUCKET_SETTINGS),
         }
 
     def _add_feature_availability_checks(
@@ -579,7 +420,7 @@ class BucketMigrationPrecheckPlanner:
             )
         except Exception as exc:  # noqa: BLE001
             entries.append(
-                _check_entry(
+                build_diagnostic(
                     code="context_resolution_failed",
                     severity="error",
                     blocking=True,
@@ -599,7 +440,7 @@ class BucketMigrationPrecheckPlanner:
 
         if not source_ctx.endpoint:
             entries.append(
-                _check_entry(
+                build_diagnostic(
                     code="source_endpoint_missing",
                     severity="error",
                     blocking=True,
@@ -609,7 +450,7 @@ class BucketMigrationPrecheckPlanner:
             )
         if not target_ctx.endpoint:
             entries.append(
-                _check_entry(
+                build_diagnostic(
                     code="target_endpoint_missing",
                     severity="error",
                     blocking=True,
@@ -618,26 +459,6 @@ class BucketMigrationPrecheckPlanner:
                 )
             )
         return source_ctx, target_ctx, entries
-
-    def _context_failure_report(
-        self,
-        report: dict[str, Any],
-        migration: Any,
-        entries: list[dict[str, Any]],
-    ) -> dict[str, Any]:
-        counts = _count_entries(entries)
-        report["errors"] = counts["errors"]
-        report["warnings"] = counts["warnings"]
-        report["status"] = "failed"
-        report["summary"] = {
-            "items": len(migration.items),
-            "infos": counts["infos"],
-            "warnings": counts["warnings"],
-            "errors": counts["errors"],
-            "blocking_errors": counts["blocking_errors"],
-        }
-        report["checks"] = entries
-        return report
 
     def _plan_item(
         self,
@@ -649,7 +470,7 @@ class BucketMigrationPrecheckPlanner:
         checked_at: Any,
         probe_policy: Any,
         same_endpoint_copy_enabled: bool,
-    ) -> _PlannedItem:
+    ) -> PlannedPrecheckItem:
         checks: list[dict[str, Any]] = []
 
         def add_check(
@@ -663,7 +484,7 @@ class BucketMigrationPrecheckPlanner:
             permission: str | None = None,
         ) -> None:
             checks.append(
-                _check_entry(
+                build_diagnostic(
                     code=code,
                     severity=severity,
                     blocking=blocking,
@@ -727,11 +548,14 @@ class BucketMigrationPrecheckPlanner:
             target_profile=target.profile,
             strategy=source_plan.strategy,
         )
-        return _planned_item_result(
+        return build_planned_item_report(
             item=item,
-            source=source,
-            target=target,
-            source_plan=source_plan,
+            source_object_count=source.object_count,
+            target_object_count=target.object_count,
+            source_profile=source.profile,
+            target_profile=target.profile,
+            strategy=source_plan.strategy,
+            unsupported_features=source_plan.unsupported_features,
             checks=checks,
             copy_bucket_settings=bool(migration.copy_bucket_settings),
         )
@@ -750,68 +574,26 @@ class BucketMigrationPrecheckPlanner:
         item.execution_strategy = strategy
         item.updated_at = checked_at
 
-    def _finalize_report(
-        self,
-        report: dict[str, Any],
-        *,
-        aggregation: _PrecheckAggregation,
-    ) -> dict[str, Any]:
-        report["unsupported_features"] = sorted(aggregation.unsupported_features)
-        report["errors"] = aggregation.blocking_errors
-        report["warnings"] = aggregation.warnings
-        report["status"] = "failed" if aggregation.blocking_errors > 0 else "passed"
-        report["summary"] = {
-            "items": len(report["items"]),
-            "infos": aggregation.infos,
-            "warnings": aggregation.warnings,
-            "errors": aggregation.blocking_errors,
-            "blocking_errors": aggregation.blocking_errors,
-            "strategies": {
-                strategy: sum(
-                    item.get("strategy") == strategy for item in report["items"]
-                )
-                for strategy in (
-                    "current_only",
-                    "version_aware",
-                    "skip_existing",
-                )
-            },
-        }
-        return report
-
-    def _planned_item_state(self, planned: _PlannedItem) -> str:
-        only_active_pending = all(
-            not entry["blocking"] or entry["code"] == "active_checks_required"
-            for entry in planned.report["checks"]
-        )
-        if only_active_pending and not self._service._preparation_active_checks:
-            return "unverified"
-        if planned.blocking_errors:
-            return "blocked"
-        if planned.warnings:
-            return "warning"
-        return "ready"
-
     def run(
         self, migration: Any, *, checked_at: Any, on_progress=None
     ) -> dict[str, Any]:
-        report = new_precheck_report(checked_at=checked_at)
+        report = create_precheck_report(checked_at=checked_at)
         source_ctx, target_ctx, context_entries = self._resolve_contexts(
             migration,
             report,
         )
         if source_ctx is None or target_ctx is None or context_entries:
-            return self._context_failure_report(
+            return finalize_context_failure_report(
                 report,
-                migration,
-                context_entries,
+                item_count=len(migration.items),
+                entries=context_entries,
             )
 
         same_endpoint = bool(report.get("same_endpoint"))
         same_endpoint_copy_enabled = bool(
             same_endpoint and migration.use_same_endpoint_copy
         )
-        aggregation = _PrecheckAggregation()
+        aggregation = PrecheckAggregation()
         probe_policy = self._inspector.build_probe_policy(
             copy_bucket_settings=bool(migration.copy_bucket_settings)
         )
@@ -829,13 +611,16 @@ class BucketMigrationPrecheckPlanner:
                 probe_policy=probe_policy,
                 same_endpoint_copy_enabled=same_endpoint_copy_enabled,
             )
-            planned.report["state"] = self._planned_item_state(planned)
+            planned.report["state"] = planned_item_state(
+                planned,
+                active_checks_enabled=bool(self._service._preparation_active_checks),
+            )
             report["items"].append(planned.report)
             if on_progress:
                 on_progress(report)
             aggregation.add(planned)
 
-        return self._finalize_report(
+        return finalize_precheck_report(
             report,
             aggregation=aggregation,
         )

@@ -15,7 +15,7 @@ from app.services.managed_resource_naming import (
 )
 from app.utils.time import utcnow
 from ._shared import _WorkerLeaseLostError
-from .precheck import new_precheck_report
+from .precheck_reporting import create_precheck_report
 from .workflow import require_action
 
 
@@ -219,7 +219,7 @@ class BucketMigrationPreparationMixin:
         migration.checked_revision = None
         migration.error_message = sanitized_error_log_detail(exc)
         report = dict(
-            migration.precheck_report or new_precheck_report(checked_at=checked_at)
+            migration.precheck_report or create_precheck_report(checked_at=checked_at)
         )
         report.update(
             status="failed",
