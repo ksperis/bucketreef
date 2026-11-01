@@ -15,14 +15,8 @@ import {
   YAxis,
 } from "recharts";
 import {
-  EndpointHealthIncident,
-  EndpointHealthRawCheck,
-  EndpointHealthSeries,
-  EndpointHealthSummary,
-  fetchHealthIncidents,
-  fetchHealthRawChecks,
-  fetchHealthSeries,
-  fetchHealthSummary,
+  type EndpointHealthIncident,
+  type EndpointHealthRawCheck,
   runHealthchecks,
 } from "../../api/healthchecks";
 import PageBanner from "../../components/PageBanner";
@@ -54,6 +48,7 @@ import {
   type LatencyChartPoint,
 } from "./endpointStatusLatencyChart";
 import { useEndpointStatusText } from "./endpointStatusMessages";
+import { useEndpointStatusDetailResources } from "./useEndpointStatusDetailResources";
 
 type WindowOption = { label: string; value: "day" | "week" | "month" | "quarter" | "half_year"; helper: string };
 
@@ -85,91 +80,39 @@ export default function EndpointStatusDetailPage() {
     [text]
   );
 
-  const [summary, setSummary] = useState<EndpointHealthSummary[] | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState<boolean>(true);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-
   const [windowValue, setWindowValue] = useState<WindowOption["value"]>("week");
-
-  const [series, setSeries] = useState<EndpointHealthSeries | null>(null);
-  const [seriesLoading, setSeriesLoading] = useState<boolean>(false);
-  const [seriesError, setSeriesError] = useState<string | null>(null);
-
-  const [incidents, setIncidents] = useState<EndpointHealthIncident[]>([]);
-  const [incidentsLoading, setIncidentsLoading] = useState<boolean>(false);
-  const [incidentsError, setIncidentsError] = useState<string | null>(null);
-
-  const [rawChecks, setRawChecks] = useState<EndpointHealthRawCheck[]>([]);
-  const [rawChecksTotal, setRawChecksTotal] = useState<number>(0);
   const [rawChecksPage, setRawChecksPage] = useState<number>(1);
-  const [rawChecksLoading, setRawChecksLoading] = useState<boolean>(false);
-  const [rawChecksError, setRawChecksError] = useState<string | null>(null);
   const [selectedTimelineSegmentKey, setSelectedTimelineSegmentKey] = useState<string | null>(null);
 
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [runLoading, setRunLoading] = useState<boolean>(false);
-
-  const loadSummary = useCallback(async () => {
-    setSummaryLoading(true);
-    setSummaryError(null);
-    try {
-      const payload = await fetchHealthSummary();
-      setSummary(payload.endpoints);
-    } catch (err) {
-      setSummary([]);
-      setSummaryError(extractApiError(err, text("summaryLoadError")));
-    } finally {
-      setSummaryLoading(false);
-    }
-  }, [text]);
-
-  const loadDetails = useCallback(async (selectedEndpointId: number, window: WindowOption["value"]) => {
-    setSeriesLoading(true);
-    setSeriesError(null);
-    setIncidentsLoading(true);
-    setIncidentsError(null);
-    try {
-      const [seriesData, incidentsData] = await Promise.all([
-        fetchHealthSeries(selectedEndpointId, window),
-        fetchHealthIncidents(selectedEndpointId, window),
-      ]);
-      setSeries(seriesData);
-      setIncidents(incidentsData.incidents);
-    } catch (err) {
-      setSeries(null);
-      setIncidents([]);
-      setSeriesError(extractApiError(err, text("seriesLoadError")));
-      setIncidentsError(extractApiError(err, text("endpointIncidentsLoadError")));
-    } finally {
-      setSeriesLoading(false);
-      setIncidentsLoading(false);
-    }
-  }, [text]);
-
-  const loadRawChecks = useCallback(
-    async (selectedEndpointId: number, window: WindowOption["value"], page: number) => {
-      setRawChecksLoading(true);
-      setRawChecksError(null);
-      try {
-        const payload = await fetchHealthRawChecks(selectedEndpointId, window, page, RAW_CHECKS_PAGE_SIZE);
-        setRawChecks(payload.checks);
-        setRawChecksTotal(payload.total);
-      } catch (err) {
-        setRawChecks([]);
-        setRawChecksTotal(0);
-        setRawChecksError(extractApiError(err, text("rawChecksLoadError")));
-      } finally {
-        setRawChecksLoading(false);
-      }
-    },
-    [text]
-  );
-
-  const loadAll = useCallback(async () => {
-    if (!hasValidEndpointId) return;
-    await Promise.all([loadSummary(), loadDetails(endpointId, windowValue), loadRawChecks(endpointId, windowValue, rawChecksPage)]);
-  }, [endpointId, hasValidEndpointId, loadDetails, loadRawChecks, loadSummary, rawChecksPage, windowValue]);
+  const {
+    summary,
+    summaryLoading,
+    summaryError,
+    series,
+    seriesLoading,
+    seriesError,
+    incidents,
+    incidentsLoading,
+    incidentsError,
+    rawChecks,
+    rawChecksTotal,
+    rawChecksLoading,
+    rawChecksError,
+    refresh,
+  } = useEndpointStatusDetailResources({
+    endpointId,
+    hasValidEndpointId,
+    windowValue,
+    rawChecksPage,
+    rawChecksPageSize: RAW_CHECKS_PAGE_SIZE,
+    summaryErrorText: text("summaryLoadError"),
+    seriesErrorText: text("seriesLoadError"),
+    incidentsErrorText: text("endpointIncidentsLoadError"),
+    rawChecksErrorText: text("rawChecksLoadError"),
+  });
 
   const handleRunNow = useCallback(async () => {
     if (runLoading || !hasValidEndpointId) return;
@@ -179,33 +122,13 @@ export default function EndpointStatusDetailPage() {
     try {
       await runHealthchecks();
       setActionMessage(text("healthchecksExecuted"));
-      await loadAll();
+      await refresh();
     } catch (err) {
       setActionError(extractApiError(err, text("healthchecksRunFailed")));
     } finally {
       setRunLoading(false);
     }
-  }, [hasValidEndpointId, loadAll, runLoading, text]);
-
-  useEffect(() => {
-    loadSummary();
-  }, [loadSummary]);
-
-  useEffect(() => {
-    if (!hasValidEndpointId) {
-      setSeries(null);
-      setIncidents([]);
-      setRawChecks([]);
-      setRawChecksTotal(0);
-      return;
-    }
-    loadDetails(endpointId, windowValue);
-  }, [endpointId, hasValidEndpointId, loadDetails, windowValue]);
-
-  useEffect(() => {
-    if (!hasValidEndpointId) return;
-    loadRawChecks(endpointId, windowValue, rawChecksPage);
-  }, [endpointId, hasValidEndpointId, loadRawChecks, rawChecksPage, windowValue]);
+  }, [hasValidEndpointId, refresh, runLoading, text]);
 
   useEffect(() => {
     setRawChecksPage(1);
@@ -504,7 +427,7 @@ export default function EndpointStatusDetailPage() {
       breadcrumbs={breadcrumbs}
       actions={[
         { label: text(runLoading ? "running" : "checkNow"), onClick: handleRunNow, disabled: import.meta.env.MODE === "demo" },
-        { label: text("refresh"), onClick: loadAll, variant: "ghost" },
+        { label: text("refresh"), onClick: refresh, variant: "ghost" },
         { label: text("back"), to: "/admin/endpoint-status", variant: "ghost" },
       ]}
     >
