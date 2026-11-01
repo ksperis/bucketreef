@@ -36,7 +36,6 @@ import { useBrowserCopyDialog } from "./useBrowserCopyDialog";
 import { useBrowserCreateBucket } from "./useBrowserCreateBucket";
 import { useBrowserCreateFolder } from "./useBrowserCreateFolder";
 import { useBrowserDeleteItems } from "./useBrowserDeleteItems";
-import { useBrowserDensity } from "./useBrowserDensity";
 import { useBrowserDownloads } from "./useBrowserDownloads";
 import { useBrowserFolderTree } from "./useBrowserFolderTree";
 import { useBrowserLazyColumns } from "./useBrowserLazyColumns";
@@ -47,10 +46,9 @@ import { useBrowserLeaveGuard } from "./useBrowserLeaveGuard";
 import { useBrowserMultipartUploads } from "./useBrowserMultipartUploads";
 import { useBrowserNotices } from "./useBrowserNotices";
 import { useBrowserFavoritesRuntime } from "./useBrowserFavoritesRuntime";
-import { useBrowserObjectColumns } from "./useBrowserObjectColumns";
 import { useBrowserDetailsDrawerState } from "./useBrowserDetailsDrawerState";
 import { useBrowserObjectListing } from "./useBrowserObjectListing";
-import { useBrowserObjectSort } from "./useBrowserObjectSort";
+import { useBrowserObjectPresentation } from "./useBrowserObjectPresentation";
 import { useBrowserOperationOverview } from "./useBrowserOperationOverview";
 import { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import { useBrowserPanelLayout } from "./useBrowserPanelLayout";
@@ -103,9 +101,7 @@ import type { BrowserPageProps } from "./browserPageContract";
 import { getSelectionInfo, normalizePrefix } from "./browserUtils";
 import {
   COLUMN_DEFINITIONS,
-  DEFAULT_VISIBLE_COLUMN_IDS,
   SELECTION_COLUMN_WIDTH_PX,
-  buildBrowserObjectTableLayout,
   buildBrowserItems,
   collectAvailableStorageClasses,
   type BrowserColumnId,
@@ -319,49 +315,38 @@ export default function BrowserPage({
   });
   const {
     activeColumnResize,
-    columnWidths,
-    resetColumnWidth,
-    resetColumns: handleResetVisibleColumns,
-    startColumnResize,
-    toggleVisibleColumn: handleToggleVisibleColumn,
-    visibleColumns,
-  } = useBrowserObjectColumns({
-    isMainBrowserPath,
-  });
-  const effectiveVisibleColumns = isPortalProfile
-    ? DEFAULT_VISIBLE_COLUMN_IDS
-    : visibleColumns;
-  const visibleColumnSet = useMemo(
-    () => new Set(effectiveVisibleColumns),
-    [effectiveVisibleColumns],
-  );
-  const {
     backendSortBy,
+    canConfigureColumns: canConfigureRootBrowserColumns,
+    canConfigureDensity: canConfigureRootBrowserDensity,
+    compactMode,
+    effectiveVisibleColumns,
+    headerPaddingClasses: headerPadding,
+    iconBoxClasses,
+    nameGapClasses,
+    primaryItemButtonHeightClasses,
+    resetColumnWidth,
+    resetVisibleColumns: handleResetVisibleColumns,
+    rowCellClasses,
+    rowHeightClasses,
+    setCompactMode,
     sortDirection,
     sortId,
     sortKey,
+    startColumnResize,
+    tableLayout,
     toggleSort: handleSortToggle,
-  } = useBrowserObjectSort({ visibleColumns: visibleColumnSet });
-  const isMobileViewport = useMediaQuery(MOBILE_OBJECT_LIST_MEDIA_QUERY);
-  const {
-    canConfigure: canConfigureRootBrowserDensity,
-    compactMode,
-    setCompactMode,
-  } = useBrowserDensity({
+    toggleVisibleColumn: handleToggleVisibleColumn,
+    visibleColumnSet,
+  } = useBrowserObjectPresentation({
+    canOpenExternalObjectDetails,
+    capabilityFacts: resolvedCapabilityFacts,
     densityOverride,
+    functionalProfile: resolvedFunctionalProfile,
     initialStoredDensity: initialStoredRootUiState?.density,
     isMainBrowserPath,
+    isPortalProfile,
   });
-  const canConfigureRootBrowserColumns =
-    isMainBrowserPath && resolvedFunctionalProfile === "advanced";
-  const maximumDirectItemActionCount =
-    1 +
-    Number(resolvedCapabilityFacts.canDeleteObjects) +
-    Number(
-      isPortalProfile &&
-        resolvedCapabilityFacts.canCreatePublicLinks &&
-        canOpenExternalObjectDetails,
-    );
+  const isMobileViewport = useMediaQuery(MOBILE_OBJECT_LIST_MEDIA_QUERY);
   const {
     setStatusMessage,
     setWarningMessage,
@@ -758,21 +743,6 @@ export default function BrowserPage({
     versioningEnabled: isVersioningEnabled,
   });
 
-  const tableLayout = useMemo(
-    () =>
-      buildBrowserObjectTableLayout({
-        visibleColumns: visibleColumnSet,
-        columnWidths,
-        compactMode,
-        directItemActionCount: maximumDirectItemActionCount,
-      }),
-    [
-      columnWidths,
-      compactMode,
-      maximumDirectItemActionCount,
-      visibleColumnSet,
-    ],
-  );
   const lazyColumnCache = useBrowserLazyColumns({
     contextId: contextIdForApi,
     bucketName,
@@ -840,13 +810,6 @@ export default function BrowserPage({
   const selectionFiles = selectionInfo.files;
   const selectionPrimary = selectionInfo.primary;
 
-  const rowPadding = compactMode ? "!py-0.5" : "py-2.5";
-  const rowHeightClasses = compactMode ? "h-9" : "h-16";
-  const rowCellClasses = rowPadding;
-  const headerPadding = compactMode ? "!py-1" : "py-3";
-  const iconBoxClasses = compactMode ? "h-6 w-6" : "h-9 w-9";
-  const nameGapClasses = compactMode ? "gap-1.5" : "gap-3";
-  const primaryItemButtonHeightClasses = compactMode ? "" : "min-h-11";
   const {
     refreshAfterUpload: refreshUploadedListing,
     refreshCurrentListing,
