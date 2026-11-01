@@ -20,10 +20,6 @@ export function adminText(
   return interpolateText(lookupCatalogMessage(message, locale, ADMIN_CATALOGS) ?? message, values);
 }
 
-export function adminIntlLocale(locale: UiLanguage): string {
-  return intlLocale(locale);
-}
-
 export function adminMessage(
   en: string,
   zhFallback?: string,
@@ -44,7 +40,7 @@ export function useAdminI18n() {
   );
   return {
     locale,
-    intlLocale: adminIntlLocale(locale),
+    intlLocale: intlLocale(locale),
     text,
   };
 }

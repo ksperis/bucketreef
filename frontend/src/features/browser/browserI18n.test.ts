@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { browserIntlLocale, browserText } from "./browserI18n";
+import { browserText } from "./browserI18n";
 import browserDe from "./browser.de.json";
 import browserFr from "./browser.fr.json";
 import browserZh from "./browser.zh.json";
@@ -293,10 +293,4 @@ describe("Browser i18n", () => {
     expect(browserText("Unknown Browser copy", "zh")).toBe("Unknown Browser copy");
   });
 
-  it("maps Browser formatting to the selected locale", () => {
-    expect(browserIntlLocale("en")).toBe("en-US");
-    expect(browserIntlLocale("fr")).toBe("fr-FR");
-    expect(browserIntlLocale("de")).toBe("de-DE");
-    expect(browserIntlLocale("zh")).toBe("zh-CN");
-  });
 });
