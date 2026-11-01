@@ -1884,37 +1884,13 @@ export default function BrowserPage({
       <BrowserContextMenu
         contextMenu={contextMenu}
         contextMenuRef={contextMenuRef}
-        currentPath={currentPath}
         pathActionStates={pathActionStates}
-        fileInputRef={fileInputRef}
-        folderInputRef={folderInputRef}
         onClose={closeContextMenu}
-        onNewFolder={handleNewFolder}
-        onPasteItems={handlePasteItems}
-        onOpenPrefixVersions={openPrefixVersions}
-        onOpenCleanupVersions={openCleanupModal}
-        onOpenMultipartUploads={openMultipartUploadsModal}
-        onConfigureBucket={() => openBucketConfigurationDrawer(bucketName)}
-        onOpenPathDetails={() => runPathAction("details")}
         onResolveItemActions={resolveItemActionStates}
         onResolveSelectionActions={resolveSelectionActionStates}
+        onRunPathAction={runPathAction}
         onRunItemAction={runItemAction}
-        onCopyUrl={handleCopyUrl}
-        onCopyPath={(path) => {
-          void handleCopyPath(path);
-        }}
-        onCopyItems={handleCopyItems}
-        onCutItems={handleCutItems}
-        onOpenBulkAttributes={openBulkAttributesModal}
-        onOpenBulkRestore={openBulkRestoreModal}
-        onOpenAdvanced={openPropertiesForItem}
-        onDeleteItems={handleDeleteItems}
-        onDownloadFolder={handleDownloadFolder}
-        onDownloadItems={handleDownloadItems}
-        onDownloadZip={items => void downloadArchive(items, isSearchingInWholeBucket ? "" : normalizedPrefix)}
-        onOpenItem={handleOpenItem}
-        onToggleShowFolders={toggleFolderItems}
-        onToggleShowDeleted={toggleDeletedObjects}
+        onRunSelectionAction={runSelectionAction}
         canConfigureDensity={canConfigureRootBrowserDensity}
         canConfigureColumns={canConfigureRootBrowserColumns}
         compactMode={compactMode}
