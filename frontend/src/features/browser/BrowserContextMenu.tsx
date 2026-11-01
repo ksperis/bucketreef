@@ -35,7 +35,6 @@ import {
   CONTEXT_MENU_PATH_LAYOUT_ACTION_IDS,
   CONTEXT_MENU_SELECTION_ACTION_IDS,
   getVisibleBrowserActions,
-  runBrowserAction,
   type BrowserActionId,
   type BrowserActionMap,
 } from "./browserActions";
@@ -50,35 +49,13 @@ type HeaderConfigColumnOption = {
 type BrowserContextMenuProps = {
   contextMenu: ContextMenuState | null;
   contextMenuRef: RefObject<HTMLDivElement>;
-  currentPath: string;
   pathActionStates: BrowserActionMap;
-  fileInputRef: RefObject<HTMLInputElement>;
-  folderInputRef: RefObject<HTMLInputElement>;
   onClose: () => void;
-  onNewFolder: () => void;
-  onPasteItems: () => void;
-  onOpenPrefixVersions: () => void;
-  onOpenCleanupVersions: () => void;
-  onOpenMultipartUploads: () => void;
-  onConfigureBucket: () => void;
-  onOpenPathDetails: () => void;
   onResolveItemActions: (item: BrowserItem) => BrowserActionMap;
   onResolveSelectionActions: (items: BrowserItem[]) => BrowserActionMap;
+  onRunPathAction: (actionId: BrowserActionId) => void;
   onRunItemAction: (item: BrowserItem, actionId: BrowserActionId) => void;
-  onCopyUrl: (item: BrowserItem | null) => void;
-  onCopyPath: (path: string) => void;
-  onCopyItems: (items: BrowserItem[]) => void;
-  onCutItems: (items: BrowserItem[]) => void;
-  onOpenBulkAttributes: (items: BrowserItem[]) => void;
-  onOpenBulkRestore: (items: BrowserItem[]) => void;
-  onOpenAdvanced: (item: BrowserItem) => void;
-  onDeleteItems: (items: BrowserItem[]) => void;
-  onDownloadFolder: (item: BrowserItem) => void;
-  onDownloadItems: (items: BrowserItem[]) => void;
-  onDownloadZip?: (items: BrowserItem[]) => void;
-  onOpenItem: (item: BrowserItem) => void;
-  onToggleShowFolders: () => void;
-  onToggleShowDeleted: () => void;
+  onRunSelectionAction: (actionId: BrowserActionId) => void;
   canConfigureDensity?: boolean;
   canConfigureColumns?: boolean;
   compactMode?: boolean;
@@ -92,35 +69,13 @@ type BrowserContextMenuProps = {
 export default function BrowserContextMenu({
   contextMenu,
   contextMenuRef,
-  currentPath,
   pathActionStates,
-  fileInputRef,
-  folderInputRef,
   onClose,
-  onNewFolder,
-  onPasteItems,
-  onOpenPrefixVersions,
-  onOpenCleanupVersions,
-  onOpenMultipartUploads,
-  onConfigureBucket,
-  onOpenPathDetails,
   onResolveItemActions,
   onResolveSelectionActions,
+  onRunPathAction,
   onRunItemAction,
-  onCopyUrl,
-  onCopyPath,
-  onCopyItems,
-  onCutItems,
-  onOpenBulkAttributes,
-  onOpenBulkRestore,
-  onOpenAdvanced,
-  onDeleteItems,
-  onDownloadFolder,
-  onDownloadItems,
-  onDownloadZip,
-  onOpenItem,
-  onToggleShowFolders,
-  onToggleShowDeleted,
+  onRunSelectionAction,
   canConfigureDensity = false,
   canConfigureColumns = false,
   compactMode = true,
@@ -150,21 +105,7 @@ export default function BrowserContextMenu({
 
   const runPathAction = (actionId: BrowserActionId) => {
     onClose();
-    runBrowserAction(pathActionStates[actionId], {
-      newFolder: onNewFolder,
-      uploadFiles: () => fileInputRef.current?.click(),
-      uploadFolder: () => folderInputRef.current?.click(),
-      paste: onPasteItems,
-      versions: onOpenPrefixVersions,
-      restoreToDate: () => onOpenBulkRestore([]),
-      cleanOldVersions: onOpenCleanupVersions,
-      multipartUploads: onOpenMultipartUploads,
-      configureBucket: onConfigureBucket,
-      details: onOpenPathDetails,
-      copyPath: () => onCopyPath(currentPath),
-      toggleShowFolders: onToggleShowFolders,
-      toggleShowDeleted: onToggleShowDeleted,
-    });
+    onRunPathAction(actionId);
   };
 
   const runItemAction = (actionId: BrowserActionId) => {
@@ -176,35 +117,7 @@ export default function BrowserContextMenu({
   const runSelectionAction = (actionId: BrowserActionId) => {
     if (!selectionActionStates) return;
     onClose();
-    runBrowserAction(selectionActionStates[actionId], {
-      downloadZip: () => onDownloadZip?.(selectionItems),
-      download: () => {
-        const info = selectionItems;
-        const summary = selectionActionStates.download.label === "Download folder"
-          ? selectionItems[0] ?? null
-          : null;
-        if (summary) {
-          return onDownloadFolder(summary);
-        }
-        return onDownloadItems(info.filter((item) => item.type === "file" && !item.isDeleted));
-      },
-      open: () => {
-        if (selectionItems[0]) {
-          onOpenItem(selectionItems[0]);
-        }
-      },
-      copyUrl: () => onCopyUrl(selectionItems[0] ?? null),
-      copy: () => onCopyItems(selectionItems),
-      cut: () => onCutItems(selectionItems),
-      bulkAttributes: () => onOpenBulkAttributes(selectionItems),
-      restoreToDate: () => onOpenBulkRestore(selectionItems),
-      advanced: () => {
-        if (selectionItems[0]) {
-          onOpenAdvanced(selectionItems[0]);
-        }
-      },
-      delete: () => onDeleteItems(selectionItems),
-    });
+    onRunSelectionAction(actionId);
   };
 
   const iconByActionId = {
