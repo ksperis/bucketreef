@@ -540,6 +540,42 @@ def test_build_user_detail_reads_default_placement_and_storage_class():
     assert detail.default_storage_class == "STANDARD"
 
 
+def test_build_user_detail_uses_canonical_user_identity_aliases():
+    payload = {
+        "user": {
+            "user_id": "tenant-a$alice",
+            "display_name": "Alice",
+        }
+    }
+
+    detail = user_profiles_router._build_user_detail(
+        payload,
+        uid_fallback="fallback",
+        tenant_fallback="fallback-tenant",
+        account_name=None,
+        keys=[],
+    )
+
+    assert detail.uid == "alice"
+    assert detail.tenant == "tenant-a"
+
+
+def test_build_user_detail_rejects_conflicting_user_identity_fields():
+    payload = {
+        "user_id": "tenant-a$alice",
+        "user": {"uid": "tenant-b$alice"},
+    }
+
+    with pytest.raises(ValueError, match="conflicting tenant identity"):
+        user_profiles_router._build_user_detail(
+            payload,
+            uid_fallback="alice",
+            tenant_fallback="tenant-a",
+            account_name=None,
+            keys=[],
+        )
+
+
 def test_build_user_detail_canonicalizes_semicolon_delimited_caps():
     payload = _build_user_payload("alice")
     payload["user"]["caps"] = "users=read,write;accounts=read,write"
