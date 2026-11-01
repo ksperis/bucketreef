@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import {
@@ -55,8 +55,26 @@ export function useBrowserMultipartUploads({
   const [abortingUploadIds, setAbortingUploadIds] = useState<Set<string>>(
     new Set(),
   );
+  const scopeKey = hasContext && bucketName
+    ? JSON.stringify([
+        contextIdForApi ?? null,
+        bucketName,
+        requestOptions?.workspaceSurface ?? null,
+      ])
+    : null;
+  const activeScopeRef = useRef(scopeKey);
+  activeScopeRef.current = scopeKey;
+  const sessionRef = useRef(0);
+  const loadRequestRef = useRef(0);
+  const activeLoadRef = useRef<number | null>(null);
+  const uploadsRef = useRef<MultipartUploadItem[]>([]);
+  uploadsRef.current = uploads;
 
   const reset = useCallback(() => {
+    sessionRef.current += 1;
+    loadRequestRef.current += 1;
+    activeLoadRef.current = null;
+    uploadsRef.current = [];
     setUploads([]);
     setLoading(false);
     setLoadingMore(false);
@@ -72,13 +90,22 @@ export function useBrowserMultipartUploads({
     keyMarker?: string | null;
     uploadIdMarker?: string | null;
   }) => {
-    if (!bucketName || !hasContext) return;
+    if (!scopeKey || activeScopeRef.current !== scopeKey) return;
     const append = Boolean(options?.append);
+    if (append && (!isTruncated || activeLoadRef.current !== null)) return;
+    const requestedScope = scopeKey;
+    const requestedSession = sessionRef.current;
+    const requestId = ++loadRequestRef.current;
+    activeLoadRef.current = requestId;
+    const isCurrentRequest = () =>
+      activeScopeRef.current === requestedScope &&
+      sessionRef.current === requestedSession &&
+      loadRequestRef.current === requestId;
     if (append) {
-      if (!isTruncated || loadingMore) return;
       setLoadingMore(true);
     } else {
       setLoading(true);
+      setLoadingMore(false);
       setError(null);
     }
     try {
@@ -90,7 +117,8 @@ export function useBrowserMultipartUploads({
         maxUploads: MULTIPART_UPLOADS_PAGE_SIZE,
         ...requestOptions,
       });
-      const baseUploads = append ? uploads : [];
+      if (!isCurrentRequest()) return;
+      const baseUploads = append ? uploadsRef.current : [];
       const knownIds = new Set(
         baseUploads.map((upload) => getMultipartUploadEntryId(upload)),
       );
@@ -103,7 +131,9 @@ export function useBrowserMultipartUploads({
         ? [...baseUploads, ...incomingUploads]
         : incomingUploads;
       const limitReached = mergedUploads.length > MULTIPART_UPLOADS_HARD_LIMIT;
-      setUploads(mergedUploads.slice(0, MULTIPART_UPLOADS_HARD_LIMIT));
+      const visibleUploads = mergedUploads.slice(0, MULTIPART_UPLOADS_HARD_LIMIT);
+      uploadsRef.current = visibleUploads;
+      setUploads(visibleUploads);
       setError(null);
       if (limitReached) {
         setNextKey(null);
@@ -120,38 +150,51 @@ export function useBrowserMultipartUploads({
         setIsTruncated(Boolean(data.is_truncated));
       }
     } catch (loadError) {
+      if (!isCurrentRequest()) return;
       setError(
         extractApiError(loadError, text("Unable to list multipart uploads.")),
       );
       if (!append) {
+        uploadsRef.current = [];
         setUploads([]);
         setNextKey(null);
         setNextUploadId(null);
         setIsTruncated(false);
       }
     } finally {
-      if (append) {
-        setLoadingMore(false);
-      } else {
-        setLoading(false);
+      if (isCurrentRequest()) {
+        activeLoadRef.current = null;
+        if (append) {
+          setLoadingMore(false);
+        } else {
+          setLoading(false);
+        }
       }
     }
   };
 
   const open = () => {
-    if (!bucketName || !hasContext) return;
+    if (!scopeKey || activeScopeRef.current !== scopeKey) return;
     setShowModal(true);
     reset();
     void loadPage();
   };
 
   const refresh = () => {
-    if (!bucketName || !hasContext) return;
+    if (!scopeKey || activeScopeRef.current !== scopeKey) return;
     void loadPage();
   };
 
   const loadMore = () => {
-    if (!bucketName || !hasContext || !isTruncated) return;
+    if (
+      !scopeKey ||
+      activeScopeRef.current !== scopeKey ||
+      !isTruncated ||
+      loading ||
+      loadingMore
+    ) {
+      return;
+    }
     void loadPage({
       append: true,
       keyMarker: nextKey,
@@ -160,7 +203,12 @@ export function useBrowserMultipartUploads({
   };
 
   const abort = async (upload: MultipartUploadItem) => {
-    if (!bucketName || !hasContext) return;
+    if (!scopeKey || activeScopeRef.current !== scopeKey) return;
+    const requestedScope = scopeKey;
+    const requestedSession = sessionRef.current;
+    const isCurrentSession = () =>
+      activeScopeRef.current === requestedScope &&
+      sessionRef.current === requestedSession;
     const uploadRowId = getMultipartUploadEntryId(upload);
     setAbortingUploadIds((current) => new Set(current).add(uploadRowId));
     try {
@@ -171,13 +219,17 @@ export function useBrowserMultipartUploads({
         upload.key,
         requestOptions,
       );
-      setUploads((current) =>
-        current.filter(
+      if (!isCurrentSession()) return;
+      setUploads((current) => {
+        const nextUploads = current.filter(
           (entry) => getMultipartUploadEntryId(entry) !== uploadRowId,
-        ),
-      );
+        );
+        uploadsRef.current = nextUploads;
+        return nextUploads;
+      });
       setStatusMessage(text("Multipart upload aborted for {key}.", { key: upload.key }));
     } catch (abortError) {
+      if (!isCurrentSession()) return;
       const message = extractApiError(
         abortError,
         text("Unable to abort multipart upload."),
@@ -185,11 +237,13 @@ export function useBrowserMultipartUploads({
       setError(message);
       setStatusMessage(message);
     } finally {
-      setAbortingUploadIds((current) => {
-        const next = new Set(current);
-        next.delete(uploadRowId);
-        return next;
-      });
+      if (isCurrentSession()) {
+        setAbortingUploadIds((current) => {
+          const next = new Set(current);
+          next.delete(uploadRowId);
+          return next;
+        });
+      }
     }
   };
 
@@ -206,7 +260,7 @@ export function useBrowserMultipartUploads({
   useEffect(() => {
     setShowModal(false);
     reset();
-  }, [bucketName, hasContext, reset]);
+  }, [reset, scopeKey]);
 
   return {
     showModal,
