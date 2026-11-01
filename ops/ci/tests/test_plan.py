@@ -61,6 +61,10 @@ def test_private_authority_rejected(source, ref, protected, mode, tag):
 
 
 def test_profiles_are_disjoint():
+    build_images = select("build-images", None)
+    assert build_images["images"] == list(COMPONENTS)
+    assert set(build_images["jobs"]) == {f"build-{component}" for component in COMPONENTS}
+    assert build_images["full"] is False
     assert set(select("docs", None)["jobs"]) == {"docs-build", "docs-screenshots", "docs-deploy"}
     assert set(select("resume-release", None)["jobs"]) == {"docs-build", "docs-screenshots", "docs-deploy"}
     for profile in ("security", "secrets-history", "regression", "recover-release", "release", "bootstrap-release-bundles"):
@@ -80,6 +84,13 @@ def test_prepare_release_is_explicit_main_only_manual_mode(source):
 
 
 @pytest.mark.parametrize("source", ["web", "api"])
+def test_build_images_is_explicit_main_only_manual_mode(source):
+    assert classify(source=source, ref="main", protected=True, mode="build-images") == "build-images"
+    with pytest.raises(ValueError):
+        classify(source="push", ref="main", protected=True, mode="build-images")
+
+
+@pytest.mark.parametrize("source", ["web", "api"])
 def test_resume_release_is_explicit_main_only_manual_mode(source):
     assert classify(source=source, ref="main", protected=True, mode="resume-release") == "resume-release"
     with pytest.raises(ValueError):
@@ -88,26 +99,13 @@ def test_resume_release_is_explicit_main_only_manual_mode(source):
 
 @pytest.mark.parametrize("source", ["web", "api"])
 def test_manual_modes_still_require_protected_main(source):
-    for mode in ("prepare-release",):
+    for mode in ("build-images", "prepare-release"):
         for values in [
             dict(source=source, ref="dev", protected=True),
             dict(source=source, ref="main", protected=False),
         ]:
             with pytest.raises(ValueError):
                 classify(**values, mode=mode)
-
-
-def test_main_push_preview_builds_all_private_images_without_expanding_validation():
-    paths = ["README.md"]
-    normal = select("integration", paths, ref="main")
-    preview = select("integration", paths, ref="main", preview=True)
-
-    assert preview["jobs"] == normal["jobs"]
-    assert preview["images"] == normal["images"]
-    assert preview["preview_images"] == list(COMPONENTS)
-    assert select("integration", paths, ref="dev", preview=True)["preview_images"] == []
-    assert select("prepare-release", None, ref="main", preview=True)["preview_images"] == []
-
 
 @pytest.mark.parametrize("status", ["failure", "cancelled", "skipped", None, "neutral"])
 def test_required_never_accepts_missing_or_non_success(status):

@@ -76,7 +76,7 @@ def test_push_uses_event_comparison_not_impact_baseline(monkeypatch, comparison,
                               'CI_COMMIT_SHA':SHA,'CI_COMMIT_BEFORE_SHA':'c'*40,'CI_PIPELINE_ID':'19'}, api=object())
     assert plan['profile'] == profile
     assert 'release_trigger' not in plan
-    assert plan['preview_images'] == ['backend', 'frontend', 'scheduler']
+    assert 'preview_images' not in plan
 
 
 def test_arm64_failure_creates_no_stable_reference(monkeypatch, tmp_path):

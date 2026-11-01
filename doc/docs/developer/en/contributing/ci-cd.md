@@ -18,9 +18,10 @@ integration and changes to CI select all relevant checks conservatively.
 | Event | Profile and work |
 |---|---|
 | GitHub PR into main/dev or merge queue | Impact-selected autonomous checks, hosted ephemeral runners, read-only token |
-| Protected GitLab main push | Compare to the last successful integration, revalidate selected work, and build the three private test images. Publish immutable `main-<SHA>` tags plus the moving private `main` alias when the tested SHA is still current main |
+| Protected GitLab main push | Compare to the last successful integration and revalidate selected work |
 | Protected GitLab dev push | Compare to the last successful integration on dev, or the current SHA parent when no baseline exists, then revalidate selected work |
 | Effective version metadata change on main | Automatic complete qualification and release preflight; no public release mutation |
+| Web/API pipeline on main, `CI_MODE=build-images` | Build the three private test images without qualification suites. Publish immutable `main-<SHA>` tags plus the moving private `main` alias when the tested SHA is still current main |
 | Web pipeline on main, `CI_MODE=qualify` | Complete qualification of the pipeline's exact main SHA, including docs-only revisions, plus the release preflight |
 | Web pipeline on main, `CI_MODE=prepare-release` | Explicit launch of the same complete candidate-before-promotion workflow |
 | Web pipeline on main, `CI_MODE=resume-release` | Promote or resume retained immutable distribution evidence without rebuilding; requires `RELEASE_RECOVERY_VERSION=X.Y.Z` and the original child `RELEASE_RECOVERY_PIPELINE_ID` with successful schema-2 `release-ready` evidence |
@@ -45,13 +46,14 @@ is an error. Integration and manual qualification always carry an explicit basel
 when no successful baseline exists yet, they use the current commit's parent.
 Only the scheduled `secrets-history` profile enables the detector's full-history mode.
 
-Every protected push to `main` also starts the private test-image path. Backend,
-frontend and scheduler images are built directly from that SHA and published in
-the GitLab Container Registry as immutable `main-<full SHA>` tags. The mutable
-`main` alias is updated only if the same SHA is still the head of `main`, so an
-older pipeline cannot move the alias backwards. This path depends only on the
-image builds and does not wait for the longer qualification, browser, Ceph or
-security suites. GHCR remains the public stable-release registry.
+An explicit protected-main `CI_MODE=build-images` pipeline starts the private
+test-image path. Backend, frontend and scheduler images are built directly from
+that SHA and published in the GitLab Container Registry as immutable
+`main-<full SHA>` tags. The mutable `main` alias is updated only if the same SHA
+is still the head of `main`, so an older pipeline cannot move the alias backwards.
+This path contains only the image builds and promotion; it does not run the
+qualification, browser, Ceph or security suites. GHCR remains the public
+stable-release registry.
 
 Backend application, migration and dependency changes select pytest, the Admin
 sensitive-route security contract, PostgreSQL/migrations and Vulture. Ordinary

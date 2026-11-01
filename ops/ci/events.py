@@ -62,7 +62,6 @@ def gitlab_plan(env, api=None):
         paths,
         ref=ref,
         version=profile == "integration" and version_changed(base, sha, paths),
-        preview=env["CI_PIPELINE_SOURCE"] == "push" and ref == "main",
     )
     if profile == "resume-release":
         value = env.get("RELEASE_RECOVERY_VERSION", "")

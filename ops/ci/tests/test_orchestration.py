@@ -492,7 +492,7 @@ def test_node_browser_and_all_images_are_locked():
 
 def test_assembled_graphs_are_acyclic_and_dependencies_never_point_to_later_stages():
     from render_gitlab import templates
-    for profile in ('integration','qualify','prepare-release','resume-release','release','docs','security','regression','recover-release','secrets-history','bootstrap-release-bundles'):
+    for profile in ('integration','build-images','qualify','prepare-release','resume-release','release','docs','security','regression','recover-release','secrets-history','bootstrap-release-bundles'):
         for ref in ('main','dev') if profile == 'integration' else ('main',):
             plan = {**select(profile,None,ref=ref),'sha':'a'*40,'parent_id':1}
             if profile == 'resume-release':
@@ -520,11 +520,17 @@ def test_assembled_graphs_are_acyclic_and_dependencies_never_point_to_later_stag
             for name in jobs: visit(name)
 
 
-def test_main_preview_graph_promotes_exact_builds_without_waiting_for_validation():
-    plan = {**select('integration', ['README.md'], preview=True), 'sha': 'a' * 40, 'parent_id': 21}
+def test_build_images_graph_promotes_exact_builds_without_validation_suites():
+    plan = {**select('build-images', None), 'sha': 'a' * 40, 'parent_id': 21}
     config = render(plan)
 
-    assert {'build-backend', 'build-frontend', 'build-scheduler', 'promote-main'} <= set(config)
+    expected = {'pipeline-plan', 'build-backend', 'build-frontend', 'build-scheduler', 'promote-main'}
+    rendered_jobs = {
+        name for name, job in config.items()
+        if isinstance(job, dict) and not name.startswith('.')
+        and name not in {'workflow', 'default', 'variables'}
+    }
+    assert rendered_jobs == expected
     promote = config['promote-main']
     assert promote['stage'] == 'promote'
     assert promote['resource_group'] == 'internal-main-images'
@@ -533,3 +539,5 @@ def test_main_preview_graph_promotes_exact_builds_without_waiting_for_validation
         'pipeline-plan', 'build-backend', 'build-frontend', 'build-scheduler'
     }
     assert 'integration-ready' not in {item['job'] for item in promote['needs']}
+    for name in ('build-backend', 'build-frontend', 'build-scheduler'):
+        assert config[name]['needs'] == [{'job': 'pipeline-plan', 'artifacts': True}]
