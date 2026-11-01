@@ -307,25 +307,53 @@ class ExternalIdentityLinkService:
         if self._stage(attempt, user) != "confirm" or not attempt.subject:
             raise ExternalIdentityLinkError("External identity link attempt is not ready for confirmation")
 
-        identity_conditions = [
+        now = utcnow()
+        identity = self._upsert_confirmed_identity(attempt, user, now)
+        self._approve_matching_link_requests(attempt, user, now)
+        credentials = self._replace_user_credentials_after_link(
+            attempt,
+            user,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        attempt.status = "completed"
+        attempt.consumed_at = now
+        self.db.add(attempt)
+        self._notify_identity_linked(attempt, user, identity, now)
+        self.db.commit()
+        self.db.refresh(identity)
+        return ExternalIdentityLinkCompletion(
+            credentials=credentials,
+            user=user,
+            identity=identity,
+            redirect_path=attempt.redirect_path,
+        )
+
+    def _upsert_confirmed_identity(
+        self,
+        attempt: ExternalIdentityLinkAttempt,
+        user: User,
+        now: datetime,
+    ) -> ExternalIdentity:
+        conditions = [
             ExternalIdentity.provider_type == attempt.provider_type,
             ExternalIdentity.subject == attempt.subject,
         ]
         if attempt.provider_type == "oidc":
-            identity_conditions.append(ExternalIdentity.issuer == attempt.issuer)
+            conditions.append(ExternalIdentity.issuer == attempt.issuer)
         else:
-            identity_conditions.append(ExternalIdentity.provider_id == attempt.provider_id)
-        identity = self.db.scalar(
-            select(ExternalIdentity).where(*identity_conditions).with_for_update()
-        )
+            conditions.append(ExternalIdentity.provider_id == attempt.provider_id)
+        identity = self.db.scalar(select(ExternalIdentity).where(*conditions).with_for_update())
         if identity:
             if identity.user_id != user.id:
                 raise ExternalIdentityLinkError("External identity belongs to another user")
             if identity.revoked_at is not None:
                 raise ExternalIdentityLinkError("External identity is revoked")
-
-        now = utcnow()
-        if identity is None:
+            identity.provider_id = attempt.provider_id
+            identity.issuer = attempt.issuer
+            identity.email = attempt.email
+            identity.email_verified = bool(attempt.email_verified)
+        else:
             identity = ExternalIdentity(
                 id=str(uuid.uuid4()),
                 user_id=user.id,
@@ -338,14 +366,16 @@ class ExternalIdentityLinkService:
                 created_at=now,
                 link_source="reauthenticated",
             )
-        else:
-            identity.provider_id = attempt.provider_id
-            identity.issuer = attempt.issuer
-            identity.email = attempt.email
-            identity.email_verified = bool(attempt.email_verified)
         self.db.add(identity)
+        return identity
 
-        request_conditions = [
+    def _approve_matching_link_requests(
+        self,
+        attempt: ExternalIdentityLinkAttempt,
+        user: User,
+        now: datetime,
+    ) -> None:
+        conditions = [
             ExternalIdentityLinkRequest.user_id == user.id,
             ExternalIdentityLinkRequest.provider_type == attempt.provider_type,
             ExternalIdentityLinkRequest.provider_id == attempt.provider_id,
@@ -353,10 +383,10 @@ class ExternalIdentityLinkService:
             ExternalIdentityLinkRequest.status == "pending",
         ]
         if attempt.provider_type == "oidc":
-            request_conditions.append(ExternalIdentityLinkRequest.issuer == attempt.issuer)
+            conditions.append(ExternalIdentityLinkRequest.issuer == attempt.issuer)
         self.db.execute(
             update(ExternalIdentityLinkRequest)
-            .where(*request_conditions)
+            .where(*conditions)
             .values(
                 status="approved",
                 decided_at=now,
@@ -366,6 +396,14 @@ class ExternalIdentityLinkService:
             .execution_options(synchronize_session=False)
         )
 
+    def _replace_user_credentials_after_link(
+        self,
+        attempt: ExternalIdentityLinkAttempt,
+        user: User,
+        *,
+        ip_address: Optional[str],
+        user_agent: Optional[str],
+    ) -> SessionCredentials:
         user.auth_version += 1
         self.db.add(user)
         sessions = AuthSessionService(self.db, self.settings)
@@ -374,16 +412,21 @@ class ExternalIdentityLinkService:
             "external_identity_changed",
             increment_version=False,
         )
-        credentials = sessions.create_for_user_in_transaction(
+        return sessions.create_for_user_in_transaction(
             user,
             auth_type=f"{attempt.provider_type}-link",
             ip_address=ip_address,
             user_agent=user_agent,
             mfa_verified=attempt.mfa_verified_at is not None,
         )
-        attempt.status = "completed"
-        attempt.consumed_at = now
-        self.db.add(attempt)
+
+    def _notify_identity_linked(
+        self,
+        attempt: ExternalIdentityLinkAttempt,
+        user: User,
+        identity: ExternalIdentity,
+        now: datetime,
+    ) -> None:
         UserNotificationsService(self.db).create_notifications(
             user_ids=[user.id],
             notification_type="identity_changed",
@@ -397,14 +440,6 @@ class ExternalIdentityLinkService:
             event_key=f"external_identity_linked:{identity.id}:{now.isoformat()}",
             payload={"identity_id": identity.id, "provider_id": attempt.provider_id},
             created_at=now,
-        )
-        self.db.commit()
-        self.db.refresh(identity)
-        return ExternalIdentityLinkCompletion(
-            credentials=credentials,
-            user=user,
-            identity=identity,
-            redirect_path=attempt.redirect_path,
         )
 
     def proof_oidc_identity(
