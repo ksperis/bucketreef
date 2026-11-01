@@ -1,14 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import BucketOpsRowActionsMenu from "./BucketOpsRowActionsMenu";
 
 describe("BucketOpsRowActionsMenu", () => {
   it("exposes each unitary RGW Admin Ops bucket action in Ceph Admin", () => {
     const onAdminOps = vi.fn();
+    const bucket = buildCephAdminBucket("bucket-a");
     render(
       <BucketOpsRowActionsMenu
-        bucket={{ name: "bucket-a" }}
+        bucket={bucket}
         isStorageOps={false}
         selectedEndpointId={7}
         cephAdminBrowserEnabled
@@ -37,10 +39,10 @@ describe("BucketOpsRowActionsMenu", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete bucket…" }));
 
     expect(onAdminOps.mock.calls).toEqual([
-      [{ name: "bucket-a" }, "index-check"],
-      [{ name: "bucket-a" }, "unlink-bucket"],
-      [{ name: "bucket-a" }, "link-bucket"],
-      [{ name: "bucket-a" }, "delete-bucket"],
+      [bucket, "index-check"],
+      [bucket, "unlink-bucket"],
+      [bucket, "link-bucket"],
+      [bucket, "delete-bucket"],
     ]);
   });
 });

@@ -110,8 +110,8 @@ describe("BucketOpsBulkExecutionPanel", () => {
           previewItems: [
             {
               bucket: "archive",
-              before: [{ text: "Enabled", tone: "neutral" }],
-              after: [{ text: "Enabled", tone: "neutral" }],
+              before: [{ text: "Enabled" }],
+              after: [{ text: "Enabled" }],
               changed: false,
             },
           ],

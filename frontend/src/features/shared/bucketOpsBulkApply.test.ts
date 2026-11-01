@@ -4,42 +4,42 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  buildBucketProperties,
+  buildBucketPublicAccessBlock,
+} from "../../test/bucketContracts";
 import { applyBucketOpsBulkUpdate } from "./bucketOpsBulkApply";
 import {
   prepareBucketOpsBulkInput,
   type BucketOpsBulkInput,
 } from "./bucketOpsBulkInput";
 
+type ApplyInput = Parameters<typeof applyBucketOpsBulkUpdate>[0];
+
 function createApi() {
   return {
-    deleteBucketCors: vi.fn(async () => undefined),
-    deleteBucketLifecycle: vi.fn(async () => undefined),
-    deleteBucketNotifications: vi.fn(async () => undefined),
-    deleteBucketPolicy: vi.fn(async () => undefined),
-    fetchBucketQuota: vi.fn(async () => ({ maxSizeBytes: null, maxObjects: null })),
-    getBucketCors: vi.fn(async () => ({ rules: [{ ID: "old-cors" }] })),
-    getBucketLifecycle: vi.fn(async () => ({ rules: [{ ID: "old-lifecycle" }] })),
-    getBucketNotifications: vi.fn(async () => ({ configuration: {} })),
-    getBucketPolicy: vi.fn(async () => ({
+    deleteBucketCors: vi.fn<ApplyInput["deleteBucketCors"]>(),
+    deleteBucketLifecycle: vi.fn<ApplyInput["deleteBucketLifecycle"]>(),
+    deleteBucketNotifications: vi.fn<ApplyInput["deleteBucketNotifications"]>(),
+    deleteBucketPolicy: vi.fn<ApplyInput["deleteBucketPolicy"]>(),
+    fetchBucketQuota: vi.fn<ApplyInput["fetchBucketQuota"]>(async () => ({ maxSizeBytes: null, maxObjects: null })),
+    getBucketCors: vi.fn<ApplyInput["getBucketCors"]>(async () => ({ rules: [{ ID: "old-cors" }] })),
+    getBucketLifecycle: vi.fn<ApplyInput["getBucketLifecycle"]>(async () => ({ rules: [{ ID: "old-lifecycle" }] })),
+    getBucketNotifications: vi.fn<ApplyInput["getBucketNotifications"]>(async () => ({ configuration: {} })),
+    getBucketPolicy: vi.fn<ApplyInput["getBucketPolicy"]>(async () => ({
       policy: { Version: "2012-10-17", Statement: [{ Sid: "Old" }] },
     })),
-    getBucketProperties: vi.fn(async () => ({
-      lifecycle_rules: [],
+    getBucketProperties: vi.fn<ApplyInput["getBucketProperties"]>(async () => buildBucketProperties({
       versioning_status: "Suspended",
     })),
-    getBucketPublicAccessBlock: vi.fn(async () => ({
-      block_public_acls: false,
-      ignore_public_acls: false,
-      block_public_policy: false,
-      restrict_public_buckets: false,
-    })),
-    putBucketCors: vi.fn(async () => undefined),
-    putBucketLifecycle: vi.fn(async () => undefined),
-    putBucketNotifications: vi.fn(async () => undefined),
-    putBucketPolicy: vi.fn(async () => undefined),
-    setBucketVersioning: vi.fn(async () => undefined),
-    updateBucketPublicAccessBlock: vi.fn(async () => undefined),
-    updateBucketQuota: vi.fn(async () => undefined),
+    getBucketPublicAccessBlock: vi.fn<ApplyInput["getBucketPublicAccessBlock"]>(async () => buildBucketPublicAccessBlock()),
+    putBucketCors: vi.fn<ApplyInput["putBucketCors"]>(),
+    putBucketLifecycle: vi.fn<ApplyInput["putBucketLifecycle"]>(),
+    putBucketNotifications: vi.fn<ApplyInput["putBucketNotifications"]>(),
+    putBucketPolicy: vi.fn<ApplyInput["putBucketPolicy"]>(),
+    setBucketVersioning: vi.fn<ApplyInput["setBucketVersioning"]>(),
+    updateBucketPublicAccessBlock: vi.fn<ApplyInput["updateBucketPublicAccessBlock"]>(),
+    updateBucketQuota: vi.fn<NonNullable<ApplyInput["updateBucketQuota"]>>(),
   };
 }
 

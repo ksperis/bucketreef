@@ -359,7 +359,7 @@ describe("SecurityPage", () => {
     await user.type(screen.getByLabelText("Current password"), "old-password");
     await user.type(screen.getByLabelText("New password"), "a-new-long-password");
     await user.type(screen.getByLabelText("Confirm password"), "different");
-    await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
     expect(screen.getByLabelText("Confirm password")).toHaveAttribute("aria-invalid", "true");
     expect(updateCurrentUser).not.toHaveBeenCalled();
     await user.click(screen.getByLabelText("Show passwords"));

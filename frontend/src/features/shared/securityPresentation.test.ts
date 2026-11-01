@@ -6,7 +6,7 @@ import { profileMessages, type ProfileText } from "./profileMessages";
 import { openSecuritySessions, securityDate, sessionActivity, sessionDevice } from "./securityPresentation";
 
 const now = Date.parse("2026-09-09T12:00:00Z");
-const session = (values: Partial<SecuritySession>): SecuritySession => ({ id: "current", current: true, auth_type: "password", principal_type: "user", created_at: "2026-09-08T10:00:00Z", last_activity_at: "2026-09-09T11:59:00Z", idle_expires_at: "2026-09-09T20:00:00Z", absolute_expires_at: "2026-09-15T12:00:00Z", ...values });
+const session = (values: Partial<SecuritySession>): SecuritySession => ({ id: "current", current: true, auth_type: "password", principal_type: "user", created_at: "2026-09-08T10:00:00Z", last_activity_at: "2026-09-09T11:59:00Z", idle_expires_at: "2026-09-09T20:00:00Z", absolute_expires_at: "2026-09-15T12:00:00Z", mfa_verified_at: null, ip_address: null, user_agent: null, revoked_at: null, revoke_reason: null, user_id: 1, s3_session_id: null, ...values });
 const text = (locale: "en" | "fr" | "de"): ProfileText =>
   (key, values) => interpolateText(profileMessages[key][locale], values);
 

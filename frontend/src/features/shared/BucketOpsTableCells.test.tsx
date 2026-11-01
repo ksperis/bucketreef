@@ -1,6 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import {
+  buildCephAdminBucket,
+  buildStorageOpsBucket,
+} from "../../test/cephAdmin";
 import {
   BucketOpsFeatureCell,
   BucketOpsNameCell,
@@ -11,8 +14,7 @@ import {
   getBucketOpsS3TagsTooltipKey,
 } from "./BucketOpsTableCells";
 
-const bucket: CephAdminBucket = {
-  name: "archive",
+const bucket = buildCephAdminBucket("archive", {
   tenant: "tenant-a",
   owner: "owner-a",
   tags: [
@@ -24,7 +26,7 @@ const bucket: CephAdminBucket = {
   features: {
     versioning: { state: "Enabled", tone: "active" },
   },
-};
+});
 
 describe("BucketOpsTableCells", () => {
   it("renders selection and name cells with canonical row identity", () => {
@@ -40,14 +42,17 @@ describe("BucketOpsTableCells", () => {
           onChange={onSelectAll}
         />
         <BucketOpsSelectionCell
-          bucket={{ ...bucket, bucket_name: "archive", context_name: "Account A" }}
+          bucket={buildStorageOpsBucket("account-1::archive", {
+            ...bucket,
+            context_name: "Account A",
+          })}
           isStorageOps
           onToggle={onToggle}
           selected
           useExplicitBucketName
         />
         <BucketOpsNameCell
-          bucket={{ ...bucket, bucket_name: "archive" }}
+          bucket={buildStorageOpsBucket("account-1::archive", bucket)}
           onConfigure={onConfigure}
           rowKey="account-1:archive"
           useExplicitBucketName

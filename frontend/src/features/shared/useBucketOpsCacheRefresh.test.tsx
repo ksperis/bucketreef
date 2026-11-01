@@ -6,6 +6,8 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useBucketOpsCacheRefresh } from "./useBucketOpsCacheRefresh";
 
+type CacheRefreshOptions = Parameters<typeof useBucketOpsCacheRefresh>[0];
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((promiseResolve) => {
@@ -16,17 +18,17 @@ function createDeferred<T>() {
 
 function createOptions() {
   return {
-    clearTagTooltip: vi.fn(),
+    clearTagTooltip: vi.fn<CacheRefreshOptions["clearTagTooltip"]>(),
     extractError: (error: unknown) =>
       error instanceof Error ? error.message : String(error),
-    invalidateSelectionCache: vi.fn(),
-    refreshBucketListingCache: vi.fn(async (_scopeId: number) => undefined),
-    refreshBuckets: vi.fn(),
-    reloadUiTags: vi.fn(async () => undefined),
-    resetBucketTooltipState: vi.fn(),
+    invalidateSelectionCache: vi.fn<CacheRefreshOptions["invalidateSelectionCache"]>(),
+    refreshBucketListingCache: vi.fn<CacheRefreshOptions["refreshBucketListingCache"]>(async () => undefined),
+    refreshBuckets: vi.fn<CacheRefreshOptions["refreshBuckets"]>(),
+    reloadUiTags: vi.fn<CacheRefreshOptions["reloadUiTags"]>(async () => undefined),
+    resetBucketTooltipState: vi.fn<CacheRefreshOptions["resetBucketTooltipState"]>(),
     scopeId: 7 as number | null,
-    setError: vi.fn(),
-  };
+    setError: vi.fn<CacheRefreshOptions["setError"]>(),
+  } satisfies CacheRefreshOptions;
 }
 
 describe("useBucketOpsCacheRefresh", () => {

@@ -5,9 +5,13 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
+import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import type { BucketOpsSelectionExportArtifact } from "./bucketOpsSelectionExport";
 import type { BucketUiTagTarget } from "./bucketUiTags";
 import { useBucketOpsSelectionActions } from "./useBucketOpsSelectionActions";
+
+type SelectionActionOptions = Parameters<typeof useBucketOpsSelectionActions>[0];
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -45,22 +49,22 @@ const artifact: BucketOpsSelectionExportArtifact = {
 function createOptions() {
   return {
     bucketNames: ["tenant-a:alpha"],
-    download: vi.fn(),
+    download: vi.fn<NonNullable<SelectionActionOptions["download"]>>(),
     extractError: (error: unknown) =>
       error instanceof Error ? error.message : String(error),
     isStorageOps: false,
-    listBuckets: vi.fn(async () => ({
-      items: [{ name: "alpha", tenant: "tenant-a" }],
+    listBuckets: vi.fn<SelectionActionOptions["listBuckets"]>(async () => ({
+      items: [buildCephAdminBucket("alpha", { tenant: "tenant-a" })],
       has_next: false,
     })),
-    persistUiTagChanges: vi.fn(async () => undefined),
-    prepareExport: vi.fn(async () => artifact),
-    refreshBuckets: vi.fn(),
-    resolveTarget: vi.fn(() => target),
+    persistUiTagChanges: vi.fn<SelectionActionOptions["persistUiTagChanges"]>(async () => undefined),
+    prepareExport: vi.fn<SelectionActionOptions["prepareExport"]>(async () => artifact),
+    refreshBuckets: vi.fn<SelectionActionOptions["refreshBuckets"]>(),
+    resolveTarget: vi.fn<SelectionActionOptions["resolveTarget"]>(() => target),
     scopeId: 7,
     scopeKey: "ceph-admin:7",
-    setError: vi.fn(),
-  };
+    setError: vi.fn<SelectionActionOptions["setError"]>(),
+  } satisfies SelectionActionOptions;
 }
 
 describe("useBucketOpsSelectionActions", () => {
@@ -122,7 +126,7 @@ describe("useBucketOpsSelectionActions", () => {
   it("ignores a target resolution that completes after the scope changes", async () => {
     const options = createOptions();
     const deferred = createDeferred<{
-      items: Array<{ name: string; tenant: string }>;
+      items: CephAdminBucket[];
       has_next: boolean;
     }>();
     options.listBuckets.mockReturnValueOnce(deferred.promise);
@@ -139,7 +143,7 @@ describe("useBucketOpsSelectionActions", () => {
     rerender({ scopeId: 8, scopeKey: "ceph-admin:8" });
     await act(async () => {
       deferred.resolve({
-        items: [{ name: "alpha", tenant: "tenant-a" }],
+        items: [buildCephAdminBucket("alpha", { tenant: "tenant-a" })],
         has_next: false,
       });
       await pending;
@@ -174,7 +178,7 @@ describe("useBucketOpsSelectionActions", () => {
   it("serializes selection actions behind one controller lock", async () => {
     const options = createOptions();
     const deferred = createDeferred<{
-      items: Array<{ name: string; tenant: string }>;
+      items: CephAdminBucket[];
       has_next: boolean;
     }>();
     options.listBuckets.mockReturnValueOnce(deferred.promise);
@@ -189,7 +193,7 @@ describe("useBucketOpsSelectionActions", () => {
 
     await act(async () => {
       deferred.resolve({
-        items: [{ name: "alpha", tenant: "tenant-a" }],
+        items: [buildCephAdminBucket("alpha", { tenant: "tenant-a" })],
         has_next: false,
       });
       await tagUpdate;

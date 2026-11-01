@@ -28,8 +28,8 @@ const connection: S3Connection = {
   id: 7,
   name: "Archive",
   tags: [
-    { id: "tag-b", label: "Beta", color: "blue" },
-    { id: "tag-a", label: "Alpha", color: "red" },
+    { id: 2, label: "Beta", color_key: "blue", scope: "standard" },
+    { id: 1, label: "Alpha", color_key: "red", scope: "standard" },
   ],
   storage_endpoint_id: 3,
   created_by_user_id: 1,
@@ -166,6 +166,7 @@ describe("s3ConnectionFormModel", () => {
       region: "",
       force_path_style: false,
       verify_tls: true,
+      allow_activity_history: null,
     };
     expect(
       buildEditAdminS3ConnectionSignature({
@@ -335,6 +336,7 @@ describe("s3ConnectionFormModel", () => {
         region: " eu-west-3 ",
         force_path_style: true,
         verify_tls: false,
+        allow_activity_history: true,
       },
       linkedGroupIds: [8, 3, 8, -1],
       linkedUserIds: [11, 7, 11, 0],
@@ -363,6 +365,7 @@ describe("s3ConnectionFormModel", () => {
         region: "eu-west-3",
         force_path_style: true,
         verify_tls: false,
+        allow_activity_history: true,
       },
     });
     expect(
@@ -384,6 +387,7 @@ describe("s3ConnectionFormModel", () => {
           region: "",
           force_path_style: false,
           verify_tls: true,
+          allow_activity_history: null,
         },
         linkedGroupIds: [],
         linkedUserIds: [],
@@ -512,14 +516,12 @@ describe("s3ConnectionFormModel", () => {
           id: 3,
           name: " Primary ",
           endpoint_url: "https://primary.example.test",
-          region: null,
           is_default: true,
         },
         {
           id: 4,
           name: "",
           endpoint_url: "https://secondary.example.test",
-          region: null,
           is_default: false,
         },
       ]),

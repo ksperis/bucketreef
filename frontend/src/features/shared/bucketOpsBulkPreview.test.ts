@@ -5,30 +5,30 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  buildBucketProperties,
+  buildBucketPublicAccessBlock,
+} from "../../test/bucketContracts";
+import {
   prepareBucketOpsBulkInput,
   type BucketOpsBulkInput,
 } from "./bucketOpsBulkInput";
 import { previewBucketOpsBulkUpdate } from "./bucketOpsBulkPreview";
 
+type PreviewInput = Parameters<typeof previewBucketOpsBulkUpdate>[0];
+
 function createApi() {
   return {
-    fetchBucketQuota: vi.fn(async () => ({ maxSizeBytes: null, maxObjects: null })),
-    getBucketCors: vi.fn(async () => ({ rules: [{ ID: "old-cors" }] })),
-    getBucketLifecycle: vi.fn(async () => ({ rules: [{ ID: "old-lifecycle" }] })),
-    getBucketNotifications: vi.fn(async () => ({ configuration: {} })),
-    getBucketPolicy: vi.fn(async () => ({
+    fetchBucketQuota: vi.fn<PreviewInput["fetchBucketQuota"]>(async () => ({ maxSizeBytes: null, maxObjects: null })),
+    getBucketCors: vi.fn<PreviewInput["getBucketCors"]>(async () => ({ rules: [{ ID: "old-cors" }] })),
+    getBucketLifecycle: vi.fn<PreviewInput["getBucketLifecycle"]>(async () => ({ rules: [{ ID: "old-lifecycle" }] })),
+    getBucketNotifications: vi.fn<PreviewInput["getBucketNotifications"]>(async () => ({ configuration: {} })),
+    getBucketPolicy: vi.fn<PreviewInput["getBucketPolicy"]>(async () => ({
       policy: { Version: "2012-10-17", Statement: [{ Sid: "Old" }] },
     })),
-    getBucketProperties: vi.fn(async () => ({
-      lifecycle_rules: [],
+    getBucketProperties: vi.fn<PreviewInput["getBucketProperties"]>(async () => buildBucketProperties({
       versioning_status: "Suspended",
     })),
-    getBucketPublicAccessBlock: vi.fn(async () => ({
-      block_public_acls: false,
-      ignore_public_acls: false,
-      block_public_policy: false,
-      restrict_public_buckets: false,
-    })),
+    getBucketPublicAccessBlock: vi.fn<PreviewInput["getBucketPublicAccessBlock"]>(async () => buildBucketPublicAccessBlock()),
   };
 }
 

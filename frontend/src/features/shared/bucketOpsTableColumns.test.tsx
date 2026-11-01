@@ -1,14 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import { buildStorageOpsBucket } from "../../test/cephAdmin";
 import type { ColumnId } from "./bucketOpsListState";
 import {
   buildBucketOpsDataColumns,
   buildBucketOpsTableColumns,
 } from "./bucketOpsTableColumns";
 
-const bucket: CephAdminBucket = {
-  name: "archive",
+const bucket = buildStorageOpsBucket("connection-1::archive", {
   context_kind: "connection",
   context_name: "Archive connection",
   owner: "owner-a",
@@ -20,7 +19,7 @@ const bucket: CephAdminBucket = {
   column_details: {
     object_lock_mode: "GOVERNANCE",
   },
-};
+});
 
 function createRenderers() {
   return {

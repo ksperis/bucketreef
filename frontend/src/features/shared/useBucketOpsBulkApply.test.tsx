@@ -9,6 +9,8 @@ import { prepareBucketOpsBulkInput } from "./bucketOpsBulkInput";
 import { applyBucketOpsConfigPaste } from "./bucketOpsConfigPaste";
 import { useBucketOpsBulkApply } from "./useBucketOpsBulkApply";
 
+type BulkApplyOptions = Parameters<typeof useBucketOpsBulkApply>[0];
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((promiseResolve) => {
@@ -52,7 +54,7 @@ const prepared = prepareBucketOpsBulkInput({
   publicAccessBlockTargets: {},
 });
 
-const successResult = {
+const successResult: Awaited<ReturnType<typeof applyBucketOpsBulkUpdate>> = {
   changedCount: 1,
   unchangedCount: 0,
   failedCount: 0,
@@ -61,13 +63,13 @@ const successResult = {
 };
 
 function createOptions() {
-  const applyBulkOperation = vi.fn(
+  const applyBulkOperation = vi.fn<NonNullable<BulkApplyOptions["applyBulkOperation"]>>(
     async (input: Parameters<typeof applyBucketOpsBulkUpdate>[0]) => {
       input.onProgress?.({ completed: 1, total: 1, failed: 0 });
       return successResult;
     },
   );
-  const applyPasteOperation = vi.fn(
+  const applyPasteOperation = vi.fn<NonNullable<BulkApplyOptions["applyPasteOperation"]>>(
     async (input: Parameters<typeof applyBucketOpsConfigPaste>[0]) => {
       input.onProgress?.({ completed: 1, total: 1, failed: 0 });
       return successResult;

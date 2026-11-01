@@ -5,6 +5,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import { useBucketOpsSelection } from "./useBucketOpsSelection";
 
 function createDeferred<T>() {
@@ -15,7 +16,10 @@ function createDeferred<T>() {
   return { promise, resolve };
 }
 
-const items: CephAdminBucket[] = [{ name: "alpha" }, { name: "beta" }];
+const items: CephAdminBucket[] = [
+  buildCephAdminBucket("alpha"),
+  buildCephAdminBucket("beta"),
+];
 
 function createOptions() {
   return {
@@ -63,12 +67,12 @@ describe("useBucketOpsSelection", () => {
     const options = createOptions();
     options.listBuckets
       .mockResolvedValueOnce({
-        items: [{ name: "alpha" }],
+        items: [buildCephAdminBucket("alpha")],
         has_next: true,
         total: 2,
       })
       .mockResolvedValueOnce({
-        items: [{ name: "beta" }],
+        items: [buildCephAdminBucket("beta")],
         has_next: false,
         total: 2,
       });

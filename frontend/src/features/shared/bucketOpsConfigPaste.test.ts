@@ -10,42 +10,47 @@ import {
   type BulkConfigClipboardBucket,
   type BulkCopyFeatureSelection,
 } from "./bucketBulkOperationsModel";
+import {
+  buildBucketLoggingConfiguration,
+  buildBucketObjectLockConfiguration,
+  buildBucketProperties,
+  buildBucketPublicAccessBlock,
+} from "../../test/bucketContracts";
 import { applyBucketOpsConfigPaste } from "./bucketOpsConfigPaste";
+
+type PasteInput = Parameters<typeof applyBucketOpsConfigPaste>[0];
 
 function createApi() {
   return {
-    deleteBucketCors: vi.fn(async () => undefined),
-    deleteBucketLifecycle: vi.fn(async () => undefined),
-    deleteBucketLogging: vi.fn(async () => undefined),
-    deleteBucketPolicy: vi.fn(async () => undefined),
-    fetchBucketQuota: vi.fn(async () => ({ maxSizeBytes: null, maxObjects: null })),
-    getBucketCors: vi.fn(async () => ({ rules: [{ ID: "old-cors" }] })),
-    getBucketLifecycle: vi.fn(async () => ({ rules: [{ ID: "old-lifecycle" }] })),
-    getBucketLogging: vi.fn(async () => ({
-      enabled: false,
-      target_bucket: null,
-      target_prefix: null,
+    deleteBucketCors: vi.fn<PasteInput["deleteBucketCors"]>(),
+    deleteBucketLifecycle: vi.fn<PasteInput["deleteBucketLifecycle"]>(),
+    deleteBucketLogging: vi.fn<PasteInput["deleteBucketLogging"]>(),
+    deleteBucketPolicy: vi.fn<PasteInput["deleteBucketPolicy"]>(),
+    fetchBucketQuota: vi.fn<PasteInput["fetchBucketQuota"]>(async () => ({
+      maxSizeBytes: null,
+      maxObjects: null,
     })),
-    getBucketPolicy: vi.fn(async () => ({ policy: { Statement: [{ Sid: "Old" }] } })),
-    getBucketProperties: vi.fn(async () => ({
-      lifecycle_rules: [],
-      object_lock: { enabled: false },
+    getBucketCors: vi.fn<PasteInput["getBucketCors"]>(async () => ({ rules: [{ ID: "old-cors" }] })),
+    getBucketLifecycle: vi.fn<PasteInput["getBucketLifecycle"]>(async () => ({ rules: [{ ID: "old-lifecycle" }] })),
+    getBucketLogging: vi.fn<PasteInput["getBucketLogging"]>(async () =>
+      buildBucketLoggingConfiguration(),
+    ),
+    getBucketPolicy: vi.fn<PasteInput["getBucketPolicy"]>(async () => ({ policy: { Statement: [{ Sid: "Old" }] } })),
+    getBucketProperties: vi.fn<PasteInput["getBucketProperties"]>(async () => buildBucketProperties({
+      object_lock: buildBucketObjectLockConfiguration(),
       versioning_status: "Suspended",
     })),
-    getBucketPublicAccessBlock: vi.fn(async () => ({
-      block_public_acls: false,
-      ignore_public_acls: false,
-      block_public_policy: false,
-      restrict_public_buckets: false,
-    })),
-    putBucketCors: vi.fn(async () => undefined),
-    putBucketLifecycle: vi.fn(async () => undefined),
-    putBucketLogging: vi.fn(async () => undefined),
-    putBucketPolicy: vi.fn(async () => undefined),
-    setBucketVersioning: vi.fn(async () => undefined),
-    updateBucketObjectLock: vi.fn(async () => undefined),
-    updateBucketPublicAccessBlock: vi.fn(async () => undefined),
-    updateBucketQuota: vi.fn(async () => undefined),
+    getBucketPublicAccessBlock: vi.fn<PasteInput["getBucketPublicAccessBlock"]>(async () =>
+      buildBucketPublicAccessBlock(),
+    ),
+    putBucketCors: vi.fn<PasteInput["putBucketCors"]>(),
+    putBucketLifecycle: vi.fn<PasteInput["putBucketLifecycle"]>(),
+    putBucketLogging: vi.fn<PasteInput["putBucketLogging"]>(),
+    putBucketPolicy: vi.fn<PasteInput["putBucketPolicy"]>(),
+    setBucketVersioning: vi.fn<PasteInput["setBucketVersioning"]>(),
+    updateBucketObjectLock: vi.fn<PasteInput["updateBucketObjectLock"]>(),
+    updateBucketPublicAccessBlock: vi.fn<PasteInput["updateBucketPublicAccessBlock"]>(),
+    updateBucketQuota: vi.fn<NonNullable<PasteInput["updateBucketQuota"]>>(),
   };
 }
 
@@ -185,7 +190,11 @@ describe("applyBucketOpsConfigPaste", () => {
     api.getBucketPolicy.mockResolvedValue({ policy: { Statement: [{ Sid: "Copied" }] } });
     api.getBucketProperties.mockResolvedValue({
       lifecycle_rules: [],
-      object_lock: { enabled: true, mode: "GOVERNANCE", days: 7 },
+      object_lock: buildBucketObjectLockConfiguration({
+        enabled: true,
+        mode: "GOVERNANCE",
+        days: 7,
+      }),
       versioning_status: "Enabled",
     });
     api.getBucketPublicAccessBlock.mockResolvedValue({

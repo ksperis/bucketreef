@@ -170,7 +170,7 @@ describe("ObjectPreview", () => {
   });
 
   it("aborts pending work and revokes created object URLs on cleanup", async () => {
-    let capturedSignal: AbortSignal | null = null;
+    const capturedSignals: AbortSignal[] = [];
     const pending = new Promise<Blob>(() => undefined);
     const first = render(
       <ObjectPreview
@@ -178,14 +178,14 @@ describe("ObjectPreview", () => {
         sizeBytes={10}
         contentType="image/png"
         loadBlob={(signal) => {
-          capturedSignal = signal;
+          capturedSignals.push(signal);
           return pending;
         }}
       />,
     );
 
     first.unmount();
-    expect(capturedSignal?.aborted).toBe(true);
+    expect(capturedSignals[0]?.aborted).toBe(true);
 
     const second = render(
       <ObjectPreview

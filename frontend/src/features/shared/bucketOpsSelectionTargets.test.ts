@@ -7,6 +7,7 @@ import type {
   CephAdminBucket,
   ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import { resolveBucketOpsSelectionTargets } from "./bucketOpsSelectionTargets";
 
 describe("resolveBucketOpsSelectionTargets", () => {
@@ -39,8 +40,7 @@ describe("resolveBucketOpsSelectionTargets", () => {
         const names = filter.rules?.[0]?.value ?? [];
         const items: CephAdminBucket[] = names
           .filter((name) => name !== "bucket-51")
-          .map((name) => ({
-            name,
+          .map((name) => buildCephAdminBucket(name, {
             tenant: name === "bucket-1" ? "tenant-b" : null,
           }));
         return { items, has_next: false };
@@ -86,7 +86,7 @@ describe("resolveBucketOpsSelectionTargets", () => {
 
   it("treats buckets without a canonical target as unresolved", async () => {
     const listBuckets = vi.fn(async () => ({
-      items: [{ name: "alpha" }, { name: "beta" }],
+      items: [buildCephAdminBucket("alpha"), buildCephAdminBucket("beta")],
       has_next: false,
     }));
 

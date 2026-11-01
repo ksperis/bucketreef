@@ -5,9 +5,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import { loadBucketOpsFilteredBuckets } from "./bucketOpsFilteredBucketLoader";
 
-const bucket = (name: string): CephAdminBucket => ({ name });
+const bucket = (name: string): CephAdminBucket => buildCephAdminBucket(name);
 
 describe("loadBucketOpsFilteredBuckets", () => {
   it("loads every filtered page with stable listing parameters and progress", async () => {
@@ -104,8 +105,8 @@ describe("loadBucketOpsFilteredBuckets", () => {
   it("keeps same-name Ceph buckets distinct when the caller uses physical identity", async () => {
     const listBuckets = vi.fn().mockResolvedValue({
       items: [
-        { name: "shared", tenant: "tenant-a" },
-        { name: "shared", tenant: "tenant-b" },
+        buildCephAdminBucket("shared", { tenant: "tenant-a" }),
+        buildCephAdminBucket("shared", { tenant: "tenant-b" }),
       ],
       has_next: false,
       total: 2,

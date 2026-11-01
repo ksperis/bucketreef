@@ -14,7 +14,7 @@ vi.mock("../../api/users", () => ({ fetchCurrentUser: mocks.fetch, updateCurrent
 vi.mock("../../api/executionContexts", () => ({ getWorkspaceAccess: async () => ({ manager: { available: false }, browser: { available: true }, portal: { available: false } }) }));
 vi.mock("../../components/theme", () => ({ useTheme: () => ({ theme: "light", setTheme: mocks.theme }) }));
 vi.mock("../../components/GeneralSettingsContext", () => ({ useGeneralSettings: () => ({ generalSettings: settings }) }));
-const profile = { id: 7, email: "person@example.test", full_name: "Test Person", role: "ui_user", ui_language: "en", quota_alerts_enabled: true, quota_alerts_global_watch: false, avatar: { preference: "auto", source: "initials", initials: "TP" } };
+const profile = { id: 7, email: "person@example.test", full_name: "Test Person", role: "ui_user", ui_language: "en", quota_alerts_enabled: true, quota_alerts_global_watch: false, avatar: { preference: "auto" as const, source: "initials" as const, url: null, initials: "TP", updated_at: null } };
 const renderPage = (callback = vi.fn()) => render(<LanguageProvider><ProfilePreferencesPage onUnsavedChangesChange={callback} /></LanguageProvider>);
 
 describe("compact profile preferences", () => {
@@ -69,10 +69,10 @@ describe("compact profile preferences", () => {
     expect(mocks.theme).not.toHaveBeenCalled();
     expect(screen.getByRole("combobox", { name: "Theme" })).toHaveValue("dark");
     expect(screen.getByRole("switch", { name: "Quota alert emails" })).not.toBeChecked();
-    await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Cancel$/ }));
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(screen.getByRole("combobox", { name: "Theme" })).toHaveValue("dark");
-    await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Cancel$/ }));
     await user.click(screen.getByRole("button", { name: "Discard changes" }));
     expect(screen.getByRole("combobox", { name: "Theme" })).toHaveValue("light");
     expect(screen.getByRole("switch", { name: "Quota alert emails" })).toBeChecked();
@@ -104,7 +104,7 @@ describe("compact profile preferences", () => {
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(screen.getByLabelText("Name")).toHaveValue("  New name  ");
-    await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
     expect(mocks.update).toHaveBeenCalledWith({ full_name: "New name" });
     expect(await screen.findByText("New name")).toBeInTheDocument();
   });
@@ -117,7 +117,7 @@ describe("compact profile preferences", () => {
     const file = new File(["image"], "photo.png", { type: "image/png" });
     await user.upload(screen.getByLabelText("Choose image"), file);
     expect(mocks.upload).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    await user.click(screen.getByRole("button", { name: /^Cancel$/ }));
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     expect(screen.getByText("photo.png")).toBeInTheDocument();
     await user.keyboard("{Escape}");

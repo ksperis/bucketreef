@@ -4,6 +4,7 @@
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { buildCephAdminBucket } from "../../test/cephAdmin";
 import BucketOpsTable, { type BucketOpsTableColumn } from "./BucketOpsTable";
 
 const columns: BucketOpsTableColumn[] = [
@@ -30,7 +31,10 @@ const columns: BucketOpsTableColumn[] = [
   },
 ];
 
-const bucket = { name: "archive", tenant: "tenant-a", used_bytes: 42 };
+const bucket = buildCephAdminBucket("archive", {
+  tenant: "tenant-a",
+  used_bytes: 42,
+});
 
 describe("BucketOpsTable", () => {
   it("marks identity columns for responsive pinning and preserves loading and sorting", () => {

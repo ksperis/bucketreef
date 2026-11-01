@@ -199,6 +199,7 @@ describe("BucketIntegrityCheckModal results", () => {
       checked_count: 5,
       failed_count: 1,
       bytes_read: 2048,
+      message: "Checking bucket-a",
     };
     streamManagerBucketIntegrityCheckMock.mockImplementationOnce(async (...args: unknown[]) => {
       const options = args[2] as { onProgress?: (event: BucketIntegrityProgress) => void };

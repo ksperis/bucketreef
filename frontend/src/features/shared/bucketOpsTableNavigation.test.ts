@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import {
+  buildCephAdminBucket,
+  buildStorageOpsBucket,
+} from "../../test/cephAdmin";
 import { buildBucketOpsNavigationTarget } from "./bucketOpsTableNavigation";
 
-const cephBucket: CephAdminBucket = { name: "logs/archive" };
-const storageBucket: CephAdminBucket = {
-  name: "account-1::archive",
+const cephBucket = buildCephAdminBucket("logs/archive");
+const storageBucket = buildStorageOpsBucket("account-1::archive", {
   bucket_name: "logs/archive",
   context_id: "account 1",
-};
+});
 
 describe("bucketOpsTableNavigation", () => {
   it("builds the Ceph Admin browser destination", () => {
@@ -58,7 +60,7 @@ describe("bucketOpsTableNavigation", () => {
     expect(
       buildBucketOpsNavigationTarget({
         action: "manager",
-        bucket: { name: "missing-context" },
+        bucket: buildCephAdminBucket("missing-context"),
         mode: "storage-ops",
         selectedEndpointId: 1,
       }),
