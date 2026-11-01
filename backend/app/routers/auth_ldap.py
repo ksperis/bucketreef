@@ -14,6 +14,7 @@ from app.routers.auth_common import (
     AuthAttemptContext,
     _finish_user_primary_auth,
     external_identity_link_response,
+    external_identity_reauthentication_response,
 )
 from app.routers.auth_cookies import ensure_external_identity_browser_binding
 from app.routers.dependencies import (
@@ -89,9 +90,8 @@ def login_with_ldap(
             browser_secret_hash=browser_secret_hash,
         )
     except ExternalIdentityReauthenticationRequiredError as exc:
-        attempt.clear_rate_limit()
-        return AuthenticationResponse(
-            status="link_reauthentication_required",
+        return external_identity_reauthentication_response(
+            attempt=attempt,
             link_attempt_id=exc.attempt_id,
         )
     except ExternalIdentityLinkRequiredError as exc:

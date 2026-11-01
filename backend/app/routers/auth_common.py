@@ -168,6 +168,22 @@ def external_identity_link_response(
     )
 
 
+def external_identity_reauthentication_response(
+    *,
+    attempt: AuthAttemptContext,
+    link_attempt_id: str,
+) -> AuthenticationResponse:
+    attempt.clear_rate_limit()
+    return AuthenticationResponse(
+        status="link_reauthentication_required",
+        user=None,
+        session=None,
+        redirect_path=None,
+        recovery_codes=None,
+        link_attempt_id=link_attempt_id,
+    )
+
+
 def _finish_user_primary_auth(
     *,
     request: Request,

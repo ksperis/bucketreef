@@ -36,8 +36,12 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.auth_session_service import AuthSessionError, AuthSessionService, RefreshReplayError
 from app.services.auth_session_guards import current_auth_session
 from app.core.domain_errors import ExternalIdentityNotFoundError
-from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError, ExternalIdentityUserService
-from app.services.oidc_service import OIDCStateError
+from app.services.external_identity_user_service import (
+    ExternalIdentityLinkRequiredError,
+    ExternalIdentityReauthenticationRequiredError,
+    ExternalIdentityUserService,
+)
+from app.services.oidc_service import OIDCLinkContinuationRequiredError, OIDCStateError
 from app.services import session_service
 from app.services.session_service import SessionService
 from app.services.users_service import UsersService
@@ -1147,3 +1151,57 @@ def test_oidc_email_collision_creates_an_audited_manual_link_response(auth_clien
         select(AuditLog).where(AuditLog.action == "external_identity_link_requested")
     ).one()
     assert audit.entity_id == "link-request-1"
+
+
+@pytest.mark.parametrize(
+    "reauthentication_error",
+    [
+        ExternalIdentityReauthenticationRequiredError("oidc-link-attempt"),
+        OIDCLinkContinuationRequiredError("oidc-link-attempt"),
+    ],
+    ids=["identity-link", "oidc-continuation"],
+)
+def test_oidc_reauthentication_required_returns_link_attempt_response(
+    auth_client,
+    db_session,
+    monkeypatch,
+    reauthentication_error,
+):
+    class ReauthenticationOidcService:
+        db = db_session
+
+        def complete_login(
+            self,
+            provider_id,
+            code,
+            state,
+            *,
+            request_origin=None,
+            browser_secret_hash=None,
+        ):
+            raise reauthentication_error
+
+    cleared_accounts = []
+    monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: ReauthenticationOidcService())
+    monkeypatch.setattr(
+        auth_router.AuthAttemptContext,
+        "clear_rate_limit",
+        lambda self: cleared_accounts.append(self.account_key),
+    )
+
+    response = auth_client.post(
+        "/api/auth/oidc/company/callback",
+        json={"code": "code", "state": "state"},
+        headers=trusted_origin_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "status": "link_reauthentication_required",
+        "user": None,
+        "session": None,
+        "redirect_path": None,
+        "recovery_codes": None,
+        "link_attempt_id": "oidc-link-attempt",
+    }
+    assert cleared_accounts == ["oidc-callback:company"]

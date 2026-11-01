@@ -7,6 +7,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db import AuditLog, AuthSession, User, UserRole
 from app.routers import auth_ldap as auth_router
+from app.services.external_identity_user_service import ExternalIdentityReauthenticationRequiredError
 from app.services.ldap_service import LDAPAuthenticationError, LDAPConfigurationError
 from tests.auth_test_utils import trusted_origin_headers
 
@@ -67,6 +68,37 @@ def test_ldap_login_creates_cookie_session_and_returns_ui_none_user(client, db_s
     assert audit is not None
     assert audit.ip_address == "testclient"
     assert audit.user_agent == "pytest-ldap"
+
+
+def test_ldap_reauthentication_required_returns_link_attempt_response(client, db_session, monkeypatch):
+    class FakeLDAPService:
+        def authenticate(self, provider_id, username, password, **kwargs):
+            raise ExternalIdentityReauthenticationRequiredError("ldap-link-attempt")
+
+    cleared_accounts = []
+    monkeypatch.setattr(auth_router, "get_ldap_auth_service", lambda db: FakeLDAPService())
+    monkeypatch.setattr(
+        auth_router.AuthAttemptContext,
+        "clear_rate_limit",
+        lambda self: cleared_accounts.append(self.account_key),
+    )
+
+    response = client.post(
+        "/api/auth/ldap/corp/login",
+        json={"username": "jane", "password": "secret-password"},
+        headers=trusted_origin_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "status": "link_reauthentication_required",
+        "user": None,
+        "session": None,
+        "redirect_path": None,
+        "recovery_codes": None,
+        "link_attempt_id": "ldap-link-attempt",
+    }
+    assert cleared_accounts == ["ldap:corp:jane"]
 
 
 def test_ldap_login_failure_is_audited(client, db_session, monkeypatch):
