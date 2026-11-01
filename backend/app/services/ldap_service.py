@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 from email_validator import EmailNotValidError, validate_email
 from ldap3 import BASE, NONE, SUBTREE, Connection, Server, Tls
-from ldap3.core.exceptions import LDAPExceptionError
+from ldap3.core.exceptions import LDAPExceptionError, LDAPKeyError
 from ldap3.utils.conv import escape_filter_chars
 from sqlalchemy.orm import Session
 
@@ -415,7 +415,7 @@ class LDAPAuthService:
                 return LDAPAuthService._coerce_attribute_value(value)
         try:
             return LDAPAuthService._coerce_attribute_value(entry[attribute].value)
-        except Exception:
+        except LDAPKeyError:
             return None
 
     @staticmethod
