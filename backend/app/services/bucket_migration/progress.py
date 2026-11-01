@@ -15,14 +15,14 @@ from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookEventPublisher
 from app.utils.time import utcnow
 
-from ._shared import (
-    _bounded_event_metadata,
-    _DB_ERROR_MESSAGE_MAX_CHARS,
-    _DB_EVENT_MESSAGE_MAX_CHARS,
-    _json_dumps,
-    _sanitize_event_metadata,
-    _truncate_db_text,
-    _truncate_optional_db_text,
+from .persistence_safety import (
+    bounded_event_metadata,
+    DB_ERROR_MESSAGE_MAX_CHARS,
+    DB_EVENT_MESSAGE_MAX_CHARS,
+    json_dumps,
+    sanitize_event_metadata,
+    truncate_db_text,
+    truncate_optional_db_text,
 )
 from .execution_runtime import ResolvedContext
 from .workflow import ACTIVE_STATUSES, FINAL_STATUSES
@@ -104,9 +104,9 @@ class BucketMigrationProgressMixin:
             migration.status = "failed"
             migration.worker_lease_owner = None
             migration.worker_lease_until = None
-            migration.error_message = _truncate_optional_db_text(
+            migration.error_message = truncate_optional_db_text(
                 f"Fatal migration worker error: {error_text}",
-                max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
+                max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
             )
             migration.finished_at = now
             migration.updated_at = now
@@ -298,7 +298,7 @@ class BucketMigrationProgressMixin:
         current_policy = self._configuration.get_policy(bucket_name, execution_context)
         expected = expected_policy if isinstance(expected_policy, dict) else None
         current = current_policy if isinstance(current_policy, dict) else None
-        if _json_dumps(expected) == _json_dumps(current):
+        if json_dumps(expected) == json_dumps(current):
             return
         expected_state = "present" if isinstance(expected, dict) else "absent"
         current_state = "present" if isinstance(current, dict) else "absent"
@@ -328,10 +328,10 @@ class BucketMigrationProgressMixin:
         target_release_errors = self._release_target_write_locks(migration, target_ctx, verify_restored=True)
         release_errors = source_release_errors + target_release_errors
         if release_errors:
-            migration.error_message = _truncate_optional_db_text(
+            migration.error_message = truncate_optional_db_text(
                 f"Migration canceled, but {len(release_errors)} authorization restore error(s): "
                 + " | ".join(release_errors[:3]),
-                max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
+                max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
             )
         else:
             migration.error_message = None
@@ -385,10 +385,10 @@ class BucketMigrationProgressMixin:
         if release_errors:
             if migration.status == "completed":
                 migration.status = "completed_with_errors"
-            migration.error_message = _truncate_optional_db_text(
+            migration.error_message = truncate_optional_db_text(
                 f"Migration finished with {len(release_errors)} target lock cleanup error(s): "
                 + " | ".join(release_errors[:3]),
-                max_chars=_DB_ERROR_MESSAGE_MAX_CHARS,
+                max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
             )
         self._add_event(
             migration,
@@ -451,10 +451,10 @@ class BucketMigrationProgressMixin:
         message: str,
         metadata: Optional[dict[str, Any]] = None,
     ) -> None:
-        safe_message = _truncate_db_text(message, max_chars=_DB_EVENT_MESSAGE_MAX_CHARS)
+        safe_message = truncate_db_text(message, max_chars=DB_EVENT_MESSAGE_MAX_CHARS)
         safe_metadata: Optional[dict[str, Any]] = None
         if metadata is not None:
-            normalized_metadata = _sanitize_event_metadata(sanitize_error_detail(metadata))
+            normalized_metadata = sanitize_event_metadata(sanitize_error_detail(metadata))
             if isinstance(normalized_metadata, dict):
                 safe_metadata = normalized_metadata
             else:
@@ -465,7 +465,7 @@ class BucketMigrationProgressMixin:
             item_id=item.id if item else None,
             level=level,
             message=safe_message,
-            event_metadata=_bounded_event_metadata(safe_metadata),
+            event_metadata=bounded_event_metadata(safe_metadata),
             created_at=created_at,
         )
         self.db.add(entry)
@@ -501,7 +501,7 @@ class BucketMigrationProgressMixin:
     ) -> dict[str, Any]:
         safe_metadata: Optional[dict[str, Any]] = None
         if metadata is not None:
-            normalized_metadata = _sanitize_event_metadata(metadata)
+            normalized_metadata = sanitize_event_metadata(metadata)
             if isinstance(normalized_metadata, dict):
                 safe_metadata = normalized_metadata
             else:

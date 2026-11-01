@@ -18,10 +18,10 @@ from app.services.bucket_ui_tags_service import (
 from app.services.storage_ops_context_resolution import (
     resolve_storage_ops_context_tenant,
 )
-from ._shared import _json_dumps
 from .execution_object_models import BucketVersionEntry
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER
 from .execution_signals import WorkerLeaseLostError
+from .persistence_safety import json_dumps
 from .workflow import require_action
 
 
@@ -284,7 +284,7 @@ class BucketMigrationMaintenanceMixin:
                 entry,
                 check=check,
             )
-            encoded = _json_dumps(value).encode("utf-8")
+            encoded = json_dumps(value).encode("utf-8")
             digest.update(len(encoded).to_bytes(8, "big"))
             digest.update(encoded)
         check()

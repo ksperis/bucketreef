@@ -13,14 +13,13 @@ from app.db import BucketMigrationItem
 from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_execution_context import S3ExecutionTarget
 
-from ._shared import (
-    _READ_ONLY_POLICY_SID,
-    _SOURCE_COPY_GRANT_POLICY_SID,
-    _TARGET_WRITE_LOCK_POLICY_SID,
-)
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, ResolvedContext
 
 logger = logging.getLogger(__name__)
+
+_READ_ONLY_POLICY_SID = "BucketReefMigrationReadOnlyDeny"
+_TARGET_WRITE_LOCK_POLICY_SID = "BucketReefMigrationTargetWriteLockDeny"
+_SOURCE_COPY_GRANT_POLICY_SID = "BucketReefMigrationSourceCopyGrantAllow"
 
 
 class BucketMigrationPolicyGrantsMixin:

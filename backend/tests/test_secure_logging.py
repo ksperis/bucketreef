@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from app.db import EndpointHealthCheck, EndpointHealthLatest, HealthCheckStatus, StorageEndpoint
 from app.core.logging_security import SensitiveDataFormatter
 from app.core.sensitive_data import sanitize_persisted_error
-from app.services.bucket_migration._shared import _truncate_optional_db_text
+from app.services.bucket_migration.persistence_safety import truncate_optional_db_text
 from app.services.healthcheck_common import HealthCheckResult
 from app.services.healthcheck_persistence_service import HealthCheckPersistenceService
 from app.utils.time import utcnow
@@ -96,7 +96,7 @@ def test_persisted_error_is_redacted_and_bounded():
 
 
 def test_migration_error_boundary_redacts_exception_derived_text():
-    rendered = _truncate_optional_db_text(
+    rendered = truncate_optional_db_text(
         "password=migration-secret https://rgw.example.test/object?X-Amz-Signature=deadbeef",
         max_chars=256,
     )
