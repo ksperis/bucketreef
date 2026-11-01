@@ -17,6 +17,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 
 import { useTagCatalog } from "../../hooks/useTagCatalog";
+import useLazyListLoader from "../../hooks/useLazyListLoader";
 import {
   S3ConnectionAdminItem,
   createAdminS3Connection,
@@ -24,7 +25,7 @@ import {
   updateAdminS3Connection,
   validateAdminS3ConnectionCredentials,
 } from "../../api/s3ConnectionsAdmin";
-import { listStorageEndpoints, StorageEndpoint } from "../../api/storageEndpoints";
+import { listStorageEndpoints } from "../../api/storageEndpoints";
 import { extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { normalizeUiTags } from "../../utils/uiTags";
@@ -118,8 +119,11 @@ export default function S3ConnectionsPage() {
     runWithStepUp,
   });
 
-  const [storageEndpoints, setStorageEndpoints] = useState<StorageEndpoint[]>([]);
-  const [loadingEndpoints, setLoadingEndpoints] = useState(false);
+  const {
+    items: storageEndpoints,
+    loading: loadingEndpoints,
+    refresh: refreshStorageEndpoints,
+  } = useLazyListLoader(listStorageEndpoints);
   const {
     users: portalUsers,
     groups: uiGroups,
@@ -235,19 +239,8 @@ export default function S3ConnectionsPage() {
   };
 
   useEffect(() => {
-    const loadEndpoints = async () => {
-      setLoadingEndpoints(true);
-      try {
-        const data = await listStorageEndpoints();
-        setStorageEndpoints(data);
-      } catch {
-        setStorageEndpoints([]);
-      } finally {
-        setLoadingEndpoints(false);
-      }
-    };
-    loadEndpoints();
-  }, []);
+    void refreshStorageEndpoints();
+  }, [refreshStorageEndpoints]);
 
   useEffect(() => {
     void loadPortalUsers();
