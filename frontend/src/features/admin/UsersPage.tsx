@@ -65,6 +65,9 @@ import { adminUserEditorSignature, emptyAdminUserEditorSignature } from "./admin
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
+import useAdminUserAssociationDerivedOptions, {
+  MAX_VISIBLE_USER_ASSOCIATION_OPTIONS,
+} from "./useAdminUserAssociationDerivedOptions";
 import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminUserLdapImport from "./useAdminUserLdapImport";
@@ -114,7 +117,6 @@ export default function UsersPage() {
     cancelled: text("verificationCancelled"),
     failure: (error: unknown) => extractApiError(error, text("verificationFailed")),
   }), [closeLabel, text]);
-  const MAX_VISIBLE_OPTIONS = 10;
   const { generalSettings } = useGeneralSettings();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp(stepUpLabels);
   const currentUser = useMemo(() => readStoredUser(), []);
@@ -260,90 +262,21 @@ export default function UsersPage() {
     () => new Map(openStackClouds.map((cloud) => [cloud.id, cloud.name] as const)),
     [openStackClouds],
   );
-  const availableCreateS3Accounts = useMemo(() => {
-    const query = createAssociations.accounts.picker.search.trim().toLowerCase();
-    const selectedIds = new Set(createAssociations.accounts.selected.map((a) => Number(a.id)));
-    return accountOptions.filter(
-      (a) => !selectedIds.has(Number(a.id)) && (!query || a.label.toLowerCase().includes(query))
-    );
-  }, [accountOptions, createAssociations.accounts.picker.search, createAssociations.accounts.selected]);
-  const availableEditS3Accounts = useMemo(() => {
-    const query = editAssociations.accounts.picker.search.trim().toLowerCase();
-    const selectedIds = new Set(editAssociations.accounts.selected.map((a) => Number(a.id)));
-    return accountOptions.filter(
-      (a) => !selectedIds.has(Number(a.id)) && (!query || a.label.toLowerCase().includes(query))
-    );
-  }, [accountOptions, editAssociations.accounts.picker.search, editAssociations.accounts.selected]);
-  const availableCreateS3Users = useMemo(() => {
-    const query = createAssociations.s3Users.picker.search.trim().toLowerCase();
-    return s3UserOptions.filter(
-      (opt) => !createAssociations.s3Users.selected.some((link) => link.s3_user_id === opt.id) && (!query || opt.label.toLowerCase().includes(query))
-    );
-  }, [s3UserOptions, createAssociations.s3Users.selected, createAssociations.s3Users.picker.search]);
-  const availableCreateS3Connections = useMemo(() => {
-    const query = createAssociations.connections.picker.search.trim().toLowerCase();
-    return s3SharedConnectionOptions.filter(
-      (opt) =>
-        !createAssociations.connections.selected.includes(opt.id) && (!query || opt.label.toLowerCase().includes(query))
-    );
-  }, [s3SharedConnectionOptions, createAssociations.connections.selected, createAssociations.connections.picker.search]);
-  const availableEditS3Users = useMemo(() => {
-    const query = editAssociations.s3Users.picker.search.trim().toLowerCase();
-    return s3UserOptions.filter(
-      (opt) => !editAssociations.s3Users.selected.some((link) => link.s3_user_id === opt.id) && (!query || opt.label.toLowerCase().includes(query))
-    );
-  }, [s3UserOptions, editAssociations.s3Users.selected, editAssociations.s3Users.picker.search]);
-  const availableEditS3Connections = useMemo(() => {
-    const query = editAssociations.connections.picker.search.trim().toLowerCase();
-    return s3SharedConnectionOptions.filter(
-      (opt) =>
-        !editAssociations.connections.selected.includes(opt.id) &&
-        (!query || opt.label.toLowerCase().includes(query))
-    );
-  }, [s3SharedConnectionOptions, editAssociations.connections.selected, editAssociations.connections.picker.search]);
-  const availableCreateOpenStackClouds = useMemo(() => {
-    const query = createAssociations.openStack.picker.search.trim().toLowerCase();
-    return openStackOptions.filter(
-      (option) =>
-        !createAssociations.openStack.selected.includes(option.id) &&
-        (!query || option.label.toLowerCase().includes(query)),
-    );
-  }, [createAssociations.openStack.picker.search, createAssociations.openStack.selected, openStackOptions]);
-  const availableEditOpenStackClouds = useMemo(() => {
-    const query = editAssociations.openStack.picker.search.trim().toLowerCase();
-    return openStackOptions.filter(
-      (option) =>
-        !editAssociations.openStack.selected.includes(option.id) &&
-        (!query || option.label.toLowerCase().includes(query)),
-    );
-  }, [editAssociations.openStack.picker.search, editAssociations.openStack.selected, openStackOptions]);
-  const visibleCreateGroups = useMemo(() => {
-    const query = createAssociations.groups.picker.search.trim().toLowerCase();
-    return groups.filter(
-      (group) =>
-        !group.system_key &&
-        !createAssociations.groups.selected.includes(group.id) &&
-        (!query || group.name.toLowerCase().includes(query))
-    );
-  }, [createAssociations.groups.picker.search, createAssociations.groups.selected, groups]);
-  const visibleEditGroups = useMemo(() => {
-    const query = editAssociations.groups.picker.search.trim().toLowerCase();
-    return groups.filter(
-      (group) =>
-        !group.system_key &&
-        !editAssociations.groups.selected.includes(group.id) &&
-        (!query || group.name.toLowerCase().includes(query))
-    );
-  }, [editAssociations.groups.picker.search, editAssociations.groups.selected, groups]);
-  const limitedOptions = <T,>(options: T[]) => options.slice(0, MAX_VISIBLE_OPTIONS);
-  const visibleCreateS3Accounts = limitedOptions(availableCreateS3Accounts);
-  const visibleEditS3Accounts = limitedOptions(availableEditS3Accounts);
-  const visibleCreateS3Users = limitedOptions(availableCreateS3Users);
-  const visibleCreateS3Connections = limitedOptions(availableCreateS3Connections);
-  const visibleEditS3Users = limitedOptions(availableEditS3Users);
-  const visibleEditS3Connections = limitedOptions(availableEditS3Connections);
-  const visibleCreateOpenStackClouds = limitedOptions(availableCreateOpenStackClouds);
-  const visibleEditOpenStackClouds = limitedOptions(availableEditOpenStackClouds);
+  const associationOptionSources = useMemo(() => ({
+    accountOptions,
+    s3UserOptions,
+    s3ConnectionOptions: s3SharedConnectionOptions,
+    openStackOptions,
+    groups,
+  }), [accountOptions, groups, openStackOptions, s3SharedConnectionOptions, s3UserOptions]);
+  const createAssociationOptions = useAdminUserAssociationDerivedOptions(
+    createAssociations,
+    associationOptionSources,
+  );
+  const editAssociationOptions = useAdminUserAssociationDerivedOptions(
+    editAssociations,
+    associationOptionSources,
+  );
   const displayUiRole = (role: UiRole) => {
     if (role === "ui_superadmin") return text("superadmin");
     if (role === "ui_admin") return text("admin");
@@ -1108,14 +1041,14 @@ export default function UsersPage() {
                     void ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
                   }
                 }}
-                maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
                 showPortalRole={showPortalRole}
                 accounts={{
                   selected: createAssociations.accounts.selected,
                   setSelected: createAssociations.accounts.setSelected,
                   optionsById: accountOptionsById,
-                  available: availableCreateS3Accounts,
-                  visible: visibleCreateS3Accounts,
+                  available: createAssociationOptions.accounts.available,
+                  visible: createAssociationOptions.accounts.visible,
                   search: createAssociations.accounts.picker.search,
                   setSearch: createAssociations.accounts.picker.setSearch,
                   loading: s3AccountsLoading,
@@ -1131,8 +1064,8 @@ export default function UsersPage() {
                   selected: createAssociations.s3Users.selected,
                   setSelected: createAssociations.s3Users.setSelected,
                   labelById: s3UserLabelById,
-                  available: availableCreateS3Users,
-                  visible: visibleCreateS3Users,
+                  available: createAssociationOptions.s3Users.available,
+                  visible: createAssociationOptions.s3Users.visible,
                   search: createAssociations.s3Users.picker.search,
                   setSearch: createAssociations.s3Users.picker.setSearch,
                   loading: s3UsersLoading,
@@ -1146,8 +1079,8 @@ export default function UsersPage() {
                   selected: createAssociations.connections.selected,
                   setSelected: createAssociations.connections.setSelected,
                   labelById: s3ConnectionLabelById,
-                  available: availableCreateS3Connections,
-                  visible: visibleCreateS3Connections,
+                  available: createAssociationOptions.connections.available,
+                  visible: createAssociationOptions.connections.visible,
                   search: createAssociations.connections.picker.search,
                   setSearch: createAssociations.connections.picker.setSearch,
                   loading: s3ConnectionsLoading,
@@ -1161,8 +1094,8 @@ export default function UsersPage() {
                   selected: createAssociations.openStack.selected,
                   setSelected: createAssociations.openStack.setSelected,
                   labelById: openStackLabelById,
-                  available: availableCreateOpenStackClouds,
-                  visible: visibleCreateOpenStackClouds,
+                  available: createAssociationOptions.openStack.available,
+                  visible: createAssociationOptions.openStack.visible,
                   search: createAssociations.openStack.picker.search,
                   setSearch: createAssociations.openStack.picker.setSearch,
                   loading: openStackCloudsLoading,
@@ -1180,12 +1113,12 @@ export default function UsersPage() {
                 groups={groups}
                 groupsLoaded={groupsLoaded}
                 groupsLoading={groupsLoading}
-                maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
                 selectedIds={createAssociations.groups.selected}
                 setSelectedIds={createAssociations.groups.setSelected}
                 search={createAssociations.groups.picker.search}
                 setSearch={createAssociations.groups.picker.setSearch}
-                visibleGroups={visibleCreateGroups}
+                visibleGroups={createAssociationOptions.groups}
                 showPanel={createAssociations.groups.picker.open}
                 setShowPanel={createAssociations.groups.picker.setOpen}
                 selections={createAssociations.groups.picker.selections}
@@ -1369,14 +1302,14 @@ export default function UsersPage() {
                     void ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
                   }
                 }}
-                maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
                 showPortalRole={showPortalRole}
                 accounts={{
                   selected: editAssociations.accounts.selected,
                   setSelected: editAssociations.accounts.setSelected,
                   optionsById: accountOptionsById,
-                  available: availableEditS3Accounts,
-                  visible: visibleEditS3Accounts,
+                  available: editAssociationOptions.accounts.available,
+                  visible: editAssociationOptions.accounts.visible,
                   search: editAssociations.accounts.picker.search,
                   setSearch: editAssociations.accounts.picker.setSearch,
                   loading: s3AccountsLoading,
@@ -1392,8 +1325,8 @@ export default function UsersPage() {
                   selected: editAssociations.s3Users.selected,
                   setSelected: editAssociations.s3Users.setSelected,
                   labelById: s3UserLabelById,
-                  available: availableEditS3Users,
-                  visible: visibleEditS3Users,
+                  available: editAssociationOptions.s3Users.available,
+                  visible: editAssociationOptions.s3Users.visible,
                   search: editAssociations.s3Users.picker.search,
                   setSearch: editAssociations.s3Users.picker.setSearch,
                   loading: s3UsersLoading,
@@ -1407,8 +1340,8 @@ export default function UsersPage() {
                   selected: editAssociations.connections.selected,
                   setSelected: editAssociations.connections.setSelected,
                   labelById: s3ConnectionLabelById,
-                  available: availableEditS3Connections,
-                  visible: visibleEditS3Connections,
+                  available: editAssociationOptions.connections.available,
+                  visible: editAssociationOptions.connections.visible,
                   search: editAssociations.connections.picker.search,
                   setSearch: editAssociations.connections.picker.setSearch,
                   loading: s3ConnectionsLoading,
@@ -1422,8 +1355,8 @@ export default function UsersPage() {
                   selected: editAssociations.openStack.selected,
                   setSelected: editAssociations.openStack.setSelected,
                   labelById: openStackLabelById,
-                  available: availableEditOpenStackClouds,
-                  visible: visibleEditOpenStackClouds,
+                  available: editAssociationOptions.openStack.available,
+                  visible: editAssociationOptions.openStack.visible,
                   search: editAssociations.openStack.picker.search,
                   setSearch: editAssociations.openStack.picker.setSearch,
                   loading: openStackCloudsLoading,
@@ -1441,12 +1374,12 @@ export default function UsersPage() {
                 groups={groups}
                 groupsLoaded={groupsLoaded}
                 groupsLoading={groupsLoading}
-                maxVisibleOptions={MAX_VISIBLE_OPTIONS}
+                maxVisibleOptions={MAX_VISIBLE_USER_ASSOCIATION_OPTIONS}
                 selectedIds={editAssociations.groups.selected}
                 setSelectedIds={editAssociations.groups.setSelected}
                 search={editAssociations.groups.picker.search}
                 setSearch={editAssociations.groups.picker.setSearch}
-                visibleGroups={visibleEditGroups}
+                visibleGroups={editAssociationOptions.groups}
                 showPanel={editAssociations.groups.picker.open}
                 setShowPanel={editAssociations.groups.picker.setOpen}
                 selections={editAssociations.groups.picker.selections}
