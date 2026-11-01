@@ -9,7 +9,7 @@ from app.db import AccountIAMUser, PortalStorageSpaceMetadata, S3Account, S3User
 from app.models.bucket import BucketQuotaUpdate
 from app.services.admin_metrics_service import AdminMetricsService
 from app.services.cost_collection_service import CostCollector
-from app.services.bucket_configuration_service import BucketConfigurationService
+from app.services.bucket_quota_service import BucketQuotaService
 from app.services.buckets_service import BucketsService
 from app.services.portal_service import PortalService
 from app.services.quota_monitoring_service import QuotaMonitoringService
@@ -107,7 +107,7 @@ def test_manager_bucket_stats_and_quota_preserve_explicit_tenant(monkeypatch):
     summary = service.get_bucket_stats("same-name", context)
     assert summary.used_bytes == 25
     assert calls[0][2]["bucket"] == "same-name"
-    configuration = BucketConfigurationService()
+    configuration = BucketQuotaService()
     configuration.set_bucket_quota("same-name", context, BucketQuotaUpdate(max_objects=10), rgw_admin=client)
     assert calls[-1][2]["uid"] == "customer01$analyst"
 

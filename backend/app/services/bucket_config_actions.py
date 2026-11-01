@@ -36,6 +36,7 @@ from app.models.bucket import (
 )
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_bad_request_from_value_error
 from app.services.bucket_configuration_service import BucketConfigurationService
+from app.services.bucket_quota_service import BucketQuotaService
 from app.services.buckets_service import BucketsService
 from app.services.s3_deletion import BucketNotEmptyError
 
@@ -170,7 +171,7 @@ def delete_bucket_config(
 
 def update_bucket_quota_config(
     *,
-    service: BucketConfigurationService,
+    service: BucketQuotaService,
     context: S3ExecutionTarget,
     bucket_name: str,
     payload: BucketQuotaUpdate,

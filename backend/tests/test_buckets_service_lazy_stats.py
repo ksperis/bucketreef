@@ -7,6 +7,7 @@ from app.services import s3_client
 from app.services import buckets_service as buckets_service_module
 from app.services.buckets_service import BucketsService
 from app.services.bucket_configuration_service import BucketConfigurationService
+from app.services.bucket_quota_service import BucketQuotaService
 from tests.service_identity_helpers import service_identity
 
 
@@ -30,7 +31,6 @@ def test_bucket_configuration_is_owned_by_dedicated_service():
     configuration_methods = {
         "get_bucket_properties",
         "set_versioning",
-        "set_bucket_quota",
         "get_policy",
         "set_lifecycle",
         "set_bucket_replication",
@@ -40,6 +40,8 @@ def test_bucket_configuration_is_owned_by_dedicated_service():
     }
     assert all(not hasattr(BucketsService, method) for method in configuration_methods)
     assert all(hasattr(BucketConfigurationService, method) for method in configuration_methods)
+    assert not hasattr(BucketConfigurationService, "set_bucket_quota")
+    assert hasattr(BucketQuotaService, "set_bucket_quota")
 
 
 def test_live_stats_client_uses_admin_ops_without_monitoring_feature(monkeypatch):
@@ -418,7 +420,7 @@ def test_list_buckets_notifications_unavailable_when_sns_disabled(monkeypatch):
 
 
 def test_set_bucket_quota_calls_single_scope_without_user_lookup(monkeypatch):
-    service = BucketConfigurationService()
+    service = BucketQuotaService()
     account = S3Account(
         name="quota-owner",
         rgw_account_id="RGW00000000000000001",
@@ -453,7 +455,7 @@ def test_set_bucket_quota_calls_single_scope_without_user_lookup(monkeypatch):
 
 
 def test_set_bucket_quota_uses_injected_rgw_admin_client(monkeypatch):
-    service = BucketConfigurationService()
+    service = BucketQuotaService()
     account = S3Account(
         name="quota-owner-account",
         rgw_account_id="RGW00000000000000009",
@@ -485,7 +487,7 @@ def test_set_bucket_quota_uses_injected_rgw_admin_client(monkeypatch):
 
 
 def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
-    service = BucketConfigurationService()
+    service = BucketQuotaService()
     account = S3Account(
         name="quota-owner-account",
         rgw_account_id="RGW00000000000000009",
@@ -515,7 +517,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
         return FakeRGWAdmin()
 
     monkeypatch.setattr(
-        "app.services.bucket_configuration_service.get_endpoint_admin_rgw_client",
+        "app.services.bucket_quota_service.get_endpoint_admin_rgw_client",
         fake_get_endpoint_runtime_rgw_client,
     )
 
@@ -533,7 +535,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
 
 
 def test_set_bucket_quota_raises_when_rgw_reports_not_found(monkeypatch):
-    service = BucketConfigurationService()
+    service = BucketQuotaService()
     account = S3Account(
         name="quota-owner-account",
         rgw_account_id="RGW00000000000000009",

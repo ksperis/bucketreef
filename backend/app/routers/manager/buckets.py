@@ -33,9 +33,9 @@ from app.services.bucket_comparison_service import (
     BucketComparisonService,
     get_bucket_comparison_service,
 )
-from app.services.bucket_configuration_service import (
-    BucketConfigurationService,
-    get_bucket_configuration_service,
+from app.services.bucket_quota_service import (
+    BucketQuotaService,
+    get_bucket_quota_service,
 )
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.s3_execution_context import S3ExecutionContext
@@ -146,7 +146,7 @@ def update_quota(
     bucket_name: str,
     payload: BucketQuotaUpdate,
     context: S3ExecutionContext = Depends(require_manager_bucket_quota),
-    service: BucketConfigurationService = Depends(get_bucket_configuration_service),
+    service: BucketQuotaService = Depends(get_bucket_quota_service),
     current_user: User = Depends(get_current_user),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Response:
