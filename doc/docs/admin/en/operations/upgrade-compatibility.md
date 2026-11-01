@@ -1,5 +1,42 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-10 LDAP Admin import search filter
+
+Migration `0223_ldap_import_search_filter` adds the optional
+`ldap_providers.import_search_filter` field used by Admin directory search when
+pre-provisioning an LDAP-backed UI user. Existing UI-managed LDAP providers get
+`NULL`, which preserves the previous behavior: BucketReef derives the import
+filter from `user_filter` by replacing `{username}` with `*{query}*`.
+
+When configured, the custom filter must contain `{query}`. BucketReef escapes
+the administrator-entered search text before substitution. Environment-managed
+providers expose the same capability through
+`LDAP_PROVIDERS__<key>__IMPORT_SEARCH_FILTER` and do not depend on this database
+column.
+
+## 2026-10 external identity link attempts for LDAP and OIDC
+
+Migration `0222_external_identity_link_attempts` generalizes the short-lived
+OIDC account-link attempt table to `external_identity_link_attempts`. Existing
+OIDC attempts are preserved with `provider_type=oidc`; the issuer becomes
+nullable so LDAP attempts can use the same browser-bound transaction model.
+The migration also adds `ldap_providers.linking_policy`, defaulting existing
+UI-managed LDAP providers to `manual`.
+
+Deploy the backend and bundled frontend together so both use the generalized
+external-identity linking workflow. A downgrade removes LDAP link attempts,
+because the previous OIDC-only schema cannot represent them. These rows are
+ephemeral account-link transactions; persisted LDAP identities and BucketReef
+users are unaffected by that downgrade cleanup.
+
+## 2026-10 external identity link request review context
+
+Migration `0221_identity_link_request_context` adds `email_verified` and
+`request_source` to `external_identity_link_requests`. Existing requests are
+backfilled with `email_verified=false` and `request_source=NULL`; new requests
+persist the review context that administrators use when deciding whether an
+external identity should be linked to an existing BucketReef user.
+
 ## 2026-10 explicit Browser Object Lock capability state
 
 Browser object Legal Hold and Retention responses now include the explicit
