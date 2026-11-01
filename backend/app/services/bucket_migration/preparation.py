@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from contextlib import nullcontext
+from typing import Callable
 from sqlalchemy import or_, select, update
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -81,6 +82,38 @@ class BucketMigrationPreparationMixin:
                 return migration_id
         return None
 
+    def _build_preparation_checkpoint(
+        self,
+        migration: BucketMigration,
+        *,
+        migration_id: int,
+        revision: int,
+        worker_id: str | None,
+    ) -> Callable[[dict | None], None]:
+        def checkpoint(report: dict | None = None) -> None:
+            self._assert_workflow_lease()
+            row = self.db.execute(
+                select(
+                    BucketMigration.configuration_revision,
+                    BucketMigration.worker_lease_owner,
+                )
+                .where(BucketMigration.id == migration_id)
+            ).one()
+            if row.configuration_revision != revision or (
+                worker_id and row.worker_lease_owner != worker_id
+            ):
+                raise WorkerLeaseLostError(
+                    "Preparation configuration or lease changed"
+                )
+            self._assert_migration_creator_access(migration)
+            if report is not None:
+                migration.precheck_report = dict(report)
+                migration.preparation_completed_items = len(report.get("items", []))
+            migration.updated_at = utcnow()
+            self._commit()
+
+        return checkpoint
+
     def run_precheck(
         self,
         migration_id: int,
@@ -102,28 +135,12 @@ class BucketMigrationPreparationMixin:
         migration.precheck_status = "pending"
         migration.preparation_completed_items = 0
         checked_at = utcnow()
-
-        def checkpoint(report=None):
-            self._assert_workflow_lease()
-            row = self.db.execute(
-                select(
-                    BucketMigration.configuration_revision,
-                    BucketMigration.worker_lease_owner,
-                )
-                .where(BucketMigration.id == migration_id)
-            ).one()
-            if row.configuration_revision != revision or (
-                worker_id and row.worker_lease_owner != worker_id
-            ):
-                raise WorkerLeaseLostError(
-                    "Preparation configuration or lease changed"
-                )
-            self._assert_migration_creator_access(migration)
-            if report is not None:
-                migration.precheck_report = dict(report)
-                migration.preparation_completed_items = len(report.get("items", []))
-            migration.updated_at = utcnow()
-            self._commit()
+        checkpoint = self._build_preparation_checkpoint(
+            migration,
+            migration_id=migration_id,
+            revision=revision,
+            worker_id=worker_id,
+        )
 
         self._preparation_checkpoint = checkpoint
         try:
