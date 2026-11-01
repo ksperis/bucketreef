@@ -13,6 +13,7 @@ from app.models.s3_connection_admin import (
 from app.models.s3_user import S3UserCreate, S3UserUpdate
 from app.models.storage_endpoint import StorageEndpointTagsUpdate
 from app.models.tagging import TagDefinitionListResponse, TagDefinitionSummary
+from app.utils.tagging import tag_definition_sort_key
 
 
 REQUIRED_TAG_MODELS = [
@@ -135,3 +136,16 @@ def test_shared_tag_type_rejects_non_list_payloads():
                 "tags": "prod",
             }
         )
+
+
+def test_tag_definition_sort_key_falls_back_for_invalid_identifier():
+    assert tag_definition_sort_key({"label": "Prod", "id": "invalid"}) == ("prod", 0)
+
+
+def test_tag_definition_sort_key_propagates_unexpected_conversion_failure():
+    class UnexpectedIdentifier:
+        def __int__(self):
+            raise RuntimeError("unexpected conversion failure")
+
+    with pytest.raises(RuntimeError, match="unexpected conversion failure"):
+        tag_definition_sort_key({"label": "Prod", "id": UnexpectedIdentifier()})

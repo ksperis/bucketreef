@@ -138,6 +138,6 @@ def tag_definition_sort_key(item: object) -> tuple[str, int]:
     identifier = _get_mapping_value(item, "id")
     try:
         numeric_id = int(identifier or 0)
-    except Exception:
+    except (TypeError, ValueError):
         numeric_id = 0
     return (label.casefold(), numeric_id)
