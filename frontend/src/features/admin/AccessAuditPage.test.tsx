@@ -160,4 +160,45 @@ describe("AccessAuditPage", () => {
     })));
     expect(screen.getByLabelText("Filter by source")).toHaveValue("platform");
   });
+
+  it("ignores a late response from a previous filter", async () => {
+    let resolveInitial: ((value: typeof initialResponse) => void) | undefined;
+    const initialResponse = { items: [row], total: 1, page: 1, page_size: 25, has_next: false };
+    const filteredRow = {
+      ...row,
+      key: "13:platform",
+      principal: { ...row.principal, id: 13, email: "filtered@example.com", full_name: "Filtered User" },
+    };
+    listAccessAuditMock
+      .mockImplementationOnce(() => new Promise<typeof initialResponse>((resolve) => { resolveInitial = resolve; }))
+      .mockResolvedValue({ ...initialResponse, items: [filteredRow] });
+
+    render(
+      <MemoryRouter initialEntries={["/admin/access-audit"]}>
+        <AccessAuditPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Filter by right"), { target: { value: "ceph_admin" } });
+    expect(await screen.findByText("Filtered User")).toBeInTheDocument();
+
+    resolveInitial?.(initialResponse);
+    await waitFor(() => expect(screen.queryByText("Example User")).not.toBeInTheDocument());
+    expect(screen.getByText("Filtered User")).toBeInTheDocument();
+  });
+
+  it("clears the loaded page when a filtered reload fails", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/access-audit"]}>
+        <AccessAuditPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Example User")).toBeInTheDocument();
+    listAccessAuditMock.mockRejectedValueOnce(new Error("unavailable"));
+    fireEvent.change(screen.getByLabelText("Filter by right"), { target: { value: "ceph_admin" } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("unavailable");
+    expect(screen.queryByText("Example User")).not.toBeInTheDocument();
+  });
 });

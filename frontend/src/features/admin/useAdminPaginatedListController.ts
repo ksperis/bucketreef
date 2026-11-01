@@ -4,15 +4,12 @@
  */
 import { useCallback } from "react";
 
-import useAdminResourceController from "./useAdminResourceController";
-
-type PaginatedListResponse<T> = {
-  items: T[];
-  total: number;
-};
+import useAdminPaginatedResourceController, {
+  type PaginatedResource,
+} from "./useAdminPaginatedResourceController";
 
 type Args<T extends { id: number }> = {
-  loadPage: () => Promise<PaginatedListResponse<T>>;
+  loadPage: () => Promise<PaginatedResource<T>>;
   ensurePageInRange: (total: number) => boolean;
   formatError: (error: unknown) => string;
   onLoaded?: () => void;
@@ -24,24 +21,19 @@ export default function useAdminPaginatedListController<T extends { id: number }
   formatError,
   onLoaded,
 }: Args<T>) {
-  const acceptPage = useCallback(
-    (response: PaginatedListResponse<T>) => ensurePageInRange(response.total),
-    [ensurePageInRange],
-  );
-  const handleLoaded = useCallback(() => onLoaded?.(), [onLoaded]);
   const {
-    resource: page,
-    setResource: setPage,
+    items,
+    total,
+    setPage,
     loading,
     error,
     setError,
     refresh,
-  } = useAdminResourceController<PaginatedListResponse<T>>({
-    loadResource: loadPage,
-    initialResource: { items: [], total: 0 },
+  } = useAdminPaginatedResourceController({
+    loadPage,
+    ensurePageInRange,
     formatError,
-    acceptResource: acceptPage,
-    onLoaded: handleLoaded,
+    onLoaded,
   });
 
   const updateItem = useCallback((id: number, update: (item: T) => T) => {
@@ -52,8 +44,8 @@ export default function useAdminPaginatedListController<T extends { id: number }
   }, [setPage]);
 
   return {
-    items: page.items,
-    total: page.total,
+    items,
+    total,
     loading,
     error,
     setError,
