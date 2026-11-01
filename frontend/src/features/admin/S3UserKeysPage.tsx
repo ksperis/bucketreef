@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListActions, ListBadge, ListActionButton } from "../../components/list/ListControls";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   CreatedS3UserAccessKey,
@@ -29,58 +29,61 @@ import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { useAdminI18n } from "./adminI18n";
+import useAdminResourceController from "./useAdminResourceController";
 
 export default function S3UserKeysPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { userId } = useParams<{ userId: string }>();
   const numericUserId = userId ? Number(userId) : NaN;
-  const [user, setUser] = useState<S3User | null>(null);
-  const [keys, setKeys] = useState<S3UserAccessKey[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const validUserId = Number.isFinite(numericUserId);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<CreatedS3UserAccessKey | null>(null);
   const keyConfirmation = useConfirmActionDialog();
 
-  const loadUser = useCallback(async () => {
-    if (!Number.isFinite(numericUserId)) return;
-    try {
-      const data = await getS3User(numericUserId);
-      setUser(data);
-    } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
-    }
-  }, [adminText, numericUserId]);
+  const formatLoadError = useCallback(
+    (error: unknown) => extractApiError(error, adminText("Unexpected error")),
+    [adminText],
+  );
+  const loadUserResource = useCallback(() => getS3User(numericUserId), [numericUserId]);
+  const loadKeysResource = useCallback(() => listS3UserKeys(numericUserId), [numericUserId]);
+  const {
+    resource: user,
+    error: userLoadError,
+    setError: setUserLoadError,
+    refresh: loadUser,
+  } = useAdminResourceController<S3User | null>({
+    loadResource: loadUserResource,
+    initialResource: null,
+    formatError: formatLoadError,
+    enabled: validUserId,
+  });
+  const {
+    resource: keys,
+    loading,
+    error: keysLoadError,
+    setError: setKeysLoadError,
+    refresh: loadKeys,
+  } = useAdminResourceController<S3UserAccessKey[]>({
+    loadResource: loadKeysResource,
+    initialResource: [],
+    formatError: formatLoadError,
+    enabled: validUserId,
+  });
+  const error = actionError ?? keysLoadError ?? userLoadError;
 
-  const loadKeys = useCallback(async () => {
-    if (!Number.isFinite(numericUserId)) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listS3UserKeys(numericUserId);
-      setKeys(data);
-    } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
-    } finally {
-      setLoading(false);
-    }
-  }, [adminText, numericUserId]);
-
-  useEffect(() => {
-    if (!Number.isFinite(numericUserId)) {
-      setError(adminText("Invalid user id."));
-      return;
-    }
-    loadUser();
-    loadKeys();
-  }, [adminText, loadKeys, loadUser, numericUserId]);
+  const clearErrors = () => {
+    setActionError(null);
+    setUserLoadError(null);
+    setKeysLoadError(null);
+  };
 
   const handleCreateKey = async () => {
     if (!Number.isFinite(numericUserId)) return;
     setBusy("create");
-    setError(null);
+    clearErrors();
     setActionMessage(null);
     try {
       const key = await createS3UserKey(numericUserId);
@@ -88,7 +91,7 @@ export default function S3UserKeysPage() {
       await loadKeys();
       setActionMessage(adminText("Access key created."));
     } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
+      setActionError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -97,14 +100,14 @@ export default function S3UserKeysPage() {
   const deleteKey = async (accessKeyId: string) => {
     if (!Number.isFinite(numericUserId)) return;
     setBusy(`delete:${accessKeyId}`);
-    setError(null);
+    clearErrors();
     setActionMessage(null);
     try {
       await deleteS3UserKey(numericUserId, accessKeyId);
       await loadKeys();
       setActionMessage(adminText("Access key deleted."));
     } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
+      setActionError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -113,14 +116,14 @@ export default function S3UserKeysPage() {
   const toggleKey = async (accessKeyId: string, nextActive: boolean) => {
     if (!Number.isFinite(numericUserId)) return;
     setBusy(`toggle:${accessKeyId}`);
-    setError(null);
+    clearErrors();
     setActionMessage(null);
     try {
       await updateS3UserKeyStatus(numericUserId, accessKeyId, nextActive);
       await loadKeys();
       setActionMessage(adminText(nextActive ? "Access key enabled." : "Access key disabled."));
     } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
+      setActionError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -161,14 +164,14 @@ export default function S3UserKeysPage() {
   const handleRotateUiKey = async () => {
     if (!Number.isFinite(numericUserId)) return;
     setBusy("rotate");
-    setError(null);
+    clearErrors();
     setActionMessage(null);
     try {
       await rotateS3UserKeys(numericUserId);
       await Promise.all([loadUser(), loadKeys()]);
       setActionMessage(adminText("Interface key rotated."));
     } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
+      setActionError(extractApiError(err, adminText("Unexpected error")));
     } finally {
       setBusy(null);
     }
@@ -249,7 +252,7 @@ export default function S3UserKeysPage() {
     },
   ];
 
-  if (!userId || Number.isNaN(numericUserId)) {
+  if (!userId || !validUserId) {
     return (
       <PageShell actionPresentation="listing"
         title={adminText("User access keys")}
