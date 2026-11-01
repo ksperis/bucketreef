@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ReactNode, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type Ref } from "react";
+import { ChevronDownIcon } from "./topbarIcons";
 
 type TopbarControlTriggerProps = {
   mode: "icon" | "icon_label";
@@ -161,13 +162,5 @@ export function TopbarStaticControl({
         </span>
       </div>
     </div>
-  );
-}
-
-function ChevronDownIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="m5 7 5 6 5-6" />
-    </svg>
   );
 }

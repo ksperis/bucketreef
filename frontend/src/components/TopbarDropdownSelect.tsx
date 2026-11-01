@@ -14,6 +14,7 @@ import {
 import AnchoredPortalMenu from "./ui/AnchoredPortalMenu";
 import { useDismissibleLayer } from "./ui/useDismissibleLayer";
 import TopbarControlTrigger from "./TopbarControlTrigger";
+import { CheckIcon } from "./topbarIcons";
 
 export type TopbarDropdownOption = {
   value: string;
@@ -373,19 +374,6 @@ function SearchIcon(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" {...props}>
       <circle cx="11" cy="11" r="6.5" strokeWidth={1.6} />
       <path strokeLinecap="round" strokeWidth={1.6} d="m16 16 4.5 4.5" />
-    </svg>
-  );
-}
-
-function CheckIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.8}
-        d="m4.5 10.5 3.2 3.2 7.8-7.8"
-      />
     </svg>
   );
 }
